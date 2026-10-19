@@ -6,6 +6,7 @@ import { ForbiddenException, Inject, Injectable, Logger, NotFoundException } fro
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { appError } from '../../common/errors/app-error';
 import { fetchPublicUrl } from '../../common/utils/egress-url.util';
@@ -72,7 +73,7 @@ type RememberedPhoto = {
   originalUrl: string | null;
 };
 
-const USER_AGENT = 'Lumio/1.0 (self-hosted personal finance; workspace backgrounds)';
+const USER_AGENT = `${APP_NAME}/1.0 (self-hosted personal finance; workspace backgrounds)`;
 
 /**
  * Landscape photos for the workspace card, searched on Openverse.

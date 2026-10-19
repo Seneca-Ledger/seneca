@@ -47,7 +47,7 @@ const BRIDGE_URL = 'https://bridge.simplefin.org';
 /**
  * Bank sync through the user's own SimpleFIN Bridge account: paste the setup
  * token once, choose which accounts to pull and where their rows land, pull
- * now or every six hours. Lumio holds no bank integration of its own.
+ * now or every six hours. Seneca holds no bank integration of its own.
  */
 export function BankSyncPanel({
   onConnectionChange,

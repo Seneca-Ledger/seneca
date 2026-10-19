@@ -311,8 +311,8 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
   }
 
   return (
-    <div className="container-shared lumio-invoice-detail">
-      <div className="lumio-invoice-detail__header">
+    <div className="container-shared seneca-invoice-detail">
+      <div className="seneca-invoice-detail__header">
         <button
           type="button"
           onClick={() => router.push('/invoices')}
@@ -329,7 +329,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             {statusLabels[invoice.status] ?? invoice.status}
           </Badge>
         )}
-        <div className="lumio-invoice-detail__actions">
+        <div className="seneca-invoice-detail__actions">
           {invoice?.status !== 'draft' && invoice && (
             <Button
               variant="outline"
@@ -400,8 +400,8 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
               onClose={() => setXrechnungMissing(null)}
             />
           ) : null}
-          <div className="lumio-payable-drawer__field-group">
-            <label className="lumio-payable-drawer__field-label" htmlFor="invoice-client">
+          <div className="seneca-payable-drawer__field-group">
+            <label className="seneca-payable-drawer__field-label" htmlFor="invoice-client">
               {t.detail.client.value}
             </label>
             <Select
@@ -419,7 +419,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             />
           </div>
 
-          <div className="lumio-payable-drawer__2col">
+          <div className="seneca-payable-drawer__2col">
             <CustomDatePicker
               label={t.columns.issueDate.value}
               value={issueDate}
@@ -432,15 +432,15 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             />
           </div>
 
-          <div className="lumio-payable-drawer__2col">
+          <div className="seneca-payable-drawer__2col">
             <CustomDatePicker
               label={einvoice.deliveryDate.value}
               value={deliveryDate}
               onChange={() => undefined}
             />
-            <div className="lumio-payable-drawer__field-group">
+            <div className="seneca-payable-drawer__field-group">
               <label
-                className="lumio-payable-drawer__field-label"
+                className="seneca-payable-drawer__field-label"
                 htmlFor="invoice-buyer-reference"
               >
                 {einvoice.buyerReference}
@@ -455,23 +455,23 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             </div>
           </div>
 
-          <div className="lumio-payable-drawer__2col">
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="invoice-currency">
+          <div className="seneca-payable-drawer__2col">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="invoice-currency">
                 {t.detail.currency.value}
               </label>
               <button
                 id="invoice-currency"
                 type="button"
-                className="lumio-payable-drawer__currency-trigger"
+                className="seneca-payable-drawer__currency-trigger"
                 disabled
                 aria-label={t.detail.currency.value}
               >
                 {currency}
               </button>
             </div>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="invoice-recurrence">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="invoice-recurrence">
                 {t.detail.recurring.value}
               </label>
               <Select
@@ -493,18 +493,18 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
           </div>
 
           <label
-            className="lumio-payable-drawer__field-group"
+            className="seneca-payable-drawer__field-group"
             style={{ flexDirection: 'row', gap: 8 }}
           >
             <input type="checkbox" checked={pricesIncludeTax} disabled readOnly />
-            <span className="lumio-payable-drawer__field-label">
+            <span className="seneca-payable-drawer__field-label">
               {t.detail.pricesIncludeTax.value}
             </span>
           </label>
 
           <div>
             <div style={{ overflowX: 'auto' }}>
-              <table className="lumio-invoice-lines__table">
+              <table className="seneca-invoice-lines__table">
                 <colgroup>
                   <col style={{ width: '24%' }} />
                   <col style={{ width: '18%' }} />
@@ -514,11 +514,11 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                 </colgroup>
                 <thead>
                   <tr>
-                    <th className="lumio-invoice-lines__th">{t.detail.description.value}</th>
-                    <th className="lumio-invoice-lines__th">{t.detail.quantity.value}</th>
-                    <th className="lumio-invoice-lines__th">{t.detail.unitPrice.value}</th>
-                    <th className="lumio-invoice-lines__th">{t.detail.taxRate.value}</th>
-                    <th className="lumio-invoice-lines__th lumio-invoice-lines__th--right">
+                    <th className="seneca-invoice-lines__th">{t.detail.description.value}</th>
+                    <th className="seneca-invoice-lines__th">{t.detail.quantity.value}</th>
+                    <th className="seneca-invoice-lines__th">{t.detail.unitPrice.value}</th>
+                    <th className="seneca-invoice-lines__th">{t.detail.taxRate.value}</th>
+                    <th className="seneca-invoice-lines__th seneca-invoice-lines__th--right">
                       {t.detail.amount.value}
                     </th>
                   </tr>
@@ -526,14 +526,14 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                 <tbody>
                   {lineItems.map((line, index) => (
                     // biome-ignore lint/suspicious/noArrayIndexKey: rows have no stable id before saving
-                    <tr key={index} className="lumio-invoice-lines__row">
+                    <tr key={index} className="seneca-invoice-lines__row">
                       <td
-                        className="lumio-invoice-lines__td"
+                        className="seneca-invoice-lines__td"
                         data-label={t.detail.description.value}
                       >
                         <Input value={line.description} disabled readOnly />
                       </td>
-                      <td className="lumio-invoice-lines__td" data-label={t.detail.quantity.value}>
+                      <td className="seneca-invoice-lines__td" data-label={t.detail.quantity.value}>
                         <Input
                           type="number"
                           min="0"
@@ -548,7 +548,10 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                           onChange={() => undefined}
                         />
                       </td>
-                      <td className="lumio-invoice-lines__td" data-label={t.detail.unitPrice.value}>
+                      <td
+                        className="seneca-invoice-lines__td"
+                        data-label={t.detail.unitPrice.value}
+                      >
                         <Input
                           type="number"
                           min="0"
@@ -563,7 +566,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                           onChange={() => undefined}
                         />
                       </td>
-                      <td className="lumio-invoice-lines__td" data-label={t.detail.taxRate.value}>
+                      <td className="seneca-invoice-lines__td" data-label={t.detail.taxRate.value}>
                         <Select
                           fullWidth
                           value={line.taxRateId || 'none'}
@@ -586,7 +589,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                         />
                       </td>
                       <td
-                        className="lumio-invoice-lines__td lumio-invoice-lines__td--right"
+                        className="seneca-invoice-lines__td seneca-invoice-lines__td--right"
                         data-label={t.detail.amount.value}
                       >
                         {formatMoney(lineAmount(line), currency, locale)}
@@ -644,12 +647,12 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
           </div>
 
           <div>
-            <label className="lumio-payable-drawer__field-label" htmlFor="invoice-notes">
+            <label className="seneca-payable-drawer__field-label" htmlFor="invoice-notes">
               {t.detail.notes.value}
             </label>
             <textarea
               id="invoice-notes"
-              className="lumio-payable-drawer__textarea"
+              className="seneca-payable-drawer__textarea"
               value={notes}
               disabled
               readOnly
@@ -657,8 +660,8 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
           </div>
 
           {invoice && invoice.status !== 'draft' && (
-            <div className="lumio-payable-drawer__field-group">
-              <span className="lumio-payable-drawer__field-label">
+            <div className="seneca-payable-drawer__field-group">
+              <span className="seneca-payable-drawer__field-label">
                 {t.detail.deliveryHistory.value}
               </span>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -702,8 +705,8 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
           ) : null}
 
           {creditNotes.length > 0 && (
-            <div className="lumio-payable-drawer__field-group">
-              <span className="lumio-payable-drawer__field-label">
+            <div className="seneca-payable-drawer__field-group">
+              <span className="seneca-payable-drawer__field-label">
                 {t.detail.creditNotesTitle.value}
               </span>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>

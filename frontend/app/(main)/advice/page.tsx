@@ -78,7 +78,7 @@ function ago(iso: string, locale: string): string {
  */
 function AdviceMark({ item }: { item: Insight }): React.JSX.Element {
   if (needsAttention(item) && !isPraise(item)) {
-    return <Box className="lumio-advice__dot" aria-hidden />;
+    return <Box className="seneca-advice__dot" aria-hidden />;
   }
   if (isGoodNews(item)) {
     return <CheckCircle2 size={18} color="var(--money-up)" aria-hidden />;
@@ -129,20 +129,20 @@ function AdviceRow({
           {ago(item.createdAt, locale)}
         </Typography>
       </Box>
-      {href === null ? null : <ArrowRight size={16} className="lumio-advice__arrow" aria-hidden />}
+      {href === null ? null : <ArrowRight size={16} className="seneca-advice__arrow" aria-hidden />}
     </>
   );
 
   return (
-    <Box component="li" className="lumio-advice__row">
+    <Box component="li" className="seneca-advice__row">
       {href === null ? (
-        <Box className="lumio-advice__main">{body}</Box>
+        <Box className="seneca-advice__main">{body}</Box>
       ) : (
         <ButtonBase
           component={Link}
           href={href}
           aria-label={`${item.title}. ${openLabel}`}
-          className="lumio-advice__main"
+          className="seneca-advice__main"
         >
           {body}
         </ButtonBase>
@@ -150,7 +150,7 @@ function AdviceRow({
       {/* Seen it: away it goes, or the list only ever grows. */}
       <IconButton
         size="small"
-        className="lumio-advice__dismiss"
+        className="seneca-advice__dismiss"
         aria-label={`${dismissLabel}: ${item.title}`}
         onClick={() => onDismiss(item.id)}
       >
@@ -176,7 +176,7 @@ function AdviceGroup({
       >
         {title}
       </Typography>
-      <Box component="ul" className="lumio-advice">
+      <Box component="ul" className="seneca-advice">
         {children}
       </Box>
     </Box>
@@ -238,7 +238,7 @@ export default function AdvicePage() {
   return (
     <Box
       component="main"
-      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
     >
       {isPending && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

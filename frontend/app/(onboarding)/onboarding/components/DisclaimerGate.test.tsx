@@ -14,10 +14,11 @@ vi.mock('@/app/lib/api', () => ({
 }));
 
 import { DisclaimerGate, useDisclaimerAcceptance } from './DisclaimerGate';
+import { APP_NAME } from '@/app/lib/brand';
 
 const labels = {
   title: 'Before you start',
-  intro: 'Lumio does not replace an accountant.',
+  intro: `${APP_NAME} does not replace an accountant.`,
   points: ['Rates may be out of date.', 'You remain responsible.'],
   consentLabel: 'I understand the above and accept these terms',
   acceptLabel: 'I accept',

@@ -86,7 +86,7 @@ export function MonthlyHistoryCard({
       })}
     >
       {asChart ? (
-        <div className="lumio-chart__box lumio-chart__box--compact">
+        <div className="seneca-chart__box seneca-chart__box--compact">
           <HistoryChart
             data={data}
             isPending={isPending}
@@ -114,20 +114,20 @@ export function MonthlyHistoryCard({
         />
       )}
       {series.length > 0 && (
-        <ul className="lumio-chart__legend">
-          <li className="lumio-chart__legend-item">
+        <ul className="seneca-chart__legend">
+          <li className="seneca-chart__legend-item">
             {fillTemplate(t.legendPeriod.value, { year: String(year) })}
           </li>
           {series.map(item => (
-            <li key={item.key} className="lumio-chart__legend-item">
+            <li key={item.key} className="seneca-chart__legend-item">
               {asChart && (
                 <span
-                  className="lumio-chart__swatch"
+                  className="seneca-chart__swatch"
                   style={{ backgroundColor: item.color, opacity: item.opacity }}
                 />
               )}
               <span>{item.label}</span>
-              <span className="lumio-chart__legend-value">{sumOf(months, item.key)}</span>
+              <span className="seneca-chart__legend-value">{sumOf(months, item.key)}</span>
             </li>
           ))}
         </ul>
@@ -158,14 +158,14 @@ function HistoryLine({
     return <Skeleton variant="text" width="40%" />;
   }
   if (error) {
-    return <div className="lumio-chart__empty">{error}</div>;
+    return <div className="seneca-chart__empty">{error}</div>;
   }
   if (months.length === 0) {
-    return <p className="lumio-history-line">{noWork}</p>;
+    return <p className="seneca-history-line">{noWork}</p>;
   }
   const monthName = new Intl.DateTimeFormat(locale, { month: 'long' });
   return (
-    <p className="lumio-history-line">
+    <p className="seneca-history-line">
       {months.map((month, index) => {
         const name = monthName.format(
           new Date(Number(month.month.slice(0, 4)), Number(month.month.slice(5, 7)) - 1, 1),
@@ -173,10 +173,10 @@ function HistoryLine({
         const total = metrics.reduce((sum, key) => sum + month[key], 0);
         return (
           <span key={month.month}>
-            {index > 0 && <span className="lumio-history-line__separator"> · </span>}
+            {index > 0 && <span className="seneca-history-line__separator"> · </span>}
             <button
               type="button"
-              className="lumio-history-line__month"
+              className="seneca-history-line__month"
               onClick={() => onSelectMonth(month.month)}
             >
               {`${name.charAt(0).toLocaleUpperCase()}${name.slice(1)}: ${total}`}
@@ -211,7 +211,7 @@ function HistoryChart({
     return <Skeleton variant="rounded" width="100%" height="100%" />;
   }
   if (error) {
-    return <div className="lumio-chart__empty lumio-dashboard__amount--negative">{error}</div>;
+    return <div className="seneca-chart__empty seneca-dashboard__amount--negative">{error}</div>;
   }
   const months = data?.months ?? [];
   if (months.length === 0) {

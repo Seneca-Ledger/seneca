@@ -79,7 +79,7 @@ describe('JwtAuthGuard', () => {
       });
       const context = createMockExecutionContext({
         headers: {
-          'x-api-key': 'lumio_test_key',
+          'x-api-key': 'seneca_test_key',
         },
       });
       jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
@@ -98,7 +98,7 @@ describe('JwtAuthGuard', () => {
       });
       const context = createMockExecutionContext({
         headers: {
-          'x-api-key': 'lumio_test_key',
+          'x-api-key': 'seneca_test_key',
           'x-workspace-id': 'workspace-other',
         },
       });
@@ -116,7 +116,7 @@ describe('JwtAuthGuard', () => {
       });
       const context = createMockExecutionContext({
         headers: {
-          'x-api-key': 'lumio_test_key',
+          'x-api-key': 'seneca_test_key',
         },
       });
       jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);

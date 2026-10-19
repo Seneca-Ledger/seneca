@@ -70,10 +70,10 @@ function buildRowClass({
   hasErrors?: boolean;
   hasWarnings?: boolean;
 }): string {
-  let cls = 'lumio-tx-table__row';
-  if (isSelected) cls += ' lumio-tx-table__row--selected';
-  else if (hasErrors) cls += ' lumio-tx-table__row--error';
-  else if (hasWarnings) cls += ' lumio-tx-table__row--warning';
+  let cls = 'seneca-tx-table__row';
+  if (isSelected) cls += ' seneca-tx-table__row--selected';
+  else if (hasErrors) cls += ' seneca-tx-table__row--error';
+  else if (hasWarnings) cls += ' seneca-tx-table__row--warning';
   return cls;
 }
 
@@ -109,10 +109,10 @@ export function TransactionRow({
         aria-label={t.transactionFrom.value.replace('{name}', tx.counterpartyName)}
         className={rowCls}
       >
-        <td className="lumio-tx-table__td--center">
+        <td className="seneca-tx-table__td--center">
           <button
             type="button"
-            className="lumio-tx-table__expand-btn"
+            className="seneca-tx-table__expand-btn"
             onClick={handlers.onToggleExpansion(tx.id)}
             aria-expanded={isExpanded}
             aria-label={isExpanded ? t.collapseRow.value : t.expandRow.value}
@@ -129,7 +129,7 @@ export function TransactionRow({
             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
         </td>
-        <td className="lumio-tx-table__td" onClick={e => e.stopPropagation()}>
+        <td className="seneca-tx-table__td" onClick={e => e.stopPropagation()}>
           <Checkbox
             checked={isSelected}
             onCheckedChange={handlers.onSelectRow(tx.id)}
@@ -137,7 +137,7 @@ export function TransactionRow({
           />
         </td>
         <td
-          className="lumio-tx-table__td--nowrap"
+          className="seneca-tx-table__td--nowrap"
           style={{
             fontSize: 14,
             color: 'var(--muted-foreground)',
@@ -147,7 +147,7 @@ export function TransactionRow({
           {formatters.formatDate(tx.transactionDate)}
         </td>
         <td
-          className="lumio-tx-table__td"
+          className="seneca-tx-table__td"
           style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}
         >
           <div style={{ maxWidth: 200 }} title={tx.counterpartyName}>
@@ -202,7 +202,7 @@ export function TransactionRow({
           </div>
         </td>
         <td
-          className="lumio-tx-table__td"
+          className="seneca-tx-table__td"
           style={{ fontSize: 14, color: 'var(--muted-foreground)' }}
         >
           <div
@@ -218,7 +218,7 @@ export function TransactionRow({
             {tx.paymentPurpose || '—'}
           </div>
         </td>
-        <td className="lumio-tx-table__td--nowrap-right" style={{ fontSize: 14 }}>
+        <td className="seneca-tx-table__td--nowrap-right" style={{ fontSize: 14 }}>
           <AmountCell
             amount={Number(tx.debit)}
             tx={tx}
@@ -226,10 +226,10 @@ export function TransactionRow({
             color="var(--foreground)"
           />
         </td>
-        <td className="lumio-tx-table__td--nowrap-right" style={{ fontSize: 14 }}>
+        <td className="seneca-tx-table__td--nowrap-right" style={{ fontSize: 14 }}>
           <AmountCell amount={Number(tx.credit)} tx={tx} formatters={formatters} color="#16a34a" />
         </td>
-        <td className="lumio-tx-table__td" onClick={e => e.stopPropagation()}>
+        <td className="seneca-tx-table__td" onClick={e => e.stopPropagation()}>
           <CategoryDropdown
             tx={tx}
             categories={categories}

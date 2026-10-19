@@ -122,7 +122,7 @@ def main() -> int:
     parser.add_argument("output", type=Path, nargs="?")
     parser.add_argument("--replace", action="append", default=[], metavar="OLD=NEW")
     parser.add_argument("--min-digits", type=int, default=9)
-    parser.add_argument("--salt", default="lumio-golden")
+    parser.add_argument("--salt", default="seneca-golden")
     parser.add_argument("--dump", action="store_true", help="print decoded text runs and exit")
     args = parser.parse_args()
 

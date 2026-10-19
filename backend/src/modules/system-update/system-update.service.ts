@@ -8,7 +8,7 @@ import { appError } from '../../common/errors/app-error';
 import type { SystemUpdateRun, SystemUpdateStatus } from '../../contracts';
 import { type User, UserRole } from '../../entities';
 
-const LATEST_RELEASE_URL = 'https://api.github.com/repos/symonbaikov/lumio/releases/latest';
+const LATEST_RELEASE_URL = 'https://api.github.com/repos/symonbaikov/seneca/releases/latest';
 /** GitHub allows 60 unauthenticated requests an hour per IP; one an hour is plenty. */
 const RELEASE_CACHE_MS = 60 * 60 * 1000;
 /** A failed check is retried sooner, so a GitHub hiccup does not hide a release for an hour. */

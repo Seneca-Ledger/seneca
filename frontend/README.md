@@ -1,4 +1,4 @@
-# Lumio Frontend
+# Seneca Frontend
 
 Frontend приложение для системы обработки банковских выписок на базе Next.js.
 

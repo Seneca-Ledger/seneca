@@ -15,7 +15,7 @@ const SOURCE = 'openholidays';
 const API = 'https://openholidaysapi.org/PublicHolidays';
 
 /**
- * Countries OpenHolidays covers among those Lumio files taxes for (its
+ * Countries OpenHolidays covers among those Seneca files taxes for (its
  * /Countries list, read 2026-10-11). Cyprus, Denmark, Finland, Greece, the UK,
  * the UAE and Kazakhstan are not covered: their deadlines skip weekends only.
  */

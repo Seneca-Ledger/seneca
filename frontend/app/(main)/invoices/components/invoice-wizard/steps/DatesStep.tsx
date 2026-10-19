@@ -16,7 +16,7 @@ export function DatesStep({ form }: { form: InvoiceForm }): React.ReactElement {
       : t.dates.dueHint.value;
 
   return (
-    <div className="lumio-payable-drawer__2col">
+    <div className="seneca-payable-drawer__2col">
       <CustomDatePicker
         large
         label={page.columns.issueDate.value}

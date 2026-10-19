@@ -3,7 +3,7 @@ title: MCP and API keys
 description: Let Claude Code, Claude Desktop or your own scripts work on a workspace, within scopes, with every write audited and undoable
 ---
 
-Lumio has an MCP endpoint built into the backend: `/api/v1/mcp` (Streamable HTTP, stateless).
+Seneca has an MCP endpoint built into the backend: `/api/v1/mcp` (Streamable HTTP, stateless).
 Any MCP client connects to it with an **API key**, so what an agent can do is exactly what the key's
 **scopes** allow, inside the one workspace the key belongs to.
 
@@ -39,7 +39,7 @@ both, ready to copy.
 Claude Code:
 
 ```bash
-claude mcp add --transport http lumio https://your-lumio/api/v1/mcp --header "X-Api-Key: lum_…"
+claude mcp add --transport http seneca https://your-seneca/api/v1/mcp --header "X-Api-Key: lum_…"
 ```
 
 A client that reads a JSON config (`.mcp.json` in a project, Cursor, …):
@@ -47,9 +47,9 @@ A client that reads a JSON config (`.mcp.json` in a project, Cursor, …):
 ```json
 {
   "mcpServers": {
-    "lumio": {
+    "seneca": {
       "type": "http",
-      "url": "https://your-lumio/api/v1/mcp",
+      "url": "https://your-seneca/api/v1/mcp",
       "headers": { "X-Api-Key": "lum_…" }
     }
   }
@@ -62,10 +62,10 @@ A client that only starts local (stdio) servers, such as Claude Desktop, reaches
 ```json
 {
   "mcpServers": {
-    "lumio": {
+    "seneca": {
       "command": "npx",
-      "args": ["mcp-remote", "https://your-lumio/api/v1/mcp", "--header", "X-Api-Key:${LUMIO_KEY}"],
-      "env": { "LUMIO_KEY": "lum_…" }
+      "args": ["mcp-remote", "https://your-seneca/api/v1/mcp", "--header", "X-Api-Key:${SENECA_KEY}"],
+      "env": { "SENECA_KEY": "lum_…" }
     }
   }
 }

@@ -180,11 +180,11 @@ export function ClientDrawer({
         width="md"
         showCloseButton={false}
         title={
-          <div className="lumio-payable-drawer__title-wrap">
+          <div className="seneca-payable-drawer__title-wrap">
             <button
               type="button"
               onClick={onClose}
-              className="lumio-payable-drawer__back-btn"
+              className="seneca-payable-drawer__back-btn"
               aria-label={labels.cancel}
             >
               <ChevronLeft size={20} />
@@ -195,10 +195,10 @@ export function ClientDrawer({
           </div>
         }
       >
-        <div className="lumio-payable-drawer__body">
+        <div className="seneca-payable-drawer__body">
           <div style={{ display: 'grid', gap: 16 }}>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-name">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-name">
                 {labels.name}
               </label>
               <Input
@@ -207,8 +207,8 @@ export function ClientDrawer({
                 onChange={event => setForm(prev => ({ ...prev, name: event.target.value }))}
               />
             </div>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-email">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-email">
                 {labels.email}
               </label>
               <Input
@@ -218,9 +218,9 @@ export function ClientDrawer({
                 onChange={event => setForm(prev => ({ ...prev, email: event.target.value }))}
               />
             </div>
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="client-tax-id">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-tax-id">
                   {labels.taxId}
                 </label>
                 <Input
@@ -229,14 +229,14 @@ export function ClientDrawer({
                   onChange={event => setForm(prev => ({ ...prev, taxId: event.target.value }))}
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="client-currency">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-currency">
                   {labels.currency}
                 </label>
                 <button
                   id="client-currency"
                   type="button"
-                  className="lumio-payable-drawer__currency-trigger"
+                  className="seneca-payable-drawer__currency-trigger"
                   onClick={() => setCurrencyDrawerOpen(true)}
                   aria-label={labels.currency}
                 >
@@ -244,8 +244,8 @@ export function ClientDrawer({
                 </button>
               </div>
             </div>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-terms">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-terms">
                 {labels.paymentTerms}
               </label>
               <Input
@@ -261,7 +261,7 @@ export function ClientDrawer({
               />
             </div>
             <label
-              className="lumio-payable-drawer__field-group"
+              className="seneca-payable-drawer__field-group"
               style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}
             >
               {/* Off for the clients who always pay on time. */}
@@ -272,11 +272,11 @@ export function ClientDrawer({
                   setForm(prev => ({ ...prev, remindersEnabled: event.target.checked }))
                 }
               />
-              <span className="lumio-payable-drawer__field-label">{labels.reminders}</span>
+              <span className="seneca-payable-drawer__field-label">{labels.reminders}</span>
             </label>
-            <div className="lumio-payable-drawer__field-group">
+            <div className="seneca-payable-drawer__field-group">
               {/* The language this client's invoices are written in. */}
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-locale">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-locale">
                 {labels.locale}
               </label>
               <Select
@@ -293,16 +293,16 @@ export function ClientDrawer({
               />
             </div>
             <fieldset
-              className="lumio-payable-drawer__field-group"
+              className="seneca-payable-drawer__field-group"
               style={{ border: 0, padding: 0, margin: 0 }}
             >
-              <legend className="lumio-payable-drawer__field-label">
+              <legend className="seneca-payable-drawer__field-label">
                 {einvoice.clientSection}
               </legend>
               <span style={{ fontSize: 12, opacity: 0.7 }}>{einvoice.clientSectionHint}</span>
             </fieldset>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-street">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-street">
                 {einvoice.street}
               </label>
               <Input
@@ -311,9 +311,9 @@ export function ClientDrawer({
                 onChange={event => setForm(prev => ({ ...prev, street: event.target.value }))}
               />
             </div>
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="client-postal-code">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-postal-code">
                   {einvoice.postalCode}
                 </label>
                 <Input
@@ -322,8 +322,8 @@ export function ClientDrawer({
                   onChange={event => setForm(prev => ({ ...prev, postalCode: event.target.value }))}
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="client-city">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-city">
                   {einvoice.city}
                 </label>
                 <Input
@@ -333,9 +333,9 @@ export function ClientDrawer({
                 />
               </div>
             </div>
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="client-country">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-country">
                   {einvoice.countryCode}
                 </label>
                 <Input
@@ -347,9 +347,9 @@ export function ClientDrawer({
                   }
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group">
+              <div className="seneca-payable-drawer__field-group">
                 <label
-                  className="lumio-payable-drawer__field-label"
+                  className="seneca-payable-drawer__field-label"
                   htmlFor="client-buyer-reference"
                 >
                   {einvoice.buyerReference}
@@ -363,8 +363,8 @@ export function ClientDrawer({
                 />
               </div>
             </div>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-supply-type">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-supply-type">
                 {einvoice.supplyType}
               </label>
               <Select
@@ -389,13 +389,16 @@ export function ClientDrawer({
               vatId={form.taxId}
               onChange={peppolId => setForm(prev => ({ ...prev, peppolId }))}
             />
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-billing-address">
+            <div className="seneca-payable-drawer__field-group">
+              <label
+                className="seneca-payable-drawer__field-label"
+                htmlFor="client-billing-address"
+              >
                 {labels.billingAddress}
               </label>
               <textarea
                 id="client-billing-address"
-                className="lumio-payable-drawer__textarea"
+                className="seneca-payable-drawer__textarea"
                 value={form.billingAddress}
                 onChange={event =>
                   setForm(prev => ({ ...prev, billingAddress: event.target.value }))
@@ -404,7 +407,7 @@ export function ClientDrawer({
             </div>
           </div>
 
-          <div className="lumio-payable-drawer__footer">
+          <div className="seneca-payable-drawer__footer">
             <Button variant="outline" style={{ flex: 1 }} onClick={onClose}>
               {labels.cancel}
             </Button>

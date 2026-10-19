@@ -90,7 +90,7 @@ export function useTourCompletedState(open: boolean): TourCompletedState {
     updateCompleted();
 
     const handleStorageChange = (e: StorageEvent): void => {
-      if (e.key === 'lumio_tour_state') {
+      if (e.key === 'seneca_tour_state') {
         updateCompleted();
       }
     };

@@ -37,7 +37,7 @@ export function CashFlowTab({ focusId }: Props): React.JSX.Element {
       includeTransactions
       errorToastMessage={text(['topSpenders', 'loadError'], 'Failed to load spending data')}
     >
-      <div className="lumio-cash-flow">
+      <div className="seneca-cash-flow">
         <TopSpendersSection />
         <TopMerchantsSection focusId={focusId} />
         <TopCategoriesSection focusId={focusId} />

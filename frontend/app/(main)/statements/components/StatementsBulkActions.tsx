@@ -43,7 +43,7 @@ function DesktopDuplicateActions({
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   return (
     <>
-      <button type="button" onClick={onMerge} className="lumio-stmt-list-view__bulk-menu-btn">
+      <button type="button" onClick={onMerge} className="seneca-stmt-list-view__bulk-menu-btn">
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <GitMerge size={16} style={{ color: 'var(--primary)' }} />
           <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1, color: 'var(--primary)' }}>
@@ -52,7 +52,7 @@ function DesktopDuplicateActions({
         </span>
         <ChevronRight size={16} style={{ color: c.ink300 }} />
       </button>
-      <button type="button" onClick={onDismiss} className="lumio-stmt-list-view__bulk-menu-btn">
+      <button type="button" onClick={onDismiss} className="seneca-stmt-list-view__bulk-menu-btn">
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <X size={16} style={{ color: c.ink400 }} />
           <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1, color: c.ink900 }}>
@@ -61,7 +61,7 @@ function DesktopDuplicateActions({
         </span>
         <ChevronRight size={16} style={{ color: c.ink300 }} />
       </button>
-      <div className="lumio-stmt-list-view__bulk-menu-divider" />
+      <div className="seneca-stmt-list-view__bulk-menu-divider" />
     </>
   );
 }
@@ -82,7 +82,7 @@ function MobileDuplicateActions({
       <button
         type="button"
         onClick={onMerge}
-        className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--primary"
+        className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--primary"
       >
         <GitMerge size={14} />
         {mergeDuplicatesLabel}
@@ -90,7 +90,7 @@ function MobileDuplicateActions({
       <button
         type="button"
         onClick={onDismiss}
-        className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--secondary"
+        className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--secondary"
       >
         <X size={14} />
         {dismissDuplicateLabel}
@@ -119,18 +119,18 @@ export function StatementsBulkActions({
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   return (
     <>
-      <div className="lumio-stmt-list-view__bulk-desktop">
+      <div className="seneca-stmt-list-view__bulk-desktop">
         <button
           type="button"
           onClick={onToggleActionsOpen}
-          className="lumio-stmt-list-view__bulk-trigger"
+          className="seneca-stmt-list-view__bulk-trigger"
         >
           {selectedLabel}
           <ChevronDown size={14} />
         </button>
 
         {selectedActionsOpen && (
-          <div className="lumio-stmt-list-view__bulk-menu">
+          <div className="seneca-stmt-list-view__bulk-menu">
             {hasSelectedDuplicates ? (
               <DesktopDuplicateActions
                 mergeDuplicatesLabel={mergeDuplicatesLabel}
@@ -143,7 +143,7 @@ export function StatementsBulkActions({
             <button
               type="button"
               onClick={onMarkDuplicate}
-              className="lumio-stmt-list-view__bulk-menu-btn"
+              className="seneca-stmt-list-view__bulk-menu-btn"
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Copy size={16} style={{ color: 'var(--primary)' }} />
@@ -159,7 +159,7 @@ export function StatementsBulkActions({
             <button
               type="button"
               onClick={onExport}
-              className="lumio-stmt-list-view__bulk-menu-btn"
+              className="seneca-stmt-list-view__bulk-menu-btn"
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Download size={16} style={{ color: c.ink400 }} />
@@ -173,7 +173,7 @@ export function StatementsBulkActions({
             <button
               type="button"
               onClick={onDelete}
-              className="lumio-stmt-list-view__bulk-menu-btn lumio-stmt-list-view__bulk-menu-btn--danger"
+              className="seneca-stmt-list-view__bulk-menu-btn seneca-stmt-list-view__bulk-menu-btn--danger"
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Trash2 size={16} style={{ color: c.danger }} />
@@ -187,9 +187,9 @@ export function StatementsBulkActions({
         )}
       </div>
 
-      <div className="lumio-stmt-list-view__mobile-bulk">
+      <div className="seneca-stmt-list-view__mobile-bulk">
         <span style={{ fontSize: 14, fontWeight: 500, color: c.ink800 }}>{selectedLabel}</span>
-        <div className="lumio-stmt-list-view__mobile-bulk-actions">
+        <div className="seneca-stmt-list-view__mobile-bulk-actions">
           {hasSelectedDuplicates ? (
             <MobileDuplicateActions
               mergeDuplicatesLabel={mergeDuplicatesLabel}
@@ -201,7 +201,7 @@ export function StatementsBulkActions({
           <button
             type="button"
             onClick={onMarkDuplicate}
-            className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--primary"
+            className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--primary"
           >
             <Copy size={14} />
             {markDuplicateLabel}
@@ -209,7 +209,7 @@ export function StatementsBulkActions({
           <button
             type="button"
             onClick={onExport}
-            className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--secondary"
+            className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--secondary"
           >
             <Download size={14} />
             {listText.export}
@@ -217,7 +217,7 @@ export function StatementsBulkActions({
           <button
             type="button"
             onClick={onDelete}
-            className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--danger"
+            className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--danger"
           >
             <Trash2 size={14} />
             {listText.delete}

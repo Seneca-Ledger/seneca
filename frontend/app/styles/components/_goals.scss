@@ -4,7 +4,7 @@
 // A goal cover: a flat tile in one of the earthy chart tones with a 1.5px line
 // icon. The icon takes the card colour (white in light, graphite in dark, where
 // the tones are lighter); on the two pale tones it is ink in the light theme.
-.lumio-goal-cover {
+.seneca-goal-cover {
   display: grid;
   flex-shrink: 0;
   place-items: center;
@@ -35,7 +35,7 @@
 }
 
 // The picker's tiles: the cover itself as a button, picked = sage ring and a tick.
-.lumio-goal-cover-grid {
+.seneca-goal-cover-grid {
   display: grid;
   // Narrower tiles below the breakpoint: on a 360px phone the 96px floor only
   // fits two per row, which leaves the grid looking like a list.
@@ -48,7 +48,7 @@
   }
 }
 
-.lumio-goal-cover-tile {
+.seneca-goal-cover-tile {
   position: relative;
   aspect-ratio: 1 / 1;
   padding: 0;
@@ -57,12 +57,12 @@
   background: none;
   cursor: pointer;
 
-  > .lumio-goal-cover {
+  > .seneca-goal-cover {
     width: 100%;
     height: 100%;
   }
 
-  &:hover > .lumio-goal-cover {
+  &:hover > .seneca-goal-cover {
     filter: brightness(0.96);
   }
 
@@ -87,6 +87,6 @@
 }
 
 // Long lists scroll in the panel with a thin bar.
-.lumio-goal-cover-scroll {
+.seneca-goal-cover-scroll {
   scrollbar-width: thin;
 }

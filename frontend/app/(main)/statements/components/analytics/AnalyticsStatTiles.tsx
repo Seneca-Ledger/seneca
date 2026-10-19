@@ -63,7 +63,7 @@ function Tile({
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <div className="lumio-view-page__stat-card">
+    <div className="seneca-view-page__stat-card">
       <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>{label}</span>
       <div
         style={{
@@ -109,7 +109,7 @@ export function AnalyticsStatTiles({
     />
   );
   return (
-    <div className="lumio-stat-tiles">
+    <div className="seneca-stat-tiles">
       <Tile label={primaryMetricLabel} value={asMoney(totals.total)}>
         {line('total', asMoney)}
       </Tile>

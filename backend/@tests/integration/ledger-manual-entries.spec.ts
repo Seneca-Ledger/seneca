@@ -25,7 +25,7 @@ import type { JournalLineInput } from '../../src/contracts';
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_ledger_manual_${process.pid}`;
+const SCRATCH_DB = `seneca_ledger_manual_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);

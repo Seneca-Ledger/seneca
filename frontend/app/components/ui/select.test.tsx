@@ -56,7 +56,7 @@ describe('Select menu width', () => {
 
     expect(paper.style.width).toBe('476px');
     expect(paper.style.maxWidth).toBe('476px');
-    expect(paper.className).toContain('lumio-select-menu');
+    expect(paper.className).toContain('seneca-select-menu');
   });
 
   it('matches the field as it is on screen inside a zoomed drawer, not its unzoomed width', () => {

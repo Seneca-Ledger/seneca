@@ -149,7 +149,7 @@ function GainValue({
 
 function UnknownAcquired({ labels }: { labels: GainsCardLabels }): React.JSX.Element {
   return (
-    <span className="lumio-crypto-attention" title={labels.basisIncomplete}>
+    <span className="seneca-crypto-attention" title={labels.basisIncomplete}>
       {labels.acquiredUnknown}
     </span>
   );
@@ -327,7 +327,7 @@ export function GainsBody({ gains, labels, locale, money }: GainsBodyProps): Rea
         <Typography
           variant="body2"
           component="p"
-          className="lumio-crypto-attention"
+          className="seneca-crypto-attention"
           sx={{ fontSize: 13, ...muted, mt: 1, display: 'flex' }}
         >
           {labels.basisIncompleteHint}

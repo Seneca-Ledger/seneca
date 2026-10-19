@@ -16,7 +16,8 @@ export class GmailSettings {
   @Column({ name: 'label_id', nullable: true })
   labelId: string;
 
-  @Column({ name: 'label_name', default: 'Lumio/Receipts' })
+  /** Set on connect from the product name (APP_NAME), so the column has no default. */
+  @Column({ name: 'label_name' })
   labelName: string;
 
   @Column({ name: 'filter_enabled', default: true })

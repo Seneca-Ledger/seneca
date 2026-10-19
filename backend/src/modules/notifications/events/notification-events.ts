@@ -265,7 +265,7 @@ export interface TaxDeadlineUpcomingEvent {
 }
 
 /**
- * A return was filed (in Lumio or marked as filed elsewhere): its reminders
+ * A return was filed (in Seneca or marked as filed elsewhere): its reminders
  * no longer describe anything that needs doing.
  */
 export interface TaxDeadlineResolvedEvent {

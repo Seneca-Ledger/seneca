@@ -2,6 +2,7 @@ import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxFilingPeriod } from '@/entities/tax-jurisdiction.entity';
 import { VatStatus } from '@/entities/workspace.entity';
 import { TaxDeadlinesService } from '@/modules/tax-reminders/tax-deadlines.service';
+import { APP_NAME } from '../../../../src/common/brand';
 
 describe('TaxDeadlinesService', () => {
   let service: TaxDeadlinesService;
@@ -154,7 +155,7 @@ describe('TaxDeadlinesService', () => {
     });
   });
 
-  describe('filed outside Lumio', () => {
+  describe(`filed outside ${APP_NAME}`, () => {
     it('counts a return marked as filed elsewhere as done, and sends no reminder for it', async () => {
       settingsRepo.findOne.mockResolvedValue({
         config: { sent: [], filedElsewhere: ['vat_return:2026-09-30'] },

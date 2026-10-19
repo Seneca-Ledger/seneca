@@ -33,7 +33,7 @@ type SourceLabels = {
   sourceCrypto: string;
 };
 
-const STORAGE_KEY = 'lumio-spend-over-time-filters-v3';
+const STORAGE_KEY = 'seneca-spend-over-time-filters-v3';
 
 export type SpendOverTimeViewModelReturn = UseSpendOverTimeStateReturn &
   SpendOverTimeDataReturn & {

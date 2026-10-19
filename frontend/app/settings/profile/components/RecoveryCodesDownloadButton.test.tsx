@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecoveryCodesDownloadButton } from './RecoveryCodesDownloadButton';
+import { APP_NAME } from '@/app/lib/brand';
 
 const mocks = vi.hoisted(() => ({
   downloadRecoveryCodes: vi.fn(),
@@ -66,7 +67,7 @@ describe('RecoveryCodesDownloadButton', () => {
     await waitFor(() => expect(mocks.downloadRecoveryCodes).toHaveBeenCalledTimes(1));
     expect(mocks.downloadRecoveryCodes).toHaveBeenCalledWith(format, {
       locale: 'hi',
-      title: 'Lumio — Recovery codes',
+      title: `${APP_NAME} — Recovery codes`,
       details: ['Account: user@example.com', expect.stringMatching(/^Generated: \S/)],
       hint: expect.stringContaining('Each code works once'),
       codes,

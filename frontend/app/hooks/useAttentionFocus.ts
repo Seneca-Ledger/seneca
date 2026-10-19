@@ -14,7 +14,7 @@ const HIGHLIGHT_MS = 3000;
  */
 const WAIT_MS = 20000;
 
-const ATTENTION_CLASS = 'lumio-attention';
+const ATTENTION_CLASS = 'seneca-attention';
 const FOCUS_PARAM = 'focus';
 
 /**

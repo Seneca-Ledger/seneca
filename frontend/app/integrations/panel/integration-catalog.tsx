@@ -10,6 +10,7 @@ import TelegramIcon from '@mui/icons-material/Telegram';
 import type React from 'react';
 import { useMemo } from 'react';
 import { useIntlayer } from '@/app/i18n';
+import { APP_NAME } from '@/app/lib/brand';
 import type { ProtocolIntegrationPageProps } from '../open-protocol-page';
 
 export type IntegrationCategoryKey =
@@ -99,12 +100,12 @@ function buildIntegrationCatalog(t: CatalogText, peppol: PeppolText): Integratio
               required: true,
             },
             { name: 'secure', label: f.useTls.value, type: 'checkbox' },
-            { name: 'user', label: f.username.value, placeholder: 'lumio@example.com' },
+            { name: 'user', label: f.username.value, placeholder: 'seneca@example.com' },
             { name: 'pass', label: f.password.value, type: 'password' },
             {
               name: 'from',
               label: f.from.value,
-              placeholder: 'Lumio <noreply@example.com>',
+              placeholder: `${APP_NAME} <noreply@example.com>`,
               required: true,
             },
             { name: 'replyTo', label: f.replyTo.value, placeholder: 'support@example.com' },
@@ -174,7 +175,7 @@ function buildIntegrationCatalog(t: CatalogText, peppol: PeppolText): Integratio
               required: true,
             },
             { name: 'region', label: f.region.value, placeholder: 'us-east-1' },
-            { name: 'bucket', label: f.bucket.value, placeholder: 'lumio', required: true },
+            { name: 'bucket', label: f.bucket.value, placeholder: 'seneca', required: true },
             { name: 'prefix', label: f.prefix.value, placeholder: 'statements' },
             { name: 'accessKeyId', label: f.accessKeyId.value, type: 'password' },
             { name: 'secretAccessKey', label: f.secretAccessKey.value, type: 'password' },

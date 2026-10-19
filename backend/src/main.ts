@@ -10,6 +10,7 @@ import type { RequestHandler } from 'express';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { APP_NAME } from './common/brand';
 import { AppLogger } from './common/observability/app-logger.service';
 import { requestContextMiddleware } from './common/observability/request-context.middleware';
 import { resolveAllowedOrigins } from './common/utils/cors-origins';
@@ -127,7 +128,7 @@ async function bootstrap() {
 
   // Swagger / OpenAPI
   const config = new DocumentBuilder()
-    .setTitle('Lumio API')
+    .setTitle(`${APP_NAME} API`)
     .setDescription('REST API для загрузки выписок, классификации, отчётов и интеграций')
     .setVersion('1.0.0')
     .addBearerAuth(

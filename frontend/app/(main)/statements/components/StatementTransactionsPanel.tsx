@@ -111,13 +111,13 @@ export function StatementTransactionsPanel({
     : undefined;
 
   return (
-    <div className="lumio-stmt-tx-panel">
+    <div className="seneca-stmt-tx-panel">
       {rowsQuery.isPending ? (
-        <div className="lumio-stmt-tx-panel__state">
+        <div className="seneca-stmt-tx-panel__state">
           <Spinner style={{ width: 20, height: 20, color: 'var(--primary)' }} />
         </div>
       ) : rows.length === 0 ? (
-        <div className="lumio-stmt-tx-panel__state">{tTable.noResults}</div>
+        <div className="seneca-stmt-tx-panel__state">{tTable.noResults}</div>
       ) : (
         rows.map(tx => {
           const isIncome = tx.credit > 0 && !(tx.debit > 0);
@@ -126,16 +126,16 @@ export function StatementTransactionsPanel({
             <button
               key={tx.id}
               type="button"
-              className="lumio-stmt-tx-panel__row"
+              className="seneca-stmt-tx-panel__row"
               onClick={() => openRow(tx)}
             >
-              <span className="lumio-stmt-tx-panel__date">
+              <span className="seneca-stmt-tx-panel__date">
                 {dateFormat.format(new Date(`${tx.transactionDate.slice(0, 10)}T00:00:00`))}
               </span>
-              <span className="lumio-stmt-tx-panel__name">
+              <span className="seneca-stmt-tx-panel__name">
                 {tx.isPrivate ? EMPTY_CELL : tx.counterpartyName || EMPTY_CELL}
               </span>
-              <span className="lumio-stmt-tx-panel__category">
+              <span className="seneca-stmt-tx-panel__category">
                 {tx.category && hasChosenCategory(tx.category.name) ? (
                   <>
                     <CategoryIconBadge
@@ -151,7 +151,7 @@ export function StatementTransactionsPanel({
                 )}
               </span>
               <span
-                className={`lumio-stmt-tx-panel__amount${isIncome ? ' lumio-stmt-tx-panel__amount--income' : ''}`}
+                className={`seneca-stmt-tx-panel__amount${isIncome ? ' seneca-stmt-tx-panel__amount--income' : ''}`}
               >
                 {isIncome ? '+' : ''}
                 {formatAmount(tx.debit || tx.credit, tx.currency)}

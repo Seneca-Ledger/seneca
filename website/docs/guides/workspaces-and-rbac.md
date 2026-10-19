@@ -3,7 +3,7 @@ title: Workspaces and RBAC
 description: Multi-tenant setup and permissions
 ---
 
-Lumio is multi-tenant by design. Every statement, transaction, and report belongs to a workspace.
+Seneca is multi-tenant by design. Every statement, transaction, and report belongs to a workspace.
 
 ## Core concepts
 

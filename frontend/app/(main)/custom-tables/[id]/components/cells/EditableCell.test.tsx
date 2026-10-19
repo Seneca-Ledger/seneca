@@ -4,6 +4,7 @@ import { categoryItem } from '@/app/test/fixtures/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import type { CustomTableColumn, CustomTableGridRow } from '../../utils/types';
 import { EditableCell } from './EditableCell';
+import { APP_NAME } from '@/app/lib/brand';
 
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'workspace-1' }));
 
@@ -91,7 +92,7 @@ describe('EditableCell', () => {
     expect(screen.getByText(/12[.,]5/)).toBeInTheDocument();
   });
 
-  it('picks a currency code from the app drawer for Lumio currency columns', () => {
+  it(`picks a currency code from the app drawer for ${APP_NAME} currency columns`, () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined);
     render(
       <EditableCell
@@ -128,7 +129,7 @@ describe('EditableCell', () => {
     expect(screen.getByRole('textbox')).toHaveValue('EUR');
   });
 
-  it('picks a category from the app drawer for Lumio category columns', async () => {
+  it(`picks a category from the app drawer for ${APP_NAME} category columns`, async () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined);
     renderWithQuery(
       <EditableCell

@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { toCsv } from '../../common/utils/csv.util';
@@ -525,7 +526,7 @@ function readme(input: {
   missing: string[];
 }): string {
   const lines = [
-    'Lumio tax pack',
+    `${APP_NAME} tax pack`,
     '==============',
     '',
     `Period: ${input.from} to ${input.to}`,

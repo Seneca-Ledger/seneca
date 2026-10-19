@@ -191,11 +191,11 @@ export function FormulaEditor({
   const showSuggestions = open && suggestions.items.length > 0;
 
   return (
-    <div className="lumio-ct__field lumio-ct__field--wide lumio-ct__formula">
-      <span className="lumio-ct__label">{labels.expression}</span>
+    <div className="seneca-ct__field seneca-ct__field--wide seneca-ct__formula">
+      <span className="seneca-ct__label">{labels.expression}</span>
       <input
         ref={inputRef}
-        className="lumio-ct__input lumio-ct__input--mono"
+        className="seneca-ct__input seneca-ct__input--mono"
         value={value}
         placeholder={scope === 'table' ? 'SUM([Income]) - SUM([Expense])' : '[Amount] * [Qty]'}
         autoComplete="off"
@@ -217,26 +217,26 @@ export function FormulaEditor({
         onBlur={() => window.setTimeout(() => setOpen(false), 150)}
       />
       {showSuggestions ? (
-        <ul className="lumio-ct__formula-suggest">
+        <ul className="seneca-ct__formula-suggest">
           {suggestions.items.map(item => (
             <li key={item.label}>
               <button
                 type="button"
-                className="lumio-ct__formula-option"
+                className="seneca-ct__formula-option"
                 onMouseDown={event => event.preventDefault()}
                 onClick={() => apply(item)}
               >
                 <span>{item.label}</span>
-                {item.hint ? <span className="lumio-ct__formula-hint">{item.hint}</span> : null}
+                {item.hint ? <span className="seneca-ct__formula-hint">{item.hint}</span> : null}
               </button>
             </li>
           ))}
         </ul>
       ) : null}
-      <span className="lumio-ct__hint">{labels.expressionHint}</span>
+      <span className="seneca-ct__hint">{labels.expressionHint}</span>
       {value.trim() ? (
         <span
-          className={`lumio-ct__hint lumio-ct__formula-preview${preview && !preview.valid ? ' lumio-ct__hint--error' : ''}`}
+          className={`seneca-ct__hint seneca-ct__formula-preview${preview && !preview.valid ? ' seneca-ct__hint--error' : ''}`}
           aria-live="polite"
         >
           {checking && !preview

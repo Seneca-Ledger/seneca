@@ -11,7 +11,7 @@ interface SidePanelHandle {
   setPosition: (p: 'left' | 'right') => void;
 }
 
-const MOBILE_MENU_VISIBILITY_EVENT = 'lumio-mobile-menu-visibility';
+const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
 const SIDEPANEL_ACTIVE_BODY_ATTRIBUTE = 'data-side-panel-active';
 
 interface UseMobileSidePanelParams {

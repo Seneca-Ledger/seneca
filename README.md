@@ -55,11 +55,11 @@
 
 ---
 
-[![Maintainability](https://qlty.sh/gh/symonbaikov/projects/lumio/maintainability.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
-[![Code Coverage](https://qlty.sh/gh/symonbaikov/projects/lumio/coverage.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
-[![GitHub Stars](https://img.shields.io/github/stars/symonbaikov/lumio?style=flat-square&logo=github)](https://github.com/symonbaikov/lumio/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/symonbaikov/lumio?style=flat-square&logo=github)](https://github.com/symonbaikov/lumio/network/members)
-[![GitHub Issues](https://img.shields.io/github/issues/symonbaikov/lumio?style=flat-square&logo=github)](https://github.com/symonbaikov/lumio/issues)
+[![Maintainability](https://qlty.sh/gh/symonbaikov/projects/seneca/maintainability.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
+[![Code Coverage](https://qlty.sh/gh/symonbaikov/projects/seneca/coverage.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
+[![GitHub Stars](https://img.shields.io/github/stars/symonbaikov/seneca?style=flat-square&logo=github)](https://github.com/symonbaikov/seneca/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/symonbaikov/seneca?style=flat-square&logo=github)](https://github.com/symonbaikov/seneca/network/members)
+[![GitHub Issues](https://img.shields.io/github/issues/symonbaikov/seneca?style=flat-square&logo=github)](https://github.com/symonbaikov/seneca/issues)
 
 ---
 
@@ -76,7 +76,7 @@
 
 ## 📢 Wanted: real bank statements for parser development
 
-Lumio's parsers are only as good as the statements they were tested on. **I'm looking for people willing to share bank statements** — any bank, any country, any format (PDF, CSV, XLSX, OFX, MT940, CAMT.053, a phone screenshot) — so I can write and test parsers for them.
+Seneca's parsers are only as good as the statements they were tested on. **I'm looking for people willing to share bank statements** — any bank, any country, any format (PDF, CSV, XLSX, OFX, MT940, CAMT.053, a phone screenshot) — so I can write and test parsers for them.
 
 - **Redact what you like.** Names, account numbers, addresses and counterparties can be blacked out or replaced; the parser needs the layout, the columns and the way dates and amounts are written, not your data. A statement with a handful of rows is enough.
 - **Your files stay private.** They are used only to build and test the parser. The originals are never committed to this repository — test fixtures that land in the repo are anonymized first.
@@ -101,15 +101,15 @@ Lumio's parsers are only as good as the statements they were tested on. **I'm lo
 
 ---
 
-## Why Lumio exists
+## Why Seneca exists
 
-Lumio turns unstructured financial documents (PDFs, CSVs, email receipts) into clean, queryable data. Most personal finance apps ask for your bank login or upload your statements to their servers; Lumio runs on your own machine or server, so your financial history stays with you. Open source and self-hosted — for a single person keeping private books as much as for a team that needs control over its financial data pipeline.
+Seneca turns unstructured financial documents (PDFs, CSVs, email receipts) into clean, queryable data. Most personal finance apps ask for your bank login or upload your statements to their servers; Seneca runs on your own machine or server, so your financial history stays with you. Open source and self-hosted — for a single person keeping private books as much as for a team that needs control over its financial data pipeline.
 
 ---
 
 ## Features
 
-Lumio is a full-stack platform for importing, categorizing and analyzing bank statement data — on your own for personal finances, or together with a partner, an accountant or a team.
+Seneca is a full-stack platform for importing, categorizing and analyzing bank statement data — on your own for personal finances, or together with a partner, an accountant or a team.
 
 ### Core capabilities
 
@@ -117,7 +117,7 @@ Lumio is a full-stack platform for importing, categorizing and analyzing bank st
 - **OCR for Image Statements** — Tesseract.js text extraction from scanned documents and photos.
 - **Idempotent Uploads** — SHA-256 file hashing prevents duplicate imports.
 - **Transaction Deduplication** — Fingerprint-based duplicate detection with confidence scoring, merge, and mark-as-duplicate workflows.
-- **Categorization** — Rules first, then what the workspace already taught Lumio about a payee (payees with aliases, learned from your confirmations). Rows neither covers stay uncategorised for review; no external model is ever contacted.
+- **Categorization** — Rules first, then what the workspace already taught Seneca about a payee (payees with aliases, learned from your confirmations). Rows neither covers stay uncategorised for review; no external model is ever contacted.
 - **Review Queue** — Every imported row waits in Review until a person confirms it; only confirmed rows count in reports, budgets and the ledger. Suspected duplicates have their own list.
 - **Bank Sync (bring your own aggregator)** — Connect your own SimpleFIN Bridge account; new rows are pulled on demand or every six hours and go through the same import path as an uploaded file.
 - **Multi-Tenant Workspaces** — Unlimited workspaces with invitation flows and per-workspace data isolation.
@@ -194,14 +194,14 @@ Lumio is a full-stack platform for importing, categorizing and analyzing bank st
 
 ---
 
-## What Lumio is NOT
+## What Seneca is NOT
 
 Setting expectations upfront:
 
-- **Not a bank integration** — Lumio holds no bank integration of its own: it parses statement files you export from your bank. If you have your own account with an aggregator that speaks an open protocol (SimpleFIN Bridge today), you can connect it under Integrations and Lumio pulls your statements through the same import; Lumio itself never talks to a bank.
+- **Not a bank integration** — Seneca holds no bank integration of its own: it parses statement files you export from your bank. If you have your own account with an aggregator that speaks an open protocol (SimpleFIN Bridge today), you can connect it under Integrations and Seneca pulls your statements through the same import; Seneca itself never talks to a bank.
 - **Not an accrual accounting suite** — The ledger records what your statements and manual entries say. There is no automatic accrual, depreciation schedule, or period-end closing workflow.
-- **Not a filing service or tax adviser** — Lumio computes tax figures and drafts VAT and income tax documents, but it does not submit anything to a tax authority on your behalf. An income tax draft is not tax advice — check it before you file.
-- **Not a replacement for accounting software** — Lumio keeps double-entry books of your bank activity and issues invoices, but it does not run payroll or file statutory reports. Use it next to QuickBooks, Xero, or 1C rather than instead of them.
+- **Not a filing service or tax adviser** — Seneca computes tax figures and drafts VAT and income tax documents, but it does not submit anything to a tax authority on your behalf. An income tax draft is not tax advice — check it before you file.
+- **Not a replacement for accounting software** — Seneca keeps double-entry books of your bank activity and issues invoices, but it does not run payroll or file statutory reports. Use it next to QuickBooks, Xero, or 1C rather than instead of them.
 
 ---
 
@@ -298,7 +298,7 @@ Your bank is missing or parses badly? See [Wanted: real bank statements](#-wante
 ## Repository Structure
 
 ```
-lumio/
+seneca/
 ├── backend/                         # NestJS API server
 │   ├── src/
 │   │   ├── modules/                 # 65 feature modules
@@ -448,8 +448,8 @@ Choose the startup mode that matches your machine:
 ### One-command development startup
 
 ```bash
-git clone https://github.com/symonbaikov/lumio.git
-cd lumio
+git clone https://github.com/symonbaikov/seneca.git
+cd seneca
 npm run setup:dev
 ```
 
@@ -487,7 +487,7 @@ Expected output from step 5 health check:
 
 Default demo login is printed after startup in the terminal:
 
-- **Email:** `demo@lumio.dev`
+- **Email:** `demo@seneca.dev`
 - **Password:** `demo123`
 
 To stop Docker mode cleanly:
@@ -500,7 +500,7 @@ In Docker mode `node_modules` and the Next.js cache live in named volumes, so a 
 
 ### Run prebuilt images (no local build)
 
-CD publishes `ghcr.io/symonbaikov/lumio-backend` and `ghcr.io/symonbaikov/lumio-frontend` for every release. To start the production stack without building anything locally:
+CD publishes `ghcr.io/symonbaikov/seneca-backend` and `ghcr.io/symonbaikov/seneca-frontend` for every release. To start the production stack without building anything locally:
 
 ```bash
 npm run setup:env
@@ -508,7 +508,7 @@ docker compose pull
 docker compose up -d
 ```
 
-`LUMIO_IMAGE_TAG` in `.env` pins a specific release (defaults to the newest one).
+`IMAGE_TAG` in `.env` pins a specific release (defaults to the newest one).
 
 To update later, run `make upgrade`. It backs up the database, pulls the new images, restarts the stack, and lets the backend apply any migrations. Instance admins can also update from Settings → Advanced once `COMPOSE_PROFILES=updater` is in `.env`. See [Upgrading](website/docs/deployment/docker.md#upgrading).
 
@@ -521,7 +521,7 @@ For a new contributor, Docker full-stack is the recommended path. It builds and 
 - **Swagger Docs:** http://localhost:3001/api/docs
 
 Demo credentials:
-- **Email:** `demo@lumio.dev`
+- **Email:** `demo@seneca.dev`
 - **Password:** `demo123`
 
 ### Non-interactive startup
@@ -619,9 +619,13 @@ openssl rand -base64 32
 bash scripts/generate-env.sh
 ```
 
+### Product Name
+
+`APP_NAME` in the root `.env` (default `Seneca`) is the name people see: the UI and all its translations, page titles, e-mails, Telegram replies, PDF/DATEV/e-invoice metadata, export file names, and the Gmail label and cloud folders created from then on. The backend reads it at startup; the frontend bakes it in at build time (`docker-compose.yml` passes it as `NEXT_PUBLIC_APP_NAME`), so restart the dev stack or rebuild the frontend image after changing it. Labels and folders already created keep their old name.
+
 ### Sessions, CORS and Metrics
 
-Browsers authenticate with HttpOnly cookies, so the cookie and CORS settings have to match how you host Lumio:
+Browsers authenticate with HttpOnly cookies, so the cookie and CORS settings have to match how you host Seneca:
 
 | Variable | Default | When to set it |
 |---|---|---|
@@ -650,7 +654,7 @@ Endpoints and hosts saved in the UI must resolve to public addresses: the egress
 <details>
 <summary><b>Categorization & Generic PDF Parsing</b></summary>
 
-Lumio never contacts an external AI model. Categories come from your rules first, then from payee history (a payee's default moves only when two of its three most recent confirmed rows agree); anything left stays uncategorised in Review. **Integrations → Local categorization** can install a Transformers.js embedding model on the server from an uploaded ZIP; remote model loading stays disabled. PDFs from banks without a native parser go through `GenericPdfParser`, which reads the transaction tables from the PDF text layer.
+Seneca never contacts an external AI model. Categories come from your rules first, then from payee history (a payee's default moves only when two of its three most recent confirmed rows agree); anything left stays uncategorised in Review. **Integrations → Local categorization** can install a Transformers.js embedding model on the server from an uploaded ZIP; remote model loading stays disabled. PDFs from banks without a native parser go through `GenericPdfParser`, which reads the transaction tables from the PDF text layer.
 </details>
 
 <details>
@@ -672,7 +676,7 @@ GEOCODER_URL=http://nominatim:8080
 ```
 
 - `maps` builds vector tiles from the extract with Planetiler and renders four styles — OSM Bright, Positron, Dark Matter and Basic — through tileserver-gl. The backend proxies the tiles, so the tile server never needs a public port. Users switch styles on the map in one click; the choice is saved to their profile.
-- `geocoder` runs Nominatim on the same extract. The first import takes from minutes for a small country to hours for a large one, and needs several GB of disk. Each start also imports `infra/nominatim/special-phrases.csv`, which lets Lumio suggest shops near the phone when a receipt was photographed without GPS.
+- `geocoder` runs Nominatim on the same extract. The first import takes from minutes for a small country to hours for a large one, and needs several GB of disk. Each start also imports `infra/nominatim/special-phrases.csv`, which lets Seneca suggest shops near the phone when a receipt was photographed without GPS.
 - Without these variables the feature stays off: receipts still get a photo or device point, and the map says tiles are not configured.
 </details>
 
@@ -708,7 +712,7 @@ Used for workspace invitations, password reset links (valid for 1 hour) and emai
 make seed-demo
 ```
 
-Creates `demo@lumio.dev` with password `demo123` and a sample workspace with demo transactions.
+Creates `demo@seneca.dev` with password `demo123` and a sample workspace with demo transactions.
 
 ### Create Admin User
 
@@ -814,7 +818,7 @@ make update            # Update npm dependencies
 
 ### Database Migrations
 
-Lumio uses TypeORM migrations exclusively (`synchronize: false`). Migrations run automatically on every startup unless `RUN_MIGRATIONS=false` is set. There are currently 223 migrations covering the entire schema history.
+Seneca uses TypeORM migrations exclusively (`synchronize: false`). Migrations run automatically on every startup unless `RUN_MIGRATIONS=false` is set. There are currently 223 migrations covering the entire schema history.
 
 ```bash
 # Apply all pending migrations (Docker)
@@ -985,7 +989,7 @@ Upload request
 
 ## Monitoring & Observability
 
-Lumio exposes what a monitoring stack needs and leaves the stack itself to you —
+Seneca exposes what a monitoring stack needs and leaves the stack itself to you —
 which collector, dashboards and alerting you run is a self-hosting decision.
 
 | What | Where | Notes |
@@ -1121,14 +1125,14 @@ Built on great open-source foundations:
 
 [NestJS](https://nestjs.com/) · [Next.js](https://nextjs.org/) · [PostgreSQL](https://www.postgresql.org/) · [TypeORM](https://typeorm.io/) · [Redis](https://redis.io/) · [MUI](https://mui.com/) · [Emotion](https://emotion.sh/) · [TanStack Table](https://tanstack.com/table) · [ECharts](https://echarts.apache.org/) · [Recharts](https://recharts.org/) · [Tesseract.js](https://tesseract.projectnaptha.com/) · [Socket.IO](https://socket.io/) · [Intlayer](https://intlayer.org/) · [driver.js](https://driverjs.com/) · [Biome](https://biomejs.dev/) · and many more.
 
-The cash flow, net worth, category and ROI charts follow the chart design of [Aurum](https://github.com/ZProger/Aurum) by [ZProger](https://github.com/ZProger). They were reimplemented for Lumio; no Aurum source code is included (Aurum is licensed under PolyForm Noncommercial 1.0.0).
+The cash flow, net worth, category and ROI charts follow the chart design of [Aurum](https://github.com/ZProger/Aurum) by [ZProger](https://github.com/ZProger). They were reimplemented for Seneca; no Aurum source code is included (Aurum is licensed under PolyForm Noncommercial 1.0.0).
 
 ---
 
 <div align="center">
 
-**[back to top](#lumio)**
+**[back to top](#seneca)**
 
-Made with care by the Lumio community
+Made with care by the Seneca community
 
 </div>

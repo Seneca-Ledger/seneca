@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../../common/brand';
 import {
   OAuthIntegrationBaseService,
   type OAuthIntegrationSettingsRelationName,
@@ -251,7 +252,7 @@ export class GmailOAuthService extends OAuthIntegrationBaseService {
       existing?.gmailSettings ||
       this.gmailSettingsRepository.create({
         integrationId: savedIntegration.id,
-        labelName: 'Lumio/Receipts',
+        labelName: `${APP_NAME}/Receipts`,
         filterEnabled: true,
         filterConfig: {
           hasAttachment: true,

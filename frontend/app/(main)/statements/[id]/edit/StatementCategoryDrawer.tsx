@@ -67,11 +67,11 @@ export default function StatementCategoryDrawer({
       showCloseButton={false}
       className={className}
       title={
-        <div className="lumio-payable-drawer__title-wrap">
+        <div className="seneca-payable-drawer__title-wrap">
           <button
             type="button"
             onClick={onClose}
-            className="lumio-col-drawer__back-btn"
+            className="seneca-col-drawer__back-btn"
             aria-label={labels.title}
           >
             <ChevronLeft size={20} />
@@ -80,28 +80,28 @@ export default function StatementCategoryDrawer({
         </div>
       }
     >
-      <div className="lumio-cat-drawer">
-        <div className="lumio-cat-drawer__search">
-          <label className="lumio-cat-drawer__search-label">
-            <Search size={20} className="lumio-cat-drawer__search-icon" />
+      <div className="seneca-cat-drawer">
+        <div className="seneca-cat-drawer__search">
+          <label className="seneca-cat-drawer__search-label">
+            <Search size={20} className="seneca-cat-drawer__search-icon" />
             <input
               type="text"
               value={searchQuery}
               onChange={event => setSearchQuery(event.target.value)}
               placeholder={labels.searchPlaceholder}
-              className="lumio-cat-drawer__search-input"
+              className="seneca-cat-drawer__search-input"
             />
           </label>
         </div>
 
-        <div className="lumio-cat-drawer__list">
+        <div className="seneca-cat-drawer__list">
           <div>
             {showAllOption ? (
               <button
                 type="button"
                 disabled={selecting}
                 onClick={() => onSelect('')}
-                className={`lumio-cat-drawer__option${selectedCategoryId === '' ? ' lumio-cat-drawer__option--selected' : ''}`}
+                className={`seneca-cat-drawer__option${selectedCategoryId === '' ? ' seneca-cat-drawer__option--selected' : ''}`}
               >
                 <span>{labels.allOption}</span>
                 {selectedCategoryId === '' ? <Check size={24} color="var(--primary)" /> : null}
@@ -109,7 +109,7 @@ export default function StatementCategoryDrawer({
             ) : null}
 
             {filteredCategories.length === 0 ? (
-              <div className="lumio-cat-drawer__no-results">{labels.noResults}</div>
+              <div className="seneca-cat-drawer__no-results">{labels.noResults}</div>
             ) : (
               filteredCategories.map(category => {
                 const isSelected = selectedCategoryId === category.id;
@@ -119,7 +119,7 @@ export default function StatementCategoryDrawer({
                     type="button"
                     disabled={selecting}
                     onClick={() => onSelect(category.id)}
-                    className={`lumio-cat-drawer__option${isSelected ? ' lumio-cat-drawer__option--selected' : ''}`}
+                    className={`seneca-cat-drawer__option${isSelected ? ' seneca-cat-drawer__option--selected' : ''}`}
                   >
                     <span>{category.name}</span>
                     {isSelected ? <Check size={24} color="var(--primary)" /> : null}
@@ -129,7 +129,7 @@ export default function StatementCategoryDrawer({
             )}
           </div>
         </div>
-        {footer ? <div className="lumio-cat-drawer__footer">{footer}</div> : null}
+        {footer ? <div className="seneca-cat-drawer__footer">{footer}</div> : null}
       </div>
     </DrawerShell>
   );

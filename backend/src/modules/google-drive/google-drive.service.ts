@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { CloudStorageBaseService } from '../../common/services/cloud-storage-base.service';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { requireSecret } from '../../common/utils/required-secret.util';
@@ -341,7 +342,7 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: 'Lumio',
+          name: APP_NAME,
           mimeType: 'application/vnd.google-apps.folder',
         }),
       },

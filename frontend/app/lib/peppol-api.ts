@@ -17,7 +17,7 @@ export const peppolApi = {
     return checkContract('PeppolTransmission', response.data, url);
   },
 
-  /** Whether a Peppol id is on the network, and which of Lumio's formats it takes. */
+  /** Whether a Peppol id is on the network, and which of Seneca's formats it takes. */
   async lookup(peppolId: string): Promise<PeppolLookup> {
     const response = await apiClient.post('/peppol/lookup', { peppolId });
     return checkContract('PeppolLookup', response.data, '/peppol/lookup');

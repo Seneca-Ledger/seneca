@@ -1,7 +1,7 @@
 @use '../abstracts' as *;
 
 /* ── Illustrated empty state (EmptyState.tsx) ─────────────────── */
-.lumio-empty-state {
+.seneca-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -15,11 +15,11 @@
   &__title {
     margin: 0 0 6px;
     font-size: 18px;
-    font-weight: $lumio-font-weight-bold;
-    color: $lumio-color-ink-900;
+    font-weight: $seneca-font-weight-bold;
+    color: $seneca-color-ink-900;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -28,10 +28,10 @@
     max-width: 440px;
     font-size: 14px;
     line-height: 1.6;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -51,11 +51,11 @@
     height: 64px;
     margin-bottom: 16px;
     border-radius: 50%;
-    background: $lumio-color-icon-badge-bg;
-    color: $lumio-color-empty-icon;
+    background: $seneca-color-icon-badge-bg;
+    color: $seneca-color-empty-icon;
 
     @include dark {
-      background: $lumio-color-ink-100-dk;
+      background: $seneca-color-ink-100-dk;
       color: var(--muted-foreground);
     }
     // Centred on its own too, where a screen draws the circle without EmptyState.
@@ -75,19 +75,19 @@
   &--icon &__title {
     margin-bottom: 8px;
     font-size: 18px;
-    font-weight: $lumio-font-weight-medium;
-    color: $lumio-color-figure;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-figure;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
   &--icon &__desc {
-    color: $lumio-color-text-muted;
+    color: $seneca-color-text-muted;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -98,10 +98,10 @@
   &__hint {
     margin: 16px 0 0;
     font-size: 13px;
-    color: $lumio-color-text-muted;
+    color: $seneca-color-text-muted;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 

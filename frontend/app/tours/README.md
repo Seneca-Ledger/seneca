@@ -1,6 +1,6 @@
 # Tours System
 
-Interactive tours system for Lumio based on Driver.js with three-language support via Intlayer.
+Interactive tours system for Seneca based on Driver.js with three-language support via Intlayer.
 
 ## Structure
 
@@ -460,7 +460,7 @@ getComputedStyle(element).display !== 'none'
 
 ```typescript
 // Check localStorage
-localStorage.getItem('lumio_tour_state')
+localStorage.getItem('seneca_tour_state')
 
 // Clear data
 tourManager.clearAllData()

@@ -1,6 +1,6 @@
 /*
  * Chart design adapted from Aurum by ZProger (https://github.com/ZProger/Aurum).
- * Reimplemented for Lumio; no Aurum source code was copied.
+ * Reimplemented for Seneca; no Aurum source code was copied.
  */
 import clsx from 'clsx';
 import type React from 'react';
@@ -20,14 +20,14 @@ export function ChartTooltipCard({
   rows: ChartTooltipRow[];
 }): React.JSX.Element {
   return (
-    <div className="lumio-chart__tooltip">
-      <div className="lumio-chart__tooltip-title">{title}</div>
+    <div className="seneca-chart__tooltip">
+      <div className="seneca-chart__tooltip-title">{title}</div>
       {rows.map(row => (
         <div
           key={`${row.label ?? ''}:${row.value}`}
           className={clsx(
-            'lumio-chart__tooltip-row',
-            row.tone && `lumio-chart__tooltip-row--${row.tone}`,
+            'seneca-chart__tooltip-row',
+            row.tone && `seneca-chart__tooltip-row--${row.tone}`,
           )}
         >
           {row.label ? `${row.label}: ${row.value}` : row.value}
@@ -54,7 +54,7 @@ export function ChartRangeFooter({
   end: string;
 }): React.JSX.Element {
   return (
-    <div className="lumio-chart__footer">
+    <div className="seneca-chart__footer">
       <span>{start}</span>
       <span>{end}</span>
     </div>

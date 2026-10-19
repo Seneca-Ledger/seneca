@@ -58,7 +58,7 @@ export interface GoalCoverPreset {
  *
  * The ids mirror GOAL_COVER_PRESETS on the server, which validates them. The
  * tones are theme variables, so dark mode gets its lighter set; the icon colour
- * per tone lives in `.lumio-goal-cover` (_goals.scss).
+ * per tone lives in `.seneca-goal-cover` (_goals.scss).
  */
 export const GOAL_COVER_PRESETS: readonly GoalCoverPreset[] = [
   { id: 'travel', Icon: Plane, tone: 4 },

@@ -41,8 +41,8 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
     <>
       {lineItems.map((line, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: rows have no stable id before saving
-        <section key={index} className="lumio-invoice-wizard__line">
-          <div className="lumio-invoice-wizard__line-head">
+        <section key={index} className="seneca-invoice-wizard__line">
+          <div className="seneca-invoice-wizard__line-head">
             <span>{t.items.line.value.replace('{n}', String(index + 1))}</span>
             {lineItems.length > 1 ? (
               <Button
@@ -66,7 +66,7 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
           </WizardField>
 
           {/* One row, one height: Qty | Unit | Unit price, bottoms aligned. */}
-          <div className="lumio-invoice-wizard__qty-row">
+          <div className="seneca-invoice-wizard__qty-row">
             <WizardField label={page.detail.quantity.value} htmlFor={`invoice-qty-${index}`}>
               <Input
                 id={`invoice-qty-${index}`}
@@ -74,7 +74,7 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
                 min="0"
                 step="1"
                 inputMode="decimal"
-                className="lumio-invoice-wizard__number"
+                className="seneca-invoice-wizard__number"
                 value={String(line.quantity)}
                 onChange={event => form.updateLine(index, { quantity: Number(event.target.value) })}
               />
@@ -92,9 +92,9 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
                 min="0"
                 step="0.01"
                 inputMode="decimal"
-                className="lumio-invoice-wizard__number"
+                className="seneca-invoice-wizard__number"
                 startAdornment={
-                  <span className="lumio-invoice-wizard__currency">
+                  <span className="seneca-invoice-wizard__currency">
                     {currencySymbol(currency, locale)}
                   </span>
                 }
@@ -116,7 +116,7 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
           ) : (
             <button
               type="button"
-              className="lumio-invoice-wizard__link"
+              className="seneca-invoice-wizard__link"
               onClick={() => setDiscountOpen(current => new Set(current).add(index))}
             >
               {t.items.discount.value}
@@ -124,18 +124,18 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
           )}
 
           {/* How the amount comes about, then the amount: "2 × €80 / hour   €160". */}
-          <div className="lumio-invoice-wizard__line-amount">
+          <div className="seneca-invoice-wizard__line-amount">
             <span>
               {line.quantity} × {money(line.unitPrice)} /{' '}
               {unitLabels[line.unitCode || 'C62'] ?? line.unitCode}
             </span>
-            <span className="lumio-invoice-wizard__line-sum">{money(lineAmount(line))}</span>
+            <span className="seneca-invoice-wizard__line-sum">{money(lineAmount(line))}</span>
           </div>
         </section>
       ))}
 
-      <div className="lumio-invoice-wizard__row-actions">
-        <button type="button" className="lumio-invoice-wizard__link" onClick={form.addLine}>
+      <div className="seneca-invoice-wizard__row-actions">
+        <button type="button" className="seneca-invoice-wizard__link" onClick={form.addLine}>
           <Plus size={16} aria-hidden />
           {t.items.addLine.value}
         </button>
@@ -144,10 +144,10 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
       {/* A late fee belongs to the invoice, not to a line: it sits with the totals. */}
       <WizardTotals form={form} />
       {form.clientId ? (
-        <div className="lumio-invoice-wizard__totals-actions">
+        <div className="seneca-invoice-wizard__totals-actions">
           <button
             type="button"
-            className="lumio-invoice-wizard__link"
+            className="seneca-invoice-wizard__link"
             onClick={() => void form.addLateFee()}
           >
             {page.detail.lateFeeAdd.value}

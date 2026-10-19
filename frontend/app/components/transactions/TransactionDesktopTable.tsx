@@ -33,10 +33,10 @@ function TableHeader({
   t,
 }: TableHeaderProps): React.ReactElement {
   return (
-    <thead className="lumio-tx-table__thead">
+    <thead className="seneca-tx-table__thead">
       <tr>
-        <th className="lumio-tx-table__th--expand" />
-        <th className="lumio-tx-table__th--checkbox">
+        <th className="seneca-tx-table__th--expand" />
+        <th className="seneca-tx-table__th--checkbox">
           <Checkbox
             checked={allSelected}
             indeterminate={someSelected && !allSelected}
@@ -44,30 +44,30 @@ function TableHeader({
             style={{ height: 20, width: 20 }}
           />
         </th>
-        <th className="lumio-tx-table__th">
+        <th className="seneca-tx-table__th">
           <button
             type="button"
             onClick={() => onToggleSort('date')}
-            className="lumio-tx-table__sort-btn"
+            className="seneca-tx-table__sort-btn"
           >
             {t.columnDate.value}
             <SortIcon sort={sort} field="date" />
           </button>
         </th>
-        <th className="lumio-tx-table__th">{t.columnCounterparty.value}</th>
-        <th className="lumio-tx-table__th">{t.columnPurpose.value}</th>
-        <th className="lumio-tx-table__th--right">
+        <th className="seneca-tx-table__th">{t.columnCounterparty.value}</th>
+        <th className="seneca-tx-table__th">{t.columnPurpose.value}</th>
+        <th className="seneca-tx-table__th--right">
           <button
             type="button"
             onClick={() => onToggleSort('amount')}
-            className="lumio-tx-table__sort-btn"
+            className="seneca-tx-table__sort-btn"
           >
             {t.columnDebit.value}
             <SortIcon sort={sort} field="amount" />
           </button>
         </th>
-        <th className="lumio-tx-table__th--right">{t.columnCredit.value}</th>
-        <th className="lumio-tx-table__th">{t.columnCategory.value}</th>
+        <th className="seneca-tx-table__th--right">{t.columnCredit.value}</th>
+        <th className="seneca-tx-table__th">{t.columnCategory.value}</th>
       </tr>
     </thead>
   );
@@ -113,9 +113,9 @@ export function TransactionDesktopTable({
   t,
 }: TransactionDesktopTableProps): React.ReactElement {
   return (
-    <div className="lumio-tx-table">
-      <div className="lumio-tx-table__scroll">
-        <table className="lumio-tx-table__table">
+    <div className="seneca-tx-table">
+      <div className="seneca-tx-table__scroll">
+        <table className="seneca-tx-table__table">
           <TableHeader
             sort={sort}
             allSelected={allSelected}
@@ -127,7 +127,7 @@ export function TransactionDesktopTable({
           <tbody>
             {transactions.length === 0 ? (
               <tr>
-                <td colSpan={9} className="lumio-tx-table__no-results">
+                <td colSpan={9} className="seneca-tx-table__no-results">
                   <EmptyStateIllustration name="transactions" size="md" />
                   {noResultsLabel}
                 </td>

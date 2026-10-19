@@ -43,7 +43,7 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
 
     await (async () => {
       const response = await apiClient.get('/users/me/export');
-      downloadJson(response.data, 'lumio-account-export.json');
+      downloadJson(response.data, 'seneca-account-export.json');
       setMessage(tx(['myDataCard', 'exportSuccess'], 'Your data has been downloaded.'));
     })()
       .catch(async caught => {

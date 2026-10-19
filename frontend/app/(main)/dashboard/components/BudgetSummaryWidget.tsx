@@ -94,13 +94,13 @@ export function BudgetSummaryWidget({
     const spent = Number(b.spentAmount);
     const rest = allowed - spent;
     return (
-      <div className="lumio-dashboard__budget-amounts">
+      <div className="seneca-dashboard__budget-amounts">
         <span>
           {String(wideText.spentOfLimit.value)
             .replace('{{spent}}', money(spent))
             .replace('{{limit}}', money(allowed))}
         </span>
-        <span className={rest < 0 ? 'lumio-dashboard__amount--negative' : undefined}>
+        <span className={rest < 0 ? 'seneca-dashboard__amount--negative' : undefined}>
           {String(rest < 0 ? wideText.over.value : wideText.left.value).replace(
             '{{amount}}',
             money(Math.abs(rest)),
@@ -120,19 +120,19 @@ export function BudgetSummaryWidget({
       }
     >
       {hasBudgets ? (
-        <div className={clsx('lumio-dashboard__list', wide && 'lumio-dashboard__list--columns')}>
+        <div className={clsx('seneca-dashboard__list', wide && 'seneca-dashboard__list--columns')}>
           {shown.map(b => {
             const tone = budgetTone(b.percentUsed);
             return (
-              <div key={b.id} className="lumio-dashboard__budget-row">
-                <div className="lumio-dashboard__budget-head">
-                  <span className="lumio-dashboard__row-primary">
+              <div key={b.id} className="seneca-dashboard__budget-row">
+                <div className="seneca-dashboard__budget-head">
+                  <span className="seneca-dashboard__row-primary">
                     {b.category ? categoryName(b.category.name) : b.name}
                   </span>
                   {/* The figure stays neutral; the bar and "over" carry the signal. */}
-                  <span className="lumio-dashboard__budget-pct">{Math.round(b.percentUsed)}%</span>
+                  <span className="seneca-dashboard__budget-pct">{Math.round(b.percentUsed)}%</span>
                 </div>
-                <div className="lumio-dashboard__budget-bar" data-tone={tone}>
+                <div className="seneca-dashboard__budget-bar" data-tone={tone}>
                   <LinearProgress
                     variant="determinate"
                     value={Math.min(b.percentUsed, 100)}

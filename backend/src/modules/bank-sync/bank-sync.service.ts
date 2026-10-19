@@ -74,7 +74,7 @@ const EMPTY_CONFIG: BankSyncConfig = {
 };
 
 /**
- * Bank sync through the user's own aggregator account. Lumio stores the
+ * Bank sync through the user's own aggregator account. Seneca stores the
  * credential encrypted next to the other open-protocol integrations, pulls on
  * demand or every six hours, and feeds each account's new rows to statement
  * import as an OFX file, so everything downstream (dedupe, rules, review

@@ -25,7 +25,7 @@ export interface UstvaResult {
   /**
    * The last monthly return of the year under a standing extension: the
    * Sondervorauszahlung paid in February is deducted on line 49 (Kz 39),
-   * which Lumio does not know.
+   * which Seneca does not know.
    */
   sondervorauszahlungDue: boolean;
 }

@@ -75,7 +75,7 @@ describe('GoalCoverPicker', () => {
         name: preset.id.charAt(0).toUpperCase() + preset.id.slice(1),
       });
       expect(tile).toHaveAttribute('title');
-      expect(tile.querySelector('.lumio-goal-cover')?.getAttribute('data-tone')).toBe(
+      expect(tile.querySelector('.seneca-goal-cover')?.getAttribute('data-tone')).toBe(
         String(preset.tone),
       );
     }
@@ -86,7 +86,7 @@ describe('GoalCoverPicker', () => {
 
     const home = screen.getByRole('button', { name: 'Home' });
     expect(home).toHaveAttribute('aria-pressed', 'true');
-    expect(home.querySelector('.lumio-goal-cover-tile__tick')).not.toBeNull();
+    expect(home.querySelector('.seneca-goal-cover-tile__tick')).not.toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Travel' }));
     expect(onSelect).toHaveBeenCalledWith({ kind: 'preset', preset: 'travel' });

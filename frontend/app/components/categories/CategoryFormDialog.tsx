@@ -58,7 +58,7 @@ interface CategoryFormDialogProps {
 /** The icon the category has now: a line glyph, or a picture uploaded before uploads were dropped. */
 function CurrentIcon({ icon, withoutIcon }: { icon: string; withoutIcon: boolean }) {
   if (withoutIcon) {
-    return <span className="lumio-category-dialog__no-icon" aria-hidden="true" />;
+    return <span className="seneca-category-dialog__no-icon" aria-hidden="true" />;
   }
   const url = resolveIconUrl(icon);
   if (url) {
@@ -165,7 +165,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
       }
     >
       <form
-        className="lumio-category-dialog"
+        className="seneca-category-dialog"
         onSubmit={event => {
           event.preventDefault();
           if (named && !saving) {
@@ -173,13 +173,13 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
           }
         }}
       >
-        <div className="lumio-category-dialog__row">
-          <div className="lumio-category-dialog__field lumio-category-dialog__field--grow">
-            <label htmlFor="category-name" className="lumio-category-dialog__label">
+        <div className="seneca-category-dialog__row">
+          <div className="seneca-category-dialog__field seneca-category-dialog__field--grow">
+            <label htmlFor="category-name" className="seneca-category-dialog__label">
               {t.dialog.nameLabel}
             </label>
-            <div className="lumio-category-dialog__name">
-              <span className="lumio-category-dialog__name-icon">
+            <div className="seneca-category-dialog__name">
+              <span className="seneca-category-dialog__name-icon">
                 <CurrentIcon icon={formData.icon} withoutIcon={formData.withoutIcon} />
               </span>
               <input
@@ -192,13 +192,13 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
               />
             </div>
           </div>
-          <div className="lumio-category-dialog__field">
-            <span className="lumio-category-dialog__label" id="category-type-label">
+          <div className="seneca-category-dialog__field">
+            <span className="seneca-category-dialog__label" id="category-type-label">
               {t.type.label}
             </span>
             {/* Two choices side by side, not a dropdown that hides one of them. */}
             <div
-              className="lumio-category-dialog__segment"
+              className="seneca-category-dialog__segment"
               role="radiogroup"
               aria-labelledby="category-type-label"
             >
@@ -217,12 +217,12 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
           </div>
         </div>
 
-        <div className="lumio-category-dialog__field">
-          <span className="lumio-category-dialog__label" id="category-icon-label">
+        <div className="seneca-category-dialog__field">
+          <span className="seneca-category-dialog__label" id="category-icon-label">
             {t.dialog.chooseIcon}
           </span>
           <Box
-            className="lumio-category-dialog__icons"
+            className="seneca-category-dialog__icons"
             role="radiogroup"
             aria-labelledby="category-icon-label"
           >
@@ -234,7 +234,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
               aria-label={tx(['dialog', 'withoutIcon'], 'Without icon')}
               onClick={() => setFormData({ ...formData, withoutIcon: true })}
             >
-              <span className="lumio-category-dialog__no-icon" aria-hidden="true" />
+              <span className="seneca-category-dialog__no-icon" aria-hidden="true" />
             </button>
             {CATEGORY_ICON_CHOICES.map(({ value, label, Icon }) => (
               <button

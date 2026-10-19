@@ -44,7 +44,7 @@ describe('BackupsService', () => {
     };
     const configurationRepository = repository(configuration);
     const runRepository = repository();
-    const destination = { store: jest.fn().mockResolvedValue('nightly-workspace-1/backup.lumio-backup') };
+    const destination = { store: jest.fn().mockResolvedValue('nightly-workspace-1/backup.seneca-backup') };
     const archive = { create: jest.fn().mockResolvedValue(Buffer.from('encrypted archive')) };
     const service = createService({ configurationRepository, runRepository, destination, archive });
 
@@ -61,7 +61,7 @@ describe('BackupsService', () => {
     );
     expect(destination.store).toHaveBeenCalledWith(
       configuration,
-      expect.stringMatching(/\.lumio-backup$/),
+      expect.stringMatching(/\.seneca-backup$/),
       Buffer.from('encrypted archive'),
     );
     expect(run.status).toBe(BackupRunStatus.SUCCEEDED);
@@ -109,7 +109,7 @@ describe('BackupsService', () => {
         encryptedDataKey: 'server-wrapped-data-key',
         passwordEnvelope: { kdf: {}, wrappedDataKey: {} },
       });
-      const destination = { store: jest.fn().mockResolvedValue('nightly/backup.lumio-backup') };
+      const destination = { store: jest.fn().mockResolvedValue('nightly/backup.seneca-backup') };
       const archive = { create: jest.fn().mockResolvedValue(Buffer.from('encrypted archive')) };
       const service = createService({ configurationRepository, destination, archive, auditService });
 
@@ -150,15 +150,15 @@ describe('BackupsService', () => {
       id: 'run-1',
       workspaceId: 'workspace-1',
       status: BackupRunStatus.SUCCEEDED,
-      destinationFile: 'nightly-workspace-1/backup.lumio-backup',
+      destinationFile: 'nightly-workspace-1/backup.seneca-backup',
     });
     const destination = { load: jest.fn().mockResolvedValue(Buffer.from('archive')) };
     const service = createService({ configurationRepository, runRepository, destination });
 
     const result = await service.downloadRun(user, 'workspace-1', 'run-1');
 
-    expect(destination.load).toHaveBeenCalledWith(configuration, 'nightly-workspace-1/backup.lumio-backup');
-    expect(result).toEqual({ fileName: 'backup.lumio-backup', contents: Buffer.from('archive') });
+    expect(destination.load).toHaveBeenCalledWith(configuration, 'nightly-workspace-1/backup.seneca-backup');
+    expect(result).toEqual({ fileName: 'backup.seneca-backup', contents: Buffer.from('archive') });
   });
 
   it('limits configuration and backup runs to the workspace owner', async () => {

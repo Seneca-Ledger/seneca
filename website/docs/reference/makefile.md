@@ -28,7 +28,7 @@ Run `make help` for the same list in your terminal. Docker targets use `docker c
 - `make clean-build-cache` - Remove unused Docker build cache
 
 To run the published images instead of building them, use `docker compose pull && docker compose up -d` and pin a
-release with `LUMIO_IMAGE_TAG`.
+release with `IMAGE_TAG`.
 
 ## Logs
 
@@ -56,7 +56,7 @@ These run inside the running `finflow-backend` container. The production backend
 ## User management
 
 - `make admin email=admin@example.com password=admin123 name="Admin"` - Create an admin user
-- `make seed-demo` - Create the demo user (`demo@lumio.dev` / `demo123`)
+- `make seed-demo` - Create the demo user (`demo@seneca.dev` / `demo123`)
 
 ## Testing
 

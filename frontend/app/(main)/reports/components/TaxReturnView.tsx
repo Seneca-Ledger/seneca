@@ -105,7 +105,7 @@ export function TaxReturnView(): React.ReactElement {
     enabled: Boolean(workspaceId),
   });
   const presets = filing.data?.frequency === 'monthly' ? MONTH_PRESETS : QUARTER_PRESETS;
-  // A return filed outside Lumio: stop the reminders, lock nothing.
+  // A return filed outside Seneca: stop the reminders, lock nothing.
   const filedElsewhere = useMutation({
     mutationFn: async (periodEnd: string) => {
       await apiClient.put('/tax/deadlines/filed-elsewhere', {

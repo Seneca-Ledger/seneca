@@ -120,7 +120,7 @@ const sourceField = (column: CustomTableColumn): unknown =>
   (column.config?.source as { field?: unknown } | undefined)?.field;
 
 /**
- * A text column holding ISO currency codes. Tables filled from Lumio data tag
+ * A text column holding ISO currency codes. Tables filled from Seneca data tag
  * it on creation (`config.source.field`, set by the backend for app and
  * data-entry sources), so it gets the app's currency drawer instead of free text.
  */

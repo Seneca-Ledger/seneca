@@ -99,7 +99,7 @@ describe('AuthLanguageSwitcher', () => {
 
     // The sign-in page reuses the app's language drawer, selected-row style included.
     expect(selectedLanguage).toBeTruthy();
-    expect(selectedLanguage?.className).toContain('lumio-navigation__lang-option--selected');
+    expect(selectedLanguage?.className).toContain('seneca-navigation__lang-option--selected');
   });
 
   it('lists English first, then Germanic, then Romance, then the rest', async () => {

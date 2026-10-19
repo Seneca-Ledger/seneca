@@ -24,9 +24,10 @@ export interface OfflineStore {
   remove(id: string): Promise<void>;
 }
 
+// Named before the rename; a new name would strand entries still waiting to be sent.
 const DB_NAME = 'lumio-offline';
 const STORE = 'queue';
-export const OFFLINE_QUEUE_EVENT = 'lumio-offline-queue';
+export const OFFLINE_QUEUE_EVENT = 'seneca-offline-queue';
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

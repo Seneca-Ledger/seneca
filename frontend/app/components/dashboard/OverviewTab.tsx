@@ -94,16 +94,16 @@ function signed(value: number, formatAmount: (value: number) => string): string 
 function OverviewEmptyState(): React.JSX.Element {
   const t = useIntlayer('overviewTab');
   return (
-    <div className="lumio-dashboard__empty">
+    <div className="seneca-dashboard__empty">
       <span
-        className="lumio-dashboard__card-empty-icon lumio-dashboard__card-empty-icon--lg"
+        className="seneca-dashboard__card-empty-icon seneca-dashboard__card-empty-icon--lg"
         aria-hidden="true"
       >
         <UploadFileOutlined sx={{ fontSize: 48 }} />
       </span>
-      <h2 className="lumio-dashboard__empty-title">{t.emptyTitle}</h2>
-      <p className="lumio-dashboard__empty-desc">{t.emptyDescription}</p>
-      <Link href="/statements?openExpenseDrawer=scan" className="lumio-dashboard__empty-cta">
+      <h2 className="seneca-dashboard__empty-title">{t.emptyTitle}</h2>
+      <p className="seneca-dashboard__empty-desc">{t.emptyDescription}</p>
+      <Link href="/statements?openExpenseDrawer=scan" className="seneca-dashboard__empty-cta">
         <FileUp size={16} />
         {t.emptyCta}
       </Link>
@@ -244,7 +244,7 @@ export function OverviewTab({
   // their partner has been working, not an invitation to start from scratch.
   if (!data.dataHealth?.lastUploadDate) {
     return (
-      <div className="lumio-dashboard__tab">
+      <div className="seneca-dashboard__tab">
         {gettingStarted}
         <OverviewEmptyState />
         <WorkspaceActivityCard />

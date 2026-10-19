@@ -43,7 +43,7 @@ export type AddPayablePaymentBody = Wire<typeof AddPayablePaymentBody>;
 
 /**
  * `POST /payables/:id/payments/:paymentId/book`: where the money of a payment
- * marked without it went — a bank row already in Lumio, or a wallet (cash).
+ * marked without it went — a bank row already in Seneca, or a wallet (cash).
  */
 export const BookPayablePaymentBody = Schema.Struct({
   linkedTransactionId: optionalNullable(Schema.String.check(Schema.isUUID())),

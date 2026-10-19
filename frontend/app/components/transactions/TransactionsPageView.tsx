@@ -203,15 +203,15 @@ export default function TransactionsPageView({
 
       {/* Bulk Actions Toolbar */}
       {selectedIds.length > 0 && (
-        <div className="lumio-tx-bulk">
-          <div className="lumio-tx-bulk__count">
-            <span className="lumio-tx-bulk__badge">{selectedIds.length}</span>
+        <div className="seneca-tx-bulk">
+          <div className="seneca-tx-bulk__count">
+            <span className="seneca-tx-bulk__badge">{selectedIds.length}</span>
             <Typography sx={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>
               {t.selected.value}
             </Typography>
           </div>
 
-          <div className="lumio-tx-bulk__controls">
+          <div className="seneca-tx-bulk__controls">
             <Select
               value={bulkCategoryId}
               onChange={setBulkCategoryId}
@@ -228,7 +228,7 @@ export default function TransactionsPageView({
               type="button"
               onClick={handleBulkAssignCategory}
               disabled={!bulkCategoryId}
-              className="lumio-tx-bulk__apply-btn"
+              className="seneca-tx-bulk__apply-btn"
             >
               {t.apply.value}
             </button>
@@ -237,7 +237,7 @@ export default function TransactionsPageView({
           <button
             type="button"
             onClick={() => setSelectedIds([])}
-            className="lumio-tx-bulk__clear-btn"
+            className="seneca-tx-bulk__clear-btn"
           >
             {t.clearSelection.value}
           </button>

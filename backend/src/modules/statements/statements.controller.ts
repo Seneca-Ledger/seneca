@@ -19,6 +19,7 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { APP_SLUG } from '../../common/brand';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
@@ -295,7 +296,7 @@ export class StatementsController {
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async exportZip(@WorkspaceId() workspaceId: string, @Res() res: Response) {
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename="lumio-export.zip"');
+    res.setHeader('Content-Disposition', `attachment; filename="${APP_SLUG}-export.zip"`);
     await this.statementsService.exportZip(workspaceId, res);
   }
 

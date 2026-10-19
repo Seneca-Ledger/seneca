@@ -3,8 +3,8 @@ title: Configuration
 description: Environment variables and integration setup
 ---
 
-Lumio ships with working defaults for local development — `npm run setup:env` generates them.
-Production deployments need real secrets and a few settings that match how you host Lumio.
+Seneca ships with working defaults for local development — `npm run setup:env` generates them.
+Production deployments need real secrets and a few settings that match how you host Seneca.
 
 ## Root environment (.env)
 
@@ -30,7 +30,7 @@ Also set for production:
 - `METRICS_AUTH_TOKEN` if you scrape `/api/v1/metrics` — see [Observability](../guides/observability)
 - `TELEGRAM_WEBHOOK_SECRET` when the Telegram webhook is enabled
 
-Optional: `LUMIO_IMAGE_TAG` pins the prebuilt GHCR images, and `DB_QUERY_LOGGING=true` logs every SQL
+Optional: `IMAGE_TAG` pins the prebuilt GHCR images, and `DB_QUERY_LOGGING=true` logs every SQL
 query.
 
 ## Sessions, CORS and security

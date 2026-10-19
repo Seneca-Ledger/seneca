@@ -36,11 +36,11 @@ export function EmptyState({
   return (
     <div
       className={[
-        'lumio-empty-state',
-        compact && 'lumio-empty-state--compact',
-        fill && 'lumio-empty-state--fill',
+        'seneca-empty-state',
+        compact && 'seneca-empty-state--compact',
+        fill && 'seneca-empty-state--fill',
         // Named illustrations are line icons now too: one look for every empty screen.
-        'lumio-empty-state--icon',
+        'seneca-empty-state--icon',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -48,12 +48,12 @@ export function EmptyState({
       {illustration ? (
         <EmptyStateIllustration name={illustration} size={size} />
       ) : (
-        <span className="lumio-empty-state__icon">{icon}</span>
+        <span className="seneca-empty-state__icon">{icon}</span>
       )}
-      {title && <h2 className="lumio-empty-state__title">{title}</h2>}
-      {description && <p className="lumio-empty-state__desc">{description}</p>}
-      {action && <div className="lumio-empty-state__action">{action}</div>}
-      {hint && <p className="lumio-empty-state__hint">{hint}</p>}
+      {title && <h2 className="seneca-empty-state__title">{title}</h2>}
+      {description && <p className="seneca-empty-state__desc">{description}</p>}
+      {action && <div className="seneca-empty-state__action">{action}</div>}
+      {hint && <p className="seneca-empty-state__hint">{hint}</p>}
     </div>
   );
 }

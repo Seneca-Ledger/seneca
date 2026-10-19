@@ -126,7 +126,7 @@ export function ForecastContent() {
     data.openingBalance === 0;
 
   return (
-    <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}>
+    <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}>
       <Box
         sx={{
           display: 'flex',

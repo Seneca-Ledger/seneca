@@ -198,7 +198,7 @@ describe("CustomTablesService.convertToStatement", () => {
 	const originalUploadsDir = process.env.UPLOADS_DIR;
 
 	beforeEach(() => {
-		process.env.UPLOADS_DIR = "/tmp/lumio-custom-table-tests";
+		process.env.UPLOADS_DIR = "/tmp/seneca-custom-table-tests";
 	});
 
 	afterEach(() => {
@@ -413,7 +413,7 @@ describe("CustomTablesService.convertToStatement", () => {
 				userId: "user-1",
 				workspaceId: "workspace-1",
 				fileName: "old.csv",
-				filePath: "/tmp/lumio-custom-table-tests/old.csv",
+				filePath: "/tmp/seneca-custom-table-tests/old.csv",
 				parsingDetails: {
 					importPreview: {
 						source: "custom-table-conversion",

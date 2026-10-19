@@ -97,14 +97,14 @@ export function BudgetImpactNotice({ categoryId, amount, currency, date }: Props
   if (lines.length === 0) return null;
 
   return (
-    <ul className="lumio-expense-drawer__impact" aria-live="polite">
+    <ul className="seneca-expense-drawer__impact" aria-live="polite">
       {lines.map(line => (
         <li
           key={line.key}
           className={
             line.warn
-              ? 'lumio-expense-drawer__impact-line lumio-expense-drawer__impact-line--warn'
-              : 'lumio-expense-drawer__impact-line'
+              ? 'seneca-expense-drawer__impact-line seneca-expense-drawer__impact-line--warn'
+              : 'seneca-expense-drawer__impact-line'
           }
         >
           {line.text}

@@ -24,10 +24,10 @@ const SKELETON_COLUMNS = 5;
 
 function LoadingSkeleton({ rows }: { rows: number }) {
   return (
-    <div className="lumio-ct" aria-busy>
-      <div className="lumio-ct__header">
+    <div className="seneca-ct" aria-busy>
+      <div className="seneca-ct__header">
         <Skeleton variant="circular" width={32} height={32} />
-        <div className="lumio-ct__title-row">
+        <div className="seneca-ct__title-row">
           <Skeleton variant="text" width={240} height={36} />
           <Skeleton variant="text" width={160} height={22} />
         </div>
@@ -37,7 +37,7 @@ function LoadingSkeleton({ rows }: { rows: number }) {
         rows={rows}
         columns={SKELETON_COLUMNS}
         rowHeight={ROW_HEIGHT}
-        className="lumio-ct__grid"
+        className="seneca-ct__grid"
       />
     </div>
   );
@@ -124,7 +124,7 @@ function TablePage({ state, skeletonRows }: { state: CustomTablePageState; skele
   }
   const groupColumn = state.groupBy ? columns.find(c => c.key === state.groupBy) : undefined;
   return (
-    <div className="lumio-ct lumio-ct--fill">
+    <div className="seneca-ct seneca-ct--fill">
       <TablePageHeader
         table={table}
         total={grid.total}
@@ -237,7 +237,7 @@ export default function CustomTableDetailPage() {
   }
   if (!state.data.table) {
     return (
-      <div className="lumio-ct">
+      <div className="seneca-ct">
         <p>{state.labels.notFound.title}</p>
         <Button variant="outline" type="button" onClick={() => state.router.push('/custom-tables')}>
           {state.labels.notFound.back}

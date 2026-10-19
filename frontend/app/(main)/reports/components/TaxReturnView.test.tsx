@@ -17,6 +17,7 @@ vi.mock('@/app/lib/api', () => ({
 }));
 
 import { TaxReturnView } from './TaxReturnView';
+import { APP_NAME } from '@/app/lib/brand';
 
 const TOTALS = {
   outputTax: 1200,
@@ -266,7 +267,7 @@ describe('TaxReturnView', () => {
     // Where the date comes from, and when that was read.
     expect(banners).toHaveTextContent('2026-10-10');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Filed outside Lumio' }));
+    await userEvent.click(screen.getByRole('button', { name: `Filed outside ${APP_NAME}` }));
     await waitFor(() =>
       expect(put).toHaveBeenCalledWith('/tax/deadlines/filed-elsewhere', {
         kind: 'vat_return',

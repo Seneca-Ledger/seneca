@@ -23,13 +23,13 @@ export function StatementsDuplicateGroup({
   return (
     <button
       type="button"
-      className="lumio-stmt-list-view__duplicate-chip"
+      className="seneca-stmt-list-view__duplicate-chip"
       onClick={onSelectDetectedDuplicates}
       disabled={loading || duplicateStatementIds.length === 0}
     >
       <Copy size={14} />
       {selectDuplicatesLabel}
-      <span className="lumio-stmt-list-view__duplicate-count">
+      <span className="seneca-stmt-list-view__duplicate-count">
         {loading ? <Spinner size={12} /> : duplicateStatementIds.length}
       </span>
     </button>

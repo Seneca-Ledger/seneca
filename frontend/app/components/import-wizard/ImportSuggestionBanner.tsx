@@ -32,9 +32,9 @@ export function ImportSuggestionBanner(
   const targetLabel = t.targets[suggestion.target].value;
   return (
     <>
-      <p className="lumio-ct__hint lumio-iw__banner" data-testid="import-suggestion-banner">
+      <p className="seneca-ct__hint seneca-iw__banner" data-testid="import-suggestion-banner">
         <span>{fillTemplate(t.banner.text.value, { target: targetLabel })}</span>{' '}
-        <button type="button" className="lumio-iw__banner-action" onClick={() => setOpen(true)}>
+        <button type="button" className="seneca-iw__banner-action" onClick={() => setOpen(true)}>
           {fillTemplate(t.banner.action.value, { target: targetLabel })}
         </button>
       </p>

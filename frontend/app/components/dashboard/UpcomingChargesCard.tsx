@@ -88,7 +88,7 @@ export function UpcomingChargesCard({
       {upcoming.data.length === 0 ? (
         <CardEmpty icon={EventRepeatOutlined}>{t.upcomingEmpty}</CardEmpty>
       ) : (
-        <div className="lumio-dashboard__list">
+        <div className="seneca-dashboard__list">
           {upcoming.data.slice(0, VISIBLE_ITEMS).map(item => {
             const day = item.nextChargeDate?.slice(0, 10) ?? null;
             const offset = day ? daysFromToday(day) : null;
@@ -109,7 +109,7 @@ export function UpcomingChargesCard({
         </div>
       )}
       {summary.data && summary.data.totalMonthlyCost > 0 && (
-        <p className="lumio-dashboard__card-note lumio-dashboard__card-note--footer">
+        <p className="seneca-dashboard__card-note seneca-dashboard__card-note--footer">
           {fill(t.upcomingMonthly.value, {
             amount: formatAmount(summary.data.totalMonthlyCost),
           })}

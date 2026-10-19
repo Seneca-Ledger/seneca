@@ -125,7 +125,7 @@ describe('api single-flight refresh', () => {
 
     const response = await apiClient.get('/dashboard');
 
-    expect(request).toHaveBeenCalledWith('lumio-auth-refresh', expect.any(Function));
+    expect(request).toHaveBeenCalledWith('seneca-auth-refresh', expect.any(Function));
     expect(order).toEqual(['lock', 'refresh', 'unlock']);
     expect(response.status).toBe(200);
   });

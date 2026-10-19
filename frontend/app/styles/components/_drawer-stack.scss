@@ -9,7 +9,7 @@ $cover-fade: 200ms;
   transition: opacity $cover-fade ease;
 }
 
-[data-lumio-covered] {
+[data-seneca-covered] {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -30,12 +30,12 @@ $cover-fade: 200ms;
 // laptop at 150% can be under 900px wide, so the guard is the pointer, not width.
 @media (hover: hover) and (pointer: fine) {
   .MuiDrawer-paper {
-    zoom: var(--lumio-drawer-zoom, 1);
+    zoom: var(--seneca-drawer-zoom, 1);
 
-    @media (max-height: 860px) { --lumio-drawer-zoom: 0.94; }
-    @media (max-height: 780px) { --lumio-drawer-zoom: 0.88; }
-    @media (max-height: 700px) { --lumio-drawer-zoom: 0.82; }
-    @media (max-height: 620px) { --lumio-drawer-zoom: 0.76; }
-    @media (max-height: 540px) { --lumio-drawer-zoom: 0.7; }
+    @media (max-height: 860px) { --seneca-drawer-zoom: 0.94; }
+    @media (max-height: 780px) { --seneca-drawer-zoom: 0.88; }
+    @media (max-height: 700px) { --seneca-drawer-zoom: 0.82; }
+    @media (max-height: 620px) { --seneca-drawer-zoom: 0.76; }
+    @media (max-height: 540px) { --seneca-drawer-zoom: 0.7; }
   }
 }

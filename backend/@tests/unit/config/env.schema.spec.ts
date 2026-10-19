@@ -5,7 +5,7 @@ import { validateEnv } from '@/config/env.schema';
 
 const production = {
   NODE_ENV: 'production',
-  DATABASE_URL: 'postgresql://lumio:s3cret-pass@db:5432/lumio',
+  DATABASE_URL: 'postgresql://seneca:s3cret-pass@db:5432/seneca',
   REDIS_URL: 'redis://redis:6379/0',
   PORT: '3001',
   JWT_SECRET: 'jwt',
@@ -45,7 +45,7 @@ describe('validateEnv', () => {
   });
 
   it('never echoes a value into the error', () => {
-    const leaky = 'mysql://root:hunter2@db/lumio';
+    const leaky = 'mysql://root:hunter2@db/seneca';
     let message = '';
     try {
       validateEnv({ ...production, DATABASE_URL: leaky, JWT_SECRET: '' });

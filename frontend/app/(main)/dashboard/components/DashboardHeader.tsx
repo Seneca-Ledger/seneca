@@ -31,18 +31,18 @@ export function DashboardHeader({
   labels,
 }: DashboardHeaderProps): React.JSX.Element {
   return (
-    <div className="lumio-dashboard-header">
-      <div className="lumio-dashboard-header__tabs">
+    <div className="seneca-dashboard-header">
+      <div className="seneca-dashboard-header__tabs">
         <DashboardTabs activeTab={activeTab} onTabChange={onTabChange} labels={labels.tabs} />
       </div>
-      <div className="lumio-dashboard-header__controls" data-tour-shot="dashboard-month">
+      <div className="seneca-dashboard-header__controls" data-tour-shot="dashboard-month">
         <MonthStrip
           displayMonth={displayMonth}
           onChange={changeMonth}
           locale={locale}
           labels={labels.monthStrip}
         />
-        {periodBanner && <div className="lumio-dashboard__period-banner">{periodBanner}</div>}
+        {periodBanner && <div className="seneca-dashboard__period-banner">{periodBanner}</div>}
       </div>
     </div>
   );

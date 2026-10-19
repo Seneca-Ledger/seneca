@@ -43,12 +43,12 @@ interface ActionRowProps {
 /** One action of the list: what it does, a line on what it means, an arrow. */
 function ActionRow({ label, hint, onClick, disabled }: ActionRowProps): React.JSX.Element {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} className="lumio-tx-action">
-      <span className="lumio-tx-action__text">
-        <span className="lumio-tx-action__label">{label}</span>
-        {hint && <span className="lumio-tx-action__hint">{hint}</span>}
+    <button type="button" onClick={onClick} disabled={disabled} className="seneca-tx-action">
+      <span className="seneca-tx-action__text">
+        <span className="seneca-tx-action__label">{label}</span>
+        {hint && <span className="seneca-tx-action__hint">{hint}</span>}
       </span>
-      <ChevronRight size={16} className="lumio-tx-action__arrow" aria-hidden />
+      <ChevronRight size={16} className="seneca-tx-action__arrow" aria-hidden />
     </button>
   );
 }
@@ -182,10 +182,10 @@ export function TransactionDetailsTab({
   };
 
   return (
-    <div className="lumio-tx-detail">
+    <div className="seneca-tx-detail">
       {/* Actions */}
       {transaction.transferPairId && (
-        <div className="lumio-tx-detail__cat-badge" data-testid="transfer-badge">
+        <div className="seneca-tx-detail__cat-badge" data-testid="transfer-badge">
           {isInvestmentPair
             ? t.investment.badge.value
             : isReimbursementPair
@@ -195,7 +195,7 @@ export function TransactionDetailsTab({
       )}
       {transaction.reimbursementOf && (
         <div
-          className="lumio-tx-detail__value"
+          className="seneca-tx-detail__value"
           style={{ fontSize: 12, color: 'var(--muted-foreground)' }}
           data-testid="reimburses"
         >
@@ -206,14 +206,14 @@ export function TransactionDetailsTab({
         </div>
       )}
 
-      <div className="lumio-tx-detail__actions">
+      <div className="seneca-tx-detail__actions">
         {/* Set Category */}
         {onUpdateCategory && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label htmlFor="category-select" className="lumio-tx-detail__field-label">
+            <label htmlFor="category-select" className="seneca-tx-detail__field-label">
               {t.splitDialog.category.value}
             </label>
-            <div className="lumio-tx-detail__set-cat">
+            <div className="seneca-tx-detail__set-cat">
               <Select
                 id="category-select"
                 value={currentCategoryId}
@@ -229,7 +229,7 @@ export function TransactionDetailsTab({
                       label: isMobile ? (
                         name
                       ) : (
-                        <span className="lumio-tx-detail__cat-option">
+                        <span className="seneca-tx-detail__cat-option">
                           <CategoryIconBadge
                             name={cat.name}
                             color={cat.color}
@@ -251,7 +251,7 @@ export function TransactionDetailsTab({
         {/* Who in the household it belongs to */}
         {members.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label htmlFor="owner-select" className="lumio-tx-detail__field-label">
+            <label htmlFor="owner-select" className="seneca-tx-detail__field-label">
               {tOwner.assignOwner.value}
             </label>
             <Select
@@ -274,7 +274,7 @@ export function TransactionDetailsTab({
         {/* Hidden from the rest of the household */}
         {members.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label className="lumio-tx-detail__check">
+            <label className="seneca-tx-detail__check">
               <input
                 type="checkbox"
                 checked={transaction.isPrivate === true}
@@ -292,7 +292,7 @@ export function TransactionDetailsTab({
         )}
 
         {/* What can be done to the row: a list, each with a line on what it means. */}
-        <div className="lumio-tx-detail__action-list">
+        <div className="seneca-tx-detail__action-list">
           {/* Split / Undo split */}
           {onSplitDone &&
             (transaction.splitGroupId ? (
@@ -387,19 +387,19 @@ export function TransactionDetailsTab({
       </div>
 
       {contribution.accounts && (
-        <div className="lumio-tx-detail__section" data-testid="contribution-accounts">
-          <div className="lumio-tx-detail__label">{t.investment.pick.value}</div>
+        <div className="seneca-tx-detail__section" data-testid="contribution-accounts">
+          <div className="seneca-tx-detail__label">{t.investment.pick.value}</div>
           {contribution.accounts.length === 0 ? (
-            <div className="lumio-tx-detail__label">{t.investment.none.value}</div>
+            <div className="seneca-tx-detail__label">{t.investment.none.value}</div>
           ) : (
-            <div className="lumio-tx-detail__actions">
+            <div className="seneca-tx-detail__actions">
               {contribution.accounts.map(account => (
                 <button
                   key={account.id}
                   type="button"
                   onClick={() => contribution.link(transaction.id, account.id)}
                   disabled={contribution.saving}
-                  className="lumio-tx-detail__ignore-btn"
+                  className="seneca-tx-detail__ignore-btn"
                 >
                   {account.name}
                 </button>
@@ -409,7 +409,7 @@ export function TransactionDetailsTab({
           <button
             type="button"
             onClick={contribution.clearAccounts}
-            className="lumio-tx-detail__ignore-btn"
+            className="seneca-tx-detail__ignore-btn"
           >
             {t.transfer.cancel.value}
           </button>
@@ -417,12 +417,12 @@ export function TransactionDetailsTab({
       )}
 
       {transferCandidates && (
-        <div className="lumio-tx-detail__section" data-testid="transfer-candidates">
-          <div className="lumio-tx-detail__label">
+        <div className="seneca-tx-detail__section" data-testid="transfer-candidates">
+          <div className="seneca-tx-detail__label">
             {linkMode === 'reimbursement' ? t.reimbursement.pick.value : t.transfer.pick.value}
           </div>
           {transferCandidates.length === 0 ? (
-            <div className="lumio-tx-detail__value">
+            <div className="seneca-tx-detail__value">
               {linkMode === 'reimbursement'
                 ? t.reimbursement.noCandidates.value
                 : t.transfer.noCandidates.value}
@@ -438,7 +438,7 @@ export function TransactionDetailsTab({
                     : linkTransfer(transaction.id, candidate.id)
                 }
                 disabled={transferSaving}
-                className="lumio-tx-detail__ignore-btn"
+                className="seneca-tx-detail__ignore-btn"
                 style={{ display: 'block', width: '100%', textAlign: 'left', marginTop: 6 }}
               >
                 {formatDate(candidate.transactionDate, locale)} · {candidate.counterpartyName} ·{' '}
@@ -453,7 +453,7 @@ export function TransactionDetailsTab({
           <button
             type="button"
             onClick={clearTransferCandidates}
-            className="lumio-tx-detail__ignore-btn"
+            className="seneca-tx-detail__ignore-btn"
             style={{ marginTop: 6 }}
           >
             {t.transfer.cancel.value}

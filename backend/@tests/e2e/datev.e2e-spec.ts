@@ -7,6 +7,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { deleteUserByEmail, e2eTestingModule, registerAccount } from './helpers/e2e-app';
+import { APP_NAME } from '../../src/common/brand';
 
 /**
  * The DATEV export end to end: settings, the category → account mapping, the
@@ -166,7 +167,8 @@ describe('DATEV export (e2e)', () => {
     expect(bytes.includes(Buffer.from('ü', 'utf8'))).toBe(false);
 
     const lines = bytes.toString('latin1').split('\r\n');
-    expect(lines[0]).toMatch(/^"EXTF";700;21;"Buchungsstapel";13;\d{17};;"RE";"Lumio";"";29098;55003;20260101;4;20260301;20260331;/);
+    expect(lines[0]).toMatch(/^"EXTF";700;21;"Buchungsstapel";13;\d{17};;"RE";"[^"]*";"";29098;55003;20260101;4;20260301;20260331;/);
+    expect(lines[0]).toContain(`;"RE";"${APP_NAME}";`);
     const rows = lines.slice(2, -1).map(line => line.split(';').slice(0, 10).join(';'));
     expect(rows).toEqual(
       expect.arrayContaining([

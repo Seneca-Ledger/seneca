@@ -1,6 +1,6 @@
 /**
  * A bank-sync provider is an account the user holds with a data aggregator
- * (SimpleFIN Bridge today). Lumio never talks to a bank itself: it exchanges
+ * (SimpleFIN Bridge today). Seneca never talks to a bank itself: it exchanges
  * the one-time setup token the user pastes for a long-lived credential, keeps
  * that credential encrypted, and pulls what the aggregator exposes.
  */

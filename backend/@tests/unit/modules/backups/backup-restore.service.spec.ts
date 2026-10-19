@@ -55,7 +55,7 @@ describe('BackupRestoreService', () => {
   });
 
   it('restores statement documents from the portable file collection', async () => {
-    const uploads = await fs.mkdtemp(path.join(os.tmpdir(), 'lumio-restore-'));
+    const uploads = await fs.mkdtemp(path.join(os.tmpdir(), 'seneca-restore-'));
     const previousUploads = process.env.UPLOADS_DIR;
     process.env.UPLOADS_DIR = uploads;
     const statementInsert = jest.fn().mockResolvedValue(undefined);

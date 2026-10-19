@@ -21,15 +21,15 @@ export function CardEmpty({
   return (
     <div
       className={clsx(
-        'lumio-dashboard__card-empty',
-        fill && 'lumio-dashboard__card-empty--fill',
+        'seneca-dashboard__card-empty',
+        fill && 'seneca-dashboard__card-empty--fill',
         className,
       )}
     >
-      <span className="lumio-dashboard__card-empty-icon" aria-hidden="true">
+      <span className="seneca-dashboard__card-empty-icon" aria-hidden="true">
         <Icon sx={{ fontSize: 32 }} />
       </span>
-      <p className="lumio-dashboard__card-empty-text">{children}</p>
+      <p className="seneca-dashboard__card-empty-text">{children}</p>
     </div>
   );
 }

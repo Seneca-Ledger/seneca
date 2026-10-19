@@ -9,7 +9,7 @@ interface Props {
 
 function GmailSyncSkeletonRowMobile(): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__skeleton-mobile">
+    <div className="seneca-stmt-list-view__skeleton-mobile">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div
           style={{
@@ -44,7 +44,7 @@ function GmailSyncSkeletonRowMobile(): React.JSX.Element {
 
 function GmailSyncSkeletonRowDesktop(): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__skeleton-desktop">
+    <div className="seneca-stmt-list-view__skeleton-desktop">
       <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -110,7 +110,7 @@ export function StatementsGmailSync({ skeletonKeys }: Props): React.JSX.Element 
         <div
           key={key}
           data-testid="gmail-sync-skeleton-row"
-          className="lumio-stmt-list-view__skeleton-row"
+          className="seneca-stmt-list-view__skeleton-row"
         >
           <GmailSyncSkeletonRowMobile />
           <GmailSyncSkeletonRowDesktop />

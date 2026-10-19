@@ -6,6 +6,7 @@ import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { assertFound } from '../../common/utils/assert-found.util';
 import {
@@ -62,7 +63,7 @@ const THUMBNAIL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  * A reader's User-Agent is a courtesy Openverse asks for, and it is what lets
  * them tell this traffic apart if it ever misbehaves.
  */
-const USER_AGENT = 'Lumio/1.0 (self-hosted personal finance; goal covers)';
+const USER_AGENT = `${APP_NAME}/1.0 (self-hosted personal finance; goal covers)`;
 
 /**
  * Pictures for savings goals, searched on Openverse.
@@ -93,7 +94,7 @@ export class GoalCoversService {
       page: String(page),
       page_size: String(COVER_SEARCH_PAGE_SIZE),
       // Commercially licensed only. It is the stricter pool, and it keeps a
-      // self-hoster who bills clients through Lumio out of a licence question
+      // self-hoster who bills clients through Seneca out of a licence question
       // they never asked to be in.
       license_type: 'commercial',
       // The picker is a plain search box pointed at the open web; this is what

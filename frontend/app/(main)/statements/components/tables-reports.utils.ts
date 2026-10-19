@@ -24,7 +24,7 @@ export interface AvailableTable {
   rowCount: number;
 }
 
-export const TABLES_REPORTS_FILTERS_STORAGE_KEY = 'lumio-tables-reports-filters';
+export const TABLES_REPORTS_FILTERS_STORAGE_KEY = 'seneca-tables-reports-filters';
 
 export const DEFAULT_TABLES_REPORTS_FILTERS: TablesReportsFilters = {
   tableIds: [],

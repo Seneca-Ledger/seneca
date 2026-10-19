@@ -96,11 +96,11 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
       }
     >
       <div style={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity 150ms ease' }}>
-        <div className="lumio-chart__total">{whole(data.current)}</div>
-        <div className="lumio-chart__breakdown">
+        <div className="seneca-chart__total">{whole(data.current)}</div>
+        <div className="seneca-chart__breakdown">
           <span
             className={
-              isPositive ? 'lumio-chart__breakdown-income' : 'lumio-chart__breakdown-expense'
+              isPositive ? 'seneca-chart__breakdown-income' : 'seneca-chart__breakdown-expense'
             }
           >
             {formatSignedAmount(data.change, money)}
@@ -114,8 +114,8 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
         </div>
         {hasData && wide ? (
           // With the row to itself: what the total is made of, beside the line.
-          <div className="lumio-dashboard__chart-aside">
-            <div className="lumio-dashboard__chart-aside-main">
+          <div className="seneca-dashboard__chart-aside">
+            <div className="seneca-dashboard__chart-aside-main">
               <NetWorthChart
                 points={data.series}
                 positive={isPositive}
@@ -123,8 +123,8 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
                 formatTick={tick}
               />
             </div>
-            <div className="lumio-dashboard__chart-aside-side">
-              <dl className="lumio-dashboard__stat-details">
+            <div className="seneca-dashboard__chart-aside-side">
+              <dl className="seneca-dashboard__stat-details">
                 <div>
                   <dt>{netWorthText.assets}</dt>
                   <dd>{whole(data.assetsTotal)}</dd>
@@ -136,7 +136,7 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
               </dl>
               {/* At the peak the high is today's figure again: said in words. */}
               {data.allTimeHigh && (
-                <p className="lumio-dashboard__card-sub">
+                <p className="seneca-dashboard__card-sub">
                   {Math.round(data.allTimeHigh.value) === Math.round(data.current)
                     ? t.netWorthAtHigh
                     : String(netWorthText.allTimeHigh.value)
@@ -151,8 +151,8 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
               )}
               {data.byAssetClass.length > 0 && (
                 <>
-                  <div className="lumio-dashboard__card-sub">{netWorthText.assetClasses}</div>
-                  <dl className="lumio-dashboard__stat-details">
+                  <div className="seneca-dashboard__card-sub">{netWorthText.assetClasses}</div>
+                  <dl className="seneca-dashboard__stat-details">
                     {data.byAssetClass.map(item => {
                       const key =
                         ASSET_CLASS_KEYS[(item.key ?? 'other') as keyof typeof ASSET_CLASS_KEYS] ??

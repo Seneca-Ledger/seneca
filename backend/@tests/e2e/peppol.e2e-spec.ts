@@ -15,7 +15,7 @@ import { deleteUserByEmail, e2eTestingModule, registerAccount } from './helpers/
 
 /**
  * Peppol through the workspace's own Recommand account. Recommand is played
- * by a fake `fetch`: it records what Lumio sends and answers as the API
+ * by a fake `fetch`: it records what Seneca sends and answers as the API
  * documents (https://docs.recommand.eu). Everything else on the way — the
  * invoice, the writers, the database rows, the receipt pipeline — is real.
  */

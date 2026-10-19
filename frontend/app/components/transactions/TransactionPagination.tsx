@@ -30,8 +30,8 @@ export function TransactionPagination({
   const end = Math.min((page + 1) * rowsPerPage, totalCount);
 
   return (
-    <div className="lumio-tx-pagination">
-      <div className="lumio-tx-pagination__left">
+    <div className="seneca-tx-pagination">
+      <div className="seneca-tx-pagination__left">
         <span style={{ fontSize: 14, color: 'var(--foreground)' }}>{rowsPerPageLabel}</span>
         <Select
           size="small"
@@ -43,7 +43,7 @@ export function TransactionPagination({
           options={PAGE_SIZES.map(n => ({ value: n, label: String(n) }))}
         />
       </div>
-      <div className="lumio-tx-pagination__right">
+      <div className="seneca-tx-pagination__right">
         <span style={{ fontSize: 14, color: 'var(--foreground)' }}>
           {start}–{end} {ofLabel} {totalCount}
         </span>

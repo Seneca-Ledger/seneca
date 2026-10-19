@@ -27,11 +27,11 @@ export interface ChipProps {
 function chipClassName(props: ChipProps): string {
   const { active, muted, size, tone } = props;
   return clsx(
-    'lumio-chip',
-    active && 'lumio-chip--active',
-    muted && 'lumio-chip--muted',
-    size === 'sm' && 'lumio-chip--sm',
-    !active && tone && tone !== 'default' && `lumio-chip--tone-${tone}`,
+    'seneca-chip',
+    active && 'seneca-chip--active',
+    muted && 'seneca-chip--muted',
+    size === 'sm' && 'seneca-chip--sm',
+    !active && tone && tone !== 'default' && `seneca-chip--tone-${tone}`,
   );
 }
 
@@ -42,7 +42,7 @@ function ChipContent({
   return (
     <>
       {children}
-      {count !== undefined && <span className="lumio-chip__count">{count}</span>}
+      {count !== undefined && <span className="seneca-chip__count">{count}</span>}
     </>
   );
 }
@@ -108,10 +108,10 @@ export const ChipGroup = forwardRef<HTMLDivElement, ChipGroupProps>(
             : undefined
         }
         className={clsx(
-          'lumio-chip-group',
-          scroll && 'lumio-chip-group--scroll',
-          wrap && 'lumio-chip-group--wrap',
-          size === 'sm' && 'lumio-chip-group--sm',
+          'seneca-chip-group',
+          scroll && 'seneca-chip-group--scroll',
+          wrap && 'seneca-chip-group--wrap',
+          size === 'sm' && 'seneca-chip-group--sm',
           className,
         )}
       >

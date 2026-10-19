@@ -42,9 +42,10 @@ import { InvoiceXRechnungService } from '../../src/modules/invoices/invoice-xrec
 import { InvoicesService } from '../../src/modules/invoices/invoices.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace-currency.service';
+import { APP_NAME } from '../../src/common/brand';
 
 const BASE_URL = process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_invoices_lifecycle_${process.pid}`;
+const SCRATCH_DB = `seneca_invoices_lifecycle_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -190,7 +191,7 @@ describe('invoice status (real Postgres)', () => {
     // Sending refuses without the issuer's details, which is the point of the
     // profile; every status case below needs a sendable workspace.
     await moduleRef.get(BusinessProfileService).update(workspaceId, {
-      legalName: 'Lumio Software OÜ',
+      legalName: `${APP_NAME} Software OÜ`,
       addressLines: 'Tartu mnt 67\n10115 Tallinn',
       registrationId: '16123456',
       taxId: 'EE102345678',
@@ -527,7 +528,7 @@ describe('invoice status (real Postgres)', () => {
       expect(view.number).toBe(invoice.invoiceNumber);
       expect(view.status).toBe('sent');
       expect(view.total).toBe('250.00');
-      expect(view.issuer.legalName).toBe('Lumio Software OÜ');
+      expect(view.issuer.legalName).toBe(`${APP_NAME} Software OÜ`);
       expect(view.issuer.bankAccount).toBe('EE471000001020145685');
       expect(view.billedTo.name).toBe('Beta GmbH');
       expect(view.lines).toEqual([

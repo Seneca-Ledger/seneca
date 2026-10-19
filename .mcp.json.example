@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "lumio": {
+    "seneca": {
       "type": "http",
       "url": "http://localhost:3001/api/v1/mcp",
       "headers": {

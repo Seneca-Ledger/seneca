@@ -36,7 +36,7 @@ export function ExtrasStep({ form }: { form: InvoiceForm }): React.ReactElement 
 
   return (
     <>
-      <div className="lumio-payable-drawer__2col">
+      <div className="seneca-payable-drawer__2col">
         <WizardField
           label={page.detail.currency.value}
           htmlFor="invoice-currency"
@@ -45,7 +45,7 @@ export function ExtrasStep({ form }: { form: InvoiceForm }): React.ReactElement 
           <button
             id="invoice-currency"
             type="button"
-            className="lumio-payable-drawer__currency-trigger"
+            className="seneca-payable-drawer__currency-trigger"
             onClick={() => setCurrencyDrawerOpen(true)}
           >
             {form.currency}
@@ -103,7 +103,7 @@ export function ExtrasStep({ form }: { form: InvoiceForm }): React.ReactElement 
       >
         <textarea
           id="invoice-notes"
-          className="lumio-payable-drawer__textarea"
+          className="seneca-payable-drawer__textarea"
           value={form.notes}
           onChange={event => form.setNotes(event.target.value)}
         />

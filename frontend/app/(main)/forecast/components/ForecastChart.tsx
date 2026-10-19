@@ -46,7 +46,7 @@ export function ForecastChart({
 
   return (
     <>
-      <div className="lumio-chart__box">
+      <div className="seneca-chart__box">
         <LazyNetWorthArea
           points={points}
           positive={positive}

@@ -92,17 +92,17 @@ describe('DataGrid', () => {
 
   it('draws the requested number of placeholder rows while the first page loads', () => {
     const { container } = render(<Harness data={[]} loading skeletonRows={6} />);
-    const placeholders = container.querySelectorAll('.lumio-grid__skeleton-row');
+    const placeholders = container.querySelectorAll('.seneca-grid__skeleton-row');
     expect(placeholders).toHaveLength(6);
     expect(placeholders[0].querySelectorAll('td')).toHaveLength(columns.length);
-    expect(container.querySelector('.lumio-grid__loading-row')).toBeNull();
+    expect(container.querySelector('.seneca-grid__loading-row')).toBeNull();
     expect(screen.queryByText('Nothing here')).toBeNull();
   });
 
   it('keeps the spinner, not placeholders, while more rows load under existing ones', () => {
     const { container } = render(<Harness loading skeletonRows={6} />);
-    expect(container.querySelectorAll('.lumio-grid__skeleton-row')).toHaveLength(0);
-    expect(container.querySelector('.lumio-grid__loading-row')).not.toBeNull();
+    expect(container.querySelectorAll('.seneca-grid__skeleton-row')).toHaveLength(0);
+    expect(container.querySelector('.seneca-grid__loading-row')).not.toBeNull();
   });
 
   it('shows the empty state when there are no rows', () => {

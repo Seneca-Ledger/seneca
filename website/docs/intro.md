@@ -1,15 +1,15 @@
 ---
 title: Introduction
-description: What Lumio is and who it helps
+description: What Seneca is and who it helps
 ---
 
-Lumio is an open-source, self-hosted financial data platform for importing, processing, and analyzing bank
+Seneca is an open-source, self-hosted financial data platform for importing, processing, and analyzing bank
 statements. It combines a NestJS API, a Next.js web app, and a structured parsing pipeline so teams can turn messy
 exports into reliable, queryable financial data.
 
-![Lumio dashboard overview](/img/screenshots/dashboard-overview.png)
+![Seneca dashboard overview](/img/screenshots/dashboard-overview.png)
 
-## What you can do with Lumio
+## What you can do with Seneca
 
 - Import statements from PDF, CSV, XLSX, DOCX, and image files, with OCR for scans and native parsers for Kaspi,
   Bereke, and Bank Hapoalim / Isracard.
@@ -20,7 +20,7 @@ exports into reliable, queryable financial data.
 - Build dashboards, reports, budgets, and goals; draft VAT returns and year-end income tax declarations
   ([Income Tax Declaration](guides/income-tax-declaration)).
 
-## Who Lumio is for
+## Who Seneca is for
 
 - Developers evaluating a production-ready financial data pipeline
 - Contributors building new parsers and integrations

@@ -77,8 +77,8 @@ const statementLabel = (statement: StatementOption): string => {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="lumio-ct__field">
-      <span className="lumio-ct__label">{label}</span>
+    <div className="seneca-ct__field">
+      <span className="seneca-ct__label">{label}</span>
       {children}
     </div>
   );
@@ -187,20 +187,20 @@ export function SourceFilterFields(props: SourceFilterFieldsProps) {
   ];
 
   return (
-    <section className="lumio-ct__source-section">
-      <div className="lumio-ct__section-head">
-        <h3 className="lumio-ct__section-title">{labels.filters.title}</h3>
+    <section className="seneca-ct__source-section">
+      <div className="seneca-ct__section-head">
+        <h3 className="seneca-ct__section-title">{labels.filters.title}</h3>
         {has('dateRange') && (filters.dateFrom || filters.dateTo) ? (
           <button
             type="button"
-            className="lumio-ct__text-button"
+            className="seneca-ct__text-button"
             onClick={() => onChange({ dateFrom: '', dateTo: '' })}
           >
             {labels.preview.allTime}
           </button>
         ) : null}
       </div>
-      <div className="lumio-ct__source-filters">
+      <div className="seneca-ct__source-filters">
         {has('dateRange') ? (
           <>
             <Field label={labels.filters.dateFrom}>
@@ -338,15 +338,15 @@ function PreviewSample({
     .filter((column): column is SourcePreview['columns'][number] => Boolean(column));
   const numeric = (type: string) => type === 'currency' || type === 'number';
   const colClass = (column: SourcePreview['columns'][number]): string | undefined => {
-    if (column.type === 'date') return 'lumio-ct__preview-col--date';
-    if (numeric(column.type)) return 'lumio-ct__preview-col--money';
-    if (ENUM_FIELDS.has(column.field)) return 'lumio-ct__preview-col--enum';
+    if (column.type === 'date') return 'seneca-ct__preview-col--date';
+    if (numeric(column.type)) return 'seneca-ct__preview-col--money';
+    if (ENUM_FIELDS.has(column.field)) return 'seneca-ct__preview-col--enum';
     return undefined;
   };
   const rows = preview.rows.slice(0, SAMPLE_ROWS);
   return (
     <>
-      <table className="lumio-ct__preview-table">
+      <table className="seneca-ct__preview-table">
         <colgroup>
           {columns.map(column => (
             <col key={column.field} className={colClass(column)} />
@@ -357,7 +357,7 @@ function PreviewSample({
             {columns.map(column => (
               <th
                 key={column.field}
-                className={numeric(column.type) ? 'lumio-ct__preview-cell--numeric' : undefined}
+                className={numeric(column.type) ? 'seneca-ct__preview-cell--numeric' : undefined}
               >
                 {column.title}
               </th>
@@ -373,7 +373,9 @@ function PreviewSample({
                   <td
                     key={column.field}
                     title={text}
-                    className={numeric(column.type) ? 'lumio-ct__preview-cell--numeric' : undefined}
+                    className={
+                      numeric(column.type) ? 'seneca-ct__preview-cell--numeric' : undefined
+                    }
                   >
                     {text}
                   </td>
@@ -383,7 +385,7 @@ function PreviewSample({
           ))}
         </tbody>
       </table>
-      <p className="lumio-ct__preview-caption">
+      <p className="seneca-ct__preview-caption">
         {labels.preview.sample
           .replace('{{shown}}', String(rows.length))
           .replace('{{count}}', String(preview.count))}
@@ -432,24 +434,24 @@ export function SourcePreviewPanel(props: SourcePreviewPanelProps) {
   }
 
   return (
-    <section className="lumio-ct__preview-pane" aria-label={labels.preview.title}>
-      <p className="lumio-ct__preview-source">
+    <section className="seneca-ct__preview-pane" aria-label={labels.preview.title}>
+      <p className="seneca-ct__preview-source">
         {labels.preview.sourceLine
           .replace('{{name}}', sourceName)
           .replace('{{count}}', String(source.columnFields.length))}
       </p>
       {existing ? (
-        <p className="lumio-ct__preview-existing">
-          <span className="lumio-ct__preview-dot" aria-hidden="true" />
+        <p className="seneca-ct__preview-existing">
+          <span className="seneca-ct__preview-dot" aria-hidden="true" />
           <span>
             {labels.preview.existing.replace('{{name}}', existing.name)}{' '}
             <Link href={`/custom-tables/${existing.id}`}>{labels.preview.openExisting}</Link>
           </span>
         </p>
       ) : null}
-      <div className="lumio-ct__preview-head">
+      <div className="seneca-ct__preview-head">
         <span
-          className="lumio-ct__preview-count"
+          className="seneca-ct__preview-count"
           aria-live="polite"
           aria-busy={loading}
           data-loading={loading || undefined}
@@ -457,12 +459,12 @@ export function SourcePreviewPanel(props: SourcePreviewPanelProps) {
           {countText}
         </span>
         {onResetFilters ? (
-          <button type="button" className="lumio-ct__text-button" onClick={onResetFilters}>
+          <button type="button" className="seneca-ct__text-button" onClick={onResetFilters}>
             {labels.preview.resetFilters}
           </button>
         ) : null}
       </div>
-      <p className="lumio-ct__preview-note">{labels.preview.overwriteNote}</p>
+      <p className="seneca-ct__preview-note">{labels.preview.overwriteNote}</p>
       {preview && count > 0 ? (
         <PreviewSample preview={preview} fields={source.previewFields} labels={labels} />
       ) : null}

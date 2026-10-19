@@ -7,6 +7,7 @@ import { apiResponse } from '@/app/test/api-response';
 import { workspaceSummary } from '@/app/test/fixtures/contracts';
 import { greetingName } from './greeting-name';
 import WelcomeWindow from './WelcomeWindow';
+import { APP_NAME } from '@/app/lib/brand';
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -67,13 +68,13 @@ describe('WelcomeWindow', () => {
 
   it('greets the person by first name', () => {
     renderWindow();
-    expect(screen.getByRole('dialog', { name: 'Welcome to Lumio, Mia' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: `Welcome to ${APP_NAME}, Mia` })).toBeTruthy();
   });
 
   it('does not greet the technical admin account by name', () => {
     mocks.user = person('Administrator');
     renderWindow();
-    expect(screen.getByRole('dialog', { name: 'Welcome to Lumio' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: `Welcome to ${APP_NAME}` })).toBeTruthy();
   });
 
   it('offers three ways in and promises no tour', () => {

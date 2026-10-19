@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { ChevronDown, Download, FileText } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useLocale } from '@/app/i18n';
+import { APP_NAME } from '@/app/lib/brand';
 import { formatDateTime, type UserFormatPreferences } from '@/app/lib/user-format';
 import {
   downloadRecoveryCodes,
@@ -46,7 +47,7 @@ export function RecoveryCodesDownloadButton({
     setDownloading(true);
     downloadRecoveryCodes(format, {
       locale,
-      title: `Lumio — ${tx(['securityCard', 'recoveryTitle'], 'Recovery codes')}`,
+      title: `${APP_NAME} — ${tx(['securityCard', 'recoveryTitle'], 'Recovery codes')}`,
       details: [
         `${tx(['securityCard', 'fileAccount'], 'Account')}: ${email}`,
         `${tx(['securityCard', 'fileGenerated'], 'Generated')}: ${formatDateTime(new Date(), formatPreferences)}`,

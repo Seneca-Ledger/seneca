@@ -38,7 +38,7 @@ export function ColumnMenu({ column, labels, onEdit, onDelete, total }: ColumnHe
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="lumio-ct__col-menu"
+          className="seneca-ct__col-menu"
           aria-label={`${labels.columnMenu}: ${column.title}`}
           onClick={event => event.stopPropagation()}
         >

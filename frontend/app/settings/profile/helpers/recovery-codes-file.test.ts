@@ -2,12 +2,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as XLSX from 'xlsx';
 import { downloadRecoveryCodes, type RecoveryCodesFileContent } from './recovery-codes-file';
+import { APP_NAME } from '@/app/lib/brand';
 
 const codes = ['SV4EA-ZYFTP', 'F3DYA-87KRK', 'TNMFB-PCAVV'];
 
 const content: RecoveryCodesFileContent = {
   locale: 'ru',
-  title: 'Lumio — Резервные коды',
+  title: `${APP_NAME} — Резервные коды`,
   details: ['Аккаунт: user@example.com', 'Дата создания: 26.09.2026, 12:00'],
   hint: 'Каждый код срабатывает один раз.',
   codes,
@@ -15,7 +16,7 @@ const content: RecoveryCodesFileContent = {
 
 const chinese: RecoveryCodesFileContent = {
   locale: 'zh',
-  title: 'Lumio — 恢复码',
+  title: `${APP_NAME} — 恢复码`,
   details: ['账户: user@example.com', 'Generated: Sep 26, 2026'],
   hint: '每个恢复码可代替身份验证器应用中的验证码使用一次。',
   codes,
@@ -23,7 +24,7 @@ const chinese: RecoveryCodesFileContent = {
 
 const hindi: RecoveryCodesFileContent = {
   locale: 'hi',
-  title: 'Lumio — रिकवरी कोड',
+  title: `${APP_NAME} — रिकवरी कोड`,
   details: ['खाता: user@example.com'],
   hint: 'हर कोड ऑथेंटिकेटर ऐप के कोड की जगह एक बार काम करता है। इस फ़ाइल को सुरक्षित जगह रखें और किसी के साथ साझा न करें।',
   codes,
@@ -103,7 +104,7 @@ describe('downloadRecoveryCodes', () => {
   it('saves a PDF with the title, details, hint and every code as real text', async () => {
     await downloadRecoveryCodes('pdf', content);
 
-    expect(saved?.fileName).toMatch(/^lumio-recovery-codes-\d{4}-\d{2}-\d{2}\.pdf$/);
+    expect(saved?.fileName).toMatch(/^seneca-recovery-codes-\d{4}-\d{2}-\d{2}\.pdf$/);
     const text = await pdfText(await savedBytes());
     for (const line of [content.title, ...content.details, content.hint, ...content.codes]) {
       expect(text).toContain(line);
@@ -142,7 +143,7 @@ describe('downloadRecoveryCodes', () => {
   it('saves a DOCX with the title, details, hint and every code', async () => {
     await downloadRecoveryCodes('docx', content);
 
-    expect(saved?.fileName).toMatch(/^lumio-recovery-codes-\d{4}-\d{2}-\d{2}\.docx$/);
+    expect(saved?.fileName).toMatch(/^seneca-recovery-codes-\d{4}-\d{2}-\d{2}\.docx$/);
     const xml = docxXml(await savedBytes());
     for (const line of [content.title, ...content.details, content.hint, ...content.codes]) {
       expect(xml).toContain(line);
@@ -162,6 +163,6 @@ describe('downloadRecoveryCodes', () => {
       process.env.TZ = previousTz;
     }
 
-    expect(saved?.fileName).toBe('lumio-recovery-codes-2026-09-26.docx');
+    expect(saved?.fileName).toBe('seneca-recovery-codes-2026-09-26.docx');
   });
 });

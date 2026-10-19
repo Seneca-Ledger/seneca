@@ -7,7 +7,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 // Сервис прикладывает сгенерированный отчёт к письму, поэтому путь из мока
 // должен указывать на реально существующий файл.
-const REPORT_FIXTURE = path.join(os.tmpdir(), `lumio-report-fixture-${process.pid}.csv`);
+const REPORT_FIXTURE = path.join(os.tmpdir(), `seneca-report-fixture-${process.pid}.csv`);
 
 beforeAll(() => {
   fs.writeFileSync(REPORT_FIXTURE, 'date,amount\n');

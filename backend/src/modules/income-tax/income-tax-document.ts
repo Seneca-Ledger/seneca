@@ -1,4 +1,5 @@
 import * as xlsx from 'xlsx';
+import { APP_NAME } from '../../common/brand';
 import { toCsv } from '../../common/utils/csv.util';
 import type { IncomeTaxDraft } from './income-tax.types';
 
@@ -11,7 +12,7 @@ import type { IncomeTaxDraft } from './income-tax.types';
  */
 
 export const INCOME_TAX_DOCUMENT_DISCLAIMER =
-  'DRAFT — NOT TAX ADVICE, NOT FILED. Prepared by Lumio from the data you entered. ' +
+  `DRAFT — NOT TAX ADVICE, NOT FILED. Prepared by ${APP_NAME} from the data you entered. ` +
   'These figures can only be relied on if the app was used every day and every income ' +
   'and expense was tracked consistently; missing statements, receipts or uncategorised ' +
   'transactions make them wrong. Check them against the pre-filled return of your tax ' +

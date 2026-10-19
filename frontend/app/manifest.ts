@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { APP_NAME } from '@/app/lib/brand';
 
 /**
  * Served at /manifest.webmanifest and linked automatically by Next. The
@@ -8,9 +9,9 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Lumio',
+    name: APP_NAME,
     // biome-ignore lint/style/useNamingConvention: key name is fixed by the web app manifest spec
-    short_name: 'Lumio',
+    short_name: APP_NAME,
     description: 'Import, categorize, and analyze bank statement data.',
     // biome-ignore lint/style/useNamingConvention: key name is fixed by the web app manifest spec
     start_url: '/dashboard',

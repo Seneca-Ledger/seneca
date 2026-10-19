@@ -1,11 +1,11 @@
-/* Lumio service worker: app-shell cache, offline fallback, web push.
+/* Seneca service worker: app-shell cache, offline fallback, web push.
  *
  * Hashed Next assets are cached as they are fetched (they never change under
  * the same URL); navigations go network-first and fall back to /offline when
  * the network is gone. Data requests are never cached here: the page keeps its
  * own offline queue for manual entries and receipt photos.
  */
-const VERSION = 'lumio-sw-v2';
+const VERSION = 'seneca-sw-v2';
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 const OFFLINE_URL = '/offline';
@@ -74,9 +74,9 @@ self.addEventListener('push', event => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: 'Lumio', body: event.data ? event.data.text() : '' };
+    data = { title: 'Seneca', body: event.data ? event.data.text() : '' };
   }
-  const title = data.title || 'Lumio';
+  const title = data.title || 'Seneca';
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || '',

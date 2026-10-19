@@ -65,12 +65,12 @@ export function MonthStrip({
   };
 
   return (
-    <div className="lumio-dashboard__month-strip">
+    <div className="seneca-dashboard__month-strip">
       <ChipGroup
         ref={groupRef}
         scroll
         aria-label={labels.group}
-        className="lumio-dashboard__month-chips"
+        className="seneca-dashboard__month-chips"
       >
         {MONTHS.map(month => {
           const future = isFutureMonth(year, month, today);
@@ -87,19 +87,19 @@ export function MonthStrip({
           );
         })}
       </ChipGroup>
-      <div className="lumio-dashboard__year-stepper">
+      <div className="seneca-dashboard__year-stepper">
         <button
           type="button"
-          className="lumio-dashboard__year-btn"
+          className="seneca-dashboard__year-btn"
           aria-label={labels.previousYear}
           onClick={() => stepYear(-1)}
         >
           <ChevronLeft size={16} />
         </button>
-        <span className="lumio-dashboard__year-value">{year}</span>
+        <span className="seneca-dashboard__year-value">{year}</span>
         <button
           type="button"
-          className="lumio-dashboard__year-btn"
+          className="seneca-dashboard__year-btn"
           aria-label={labels.nextYear}
           disabled={year >= today.getFullYear()}
           onClick={() => stepYear(1)}

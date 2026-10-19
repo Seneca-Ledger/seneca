@@ -87,7 +87,7 @@ describe('DailyQuoteBanner', () => {
     renderWithQuery(<DailyQuoteBanner />);
     await Promise.resolve();
     expect(screen.queryByText(quote.quote.text)).toBeNull();
-    expect(localStorage.getItem('lumio:daily-quote-dismissed:ws-1')).toBe(quote.date);
+    expect(localStorage.getItem('seneca:daily-quote-dismissed:ws-1')).toBe(quote.date);
   });
 
   it('greets only the first page of the day: leaving it closes the quote until tomorrow', async () => {
@@ -108,7 +108,7 @@ describe('DailyQuoteBanner', () => {
     );
 
     await waitFor(() => expect(screen.queryByText(quote.quote.text)).toBeNull());
-    expect(localStorage.getItem('lumio:daily-quote-dismissed:ws-1')).toBe(quote.date);
+    expect(localStorage.getItem('seneca:daily-quote-dismissed:ws-1')).toBe(quote.date);
     route.pathname = '/dashboard';
   });
 
@@ -141,7 +141,7 @@ describe('DailyQuoteBanner', () => {
   });
 
   it('comes back when the day changes', async () => {
-    localStorage.setItem('lumio:daily-quote-dismissed:ws-1', '2000-01-01');
+    localStorage.setItem('seneca:daily-quote-dismissed:ws-1', '2000-01-01');
     renderWithQuery(<DailyQuoteBanner />);
     expect(await screen.findByText(quote.quote.text)).toBeTruthy();
   });

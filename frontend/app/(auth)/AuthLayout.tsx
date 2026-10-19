@@ -17,7 +17,7 @@ export default function AuthLayout({ children, sideContent, topRightAction }: Au
       {/* Left Side - Form */}
       <Grid
         size={{ xs: 12, md: 6 }}
-        className="lumio-auth-form-panel"
+        className="seneca-auth-form-panel"
         sx={{
           display: 'flex',
           flexDirection: 'column',

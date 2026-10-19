@@ -14,6 +14,7 @@ import {
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { APP_NAME } from '@/app/lib/brand';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import { SettingsSection } from './SettingsSection';
@@ -158,7 +159,7 @@ export function TaxJurisdictionSection({
 
   const isSwitch = Boolean(currentCode) && selectedCode !== currentCode;
   const isDirty = selectedCode !== '' && selectedCode !== currentCode;
-  const mailto = supportMailto('Lumio — tax rate correction');
+  const mailto = supportMailto(`${APP_NAME} — tax rate correction`);
 
   if (loading) {
     return (

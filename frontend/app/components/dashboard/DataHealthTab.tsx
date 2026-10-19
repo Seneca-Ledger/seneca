@@ -71,8 +71,8 @@ function FactCard({
 }): React.JSX.Element {
   return (
     <DashboardCard title={label}>
-      <div className="lumio-fact__value">{value}</div>
-      {caption && <div className="lumio-fact__caption">{caption}</div>}
+      <div className="seneca-fact__value">{value}</div>
+      {caption && <div className="seneca-fact__caption">{caption}</div>}
     </DashboardCard>
   );
 }
@@ -86,7 +86,7 @@ function LastUploadCard({ health }: { health: Health }): React.JSX.Element {
         label={t.lastUpload}
         value={t.noDataYet}
         caption={
-          <Link href="/statements/submit" className="lumio-close-step__action">
+          <Link href="/statements/submit" className="seneca-close-step__action">
             {t.uploadFirstStatement.value}
             <ChevronRight size={14} aria-hidden="true" />
           </Link>
@@ -135,7 +135,7 @@ function NotCountedCard({
         pending ? (
           <>
             {t.notCountedHint.value}{' '}
-            <Link href={reviewHref(displayMonth)} className="lumio-close-step__action">
+            <Link href={reviewHref(displayMonth)} className="seneca-close-step__action">
               {ops.actionReview.value}
               <ChevronRight size={14} aria-hidden="true" />
             </Link>
@@ -159,15 +159,15 @@ function ActionRequiredCard({
 }): React.JSX.Element {
   return (
     <DashboardCard title={t.actionRequired}>
-      <div className="lumio-dashboard__list">
+      <div className="seneca-dashboard__list">
         {open.map(metric => (
           <ListRow
             key={metric.key}
-            className="lumio-close-step"
-            leading={<span className="lumio-close-step__open" aria-hidden="true" />}
+            className="seneca-close-step"
+            leading={<span className="seneca-close-step__open" aria-hidden="true" />}
             primary={`${t[METRIC_LABEL[metric.key]].value}: ${metric.value}`}
             trailing={
-              <Link href={metric.href} className="lumio-close-step__action">
+              <Link href={metric.href} className="seneca-close-step__action">
                 {ops[METRIC_ACTION[metric.key]].value}
                 <ChevronRight size={14} aria-hidden="true" />
               </Link>
@@ -198,10 +198,10 @@ export function DataHealthTab({
   const clear = metrics.filter(metric => metric.value === 0);
 
   return (
-    <div className="lumio-dashboard__tab">
-      <header className="lumio-close-head">
+    <div className="seneca-dashboard__tab">
+      <header className="seneca-close-head">
         <div>
-          <h2 className="lumio-close-head__title">
+          <h2 className="seneca-close-head__title">
             {open.length > 0
               ? fillTemplate(t.summaryAttention.value, {
                   month,
@@ -211,7 +211,7 @@ export function DataHealthTab({
               : fillTemplate(t.summaryClear.value, { month })}
           </h2>
           {open.length > 0 && clear.length > 0 && (
-            <p className="lumio-close-head__note">
+            <p className="seneca-close-head__note">
               {`${t.allGood.value}: ${clear.map(metric => t[METRIC_LABEL[metric.key]].value).join(' · ')}`}
             </p>
           )}
@@ -231,7 +231,7 @@ export function DataHealthTab({
         metrics={DATA_HEALTH_HISTORY_METRICS}
         onSelectMonth={onSelectMonth}
       />
-      <div className="lumio-dashboard__grid lumio-dashboard__grid--pair">
+      <div className="seneca-dashboard__grid seneca-dashboard__grid--pair">
         <LastUploadCard health={health} />
         <NotCountedCard health={health} formatAmount={formatAmount} displayMonth={displayMonth} />
       </div>

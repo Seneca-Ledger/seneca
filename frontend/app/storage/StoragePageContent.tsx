@@ -332,7 +332,7 @@ function StoragePageContent({
     >
       <Box
         className="container-shared"
-        sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--lumio-page-top, 32px)', pb: 4 }}
+        sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}
       >
         {!isTrashView && (
           <StorageHeader

@@ -155,9 +155,9 @@ export class WebhookProcessorService {
       await assertPublicEgressUrl(sub.url);
       const res = await this.postWithPinnedDns(sub.url, payloadStr, {
         'Content-Type': 'application/json',
-        'X-Lumio-Signature': signature,
-        'X-Lumio-Event': delivery.event,
-        'X-Lumio-Delivery': delivery.id,
+        'X-Seneca-Signature': signature,
+        'X-Seneca-Event': delivery.event,
+        'X-Seneca-Delivery': delivery.id,
       });
       responseCode = res.status;
       responseBody = res.body.slice(0, 4096);

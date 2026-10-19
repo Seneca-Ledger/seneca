@@ -28,7 +28,7 @@ describe('BackupsController', () => {
 
   it('returns an owner-authorized archive as an attachment', async () => {
     const service = {
-      downloadRun: jest.fn().mockResolvedValue({ fileName: 'backup.lumio-backup', contents: Buffer.from('backup') }),
+      downloadRun: jest.fn().mockResolvedValue({ fileName: 'backup.seneca-backup', contents: Buffer.from('backup') }),
     };
     const controller = new BackupsController(service as never, {} as never);
     const response = { setHeader: jest.fn(), send: jest.fn() };
@@ -42,7 +42,7 @@ describe('BackupsController', () => {
     // the name and adds the RFC 5987 form instead of interpolating it raw.
     expect(response.setHeader).toHaveBeenCalledWith(
       'Content-Disposition',
-      'attachment; filename="backup.lumio-backup"; filename*=UTF-8\'\'backup.lumio-backup',
+      'attachment; filename="backup.seneca-backup"; filename*=UTF-8\'\'backup.seneca-backup',
     );
     expect(response.send).toHaveBeenCalledWith(Buffer.from('backup'));
   });

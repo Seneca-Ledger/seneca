@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { statementsApi } from '@/app/lib/api';
 import { blobOf } from '@/app/lib/blob-of';
+import { APP_SLUG } from '@/app/lib/brand';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export type BankStat = {
@@ -53,7 +54,7 @@ export function useSync() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'lumio-export.zip';
+      link.download = `${APP_SLUG}-export.zip`;
       document.body.appendChild(link);
       link.click();
       link.remove();

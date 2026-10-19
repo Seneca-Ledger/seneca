@@ -159,7 +159,7 @@ function CategoryChip({
   return (
     <Box
       component="span"
-      className="lumio-stmt-edit-table__category"
+      className="seneca-stmt-edit-table__category"
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -238,7 +238,7 @@ function RowActions({
   }
   return (
     <>
-      <Box className="lumio-stmt-edit-table__row-actions" sx={{ display: 'flex', gap: 0.25 }}>
+      <Box className="seneca-stmt-edit-table__row-actions" sx={{ display: 'flex', gap: 0.25 }}>
         <IconButton
           size="small"
           onClick={() => onEdit(transaction)}

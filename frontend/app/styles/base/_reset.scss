@@ -11,16 +11,16 @@ html,
 body {
   margin: 0;
   padding: 0;
-  font-family: $lumio-font-family;
-  font-size: $lumio-font-size-base;
-  line-height: $lumio-line-height-normal;
-  color: $lumio-color-text-primary;
-  background: $lumio-color-bg;
+  font-family: $seneca-font-family;
+  font-size: $seneca-font-size-base;
+  line-height: $seneca-line-height-normal;
+  color: $seneca-color-text-primary;
+  background: $seneca-color-bg;
   -webkit-font-smoothing: antialiased;
 
   @include dark {
-    color: $lumio-color-text-primary-dk;
-    background: $lumio-color-bg-dk;
+    color: $seneca-color-text-primary-dk;
+    background: $seneca-color-bg-dk;
   }
 }
 
@@ -41,9 +41,9 @@ button {
 .u-flex-col     { display: flex; flex-direction: column; }
 .u-items-center { align-items: center; }
 .u-justify-between { justify-content: space-between; }
-.u-gap-1        { gap: $lumio-space-1; }
-.u-gap-2        { gap: $lumio-space-2; }
-.u-gap-3        { gap: $lumio-space-3; }
-.u-gap-4        { gap: $lumio-space-4; }
+.u-gap-1        { gap: $seneca-space-1; }
+.u-gap-2        { gap: $seneca-space-2; }
+.u-gap-3        { gap: $seneca-space-3; }
+.u-gap-4        { gap: $seneca-space-4; }
 .u-w-full       { width: 100%; }
 .u-h-full       { height: 100%; }

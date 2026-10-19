@@ -22,7 +22,7 @@ describe('Chip', () => {
     );
     const button = screen.getByRole('button', { name: 'Aug' });
     expect(button).toHaveAttribute('aria-pressed', 'true');
-    expect(button.className).toContain('lumio-chip--active');
+    expect(button.className).toContain('seneca-chip--active');
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledTimes(1);
   });
@@ -36,7 +36,7 @@ describe('Chip', () => {
     );
     const button = screen.getByRole('button', { name: 'Dec' });
     expect(button).toBeDisabled();
-    expect(button.className).toContain('lumio-chip--muted');
+    expect(button.className).toContain('seneca-chip--muted');
     fireEvent.click(button);
     expect(onClick).not.toHaveBeenCalled();
   });
@@ -49,14 +49,14 @@ describe('Chip', () => {
     );
     const link = screen.getByRole('link', { name: /Errors/ });
     expect(link).toHaveAttribute('href', '/statements?status=error');
-    expect(screen.getByText('3').className).toContain('lumio-chip__count');
+    expect(screen.getByText('3').className).toContain('seneca-chip__count');
   });
 
   it('renders a static tone pill as a span', () => {
     render(<Chip tone="success">Done</Chip>);
     const pill = screen.getByText('Done');
     expect(pill.tagName).toBe('SPAN');
-    expect(pill.className).toContain('lumio-chip--tone-success');
+    expect(pill.className).toContain('seneca-chip--tone-success');
   });
 
   it('groups chips with a labelled role=group', () => {
@@ -66,7 +66,7 @@ describe('Chip', () => {
       </ChipGroup>,
     );
     const group = screen.getByRole('group', { name: 'Months' });
-    expect(group.className).toContain('lumio-chip-group--scroll');
+    expect(group.className).toContain('seneca-chip-group--scroll');
   });
 
   it('scrolls a keyboard-focused chip fully into view in a scrolling group', () => {

@@ -7,6 +7,7 @@ import NextLink from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import React, { Suspense, useEffect, useState } from 'react';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { BrandLockup } from '@/app/components/BrandLockup';
 import { Eye, EyeOff } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -126,20 +127,20 @@ function RegisterPageContent(): React.JSX.Element {
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
       {/* The product's own mark, not an emoji: it swaps for dark mode by itself. */}
-      <div className="lumio-auth-logo" role="img" aria-label="Lumio" />
+      <BrandLockup className="seneca-auth-logo" />
 
-      <Typography component="h1" className="lumio-auth-title">
+      <Typography component="h1" className="seneca-auth-title">
         {t.title}
       </Typography>
 
       <Box
         component="form"
         onSubmit={handleSubmit}
-        className="lumio-auth-form"
+        className="seneca-auth-form"
         sx={{ width: '100%' }}
       >
-        <div className="lumio-auth-field">
-          <label htmlFor="name" className="lumio-auth-field__label">
+        <div className="seneca-auth-field">
+          <label htmlFor="name" className="seneca-auth-field__label">
             {t.fullNameLabel}
           </label>
           <TextField
@@ -153,8 +154,8 @@ function RegisterPageContent(): React.JSX.Element {
             onChange={handleChange}
           />
         </div>
-        <div className="lumio-auth-field">
-          <label htmlFor="email" className="lumio-auth-field__label">
+        <div className="seneca-auth-field">
+          <label htmlFor="email" className="seneca-auth-field__label">
             {t.emailLabel}
           </label>
           <TextField
@@ -169,8 +170,8 @@ function RegisterPageContent(): React.JSX.Element {
             disabled={emailLocked || inviteLoading}
           />
         </div>
-        <div className="lumio-auth-field">
-          <label htmlFor="password" className="lumio-auth-field__label">
+        <div className="seneca-auth-field">
+          <label htmlFor="password" className="seneca-auth-field__label">
             {t.passwordLabel}
           </label>
           <TextField
@@ -205,13 +206,13 @@ function RegisterPageContent(): React.JSX.Element {
           <p
             id="password-hint"
             role={passwordError ? 'alert' : undefined}
-            className={passwordError ? 'lumio-auth-error' : 'lumio-auth-field__hint'}
+            className={passwordError ? 'seneca-auth-error' : 'seneca-auth-field__hint'}
           >
             {t.passwordHelper}
           </p>
         </div>
-        <div className="lumio-auth-field">
-          <label htmlFor="company" className="lumio-auth-field__label">
+        <div className="seneca-auth-field">
+          <label htmlFor="company" className="seneca-auth-field__label">
             {t.companyLabel}
           </label>
           <TextField
@@ -224,7 +225,7 @@ function RegisterPageContent(): React.JSX.Element {
           />
         </div>
         {formError ? (
-          <p role="alert" className="lumio-auth-error">
+          <p role="alert" className="seneca-auth-error">
             {error}
           </p>
         ) : null}
@@ -233,16 +234,16 @@ function RegisterPageContent(): React.JSX.Element {
           fullWidth
           variant="contained"
           size="large"
-          className="lumio-auth-submit"
+          className="seneca-auth-submit"
           disabled={loading || inviteLoading}
         >
           {loading ? <CircularProgress size={24} color="inherit" /> : t.submit}
         </Button>
-        <p className="lumio-auth-footnote">
+        <p className="seneca-auth-footnote">
           {t.haveAccountPrompt}{' '}
           <NextLink
             href={nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login'}
-            className="lumio-auth-link lumio-auth-link--accent"
+            className="seneca-auth-link seneca-auth-link--accent"
           >
             {t.logIn}
           </NextLink>

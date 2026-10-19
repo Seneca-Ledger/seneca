@@ -297,11 +297,11 @@ describe('GainsCard', () => {
     // A row with no purchase behind it says so in the Acquired column, behind an
     // ochre dot, instead of a red second line under the asset.
     const unknown = screen.getByText('Unknown');
-    expect(unknown).toHaveClass('lumio-crypto-attention');
+    expect(unknown).toHaveClass('seneca-crypto-attention');
     expect(unknown).toHaveAttribute('title', 'Purchase unknown');
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     const note = screen.getByText('Some coins arrived without a purchase behind them');
-    expect(note).toHaveClass('lumio-crypto-attention');
+    expect(note).toHaveClass('seneca-crypto-attention');
     expect(note).not.toHaveStyle({ color: 'var(--ff-dash-critical)' });
   });
 });

@@ -22,7 +22,7 @@ export const isDeviceLocationSupported = (): boolean =>
 
 /**
  * Shows the browser's permission prompt. Call it from a click, so the prompt
- * appears on Lumio's own consent screen instead of on top of the camera app.
+ * appears on Seneca's own consent screen instead of on top of the camera app.
  */
 export const requestLocationAccess = (
   timeoutMs = ACCESS_PROMPT_TIMEOUT_MS,

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Prepares a fresh Lumio instance for scripts/capture-tutorial-screenshots.mjs: registers a
+// Prepares a fresh Seneca instance for scripts/capture-tutorial-screenshots.mjs: registers a
 // throwaway account through the public API, takes it past onboarding, the disclaimer and the
 // welcome window, and makes its demo workspace (page hints are hidden by the capture script).
 // Prints the account and the workspace as KEY=value lines, ready for `>> "$GITHUB_ENV"`:

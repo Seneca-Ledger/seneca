@@ -19,7 +19,7 @@ describe('SystemUpdateService', () => {
 
   const releaseResponse = (tag: string) => async () =>
     new Response(
-      JSON.stringify({ tag_name: tag, html_url: `https://github.com/symonbaikov/lumio/releases/tag/${tag}` }),
+      JSON.stringify({ tag_name: tag, html_url: `https://github.com/symonbaikov/seneca/releases/tag/${tag}` }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
 
@@ -33,7 +33,7 @@ describe('SystemUpdateService', () => {
   const makeService = () => new SystemUpdateService(effects);
 
   beforeEach(() => {
-    dir = mkdtempSync(path.join(tmpdir(), 'lumio-update-'));
+    dir = mkdtempSync(path.join(tmpdir(), 'seneca-update-'));
     process.env = { ...originalEnv, UPDATE_DIR: dir, APP_VERSION: 'v1.2.0' };
     effects = new EffectRuntime();
     fetchMock = jest.fn(releaseResponse('v1.3.0'));
@@ -67,7 +67,7 @@ describe('SystemUpdateService', () => {
     expect(status).toMatchObject({
       currentVersion: 'v1.2.0',
       latestVersion: 'v1.3.0',
-      releaseUrl: 'https://github.com/symonbaikov/lumio/releases/tag/v1.3.0',
+      releaseUrl: 'https://github.com/symonbaikov/seneca/releases/tag/v1.3.0',
       updateAvailable: true,
       updaterAvailable: true,
       run: { state: 'idle' },

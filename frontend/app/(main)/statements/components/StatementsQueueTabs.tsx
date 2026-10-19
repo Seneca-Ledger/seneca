@@ -36,7 +36,7 @@ function tabLabel(tab: QueueTab): React.ReactNode {
     <span>
       {tab.label}{' '}
       <span
-        className={`lumio-review-tab-count${tab.badge === 0 ? ' lumio-review-tab-count--zero' : ''}`}
+        className={`seneca-review-tab-count${tab.badge === 0 ? ' seneca-review-tab-count--zero' : ''}`}
       >
         {tab.badge}
       </span>

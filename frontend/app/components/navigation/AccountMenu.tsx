@@ -85,13 +85,13 @@ export function AccountMenu({
   /** The sidebar's open width, so the menu covers it exactly and reaches no further. */
   const measure = (trigger: HTMLElement): { top: number; left: number; width: number } => {
     const rect = trigger.getBoundingClientRect();
-    const sidebar = trigger.closest('.lumio-shell__sidebar');
+    const sidebar = trigger.closest('.seneca-shell__sidebar');
     if (variant === 'mobile' || !sidebar) {
       return { top: rect.top, left: rect.left, width: rect.width };
     }
-    const shell = sidebar.closest('.lumio-shell');
+    const shell = sidebar.closest('.seneca-shell');
     const full = shell
-      ? Number.parseFloat(getComputedStyle(shell).getPropertyValue('--lumio-sidebar-width-full'))
+      ? Number.parseFloat(getComputedStyle(shell).getPropertyValue('--seneca-sidebar-width-full'))
       : Number.NaN;
     return {
       top: rect.top,
@@ -109,7 +109,7 @@ export function AccountMenu({
     <>
       <button
         type="button"
-        className={`lumio-account__trigger lumio-account__trigger--${variant}`}
+        className={`seneca-account__trigger seneca-account__trigger--${variant}`}
         onClick={event => {
           setAnchor(measure(event.currentTarget));
         }}
@@ -117,7 +117,7 @@ export function AccountMenu({
         aria-expanded={Boolean(anchor)}
         data-tour-id={variant === 'sidebar' ? 'user-menu-trigger' : undefined}
       >
-        <span className="lumio-account__avatar">
+        <span className="seneca-account__avatar">
           {avatarUrl && !avatarError ? (
             <img
               src={avatarUrl}
@@ -130,8 +130,8 @@ export function AccountMenu({
             <User size={14} />
           )}
         </span>
-        <span className="lumio-account__name">{user.name}</span>
-        <ChevronUp size={14} className="lumio-account__caret" />
+        <span className="seneca-account__name">{user.name}</span>
+        <ChevronUp size={14} className="seneca-account__caret" />
       </button>
 
       <MuiMenu

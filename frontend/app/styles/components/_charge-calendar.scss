@@ -1,5 +1,5 @@
 // Vendor x month matrix of expected subscription charges.
-.lumio-charge-calendar {
+.seneca-charge-calendar {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--card-bg);
@@ -44,7 +44,7 @@
     color: var(--foreground);
   }
 
-  thead th.lumio-charge-calendar__vendor {
+  thead th.seneca-charge-calendar__vendor {
     font-weight: 500;
     color: var(--muted-foreground);
   }
@@ -84,7 +84,7 @@
   }
 }
 
-.lumio-vendor-icon {
+.seneca-vendor-icon {
   flex: 0 0 auto;
   border-radius: 4px;
   object-fit: contain;

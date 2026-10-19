@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { toMinor } from '../../common/utils/money.util';
 import { canReadPrivate } from '../../common/utils/transaction-privacy.util';
@@ -295,7 +296,7 @@ export class DatevService {
         accountLength: 4,
         from,
         to,
-        label: `Lumio ${from} – ${to}`,
+        label: `${APP_NAME} ${from} – ${to}`,
         chart: settings.chart,
       },
       bookings,

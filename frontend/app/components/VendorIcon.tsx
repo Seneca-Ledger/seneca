@@ -35,7 +35,7 @@ export function VendorIcon({ vendorName, vendorDomain, size = 24 }: VendorIconPr
         viewBox="0 0 24 24"
         width={size}
         height={size}
-        className="lumio-vendor-icon"
+        className="seneca-vendor-icon"
       >
         <title>{vendorName}</title>
         <path d={icon.path} fill="currentColor" />
@@ -48,8 +48,8 @@ export function VendorIcon({ vendorName, vendorDomain, size = 24 }: VendorIconPr
       src={vendorDomain ? `${apiBaseUrl}/vendor-icons/${encodeURIComponent(vendorDomain)}` : null}
       alt={vendorName}
       size={size}
-      className="lumio-vendor-icon lumio-vendor-icon--initials"
-      imgClassName="lumio-vendor-icon"
+      className="seneca-vendor-icon seneca-vendor-icon--initials"
+      imgClassName="seneca-vendor-icon"
       fallback={initialsOf(vendorName)}
     />
   );

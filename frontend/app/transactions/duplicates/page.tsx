@@ -176,7 +176,7 @@ export default function TransactionDuplicatesPage() {
   }, []);
 
   return (
-    <Box sx={{ maxWidth: 1280, mx: 'auto', px: 2, pt: 'var(--lumio-page-top, 32px)', pb: 4 }}>
+    <Box sx={{ maxWidth: 1280, mx: 'auto', px: 2, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 2 }}>

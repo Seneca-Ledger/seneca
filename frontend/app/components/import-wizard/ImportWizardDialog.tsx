@@ -314,12 +314,12 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
       return null;
     }
     return (
-      <div className="lumio-iw__problems">
-        <p className="lumio-iw__label">{t.issuesTitle}</p>
+      <div className="seneca-iw__problems">
+        <p className="seneca-iw__label">{t.issuesTitle}</p>
         <ul>
           {problems.slice(0, MAX_PROBLEM_ROWS).map(row => (
             <li key={row.index}>
-              <span className="lumio-iw__row-no">
+              <span className="seneca-iw__row-no">
                 {fillTemplate(t.rowLabel.value, { row: row.index + 1 })}
               </span>
               <span>{reasonText(row.reason)}</span>
@@ -372,19 +372,19 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
 
   return (
     <ModalShell isOpen={isOpen} onClose={onClose} title={t.title} size="lg" footer={footer}>
-      <div className="lumio-iw" data-testid="import-wizard">
+      <div className="seneca-iw" data-testid="import-wizard">
         {step === 'reading' && (
-          <div className="lumio-iw__loading">
+          <div className="seneca-iw__loading">
             <Spinner size={20} />
           </div>
         )}
 
         {step === 'mapping' && sheet && (
           <>
-            <div className="lumio-iw__controls">
+            <div className="seneca-iw__controls">
               {workbook && workbook.sheets.length > 1 && (
-                <div className="lumio-iw__control">
-                  <span className="lumio-iw__label">{t.sheet}</span>
+                <div className="seneca-iw__control">
+                  <span className="seneca-iw__label">{t.sheet}</span>
                   <Select
                     size="small"
                     value={String(sheetIndex)}
@@ -396,8 +396,8 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
                   />
                 </div>
               )}
-              <div className="lumio-iw__control">
-                <span className="lumio-iw__label">{t.target}</span>
+              <div className="seneca-iw__control">
+                <span className="seneca-iw__label">{t.target}</span>
                 <Select
                   size="small"
                   value={target}
@@ -407,10 +407,10 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
                   data-testid="import-wizard-target"
                 />
               </div>
-              <label className="lumio-iw__control">
-                <span className="lumio-iw__label">{t.currencyLabel}</span>
+              <label className="seneca-iw__control">
+                <span className="seneca-iw__label">{t.currencyLabel}</span>
                 <input
-                  className="lumio-iw__input"
+                  className="seneca-iw__input"
                   value={currency}
                   maxLength={3}
                   onChange={event => setCurrency(event.target.value.toUpperCase())}
@@ -419,17 +419,17 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
             </div>
 
             {suggestion && !fixedTarget && (
-              <p className="lumio-iw__hint">
+              <p className="seneca-iw__hint">
                 {suggestion.target === 'table'
                   ? t.suggestionTable
                   : fillTemplate(t.suggestion.value, { target: targetLabel(suggestion.target) })}
               </p>
             )}
 
-            <p className="lumio-iw__label">
+            <p className="seneca-iw__label">
               {t.mappingTitle} · {fillTemplate(t.rowsTotal.value, { count: sheet.rows.length })}
             </p>
-            <table className="lumio-iw__table">
+            <table className="seneca-iw__table">
               <thead>
                 <tr>
                   <th>{t.columnHeader}</th>
@@ -444,8 +444,8 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
                     // biome-ignore lint/suspicious/noArrayIndexKey: sheet columns are positional
                     <tr key={`${index}-${header}`}>
                       <td>
-                        <div className="lumio-iw__header">{header || `#${index + 1}`}</div>
-                        {example && <div className="lumio-iw__example">{example}</div>}
+                        <div className="seneca-iw__header">{header || `#${index + 1}`}</div>
+                        {example && <div className="seneca-iw__example">{example}</div>}
                       </td>
                       <td>
                         <Select
@@ -475,18 +475,18 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
             </table>
 
             {target === 'transactions' && (
-              <div className="lumio-iw__check">
+              <div className="seneca-iw__check">
                 <Checkbox checked={categorize} onCheckedChange={setCategorize} />
                 <span>{t.categorize}</span>
               </div>
             )}
 
             {missing.length > 0 ? (
-              <p className="lumio-iw__hint lumio-iw__hint--warning">
+              <p className="seneca-iw__hint seneca-iw__hint--warning">
                 {missing.map(fieldLabel).join(', ')} · {t.required}
               </p>
             ) : (
-              <p className="lumio-iw__hint" data-testid="import-wizard-dry-run">
+              <p className="seneca-iw__hint" data-testid="import-wizard-dry-run">
                 {dryRunPending && !dryRun ? (
                   <Spinner size={14} />
                 ) : (
@@ -499,9 +499,9 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
         )}
 
         {step === 'result' && result && (
-          <div className="lumio-iw__result" data-testid="import-wizard-result">
-            <p className="lumio-iw__result-title">{undone ? t.result.undone : t.result.title}</p>
-            {!undone && <p className="lumio-iw__hint">{counts(result, t.resultSummary.value)}</p>}
+          <div className="seneca-iw__result" data-testid="import-wizard-result">
+            <p className="seneca-iw__result-title">{undone ? t.result.undone : t.result.title}</p>
+            {!undone && <p className="seneca-iw__hint">{counts(result, t.resultSummary.value)}</p>}
             {!undone && renderProblems(result)}
           </div>
         )}

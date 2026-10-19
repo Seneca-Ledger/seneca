@@ -14,7 +14,7 @@ import {
 import { DEFAULT_BALANCE_ACCOUNTS } from '@/modules/balance/balance-default-accounts';
 import { currencyCodeOrDefault } from './currency.util';
 
-export const DEMO_EMAIL = 'demo@lumio.dev';
+export const DEMO_EMAIL = 'demo@seneca.dev';
 export const DEMO_PASSWORD = 'demo123';
 export const DEMO_NAME = 'Demo User';
 

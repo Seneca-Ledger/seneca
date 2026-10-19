@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');
-const graphPath = process.env.LUMIO_GRAPHIFY_GRAPH_PATH
-  ? path.resolve(process.env.LUMIO_GRAPHIFY_GRAPH_PATH)
+const graphPath = process.env.GRAPHIFY_GRAPH_PATH
+  ? path.resolve(process.env.GRAPHIFY_GRAPH_PATH)
   : path.join(REPO_ROOT, 'graphify-out', 'graph.json');
 
 const ALLOWED_PREFIXES = [

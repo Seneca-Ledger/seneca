@@ -138,7 +138,7 @@ describe('ForecastContent', () => {
     render(<ForecastContent />);
 
     expect(screen.getByText(/Overdue bills are assumed paid today/)).toBeInTheDocument();
-    expect(screen.getByText('overdue').className).toBe('lumio-forecast-overdue');
+    expect(screen.getByText('overdue').className).toBe('seneca-forecast-overdue');
   });
 
   it('fades an item left out of the scenario rather than hiding it', () => {

@@ -50,11 +50,11 @@ function FilterToggleButton({
     <button
       type="button"
       onClick={onClick}
-      className={`lumio-tx-filters__toggle-btn${hasActiveFilters ? ' lumio-tx-filters__toggle-btn--active' : ''}`}
+      className={`seneca-tx-filters__toggle-btn${hasActiveFilters ? ' seneca-tx-filters__toggle-btn--active' : ''}`}
     >
       <Filter size={16} />
       {filterLabel}
-      {hasActiveFilters && <span className="lumio-tx-filters__count">{activeCount}</span>}
+      {hasActiveFilters && <span className="seneca-tx-filters__count">{activeCount}</span>}
     </button>
   );
 }
@@ -67,8 +67,8 @@ interface StatusSelectProps {
 
 function StatusSelect({ filters, onFilterChange, t }: StatusSelectProps): React.ReactElement {
   return (
-    <div className="lumio-tx-filters__select-wrap">
-      <label htmlFor="status-filter" className="lumio-tx-filters__label">
+    <div className="seneca-tx-filters__select-wrap">
+      <label htmlFor="status-filter" className="seneca-tx-filters__label">
         {t.statusFilter.value}
       </label>
       <Select
@@ -102,8 +102,8 @@ function CategorySelect({
 }: CategorySelectProps): React.ReactElement {
   const { locale } = useLocale();
   return (
-    <div className="lumio-tx-filters__select-wrap">
-      <label htmlFor="category-filter" className="lumio-tx-filters__label">
+    <div className="seneca-tx-filters__select-wrap">
+      <label htmlFor="category-filter" className="seneca-tx-filters__label">
         {t.categoryFilter.value}
       </label>
       <Select
@@ -141,8 +141,8 @@ function FilterPanel({
   t,
 }: FilterPanelProps): React.ReactElement {
   return (
-    <div className="lumio-tx-filters__panel">
-      <div className="lumio-tx-filters__panel-inner">
+    <div className="seneca-tx-filters__panel">
+      <div className="seneca-tx-filters__panel-inner">
         <StatusSelect filters={filters} onFilterChange={onFilterChange} t={t} />
         <CategorySelect
           filters={filters}
@@ -151,7 +151,7 @@ function FilterPanel({
           t={t}
         />
         {hasActiveFilters && (
-          <button type="button" onClick={onClearFilters} className="lumio-tx-filters__clear-btn">
+          <button type="button" onClick={onClearFilters} className="seneca-tx-filters__clear-btn">
             {t.clearFilters.value}
           </button>
         )}
@@ -189,28 +189,28 @@ export function TransactionFiltersBar({
   }, [searchDraft, filters, onFilterChange]);
 
   return (
-    <div className="lumio-tx-filters">
-      <div className="lumio-tx-filters__top">
-        <div className="lumio-tx-filters__search-wrap">
-          <Search size={16} className="lumio-tx-filters__search-icon" />
+    <div className="seneca-tx-filters">
+      <div className="seneca-tx-filters__top">
+        <div className="seneca-tx-filters__search-wrap">
+          <Search size={16} className="seneca-tx-filters__search-icon" />
           <input
             type="text"
             placeholder={t.searchPlaceholder.value}
             value={searchDraft}
             onChange={e => setSearchDraft(e.target.value)}
-            className="lumio-tx-filters__search"
+            className="seneca-tx-filters__search"
           />
           {searchDraft && (
             <button
               type="button"
               onClick={() => onFilterChange({ ...filters, search: '' })}
-              className="lumio-tx-filters__clear-search"
+              className="seneca-tx-filters__clear-search"
             >
               <X size={16} />
             </button>
           )}
         </div>
-        <div className="lumio-tx-filters__actions">
+        <div className="seneca-tx-filters__actions">
           {toolbarExtra}
           <FilterToggleButton
             hasActiveFilters={hasActiveFilters}

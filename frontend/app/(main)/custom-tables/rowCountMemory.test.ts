@@ -31,7 +31,7 @@ describe('rowCountMemory', () => {
   it('keeps an empty table at zero rows and ignores garbage', () => {
     rememberRowCount('empty', 0);
     expect(skeletonRowCount('empty')).toBe(0);
-    localStorage.setItem('lumio:ct-row-count:bad', 'abc');
+    localStorage.setItem('seneca:ct-row-count:bad', 'abc');
     expect(readRowCount('bad')).toBeNull();
   });
 });

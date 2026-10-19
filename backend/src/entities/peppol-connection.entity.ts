@@ -10,7 +10,7 @@ import {
 import { Workspace } from './workspace.entity';
 
 /**
- * A workspace's own account with a Peppol access point (Recommand): Lumio
+ * A workspace's own account with a Peppol access point (Recommand): Seneca
  * sends and receives through it with the workspace's key, never a shared one.
  */
 @Entity('peppol_connections')

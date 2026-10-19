@@ -60,13 +60,13 @@ function SortableColumnItem({ column, onToggle }: SortableColumnItemProps) {
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={`lumio-col-drawer__col-item${isDragging ? ' lumio-col-drawer__col-item--dragging' : ''}`}
+      className={`seneca-col-drawer__col-item${isDragging ? ' seneca-col-drawer__col-item--dragging' : ''}`}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button
           type="button"
           ref={setActivatorNodeRef}
-          className="lumio-col-drawer__grip"
+          className="seneca-col-drawer__grip"
           aria-label={`Reorder ${column.label}`}
           {...attributes}
           {...listeners}
@@ -74,7 +74,7 @@ function SortableColumnItem({ column, onToggle }: SortableColumnItemProps) {
           <GripVertical size={20} />
         </button>
         <span
-          className={`lumio-col-drawer__col-label${column.visible ? '' : ' lumio-col-drawer__col-label--hidden'}`}
+          className={`seneca-col-drawer__col-label${column.visible ? '' : ' seneca-col-drawer__col-label--hidden'}`}
         >
           {column.label}
         </span>
@@ -123,11 +123,11 @@ export function ColumnsDrawer({
       showCloseButton={false}
       sx={{ borderLeft: 0, bgcolor: 'background.paper' }}
       title={
-        <div className="lumio-payable-drawer__title-wrap">
+        <div className="seneca-payable-drawer__title-wrap">
           <button
             type="button"
             onClick={onClose}
-            className="lumio-col-drawer__back-btn"
+            className="seneca-col-drawer__back-btn"
             aria-label={labels.title}
           >
             <ChevronLeft size={20} />
@@ -138,8 +138,8 @@ export function ColumnsDrawer({
         </div>
       }
     >
-      <div className="lumio-col-drawer">
-        <div className="lumio-col-drawer__list">
+      <div className="seneca-col-drawer">
+        <div className="seneca-col-drawer__list">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -149,7 +149,7 @@ export function ColumnsDrawer({
               items={columns.map(column => column.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="lumio-col-drawer__col-list">
+              <div className="seneca-col-drawer__col-list">
                 {columns.map(column => (
                   <SortableColumnItem key={column.id} column={column} onToggle={onToggle} />
                 ))}
@@ -157,7 +157,7 @@ export function ColumnsDrawer({
             </SortableContext>
           </DndContext>
         </div>
-        <div className="lumio-col-drawer__footer">
+        <div className="seneca-col-drawer__footer">
           <MuiButton variant="contained" sx={{ width: '100%' }} size="large" onClick={onSave}>
             {labels.save}
           </MuiButton>

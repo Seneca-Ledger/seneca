@@ -214,7 +214,7 @@ export class StatementProcessingService {
     const ext = this.getFileExtension(statement);
     const tempFilePath = path.join(
       os.tmpdir(),
-      `lumio-statement-${statement.id}-${Date.now()}.${ext}`,
+      `seneca-statement-${statement.id}-${Date.now()}.${ext}`,
     );
     await fs.promises.writeFile(tempFilePath, fileData);
     return { filePath: tempFilePath, tempFilePath };

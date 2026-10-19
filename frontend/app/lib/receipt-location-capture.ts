@@ -8,9 +8,9 @@
  */
 import { useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'lumio-receipt-location-capture';
+const STORAGE_KEY = 'seneca-receipt-location-capture';
 
-export const RECEIPT_LOCATION_CAPTURE_EVENT = 'lumio-receipt-location-capture-change';
+export const RECEIPT_LOCATION_CAPTURE_EVENT = 'seneca-receipt-location-capture-change';
 
 export type ReceiptLocationCaptureChoice = 'on' | 'off' | null;
 

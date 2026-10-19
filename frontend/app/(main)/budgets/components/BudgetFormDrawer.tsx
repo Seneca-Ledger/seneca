@@ -83,11 +83,11 @@ function DrawerTitle({
 }: Pick<BudgetFormDrawerProps, 'editing' | 'onClose'>): React.JSX.Element {
   const t = useIntlayer('budgetsPage');
   return (
-    <div className="lumio-payable-drawer__title-wrap">
+    <div className="seneca-payable-drawer__title-wrap">
       <button
         type="button"
         onClick={onClose}
-        className="lumio-payable-drawer__back-btn"
+        className="seneca-payable-drawer__back-btn"
         aria-label={t.cancel.value}
       >
         <ChevronLeft size={20} />
@@ -386,7 +386,7 @@ function DrawerFooter({
 }): React.JSX.Element {
   const t = useIntlayer('budgetsPage');
   return (
-    <div className="lumio-payable-drawer__footer">
+    <div className="seneca-payable-drawer__footer">
       <Button variant="outlined" sx={{ flex: 1 }} onClick={onClose} disabled={saving}>
         {t.cancel}
       </Button>
@@ -430,7 +430,7 @@ export function BudgetFormDrawer(props: BudgetFormDrawerProps): React.JSX.Elemen
       }}
       title={<DrawerTitle editing={props.editing} onClose={props.onClose} />}
     >
-      <div className="lumio-payable-drawer__body">
+      <div className="seneca-payable-drawer__body">
         <FormFields
           editing={props.editing}
           formData={formData}

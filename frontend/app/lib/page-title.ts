@@ -1,18 +1,20 @@
-const PRODUCT_TITLE = 'Lumio — Bank statement processing';
+import { APP_NAME } from '@/app/lib/brand';
+
+const PRODUCT_TITLE = `${APP_NAME} — Bank statement processing`;
 
 const TITLES_BY_PREFIX: Array<[string, string]> = [
-  ['/dashboard', 'Lumio — Dashboard'],
-  ['/statements', 'Lumio — Statements'],
-  ['/tables', 'Lumio — Tables'],
-  ['/workspaces/members', 'Lumio — Workspace members'],
-  ['/workspaces/categories', 'Lumio — Workspace categories'],
-  ['/workspaces/overview', 'Lumio — Workspace overview'],
-  ['/workspaces/list', 'Lumio — Workspaces'],
-  ['/workspaces', 'Lumio — Workspaces'],
-  ['/reports', 'Lumio — Reports'],
-  ['/ledger', 'Lumio — Ledger'],
-  ['/audit', 'Lumio — Audit log'],
-  ['/settings', 'Lumio — Settings'],
+  ['/dashboard', `${APP_NAME} — Dashboard`],
+  ['/statements', `${APP_NAME} — Statements`],
+  ['/tables', `${APP_NAME} — Tables`],
+  ['/workspaces/members', `${APP_NAME} — Workspace members`],
+  ['/workspaces/categories', `${APP_NAME} — Workspace categories`],
+  ['/workspaces/overview', `${APP_NAME} — Workspace overview`],
+  ['/workspaces/list', `${APP_NAME} — Workspaces`],
+  ['/workspaces', `${APP_NAME} — Workspaces`],
+  ['/reports', `${APP_NAME} — Reports`],
+  ['/ledger', `${APP_NAME} — Ledger`],
+  ['/audit', `${APP_NAME} — Audit log`],
+  ['/settings', `${APP_NAME} — Settings`],
 ];
 
 export const resolvePageTitle = (pathname: string): string => {

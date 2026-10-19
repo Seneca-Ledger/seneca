@@ -34,7 +34,7 @@ vi.mock('@/app/i18n', () => ({
   useLocale: () => ({ locale: 'en' }),
 }));
 
-const LINK = { url: 'https://t.me/lumio_bot?start=code', expiresAt: '2099-01-01T00:00:00.000Z' };
+const LINK = { url: 'https://t.me/seneca_bot?start=code', expiresAt: '2099-01-01T00:00:00.000Z' };
 
 type Bot = 'own' | 'shared' | 'none';
 

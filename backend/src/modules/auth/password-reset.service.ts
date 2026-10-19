@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHmac, randomBytes } from 'crypto';
 import { IsNull, LessThan, type Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { requireSecret } from '../../common/utils/required-secret.util';
 import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
@@ -73,11 +74,11 @@ export class PasswordResetService {
     try {
       const sent = await this.mailerService.send({
         to: user.email,
-        subject: 'Reset your Lumio password',
+        subject: `Reset your ${APP_NAME} password`,
         text: [
           `Hello${user.name ? ` ${user.name}` : ''},`,
           '',
-          'We received a request to reset your Lumio password.',
+          `We received a request to reset your ${APP_NAME} password.`,
           `Open this link to choose a new one (valid for 1 hour): ${resetUrl}`,
           '',
           'If you did not ask for this, you can ignore this email — your password stays unchanged.',

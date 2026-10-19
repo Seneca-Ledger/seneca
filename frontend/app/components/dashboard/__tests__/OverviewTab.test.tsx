@@ -139,13 +139,13 @@ describe('OverviewTab', () => {
     });
 
     expect(
-      screen.getByText('−500').closest('.lumio-dashboard__stat')?.querySelector(
-        '.lumio-dashboard__stat-dot--negative',
+      screen.getByText('−500').closest('.seneca-dashboard__stat')?.querySelector(
+        '.seneca-dashboard__stat-dot--negative',
       ),
     ).not.toBeNull();
     expect(
-      screen.getByText('-50%').closest('.lumio-dashboard__stat')?.querySelector(
-        '.lumio-dashboard__stat-dot--negative',
+      screen.getByText('-50%').closest('.seneca-dashboard__stat')?.querySelector(
+        '.seneca-dashboard__stat-dot--negative',
       ),
     ).not.toBeNull();
   });
@@ -156,7 +156,7 @@ describe('OverviewTab', () => {
       snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
     });
 
-    expect(document.querySelector('.lumio-dashboard__stat-dot')).toBeNull();
+    expect(document.querySelector('.seneca-dashboard__stat-dot')).toBeNull();
   });
 
   it('shows a 0% savings rate when there is no income', () => {
@@ -165,7 +165,7 @@ describe('OverviewTab', () => {
       snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
     });
 
-    expect(screen.getByText('0%').className).toBe('lumio-dashboard__stat-value');
+    expect(screen.getByText('0%').className).toBe('seneca-dashboard__stat-value');
   });
 
   it('says under the savings rate that the current month is not over yet', () => {
@@ -177,8 +177,8 @@ describe('OverviewTab', () => {
     );
 
     const note = screen.getByText('Month in progress');
-    expect(note.className).toBe('lumio-dashboard__stat-note');
-    expect(note.closest('.lumio-dashboard__stat')?.textContent).toContain('Savings rate');
+    expect(note.className).toBe('seneca-dashboard__stat-note');
+    expect(note.closest('.seneca-dashboard__stat')?.textContent).toContain('Savings rate');
   });
 
   it('leaves a past month without the in-progress note', () => {
@@ -260,9 +260,9 @@ describe('OverviewTab', () => {
       expect(screen.getByText('Office rent')).toBeInTheDocument();
     });
     // The figure stays neutral; a budget in its last tenth marks its bar instead.
-    expect(screen.getByText('90%').className).toBe('lumio-dashboard__budget-pct');
+    expect(screen.getByText('90%').className).toBe('seneca-dashboard__budget-pct');
     expect(
-      screen.getByText('90%').closest('.lumio-dashboard__budget-row')?.querySelector('[data-tone]')
+      screen.getByText('90%').closest('.seneca-dashboard__budget-row')?.querySelector('[data-tone]')
         ?.getAttribute('data-tone'),
     ).toBe('near');
   });

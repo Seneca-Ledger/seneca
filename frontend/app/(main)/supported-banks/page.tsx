@@ -42,7 +42,7 @@ export default function SupportedBanksPage(): React.JSX.Element {
   ];
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--lumio-page-top, 32px)', pb: 4 }}>
+    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}>
       <Box
         sx={{
           border: '1px solid var(--border-color)',

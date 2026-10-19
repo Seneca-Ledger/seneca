@@ -226,7 +226,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
     <Box
       sx={{
         px: { xs: 2, md: 3 },
-        pt: 'var(--lumio-page-top, 16px)',
+        pt: 'var(--seneca-page-top, 16px)',
         pb: { xs: 2, md: 3 },
         flex: 1,
       }}

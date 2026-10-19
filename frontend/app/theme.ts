@@ -1,6 +1,7 @@
 import { alpha, createTheme, type ThemeOptions } from '@mui/material/styles';
 import { createSvgIcon } from '@mui/material/utils';
 import { createElement } from 'react';
+import { APP_NAME } from '@/app/lib/brand';
 import { tokens } from '@/lib/theme-tokens';
 import { selectMenuComponents } from './components/ui/select-menu-theme';
 
@@ -17,7 +18,7 @@ const SURFACE_TOKENS: Record<ThemeMode, AppSurfaceTokens> = {
 
 /**
  * Background of a filled control on a dark surface. Mirrors
- * `$lumio-color-primary-fill-dk` in styles/abstracts/_variables-dark.scss —
+ * `$seneca-color-primary-fill-dk` in styles/abstracts/_variables-dark.scss —
  * keep the two in step.
  */
 const DARK_PRIMARY_FILL = '#3f5e4e';
@@ -28,7 +29,10 @@ const DARK_PRIMARY_FILL_HOVER = '#4a6b5a';
 const CHECKBOX_BOX = { width: 24, height: 24, rx: 6, fill: 'currentColor' };
 const CHECKBOX_MARK_COLOR = tokens.color.primaryContrast;
 
-const CheckboxBlankIcon = createSvgIcon(createElement('rect', CHECKBOX_BOX), 'LumioCheckboxBlank');
+const CheckboxBlankIcon = createSvgIcon(
+  createElement('rect', CHECKBOX_BOX),
+  `${APP_NAME}CheckboxBlank`,
+);
 
 const CheckboxCheckedIcon = createSvgIcon(
   [
@@ -40,7 +44,7 @@ const CheckboxCheckedIcon = createSvgIcon(
       transform: 'translate(4 4) scale(0.6667)',
     }),
   ],
-  'LumioCheckboxChecked',
+  `${APP_NAME}CheckboxChecked`,
 );
 
 const CheckboxIndeterminateIcon = createSvgIcon(
@@ -56,7 +60,7 @@ const CheckboxIndeterminateIcon = createSvgIcon(
       fill: CHECKBOX_MARK_COLOR,
     }),
   ],
-  'LumioCheckboxIndeterminate',
+  `${APP_NAME}CheckboxIndeterminate`,
 );
 
 const getSharedOptions = (

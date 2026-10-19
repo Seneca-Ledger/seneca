@@ -3,7 +3,7 @@ title: Docker Deployment
 description: Production deployment with Docker Compose
 ---
 
-Lumio ships a production Docker Compose setup in the repository root. CD publishes signed backend and frontend
+Seneca ships a production Docker Compose setup in the repository root. CD publishes signed backend and frontend
 images to GHCR for every release tag.
 
 ## Configuration
@@ -37,7 +37,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Pin a release with `LUMIO_IMAGE_TAG` in `.env`. `make start` builds the images locally instead
+Pin a release with `IMAGE_TAG` in `.env`. `make start` builds the images locally instead
 (`docker compose up -d --build`).
 
 This starts:
@@ -53,7 +53,7 @@ ports on `127.0.0.1` only.
 ## Upgrading
 
 ```bash
-make upgrade                    # newest release (or LUMIO_IMAGE_TAG from .env)
+make upgrade                    # newest release (or IMAGE_TAG from .env)
 make upgrade VERSION=v1.2.0     # a specific release
 ```
 

@@ -27,7 +27,7 @@ function MergeButton({
   onClick: () => void;
 }): React.JSX.Element {
   return (
-    <button type="button" onClick={onClick} className="lumio-stmt-list-view__bulk-menu-btn">
+    <button type="button" onClick={onClick} className="seneca-stmt-list-view__bulk-menu-btn">
       <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <GitMerge size={16} style={{ color: 'var(--primary)' }} />
         <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1, color: 'var(--primary)' }}>
@@ -47,7 +47,7 @@ function DismissButton({
   onClick: () => void;
 }): React.JSX.Element {
   return (
-    <button type="button" onClick={onClick} className="lumio-stmt-list-view__bulk-menu-btn">
+    <button type="button" onClick={onClick} className="seneca-stmt-list-view__bulk-menu-btn">
       <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <X size={16} style={{ color: 'var(--muted-foreground)' }} />
         <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1, color: 'var(--foreground)' }}>
@@ -69,7 +69,7 @@ function DuplicateActions({
     <>
       <MergeButton label={mergeDuplicatesLabel} onClick={onMergeDuplicates} />
       <DismissButton label={dismissDuplicateLabel} onClick={onDismissDuplicates} />
-      <div className="lumio-stmt-list-view__bulk-menu-divider" />
+      <div className="seneca-stmt-list-view__bulk-menu-divider" />
     </>
   );
 }
@@ -93,7 +93,7 @@ function StandardActions({
       <button
         type="button"
         onClick={onMarkAsDuplicate}
-        className="lumio-stmt-list-view__bulk-menu-btn"
+        className="seneca-stmt-list-view__bulk-menu-btn"
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Copy size={16} style={{ color: 'var(--primary)' }} />
@@ -106,7 +106,7 @@ function StandardActions({
       <button
         type="button"
         onClick={onExportSelected}
-        className="lumio-stmt-list-view__bulk-menu-btn"
+        className="seneca-stmt-list-view__bulk-menu-btn"
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Download size={16} style={{ color: 'var(--muted-foreground)' }} />
@@ -121,7 +121,7 @@ function StandardActions({
       <button
         type="button"
         onClick={onDeleteSelected}
-        className="lumio-stmt-list-view__bulk-menu-btn lumio-stmt-list-view__bulk-menu-btn--danger"
+        className="seneca-stmt-list-view__bulk-menu-btn seneca-stmt-list-view__bulk-menu-btn--danger"
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Trash2 size={16} style={{ color: 'var(--destructive)' }} />
@@ -177,17 +177,17 @@ function MobileBulkActions({
   onDeleteSelected,
 }: MobileBulkProps): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__mobile-bulk">
+    <div className="seneca-stmt-list-view__mobile-bulk">
       <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}>
         {selectedCount} selected
       </span>
-      <div className="lumio-stmt-list-view__mobile-bulk-actions">
+      <div className="seneca-stmt-list-view__mobile-bulk-actions">
         {hasSelectedDuplicates ? (
           <>
             <button
               type="button"
               onClick={onMergeDuplicates}
-              className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--primary"
+              className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--primary"
             >
               <GitMerge size={14} />
               {mergeDuplicatesLabel}
@@ -195,7 +195,7 @@ function MobileBulkActions({
             <button
               type="button"
               onClick={onDismissDuplicates}
-              className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--secondary"
+              className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--secondary"
             >
               <X size={14} />
               {dismissDuplicateLabel}
@@ -205,7 +205,7 @@ function MobileBulkActions({
         <button
           type="button"
           onClick={onMarkAsDuplicate}
-          className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--primary"
+          className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--primary"
         >
           <Copy size={14} />
           {markDuplicateLabel}
@@ -213,7 +213,7 @@ function MobileBulkActions({
         <button
           type="button"
           onClick={onExportSelected}
-          className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--secondary"
+          className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--secondary"
         >
           <Download size={14} />
           Export
@@ -221,7 +221,7 @@ function MobileBulkActions({
         <button
           type="button"
           onClick={onDeleteSelected}
-          className="lumio-stmt-list-view__mobile-action-btn lumio-stmt-list-view__mobile-action-btn--danger"
+          className="seneca-stmt-list-view__mobile-action-btn seneca-stmt-list-view__mobile-action-btn--danger"
         >
           <Trash2 size={14} />
           Delete
@@ -285,17 +285,17 @@ function DesktopBulkMenu({
   const ref = useOutsideClick({ enabled: open, onClose: () => setOpen(false) });
 
   return (
-    <div className="lumio-stmt-list-view__bulk-desktop" ref={ref}>
+    <div className="seneca-stmt-list-view__bulk-desktop" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen(prev => !prev)}
-        className="lumio-stmt-list-view__bulk-trigger"
+        className="seneca-stmt-list-view__bulk-trigger"
       >
         {selectedCount} selected
         <ChevronDown size={14} />
       </button>
       {open ? (
-        <div className="lumio-stmt-list-view__bulk-menu">
+        <div className="seneca-stmt-list-view__bulk-menu">
           {hasSelectedDuplicates ? (
             <DuplicateActions
               mergeDuplicatesLabel={mergeDuplicatesLabel}

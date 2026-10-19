@@ -57,7 +57,7 @@ export class VersionSnapshotService {
     await lock.connect();
     try {
       const [{ locked }] = await lock.query('SELECT pg_try_advisory_lock(hashtext($1)) AS locked', [
-        `lumio:versions:${workspace.id}`,
+        `seneca:versions:${workspace.id}`,
       ]);
       if (!locked) {
         if (claimed) await this.fail(claimed, 'Another snapshot of this workspace was running');
@@ -77,7 +77,7 @@ export class VersionSnapshotService {
         return await this.fill(workspace, version);
       } finally {
         await lock.query('SELECT pg_advisory_unlock(hashtext($1))', [
-          `lumio:versions:${workspace.id}`,
+          `seneca:versions:${workspace.id}`,
         ]);
       }
     } finally {

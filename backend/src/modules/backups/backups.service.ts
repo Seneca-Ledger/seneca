@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { APP_SLUG } from '../../common/brand';
 import type { UpdateBackupConfigurationBody } from '../../contracts';
 import {
   BackupConfiguration,
@@ -22,7 +23,7 @@ import { AuditAction, EntityType, Severity } from '../../entities/audit-event.en
 import type { User } from '../../entities/user.entity';
 import { AuditService } from '../audit/audit.service';
 import { recordSecurityEvent } from '../auth/security-audit.util';
-import { BackupArchiveService } from './backup-archive.service';
+import { BACKUP_FILE_EXTENSION, BackupArchiveService } from './backup-archive.service';
 import { BackupDataService } from './backup-data.service';
 import { BackupDestinationService } from './backup-destination.service';
 import { BackupKeyService } from './backup-key.service';
@@ -70,7 +71,7 @@ export class BackupsService {
     const configuration =
       existing || this.configurationRepository.create({ workspaceId: workspace.id });
     configuration.destinationKind = input.destinationKind;
-    configuration.destinationPath = input.destinationPath || 'lumio-backups';
+    configuration.destinationPath = input.destinationPath || `${APP_SLUG}-backups`;
     configuration.dailyTime = input.dailyTime || existing?.dailyTime || '03:00';
     configuration.timeZone = input.timeZone || existing?.timeZone || 'UTC';
     configuration.retentionCount = input.retentionCount ?? existing?.retentionCount ?? 7;
@@ -161,7 +162,7 @@ export class BackupsService {
     if (!configuration) throw new NotFoundException('Backup configuration was not found');
 
     return {
-      fileName: run.destinationFile.split('/').pop() || 'backup.lumio-backup',
+      fileName: run.destinationFile.split('/').pop() || `backup${BACKUP_FILE_EXTENSION}`,
       contents: await this.destinationService.load(configuration, run.destinationFile),
     };
   }
@@ -211,7 +212,7 @@ export class BackupsService {
           passwordEnvelope: configuration.passwordEnvelope,
         },
       });
-      const fileName = `backup-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.lumio-backup`;
+      const fileName = `backup-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}${BACKUP_FILE_EXTENSION}`;
       savedRun.destinationFile = await this.destinationService.store(
         configuration,
         fileName,

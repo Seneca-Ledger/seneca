@@ -151,7 +151,7 @@ function EmptyState({
   hasGmailReceipts: boolean;
 }): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__empty">
+    <div className="seneca-stmt-list-view__empty">
       <EmptyStateIllustration name="statements" size="lg" />
       <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--foreground)' }}>
         {emptyLabels.title}
@@ -182,7 +182,7 @@ function TableHeader({
   onSortDate: () => void;
 }): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__desktop-header">
+    <div className="seneca-stmt-list-view__desktop-header">
       <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -299,7 +299,7 @@ function PaginationBar({
   onPageChange: (page: number) => void;
 }): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__pagination" style={{ marginTop: 24 }}>
+    <div className="seneca-stmt-list-view__pagination" style={{ marginTop: 24 }}>
       <div style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
         {formatPaginationLabel(paginationLabels.shown, {
           from: rangeStart,
@@ -426,7 +426,7 @@ export function StatementsListTable({
 }: StatementsListTableProps): React.JSX.Element {
   if (loading && gmailSyncSkeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__loading">
+      <div className="seneca-stmt-list-view__loading">
         <Spinner style={{ height: 80, width: 80, color: 'var(--primary)' }} />
       </div>
     );

@@ -79,41 +79,41 @@ export default function MobileBottomBar() {
     <>
       {/* FAB backdrop */}
       {fabOpen && (
-        <div className="lumio-bottom-bar__fab-backdrop" onClick={closeFab} aria-hidden="true" />
+        <div className="seneca-bottom-bar__fab-backdrop" onClick={closeFab} aria-hidden="true" />
       )}
 
       {/* FAB radial menu (upward) */}
       <div
-        className={`lumio-bottom-bar__fab-menu${fabOpen ? ' lumio-bottom-bar__fab-menu--open' : ''}`}
+        className={`seneca-bottom-bar__fab-menu${fabOpen ? ' seneca-bottom-bar__fab-menu--open' : ''}`}
         inert={!fabOpen}
       >
         {FAB_ACTIONS.map((action, index) => (
           <button
             key={action.id}
             type="button"
-            className="lumio-bottom-bar__fab-action"
+            className="seneca-bottom-bar__fab-action"
             style={{ '--fab-index': index } as React.CSSProperties}
             onClick={() => {
               router.push(action.href);
               closeFab();
             }}
           >
-            <span className="lumio-bottom-bar__fab-action-icon">
+            <span className="seneca-bottom-bar__fab-action-icon">
               <action.icon size={18} />
             </span>
-            <span className="lumio-bottom-bar__fab-action-label">{shell[action.labelKey]}</span>
+            <span className="seneca-bottom-bar__fab-action-label">{shell[action.labelKey]}</span>
           </button>
         ))}
       </div>
 
       <nav
-        className={`lumio-bottom-bar${fabOpen ? ' lumio-bottom-bar--fab-open' : ''}`}
+        className={`seneca-bottom-bar${fabOpen ? ' seneca-bottom-bar--fab-open' : ''}`}
         aria-label={shell.mobileNavigation.value}
       >
         {/* Tab 1: Dashboard */}
         <Link
           href="/dashboard"
-          className={`lumio-bottom-bar__tab${isNavItemActive(pathname ?? '', '/dashboard') ? ' lumio-bottom-bar__tab--active' : ''}`}
+          className={`seneca-bottom-bar__tab${isNavItemActive(pathname ?? '', '/dashboard') ? ' seneca-bottom-bar__tab--active' : ''}`}
         >
           <LayoutDashboard size={22} />
         </Link>
@@ -121,7 +121,7 @@ export default function MobileBottomBar() {
         {/* Tab 2: Statements */}
         <Link
           href="/statements"
-          className={`lumio-bottom-bar__tab${isNavItemActive(pathname ?? '', '/statements') ? ' lumio-bottom-bar__tab--active' : ''}`}
+          className={`seneca-bottom-bar__tab${isNavItemActive(pathname ?? '', '/statements') ? ' seneca-bottom-bar__tab--active' : ''}`}
         >
           <FileText size={22} />
         </Link>
@@ -129,7 +129,7 @@ export default function MobileBottomBar() {
         {/* Tab 3: FAB — Quick Actions */}
         <button
           type="button"
-          className="lumio-bottom-bar__fab"
+          className="seneca-bottom-bar__fab"
           onClick={() => setFabOpen(prev => !prev)}
           aria-label={shell.quickActions.value}
         >
@@ -145,7 +145,7 @@ export default function MobileBottomBar() {
         {/* Tab 4: Reports */}
         <Link
           href="/reports"
-          className={`lumio-bottom-bar__tab${isNavItemActive(pathname ?? '', '/reports') ? ' lumio-bottom-bar__tab--active' : ''}`}
+          className={`seneca-bottom-bar__tab${isNavItemActive(pathname ?? '', '/reports') ? ' seneca-bottom-bar__tab--active' : ''}`}
         >
           <BarChart2 size={22} />
         </Link>
@@ -153,11 +153,11 @@ export default function MobileBottomBar() {
         {/* Tab 5: the account — the menu drawer, with the account entry at its foot */}
         <button
           type="button"
-          className="lumio-bottom-bar__tab"
+          className="seneca-bottom-bar__tab"
           onClick={() => setDrawerOpen(true)}
           aria-label={shell.openMenu.value}
         >
-          <span className="lumio-account__avatar lumio-account__avatar--tab">
+          <span className="seneca-account__avatar seneca-account__avatar--tab">
             {avatarUrl && !avatarError ? (
               <img
                 src={avatarUrl}

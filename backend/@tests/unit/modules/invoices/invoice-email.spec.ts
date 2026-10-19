@@ -3,9 +3,10 @@ import type { Invoice } from '@/entities/invoice.entity';
 import type { WorkspaceBusinessProfile } from '@/entities/workspace-business-profile.entity';
 import { composeInvoiceEmail } from '@/modules/invoices/invoice-delivery.service';
 import { renderInvoiceLabels } from '@/modules/invoices/invoice-document.translations';
+import { APP_NAME } from '../../../../src/common/brand';
 
 const profile = {
-  legalName: 'Lumio Software OÜ',
+  legalName: `${APP_NAME} Software OÜ`,
   bankName: 'LHV Pank',
   bankAccount: 'EE471000001020145685',
   bankCode: 'LHVBEE22',
@@ -33,7 +34,7 @@ const compose = (overrides: { client?: Client; profile?: WorkspaceBusinessProfil
 
 describe('composeInvoiceEmail', () => {
   it('names the invoice and the issuer in the subject', () => {
-    expect(compose().subject).toBe('Invoice INV-42 from Lumio Software OÜ');
+    expect(compose().subject).toBe(`Invoice INV-42 from ${APP_NAME} Software OÜ`);
   });
 
   it('states what is owed, by when, and how to pay it', () => {
@@ -59,7 +60,7 @@ describe('composeInvoiceEmail', () => {
   it('writes in the client language', () => {
     const { subject, text } = compose({ client: { ...client, locale: 'de' } as Client });
 
-    expect(subject).toBe('Rechnung INV-42 von Lumio Software OÜ');
+    expect(subject).toBe(`Rechnung INV-42 von ${APP_NAME} Software OÜ`);
     expect(text).toContain('Im Anhang finden Sie die Rechnung INV-42, fällig am 2026-03-15.');
     expect(text).toContain('Zahlungsinformationen:');
   });
@@ -67,6 +68,6 @@ describe('composeInvoiceEmail', () => {
   it('falls back to English for an unknown locale', () => {
     const { subject } = compose({ client: { ...client, locale: 'xx' } as Client });
 
-    expect(subject).toBe('Invoice INV-42 from Lumio Software OÜ');
+    expect(subject).toBe(`Invoice INV-42 from ${APP_NAME} Software OÜ`);
   });
 });

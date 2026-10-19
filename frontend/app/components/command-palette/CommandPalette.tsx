@@ -20,7 +20,7 @@ import { usePaletteKeyboard } from './use-palette-keyboard';
 import { type PaletteRow, usePaletteSections } from './use-palette-sections';
 import { usePaletteShortcuts } from './use-palette-shortcuts';
 
-const REPORT_BUG_URL = 'https://github.com/SymonBaikov/lumio/issues/new';
+const REPORT_BUG_URL = 'https://github.com/SymonBaikov/seneca/issues/new';
 
 function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Element {
   const t = useIntlayer('commandPalette');
@@ -62,7 +62,7 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
   const { sections, rows } = usePaletteSections(input, commands);
 
   // Closing first: a command that opens a drawer would otherwise dim itself
-  // through the drawer stack's `data-lumio-covered` rule.
+  // through the drawer stack's `data-seneca-covered` rule.
   const run = (row: PaletteRow): void => {
     closeCommandPalette();
     if (row.kind === 'command') {

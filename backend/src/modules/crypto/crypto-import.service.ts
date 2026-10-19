@@ -32,7 +32,7 @@ export interface ExchangeImportResult {
 }
 
 /**
- * Brings an exchange account into Lumio from the CSV the exchange exports.
+ * Brings an exchange account into Seneca from the CSV the exchange exports.
  *
  * Most people's coins are not on a chain we can read. The account becomes a
  * wallet of kind `exchange` whose balances are the running total of the file,
@@ -128,7 +128,7 @@ export class CryptoImportService {
     const isIncome = entry.amount > 0;
     const id = reference(exchange, entry.reference);
     // A trade and a move are not income and not spending; a one-leg transfer is
-    // exactly how the rest of Lumio already says that about a row.
+    // exactly how the rest of Seneca already says that about a row.
     const neutral = entry.kind === 'trade' || entry.kind === 'move';
 
     const result = await this.transactionRepo
@@ -156,7 +156,7 @@ export class CryptoImportService {
         ...(neutral
           ? {
               // A pair of one: the row is simply not spending, and `transferPairId`
-              // is what every total in Lumio already reads to know that.
+              // is what every total in Seneca already reads to know that.
               transferPairId: randomUUID(),
               transferPairSource: TransferPairSource.AUTO,
               transferPairKind: TransferPairKind.TRANSFER,

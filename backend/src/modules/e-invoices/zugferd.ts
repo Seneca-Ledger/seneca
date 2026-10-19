@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AFRelationship, PDFDocument, PDFHexString, PDFName } from 'pdf-lib';
+import { APP_NAME } from '../../common/brand';
 
 /**
  * Turns an invoice PDF into a ZUGFeRD / Factur-X hybrid: a PDF/A-3b whose
@@ -42,7 +43,7 @@ export async function embedXRechnung(pdf: Buffer, xml: string, meta: ZugferdMeta
   // Whole seconds: the Info dictionary has no fractions, and PDF/A wants it
   // and the XMP to say the same.
   const date = new Date(Math.floor(meta.date.getTime() / 1000) * 1000);
-  const producer = 'Lumio';
+  const producer = APP_NAME;
 
   await doc.attach(Buffer.from(xml, 'utf8'), ZUGFERD_FILE_NAME, {
     mimeType: 'text/xml',

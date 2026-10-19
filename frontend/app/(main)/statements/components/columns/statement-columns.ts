@@ -27,7 +27,7 @@ export type StatementColumn = {
   order: number;
 };
 
-export const STATEMENT_COLUMNS_STORAGE_KEY = 'lumio-statement-columns';
+export const STATEMENT_COLUMNS_STORAGE_KEY = 'seneca-statement-columns';
 
 export const DEFAULT_STATEMENT_COLUMNS: StatementColumn[] = [
   { id: 'receipt', label: 'Receipt', visible: true, order: 0 },

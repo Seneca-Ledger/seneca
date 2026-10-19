@@ -28,7 +28,7 @@ import { ManualRowDuplicateService } from '../../src/modules/transactions/servic
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_manual_dupes_${process.pid}`;
+const SCRATCH_DB = `seneca_manual_dupes_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);

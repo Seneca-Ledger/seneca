@@ -1,6 +1,6 @@
 // lib/theme-tokens.ts
 // JS/TS token constants — mirrors abstracts/_variables.scss and _variables-dark.scss.
-// Use these wherever CSS custom properties (var(--lumio-*)) were used in JS/TSX.
+// Use these wherever CSS custom properties (var(--seneca-*)) were used in JS/TSX.
 //
 // For dark-mode-aware colors in client components:
 //   import { useTheme } from 'next-themes';
@@ -19,7 +19,7 @@ export const tokens = {
     xl: '20px',
     full: '999px',
   },
-  /** Keyboard focus ring (mirrors $lumio-focus-ring-* in _variables.scss). `reach` is how far,
+  /** Keyboard focus ring (mirrors $seneca-focus-ring-* in _variables.scss). `reach` is how far,
    *  in px, it extends outside an element: the room a clipping container leaves its items. */
   focusRing: { reach: 4 },
   space: {

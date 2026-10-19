@@ -82,7 +82,7 @@ describe('TopCategoriesCard', () => {
     expect(colors.every(color => color?.startsWith('var(--cat-tone-'))).toBe(true);
     expect(colors[0]).not.toBe(colors[1]);
     expect(colors[2]).toBe('var(--cat-tone-other)');
-    const dots = [...container.querySelectorAll<HTMLElement>('.lumio-dashboard__legend-dot')];
+    const dots = [...container.querySelectorAll<HTMLElement>('.seneca-dashboard__legend-dot')];
     expect(dots).toHaveLength(3);
 
     // Next month Rent ranks first: it keeps its tone.

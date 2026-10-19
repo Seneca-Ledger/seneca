@@ -59,12 +59,12 @@ function getUsableElementBounds(selector: string): TourBounds | null {
 }
 
 function resolveTourBounds(activeElement: Element | null): TourBounds {
-  if (activeElement?.closest('.lumio-shell__sidebar')) {
+  if (activeElement?.closest('.seneca-shell__sidebar')) {
     return viewportBounds();
   }
 
   return (
-    getUsableElementBounds('.lumio-shell__content') ??
+    getUsableElementBounds('.seneca-shell__content') ??
     getUsableElementBounds('main') ??
     viewportBounds()
   );

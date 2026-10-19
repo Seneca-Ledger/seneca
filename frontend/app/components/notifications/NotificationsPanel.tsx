@@ -198,11 +198,11 @@ export function NotificationsPanel() {
       width="md"
       title={
         // "Mark all as read" on the title's line, not a row of its own.
-        <span className="lumio-notification-panel__title-row">
+        <span className="seneca-notification-panel__title-row">
           <span>{t.title.value}</span>
           <button
             type="button"
-            className="lumio-notification-panel__mark-all"
+            className="seneca-notification-panel__mark-all"
             onClick={() => markAllAsRead()}
             disabled={unreadCount === 0}
           >
@@ -211,10 +211,10 @@ export function NotificationsPanel() {
         </span>
       }
     >
-      <div className="lumio-notification-panel">
-        <div className="lumio-notification-panel__list">
+      <div className="seneca-notification-panel">
+        <div className="seneca-notification-panel__list">
           {isPending && notifications.length === 0 ? (
-            <div className="lumio-notification-panel__empty">{t.loading.value}</div>
+            <div className="seneca-notification-panel__empty">{t.loading.value}</div>
           ) : null}
 
           {!isPending && notifications.length === 0 ? (
@@ -222,8 +222,8 @@ export function NotificationsPanel() {
           ) : null}
 
           {groupNotifications(notifications).map(group => (
-            <section key={group.key} className="lumio-notification-panel__group">
-              <h3 className="lumio-notification-panel__group-title">{groupTitles[group.key]}</h3>
+            <section key={group.key} className="seneca-notification-panel__group">
+              <h3 className="seneca-notification-panel__group-title">{groupTitles[group.key]}</h3>
               {group.items.map(notification => {
                 const href = notificationHref(notification);
                 const localizedCopy = getLocalizedNotificationCopy(notification);
@@ -240,31 +240,31 @@ export function NotificationsPanel() {
                 return (
                   <div
                     key={notification.id}
-                    className={`lumio-notification-panel__item${notification.isRead ? '' : ' lumio-notification-panel__item--unread'}`}
+                    className={`seneca-notification-panel__item${notification.isRead ? '' : ' seneca-notification-panel__item--unread'}`}
                   >
                     <span
                       aria-hidden
-                      className={`lumio-notification-panel__dot${dot ? ` lumio-notification-panel__dot--${dot}` : ''}`}
+                      className={`seneca-notification-panel__dot${dot ? ` seneca-notification-panel__dot--${dot}` : ''}`}
                     />
-                    <div className="lumio-notification-panel__item-content">
+                    <div className="seneca-notification-panel__item-content">
                       <button
                         type="button"
-                        className="lumio-notification-panel__item-main"
+                        className="seneca-notification-panel__item-main"
                         onClick={() => openNotification(notification)}
                       >
-                        <span className="lumio-notification-panel__item-title">
+                        <span className="seneca-notification-panel__item-title">
                           {localizedCopy.title}
                         </span>
-                        <span className="lumio-notification-panel__item-message">
+                        <span className="seneca-notification-panel__item-message">
                           {localizedCopy.message}
                         </span>
                       </button>
-                      <p className="lumio-notification-panel__item-meta">
+                      <p className="seneca-notification-panel__item-meta">
                         {important && href ? (
                           <>
                             <button
                               type="button"
-                              className="lumio-notification-panel__item-action"
+                              className="seneca-notification-panel__item-action"
                               onClick={() => openNotification(notification)}
                             >
                               {t[notificationActionKey(notification.type)].value}
@@ -283,10 +283,10 @@ export function NotificationsPanel() {
         </div>
 
         <Divider />
-        <div className="lumio-notification-panel__footer">
+        <div className="seneca-notification-panel__footer">
           <Link
             href="/settings/notifications"
-            className="lumio-notification-panel__settings-link"
+            className="seneca-notification-panel__settings-link"
             onClick={() => handleClose()}
           >
             <Settings size={14} aria-hidden />

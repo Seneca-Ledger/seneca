@@ -15,6 +15,7 @@ import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { blobOf } from '@/app/lib/blob-of';
+import { APP_SLUG } from '@/app/lib/brand';
 import type { BackupImportPreview } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
@@ -42,7 +43,7 @@ type BackupRun = {
 
 const defaultConfig: BackupConfig = {
   destinationKind: 'local',
-  destinationPath: 'lumio-backups',
+  destinationPath: `${APP_SLUG}-backups`,
   dailyTime: '03:00',
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   retentionCount: 7,
@@ -163,7 +164,7 @@ export function BackupSection() {
       const url = URL.createObjectURL(blobOf(response));
       const link = document.createElement('a');
       link.href = url;
-      link.download = `lumio-${run.id}.lumio-backup`;
+      link.download = `${APP_SLUG}-${run.id}.seneca-backup`;
       link.click();
       URL.revokeObjectURL(url);
     })().catch(async () => {
@@ -431,7 +432,7 @@ export function BackupSection() {
             <input
               ref={importInput}
               type="file"
-              accept=".lumio-backup,application/octet-stream"
+              accept=".seneca-backup,.lumio-backup,application/octet-stream"
               hidden
               onChange={event => {
                 setImportFile(event.target.files?.[0] ?? null);

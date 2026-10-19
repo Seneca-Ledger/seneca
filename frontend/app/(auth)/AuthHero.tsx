@@ -39,7 +39,7 @@ function FeatureItem({ children }: { children: ReactNode }): React.JSX.Element {
       <Box
         component="span"
         aria-hidden
-        className="lumio-auth-hero__check"
+        className="seneca-auth-hero__check"
         sx={{ flexShrink: 0, display: 'inline-flex', pt: '3px' }}
       >
         <Check size={18} />
@@ -52,7 +52,7 @@ function FeatureItem({ children }: { children: ReactNode }): React.JSX.Element {
 /**
  * The quiet right half of the auth pages: a large wordmark, one line of
  * tagline and the product's promises, three at a time, rotating. Colours
- * follow the theme through `.lumio-auth-hero` in _auth.scss. Rotation
+ * follow the theme through `.seneca-auth-hero` in _auth.scss. Rotation
  * pauses while the pointer or focus is on the list and stays off for people
  * who asked the system for reduced motion. The grid-and-glow backdrop comes
  * from the (auth) layout.
@@ -75,7 +75,7 @@ export function AuthHero({ title, tagline }: AuthHeroProps): React.JSX.Element {
   const visible = FEATURE_KEYS.slice(group * FEATURES_PER_GROUP, (group + 1) * FEATURES_PER_GROUP);
 
   return (
-    <Box className="lumio-auth-hero" sx={{ textAlign: 'left', maxWidth: 440, mx: 'auto' }}>
+    <Box className="seneca-auth-hero" sx={{ textAlign: 'left', maxWidth: 440, mx: 'auto' }}>
       {title ? (
         <Typography
           component="p"
@@ -92,7 +92,7 @@ export function AuthHero({ title, tagline }: AuthHeroProps): React.JSX.Element {
       ) : null}
       {/* Without a title the tagline is the heading of the half. */}
       <Typography
-        className={title ? 'lumio-auth-hero__tagline' : 'lumio-auth-hero__lead'}
+        className={title ? 'seneca-auth-hero__tagline' : 'seneca-auth-hero__lead'}
         sx={
           title
             ? { mt: 2, fontSize: 18, lineHeight: 1.6 }

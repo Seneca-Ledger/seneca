@@ -86,7 +86,7 @@ describe('Webhook events (e2e)', () => {
     const subscription = await dataSource.getRepository(WebhookSubscription).save({
       workspaceId: owner.workspaceId,
       name: 'Everything',
-      url: 'https://hooks.invalid/lumio',
+      url: 'https://hooks.invalid/seneca',
       secret: 'a-secret-of-at-least-16',
       events: Object.values(WebhookEvent),
       isActive: true,

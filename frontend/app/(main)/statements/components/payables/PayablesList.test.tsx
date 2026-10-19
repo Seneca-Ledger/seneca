@@ -63,7 +63,7 @@ describe('PayablesList', () => {
     renderList([payable({ id: 'p-1', vendor: 'HoldYou', dueDate })]);
 
     const status = screen.getByText('Overdue');
-    expect(status.className).toContain('lumio-payable-status--overdue');
+    expect(status.className).toContain('seneca-payable-status--overdue');
     expect(screen.getByText(/21 days ago/)).toBeInTheDocument();
   });
 

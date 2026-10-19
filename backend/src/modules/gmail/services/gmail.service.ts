@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../../common/brand';
 import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { GmailSettings, Integration } from '../../../entities';
 import type { GmailApi } from '../gmail-api.types';
@@ -59,7 +60,9 @@ export class GmailService {
         accessToken,
         'users/me/labels',
       );
-      const existingLabel = labelsResponse.labels?.find(label => label.name === 'Lumio/Receipts');
+      const existingLabel = labelsResponse.labels?.find(
+        label => label.name === `${APP_NAME}/Receipts`,
+      );
 
       let labelId: string;
       if (existingLabel?.id) {
@@ -72,7 +75,7 @@ export class GmailService {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              name: 'Lumio/Receipts',
+              name: `${APP_NAME}/Receipts`,
               labelListVisibility: 'labelShow',
               messageListVisibility: 'show',
             }),
@@ -116,7 +119,7 @@ export class GmailService {
 
       if (settings) {
         settings.labelId = labelId;
-        settings.labelName = 'Lumio/Receipts';
+        settings.labelName = `${APP_NAME}/Receipts`;
         await this.gmailSettingsRepository.save(settings);
       }
 

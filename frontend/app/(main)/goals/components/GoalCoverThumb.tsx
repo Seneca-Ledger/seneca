@@ -31,7 +31,7 @@ export function GoalPresetTile({
   const iconSize = size ? Math.round(size * 0.46) : 28;
   return (
     <span
-      className="lumio-goal-cover"
+      className="seneca-goal-cover"
       data-tone={preset?.tone ?? 'none'}
       {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
       style={size ? { width: size, height: size } : undefined}

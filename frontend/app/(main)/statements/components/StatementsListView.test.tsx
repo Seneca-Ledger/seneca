@@ -128,7 +128,7 @@ vi.mock('@/app/(main)/statements/components/filters/statement-filters', () => ({
 }));
 
 vi.mock('@/app/(main)/statements/components/columns/statement-columns', () => ({
-  STATEMENT_COLUMNS_STORAGE_KEY: 'lumio-statement-columns',
+  STATEMENT_COLUMNS_STORAGE_KEY: 'seneca-statement-columns',
   DEFAULT_STATEMENT_COLUMNS: [
     { id: 'receipt', label: 'Receipt', visible: true, order: 0 },
     { id: 'merchant', label: 'Merchant', visible: true, order: 1 },

@@ -22,7 +22,7 @@ import {
   Wallet,
 } from '@/app/components/icons';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
-export const MOBILE_MENU_VISIBILITY_EVENT = 'lumio-mobile-menu-visibility';
+export const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
 
 export type { AppLocale as AppLanguage } from '@/app/lib/locale';
 

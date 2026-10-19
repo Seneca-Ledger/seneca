@@ -11,6 +11,7 @@ import { Injectable } from '@nestjs/common';
 import { Exit, Schema } from 'effect';
 import { runWithAuditActor } from '../../common/audit-actor.context';
 import { assertPermissions, hasPermissions } from '../../common/authz/request-permissions';
+import { APP_NAME, APP_SLUG } from '../../common/brand';
 import { describeSchemaFailure, describeUnstorableText } from '../../common/effect/schema-issues';
 import { toToolInputSchema } from './mcp-json-schema';
 import { toArgumentError, toToolError, toToolResult } from './mcp-result';
@@ -18,7 +19,7 @@ import type { McpTool, McpToolContext } from './mcp-tool';
 import { McpToolRegistry } from './mcp-tool-registry.service';
 
 const INSTRUCTIONS =
-  'Lumio is a bookkeeping app. Every tool works inside the workspace the API key belongs to. ' +
+  `${APP_NAME} is a bookkeeping app. Every tool works inside the workspace the API key belongs to. ` +
   'List tools are paginated; narrow them with filters rather than paging through everything.';
 
 /** One MCP server per request: the endpoint is stateless and each request carries its key. */
@@ -49,7 +50,7 @@ export class McpServerFactory {
 
   create(ctx: McpToolContext): Server {
     const server = new Server(
-      { name: 'lumio', version: process.env.APP_VERSION?.trim() || 'dev' },
+      { name: APP_SLUG, version: process.env.APP_VERSION?.trim() || 'dev' },
       { capabilities: { tools: {} }, instructions: INSTRUCTIONS },
     );
     // A key sees only the tools its scopes and its owner's role allow.

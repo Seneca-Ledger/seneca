@@ -1,9 +1,9 @@
 @use '../abstracts' as *;
 
-/* BEM block: lumio-dashboard */
+/* BEM block: seneca-dashboard */
 
 /* ── Stat grid ── */
-.lumio-dashboard {
+.seneca-dashboard {
   /* Tab body: stacked sections with a uniform gap. */
   &__tab {
     display: flex;
@@ -54,14 +54,14 @@
     @media (max-width: 640px) {
       padding: 14px 14px 12px;
     }
-    background: $lumio-color-surface;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-lg;
+    background: $seneca-color-surface;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-lg;
     overflow: hidden;
 
     @include dark {
-      background: $lumio-color-surface-dk;
-      border-color: $lumio-color-ink-150-dk;
+      background: $seneca-color-surface-dk;
+      border-color: $seneca-color-ink-150-dk;
     }
   }
 
@@ -81,34 +81,34 @@
     vertical-align: 1px;
 
     &--positive {
-      background: $lumio-color-money-up;
+      background: $seneca-color-money-up;
 
       @include dark {
-        background: $lumio-color-success-dk;
+        background: $seneca-color-success-dk;
       }
     }
 
     &--negative {
-      background: $lumio-color-money-down;
+      background: $seneca-color-money-down;
 
       @include dark {
-        background: $lumio-color-danger-dk;
+        background: $seneca-color-danger-dk;
       }
     }
 
     &--warning {
-      background: $lumio-color-warning;
+      background: $seneca-color-warning;
 
       @include dark {
-        background: $lumio-color-warning-dk;
+        background: $seneca-color-warning-dk;
       }
     }
 
     &--info {
-      background: $lumio-color-info;
+      background: $seneca-color-info;
 
       @include dark {
-        background: $lumio-color-info-dk;
+        background: $seneca-color-info-dk;
       }
     }
   }
@@ -143,7 +143,7 @@
   &__stat-value {
     font-size: 26px;
     font-weight: 600;
-    color: $lumio-color-figure;
+    color: $seneca-color-figure;
     letter-spacing: -0.015em;
     margin-top: 6px;
     line-height: 1.15;
@@ -156,38 +156,38 @@
     }
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
 
     &--positive {
-      color: $lumio-color-success;
+      color: $seneca-color-success;
 
       @include dark {
-        color: $lumio-color-success-dk;
+        color: $seneca-color-success-dk;
       }
     }
 
     &--negative {
-      color: $lumio-color-danger;
+      color: $seneca-color-danger;
 
       @include dark {
-        color: $lumio-color-danger-dk;
+        color: $seneca-color-danger-dk;
       }
     }
 
     &--warning {
-      color: $lumio-color-warning;
+      color: $seneca-color-warning;
 
       @include dark {
-        color: $lumio-color-warning-dk;
+        color: $seneca-color-warning-dk;
       }
     }
 
     &--info {
-      color: $lumio-color-info;
+      color: $seneca-color-info;
 
       @include dark {
-        color: $lumio-color-info-dk;
+        color: $seneca-color-info-dk;
       }
     }
   }
@@ -199,10 +199,10 @@
     transition: border-color 120ms;
 
     &:hover {
-      border-color: $lumio-color-ink-300;
+      border-color: $seneca-color-ink-300;
 
       @include dark {
-        border-color: $lumio-color-ink-300-dk;
+        border-color: $seneca-color-ink-300-dk;
       }
     }
   }
@@ -253,19 +253,19 @@
   }
 
   &__stat-sub {
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     a {
       color: var(--primary);
       text-decoration: none;
-      font-weight: $lumio-font-weight-medium;
+      font-weight: $seneca-font-weight-medium;
 
       @include dark {
-        color: $lumio-color-primary-dk;
+        color: $seneca-color-primary-dk;
       }
 
       &:hover {
@@ -283,34 +283,34 @@
     color: var(--text-muted);
 
     &--positive {
-      color: $lumio-color-money-up;
+      color: $seneca-color-money-up;
 
       @include dark {
-        color: $lumio-color-success-dk;
+        color: $seneca-color-success-dk;
       }
     }
 
     &--negative {
-      color: $lumio-color-money-down;
+      color: $seneca-color-money-down;
 
       @include dark {
-        color: $lumio-color-danger-dk;
+        color: $seneca-color-danger-dk;
       }
     }
 
     &--warning {
-      color: $lumio-color-warning;
+      color: $seneca-color-warning;
 
       @include dark {
-        color: $lumio-color-warning-dk;
+        color: $seneca-color-warning-dk;
       }
     }
 
     &--info {
-      color: $lumio-color-info;
+      color: $seneca-color-info;
 
       @include dark {
-        color: $lumio-color-info-dk;
+        color: $seneca-color-info-dk;
       }
     }
   }
@@ -373,14 +373,14 @@
   &__card {
     display: flex;
     flex-direction: column;
-    background: $lumio-color-surface;
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-lg;
+    background: $seneca-color-surface;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-lg;
     padding: 20px;
 
     @include dark {
-      background: $lumio-color-surface-dk;
-      border-color: $lumio-color-ink-150-dk;
+      background: $seneca-color-surface-dk;
+      border-color: $seneca-color-ink-150-dk;
     }
   }
 
@@ -409,7 +409,7 @@
     /* A month strip in this slot is twelve chips wide. Refusing to shrink, it
        stretched the card — and with it the whole page — well past the screen
        on the goal page; this one case shrinks and scrolls inside itself. */
-    &:has(.lumio-dashboard__month-strip) {
+    &:has(.seneca-dashboard__month-strip) {
       flex: 1 1 auto;
       min-width: 0;
     }
@@ -427,11 +427,11 @@
   // Sentence case and a medium weight, as on every other card in the app.
   &__card-title {
     font-size: 15px;
-    font-weight: $lumio-font-weight-medium;
-    color: $lumio-color-figure;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-figure;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -451,7 +451,7 @@
   &__card--shell {
     overflow: hidden;
 
-    .lumio-dashboard__card-body {
+    .seneca-dashboard__card-body {
       overflow: auto;
     }
   }
@@ -474,20 +474,20 @@
     border: none;
     cursor: pointer;
     padding: 4px 8px;
-    border-radius: $lumio-radius-xs;
+    border-radius: $seneca-radius-xs;
     transition: background-color 150ms;
     white-space: nowrap;
     flex-shrink: 0;
 
     @include dark {
-      color: $lumio-color-primary-dk;
+      color: $seneca-color-primary-dk;
     }
 
     &:hover {
       background-color: var(--primary-50);
 
       @include dark {
-        background-color: $lumio-color-primary-50-dk;
+        background-color: $seneca-color-primary-50-dk;
       }
     }
   }
@@ -661,7 +661,7 @@
     flex-direction: column;
     gap: 10px;
 
-    .lumio-dashboard__stat-details {
+    .seneca-dashboard__stat-details {
       margin: 0;
       gap: 6px;
       font-size: 14px;
@@ -672,7 +672,7 @@
 
       dd {
         font-size: 16px;
-        font-weight: $lumio-font-weight-medium;
+        font-weight: $seneca-font-weight-medium;
       }
     }
   }
@@ -709,10 +709,10 @@
     padding: 10px 0;
 
     & + & {
-      border-top: 1px solid $lumio-color-ink-150;
+      border-top: 1px solid $seneca-color-ink-150;
 
       @include dark {
-        border-top-color: $lumio-color-ink-150-dk;
+        border-top-color: $seneca-color-ink-150-dk;
       }
     }
 
@@ -735,7 +735,7 @@
 
   &__budget-pct {
     font-size: 13px;
-    font-weight: $lumio-font-weight-medium;
+    font-weight: $seneca-font-weight-medium;
     color: var(--foreground);
     font-variant-numeric: tabular-nums;
   }
@@ -748,17 +748,17 @@
     margin: 0 0 12px;
     font-size: 13px;
     line-height: 1.5;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &--danger {
-      color: $lumio-color-danger;
+      color: $seneca-color-danger;
 
       @include dark {
-        color: $lumio-color-danger-dk;
+        color: $seneca-color-danger-dk;
       }
     }
 
@@ -769,11 +769,11 @@
   }
 
   &__action-chevron {
-    color: $lumio-color-ink-300;
+    color: $seneca-color-ink-300;
     flex-shrink: 0;
 
     @include dark {
-      color: $lumio-color-ink-300-dk;
+      color: $seneca-color-ink-300-dk;
     }
   }
 
@@ -794,15 +794,15 @@
     height: 80px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-lg;
-    border: 1px solid $lumio-color-border;
-    background: $lumio-color-surface;
-    box-shadow: $lumio-shadow-md;
+    border-radius: $seneca-radius-lg;
+    border: 1px solid $seneca-color-border;
+    background: $seneca-color-surface;
+    box-shadow: $seneca-shadow-md;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-dk;
-      box-shadow: $lumio-shadow-md-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-dk;
+      box-shadow: $seneca-shadow-md-dk;
     }
   }
 
@@ -810,10 +810,10 @@
     margin: 0 0 8px;
     font-size: 20px;
     font-weight: 700;
-    color: $lumio-color-ink-900;
+    color: $seneca-color-ink-900;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -821,11 +821,11 @@
     margin: 0 0 32px;
     max-width: 448px;
     font-size: 14px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     line-height: 1.6;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -838,19 +838,19 @@
     padding: 12px 24px;
     font-size: 14px;
     font-weight: 600;
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     text-decoration: none;
     transition: background-color 150ms;
 
     @include dark {
-      background-color: $lumio-color-primary-fill-dk;
+      background-color: $seneca-color-primary-fill-dk;
     }
 
     &:hover {
       background-color: var(--primary-fill-hover);
 
       @include dark {
-        background-color: $lumio-color-primary-fill-hover-dk;
+        background-color: $seneca-color-primary-fill-hover-dk;
       }
     }
   }
@@ -879,7 +879,7 @@
     // Desktop: stretch the twelve chips across the row instead of leaving a gap
     // before the year stepper; below this width they keep their natural size and scroll.
     @media (min-width: 1025px) {
-      .lumio-chip {
+      .seneca-chip {
         flex: 1 1 0;
         justify-content: center;
         height: 36px;
@@ -890,32 +890,32 @@
     // Months are text tabs, not twelve identical pills: no frame or fill, the
     // picked month in ink with a sage underline, the rest in the readable grey.
     // Doubled class: outweighs the chip's own dark and hover rules.
-    .lumio-chip.lumio-chip,
-    .lumio-chip.lumio-chip:hover:not(:disabled) {
+    .seneca-chip.seneca-chip,
+    .seneca-chip.seneca-chip:hover:not(:disabled) {
       border-color: transparent;
       border-radius: 0;
       background: none;
       box-shadow: none;
       color: var(--text-muted);
-      font-weight: $lumio-font-weight-medium;
+      font-weight: $seneca-font-weight-medium;
       text-decoration: underline 2px transparent;
       text-underline-offset: 8px;
       transition: color 0.15s, text-decoration-color 0.15s;
     }
 
-    .lumio-chip.lumio-chip:hover:not(:disabled):not(.lumio-chip--active) {
+    .seneca-chip.seneca-chip:hover:not(:disabled):not(.seneca-chip--active) {
       border-color: transparent;
       background: none;
       color: var(--foreground);
     }
 
-    .lumio-chip.lumio-chip--active,
-    .lumio-chip.lumio-chip--active:hover {
+    .seneca-chip.seneca-chip--active,
+    .seneca-chip.seneca-chip--active:hover {
       color: var(--foreground);
       text-decoration-color: var(--primary);
     }
 
-    .lumio-chip.lumio-chip--muted {
+    .seneca-chip.seneca-chip--muted {
       opacity: 0.45;
     }
   }
@@ -931,13 +931,13 @@
     @media (min-width: 1025px) {
       height: 36px;
     }
-    border: 1px solid $lumio-color-ink-150;
-    border-radius: $lumio-radius-full;
-    background: $lumio-color-surface;
+    border: 1px solid $seneca-color-ink-150;
+    border-radius: $seneca-radius-full;
+    background: $seneca-color-surface;
 
     @include dark {
-      border-color: $lumio-color-ink-150-dk;
-      background: $lumio-color-surface-dk;
+      border-color: $seneca-color-ink-150-dk;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -945,12 +945,12 @@
     min-width: 44px;
     text-align: center;
     font-size: 13px;
-    font-weight: $lumio-font-weight-semibold;
+    font-weight: $seneca-font-weight-semibold;
     font-variant-numeric: tabular-nums;
-    color: $lumio-color-ink-900;
+    color: $seneca-color-ink-900;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
@@ -963,21 +963,21 @@
     border: none;
     border-radius: 50%;
     background: none;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     cursor: pointer;
     transition: background-color 120ms, color 120ms;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &:hover:not(:disabled) {
-      background: $lumio-color-ink-100;
-      color: $lumio-color-ink-900;
+      background: $seneca-color-ink-100;
+      color: $seneca-color-ink-900;
 
       @include dark {
-        background: $lumio-color-ink-100-dk;
-        color: $lumio-color-ink-900-dk;
+        background: $seneca-color-ink-100-dk;
+        color: $seneca-color-ink-900-dk;
       }
     }
 
@@ -994,25 +994,25 @@
 
   /* ── Period banner ── */
   &__period-banner {
-    border: 1px solid $lumio-color-border;
-    background: $lumio-color-surface-muted;
+    border: 1px solid $seneca-color-border;
+    background: $seneca-color-surface-muted;
     padding: 10px 16px;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     font-size: 12px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     margin-top: 12px;
 
     @include dark {
-      border-color: $lumio-color-border-dk;
-      background: $lumio-color-surface-muted-dk;
-      color: $lumio-color-ink-500-dk;
+      border-color: $seneca-color-border-dk;
+      background: $seneca-color-surface-muted-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 }
 
 /* ── Page header ── */
-.lumio-dashboard-header {
-  padding: var(--lumio-page-top, 24px) 32px 0; /* matches DashboardTabContent px:4 = 32px */
+.seneca-dashboard-header {
+  padding: var(--seneca-page-top, 24px) 32px 0; /* matches DashboardTabContent px:4 = 32px */
   min-width: 0;
   max-width: 100%;
 
@@ -1025,11 +1025,11 @@
     align-items: center;
     gap: 6px;
     font-size: 12.5px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     margin-bottom: 8px;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -1052,14 +1052,14 @@
     transition: background 150ms ease, transform 150ms ease;
 
     @include dark {
-      background: $lumio-color-primary-fill-dk;
+      background: $seneca-color-primary-fill-dk;
     }
 
     &:hover {
       background: var(--primary-fill-hover);
 
       @include dark {
-        background: $lumio-color-primary-fill-hover-dk;
+        background: $seneca-color-primary-fill-hover-dk;
       }
     }
 
@@ -1069,10 +1069,10 @@
   }
 
   &__tabs {
-    border-bottom: 1px solid $lumio-color-border;
+    border-bottom: 1px solid $seneca-color-border;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
@@ -1089,7 +1089,7 @@
    One flat twelve-column grid: each section spans the columns OverviewLayout
    gives it (`--overview-span`) — a card alone the whole row, two cards half
    each, KPI tiles their share. Width decisions live there; this only draws. */
-.lumio-overview {
+.seneca-overview {
   &__body {
     container: overview / inline-size;
   }
@@ -1114,12 +1114,12 @@
     container: overview-section / inline-size;
 
     /* The sections of a row share its height. */
-    > :not(.lumio-overview__handle) {
+    > :not(.seneca-overview__handle) {
       flex: 1 1 auto;
     }
 
     /* A card with nothing to show takes no room. */
-    &:has(> .lumio-overview__handle:only-child) {
+    &:has(> .seneca-overview__handle:only-child) {
       display: none;
     }
 
@@ -1219,13 +1219,13 @@
   &__ghost {
     width: max-content;
     transform-origin: top left;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     background: var(--card-bg);
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
     pointer-events: none;
     cursor: grabbing;
 
-    .lumio-overview__handle {
+    .seneca-overview__handle {
       opacity: 1;
     }
   }
@@ -1269,7 +1269,7 @@
 /* Too narrow for halves (a phone, a tablet with the sidebar open): cards take
    the whole row and KPI tiles go two by two rather than a column of four. */
 @container overview (max-width: 720px) {
-  .lumio-overview__section {
+  .seneca-overview__section {
     grid-column: 1 / -1;
 
     &--tile {
@@ -1284,7 +1284,7 @@
 }
 
 /* ── Getting started checklist ── */
-.lumio-getting-started {
+.seneca-getting-started {
   &__ring {
     position: relative;
     width: 40px;
@@ -1302,11 +1302,11 @@
       align-items: center;
       justify-content: center;
       font-size: 11px;
-      font-weight: $lumio-font-weight-medium;
-      color: $lumio-color-ink-700;
+      font-weight: $seneca-font-weight-medium;
+      color: $seneca-color-ink-700;
 
       @include dark {
-        color: $lumio-color-ink-700-dk;
+        color: $seneca-color-ink-700-dk;
       }
     }
   }
@@ -1318,10 +1318,10 @@
   }
 
   &__ring-track {
-    stroke: $lumio-color-ink-100;
+    stroke: $seneca-color-ink-100;
 
     @include dark {
-      stroke: $lumio-color-ink-100-dk;
+      stroke: $seneca-color-ink-100-dk;
     }
   }
 
@@ -1331,7 +1331,7 @@
     transition: stroke-dashoffset 300ms ease;
 
     @include dark {
-      stroke: $lumio-color-primary-dk;
+      stroke: $seneca-color-primary-dk;
     }
   }
 
@@ -1345,10 +1345,10 @@
     background: none;
     cursor: pointer;
     font-size: 12.5px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -1366,16 +1366,16 @@
     gap: 12px;
     align-items: center;
     padding: 10px;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     text-decoration: none;
     color: inherit;
     transition: background-color 120ms;
 
     &:hover {
-      background: $lumio-color-ink-50;
+      background: $seneca-color-ink-50;
 
       @include dark {
-        background: $lumio-color-ink-50-dk;
+        background: $seneca-color-ink-50-dk;
       }
     }
   }
@@ -1386,11 +1386,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1.5px solid $lumio-color-ink-300;
+    border: 1.5px solid $seneca-color-ink-300;
     border-radius: 4px;
 
     @include dark {
-      border-color: $lumio-color-ink-300-dk;
+      border-color: $seneca-color-ink-300-dk;
     }
   }
 
@@ -1400,8 +1400,8 @@
     color: #fff;
 
     @include dark {
-      border-color: $lumio-color-primary-dk;
-      background: $lumio-color-primary-dk;
+      border-color: $seneca-color-primary-dk;
+      background: $seneca-color-primary-dk;
     }
   }
 
@@ -1417,30 +1417,30 @@
     align-items: center;
     gap: 6px;
     font-size: 13.5px;
-    font-weight: $lumio-font-weight-medium;
-    color: $lumio-color-ink-900;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-ink-900;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
   &__step--done &__step-title {
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     text-decoration: line-through;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__step-sub {
     font-size: 12px;
     margin-top: 2px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -1448,13 +1448,13 @@
     padding: 1px 8px;
     border-radius: 999px;
     font-size: 11px;
-    font-weight: $lumio-font-weight-semibold;
-    background: $lumio-color-warning-soft;
-    color: $lumio-color-warning;
+    font-weight: $seneca-font-weight-semibold;
+    background: $seneca-color-warning-soft;
+    color: $seneca-color-warning;
 
     @include dark {
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
     }
   }
 
@@ -1470,25 +1470,25 @@
     cursor: pointer;
     padding: 4px 0;
     font-size: 12.5px;
-    font-weight: $lumio-font-weight-medium;
-    color: $lumio-color-ink-500;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
 
     &:hover {
-      color: $lumio-color-ink-900;
+      color: $seneca-color-ink-900;
 
       @include dark {
-        color: $lumio-color-ink-900-dk;
+        color: $seneca-color-ink-900-dk;
       }
     }
   }
 }
 
 // Finance ops: the month's close as one headline and one list of steps.
-.lumio-close-head {
+.seneca-close-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1515,7 +1515,7 @@
 }
 
 // A reference fact (last upload, money not counted yet): moderate figure, one line under it.
-.lumio-fact {
+.seneca-fact {
   &__value {
     font-size: 20px;
     font-weight: 500;
@@ -1530,7 +1530,7 @@
   }
 }
 
-.lumio-close-step {
+.seneca-close-step {
   // A step still open: an ochre dot, not a red alarm. Done: a sage tick, no circle.
   &__open {
     display: block;
@@ -1560,7 +1560,7 @@
     }
   }
 
-  .lumio-dashboard__row-secondary {
+  .seneca-dashboard__row-secondary {
     font-size: 13px;
     color: var(--text-muted);
   }

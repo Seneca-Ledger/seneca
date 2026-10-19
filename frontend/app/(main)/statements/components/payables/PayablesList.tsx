@@ -117,10 +117,10 @@ function PayablesList({
 
   if (items.length === 0) {
     return (
-      <div className="lumio-payable-list__empty">
+      <div className="seneca-payable-list__empty">
         <EmptyStateIllustration name={emptyIllustration} size="md" />
-        <h3 className="lumio-payable-list__empty-title">{emptyTitle}</h3>
-        <p className="lumio-payable-list__empty-text">{emptyDescription}</p>
+        <h3 className="seneca-payable-list__empty-title">{emptyTitle}</h3>
+        <p className="seneca-payable-list__empty-text">{emptyDescription}</p>
       </div>
     );
   }
@@ -139,17 +139,17 @@ function PayablesList({
     const tone = toneOf(payable, overdue);
     const label = labels.statusLabels[overdue ? 'overdue' : payable.status] || payable.status;
     return (
-      <span className={`lumio-payable-status lumio-payable-status--${tone}`}>
+      <span className={`seneca-payable-status seneca-payable-status--${tone}`}>
         {label}
         {overdue && (
-          <span className="lumio-payable-status__since">
+          <span className="seneca-payable-status__since">
             {' · '}
             {relative.format(-daysOverdue(payable.dueDate), 'day')}
           </span>
         )}
         {/* Paid on paper, with no money in an account yet: it waits for its bank row. */}
         {!overdue && toNumber(payable.unbookedAmount) > 0 && (
-          <span className="lumio-payable-status__unbooked">
+          <span className="seneca-payable-status__unbooked">
             {' · '}
             {unbookedText.notInAccount.value}
           </span>
@@ -163,7 +163,7 @@ function PayablesList({
     <>
       {formatMoney(payable.amount, payable.currency, locale)}
       {payable.status === 'partially_paid' && toNumber(payable.paidAmount) > 0 && (
-        <span className="lumio-payable-list__amount-note">
+        <span className="seneca-payable-list__amount-note">
           {formatMoney(payable.paidAmount, payable.currency, locale)} {labels.amountPaid}
         </span>
       )}
@@ -176,11 +176,11 @@ function PayablesList({
       // The row opens the bill; its own controls must not open it as well.
       // biome-ignore lint/a11y/noStaticElementInteractions: only stops the row's click
       // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard reaches the buttons themselves
-      <div className="lumio-payable-list__actions" onClick={event => event.stopPropagation()}>
+      <div className="seneca-payable-list__actions" onClick={event => event.stopPropagation()}>
         {canMarkPaid ? (
           <button
             type="button"
-            className="lumio-payable-list__mark"
+            className="seneca-payable-list__mark"
             onClick={() => onMarkPaid(payable)}
             disabled={actionState?.markingPaidId === payable.id}
           >
@@ -204,27 +204,27 @@ function PayablesList({
   };
 
   return (
-    <div className="lumio-payable-list">
+    <div className="seneca-payable-list">
       {isMobile ? (
-        <div className="lumio-payable-list__mobile-rows">
+        <div className="seneca-payable-list__mobile-rows">
           {items.map(payable => (
             <div
               key={payable.id}
               data-attention={`payable:${payable.id}`}
-              className="lumio-payable-list__mobile-row"
+              className="seneca-payable-list__mobile-row"
             >
-              <div className="lumio-payable-list__mobile-row-top">
+              <div className="seneca-payable-list__mobile-row-top">
                 <button
                   type="button"
-                  className="lumio-payable-list__vendor"
+                  className="seneca-payable-list__vendor"
                   onClick={() => onEdit(payable)}
                 >
                   {payable.vendor}
                 </button>
-                <span className="lumio-payable-list__amount">{renderAmount(payable)}</span>
+                <span className="seneca-payable-list__amount">{renderAmount(payable)}</span>
               </div>
-              <div className="lumio-payable-list__mobile-row-data">
-                <span className="lumio-payable-list__muted">
+              <div className="seneca-payable-list__mobile-row-data">
+                <span className="seneca-payable-list__muted">
                   {formatPayableDate(payable.dueDate, locale)}
                   {showSource && ` · ${labels.sourceLabels[payable.source] || payable.source}`}
                 </span>
@@ -235,35 +235,35 @@ function PayablesList({
           ))}
         </div>
       ) : (
-        <div className="lumio-payable-list__table-wrap">
-          <table className="lumio-payable-list__table">
-            <thead className="lumio-payable-list__thead">
+        <div className="seneca-payable-list__table-wrap">
+          <table className="seneca-payable-list__table">
+            <thead className="seneca-payable-list__thead">
               <tr>
-                <th className="lumio-payable-list__th">{labels.vendor}</th>
-                <th className="lumio-payable-list__th">{labels.dueDate}</th>
-                {showSource && <th className="lumio-payable-list__th">{labels.source}</th>}
-                <th className="lumio-payable-list__th">{labels.status}</th>
-                <th className="lumio-payable-list__th lumio-payable-list__th--right">
+                <th className="seneca-payable-list__th">{labels.vendor}</th>
+                <th className="seneca-payable-list__th">{labels.dueDate}</th>
+                {showSource && <th className="seneca-payable-list__th">{labels.source}</th>}
+                <th className="seneca-payable-list__th">{labels.status}</th>
+                <th className="seneca-payable-list__th seneca-payable-list__th--right">
                   {labels.amount}
                 </th>
-                <th className="lumio-payable-list__th lumio-payable-list__th--right">
+                <th className="seneca-payable-list__th seneca-payable-list__th--right">
                   <span className="u-visually-hidden">{labels.actions}</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="lumio-payable-list__tbody">
+            <tbody className="seneca-payable-list__tbody">
               {items.map(payable => (
                 <tr
                   key={payable.id}
                   data-attention={`payable:${payable.id}`}
-                  className="lumio-payable-list__row"
+                  className="seneca-payable-list__row"
                   onClick={() => onEdit(payable)}
                 >
-                  <td className="lumio-payable-list__td">
+                  <td className="seneca-payable-list__td">
                     {/* The keyboard way into the bill; a click anywhere on the row does the same. */}
                     <button
                       type="button"
-                      className="lumio-payable-list__vendor"
+                      className="seneca-payable-list__vendor"
                       onClick={event => {
                         event.stopPropagation();
                         onEdit(payable);
@@ -272,19 +272,19 @@ function PayablesList({
                       {payable.vendor}
                     </button>
                   </td>
-                  <td className="lumio-payable-list__td lumio-payable-list__muted">
+                  <td className="seneca-payable-list__td seneca-payable-list__muted">
                     {formatPayableDate(payable.dueDate, locale)}
                   </td>
                   {showSource && (
-                    <td className="lumio-payable-list__td lumio-payable-list__muted">
+                    <td className="seneca-payable-list__td seneca-payable-list__muted">
                       {labels.sourceLabels[payable.source] || payable.source}
                     </td>
                   )}
-                  <td className="lumio-payable-list__td">{renderStatus(payable)}</td>
-                  <td className="lumio-payable-list__td lumio-payable-list__amount">
+                  <td className="seneca-payable-list__td">{renderStatus(payable)}</td>
+                  <td className="seneca-payable-list__td seneca-payable-list__amount">
                     {renderAmount(payable)}
                   </td>
-                  <td className="lumio-payable-list__td">{renderActions(payable)}</td>
+                  <td className="seneca-payable-list__td">{renderActions(payable)}</td>
                 </tr>
               ))}
             </tbody>
@@ -294,8 +294,8 @@ function PayablesList({
 
       {/* One page needs neither a page count nor page buttons. */}
       {pagination.totalPages > 1 && (
-        <div className="lumio-payable-list__pagination-row">
-          <div className="lumio-payable-list__muted">
+        <div className="seneca-payable-list__pagination-row">
+          <div className="seneca-payable-list__muted">
             {fillTemplate(labels.pageShown, {
               from: safeRangeStart,
               to: rangeEnd,

@@ -18,21 +18,21 @@ describe('KpiCard', () => {
     const { container } = render(
       <KpiCard label="Spent" value="$3,072" tone="negative" caption="excludes transfers" />,
     );
-    expect(screen.getByText('$3,072').className).toBe('lumio-dashboard__stat-value');
-    expect(container.querySelector('.lumio-dashboard__stat-dot--negative')).not.toBeNull();
+    expect(screen.getByText('$3,072').className).toBe('seneca-dashboard__stat-value');
+    expect(container.querySelector('.seneca-dashboard__stat-dot--negative')).not.toBeNull();
     expect(screen.getByText('excludes transfers')).toBeInTheDocument();
   });
 
   it('draws no dot for a neutral tone', () => {
     const { container } = render(<KpiCard label="Net" value="$0" />);
-    expect(container.querySelector('.lumio-dashboard__stat-dot')).toBeNull();
+    expect(container.querySelector('.seneca-dashboard__stat-dot')).toBeNull();
   });
 
   it('renders as a link when href is given', () => {
     render(<KpiCard label="Uncategorized" value={4} href="/statements/submit" />);
     const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', '/statements/submit');
-    expect(link.className).toContain('lumio-dashboard__stat--link');
+    expect(link.className).toContain('seneca-dashboard__stat--link');
   });
 
   it('renders a sparkline only with two or more points', () => {

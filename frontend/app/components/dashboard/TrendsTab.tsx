@@ -53,7 +53,7 @@ function TrendsKpis({
   const { income, expense } = trends.sources.statements;
   const net = income - expense;
   return (
-    <div className="lumio-dashboard__stat-grid lumio-dashboard__stat-grid--auto">
+    <div className="seneca-dashboard__stat-grid seneca-dashboard__stat-grid--auto">
       <KpiCard
         label={t.income.value}
         value={formatAmount(income)}
@@ -96,14 +96,14 @@ function CardState({
   // __card-empty), иначе карточка меняет высоту дважды за загрузку.
   if (state.loading) {
     return (
-      <div className="lumio-dashboard__chart">
+      <div className="seneca-dashboard__chart">
         <Skeleton variant="rounded" width="100%" height="100%" />
       </div>
     );
   }
   if (state.error) {
     return (
-      <div className="lumio-dashboard__card-empty lumio-dashboard__amount--negative">
+      <div className="seneca-dashboard__card-empty seneca-dashboard__amount--negative">
         {state.error}
       </div>
     );
@@ -129,7 +129,7 @@ function SpendTrendCard({
     <DashboardCard title={t.spendTrendTitle} subtitle={monthLabel}>
       <CardState state={state} emptyLabel={t.noTrendDataForPeriod} emptyIcon={TimelineOutlined}>
         {state.trends?.dailyTrend.length ? (
-          <div className="lumio-dashboard__chart">
+          <div className="seneca-dashboard__chart">
             <LazySpendTrendBars
               actual={state.trends.dailyTrend}
               forecast={state.trends.forecast ?? []}
@@ -182,11 +182,11 @@ function CategoryBreakdownCard({
         {slices.length > 0 ? (
           <>
             {!asBars && (
-              <div className="lumio-dashboard__donut lumio-dashboard__donut--wide">
+              <div className="seneca-dashboard__donut seneca-dashboard__donut--wide">
                 <LazyCategoryDonut slices={slices} formatAmount={formatAmount} />
               </div>
             )}
-            <div className="lumio-dashboard__list">
+            <div className="seneca-dashboard__list">
               {top.map((c, rank) => (
                 <ListRow
                   key={c.name}
@@ -197,7 +197,7 @@ function CategoryBreakdownCard({
                     <>
                       {!asBars && (
                         <span
-                          className="lumio-dashboard__legend-dot"
+                          className="seneca-dashboard__legend-dot"
                           style={{ background: slices[rank].color }}
                           aria-hidden="true"
                         />
@@ -207,7 +207,7 @@ function CategoryBreakdownCard({
                   }
                   secondary={
                     asBars && total > 0 ? (
-                      <span className="lumio-dashboard__share-bar" aria-hidden="true">
+                      <span className="seneca-dashboard__share-bar" aria-hidden="true">
                         <span
                           style={{
                             width: `${(slices[rank].value / total) * 100}%`,
@@ -241,7 +241,7 @@ export function TrendsTab({
   const state: SectionState = { loading: isPending, error, trends: trends ?? null };
 
   return (
-    <div className="lumio-dashboard__tab">
+    <div className="seneca-dashboard__tab">
       <CashFlowCard
         formatAmount={formatAmount}
         activeMonth={month}
@@ -253,7 +253,7 @@ export function TrendsTab({
         }}
       />
       {trends && <TrendsKpis trends={trends} monthLabel={monthLabel} formatAmount={formatAmount} />}
-      <div className="lumio-dashboard__grid lumio-dashboard__grid--wide">
+      <div className="seneca-dashboard__grid seneca-dashboard__grid--wide">
         <SpendTrendCard state={state} monthLabel={monthLabel} formatAmount={formatAmount} />
         <CategoryBreakdownCard state={state} monthLabel={monthLabel} formatAmount={formatAmount} />
       </div>

@@ -564,7 +564,7 @@ export default function WorkspaceOverviewView() {
         }
       >
         <Box sx={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
-          <Box className="lumio-thin-scroll" sx={{ flex: 1, overflowY: 'auto', pb: 2 }}>
+          <Box className="seneca-thin-scroll" sx={{ flex: 1, overflowY: 'auto', pb: 2 }}>
             <Typography sx={{ fontSize: 14, color: 'var(--text-muted)', mb: 2 }}>
               {t.background.drawerHint}
             </Typography>
