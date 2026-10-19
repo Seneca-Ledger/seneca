@@ -20,6 +20,8 @@ describe('CategorizationRulesController', () => {
     create: jest.fn(),
     save: jest.fn(),
     remove: jest.fn(),
+    // A rule's targets are checked through it; here they are the workspace's.
+    manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
   };
 
   const mockTransactionRepository = {

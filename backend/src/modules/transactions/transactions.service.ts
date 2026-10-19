@@ -4,7 +4,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
-import { type EntityTarget, In, type Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
@@ -16,6 +16,7 @@ import {
   type OwnerFilter,
 } from '../../common/utils/transaction-owner.util';
 import { redactPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
+import { assertWorkspaceOwned, assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import type {
   BulkUpdateItemInput,
   SplitPartInput,
@@ -430,35 +431,6 @@ export class TransactionsService {
     return Math.round(value * 100) / 100;
   }
 
-  /**
-   * Rejects an id that belongs to another workspace before it is written onto a
-   * transaction. `@IsUUID()` on the DTO only proves the shape of the string, so
-   * without this a caller can point their own row at another tenant's category,
-   * branch or wallet — whose name then comes back to them through the
-   * `relations` loads in `findOne` / `getSplitParts`.
-   *
-   * ponytail: app-level check; a composite FK on (id, workspace_id) would
-   * enforce it in the database, but that needs a migration over existing rows.
-   */
-  private async assertWorkspaceOwned(
-    entity: EntityTarget<{ id: string; workspaceId: string }>,
-    ids: Array<string | null | undefined>,
-    workspaceId: string,
-  ): Promise<void> {
-    const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
-    if (unique.length === 0) {
-      return;
-    }
-
-    const found = await this.transactionRepository.manager
-      .getRepository(entity)
-      .countBy({ id: In(unique), workspaceId });
-
-    if (found !== unique.length) {
-      throw new NotFoundException('Referenced record not found in this workspace');
-    }
-  }
-
   /** Every workspace-scoped reference an update body can carry. */
   private assertWorkspaceOwnedRefs(
     updateDto: Pick<
@@ -468,9 +440,7 @@ export class TransactionsService {
     workspaceId: string,
   ): Promise<unknown> {
     return Promise.all([
-      this.assertWorkspaceOwned(Category, [updateDto.categoryId], workspaceId),
-      this.assertWorkspaceOwned(Branch, [updateDto.branchId], workspaceId),
-      this.assertWorkspaceOwned(Wallet, [updateDto.walletId], workspaceId),
+      assertWorkspaceRefs(this.transactionRepository.manager, workspaceId, updateDto),
       assertOwnerMemberInWorkspace(
         this.workspaceMemberRepository,
         workspaceId,
@@ -624,7 +594,8 @@ export class TransactionsService {
   ): Promise<Transaction[]> {
     await this.ensureCanEditStatements(userId, workspaceId);
     const original = await this.findOne(id, workspaceId);
-    await this.assertWorkspaceOwned(
+    await assertWorkspaceOwned(
+      this.transactionRepository.manager,
       Category,
       dto.parts.map(part => part.categoryId),
       workspaceId,

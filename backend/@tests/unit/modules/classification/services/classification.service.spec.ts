@@ -87,6 +87,8 @@ describe('ClassificationService', () => {
           useValue: {
             find: jest.fn(),
             findOne: jest.fn(),
+            // A matched rule's targets are checked through it; here they are the workspace's.
+            manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
           },
         },
         {

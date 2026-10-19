@@ -10,6 +10,7 @@ import {
   readProcessingSettings,
   type WorkspaceProcessingSettings,
 } from '../../../common/utils/workspace-processing.util';
+import { workspaceOwnsRefs } from '../../../common/utils/workspace-refs.util';
 import { ActorType, AuditAction, EntityType } from '../../../entities/audit-event.entity';
 import { Branch } from '../../../entities/branch.entity';
 import { CategorizationRule } from '../../../entities/categorization-rule.entity';
@@ -110,6 +111,14 @@ export class ClassificationService {
     // Apply rules in priority order
     for (const rule of rules.sort((a, b) => b.priority - a.priority)) {
       if (this.matchesRule(transaction, rule.conditions)) {
+        // A rule saved before its targets were checked may still name another
+        // workspace's category, branch or wallet: it is passed over, not applied.
+        if (
+          workspaceId &&
+          !(await workspaceOwnsRefs(this.walletRepository.manager, workspaceId, rule.result))
+        ) {
+          continue;
+        }
         matchedRule = rule;
         // Apply rule result
         if (rule.result.categoryId) {
@@ -170,7 +179,10 @@ export class ClassificationService {
     // One primary-key lookup per transaction, and the whole classification is
     // cached below, so it does not add a query per row of a re-imported file.
     if (classification.walletId && !ruleSetOwner) {
-      classification.ownerMemberId = await this.walletOwnerMemberId(classification.walletId);
+      classification.ownerMemberId = await this.walletOwnerMemberId(
+        classification.walletId,
+        workspaceId,
+      );
     }
 
     // Cache result for 5 minutes
@@ -410,10 +422,19 @@ export class ClassificationService {
     return workspaceId ? { workspaceId } : { userId };
   }
 
-  /** Who owns the wallet, or null when it is shared. */
-  private async walletOwnerMemberId(walletId: string): Promise<string | null> {
+  /**
+   * Who owns the wallet, or null when it is shared. Looked up in the row's own
+   * workspace: a member of another one is never copied onto it.
+   */
+  private async walletOwnerMemberId(
+    walletId: string,
+    workspaceId: string | null,
+  ): Promise<string | null> {
+    if (!workspaceId) {
+      return null;
+    }
     const wallet = await this.walletRepository.findOne({
-      where: { id: walletId },
+      where: { id: walletId, workspaceId },
       select: ['ownerMemberId'],
     });
     return wallet?.ownerMemberId ?? null;
