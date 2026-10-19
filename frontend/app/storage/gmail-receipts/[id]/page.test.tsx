@@ -16,6 +16,13 @@ const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
 }));
 
+const saveBlob = vi.hoisted(() => vi.fn());
+
+vi.mock('@/app/(main)/reports/components/tax-return.helpers', async importOriginal => ({
+  ...(await importOriginal<object>()),
+  saveBlob,
+}));
+
 vi.mock('@/app/lib/api', () => ({
   default: {
     get: apiMocks.mockApiGet,
@@ -218,10 +225,8 @@ describe('GmailReceiptDocumentPage', () => {
       },
     });
     apiMocks.mockApiGet.mockResolvedValue({ data: [] });
-    apiMocks.mockExportReceiptsToXlsx.mockResolvedValue({
-      data: { fileName: 'receipts.xlsx', url: '/files/receipts.xlsx' },
-    });
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const workbook = new Blob(['xlsx-bytes']);
+    apiMocks.mockExportReceiptsToXlsx.mockResolvedValue({ data: workbook, config: {} });
 
     const root = createRoot(container);
 
@@ -256,8 +261,8 @@ describe('GmailReceiptDocumentPage', () => {
     });
 
     expect(apiMocks.mockExportReceiptsToXlsx).toHaveBeenCalledWith(['receipt-1']);
-    expect(openSpy).toHaveBeenCalledWith('/files/receipts.xlsx', '_blank');
-    openSpy.mockRestore();
+    // The workbook arrives in the response and is saved, not opened as a link.
+    expect(saveBlob).toHaveBeenCalledWith(workbook, 'receipts.xlsx');
   });
 
   it('opens the category drawer from the Category button', async () => {

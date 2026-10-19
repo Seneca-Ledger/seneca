@@ -3,8 +3,10 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { saveBlob } from '@/app/(main)/reports/components/tax-return.helpers';
 import { useIntlayer } from '@/app/i18n';
 import { gmailReceiptsApi } from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { getQueryClient } from '@/app/lib/query-client';
 import type {
@@ -198,10 +200,9 @@ export function useGmailReceiptActions({
   const handleExportToXlsx = async (): Promise<void> => {
     await (async () => {
       setExporting(true);
+      // The workbook comes back in the response; the API stores no copy of it.
       const response = await gmailReceiptsApi.exportReceiptsToXlsx([receiptId]);
-      if (response.data?.url) {
-        window.open(response.data.url, '_blank');
-      }
+      saveBlob(blobOf(response), 'receipts.xlsx');
       toast.success(t.toasts.exportedToExcel.value);
     })()
       .catch(async error => {
