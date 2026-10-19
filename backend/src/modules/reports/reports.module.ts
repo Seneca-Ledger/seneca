@@ -12,6 +12,7 @@ import { Transaction } from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
+import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ApplicationSettingsModule } from '../application-settings/application-settings.module';
 import { AuditModule } from '../audit/audit.module';
 import { BalanceModule } from '../balance/balance.module';
@@ -42,6 +43,7 @@ import { SpendFlowService } from './spend-flow.service';
       ReportHistory,
       ReportSchedule,
       Workspace,
+      WorkspaceMember,
     ]),
     ApplicationSettingsModule,
     AuditModule,

@@ -425,15 +425,25 @@ describe('WorkspacesService — member management', () => {
       await expect(service.toggleFavorite(WS_ID, MEMBER_ID)).rejects.toThrow(ForbiddenException);
     });
 
+    it.each([WorkspaceRole.VIEWER, WorkspaceRole.ACCOUNTANT, WorkspaceRole.MEMBER])(
+      'refuses a %s: the flag is shared by the whole workspace',
+      async role => {
+        workspaceMemberRepository.findOne.mockResolvedValue(makeMember(MEMBER_ID, role));
+
+        await expect(service.toggleFavorite(WS_ID, MEMBER_ID)).rejects.toThrow(ForbiddenException);
+        expect(workspaceRepository.save).not.toHaveBeenCalled();
+      },
+    );
+
     it('throws NotFoundException when workspace not found', async () => {
-      workspaceMemberRepository.findOne.mockResolvedValue(makeMember(MEMBER_ID, WorkspaceRole.MEMBER));
+      workspaceMemberRepository.findOne.mockResolvedValue(makeMember(MEMBER_ID, WorkspaceRole.ADMIN));
       workspaceRepository.findOne.mockResolvedValue(null);
 
       await expect(service.toggleFavorite(WS_ID, MEMBER_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('flips isFavorite from false to true', async () => {
-      workspaceMemberRepository.findOne.mockResolvedValue(makeMember(MEMBER_ID, WorkspaceRole.MEMBER));
+      workspaceMemberRepository.findOne.mockResolvedValue(makeMember(MEMBER_ID, WorkspaceRole.ADMIN));
       const workspace = makeWorkspace({ isFavorite: false } as any);
       workspaceRepository.findOne.mockResolvedValue(workspace);
       workspaceRepository.save.mockResolvedValue({ ...workspace, isFavorite: true });
@@ -444,7 +454,7 @@ describe('WorkspacesService — member management', () => {
     });
 
     it('flips isFavorite from true to false', async () => {
-      workspaceMemberRepository.findOne.mockResolvedValue(makeMember(MEMBER_ID, WorkspaceRole.MEMBER));
+      workspaceMemberRepository.findOne.mockResolvedValue(makeMember(MEMBER_ID, WorkspaceRole.OWNER));
       const workspace = makeWorkspace({ isFavorite: true } as any);
       workspaceRepository.findOne.mockResolvedValue(workspace);
       workspaceRepository.save.mockResolvedValue({ ...workspace, isFavorite: false });

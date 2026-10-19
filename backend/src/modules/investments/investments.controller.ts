@@ -14,6 +14,10 @@ import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { InvestmentsService } from './investments.service';
 
+/**
+ * Reading the investment accounts is a report; changing it changes what the workspace owns, so the
+ * writes take the wallet permissions, like crypto holdings (owner and admins).
+ */
 @Controller('investments')
 export class InvestmentsController {
   constructor(private readonly investmentsService: InvestmentsService) {}
@@ -26,7 +30,7 @@ export class InvestmentsController {
   }
 
   @Post('accounts')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_CREATE)
   async createAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -37,7 +41,7 @@ export class InvestmentsController {
 
   @Delete('accounts/:id')
   @HttpCode(204)
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_DELETE)
   async deleteAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -47,7 +51,7 @@ export class InvestmentsController {
   }
 
   @Post('accounts/:id/holdings')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_CREATE)
   async addHolding(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -58,7 +62,7 @@ export class InvestmentsController {
   }
 
   @Patch('holdings/:id')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   async updateHolding(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -70,7 +74,7 @@ export class InvestmentsController {
 
   @Delete('holdings/:id')
   @HttpCode(204)
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_DELETE)
   async deleteHolding(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -82,7 +86,7 @@ export class InvestmentsController {
   /** Fetches today's prices for every holding with a symbol. */
   @Post('refresh-prices')
   @HttpCode(200)
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   async refreshPrices(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const updated = await this.investmentsService.refreshPrices(user.id, workspaceId);
     return { updated };

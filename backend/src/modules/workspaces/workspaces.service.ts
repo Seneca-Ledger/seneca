@@ -1244,6 +1244,11 @@ export class WorkspacesService {
       throw new ForbiddenException(appError('WORKSPACE_NOT_A_MEMBER'));
     }
 
+    // The flag lives on the workspace, so every member sees it: a setting, not a preference.
+    if (![WorkspaceRole.OWNER, WorkspaceRole.ADMIN].includes(membership.role)) {
+      throw new ForbiddenException(appError('WORKSPACE_ADMIN_REQUIRED_TO_EDIT_SETTINGS'));
+    }
+
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
     });

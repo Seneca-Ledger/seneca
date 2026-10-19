@@ -82,7 +82,7 @@ export class ApplicationSettingsController {
   }
 
   @Get('email/smtp')
-  @UseGuards(WorkspaceContextGuard)
+  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   getSmtp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.getSmtpStatus(user, workspaceId);
   }
@@ -135,7 +135,7 @@ export class ApplicationSettingsController {
   }
 
   @Get('app')
-  @UseGuards(WorkspaceContextGuard)
+  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   getApp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.getAppStatus(user, workspaceId);
   }
