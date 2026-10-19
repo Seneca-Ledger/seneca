@@ -53,29 +53,29 @@ const features = [
 
 const screenshots = [
   {
-    src: '/img/screenshots/dashboard-trends.png',
-    title: 'Trends',
-    caption: 'Twelve months of income and expenses with period presets.',
+    src: '/img/screenshots/documents.png',
+    title: 'Documents',
+    caption: 'Statements, receipts and invoices in one list, categorized and approved.',
   },
   {
-    src: '/img/screenshots/statements-top-categories.png',
-    title: 'Statements',
-    caption: 'Work queue, spend analytics and category drill-down.',
+    src: '/img/screenshots/crypto.png',
+    title: 'Crypto',
+    caption: 'Wallets synced from the chain, holdings with cost and profit, realized gains.',
   },
   {
-    src: '/img/screenshots/tax-declaration.png',
-    title: 'Tax declaration',
-    caption: 'An Anlage EÜR draft with data completeness and filing dates.',
+    src: '/img/screenshots/cash-flow-forecast.png',
+    title: 'Cash flow forecast',
+    caption: 'Runway, the lowest point and the bills ahead, with what-if toggles.',
+  },
+  {
+    src: '/img/screenshots/custom-tables.png',
+    title: 'Custom tables',
+    caption: 'Your own tables next to the books, filled by hand or from your data.',
   },
   {
     src: '/img/screenshots/budgets.png',
     title: 'Budgets',
-    caption: 'Monthly and annual budgets tracked against real spend.',
-  },
-  {
-    src: '/img/screenshots/advice.png',
-    title: 'Advice',
-    caption: 'Observations about savings, prices and reconciliation.',
+    caption: 'Planned against actual by Necessity, Work, Virtue and Leisure.',
   },
 ];
 
@@ -96,7 +96,7 @@ function Screenshot({ src, title, caption }: { src: string; title: string; capti
   return (
     <figure className="homepage-shot">
       <a href={useBaseUrl(src)} target="_blank" rel="noopener noreferrer">
-        <img src={useBaseUrl(src)} alt={`Seneca ${title.toLowerCase()} screen`} loading="lazy" width={1895} height={947} />
+        <img src={useBaseUrl(src)} alt={`Seneca ${title.toLowerCase()} screen`} loading="lazy" width={1890} height={886} />
       </a>
       <figcaption>
         <strong>{title}</strong> — {caption}
@@ -137,9 +137,9 @@ export default function Home(): JSX.Element {
               <img
                 className="homepage-showcase__main"
                 src={useBaseUrl('/img/screenshots/dashboard-overview.png')}
-                alt="Seneca dashboard overview with income, spending, savings rate and top categories"
-                width={1893}
-                height={947}
+                alt="Seneca dashboard overview with budgets, income, spending, savings rate and top categories"
+                width={1890}
+                height={887}
               />
             </a>
           </div>
