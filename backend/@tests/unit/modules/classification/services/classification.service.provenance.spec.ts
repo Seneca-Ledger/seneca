@@ -90,7 +90,12 @@ describe('ClassificationService provenance and switches', () => {
         { provide: getRepositoryToken(Branch), useValue: { find: jest.fn(async () => []) } },
         {
           provide: getRepositoryToken(Wallet),
-          useValue: { find: jest.fn(async () => []), findOne: jest.fn(async () => null) },
+          useValue: {
+            find: jest.fn(async () => []),
+            findOne: jest.fn(async () => null),
+            // A matched rule's targets are checked through it; here they are the workspace's.
+            manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
+          },
         },
         { provide: getRepositoryToken(CategorizationRule), useValue: ruleRepository },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepository },

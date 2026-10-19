@@ -29,13 +29,13 @@ export type ClassificationConditionInput = Wire<typeof ClassificationConditionIn
 
 /** What a matching rule sets on the transaction. */
 export const ClassificationResultInput = Schema.Struct({
-  categoryId: Schema.optional(Schema.String),
-  branchId: Schema.optional(Schema.String),
-  walletId: Schema.optional(Schema.String),
+  categoryId: Schema.optional(Schema.String.check(Schema.isUUID())),
+  branchId: Schema.optional(Schema.String.check(Schema.isUUID())),
+  walletId: Schema.optional(Schema.String.check(Schema.isUUID())),
   article: Schema.optional(Schema.String),
   activityType: Schema.optional(Schema.String),
   /** Hands the row to one member, or to the household with `null`. */
-  ownerMemberId: optionalNullable(Schema.String),
+  ownerMemberId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type ClassificationResultInput = Wire<typeof ClassificationResultInput>;
 

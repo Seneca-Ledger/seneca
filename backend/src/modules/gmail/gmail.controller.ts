@@ -30,6 +30,7 @@ import { WorkspaceContextGuard } from '../../common/guards/workspace-context.gua
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
 import { resolveInUploadsDir, resolveUploadsDir } from '../../common/utils/uploads.util';
+import { assertWorkspaceOwned } from '../../common/utils/workspace-refs.util';
 import {
   Category,
   GmailSettings,
@@ -452,6 +453,7 @@ export class GmailController {
       throw new BadRequestException('Receipt not found');
     }
 
+    await this.assertCategoryInWorkspace(workspaceId, dto.parsedData?.categoryId);
     if (dto.status) {
       receipt.status = dto.status;
     }
@@ -546,6 +548,7 @@ export class GmailController {
       throw new BadRequestException('Receipt not found');
     }
 
+    await this.assertCategoryInWorkspace(workspaceId, dto.categoryId);
     const hadAmountBeforeUpdate = this.hasReceiptAmount(receipt.parsedData?.amount);
 
     // Update parsed data
@@ -631,6 +634,7 @@ export class GmailController {
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   @ApiOperation({ summary: 'Approve multiple receipts at once' })
   async bulkApprove(@WorkspaceId() workspaceId: string, @Body() dto: BulkApproveDto) {
+    await this.assertCategoryInWorkspace(workspaceId, dto.categoryId);
     // Resolved once for the whole batch: receipts whose parse found no currency
     // are booked in the workspace's own.
     const workspaceDefaultCurrency = await this.workspaceCurrency.resolve(workspaceId);
@@ -972,7 +976,20 @@ export class GmailController {
     return this.parseBooleanQuery(value, false);
   }
 
-  /** Keeps the transaction created on approve in sync with later receipt edits. */
+  /** A category id from the request: one of another workspace's is "not found". */
+  private assertCategoryInWorkspace(workspaceId: string, categoryId?: string | null) {
+    return assertWorkspaceOwned(
+      this.categoryRepository.manager,
+      Category,
+      [categoryId],
+      workspaceId,
+    );
+  }
+
+  /**
+   * Keeps the transaction created on approve in sync with later receipt edits.
+   * A row filed on a tax return does not change.
+   */
   private async syncLinkedTransaction(receipt: Receipt): Promise<void> {
     if (!receipt.transactionId) {
       return;
@@ -980,7 +997,7 @@ export class GmailController {
     const transaction = await this.transactionRepository.findOne({
       where: { id: receipt.transactionId, workspaceId: receipt.workspaceId },
     });
-    if (!transaction) {
+    if (!transaction || transaction.taxLocked) {
       return;
     }
     const { amount, currency, vendor, date, categoryId } = receipt.parsedData ?? {};
@@ -998,6 +1015,8 @@ export class GmailController {
       transaction.transactionDate = new Date(date);
     }
     if (categoryId) {
+      // The stored id too: a receipt saved before this check may hold a foreign one.
+      await this.assertCategoryInWorkspace(receipt.workspaceId, categoryId);
       transaction.categoryId = categoryId;
     }
     await this.transactionRepository.save(transaction);

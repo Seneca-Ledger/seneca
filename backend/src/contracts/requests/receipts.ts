@@ -62,6 +62,33 @@ export const UpdateReceiptLocationBody = Schema.Struct({
 });
 export type UpdateReceiptLocationBody = Wire<typeof UpdateReceiptLocationBody>;
 
+/**
+ * The parsed fields the receipt forms edit. The rest of `parsedData` (where a
+ * category came from, validation issues, the e-invoice summary, a line's
+ * booked category) is the server's, so an unknown key is a 400, not a merge.
+ */
+export const ReceiptParsedDataInput = Schema.Struct({
+  vendor: optionalNullable(Schema.String),
+  amount: optionalNullable(Schema.Finite),
+  currency: optionalNullable(Schema.String),
+  date: optionalNullable(Schema.String),
+  tax: optionalNullable(Schema.Finite),
+  paymentMethod: optionalNullable(Schema.String),
+  transactionType: optionalNullable(Schema.Literals(['income', 'expense', 'transfer', 'unknown'])),
+  category: optionalNullable(Schema.String),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  lineItems: optionalNullable(
+    Schema.Array(
+      Schema.Struct({
+        description: Schema.String,
+        // A line whose amount the form could not read arrives as null (JSON has no NaN).
+        amount: Schema.NullOr(Schema.Finite),
+      }),
+    ),
+  ),
+});
+export type ReceiptParsedDataInput = Wire<typeof ReceiptParsedDataInput>;
+
 export const UpdateReceiptBody = Schema.Struct({
   status: optionalNullable(
     Schema.Literals([
@@ -75,7 +102,7 @@ export const UpdateReceiptBody = Schema.Struct({
       'failed',
     ]),
   ),
-  parsedData: optionalNullable(Schema.Record(Schema.String, Schema.Unknown)),
+  parsedData: optionalNullable(ReceiptParsedDataInput),
 });
 export type UpdateReceiptBody = Wire<typeof UpdateReceiptBody>;
 

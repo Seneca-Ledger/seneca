@@ -17,6 +17,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
+import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import {
   CreateCategorizationRuleBody,
   TestCategorizationRuleBody,
@@ -116,6 +117,8 @@ export class CategorizationRulesController {
       workspaceId,
       dto.result?.ownerMemberId,
     );
+    // Every row the rule matches would point at what it names.
+    await assertWorkspaceRefs(this.categorizationRuleRepository.manager, workspaceId, dto.result);
 
     const rule = this.categorizationRuleRepository.create({
       userId: user.id,
@@ -183,6 +186,7 @@ export class CategorizationRulesController {
         workspaceId,
         dto.result.ownerMemberId,
       );
+      await assertWorkspaceRefs(this.categorizationRuleRepository.manager, workspaceId, dto.result);
       rule.result = dto.result;
     }
     if (dto.priority != null) {

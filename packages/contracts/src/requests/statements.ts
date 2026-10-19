@@ -61,9 +61,9 @@ export const ConvertDroppedSampleTransactionInput = Schema.Struct({
   counterpartyBank: optionalNullable(Schema.String),
   article: optionalNullable(Schema.String),
   comments: optionalNullable(Schema.String),
-  categoryId: optionalNullable(Schema.String),
-  branchId: optionalNullable(Schema.String),
-  walletId: optionalNullable(Schema.String),
+  categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  branchId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  walletId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type ConvertDroppedSampleTransactionInput = Wire<
   typeof ConvertDroppedSampleTransactionInput
