@@ -8,6 +8,7 @@ const createService = (rows: unknown[] = []) => {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     groupBy: jest.fn().mockReturnThis(),
+    setParameter: jest.fn().mockReturnThis(),
     getRawMany: jest.fn().mockResolvedValue(rows),
   };
 
@@ -42,9 +43,10 @@ describe('StatementsService transaction summaries', () => {
         loadTransactionSummaries: (
           workspaceId: string,
           statementIds: string[],
+          viewerMemberId: string | null,
         ) => Promise<Map<string, unknown>>;
       }
-    ).loadTransactionSummaries('workspace-1', []);
+    ).loadTransactionSummaries('workspace-1', [], null);
 
     expect(result.size).toBe(0);
     expect(transactionRepository.createQueryBuilder).not.toHaveBeenCalled();
@@ -73,6 +75,7 @@ describe('StatementsService transaction summaries', () => {
         loadTransactionSummaries: (
           workspaceId: string,
           statementIds: string[],
+          viewerMemberId: string | null,
         ) => Promise<
           Map<
             string,
@@ -85,7 +88,7 @@ describe('StatementsService transaction summaries', () => {
           >
         >;
       }
-    ).loadTransactionSummaries('workspace-1', ['statement-1', 'statement-2']);
+    ).loadTransactionSummaries('workspace-1', ['statement-1', 'statement-2'], null);
 
     expect(result.get('statement-1')).toEqual({
       description: 'Cloud subscription',
