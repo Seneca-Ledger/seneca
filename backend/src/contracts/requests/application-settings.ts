@@ -64,6 +64,11 @@ export const SaveTelegramSettingsBody = Schema.Struct({
 });
 export type SaveTelegramSettingsBody = Wire<typeof SaveTelegramSettingsBody>;
 
+export const SaveInstanceTelegramBotBody = Schema.Struct({
+  botToken: Schema.String.check(Schema.isMinLength(1)),
+});
+export type SaveInstanceTelegramBotBody = Wire<typeof SaveInstanceTelegramBotBody>;
+
 export const SaveAppSettingsBody = Schema.Struct({
   publicUrl: Schema.String,
 });

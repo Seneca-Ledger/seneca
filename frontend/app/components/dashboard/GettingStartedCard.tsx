@@ -25,11 +25,13 @@ const readGettingStarted = (saved: Readonly<Record<string, unknown>>): GettingSt
   gettingStartedCompletedAt: stringOrUndefined(saved.gettingStartedCompletedAt),
 });
 
-type StepId = 'upload' | 'categories' | 'budget' | 'goal';
+type StepId = 'upload' | 'categories' | 'budget' | 'goal' | 'telegram';
 
 const STEPS: ReadonlyArray<{
   id: StepId;
   doneWhen: keyof SetupProgress;
+  /** Listed only when this holds: connecting Telegram needs a bot to connect to. */
+  shownWhen?: keyof SetupProgress;
   href: string;
   emoji: string;
 }> = [
@@ -42,12 +44,27 @@ const STEPS: ReadonlyArray<{
   },
   { id: 'budget', doneWhen: 'hasBudget', href: '/budgets', emoji: '💰' },
   { id: 'goal', doneWhen: 'hasGoal', href: '/goals', emoji: '🎯' },
+  {
+    id: 'telegram',
+    doneWhen: 'hasTelegram',
+    shownWhen: 'telegramAvailable',
+    href: '/settings/profile?tab=notifications&section=telegram',
+    emoji: '✈️',
+  },
 ];
 
 const RING_RADIUS = 16;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
-function ProgressRing({ done, label }: { done: number; label: string }): React.JSX.Element {
+function ProgressRing({
+  done,
+  total,
+  label,
+}: {
+  done: number;
+  total: number;
+  label: string;
+}): React.JSX.Element {
   return (
     <div className="lumio-getting-started__ring" role="img" aria-label={label}>
       <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
@@ -58,11 +75,11 @@ function ProgressRing({ done, label }: { done: number; label: string }): React.J
           cy="20"
           r={RING_RADIUS}
           strokeDasharray={RING_LENGTH}
-          strokeDashoffset={RING_LENGTH * (1 - done / STEPS.length)}
+          strokeDashoffset={RING_LENGTH * (1 - done / total)}
         />
       </svg>
       <span aria-hidden="true">
-        {done}/{STEPS.length}
+        {done}/{total}
       </span>
     </div>
   );
@@ -80,6 +97,7 @@ function StepRow({ step, isNext }: StepRowProps): React.JSX.Element {
     categories: { title: t.categoriesTitle, subtitle: t.categoriesSubtitle },
     budget: { title: t.budgetTitle, subtitle: t.budgetSubtitle },
     goal: { title: t.goalTitle, subtitle: t.goalSubtitle },
+    telegram: { title: t.telegramTitle, subtitle: t.telegramSubtitle },
   };
   return (
     <Link
@@ -118,7 +136,8 @@ export function GettingStartedCard(): React.JSX.Element | null {
   const [showCompleted, setShowCompleted] = useState(false);
 
   const finished = Boolean(state?.gettingStartedDismissedAt || state?.gettingStartedCompletedAt);
-  const allDone = progress ? STEPS.every(step => progress[step.doneWhen]) : false;
+  const visible = progress ? STEPS.filter(step => !step.shownWhen || progress[step.shownWhen]) : [];
+  const allDone = progress ? visible.every(step => progress[step.doneWhen]) : false;
 
   // Remembered, so deleting the only goal later doesn't bring the checklist back.
   useEffect(() => {
@@ -131,7 +150,7 @@ export function GettingStartedCard(): React.JSX.Element | null {
     return null;
   }
 
-  const steps = STEPS.map(step => ({ ...step, done: progress[step.doneWhen] }));
+  const steps = visible.map(step => ({ ...step, done: progress[step.doneWhen] }));
   const completed = steps.filter(step => step.done);
   const open = steps.filter(step => !step.done);
   const firstName = greetingName(user?.name);
@@ -141,13 +160,13 @@ export function GettingStartedCard(): React.JSX.Element | null {
     : t.subtitleNoName.value;
   const progressLabel = t.progressLabel.value
     .replace('{{done}}', String(completed.length))
-    .replace('{{total}}', String(STEPS.length));
+    .replace('{{total}}', String(steps.length));
 
   return (
     <DashboardCard
       title={t.title}
       subtitle={subtitle}
-      action={<ProgressRing done={completed.length} label={progressLabel} />}
+      action={<ProgressRing done={completed.length} total={steps.length} label={progressLabel} />}
       className="lumio-getting-started"
     >
       {completed.length > 0 && (

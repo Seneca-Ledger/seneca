@@ -36,6 +36,7 @@ vi.mock('@/app/i18n', async () => {
         categoriesTitle: value('Customize categories'),
         budgetTitle: value('Create a budget'),
         goalTitle: value('Create a goal'),
+        telegramTitle: value('Connect Telegram'),
       }),
   };
 });
@@ -45,6 +46,8 @@ const NOTHING: SetupProgress = {
   hasCustomCategories: false,
   hasBudget: false,
   hasGoal: false,
+  telegramAvailable: false,
+  hasTelegram: false,
 };
 
 function serve(progress: SetupProgress, saved: Record<string, unknown> | null = null) {
@@ -122,7 +125,7 @@ describe('GettingStartedCard', () => {
   });
 
   it('remembers that everything is done and draws nothing', async () => {
-    serve({ hasUpload: true, hasCustomCategories: true, hasBudget: true, hasGoal: true });
+    serve({ ...NOTHING, hasUpload: true, hasCustomCategories: true, hasBudget: true, hasGoal: true });
 
     const { container } = renderWithQuery(<GettingStartedCard />);
 
@@ -141,6 +144,41 @@ describe('GettingStartedCard', () => {
 
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
     expect(container).toBeEmptyDOMElement();
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('offers connecting Telegram only when a bot serves the workspace', async () => {
+    serve({ ...NOTHING, hasUpload: true, telegramAvailable: true });
+
+    renderWithQuery(<GettingStartedCard />);
+
+    const telegram = await screen.findByRole('link', { name: /Connect Telegram/ });
+    expect(telegram).toHaveAttribute('href', '/settings/profile?tab=notifications&section=telegram');
+    expect(screen.getByRole('img', { name: '1 of 5 steps done' })).toHaveTextContent('1/5');
+  });
+
+  it('leaves the Telegram step out without a bot, so four steps finish the list', async () => {
+    serve({ ...NOTHING, hasUpload: true });
+
+    renderWithQuery(<GettingStartedCard />);
+
+    expect(await screen.findByRole('img', { name: '1 of 4 steps done' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Connect Telegram/ })).not.toBeInTheDocument();
+  });
+
+  it('is not done while Telegram can still be connected', async () => {
+    serve({
+      ...NOTHING,
+      hasUpload: true,
+      hasCustomCategories: true,
+      hasBudget: true,
+      hasGoal: true,
+      telegramAvailable: true,
+    });
+
+    renderWithQuery(<GettingStartedCard />);
+
+    expect(await screen.findByRole('link', { name: /Connect Telegram/ })).toHaveTextContent('Next');
     expect(api.put).not.toHaveBeenCalled();
   });
 });

@@ -269,7 +269,14 @@ describe('OverviewTab', () => {
 });
 
 describe('OverviewTab getting started checklist', () => {
-  const progress = { hasUpload: false, hasCustomCategories: false, hasBudget: false, hasGoal: false };
+  const progress = {
+    hasUpload: false,
+    hasCustomCategories: false,
+    hasBudget: false,
+    hasGoal: false,
+    telegramAvailable: false,
+    hasTelegram: false,
+  };
 
   beforeEach(() => {
     apiGet.mockReset();

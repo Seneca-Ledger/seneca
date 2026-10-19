@@ -65,7 +65,19 @@ describe('TelegramWebhookController', () => {
     await expect(controller.handleUpdate({ update_id: 1, message: { chat: { id: 5 }, text: '/help' } })).resolves.toEqual({
       ok: true,
     });
-    expect(handleUpdate).toHaveBeenCalledWith({ update_id: 1, message: { chat: { id: 5 }, text: '/help' } });
+    // Without a bot token the service uses the TELEGRAM_BOT_TOKEN bot this webhook belongs to.
+    expect(handleUpdate).toHaveBeenCalledWith({ update_id: 1, message: { chat: { id: 5 }, text: '/help' } }, undefined);
+  });
+
+  it('hands an update on a per-bot webhook to the service with that bot', async () => {
+    const bots = { tokenOf: jest.fn(() => '123:secret') };
+    const perBot = new TelegramWebhookController({ handleUpdate } as never, bots as never);
+
+    await expect(perBot.handleBotUpdate('123', { update_id: 3, message: { text: '/help' } })).resolves.toEqual({
+      ok: true,
+    });
+    expect(bots.tokenOf).toHaveBeenCalledWith('123');
+    expect(handleUpdate).toHaveBeenCalledWith({ update_id: 3, message: { text: '/help' } }, '123:secret');
   });
 
   it('answers 200 to a malformed update and drops it, so Telegram does not retry', async () => {

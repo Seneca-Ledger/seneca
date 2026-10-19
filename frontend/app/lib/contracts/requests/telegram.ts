@@ -4,12 +4,6 @@ import * as Schema from 'effect/Schema';
 import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
-export const ConnectTelegramBody = Schema.Struct({
-  chatId: Schema.String.check(Schema.isMinLength(1)),
-  telegramId: optionalNullable(Schema.String),
-});
-export type ConnectTelegramBody = Wire<typeof ConnectTelegramBody>;
-
 export const SendTelegramReportBody = Schema.Struct({
   reportType: Schema.Literals(['daily', 'monthly', 'custom']),
   date: optionalNullable(Schema.String),
