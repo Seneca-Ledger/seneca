@@ -154,6 +154,22 @@ describe('WorkspacesService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it('refuses an owner-role invitation, even from an admin of the workspace', async () => {
+      const currentUser = { id: 'u-admin', email: 'admin@example.com', name: 'Admin' } as User;
+      workspaceRepository.findOne = jest.fn(async () => ({ id: 'w1', name: 'W', ownerId: 'o' }));
+      workspaceMemberRepository.findOne = jest.fn(
+        async () => ({ id: 'm1', role: WorkspaceRole.ADMIN, permissions: null }) as any,
+      );
+
+      await expect(
+        service.inviteMember('w1', currentUser, {
+          email: 'second-owner@example.com',
+          role: WorkspaceRole.OWNER,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(invitationRepository.save).not.toHaveBeenCalled();
+    });
+
     it('refreshes an existing pending invitation and sends email', async () => {
       const currentUser = {
         id: 'u-owner',
@@ -409,6 +425,64 @@ describe('WorkspacesService', () => {
       );
       // ...but their home workspace is left alone.
       expect(userRepository.update).not.toHaveBeenCalled();
+    });
+
+    const acceptedBefore = (role: WorkspaceRole, status: WorkspaceInvitationStatus) =>
+      ({
+        id: 'inv-1',
+        workspaceId: 'w1',
+        email: 'invited@example.com',
+        role,
+        permissions: null,
+        invitedById: 'u-owner',
+        status,
+        token: 't1',
+        expiresAt: new Date(Date.now() + 60_000),
+      }) as any;
+
+    it('does not bring a removed member back through the invitation they accepted', async () => {
+      const currentUser = { id: 'u2', email: 'invited@example.com' } as User;
+      invitationRepository.findOne = jest.fn(async () =>
+        acceptedBefore(WorkspaceRole.ADMIN, WorkspaceInvitationStatus.ACCEPTED),
+      );
+      workspaceRepository.findOne = jest.fn(async () => ({ id: 'w1', name: 'W' }) as any);
+      workspaceMemberRepository.findOne = jest.fn(async () => null);
+      workspaceMemberRepository.save = jest.fn(async (m: any) => m);
+
+      await expect(service.acceptInvitation(currentUser, 't1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(workspaceMemberRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('answers an accepted invitation again while the membership lasts', async () => {
+      const currentUser = { id: 'u2', email: 'invited@example.com', workspaceId: 'w1' } as User;
+      invitationRepository.findOne = jest.fn(async () =>
+        acceptedBefore(WorkspaceRole.MEMBER, WorkspaceInvitationStatus.ACCEPTED),
+      );
+      workspaceRepository.findOne = jest.fn(async () => ({ id: 'w1', name: 'W' }) as any);
+      workspaceMemberRepository.findOne = jest.fn(async () => ({ id: 'm1' }) as any);
+      workspaceMemberRepository.save = jest.fn(async (m: any) => m);
+
+      await expect(service.acceptInvitation(currentUser, 't1')).resolves.toMatchObject({
+        workspaceId: 'w1',
+      });
+      expect(workspaceMemberRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('never makes an owner out of an invitation', async () => {
+      const currentUser = { id: 'u2', email: 'invited@example.com' } as User;
+      invitationRepository.findOne = jest.fn(async () =>
+        acceptedBefore(WorkspaceRole.OWNER, WorkspaceInvitationStatus.PENDING),
+      );
+      workspaceRepository.findOne = jest.fn(async () => ({ id: 'w1', name: 'W' }) as any);
+      workspaceMemberRepository.findOne = jest.fn(async () => null);
+      workspaceMemberRepository.save = jest.fn(async (m: any) => m);
+
+      await expect(service.acceptInvitation(currentUser, 't1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(workspaceMemberRepository.save).not.toHaveBeenCalled();
     });
   });
 });

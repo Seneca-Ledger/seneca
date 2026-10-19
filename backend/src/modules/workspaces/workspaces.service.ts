@@ -13,7 +13,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { render } from '@react-email/render';
 import nodemailer from 'nodemailer';
 import * as React from 'react';
-import type { Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
@@ -186,10 +186,17 @@ export class WorkspacesService {
       order: { createdAt: 'ASC' },
     });
 
-    const invitations = await this.invitationRepository.find({
-      where: { workspaceId: workspace.id, status: WorkspaceInvitationStatus.PENDING },
-      order: { createdAt: 'DESC' },
-    });
+    // Open invitations carry their tokens, so only those who may invite see
+    // them: the home workspace of someone who joined by invitation is the
+    // inviter's, and a viewer there must not get links meant for others.
+    const callerRole = members.find(member => member.userId === currentUser.id)?.role;
+    const invitations =
+      callerRole === WorkspaceRole.OWNER || callerRole === WorkspaceRole.ADMIN
+        ? await this.invitationRepository.find({
+            where: { workspaceId: workspace.id, status: WorkspaceInvitationStatus.PENDING },
+            order: { createdAt: 'DESC' },
+          })
+        : [];
 
     const invitationResponses = await Promise.all(
       invitations.map(async invite => ({
@@ -508,6 +515,18 @@ export class WorkspacesService {
 
     await this.workspaceMemberRepository.delete(member.id);
 
+    // The links that let them in stop working with the membership.
+    if (member.user?.email) {
+      await this.invitationRepository.update(
+        {
+          workspaceId,
+          email: member.user.email.trim().toLowerCase(),
+          status: In([WorkspaceInvitationStatus.PENDING, WorkspaceInvitationStatus.ACCEPTED]),
+        },
+        { status: WorkspaceInvitationStatus.CANCELLED },
+      );
+    }
+
     if (member.user?.workspaceId === workspaceId) {
       await this.userRepository.update(member.userId, { workspaceId: null });
     }
@@ -553,6 +572,11 @@ export class WorkspacesService {
 
     const email = dto.email.trim().toLowerCase();
     const role = toEnum(WorkspaceRole, dto.role) || WorkspaceRole.MEMBER;
+    // Ownership moves only by transfer: an owner-role member can be neither
+    // removed nor demoted, so an admin could plant one for good.
+    if (role === WorkspaceRole.OWNER) {
+      throw new BadRequestException(appError('INVITATION_INVALID'));
+    }
     const permissions: WorkspaceMemberPermissions | null =
       role === WorkspaceRole.MEMBER
         ? ((dto.permissions as WorkspaceMemberPermissions | undefined) ?? null)
@@ -740,6 +764,33 @@ export class WorkspacesService {
     };
   }
 
+  /** Refuses an expired, revoked or otherwise unusable invitation. */
+  private async assertInvitationUsable(invitation: WorkspaceInvitation): Promise<void> {
+    if (
+      invitation.status === WorkspaceInvitationStatus.PENDING &&
+      invitation.expiresAt &&
+      invitation.expiresAt.getTime() < Date.now()
+    ) {
+      invitation.status = WorkspaceInvitationStatus.EXPIRED;
+      await this.invitationRepository.save(invitation);
+      throw new BadRequestException(appError('INVITATION_EXPIRED'));
+    }
+
+    if (invitation.status === WorkspaceInvitationStatus.CANCELLED) {
+      throw new BadRequestException(appError('INVITATION_REVOKED'));
+    }
+
+    if (
+      ![WorkspaceInvitationStatus.PENDING, WorkspaceInvitationStatus.ACCEPTED].includes(
+        invitation.status,
+      ) ||
+      // Written before invitations refused `owner`: ownership moves only by transfer.
+      invitation.role === WorkspaceRole.OWNER
+    ) {
+      throw new BadRequestException(appError('INVITATION_UNAVAILABLE'));
+    }
+  }
+
   async acceptInvitation(currentUser: User, token: string) {
     const trimmedToken = token?.trim();
     if (!trimmedToken) {
@@ -761,27 +812,7 @@ export class WorkspacesService {
       throw new ForbiddenException(appError('INVITATION_WRONG_ACCOUNT', { email: expectedEmail }));
     }
 
-    if (
-      invitation.status === WorkspaceInvitationStatus.PENDING &&
-      invitation.expiresAt &&
-      invitation.expiresAt.getTime() < Date.now()
-    ) {
-      invitation.status = WorkspaceInvitationStatus.EXPIRED;
-      await this.invitationRepository.save(invitation);
-      throw new BadRequestException(appError('INVITATION_EXPIRED'));
-    }
-
-    if (invitation.status === WorkspaceInvitationStatus.CANCELLED) {
-      throw new BadRequestException(appError('INVITATION_REVOKED'));
-    }
-
-    if (
-      ![WorkspaceInvitationStatus.PENDING, WorkspaceInvitationStatus.ACCEPTED].includes(
-        invitation.status,
-      )
-    ) {
-      throw new BadRequestException(appError('INVITATION_UNAVAILABLE'));
-    }
+    await this.assertInvitationUsable(invitation);
 
     const workspace = await this.workspaceRepository.findOne({
       where: { id: invitation.workspaceId },
@@ -794,6 +825,12 @@ export class WorkspacesService {
     const existingMembership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId: workspace.id, userId: currentUser.id },
     });
+
+    // Accepting twice is harmless while the membership lasts. Once the member
+    // is removed, the link they accepted must not bring them back.
+    if (!existingMembership && invitation.status !== WorkspaceInvitationStatus.PENDING) {
+      throw new BadRequestException(appError('INVITATION_UNAVAILABLE'));
+    }
 
     let memberAdded = false;
     if (!existingMembership) {
