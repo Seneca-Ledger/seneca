@@ -3,6 +3,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { withoutNullsOnRequired } from '../../../common/effect/without-nulls';
+import { assertWorkspaceRefs } from '../../../common/utils/workspace-refs.util';
 import type { CreateWebhookEndpointBody, UpdateWebhookEndpointBody } from '../../../contracts';
 import { AuditAction, EntityType, Severity } from '../../../entities/audit-event.entity';
 import { WebhookEndpoint } from '../../../entities/webhook-endpoint.entity';
@@ -24,6 +25,7 @@ export class WebhookEndpointsService {
     dto: CreateWebhookEndpointBody,
     actorId: string,
   ): Promise<WebhookEndpoint> {
+    await this.assertDefaultsInWorkspace(workspaceId, dto);
     const token = randomBytes(32).toString('hex');
     const entity = this.repo.create({ ...dto, workspaceId, isActive: dto.isActive ?? true });
     entity.token = token;
@@ -52,6 +54,7 @@ export class WebhookEndpointsService {
     actorId: string,
   ): Promise<WebhookEndpoint> {
     const endpoint = await this.findOne(id, workspaceId);
+    await this.assertDefaultsInWorkspace(workspaceId, dto);
     const before = this.snapshot(endpoint);
     Object.assign(endpoint, withoutNullsOnRequired(this.repo.metadata, dto));
     const saved = await this.repo.save(endpoint);
@@ -68,6 +71,17 @@ export class WebhookEndpointsService {
     await this.recordEvent(workspaceId, actorId, id, AuditAction.DELETE, Severity.WARN, {
       before: this.snapshot(endpoint),
       after: null,
+    });
+  }
+
+  /** Uploads through the endpoint land in this wallet and branch: this workspace's only. */
+  private assertDefaultsInWorkspace(
+    workspaceId: string,
+    dto: Pick<UpdateWebhookEndpointBody, 'defaultWalletId' | 'defaultBranchId'>,
+  ): Promise<void> {
+    return assertWorkspaceRefs(this.repo.manager, workspaceId, {
+      walletId: dto.defaultWalletId,
+      branchId: dto.defaultBranchId,
     });
   }
 
