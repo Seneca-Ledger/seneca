@@ -1,4 +1,5 @@
 import { Controller, Delete, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiKeyAllowed } from '../../common/decorators/api-key-allowed.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
@@ -32,6 +33,8 @@ export class EntityImportsController {
   }
 
   @Post()
+  // Scoped keys are let through: the service checks the scope the target needs.
+  @ApiKeyAllowed()
   @SchemaResponse(EntityImportResult)
   run(
     @CurrentUser() user: User,
@@ -44,6 +47,7 @@ export class EntityImportsController {
   }
 
   @Delete(':batchId')
+  @ApiKeyAllowed()
   undo(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
