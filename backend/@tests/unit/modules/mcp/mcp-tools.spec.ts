@@ -15,7 +15,12 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 jest.mock('@/common/utils/uploads.util', () => {
   const dir = require('node:path').join(require('node:os').tmpdir(), 'mcp-tools-spec');
   require('node:fs').mkdirSync(dir, { recursive: true });
-  return { resolveUploadsDir: () => dir };
+  const actual = jest.requireActual('@/common/utils/uploads.util');
+  return {
+    resolveUploadsDir: () => dir,
+    resolveInUploadsDir: (candidate: string, root: string = dir) =>
+      actual.resolveInUploadsDir(candidate, root),
+  };
 });
 const uploadsDir = path.join(os.tmpdir(), 'mcp-tools-spec');
 

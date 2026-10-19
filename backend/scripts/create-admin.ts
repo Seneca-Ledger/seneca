@@ -98,7 +98,9 @@ async function createAdmin() {
     }
 
     console.log(`   Email: ${email}`);
-    console.log(`   Password: ${password}`);
+    if (!process.argv[3]) {
+      console.log('   Password: the dev default (DEV_DEFAULTS.ADMIN_PASSWORD)');
+    }
   } catch (error) {
     console.error('❌ Error creating admin user:', error);
     process.exitCode = 1;

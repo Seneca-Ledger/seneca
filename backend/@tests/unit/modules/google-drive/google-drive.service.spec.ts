@@ -10,7 +10,7 @@ import type { Statement } from '@/entities/statement.entity';
 import type { User } from '@/entities/user.entity';
 import type { WorkspaceMember } from '@/entities/workspace-member.entity';
 import type { AuditService } from '@/modules/audit/audit.service';
-import { GoogleDriveService } from '@/modules/google-drive/google-drive.service';
+import { escapeDriveQuery, GoogleDriveService } from '@/modules/google-drive/google-drive.service';
 import type { StatementsService } from '@/modules/statements/statements.service';
 import type { Repository } from 'typeorm';
 
@@ -150,5 +150,11 @@ describe('GoogleDriveService', () => {
       ],
     });
     expect(statementsService.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('escapeDriveQuery', () => {
+  it('escapes backslashes before quotes so a name cannot close the literal', () => {
+    expect(escapeDriveQuery("a\\' or name contains 'x")).toBe("a\\\\\\' or name contains \\'x");
   });
 });

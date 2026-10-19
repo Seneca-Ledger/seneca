@@ -22,6 +22,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { resolveInUploadsDir } from '../../common/utils/uploads.util';
 import { multerConfig } from '../../config/multer.config';
 import {
   ConnectCryptoWalletBody,
@@ -245,5 +246,5 @@ export class CryptoController {
 /** Where multer put the upload, when it put one anywhere. */
 function uploadedPath(file: unknown): string | null {
   const path = (file as { path?: unknown } | null)?.path;
-  return typeof path === 'string' && path.length > 0 ? path : null;
+  return typeof path === 'string' && path.length > 0 ? resolveInUploadsDir(path) : null;
 }

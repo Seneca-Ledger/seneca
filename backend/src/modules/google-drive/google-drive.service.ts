@@ -60,6 +60,11 @@ const DRIVE_SCOPES = [
 
 const DEFAULT_SYNC_TIME = '03:00';
 
+/** A value for a single-quoted Drive query literal: backslash first, then the quote. */
+export function escapeDriveQuery(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 @Injectable()
 export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
   protected readonly logger = new Logger(GoogleDriveService.name);
@@ -397,8 +402,7 @@ export class GoogleDriveService extends CloudStorageBaseService<DriveSettings> {
     if (!folderId) {
       return fileName;
     }
-    const escapedName = fileName.replace(/'/g, "\\'");
-    const q = `name = '${escapedName}' and '${folderId}' in parents and trashed = false`;
+    const q = `name = '${escapeDriveQuery(fileName)}' and '${escapeDriveQuery(folderId)}' in parents and trashed = false`;
     const res = await this.driveJson<GoogleDriveFilesResponse>(
       accessToken,
       `https://www.googleapis.com/drive/v3/files?${new URLSearchParams({
