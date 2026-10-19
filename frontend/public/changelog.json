@@ -1,14 +1,159 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "602809849f78e01e75b9e94a2d5a0f4375b3ba46"
+      "main": "2891b98b3d7df26ac65c977698470ac28cf07dd1"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-19T11:19:04.835Z",
+    "lastGeneratedAt": "2026-10-19T13:34:02.669Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-19-2891b98",
+      "version": "main-2891b98",
+      "branch": "main",
+      "date": "2026-10-19T13:34:02.669Z",
+      "title": "Release update - October 19, 2026",
+      "summary": "This release includes 1 fix.",
+      "markdown": "## Fixes\n- **docs**: Build the site on Node 22, show the README screenshots",
+      "commits": [
+        {
+          "sha": "9fb25024381190a661c692c9af15e20ee04913f8",
+          "shortSha": "9fb25024",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T11:19:05Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "efe57c0e6f03b17d76ee1be6e38c98450c84f68a",
+          "shortSha": "efe57c0e",
+          "subject": "chore(tour): regenerate guide screenshots [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T12:02:23Z",
+          "files": [
+            "frontend/public/tour/be/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/be/tax-declaration-gate-light.webp",
+            "frontend/public/tour/bg/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/bg/tax-declaration-gate-light.webp",
+            "frontend/public/tour/bs/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/bs/tax-declaration-gate-light.webp",
+            "frontend/public/tour/cs/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/cs/tax-declaration-gate-light.webp",
+            "frontend/public/tour/da/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/da/tax-declaration-gate-light.webp",
+            "frontend/public/tour/de/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/de/tax-declaration-gate-light.webp",
+            "frontend/public/tour/en/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/en/tax-declaration-gate-light.webp",
+            "frontend/public/tour/es/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/es/tax-declaration-gate-light.webp",
+            "frontend/public/tour/fi/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/fi/tax-declaration-gate-light.webp",
+            "frontend/public/tour/fo/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/fo/tax-declaration-gate-light.webp",
+            "frontend/public/tour/fr/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/fr/tax-declaration-gate-light.webp",
+            "frontend/public/tour/hi/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/hi/tax-declaration-gate-light.webp",
+            "frontend/public/tour/hr/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/hr/tax-declaration-gate-light.webp",
+            "frontend/public/tour/hsb/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/hsb/tax-declaration-gate-light.webp",
+            "frontend/public/tour/id/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/id/tax-declaration-gate-light.webp",
+            "frontend/public/tour/is/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/is/tax-declaration-gate-light.webp",
+            "frontend/public/tour/it/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/it/tax-declaration-gate-light.webp",
+            "frontend/public/tour/ja/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/ja/tax-declaration-gate-light.webp",
+            "frontend/public/tour/kk/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/kk/tax-declaration-gate-light.webp",
+            "frontend/public/tour/ko/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/ko/tax-declaration-gate-light.webp",
+            "frontend/public/tour/mk/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/mk/tax-declaration-gate-light.webp",
+            "frontend/public/tour/nb/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/nb/tax-declaration-gate-light.webp",
+            "frontend/public/tour/nl/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/nl/tax-declaration-gate-light.webp",
+            "frontend/public/tour/nn/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/nn/tax-declaration-gate-light.webp",
+            "frontend/public/tour/pl/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/pl/tax-declaration-gate-light.webp",
+            "frontend/public/tour/pt/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/pt/tax-declaration-gate-light.webp",
+            "frontend/public/tour/ru/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/ru/tax-declaration-gate-light.webp",
+            "frontend/public/tour/sk/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/sk/tax-declaration-gate-light.webp",
+            "frontend/public/tour/sl/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/sl/tax-declaration-gate-light.webp",
+            "frontend/public/tour/sr/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/sr/tax-declaration-gate-light.webp",
+            "frontend/public/tour/sv/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/sv/tax-declaration-gate-light.webp",
+            "frontend/public/tour/tr/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/tr/tax-declaration-gate-light.webp",
+            "frontend/public/tour/uk/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/uk/tax-declaration-gate-light.webp",
+            "frontend/public/tour/vi/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/vi/tax-declaration-gate-light.webp",
+            "frontend/public/tour/zh/tax-declaration-gate-dark.webp",
+            "frontend/public/tour/zh/tax-declaration-gate-light.webp"
+          ]
+        },
+        {
+          "sha": "184882e52f8bf15a1e7cec736ba5b149c74cce95",
+          "shortSha": "184882e5",
+          "subject": "fix(docs): build the site on Node 22, show the README screenshots",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T15:05:17+03:00",
+          "files": [
+            ".github/workflows/docs.yml",
+            "website/src/pages/index.tsx",
+            "website/static/img/screenshots/advice.png",
+            "website/static/img/screenshots/budgets.png",
+            "website/static/img/screenshots/cash-flow-forecast.png",
+            "website/static/img/screenshots/crypto.png",
+            "website/static/img/screenshots/custom-tables.png",
+            "website/static/img/screenshots/dashboard-overview.png",
+            "website/static/img/screenshots/dashboard-trends.png",
+            "website/static/img/screenshots/documents.png"
+          ]
+        },
+        {
+          "sha": "4969d2217f9291478e30a3bf48000888e1d60397",
+          "shortSha": "4969d221",
+          "subject": "Merge pull request #349 from symonbaikov/fix/docs-site",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T15:48:32+03:00",
+          "files": []
+        },
+        {
+          "sha": "11cab85c35d68bc1332c2f506d0e7a625ae2ea78",
+          "shortSha": "11cab85c",
+          "subject": "docs(readme): catch up with the features merged since v1.0.0",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T16:01:08+03:00",
+          "files": [
+            "README.md"
+          ]
+        },
+        {
+          "sha": "2891b98b3d7df26ac65c977698470ac28cf07dd1",
+          "shortSha": "2891b98b",
+          "subject": "Merge pull request #350 from symonbaikov/docs/readme-refresh-2026-10-19",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T16:33:37+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-19-6028098",
       "version": "main-6028098",
