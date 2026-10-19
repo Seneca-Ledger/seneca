@@ -1,50 +1,47 @@
 <div align="center">
-<img width="150" height="150" alt="seneca-mark" src="https://github.com/user-attachments/assets/eded65fe-0490-4ff8-bbe9-76f2a6711983" />
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1264 1264"><path fill="#5E8F74" fill-rule="evenodd" d="M609.0,1022.9C551.6,1019.6 494.3,1002.4 445.5,973.7C298.3,887.4 221.5,724.7 250.6,561.0C268.7,459.3 324.8,369.4 409.7,306.3C513.6,228.9 649.1,211.4 771.0,259.7C840.1,287.0 901.9,336.1 946.8,399.3C1009.9,488.1 1034.5,596.3 1015.4,700.8C1004.3,761.5 979.6,818.2 943.1,866.4C863.0,972.6 739.4,1030.5 609.0,1022.9Z M626.0,976.6C626.0,971.2 614.0,931.7 595.5,876.3C585.7,846.9 582.4,841.3 571.5,836.4C564.1,833.0 558.9,832.3 528.0,830.5C499.3,828.8 491.3,827.6 484.5,823.6C470.0,815.0 465.7,798.9 472.9,779.2C477.0,767.6 476.8,764.1 471.3,756.7C463.4,746.3 462.6,741.4 467.1,730.4C468.2,727.6 468.0,727.1 464.7,722.7C459.6,716.0 459.4,713.4 462.9,699.7C466.4,686.3 466.8,681.5 464.4,680.6C463.5,680.3 458.0,680.0 452.1,680.0C439.6,680.0 434.9,678.3 429.6,671.6C423.1,663.6 424.0,660.8 455.7,590.2L466.1,566.9L461.9,558.4C454.6,543.7 455.0,533.8 463.9,514.3C467.4,506.7 469.5,500.3 471.0,492.6C484.3,424.5 542.0,373.6 620.5,360.8C634.3,358.6 675.0,359.1 689.5,361.7C746.1,371.9 795.8,404.3 827.7,451.7C853.2,489.8 868.1,547.4 864.1,592.7C861.0,627.9 852.5,651.6 831.4,684.0C814.3,710.4 807.8,726.7 806.3,747.0C803.5,787.1 831.1,832.0 873.5,856.1C886.7,863.6 887.5,863.8 891.1,860.4C905.4,846.8 926.5,815.2 941.0,785.5C981.4,702.8 987.7,608.9 958.7,521.0C918.1,397.9 810.3,302.7 689.0,282.6C667.7,279.1 659.9,278.5 632.0,278.6C601.0,278.6 591.4,279.5 564.0,285.0C452.9,307.3 358.7,388.4 314.7,499.6C283.8,577.5 281.0,658.5 306.4,736.3C346.9,860.2 449.3,952.0 572.0,974.4C587.3,977.2 607.4,979.4 620.8,979.8C626.0,980.0 626.0,980.0 626.0,976.6Z M545.2,817.1C554.8,816.4 557.8,815.8 562.3,813.6C572.2,808.8 574.1,805.9 597.3,762.0C617.2,724.2 627.1,706.8 646.3,675.6C675.9,627.5 681.0,614.7 681.0,587.5C681.0,574.8 679.9,565.1 676.4,546.0C668.7,504.5 668.3,483.6 674.6,441.0C678.8,412.0 677.1,401.5 666.5,390.6C657.6,381.4 645.9,377.7 626.0,377.6C578.3,377.6 527.5,404.1 502.5,442.2C492.1,458.0 486.5,472.1 481.9,494.4C479.6,505.4 478.0,510.5 473.8,519.4C468.7,530.2 468.5,530.7 468.5,539.5C468.5,548.3 468.6,548.6 472.8,555.6C478.5,565.1 478.4,566.2 469.4,585.9C453.7,620.1 438.0,657.5 438.0,660.7C438.0,667.8 441.5,668.8 463.7,668.2C483.9,667.6 484.0,667.7 479.7,676.6C478.2,679.6 477.0,683.3 477.0,684.8C477.0,686.4 475.7,693.0 474.0,699.6C472.4,706.1 471.0,711.6 471.0,711.7C470.9,713.2 474.6,714.8 477.3,714.3C481.7,713.6 492.6,716.7 508.6,723.0C533.1,732.8 532.9,734.1 507.7,730.5C482.6,726.9 480.5,727.2 477.4,734.6C474.4,741.8 476.1,746.5 483.2,750.6C492.5,756.0 494.1,761.8 488.6,770.9C473.4,796.2 479.6,814.9 504.0,817.0C514.7,818.0 531.6,818.0 545.2,817.1Z M532.5,599.8C529.0,597.0 527.0,592.3 527.0,586.5C527.0,581.1 525.1,572.8 523.7,571.8C523.1,571.5 520.6,570.9 518.1,570.5C512.0,569.6 502.8,564.6 498.5,559.8C493.4,554.2 493.8,553.0 500.9,553.0C506.0,553.0 507.5,552.5 512.1,549.4C530.9,536.4 552.2,536.2 572.8,548.8C582.6,554.7 602.0,568.4 602.0,569.4C602.0,569.9 598.5,570.0 594.2,569.8C587.8,569.3 584.0,568.3 572.0,563.5C559.1,558.3 556.5,557.6 548.7,557.2C537.8,556.6 535.3,558.1 543.3,560.4C552.4,563.0 555.5,570.0 551.4,578.5C548.8,584.0 546.5,585.4 539.1,586.0C532.5,586.5 532.5,586.5 532.2,589.8C532.0,592.0 532.7,594.6 534.5,597.5C537.3,602.4 536.7,603.2 532.5,599.8Z M591.0,516.3C552.1,503.9 543.6,503.5 513.5,513.0C494.6,518.9 492.1,519.1 488.6,515.0C485.2,510.9 484.5,506.4 486.5,501.3C488.1,497.2 488.1,497.2 502.3,493.7C536.7,485.2 553.6,486.2 574.9,498.1C585.0,503.8 603.4,518.2 601.9,519.3C601.7,519.5 596.8,518.2 591.0,516.3Z"/></svg>
-
+<img width="150" height="150" alt="Seneca logo" src="https://github.com/user-attachments/assets/eded65fe-0490-4ff8-bbe9-76f2a6711983" />
 
 <h1>Seneca</h1>
----
-  
+
 <p align="center">
-  :globe_with_meridians:<a href="#quick-start">Download</a>
+  :globe_with_meridians: <a href="https://github.com/symonbaikov/seneca/releases/latest">Download</a> · :book: <a href="https://symonbaikov.github.io/seneca/">Documentation</a>
 </p>
----
 
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](CONTRIBUTING.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%20%7C%206.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Release](https://img.shields.io/github/v/release/symonbaikov/seneca?style=for-the-badge)](https://github.com/symonbaikov/seneca/releases/latest)
 
 **Open-source financial data platform for importing, processing, and analyzing bank statements**
 
 
-[Quick Start](#quick-start) • [Features](#features) • [Tech Stack](#tech-stack) • [Architecture](#architecture) • [Contributing](CONTRIBUTING.md)
+[Quick Start](#quick-start) • [Docs](https://symonbaikov.github.io/seneca/) • [Features](#features) • [Tech Stack](#tech-stack) • [Architecture](#architecture) • [Contributing](CONTRIBUTING.md)
 
 </div>
 
 <div align="center">
 
-<img width="1890" height="887" alt="screenshot-2026-10-19_12-58-12" src="https://github.com/user-attachments/assets/2f7fec9e-83da-4ebd-b80d-c6f2c8ae3c46" />
+<img width="1890" height="887" alt="Overview dashboard: month budgets, income, spending, net and savings rate, top categories and recent transactions" src="https://github.com/user-attachments/assets/2f7fec9e-83da-4ebd-b80d-c6f2c8ae3c46" />
 
 
 <br /><br />
 
 <table>
 <tr>
-<td width="50%"><img width="1892" height="886" alt="screenshot-2026-10-19_13-01-57" src="https://github.com/user-attachments/assets/256ae873-93b5-47e8-bdbc-eb2f53f0799e" />
+<td width="50%"><img width="1892" height="886" alt="Documents list: receipts with merchant, category, amount and approval status" src="https://github.com/user-attachments/assets/256ae873-93b5-47e8-bdbc-eb2f53f0799e" />
 </td>
-<td width="50%"><img width="1889" height="888" alt="screenshot-2026-10-19_12-56-23" src="https://github.com/user-attachments/assets/6d1130c6-b33e-4326-ac12-1eaf7408230c" />
-</td>
-</tr>
-<tr>
-<td width="50%"><img width="1891" height="882" alt="screenshot-2026-10-19_12-57-21" src="https://github.com/user-attachments/assets/b655215b-989f-483d-91bc-72ac457658c9" />
-</td>
-<td width="50%"><img width="1887" height="884" alt="image" src="https://github.com/user-attachments/assets/746cca0a-4c0e-43c5-8003-10cf251d13b2" />
+<td width="50%"><img width="1889" height="888" alt="Crypto portfolio: balance chart, holdings with profit and connected Ethereum and Tron wallets" src="https://github.com/user-attachments/assets/6d1130c6-b33e-4326-ac12-1eaf7408230c" />
 </td>
 </tr>
 <tr>
-<td colspan="2" align="center"><img width="1893" height="886" alt="screenshot-2026-10-19_13-18-07" src="https://github.com/user-attachments/assets/6b834d00-8a9b-43e3-b144-fb1262696984" />
+<td width="50%"><img width="1891" height="882" alt="Cash-flow forecast: runway, lowest point and shortfall over the next 90 days" src="https://github.com/user-attachments/assets/b655215b-989f-483d-91bc-72ac457658c9" />
+</td>
+<td width="50%"><img width="1887" height="884" alt="Custom table of invoices with typed columns, paid checkboxes and statuses" src="https://github.com/user-attachments/assets/746cca0a-4c0e-43c5-8003-10cf251d13b2" />
+</td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img width="1893" height="886" alt="Budgets with the Stoic balance: planned versus actual spending across necessity, work, virtue and leisure" src="https://github.com/user-attachments/assets/6b834d00-8a9b-43e3-b144-fb1262696984" />
 
 </td>
 </tr>
@@ -66,7 +63,7 @@
 > **TL;DR**
 >
 > - Upload bank statements (PDF / CSV / XLSX / OFX / QIF / MT940 / CAMT.053 / image) → auto-parse → deduplicate → categorize → review
-> - Private by default: your data stays on your machine or server, no bank login required, no external AI model is ever contacted
+> - Private by default: your data stays on your machine or server, no bank login required, and the server never sends your data to an external AI model
 > - Workspaces for yourself, your household or your team — roles, private transactions, audit log and one-click rollback
 > - Full stack running locally in one command: `npm run setup:dev`
 >
@@ -121,13 +118,14 @@ Seneca is a full-stack platform for importing, categorizing and analyzing bank s
 - **Review Queue** — Every imported row waits in Review until a person confirms it; only confirmed rows count in reports, budgets and the ledger. Suspected duplicates have their own list.
 - **Bank Sync (bring your own aggregator)** — Connect your own SimpleFIN Bridge account; new rows are pulled on demand or every six hours and go through the same import path as an uploaded file.
 - **Multi-Tenant Workspaces** — Unlimited workspaces with invitation flows and per-workspace data isolation.
-- **Granular RBAC** — Roles: owner, admin, member, viewer. Per-user permission overrides.
+- **Granular RBAC** — Roles: owner, admin, member, viewer, and accountant (reads everything and can export the tax pack, DATEV and tax returns, but changes nothing). Per-user permission overrides.
 - **Dashboard & Reports** — Cash flow, top categories, trends, custom report builder with CSV/XLSX export.
 - **Audit Log** — Complete event trail with one-click rollback for supported operations.
+- **Workspace Versions** — A snapshot of each workspace every night at 03:00 in the owner's time zone, plus any taken by hand; kept daily for 30 days, weekly for 26 weeks and monthly after that. Open one to see the app as it was that day, read-only, or save it as a new workspace.
 - **Webhooks** — Outbound event delivery to subscribed endpoints with token-based authentication.
 - **API Keys** — Programmatic access via `lum_`-prefixed, SHA-256 hashed keys with revocation support.
 - **MCP** — AI agents (Claude Code, Claude Desktop, any MCP client) connect to `/api/v1/mcp` with an API key; tools follow the key's scopes and their writes are audited as the key.
-- **Budgets** — Budget tracking with manual spend recording and alerts.
+- **Budgets** — Budget tracking with manual spend recording and alerts, plus a Stoic balance of planned versus actual spending across necessity, work, virtue and leisure.
 - **Subscriptions** — Recurring billing detection and management with frequency-based tracking.
 - **Goals & Net Worth** — Savings goals with progress tracking, and net worth aggregated across accounts, wallets, investments, precious metals and crypto holdings.
 - **Forecast** — Cash-flow forecast from known paydays, bills, subscriptions and receivables, with safe-to-spend and runway.
@@ -148,7 +146,7 @@ Seneca is a full-stack platform for importing, categorizing and analyzing bank s
 ### Intelligence
 
 - **Categorization Rules & Payee Memory** — Per-workspace categorization rules, plus payees (with aliases) that remember the category you confirmed for a merchant and apply it on future imports.
-- **Financial Insights** — Insights generated by rule-based analyzers from your own numbers, surfaced on the dashboard; dismissible per-user.
+- **Insights & Advice** — Rule-based analyzers read your own numbers: things to do appear in one quiet strip on the dashboard, observations and Stoic advice on the Advice page; dismissible per user.
 - **Generic PDF Parser** — reads transaction tables from any PDF when no native parser matches.
 
 ### Integrations
@@ -157,9 +155,10 @@ Seneca is a full-stack platform for importing, categorizing and analyzing bank s
 - **S3-compatible Storage** — import and sync statement files with MinIO or another S3-compatible bucket.
 - **WebDAV Storage** — import and sync statement files with Nextcloud or another WebDAV-compatible server.
 - **Workbook Import** — export and import custom table data via XLSX, CSV, and ODS files.
-- **Telegram Bot** — Scheduled financial reports delivered to a Telegram chat or channel, and quick expense capture from chat (`coffee 4.50`).
+- **Telegram Bot** — Connect a chat in one click; get scheduled financial reports in a chat or channel, type an expense (`coffee 4.50`), send a receipt photo (it lands in Review) or a PDF statement (it goes to import).
 - **Peppol** — Send and receive e-invoices through your own access point account (Recommand).
 - **Spreadsheet Import** — Import transactions, budgets, invoices, bills, subscriptions and metal lots from a spreadsheet, with column mapping suggested from the headers.
+- **AI Assistant Plugin** — Ready-made prompts filled with your own figures (budgets, goals, subscriptions, forecast and more). Pressing one opens ChatGPT in a new tab with the prompt, or copies it when it is too long for a link; nothing leaves the browser until you press it. Like webhooks and MCP, it is a plugin each workspace switches on or off.
 
 ### Collaboration & Access Control
 
@@ -186,7 +185,8 @@ Seneca is a full-stack platform for importing, categorizing and analyzing bank s
 - **Installable App (PWA)** — Web push notifications, an offline page, and manual entries made offline queued until the connection is back.
 - **WebSocket Support** — Live updates via Socket.IO for notifications and import progress.
 - **Observability** — Prometheus-format metrics endpoint (`/api/v1/metrics`), structured JSON logs, and correlation IDs — point your own collector at it.
-- **Guided Onboarding** — Onboarding flow, a getting-started checklist on the dashboard and 7 interactive feature tours.
+- **Guided Onboarding** — Full-screen onboarding, a welcome window, hints on each page, a demo workspace to explore, an illustrated guide, a getting-started checklist on the dashboard and 7 interactive feature tours.
+- **Command Palette & Shortcuts** — `Ctrl/⌘ K` opens the command palette from any page; `?` lists every keyboard shortcut.
 - **Localization** — The UI ships in 35 languages via Intlayer; English is the default locale.
 - **Content Background** — A bundled or uploaded photo behind the app content, with adjustable dimming.
 
@@ -301,7 +301,7 @@ Your bank is missing or parses badly? See [Wanted: real bank statements](#-wante
 seneca/
 ├── backend/                         # NestJS API server
 │   ├── src/
-│   │   ├── modules/                 # 65 feature modules
+│   │   ├── modules/                 # Feature modules
 │   │   │   ├── api-keys/            # Programmatic API key management
 │   │   │   ├── mcp/                 # MCP endpoint (/api/v1/mcp) for AI agents, behind API keys
 │   │   │   ├── application-settings/ # Runtime system configuration
@@ -365,12 +365,14 @@ seneca/
 │   │   │   ├── investments/         # Investment accounts, holdings, precious metals
 │   │   │   ├── forecast/            # Cash-flow forecast, safe-to-spend, runway
 │   │   │   ├── backups/             # Encrypted scheduled backups, export & restore
+│   │   │   ├── versions/            # Workspace versions: nightly snapshots, read-only open, save as copy
+│   │   │   ├── system-update/       # In-app update requests for the optional updater
 │   │   │   ├── mailer/              # Transactional email delivery
 │   │   │   └── observability/       # Prometheus metrics endpoint
-│   │   ├── entities/                # 108 TypeORM entities
+│   │   ├── entities/                # TypeORM entities
 │   │   ├── common/                  # Guards, decorators, interceptors, filters
 │   │   ├── config/                  # App configuration
-│   │   └── migrations/              # 223 database migrations (auto-applied on startup)
+│   │   └── migrations/              # Database migrations (auto-applied on startup)
 │   ├── scripts/                     # Admin, seed, parse debug, storage repair, statement anonymizer
 │   ├── golden/                      # Anonymized parser golden fixtures (golden-private/ is git-ignored)
 │   └── @tests/                      # Unit and E2E test suites
@@ -402,7 +404,7 @@ seneca/
 │   │   ├── plugins/                 # AI assistant, MCP server, webhooks
 │   │   ├── offline/                 # PWA offline page
 │   │   ├── storage/                 # File storage browser
-│   │   ├── settings/                # Profile, notifications, workspace, Telegram
+│   │   ├── settings/                # Profile, notifications, workspace, Telegram, versions
 │   │   ├── audit/                   # Audit log viewer
 │   │   ├── admin/                   # Admin dashboard & user management
 │   │   ├── transactions/            # Transaction list & detail
@@ -414,7 +416,7 @@ seneca/
 ├── packages/
 │   └── contracts/                   # Effect Schema API contracts (source; synced into backend and frontend)
 ├── docs/
-│   ├── plans/                       # 55 feature design & implementation plans
+│   ├── plans/                       # Feature design & implementation plans
 │   ├── CI/                          # CI/CD pipeline documentation
 │   ├── security/                    # CVE allowlists, license exceptions
 │   └── statements-examples/         # Sample bank statement files for testing
@@ -424,7 +426,7 @@ seneca/
 ├── scripts/                         # Shell helper scripts
 │   ├── generate-env.sh              # Generate .env files with random secrets
 │   └── generate-changelog.mjs       # Changelog generation script
-├── docker-compose.yml               # Production Docker config (4 services + optional maps/geocoder)
+├── docker-compose.yml               # Production Docker config (4 services + optional maps, geocoder, updater)
 ├── docker-compose.dev.yml           # Development overrides with hot reload
 └── Makefile                         # All development commands
 ```
@@ -453,87 +455,32 @@ cd seneca
 npm run setup:dev
 ```
 
-`npm run setup:dev` asks which development mode you want, then prepares env files, starts PostgreSQL and Redis, runs database migrations, seeds a demo user, and starts the app.
+`npm run setup:dev` asks which development mode you want, then prepares env files, starts PostgreSQL and Redis, runs database migrations, seeds a demo user, and starts the app. Ports `3000` (frontend) and `3001` (backend) must be free.
 
-### Fast bootstrap checklist (new contributor flow)
-
-1. Install Node.js 22.18+ and Docker (with Compose) before you start.
-2. Ensure ports are free: `3000` (frontend), `3001` (backend).
-3. Prepare environment files once:
+To skip the question, start a mode directly:
 
 ```bash
-npm run setup:env
-```
-
-4. Start using one of the non-interactive modes:
-
-```bash
-npm run setup:dev:docker  # full Docker stack (recommended for first run)
-npm run setup:dev:local   # local app + Docker infra
-```
-
-5. Verify availability:
-
-```bash
-curl -sS http://localhost:3001/api/v1/health/ready
-open http://localhost:3000
-```
-
-Expected output from step 5 health check:
-
-```json
-{"status":"ok","checks":{"db":"ok"}}
-```
-
-Default demo login is printed after startup in the terminal:
-
-- **Email:** `demo@seneca.dev`
-- **Password:** `demo123`
-
-To stop Docker mode cleanly:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml down
-```
-
-In Docker mode `node_modules` and the Next.js cache live in named volumes, so a restart does not re-copy dependencies and page compiles stay warm. When `package-lock.json` changes, the container refreshes its `node_modules` on the next start by itself. `make clean` drops those volumes for a from-scratch start.
-
-### Run prebuilt images (no local build)
-
-CD publishes `ghcr.io/symonbaikov/seneca-backend` and `ghcr.io/symonbaikov/seneca-frontend` for every release. To start the production stack without building anything locally:
-
-```bash
-npm run setup:env
-docker compose pull
-docker compose up -d
-```
-
-`IMAGE_TAG` in `.env` pins a specific release (defaults to the newest one).
-
-To update later, run `make upgrade`. It backs up the database, pulls the new images, restarts the stack, and lets the backend apply any migrations. Instance admins can also update from Settings → Advanced once `COMPOSE_PROFILES=updater` is in `.env`. See [Upgrading](website/docs/deployment/docker.md#upgrading).
-
-To stop local mode, press `Ctrl + C` in the terminal running `npm run setup:dev:local`.
-
-For a new contributor, Docker full-stack is the recommended path. It builds and runs PostgreSQL, Redis, backend, and frontend, waits for backend readiness, seeds the demo account, and prints the URLs and login credentials.
-
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:3001/api/v1
-- **Swagger Docs:** http://localhost:3001/api/docs
-
-Demo credentials:
-- **Email:** `demo@seneca.dev`
-- **Password:** `demo123`
-
-### Non-interactive startup
-
-```bash
-npm run setup:dev:docker  # Full Docker dev stack
+npm run setup:dev:docker  # Full Docker dev stack (recommended for a first run)
 npm run setup:dev:local   # Local backend/frontend + Docker PostgreSQL/Redis
 npm run setup:dev:native  # Local backend/frontend + local PostgreSQL/Redis, no Docker
 npm run setup:env         # Only create or complete local env files
 ```
 
 `make quick-dev` remains available as a compatibility alias for `npm run setup:dev:docker`.
+
+Docker full-stack builds and runs PostgreSQL, Redis, backend, and frontend, waits for backend readiness, seeds the demo account, and prints the URLs and login credentials. Once it is up:
+
+- **App:** http://localhost:3000 — other endpoints are listed under [Service URLs](#service-urls)
+- **Demo login:** `demo@seneca.dev` / `demo123`
+
+```bash
+curl -sS http://localhost:3001/api/v1/health/ready
+# {"status":"ok","checks":{"db":"ok"}}
+```
+
+To stop, run `docker compose -f docker-compose.yml -f docker-compose.dev.yml down` in Docker mode, or press `Ctrl + C` in the terminal running `npm run setup:dev:local`.
+
+In Docker mode `node_modules` and the Next.js cache live in named volumes, so a restart does not re-copy dependencies and page compiles stay warm. When `package-lock.json` changes, the container refreshes its `node_modules` on the next start by itself. `make clean` drops those volumes for a from-scratch start.
 
 Development env files are generated locally and ignored by git. Existing values are preserved; missing defaults are appended. For production and optional integrations, see [Configuration](#configuration).
 
@@ -559,13 +506,19 @@ By default, generated development env points PostgreSQL to `localhost:5434` and 
 
 If native prerequisites are missing, the command stops before starting the app and reports the missing tool, for example `redis-cli`.
 
-### Verified Startup Paths
+### Run prebuilt images (no local build)
 
-The development bootstrap supports and tests these paths:
+CD publishes `ghcr.io/symonbaikov/seneca-backend` and `ghcr.io/symonbaikov/seneca-frontend` for every release. To start the production stack without building anything locally:
 
-- `npm run setup:dev:docker` — full Docker stack, including backend readiness and demo seed.
-- `npm run setup:dev:local` — local backend/frontend with Docker PostgreSQL and Redis.
-- `npm run setup:dev:native` — local backend/frontend with local PostgreSQL and Redis; requires native database/cache tools installed first.
+```bash
+npm run setup:env
+docker compose pull
+docker compose up -d
+```
+
+`IMAGE_TAG` in `.env` pins a specific release (defaults to the newest one).
+
+To update later, run `make upgrade`. It backs up the database, pulls the new images, restarts the stack, and lets the backend apply any migrations. Instance admins can also update from Settings → Advanced once `COMPOSE_PROFILES=updater` is in `.env`. See [Upgrading](website/docs/deployment/docker.md#upgrading).
 
 ---
 
@@ -818,7 +771,7 @@ make update            # Update npm dependencies
 
 ### Database Migrations
 
-Seneca uses TypeORM migrations exclusively (`synchronize: false`). Migrations run automatically on every startup unless `RUN_MIGRATIONS=false` is set. There are currently 223 migrations covering the entire schema history.
+Seneca uses TypeORM migrations exclusively (`synchronize: false`). Migrations run automatically on every startup unless `RUN_MIGRATIONS=false` is set. The migrations cover the entire schema history.
 
 ```bash
 # Apply all pending migrations (Docker)
@@ -907,6 +860,8 @@ cd frontend
 npm test               # Run all tests with Vitest
 ```
 
+---
+
 ## Architecture
 
 <img width="594" height="1125" alt="architecture" src="https://github.com/user-attachments/assets/8fdad21b-a3ee-4557-b186-22cf013dac04" />
@@ -933,7 +888,7 @@ npm test               # Run all tests with Vitest
 - SHA-256 `fileHash` on statements for idempotent re-upload detection
 - `Idempotency-Key` header supported on upload endpoints (stored in `IdempotencyKey` entity)
 - Transaction fingerprinting for cross-statement duplicate detection
-- 108 TypeORM entities covering all domain objects (see `backend/src/entities/`)
+- TypeORM entities for every domain object (see `backend/src/entities/`)
 
 ### Parsing Pipeline
 
@@ -1026,6 +981,8 @@ Docker Compose runs four services: `postgres` (PostgreSQL 14-alpine), `redis` (R
 
 Two optional profiles add the self-hosted receipt maps: `maps` (`map-assets`, `map-tiles-init`, `tileserver`) and `geocoder` (`nominatim`). See **Receipt Maps** under [Optional Integrations](#optional-integrations).
 
+A third, `updater` (`COMPOSE_PROFILES=updater` in `.env`), lets an instance admin run the equivalent of `make upgrade` from Settings → Advanced. It drives Docker through the socket, which amounts to root on the host, so it is off by default.
+
 CD builds, scans, signs and publishes the images on version tags and stops there — where an instance runs is up to its operator.
 
 ### Environment-Specific Compose Files
@@ -1041,6 +998,7 @@ CD builds, scans, signs and publishes the images on version tags and stops there
 
 | Document | Description |
 |---|---|
+| [symonbaikov.github.io/seneca](https://symonbaikov.github.io/seneca/) | Documentation site, built from `website/` |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute — workflow, code style, PR process |
 | [SECURITY.md](SECURITY.md) | Security policy, vulnerability reporting, disclosure process |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community guidelines |
@@ -1048,7 +1006,7 @@ CD builds, scans, signs and publishes the images on version tags and stops there
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What is planned, in order |
 | [docs/ui-principles.md](docs/ui-principles.md) | UI stability principles the product follows |
 | [website/docs/](website/docs/) | Documentation site: getting started, guides, architecture, API and deployment reference |
-| [docs/plans/](docs/plans/) | 55 feature design and implementation plan documents |
+| [docs/plans/](docs/plans/) | Feature design and implementation plan documents |
 | [docs/CI/](docs/CI/) | CI/CD pipeline documentation |
 | [docs/security/](docs/security/) | CVE allowlists and license exceptions |
 
