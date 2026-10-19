@@ -36,6 +36,8 @@ import {
 } from './workspace-members.utils';
 
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer' | 'accountant';
+/** Ownership is never invited, only transferred. */
+type InviteRole = Exclude<WorkspaceRole, 'owner'>;
 
 type InvitePermissions = {
   canEditStatements: boolean;
@@ -195,7 +197,7 @@ export default function WorkspaceMembersView() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
+  const [inviteRole, setInviteRole] = useState<InviteRole>('member');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [updatingRoleMemberId, setUpdatingRoleMemberId] = useState<string | null>(null);
@@ -438,7 +440,9 @@ export default function WorkspaceMembersView() {
     await (async () => {
       await apiClient.post(`/workspaces/${overview.workspace.id}/invitations`, {
         email: invite.email,
-        role: invite.role,
+        // Ownership moves only by transfer; an owner-role invitation from before
+        // that rule goes out again as admin.
+        role: invite.role === 'owner' ? 'admin' : invite.role,
         permissions: invite.role === 'member' ? (invite.permissions ?? undefined) : undefined,
       } satisfies ContractInput<'InviteMemberBody'>);
       toast.success(t.toasts.inviteResent.value);
@@ -757,7 +761,7 @@ export default function WorkspaceMembersView() {
                   fullWidth
                   id="invite-role"
                   value={inviteRole}
-                  onChange={value => setInviteRole(value as WorkspaceRole)}
+                  onChange={value => setInviteRole(value as InviteRole)}
                   disabled={!isOwnerOrAdmin}
                   options={[
                     { value: 'member', label: t.roles.member.value },

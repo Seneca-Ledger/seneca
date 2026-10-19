@@ -125,6 +125,63 @@ describe('JwtAuthGuard', () => {
       expect((context.switchToHttp().getRequest() as any).apiKey).toBeUndefined();
     });
 
+    describe('a scoped API key', () => {
+      const keyRequest = () =>
+        createMockExecutionContext({ headers: { 'x-api-key': 'seneca_test_key' } });
+      const routeMetadata = (metadata: Record<string, unknown>) =>
+        jest
+          .spyOn(reflector, 'getAllAndOverride')
+          .mockImplementation((key: unknown) => metadata[key as string]);
+
+      it('is refused on a route that declares no permission', async () => {
+        apiKeysService.validate.mockResolvedValue({
+          workspaceId: 'workspace-key',
+          user: { id: 'user-1' },
+          scopes: ['transaction.view'],
+        });
+        routeMetadata({});
+
+        await expect(guard.canActivate(keyRequest())).rejects.toThrow(
+          'This route does not accept scoped API keys',
+        );
+      });
+
+      it('passes on to the permission check where the route declares one', async () => {
+        apiKeysService.validate.mockResolvedValue({
+          workspaceId: 'workspace-key',
+          user: { id: 'user-1' },
+          scopes: ['transaction.view'],
+        });
+        routeMetadata({ permissions: ['transaction.view'] });
+
+        await expect(guard.canActivate(keyRequest())).resolves.toBe(true);
+      });
+
+      it('passes where the route checks scopes itself', async () => {
+        apiKeysService.validate.mockResolvedValue({
+          workspaceId: 'workspace-key',
+          user: { id: 'user-1' },
+          scopes: [],
+        });
+        routeMetadata({ apiKeyAllowed: true });
+
+        await expect(guard.canActivate(keyRequest())).resolves.toBe(true);
+      });
+
+      it('is refused even with an empty scope list', async () => {
+        apiKeysService.validate.mockResolvedValue({
+          workspaceId: 'workspace-key',
+          user: { id: 'user-1' },
+          scopes: [],
+        });
+        routeMetadata({});
+
+        await expect(guard.canActivate(keyRequest())).rejects.toThrow(
+          'This route does not accept scoped API keys',
+        );
+      });
+    });
+
     it('should throw UnauthorizedException for invalid token', async () => {
       const context = createMockExecutionContext();
       jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
