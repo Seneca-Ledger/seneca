@@ -206,6 +206,10 @@ export class TelegramService {
   }
 
   async sendReport(user: User, dto: SendTelegramReportBody, workspaceId: string) {
+    // Reports go to the caller's own connected chat, never to one they name.
+    if (dto.chatId && dto.chatId !== user.telegramChatId) {
+      throw new BadRequestException('chatId must be your connected Telegram chat');
+    }
     const chatId = dto.chatId || user.telegramChatId;
     if (!chatId) {
       throw new BadRequestException(

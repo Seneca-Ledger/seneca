@@ -553,6 +553,19 @@ describe('TelegramService inbound bot', () => {
   });
 });
 
+describe('TelegramService send-report', () => {
+  it('refuses to send to a chat other than the caller’s own', async () => {
+    const calls = mockFetchOk();
+    const { service, reportsService } = createService();
+
+    await expect(
+      service.sendReport(user(), { reportType: 'daily' as any, chatId: 'someone-else' }, 'ws-open'),
+    ).rejects.toThrow('chatId must be your connected Telegram chat');
+    expect(reportsService.generateDailyReport).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe('TelegramService connection', () => {
   it('reports whether the bot answers for the workspace being viewed', () => {
     const { service } = createService();
