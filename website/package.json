@@ -52,6 +52,8 @@
     },
     "css-minimizer-webpack-plugin": {
       "serialize-javascript": "^7.0.5"
-    }
+    },
+    "tinypool": "^2.1.2",
+    "source-map-js": "^1.2.2"
   }
 }
