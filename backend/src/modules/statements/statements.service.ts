@@ -30,6 +30,7 @@ import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/
 import { toMinor } from '../../common/utils/money.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import type {
   ConvertDroppedSampleBody,
   CreateManualExpenseBody,
@@ -293,9 +294,9 @@ export class StatementsService {
   }
 
   /** Who owns the wallet, or null when it is shared. */
-  private async walletOwnerMemberId(walletId: string): Promise<string | null> {
+  private async walletOwnerMemberId(walletId: string, workspaceId: string): Promise<string | null> {
     const wallet = await this.walletRepository.findOne({
-      where: { id: walletId },
+      where: { id: walletId, workspaceId },
       select: ['ownerMemberId'],
     });
     return wallet?.ownerMemberId ?? null;
@@ -665,6 +666,15 @@ export class StatementsService {
 
     const walletId =
       payload.transaction.walletId || (originalTransaction?.walletId as string) || null;
+    const categoryId =
+      payload.transaction.categoryId || (originalTransaction?.categoryId as string) || null;
+    const branchId =
+      payload.transaction.branchId || (originalTransaction?.branchId as string) || null;
+    await assertWorkspaceRefs(this.transactionRepository.manager, workspaceId, {
+      categoryId,
+      branchId,
+      walletId,
+    });
 
     const transaction = this.transactionRepository.create({
       workspaceId,
@@ -701,13 +711,12 @@ export class StatementsService {
         payload.transaction.paymentPurpose?.trim() ||
         String(originalTransaction?.paymentPurpose || '').trim() ||
         'Не указано',
-      categoryId:
-        payload.transaction.categoryId || (originalTransaction?.categoryId as string) || null,
+      categoryId,
       categorySource: payload.transaction.categoryId ? TransactionCategorySource.MANUAL : null,
-      branchId: payload.transaction.branchId || (originalTransaction?.branchId as string) || null,
+      branchId,
       walletId,
       // Same rule as the import path: the row starts on whoever owns the wallet.
-      ownerMemberId: walletId ? await this.walletOwnerMemberId(walletId) : null,
+      ownerMemberId: walletId ? await this.walletOwnerMemberId(walletId, workspaceId) : null,
       article: payload.transaction.article || (originalTransaction?.article as string) || null,
       comments: payload.transaction.comments || (originalTransaction?.comments as string) || null,
       transactionType,
