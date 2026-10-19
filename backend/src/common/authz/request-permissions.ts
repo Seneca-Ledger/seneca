@@ -33,13 +33,16 @@ const userPermissions = (user: PermissionSubject['user']): Permission[] =>
       : ROLE_PERMISSIONS[user.role] || [],
   );
 
-/** The required permissions a scoped API key does not carry; empty for unscoped keys. */
+/**
+ * The required permissions a scoped API key does not carry; empty for legacy
+ * keys (`scopes: null`). An empty scope list carries nothing.
+ */
 const missingScopes = (
   required: readonly Permission[],
   subject: PermissionSubject,
 ): Permission[] => {
   const scopes = subject.apiKey?.scopes;
-  return scopes && scopes.length > 0 ? required.filter(p => !scopes.includes(p)) : [];
+  return scopes ? required.filter(p => !scopes.includes(p)) : [];
 };
 
 /** Whether the user's account or workspace role grants every required permission. */

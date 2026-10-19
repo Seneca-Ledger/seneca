@@ -2,6 +2,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Controller, Delete, Get, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { ApiKeyAllowed } from '../../common/decorators/api-key-allowed.decorator';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { resolveAuditActor } from '../../common/interceptors/audit-actor.interceptor';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
@@ -42,6 +43,8 @@ const methodNotAllowed = (response: Response): void => {
  */
 @ApiTags('MCP')
 @Controller('mcp')
+// Each tool checks the key's scopes against what it needs (`McpTool.permissions`).
+@ApiKeyAllowed()
 @UseGuards(McpAccessGuard, WorkspaceContextGuard)
 export class McpController {
   constructor(private readonly servers: McpServerFactory) {}

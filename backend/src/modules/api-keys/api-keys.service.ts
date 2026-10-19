@@ -36,8 +36,8 @@ export class ApiKeysService {
     const rawKey = `lum_${randomBytes(32).toString('hex')}`;
     const keyHash = createHash('sha256').update(rawKey).digest('hex');
     const prefix = rawKey.slice(4, 12); // 8 chars after "lum_"
-    const scopes =
-      options.scopes && options.scopes.length > 0 ? [...new Set(options.scopes)] : null;
+    // `null` is a legacy key with its owner's full reach; an empty list grants nothing.
+    const scopes = options.scopes ? [...new Set(options.scopes)] : null;
     const expiresAt = options.expiresAt ? new Date(options.expiresAt) : null;
     if (expiresAt && Number.isNaN(expiresAt.getTime())) {
       throw new BadRequestException('expiresAt is not a date');

@@ -27,6 +27,15 @@ describe('request permissions', () => {
     expect(hasPermissions([Permission.CATEGORY_CREATE], subject)).toBe(true);
   });
 
+  it('gives a key with an empty scope list nothing', () => {
+    const subject = { user: user(UserRole.ADMIN), apiKey: { scopes: [] } };
+
+    expect(hasPermissions([Permission.TRANSACTION_VIEW], subject)).toBe(false);
+    expect(() => assertPermissions([Permission.USER_MANAGE], subject)).toThrow(
+      'API key scope missing: user.manage',
+    );
+  });
+
   it('falls back to the workspace role when the account role does not grant it', () => {
     const viewer = {
       user: user(UserRole.USER, []),
