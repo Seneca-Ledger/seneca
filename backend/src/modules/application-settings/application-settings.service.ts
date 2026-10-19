@@ -318,7 +318,8 @@ export class ApplicationSettingsService {
         previous?.modelId ||
         DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID,
       threshold: this.thresholdValue(input.threshold, previous?.threshold),
-      localModelPath: this.stringValue(input.localModelPath) || previous?.localModelPath || null,
+      // Set only by installing a model; never taken from the request.
+      localModelPath: previous?.localModelPath || null,
     };
 
     await this.saveSettings(
@@ -358,14 +359,11 @@ export class ApplicationSettingsService {
       await fs.rm(stagingDir, { recursive: true, force: true });
     }
 
-    await this.saveLocalCategorizationSettings(
+    await this.saveSettings(
       user,
-      {
-        enabled: true,
-        modelId,
-        threshold: existing.threshold,
-        localModelPath: modelRoot,
-      },
+      WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
+      { enabled: true, modelId, threshold: existing.threshold, localModelPath: modelRoot },
+      {},
       requestWorkspaceId,
     );
 
@@ -674,7 +672,12 @@ export class ApplicationSettingsService {
     source: LocalCategorizationRuntimeSettings['source'],
   ): LocalCategorizationRuntimeSettings {
     const enabled = this.booleanValue(config.enabled, true);
-    const localModelPath = this.stringValue(config.localModelPath) || null;
+    // A stored path only says a model was installed; models are always read from
+    // the model root, so a path saved through the API before it was refused
+    // cannot point the loader at anything else.
+    const localModelPath = this.stringValue(config.localModelPath)
+      ? this.getLocalCategorizationModelRoot()
+      : null;
     return {
       enabled,
       modelId: this.stringValue(config.modelId) || DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID,

@@ -425,13 +425,16 @@ describe('ApplicationSettingsService', () => {
     });
   });
 
-  it('tests local categorization with the saved local model path', async () => {
-    await createService().saveLocalCategorizationSettings(user, {
-      enabled: true,
-      modelId: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-      threshold: 0.35,
-      localModelPath: '/tmp/seneca-models',
-    });
+  // A path saved through the API (before it was refused) must not steer the
+  // loader or the installed-model probe anywhere outside the model root.
+  it('loads the model from the model root, never from a stored path', async () => {
+    process.env.LOCAL_CATEGORIZATION_MODEL_ROOT = '/srv/seneca-models';
+    saved[WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION] = {
+      workspaceId: 'workspace-1',
+      key: WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
+      config: { enabled: true, threshold: 0.35, localModelPath: '/etc' },
+      encryptedSecrets: {},
+    };
     mockCategorize.mockResolvedValue('Продукты');
     mockGetModelLoadError.mockReturnValue(null);
 
@@ -451,9 +454,11 @@ describe('ApplicationSettingsService', () => {
         categories: ['Продукты', 'Транспорт'],
         threshold: 0.35,
         allowRemoteModels: false,
-        localModelPath: '/tmp/seneca-models',
+        localModelPath: '/srv/seneca-models',
       }),
     );
+    const status = await createService().getLocalCategorizationStatus(user);
+    expect(status.settings.localModelPath).toBe('/srv/seneca-models');
   });
 
   it('installs a local categorization model archive into workspace storage', async () => {
