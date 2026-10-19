@@ -9,6 +9,10 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { type DataSource, In, IsNull, LessThan, Not, Or, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../common/utils/transaction-privacy.util';
 import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type {
   MergePayeesBody,
@@ -85,7 +89,11 @@ export class PayeesService {
 
   private readonly logger = new Logger(PayeesService.name);
 
-  async list(workspaceId: string, query: PayeesQuery): Promise<PayeesPage> {
+  async list(
+    workspaceId: string,
+    query: PayeesQuery,
+    viewerMemberId: string | null = null,
+  ): Promise<PayeesPage> {
     const page = query.page ?? 1;
     const limit = query.limit ?? DEFAULT_LIMIT;
     const search = query.search?.trim() ?? '';
@@ -104,7 +112,10 @@ export class PayeesService {
         .leftJoin(
           Transaction,
           'transaction',
-          'transaction.payeeId = payee.id AND transaction.workspaceId = payee.workspaceId',
+          // Another member's private row is not counted: "seen on <date>" would
+          // tie the merchant to a row whose merchant is hidden.
+          `transaction.payeeId = payee.id AND transaction.workspaceId = payee.workspaceId AND ${readablePrivateSql('transaction')}`,
+          { [PRIVACY_VIEWER_PARAM]: viewerMemberId },
         )
         .select([
           'payee.id AS id',

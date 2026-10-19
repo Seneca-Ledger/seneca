@@ -13,7 +13,7 @@ import {
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
@@ -132,9 +132,10 @@ export class GoalsController {
   async getFlow(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
     @SchemaQuery(GoalMonthQuery) query: GoalMonthQuery,
   ) {
-    return this.goalFlowService.getFlow(id, workspaceId, query.month);
+    return this.goalFlowService.getFlow(id, workspaceId, query.month, new Date(), selfMemberId);
   }
 
   /**
