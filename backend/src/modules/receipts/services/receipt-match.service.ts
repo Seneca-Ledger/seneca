@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type Repository } from 'typeorm';
+import { redactPrivateRows } from '../../../common/utils/transaction-privacy.util';
 import { Receipt } from '../../../entities/receipt.entity';
 import { Transaction } from '../../../entities/transaction.entity';
 import {
@@ -49,11 +50,16 @@ export class ReceiptMatchService {
     };
   }
 
-  /** Unlinked, non-duplicate, non-transfer rows of the workspace around the receipt's date. */
+  /**
+   * Unlinked, non-duplicate, non-transfer rows of the workspace around the
+   * receipt's date. With a viewer, another member's private rows come as that
+   * viewer sees them — date and amount, no merchant — and are scored that way.
+   */
   private async loadCandidates(
     receipt: Receipt,
     input: ReceiptMatchInput,
     windowDays: number,
+    viewerMemberId?: string | null,
   ): Promise<MatchCandidate[]> {
     const at = new Date(input.date as string).getTime();
     const rows = await this.transactionRepository
@@ -73,6 +79,9 @@ export class ReceiptMatchService {
         { receiptId: receipt.id },
       )
       .getMany();
+    if (viewerMemberId !== undefined) {
+      redactPrivateRows(rows, viewerMemberId);
+    }
     return rows.map(row => ({
       id: row.id,
       transactionDate: row.transactionDate,
@@ -109,13 +118,14 @@ export class ReceiptMatchService {
     return match;
   }
 
-  /** Candidates for the manual picker, best first. */
+  /** Candidates for the manual picker, best first, as `viewerMemberId` may see them. */
   async candidates(
     receipt: Receipt,
+    viewerMemberId: string | null,
   ): Promise<Array<ScoredCandidate & { candidate: MatchCandidate }>> {
     const input = this.inputOf(receipt);
     if (!input) return [];
-    const rows = await this.loadCandidates(receipt, input, PICKER_WINDOW_DAYS);
+    const rows = await this.loadCandidates(receipt, input, PICKER_WINDOW_DAYS, viewerMemberId);
     const scored = scoreCandidates(input, rows, PICKER_WINDOW_DAYS);
     const seen = new Set(scored.map(entry => entry.candidate.id));
     // Amount mismatches (a tip, a fee) still deserve a place at the bottom of the list.

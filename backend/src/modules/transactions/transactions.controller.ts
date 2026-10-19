@@ -25,6 +25,7 @@ import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
 import { parseOwnerFilter } from '../../common/utils/transaction-owner.util';
+import { redactPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import type { BulkUpdateItemInput } from '../../contracts';
 import {
   BulkUpdateRequestBody,
@@ -146,13 +147,32 @@ export class TransactionsController {
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.transactionsService.update(id, workspaceId, user.id, updateDto, null, selfMemberId);
+    // Editing a row is not reading it: someone else's private row comes back
+    // as redacted as the list shows it.
+    return redactPrivate(
+      await this.transactionsService.update(
+        id,
+        workspaceId,
+        user.id,
+        updateDto,
+        null,
+        selfMemberId,
+      ),
+      selfMemberId,
+    );
   }
 
   @Get(':id/split')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
-  async getSplitParts(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
-    return this.transactionsService.getSplitParts(id, workspaceId);
+  async getSplitParts(
+    @Param('id') id: string,
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+  ) {
+    return redactPrivateRows(
+      await this.transactionsService.getSplitParts(id, workspaceId),
+      selfMemberId,
+    );
   }
 
   // No @Audit here: TransactionsService.split writes its own richer audit event
@@ -165,8 +185,12 @@ export class TransactionsController {
     @SchemaBody(SplitTransactionBody) splitDto: SplitTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.transactionsService.split(id, workspaceId, user.id, splitDto);
+    return redactPrivateRows(
+      await this.transactionsService.split(id, workspaceId, user.id, splitDto),
+      selfMemberId,
+    );
   }
 
   // No @Audit here: see the note on split() above — unsplit audits itself too.
@@ -177,8 +201,12 @@ export class TransactionsController {
     @Param('id') id: string,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.transactionsService.unsplit(id, workspaceId, user.id);
+    return redactPrivate(
+      await this.transactionsService.unsplit(id, workspaceId, user.id),
+      selfMemberId,
+    );
   }
 
   @Post('bulk-update')
@@ -206,7 +234,10 @@ export class TransactionsController {
       );
     }
 
-    return this.transactionsService.bulkUpdate(workspaceId, user.id, items, selfMemberId);
+    return redactPrivateRows(
+      await this.transactionsService.bulkUpdate(workspaceId, user.id, items, selfMemberId),
+      selfMemberId,
+    );
   }
 
   @Delete(':id')
@@ -226,6 +257,7 @@ export class TransactionsController {
   async detectDuplicates(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
     @Query('statement_id') statementId?: string,
     @Query('threshold') threshold?: string,
   ) {
@@ -233,6 +265,7 @@ export class TransactionsController {
       workspaceId,
       statementId,
       threshold ? Number.parseFloat(threshold) : 0.85,
+      selfMemberId,
     );
 
     return {
@@ -293,10 +326,11 @@ export class TransactionsController {
     @SchemaBody(MergeDuplicatesBody) body: MergeDuplicatesBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    const master = await this.deduplicationService.mergeDuplicates(
-      body.transactionIds,
-      workspaceId,
+    const master = redactPrivate(
+      await this.deduplicationService.mergeDuplicates(body.transactionIds, workspaceId),
+      selfMemberId,
     );
 
     return {
@@ -348,9 +382,10 @@ export class TransactionsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     const data = await this.transferPairingService.candidates(workspaceId, id);
-    return { data };
+    return { data: redactPrivateRows(data, selfMemberId) };
   }
 
   @Post(':id/link-transfer')
@@ -385,9 +420,10 @@ export class TransactionsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     const data = await this.transferPairingService.reimbursementCandidates(workspaceId, id);
-    return { data };
+    return { data: redactPrivateRows(data, selfMemberId) };
   }
 
   @Post(':id/link-reimbursement')

@@ -146,6 +146,26 @@ describe('IncomeTaxDraftService', () => {
     });
   });
 
+  it('counts a private row on its line without naming its counterparty', async () => {
+    transactionRepo.createQueryBuilder.mockReturnValue(
+      queryBuilder({
+        many: [
+          tx({ id: 'mine', isPrivate: true, ownerMemberId: 'member-1', counterpartyName: 'Clinic' }),
+          tx({ id: 'shared', counterpartyName: 'Landlord' }),
+        ],
+      }),
+    );
+
+    const draft = await service.compute('ws-1', 2025);
+
+    // The declaration is the workspace's document: the amount counts, the name stays out.
+    expect(draft.contributions.rent.map(c => [c.transactionId, c.counterparty])).toEqual([
+      ['mine', '—'],
+      ['shared', 'Landlord'],
+    ]);
+    expect(draft.figures.find(f => f.key === 'rent')?.amount).toBe(200);
+  });
+
   it('builds the year from confirmed transactions only', async () => {
     const builder = queryBuilder({});
     transactionRepo.createQueryBuilder.mockReturnValue(builder);

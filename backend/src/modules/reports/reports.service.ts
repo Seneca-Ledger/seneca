@@ -13,6 +13,11 @@ import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { formatMoney } from '../../common/utils/format-money.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import { applyOwnerFilter, parseOwnerFilter } from '../../common/utils/transaction-owner.util';
+import {
+  PRIVACY_VIEWER_PARAM,
+  redactedSql,
+  redactPrivateRows,
+} from '../../common/utils/transaction-privacy.util';
 import { resolveInUploadsDir, resolveUploadsDir } from '../../common/utils/uploads.util';
 import type {
   CustomReportBody,
@@ -1266,9 +1271,14 @@ export class ReportsService {
 
   /**
    */
-  async generateDailyReport(workspaceId: string, date: string): Promise<DailyReport> {
+  async generateDailyReport(
+    workspaceId: string,
+    date: string,
+    viewerMemberId: string | null = null,
+  ): Promise<DailyReport> {
     const version = await this.getReportsVersion(workspaceId);
-    const cacheKey = `reports:daily:${workspaceId}:${version}:${date || 'latest'}`;
+    // Per viewer: the report names the merchants of the viewer's own private rows.
+    const cacheKey = `reports:daily:${workspaceId}:${version}:${viewerMemberId ?? '-'}:${date || 'latest'}`;
     const cached = await this.cacheManager.get<DailyReport>(cacheKey);
     if (cached) {
       return cached;
@@ -1296,6 +1306,8 @@ export class ReportsService {
       .andWhere('transaction.transactionDate >= :start', { start: startOfDay })
       .andWhere('transaction.transactionDate <= :end', { end: endOfDay })
       .getMany();
+    redactPrivateRows(incomeTransactions, viewerMemberId);
+    redactPrivateRows(expenseTransactions, viewerMemberId);
 
     // Calculate income block
     const incomeTotal = incomeTransactions.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
@@ -1369,9 +1381,11 @@ export class ReportsService {
     workspaceId: string,
     year: number,
     month: number,
+    viewerMemberId: string | null = null,
   ): Promise<MonthlyReport> {
     const version = await this.getReportsVersion(workspaceId);
-    const cacheKey = `reports:monthly:${workspaceId}:${version}:${year}:${month}`;
+    // Per viewer: the report names the merchants of the viewer's own private rows.
+    const cacheKey = `reports:monthly:${workspaceId}:${version}:${viewerMemberId ?? '-'}:${year}:${month}`;
     const cached = await this.cacheManager.get<MonthlyReport>(cacheKey);
     if (cached) {
       return cached;
@@ -1388,6 +1402,7 @@ export class ReportsService {
       .andWhere('transaction.transactionDate >= :start', { start: startDate })
       .andWhere('transaction.transactionDate <= :end', { end: endDate })
       .getMany();
+    redactPrivateRows(transactions, viewerMemberId);
 
     // Calculate daily trends
     const dailyMap = new Map<string, { income: number; expense: number }>();
@@ -1563,7 +1578,11 @@ export class ReportsService {
   /**
    * Generate custom report
    */
-  async generateCustomReport(workspaceId: string, dto: CustomReportBody): Promise<CustomReport> {
+  async generateCustomReport(
+    workspaceId: string,
+    dto: CustomReportBody,
+    viewerMemberId: string | null = null,
+  ): Promise<CustomReport> {
     const dateFrom = new Date(dto.dateFrom);
     const dateTo = new Date(dto.dateTo);
 
@@ -1586,7 +1605,7 @@ export class ReportsService {
       queryBuilder.andWhere('transaction.walletId = :walletId', { walletId: dto.walletId });
     }
 
-    const transactions = await queryBuilder.getMany();
+    const transactions = redactPrivateRows(await queryBuilder.getMany(), viewerMemberId);
 
     // Group transactions
     const groupMap = new Map<string, CustomReportGroup>();
@@ -1706,8 +1725,10 @@ export class ReportsService {
   async exportWorkspaceTransactions(
     workspaceId: string,
     format: WorkspaceExportFormat,
+    viewerMemberId: string | null = null,
   ): Promise<{ filePath: string; fileName: string; mimeType: string }> {
-    // A list of rows, not a figure: every confirmed row goes out, crypto moves included.
+    // A list of rows, not a figure: every confirmed row goes out, crypto moves
+    // included — another member's private ones as the list shows them.
     const transactions = await onlyCounted(
       this.transactionRepository
         .createQueryBuilder('transaction')
@@ -1721,6 +1742,7 @@ export class ReportsService {
       .orderBy('transaction.transactionDate', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC')
       .getMany();
+    redactPrivateRows(transactions, viewerMemberId);
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const extensionMap: Record<WorkspaceExportFormat, string> = {
@@ -2203,7 +2225,11 @@ export class ReportsService {
     });
   }
 
-  async getStatementsSummary(workspaceId: string, days = 30): Promise<StatementsSummaryResponse> {
+  async getStatementsSummary(
+    workspaceId: string,
+    days = 30,
+    viewerMemberId: string | null = null,
+  ): Promise<StatementsSummaryResponse> {
     const safeDays = Number.isFinite(days) && days > 0 ? Math.min(days, 3650) : 30;
     const since = new Date();
     since.setDate(since.getDate() - safeDays);
@@ -2215,6 +2241,7 @@ export class ReportsService {
       .orderBy('transaction.updatedAt', 'DESC')
       .take(2000)
       .getMany();
+    redactPrivateRows(transactions, viewerMemberId);
 
     const totals = { income: 0, expense: 0, net: 0, rows: transactions.length };
     const timeseriesMap = new Map<string, { income: number; expense: number }>();
@@ -2325,7 +2352,12 @@ export class ReportsService {
         .map(item => item.trim())
         .filter(Boolean);
       if (counterparties.length > 0) {
-        qb.andWhere('transaction.counterpartyName IN (:...counterparties)', { counterparties });
+        // Matched as the viewer reads it: a merchant filter must not answer
+        // yes or no about another member's private row.
+        qb.andWhere(
+          `${redactedSql('transaction', 'transaction.counterparty_name')} IN (:...counterparties)`,
+          { counterparties, [PRIVACY_VIEWER_PARAM]: selfMemberId },
+        );
       }
     }
 
@@ -2342,8 +2374,8 @@ export class ReportsService {
     if (query.keywords) {
       const keyword = `%${query.keywords.trim().toLowerCase()}%`;
       qb.andWhere(
-        '(LOWER(transaction.counterpartyName) LIKE :keyword OR LOWER(transaction.paymentPurpose) LIKE :keyword OR LOWER(statement.fileName) LIKE :keyword OR LOWER(statement.bankName) LIKE :keyword)',
-        { keyword },
+        `(LOWER(${redactedSql('transaction', 'transaction.counterparty_name')}) LIKE :keyword OR LOWER(${redactedSql('transaction', 'transaction.payment_purpose')}) LIKE :keyword OR LOWER(statement.fileName) LIKE :keyword OR LOWER(CAST(statement.bankName AS text)) LIKE :keyword)`,
+        { keyword, [PRIVACY_VIEWER_PARAM]: selfMemberId },
       );
     }
 
@@ -2412,7 +2444,10 @@ export class ReportsService {
       }
     }
 
-    const transactions = await qb.orderBy('transaction.updatedAt', 'DESC').take(5000).getMany();
+    const transactions = redactPrivateRows(
+      await qb.orderBy('transaction.updatedAt', 'DESC').take(5000).getMany(),
+      selfMemberId,
+    );
 
     const totals = {
       income: 0,
@@ -2598,7 +2633,12 @@ export class ReportsService {
         .map(item => item.trim())
         .filter(Boolean);
       if (counterparties.length > 0) {
-        qb.andWhere('transaction.counterpartyName IN (:...counterparties)', { counterparties });
+        // Matched as the viewer reads it: a merchant filter must not answer
+        // yes or no about another member's private row.
+        qb.andWhere(
+          `${redactedSql('transaction', 'transaction.counterparty_name')} IN (:...counterparties)`,
+          { counterparties, [PRIVACY_VIEWER_PARAM]: selfMemberId },
+        );
       }
     }
 
@@ -2615,8 +2655,8 @@ export class ReportsService {
     if (query.keywords) {
       const keyword = `%${query.keywords.trim().toLowerCase()}%`;
       qb.andWhere(
-        '(LOWER(transaction.counterpartyName) LIKE :keyword OR LOWER(transaction.paymentPurpose) LIKE :keyword OR LOWER(statement.fileName) LIKE :keyword OR LOWER(statement.bankName) LIKE :keyword)',
-        { keyword },
+        `(LOWER(${redactedSql('transaction', 'transaction.counterparty_name')}) LIKE :keyword OR LOWER(${redactedSql('transaction', 'transaction.payment_purpose')}) LIKE :keyword OR LOWER(statement.fileName) LIKE :keyword OR LOWER(CAST(statement.bankName AS text)) LIKE :keyword)`,
+        { keyword, [PRIVACY_VIEWER_PARAM]: selfMemberId },
       );
     }
 
@@ -3132,6 +3172,10 @@ export class ReportsService {
       query.getMany(),
       this.getWorkspaceCurrency(workspaceId),
     ]);
+    // A generated report stays in the workspace's history and schedules e-mail
+    // it, so it carries nobody's private details — its author's included, and
+    // the preview shows what the file will.
+    redactPrivateRows(transactions, null);
 
     // Each amount converts at its own day's rate, and a currency without one is
     // left out rather than counted 1:1 — a silent 1:1 would turn 1,000 USD into

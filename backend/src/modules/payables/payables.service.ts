@@ -15,6 +15,7 @@ import { appError } from '../../common/errors/app-error';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import { readablePrivateSql, redactedSql } from '../../common/utils/transaction-privacy.util';
 import { notInVersionWorkspace } from '../../common/workspaces/version-workspaces';
 import type {
   AddPayablePaymentBody,
@@ -961,7 +962,11 @@ export class PayablesService {
     return Math.round(Number(value) * 100) / 100;
   }
 
-  async findPaymentCandidates(id: string, workspaceId: string): Promise<PaymentCandidate[]> {
+  async findPaymentCandidates(
+    id: string,
+    workspaceId: string,
+    viewerMemberId: string | null = null,
+  ): Promise<PaymentCandidate[]> {
     const payable = await this.findOne(id, workspaceId);
     const anchor = payable.dueDate ?? payable.createdAt;
     // A bill paid on paper is looking for the money of its unbooked payment, not for a remainder.
@@ -987,9 +992,13 @@ export class PayablesService {
     }> = await this.transactionRepository.query(
       `SELECT t."id", t."transaction_date"::text AS "transaction_date",
               coalesce(t."amount", t."debit", t."credit")::text AS "amount", t."currency",
-              t."counterparty_name", t."payment_purpose",
-              (position(lower($5) IN lower(t."counterparty_name")) > 0
-               OR position(lower($5) IN lower(t."payment_purpose")) > 0) AS "vendor_match"
+              -- Another member's private row is offered by date and amount
+              -- only: no merchant, and no ranking that would tell it apart.
+              ${redactedSql('t', 't."counterparty_name"', '$11')} AS "counterparty_name",
+              ${redactedSql('t', 't."payment_purpose"', '$11')} AS "payment_purpose",
+              (COALESCE(${readablePrivateSql('t', '$11')}, false)
+               AND (position(lower($5) IN lower(t."counterparty_name")) > 0
+                    OR position(lower($5) IN lower(t."payment_purpose")) > 0)) AS "vendor_match"
          FROM "transactions" t
          LEFT JOIN "statements" s ON s."id" = t."statement_id"
         WHERE t."workspace_id" = $1
@@ -1044,6 +1053,7 @@ export class PayablesService {
         CANDIDATE_LOOKBACK_DAYS,
         payable.id,
         CANDIDATE_LIMIT,
+        viewerMemberId,
       ],
     );
     return rows.map(row => ({

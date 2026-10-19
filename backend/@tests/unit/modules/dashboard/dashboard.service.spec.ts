@@ -161,6 +161,7 @@ describe('DashboardService', () => {
       'ws-1',
       expect.any(Date),
       expect.any(Date),
+      null,
     );
     expect((service as any).getTopCategories).toHaveBeenCalledWith(
       'ws-1',
@@ -425,6 +426,7 @@ describe('DashboardService', () => {
       'ws-1',
       adjustedWindow.since,
       adjustedWindow.endDate,
+      null,
     );
     expect((service as any).getTopCategories).toHaveBeenCalledWith(
       'ws-1',
@@ -1456,6 +1458,7 @@ describe('DashboardService', () => {
         new Date(2026, 1, 1),
         new Date(2026, 1, 28, 23, 59, 59, 999),
         28,
+        null,
       );
       expect(result.dailyTrend).toHaveLength(28);
       expect(result.dailyTrend[9]).toEqual({ date: '2026-02-10', income: 100, expense: 40 });
@@ -1481,6 +1484,7 @@ describe('DashboardService', () => {
         new Date(2026, 2, 1),
         new Date(2026, 2, 19, 23, 59, 59, 999),
         31,
+        null,
       );
       expect(result.dailyTrend).toHaveLength(19);
       expect(result.forecast).toEqual([{ date: '2026-03-20', income: 1, expense: 1 }]);

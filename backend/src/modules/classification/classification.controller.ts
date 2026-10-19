@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { Controller, HttpCode, HttpStatus, NotFoundException, Param, Post } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { redactPrivate } from '../../common/utils/transaction-privacy.util';
 import { ClassifyBulkBody } from '../../contracts';
 import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
@@ -28,6 +29,7 @@ export class ClassificationController {
     @Param('id') id: string,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     const transaction = await this.transactionRepository.findOne({
       where: { id, workspaceId },
@@ -50,7 +52,7 @@ export class ClassificationController {
     Object.assign(transaction, classification);
     await this.transactionRepository.save(transaction);
 
-    return transaction;
+    return redactPrivate(transaction, selfMemberId);
   }
 
   @Post('bulk')

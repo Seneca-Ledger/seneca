@@ -307,8 +307,9 @@ export class StatementsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(StatementsQuery) filters: StatementsQuery,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
-    const result = await this.statementsService.findAll(workspaceId, filters);
+    const result = await this.statementsService.findAll(workspaceId, filters, selfMemberId ?? null);
 
     // Include 'items' field for backward compatibility
     return {

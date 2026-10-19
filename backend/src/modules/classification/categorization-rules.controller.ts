@@ -12,11 +12,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import {
   CreateCategorizationRuleBody,
@@ -257,12 +258,18 @@ export class CategorizationRulesController {
     @SchemaBody(TestCategorizationRuleBody) dto: TestCategorizationRuleBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     // Ids from the request: another workspace's transactions are not there to test against.
-    const transactions = await this.transactionRepository.findBy({
-      id: In(dto.transactionIds),
-      workspaceId,
-    });
+    // Matched as the caller sees them: a condition on the merchant must not
+    // answer yes or no about another member's private row either.
+    const transactions = redactPrivateRows(
+      await this.transactionRepository.findBy({
+        id: In(dto.transactionIds),
+        workspaceId,
+      }),
+      selfMemberId,
+    );
 
     const matches = transactions.filter(transaction =>
       this.classificationService.matchesRule(transaction, dto.conditions),

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, type FindOptionsWhere, In, Repository } from 'typeorm';
 import { taxLockedConflict } from '../../../common/utils/tax-lock.util';
+import { redactPrivateRows } from '../../../common/utils/transaction-privacy.util';
 import { Statement } from '../../../entities/statement.entity';
 import { Transaction } from '../../../entities/transaction.entity';
 
@@ -38,11 +39,15 @@ export class CrossStatementDeduplicationService {
    * @param workspaceId Workspace ID
    * @param statementId Optional: limit to specific statement
    * @param threshold Similarity threshold (default: 0.85)
+   * @param viewerMemberId When given, rows are compared as this member may see
+   *   them: another member's private row matches on date and amount only, so a
+   *   group (or its `matchedFields`) cannot tell what that row was.
    */
   async findDuplicates(
     workspaceId: string,
     statementId?: string,
     threshold = 0.85,
+    viewerMemberId?: string | null,
   ): Promise<DuplicateGroup[]> {
     this.logger.log(
       `Finding duplicates in workspace ${workspaceId}${statementId ? ` for statement ${statementId}` : ''}`,
@@ -75,6 +80,11 @@ export class CrossStatementDeduplicationService {
         createdAt: 'ASC',
       },
     });
+
+    if (viewerMemberId !== undefined) {
+      redactPrivateRows(transactionsToCheck, viewerMemberId);
+      redactPrivateRows(potentialDuplicates, viewerMemberId);
+    }
 
     const accountByStatement = await this.loadAccountNumbers([
       ...transactionsToCheck,

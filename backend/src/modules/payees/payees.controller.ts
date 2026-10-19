@@ -1,5 +1,5 @@
 import { Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
@@ -26,8 +26,12 @@ export class PayeesController {
   @Get('payees')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(PayeesPage)
-  async list(@WorkspaceId() workspaceId: string, @SchemaQuery(PayeesQuery) query: PayeesQuery) {
-    return this.payeesService.list(workspaceId, query);
+  async list(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+    @SchemaQuery(PayeesQuery) query: PayeesQuery,
+  ) {
+    return this.payeesService.list(workspaceId, query, selfMemberId);
   }
 
   @Patch('payees/:id')
