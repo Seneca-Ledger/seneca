@@ -69,6 +69,8 @@ describe('PasswordResetService', () => {
       expect(stored.tokenHash).not.toBe(tokenInEmail);
       expect(stored.tokenHash).toHaveLength(64);
       expect(stored.expiresAt.getTime()).toBeGreaterThan(Date.now());
+      // Account mail: the mailer picks a server the user controls (getAccountSmtpSettings).
+      expect(mailerService.send.mock.calls[0][0].accountOf).toBe(activeUser);
     });
 
     it('supersedes any outstanding request for the same user', async () => {

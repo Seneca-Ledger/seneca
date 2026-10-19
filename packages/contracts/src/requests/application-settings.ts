@@ -19,7 +19,9 @@ export const SaveLocalCategorizationBody = Schema.Struct({
   threshold: optionalNullable(
     NumericInput.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
   ),
-  localModelPath: optionalNullable(Schema.String),
+  // No model path: models live under the server's model root (an uploaded
+  // archive lands there). A path from the API let a workspace admin probe the
+  // server's file system.
 });
 export type SaveLocalCategorizationBody = Wire<typeof SaveLocalCategorizationBody>;
 

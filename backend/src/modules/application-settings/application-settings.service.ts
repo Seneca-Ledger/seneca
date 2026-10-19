@@ -13,7 +13,7 @@ import nodemailer from 'nodemailer';
 import type { Repository } from 'typeorm';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { getWith } from '../../common/effect/http-json';
-import { assertPublicEgressHost } from '../../common/utils/egress-url.util';
+import { assertPublicEgressHost, pinPublicEgressHost } from '../../common/utils/egress-url.util';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import type {
   SaveAppSettingsBody,
@@ -57,6 +57,21 @@ export type SmtpRuntimeSettings = {
   timeoutMs: number;
   source: 'workspace' | 'env' | 'disabled';
 };
+
+/**
+ * Where an SMTP transport for `host` connects. A host from a workspace's
+ * settings is user input: it was checked when saved and is resolved and checked
+ * again here, so the socket goes to the address that passed (DNS rebinding).
+ * The SMTP_* env host is the operator's own and may be a private relay.
+ */
+export function smtpConnectTarget(
+  smtp: SmtpRuntimeSettings | null | undefined,
+  host: string,
+): Promise<{ host: string; servername?: string }> {
+  const workspaceHost =
+    smtp?.source !== 'env' && smtp?.host === host && host !== process.env.SMTP_HOST;
+  return workspaceHost ? pinPublicEgressHost(host) : Promise.resolve({ host });
+}
 
 export type TelegramRuntimeSettings = {
   botToken: string | null;
@@ -106,7 +121,7 @@ export class ApplicationSettingsService {
       WorkspaceServiceSettingsKey.SMTP,
       requestWorkspaceId,
     );
-    const runtime = await this.getSmtpSettings(user, requestWorkspaceId);
+    const runtime = await this.getSmtpSettings(this.requireWorkspaceId(user, requestWorkspaceId));
     return {
       connected: runtime.source !== 'disabled',
       status: runtime.source !== 'disabled' ? 'connected' : 'disconnected',
@@ -234,7 +249,7 @@ export class ApplicationSettingsService {
   }
 
   async getAppStatus(user: User, requestWorkspaceId?: string) {
-    const runtime = await this.getAppSettings(user, requestWorkspaceId);
+    const runtime = await this.getAppSettings(this.requireWorkspaceId(user, requestWorkspaceId));
     return {
       connected: runtime.source !== 'disabled',
       status: runtime.source !== 'disabled' ? 'connected' : 'disconnected',
@@ -303,7 +318,8 @@ export class ApplicationSettingsService {
         previous?.modelId ||
         DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID,
       threshold: this.thresholdValue(input.threshold, previous?.threshold),
-      localModelPath: this.stringValue(input.localModelPath) || previous?.localModelPath || null,
+      // Set only by installing a model; never taken from the request.
+      localModelPath: previous?.localModelPath || null,
     };
 
     await this.saveSettings(
@@ -343,14 +359,11 @@ export class ApplicationSettingsService {
       await fs.rm(stagingDir, { recursive: true, force: true });
     }
 
-    await this.saveLocalCategorizationSettings(
+    await this.saveSettings(
       user,
-      {
-        enabled: true,
-        modelId,
-        threshold: existing.threshold,
-        localModelPath: modelRoot,
-      },
+      WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
+      { enabled: true, modelId, threshold: existing.threshold, localModelPath: modelRoot },
+      {},
       requestWorkspaceId,
     );
 
@@ -410,13 +423,38 @@ export class ApplicationSettingsService {
     };
   }
 
-  async getSmtpSettings(
-    user?: User | null,
-    requestWorkspaceId?: string,
-  ): Promise<SmtpRuntimeSettings> {
-    const workspace = user
-      ? await this.findSettings(user, WorkspaceServiceSettingsKey.SMTP, requestWorkspaceId)
+  /**
+   * The SMTP server of `workspaceId`, the workspace the mail is about, else the
+   * SMTP_* env vars. There is deliberately no fallback to a user's home
+   * workspace: that is another tenant's server for mail about this one.
+   */
+  async getSmtpSettings(workspaceId: string | null): Promise<SmtpRuntimeSettings> {
+    const workspace = workspaceId
+      ? await this.settingsRepository.findOne({
+          where: { workspaceId, key: WorkspaceServiceSettingsKey.SMTP },
+        })
       : null;
+    return this.smtpRuntimeOf(workspace);
+  }
+
+  /**
+   * SMTP for mail about the account itself (password reset, e-mail change): the
+   * server of the user's home workspace only when the user saved it, else the
+   * SMTP_* env vars. Any other admin of that workspace could point its SMTP at
+   * a server they read and collect the user's password-reset link.
+   */
+  async getAccountSmtpSettings(
+    user: Pick<User, 'id' | 'workspaceId'>,
+  ): Promise<SmtpRuntimeSettings> {
+    const workspace = user.workspaceId
+      ? await this.settingsRepository.findOne({
+          where: { workspaceId: user.workspaceId, key: WorkspaceServiceSettingsKey.SMTP },
+        })
+      : null;
+    return this.smtpRuntimeOf(workspace?.updatedByUserId === user.id ? workspace : null);
+  }
+
+  private smtpRuntimeOf(workspace: WorkspaceServiceSettings | null): SmtpRuntimeSettings {
     if (workspace) {
       return this.smtpRuntimeFromParts(
         workspace.config,
@@ -517,12 +555,12 @@ export class ApplicationSettingsService {
     return [...bots].map(([botToken, publicUrl]) => ({ botToken, publicUrl }));
   }
 
-  async getAppSettings(
-    user?: User | null,
-    requestWorkspaceId?: string,
-  ): Promise<AppRuntimeSettings> {
-    const workspace = user
-      ? await this.findSettings(user, WorkspaceServiceSettingsKey.APP, requestWorkspaceId)
+  /** The public URL of `workspaceId`, else APP_URL/FRONTEND_URL. */
+  async getAppSettings(workspaceId?: string | null): Promise<AppRuntimeSettings> {
+    const workspace = workspaceId
+      ? await this.settingsRepository.findOne({
+          where: { workspaceId, key: WorkspaceServiceSettingsKey.APP },
+        })
       : null;
     if (workspace) {
       const publicUrl = this.stringValue(workspace.config.publicUrl);
@@ -634,7 +672,12 @@ export class ApplicationSettingsService {
     source: LocalCategorizationRuntimeSettings['source'],
   ): LocalCategorizationRuntimeSettings {
     const enabled = this.booleanValue(config.enabled, true);
-    const localModelPath = this.stringValue(config.localModelPath) || null;
+    // A stored path only says a model was installed; models are always read from
+    // the model root, so a path saved through the API before it was refused
+    // cannot point the loader at anything else.
+    const localModelPath = this.stringValue(config.localModelPath)
+      ? this.getLocalCategorizationModelRoot()
+      : null;
     return {
       enabled,
       modelId: this.stringValue(config.modelId) || DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID,
@@ -756,7 +799,7 @@ export class ApplicationSettingsService {
       throw new BadRequestException('SMTP host and from are required');
     }
     const transporter = nodemailer.createTransport({
-      host: settings.host,
+      ...(await smtpConnectTarget(settings, settings.host)),
       port: settings.port,
       secure: settings.secure,
       auth:
@@ -808,8 +851,9 @@ export class ApplicationSettingsService {
   }
 
   private requireWorkspaceId(user: User, requestWorkspaceId?: string): string {
-    // The workspace open in the request; the user's own only for callers
-    // without one (mail, scheduled reports).
+    // The workspace open in the request; the user's own only for settings
+    // routes called without one. Mail never comes through here: it names its
+    // workspace (getSmtpSettings) or is account mail (getAccountSmtpSettings).
     const workspaceId = requestWorkspaceId || user.workspaceId || user.lastWorkspaceId;
     if (!workspaceId) {
       throw new BadRequestException('Workspace is required');

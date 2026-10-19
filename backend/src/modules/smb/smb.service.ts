@@ -146,7 +146,7 @@ export class SmbService {
       where: { id: invoice.clientId, workspaceId },
     });
     if (!client?.email) throw new BadRequestException('The client has no email address');
-    if (!(await this.mailerService.isConfigured(user))) {
+    if (!(await this.mailerService.isConfigured(workspaceId))) {
       throw new ConflictException('SMTP is not configured for this workspace');
     }
 
@@ -173,7 +173,7 @@ export class SmbService {
       to: client.email,
       subject: fill(text.subject),
       text: fill(text.body),
-      user,
+      workspaceId,
     });
     if (sent) {
       invoice.reminderCount = (invoice.reminderCount ?? 0) + 1;
