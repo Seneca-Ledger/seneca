@@ -27,8 +27,8 @@ encrypted. Env variables with the same purpose are only temporary fallback defau
 - Without SMTP, invitation links are still returned by the API, but password reset and email
   change cannot complete — their links travel only by email.
 - The Telegram webhook needs `TELEGRAM_WEBHOOK_SECRET` on the backend.
-- The Gmail, Google Drive and Dropbox modules remain for migrating existing connections; they are no
-  longer offered in the catalog.
+- There is no Gmail, Google Drive or Dropbox integration: mail receipts come in over IMAP, files through
+  S3-compatible storage or WebDAV.
 - Receipt maps use self-hosted services configured through env, not the catalog — see
   [Receipt Maps](receipt-maps).
 

@@ -23,7 +23,7 @@ The Seneca API is served from the backend at `/api/v1`.
 
 ## Core API domains
 
-- `/auth` — register, login, refresh, logout, logout-all, sessions, me, 2FA, forgot/reset password, Google callback
+- `/auth` — register, login, refresh, logout, logout-all, sessions, me, 2FA, forgot/reset password
 - `/users` — profile, preferences, avatar and content background, email change (`PATCH /users/me/email`, then
   `POST /users/me/email/confirm`)
 - `/workspaces` — workspace management, members, invitations
@@ -31,7 +31,8 @@ The Seneca API is served from the backend at `/api/v1`.
   (`/statements/:id/import-commit`)
 - `/import-sessions` — import session status and cancellation
 - `/transactions` — normalized bank transactions
-- `/receipts` — receipts, including `PATCH` and `DELETE /receipts/:id/location`
+- `/receipts` — receipts, including `PATCH` and `DELETE /receipts/:id/location`, the Documents list feed
+  (`GET /receipts/documents`) and `GET /receipts/:id/thumbnail`
 - `/documents` — parser operations and debug tools
 - `/dashboard`, `/reports` — dashboards and reporting (for example `GET /dashboard/cash-flow?range=`)
 - `/budgets`, `/goals`, `/subscriptions`, `/custom-tables`
@@ -48,8 +49,7 @@ The Seneca API is served from the backend at `/api/v1`.
   `finalize`, `reopen`, and `export?format=pdf|xlsx`
 - `/maps` — tile styles and proxied tiles for receipt maps
 - `/audit-events` — audit history
-- `/integrations` — S3-compatible, WebDAV, and IMAP settings, plus the legacy `/integrations/gmail`,
-  `/integrations/google-drive`, and `/integrations/dropbox`
+- `/integrations` — S3-compatible, WebDAV, and IMAP settings
 - `/telegram`, `/webhook-endpoints`, `/webhook-subscriptions`, `/webhook-deliveries`, `/api-keys`
 - `/health`, `/health/ready`, `/metrics`
 

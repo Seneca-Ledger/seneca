@@ -122,12 +122,6 @@
     "backend/src/modules/parsing/services/universal-extractor.service.ts": [
       "types"
     ],
-    "backend/src/modules/gmail/services/gmail-merchant-reparse.service.ts": [
-      "types"
-    ],
-    "backend/src/modules/gmail/services/gmail-sync.service.ts": [
-      "types"
-    ],
     "backend/src/modules/import/services/import-session.service.ts": [
       "types"
     ],

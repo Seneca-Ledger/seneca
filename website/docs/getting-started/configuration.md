@@ -80,7 +80,6 @@ env values with the same purpose are only temporary fallback defaults. See
 
 - `NEXT_PUBLIC_API_URL` — the API base URL seen by the browser
 - `NEXT_PUBLIC_SUPPORT_EMAIL` — where "report an error" in the tax screens sends people
-- `NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY`, `NEXT_PUBLIC_DROPBOX_APP_KEY` — only for the legacy file pickers
 
 `NEXT_PUBLIC_*` values are compiled into the frontend at build time, so the prebuilt image needs a
 rebuild to change them. The Next.js server proxies `/api/*` and `/uploads/*` to `API_PROXY_TARGET`
