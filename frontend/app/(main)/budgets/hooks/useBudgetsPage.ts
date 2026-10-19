@@ -178,6 +178,7 @@ export function useBudgetsPage() {
   const query = useQuery({
     queryKey: queryKeys.budgets(workspaceId),
     queryFn: ({ signal }) => fetchBudgets(signal),
+    enabled: Boolean(workspaceId),
   });
 
   const invalidate = useCallback((): Promise<void> => {

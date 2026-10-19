@@ -52,6 +52,7 @@ export function useWebhookEndpoints() {
     queryKey: queryKeys.webhookEndpoints(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/webhook-endpoints', signal, contract: 'WebhookEndpointList' }),
+    enabled: Boolean(workspaceId),
   });
 
   const invalidate = useCallback((): Promise<void> => {
@@ -143,6 +144,7 @@ export function useWebhookSubscriptions() {
         signal,
         contract: 'WebhookSubscriptionList',
       }),
+    enabled: Boolean(workspaceId),
   });
 
   const invalidate = useCallback((): Promise<void> => {
@@ -232,6 +234,7 @@ export function useWebhookDeliveries(subscriptionId: string) {
         signal,
         contract: 'WebhookDeliveryList',
       }),
+    enabled: Boolean(workspaceId),
   });
 
   const retryMutation = useMutation({

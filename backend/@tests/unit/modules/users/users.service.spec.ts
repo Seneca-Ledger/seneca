@@ -5,7 +5,7 @@ import { AuthSession } from '@/entities/auth-session.entity';
 import { WorkspaceMember } from '@/entities/workspace-member.entity';
 import { Workspace } from '@/entities/workspace.entity';
 import { EmailChangeService } from '@/modules/users/services/email-change.service';
-import { UsersService } from '@/modules/users/users.service';
+import { PAGE_HINTS_MAX_KEYS, UsersService } from '@/modules/users/users.service';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import {
   ConflictException,
@@ -592,6 +592,70 @@ describe('UsersService', () => {
       expect(findOneSpy).toHaveBeenCalledTimes(2);
       for (const [options] of findOneSpy.mock.calls) {
         expect((options as { select: string[] }).select).toContain('welcomeTutorialSeenAt');
+      }
+    });
+  });
+
+  describe('page hints', () => {
+    it('keeps the higher version with one conditional update and returns the stored map', async () => {
+      const querySpy = jest.spyOn(repository, 'query').mockResolvedValue([]);
+      jest
+        .spyOn(repository, 'findOne')
+        .mockResolvedValue({ ...mockUserWithoutPasswordHash, pageHintsSeen: { budgets: 2 } } as User);
+      const saveSpy = jest.spyOn(repository, 'save');
+
+      await expect(service.markPageHintsSeen('1', 'budgets', 2)).resolves.toEqual({ budgets: 2 });
+      expect(querySpy).toHaveBeenCalledWith(
+        expect.stringMatching(/GREATEST\(COALESCE\(\("page_hints_seen" ->> \$2::text\)::int, 0\), \$3::int\)/),
+        ['1', 'budgets', 2, PAGE_HINTS_MAX_KEYS],
+      );
+      // A new key only while the map is below the cap.
+      expect(querySpy.mock.calls[0][0]).toMatch(/jsonb_object_keys\("page_hints_seen"\)\) < \$4/);
+      expect(saveSpy).not.toHaveBeenCalled();
+    });
+
+    it('empties the map on reset', async () => {
+      const querySpy = jest.spyOn(repository, 'query').mockResolvedValue([]);
+      jest
+        .spyOn(repository, 'findOne')
+        .mockResolvedValue({ ...mockUserWithoutPasswordHash, pageHintsSeen: {} } as User);
+
+      await expect(service.resetPageHints('1')).resolves.toEqual({});
+      expect(querySpy).toHaveBeenCalledWith(
+        expect.stringMatching(/SET "page_hints_seen" = '\{\}'::jsonb WHERE "id" = \$1/),
+        ['1'],
+      );
+    });
+
+    it('throws NotFoundException for an unknown user', async () => {
+      jest.spyOn(repository, 'query').mockResolvedValue([]);
+      jest.spyOn(repository, 'findOne').mockResolvedValue(null);
+
+      await expect(service.markPageHintsSeen('999', 'budgets', 1)).rejects.toThrow(NotFoundException);
+    });
+
+    it('keeps the column out of whole-row saves', () => {
+      const column = getMetadataArgsStorage().columns.find(
+        args => args.target === User && args.propertyName === 'pageHintsSeen',
+      );
+      expect(column?.options.update).toBe(false);
+    });
+
+    // A profile loaded without the column would answer an empty map, which the
+    // client reads as "nothing seen" and shows every hint again.
+    it('loads the map in the profile and in the onboarding response', async () => {
+      jest.spyOn<any, any>(service as any, 'findOneWithPassword').mockRestore();
+      const findOneSpy = jest
+        .spyOn(repository, 'findOne')
+        .mockResolvedValue({ ...mockUser, onboardingCompletedAt: new Date() } as User);
+      jest.spyOn(repository, 'save').mockResolvedValue({} as User);
+
+      await service.findOne('1');
+      await service.completeOnboarding('1', {});
+
+      expect(findOneSpy).toHaveBeenCalledTimes(2);
+      for (const [options] of findOneSpy.mock.calls) {
+        expect((options as { select: string[] }).select).toContain('pageHintsSeen');
       }
     });
   });

@@ -1,17 +1,10 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { IntlayerProviderContent } from 'react-intlayer';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import WelcomeTutorialDialog from './WelcomeTutorialDialog';
 import { TUTORIAL_SCREENS } from './welcome-tutorial-screens';
 import type { TutorialStep } from './welcome-tutorial-steps';
-
-const mocks = vi.hoisted(() => ({ push: vi.fn() }));
-
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push }) }));
-vi.mock('@/app/hooks/useAuth', () => ({
-  useAuth: () => ({ user: { id: 'user-1', name: 'Mia Hoffmann', email: 'mia@example.com', role: 'user' } }),
-}));
 
 const STEPS: TutorialStep[] = [
   {
@@ -35,10 +28,10 @@ const STEPS: TutorialStep[] = [
 // Which pages are visible depends on permissions; that is tested with the step builder.
 vi.mock('./useTutorialSteps', () => ({ useTutorialSteps: () => STEPS }));
 
-function renderDialog(onClose: () => void): void {
+function renderDialog(onClose: () => void, locale = 'en', page: 'crypto' | null = null): void {
   render(
-    <IntlayerProviderContent locale="en" setLocale={() => undefined}>
-      <WelcomeTutorialDialog open onClose={onClose} />
+    <IntlayerProviderContent locale={locale as 'en'} setLocale={() => undefined}>
+      <WelcomeTutorialDialog open page={page} onClose={onClose} />
     </IntlayerProviderContent>,
   );
 }
@@ -48,49 +41,83 @@ const press = (key: string): boolean => fireEvent.keyDown(screen.getByRole('dial
 const click = (name: string): boolean => fireEvent.click(screen.getByRole('button', { name }));
 
 describe('WelcomeTutorialDialog', () => {
-  beforeEach(() => {
-    mocks.push.mockReset();
-  });
-
-  it('greets the user by first name and walks from the intro through the steps to the outro', () => {
+  it('opens on the first page and turns pages with the buttons and the arrow keys', () => {
     renderDialog(vi.fn());
-    expect(heading().textContent).toBe('Welcome to Lumio, Mia');
-
-    click('Start the tour');
     expect(heading().textContent).toBe('Your month at a glance');
-    expect(screen.getByText('1 of 2')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement).disabled).toBe(true);
 
     press('ArrowRight');
     expect(heading().textContent).toBe('Wallets next to your bank accounts');
 
-    click('Next');
-    expect(heading().textContent).toBe('You’re all set');
-
-    click('Back');
+    // The last page goes no further on an arrow key.
+    press('ArrowRight');
     expect(heading().textContent).toBe('Wallets next to your bank accounts');
 
+    click('Back');
+    expect(heading().textContent).toBe('Your month at a glance');
+
+    click('Next');
     press('ArrowLeft');
     expect(heading().textContent).toBe('Your month at a glance');
   });
 
-  it('jumps to a step from the stepper', () => {
-    renderDialog(vi.fn());
-    click('Start the tour');
-    click('Crypto');
+  it('opened on one page, shows it alone until asked for the whole guide', () => {
+    const onClose = vi.fn();
+    renderDialog(onClose, 'en', 'crypto');
     expect(heading().textContent).toBe('Wallets next to your bank accounts');
+    // No page turning on its own: no dots, no Back, and the arrow keys stay put.
+    expect(screen.queryByRole('group', { name: /Step/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    press('ArrowLeft');
+    expect(heading().textContent).toBe('Wallets next to your bank accounts');
+
+    click('Whole guide');
+    expect(screen.getByRole('group', { name: 'Step 2 of 2' })).toBeTruthy();
+    press('ArrowLeft');
+    expect(heading().textContent).toBe('Your month at a glance');
+    expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('moves focus to the heading of each new screen', () => {
+  it('closes a single page with Done', () => {
+    const onClose = vi.fn();
+    renderDialog(onClose, 'en', 'crypto');
+    click('Done');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes from the last page with Done', () => {
+    const onClose = vi.fn();
+    renderDialog(onClose);
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+
+    click('Next');
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    click('Done');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows one dot per page, marks the current one and jumps from a dot', () => {
     renderDialog(vi.fn());
-    click('Start the tour');
+    const dots = screen.getByRole('group', { name: 'Step 1 of 2' });
+    const buttons = within(dots).getAllByRole('button');
+    expect(buttons.map(dot => dot.getAttribute('aria-label'))).toEqual(['Dashboard', 'Crypto']);
+    expect(buttons.map(dot => dot.getAttribute('aria-current'))).toEqual(['step', null]);
+
+    fireEvent.click(within(dots).getByRole('button', { name: 'Crypto' }));
+    expect(heading().textContent).toBe('Wallets next to your bank accounts');
+    expect(screen.getByRole('group', { name: 'Step 2 of 2' })).toBeTruthy();
+  });
+
+  it('focuses the heading when it opens and keeps it there as the arrow keys turn pages', () => {
+    renderDialog(vi.fn());
     expect(document.activeElement).toBe(heading());
 
     press('ArrowRight');
-    click('Next');
+    expect(heading().textContent).toBe('Wallets next to your bank accounts');
     expect(document.activeElement).toBe(heading());
   });
 
-  it('closes on Escape and on Hide, but not on a click beside the dialog', () => {
+  it('closes on Escape and on Close, but not on a click beside the dialog', () => {
     const onClose = vi.fn();
     renderDialog(onClose);
 
@@ -102,20 +129,26 @@ describe('WelcomeTutorialDialog', () => {
     press('Escape');
     expect(onClose).toHaveBeenCalledTimes(1);
 
-    click('Start the tour');
-    click('Hide tutorial');
+    click('Close');
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it('closes and opens the upload from the outro', () => {
-    const onClose = vi.fn();
-    renderDialog(onClose);
-    click('Start the tour');
-    press('ArrowRight');
-    click('Next');
+  it('covers the whole screen', () => {
+    renderDialog(vi.fn());
+    expect(screen.getByRole('dialog').className).toContain('MuiDialog-paperFullScreen');
+  });
 
-    click('Upload a statement');
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(mocks.push).toHaveBeenCalledWith('/statements?upload=1');
+  it('loads the screenshots of the current language, and the English ones when they are missing', () => {
+    renderDialog(vi.fn(), 'de');
+    // The first frame is the dashboard's categories.
+    const [image] = screen.getAllByRole('img');
+    expect(decodeURIComponent(image.getAttribute('src') ?? '')).toContain(
+      '/tour/de/dashboard-categories-light.webp',
+    );
+
+    fireEvent.error(image);
+    expect(decodeURIComponent(image.getAttribute('src') ?? '')).toContain(
+      '/tour/en/dashboard-categories-light.webp',
+    );
   });
 });

@@ -78,19 +78,23 @@ function usePaymentOptions(payable: Payable) {
   const candidates = useQuery({
     queryKey: queryKeys.payablePaymentCandidates({ workspaceId, payableId: payable.id }),
     queryFn: () => payablesApi.paymentCandidates(payable.id),
+    enabled: Boolean(workspaceId),
   });
   const payments = useQuery({
     queryKey: queryKeys.payablePayments({ workspaceId, payableId: payable.id }),
     queryFn: () => payablesApi.payments(payable.id),
+    enabled: Boolean(workspaceId),
   });
   const wallets = useQuery({
     queryKey: queryKeys.wallets(workspaceId),
     queryFn: ({ signal }) => apiQueryDecoded({ url: '/wallets', signal, contract: 'WalletList' }),
+    enabled: Boolean(workspaceId),
   });
   const categories = useQuery({
     queryKey: queryKeys.categories(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
+    enabled: Boolean(workspaceId),
   });
 
   return {

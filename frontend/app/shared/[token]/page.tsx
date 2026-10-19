@@ -19,6 +19,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { SharedFileAccess } from '@/app/lib/contracts';
 import { checkContract } from '@/app/lib/query-fn-schema';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import TransactionsView from '../../components/TransactionsView';
 import api from '../../lib/api';
@@ -124,7 +125,7 @@ export default function SharedFilePage() {
     return formatStoredDateWithOptions(
       date,
       { year: 'numeric', month: 'long', day: 'numeric' },
-      locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
+      resolveLocaleTag(locale),
     );
   };
 

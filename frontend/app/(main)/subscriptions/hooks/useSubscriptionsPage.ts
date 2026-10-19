@@ -129,12 +129,14 @@ export function useSubscriptionsPage() {
     // экране до прихода новых, но только внутри того же воркспейса.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const summaryQuery = useQuery({
     queryKey: queryKeys.subscriptionsSummary(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/subscriptions/summary', signal, contract: 'SubscriptionSummary' }),
+    enabled: Boolean(workspaceId),
   });
 
   // Deliberately not derived from `listQuery`: the calendar shows the whole
@@ -150,6 +152,7 @@ export function useSubscriptionsPage() {
         signal,
         contract: 'SubscriptionChargeCalendar',
       }),
+    enabled: Boolean(workspaceId),
   });
 
   const invalidate = useCallback((): Promise<void> => {

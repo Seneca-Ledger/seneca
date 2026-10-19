@@ -6,7 +6,11 @@ import {
 } from '@/entities/insight.entity';
 import type { User } from '@/entities/user.entity';
 import type { InsightCandidate } from '@/modules/insights/analyzers/analyzer.interface';
-import { InsightsService } from '@/modules/insights/insights.service';
+import {
+  INSIGHT_SNOOZE_MS,
+  InsightsService,
+  isStillSnoozed,
+} from '@/modules/insights/insights.service';
 
 function createRepoMock<T>() {
   return {
@@ -207,6 +211,85 @@ describe('InsightsService', () => {
     expect(result.updated).toBe(0);
     expect(result.total).toBe(2);
     expect(result.newInsights).toHaveLength(2);
+  });
+
+  describe('closing an insight means "not now"', () => {
+    const candidate: InsightCandidate = {
+      type: InsightType.UNAPPROVED_COUNT,
+      category: InsightCategory.OPERATIONAL,
+      severity: InsightSeverity.WARN,
+      messageKey: 'operational.unapproved',
+      messageParams: { count: 5 },
+      deduplicationKey: 'operational:unapproved:workspace-1',
+      data: { count: 5 },
+      actions: [],
+    };
+    const closed = (daysAgo: number, count: number) =>
+      ({
+        id: 'closed-1',
+        isDismissed: true,
+        dismissedAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
+        data: { count },
+      }) as Insight;
+
+    it('stays closed through a refresh within the week while the count does not grow', async () => {
+      operationalAnalyzer.analyze.mockResolvedValue([candidate]);
+      // No active row; the latest closed one, two days old, counted the same.
+      insightRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(closed(2, 5));
+
+      const result = await service.refresh('user-1', 'workspace-1');
+
+      expect(result.created).toBe(0);
+      expect(insightRepository.create).not.toHaveBeenCalled();
+      expect(insightRepository.findOne).toHaveBeenLastCalledWith({
+        where: {
+          userId: 'user-1',
+          deduplicationKey: 'operational:unapproved:workspace-1',
+          isDismissed: true,
+        },
+        order: { dismissedAt: { direction: 'DESC', nulls: 'LAST' } },
+      });
+    });
+
+    it('comes back when the count grows', async () => {
+      operationalAnalyzer.analyze.mockResolvedValue([candidate]);
+      insightRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(closed(2, 3));
+
+      const result = await service.refresh('user-1', 'workspace-1');
+
+      expect(result.created).toBe(1);
+    });
+
+    it('comes back a week after the close', async () => {
+      operationalAnalyzer.analyze.mockResolvedValue([candidate]);
+      insightRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(closed(8, 5));
+
+      const result = await service.refresh('user-1', 'workspace-1');
+
+      expect(result.created).toBe(1);
+    });
+
+    it('records when it was closed', async () => {
+      await service.dismiss('user-1', 'workspace-1', 'insight-1');
+      expect(insightRepository.update).toHaveBeenCalledWith(
+        { id: 'insight-1', userId: 'user-1', workspaceId: 'workspace-1', isDismissed: false },
+        { isDismissed: true, dismissedAt: expect.any(Date) },
+      );
+    });
+
+    it('holds for insights without a count until the week is over, and ignores a close with no date', () => {
+      const now = new Date('2026-10-18T12:00:00Z');
+      const at = (ms: number) => new Date(now.getTime() - ms);
+      expect(isStillSnoozed({ dismissedAt: at(1000), data: null }, { data: null }, now)).toBe(true);
+      expect(
+        isStillSnoozed({ dismissedAt: at(INSIGHT_SNOOZE_MS), data: null }, { data: null }, now),
+      ).toBe(false);
+      expect(isStillSnoozed({ dismissedAt: null, data: null }, { data: null }, now)).toBe(false);
+      // A shrinking count keeps it closed.
+      expect(
+        isStillSnoozed({ dismissedAt: at(1000), data: { count: 9 } }, { data: { count: 4 } }, now),
+      ).toBe(true);
+    });
   });
 
   it('updates an existing active insight with same deduplication key', async () => {

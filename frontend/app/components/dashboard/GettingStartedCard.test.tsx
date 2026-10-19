@@ -7,11 +7,12 @@ import { GettingStartedCard } from './GettingStartedCard';
 import type { SetupProgress } from './use-setup-progress';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
+const auth = vi.hoisted(() => ({ name: 'Symon Baikov' }));
 
 vi.mock('@/app/lib/api', () => ({ default: api }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/hooks/useAuth', () => ({
-  useAuth: () => ({ user: { id: 'user-1', name: 'Symon Baikov' } }),
+  useAuth: () => ({ user: { id: 'user-1', name: auth.name } }),
 }));
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: { href: string; children?: React.ReactNode }) => (
@@ -26,6 +27,7 @@ vi.mock('@/app/i18n', async () => {
     useIntlayer: () =>
       autoDictionary({
         subtitle: value("{{name}}, let's finish setting up your account"),
+        subtitleNoName: value("Let's finish setting up your account"),
         progressLabel: value('{{done}} of {{total}} steps done'),
         completedItems: value('Completed items'),
         next: value('Next'),
@@ -57,6 +59,17 @@ describe('GettingStartedCard', () => {
   beforeEach(() => {
     api.get.mockReset();
     api.put.mockReset().mockResolvedValue({ data: {} });
+    auth.name = 'Symon Baikov';
+  });
+
+  it('does not greet the technical account name of a fresh install', async () => {
+    auth.name = 'Administrator';
+    serve(NOTHING);
+
+    renderWithQuery(<GettingStartedCard />);
+
+    expect(await screen.findByText("Let's finish setting up your account")).toBeInTheDocument();
+    expect(screen.queryByText(/Administrator/)).not.toBeInTheDocument();
   });
 
   it('greets by first name and counts what is done', async () => {

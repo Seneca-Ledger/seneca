@@ -6,9 +6,16 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Image from 'next/image';
 import type React from 'react';
-import { useIntlayer } from '@/app/i18n';
-import { FRAME_ASPECT, type TutorialFragment } from './welcome-tutorial-screens';
+import { useState } from 'react';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import {
+  FALLBACK_SCREENS_LOCALE,
+  FRAME_ASPECT,
+  type TutorialFragment,
+  tutorialScreenUrl,
+} from './welcome-tutorial-screens';
+import {
+  BENTO_HEIGHT_PER_WIDTH,
   badgeSx,
   bentoSx,
   captionNumberSx,
@@ -16,8 +23,12 @@ import {
   captionsSx,
   captionTextSx,
   captionTitleSx,
+  fragmentAreaSx,
+  fragmentBlockSx,
+  frameCellSx,
   frameSlotSx,
   frameSx,
+  PAIR_HEIGHT_PER_WIDTH,
   pairSx,
   scrollerSx,
   scrollItemSx,
@@ -28,6 +39,8 @@ interface FragmentProps {
   step: TutorialStep;
   fragment: TutorialFragment;
   number: number;
+  /** Fills a cell of the desktop grid instead of keeping the screenshot's proportions. */
+  fill?: boolean;
 }
 
 interface CaptionText {
@@ -37,9 +50,9 @@ interface CaptionText {
 
 // Rendered widths of each frame, so the optimizer serves a fitting size.
 const SIZES = {
-  hero: '(max-width: 899px) 86vw, 660px',
-  side: '(max-width: 899px) 86vw, 460px',
-  pair: '(max-width: 899px) 86vw, 560px',
+  hero: '(max-width: 899px) 86vw, 55vw',
+  side: '(max-width: 899px) 86vw, 38vw',
+  pair: '(max-width: 899px) 86vw, 46vw',
 } as const;
 
 function useCaption({ step, fragment }: Omit<FragmentProps, 'number'>): CaptionText {
@@ -47,19 +60,39 @@ function useCaption({ step, fragment }: Omit<FragmentProps, 'number'>): CaptionT
   return (steps[step.id].fragments as unknown as Record<string, CaptionText>)[fragment.id];
 }
 
-function FragmentFrame({ step, fragment, number }: FragmentProps): React.JSX.Element {
+/**
+ * The screenshot in the user's language; a language whose screenshots are not generated
+ * yet answers 404, and the frame then shows the English one instead (once, no retry loop).
+ */
+function useScreenUrl({ step, fragment }: Omit<FragmentProps, 'number'>): {
+  url: string;
+  onError: () => void;
+} {
+  const { locale } = useLocale();
   const mode = useTheme().palette.mode;
+  const [fallback, setFallback] = useState(false);
+  const url = tutorialScreenUrl({
+    locale: fallback ? FALLBACK_SCREENS_LOCALE : String(locale),
+    stepId: step.id,
+    fragmentId: fragment.id,
+    mode,
+  });
+  const onError = (): void => setFallback(true);
+  return { url, onError };
+}
+
+function FragmentFrame({ step, fragment, number, fill = false }: FragmentProps): React.JSX.Element {
   const caption = useCaption({ step, fragment });
-  return (
-    <Box sx={frameSlotSx(FRAME_ASPECT[fragment.frame])}>
+  const { url, onError } = useScreenUrl({ step, fragment });
+  const frame = (
+    <Box sx={frameSlotSx(FRAME_ASPECT[fragment.frame], fill)}>
       <Box sx={frameSx}>
         <Image
-          src={fragment[mode]}
+          src={url}
           alt={caption.title.value}
           fill
           sizes={SIZES[fragment.frame]}
-          placeholder="blur"
-          preload
+          onError={onError}
           style={{ objectFit: 'cover', objectPosition: 'top left' }}
         />
       </Box>
@@ -68,6 +101,7 @@ function FragmentFrame({ step, fragment, number }: FragmentProps): React.JSX.Ele
       </Box>
     </Box>
   );
+  return fill ? <Box sx={frameCellSx}>{frame}</Box> : frame;
 }
 
 function FragmentCaption({ step, fragment, number }: FragmentProps): React.JSX.Element {
@@ -92,19 +126,22 @@ function FragmentGrid({ step }: { step: TutorialStep }): React.JSX.Element {
     fragment,
     number: index + 1,
   }));
+  const bento = fragments.length === 3;
   return (
-    <>
-      <Box sx={fragments.length === 3 ? bentoSx : pairSx}>
-        {fragments.map(props => (
-          <FragmentFrame key={props.fragment.id} {...props} />
-        ))}
+    <Box sx={fragmentAreaSx}>
+      <Box sx={fragmentBlockSx(bento ? BENTO_HEIGHT_PER_WIDTH : PAIR_HEIGHT_PER_WIDTH)}>
+        <Box sx={bento ? bentoSx : pairSx}>
+          {fragments.map(props => (
+            <FragmentFrame key={props.fragment.id} {...props} fill />
+          ))}
+        </Box>
+        <Box sx={captionsSx(fragments.length)}>
+          {fragments.map(props => (
+            <FragmentCaption key={props.fragment.id} {...props} />
+          ))}
+        </Box>
       </Box>
-      <Box sx={captionsSx(fragments.length)}>
-        {fragments.map(props => (
-          <FragmentCaption key={props.fragment.id} {...props} />
-        ))}
-      </Box>
-    </>
+    </Box>
   );
 }
 

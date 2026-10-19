@@ -161,7 +161,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      await apiClient.post('/notifications/mark-all-read', null, { params });
+      // No body at all: a JSON `null` is rejected by the server's strict body parser (400).
+      await apiClient.post('/notifications/mark-all-read', undefined, { params });
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey });
