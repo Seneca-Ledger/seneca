@@ -28,7 +28,7 @@ import { Permission } from '../../common/enums/permissions.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
-import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { resolveInUploadsDir, resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   Category,
   GmailSettings,
@@ -132,11 +132,13 @@ export class GmailController {
     private readonly workspaceCurrency: WorkspaceCurrencyService,
   ) {}
 
-  private resolveAttachmentPath(storedPath: string): string {
-    if (path.isAbsolute(storedPath)) {
-      return storedPath;
-    }
-    return path.join(resolveUploadsDir(), storedPath);
+  /** NULL when the stored path points outside the uploads directory. */
+  private resolveAttachmentPath(storedPath: string): string | null {
+    const uploadsDir = resolveUploadsDir();
+    return resolveInUploadsDir(
+      path.isAbsolute(storedPath) ? storedPath : path.join(uploadsDir, storedPath),
+      path.resolve(uploadsDir),
+    );
   }
 
   private async ensureAttachmentOnDisk(receipt: Receipt): Promise<string | null> {
@@ -147,11 +149,13 @@ export class GmailController {
 
     const resolvedPath = this.resolveAttachmentPath(storedPath);
 
-    try {
-      await fs.promises.access(resolvedPath, fs.constants.R_OK);
-      return resolvedPath;
-    } catch {
-      // File missing from disk — try to re-download from Gmail API
+    if (resolvedPath) {
+      try {
+        await fs.promises.access(resolvedPath, fs.constants.R_OK);
+        return resolvedPath;
+      } catch {
+        // File missing from disk — try to re-download from Gmail API
+      }
     }
 
     const attachmentMeta = receipt.metadata?.attachments?.[0];

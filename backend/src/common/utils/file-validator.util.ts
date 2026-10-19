@@ -6,7 +6,7 @@ import {
   sniffStatementFormat,
   type TextStatementFormat,
 } from '../../modules/parsing/parsers/statement-formats.util';
-import { resolveUploadsDir } from './uploads.util';
+import { resolveUploadsDir, resolveInUploadsDir as resolveUploadsPath } from './uploads.util';
 
 // Multer's diskStorage (see config/multer.config.ts) always writes to this
 // directory under a server-generated random filename — file.path is never
@@ -14,18 +14,10 @@ import { resolveUploadsDir } from './uploads.util';
 // in depth against that invariant ever being violated, and makes the
 // filesystem calls below auditable as bounded rather than taking an
 // Express.Multer.File's path on faith.
-const uploadsRoot = resolveUploadsDir();
+const uploadsRoot = path.resolve(resolveUploadsDir());
 
-/**
- * The path resolved, or NULL when it falls outside the uploads directory. Callers
- * repeat the prefix check next to the filesystem call so the bound is visible there.
- */
-function resolveInUploadsDir(candidatePath: string): string | null {
-  const resolved = path.resolve(candidatePath);
-  return resolved === uploadsRoot || resolved.startsWith(`${uploadsRoot}${path.sep}`)
-    ? resolved
-    : null;
-}
+const resolveInUploadsDir = (candidatePath: string): string | null =>
+  resolveUploadsPath(candidatePath, uploadsRoot);
 
 enum AllowedFileType {
   // Interchange formats arrive under loose MIME types; they are admitted only

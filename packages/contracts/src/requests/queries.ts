@@ -140,6 +140,20 @@ export type DatevPeriodQuery = Wire<typeof DatevPeriodQuery>;
 export const TaxReturnPeriodQuery = TaxReturnPeriodBody;
 export type TaxReturnPeriodQuery = Wire<typeof TaxReturnPeriodQuery>;
 
+/** `GET /tax/returns/export`: the period plus the document format. */
+export const TaxReturnExportQuery = Schema.Struct({
+  periodStart: IsoDateString,
+  periodEnd: IsoDateString,
+  format: Schema.Literals(['pdf', 'xlsx', 'csv']),
+}).check(
+  Schema.makeFilter(period =>
+    Date.parse(period.periodEnd) >= Date.parse(period.periodStart)
+      ? undefined
+      : 'periodEnd must not be before periodStart',
+  ),
+);
+export type TaxReturnExportQuery = Wire<typeof TaxReturnExportQuery>;
+
 /** `GET /tax/datev/mapping`. */
 export const DatevMappingQuery = Schema.Struct({ year: Year });
 export type DatevMappingQuery = Wire<typeof DatevMappingQuery>;

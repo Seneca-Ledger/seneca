@@ -87,7 +87,9 @@ export async function embedXRechnung(pdf: Buffer, xml: string, meta: ZugferdMeta
   );
 
   // PDF/A requires a file identifier in the trailer.
-  const id = PDFHexString.of(createHash('md5').update(pdf).update(xml).digest('hex'));
+  const id = PDFHexString.of(
+    createHash('sha256').update(pdf).update(xml).digest('hex').slice(0, 32),
+  );
   context.trailerInfo.ID = context.obj([id, id]);
 
   return Buffer.from(await doc.save({ useObjectStreams: false }));

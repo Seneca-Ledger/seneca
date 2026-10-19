@@ -96,7 +96,7 @@ describe('GmailController - Receipt Thumbnail Endpoint', () => {
     receiptRepository.findOne.mockResolvedValue({
       id: 'receipt-1',
       userId: 'user-123',
-      attachmentPaths: ['/tmp/not-a-pdf.txt'],
+      attachmentPaths: ['receipts/not-a-pdf.txt'],
       metadata: { attachments: [{ filename: 'not-a-pdf.txt', mimeType: 'text/plain', size: 1, id: 'att-1' }] },
     } as Receipt);
     const accessSpy = jest.spyOn(fs.promises, 'access').mockResolvedValue(undefined);
@@ -108,6 +108,26 @@ describe('GmailController - Receipt Thumbnail Endpoint', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'No PDF attachment found' });
 
     accessSpy.mockRestore();
+  });
+
+  it('never reads a stored path outside the uploads directory', async () => {
+    receiptRepository.findOne.mockResolvedValue({
+      id: 'receipt-1',
+      userId: 'user-123',
+      attachmentPaths: ['/etc/passwd'],
+      metadata: {},
+    } as Receipt);
+    const accessSpy = jest.spyOn(fs.promises, 'access').mockResolvedValue(undefined);
+    const readFileSpy = jest.spyOn(fs.promises, 'readFile');
+    const res = createMockResponse();
+
+    await (controller as any).getReceiptFile(workspaceId, 'receipt-1', res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(readFileSpy).not.toHaveBeenCalled();
+
+    accessSpy.mockRestore();
+    readFileSpy.mockRestore();
   });
 
   it('returns 404 from file endpoint when receipt is not found', async () => {
@@ -124,7 +144,7 @@ describe('GmailController - Receipt Thumbnail Endpoint', () => {
     receiptRepository.findOne.mockResolvedValue({
       id: 'receipt-1',
       userId: 'user-123',
-      attachmentPaths: ['/tmp/not-a-pdf.txt'],
+      attachmentPaths: ['receipts/not-a-pdf.txt'],
       metadata: { attachments: [{ filename: 'not-a-pdf.txt', mimeType: 'text/plain', size: 1, id: 'att-1' }] },
     } as Receipt);
     const accessSpy = jest.spyOn(fs.promises, 'access').mockResolvedValue(undefined);
@@ -149,7 +169,7 @@ describe('GmailController - Receipt Thumbnail Endpoint', () => {
     receiptRepository.findOne.mockResolvedValue({
       id: 'receipt-image-1',
       userId: 'user-123',
-      attachmentPaths: ['/tmp/receipt.jpg'],
+      attachmentPaths: ['receipts/receipt.jpg'],
       metadata: {
         attachments: [
           {
@@ -184,7 +204,7 @@ describe('GmailController - Receipt Thumbnail Endpoint', () => {
     receiptRepository.findOne.mockResolvedValue({
       id: 'receipt-thumb-1',
       userId: 'user-123',
-      attachmentPaths: ['/tmp/receipt-thumb.jpg'],
+      attachmentPaths: ['receipts/receipt-thumb.jpg'],
       metadata: {
         attachments: [
           {
