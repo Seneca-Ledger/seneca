@@ -12,5 +12,6 @@ import { SearchService } from './search.service';
   imports: [TypeOrmModule.forFeature([Transaction, Statement, Payable, Category, Receipt])],
   controllers: [SearchController],
   providers: [SearchService],
+  exports: [SearchService],
 })
 export class SearchModule {}

@@ -118,6 +118,7 @@ Lumio is a full-stack platform for importing, categorizing and analyzing bank st
 - **Audit Log** — Complete event trail with one-click rollback for supported operations.
 - **Webhooks** — Outbound event delivery to subscribed endpoints with token-based authentication.
 - **API Keys** — Programmatic access via `lum_`-prefixed, SHA-256 hashed keys with revocation support.
+- **MCP** — AI agents (Claude Code, Claude Desktop, any MCP client) connect to `/api/v1/mcp` with an API key; tools follow the key's scopes and their writes are audited as the key.
 - **Budgets** — Budget tracking with manual spend recording and alerts.
 - **Subscriptions** — Recurring billing detection and management with frequency-based tracking.
 - **Goals & Net Worth** — Savings goals with progress tracking, and net worth aggregated across accounts, wallets, investments, precious metals and crypto holdings.
@@ -294,6 +295,7 @@ lumio/
 │   ├── src/
 │   │   ├── modules/                 # 65 feature modules
 │   │   │   ├── api-keys/            # Programmatic API key management
+│   │   │   ├── mcp/                 # MCP endpoint (/api/v1/mcp) for AI agents, behind API keys
 │   │   │   ├── application-settings/ # Runtime system configuration
 │   │   │   ├── auth/                # Cookie sessions, CSRF, 2FA, password reset
 │   │   │   ├── users/               # User CRUD, avatars, backgrounds, email change, permissions
@@ -410,7 +412,6 @@ lumio/
 │   └── statements-examples/         # Sample bank statement files for testing
 ├── infra/
 │   └── maps/                        # Tile server assets and config for the `maps` profile
-├── mcp-server/                      # Claude MCP server integration
 ├── website/                         # Docusaurus documentation site
 ├── scripts/                         # Shell helper scripts
 │   ├── generate-env.sh              # Generate .env files with random secrets
@@ -676,7 +677,11 @@ Do not add closed SaaS SDKs for new integration work. Prefer OSS libraries that 
 <details>
 <summary><b>Telegram Bot</b></summary>
 
-Get a token from [@BotFather](https://t.me/botfather), then save the bot token in **Settings → Telegram**. The token is stored encrypted; `TELEGRAM_BOT_TOKEN` is only a fallback server default.
+Get a token from [@BotFather](https://t.me/botfather) once per server. An instance admin saves it as the **shared server bot** in **Settings → Notifications → Telegram**; the token is stored encrypted, and `TELEGRAM_BOT_TOKEN` in `.env` does the same job if nothing is saved there. Every workspace uses the shared bot unless its owner saves a bot of the workspace's own in the same section. People in a workspace on the shared bot see no token form at all, and the dashboard's Getting started list gets a **Connect Telegram** step. Changing the shared bot means people connect again, because a chat only accepts messages from a bot it has started.
+
+After that, each user presses **Connect** in the same section: Telegram opens the bot, they press **Start**, and the chat is connected to their account and the open workspace. The link carries a one-time code that is valid for 10 minutes, so nobody types a chat id.
+
+The server receives the bot's messages by itself. When the app's public URL (`APP_URL`, or the public URL saved in the workspace) is `https://`, it registers a webhook at `<url>/api/v1/telegram/webhook/<bot id>`. Otherwise, for example on a home server behind NAT, it long-polls Telegram. Long polling expects one backend instance per bot. A webhook you set up by hand for `TELEGRAM_BOT_TOKEN` with `TELEGRAM_WEBHOOK_SECRET` at `/api/v1/telegram/webhook` is left as it is.
 </details>
 
 <details>

@@ -429,7 +429,6 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
             website/package-lock.json
-            mcp-server/package-lock.json
 
       - name: Install root deps (no scripts)
         run: npm ci --ignore-scripts
@@ -442,9 +441,6 @@ jobs:
 
       - name: Install website deps (no scripts)
         run: npm ci --prefix website --ignore-scripts
-
-      - name: Install mcp-server deps (no scripts)
-        run: npm ci --prefix mcp-server --ignore-scripts
 
       # --directory, not --path: audit-ci silently ignores unknown flags, and
       # `--path backend` made this step audit the repo root instead.
@@ -466,10 +462,6 @@ jobs:
       - name: Website audit (high/critical)
         continue-on-error: true
         run: npm audit --audit-level=high --prefix website
-
-      - name: MCP server audit (high/critical)
-        continue-on-error: true
-        run: npm audit --audit-level=high --prefix mcp-server
 
       - name: Root license compliance
         run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start .

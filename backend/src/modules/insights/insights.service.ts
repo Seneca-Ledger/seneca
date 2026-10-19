@@ -251,6 +251,7 @@ export class InsightsService {
       },
       {
         isDismissed: true,
+        dismissedAt: new Date(),
       },
     );
 
@@ -263,7 +264,7 @@ export class InsightsService {
     const updateQuery = this.insightRepository
       .createQueryBuilder()
       .update(Insight)
-      .set({ isDismissed: true })
+      .set({ isDismissed: true, dismissedAt: () => 'NOW()' })
       .where('user_id = :userId', { userId })
       .andWhere('workspace_id = :workspaceId', { workspaceId })
       .andWhere('is_dismissed = false');
@@ -323,6 +324,15 @@ export class InsightsService {
     };
   }
 
+  /** The latest close of this insight by the person, if it still holds. */
+  private async findSnoozed(userId: string, candidate: InsightCandidate): Promise<Insight | null> {
+    const dismissed = await this.insightRepository.findOne({
+      where: { userId, deduplicationKey: candidate.deduplicationKey, isDismissed: true },
+      order: { dismissedAt: { direction: 'DESC', nulls: 'LAST' } },
+    });
+    return dismissed && isStillSnoozed(dismissed, candidate, new Date()) ? dismissed : null;
+  }
+
   private async upsertCandidate(
     userId: string,
     workspaceId: string,
@@ -330,15 +340,22 @@ export class InsightsService {
     locale?: string,
   ): Promise<{ created: boolean; insight: Insight }> {
     const text = await this.resolveText(userId, candidate, locale);
-    const existing = await this.insightRepository.findOne({
-      where: {
-        userId,
-        deduplicationKey: candidate.deduplicationKey,
-        isDismissed: false,
-      },
-    });
+    const findActive = () =>
+      this.insightRepository.findOne({
+        where: {
+          userId,
+          deduplicationKey: candidate.deduplicationKey,
+          isDismissed: false,
+        },
+      });
+    let existing = await findActive();
 
     if (!existing) {
+      // Closed recently, and nothing has grown since: it stays closed.
+      const snoozed = await this.findSnoozed(userId, candidate);
+      if (snoozed) {
+        return { created: false, insight: snoozed };
+      }
       const created = this.insightRepository.create({
         userId,
         workspaceId,
@@ -355,8 +372,17 @@ export class InsightsService {
         expiresAt: candidate.expiresAt ?? null,
       });
 
-      const saved = await this.insightRepository.save(created);
-      return { created: true, insight: saved };
+      try {
+        const saved = await this.insightRepository.save(created);
+        return { created: true, insight: saved };
+      } catch (error) {
+        // Two refreshes at once (the Advice page asks on open, a tab may ask too):
+        // the other one wrote the row first, so this one updates it instead.
+        existing = isUniqueViolation(error) ? await findActive() : null;
+        if (!existing) {
+          throw error;
+        }
+      }
     }
 
     existing.workspaceId = workspaceId;
@@ -373,4 +399,45 @@ export class InsightsService {
     const saved = await this.insightRepository.save(existing);
     return { created: false, insight: saved };
   }
+}
+
+/** Postgres 23505: another insert took the active row's unique slot first. */
+const isUniqueViolation = (error: unknown): boolean =>
+  (error as { code?: string; driverError?: { code?: string } })?.code === '23505' ||
+  (error as { driverError?: { code?: string } })?.driverError?.code === '23505';
+
+/** How long a closed insight stays away when nothing about it grows. */
+export const INSIGHT_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
+
+const countIn = (data: Record<string, unknown> | null | undefined): number | null =>
+  typeof data?.count === 'number' ? data.count : null;
+
+/**
+ * Closing an insight means "not now", not "never": it comes back a week after the
+ * close, or sooner when the number it counts (unconfirmed rows, duplicates…) grows,
+ * so a closed problem cannot be forgotten while it gets worse.
+ */
+export function isStillSnoozed(
+  dismissed: Pick<Insight, 'dismissedAt' | 'data'>,
+  candidate: Pick<InsightCandidate, 'data'>,
+  now: Date,
+): boolean {
+  if (
+    !dismissed.dismissedAt ||
+    now.getTime() - dismissed.dismissedAt.getTime() >= INSIGHT_SNOOZE_MS
+  ) {
+    return false;
+  }
+  const before = countIn(dismissed.data);
+  const after = countIn(candidate.data);
+  return before === null || after === null || after <= before;
+}
+
+/** JSON with sorted keys — jsonb does not keep the order the row was written in. */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_, inner: unknown) =>
+    inner && typeof inner === 'object' && !Array.isArray(inner)
+      ? Object.fromEntries(Object.entries(inner).sort(([a], [b]) => a.localeCompare(b)))
+      : inner,
+  );
 }

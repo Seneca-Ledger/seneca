@@ -51,9 +51,10 @@ describe('welcome tutorial steps', () => {
     }
   });
 
-  it('has the English screenshots of every fragment in both themes under public/', () => {
+  it("has the English picture of every page's main fragment in both themes under public/", () => {
+    // Only the first fragment is pictured; the others are captions.
     const missing = TUTORIAL_PAGES.flatMap(page =>
-      TUTORIAL_SCREENS[page.id].flatMap(fragment =>
+      TUTORIAL_SCREENS[page.id].slice(0, 1).flatMap(fragment =>
         (['light', 'dark'] as const)
           .map(mode =>
             tutorialScreenUrl({ locale: 'en', stepId: page.id, fragmentId: fragment.id, mode }),

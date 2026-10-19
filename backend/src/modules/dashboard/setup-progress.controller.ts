@@ -4,6 +4,8 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { SetupProgress as SetupProgressContract } from '../../contracts';
+import type { User } from '../../entities/user.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { type SetupProgress, SetupProgressService } from './setup-progress.service';
 
 @Controller('dashboard')
@@ -13,7 +15,10 @@ export class SetupProgressController {
 
   @Get('setup-progress')
   @SchemaResponse(SetupProgressContract)
-  async getSetupProgress(@WorkspaceId() workspaceId: string): Promise<SetupProgress> {
-    return this.setupProgressService.getSetupProgress(workspaceId);
+  async getSetupProgress(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ): Promise<SetupProgress> {
+    return this.setupProgressService.getSetupProgress(workspaceId, user);
   }
 }

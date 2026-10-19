@@ -29,7 +29,6 @@ CORPUS_PATHS = [
     ROOT / "backend" / "src",
     ROOT / "frontend" / "app",
     ROOT / "frontend" / "lib",
-    ROOT / "mcp-server" / "src",
     ROOT / "README.md",
     ROOT / "docs" / "plans",
 ]

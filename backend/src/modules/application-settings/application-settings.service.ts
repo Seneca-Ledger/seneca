@@ -17,12 +17,19 @@ import { assertPublicEgressHost } from '../../common/utils/egress-url.util';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import type {
   SaveAppSettingsBody,
+  SaveInstanceTelegramBotBody,
   SaveLocalCategorizationBody,
   SaveSmtpSettingsBody,
   SaveTelegramSettingsBody,
   TestLocalCategorizationBody,
 } from '../../contracts';
-import { User, WorkspaceServiceSettings, WorkspaceServiceSettingsKey } from '../../entities';
+import {
+  InstanceSetting,
+  InstanceSettingKey,
+  User,
+  WorkspaceServiceSettings,
+  WorkspaceServiceSettingsKey,
+} from '../../entities';
 import { TransactionCategorizer } from '../classification/helpers/transaction-categorizer';
 
 /** Telegram's `getMe`: `ok` false with a description for a bad token. */
@@ -54,7 +61,8 @@ export type SmtpRuntimeSettings = {
 export type TelegramRuntimeSettings = {
   botToken: string | null;
   timeoutMs: number;
-  source: 'workspace' | 'env' | 'disabled';
+  /** `instance`: the shared bot an instance admin saved; `env`: TELEGRAM_BOT_TOKEN. */
+  source: 'workspace' | 'instance' | 'env' | 'disabled';
 };
 
 export type AppRuntimeSettings = {
@@ -88,6 +96,8 @@ export class ApplicationSettingsService {
     @InjectRepository(WorkspaceServiceSettings)
     private readonly settingsRepository: Repository<WorkspaceServiceSettings>,
     private readonly effects: EffectRuntime,
+    @InjectRepository(InstanceSetting)
+    private readonly instanceSettingsRepository: Repository<InstanceSetting>,
   ) {}
 
   async getSmtpStatus(user: User, requestWorkspaceId?: string) {
@@ -150,17 +160,51 @@ export class ApplicationSettingsService {
       requestWorkspaceId,
     );
     const runtime = await this.getTelegramSettings(user, requestWorkspaceId);
+    const shared = await this.getSharedTelegramSettings();
     return {
       connected: runtime.source !== 'disabled',
       status: runtime.source !== 'disabled' ? 'connected' : 'disconnected',
       source: runtime.source,
       settings: {
         timeoutMs: runtime.timeoutMs,
-        botTokenConfigured: Boolean(
-          settings?.encryptedSecrets?.botToken || process.env.TELEGRAM_BOT_TOKEN,
-        ),
+        botTokenConfigured: Boolean(settings?.encryptedSecrets?.botToken || shared.botToken),
+        sharedBot: shared.source !== 'disabled',
       },
     };
+  }
+
+  /** The shared bot, for the instance admin's settings: never the token itself. */
+  async getInstanceTelegramStatus() {
+    const shared = await this.getSharedTelegramSettings();
+    return { source: shared.source };
+  }
+
+  /** Saves the shared bot every workspace without its own token uses, once getMe accepts it. */
+  async saveInstanceTelegramSettings(user: User, input: SaveInstanceTelegramBotBody) {
+    const timeoutMs = this.positiveNumber(process.env.TELEGRAM_TIMEOUT_MS, 10000);
+    await this.assertTelegramConnection({
+      botToken: input.botToken,
+      timeoutMs,
+      source: 'instance',
+    });
+    const existing = await this.instanceSettingsRepository.findOne({
+      where: { key: InstanceSettingKey.TELEGRAM },
+    });
+    await this.instanceSettingsRepository.save(
+      this.instanceSettingsRepository.create({
+        ...existing,
+        key: InstanceSettingKey.TELEGRAM,
+        encryptedSecrets: this.encryptSecrets({ botToken: input.botToken }),
+        updatedByUserId: user.id,
+      }),
+    );
+    return this.getInstanceTelegramStatus();
+  }
+
+  /** Removes the saved shared bot; TELEGRAM_BOT_TOKEN, if set, takes over again. */
+  async clearInstanceTelegramSettings() {
+    await this.instanceSettingsRepository.delete({ key: InstanceSettingKey.TELEGRAM });
+    return this.getInstanceTelegramStatus();
   }
 
   async saveTelegramSettings(
@@ -402,18 +446,75 @@ export class ApplicationSettingsService {
       ? await this.findSettings(user, WorkspaceServiceSettingsKey.TELEGRAM, requestWorkspaceId)
       : null;
     if (workspace) {
-      return this.telegramRuntimeFromParts(
+      const runtime = this.telegramRuntimeFromParts(
         workspace.config,
         this.decryptSecrets(workspace.encryptedSecrets),
         'workspace',
       );
+      // A workspace row without a token (only a timeout) falls through to the shared bot.
+      if (runtime.botToken) {
+        return runtime;
+      }
+    }
+    return this.getSharedTelegramSettings();
+  }
+
+  /**
+   * The bot of every workspace without its own: the one an instance admin
+   * saved, else TELEGRAM_BOT_TOKEN.
+   */
+  async getSharedTelegramSettings(): Promise<TelegramRuntimeSettings> {
+    const timeoutMs = this.positiveNumber(process.env.TELEGRAM_TIMEOUT_MS, 10000);
+    const saved = await this.instanceSettingsRepository.findOne({
+      where: { key: InstanceSettingKey.TELEGRAM },
+    });
+    let savedToken: string | undefined;
+    try {
+      savedToken = saved ? this.decryptSecrets(saved.encryptedSecrets).botToken : undefined;
+    } catch {
+      // Encrypted under another key: unusable, so the environment's bot (if any) serves.
+    }
+    if (savedToken) {
+      return { botToken: savedToken, timeoutMs, source: 'instance' };
+    }
+    const envToken = process.env.TELEGRAM_BOT_TOKEN || null;
+    return { botToken: envToken, timeoutMs, source: envToken ? 'env' : 'disabled' };
+  }
+
+  /**
+   * Every bot this server answers for: the shared bot and each workspace's own
+   * token, once per token. A bot comes with the public URL of
+   * its workspace, which is where Telegram has to deliver the bot's updates.
+   */
+  async listTelegramBots(): Promise<Array<{ botToken: string; publicUrl: string | null }>> {
+    const envPublicUrl = (await this.getAppSettings()).publicUrl;
+    const bots = new Map<string, string | null>();
+    const shared = await this.getSharedTelegramSettings();
+    if (shared.botToken) {
+      bots.set(shared.botToken, envPublicUrl);
     }
 
-    const env = {
-      botToken: process.env.TELEGRAM_BOT_TOKEN || null,
-      timeoutMs: this.positiveNumber(process.env.TELEGRAM_TIMEOUT_MS, 10000),
-    };
-    return env.botToken ? { ...env, source: 'env' } : { ...env, source: 'disabled' };
+    const rows = await this.settingsRepository.find({
+      where: { key: WorkspaceServiceSettingsKey.TELEGRAM },
+    });
+    for (const row of rows) {
+      let botToken: string | null;
+      try {
+        botToken = this.decryptSecrets(row.encryptedSecrets).botToken || null;
+      } catch {
+        // A token encrypted under another key cannot be used; the others still can.
+        continue;
+      }
+      if (!botToken || bots.has(botToken)) {
+        continue;
+      }
+      const app = await this.settingsRepository.findOne({
+        where: { workspaceId: row.workspaceId, key: WorkspaceServiceSettingsKey.APP },
+      });
+      bots.set(botToken, this.stringValue(app?.config.publicUrl) || envPublicUrl);
+    }
+
+    return [...bots].map(([botToken, publicUrl]) => ({ botToken, publicUrl }));
   }
 
   async getAppSettings(

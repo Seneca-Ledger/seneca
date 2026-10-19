@@ -215,6 +215,12 @@
     font-size: 12px;
   }
 
+  &__stat-note {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
   /* What a tile with room adds under its figure: label on the left, value on the right. */
   /* A tile with room drawing a full chart rather than its sparkline. */
   &__stat-chart {

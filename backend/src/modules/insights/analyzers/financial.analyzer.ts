@@ -15,6 +15,13 @@ import type { AnalysisContext, InsightAnalyzer, InsightCandidate } from './analy
 const TRAILING_MONTHS = 3;
 /** A category has to beat its own trailing average by this much to be worth a word. */
 const RISING_CATEGORY_THRESHOLD_PERCENT = 25;
+/**
+ * ...and by at least this much money. A rise from a small base looks dramatic
+ * in percent (2.88 to 6.61 is +129%) while being a few coins. The floor is set
+ * in US dollars and converted to the workspace currency, so it means the same
+ * in a KZT workspace as in a USD one.
+ */
+const RISING_CATEGORY_MIN_INCREASE = { currency: 'USD', amount: 50 } as const;
 /** Savings rate moves a few points every month; only a real swing is reported. */
 const SAVINGS_RATE_THRESHOLD_POINTS = 5;
 /**
@@ -207,6 +214,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       );
     }
 
+    const minIncrease = await this.risingCategoryMinIncrease(workspaceId);
     const rises = totals
       .filter(row => row.monthIndex === 0)
       .map(row => ({
@@ -219,6 +227,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
         increasePercent: ((item.row.total - item.average) / item.average) * 100,
       }))
       .filter(item => item.increasePercent >= RISING_CATEGORY_THRESHOLD_PERCENT)
+      .filter(item => item.row.total - item.average >= minIncrease)
       .sort((a, b) => b.increasePercent - a.increasePercent);
 
     const best = rises[0] ?? null;
@@ -255,6 +264,19 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       ],
       expiresAt: endOfMonth(new Date()),
     };
+  }
+
+  /**
+   * The money floor for a rising category, in the workspace currency. With no
+   * rate for the floor's currency it falls back to the same number of
+   * workspace units: a lower floor, but still one.
+   */
+  private async risingCategoryMinIncrease(workspaceId: string): Promise<number> {
+    const floor = { currency: RISING_CATEGORY_MIN_INCREASE.currency };
+    const convert = await this.inWorkspaceCurrency(workspaceId, [floor]);
+    return (
+      convert(floor, RISING_CATEGORY_MIN_INCREASE.amount) || RISING_CATEGORY_MIN_INCREASE.amount
+    );
   }
 
   /** This month's largest expense category that no budget is watching. */

@@ -112,7 +112,7 @@ describe('DailyQuoteBanner', () => {
     route.pathname = '/dashboard';
   });
 
-  it('waits while an urgent insight banner is showing', async () => {
+  it('waits while the strip of things to do is showing', async () => {
     apiMocks.get.mockImplementation((url: string) =>
       Promise.resolve({
         data:
@@ -120,14 +120,14 @@ describe('DailyQuoteBanner', () => {
             ? insightPage([
                 {
                   id: 'i2',
-                  type: 'trend.category_rising',
-                  category: 'trend',
+                  type: 'operational.uncategorized_count',
+                  category: 'operational',
                   severity: 'warn',
-                  title: 'Category is rising',
-                  message: 'Category is rising',
+                  title: 'Uncategorized',
+                  message: '12 transactions have no category.',
                   messageKey: null,
                   messageParams: null,
-                  data: null,
+                  data: { count: 12 },
                   createdAt: '2026-08-01T00:00:00.000Z',
                 },
               ])

@@ -31,7 +31,7 @@ import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-i
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
 import {
-  isEInvoiceXml,
+  assertReceiptFileSupported,
   unlinkAll,
   validateFile,
   validateFiles,
@@ -59,18 +59,6 @@ import { UpdateStatementStageResultDto } from './dto/update-statement-stage.dto'
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { StatementStageService } from './services/statement-stage.service';
 import { StatementsService } from './statements.service';
-
-const SUPPORTED_RECEIPT_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/bmp',
-  'image/tiff',
-  'application/pdf',
-  // A structured e-invoice (XRechnung) sent as the XML itself.
-  'application/xml',
-  'text/xml',
-]);
 
 interface ThumbnailErrorLike {
   getStatus?: () => number;
@@ -189,7 +177,7 @@ export class StatementsController {
     try {
       for (const file of files) {
         validateFile(file, { allowEInvoiceXml: true });
-        this.assertReceiptFileSupported(file);
+        assertReceiptFileSupported(file);
       }
     } catch (error) {
       await unlinkAll(files);
@@ -348,15 +336,6 @@ export class StatementsController {
       mimeType,
       errorMessage: 'Failed to download file',
     });
-  }
-
-  private assertReceiptFileSupported(file: Express.Multer.File): void {
-    const isXml = file.mimetype === 'application/xml' || file.mimetype === 'text/xml';
-    if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype) || (isXml && !isEInvoiceXml(file))) {
-      throw new BadRequestException(
-        'Only image, PDF and e-invoice XML receipt files are supported',
-      );
-    }
   }
 
   @Get(':id/view')

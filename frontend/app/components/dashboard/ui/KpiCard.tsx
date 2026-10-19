@@ -12,6 +12,8 @@ export interface KpiCardProps {
   value: React.ReactNode;
   tone?: KpiTone;
   caption?: React.ReactNode;
+  /** A quiet line under the caption that qualifies the figure ("Month in progress"). */
+  note?: React.ReactNode;
   /** Sparkline points; the line takes the card's tone colour, as does a dot by the label. */
   spark?: { points: number[] };
   /** Renders the whole card as a link. */
@@ -31,6 +33,7 @@ export function KpiCard({
   value,
   tone = 'neutral',
   caption,
+  note,
   spark,
   href,
   attentionId,
@@ -60,6 +63,7 @@ export function KpiCard({
           <span className="lumio-dashboard__stat-sub">{caption}</span>
         </div>
       )}
+      {note && <div className="lumio-dashboard__stat-note">{note}</div>}
       {roomy && details && details.length > 0 && (
         <dl className="lumio-dashboard__stat-details">
           {details.map(detail => (

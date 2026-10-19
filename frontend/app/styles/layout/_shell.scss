@@ -6,7 +6,7 @@
 $lumio-sidebar-brand-height: 44px;
 // The logo-lockup.png artwork's own aspect ratio, so the lockup can be sized by height alone.
 // Quoted: it is a CSS `aspect-ratio` value, not a division for Sass to fold.
-$lumio-logo-lockup-ratio: '893 / 300';
+$lumio-logo-lockup-ratio: '1258 / 300';
 
 // ── Layout shell ──
 .lumio-shell {
@@ -172,10 +172,10 @@ $lumio-logo-lockup-ratio: '893 / 300';
     display: block;
     width: 24px;
     height: 24px;
-    background: url('/images/logo-mark.png') no-repeat center / contain;
+    background: url('/images/logo-mark.svg') no-repeat center / contain;
 
     @include dark {
-      background-image: url('/images/logo-mark-dark.png');
+      background-image: url('/images/logo-mark-dark.svg');
     }
   }
 

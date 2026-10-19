@@ -33,9 +33,10 @@ export const TUTORIAL_SCREENS: Record<TutorialStepId, TutorialFragment[]> = {
     { id: 'list', frame: 'pair' },
     { id: 'upload', frame: 'pair' },
   ],
+  // The first fragment is the step's picture: the table itself reads better than a list of one.
   tables: [
-    { id: 'list', frame: 'pair' },
     { id: 'grid', frame: 'pair' },
+    { id: 'list', frame: 'pair' },
   ],
   workspaces: [
     { id: 'list', frame: 'hero' },
@@ -66,9 +67,10 @@ export const TUTORIAL_SCREENS: Record<TutorialStepId, TutorialFragment[]> = {
     { id: 'cards', frame: 'pair' },
     { id: 'over', frame: 'pair' },
   ],
+  // The plain observations first: their picture holds a dry fact beside the Stoic voice.
   advice: [
-    { id: 'attention', frame: 'pair' },
     { id: 'info', frame: 'pair' },
+    { id: 'attention', frame: 'pair' },
   ],
   goals: [
     { id: 'list', frame: 'pair' },

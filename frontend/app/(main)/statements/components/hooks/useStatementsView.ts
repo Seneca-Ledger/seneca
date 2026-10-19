@@ -159,6 +159,12 @@ function sortStatements(statements: Statement[], direction: 'asc' | 'desc'): Sta
     if (diff !== 0) {
       return diff * factor;
     }
+    // One period from two accounts: the statement added later counts as the newer one, so
+    // the order does not hang on the ids, which are random.
+    const added = Date.parse(l.createdAt ?? '') - Date.parse(r.createdAt ?? '');
+    if (added) {
+      return added * factor;
+    }
     return l.id.localeCompare(r.id) * factor;
   });
 }

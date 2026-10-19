@@ -217,6 +217,27 @@ export function generateDemoData(anchor: string): DemoDataset {
     cents: euros(286.4),
     category: 'Meals and entertainment',
   });
+  // A workshop trip to a client the month before: the anchor month then keeps a
+  // larger share of its income, and Advice has a plain "savings rate is up" to show.
+  const lastMonth = months[DEMO_MONTHS - 2];
+  add({
+    account: 'card',
+    date: dayOf(lastMonth, 20),
+    counterparty: 'Deutsche Bahn',
+    purpose: 'Workshop trip Hamburg, return',
+    type: 'expense',
+    cents: euros(189.9),
+    category: 'Travel',
+  });
+  add({
+    account: 'card',
+    date: dayOf(lastMonth, 22),
+    counterparty: 'Hotel Hafenblick Hamburg',
+    purpose: 'Workshop trip, 3 nights',
+    type: 'expense',
+    cents: euros(618),
+    category: 'Travel',
+  });
 
   // Settled below from these amounts, so the cents must be final first.
   sortRows(rows);

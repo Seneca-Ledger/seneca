@@ -58,6 +58,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     if (!apiKey) {
       throw new UnauthorizedException('Invalid or revoked API key');
     }
+    // A deactivated account loses its keys too, as it loses its sessions (JwtStrategy).
+    if (apiKey.user?.isActive === false) {
+      throw new UnauthorizedException('User is inactive');
+    }
 
     request.user = apiKey.user as AuthenticatedUser;
     request.apiKeyWorkspaceId = apiKey.workspaceId;

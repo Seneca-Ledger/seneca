@@ -4,11 +4,11 @@
 /** Frame proportions of the guide (FRAME_ASPECT in welcome-tutorial-screens.ts). */
 export const FRAME_ASPECT = { hero: 1.55, side: 2.24, pair: 1.55 };
 
-/** Widest each frame is drawn in the guide, in CSS pixels (SIZES in TutorialFragments.tsx). */
-export const FRAME_WIDTH = { hero: 660, side: 460, pair: 560 };
+/** Widest the guide draws a step's picture, in CSS pixels. */
+export const PICTURE_WIDTH = 800;
 
-/** A screenshot holds at most this many pixels per CSS pixel of its frame. */
-export const MAX_FRAME_SCALE = 1.5;
+/** A picture holds at most this many pixels per CSS pixel it is drawn at: sharp on 2x screens. */
+export const MAX_PICTURE_SCALE = 2;
 
 /** `--only=a,b --theme=dark --locale=all --concurrency=4` → an object; bare flags are true. */
 export function parseArgs(argv) {
@@ -71,9 +71,9 @@ export function clipFor(boxes, { frame, width, pad = 16, bounds = null }) {
   };
 }
 
-/** Pixel width of the saved image: the capture's own, but no more than the frame needs. */
-export function outputWidth(frame, capturedWidth) {
-  return Math.min(capturedWidth, Math.round(FRAME_WIDTH[frame] * MAX_FRAME_SCALE));
+/** Pixel width of the saved image: the capture's own, but no more than the picture needs. */
+export function outputWidth(capturedWidth) {
+  return Math.min(capturedWidth, PICTURE_WIDTH * MAX_PICTURE_SCALE);
 }
 
 const TIMESTAMP_KEYS = new Set(['createdAt', 'updatedAt']);

@@ -17,6 +17,9 @@ import { StatementsModule } from '../statements/statements.module';
 import { TelegramController } from './telegram.controller';
 import { TelegramScheduler } from './telegram.scheduler';
 import { TelegramService } from './telegram.service';
+import { TelegramBotWebhookGuard } from './telegram-bot-webhook.guard';
+import { TelegramBotsService } from './telegram-bots.service';
+import { TelegramLinkCodes } from './telegram-link-codes';
 import { TelegramWebhookController } from './telegram-webhook.controller';
 import { TelegramWebhookGuard } from './telegram-webhook.guard';
 
@@ -34,7 +37,14 @@ import { TelegramWebhookGuard } from './telegram-webhook.guard';
     InsightsModule,
   ],
   controllers: [TelegramController, TelegramWebhookController],
-  providers: [TelegramService, TelegramScheduler, TelegramWebhookGuard],
+  providers: [
+    TelegramService,
+    TelegramScheduler,
+    TelegramWebhookGuard,
+    TelegramBotWebhookGuard,
+    TelegramBotsService,
+    TelegramLinkCodes,
+  ],
   exports: [TelegramService],
 })
 export class TelegramModule {}
