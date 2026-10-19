@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
@@ -39,6 +40,9 @@ type MulterFile = Express.Multer.File;
 // buffered before any handler ran. Backups are larger than ordinary uploads
 // (which cap at 10MB via multerConfig) but still need a ceiling.
 const BACKUP_UPLOAD_OPTIONS = { limits: { fileSize: 200 * 1024 * 1024 } };
+// Opening an archive unpacks and decrypts it in memory, and any signed-in
+// account may upload one, workspace or not.
+const BACKUP_IMPORT_THROTTLE = { default: { limit: 5, ttl: 60000 } };
 
 @Controller('backups')
 @UseGuards(JwtAuthGuard)
@@ -97,6 +101,7 @@ export class BackupsController {
   }
 
   @Post('import/preview')
+  @Throttle(BACKUP_IMPORT_THROTTLE)
   @UseInterceptors(FileInterceptor('file', BACKUP_UPLOAD_OPTIONS))
   @SchemaResponse(BackupImportPreview)
   previewImport(
@@ -108,6 +113,7 @@ export class BackupsController {
   }
 
   @Post('imports/:id/restore')
+  @Throttle(BACKUP_IMPORT_THROTTLE)
   @UseInterceptors(FileInterceptor('file', BACKUP_UPLOAD_OPTIONS))
   @SchemaResponse(BackupRestoreResult)
   async restoreImport(
