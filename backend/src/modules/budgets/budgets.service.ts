@@ -5,12 +5,14 @@ import {
   Logger,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql, flowsSql } from '../../common/utils/counted-transactions.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { BudgetImpactQuery, CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Budget, BudgetPeriodType, BudgetRolloverMode } from '../../entities/budget.entity';
@@ -26,6 +28,7 @@ import { Wallet } from '../../entities/wallet.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { BudgetExceededEvent } from '../notifications/events/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import {
@@ -89,6 +92,8 @@ export class BudgetsService {
     private readonly walletRepository?: Repository<Wallet>,
     @Optional()
     private readonly exchangeRatesService?: ExchangeRatesService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async create(workspaceId: string, userId: string, dto: CreateBudgetBody): Promise<Budget> {
@@ -265,6 +270,16 @@ export class BudgetsService {
             percentUsed: Math.round(percentUsed),
           },
         });
+        this.eventEmitter?.emit('budget.exceeded', {
+          workspaceId,
+          budgetId: budget.id,
+          name: budget.name,
+          categoryId: budget.categoryId ?? null,
+          limitAmount: Number(budget.limitAmount),
+          spentAmount: Number(spentAmount),
+          percentUsed: Math.round(percentUsed),
+          currency: budget.currency,
+        } satisfies BudgetExceededEvent);
       } else if (percentUsed >= 80 && !budget.alertAt80Sent) {
         budget.alertAt80Sent = true;
         await this.budgetRepository.save(budget);
@@ -293,7 +308,10 @@ export class BudgetsService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async resetPeriodAlertFlags(): Promise<void> {
     const budgets = await this.budgetRepository.find({
-      where: [{ alertAt80Sent: true }, { alertAt100Sent: true }],
+      where: [
+        { alertAt80Sent: true, workspace: STANDARD_WORKSPACE },
+        { alertAt100Sent: true, workspace: STANDARD_WORKSPACE },
+      ],
     });
 
     const now = new Date();

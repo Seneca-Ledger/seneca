@@ -4,6 +4,7 @@ import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
 import { optionalNullable, Url } from '../common/requests';
 import type { Wire } from '../common/wire';
+import { WebhookEventName } from '../webhooks/webhooks';
 
 export const CreateWebhookEndpointBody = Schema.Struct({
   name: Schema.String.check(Schema.isBetweenLength(1, 255)),
@@ -38,9 +39,7 @@ export const CreateWebhookSubscriptionBody = Schema.Struct({
   name: Schema.String.check(Schema.isBetweenLength(1, 255)),
   url: Url,
   secret: Schema.String.check(Schema.isBetweenLength(16, 255)),
-  events: Schema.Array(
-    Schema.Literals(['transaction.created', 'statement.processed', 'receipt.approved']),
-  ),
+  events: Schema.Array(WebhookEventName),
   isActive: optionalNullable(Schema.Boolean),
 });
 export type CreateWebhookSubscriptionBody = Wire<typeof CreateWebhookSubscriptionBody>;

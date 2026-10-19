@@ -56,6 +56,8 @@ export interface User {
   onboardingCompletedAt?: string | null;
   /** When the welcome tutorial was closed; null opens it after sign-up. */
   welcomeTutorialSeenAt?: string | null;
+  /** Page hints closed so far: page id → highest version seen; absent means unknown. */
+  pageHintsSeen?: Record<string, number>;
 }
 
 export interface AuthContextValue {

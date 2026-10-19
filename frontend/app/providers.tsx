@@ -15,6 +15,7 @@ import {
   persistLocaleToCookie,
   readLocaleFromCookie,
 } from '@/app/lib/locale';
+import { usePickerLocale } from '@/app/lib/picker-locale';
 import { getQueryClient } from '@/app/lib/query-client';
 import {
   getStoredThemePreference,
@@ -26,6 +27,7 @@ import {
 import { KeyboardShortcutsProvider } from './components/keyboard-shortcuts-provider';
 import { OfflineBanner } from './components/pwa/OfflineBanner';
 import { ServiceWorkerRegistrar } from './components/pwa/ServiceWorkerRegistrar';
+import { VersionBanner } from './components/versions/VersionBanner';
 import { AuthProvider } from './contexts/AuthContext';
 import { CurrencyDisplayProvider } from './contexts/CurrencyDisplayContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -99,6 +101,7 @@ function WorkspaceScopedProviders({
             <>
               <ServiceWorkerRegistrar />
               <OfflineBanner />
+              <VersionBanner />
             </>
           ) : null}
           <React.Fragment key={scopeKey}>{children}</React.Fragment>
@@ -120,6 +123,8 @@ export function Providers({
   const { resolvedTheme } = useNextTheme();
   const [mounted, setMounted] = useState(false);
   const [locale, setLocale] = useState<AppLocale>(() => readLocaleFromCookie() ?? initialLocale);
+  // Without it every date picker spoke English: month names, placeholders, labels.
+  const pickerLocale = usePickerLocale(locale);
   // Before mount, the server's guess from the cookie, so hydration matches the SSR markup.
   const paletteMode: ResolvedAppTheme =
     mounted && resolvedTheme ? (resolvedTheme === 'dark' ? 'dark' : 'light') : initialPaletteMode;
@@ -150,7 +155,11 @@ export function Providers({
       <HtmlLanguageSync />
       <ThemePreferenceSync />
       <ThemeProvider theme={muiTheme}>
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <LocalizationProvider
+          dateAdapter={AdapterDateFns}
+          adapterLocale={pickerLocale?.dateLocale}
+          localeText={pickerLocale?.localeText}
+        >
           {/* Выше AuthProvider и WorkspaceProvider: их собственные запросы —
               следующие цели миграции, а NotificationProvider внутри
               WorkspaceScopedProviders уже использует кэш. Строго вне

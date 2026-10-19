@@ -18,6 +18,7 @@ import apiClient from '@/app/lib/api';
 import { blobOf } from '@/app/lib/blob-of';
 import type { ReportHistoryList } from '@/app/lib/contracts';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import { TEMPLATE_NAME_KEYS } from './report-template-names';
@@ -165,7 +166,7 @@ export function ReportHistory(): React.JSX.Element {
       return `${diffDays} ${text('daysAgo', 'days ago')}`;
     }
 
-    const resolvedLocale = locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US';
+    const resolvedLocale = resolveLocaleTag(locale);
     return formatStoredDateWithOptions(date, { month: 'short', day: 'numeric' }, resolvedLocale);
   };
 

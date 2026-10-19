@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { HttpException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Client as PgClient } from 'pg';
@@ -84,6 +85,7 @@ describe('credit notes (real Postgres)', () => {
   let clientId: string;
   let otherClientId: string;
   let vatRateId: string;
+  const eventEmitter = { emit: jest.fn() };
 
   async function errorOf(promise: Promise<unknown>) {
     try {
@@ -169,6 +171,7 @@ describe('credit notes (real Postgres)', () => {
         LedgerAccountsService,
         { provide: ExchangeRatesService, useValue: { getRateQuote: jest.fn(), getRate: jest.fn() } },
         { provide: NotificationsService, useValue: { createForWorkspaceMembers: jest.fn() } },
+        { provide: EventEmitter2, useValue: eventEmitter },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
           useValue: dataSource.getRepository(entity),
@@ -303,6 +306,17 @@ describe('credit notes (real Postgres)', () => {
     const settled = await payableRepo.findOneByOrFail({ id: payable.id });
     expect(settled.status).toBe(PayableStatus.PAID);
     expect(Number(settled.amount)).toBe(600);
+    // Webhooks hear of it as of any other payment that closes an invoice.
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'payable.paid',
+      expect.objectContaining({
+        workspaceId,
+        payableId: payable.id,
+        direction: 'receivable',
+        source: 'invoice',
+        amount: 600,
+      }),
+    );
   });
 
   it('covers three invoices of one client with one note', async () => {

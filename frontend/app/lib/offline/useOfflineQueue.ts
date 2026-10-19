@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useReadOnlyWorkspace } from '@/app/contexts/WorkspaceContext';
 import apiClient from '@/app/lib/api';
-import { getApiErrorStatus } from '@/app/lib/api-error';
+import { getApiErrorStatus, isVersionReadOnlyError } from '@/app/lib/api-error';
 import {
   indexedDbStore,
   isOfflineStoreAvailable,
@@ -35,7 +36,10 @@ export async function sendOfflineEntry(
     });
     return { ok: true };
   } catch (error: unknown) {
-    return { ok: false, status: getApiErrorStatus(error), error: String(error) };
+    // A past version refuses every write: no status, so the entry is kept for
+    // the live workspace instead of dropped as rejected.
+    const status = isVersionReadOnlyError(error) ? undefined : getApiErrorStatus(error);
+    return { ok: false, status, error: String(error) };
   }
 }
 
@@ -48,6 +52,10 @@ export function useOfflineQueue(store: OfflineStore = indexedDbStore) {
   const [online, setOnline] = useState(true);
   const [replaying, setReplaying] = useState(false);
   const available = isOfflineStoreAvailable();
+  // Inside a past version nothing can be sent; read through a ref so the
+  // mount-time listeners below see the current state.
+  const { isReadOnly } = useReadOnlyWorkspace();
+  const readOnlyRef = useRef(isReadOnly);
 
   const refresh = useCallback(async () => {
     if (!available) return;
@@ -59,7 +67,9 @@ export function useOfflineQueue(store: OfflineStore = indexedDbStore) {
   }, [available, store]);
 
   const flush = useCallback(async () => {
-    if (!available || replaying || !navigator.onLine) return { sent: 0, kept: 0 };
+    if (!available || replaying || readOnlyRef.current || !navigator.onLine) {
+      return { sent: 0, kept: 0 };
+    }
     setReplaying(true);
     try {
       return await replay(store, sendOfflineEntry);
@@ -68,6 +78,13 @@ export function useOfflineQueue(store: OfflineStore = indexedDbStore) {
       await refresh();
     }
   }, [available, replaying, store, refresh]);
+
+  // Leaving a version sends what waited meanwhile.
+  useEffect(() => {
+    const wasReadOnly = readOnlyRef.current;
+    readOnlyRef.current = isReadOnly;
+    if (wasReadOnly && !isReadOnly && navigator.onLine) void flush();
+  }, [isReadOnly, flush]);
 
   useEffect(() => {
     setOnline(navigator.onLine);

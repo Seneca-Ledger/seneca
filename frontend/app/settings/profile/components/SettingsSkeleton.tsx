@@ -8,7 +8,7 @@ export function SettingsSkeleton(): React.JSX.Element {
     <Box className="container-shared" sx={{ px: 2, py: 4 }}>
       <Box sx={{ maxWidth: 800, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Box sx={{ display: 'flex', gap: 1, overflow: 'hidden' }}>
-          {Array.from({ length: 5 }).map((_, index) => (
+          {Array.from({ length: 6 }).map((_, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length static skeleton list
             <Skeleton key={index} variant="rounded" width={104} height={36} />
           ))}

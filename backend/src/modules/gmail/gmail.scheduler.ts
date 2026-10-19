@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import {
   GmailWatchSubscription,
   Integration,
@@ -60,6 +61,7 @@ export class GmailScheduler {
         where: {
           expiration: LessThan(tomorrow),
           status: WatchSubscriptionStatus.ACTIVE,
+          integration: { workspace: STANDARD_WORKSPACE },
         },
         relations: ['integration'],
       });

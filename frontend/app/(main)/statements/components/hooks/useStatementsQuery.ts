@@ -70,7 +70,7 @@ export function useStatementsQuery({
         }),
       );
     },
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
     refetchInterval: query => statementsRefetchInterval(query.state.data),
     // Смена фильтра или поиска не должна ронять список в скелетон.
     placeholderData: keepPreviousData,

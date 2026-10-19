@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { UpdateBankSyncSettingsBody } from '../../contracts';
 import {
   Integration,
@@ -286,7 +287,12 @@ export class BankSyncService {
   @Cron(CronExpression.EVERY_6_HOURS)
   async autoSync(): Promise<void> {
     const integrations = await this.integrationRepository.find({
-      where: { provider: IntegrationProvider.SIMPLEFIN, status: IntegrationStatus.CONNECTED },
+      // A past version pulls nothing new, whatever its copied settings say.
+      where: {
+        provider: IntegrationProvider.SIMPLEFIN,
+        status: IntegrationStatus.CONNECTED,
+        workspace: STANDARD_WORKSPACE,
+      },
       relations: ['openProtocolSettings', 'connectedByUser'],
     });
     for (const integration of integrations) {

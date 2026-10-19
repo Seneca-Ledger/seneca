@@ -41,7 +41,7 @@ import {
   WorkspaceRole,
 } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
-import { VatStatus } from '../../entities/workspace.entity';
+import { VatStatus, WorkspaceKind } from '../../entities/workspace.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
@@ -303,6 +303,7 @@ export class WorkspacesService {
     targetUserId: string,
     permissions: WorkspaceMemberPermissions,
   ) {
+    await this.assertWritable(workspaceId);
     await this.requireAdminMembership(workspaceId, requestingUserId);
 
     if (!targetUserId || targetUserId.trim().length === 0) {
@@ -347,6 +348,7 @@ export class WorkspacesService {
     targetUserId: string,
     role: WorkspaceRole,
   ) {
+    await this.assertWritable(workspaceId);
     const currentMembership = await this.requireAdminMembership(workspaceId, requestingUserId);
 
     if (!targetUserId || targetUserId.trim().length === 0) {
@@ -436,6 +438,7 @@ export class WorkspacesService {
   }
 
   async cancelInvitation(workspaceId: string, requestingUserId: string, invitationId: string) {
+    await this.assertWritable(workspaceId);
     await this.requireAdminMembership(workspaceId, requestingUserId);
 
     if (!invitationId || invitationId.trim().length === 0) {
@@ -471,6 +474,7 @@ export class WorkspacesService {
   }
 
   async removeMember(workspaceId: string, requestingUserId: string, targetUserId: string) {
+    await this.assertWritable(workspaceId);
     const currentMembership = await this.requireAdminMembership(workspaceId, requestingUserId);
 
     if (!targetUserId || targetUserId.trim().length === 0) {
@@ -536,6 +540,7 @@ export class WorkspacesService {
     dto: InviteMemberBody,
     requestAppOrigin?: string,
   ) {
+    await this.assertWritable(workspaceId);
     await this.requireAdminMembership(workspaceId, currentUser.id);
 
     const workspace = await this.workspaceRepository.findOne({
@@ -844,6 +849,50 @@ export class WorkspacesService {
     };
   }
 
+  /** For each opened version among these workspaces: its version, source and date. */
+  private async openedVersions(
+    workspaces: Workspace[],
+  ): Promise<Map<string, { id: string; takenAt: Date; sourceWorkspaceId: string }>> {
+    const opened = workspaces.filter(
+      workspace => workspace.kind === WorkspaceKind.VERSION && workspace.versionId,
+    );
+    if (opened.length === 0) return new Map();
+    const rows: Array<{ id: string; taken_at: Date; workspace_id: string }> =
+      await this.workspaceRepository.query(
+        'SELECT id, taken_at, workspace_id FROM workspace_versions WHERE id = ANY($1::uuid[])',
+        [opened.map(workspace => workspace.versionId)],
+      );
+    const byId = new Map(rows.map(row => [row.id, row]));
+    return new Map(
+      opened.flatMap(workspace => {
+        const row = byId.get(workspace.versionId as string);
+        return row
+          ? [
+              [
+                workspace.id,
+                { id: row.id, takenAt: row.taken_at, sourceWorkspaceId: row.workspace_id },
+              ],
+            ]
+          : [];
+      }),
+    );
+  }
+
+  /**
+   * Settings and membership of a past version do not change: it is a copy of
+   * the books as they were. These routes name the workspace in their path, so
+   * the workspace guard, which reads the header, does not see them.
+   */
+  private async assertWritable(workspaceId: string): Promise<void> {
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: ['id', 'kind'],
+    });
+    if (workspace?.kind === WorkspaceKind.VERSION) {
+      throw new ForbiddenException(appError('VERSION_READ_ONLY'));
+    }
+  }
+
   async getUserWorkspaces(userId: string): Promise<WorkspaceResponseDto[]> {
     const memberships = await this.workspaceMemberRepository.find({
       where: { userId },
@@ -851,6 +900,7 @@ export class WorkspacesService {
       order: { lastAccessedAt: 'DESC' },
     });
 
+    const versions = await this.openedVersions(memberships.map(membership => membership.workspace));
     const workspaces = await Promise.all(
       memberships.map(async membership => {
         const workspace = membership.workspace;
@@ -867,6 +917,8 @@ export class WorkspacesService {
           backgroundSourceUrl: workspace.backgroundSourceUrl,
           currency: workspace.currency,
           isFavorite: workspace.isFavorite,
+          kind: workspace.kind,
+          version: versions.get(workspace.id) ?? null,
           settings: workspace.settings,
           ownerId: workspace.ownerId,
           createdAt: workspace.createdAt,
@@ -908,6 +960,7 @@ export class WorkspacesService {
       backgroundSourceUrl: workspace.backgroundSourceUrl,
       currency: workspace.currency,
       isFavorite: workspace.isFavorite,
+      kind: workspace.kind,
       settings: workspace.settings,
       ownerId: workspace.ownerId,
       createdAt: workspace.createdAt,
@@ -972,6 +1025,7 @@ export class WorkspacesService {
       backgroundSourceUrl: savedWorkspace.backgroundSourceUrl,
       currency: savedWorkspace.currency,
       isFavorite: savedWorkspace.isFavorite,
+      kind: savedWorkspace.kind,
       settings: savedWorkspace.settings,
       ownerId: savedWorkspace.ownerId,
       createdAt: savedWorkspace.createdAt,
@@ -987,6 +1041,7 @@ export class WorkspacesService {
     userId: string,
     dto: UpdateWorkspaceBody,
   ): Promise<WorkspaceResponseDto> {
+    await this.assertWritable(workspaceId);
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
     });
@@ -1078,6 +1133,7 @@ export class WorkspacesService {
       backgroundSourceUrl: updated.backgroundSourceUrl,
       currency: updated.currency,
       isFavorite: updated.isFavorite,
+      kind: updated.kind,
       settings: updated.settings,
       ownerId: updated.ownerId,
       createdAt: updated.createdAt,
@@ -1097,7 +1153,14 @@ export class WorkspacesService {
       throw new ForbiddenException(appError('WORKSPACE_NOT_A_MEMBER'));
     }
 
-    await this.userRepository.update(userId, { lastWorkspaceId: workspaceId });
+    // A past version is looked at, not worked in: signing in again lands in a real workspace.
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: ['id', 'kind'],
+    });
+    if (workspace?.kind !== WorkspaceKind.VERSION) {
+      await this.userRepository.update(userId, { lastWorkspaceId: workspaceId });
+    }
 
     await this.workspaceMemberRepository.update(membership.id, {
       lastAccessedAt: new Date(),
@@ -1135,6 +1198,7 @@ export class WorkspacesService {
   }
 
   async toggleFavorite(workspaceId: string, userId: string): Promise<{ isFavorite: boolean }> {
+    await this.assertWritable(workspaceId);
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
     });

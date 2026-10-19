@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import {
   DEFAULT_PAYMENT_TERMS_DAYS,
   DEFAULT_REMINDER_OFFSETS,
@@ -70,7 +71,10 @@ export class InvoiceSettingsService {
 
   /** The workspace's own rows, for the reminder scheduler to walk. */
   async withRemindersEnabled(): Promise<InvoiceSettings[]> {
-    return this.settingsRepository.find({ where: { remindersEnabled: true } });
+    // A past version keeps its copied settings, but must never mail a client.
+    return this.settingsRepository.find({
+      where: { remindersEnabled: true, workspace: STANDARD_WORKSPACE },
+    });
   }
 
   private clampTerms(days: number): number {

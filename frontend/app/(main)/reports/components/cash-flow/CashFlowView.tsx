@@ -491,6 +491,7 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
 
       {data && (
         <Box
+          data-tour-shot="reports-flow"
           sx={{
             display: 'grid',
             gap: 3,

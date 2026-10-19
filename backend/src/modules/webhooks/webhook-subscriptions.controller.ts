@@ -8,6 +8,7 @@ import { Permission } from '../../common/enums/permissions.enum';
 import {
   CreateWebhookSubscriptionBody,
   UpdateWebhookSubscriptionBody,
+  WebhookDeliveryList,
   WebhookSubscriptionList,
 } from '../../contracts';
 import { User } from '../../entities/user.entity';
@@ -78,6 +79,7 @@ export class WebhookSubscriptionsController {
 
   @Get(':id/deliveries')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(WebhookDeliveryList)
   async deliveries(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     await this.service.findOne(id, workspaceId); // scope check
     return this.deliveryService.findForSubscription(id);

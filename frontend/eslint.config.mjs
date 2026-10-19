@@ -160,6 +160,17 @@ export default tseslint.config(
       // Components must not take more than 2 props inline — use a Props type.
       // (This counts function params, not object keys inside the props type.)
       'max-params': ['warn', { max: 1 }],
+
+      // MUI 7's Switch overwrites `inputProps` with its own `slotProps.input`
+      // ({ role: 'switch' }), so an aria-label passed there never reaches the input.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXOpeningElement[name.name='Switch'] > JSXAttribute[name.name='inputProps']",
+          message:
+            "MUI's Switch drops `inputProps`; pass input attributes through `slotProps={{ input: { ... } }}`.",
+        },
+      ],
     },
   },
 

@@ -3,7 +3,14 @@
 import { Tab, Tabs } from '@mui/material';
 import type React from 'react';
 import type { ComponentType } from 'react';
-import { Bell, Cloud, FlaskConical, ShieldCheck, UserCircle } from '@/app/components/icons';
+import {
+  Bell,
+  Cloud,
+  FlaskConical,
+  History,
+  ShieldCheck,
+  UserCircle,
+} from '@/app/components/icons';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import {
   SETTINGS_TABS,
@@ -18,6 +25,7 @@ const TAB_ICON: Record<SettingsTabId, ComponentType<{ size?: number }>> = {
   notifications: Bell,
   data: Cloud,
   advanced: FlaskConical,
+  versions: History,
 };
 
 type SettingsTabsProps = {

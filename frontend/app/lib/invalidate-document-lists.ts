@@ -62,6 +62,7 @@ export const NON_FINANCIAL_QUERY_ROOTS = [
   'webhook-endpoints',
   'webhook-subscriptions',
   'workspace-members',
+  'workspace-versions',
 ] as const;
 
 /**

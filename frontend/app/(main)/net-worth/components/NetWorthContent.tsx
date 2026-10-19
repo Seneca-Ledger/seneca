@@ -12,6 +12,7 @@ import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import { NET_WORTH_RANGES, type NetWorthRange, useNetWorth } from '../hooks/useNetWorth';
 import { AllocationCard } from './AllocationCard';
@@ -187,6 +188,7 @@ export function NetWorthContent() {
           }}
         >
           <Box
+            data-tour-shot="net-worth-chart"
             sx={{
               border: '1px solid',
               borderColor: 'divider',
@@ -238,7 +240,14 @@ export function NetWorthContent() {
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                 {t.allTimeHigh.value
                   .replace('{{value}}', formatMoney(data.allTimeHigh.value, currency, locale))
-                  .replace('{{date}}', data.allTimeHigh.date)}
+                  .replace(
+                    '{{date}}',
+                    formatStoredDateWithOptions(
+                      `${data.allTimeHigh.date}T00:00:00`,
+                      { day: 'numeric', month: 'long', year: 'numeric' },
+                      locale,
+                    ),
+                  )}
               </Typography>
             )}
 

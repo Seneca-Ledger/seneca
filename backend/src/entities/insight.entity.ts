@@ -126,6 +126,10 @@ export class Insight {
   @Column({ name: 'is_dismissed', type: 'boolean', default: false })
   isDismissed: boolean;
 
+  /** When the person closed it; a refresh brings it back after a week or when its count grows. */
+  @Column({ name: 'dismissed_at', type: 'timestamptz', nullable: true })
+  dismissedAt: Date | null;
+
   @Column({ name: 'is_actioned', type: 'boolean', default: false })
   isActioned: boolean;
 

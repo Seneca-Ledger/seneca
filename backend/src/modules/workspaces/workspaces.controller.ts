@@ -8,10 +8,11 @@ import {
   Patch,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
@@ -20,6 +21,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
   AcceptInvitationBody,
+  CreateDemoWorkspaceBody,
   CreateWorkspaceBody,
   InvitationAccepted,
   InvitationPreview,
@@ -37,11 +39,15 @@ import type { User } from '../../entities';
 import { WorkspaceRole } from '../../entities/workspace-member.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { DemoWorkspaceService } from './demo-workspace/demo-workspace.service';
 import { WorkspacesService } from './workspaces.service';
 
 @Controller('workspaces')
 export class WorkspacesController {
-  constructor(private readonly workspacesService: WorkspacesService) {}
+  constructor(
+    private readonly workspacesService: WorkspacesService,
+    private readonly demoWorkspaceService: DemoWorkspaceService,
+  ) {}
 
   private getRequestAppOrigin(req: Request): string | undefined {
     const originHeader = req.headers.origin;
@@ -105,6 +111,22 @@ export class WorkspacesController {
     @SchemaBody(CreateWorkspaceBody) dto: CreateWorkspaceBody,
   ) {
     return this.workspacesService.createWorkspace(user.id, dto);
+  }
+
+  /** The caller's demo workspace with sample data: 201 when made now, 200 when it already was. */
+  @Post('demo')
+  @UseGuards(JwtAuthGuard)
+  // Each first call writes a year of data; deleting and asking again is the only way to repeat it.
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 per minute
+  @SchemaResponse(WorkspaceSummary)
+  async createDemoWorkspace(
+    @CurrentUser() user: User,
+    @SchemaBody(CreateDemoWorkspaceBody) dto: CreateDemoWorkspaceBody,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { workspace, created } = await this.demoWorkspaceService.getOrCreate(user.id, dto.name);
+    res.status(created ? HttpStatus.CREATED : HttpStatus.OK);
+    return workspace;
   }
 
   @Patch(':id')

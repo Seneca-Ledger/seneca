@@ -19,6 +19,11 @@ export enum VatStatus {
   NOT_REGISTERED = 'not_registered',
 }
 
+export enum WorkspaceKind {
+  STANDARD = 'standard',
+  VERSION = 'version',
+}
+
 @Entity('workspaces')
 export class Workspace {
   @PrimaryGeneratedColumn('uuid')
@@ -97,6 +102,24 @@ export class Workspace {
 
   @Column({ type: 'boolean', default: false, name: 'is_favorite' })
   isFavorite: boolean;
+
+  /**
+   * `version`: a past version of a workspace opened to look at — read only,
+   * reachable by its owner alone, and skipped by every background job.
+   */
+  @Column({ type: 'varchar', length: 16, default: WorkspaceKind.STANDARD })
+  kind: WorkspaceKind;
+
+  /** For a past version opened to look at: the version it was opened from. */
+  @Column({ name: 'version_id', type: 'uuid', nullable: true })
+  versionId: string | null;
+
+  /**
+   * Set on the demo workspace `POST /workspaces/demo` made: the user it was
+   * made for. Unique, so each user has at most one.
+   */
+  @Column({ name: 'demo_of_user_id', type: 'uuid', nullable: true })
+  demoOfUserId: string | null;
 
   @Column({ type: 'jsonb', nullable: true })
   settings: Record<string, unknown> | null;

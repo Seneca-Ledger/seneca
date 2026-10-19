@@ -26,6 +26,7 @@ export function useMonthGoals(month: string): UseMonthGoalsState {
     queryKey: queryKeys.goalsMonth({ workspaceId, month }),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: `/goals?month=${month}`, signal, contract: 'MonthGoalList' }),
+    enabled: Boolean(workspaceId),
   });
 
   return {

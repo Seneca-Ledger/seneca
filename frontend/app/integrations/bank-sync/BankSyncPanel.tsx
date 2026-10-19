@@ -373,7 +373,9 @@ export function BankSyncPanel({
                           onChange={event =>
                             updateAccount(account.id, { enabled: event.target.checked })
                           }
-                          inputProps={{ 'aria-label': `${t.pull.value}: ${account.name}` }}
+                          slotProps={{
+                            input: { 'aria-label': `${t.pull.value}: ${account.name}` },
+                          }}
                         />
                       }
                       label={<Typography sx={{ fontSize: 13 }}>{t.pull}</Typography>}

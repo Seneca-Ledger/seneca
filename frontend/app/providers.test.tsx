@@ -91,6 +91,7 @@ vi.mock('./contexts/WorkspaceContext', () => ({
       : null,
     loading: false,
   }),
+  useReadOnlyWorkspace: () => ({ isReadOnly: false, version: null }),
 }));
 
 vi.mock('./hooks/useAutoTheme', () => ({

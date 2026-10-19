@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
@@ -533,6 +534,8 @@ export class StorageController {
    * POST /api/v1/storage/files/bulk/download
    */
   @Post('files/bulk/download')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   async bulkDownload(
     @SchemaBody(BulkFileActionBody) dto: BulkFileActionBody,
     @CurrentUser() user: User,

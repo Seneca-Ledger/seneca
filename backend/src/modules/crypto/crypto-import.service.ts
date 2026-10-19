@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import {
@@ -14,6 +15,7 @@ import {
   TransferPairSource,
 } from '../../entities/transaction.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { TransactionsImportedEvent } from '../notifications/events/notification-events';
 import { CryptoBalanceService } from './crypto-balance.service';
 import { type ExchangeEntry, type ExchangeName, parseExchangeCsv } from './crypto-exchange-csv';
 import { CryptoHoldingsService } from './crypto-holdings.service';
@@ -54,6 +56,7 @@ export class CryptoImportService {
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly holdingsService: CryptoHoldingsService,
     private readonly balanceService: CryptoBalanceService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async importCsv(workspaceId: string, userId: string, csv: string): Promise<ExchangeImportResult> {
@@ -70,16 +73,17 @@ export class CryptoImportService {
     const currency = await this.holdingsService.getWorkspaceCurrency(workspaceId);
     const wallet = await this.getOrCreateWallet(workspaceId, userId, parsed.exchange);
 
-    let imported = 0;
+    const importedIds: string[] = [];
     let skipped = 0;
     for (const entry of parsed.entries) {
-      const written = await this.persist(wallet, entry, parsed.exchange, currency);
-      if (written) {
-        imported += 1;
+      const writtenId = await this.persist(wallet, entry, parsed.exchange, currency);
+      if (writtenId) {
+        importedIds.push(writtenId);
       } else {
         skipped += 1;
       }
     }
+    const imported = importedIds.length;
 
     // The file is the only record of what the account holds, so the balances are
     // its running total — not a sum of what we managed to book.
@@ -89,6 +93,13 @@ export class CryptoImportService {
       lastSyncError: null,
     });
     await this.balanceService.writePortfolioSnapshot(workspaceId, userId);
+    if (imported > 0) {
+      this.eventEmitter?.emit('transactions.imported', {
+        workspaceId,
+        source: 'crypto_import',
+        transactionIds: importedIds,
+      } satisfies TransactionsImportedEvent);
+    }
 
     return { exchange: parsed.exchange, imported, skipped, walletId: wallet.id };
   }
@@ -104,7 +115,7 @@ export class CryptoImportService {
     entry: ExchangeEntry,
     exchange: ExchangeName,
     currency: string,
-  ): Promise<boolean> {
+  ): Promise<string | null> {
     const date = new Date(`${entry.date}T00:00:00.000Z`);
     const amount = Math.abs(entry.amount);
     const stated = await this.statedValue(entry, date, currency, wallet.workspaceId);
@@ -112,7 +123,7 @@ export class CryptoImportService {
       stated ?? (await this.marketValue(entry, amount, date, currency, wallet.workspaceId));
     if (fiatAmount === null) {
       // Priced later rather than booked at zero; a re-import picks it up.
-      return false;
+      return null;
     }
     const isIncome = entry.amount > 0;
     const id = reference(exchange, entry.reference);
@@ -155,7 +166,10 @@ export class CryptoImportService {
       .orIgnore()
       .execute();
 
-    return Array.isArray(result.raw) && result.raw.length > 0;
+    // No row back: the unique index refused a repeated import.
+    return Array.isArray(result.raw)
+      ? ((result.raw[0] as { id?: string } | undefined)?.id ?? null)
+      : null;
   }
 
   /** The money the file states for a row, in the workspace currency. */

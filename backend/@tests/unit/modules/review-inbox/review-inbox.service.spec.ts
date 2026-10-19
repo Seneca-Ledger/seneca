@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Receipt } from '../../../../src/entities/receipt.entity';
@@ -15,6 +16,13 @@ describe('ReviewInboxService', () => {
   const transactionRepository = { findOne: jest.fn(), update: jest.fn(), createQueryBuilder: jest.fn() };
   const transactionsService = { bulkUpdate: jest.fn() };
   const deduplicationService = { unmarkDuplicate: jest.fn() };
+  const receiptRepository = {
+    count: jest.fn(),
+    findAndCount: jest.fn(),
+    find: jest.fn(async () => []),
+    update: jest.fn(),
+  };
+  const eventEmitter = { emit: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -22,11 +30,12 @@ describe('ReviewInboxService', () => {
       providers: [
         ReviewInboxService,
         { provide: getRepositoryToken(Transaction), useValue: transactionRepository },
-        { provide: getRepositoryToken(Receipt), useValue: { count: jest.fn(), findAndCount: jest.fn() } },
+        { provide: getRepositoryToken(Receipt), useValue: receiptRepository },
         { provide: getRepositoryToken(Subscription), useValue: { count: jest.fn(), findAndCount: jest.fn() } },
         { provide: getRepositoryToken(Statement), useValue: { findOne: jest.fn(async () => null) } },
         { provide: TransactionsService, useValue: transactionsService },
         { provide: CrossStatementDeduplicationService, useValue: deduplicationService },
+        { provide: EventEmitter2, useValue: eventEmitter },
       ],
     }).compile();
     service = module.get(ReviewInboxService);
@@ -42,6 +51,24 @@ describe('ReviewInboxService', () => {
       { id: 'a', updates: { isVerified: true, categoryId: 'cat-1' } },
       { id: 'b', updates: { isVerified: true, categoryId: 'cat-1' } },
     ]);
+  });
+
+  it('settles the receipt of a confirmed scan row and announces it', async () => {
+    transactionsService.bulkUpdate.mockResolvedValue([{ id: 'row-1', statementId: 'scan-1' }]);
+    receiptRepository.find.mockResolvedValueOnce([{ id: 'receipt-1', statementId: 'scan-1' }]);
+
+    await service.approveTransactions('ws-1', 'u1', ['row-1']);
+
+    expect(receiptRepository.update).toHaveBeenCalledWith(
+      { id: 'receipt-1', workspaceId: 'ws-1' },
+      expect.objectContaining({ transactionId: 'row-1' }),
+    );
+    expect(eventEmitter.emit).toHaveBeenCalledWith('receipt.approved', {
+      workspaceId: 'ws-1',
+      receiptId: 'receipt-1',
+      transactionId: 'row-1',
+      mode: 'confirmed_scan',
+    });
   });
 
   it('approves as is without touching the category', async () => {

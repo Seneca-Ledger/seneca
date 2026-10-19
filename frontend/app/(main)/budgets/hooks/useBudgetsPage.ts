@@ -178,6 +178,7 @@ export function useBudgetsPage() {
   const query = useQuery({
     queryKey: queryKeys.budgets(workspaceId),
     queryFn: ({ signal }) => fetchBudgets(signal),
+    enabled: Boolean(workspaceId),
   });
 
   const invalidate = useCallback((): Promise<void> => {
@@ -198,14 +199,20 @@ export function useBudgetsPage() {
   // `?newBudgetCategory=<id>` comes from the "top category has no budget"
   // insight. Stripped once honoured, the same way the statements list handles
   // `openExpenseDrawer` — left in place it would reopen the drawer on close.
+  // `?newBudgetGoal=<id>` comes from a goal with no budget attached yet.
   useEffect(() => {
     const categoryId = searchParams.get('newBudgetCategory');
-    if (!categoryId) {
+    const goalId = searchParams.get('newBudgetGoal');
+    if (!(categoryId || goalId)) {
       return;
     }
-    openCreate(categoryId);
+    openCreate(categoryId ?? undefined);
+    if (goalId) {
+      setFormData(prev => ({ ...prev, goalId }));
+    }
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete('newBudgetCategory');
+    nextParams.delete('newBudgetGoal');
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
   }, [searchParams, openCreate, router, pathname]);

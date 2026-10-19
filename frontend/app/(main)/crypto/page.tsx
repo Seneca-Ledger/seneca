@@ -77,6 +77,7 @@ export default function CryptoPage(): React.JSX.Element {
       sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
     >
       <Box
+        data-tour-shot="crypto-actions"
         sx={{
           display: 'flex',
           justifyContent: { xs: 'stretch', sm: 'flex-end' },
@@ -99,7 +100,11 @@ export default function CryptoPage(): React.JSX.Element {
           }}
           onImport={importExchangeCsv}
         />
-        <Button variant="contained" onClick={() => setDrawerOpen(true)}>
+        <Button
+          variant="contained"
+          onClick={() => setDrawerOpen(true)}
+          data-tour-shot="crypto-connect"
+        >
           <Plus size={18} aria-hidden />
           {t.connect}
         </Button>

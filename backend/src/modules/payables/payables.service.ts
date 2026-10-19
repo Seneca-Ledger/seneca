@@ -6,6 +6,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, IsNull, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
@@ -14,6 +15,7 @@ import { appError } from '../../common/errors/app-error';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import { notInVersionWorkspace } from '../../common/workspaces/version-workspaces';
 import type {
   AddPayablePaymentBody,
   AllocateTransactionBody,
@@ -44,6 +46,11 @@ import { Transaction, TransactionType } from '../../entities/transaction.entity'
 import { Wallet } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import {
+  type PayableOverdueEvent,
+  type PayablePaidEvent,
+  transactionCreatedEvent,
+} from '../notifications/events/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ExportFormat, PayablesSortOption } from './dto/filter-payables.dto';
@@ -100,7 +107,35 @@ export class PayablesService {
     private readonly workspaceCurrency: WorkspaceCurrencyService,
     @Optional()
     private readonly unbookedPayments?: UnbookedPaymentsService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
   ) {}
+
+  /** Events of a payment change, keyed by the manager of its transaction. */
+  private readonly pendingEvents = new WeakMap<EntityManager, Array<[string, unknown]>>();
+
+  /**
+   * Runs a payment change in one transaction and sends the events it queued
+   * once it commits: a listener must never hear of a payment that rolled back.
+   * Callers outside this service that recompute a bill inside their own
+   * transaction (a credit note) run it through here for the same reason.
+   */
+  async inPaymentTransaction<T>(work: (manager: EntityManager) => Promise<T>): Promise<T> {
+    const events: Array<[string, unknown]> = [];
+    const result = await this.payableRepository.manager.transaction(async manager => {
+      this.pendingEvents.set(manager, events);
+      return work(manager);
+    });
+    for (const [name, payload] of events) {
+      this.eventEmitter?.emit(name, payload);
+    }
+    return result;
+  }
+
+  /** Queues an event for after the commit; outside `inPaymentTransaction` it is dropped. */
+  private queueEvent(manager: EntityManager, name: string, payload: unknown): void {
+    this.pendingEvents.get(manager)?.push([name, payload]);
+  }
 
   async create(workspaceId: string, userId: string, dto: CreatePayableBody): Promise<Payable> {
     // Paid is what the payment log says; a bill set paid by hand has no payment
@@ -219,7 +254,7 @@ export class PayablesService {
     await this.findOne(id, workspaceId);
     await this.assertLinkedTransactionInWorkspace(workspaceId, payload.linkedTransactionId ?? null);
 
-    const saved = await this.payableRepository.manager.transaction(async manager => {
+    const saved = await this.inPaymentTransaction(async manager => {
       const payable = await manager.getRepository(Payable).findOneOrFail({
         where: { id, workspaceId },
         lock: { mode: 'pessimistic_write' },
@@ -375,6 +410,11 @@ export class PayablesService {
         isVerified: true,
       }),
     );
+    this.queueEvent(
+      manager,
+      'transaction.created',
+      transactionCreatedEvent(transaction, 'payment'),
+    );
     return transaction.id;
   }
 
@@ -410,7 +450,7 @@ export class PayablesService {
     await this.findOne(id, workspaceId);
     await this.assertLinkedTransactionInWorkspace(workspaceId, dto.linkedTransactionId ?? null);
 
-    return this.payableRepository.manager.transaction(async manager => {
+    return this.inPaymentTransaction(async manager => {
       const payable = await manager.getRepository(Payable).findOneOrFail({
         where: { id, workspaceId },
         lock: { mode: 'pessimistic_write' },
@@ -481,7 +521,7 @@ export class PayablesService {
     await this.findOne(id, workspaceId);
     await this.assertLinkedTransactionInWorkspace(workspaceId, dto.linkedTransactionId ?? null);
 
-    return this.payableRepository.manager.transaction(async manager => {
+    return this.inPaymentTransaction(async manager => {
       const payable = await manager.getRepository(Payable).findOneOrFail({
         where: { id, workspaceId },
         lock: { mode: 'pessimistic_write' },
@@ -585,7 +625,7 @@ export class PayablesService {
   /** Undoes one payment; the status falls back to whatever the rest adds up to. */
   async removePayment(id: string, paymentId: string, workspaceId: string): Promise<Payable> {
     await this.findOne(id, workspaceId);
-    return this.payableRepository.manager.transaction(async manager => {
+    return this.inPaymentTransaction(async manager => {
       const payments = manager.getRepository(PayablePayment);
       const payment = await payments.findOne({
         where: { id: paymentId, payableId: id, workspaceId },
@@ -855,6 +895,7 @@ export class PayablesService {
       .sort()
       .at(-1);
 
+    const wasPaid = payable.status === PayableStatus.PAID;
     payable.paidAmount = paid;
     // A bill can close with no payment at all — credited down to nothing — and
     // then the day it closed is today, not the date of a payment there is none of.
@@ -868,7 +909,20 @@ export class PayablesService {
           ? PayableStatus.PARTIALLY_PAID
           : this.unpaidStatusOf(payable);
     }
-    return this.asStored(await payables.save(payable));
+    const saved = this.asStored(await payables.save(payable));
+    if (!wasPaid && saved.status === PayableStatus.PAID) {
+      this.queueEvent(manager, 'payable.paid', {
+        workspaceId,
+        payableId: saved.id,
+        direction: saved.direction,
+        source: saved.source,
+        vendor: saved.vendor,
+        amount: Number(saved.amount),
+        currency: saved.currency,
+        paidAt: saved.paidAt ? new Date(saved.paidAt).toISOString() : null,
+      } satisfies PayablePaidEvent);
+    }
+    return saved;
   }
 
   /**
@@ -1172,10 +1226,12 @@ export class PayablesService {
     return this.startOfDay(payable.dueDate) < this.startOfDay(new Date());
   }
 
+  /** Across workspaces, for the daily sweep; a past version keeps the statuses it was copied with. */
   async findOverduePayables(): Promise<Payable[]> {
     return this.payableRepository
       .createQueryBuilder('payable')
       .where('payable.deletedAt IS NULL')
+      .andWhere(notInVersionWorkspace('payable.workspaceId'))
       .andWhere('payable.status IN (:...statuses)', {
         statuses: [PayableStatus.TO_PAY, PayableStatus.SCHEDULED],
       })
@@ -1199,6 +1255,7 @@ export class PayablesService {
     return this.payableRepository
       .createQueryBuilder('payable')
       .where('payable.deletedAt IS NULL')
+      .andWhere(notInVersionWorkspace('payable.workspaceId'))
       .andWhere('payable.direction = :direction', { direction: PayableDirection.PAYABLE })
       .andWhere('payable.status IN (:...statuses)', {
         statuses: [PayableStatus.TO_PAY, PayableStatus.SCHEDULED],
@@ -1221,7 +1278,18 @@ export class PayablesService {
       }
 
       payable.status = PayableStatus.OVERDUE;
-      updated.push(await this.payableRepository.save(payable));
+      const saved = await this.payableRepository.save(payable);
+      updated.push(saved);
+      this.eventEmitter?.emit('payable.overdue', {
+        workspaceId: saved.workspaceId,
+        payableId: saved.id,
+        direction: saved.direction,
+        source: saved.source,
+        vendor: saved.vendor,
+        outstanding: this.outstandingOf(saved),
+        currency: saved.currency,
+        dueDate: this.toDateString(saved.dueDate as Date),
+      } satisfies PayableOverdueEvent);
     }
 
     return updated;

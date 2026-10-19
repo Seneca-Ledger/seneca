@@ -98,6 +98,7 @@ export function useGoals(): UseGoalsState {
   const query = useQuery({
     queryKey: queryKeys.goalsList(workspaceId),
     queryFn: ({ signal }) => apiQueryDecoded({ url: '/goals', signal, contract: 'GoalList' }),
+    enabled: Boolean(workspaceId),
   });
 
   const mutation = useMutation({

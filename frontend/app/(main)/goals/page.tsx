@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Plus } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { FlagLineIcon } from '@/app/components/ui/empty-state-icons';
+import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import { ContributionDrawer } from './components/ContributionDrawer';
@@ -127,10 +128,12 @@ export default function GoalsPage() {
       >
         {/* With no goals the empty state's own button is the one action on the page. */}
         {noGoals ? null : (
-          <Button variant="contained" onClick={openCreate}>
-            <Plus size={18} aria-hidden />
-            {t.newGoal}
-          </Button>
+          <ReadOnlyHint>
+            <Button variant="contained" onClick={openCreate}>
+              <Plus size={18} aria-hidden />
+              {t.newGoal}
+            </Button>
+          </ReadOnlyHint>
         )}
       </Box>
 
@@ -156,15 +159,18 @@ export default function GoalsPage() {
           title={t.emptyTitle}
           description={t.emptyHint}
           action={
-            <Button variant="contained" onClick={openCreate}>
-              {t.createGoal}
-            </Button>
+            <ReadOnlyHint>
+              <Button variant="contained" onClick={openCreate}>
+                {t.createGoal}
+              </Button>
+            </ReadOnlyHint>
           }
           hint={t.emptyExamples}
         />
       )}
 
       <Box
+        data-tour-shot="goals-list"
         sx={{
           display: 'flex',
           flexDirection: 'column',

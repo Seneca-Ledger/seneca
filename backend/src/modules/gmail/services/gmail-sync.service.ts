@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { STANDARD_WORKSPACE } from '../../../common/workspaces/version-workspaces';
 import {
   GmailSettings,
   Integration,
@@ -63,6 +64,8 @@ export class GmailSyncService {
         where: {
           provider: IntegrationProvider.GMAIL,
           status: IntegrationStatus.CONNECTED,
+          // A past version takes no mail in, whatever its copied settings say.
+          workspace: STANDARD_WORKSPACE,
         },
         relations: ['gmailSettings'],
       });
