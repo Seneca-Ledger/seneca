@@ -5,7 +5,7 @@
  * the network is gone. Data requests are never cached here: the page keeps its
  * own offline queue for manual entries and receipt photos.
  */
-const VERSION = 'lumio-sw-v1';
+const VERSION = 'lumio-sw-v2';
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 const OFFLINE_URL = '/offline';
