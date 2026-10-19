@@ -487,7 +487,7 @@ describe('generateFromTemplate', () => {
   it('scopes the query when wallet and category filters are set', async () => {
     mockTransactionRepository.find.mockResolvedValue([]);
 
-    await generate({
+    const result = await generate({
       templateId: 'pnl',
       dateFrom: '2024-01-01',
       dateTo: '2024-12-31',
@@ -495,6 +495,7 @@ describe('generateFromTemplate', () => {
       walletIds: ['11111111-1111-4111-8111-111111111111'],
       categoryIds: ['22222222-2222-4222-8222-222222222222'],
     });
+    track(result.filePath);
 
     const conditions = mockTransactionRepository.rowsQuery.andWhere.mock.calls;
     expect(conditions).toContainEqual([
@@ -510,7 +511,7 @@ describe('generateFromTemplate', () => {
   it('omits the filter keys entirely when the arrays are empty', async () => {
     mockTransactionRepository.find.mockResolvedValue([]);
 
-    await generate({
+    const result = await generate({
       templateId: 'pnl',
       dateFrom: '2024-01-01',
       dateTo: '2024-12-31',
@@ -518,6 +519,7 @@ describe('generateFromTemplate', () => {
       walletIds: [],
       categoryIds: [],
     });
+    track(result.filePath);
 
     // An empty list would render as `IN ()` and silently match nothing.
     const sql = mockTransactionRepository.rowsQuery.andWhere.mock.calls.map(
