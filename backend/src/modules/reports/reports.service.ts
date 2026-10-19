@@ -1775,7 +1775,7 @@ export class ReportsService {
         ? this.toDateKey(transaction.transactionDate as unknown as Date)
         : '',
       transactionType: transaction.transactionType === TransactionType.INCOME ? 'Приход' : 'Расход',
-      // Free-text fields come from parsed statements, receipt OCR and Gmail, so
+      // Free-text fields come from parsed statements, receipt OCR and email import, so
       // a value starting with = + - @ would execute as a formula when the CSV or
       // XLSX is opened. Control fields below are ours and stay untouched so the
       // summary can still match on them.

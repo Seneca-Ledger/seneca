@@ -214,7 +214,7 @@ describe('Review inbox (e2e)', () => {
       const [row] = await dataSource.query(
         `INSERT INTO receipts
            (user_id, workspace_id, source, subject, sender, received_at, parsed_data, status)
-         VALUES ($1, $2, 'gmail', 'probe', 'shop@example.com', now(), $3::jsonb, $4)
+         VALUES ($1, $2, 'imap', 'probe', 'shop@example.com', now(), $3::jsonb, $4)
          RETURNING id`,
         [owner.userId, owner.workspaceId, JSON.stringify(parsed), status],
       );

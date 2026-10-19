@@ -151,7 +151,7 @@ describe('Receipt stage and approval (e2e)', () => {
 
     const list = await as(
       owner,
-      request(server()).get('/integrations/gmail/receipts').query({ stage: 'submit', limit: 100 }),
+      request(server()).get('/receipts/documents').query({ stage: 'submit', limit: 100 }),
     ).expect(200);
     const ids = (list.body.receipts as Array<{ id: string }>).map(receipt => receipt.id);
 
@@ -220,26 +220,6 @@ describe('Receipt stage and approval (e2e)', () => {
     const [{ total }] = await dataSource.query(
       `SELECT COUNT(*)::int AS total FROM transactions
         WHERE workspace_id = $1 AND counterparty_name = 'Race probe'`,
-      [owner.workspaceId],
-    );
-    expect(total).toBe(1);
-  });
-
-  it('keeps the Gmail approve endpoint to one transaction as well', async () => {
-    const receiptId = await insertReceipt(owner);
-    const body = { amount: 7, date: '2026-09-02', description: 'Gmail probe', currency: 'EUR' };
-    const approve = () =>
-      as(
-        owner,
-        request(server()).post(`/integrations/gmail/receipts/${receiptId}/approve`).send(body),
-      ).expect(201);
-
-    await approve();
-    await approve();
-
-    const [{ total }] = await dataSource.query(
-      `SELECT COUNT(*)::int AS total FROM transactions
-        WHERE workspace_id = $1 AND counterparty_name = 'Gmail probe'`,
       [owner.workspaceId],
     );
     expect(total).toBe(1);

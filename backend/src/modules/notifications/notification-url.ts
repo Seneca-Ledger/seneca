@@ -77,8 +77,7 @@ const taxDeadlineRoute = (notification: NotificationLink): string =>
   readString(notification.meta, 'kind') === 'income_tax' ? '/tax-declaration' : '/reports?tab=tax';
 
 const TYPE_ROUTES: Record<string, (notification: NotificationLink) => string | null> = {
-  'receipt.uncategorized': n =>
-    n.entityId ? `/storage/gmail-receipts/${n.entityId}` : entityRoute(n),
+  'receipt.uncategorized': n => (n.entityId ? `/storage/receipts/${n.entityId}` : entityRoute(n)),
   ...Object.fromEntries(
     STATEMENT_TYPES.map(type => [
       type,

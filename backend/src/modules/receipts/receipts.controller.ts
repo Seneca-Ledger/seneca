@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
   UploadedFile,
   UploadedFiles,
@@ -52,6 +53,7 @@ import { StatementStage } from '../../entities/statement.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateReceiptStageResultDto } from './dto/update-receipt-stage.dto';
 import { ReceiptsService } from './receipts.service';
+import { ReceiptDocumentsService } from './services/receipt-documents.service';
 import { ReceiptLocationService } from './services/receipt-location.service';
 import { ReceiptMatchService } from './services/receipt-match.service';
 import { ReceiptPlaceSuggestionService } from './services/receipt-place-suggestion.service';
@@ -69,6 +71,7 @@ export class ReceiptsController {
     private readonly receiptMatchService: ReceiptMatchService,
     private readonly receiptSplitService: ReceiptSplitService,
     private readonly placeSuggestionService: ReceiptPlaceSuggestionService,
+    private readonly documentsService: ReceiptDocumentsService,
   ) {}
 
   @Post('upload')
@@ -167,6 +170,33 @@ export class ReceiptsController {
     @SchemaQuery(ReceiptsQuery) query: ReceiptsQuery,
   ) {
     return this.receiptsService.findAll(workspaceId, query);
+  }
+
+  /** Receipts of every source as the Documents list and analytics read them. Before `:id`. */
+  @Get('documents')
+  @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @ApiOperation({ summary: 'List receipts for the documents list' })
+  async listDocuments(
+    @WorkspaceId() workspaceId: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('includeInvalid') includeInvalid?: string,
+    @Query('hasAmount') hasAmount?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('includeLinkedScans') includeLinkedScans?: string,
+    @Query('stage') stage?: string,
+  ) {
+    return this.documentsService.list(workspaceId, {
+      status,
+      limit,
+      offset,
+      includeInvalid,
+      hasAmount,
+      categoryId,
+      includeLinkedScans,
+      stage,
+    });
   }
 
   @Get(':id')
@@ -349,6 +379,31 @@ export class ReceiptsController {
     @CurrentUser() user: User,
   ) {
     await this.receiptsService.delete(id, workspaceId, user.id);
+  }
+
+  @Get(':id/thumbnail')
+  @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @ApiOperation({ summary: 'Get receipt thumbnail' })
+  async getThumbnail(
+    @WorkspaceId() workspaceId: string,
+    @Param('id') id: string,
+    @Query('width') width: string,
+    @Res() res: Response,
+  ) {
+    const thumbnail = await this.documentsService.thumbnail(id, workspaceId, width);
+    if (thumbnail.kind === 'image') {
+      res.setHeader('Content-Type', thumbnail.mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      return res.send(thumbnail.data);
+    }
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    if (thumbnail.kind === 'missing') {
+      return res.status(HttpStatus.NOT_FOUND).json({ error: thumbnail.error });
+    }
+    res.setHeader('Retry-After', '60');
+    return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+      error: { code: 'THUMBNAIL_GENERATION_FAILED', message: 'Failed to generate thumbnail' },
+    });
   }
 
   @Get(':id/file')

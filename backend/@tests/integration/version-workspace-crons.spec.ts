@@ -35,7 +35,6 @@ import {
   Payee,
   PeppolConnection,
   PeppolTransmission,
-  ReceiptProcessingJob,
   ReportSchedule,
   Statement,
   StatementStatus,
@@ -48,7 +47,6 @@ import {
 import { BackupSchedulerService } from '../../src/modules/backups/backup-scheduler.service';
 import { CryptoSyncService } from '../../src/modules/crypto/crypto-sync.service';
 import { CustomTableExportSchedulesService } from '../../src/modules/custom-tables/custom-table-export-schedules.service';
-import { GmailReceiptProcessor } from '../../src/modules/gmail/gmail-receipt-processor';
 import { InvoiceRemindersService } from '../../src/modules/invoices/invoice-reminders.service';
 import { InvoiceSettingsService } from '../../src/modules/invoices/invoice-settings.service';
 import { InvoicesScheduler } from '../../src/modules/invoices/invoices.scheduler';
@@ -600,31 +598,6 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
     await peppol.pollAll();
     expect((refreshWorkspace.mock.calls as unknown[][]).map(([id]) => id)).toEqual([standardId]);
     expect(poll.mock.calls.map(([id]) => id)).toEqual([standardId]);
-  });
-
-  it('takes Gmail receipts into the live workspace only, and a version job never blocks the queue', async () => {
-    const pending = (workspaceId: string) =>
-      insert('receipt_processing_jobs', {
-        user_id: userId,
-        workspace_id: workspaceId,
-        payload: JSON.stringify({ integrationId: randomUUID(), gmailMessageId: randomUUID() }),
-      });
-    const versionJob = await pending(versionId);
-    const processor = job(GmailReceiptProcessor, { jobRepository: repo(ReceiptProcessingJob) });
-    const processJob = jest
-      .spyOn(processor as never, 'processJob')
-      .mockResolvedValue(undefined as never);
-
-    await processor.processJobs();
-    expect(processJob).not.toHaveBeenCalled();
-
-    const standardJob = await pending(standardId);
-    await processor.processJobs();
-    expect((processJob.mock.calls as Array<[{ id: string }]>).map(([row]) => row.id)).toEqual([
-      standardJob.id,
-    ]);
-    const untouched = await repo(ReceiptProcessingJob).findOneByOrFail({ id: versionJob.id });
-    expect(untouched.status).toBe('pending');
   });
 
   it('never makes a version the Telegram bot workspace', async () => {

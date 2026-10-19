@@ -327,7 +327,7 @@ describe('API contracts (e2e)', () => {
     it('GET /auth/me, without credentials or bookkeeping columns', async () => {
       const res = await get('/auth/me');
       matches(CurrentUser, res.body);
-      for (const field of ['passwordHash', 'tokenVersion', 'googleId', 'twoFactorSecret', 'isActive']) {
+      for (const field of ['passwordHash', 'tokenVersion', 'twoFactorSecret', 'isActive']) {
         expect(res.body).not.toHaveProperty(field);
       }
     });
@@ -1587,7 +1587,7 @@ describe('API contracts (e2e)', () => {
       matches(WorkspaceSummary, (await call('post', '/workspaces/demo', { name: 'Demo' }).expect(200)).body);
       const profile = await call('patch', '/users/me/preferences', { name: 'Contracts Owner' }).expect(200);
       matches(UserUpdateResponse, profile.body);
-      for (const field of ['passwordHash', 'tokenVersion', 'googleId', 'isActive']) {
+      for (const field of ['passwordHash', 'tokenVersion', 'isActive']) {
         expect(profile.body.user).not.toHaveProperty(field);
       }
       const receiptId = (await get('/receipts')).body.data[0].id;
@@ -1825,7 +1825,7 @@ describe('API contracts (e2e)', () => {
 
     it("never hands out server paths or other members' account rows", async () => {
       const internal = ['filePath', 'fileHash'];
-      const account = ['tokenVersion', 'googleId', 'telegramChatId', 'lastLogin', 'isActive'];
+      const account = ['tokenVersion', 'telegramChatId', 'lastLogin', 'isActive'];
       const statements = await get('/statements?page=1&limit=50');
       for (const row of statements.body.data) {
         for (const key of internal) expect(row).not.toHaveProperty(key);

@@ -153,7 +153,7 @@ describe('SearchService', () => {
     ]);
     const receiptRepo = createRepoMock([
       { id: 'r-1', statementId: 's-scan', source: ReceiptSource.SCAN },
-      { id: 'r-2', statementId: 's-mail', source: ReceiptSource.GMAIL },
+      { id: 'r-2', statementId: 's-mail', source: ReceiptSource.IMAP },
     ]);
     const service = new SearchService(
       createRepoMock(),
@@ -167,7 +167,7 @@ describe('SearchService', () => {
 
     expect(result.results.map(item => item.href)).toEqual([
       '/storage/receipts/r-1',
-      '/storage/gmail-receipts/r-2',
+      '/storage/receipts/r-2',
       '/statements/s-bank/edit',
     ]);
     // Only scans are looked up, and only inside the workspace.

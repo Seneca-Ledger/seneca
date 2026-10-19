@@ -26,7 +26,6 @@ export enum ReceiptStatus {
 }
 
 export enum ReceiptSource {
-  GMAIL = 'gmail',
   UPLOAD = 'upload',
   TELEGRAM = 'telegram',
   SCAN = 'scan',
@@ -51,7 +50,10 @@ export enum ReceiptLocationSource {
 @Index(['userId'])
 @Index('IDX_receipts_workspace_received_at', ['workspaceId', 'receivedAt'])
 @Index(['status'])
-@Index(['gmailMessageId'])
+@Index('IDX_receipts_workspace_message_id_unique', ['workspaceId', 'messageId'], {
+  unique: true,
+  where: '"message_id" IS NOT NULL',
+})
 @Index(['receivedAt'])
 @Index(['duplicateOfId'])
 @Index(['isDuplicate'])
@@ -77,15 +79,13 @@ export class Receipt {
     name: 'source',
     type: 'enum',
     enum: ReceiptSource,
-    default: ReceiptSource.GMAIL,
+    default: ReceiptSource.UPLOAD,
   })
   source: ReceiptSource;
 
-  @Column({ type: 'varchar', name: 'gmail_message_id', nullable: true })
-  gmailMessageId: string | null;
-
-  @Column({ type: 'varchar', name: 'gmail_thread_id', nullable: true })
-  gmailThreadId: string | null;
+  /** The source's own message key (IMAP); unique per workspace. */
+  @Column({ type: 'varchar', name: 'message_id', nullable: true })
+  messageId: string | null;
 
   @Column()
   subject: string;

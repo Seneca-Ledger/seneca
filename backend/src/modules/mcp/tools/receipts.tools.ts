@@ -11,7 +11,7 @@ export function receiptTools(receipts: ReceiptsService): McpTool[] {
     defineTool({
       name: 'list_receipts',
       description:
-        'Receipts (scans, uploads, Gmail) with what was read from them and their status. Paginated.',
+        'Receipts (scans, uploads, email) with what was read from them and their status. Paginated.',
       input: Schema.Struct({
         status: Schema.optionalKey(
           described(
@@ -28,9 +28,7 @@ export function receiptTools(receipts: ReceiptsService): McpTool[] {
             'needs_review: something to check; approved: booked',
           ),
         ),
-        source: Schema.optionalKey(
-          Schema.Literals(['gmail', 'upload', 'telegram', 'scan', 'imap']),
-        ),
+        source: Schema.optionalKey(Schema.Literals(['upload', 'telegram', 'scan', 'imap'])),
         categoryId: Schema.optionalKey(Uuid),
         statementId: Schema.optionalKey(described(Uuid, 'The receipt behind a scan’s statement')),
         page: Schema.optionalKey(Page),

@@ -26,7 +26,7 @@ export const toPersonView = (user: User): PersonView => ({
 
 /**
  * The answer without server file paths and file hashes, and with every user
- * account row (Google and Telegram ids, token version, last login…) reduced
+ * account row (Telegram ids, token version, last login…) reduced
  * to the person: these controllers answer entity rows that join their owner,
  * and any member of the workspace reads them.
  */

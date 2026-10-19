@@ -543,11 +543,11 @@ describe('StatementsService', () => {
       expect(subQuery.andWhere).toHaveBeenCalledWith('transaction.categoryId IS NULL');
     });
 
-    it('ignores ui-only receipt and gmail bank reference filters', async () => {
+    it('ignores ui-only receipt and unknown bank reference filters', async () => {
       const qb = createQueryBuilderMock([mockStatement as Statement], 1);
 
       await service.findAll('ws-1', {
-        from: ['bank:receipt', 'bank:gmail', 'bank:kaspi'],
+        from: ['bank:receipt', 'bank:unknown', 'bank:kaspi'],
         to: ['bank:receipt', 'bank:other'],
       } satisfies StatementsQuery);
 
@@ -561,7 +561,7 @@ describe('StatementsService', () => {
       );
       expect(qb.andWhere).not.toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ fromBankNames: expect.arrayContaining(['receipt', 'gmail']) }),
+        expect.objectContaining({ fromBankNames: expect.arrayContaining(['receipt', 'unknown']) }),
       );
       expect(qb.andWhere).not.toHaveBeenCalledWith(
         expect.any(String),

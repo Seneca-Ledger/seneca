@@ -77,8 +77,8 @@ const TOTAL_KEYWORD_REGEX =
 const NUMBER_PATTERN = '-?\\d{1,3}(?:[\\s.,]\\d{3})*(?:[.,]\\d{1,2})|-?\\d+(?:[.,]\\d{1,2})';
 
 @Injectable()
-export class GmailReceiptParserService {
-  private readonly logger = new Logger(GmailReceiptParserService.name);
+export class EmailReceiptParserService {
+  private readonly logger = new Logger(EmailReceiptParserService.name);
   private readonly amountHelpers = createReceiptAmountHelpers(this.amountParser, NUMBER_PATTERN);
 
   constructor(

@@ -180,7 +180,7 @@ export const ReceiptsQuery = Schema.Struct({
       'failed',
     ]),
   ),
-  source: Schema.optional(Schema.Literals(['gmail', 'upload', 'telegram', 'scan', 'imap'])),
+  source: Schema.optional(Schema.Literals(['upload', 'telegram', 'scan', 'imap'])),
   categoryId: Schema.optional(Uuid),
   /** The receipt behind a scan's statement. */
   statementId: Schema.optional(Uuid),

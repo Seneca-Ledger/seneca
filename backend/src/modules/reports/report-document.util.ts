@@ -90,7 +90,7 @@ function escapeCsvValue(value: ReportCell): string {
  * footer.
  *
  * Every cell goes through the formula neutralizer on the way out. Report
- * content comes from parsed statements, receipt OCR and Gmail ingestion, so a
+ * content comes from parsed statements, receipt OCR and email import, so a
  * merchant name beginning with `=` would otherwise be a live formula the
  * moment the export is opened in Excel or Sheets. Quoting alone does not help:
  * spreadsheet apps evaluate the unquoted value.

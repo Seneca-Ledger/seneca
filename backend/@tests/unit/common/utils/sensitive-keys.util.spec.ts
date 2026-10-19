@@ -30,7 +30,7 @@ describe('withoutKeys', () => {
   });
 
   it('keeps account details unless asked to drop them too', () => {
-    const user = { id: 'u1', googleId: 'g', telegramChatId: 't', lastLogin: '2026-10-01' };
+    const user = { id: 'u1', telegramId: 'g', telegramChatId: 't', lastLogin: '2026-10-01' };
     expect(withoutKeys(user, SERVER_ONLY_KEYS)).toEqual(user);
     expect(withoutKeys(user, ACCOUNT_KEYS)).toEqual({ id: 'u1' });
   });

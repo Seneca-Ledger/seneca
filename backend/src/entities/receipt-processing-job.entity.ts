@@ -64,7 +64,7 @@ export class ReceiptProcessingJob {
   @Column({ type: 'jsonb' })
   payload: {
     integrationId: string;
-    gmailMessageId: string;
+    messageId: string;
     historyId?: string;
   };
 

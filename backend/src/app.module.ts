@@ -36,12 +36,8 @@ import {
   CustomTableColumn,
   CustomTableRow,
   DataEntry,
-  DriveSettings,
-  DropboxSettings,
   ExchangeRate,
   FilePermission,
-  GmailSettings,
-  GmailWatchSubscription,
   Insight,
   Integration,
   IntegrationToken,
@@ -87,13 +83,10 @@ import { CustomTablesModule } from './modules/custom-tables/custom-tables.module
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DataEntryModule } from './modules/data-entry/data-entry.module';
 import { DatevModule } from './modules/datev/datev.module';
-import { DropboxModule } from './modules/dropbox/dropbox.module';
 import { EntityImportsModule } from './modules/entity-imports/entity-imports.module';
 import { ExchangeRatesModule } from './modules/exchange-rates/exchange-rates.module';
 import { ForecastModule } from './modules/forecast/forecast.module';
-import { GmailModule } from './modules/gmail/gmail.module';
 import { GoalsModule } from './modules/goals/goals.module';
-import { GoogleDriveModule } from './modules/google-drive/google-drive.module';
 import { IncomeTaxModule } from './modules/income-tax/income-tax.module';
 import { InsightsModule } from './modules/insights/insights.module';
 import { InvestmentsModule } from './modules/investments/investments.module';
@@ -221,10 +214,6 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
       IntegrationToken,
       OpenProtocolSettings,
       Insight,
-      DriveSettings,
-      DropboxSettings,
-      GmailSettings,
-      GmailWatchSubscription,
       Receipt,
       ReceiptProcessingJob,
       TaxRate,
@@ -245,9 +234,6 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     NetWorthModule,
     UsersModule,
     StatementsModule,
-    GoogleDriveModule,
-    GmailModule,
-    DropboxModule,
     ParsingModule,
     ClassificationModule,
     PayeesModule,

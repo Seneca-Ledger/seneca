@@ -320,7 +320,7 @@ describe('editing an approved receipt reaches the figures (real Postgres)', () =
   it('moves the row an emailed receipt booked when it was approved', async () => {
     const id = await row({ amount: 12, debit: 12 });
     const receiptId = await approvedReceipt({
-      source: ReceiptSource.GMAIL,
+      source: ReceiptSource.IMAP,
       transactionId: id,
       parsedData: { date: LAST_MONTH, amount: 12, currency: 'USD', vendor: 'Shop' },
     });
@@ -343,7 +343,7 @@ describe('editing an approved receipt reaches the figures (real Postgres)', () =
   it("keeps the bank's date and amount on a bank row and takes only the category", async () => {
     const bank = await statement({ bankName: BankName.OTHER });
     const id = await row({ statementId: bank, amount: 50, debit: 50 });
-    const receiptId = await approvedReceipt({ source: ReceiptSource.GMAIL, transactionId: id });
+    const receiptId = await approvedReceipt({ source: ReceiptSource.IMAP, transactionId: id });
 
     await receipts.update(
       receiptId,
@@ -361,7 +361,7 @@ describe('editing an approved receipt reaches the figures (real Postgres)', () =
 
   it('leaves a row filed on a tax return as it was filed', async () => {
     const id = await row({ amount: 40, debit: 40, taxLocked: true, taxAmount: 0 });
-    const receiptId = await approvedReceipt({ source: ReceiptSource.GMAIL, transactionId: id });
+    const receiptId = await approvedReceipt({ source: ReceiptSource.IMAP, transactionId: id });
 
     await receipts.update(
       receiptId,

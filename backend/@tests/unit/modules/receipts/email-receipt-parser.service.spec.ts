@@ -1,19 +1,19 @@
 jest.mock('pdf-parse', () => jest.fn());
 
-const { GmailReceiptParserService, normalizeDateHeader } =
-  require('../../../../src/modules/gmail/services/gmail-receipt-parser.service') as typeof import('../../../../src/modules/gmail/services/gmail-receipt-parser.service');
+const { EmailReceiptParserService, normalizeDateHeader } =
+  require('../../../../src/modules/receipts/services/email-receipt-parser.service') as typeof import('../../../../src/modules/receipts/services/email-receipt-parser.service');
 const { UniversalAmountParser } =
   require('../../../../src/modules/parsing/services/universal-amount-parser.service') as typeof import('../../../../src/modules/parsing/services/universal-amount-parser.service');
 const pdfParse = require('pdf-parse') as jest.MockedFunction<typeof import('pdf-parse')>;
 
-describe('GmailReceiptParserService', () => {
-  let service: InstanceType<typeof GmailReceiptParserService>;
+describe('EmailReceiptParserService', () => {
+  let service: InstanceType<typeof EmailReceiptParserService>;
   let pdfParseMock: jest.MockedFunction<typeof pdfParse>;
 
   beforeEach(() => {
     pdfParseMock = pdfParse as jest.MockedFunction<typeof pdfParse>;
     pdfParseMock.mockReset();
-    service = new GmailReceiptParserService(new UniversalAmountParser());
+    service = new EmailReceiptParserService(new UniversalAmountParser());
   });
 
   it('skips generic page markers when extracting vendor', () => {
@@ -158,7 +158,7 @@ describe('GmailReceiptParserService', () => {
           totalAmount: 59.98,
         })),
       };
-      const bodyService = new GmailReceiptParserService(
+      const bodyService = new EmailReceiptParserService(
         new UniversalAmountParser(),
         extractor as any,
       );
@@ -188,7 +188,7 @@ describe('GmailReceiptParserService', () => {
           totalAmount: 204,
         })),
       };
-      const bodyService = new GmailReceiptParserService(
+      const bodyService = new EmailReceiptParserService(
         new UniversalAmountParser(),
         extractor as any,
       );
@@ -280,10 +280,10 @@ describe('GmailReceiptParserService', () => {
   });
 });
 
-describe('GmailReceiptParserService.extractDate', () => {
+describe('EmailReceiptParserService.extractDate', () => {
   const extract = (text: string): string | undefined =>
     (
-      new GmailReceiptParserService(new UniversalAmountParser()) as unknown as {
+      new EmailReceiptParserService(new UniversalAmountParser()) as unknown as {
         extractDate(input: string): string | undefined;
       }
     ).extractDate(text);
