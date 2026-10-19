@@ -92,3 +92,7 @@ graphify-out/*
 
 # make db-backup / make upgrade dumps
 backup_*.sql
+
+# Python bytecode (skill scripts)
+__pycache__/
+*.pyc
