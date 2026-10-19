@@ -5,7 +5,13 @@ import { TelegramService } from '@/modules/telegram/telegram.service';
  * What the bot does with things that are not commands: a receipt photo, an
  * expense typed as text, and the delete button under its own replies.
  */
-function createService(options: { users?: Partial<User>[] } = {}) {
+function createService(
+  options: {
+    users?: Partial<User>[];
+    /** The sender's role (and toggles) in the workspace the bot answers for. */
+    member?: { role: string; permissions?: Record<string, boolean> };
+  } = {},
+) {
   const users = options.users ?? [];
   const queryBuilder: any = {
     where: jest.fn(() => queryBuilder),
@@ -46,7 +52,7 @@ function createService(options: { users?: Partial<User>[] } = {}) {
     }),
   } as any;
   const workspaceMemberRepository = {
-    findOne: jest.fn(async () => ({ role: 'owner', workspace: { currency: 'KZT' } })),
+    findOne: jest.fn(async () => ({ role: 'owner', ...options.member, workspace: { currency: 'KZT' } })),
   } as any;
 
   const service = new TelegramService(
@@ -241,6 +247,70 @@ describe('TelegramService inbound', () => {
     expect(receiptsService.delete).not.toHaveBeenCalled();
     expect(statementsService.remove).not.toHaveBeenCalled();
     expect(calls.filter(call => call.url.endsWith('/answerCallbackQuery'))).toHaveLength(1);
+  });
+
+  describe('workspace role', () => {
+    const tap = (data: string) => ({
+      callback_query: { id: 'cb-9', from: { id: 'tg-1' }, message: { chat: { id: 'chat-1' } }, data },
+    });
+    const photo = { message: { chat: { id: 'chat-1' }, from: { id: 'tg-1' }, photo: [{ file_id: 'large' }] } };
+
+    it('lets a viewer neither delete nor add anything', async () => {
+      const calls = mockFetch();
+      const { service, receiptsService, statementsService } = createService({
+        users: [connectedUser],
+        member: { role: 'viewer' },
+      });
+
+      await service.handleUpdate(tap('rcpt:del:22222222-2222-4222-8222-222222222222'));
+      await service.handleUpdate(tap('stmt:del:11111111-1111-4111-8111-111111111111'));
+      await service.handleUpdate(photo);
+      await service.handleUpdate({ message: { chat: { id: 'chat-1' }, from: { id: 'tg-1' }, text: 'coffee 4.50' } });
+      await service.handleUpdate({
+        message: {
+          chat: { id: 'chat-1' },
+          from: { id: 'tg-1' },
+          document: { file_id: 'pdf', file_name: 'statement.pdf', mime_type: 'application/pdf' },
+        },
+      });
+
+      expect(receiptsService.delete).not.toHaveBeenCalled();
+      expect(statementsService.remove).not.toHaveBeenCalled();
+      expect(receiptsService.createFromScan).not.toHaveBeenCalled();
+      expect(statementsService.createManualExpense).not.toHaveBeenCalled();
+      expect(statementsService.create).not.toHaveBeenCalled();
+      const texts = calls.filter(call => call.url.endsWith('/sendMessage')).map(call => call.body.text);
+      expect(texts).toEqual([
+        'Could not delete.',
+        'Could not delete.',
+        'Could not process the photo. Try again or upload it through the web app.',
+        'Could not record the expense. Please try again.',
+        'Could not process the file. Please try again later or upload it through the web app.',
+      ]);
+    });
+
+    it('lets a member write only with the statements toggle', async () => {
+      mockFetch();
+      const without = createService({ users: [connectedUser], member: { role: 'member' } });
+      await without.service.handleUpdate(tap('rcpt:del:22222222-2222-4222-8222-222222222222'));
+      expect(without.receiptsService.delete).not.toHaveBeenCalled();
+
+      const withToggle = createService({
+        users: [connectedUser],
+        member: { role: 'member', permissions: { canEditStatements: true } },
+      });
+      await withToggle.service.handleUpdate(tap('rcpt:del:22222222-2222-4222-8222-222222222222'));
+      expect(withToggle.receiptsService.delete).toHaveBeenCalled();
+    });
+
+    it('still answers a viewer’s /goals', async () => {
+      const calls = mockFetch();
+      const { service } = createService({ users: [connectedUser], member: { role: 'viewer' } });
+
+      await service.handleUpdate({ message: { chat: { id: 'chat-1' }, from: { id: 'tg-1' }, text: '/goals' } });
+
+      expect(calls[0].body.text).toContain('No goals yet');
+    });
   });
 
   describe('file transfer', () => {

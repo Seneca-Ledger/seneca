@@ -9,7 +9,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { InstanceTelegramBotStatus, TelegramConnection, TelegramLink } from '../../src/contracts';
-import { webhookSecretOf } from '../../src/modules/telegram/telegram-bots.service';
+import { TelegramBotsService, webhookSecretOf } from '../../src/modules/telegram/telegram-bots.service';
 import { deleteUserByEmail, type E2eAccount, e2eTestingModule, registerAccount } from './helpers/e2e-app';
 
 const BOT_TOKEN = '987654:e2e-token';
@@ -165,6 +165,171 @@ describe('Telegram Connect (e2e)', () => {
 
       const cleared = await as('delete', '/settings/instance/telegram').expect(200);
       expect(cleared.body).toEqual({ source: 'env' });
+    });
+  });
+
+  /**
+   * A workspace admin who saves their own bot knows its token, so they can post
+   * any update to its webhook — with anyone's Telegram id in it. The bot it
+   * arrives on is the only thing they cannot choose.
+   */
+  describe('updates on a bot that does not serve the chat', () => {
+    const stamp = Date.now();
+    const ATTACKER_TOKEN = '424242:attacker-bot';
+    const VICTIM_TG = 7001;
+    const VIEWER_TG = 7002;
+    const ATTACKER_TG = 9001;
+    const emails = {
+      victim: `telegram-victim-${stamp}@example.com`,
+      attacker: `telegram-attacker-${stamp}@example.com`,
+      viewer: `telegram-viewer-${stamp}@example.com`,
+    };
+    let victim: E2eAccount;
+    let attacker: E2eAccount;
+    let viewer: E2eAccount;
+    let statementId: string;
+    let receiptId: string;
+    let updateId = 1000;
+
+    const asAccount = (account: E2eAccount, method: 'post' | 'put', url: string, workspaceId = account.workspaceId) =>
+      request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${account.token}`)
+        .set('x-workspace-id', workspaceId);
+    const onBot = (botToken: string, update: object) =>
+      request(app.getHttpServer())
+        .post(`/telegram/webhook/${botToken.split(':')[0]}`)
+        .set('x-telegram-bot-api-secret-token', webhookSecretOf(botToken))
+        .send({ update_id: ++updateId, ...update })
+        .expect(200);
+    const message = (chat: number, from: number, text: string) => ({
+      message: { chat: { id: chat }, from: { id: from, language_code: 'en' }, text },
+    });
+    const tap = (chat: number, from: number, data: string) => ({
+      callback_query: { id: `cb-${updateId}`, from: { id: from }, message: { chat: { id: chat } }, data },
+    });
+    const connect = async (account: E2eAccount, tg: number, workspaceId = account.workspaceId) => {
+      const link = await asAccount(account, 'post', '/telegram/link', workspaceId).expect(201);
+      await onBot(BOT_TOKEN, message(tg, tg, `/start ${codeOf(link.body.url)}`));
+    };
+    const statementDeleted = async () =>
+      (await dataSource.query('SELECT deleted_at FROM statements WHERE id = $1', [statementId]))[0].deleted_at !== null;
+    const receiptExists = async () =>
+      (await dataSource.query('SELECT id FROM receipts WHERE id = $1', [receiptId])).length === 1;
+    const statementsIn = async (workspaceId: string) =>
+      Number((await dataSource.query('SELECT count(*) AS n FROM statements WHERE workspace_id = $1', [workspaceId]))[0].n);
+
+    beforeAll(async () => {
+      victim = await registerAccount(app, emails.victim, 'Telegram Victim');
+      attacker = await registerAccount(app, emails.attacker, 'Telegram Attacker');
+      viewer = await registerAccount(app, emails.viewer, 'Telegram Viewer');
+
+      // The victim connects their chat in their workspace through the server's bot.
+      await connect(victim, VICTIM_TG);
+
+      // The attacker owns another workspace and gives it a bot of their own.
+      await asAccount(attacker, 'put', '/settings/notifications/telegram').send({ botToken: ATTACKER_TOKEN }).expect(200);
+      await app.get(TelegramBotsService).sync();
+
+      // A member who connected while an admin, then was made a viewer.
+      await dataSource.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'admin')`,
+        [victim.workspaceId, viewer.userId],
+      );
+      await connect(viewer, VIEWER_TG, victim.workspaceId);
+      await dataSource.query(`UPDATE workspace_members SET role = 'viewer' WHERE workspace_id = $1 AND user_id = $2`, [
+        victim.workspaceId,
+        viewer.userId,
+      ]);
+
+      const [statement] = await dataSource.query(
+        `INSERT INTO statements
+           (user_id, workspace_id, file_name, file_path, file_type, file_size, file_hash, bank_name, status, currency)
+         VALUES ($1, $2, 'bank.csv', '/dev/null', 'csv', 1, md5(random()::text), 'other', 'completed', 'EUR')
+         RETURNING id`,
+        [victim.userId, victim.workspaceId],
+      );
+      statementId = statement.id;
+      const [receipt] = await dataSource.query(
+        `INSERT INTO receipts (user_id, workspace_id, source, subject, sender, received_at, status, parsed_data)
+         VALUES ($1, $2, 'scan', 'Scan', 'upload', now(), 'draft', '{}')
+         RETURNING id`,
+        [victim.userId, victim.workspaceId],
+      );
+      receiptId = receipt.id;
+    });
+
+    afterAll(async () => {
+      if (!dataSource) {
+        return;
+      }
+      await dataSource.query('DELETE FROM workspace_service_settings WHERE workspace_id = $1', [attacker.workspaceId]);
+      await dataSource.query('DELETE FROM receipts WHERE workspace_id = $1', [victim.workspaceId]);
+      await dataSource.query('DELETE FROM telegram_reports WHERE user_id = $1', [victim.userId]);
+      for (const email of Object.values(emails)) {
+        await deleteUserByEmail(dataSource, email);
+      }
+    });
+
+    it('connects both chats through the server bot', async () => {
+      const rows = await dataSource.query(
+        'SELECT telegram_chat_id, telegram_workspace_id FROM users WHERE id = ANY($1) ORDER BY telegram_chat_id',
+        [[victim.userId, viewer.userId]],
+      );
+      expect(rows).toEqual([
+        { telegram_chat_id: String(VICTIM_TG), telegram_workspace_id: victim.workspaceId },
+        { telegram_chat_id: String(VIEWER_TG), telegram_workspace_id: victim.workspaceId },
+      ]);
+    });
+
+    it('sends none of the victim workspace’s data to a forged update on the attacker’s bot', async () => {
+      for (const chat of [ATTACKER_TG, VICTIM_TG]) {
+        for (const command of ['/report monthly', '/report', '/goals', '/networth', '/start']) {
+          await onBot(ATTACKER_TOKEN, message(chat, VICTIM_TG, command));
+        }
+      }
+
+      expect(sent.length).toBeGreaterThan(0);
+      for (const reply of sent) {
+        expect(reply.text).not.toMatch(/Report for|Daily report|Savings goals|No goals yet|Net worth|Telegram connected/);
+      }
+      expect(sent.every(reply => reply.text.includes('isn’t connected') || reply.text.includes("isn't connected") || reply.text.includes('Hi!'))).toBe(true);
+      expect(await dataSource.query('SELECT id FROM telegram_reports WHERE user_id = $1', [victim.userId])).toEqual([]);
+    });
+
+    it('writes and deletes nothing in the victim workspace for a forged update', async () => {
+      const before = await statementsIn(victim.workspaceId);
+      for (const chat of [ATTACKER_TG, VICTIM_TG]) {
+        await onBot(ATTACKER_TOKEN, message(chat, VICTIM_TG, 'coffee 4.50'));
+        await onBot(ATTACKER_TOKEN, tap(chat, VICTIM_TG, `stmt:del:${statementId}`));
+        await onBot(ATTACKER_TOKEN, tap(chat, VICTIM_TG, `rcpt:del:${receiptId}`));
+      }
+
+      expect(await statementsIn(victim.workspaceId)).toBe(before);
+      expect(await statementDeleted()).toBe(false);
+      expect(await receiptExists()).toBe(true);
+      // The victim's chat is still theirs.
+      const [row] = await dataSource.query('SELECT telegram_chat_id FROM users WHERE id = $1', [victim.userId]);
+      expect(row.telegram_chat_id).toBe(String(VICTIM_TG));
+    });
+
+    it('lets a member made a viewer delete nothing through the bot', async () => {
+      await onBot(BOT_TOKEN, tap(VIEWER_TG, VIEWER_TG, `stmt:del:${statementId}`));
+      await onBot(BOT_TOKEN, tap(VIEWER_TG, VIEWER_TG, `rcpt:del:${receiptId}`));
+
+      expect(await statementDeleted()).toBe(false);
+      expect(await receiptExists()).toBe(true);
+      expect(sent.map(reply => reply.text)).toEqual(['Could not delete.', 'Could not delete.']);
+    });
+
+    it('still answers the victim on the bot their chat was connected through', async () => {
+      await onBot(BOT_TOKEN, message(VICTIM_TG, VICTIM_TG, '/goals'));
+      expect(sent[0]).toEqual(expect.objectContaining({ chat_id: String(VICTIM_TG), text: expect.stringContaining('No goals yet') }));
+
+      await onBot(BOT_TOKEN, tap(VICTIM_TG, VICTIM_TG, `rcpt:del:${receiptId}`));
+      await onBot(BOT_TOKEN, tap(VICTIM_TG, VICTIM_TG, `stmt:del:${statementId}`));
+      expect(await receiptExists()).toBe(false);
+      expect(await statementDeleted()).toBe(true);
     });
   });
 });
