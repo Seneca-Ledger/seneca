@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as xlsx from 'xlsx';
+import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import { Payable } from '../../entities/payable.entity';
 import { ExportFormat } from './dto/filter-payables.dto';
@@ -15,18 +17,22 @@ export class PayablesExportService {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const extension = format === ExportFormat.CSV ? 'csv' : 'xlsx';
     const fileName = `payables-${timestamp}.${extension}`;
-    const filePath = path.join(resolveUploadsDir(), 'reports', fileName);
+    // Random on disk: two workspaces exporting in the same millisecond shared
+    // one timestamped path, and each request streams and then unlinks it.
+    const filePath = path.join(resolveUploadsDir(), 'reports', `${randomUUID()}-${fileName}`);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
+    // Vendor and comment are typed by members or taken from bank lines and
+    // client names: a leading = + - @ must not run as a formula when opened.
     const rows = payables.map(payable => ({
-      Vendor: payable.vendor,
+      Vendor: neutralizeSpreadsheetFormulaCell(payable.vendor),
       Amount: Number(payable.amount),
       Currency: payable.currency,
       'Due Date': payable.dueDate ? this.toDateString(payable.dueDate) : '',
       Status: payable.status,
       Source: payable.source,
       Recurring: payable.isRecurring ? 'Yes' : 'No',
-      Comment: payable.comment || '',
+      Comment: neutralizeSpreadsheetFormulaCell(payable.comment || ''),
       'Linked Transaction ID': payable.linkedTransactionId || '',
       'Statement ID': payable.statementId || '',
       'Created At': payable.createdAt?.toISOString() || '',
