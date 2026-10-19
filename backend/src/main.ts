@@ -15,6 +15,7 @@ import { AppLogger } from './common/observability/app-logger.service';
 import { requestContextMiddleware } from './common/observability/request-context.middleware';
 import { resolveAllowedOrigins } from './common/utils/cors-origins';
 import { resolveStaticAssetMounts } from './common/utils/static-assets.util';
+import { resolveTrustProxy } from './common/utils/trust-proxy.util';
 import { resolveUploadsDir } from './common/utils/uploads.util';
 
 // Required environment variables are checked by validateEnv when AppModule
@@ -36,8 +37,9 @@ async function bootstrap() {
   // told to trust it, otherwise req.ip is the proxy's address: ThrottlerGuard
   // keys every request on it, collapsing the per-IP login limit into one shared
   // bucket. Handlers read req.ip rather than parsing X-Forwarded-For by hand,
-  // which is only safe once this is set.
-  app.set('trust proxy', 1);
+  // which is only safe once this is set. TRUST_PROXY says which peers count as
+  // the proxy (one hop unless set; see trust-proxy.util.ts).
+  app.set('trust proxy', resolveTrustProxy(process.env.TRUST_PROXY));
 
   const isProduction = process.env.NODE_ENV === 'production';
   const swaggerEnabled = !isProduction;
