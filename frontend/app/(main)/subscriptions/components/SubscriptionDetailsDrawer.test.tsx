@@ -21,7 +21,7 @@ vi.mock('@/app/lib/query-fn-schema', () => ({
 }));
 
 const SUBSCRIPTION_ID = 'sub-1';
-const VENDOR_NAME = 'Vendor - Plan';
+const VENDOR_NAME = 'ACME Store - Wireless Buds';
 const OWNER_ID = 'member-1';
 
 const subscription: SubscriptionItem = normalizeSubscription(

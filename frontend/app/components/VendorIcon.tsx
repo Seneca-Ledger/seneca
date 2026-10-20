@@ -10,7 +10,7 @@ export type VendorIconProps = {
   size?: number;
 };
 
-/** The first letter or digit of the name: "Vendor - Plan" is "V", never "V-". */
+/** The first letter or digit of the name: "ACME Store - Wireless Buds" is "A", never "AS". */
 const initialsOf = (vendorName: string): string =>
   vendorName.match(/[\p{L}\p{N}]/u)?.[0]?.toLocaleUpperCase() ?? '?';
 

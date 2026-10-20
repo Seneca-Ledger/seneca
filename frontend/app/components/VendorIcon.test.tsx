@@ -4,9 +4,9 @@ import { VendorIcon } from './VendorIcon';
 
 describe('VendorIcon', () => {
   it.each([
-    ['Vendor - Plan', 'V'],
+    ['ACME Store - Wireless Buds', 'A'],
     ['42 Studio', '4'],
-    ['vendor', 'V'],
+    ['acme store', 'A'],
     ['!!!', '?'],
   ])('falls back to the first letter or digit of %j', (vendorName, initial) => {
     render(<VendorIcon vendorName={vendorName} />);
