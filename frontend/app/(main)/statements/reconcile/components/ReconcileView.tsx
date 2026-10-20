@@ -6,6 +6,7 @@ import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
@@ -115,7 +116,10 @@ export function ReconcileView(): React.JSX.Element {
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {match.item.direction === 'receivable' ? t.receivables : t.payables} ·{' '}
-                        {money(match.item.amount, match.item.currency)} ·{' '}
+                        <PrivateAmount>
+                          {money(match.item.amount, match.item.currency)}
+                        </PrivateAmount>{' '}
+                        ·{' '}
                         {match.item.dueDate
                           ? fill(t.due.value, { date: formatDate(match.item.dueDate) })
                           : t.noDue}
@@ -127,8 +131,10 @@ export function ReconcileView(): React.JSX.Element {
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {formatDate(match.transaction.date)} ·{' '}
-                        {money(match.transaction.amount, match.transaction.currency)} ·{' '}
-                        {Math.round(match.confidence * 100)}%
+                        <PrivateAmount>
+                          {money(match.transaction.amount, match.transaction.currency)}
+                        </PrivateAmount>{' '}
+                        · {Math.round(match.confidence * 100)}%
                       </Typography>
                     </Box>
                     <Button
@@ -181,10 +187,14 @@ export function ReconcileView(): React.JSX.Element {
                       <tr key={row.direction}>
                         <td>{row.direction === 'receivable' ? t.receivables : t.payables}</td>
                         {BUCKETS.map(bucket => (
-                          <td key={bucket.key}>{money(row.buckets[bucket.key])}</td>
+                          <td key={bucket.key}>
+                            <PrivateAmount>{money(row.buckets[bucket.key])}</PrivateAmount>
+                          </td>
                         ))}
                         <td>
-                          <strong>{money(row.total)}</strong>
+                          <strong>
+                            <PrivateAmount>{money(row.total)}</PrivateAmount>
+                          </strong>
                         </td>
                       </tr>
                     ))}
@@ -203,7 +213,8 @@ export function ReconcileView(): React.JSX.Element {
               <Box sx={{ display: 'grid', gap: 0.5 }}>
                 {data.unmatchedItems.slice(0, 20).map(item => (
                   <Typography key={item.id} variant="body2">
-                    {item.vendor} · {money(item.amount, item.currency)} ·{' '}
+                    {item.vendor} ·{' '}
+                    <PrivateAmount>{money(item.amount, item.currency)}</PrivateAmount> ·{' '}
                     {item.dueDate ? fill(t.due.value, { date: formatDate(item.dueDate) }) : t.noDue}
                   </Typography>
                 ))}
@@ -222,11 +233,13 @@ export function ReconcileView(): React.JSX.Element {
                     key={`${group.vendor}:${group.amount}`}
                     color="warning"
                     variant="outlined"
-                    label={fill(t.duplicateRow.value, {
-                      vendor: group.vendor,
-                      amount: money(group.amount, group.currency),
-                      count: String(group.itemIds.length),
-                    })}
+                    label={fillTemplateNodes(
+                      fill(t.duplicateRow.value, {
+                        vendor: group.vendor,
+                        count: String(group.itemIds.length),
+                      }),
+                      { amount: money(group.amount, group.currency) },
+                    )}
                   />
                 ))}
               </Box>

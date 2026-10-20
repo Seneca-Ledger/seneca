@@ -1,8 +1,10 @@
 'use client';
+import clsx from 'clsx';
 import type { JSX } from 'react';
 import { useMemo } from 'react';
 
 import type { SpendOverTimeRecord } from '@/app/(main)/statements/components/spend-over-time.utils';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/analytics-common';
 
@@ -214,12 +216,24 @@ export function SpendOverTimeCalendar({
             >
               <span className="seneca-spend-calendar__day-number">{day.dayNumber}</span>
               {hasItems ? (
-                <span className="seneca-spend-calendar__day-total">{totalLabel}</span>
+                <span
+                  className={clsx(
+                    'seneca-spend-calendar__day-total',
+                    singleCurrency && PRIVATE_CLASS,
+                  )}
+                >
+                  {totalLabel}
+                </span>
               ) : null}
 
               {/* Phones: the cell is too narrow even for the plain total. */}
               {hasItems ? (
-                <span className="seneca-spend-calendar__day-compact">
+                <span
+                  className={clsx(
+                    'seneca-spend-calendar__day-compact',
+                    singleCurrency && PRIVATE_CLASS,
+                  )}
+                >
                   {singleCurrency
                     ? compactFormatter(singleCurrency).format(day.total)
                     : day.records.length}
@@ -249,7 +263,12 @@ export function SpendOverTimeCalendar({
                 <span className="seneca-spend-calendar__agenda-merchants">
                   {day.records.map(record => record.merchant || record.fileName).join(', ')}
                 </span>
-                <span className="seneca-spend-calendar__agenda-total">
+                <span
+                  className={clsx(
+                    'seneca-spend-calendar__agenda-total',
+                    day.currencies.length === 1 && PRIVATE_CLASS,
+                  )}
+                >
                   {day.currencies.length === 1
                     ? money(day.total, day.currencies[0] || currency)
                     : `${day.records.length} ${labels.operations}`}

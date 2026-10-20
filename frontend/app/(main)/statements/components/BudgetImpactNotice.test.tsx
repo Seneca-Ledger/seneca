@@ -5,6 +5,12 @@ import { BudgetImpactNotice } from './BudgetImpactNotice';
 const getMock = vi.hoisted(() => vi.fn());
 vi.mock('@/app/lib/api', () => ({ default: { get: getMock } }));
 
+/** One notice line: the amount in it is its own (redactable) span. */
+const line =
+  (text: string) =>
+  (_: string, element: Element | null): boolean =>
+    element?.tagName === 'LI' && element.textContent === text;
+
 describe('BudgetImpactNotice', () => {
   afterEach(() => {
     getMock.mockReset();
@@ -14,13 +20,32 @@ describe('BudgetImpactNotice', () => {
     getMock.mockResolvedValue({
       data: {
         budgets: [
-          { id: 'b1', name: 'Food', currency: 'USD', remainingAfter: -10, exceeds: true },
-          { id: 'b2', name: 'Everything', currency: 'USD', remainingAfter: 40, exceeds: false },
+          {
+            id: 'b1',
+            name: 'Food',
+            categoryName: null,
+            currency: 'USD',
+            availableAmount: 20,
+            spentAmount: 0,
+            remainingAfter: -10,
+            exceeds: true,
+          },
+          {
+            id: 'b2',
+            name: 'Everything',
+            categoryName: null,
+            currency: 'USD',
+            availableAmount: 70,
+            spentAmount: 0,
+            remainingAfter: 40,
+            exceeds: false,
+          },
         ],
         account: {
           walletId: 'w1',
           name: 'Cash',
           currency: 'USD',
+          balance: 10,
           balanceAfter: -20,
           overdraws: true,
         },
@@ -29,9 +54,10 @@ describe('BudgetImpactNotice', () => {
 
     render(<BudgetImpactNotice categoryId="c1" amount="30" currency="USD" date="2026-10-01" />);
 
-    expect(await screen.findByText('Takes “Food” over its limit by 10 USD')).toBeInTheDocument();
-    expect(screen.getByText('Leaves 40 USD in “Everything”')).toBeInTheDocument();
-    expect(screen.getByText('Would overdraw “Cash”: balance -20 USD')).toBeInTheDocument();
+    expect(await screen.findByText(line('Takes “Food” over its limit by 10 USD'))).toBeInTheDocument();
+    expect(screen.getByText(line('Leaves 40 USD in “Everything”'))).toBeInTheDocument();
+    expect(screen.getByText(line('Would overdraw “Cash”: balance -20 USD'))).toBeInTheDocument();
+    expect(screen.getByText('10 USD')).toHaveClass('seneca-private');
     expect(getMock).toHaveBeenCalledWith(
       '/budgets/impact',
       expect.objectContaining({

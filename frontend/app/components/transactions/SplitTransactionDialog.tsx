@@ -11,6 +11,7 @@ import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
+import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import type { StatementCategorySource } from '@/app/lib/statement-categories';
 import {
@@ -103,10 +104,9 @@ export function SplitTransactionDialog(props: SplitTransactionDialogProps): Reac
         sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}
       >
         <Typography variant="body2" color="text.secondary">
-          {t.splitDialog.totalToAllocate.value.replace(
-            '{amount}',
-            `${totalAmount.toFixed(2)} ${currency}`,
-          )}
+          {fillTemplateNodes(t.splitDialog.totalToAllocate.value, {
+            amount: `${totalAmount.toFixed(2)} ${currency}`,
+          })}
         </Typography>
 
         {split.rows.map((row, index) => (
@@ -139,10 +139,9 @@ export function SplitTransactionDialog(props: SplitTransactionDialogProps): Reac
             data-testid="split-remaining"
             color={split.balanced ? 'success.main' : 'error.main'}
           >
-            {t.splitDialog.remaining.value.replace(
-              '{amount}',
-              `${split.remaining.toFixed(2)} ${currency}`,
-            )}
+            {fillTemplateNodes(t.splitDialog.remaining.value, {
+              amount: `${split.remaining.toFixed(2)} ${currency}`,
+            })}
           </Typography>
         </Box>
       </DialogContent>

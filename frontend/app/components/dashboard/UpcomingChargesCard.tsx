@@ -3,6 +3,7 @@
 import EventRepeatOutlined from '@mui/icons-material/EventRepeatOutlined';
 import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -102,7 +103,11 @@ export function UpcomingChargesCard({
                     ? `${formatStoredDateWithOptions(day, { day: 'numeric', month: 'short' })} · ${relative.format(offset, 'day')}`
                     : undefined
                 }
-                trailing={formatMoney(Number(item.amount), item.currency, locale)}
+                trailing={
+                  <PrivateAmount>
+                    {formatMoney(Number(item.amount), item.currency, locale)}
+                  </PrivateAmount>
+                }
               />
             );
           })}
@@ -110,7 +115,7 @@ export function UpcomingChargesCard({
       )}
       {summary.data && summary.data.totalMonthlyCost > 0 && (
         <p className="seneca-dashboard__card-note seneca-dashboard__card-note--footer">
-          {fill(t.upcomingMonthly.value, {
+          {fillTemplateNodes(t.upcomingMonthly.value, {
             amount: formatAmount(summary.data.totalMonthlyCost),
           })}
         </p>

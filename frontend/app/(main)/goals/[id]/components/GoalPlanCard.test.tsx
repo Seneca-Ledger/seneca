@@ -2,6 +2,7 @@
 import type { GoalPlanResponse } from '@/app/lib/goals-api';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { wholeLine } from '@/app/components/dashboard/__tests__/whole-line';
 import { GoalPlanCard } from './GoalPlanCard';
 
 // The wire format (packages/contracts GoalPlanResponse): the goal from the
@@ -34,7 +35,7 @@ describe('GoalPlanCard', () => {
 
     expect(screen.getByText('$441.40')).toBeInTheDocument();
     expect(
-      screen.getByText('$422.22 for the goal + $19.18 by which budgets exceed income'),
+      screen.getByText(wholeLine('$422.22 for the goal + $19.18 by which budgets exceed income')),
     ).toBeInTheDocument();
     expect(screen.getByText('Budgets already take more than your income')).toBeInTheDocument();
   });
@@ -48,7 +49,7 @@ describe('GoalPlanCard', () => {
       />,
     );
 
-    expect(screen.getByText('$422.22 needed, $300.00 free')).toBeInTheDocument();
+    expect(screen.getByText(wholeLine('$422.22 needed, $300.00 free'))).toBeInTheDocument();
     expect(screen.queryByText('Budgets already take more than your income')).toBeNull();
   });
 

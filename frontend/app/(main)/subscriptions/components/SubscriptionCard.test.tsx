@@ -47,7 +47,8 @@ describe('SubscriptionCard', () => {
   it('offers to set aside a monthly amount for an annual charge and records a tap', () => {
     const { onUse, onSinkingFund } = renderCard();
 
-    fireEvent.click(screen.getByRole('button', { name: /Set aside 20 USD\/month/ }));
+    // The amount is its own element (hidden in privacy mode), so the name may gain a space.
+    fireEvent.click(screen.getByRole('button', { name: /Set aside 20 USD ?\/month/ }));
     expect(onSinkingFund).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Used it' }));
     expect(onUse).toHaveBeenCalledTimes(1);
@@ -75,10 +76,26 @@ describe('SubscriptionCard', () => {
       { duplicate: true },
     );
 
-    expect(screen.getByText('20 USD → 22 USD (2 USD per charge, 24 USD a year)')).toBeInTheDocument();
-    expect(screen.getByText('6 USD per use (4)')).toBeInTheDocument();
+    const byText = (text: string) =>
+      screen.getByText((_, element) => element?.tagName === 'P' && element.textContent === text);
+    expect(byText('20 USD → 22 USD (2 USD per charge, 24 USD a year)')).toBeInTheDocument();
+    expect(byText('6 USD per use (4)')).toBeInTheDocument();
     expect(screen.getByText('Possible duplicate')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Set aside/ })).not.toBeInTheDocument();
+  });
+
+  it('marks every amount for privacy mode, and only the amounts', () => {
+    renderCard({
+      frequency: 'monthly',
+      amount: 22,
+      riskStatus: 'price_changed',
+      detectionMeta: {
+        priceChange: { previous: 20, current: 22, delta: 2, yearlyDelta: 24, detectedAt: '2026-09-01' },
+      },
+    });
+
+    const hidden = [...document.querySelectorAll('.seneca-private')].map(node => node.textContent);
+    expect(hidden).toEqual(['22 USD', '20 USD', '22 USD', '2 USD', '24 USD']);
   });
 
   it('computes the monthly set-aside only for quarterly and annual plans', () => {

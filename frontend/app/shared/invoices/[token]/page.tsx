@@ -3,6 +3,7 @@
 import { Alert, Box, Chip, Container, Divider, Paper, Typography } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
@@ -240,10 +241,18 @@ export default function SharedInvoicePage() {
                 <Box component="td" sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}>
                   {Number(line.quantity)}
                 </Box>
-                <Box component="td" sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}>
+                <Box
+                  component="td"
+                  className={PRIVATE_CLASS}
+                  sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}
+                >
                   {money(line.unitPrice, invoice.currency)}
                 </Box>
-                <Box component="td" sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}>
+                <Box
+                  component="td"
+                  className={PRIVATE_CLASS}
+                  sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}
+                >
                   {money(line.amount, invoice.currency)}
                 </Box>
               </Box>
@@ -255,11 +264,11 @@ export default function SharedInvoicePage() {
           <Box sx={{ minWidth: 240 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span>{t.subtotal}</span>
-              <span>{money(invoice.subtotal, invoice.currency)}</span>
+              <span className={PRIVATE_CLASS}>{money(invoice.subtotal, invoice.currency)}</span>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, mt: 0.5 }}>
               <span>{t.tax}</span>
-              <span>{money(invoice.taxTotal, invoice.currency)}</span>
+              <span className={PRIVATE_CLASS}>{money(invoice.taxTotal, invoice.currency)}</span>
             </Box>
             <Box
               sx={{
@@ -271,7 +280,7 @@ export default function SharedInvoicePage() {
               }}
             >
               <span>{t.total}</span>
-              <span>{money(invoice.total, invoice.currency)}</span>
+              <span className={PRIVATE_CLASS}>{money(invoice.total, invoice.currency)}</span>
             </Box>
             {invoice.pricesIncludeTax ? (
               <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5 }}>

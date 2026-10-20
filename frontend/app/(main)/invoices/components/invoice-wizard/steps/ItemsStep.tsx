@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Plus, Trash2 } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { LineAdjustmentInput, UnitSelect } from '../../XRechnungFields';
@@ -126,10 +127,12 @@ export function ItemsStep({ form }: { form: InvoiceForm }): React.ReactElement {
           {/* How the amount comes about, then the amount: "2 × €80 / hour   €160". */}
           <div className="seneca-invoice-wizard__line-amount">
             <span>
-              {line.quantity} × {money(line.unitPrice)} /{' '}
+              {line.quantity} × <PrivateAmount>{money(line.unitPrice)}</PrivateAmount> /{' '}
               {unitLabels[line.unitCode || 'C62'] ?? line.unitCode}
             </span>
-            <span className="seneca-invoice-wizard__line-sum">{money(lineAmount(line))}</span>
+            <span className={`seneca-invoice-wizard__line-sum ${PRIVATE_CLASS}`}>
+              {money(lineAmount(line))}
+            </span>
           </div>
         </section>
       ))}

@@ -17,6 +17,7 @@ import {
   Download,
   RefreshCcw,
 } from '@/app/components/icons';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -412,6 +413,7 @@ function BalanceSheet(): React.JSX.Element {
               </Box>
             ) : (
               <span
+                className={PRIVATE_CLASS}
                 style={{
                   fontFamily: AMOUNT_FONT,
                   fontVariantNumeric: 'tabular-nums',
@@ -440,7 +442,12 @@ function BalanceSheet(): React.JSX.Element {
 
   const balanceWarning = useMemo(() => {
     if (!sheet || sheet.isBalanced) return null;
-    return `${text('balanceDifference', 'Balance difference')}: ${formatCurrency(sheet.difference)}`;
+    return (
+      <>
+        {text('balanceDifference', 'Balance difference')}:{' '}
+        <PrivateAmount>{formatCurrency(sheet.difference)}</PrivateAmount>
+      </>
+    );
   }, [formatCurrency, sheet, text]);
 
   return (
@@ -668,7 +675,8 @@ function BalanceSheet(): React.JSX.Element {
               }}
             >
               <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-                {text('assets', 'Assets')} {formatCurrency(sheet.assets.total)}
+                {text('assets', 'Assets')}{' '}
+                <PrivateAmount>{formatCurrency(sheet.assets.total)}</PrivateAmount>
               </Typography>
             </Box>
             <Box>
@@ -696,7 +704,8 @@ function BalanceSheet(): React.JSX.Element {
               }}
             >
               <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-                {text('liabilities', 'Liabilities')} {formatCurrency(sheet.liabilities.total)}
+                {text('liabilities', 'Liabilities')}{' '}
+                <PrivateAmount>{formatCurrency(sheet.liabilities.total)}</PrivateAmount>
               </Typography>
             </Box>
             <Box>

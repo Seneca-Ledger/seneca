@@ -1,6 +1,8 @@
 'use client';
 
+import type React from 'react';
 import { useEffect, useState } from 'react';
+import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
@@ -31,11 +33,9 @@ interface Props {
 const formatAmount = (value: number, currency: string): string =>
   `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)} ${currency}`;
 
-const fill = (template: string, values: Record<string, string>): string =>
-  Object.entries(values).reduce(
-    (text, [key, value]) => text.replaceAll(`{{${key}}}`, value),
-    template,
-  );
+/** Names go in as words; the money (`amount`/`balance`) stays redactable. */
+const fill = (template: string, name: [string, string], money: Record<string, string>) =>
+  fillTemplateNodes(template.replaceAll(`{{${name[0]}}}`, name[1]), money);
 
 /**
  * What this expense would do to the budgets it counts against and to the
@@ -76,20 +76,20 @@ export function BudgetImpactNotice({ categoryId, amount, currency, date }: Props
   }, [categoryId, parsedAmount, currency, date]);
 
   if (!impact) return null;
-  const lines: Array<{ key: string; text: string; warn: boolean }> = impact.budgets.map(budget => ({
-    key: budget.id,
-    warn: budget.exceeds,
-    text: fill((budget.exceeds ? t.budgetOver : t.budgetLeft).value, {
-      budget: budget.name,
-      amount: formatAmount(Math.abs(budget.remainingAfter), budget.currency),
+  const lines: Array<{ key: string; text: React.ReactNode; warn: boolean }> = impact.budgets.map(
+    budget => ({
+      key: budget.id,
+      warn: budget.exceeds,
+      text: fill((budget.exceeds ? t.budgetOver : t.budgetLeft).value, ['budget', budget.name], {
+        amount: formatAmount(Math.abs(budget.remainingAfter), budget.currency),
+      }),
     }),
-  }));
+  );
   if (impact.account?.overdraws) {
     lines.push({
       key: impact.account.walletId,
       warn: true,
-      text: fill(t.accountOverdraw.value, {
-        account: impact.account.name,
+      text: fill(t.accountOverdraw.value, ['account', impact.account.name], {
         balance: formatAmount(impact.account.balanceAfter, impact.account.currency),
       }),
     });

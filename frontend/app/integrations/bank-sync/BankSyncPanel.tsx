@@ -3,6 +3,7 @@
 import { Box, Button, FormControlLabel, Stack, Switch, TextField, Typography } from '@mui/material';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
@@ -338,9 +339,19 @@ export function BankSyncPanel({
                         ) : null}
                       </Typography>
                       <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                        {account.balance !== null
-                          ? `${t.balance.value}: ${account.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${account.currency}`
-                          : account.currency}
+                        {account.balance !== null ? (
+                          <>
+                            {t.balance.value}:{' '}
+                            <PrivateAmount>
+                              {account.balance.toLocaleString(undefined, {
+                                maximumFractionDigits: 2,
+                              })}{' '}
+                              {account.currency}
+                            </PrivateAmount>
+                          </>
+                        ) : (
+                          account.currency
+                        )}
                         {' · '}
                         {t.lastSync}:{' '}
                         {account.lastSyncAt

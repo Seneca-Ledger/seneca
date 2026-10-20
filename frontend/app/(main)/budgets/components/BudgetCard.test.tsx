@@ -29,7 +29,8 @@ describe('BudgetCard', () => {
       unconvertedSpending: [{ currency: 'XYZ', amount: 150 }],
     });
 
-    const note = screen.getByText(/XYZ/);
+    // The amount is an element of its own (privacy mode); the note is around it.
+    const note = screen.getByText(/XYZ/).parentElement as HTMLElement;
     expect(note.textContent).toContain('150');
     expect(note.textContent).toContain('USD');
   });

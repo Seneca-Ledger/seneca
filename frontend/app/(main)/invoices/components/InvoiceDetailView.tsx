@@ -13,6 +13,7 @@ import { ChevronLeft } from '@/app/components/icons';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -593,7 +594,9 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                         className="seneca-invoice-lines__td seneca-invoice-lines__td--right"
                         data-label={t.detail.amount.value}
                       >
-                        {formatMoney(lineAmount(line), currency, locale)}
+                        <PrivateAmount>
+                          {formatMoney(lineAmount(line), currency, locale)}
+                        </PrivateAmount>
                       </td>
                     </tr>
                   ))}
@@ -606,11 +609,15 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
             <div style={{ display: 'grid', gap: 4, minWidth: 220 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
                 <span>{t.detail.subtotal.value}</span>
-                <span>{formatMoney(totals.subtotal, currency, locale)}</span>
+                <span className={PRIVATE_CLASS}>
+                  {formatMoney(totals.subtotal, currency, locale)}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
                 <span>{t.detail.tax.value}</span>
-                <span>{formatMoney(totals.taxTotal, currency, locale)}</span>
+                <span className={PRIVATE_CLASS}>
+                  {formatMoney(totals.taxTotal, currency, locale)}
+                </span>
               </div>
               <div
                 style={{
@@ -621,7 +628,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                 }}
               >
                 <span>{t.columns.total.value}</span>
-                <span>{formatMoney(totals.total, currency, locale)}</span>
+                <span className={PRIVATE_CLASS}>{formatMoney(totals.total, currency, locale)}</span>
               </div>
               {/* Payments against the invoice: what the client still owes is the
                     number they care about, and it is not the total. */}
@@ -629,7 +636,9 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
                     <span>{t.detail.amountPaid.value}</span>
-                    <span>{formatMoney(Number(invoice?.amountPaid), currency, locale)}</span>
+                    <span className={PRIVATE_CLASS}>
+                      {formatMoney(Number(invoice?.amountPaid), currency, locale)}
+                    </span>
                   </div>
                   <div
                     style={{
@@ -640,7 +649,9 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                     }}
                   >
                     <span>{t.detail.amountDue.value}</span>
-                    <span>{formatMoney(Number(invoice?.amountDue), currency, locale)}</span>
+                    <span className={PRIVATE_CLASS}>
+                      {formatMoney(Number(invoice?.amountDue), currency, locale)}
+                    </span>
                   </div>
                 </>
               )}
@@ -726,7 +737,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
                       {formatInvoiceDate(note.issueDate, locale)}
                     </span>
                     <span style={{ fontWeight: 600 }}>{note.creditNoteNumber}</span>
-                    <span>
+                    <span className={PRIVATE_CLASS}>
                       {formatMoney(
                         Number(
                           note.applications?.find(

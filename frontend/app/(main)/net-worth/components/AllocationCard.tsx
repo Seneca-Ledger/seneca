@@ -3,8 +3,10 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { localizeBalanceAccountName } from '@/app/lib/balance-account-names';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import type { NetWorthBreakdownItem } from '../hooks/useNetWorth';
 import { CardTitle, cardSx, plainLineName, WholeMoney } from './net-worth-ui';
 
@@ -31,6 +33,7 @@ interface AllocationCardProps {
 export function AllocationCard({ title, views, currency, locale }: AllocationCardProps) {
   const shown = views.filter(view => view.items.length > 0);
   const [picked, setPicked] = useState<string | null>(null);
+  const privacy = usePrivacyMode();
   const view = shown.find(entry => entry.key === picked) ?? shown[0];
   if (!view) {
     return null;
@@ -62,7 +65,12 @@ export function AllocationCard({ title, views, currency, locale }: AllocationCar
         {view.items.map((item, index) => (
           <Box
             key={item.code}
-            title={`${plainLineName(localizeBalanceAccountName(item.name, locale))} ${item.percent}%`}
+            // In privacy mode the tooltip names the line without its share.
+            title={
+              privacy
+                ? plainLineName(localizeBalanceAccountName(item.name, locale))
+                : `${plainLineName(localizeBalanceAccountName(item.name, locale))} ${item.percent}%`
+            }
             sx={{
               flexGrow: Math.max(item.percent, 0.5),
               bgcolor: SERIES_COLORS[index % SERIES_COLORS.length],
@@ -91,7 +99,7 @@ export function AllocationCard({ title, views, currency, locale }: AllocationCar
               variant="body2"
               sx={{ color: 'text.secondary', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}
             >
-              {item.percent}%
+              <PrivateAmount>{item.percent}%</PrivateAmount>
             </Typography>
             <Typography
               variant="body2"

@@ -9,6 +9,7 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronDown, Trash2 } from '@/app/components/icons';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
+import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
@@ -513,10 +514,9 @@ export function ReceiptParsedDataForm({
             >
               {Math.abs(itemsDifference) < 0.005
                 ? t.itemsMatchTotal
-                : t.itemsDifference.value.replace(
-                    '{amount}',
-                    formatMoney(Math.abs(itemsDifference), value.currency, locale),
-                  )}
+                : fillTemplateNodes(t.itemsDifference.value, {
+                    amount: formatMoney(Math.abs(itemsDifference), value.currency, locale),
+                  })}
             </Typography>
           ) : null}
         </Box>

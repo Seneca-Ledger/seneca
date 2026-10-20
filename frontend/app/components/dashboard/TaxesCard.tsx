@@ -6,6 +6,7 @@ import {
   formatMoney as formatTaxMoney,
   type TaxDeadline,
 } from '@/app/(main)/reports/components/tax-return.helpers';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -88,25 +89,29 @@ export function TaxesCard(): React.JSX.Element | null {
           <ListRow
             href="/reports?tab=tax-year"
             primary={fill(t.reserveCaption.value, { year: String(held.year) })}
-            trailing={formatMoney(held.total, held.currency, locale)}
+            trailing={
+              <PrivateAmount>{formatMoney(held.total, held.currency, locale)}</PrivateAmount>
+            }
           />
         )}
         {status && (
           <ListRow
             href="/reports?tab=tax"
             primary={taxText.registrationThreshold.value}
-            secondary={taxText.thresholdProgress.value
-              .replace('{turnover}', formatTaxMoney(status.turnover, status.currency))
-              .replace('{threshold}', formatTaxMoney(status.threshold ?? 0, status.currency))
-              .replace('{percent}', String(Math.round(status.percentUsed)))}
+            // The share of a known threshold gives the turnover away: it is redacted too.
+            secondary={fillTemplateNodes(taxText.thresholdProgress.value, {
+              turnover: formatTaxMoney(status.turnover, status.currency),
+              threshold: formatTaxMoney(status.threshold ?? 0, status.currency),
+              percent: String(Math.round(status.percentUsed)),
+            })}
             trailing={
-              <span
+              <PrivateAmount
                 className={
                   status.percentUsed >= 80 ? 'seneca-dashboard__amount--negative' : undefined
                 }
               >
                 {Math.round(status.percentUsed)}%
-              </span>
+              </PrivateAmount>
             }
           />
         )}

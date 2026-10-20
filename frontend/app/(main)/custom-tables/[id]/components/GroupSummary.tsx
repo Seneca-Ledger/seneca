@@ -1,5 +1,6 @@
 'use client';
 
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import type { TableGroup } from '../hooks/useTableGroups';
 import { formatCellNumber } from '../utils/numberFormat';
 import type { CustomTableColumn } from '../utils/types';
@@ -37,6 +38,11 @@ export function GroupSummary({
       column && fn !== 'count' ? numberFormatFor(column, fallbackCurrency) : {},
     );
   };
+  // A total of a currency column is money; a count is not.
+  const isMoneyAggregate = (col: string, value: number | string | null, fn: string) =>
+    typeof value === 'number' &&
+    fn !== 'count' &&
+    columns.find(c => c.key === col)?.type === 'currency';
   return (
     <section className="seneca-ct__groups" aria-label={labels.title}>
       <h3 className="seneca-ct__groups-title">
@@ -55,7 +61,11 @@ export function GroupSummary({
               {group.aggregates.map(item => (
                 <span key={`${item.col}:${item.fn}`} className="seneca-ct__group-agg">
                   {columns.find(c => c.key === item.col)?.title ?? item.col}:{' '}
-                  {formatAggregate(item.col, item.value, item.fn)}
+                  {isMoneyAggregate(item.col, item.value, item.fn) ? (
+                    <PrivateAmount>{formatAggregate(item.col, item.value, item.fn)}</PrivateAmount>
+                  ) : (
+                    formatAggregate(item.col, item.value, item.fn)
+                  )}
                 </span>
               ))}
             </button>

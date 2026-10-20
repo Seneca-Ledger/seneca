@@ -9,6 +9,7 @@ import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { Plus } from '@/app/components/icons';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { formatMoney } from '@/app/lib/format-money';
 import type { CryptoHolding } from '../hooks/useCrypto';
 import { TokenIcon } from './TokenIcon';
@@ -78,7 +79,12 @@ function GainCell({
         ? 'var(--money-up)'
         : 'var(--money-down)';
   return (
-    <Typography component="span" variant="body2" sx={{ color, fontVariantNumeric: 'tabular-nums' }}>
+    <Typography
+      component="span"
+      variant="body2"
+      className={PRIVATE_CLASS}
+      sx={{ color, fontVariantNumeric: 'tabular-nums' }}
+    >
       {holding.unrealized > 0 ? '+' : ''}
       {money(holding.unrealized)}
       {percent === null ? null : (
@@ -109,7 +115,7 @@ function ShareCell({ share }: { share: number }): React.JSX.Element {
           sx={{ width: `${Math.min(share, 100)}%`, height: '100%', bgcolor: 'var(--primary)' }}
         />
       </Box>
-      <Box component="span" sx={{ minWidth: 36, textAlign: 'right' }}>
+      <Box component="span" className={PRIVATE_CLASS} sx={{ minWidth: 36, textAlign: 'right' }}>
         {share < 1 ? '<1%' : `${Math.round(share)}%`}
       </Box>
     </Box>
@@ -190,7 +196,7 @@ export function HoldingsTable({
                       {labels.basisUnknown}
                     </Typography>
                   ) : (
-                    unitPrice(holding.asset, holding.avgCost)
+                    <PrivateAmount>{unitPrice(holding.asset, holding.avgCost)}</PrivateAmount>
                   )}
                 </TableCell>
                 <TableCell align="right" sx={numberCell}>
@@ -199,7 +205,11 @@ export function HoldingsTable({
                 <TableCell align="right" sx={{ ...numberCell, color: 'text.secondary' }}>
                   <ShareCell share={total > 0 ? (holding.value / total) * 100 : 0} />
                 </TableCell>
-                <TableCell align="right" sx={{ ...numberCell, fontWeight: 500 }}>
+                <TableCell
+                  align="right"
+                  className={PRIVATE_CLASS}
+                  sx={{ ...numberCell, fontWeight: 500 }}
+                >
                   {money(holding.value)}
                 </TableCell>
               </TableRow>

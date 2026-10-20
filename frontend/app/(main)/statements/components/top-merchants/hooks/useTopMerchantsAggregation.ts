@@ -16,6 +16,7 @@ import {
   sortAggregateRows,
 } from '@/app/(main)/statements/components/top-merchants.utils';
 import { getRecordDate, resolveCurrencyCode } from '@/app/lib/analytics-common';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { useCurrencyConversion } from '@/app/lib/useCurrencyConversion';
 
 type Params = {
@@ -142,6 +143,7 @@ export const useTopMerchantsAggregation = ({
   totalIncomeLabel,
   totalSpendLabel,
 }: Params): TopMerchantsAggregationReturn => {
+  const privacy = usePrivacyMode();
   const aggregatedRows = useMemo(
     () => computeAggregatedRows(flowFilteredRecords, workspaceCurrency),
     [flowFilteredRecords, workspaceCurrency],
@@ -184,8 +186,8 @@ export const useTopMerchantsAggregation = ({
     };
   }, [totals, previousPeriodTotals]);
   const topMerchantsChart = useMemo(
-    () => buildTopMerchantsBarChart(sortedAggregatedRows, resolvedTheme),
-    [sortedAggregatedRows, resolvedTheme],
+    () => buildTopMerchantsBarChart(sortedAggregatedRows, resolvedTheme, privacy),
+    [sortedAggregatedRows, resolvedTheme, privacy],
   );
   const sourceChart = useMemo(
     () =>
@@ -202,8 +204,16 @@ export const useTopMerchantsAggregation = ({
         activeFlowType,
         { totalIncome: totalIncomeLabel, totalSpend: totalSpendLabel },
         resolvedTheme,
+        privacy,
       ),
-    [convertedFlowRecords, activeFlowType, totalIncomeLabel, totalSpendLabel, resolvedTheme],
+    [
+      convertedFlowRecords,
+      activeFlowType,
+      totalIncomeLabel,
+      totalSpendLabel,
+      resolvedTheme,
+      privacy,
+    ],
   );
   return { sortedAggregatedRows, totals, comparison, topMerchantsChart, sourceChart, trendChart };
 };

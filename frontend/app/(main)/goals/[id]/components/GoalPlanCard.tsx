@@ -3,6 +3,11 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import {
+  fillTemplateNodes,
+  PRIVATE_CLASS,
+  PrivateAmount,
+} from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import type { GoalPlanResponse, GoalPlanStatus } from '@/app/lib/goals-api';
 import { tokens } from '@/lib/theme-tokens';
@@ -114,11 +119,23 @@ export function GoalPlanCard({ plan, locale, formatAmount }: GoalPlanCardProps):
       >
         <Stat
           label={t.planRequired}
-          value={plan.requiredPerMonth === null ? '—' : formatAmount(plan.requiredPerMonth)}
+          value={
+            plan.requiredPerMonth === null ? (
+              '—'
+            ) : (
+              <PrivateAmount>{formatAmount(plan.requiredPerMonth)}</PrivateAmount>
+            )
+          }
         />
         <Stat
           label={t.planPace}
-          value={plan.pace.monthsObserved === 0 ? '—' : formatAmount(plan.pace.perMonth)}
+          value={
+            plan.pace.monthsObserved === 0 ? (
+              '—'
+            ) : (
+              <PrivateAmount>{formatAmount(plan.pace.perMonth)}</PrivateAmount>
+            )
+          }
           hint={paceHint}
         />
         <Stat
@@ -134,7 +151,7 @@ export function GoalPlanCard({ plan, locale, formatAmount }: GoalPlanCardProps):
         />
         <Stat
           label={t.planFree}
-          value={formatAmount(free)}
+          value={<PrivateAmount>{formatAmount(free)}</PrivateAmount>}
           hint={free < 0 ? t.planOverCommitted.value : undefined}
         />
       </Box>
@@ -147,18 +164,24 @@ export function GoalPlanCard({ plan, locale, formatAmount }: GoalPlanCardProps):
         <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography sx={{ fontSize: 14, color: 'var(--foreground)' }}>
             {t.planGap}:{' '}
-            <Box component="span" sx={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+            <Box
+              component="span"
+              className={PRIVATE_CLASS}
+              sx={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
+            >
               {formatAmount(plan.gap)}
             </Box>
           </Typography>
           <Typography sx={{ fontSize: 13, color: 'var(--text-muted)', mt: 0.25 }}>
             {free < 0
-              ? t.planGapOverCommitted.value
-                  .replace('{{required}}', formatAmount(plan.requiredPerMonth))
-                  .replace('{{overflow}}', formatAmount(-free))
-              : t.planGapShort.value
-                  .replace('{{required}}', formatAmount(plan.requiredPerMonth))
-                  .replace('{{free}}', formatAmount(free))}
+              ? fillTemplateNodes(t.planGapOverCommitted.value, {
+                  required: formatAmount(plan.requiredPerMonth),
+                  overflow: formatAmount(-free),
+                })
+              : fillTemplateNodes(t.planGapShort.value, {
+                  required: formatAmount(plan.requiredPerMonth),
+                  free: formatAmount(free),
+                })}
           </Typography>
         </Box>
       )}
@@ -172,7 +195,7 @@ function Stat({
   hint,
 }: {
   label: React.ReactNode;
-  value: string;
+  value: React.ReactNode;
   hint?: string;
 }): React.JSX.Element {
   return (

@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient, {
   type ReceiptMatchCandidate,
@@ -168,7 +169,7 @@ export function ReceiptTransactionMatch({
           {candidates.map(row => (
             <Typography key={row.id} variant="body2">
               {row.transactionDate.slice(0, 10)} · {row.counterpartyName} ·{' '}
-              {formatMoney(row.amount, row.currency, locale)}
+              <PrivateAmount>{formatMoney(row.amount, row.currency, locale)}</PrivateAmount>
             </Typography>
           ))}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -227,7 +228,11 @@ export function ReceiptTransactionMatch({
                   <Typography variant="body2" noWrap title={item.description}>
                     {item.description}
                   </Typography>
-                  <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                  <Typography
+                    variant="body2"
+                    className={PRIVATE_CLASS}
+                    sx={{ fontVariantNumeric: 'tabular-nums' }}
+                  >
                     {formatMoney(item.amount, suggestion.currency, locale)}
                   </Typography>
                   <CategoryPickerField
@@ -253,7 +258,14 @@ export function ReceiptTransactionMatch({
                 <Chip
                   key={part.categoryId ?? 'none'}
                   size="small"
-                  label={`${categoryName(part.categoryId)}: ${formatMoney(part.amount, suggestion.currency, locale)}`}
+                  label={
+                    <>
+                      {categoryName(part.categoryId)}:{' '}
+                      <PrivateAmount>
+                        {formatMoney(part.amount, suggestion.currency, locale)}
+                      </PrivateAmount>
+                    </>
+                  }
                   title={part.items.join(', ')}
                 />
               ))}

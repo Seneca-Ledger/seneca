@@ -10,6 +10,7 @@ import { Button } from '@/app/components/ui/button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { InvoiceLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
@@ -290,7 +291,9 @@ export function InvoicesListView(): React.JSX.Element {
                       className="seneca-payable-list__td"
                       style={{ textAlign: 'right', fontWeight: 600 }}
                     >
-                      {formatMoney(Number(invoice.total), invoice.currency, locale)}
+                      <PrivateAmount>
+                        {formatMoney(Number(invoice.total), invoice.currency, locale)}
+                      </PrivateAmount>
                       {/* A part-paid invoice is neither unpaid nor settled. */}
                       {Number(invoice.amountPaid ?? 0) > 0 &&
                         Number(invoice.amountDue ?? 0) > 0 && (
@@ -302,7 +305,9 @@ export function InvoicesListView(): React.JSX.Element {
                             }}
                           >
                             {t.detail.amountDue.value}{' '}
-                            {formatMoney(Number(invoice.amountDue), invoice.currency, locale)}
+                            <PrivateAmount>
+                              {formatMoney(Number(invoice.amountDue), invoice.currency, locale)}
+                            </PrivateAmount>
                           </div>
                         )}
                     </td>

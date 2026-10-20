@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { LazyNetWorthArea } from '@/app/components/charts/lazy-charts';
 import { ArrowDownRight, ArrowUpRight } from '@/app/components/icons';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
@@ -89,7 +90,12 @@ export function PortfolioSummary({
       <Box>
         {/* The page is read for this number and the three beside it, so both are
             sized to be read across a desk, not squinted at. */}
-        <Typography variant="h2" fontWeight={600} sx={{ lineHeight: 1.05 }}>
+        <Typography
+          variant="h2"
+          fontWeight={600}
+          className={PRIVATE_CLASS}
+          sx={{ lineHeight: 1.05 }}
+        >
           {money(summary.portfolioValue)}
         </Typography>
 
@@ -102,6 +108,7 @@ export function PortfolioSummary({
             )}
             <Typography
               variant="body2"
+              className={PRIVATE_CLASS}
               sx={{
                 color: signalColor(change) ?? 'text.secondary',
                 fontWeight: 500,
@@ -201,7 +208,13 @@ function Stats({
             ? null
             : (summary.unrealized / summary.cost) * 100
         }
-        hint={summary.cost === null ? undefined : `${labels.costBasis} ${money(summary.cost)}`}
+        hint={
+          summary.cost === null ? undefined : (
+            <>
+              {labels.costBasis} <PrivateAmount>{money(summary.cost)}</PrivateAmount>
+            </>
+          )
+        }
       />
       <Stat label={labels.income} value={money(summary.income)} />
       <Stat label={labels.expense} value={money(summary.expense)} />
@@ -218,7 +231,7 @@ function Stat({
 }: {
   label: string;
   value: string;
-  hint?: string;
+  hint?: React.ReactNode;
   signed?: boolean;
   percent?: number | null;
 }): React.JSX.Element {
@@ -231,6 +244,7 @@ function Stat({
       </Typography>
       <Typography
         variant="h4"
+        className={PRIVATE_CLASS}
         sx={{ fontVariantNumeric: 'tabular-nums', lineHeight: 1.2, fontWeight: 500 }}
       >
         {signed ? '+' : ''}
@@ -241,6 +255,7 @@ function Stat({
           {percent !== null && (
             <Box
               component="span"
+              className={PRIVATE_CLASS}
               sx={{ color: signalColor(percent), fontVariantNumeric: 'tabular-nums' }}
             >
               {percent > 0 ? '+' : percent < 0 ? '−' : ''}

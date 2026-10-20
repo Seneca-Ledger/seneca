@@ -3,6 +3,7 @@
 import { Alert, Box, LinearProgress, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
+import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -44,10 +45,11 @@ export function TaxThresholdCard(): React.ReactElement | null {
         {t.registrationThreshold.value}
       </Typography>
       <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.5 }}>
-        {t.thresholdProgress.value
-          .replace('{turnover}', formatMoney(status.turnover, status.currency))
-          .replace('{threshold}', formatMoney(status.threshold, status.currency))
-          .replace('{percent}', String(Math.round(status.percentUsed)))}
+        {fillTemplateNodes(t.thresholdProgress.value, {
+          turnover: formatMoney(status.turnover, status.currency),
+          threshold: formatMoney(status.threshold, status.currency),
+          percent: String(Math.round(status.percentUsed)),
+        })}
       </Typography>
       <LinearProgress
         variant="determinate"

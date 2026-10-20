@@ -10,6 +10,7 @@ import type {
 } from '@/app/(main)/statements/components/top-spenders/top-spenders.types';
 import { X } from '@/app/components/icons';
 import { closeOnBackdropClick } from '@/app/components/ui/backdrop-click';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -225,7 +226,9 @@ function DrillDownTable({
                 color: 'var(--foreground)',
               }}
             >
-              {money(record.amount, record.currencyValue || currency)}
+              <PrivateAmount>
+                {money(record.amount, record.currencyValue || currency)}
+              </PrivateAmount>
             </td>
           </tr>
         ))}

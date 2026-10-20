@@ -21,6 +21,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import {
@@ -404,11 +405,16 @@ export function ProfileStep({
                       {allowance.basis === 'days' ? (
                         <Typography sx={{ mt: 1, fontSize: 12, color: 'success.main' }}>
                           +{' '}
-                          {formatMoney(
-                            Math.min(allowance.units * DE_HOME_OFFICE_DAILY_EUR, allowance.amount),
-                            currency,
-                            locale,
-                          )}{' '}
+                          <PrivateAmount>
+                            {formatMoney(
+                              Math.min(
+                                allowance.units * DE_HOME_OFFICE_DAILY_EUR,
+                                allowance.amount,
+                              ),
+                              currency,
+                              locale,
+                            )}
+                          </PrivateAmount>{' '}
                           {t.deductionHint}
                         </Typography>
                       ) : null}
@@ -434,7 +440,11 @@ export function ProfileStep({
                       />
                       {allowance.basis === 'study' ? (
                         <Typography sx={{ mt: 1, fontSize: 12, color: 'success.main' }}>
-                          + {formatMoney(allowance.amount, currency, locale)} {t.deductionHint}
+                          +{' '}
+                          <PrivateAmount>
+                            {formatMoney(allowance.amount, currency, locale)}
+                          </PrivateAmount>{' '}
+                          {t.deductionHint}
                         </Typography>
                       ) : null}
                     </LabeledField>

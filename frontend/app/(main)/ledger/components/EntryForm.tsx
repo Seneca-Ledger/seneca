@@ -12,6 +12,7 @@ import type React from 'react';
 import { useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { X } from '@/app/components/icons';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { EntryInput } from '../hooks/useLedger';
@@ -316,7 +317,8 @@ function BalanceStatus({
       }}
     >
       <Typography variant="body2" fontWeight={600}>
-        {zero ? t.balanced : t.difference}: {difference} {baseCurrency}
+        {zero ? t.balanced : t.difference}: <PrivateAmount>{difference}</PrivateAmount>{' '}
+        {baseCurrency}
       </Typography>
       {pendingConversion ? <Typography variant="caption">{t.foreignNote}</Typography> : null}
     </Box>

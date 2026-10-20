@@ -4,6 +4,7 @@ import React from 'react';
 import { ChevronDown, ChevronRight } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import { Checkbox } from '../ui/checkbox';
+import { PRIVATE_CLASS } from '../ui/private-amount';
 import { CategoryDropdown } from './CategoryDropdown';
 import { TransactionExpandedRow } from './TransactionExpandedRow';
 import type {
@@ -52,7 +53,7 @@ interface AmountCellProps {
 function AmountCell({ amount, tx, formatters, color }: AmountCellProps): React.ReactElement {
   if (amount <= 0) return <span style={{ color: 'var(--muted-foreground)' }}>—</span>;
   return (
-    <span style={{ fontWeight: 700, color }}>
+    <span className={PRIVATE_CLASS} style={{ fontWeight: 700, color }}>
       {formatters.formatAmount(
         formatters.resolveDisplayAmount(tx, amount),
         formatters.resolveDisplayCurrency(tx),

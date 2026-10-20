@@ -192,6 +192,11 @@ describe('StoicBalance', () => {
     renderWithQuery(<StoicBalance />);
 
     // September: work and virtue have neither plan nor spending.
-    expect(await screen.findAllByText('planned — · actual —')).toHaveLength(2);
+    // Each share is an element of its own (privacy mode): match the whole line.
+    expect(
+      await screen.findAllByText(
+        (_, element) => element?.tagName === 'P' && element.textContent === 'planned — · actual —',
+      ),
+    ).toHaveLength(2);
   });
 });

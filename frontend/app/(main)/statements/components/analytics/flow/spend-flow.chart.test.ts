@@ -124,6 +124,18 @@ describe('buildSpendFlowSankey', () => {
     expect(findSpendFlowNodeId(ads, 'advertising')).toBe('cat:ads');
   });
 
+  it('privacy hides amounts: labels keep the name, the tooltip keeps the figure', () => {
+    const option = buildSpendFlowSankey(data, 'light', labels, format, {
+      compact: false,
+      isIncome: false,
+      privacy: true,
+    });
+    const tooltip = option.tooltip as { formatter: (p: { name: string }) => string };
+
+    expect(seriesOf(option).label.formatter({ name: 'cat:food' })).toBe('{n|Food}');
+    expect(tooltip.formatter({ name: 'cat:food' })).toContain('60.00 €');
+  });
+
   it('drops the merchant column in compact mode', () => {
     const series = seriesOf(buildSpendFlowSankey(data, 'light', labels, format, { compact: true, isIncome: false }));
 

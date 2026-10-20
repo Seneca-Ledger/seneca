@@ -5,6 +5,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useMemo, useState } from 'react';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -218,11 +219,16 @@ export default function RoiPage() {
                   <Typography
                     variant="body2"
                     fontWeight={500}
+                    className={PRIVATE_CLASS}
                     sx={{ flexGrow: 1, fontVariantNumeric: 'tabular-nums' }}
                   >
                     {compactMoney(projection[year]?.compound ?? 0)}
                   </Typography>
-                  <Typography variant="body2" sx={{ flexGrow: 1, color: 'text.secondary' }}>
+                  <Typography
+                    variant="body2"
+                    className={PRIVATE_CLASS}
+                    sx={{ flexGrow: 1, color: 'text.secondary' }}
+                  >
                     {compactMoney(projection[year]?.simple ?? 0)}
                   </Typography>
                 </Box>

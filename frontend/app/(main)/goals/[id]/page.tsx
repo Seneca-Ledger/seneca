@@ -9,6 +9,7 @@ import { useParams } from 'next/navigation';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { ArrowLeft } from '@/app/components/icons';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
@@ -128,9 +129,12 @@ export default function GoalDetailPage(): React.JSX.Element {
             data={data}
             title={t.flowTitle}
             subtitle={
-              hasBudgets
-                ? `${t.planned.value} ${money(data.plannedTotal)} · ${t.actual.value} ${money(data.actualTotal)}`
-                : undefined
+              hasBudgets ? (
+                <>
+                  {t.planned.value} <PrivateAmount>{money(data.plannedTotal)}</PrivateAmount> ·{' '}
+                  {t.actual.value} <PrivateAmount>{money(data.actualTotal)}</PrivateAmount>
+                </>
+              ) : undefined
             }
             action={
               hasBudgets && (
@@ -166,7 +170,7 @@ export default function GoalDetailPage(): React.JSX.Element {
               total would otherwise read low with nothing to explain it. */}
           {data.excluded.cashAmount > 0 && (
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1 }}>
-              {t.cashNote.value.replace('{{amount}}', money(data.excluded.cashAmount))}
+              {fillTemplateNodes(t.cashNote.value, { amount: money(data.excluded.cashAmount) })}
             </Typography>
           )}
 

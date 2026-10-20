@@ -4,6 +4,8 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { format, isValid, parseISO } from 'date-fns';
 import { useEffect, useRef, useState } from 'react';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { resolvePickerFormat } from '@/app/lib/user-format';
 import { useUserFormat } from '@/app/lib/user-format-store';
 import { parseLocalizedNumber } from '../../utils/numberFormat';
@@ -173,6 +175,7 @@ function OptionsEditor({ column, row, onUpdate, labels, done }: EditorProps) {
 }
 
 function CellDisplay({ column, row, fallbackCurrency, labels }: EditableCellProps) {
+  const privacy = usePrivacyMode();
   if (column.type === 'select' || column.type === 'multi_select') {
     const options = selectedOptions(column, row.data?.[column.key] ?? null);
     if (options.length) {
@@ -187,10 +190,14 @@ function CellDisplay({ column, row, fallbackCurrency, labels }: EditableCellProp
   }
   const text = formatCellText(column, row, fallbackCurrency, labels);
   const empty = text === EMPTY_CELL;
+  // An amount is hidden in privacy mode, and so is the tooltip that repeats it.
+  const hidden = column.type === 'currency' && !empty;
   return (
     <span
-      className={`seneca-ct__cell-text${empty ? ' seneca-ct__cell-text--empty' : ''}`}
-      title={text}
+      className={`seneca-ct__cell-text${empty ? ' seneca-ct__cell-text--empty' : ''}${
+        hidden ? ` ${PRIVATE_CLASS}` : ''
+      }`}
+      title={hidden && privacy ? undefined : text}
     >
       {text}
     </span>

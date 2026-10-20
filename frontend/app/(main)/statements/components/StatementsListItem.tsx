@@ -1,6 +1,7 @@
 'use client';
 
 import MuiTooltip from '@mui/material/Tooltip';
+import clsx from 'clsx';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -12,6 +13,7 @@ import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge'
 import { AlertCircle, ChevronDown, ChevronRight, CreditCard } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { categoryReportHref } from '@/app/lib/category-report-href';
@@ -545,7 +547,7 @@ export function StatementsListItem({
       }}
     >
       <span
-        className="seneca-stmt-list-item__amount"
+        className={clsx('seneca-stmt-list-item__amount', PRIVATE_CLASS)}
         style={{
           color: isNegativeAmount || hasError || isMissingAmount ? c.danger : c.ink900,
         }}
@@ -699,7 +701,7 @@ export function StatementsListItem({
             </span>
             {hasError ? <AlertCircle size={14} style={{ color: c.danger, flexShrink: 0 }} /> : null}
             <span
-              className="seneca-stmt-list-item__mobile-amount"
+              className={clsx('seneca-stmt-list-item__mobile-amount', PRIVATE_CLASS)}
               style={{
                 color: isNegativeAmount || hasError || isMissingAmount ? c.danger : undefined,
               }}

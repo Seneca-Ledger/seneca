@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import type { MetalLot, SellLotInput } from '../hooks/useMetals';
@@ -126,6 +127,7 @@ export function SellLotDialog({
             <Typography
               component="span"
               variant="body2"
+              className={PRIVATE_CLASS}
               sx={{ color: realized >= 0 ? 'success.main' : 'error.main', fontWeight: 600 }}
             >
               {realized >= 0 ? '+' : '−'}

@@ -3,6 +3,7 @@
 import Box from '@mui/material/Box';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { categoryTones } from '@/app/components/charts/chart-theme';
+import { PRIVATE_CLASS, PRIVATE_REVEAL_CLASS } from '@/app/components/ui/private-amount';
 import { useCategoryName } from '@/app/lib/use-category-name';
 import { layoutTreemap } from './treemap-layout';
 import type { CashFlowMapData } from './useCashFlowMap';
@@ -81,6 +82,8 @@ export function CashFlowTreemap({ items, formatAmount, height = 320 }: CashFlowT
                 setFocus(focused ? null : tile.id);
               }
             }}
+            // The amount is SVG text that takes no pointer: the whole tile shows it.
+            className={PRIVATE_REVEAL_CLASS}
             style={{ cursor: 'pointer' }}
             data-testid={`treemap-tile-${tile.id}`}
           >
@@ -105,7 +108,14 @@ export function CashFlowTreemap({ items, formatAmount, height = 320 }: CashFlowT
                 style={{ pointerEvents: 'none', fontFamily: 'var(--font-dashboard-sans), inherit' }}
               >
                 {categoryName(tile.item.name)}
-                <tspan x={tile.x + 10} dy={18} fontSize={13} fontWeight={400} opacity={0.75}>
+                <tspan
+                  className={PRIVATE_CLASS}
+                  x={tile.x + 10}
+                  dy={18}
+                  fontSize={13}
+                  fontWeight={400}
+                  opacity={0.75}
+                >
                   {formatAmount(tile.item.value)}
                 </tspan>
               </text>

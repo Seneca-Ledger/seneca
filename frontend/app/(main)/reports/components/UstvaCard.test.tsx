@@ -97,7 +97,12 @@ describe('UstvaCard', () => {
 
     // The rows behind a line.
     fireEvent.click(within(kz81).getByRole('button', { name: /^transactionsCount/ }));
-    expect(within(kz81).getByText('2026-03-10 · Acme GmbH · 237.69')).toBeInTheDocument();
+    const row = within(kz81).getByText(
+      (_, element) =>
+        element?.tagName === 'P' && element.textContent === '2026-03-10 · Acme GmbH · 237.69',
+    );
+    // The amount alone is hidden in privacy mode; the date and the payee stay readable.
+    expect(row.querySelector('.seneca-private')).toHaveTextContent(/^237\.69$/);
   });
 
   it('marks a payee as supplying services from an open item', async () => {

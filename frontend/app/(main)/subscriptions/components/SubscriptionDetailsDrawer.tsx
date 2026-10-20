@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { VendorIcon } from '@/app/components/VendorIcon';
@@ -119,7 +120,7 @@ export function SubscriptionDetailsDrawer({
             </span>
           )}
         </div>
-        <div className="lumio-sub-detail__amount">
+        <div className={`lumio-sub-detail__amount ${PRIVATE_CLASS}`}>
           {money(subscription.amount, subscription.currency, locale)}
         </div>
         <dl className="lumio-sub-detail__facts">
@@ -139,8 +140,10 @@ export function SubscriptionDetailsDrawer({
             details.charges.map(charge => (
               <p key={charge.id} className="lumio-sub-detail__line">
                 {formatDate(charge.chargeDate)} ·{' '}
-                {money(Number(charge.amount), charge.currency, locale)} ·{' '}
-                {charge.matchStatus.replace('_', ' ')}
+                <PrivateAmount>
+                  {money(Number(charge.amount), charge.currency, locale)}
+                </PrivateAmount>{' '}
+                · {charge.matchStatus.replace('_', ' ')}
               </p>
             ))
           ) : (

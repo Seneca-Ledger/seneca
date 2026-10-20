@@ -19,9 +19,22 @@ describe('KpiCard', () => {
     const { container } = render(
       <KpiCard label="Spent" value="$3,072" tone="negative" caption="excludes transfers" />,
     );
-    expect(screen.getByText('$3,072').className).toBe('seneca-dashboard__stat-value');
+    expect(screen.getByText('$3,072').className).toBe('seneca-dashboard__stat-value seneca-private');
     expect(container.querySelector('.seneca-dashboard__stat-dot--negative')).not.toBeNull();
     expect(screen.getByText('excludes transfers')).toBeInTheDocument();
+  });
+
+  it('marks the figure and the detail amounts for privacy mode, but not a count', () => {
+    const { rerender } = render(
+      <SectionSpanProvider value={6}>
+        <KpiCard label="Income" value="$100" details={[{ label: 'Per day', value: '$10' }]} />
+      </SectionSpanProvider>,
+    );
+    expect(screen.getByText('$100')).toHaveClass('seneca-private');
+    expect(screen.getByText('$10')).toHaveClass('seneca-private');
+
+    rerender(<KpiCard label="Counterparties" value={4} plainValue />);
+    expect(screen.getByText('4')).not.toHaveClass('seneca-private');
   });
 
   it('draws no dot for a neutral tone', () => {

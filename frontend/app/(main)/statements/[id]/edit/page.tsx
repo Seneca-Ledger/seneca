@@ -30,6 +30,7 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ArrowLeft, CheckCircle2, ChevronDown, Layers, Save, Trash2 } from '@/app/components/icons';
 import { NotesPanel } from '@/app/components/notes/NotesPanel';
 import { DetailActionButton } from '@/app/components/ui/detail-action-button';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -620,7 +621,7 @@ export default function EditStatementPage(): React.JSX.Element {
                 labels.notSpecified?.value || 'Not specified'
               ) : (
                 <>
-                  {formatNumber(card.value)}
+                  <PrivateAmount>{formatNumber(card.value)}</PrivateAmount>
                   {statementCurrency ? (
                     <Box
                       component="span"
@@ -655,9 +656,9 @@ export default function EditStatementPage(): React.JSX.Element {
                 />
                 {closingMatches
                   ? labels.closingMatches?.value || 'Matches the bank statement'
-                  : (labels.closingBankSays?.value || 'Bank statement says {amount}').replace(
-                      '{amount}',
-                      formatNumber(bankClosing),
+                  : fillTemplateNodes(
+                      labels.closingBankSays?.value || 'Bank statement says {amount}',
+                      { amount: formatNumber(bankClosing) },
                     )}
               </Typography>
             ) : null}

@@ -168,7 +168,10 @@ describe('TaxReturnView', () => {
     renderWithQuery(<TaxReturnView />);
 
     expect(await screen.findByText('Registration threshold')).toBeInTheDocument();
-    expect(screen.getByText(/80%/)).toBeInTheDocument();
+    // The percent is its own element (hidden in privacy mode), the sign beside it.
+    expect(
+      screen.getByText((_, element) => element?.tagName === 'P' && /80%/.test(element.textContent ?? '')),
+    ).toBeInTheDocument();
   });
 
   it('omits the gauge when the jurisdiction publishes none', async () => {

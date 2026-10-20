@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { Plus } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { useJournalEntries, useJournalEntry, useLedgerMutations } from '../hooks/useLedger';
 import type { EntrySource, EntryStatus, LedgerAccount } from '../ledger.types';
@@ -243,7 +244,9 @@ export function JournalTab({
                       label={entry.reversalOfId ? t.reversal : statusLabel[entry.status]}
                     />
                   </TableCell>
-                  <TableCell align="right">{entry.baseTotal}</TableCell>
+                  <TableCell align="right" className={PRIVATE_CLASS}>
+                    {entry.baseTotal}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

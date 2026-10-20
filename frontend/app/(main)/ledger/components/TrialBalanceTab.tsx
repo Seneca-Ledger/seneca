@@ -13,6 +13,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import type React from 'react';
 import { useState } from 'react';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage, getApiErrorStatus } from '@/app/lib/api-error';
 import { useTrialBalance } from '../hooks/useLedger';
@@ -122,6 +123,7 @@ export function TrialBalanceTab({
                       <TableCell
                         key={column}
                         align="right"
+                        className={PRIVATE_CLASS}
                         sx={{ fontWeight: row.isPostable ? 400 : 600 }}
                       >
                         {row[column] === '0.00' ? '' : row[column]}
@@ -134,7 +136,12 @@ export function TrialBalanceTab({
                     {t.totalRow} ({report.data.baseCurrency})
                   </TableCell>
                   {AMOUNT_COLUMNS.map(column => (
-                    <TableCell key={column} align="right" sx={{ fontWeight: 700 }}>
+                    <TableCell
+                      key={column}
+                      align="right"
+                      className={PRIVATE_CLASS}
+                      sx={{ fontWeight: 700 }}
+                    >
                       {report.data.totals[column]}
                     </TableCell>
                   ))}

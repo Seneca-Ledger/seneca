@@ -5,6 +5,7 @@ import { alpha } from '@mui/material/styles';
 import type React from 'react';
 import { Home } from '@/app/components/icons';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { DE_HOME_OFFICE_CAP_EUR, type HomeOfficeAllowance } from '../tax-declaration.helpers';
@@ -45,6 +46,7 @@ export function DeductionPreview({
           </Box>
           <Typography
             aria-live="polite"
+            className={PRIVATE_CLASS}
             sx={{
               fontSize: 32,
               fontWeight: 600,

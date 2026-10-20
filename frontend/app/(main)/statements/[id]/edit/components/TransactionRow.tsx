@@ -14,6 +14,7 @@ import { CategoryPickerField } from '@/app/components/categories/CategoryPickerF
 import { CheckCircle2, MoreHorizontal, Pencil, XCircle } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import type { BranchOption, CategoryOption, FieldChangeParams, Transaction } from '../editHelpers';
 import {
@@ -391,6 +392,7 @@ export function TransactionRow({
       {/* One signed amount: money out in ink with a minus, money in sage with a plus. */}
       <TableCell
         align="right"
+        className={PRIVATE_CLASS}
         sx={{
           fontWeight: 500,
           fontSize: '0.9375rem',

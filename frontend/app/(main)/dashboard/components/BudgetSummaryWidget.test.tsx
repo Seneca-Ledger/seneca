@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { wholeLine } from '@/app/components/dashboard/__tests__/whole-line';
 import { SectionSpanProvider } from '@/app/components/dashboard/section-span';
 import { budgetItem, categoryRef } from '@/app/test/fixtures/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
@@ -73,9 +74,9 @@ describe('BudgetSummaryWidget', () => {
     );
 
     expect(await screen.findAllByText(/^Budget \d$/)).toHaveLength(7);
-    expect(screen.getByText('$130.00 of $100.00')).toBeInTheDocument();
-    expect(screen.getByText('$30.00 over')).toBeInTheDocument();
-    expect(screen.getAllByText('$60.00 left')).toHaveLength(6);
+    expect(screen.getByText(wholeLine('$130.00 of $100.00'))).toBeInTheDocument();
+    expect(screen.getByText(wholeLine('$30.00 over'))).toBeInTheDocument();
+    expect(screen.getAllByText(wholeLine('$60.00 left'))).toHaveLength(6);
   });
 
   it('asks for this month without a date, sharing the budgets page cache', async () => {
