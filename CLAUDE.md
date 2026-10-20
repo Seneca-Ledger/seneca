@@ -70,6 +70,8 @@ Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, 
 
 **Styling:** every colour, size and weight follows the light and dark theme tokens; no raw hex, MUI colour defaults or Tailwind palette classes. See `.claude/rules/design-tokens.md`.
 
+**Test fixtures:** invented, never lifted from real statements, receipts, the dev DB or the user's data. Keep the shape that matters to the case and make up the content: `'KSP - AirPods Pro'` → `'ACME Store - Wireless Buds'` (same hyphen, two words, a product inside). Same for people, e-mails, domains and IBANs (`Member One`, `member-1@example.com`, `example.co.il`). Name the value once and derive expectations from it.
+
 ## Quick Commands
 
 ```bash
