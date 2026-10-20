@@ -89,13 +89,142 @@
   border-radius: 4px;
   object-fit: contain;
 
+  // No logo: the name's first letter in a neutral circle, like a category badge.
   &--initials {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--muted-foreground);
-    background: var(--muted);
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--icon-badge-bg);
+  }
+}
+
+// Subscription details drawer: one filled action at most, labels above fields,
+// status as a dot and a word, sections titled alike.
+.lumio-sub-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 4px;
+  overflow-y: auto;
+
+  &__status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+  }
+
+  &__dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: var(--foreground);
+
+    &::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cat-tone-other);
+    }
+
+    &[data-tone='good']::before {
+      background: var(--primary);
+    }
+
+    &[data-tone='attention']::before {
+      background: var(--attention);
+    }
+  }
+
+  &__amount {
+    font-size: 28px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  &__facts {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+
+    > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 13px;
+    }
+
+    dt {
+      color: var(--text-muted);
+    }
+
+    dd {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+      color: var(--foreground);
+    }
+  }
+
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  &__heading {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__line {
+    margin: 0;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  &__empty {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    > label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+  }
+
+  &__link.MuiButton-root {
+    align-self: flex-start;
+    padding: 0;
+    min-width: 0;
+    color: var(--primary);
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__destructive.MuiButton-root {
+    color: var(--money-down);
   }
 }

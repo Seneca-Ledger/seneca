@@ -13,7 +13,7 @@ import type {
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import { guessVendorDomain } from '../components/vendor-domain.utils';
+import { guessVendorDomain, toVendorDomain } from '../components/vendor-domain.utils';
 
 export type SubscriptionChargeCalendar = ChargeCalendarContract;
 export type SubscriptionSummary = SummaryContract;
@@ -228,7 +228,10 @@ export function useSubscriptionsPage() {
       categoryId: formData.categoryId || undefined,
       nextChargeDate: formData.nextChargeDate || undefined,
       // The guess is only ever sent after the form showed it as a placeholder.
-      vendorDomain: formData.vendorDomain || guessVendorDomain(formData.vendorName) || undefined,
+      vendorDomain:
+        toVendorDomain(formData.vendorDomain) ||
+        guessVendorDomain(formData.vendorName) ||
+        undefined,
     };
     const editingId = editingSubscription?.id;
 
