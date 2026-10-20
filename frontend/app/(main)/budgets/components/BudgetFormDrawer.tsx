@@ -13,11 +13,11 @@ import {
 import NextLink from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronLeft } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
-import { useIntlayer, useLocale } from '@/app/i18n';
+import { useIntlayer } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
-import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import type { BudgetFormData, BudgetItem } from '../hooks/useBudgetsPage';
 
 type CategoryOption = { id: string; name: string; type: string };
@@ -129,23 +129,23 @@ function CategoryField({
   onChange: (value: string) => void;
 }): React.JSX.Element {
   const t = useIntlayer('budgetsPage');
-  const { locale } = useLocale();
   return (
-    <FormControl fullWidth>
-      <InputLabel>{t.fieldCategory}</InputLabel>
-      <Select
-        value={value}
-        label={t.fieldCategory.value}
-        onChange={event => onChange(event.target.value)}
-        disabled={disabled}
+    <div style={{ display: 'grid', gap: 6 }}>
+      <label
+        htmlFor="budget-category"
+        style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}
       >
-        {categories.map(category => (
-          <MenuItem key={category.id} value={category.id}>
-            {localizeStatementCategoryName(category.name, locale)}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
+        {t.fieldCategory}
+      </label>
+      <CategoryPickerField
+        id="budget-category"
+        value={value}
+        categories={categories}
+        onChange={onChange}
+        placeholder={t.fieldCategory.value}
+        disabled={disabled}
+      />
+    </div>
   );
 }
 

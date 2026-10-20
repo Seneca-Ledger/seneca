@@ -7,18 +7,12 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { useIntlayer } from '@/app/i18n';
-import {
-  getCategoryDisplayName,
-  type StatementCategorySource,
-} from '@/app/lib/statement-categories';
+import type { StatementCategorySource } from '@/app/lib/statement-categories';
 import {
   MAX_SPLIT_PARTS,
   MIN_SPLIT_PARTS,
@@ -39,7 +33,6 @@ interface PartRowProps {
   row: SplitPartRow;
   categories: CategoryOption[];
   canRemove: boolean;
-  locale: string;
   onChange: (index: number, field: keyof SplitPartRow, value: string) => void;
   onRemove: (index: number) => void;
 }
@@ -49,12 +42,10 @@ function PartRow({
   row,
   categories,
   canRemove,
-  locale,
   onChange,
   onRemove,
 }: PartRowProps): React.ReactElement {
   const t = useIntlayer('transactionsDrawer');
-  const labelId = `split-category-label-${index}`;
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
       <TextField
@@ -66,24 +57,17 @@ function PartRow({
         sx={{ width: 160 }}
         inputProps={{ min: 0, step: '0.01' }}
       />
-      <FormControl fullWidth size="small" data-testid={`split-category-${index}`}>
-        <InputLabel id={labelId}>{t.splitDialog.category}</InputLabel>
-        <Select
-          labelId={labelId}
-          label={t.splitDialog.category.value}
+      <Box sx={{ flex: 1, minWidth: 0 }} data-testid={`split-category-${index}`}>
+        <CategoryPickerField
+          size="small"
+          ariaLabel={t.splitDialog.category.value}
           value={row.categoryId}
-          onChange={e => onChange(index, 'categoryId', e.target.value)}
-        >
-          <MenuItem value="">
-            <em>{t.splitDialog.none}</em>
-          </MenuItem>
-          {categories.map(category => (
-            <MenuItem key={category.id} value={category.id}>
-              {getCategoryDisplayName(category, locale)}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+          categories={categories}
+          onChange={categoryId => onChange(index, 'categoryId', categoryId)}
+          placeholder={t.splitDialog.category.value}
+          clearLabel={t.splitDialog.none.value}
+        />
+      </Box>
       <IconButton
         aria-label={t.splitDialog.removePart.value.replace('{n}', String(index + 1))}
         onClick={() => onRemove(index)}
@@ -103,13 +87,12 @@ export interface SplitTransactionDialogProps {
   currency: string;
   categories: CategoryOption[];
   saving: boolean;
-  locale: string;
   onClose: () => void;
   onSubmit: (parts: SplitPartInput[]) => void;
 }
 
 export function SplitTransactionDialog(props: SplitTransactionDialogProps): React.ReactElement {
-  const { open, totalAmount, currency, categories, saving, locale, onClose, onSubmit } = props;
+  const { open, totalAmount, currency, categories, saving, onClose, onSubmit } = props;
   const split = useSplitRows(open, totalAmount);
   const t = useIntlayer('transactionsDrawer');
 
@@ -134,7 +117,6 @@ export function SplitTransactionDialog(props: SplitTransactionDialogProps): Reac
             row={row}
             categories={categories}
             canRemove={split.rows.length > MIN_SPLIT_PARTS}
-            locale={locale}
             onChange={split.updateRow}
             onRemove={split.removeRow}
           />

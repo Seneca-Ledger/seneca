@@ -251,9 +251,9 @@ export function useStatementEditForm({
     s.setBulkCategoryDialogOpen(true);
   };
 
-  const handleApplyBulkCategory = async (): Promise<void> => {
+  const handleApplyBulkCategory = async (categoryId: string): Promise<void> => {
     await applyBulkCategoryAction(loadData, {
-      bulkCategoryId: s.bulkCategoryId,
+      bulkCategoryId: categoryId,
       selectedRows: s.selectedRows,
       setSaving: s.setSaving,
       setSelectedRows: s.setSelectedRows,

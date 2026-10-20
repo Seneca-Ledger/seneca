@@ -71,6 +71,7 @@ export interface UseStatementEditFormReturn {
   handleBulkUpdate: () => Promise<void>;
   handleBulkDelete: (confirmMessage: string) => Promise<void>;
   handleOpenBulkCategory: () => void;
-  handleApplyBulkCategory: () => Promise<void>;
+  /** Applies `categoryId` (picked in the drawer) to every selected row. */
+  handleApplyBulkCategory: (categoryId: string) => Promise<void>;
   handleStatementCategorySelect: (categoryId: string) => Promise<void>;
 }

@@ -57,11 +57,13 @@ export function DocumentCategoryDrawer({
   });
   const categories = categoriesQuery.data ?? [];
 
-  const handleSelect = async (categoryId: string): Promise<void> => {
+  /** `createdName` comes with a category just created, which the cached list may not hold yet. */
+  const handleSelect = async (categoryId: string, createdName?: string): Promise<void> => {
     if (!target || saving || !categoryId) {
       return;
     }
-    const name = categories.find(category => category.id === categoryId)?.name ?? null;
+    const name =
+      createdName ?? categories.find(category => category.id === categoryId)?.name ?? null;
     setSaving(true);
     await saveDocumentCategory(target, categoryId, name)
       .then(() => {
@@ -81,13 +83,7 @@ export function DocumentCategoryDrawer({
       selectedCategoryId=""
       selecting={saving}
       onSelect={categoryId => void handleSelect(categoryId)}
-      showAllOption={false}
-      labels={{
-        title: t.labels.categoryDrawerTitle.value,
-        searchPlaceholder: t.labels.categorySearchPlaceholder.value,
-        allOption: t.labels.categoryAllOption.value,
-        noResults: t.labels.categoryNoResults.value,
-      }}
+      onCreated={category => void handleSelect(category.id, category.name)}
     />
   );
 }

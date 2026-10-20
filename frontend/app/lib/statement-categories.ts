@@ -7,6 +7,8 @@ export interface StatementCategoryNode {
   name: string;
   source?: StatementCategorySource;
   isSystem?: boolean;
+  /** The glyph picked in the category editor (`mdi:…`), when the list carries it. */
+  icon?: string | null;
   children?: StatementCategoryNode[];
 }
 
@@ -15,6 +17,9 @@ export interface StatementCategoryOption {
   name: string;
   source?: StatementCategorySource;
   isSystem?: boolean;
+  icon?: string | null;
+  /** The stored name, before localising and the parent prefix: default icons go by it. */
+  baseName?: string;
 }
 
 /**
@@ -230,6 +235,8 @@ export const flattenStatementCategories = (
         name: currentName,
         source: category.source,
         isSystem: category.isSystem,
+        icon: category.icon,
+        baseName: category.name,
       },
       ...(category.children
         ? flattenStatementCategories(category.children, currentName, locale)

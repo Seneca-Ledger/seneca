@@ -21,7 +21,6 @@ const renderDialog = (
       currency="KZT"
       categories={categories}
       saving={false}
-      locale="en"
       onClose={onClose}
       onSubmit={onSubmit}
       {...overrides}
@@ -73,8 +72,8 @@ describe('SplitTransactionDialog', () => {
     fireEvent.change(amountFields()[0] as HTMLElement, { target: { value: '30' } });
     fireEvent.change(amountFields()[1] as HTMLElement, { target: { value: '70' } });
 
-    fireEvent.mouseDown(within(screen.getByTestId('split-category-0')).getByRole('combobox'));
-    fireEvent.click(screen.getByRole('option', { name: 'Food' }));
+    fireEvent.click(within(screen.getByTestId('split-category-0')).getByRole('button'));
+    fireEvent.click(screen.getByRole('button', { name: 'Food' }));
 
     fireEvent.click(saveButton());
 

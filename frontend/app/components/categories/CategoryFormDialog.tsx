@@ -9,7 +9,7 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { CATEGORY_ICON_CHOICES, categoryIconFor } from '@/app/lib/category-icon-choices';
-import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 
@@ -52,7 +52,7 @@ interface CategoryFormDialogProps {
   category: CategoryFormValue | null;
   onClose: () => void;
   /** After a successful save, with the name as saved (the category list is already refreshed). */
-  onSaved?: (saved: { name: string; type: 'income' | 'expense' }) => void;
+  onSaved?: (saved: { id: string; name: string; type: 'income' | 'expense' }) => void;
 }
 
 /** The icon the category has now: a line glyph, or a picture uploaded before uploads were dropped. */
@@ -114,7 +114,19 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
       }
 
       await queryClient.invalidateQueries({ queryKey: queryKeys.categories(workspaceId) });
-      onSaved?.({ name: data.name, type: data.type });
+      if (onSaved) {
+        // Name and type are unique in a workspace, so the fresh list gives the new category's id.
+        const list = await queryClient.fetchQuery({
+          queryKey: queryKeys.categories(workspaceId),
+          queryFn: ({ signal }) =>
+            apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
+        });
+        const savedId =
+          category?.id ??
+          list.find(item => item.name === data.name && item.type === data.type)?.id ??
+          '';
+        onSaved({ id: savedId, name: data.name, type: data.type });
+      }
       onClose();
     })()
       .catch(async err => {

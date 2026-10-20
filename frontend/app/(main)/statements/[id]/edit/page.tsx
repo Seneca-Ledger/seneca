@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -180,8 +179,6 @@ export default function EditStatementPage(): React.JSX.Element {
     statementCategoryDrawerOpen,
     setStatementCategoryDrawerOpen,
     statementCategorySaving,
-    bulkCategoryId,
-    setBulkCategoryId,
     metadataForm,
     setMetadataForm: SetMetadataForm,
     exportConfirmOpen,
@@ -238,6 +235,12 @@ export default function EditStatementPage(): React.JSX.Element {
   });
 
   const enabledStatementCategories = filterEnabledCategories(categories);
+  // The drawer ticks the category only when every selected row already shares it.
+  const selectedCategoryIds = new Set(
+    transactions.filter(row => selectedRows.has(row.id)).map(row => row.categoryId ?? ''),
+  );
+  const bulkSelectedCategoryId =
+    selectedCategoryIds.size === 1 ? ([...selectedCategoryIds][0] ?? '') : '';
   const flattenedStatementCategories = flattenStatementCategories(categories, '', locale);
   const flattenedEnabledStatementCategories = flattenStatementCategories(
     enabledStatementCategories,
@@ -966,12 +969,11 @@ export default function EditStatementPage(): React.JSX.Element {
         selectedCategoryId={statement?.categoryId || ''}
         selecting={statementCategorySaving}
         onSelect={categoryId => handleStatementCategorySelect(categoryId)}
-        labels={{
-          title: labels.categoryDrawerTitle?.value || 'Category',
-          searchPlaceholder: labels.categorySearchPlaceholder?.value || 'Search',
-          allOption: labels.categoryAllOption?.value || 'All',
-          noResults: labels.categoryNoResults?.value || 'No categories found',
+        onCreated={category => {
+          setStatementCategoryDrawerOpen(false);
+          void handleStatementCategorySelect(category.id);
         }}
+        clearLabel={labels.categoryAllOption?.value || 'All'}
       />
 
       {/* Bulk Actions */}
@@ -1098,88 +1100,15 @@ export default function EditStatementPage(): React.JSX.Element {
         </div>
       )}
 
-      {/* Bulk Category Dialog */}
-      <Dialog
+      {/* Bulk category: the app's category drawer; a pick applies to every selected row. */}
+      <StatementCategoryDrawer
         open={bulkCategoryDialogOpen}
         onClose={() => setBulkCategoryDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            boxShadow: 'none',
-            border: '1px solid',
-            borderColor: 'grey.200',
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            fontWeight: 600,
-            fontSize: '1rem',
-            color: 'text.primary',
-            letterSpacing: '-0.01em',
-            pb: 1,
-          }}
-        >
-          {formatLabel(labels.assignCategoryForTransactions?.value, { count: selectedRows.size }) ||
-            `Assign category for ${selectedRows.size} transactions`}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          <TextField
-            select
-            label={labels.category?.value || 'Category'}
-            fullWidth
-            value={bulkCategoryId}
-            onChange={e => setBulkCategoryId(e.target.value)}
-            helperText={
-              labels.bulkCategoryHelper?.value ||
-              'The category will be applied to all selected transactions'
-            }
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                '&:hover fieldset': {
-                  borderColor: 'primary.main',
-                },
-              },
-            }}
-          >
-            <MenuItem value="">{labels.notSelected?.value || 'Not selected'}</MenuItem>
-            {flattenedEnabledStatementCategories.map(cat => (
-              <MenuItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
-          <Button
-            onClick={() => setBulkCategoryDialogOpen(false)}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 500,
-              color: 'text.secondary',
-            }}
-          >
-            {labels.cancel?.value || 'Cancel'}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={saving ? <Spinner size={18} /> : <CheckCircle2 size={18} />}
-            onClick={handleApplyBulkCategory}
-            disabled={saving || !bulkCategoryId}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              boxShadow: 'none',
-              '&:hover': {
-                boxShadow: 'none',
-              },
-            }}
-          >
-            {labels.apply?.value || 'Apply'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        categories={enabledStatementCategories}
+        selectedCategoryId={bulkSelectedCategoryId}
+        selecting={saving}
+        onSelect={categoryId => void handleApplyBulkCategory(categoryId)}
+      />
     </Container>
   );
 }
