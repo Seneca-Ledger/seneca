@@ -13,6 +13,10 @@ $seneca-sidebar-brand-height: 44px;
   // Top gutter a page adds on its own: none on desktop, where the brand row above
   // is the gutter. The mobile top bar brings it back below 1024px.
   --seneca-page-top: 0px;
+  // Side gutter of a page, the one `px: { xs: 2, md: 4 }` gives: 16px, 32px from
+  // MUI's md (900px). Whatever runs above a page (the banners) uses it too, so
+  // their edges line up with the page's.
+  --seneca-page-x: 16px;
   --seneca-sidebar-width-full: 192px;
   // Collapsed rail: wide enough for the 36px nav pills and their focus ring.
   --seneca-sidebar-width-rail: 56px;
@@ -20,6 +24,10 @@ $seneca-sidebar-brand-height: 44px;
 
   display: flex;
   min-height: 100vh;
+
+  @media (min-width: 900px) {
+    --seneca-page-x: 32px;
+  }
 
   &__sidebar {
     width: var(--seneca-sidebar-width);
@@ -59,6 +67,21 @@ $seneca-sidebar-brand-height: 44px;
     @include dark {
       background: $seneca-color-bg-dk;
     }
+  }
+}
+
+// The attention banner and the daily quote, above every page: one gutter with
+// the page, 8px between them, and at least 16px down to the page, counting the
+// top padding the page adds itself (none on desktop, 24px under the top bar).
+// Gone when neither has anything to show.
+.seneca-page-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px var(--seneca-page-x) max(0px, calc(16px - var(--seneca-page-top)));
+
+  &:empty {
+    display: none;
   }
 }
 

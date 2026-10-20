@@ -8,10 +8,8 @@ import { queryKeys } from '@/app/lib/query-keys';
 import type {
   DashboardCashFlowRange,
   DashboardData,
-  DashboardHealthHistory,
   DashboardMonthlyCashFlow,
   DashboardRange,
-  DashboardTrends,
 } from './useDashboard.types';
 import { useWorkspaceId } from './useWorkspaceId';
 
@@ -22,8 +20,6 @@ export type {
   DashboardData,
   DashboardDataHealth,
   DashboardFinancialSnapshot,
-  DashboardHealthHistory,
-  DashboardHealthMonth,
   DashboardMonthlyCashFlow,
   DashboardMonthlyCashFlowPoint,
   DashboardNotification,
@@ -31,16 +27,7 @@ export type {
   DashboardRecentTransaction,
   DashboardTopCategory,
   DashboardTopMerchant,
-  DashboardTrends,
 } from './useDashboard.types';
-
-interface TrendsState {
-  data: DashboardTrends | undefined;
-  isPending: boolean;
-  isFetching: boolean;
-  error: string | null;
-  refetch: () => void;
-}
 
 interface DashboardState {
   data: DashboardData | undefined;
@@ -62,71 +49,6 @@ interface DashboardState {
  * Голый keepPreviousData здесь недопустим — он на кадр показал бы балансы
  * воркспейса A под названием воркспейса B (workspaceId — второй сегмент ключа).
  */
-
-/** `month` (YYYY-MM) wins over `days`: the dashboard asks for a calendar month. */
-export function useDashboardTrends({
-  days = 30,
-  month,
-}: {
-  days?: number;
-  month?: string;
-} = {}): TrendsState {
-  const workspaceId = useWorkspaceId();
-  const query = useQuery({
-    queryKey: queryKeys.dashboardTrends({ workspaceId, days, month: month ?? null }),
-    queryFn: ({ signal }) =>
-      apiQueryDecoded({
-        contract: 'DashboardTrendsResponse',
-        url: '/dashboard/trends',
-        params: month ? { month } : { days },
-        signal,
-      }),
-    placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
-    enabled: Boolean(workspaceId),
-  });
-
-  const refetch = useCallback((): void => {
-    void query.refetch();
-  }, [query.refetch]);
-
-  return {
-    data: query.data,
-    isPending: query.isPending,
-    isFetching: query.isFetching,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load trends') : null,
-    refetch,
-  };
-}
-
-interface HealthHistoryState {
-  data: DashboardHealthHistory | undefined;
-  isPending: boolean;
-  error: string | null;
-}
-
-export function useDashboardHealthHistory(year: number): HealthHistoryState {
-  const workspaceId = useWorkspaceId();
-  const query = useQuery({
-    queryKey: queryKeys.dashboardHealthHistory({ workspaceId, year }),
-    queryFn: ({ signal }) =>
-      apiQueryDecoded({
-        contract: 'DashboardHealthHistoryResponse',
-        url: '/dashboard/health-history',
-        params: { year },
-        signal,
-      }),
-    placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
-    enabled: Boolean(workspaceId),
-  });
-
-  return {
-    data: query.data,
-    isPending: query.isPending,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load history') : null,
-  };
-}
 
 interface CashFlowState {
   data: DashboardMonthlyCashFlow | undefined;

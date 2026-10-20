@@ -4,7 +4,6 @@ import {
   isFutureMonth,
   parseCashFlowRangeParam,
   parseMonthParam,
-  parseTabParam,
   withDashboardParams,
 } from './dashboard-url-state';
 
@@ -18,8 +17,8 @@ describe('dashboard-url-state', () => {
   });
 
   it('patches the cash flow range alongside the other keys', () => {
-    expect(withDashboardParams('tab=trends', { cf: 'all' })).toBe('tab=trends&cf=all');
-    expect(withDashboardParams('tab=trends&cf=all', { cf: null })).toBe('tab=trends');
+    expect(withDashboardParams('month=2026-03', { cf: 'all' })).toBe('month=2026-03&cf=all');
+    expect(withDashboardParams('month=2026-03&cf=all', { cf: null })).toBe('month=2026-03');
   });
 
   it('parses YYYY-MM into the first of the month and rejects garbage', () => {
@@ -35,18 +34,9 @@ describe('dashboard-url-state', () => {
     expect(formatMonthParam(new Date(2025, 11, 1))).toBe('2025-12');
   });
 
-  it('falls back to overview for unknown tabs', () => {
-    expect(parseTabParam('trends')).toBe('trends');
-    expect(parseTabParam('data-health')).toBe('data-health');
-    expect(parseTabParam('nope')).toBe('overview');
-    expect(parseTabParam(null)).toBe('overview');
-  });
-
   it('patches the query string and removes keys set to null', () => {
-    expect(withDashboardParams('tab=trends', { month: '2026-03' })).toBe(
-      'tab=trends&month=2026-03',
-    );
-    expect(withDashboardParams('tab=trends&month=2026-03', { tab: null })).toBe('month=2026-03');
+    expect(withDashboardParams('cf=5y', { month: '2026-03' })).toBe('cf=5y&month=2026-03');
+    expect(withDashboardParams('cf=5y&month=2026-03', { cf: null })).toBe('month=2026-03');
     expect(withDashboardParams('', { month: undefined })).toBe('');
   });
 

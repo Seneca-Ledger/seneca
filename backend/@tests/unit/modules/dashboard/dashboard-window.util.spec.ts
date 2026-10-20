@@ -3,7 +3,6 @@ import {
   getCashFlowRangeBounds,
   getMonthWindowBounds,
   getWindowBounds,
-  getYearWindowBounds,
   parseMonthWindow,
 } from '../../../../src/modules/dashboard/dashboard-window.util';
 
@@ -20,15 +19,6 @@ describe('parseMonthWindow', () => {
     expect(parseMonthWindow('2026-13')).toBeNull();
     expect(parseMonthWindow('2026-2')).toBeNull();
     expect(parseMonthWindow('2026-02-01')).toBeNull();
-  });
-});
-
-describe('getYearWindowBounds', () => {
-  it('spans January 1 to the last millisecond of December 31', () => {
-    const { since, endDate } = getYearWindowBounds(2025);
-
-    expect(since.toISOString()).toBe(new Date('2025-01-01T00:00:00').toISOString());
-    expect(endDate.toISOString()).toBe(new Date('2025-12-31T23:59:59.999').toISOString());
   });
 });
 

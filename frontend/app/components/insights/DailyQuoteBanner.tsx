@@ -126,7 +126,7 @@ export function DailyQuoteBanner(): React.JSX.Element | null {
   const dismiss = (): void => closeForToday(quote.date);
 
   return (
-    <Box sx={{ px: 3, pt: 2, pb: 2 }}>
+    <Box>
       <Box
         component="figure"
         aria-label={t.quoteLabel.value}

@@ -186,26 +186,40 @@ describe('hidden and optional sections', () => {
 });
 
 describe('the shipped layout', () => {
-  it('is the one arranged in the Administrator workspace', () => {
-    // Saved there on 2026-10-15, with the bills and taxes cards switched off.
-    const saved = {
-      rows: [
-        ['getting-started', 'budgets'],
-        ['kpi-income', 'kpi-spent', 'kpi-net', 'kpi-savings'],
-        ['top-categories', 'recent-transactions'],
-        ['safe-to-spend', 'cash-runway'],
-        ['spend-calendar'],
-        ['net-worth', 'upcoming-charges'],
-        ['goals'],
-        ['activity'],
-        ['advice'],
-      ],
-      hidden: ['money-owed', 'taxes'],
-    };
+  // Saved in the Administrator workspace on 2026-10-15, with the bills and taxes cards switched off.
+  const administrator = {
+    rows: [
+      ['getting-started', 'budgets'],
+      ['kpi-income', 'kpi-spent', 'kpi-net', 'kpi-savings'],
+      ['top-categories', 'recent-transactions'],
+      ['safe-to-spend', 'cash-runway'],
+      ['spend-calendar'],
+      ['net-worth', 'upcoming-charges'],
+      ['goals'],
+      ['activity'],
+      ['advice'],
+    ],
+    hidden: ['money-owed', 'taxes'],
+  };
 
-    expect(normalizeRows(saved)).toEqual(DEFAULT_OVERVIEW_ROWS);
+  it('is the Administrator layout with the cash flow and month close the tabs had', () => {
+    const withoutTabWidgets = DEFAULT_OVERVIEW_ROWS.map(row =>
+      row.filter(id => id !== 'cash-flow' && id !== 'month-close'),
+    ).filter(row => row.length > 0);
+
+    expect(withoutTabWidgets).toEqual(administrator.rows);
+    // Cash flow on its own row under the KPI tiles; the month close beside the activity feed.
+    expect(DEFAULT_OVERVIEW_ROWS[2]).toEqual(['cash-flow']);
+    expect(DEFAULT_OVERVIEW_ROWS).toContainEqual(['month-close', 'activity']);
     expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('money-owed');
     expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('taxes');
+  });
+
+  it('keeps a saved layout as it was and adds the two new widgets at the bottom', () => {
+    expect(normalizeRows(administrator)).toEqual([
+      ...administrator.rows,
+      ['cash-flow', 'month-close'],
+    ]);
   });
 });
 

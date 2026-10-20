@@ -16,6 +16,7 @@ type SectionNameKey =
   | 'kpiNet'
   | 'kpiSavings'
   | 'safeToSpend'
+  | 'cashFlow'
   | 'crypto'
   | 'topCategories'
   | 'recentTransactions'
@@ -25,6 +26,7 @@ type SectionNameKey =
   | 'budgets'
   | 'cashRunway'
   | 'activity'
+  | 'monthClose'
   | 'upcomingCharges'
   | 'moneyOwed'
   | 'taxes'
@@ -36,6 +38,7 @@ const NAME_KEYS: Record<Exclude<OverviewSectionId, 'getting-started'>, SectionNa
   'kpi-net': 'kpiNet',
   'kpi-savings': 'kpiSavings',
   'safe-to-spend': 'safeToSpend',
+  'cash-flow': 'cashFlow',
   crypto: 'crypto',
   'top-categories': 'topCategories',
   'recent-transactions': 'recentTransactions',
@@ -45,6 +48,7 @@ const NAME_KEYS: Record<Exclude<OverviewSectionId, 'getting-started'>, SectionNa
   budgets: 'budgets',
   'cash-runway': 'cashRunway',
   activity: 'activity',
+  'month-close': 'monthClose',
   'upcoming-charges': 'upcomingCharges',
   'money-owed': 'moneyOwed',
   taxes: 'taxes',

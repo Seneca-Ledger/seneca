@@ -1,5 +1,5 @@
 /**
- * The Overview tab as rows of sections. A row has room for four units: a card
+ * The Overview as rows of sections. A row has room for four units: a card
  * takes two, a KPI tile one. So a row holds one card (full width), two cards
  * (halves), a card and up to two tiles, or up to four tiles — and whatever a
  * row holds fills it, which is what makes a moved section narrower or wider.
@@ -22,6 +22,7 @@ export const OVERVIEW_SECTION_IDS = [
   'getting-started',
   ...KPI_SECTION_IDS,
   'safe-to-spend',
+  'cash-flow',
   'top-categories',
   'recent-transactions',
   'spend-calendar',
@@ -30,6 +31,7 @@ export const OVERVIEW_SECTION_IDS = [
   'budgets',
   'cash-runway',
   'activity',
+  'month-close',
   'upcoming-charges',
   'advice',
   ...OFF_BY_DEFAULT_SECTION_IDS,
@@ -57,16 +59,20 @@ const CARD_UNITS = 2;
 /** Before the tiles moved one by one they were a single section; saved layouts may still say so. */
 const LEGACY_KPI_ROW = 'kpis';
 
-/** The arrangement set up in the Administrator workspace, made everyone's starting point. */
+/**
+ * The arrangement set up in the Administrator workspace, made everyone's
+ * starting point, with the cash flow and month close that came from the tabs.
+ */
 export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
   ['getting-started', 'budgets'],
   [...KPI_SECTION_IDS],
+  ['cash-flow'],
   ['top-categories', 'recent-transactions'],
   ['safe-to-spend', 'cash-runway'],
   ['spend-calendar'],
   ['net-worth', 'upcoming-charges'],
   ['goals'],
-  ['activity'],
+  ['month-close', 'activity'],
   ['advice'],
 ];
 

@@ -3,12 +3,11 @@
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import type React from 'react';
-import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
+import { OverviewTab } from '@/app/components/dashboard/OverviewTab';
+import { AlertBanner } from '@/app/components/insights/AlertBanner';
 import type { DashboardData } from '@/app/hooks/useDashboard';
-import type { DashboardTabId } from '../helpers/dashboard-url-state';
 import { DashboardErrorBanner } from './DashboardErrorBanner';
 import { DashboardHeader } from './DashboardHeader';
-import { DashboardTabContent } from './DashboardTabContent';
 import { MissingRatesBanner } from './MissingRatesBanner';
 
 function DashboardStatCardSkeleton(): React.JSX.Element {
@@ -24,7 +23,7 @@ function DashboardStatCardSkeleton(): React.JSX.Element {
 function DashboardContentSkeleton(): React.JSX.Element {
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, pt: 4, pb: 6 }}>
-      {/* Tabs / status heading */}
+      {/* Month strip */}
       <Skeleton variant="text" width={220} height={32} sx={{ mb: 3 }} />
 
       {/* Stat card row */}
@@ -70,8 +69,6 @@ type DashboardContentProps = {
   loading: boolean;
   data: DashboardData | null;
   onRefresh: () => void;
-  activeTab: DashboardTabId;
-  setActiveTab: (tab: DashboardTabId) => void;
   formatAmount: (value: number) => string;
   periodBanner: string | null;
   displayMonth: Date;
@@ -85,8 +82,6 @@ export function DashboardContent({
   loading,
   data,
   onRefresh,
-  activeTab,
-  setActiveTab,
   formatAmount,
   periodBanner,
   displayMonth,
@@ -105,8 +100,6 @@ export function DashboardContent({
   return (
     <>
       <DashboardHeader
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
         displayMonth={displayMonth}
         changeMonth={changeMonth}
         locale={locale}
@@ -114,15 +107,18 @@ export function DashboardContent({
         labels={headerLabels}
       />
       <MissingRatesBanner currencies={data.snapshot?.missingRates ?? []} />
-      <UnconfirmedNotice className="seneca-dashboard__unconfirmed" />
-      <DashboardTabContent
-        activeTab={activeTab}
-        data={data}
-        formatAmount={formatAmount}
-        isLoading={loading}
-        displayMonth={displayMonth}
-        onSelectMonth={changeMonth}
-      />
+      <div className="seneca-dashboard__attention">
+        <AlertBanner placement="page" />
+      </div>
+      <Box sx={{ width: '100%', px: { xs: 2, md: 4 }, pt: 2.5, flex: 1, pb: 6 }}>
+        <OverviewTab
+          data={data}
+          formatAmount={formatAmount}
+          isLoading={loading}
+          displayMonth={displayMonth}
+          onSelectMonth={changeMonth}
+        />
+      </Box>
     </>
   );
 }
