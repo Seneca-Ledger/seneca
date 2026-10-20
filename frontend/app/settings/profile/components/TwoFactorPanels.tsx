@@ -159,7 +159,7 @@ export function SetupPanel({ tx, setup, busy, onConfirm, onCancel }: SetupPanelP
         <Typography variant="body2" color="text.secondary">
           {tx(
             ['securityCard', 'scanHint'],
-            'Scan the QR code with Google Authenticator, 1Password, Authy or any TOTP app.',
+            'Scan the QR code with 1Password, Authy or any TOTP app.',
           )}
         </Typography>
         <Box

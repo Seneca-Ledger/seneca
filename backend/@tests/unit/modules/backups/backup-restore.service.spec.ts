@@ -1,4 +1,7 @@
-import { BackupRestoreService } from '../../../../src/modules/backups/backup-restore.service';
+import {
+  BackupRestoreService,
+  withoutRemovedSources,
+} from '../../../../src/modules/backups/backup-restore.service';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -412,5 +415,46 @@ describe('BackupRestoreService', () => {
         expect.objectContaining({ entityId: 'their-category', isUndoable: false }),
       ]);
     });
+  });
+});
+
+describe('withoutRemovedSources', () => {
+  it('leaves Gmail receipts out the way the migration deleted them', () => {
+    const result = withoutRemovedSources({
+      receipts: [
+        { id: 'r-mail', source: 'gmail', gmailMessageId: 'm-1', gmailThreadId: 't-1' },
+        { id: 'r-imap', source: 'imap', gmailMessageId: 'imap:1', gmailThreadId: null, duplicateOfId: 'r-mail' },
+        { id: 'r-scan', source: 'scan', messageId: null },
+      ],
+      notes: [
+        { id: 'n-1', receiptId: 'r-mail' },
+        { id: 'n-2', receiptId: 'r-imap' },
+      ],
+      investment_holdings: [{ id: 'h-1', receiptId: 'r-mail' }],
+      custom_tables: [
+        { id: 'ct-1', source: 'google_sheets_import' },
+        { id: 'ct-2', source: 'manual' },
+      ],
+    });
+
+    expect(result.receipts).toEqual([
+      { id: 'r-imap', source: 'imap', messageId: 'imap:1', duplicateOfId: null },
+      { id: 'r-scan', source: 'scan', messageId: null },
+    ]);
+    expect(result.notes).toEqual([{ id: 'n-2', receiptId: 'r-imap' }]);
+    expect(result.investment_holdings).toEqual([{ id: 'h-1', receiptId: null }]);
+    expect(result.custom_tables).toEqual([
+      { id: 'ct-1', source: 'manual' },
+      { id: 'ct-2', source: 'manual' },
+    ]);
+  });
+
+  it('passes a backup without Gmail rows through unchanged', () => {
+    const collections = {
+      receipts: [{ id: 'r-1', source: 'scan', messageId: null }],
+      notes: [{ id: 'n-1', receiptId: 'r-1' }],
+    };
+
+    expect(withoutRemovedSources(collections)).toEqual(collections);
   });
 });

@@ -20,36 +20,6 @@ import { CSRF_HEADER, clearCsrfCookie, getCsrfHeaders, getCsrfToken } from './cs
 import { isPublicPath } from './public-paths';
 import { getQueryClient } from './query-client';
 
-type GmailReceiptParsedDataUpdate = {
-  amount?: number;
-  currency?: string;
-  vendor?: string;
-  date?: string;
-  tax?: number;
-  paymentMethod?: string;
-  category?: string | null;
-  categoryId?: string | null;
-  lineItems?: Array<{ description: string; amount: number }>;
-  transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
-  confidence?: number;
-  validationIssues?: string[];
-};
-
-type ApproveReceiptPayload = {
-  description?: string;
-  categoryId?: string;
-  category?: string;
-  amount?: number;
-  currency?: string;
-  vendor?: string | null;
-  date?: string | null;
-  tax?: number;
-  paymentMethod?: string;
-  lineItems?: Array<{ description: string; amount: number }>;
-};
-
-type UpdateReceiptPayload = Partial<ReceiptRecord>;
-
 export const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api/v1' : '/api/v1');
@@ -256,41 +226,8 @@ rawClient.interceptors.response.use(
   },
 );
 
-// Gmail Receipts API
-export const gmailReceiptsApi = {
-  getReceipt: (id: string): Promise<AxiosResponse> =>
-    apiClient.get(`/integrations/gmail/receipts/${id}`),
-
-  updateReceiptParsedData: (
-    id: string,
-    data: GmailReceiptParsedDataUpdate,
-  ): Promise<AxiosResponse> =>
-    apiClient.patch(`/integrations/gmail/receipts/${id}/parsed-data`, data),
-
-  markDuplicate: (id: string, originalId: string): Promise<AxiosResponse> =>
-    apiClient.post(`/integrations/gmail/receipts/${id}/mark-duplicate`, {
-      originalReceiptId: originalId,
-    }),
-
-  unmarkDuplicate: (id: string): Promise<AxiosResponse> =>
-    apiClient.post(`/integrations/gmail/receipts/${id}/unmark-duplicate`),
-
-  bulkApproveReceipts: (receiptIds: string[], categoryId?: string): Promise<AxiosResponse> =>
-    apiClient.post('/integrations/gmail/receipts/bulk-approve', { receiptIds, categoryId }),
-
-  exportReceiptsToXlsx: (receiptIds: string[]): Promise<AxiosResponse> =>
-    apiClient.post(
-      '/integrations/gmail/receipts/export-xlsx',
-      { receiptIds },
-      { responseType: 'blob' },
-    ),
-
-  exportReceiptToDraft: (receiptId: string): Promise<AxiosResponse> =>
-    apiClient.post(`/integrations/gmail/receipts/${receiptId}/export-draft`),
-
-  getReceiptPreview: (id: string): Promise<AxiosResponse> =>
-    apiClient.get(`/integrations/gmail/receipts/${id}/preview`),
-
+// Receipt documents API: receipts of every source as the statements list shows them.
+export const receiptDocumentsApi = {
   listReceipts: (params?: {
     status?: string;
     limit?: number;
@@ -299,15 +236,7 @@ export const gmailReceiptsApi = {
     includeLinkedScans?: boolean;
     hasAmount?: boolean;
     categoryId?: string;
-  }): Promise<AxiosResponse> => apiClient.get('/integrations/gmail/receipts', { params }),
-
-  approveReceipt: (id: string, data: ApproveReceiptPayload): Promise<AxiosResponse> =>
-    apiClient.post(`/integrations/gmail/receipts/${id}/approve`, data),
-
-  updateReceipt: (id: string, data: UpdateReceiptPayload): Promise<AxiosResponse> =>
-    apiClient.patch(`/integrations/gmail/receipts/${id}`, data),
-
-  getStatus: (): Promise<AxiosResponse> => apiClient.get('/integrations/gmail/status'),
+  }): Promise<AxiosResponse> => apiClient.get('/receipts/documents', { params }),
 };
 
 export type ReceiptLocationSource = ContractReceiptLocationSource;

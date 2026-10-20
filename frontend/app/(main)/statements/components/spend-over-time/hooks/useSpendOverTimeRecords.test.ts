@@ -2,7 +2,7 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_STATEMENT_FILTERS } from '@/app/(main)/statements/components/filters/statement-filters';
-import type { GmailReceipt, Transaction } from '@/app/(main)/statements/types/statement-types';
+import type { ReceiptDocument, Transaction } from '@/app/(main)/statements/types/statement-types';
 
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({ userFallback: { value: 'User' } }),
@@ -28,13 +28,13 @@ describe('useSpendOverTimeRecords links', () => {
       status: 'approved',
       receivedAt: '2026-10-12T10:00:00.000Z',
       parsedData: { amount: 3.73, currency: 'USD', vendor: 'grizzlysms.com', date: '2026-10-12' },
-    } as unknown as GmailReceipt;
+    } as unknown as ReceiptDocument;
 
     const { result } = renderHook(() =>
       useSpendOverTimeRecords({
         statements: [{ id: 'st-scan', status: 'completed' }] as never,
         transactions: [transaction],
-        gmailReceipts: [receipt],
+        receipts: [receipt],
         workspaceCurrency: 'USD',
         appliedFilters: DEFAULT_STATEMENT_FILTERS,
         searchInput: '',

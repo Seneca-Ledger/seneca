@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-type PreviewSource = 'statement' | 'gmail' | 'receipt';
+type PreviewSource = 'statement' | 'receipt';
 
 export interface StatementPreviewState {
   isOpen: boolean;

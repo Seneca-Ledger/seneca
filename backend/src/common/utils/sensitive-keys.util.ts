@@ -21,7 +21,6 @@ export const SERVER_ONLY_KEYS: ReadonlySet<string> = new Set([
 /** A person's own account details: theirs to read in their profile, nobody else's. */
 export const ACCOUNT_KEYS: ReadonlySet<string> = new Set([
   ...SERVER_ONLY_KEYS,
-  'googleId',
   'telegramId',
   'telegramChatId',
   'lastLogin',

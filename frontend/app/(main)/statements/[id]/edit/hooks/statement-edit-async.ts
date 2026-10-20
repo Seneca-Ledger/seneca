@@ -105,11 +105,7 @@ export async function loadStatementData(
       const receipt = page.data[0];
       if (receipt) {
         redirected = true;
-        set.redirect(
-          receipt.source === 'gmail'
-            ? `/storage/gmail-receipts/${receipt.id}`
-            : `/storage/receipts/${receipt.id}`,
-        );
+        set.redirect(`/storage/receipts/${receipt.id}`);
         return;
       }
     }

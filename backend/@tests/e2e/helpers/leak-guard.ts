@@ -13,14 +13,14 @@ import { ACCOUNT_KEYS } from '../../../src/common/utils/sensitive-keys.util';
  */
 const OWN_ACCOUNT_HANDLERS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ['AuthController.getProfile', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
-  ['UsersController.getProfile', new Set(['googleId', 'lastLogin', 'telegramId', 'telegramChatId'])],
+  ['UsersController.getProfile', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   ['UsersController.updateMyPreferences', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   ['UsersController.acceptDisclaimer', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   ['UsersController.completeOnboarding', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   ['UsersController.findAll', new Set(['lastLogin'])],
   // A user's own profile, or anyone's to the instance admin.
-  ['UsersController.findOne', new Set(['googleId', 'lastLogin', 'telegramId', 'telegramChatId'])],
-  ['UsersController.update', new Set(['googleId', 'lastLogin', 'telegramId', 'telegramChatId'])],
+  ['UsersController.findOne', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
+  ['UsersController.update', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   // The Telegram account just linked to the caller's own.
   ['TelegramController.connect', new Set(['telegramId', 'telegramChatId'])],
 ]);

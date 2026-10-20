@@ -2,7 +2,7 @@ import { useContext, useEffect, useEffectEvent, useMemo, useState } from 'react'
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { checkContract } from '@/app/lib/query-fn-schema';
-import type { GmailReceipt, StatementMeta, Transaction } from '../types/statement-types';
+import type { ReceiptDocument, StatementMeta, Transaction } from '../types/statement-types';
 import { AnalyticsDataContext } from './analytics-data-context';
 import { keepConfirmed } from './confirmed-analytics';
 
@@ -30,7 +30,7 @@ export interface UseAnalyticsDataParams {
 export interface UseAnalyticsDataResult {
   statements: StatementMeta[];
   transactions: Transaction[];
-  gmailReceipts: GmailReceipt[];
+  receipts: ReceiptDocument[];
   loading: boolean;
   workspaceTargets: WorkspaceTarget[];
   workspaceTargetKey: string;
@@ -70,7 +70,7 @@ async function fetchAllPages<T>(
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches statements (and optionally transactions) and Gmail receipts for the
+ * Fetches statements (and optionally transactions) and receipts for the
  * selected workspaces. Several analytics views on one page would each run this
  * over the same data, so `useAnalyticsData` below hands them a shared result
  * when an `AnalyticsDataProvider` is above them; this is the fetching half.
@@ -90,7 +90,7 @@ export function useAnalyticsDataFetch(
 ): UseAnalyticsDataResult {
   const [statements, setStatements] = useState<StatementMeta[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [gmailReceipts, setGmailReceipts] = useState<GmailReceipt[]>([]);
+  const [receipts, setReceipts] = useState<ReceiptDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
   const currentWorkspaceId = currentWorkspace?.id;
@@ -135,7 +135,7 @@ export function useAnalyticsDataFetch(
     if (workspaceTargets.length === 0) {
       setStatements([]);
       setTransactions([]);
-      setGmailReceipts([]);
+      setReceipts([]);
       setLoading(false);
       return;
     }
@@ -145,7 +145,7 @@ export function useAnalyticsDataFetch(
     return await (async () => {
       const allStatements: StatementMeta[] = [];
       const allTransactions: Transaction[] = [];
-      const allReceipts: GmailReceipt[] = [];
+      const allReceipts: ReceiptDocument[] = [];
 
       for (const target of workspaceTargets) {
         const headers = { 'X-Workspace-Id': target.id };
@@ -184,12 +184,12 @@ export function useAnalyticsDataFetch(
 
         // eslint-disable-next-line no-await-in-loop
         const workspaceReceipts = await fetchAllPages(100, async (_, offset) => {
-          const response = await apiClient.get('/integrations/gmail/receipts', {
+          const response = await apiClient.get('/receipts/documents', {
             params: { limit: 100, offset },
             headers,
           });
-          // Unchecked on purpose: Gmail, Google Drive and Dropbox are going away, so they get no contract.
-          const list = response.data as { receipts?: GmailReceipt[]; total?: number } | null;
+          // Unchecked: the receipt documents list has no response contract.
+          const list = response.data as { receipts?: ReceiptDocument[]; total?: number } | null;
           const items = Array.isArray(list?.receipts) ? list.receipts : [];
           return { items, total: Number(list?.total ?? items.length) };
         });
@@ -203,7 +203,7 @@ export function useAnalyticsDataFetch(
       const confirmed = keepConfirmed({ transactions: allTransactions, receipts: allReceipts });
       setStatements(allStatements);
       setTransactions(confirmed.transactions);
-      setGmailReceipts(confirmed.receipts);
+      setReceipts(confirmed.receipts);
     })()
       .catch(async error => {
         console.error('Failed to load analytics data', error);
@@ -211,7 +211,7 @@ export function useAnalyticsDataFetch(
           toast.error(errorToastMessage);
           setStatements([]);
           setTransactions([]);
-          setGmailReceipts([]);
+          setReceipts([]);
         }
       })
       .finally(async () => {
@@ -235,7 +235,7 @@ export function useAnalyticsDataFetch(
   return {
     statements,
     transactions,
-    gmailReceipts,
+    receipts,
     loading,
     workspaceTargets,
     workspaceTargetKey,

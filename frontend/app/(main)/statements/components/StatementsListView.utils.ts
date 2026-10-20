@@ -104,7 +104,7 @@ export type FilterOptionLabels = {
   paid: string;
 };
 
-const UI_ONLY_BANK_FILTER_IDS = new Set(['bank:receipt', 'bank:gmail']);
+const UI_ONLY_BANK_FILTER_IDS = new Set(['bank:receipt']);
 
 // ---------------------------------------------------------------------------
 // Structural types used by helper functions below.
@@ -166,22 +166,19 @@ export const isStatementParsingInProgress = (statement: Pick<StatementLike, 'sta
 export const isReceiptProcessing = (
   statement: Pick<StatementLike, 'source' | 'status'>,
 ): boolean => {
-  if (statement.source !== 'gmail' && statement.source !== 'scan') {
+  if (statement.source !== 'scan') {
     return false;
   }
   const status = (statement.status || '').toLowerCase();
   return status === 'new' || status === 'processing';
 };
 
-export const isGmailStatement = (statement: Pick<StatementLike, 'source'>): boolean =>
-  statement.source === 'gmail';
-
 export const isScanReceiptStatement = (statement: Pick<StatementLike, 'source'>): boolean =>
   statement.source === 'scan';
 
 export const isStoreReceiptStatement = (
   statement: Pick<StatementLike, 'source' | 'receiptSource'>,
-): boolean => statement.source === 'scan' && statement.receiptSource !== 'gmail';
+): boolean => statement.source === 'scan';
 
 // ---------------------------------------------------------------------------
 // Statement formatting helpers
@@ -213,7 +210,7 @@ export const parseAmountValue = (value?: number | string | null): number | null 
 
 // eslint-disable-next-line complexity
 export const formatStatementAmount = (statement: StatementLike): string => {
-  if (statement.source === 'gmail' || statement.source === 'scan') {
+  if (statement.source === 'scan') {
     const amount = parseAmountValue(statement.parsedData?.amount ?? null);
     if (amount === null) {
       return '-';
@@ -249,19 +246,14 @@ export const formatStatementAmount = (statement: StatementLike): string => {
   return `${formatted}${currency || ''}`;
 };
 
-const resolveReceiptDateValue = (statement: StatementLike): string => {
-  // Scan receipts: use upload time so newly uploaded items appear at the top.
-  // Gmail receipts: use parsed transaction date (close to received date).
-  if (statement.source === 'scan') {
-    return statement.receivedAt || statement.createdAt || statement.parsedData?.date || '';
-  }
-  return statement.parsedData?.date || statement.receivedAt || statement.createdAt || '';
-};
+// Receipts use upload time so newly uploaded items appear at the top.
+const resolveReceiptDateValue = (statement: StatementLike): string =>
+  statement.receivedAt || statement.createdAt || statement.parsedData?.date || '';
 
 // eslint-disable-next-line complexity
 export const formatStatementDate = (statement: StatementLike): string => {
   const dateValue =
-    statement.source === 'gmail' || statement.source === 'scan'
+    statement.source === 'scan'
       ? resolveReceiptDateValue(statement)
       : statement.statementDateTo || statement.statementDateFrom || statement.createdAt || '';
   if (!dateValue) {
@@ -277,7 +269,7 @@ export const formatStatementDate = (statement: StatementLike): string => {
 // eslint-disable-next-line complexity
 export const resolveStatementSortDate = (statement: StatementLike): number => {
   const dateValue =
-    statement.source === 'gmail' || statement.source === 'scan'
+    statement.source === 'scan'
       ? resolveReceiptDateValue(statement)
       : statement.statementDateTo || statement.statementDateFrom || statement.createdAt || '';
   const date = dateValue ? new Date(dateValue) : null;
@@ -332,16 +324,14 @@ export const getBulkActionErrorOptions = (id: string): { id: string } => ({ id }
 export const getExportEndpoint = (
   statement: Pick<StatementLike, 'id' | 'source' | 'receiptSource'>,
 ): string =>
-  statement.source === 'gmail' || isScanReceiptStatement(statement)
+  isScanReceiptStatement(statement)
     ? `/receipts/${statement.id}/file`
     : `/statements/${statement.id}/file`;
 
 export const getDeleteEndpoint = (
   statement: Pick<StatementLike, 'id' | 'source' | 'receiptSource'>,
 ): string =>
-  statement.source === 'gmail' || isScanReceiptStatement(statement)
-    ? `/receipts/${statement.id}`
-    : `/statements/${statement.id}`;
+  isScanReceiptStatement(statement) ? `/receipts/${statement.id}` : `/statements/${statement.id}`;
 
 // ---------------------------------------------------------------------------
 // Category helpers
@@ -373,10 +363,7 @@ export const buildStatementRequestParams = ({
 }): StatementsQueryParams => {
   const serverSafeFilters: StatementFilters = {
     ...appliedFilters,
-    type:
-      appliedFilters.type === 'receipt' || appliedFilters.type === 'gmail'
-        ? null
-        : appliedFilters.type,
+    type: appliedFilters.type === 'receipt' ? null : appliedFilters.type,
     from: appliedFilters.from.filter(value => !UI_ONLY_BANK_FILTER_IDS.has(value.toLowerCase())),
     to: appliedFilters.to.filter(value => !UI_ONLY_BANK_FILTER_IDS.has(value.toLowerCase())),
   };
@@ -398,10 +385,6 @@ export const isReceiptDerivedStatement = (statement: ReceiptDerivedStatementCand
 export const resolveStatementViewAction = (
   statement: StatementViewCandidate,
 ): StatementViewAction => {
-  if (statement.source === 'gmail') {
-    return { type: 'route', href: `/storage/gmail-receipts/${statement.id}` };
-  }
-
   if (statement.source === 'scan') {
     return { type: 'route', href: `/storage/receipts/${statement.id}` };
   }
@@ -467,7 +450,7 @@ export const filterByApproved = <T extends { id: string; status: string; source?
     return documents;
   }
   return documents.filter(document => {
-    const isReceipt = document.source === 'gmail' || document.source === 'scan';
+    const isReceipt = document.source === 'scan';
     const pending = resolvePendingReview(document, isReceipt, statementReviewCounts);
     return isDocumentApproved(document.status, isReceipt, pending) === approved;
   });
@@ -643,7 +626,6 @@ export const buildTypeOptions = (
   { value: 'chat', label: labels.typeChat },
   { value: 'trip', label: labels.typeTrip },
   { value: 'task', label: labels.typeTask },
-  { value: 'gmail', label: 'Gmail' },
   { value: 'pdf', label: 'PDF' },
   { value: 'xlsx', label: 'Excel' },
   { value: 'csv', label: 'CSV' },
@@ -766,19 +748,13 @@ export const buildFromOptions = (
     if (statement.bankName) {
       const key = `bank:${statement.bankName}`;
       if (!seen.has(key)) {
-        const isGmail = statement.source === 'gmail';
         const hasRealBank = statement.bankName !== 'other';
-        const isStore =
-          statement.source === 'scan' && statement.receiptSource !== 'gmail' && !hasRealBank;
+        const isStore = statement.source === 'scan' && !hasRealBank;
         seen.set(key, {
           id: key,
-          label: isGmail
-            ? 'Gmail'
-            : isStore
-              ? text.typeReceipt.value
-              : getBankDisplayName(statement.bankName),
+          label: isStore ? text.typeReceipt.value : getBankDisplayName(statement.bankName),
           description: null,
-          iconUrl: isGmail ? '/icons/gmail.png' : null,
+          iconUrl: null,
           bankName: statement.bankName,
         });
       }

@@ -25,7 +25,7 @@ export function resolveUploadsDir(): string {
 
 /**
  * The path resolved, or NULL when it falls outside the uploads directory. Every
- * file the server reads back was written there (multer, Gmail, restore), so a
+ * file the server reads back was written there (multer, restore), so a
  * path elsewhere means a tampered row or a broken invariant. Callers repeat the
  * prefix check next to the filesystem call so the bound is visible there.
  */

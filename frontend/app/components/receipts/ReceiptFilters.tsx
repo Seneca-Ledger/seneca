@@ -43,7 +43,6 @@ export function ReceiptFilters({ filters, onChange }: ReceiptFiltersProps) {
         <MenuItem value="all">All sources</MenuItem>
         <MenuItem value="upload">Upload</MenuItem>
         <MenuItem value="scan">Scan</MenuItem>
-        <MenuItem value="gmail">Gmail</MenuItem>
       </Select>
     </Box>
   );

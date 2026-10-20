@@ -86,10 +86,6 @@ const TABLES_WITHOUT_WORKSPACE: Record<string, string> = {
   push_subscriptions: 'per user',
   telegram_reports: 'per user',
   // Connections to outside services: reconnected, never copied.
-  drive_settings: 'integration',
-  dropbox_settings: 'integration',
-  gmail_settings: 'integration',
-  gmail_watch_subscriptions: 'integration',
   integration_tokens: 'integration',
   open_protocol_settings: 'integration',
   webhook_deliveries: 'integration',

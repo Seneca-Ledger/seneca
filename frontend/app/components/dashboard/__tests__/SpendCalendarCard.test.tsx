@@ -270,7 +270,7 @@ describe('SpendCalendarCard', () => {
         });
       }
 
-      if (url === '/integrations/gmail/receipts') {
+      if (url === '/receipts/documents') {
         return Promise.resolve({
           data: {
             receipts: [
@@ -323,7 +323,7 @@ describe('SpendCalendarCard', () => {
     apiMocks.get.mockReset();
   });
 
-  it('renders only the calendar, from transactions and unique gmail receipts', async () => {
+  it('renders only the calendar, from transactions and unique receipts', async () => {
     await act(async () => {
       root.render(<SpendCalendarCard displayMonth={new Date(2026, 0, 1)} />);
     });
@@ -382,7 +382,7 @@ describe('SpendCalendarCard', () => {
       if (url === '/transactions') {
         return Promise.resolve({ data: { data: [], total: 0 } });
       }
-      if (url === '/integrations/gmail/receipts') {
+      if (url === '/receipts/documents') {
         return Promise.resolve({ data: { receipts: [], total: 0 } });
       }
       return Promise.reject(new Error(`Unhandled request: ${url}`));

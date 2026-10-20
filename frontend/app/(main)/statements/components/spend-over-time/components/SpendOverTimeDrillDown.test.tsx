@@ -21,7 +21,7 @@ function renderDrillDown(onClose = vi.fn(), records: SpendOverTimeRecord[] = [])
         net: 4850,
         count: 1,
         statementAmount: 4850,
-        gmailAmount: 0,
+        receiptAmount: 0,
       }}
       drillDownRecords={records}
       groupBy="day"
@@ -30,7 +30,6 @@ function renderDrillDown(onClose = vi.fn(), records: SpendOverTimeRecord[] = [])
       sourceLabels={{
         sourceBank: 'Bank',
         sourceReceipt: 'Receipt',
-        sourceGmailInbox: 'Gmail',
         sourceCrypto: 'Crypto',
       }}
       labels={{

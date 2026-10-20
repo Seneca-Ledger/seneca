@@ -29,7 +29,6 @@ type SortKey = 'amount' | 'average' | 'operations';
 type SourceLabels = {
   sourceBank: string;
   sourceReceipt: string;
-  sourceGmailInbox: string;
   sourceCrypto: string;
 };
 
@@ -90,7 +89,6 @@ export const useSpendOverTimeViewModel = (): SpendOverTimeViewModelReturn => {
     () => ({
       sourceBank: labels.sourceBank,
       sourceReceipt: labels.sourceReceipt,
-      sourceGmailInbox: labels.sourceGmailInbox,
       sourceCrypto: labels.sourceCrypto,
     }),
     [labels],

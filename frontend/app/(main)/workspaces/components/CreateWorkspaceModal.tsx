@@ -24,7 +24,6 @@ import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { AVAILABLE_BACKGROUNDS } from '../constants';
 import { BackgroundSelector } from './BackgroundSelector';
 import { CurrencySelector } from './CurrencySelector';
-import { ServiceIntegrationSuggestions } from './ServiceIntegrationSuggestions';
 
 type ApiErrorLike = { response?: { data?: { message?: string } } };
 
@@ -49,7 +48,6 @@ function useWorkspaceFormState(): {
   selectedBackground: string | null;
   selectedCurrency: string | null;
   loading: boolean;
-  createdWorkspaceId: string | null;
   currencyDrawerOpen: boolean;
   setStep: (v: number) => void;
   setName: (v: string) => void;
@@ -58,7 +56,6 @@ function useWorkspaceFormState(): {
   setSelectedBackground: (v: string | null) => void;
   setSelectedCurrency: (v: string | null) => void;
   setLoading: (v: boolean) => void;
-  setCreatedWorkspaceId: (v: string | null) => void;
   setCurrencyDrawerOpen: (v: boolean) => void;
   reset: () => void;
 } {
@@ -72,7 +69,6 @@ function useWorkspaceFormState(): {
   );
   const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [createdWorkspaceId, setCreatedWorkspaceId] = useState<string | null>(null);
   const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
   const reset = (): void => {
     setStep(1);
@@ -81,7 +77,6 @@ function useWorkspaceFormState(): {
     setProfile('business');
     setSelectedBackground(AVAILABLE_BACKGROUNDS[0]);
     setSelectedCurrency(null);
-    setCreatedWorkspaceId(null);
     setCurrencyDrawerOpen(false);
   };
   return {
@@ -92,7 +87,6 @@ function useWorkspaceFormState(): {
     selectedBackground,
     selectedCurrency,
     loading,
-    createdWorkspaceId,
     currencyDrawerOpen,
     setStep,
     setName,
@@ -101,7 +95,6 @@ function useWorkspaceFormState(): {
     setSelectedBackground,
     setSelectedCurrency,
     setLoading,
-    setCreatedWorkspaceId,
     setCurrencyDrawerOpen,
     reset,
   };
@@ -111,7 +104,6 @@ function StepBadges({ step }: { step: number }): React.JSX.Element {
   const items = [
     { id: 1, label: 'Basic Info' },
     { id: 2, label: 'Customization' },
-    { id: 3, label: 'Integrations' },
   ];
   return (
     <nav aria-label="Workspace setup steps" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -148,7 +140,7 @@ function StepIndicator({ step }: { step: number }): React.JSX.Element {
       }}
     >
       <Typography variant="body2" style={{ color: 'var(--muted-foreground)' }}>
-        Step {step} of 3
+        Step {step} of 2
       </Typography>
       <StepBadges step={step} />
     </Box>
@@ -274,7 +266,6 @@ type ActionsProps = {
   onBack: () => void;
   onNext: () => void;
   onFinishStep2: () => void;
-  onProceedToStep3: () => void;
 };
 function Step1Actions({ onNext }: { onNext: () => void }): React.JSX.Element {
   return (
@@ -287,27 +278,14 @@ function Step1Actions({ onNext }: { onNext: () => void }): React.JSX.Element {
 function Step2Actions({
   loading,
   onFinishStep2,
-  onProceedToStep3,
 }: {
   loading: boolean;
   onFinishStep2: () => void;
-  onProceedToStep3: () => void;
 }): React.JSX.Element {
   return (
-    <>
-      <Button type="button" variant="outlined" onClick={onFinishStep2} disabled={loading}>
-        {loading ? 'Creating...' : 'Skip Integrations'}
-      </Button>
-      <Button
-        type="button"
-        variant="contained"
-        onClick={onProceedToStep3}
-        disabled={loading}
-        endIcon={!loading ? <ChevronRight size={16} /> : undefined}
-      >
-        {loading ? 'Creating...' : 'Next'}
-      </Button>
-    </>
+    <Button type="button" variant="contained" onClick={onFinishStep2} disabled={loading}>
+      {loading ? 'Creating...' : 'Create workspace'}
+    </Button>
   );
 }
 
@@ -317,7 +295,6 @@ function ModalActions({
   onBack,
   onNext,
   onFinishStep2,
-  onProceedToStep3,
 }: ActionsProps): React.JSX.Element {
   return (
     <DialogActions sx={{ px: 4, py: 3, justifyContent: 'space-between' }}>
@@ -335,13 +312,7 @@ function ModalActions({
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         {step === 1 && <Step1Actions onNext={onNext} />}
-        {step === 2 && (
-          <Step2Actions
-            loading={loading}
-            onFinishStep2={onFinishStep2}
-            onProceedToStep3={onProceedToStep3}
-          />
-        )}
+        {step === 2 && <Step2Actions loading={loading} onFinishStep2={onFinishStep2} />}
       </Box>
     </DialogActions>
   );
@@ -392,7 +363,6 @@ type CreationHookParams = {
   selectedBackground: string | null;
   selectedCurrency: string | null;
   setLoading: (v: boolean) => void;
-  setCreatedWorkspaceId: (v: string | null) => void;
 };
 function useWorkspaceCreation({
   name,
@@ -401,7 +371,6 @@ function useWorkspaceCreation({
   selectedBackground,
   selectedCurrency,
   setLoading,
-  setCreatedWorkspaceId,
 }: CreationHookParams): { createWorkspace: () => Promise<string | undefined> } {
   const createWorkspace = async (): Promise<string | undefined> => {
     if (!name.trim()) {
@@ -420,7 +389,6 @@ function useWorkspaceCreation({
       };
       const response = await api.post('/workspaces', payload);
       const created = await checkContract('WorkspaceSummary', response.data, '/workspaces');
-      setCreatedWorkspaceId(created.id);
       toast.success('Workspace created successfully');
       return created.id;
     } catch (error: unknown) {
@@ -440,14 +408,12 @@ type StepContentProps = {
   profile: WorkspaceProfile;
   selectedCurrency: string | null;
   selectedBackground: string | null;
-  createdWorkspaceId: string | null;
   onNameChange: (v: string) => void;
   onDescriptionChange: (v: string) => void;
   onProfileChange: (v: WorkspaceProfile) => void;
   onSelectCurrency: (v: string | null) => void;
   onSelectBackground: (v: string | null) => void;
   onOpenCurrencyDrawer: () => void;
-  onSkip: () => void;
 };
 function StepContent({
   step,
@@ -456,14 +422,12 @@ function StepContent({
   profile,
   selectedCurrency,
   selectedBackground,
-  createdWorkspaceId,
   onNameChange,
   onDescriptionChange,
   onProfileChange,
   onSelectCurrency,
   onSelectBackground,
   onOpenCurrencyDrawer,
-  onSkip,
 }: StepContentProps): React.JSX.Element {
   if (step === 1) {
     return (
@@ -477,18 +441,15 @@ function StepContent({
       />
     );
   }
-  if (step === 2) {
-    return (
-      <Step2Content
-        selectedCurrency={selectedCurrency}
-        selectedBackground={selectedBackground}
-        onSelectCurrency={onSelectCurrency}
-        onSelectBackground={onSelectBackground}
-        onOpenCurrencyDrawer={onOpenCurrencyDrawer}
-      />
-    );
-  }
-  return <ServiceIntegrationSuggestions workspaceId={createdWorkspaceId ?? ''} onSkip={onSkip} />;
+  return (
+    <Step2Content
+      selectedCurrency={selectedCurrency}
+      selectedBackground={selectedBackground}
+      onSelectCurrency={onSelectCurrency}
+      onSelectBackground={onSelectBackground}
+      onOpenCurrencyDrawer={onOpenCurrencyDrawer}
+    />
+  );
 }
 
 function useModalHandlers({
@@ -508,7 +469,6 @@ function useModalHandlers({
 }): {
   finalize: () => Promise<void>;
   handleNext: () => void;
-  handleProceedToStep3: () => Promise<void>;
 } {
   const finalize = async (): Promise<void> => {
     const id = await createWorkspace().catch(() => undefined);
@@ -528,13 +488,7 @@ function useModalHandlers({
     }
     s.setStep(s.step + 1);
   };
-  const handleProceedToStep3 = async (): Promise<void> => {
-    const id = await createWorkspace().catch(() => undefined);
-    if (id) {
-      s.setStep(3);
-    }
-  };
-  return { finalize, handleNext, handleProceedToStep3 };
+  return { finalize, handleNext };
 }
 
 export function CreateWorkspaceModal({
@@ -552,9 +506,8 @@ export function CreateWorkspaceModal({
     selectedBackground: s.selectedBackground,
     selectedCurrency: s.selectedCurrency,
     setLoading: s.setLoading,
-    setCreatedWorkspaceId: s.setCreatedWorkspaceId,
   });
-  const { finalize, handleNext, handleProceedToStep3 } = useModalHandlers({
+  const { finalize, handleNext } = useModalHandlers({
     s,
     switchWorkspace,
     refreshWorkspaces,
@@ -611,14 +564,12 @@ export function CreateWorkspaceModal({
             profile={s.profile}
             selectedCurrency={s.selectedCurrency}
             selectedBackground={s.selectedBackground}
-            createdWorkspaceId={s.createdWorkspaceId}
             onNameChange={s.setName}
             onDescriptionChange={s.setDescription}
             onProfileChange={s.setProfile}
             onSelectCurrency={s.setSelectedCurrency}
             onSelectBackground={s.setSelectedBackground}
             onOpenCurrencyDrawer={() => s.setCurrencyDrawerOpen(true)}
-            onSkip={finalize}
           />
         </DialogContent>
         <ModalActions
@@ -627,9 +578,6 @@ export function CreateWorkspaceModal({
           onBack={() => s.setStep(s.step - 1)}
           onNext={handleNext}
           onFinishStep2={finalize}
-          onProceedToStep3={() => {
-            void handleProceedToStep3();
-          }}
         />
       </Dialog>
       <WorkspaceCurrencyDrawer

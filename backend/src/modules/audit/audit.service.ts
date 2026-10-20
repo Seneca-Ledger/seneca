@@ -36,7 +36,7 @@ const AUDIT_RETENTION_YEARS = 1;
 
 /**
  * A before/after snapshot as the trail keeps it: entity rows come with their
- * relations, and a joined account (Google and Telegram ids, last login, token
+ * relations, and a joined account (Telegram ids, last login, token
  * version) or a file's path and bytes are not what an audit reader may see.
  * Rollback restores only the keys a snapshot has, so nothing it needs is lost.
  */

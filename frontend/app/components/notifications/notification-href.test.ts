@@ -73,7 +73,7 @@ describe('notificationHref', () => {
     );
     expect(
       notificationHref(make({ type: 'receipt.uncategorized', entityType: 'receipt', entityId: 'r-1' })),
-    ).toBe('/storage/gmail-receipts/r-1');
+    ).toBe('/storage/receipts/r-1');
   });
 
   it('opens the review queue for the weekly digest, not a statement named by the workspace id', () => {

@@ -44,9 +44,6 @@ const apiOrigin = (() => {
 // product feature, not a convenience: omitting them does not harden anything,
 // it just breaks the feature silently at the CSP layer. A deployment that does
 // not use these integrations can drop the corresponding entry.
-const GOOGLE_PICKER_SCRIPT = 'https://apis.google.com';
-const GOOGLE_PICKER_FRAMES = 'https://docs.google.com https://drive.google.com';
-const GOOGLE_PICKER_API = 'https://www.googleapis.com https://content.googleapis.com';
 // Bank logos (brand-logo.ts) and the default identicon the backend assigns to
 // users without an uploaded avatar (jwt.strategy.ts).
 const REMOTE_IMAGE_HOSTS = 'https://logo.clearbit.com https://api.dicebear.com';
@@ -59,7 +56,7 @@ const DEV_PROFILER_HOST = 'https://www.react-grab.com';
 
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} ${GOOGLE_PICKER_SCRIPT}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
   // Receipt map tiles are proxied by the API (/maps/tiles), so a split deployment
   // needs the API origin here; same-origin deployments are covered by 'self'.
@@ -76,14 +73,13 @@ const csp = [
   // ws:/wss: are listed in every environment: Socket.IO powers notifications and
   // import progress, and browsers have not been consistent about whether 'self'
   // covers the WebSocket schemes for the same origin.
-  `connect-src 'self' blob: ws: wss:${apiOrigin ? ` ${apiOrigin}` : ''} ${GOOGLE_PICKER_API}${
+  `connect-src 'self' blob: ws: wss:${apiOrigin ? ` ${apiOrigin}` : ''}${
     isDev ? ` ${DEV_PROFILER_HOST}` : ''
   }`,
   // Declaring frame-src at all removes the default-src fallback, so the app's
-  // own embeds have to be listed explicitly: statement previews are iframed
-  // from a blob: URL and Gmail receipt attachments from a data: URL. The Google
-  // Picker renders itself in an iframe too.
-  `frame-src 'self' blob: data: ${GOOGLE_PICKER_FRAMES}`,
+  // own embeds have to be listed explicitly: statement and receipt previews are
+  // iframed from a blob: URL.
+  "frame-src 'self' blob:",
   "object-src 'none'",
   "frame-ancestors 'none'",
   "base-uri 'self'",

@@ -1,13 +1,13 @@
-import type { GmailReceipt, Transaction } from '../types/statement-types';
+import type { ReceiptDocument, Transaction } from '../types/statement-types';
 
 /**
  * Only what a person confirmed counts in the numbers. A transaction counts once
  * it was confirmed in Review; a receipt counts once approved (its transaction
  * then carries it, and the record mappers drop the duplicate).
  */
-export function keepConfirmed(data: { transactions: Transaction[]; receipts: GmailReceipt[] }): {
+export function keepConfirmed(data: { transactions: Transaction[]; receipts: ReceiptDocument[] }): {
   transactions: Transaction[];
-  receipts: GmailReceipt[];
+  receipts: ReceiptDocument[];
 } {
   return {
     transactions: data.transactions.filter(transaction => transaction.isVerified === true),

@@ -35,7 +35,7 @@ export function buildTopCategoriesBarChart(
 
 export function buildTopCategoriesSourceChart(
   totals: SourceTotals,
-  labels: { sourceStatement: string; sourceGmail: string },
+  labels: { sourceStatement: string; sourceReceipt: string },
 ): unknown {
   return {
     backgroundColor: 'transparent',
@@ -47,7 +47,7 @@ export function buildTopCategoriesSourceChart(
         radius: ['35%', '72%'],
         data: [
           { name: labels.sourceStatement, value: Number(totals.statementTotal.toFixed(2)) },
-          { name: labels.sourceGmail, value: Number(totals.receiptTotal.toFixed(2)) },
+          { name: labels.sourceReceipt, value: Number(totals.receiptTotal.toFixed(2)) },
         ],
       },
     ],

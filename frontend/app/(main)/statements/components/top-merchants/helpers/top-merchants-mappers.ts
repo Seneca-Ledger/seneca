@@ -6,17 +6,17 @@ import {
   resolveSourceChannel,
 } from '@/app/(main)/statements/components/top-merchants.utils';
 import type {
-  GmailReceipt,
+  ReceiptDocument,
   StatementMeta,
   Transaction,
 } from '@/app/(main)/statements/types/statement-types';
 import {
   getTransactionCurrency,
   getTransactionDate,
-  mapGmailReceiptToStatement,
+  mapReceiptToStatement,
   resolveCurrencyCode,
 } from '@/app/lib/analytics-common';
-import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
+import { resolveReceiptMerchantLabel } from '@/app/lib/receipt-merchant';
 
 const opt = (v: string | null | undefined): string | null => (v ? v : null);
 
@@ -24,9 +24,6 @@ export const getBankDisplayName = (bankName?: string | null): string => {
   const raw = (bankName ?? '').trim();
   if (!raw) {
     return 'Unknown';
-  }
-  if (raw.toLowerCase() === 'gmail') {
-    return 'Gmail';
   }
   const resolved = resolveBankLogo(raw);
   if (!resolved) {
@@ -166,31 +163,31 @@ export const mapTransactionToRecord = (
 };
 
 type ReceiptParsedFields = { vendor?: string; date?: string; currency?: string; amount?: number };
-const extractReceiptParsed = (receipt: GmailReceipt): ReceiptParsedFields => ({
+const extractReceiptParsed = (receipt: ReceiptDocument): ReceiptParsedFields => ({
   vendor: receipt.parsedData?.vendor,
   date: receipt.parsedData?.date,
   currency: receipt.parsedData?.currency,
   amount: receipt.parsedData?.amount,
 });
 
-export const mapGmailReceiptToMerchantRecord = (
-  receipt: GmailReceipt,
+export const mapReceiptToMerchantRecord = (
+  receipt: ReceiptDocument,
   workspaceCurrency: string,
 ): TopMerchantRecord => {
-  const mapped = mapGmailReceiptToStatement(receipt, workspaceCurrency);
+  const mapped = mapReceiptToStatement(receipt, workspaceCurrency);
   const {
     vendor: parsedVendor,
     date: parsedDate,
     currency: parsedCurrency,
     amount: parsedAmount,
   } = extractReceiptParsed(receipt);
-  const merchant = resolveGmailMerchantLabel({
+  const merchant = resolveReceiptMerchantLabel({
     vendor: parsedVendor,
     sender: receipt.sender,
     subject: receipt.subject,
     fallback: mapped.fileName,
   });
-  const flow = resolveMerchantFlow({ sourceType: 'gmail', amount: parsedAmount ?? 0 });
+  const flow = resolveMerchantFlow({ sourceType: 'receipt', amount: parsedAmount ?? 0 });
   const amount = flow.amount;
   const dateValue = parsedDate ?? receipt.receivedAt ?? '';
   const currency = resolveCurrencyCode(parsedCurrency, workspaceCurrency);
@@ -200,8 +197,8 @@ export const mapGmailReceiptToMerchantRecord = (
     amount,
     currencyValue: currency,
     dateValue,
-    sourceType: 'gmail',
-    sourceChannel: mapped.fileType === 'gmail' ? 'gmail' : 'receipt',
+    sourceType: 'receipt',
+    sourceChannel: 'receipt',
     flowType: flow.flowType,
     workspaceId: receipt.workspaceId,
     workspaceName: receipt.workspaceName,

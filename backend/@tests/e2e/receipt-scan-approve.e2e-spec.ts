@@ -196,7 +196,7 @@ describe('Approving a scanned receipt (e2e)', () => {
     const [receipt] = await dataSource.query(
       `INSERT INTO receipts
          (user_id, workspace_id, source, subject, sender, received_at, parsed_data, status)
-       VALUES ($1, $2, 'gmail', 'mail', 'shop@example.com', now(), $3::jsonb, 'draft')
+       VALUES ($1, $2, 'imap', 'mail', 'shop@example.com', now(), $3::jsonb, 'draft')
        RETURNING id`,
       [
         owner.userId,

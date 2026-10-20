@@ -103,7 +103,7 @@ describe('PDFPreviewModal manual attach flow', () => {
 
   it('builds source-specific file endpoints', async () => {
     const module = (await import('./PDFPreviewModal')) as {
-      getFileEndpoint?: (source: 'statement' | 'gmail' | 'receipt', fileId: string) => string;
+      getFileEndpoint?: (source: 'statement' | 'receipt', fileId: string) => string;
     };
 
     expect(module.getFileEndpoint?.('statement', 'statement-1')).toBe(
@@ -111,9 +111,6 @@ describe('PDFPreviewModal manual attach flow', () => {
     );
     expect(module.getFileEndpoint?.('receipt', 'receipt-1')).toBe(
       '/api/v1/receipts/receipt-1/file',
-    );
-    expect(module.getFileEndpoint?.('gmail', 'gmail-1')).toBe(
-      '/api/v1/integrations/gmail/receipts/gmail-1/file',
     );
   });
 
@@ -238,14 +235,14 @@ describe('PDFPreviewModal manual attach flow', () => {
           onClose={vi.fn()}
           fileId="receipt-image-1"
           fileName="receipt.jpg"
-          source="gmail"
+          source="receipt"
         />,
       );
       await Promise.resolve();
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/integrations/gmail/receipts/receipt-image-1/file',
+      '/api/v1/receipts/receipt-image-1/file',
       expect.objectContaining({ method: 'GET' }),
     );
     expect(container.querySelector('img[alt="receipt.jpg"]')).toBeTruthy();
@@ -290,21 +287,21 @@ describe('PDFPreviewModal manual attach flow', () => {
         <PDFPreviewModal
           isOpen
           onClose={vi.fn()}
-          fileId="receipt-image-3"
-          fileName="gmail-receipt.jpg"
-          source="gmail"
+          fileId="statement-image-3"
+          fileName="statement-photo.jpg"
+          source="statement"
         />,
       );
       await Promise.resolve();
     });
 
-    const gmailReceiptImage = container.querySelector(
-      'img[alt="gmail-receipt.jpg"]',
+    const statementImage = container.querySelector(
+      'img[alt="statement-photo.jpg"]',
     ) as HTMLImageElement;
 
-    expect(gmailReceiptImage).toBeTruthy();
-    expect(gmailReceiptImage.className).toContain('seneca-pdf-preview-modal__image-preview');
-    expect(gmailReceiptImage.className).not.toContain(
+    expect(statementImage).toBeTruthy();
+    expect(statementImage.className).toContain('seneca-pdf-preview-modal__image-preview');
+    expect(statementImage.className).not.toContain(
       'seneca-pdf-preview-modal__image-preview--receipt',
     );
   });

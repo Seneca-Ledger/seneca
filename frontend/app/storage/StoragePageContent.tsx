@@ -2,7 +2,6 @@
 
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import { Box, Typography } from '@mui/material';
-import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { DocumentTypeIcon } from '../components/DocumentTypeIcon';
@@ -15,11 +14,7 @@ import { StorageFileTable } from './components/StorageFileTable';
 import { StorageFilterModal } from './components/StorageFilterModal';
 import { StorageFolderModal } from './components/StorageFolderModal';
 import { StorageHeader } from './components/StorageHeader';
-import {
-  FolderContextMenu,
-  GmailSection,
-  StorageProviderSelector,
-} from './components/StoragePageHelpers';
+import { FolderContextMenu } from './components/StoragePageHelpers';
 import {
   buildFilteredFiles,
   buildFolderCounts,
@@ -30,7 +25,6 @@ import {
   buildTagCounts,
 } from './helpers/storageComputations';
 import { formatDate, getPermissionLabel, getStatusLabel } from './helpers/storageFormatters';
-import { useGmailIntegration } from './hooks/useGmailIntegration';
 import { useStorageDnd } from './hooks/useStorageDnd';
 import { useStorageFiles } from './hooks/useStorageFiles';
 import { useStorageFilters } from './hooks/useStorageFilters';
@@ -56,7 +50,6 @@ function StoragePageContent({
 }: {
   initialList?: 'active' | 'trash';
 }): React.JSX.Element {
-  const router = useRouter();
   const t = useIntlayer('storagePage');
   const { locale } = useLocale();
 
@@ -147,10 +140,6 @@ function StoragePageContent({
     sort: filtersHook.sort,
   });
   const modalsHook = useStorageModals();
-  const { gmailStatus, gmailLoading } = useGmailIntegration();
-  const [selectedStorageProvider, setSelectedStorageProvider] = useState<'google' | 'dropbox'>(
-    'google',
-  );
 
   const isTrashView = filtersHook.activeList === 'trash';
   const isFolderActive = activeModal === 'folders';
@@ -370,19 +359,6 @@ function StoragePageContent({
                 openModal('folders');
               }
             }}
-          />
-        )}
-        <StorageProviderSelector
-          selectedStorageProvider={selectedStorageProvider}
-          onSelect={setSelectedStorageProvider}
-          locale={locale}
-        />
-        {!isTrashView && (
-          <GmailSection
-            gmailStatus={gmailStatus}
-            gmailLoading={gmailLoading}
-            router={router}
-            tx={tx}
           />
         )}
         <Box

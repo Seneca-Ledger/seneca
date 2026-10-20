@@ -226,9 +226,6 @@ describe('Cross-workspace references (e2e)', () => {
     await as(request(server()).patch(`/receipts/${receipt.id}`))
       .send({ parsedData: { categorySource: 'manual', validationIssues: [] } })
       .expect(400);
-    await as(request(server()).patch(`/integrations/gmail/receipts/${receipt.id}`))
-      .send({ parsedData: { categorySource: 'manual' } })
-      .expect(400);
   });
 
   it('does not book a receipt under B’s category', async () => {
@@ -246,26 +243,6 @@ describe('Cross-workspace references (e2e)', () => {
       expect(after.transactionId).toBeNull();
       expect(after.status).toBe(ReceiptStatus.NEEDS_REVIEW);
     }
-  });
-
-  it('does not book a Gmail receipt under B’s category', async () => {
-    const receipt = await receiptOfA();
-    const categoryId = await theirCategory();
-    await as(request(server()).post(`/integrations/gmail/receipts/${receipt.id}/approve`))
-      .send({ amount: 7, description: 'Xref', date: '2026-01-02', categoryId })
-      .expect(404);
-    await as(request(server()).post('/integrations/gmail/receipts/bulk-approve'))
-      .send({ receiptIds: [receipt.id], categoryId })
-      .expect(404);
-    await as(request(server()).patch(`/integrations/gmail/receipts/${receipt.id}/parsed-data`))
-      .send({ categoryId })
-      .expect(404);
-    await as(request(server()).patch(`/integrations/gmail/receipts/${receipt.id}`))
-      .send({ parsedData: { categoryId } })
-      .expect(404);
-    const after = await reloaded(receipt);
-    expect(after.transactionId).toBeNull();
-    expect(after.parsedData.categoryId).toBeUndefined();
   });
 
   it('does not convert a dropped row into one of B’s wallet, category or branch', async () => {

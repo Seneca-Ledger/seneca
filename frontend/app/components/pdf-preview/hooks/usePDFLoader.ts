@@ -25,7 +25,7 @@ async function loadPdfFile({
 }: LoadParams): Promise<LoadResult> {
   const headers = getWorkspaceHeaders();
   if (!hasSessionCookie()) throw new Error(authRequired);
-  const endpoint = getFileEndpoint(source as 'statement' | 'gmail' | 'receipt', fileId);
+  const endpoint = getFileEndpoint(source as 'statement' | 'receipt', fileId);
   const res = await fetch(endpoint, { method: 'GET', headers, credentials: 'include' });
   if (!res.ok) throw new Error(`${fileLoadError}: ${res.status}`);
   const blob = await res.blob();

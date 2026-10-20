@@ -42,10 +42,10 @@ import {
   User,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
-import { GmailReceiptCategoryService } from '../gmail/services/gmail-receipt-category.service';
-import { GmailReceiptDuplicateService } from '../gmail/services/gmail-receipt-duplicate.service';
-import { GmailReceiptParserService } from '../gmail/services/gmail-receipt-parser.service';
 import { sniffStatementFormat } from '../parsing/parsers/statement-formats.util';
+import { EmailReceiptParserService } from '../receipts/services/email-receipt-parser.service';
+import { ReceiptCategoryService } from '../receipts/services/receipt-category.service';
+import { ReceiptDuplicateService } from '../receipts/services/receipt-duplicate.service';
 import { StatementsService } from '../statements/statements.service';
 
 type ProtocolStatusResponse = {
@@ -139,9 +139,9 @@ export class OpenProtocolIntegrationsService {
     private readonly receiptRepository: Repository<Receipt>,
     private readonly statementsService: StatementsService,
     private readonly fileStorageService: FileStorageService,
-    private readonly receiptParserService: GmailReceiptParserService,
-    private readonly receiptDuplicateService: GmailReceiptDuplicateService,
-    private readonly receiptCategoryService: GmailReceiptCategoryService,
+    private readonly receiptParserService: EmailReceiptParserService,
+    private readonly receiptDuplicateService: ReceiptDuplicateService,
+    private readonly receiptCategoryService: ReceiptCategoryService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -571,7 +571,7 @@ export class OpenProtocolIntegrationsService {
     const syntheticId = `imap:${config.host}:${config.mailbox}:${messageId}`;
     // Per workspace: the same inbox may be set up in several workspaces.
     const existing = await this.receiptRepository.findOne({
-      where: { workspaceId, gmailMessageId: syntheticId },
+      where: { workspaceId, messageId: syntheticId },
     });
     if (existing) {
       return null;
@@ -621,8 +621,7 @@ export class OpenProtocolIntegrationsService {
         userId: user.id,
         workspaceId,
         source: ReceiptSource.IMAP,
-        gmailMessageId: syntheticId,
-        gmailThreadId: null,
+        messageId: syntheticId,
         subject: parsed.subject || '(no subject)',
         sender: parsed.from?.text || '',
         receivedAt: parsed.date || new Date(),
@@ -1278,7 +1277,7 @@ export class OpenProtocolIntegrationsService {
         diff: { before: null, after: receipt },
         meta: {
           provider: IntegrationProvider.IMAP,
-          messageId: receipt.gmailMessageId,
+          messageId: receipt.messageId,
         },
       })
       .catch(error => this.logger.warn(`Audit event failed: ${this.getErrorMessage(error)}`));

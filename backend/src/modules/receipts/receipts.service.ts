@@ -449,7 +449,7 @@ export class ReceiptsService {
    * Turns a receipt into its transaction at most once. The receipt row is locked
    * for the duration, so a repeated or concurrent approve finds the transaction
    * the first one made and returns it instead of booking the expense twice.
-   * Every approve path (here and the Gmail receipts endpoints) goes through it;
+   * Every approve path goes through it;
    * `buildTransaction` only decides the new transaction's fields.
    */
   async approveOnce(
@@ -890,7 +890,7 @@ export class ReceiptsService {
       lockedBy: MANUAL_RECEIPT_WORKER_ID,
       payload: {
         integrationId,
-        gmailMessageId: receiptId,
+        messageId: receiptId,
         historyId: language ?? 'auto',
       },
     });
@@ -910,8 +910,7 @@ export class ReceiptsService {
       userId: params.userId,
       workspaceId: params.workspaceId,
       source: params.source,
-      gmailMessageId: null,
-      gmailThreadId: null,
+      messageId: null,
       subject: params.file.originalname,
       sender:
         params.source === ReceiptSource.SCAN

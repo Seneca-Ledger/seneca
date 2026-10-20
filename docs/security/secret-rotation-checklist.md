@@ -4,9 +4,7 @@ Use this checklist after a local secret scan or workstation exposure. Do not pas
 
 ## Rotate Immediately
 
-- Google OAuth client secrets and Google API keys used by the frontend.
 - Gemini or other AI provider API keys.
-- Google Drive OAuth secrets.
 - Integration encryption keys and state-signing secrets.
 - TrueLayer client secrets.
 - Resend or SMTP provider API keys.

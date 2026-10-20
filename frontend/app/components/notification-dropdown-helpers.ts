@@ -22,7 +22,7 @@ const ENTITY_TYPE_HREFS: Record<string, string> = {
 
 function getHrefByType(type: string, entityId: string | null): string | null {
   if (type === 'receipt.uncategorized' && entityId) {
-    return `/storage/gmail-receipts/${entityId}`;
+    return `/storage/receipts/${entityId}`;
   }
   if (TYPE_STATEMENT_HREFS.has(type) && entityId) {
     return `/statements/${entityId}/edit`;

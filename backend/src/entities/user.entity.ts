@@ -194,9 +194,6 @@ export class User {
   @Column({ name: 'last_workspace_id', type: 'uuid', nullable: true })
   lastWorkspaceId: string | null;
 
-  @Column({ type: 'varchar', name: 'google_id', nullable: true })
-  googleId: string | null;
-
   @Column({ type: 'varchar', name: 'avatar_url', nullable: true })
   avatarUrl: string | null;
 

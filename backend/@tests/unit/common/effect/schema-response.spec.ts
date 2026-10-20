@@ -27,7 +27,7 @@ describe('projectToContract', () => {
         id: 'r1',
         createdAt: '2026-10-13T00:00:00.000Z',
         filePath: '/app/uploads/x.pdf',
-        owner: { id: 'u1', name: 'Ann', googleId: 'g', tokenVersion: 3 },
+        owner: { id: 'u1', name: 'Ann', telegramId: 'g', tokenVersion: 3 },
         tags: [{ id: 't1', userId: 'u2' }],
         meta: { anything: { deep: true } },
         kind: { type: 'a', a: 1, secret: 'x' },

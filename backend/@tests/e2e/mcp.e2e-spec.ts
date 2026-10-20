@@ -195,7 +195,7 @@ describe('MCP endpoint (e2e)', () => {
     const one = await callTool(readKey, 'get_transaction', { id: page.data[0].id });
 
     expect(one.isError).toBe(false);
-    for (const key of ['filePath', 'fileHash', 'fileData', 'passwordHash', 'googleId', 'tokenVersion']) {
+    for (const key of ['filePath', 'fileHash', 'fileData', 'passwordHash', 'telegramId', 'tokenVersion']) {
       expect(one.text).not.toContain(`"${key}"`);
     }
   });

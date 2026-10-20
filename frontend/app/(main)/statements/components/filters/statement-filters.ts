@@ -35,7 +35,7 @@ export type StatementFilterUser = {
 
 export type StatementFilterItem = {
   id: string;
-  source?: 'statement' | 'gmail' | 'scan';
+  source?: 'statement' | 'scan';
   receiptSource?: string | null;
   fileName: string;
   subject?: string | null;

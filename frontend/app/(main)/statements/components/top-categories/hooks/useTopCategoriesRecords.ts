@@ -7,7 +7,7 @@ import {
 import type { AnalyticsFromOption } from '@/app/(main)/statements/components/shared-analytics.utils';
 import {
   getBankDisplayName,
-  mapGmailReceiptToCategoryRecord,
+  mapReceiptToCategoryRecord,
   mapTransactionToCategoryRecord,
 } from '@/app/(main)/statements/components/top-categories/helpers/top-categories-mappers';
 import type {
@@ -16,7 +16,7 @@ import type {
 } from '@/app/(main)/statements/components/top-categories.utils';
 import { dedupeCategoryReceiptRecords } from '@/app/(main)/statements/components/top-categories.utils';
 import type {
-  GmailReceipt,
+  ReceiptDocument,
   StatementMeta,
   Transaction,
 } from '@/app/(main)/statements/types/statement-types';
@@ -27,7 +27,7 @@ type StatementWithWorkspace = StatementMeta & StatementFilterItem;
 type Params = {
   statements: StatementWithWorkspace[];
   transactions: Transaction[];
-  gmailReceipts: GmailReceipt[];
+  receipts: ReceiptDocument[];
   workspaceCurrency: string;
   appliedFilters: StatementFilters;
   searchInput: string;
@@ -88,7 +88,7 @@ const buildUserOption = (
 
 const buildBankOption = (bank: string): CategoryFromOption => ({
   id: `bank:${bank}`,
-  label: bank === 'gmail' ? 'Gmail' : getBankDisplayName(bank),
+  label: getBankDisplayName(bank),
   description: null,
   bankName: bank,
 });
@@ -114,14 +114,14 @@ const buildFromOptions = (
 type BuildAllParams = {
   statements: StatementWithWorkspace[];
   transactions: Transaction[];
-  gmailReceipts: GmailReceipt[];
+  receipts: ReceiptDocument[];
   workspaceCurrency: string;
 };
 
 const buildAllCategoryRecords = ({
   statements,
   transactions,
-  gmailReceipts,
+  receipts,
   workspaceCurrency,
 }: BuildAllParams): TopCategoryRecord[] => {
   const statementById = new Map(statements.map(s => [s.id, s]));
@@ -137,8 +137,8 @@ const buildAllCategoryRecords = ({
     .filter((r): r is TopCategoryRecord => r !== null);
   const existingTransactionIds = new Set(transactions.map(t => t.id).filter(Boolean));
   const mappedReceipts = dedupeCategoryReceiptRecords(
-    gmailReceipts
-      .map(r => mapGmailReceiptToCategoryRecord(r, workspaceCurrency))
+    receipts
+      .map(r => mapReceiptToCategoryRecord(r, workspaceCurrency))
       .filter((r): r is TopCategoryRecord => r !== null),
     existingTransactionIds,
   );
@@ -148,15 +148,15 @@ const buildAllCategoryRecords = ({
 export const useTopCategoriesRecords = ({
   statements,
   transactions,
-  gmailReceipts,
+  receipts,
   workspaceCurrency,
   appliedFilters,
   searchInput,
   activeFlowType,
 }: Params): CategoryRecordsReturn => {
   const allRecords = useMemo<TopCategoryRecord[]>(
-    () => buildAllCategoryRecords({ statements, transactions, gmailReceipts, workspaceCurrency }),
-    [statements, transactions, gmailReceipts, workspaceCurrency],
+    () => buildAllCategoryRecords({ statements, transactions, receipts, workspaceCurrency }),
+    [statements, transactions, receipts, workspaceCurrency],
   );
 
   const filteredRecords = useMemo(

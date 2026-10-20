@@ -34,7 +34,7 @@ import {
 } from './pending-uploads-store';
 import { StatementsListHeader } from './StatementsListHeader';
 import { StatementsListTable } from './StatementsListTable';
-import { isGmailStatement, resolveStatementViewAction } from './StatementsListView.utils';
+import { resolveStatementViewAction } from './StatementsListView.utils';
 import { StatementsTableToolbar } from './StatementsTableToolbar';
 import { uploadScanDrawerFiles as runUploadScanDrawerFiles } from './statement-upload';
 
@@ -158,11 +158,6 @@ function MergeDuplicatesSummary({
   }
   const trashCount = plan.statementIds.length + plan.receiptIds.length;
   const lines: string[] = [];
-  if (plan.gmailEntries.length > 0) {
-    lines.push(
-      listText.mergeGmailMarked.value.replace('{count}', String(plan.gmailEntries.length)),
-    );
-  }
   if (plan.receiptIds.length > 0) {
     lines.push(
       listText.mergeReceiptsTrash.value.replace('{count}', String(plan.receiptIds.length)),
@@ -172,9 +167,6 @@ function MergeDuplicatesSummary({
     lines.push(
       listText.mergeStatementsTrash.value.replace('{count}', String(plan.statementIds.length)),
     );
-  }
-  if (plan.skippedGmailCount > 0) {
-    lines.push(listText.mergeGmailSkipped.value.replace('{count}', String(plan.skippedGmailCount)));
   }
 
   return (
@@ -235,7 +227,7 @@ export default function StatementsListView(): React.JSX.Element {
   // refetched too, not only statements.
   const refreshListsAfterScan = async (): Promise<void> => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['gmail-receipts', workspaceId] }),
+      queryClient.invalidateQueries({ queryKey: ['receipt-documents', workspaceId] }),
       queryClient.invalidateQueries({ queryKey: ['statements', workspaceId] }),
     ]);
   };
@@ -310,12 +302,12 @@ export default function StatementsListView(): React.JSX.Element {
     fileName: string;
     parsingDetails?: StatementParsingDetails | null;
   }): void => {
-    const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
+    const isReceipt = statement.source === 'scan';
     if (isReceipt) {
       v.openPreview({
         fileId: statement.id,
         fileName: statement.fileName || 'receipt.pdf',
-        source: isGmailStatement(statement) ? 'gmail' : 'receipt',
+        source: 'receipt',
         allowAttachFile: false,
       });
       return;
@@ -452,7 +444,7 @@ export default function StatementsListView(): React.JSX.Element {
             loading={v.isPending}
             displayStatements={v.displayStatements}
             paginatedStatements={v.paginatedDisplayStatements}
-            gmailSyncSkeletonKeys={v.listSkeletonKeys}
+            skeletonKeys={v.listSkeletonKeys}
             allVisibleSelected={v.allVisibleSelected}
             selectedCount={v.selectedCount}
             selectedStatementIds={v.selectedStatementIds}

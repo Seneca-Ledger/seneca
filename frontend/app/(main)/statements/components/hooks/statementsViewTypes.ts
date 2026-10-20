@@ -13,7 +13,7 @@ import type { useStatementsListData } from './useStatementsListData';
 
 export interface StatementsStatement {
   id: string;
-  source?: 'statement' | 'gmail' | 'scan';
+  source?: 'statement' | 'scan';
   receiptSource?: string;
   fileName: string;
   subject?: string;
@@ -52,7 +52,6 @@ export interface StatementsStatement {
   } | null;
   errorMessage?: string | null;
   parsingDetails?: StatementParsingDetails | null;
-  gmailMessageId?: string;
   receivedAt?: string;
   parsedData?: {
     amount?: number;
@@ -107,9 +106,9 @@ export interface StatementsViewState {
   openPreview: ReturnType<typeof useStatementPreview>['openPreview'];
   closePreview: ReturnType<typeof useStatementPreview>['closePreview'];
   loading: boolean;
-  gmailSyncSkeletonKeys: string[];
+  listSkeletonKeys: string[];
   refetchStatements: ReturnType<typeof useStatementsListData>['refetchStatements'];
-  refetchGmailReceipts: ReturnType<typeof useStatementsListData>['refetchGmailReceipts'];
+  refetchReceipts: ReturnType<typeof useStatementsListData>['refetchReceipts'];
   refreshActiveStatements: ReturnType<typeof useStatementsListData>['refreshActiveStatements'];
   displayStatements: StatementsStatement[];
   paginatedDisplayStatements: StatementsStatement[];

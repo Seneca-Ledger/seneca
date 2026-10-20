@@ -1,5 +1,5 @@
 import { In, type Repository } from 'typeorm';
-import { Receipt, ReceiptSource } from '../../entities/receipt.entity';
+import type { Receipt } from '../../entities/receipt.entity';
 import { Statement, StatementStatus } from '../../entities/statement.entity';
 
 /** What the rule reads off a statement. */
@@ -24,9 +24,7 @@ export function documentHref(
 ): string {
   const receipt = scanReceipts.get(statement.id);
   if (receipt) {
-    const base =
-      receipt.source === ReceiptSource.GMAIL ? '/storage/gmail-receipts' : '/storage/receipts';
-    return `${base}/${receipt.id}`;
+    return `/storage/receipts/${receipt.id}`;
   }
   if (OPENS_IN_EDITOR.has(statement.status)) {
     return `/statements/${statement.id}/edit`;

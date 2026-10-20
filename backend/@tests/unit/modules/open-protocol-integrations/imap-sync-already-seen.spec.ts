@@ -147,7 +147,7 @@ describe('OpenProtocolIntegrationsService.syncImap — already-seen messages', (
     await createService().syncImap(user, 'ws-open');
 
     expect(receiptRepository.findOne).toHaveBeenCalledWith({
-      where: { workspaceId: 'ws-open', gmailMessageId: expect.stringMatching(/^imap:/) },
+      where: { workspaceId: 'ws-open', messageId: expect.stringMatching(/^imap:/) },
     });
     expect(receiptRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user-1', workspaceId: 'ws-open' }),

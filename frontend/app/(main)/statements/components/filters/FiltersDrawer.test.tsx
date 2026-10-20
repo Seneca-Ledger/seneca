@@ -83,7 +83,6 @@ const baseProps = {
   onViewResults: () => undefined,
   typeOptions: [
     { value: 'receipt', label: 'Receipt' },
-    { value: 'gmail', label: 'Gmail' },
     { value: 'pdf', label: 'PDF' },
   ],
   statusOptions: [{ value: 'processing', label: 'Processing' }],
@@ -165,13 +164,12 @@ describe('FiltersDrawer', () => {
     expect(container.textContent).not.toContain('Exported');
   });
 
-  it('renders receipt and gmail as separate type options', async () => {
+  it('renders receipt and file types as type options', async () => {
     await act(async () => {
       root.render(<FiltersDrawer {...baseProps} screen="type" />);
     });
 
     expect(container.textContent).toContain('Receipt');
-    expect(container.textContent).toContain('Gmail');
     expect(container.textContent).toContain('PDF');
   });
 

@@ -18,7 +18,7 @@ describe('top spenders helpers', () => {
       amount: 150,
     });
 
-    expect(resolveSpenderFlow({ sourceType: 'gmail', totalDebit: 90, totalCredit: 0 })).toEqual({
+    expect(resolveSpenderFlow({ sourceType: 'receipt', totalDebit: 90, totalCredit: 0 })).toEqual({
       flowType: 'spend',
       amount: 90,
     });

@@ -144,7 +144,7 @@ describe('month close counts are what Review lists (real Postgres)', () => {
       dataSource.getRepository(Receipt).create({
         userId,
         workspaceId,
-        source: ReceiptSource.GMAIL,
+        source: ReceiptSource.IMAP,
         subject: 'Receipt',
         sender: 'shop@example.com',
         receivedAt: new Date(DAY),

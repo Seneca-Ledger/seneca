@@ -28,7 +28,7 @@ interface PdfPreviewModalProps {
   onClose: () => void;
   fileId: string;
   fileName: string;
-  source?: 'statement' | 'gmail' | 'receipt';
+  source?: 'statement' | 'receipt';
   allowAttachFile?: boolean;
   onFileAttached?: () => void;
   onParsingStarted?: () => void;
@@ -36,11 +36,7 @@ interface PdfPreviewModalProps {
 
 const isJsdomEnvironment = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent);
 
-export function getFileEndpoint(source: 'statement' | 'gmail' | 'receipt', fileId: string): string {
-  if (source === 'gmail') {
-    return `${apiBaseUrl}/integrations/gmail/receipts/${fileId}/file`;
-  }
-
+export function getFileEndpoint(source: 'statement' | 'receipt', fileId: string): string {
   if (source === 'receipt') {
     return `${apiBaseUrl}/receipts/${fileId}/file`;
   }

@@ -29,7 +29,7 @@ import { isDocumentApproved, resolveStatementSortDate } from './StatementsListVi
 
 export type StatementListItem = {
   id: string;
-  source?: 'statement' | 'gmail' | 'scan';
+  source?: 'statement' | 'scan';
   receiptSource?: string;
   fileName: string;
   subject?: string;
@@ -290,9 +290,8 @@ export function StatementsListItem({
   useEffect(() => () => window.clearTimeout(categoryTimerRef.current), []);
 
   const resolvedTypeLabel = typeLabel || statement.fileType;
-  const isGmailReceipt = statement.source === 'gmail';
   const isLocalReceipt = statement.source === 'scan';
-  const previewSource = isGmailReceipt ? 'gmail' : isLocalReceipt ? 'receipt' : 'statement';
+  const previewSource = isLocalReceipt ? 'receipt' : 'statement';
   const hasError = !!statement.errorMessage || statement.status === 'error';
   const isPendingStatement = statement.status === 'uploaded' || statement.status === 'processing';
   const compactAmountLabel = amountLabel.replace(/\s+/g, '');
@@ -334,11 +333,7 @@ export function StatementsListItem({
   };
   const visibleColumns = columns.filter(column => column.visible);
   const renderedColumns = visibleColumns.length > 0 ? visibleColumns : columns.slice(0, 1);
-  const sourceLabel = isGmailReceipt
-    ? 'Gmail'
-    : isLocalReceipt
-      ? listText.typeReceipt.value
-      : statement.bankName;
+  const sourceLabel = isLocalReceipt ? listText.typeReceipt.value : statement.bankName;
   // importPreview.categoryId is deliberately not a fallback: it is a bare id,
   // and rendering it puts a raw UUID in the column.
   const categoryLabel = firstNonEmpty(statement.category?.name, statement.parsedData?.category);

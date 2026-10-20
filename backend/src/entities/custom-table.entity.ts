@@ -26,9 +26,6 @@ export interface CustomTableSourceBinding {
 
 export enum CustomTableSource {
   MANUAL = 'manual',
-  // 'google_sheets_import' still exists in the Postgres enum type
-  // custom_table_source_enum: removing an enum value needs a full type rebuild,
-  // and RemoveGoogleSheets moved every such row to 'manual' instead.
 }
 
 @Entity('custom_tables')

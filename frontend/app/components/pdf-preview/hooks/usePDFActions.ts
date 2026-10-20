@@ -25,7 +25,7 @@ async function downloadPdfFile({
     return;
   }
   try {
-    const res = await fetch(getFileEndpoint(source as 'statement' | 'gmail' | 'receipt', fileId), {
+    const res = await fetch(getFileEndpoint(source as 'statement' | 'receipt', fileId), {
       method: 'GET',
       headers,
       credentials: 'include',

@@ -11,7 +11,7 @@ describe('MCP tool results', () => {
       id: 't1',
       filePath: '/uploads/a.pdf',
       statement: { id: 's1', fileHash: 'abc', fileData: 'xx' },
-      user: { id: 'u1', name: 'A', passwordHash: 'h', googleId: 'g', telegramChatId: '1' },
+      user: { id: 'u1', name: 'A', passwordHash: 'h', telegramId: 'g', telegramChatId: '1' },
     });
 
     const parsed = JSON.parse(textOf(result));

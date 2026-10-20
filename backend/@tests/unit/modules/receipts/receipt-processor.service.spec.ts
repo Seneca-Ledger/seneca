@@ -104,7 +104,7 @@ describe('ReceiptProcessorService', () => {
       receiptId: 'receipt-1',
       status: ReceiptJobStatus.PENDING,
       progress: 0,
-      payload: { integrationId: 'manual-upload', gmailMessageId: 'receipt-1', historyId: 'eng' },
+      payload: { integrationId: 'manual-upload', messageId: 'receipt-1', historyId: 'eng' },
     } as ReceiptProcessingJob;
 
     receiptRepository.findOne.mockResolvedValue(receipt);
@@ -171,7 +171,7 @@ describe('ReceiptProcessorService', () => {
       receiptId: 'receipt-2',
       status: ReceiptJobStatus.PENDING,
       progress: 0,
-      payload: { integrationId: 'manual-scan', gmailMessageId: 'receipt-2', historyId: 'auto' },
+      payload: { integrationId: 'manual-scan', messageId: 'receipt-2', historyId: 'auto' },
     } as ReceiptProcessingJob;
 
     receiptRepository.findOne.mockResolvedValue(receipt);
@@ -222,7 +222,7 @@ describe('ReceiptProcessorService', () => {
       receiptId: 'receipt-3',
       status: ReceiptJobStatus.PENDING,
       progress: 0,
-      payload: { integrationId: 'manual-scan', gmailMessageId: 'receipt-3', historyId: 'auto' },
+      payload: { integrationId: 'manual-scan', messageId: 'receipt-3', historyId: 'auto' },
     } as ReceiptProcessingJob;
 
     receiptRepository.findOne.mockResolvedValue(receipt);
@@ -256,7 +256,7 @@ describe('ReceiptProcessorService', () => {
       receiptId: 'receipt-4',
       status: ReceiptJobStatus.PENDING,
       progress: 0,
-      payload: { integrationId: 'manual-upload', gmailMessageId: 'receipt-4', historyId: 'auto' },
+      payload: { integrationId: 'manual-upload', messageId: 'receipt-4', historyId: 'auto' },
     } as ReceiptProcessingJob;
 
     receiptRepository.findOne.mockResolvedValue(receipt);

@@ -8,7 +8,7 @@ describe('hideInternalColumns', () => {
     email: 'owner@example.com',
     name: 'Owner',
     avatarUrl: null,
-    googleId: 'google-1',
+    telegramId: 'telegram-1',
     telegramChatId: 'chat-1',
     tokenVersion: 3,
     lastLogin: new Date('2026-10-01T00:00:00.000Z'),

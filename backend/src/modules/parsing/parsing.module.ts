@@ -50,8 +50,8 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
  * left in place — un-comment a line here to wire one back in.
  *
  * Verified consumers of what remains:
- *   UniversalExtractorService  -> parsing.controller, receipts, gmail
- *   UniversalAmountParser      -> gmail, UniversalExtractorService
+ *   UniversalExtractorService  -> parsing.controller, receipts
+ *   UniversalAmountParser      -> receipts (email parser), UniversalExtractorService
  *   DocumentClassifierService  -> UniversalExtractorService
  *   TransactionTypeDetector    -> UniversalExtractorService
  *   MetadataExtractionService  -> StatementProcessingService

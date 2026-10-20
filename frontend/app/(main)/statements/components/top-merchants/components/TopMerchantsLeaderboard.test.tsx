@@ -35,7 +35,6 @@ function renderLeaderboard(rows: TopMerchantAggregateRow[], focusId?: string | n
       sourceLabels={{
         sourceBank: 'Bank',
         sourceReceipt: 'Receipt',
-        sourceGmailInbox: 'Gmail',
         sourceCrypto: 'Crypto',
       }}
       sortLabels={{ sortByAmount: 'Amount', sortByAverage: 'Average', sortByOperations: 'Ops' }}

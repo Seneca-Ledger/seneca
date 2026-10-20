@@ -175,7 +175,7 @@ const FILE_TYPES = new Set<string>(Object.values(FileType));
 
 /**
  * The Type chip, read the way the table reads it: a file type matches the
- * statement, "gmail" and "receipt" match transactions a receipt points at,
+ * statement, "receipt" matches transactions a receipt points at,
  * and any other value (expense, trip, …) matches nothing, as in the table.
  */
 function applyDocumentType(qb: SelectQueryBuilder<Transaction>, type: string | undefined): void {
@@ -186,11 +186,10 @@ function applyDocumentType(qb: SelectQueryBuilder<Transaction>, type: string | u
     qb.andWhere('statement.file_type::text = :fileType', { fileType: type });
     return;
   }
-  if (type === 'gmail' || type === 'receipt') {
+  if (type === 'receipt') {
     qb.andWhere(
       `EXISTS (SELECT 1 FROM receipts r WHERE r.workspace_id = t.workspace_id
-        AND (r.transaction_id = t.id OR (t.statement_id IS NOT NULL AND r.statement_id = t.statement_id))
-        AND ${type === 'gmail' ? "r.source = 'gmail'" : "r.source <> 'gmail'"})`,
+        AND (r.transaction_id = t.id OR (t.statement_id IS NOT NULL AND r.statement_id = t.statement_id)))`,
     );
     return;
   }

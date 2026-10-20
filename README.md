@@ -323,9 +323,6 @@ seneca/
 │   │   │   ├── ledger/              # Double-entry chart of accounts, journal, posting worker, reports
 │   │   │   ├── budgets/             # Budget tracking & alerts
 │   │   │   ├── storage/             # File storage, versioning, shared links
-│   │   │   ├── gmail/               # Legacy receipt sync & parsing
-│   │   │   ├── google-drive/        # Legacy Drive migration compatibility
-│   │   │   ├── dropbox/             # Legacy Dropbox migration compatibility
 │   │   │   ├── exchange-rates/      # Currency exchange rate management
 │   │   │   ├── telegram/            # Telegram bot, scheduled reports
 │   │   │   ├── custom-tables/       # User-defined data structures
@@ -574,7 +571,7 @@ bash scripts/generate-env.sh
 
 ### Product Name
 
-`APP_NAME` in the root `.env` (default `Seneca`) is the name people see: the UI and all its translations, page titles, e-mails, Telegram replies, PDF/DATEV/e-invoice metadata, export file names, and the Gmail label and cloud folders created from then on. The backend reads it at startup; the frontend bakes it in at build time (`docker-compose.yml` passes it as `NEXT_PUBLIC_APP_NAME`), so restart the dev stack or rebuild the frontend image after changing it. Labels and folders already created keep their old name.
+`APP_NAME` in the root `.env` (default `Seneca`) is the name people see: the UI and all its translations, page titles, e-mails, Telegram replies, PDF/DATEV/e-invoice metadata, and export file names created from then on. The backend reads it at startup; the frontend bakes it in at build time (`docker-compose.yml` passes it as `NEXT_PUBLIC_APP_NAME`), so restart the dev stack or rebuild the frontend image after changing it.
 
 ### Sessions, CORS and Metrics
 
@@ -808,9 +805,6 @@ npm run storage:verify
 
 # Repair storage (remove orphaned files)
 npm run storage:repair
-
-# Clean up old Gmail receipt processing jobs
-npm run cleanup:gmail-receipts
 ```
 
 ### Hot Reload

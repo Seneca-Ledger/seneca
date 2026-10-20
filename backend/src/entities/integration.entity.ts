@@ -8,19 +8,12 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { DriveSettings } from '../entities/drive-settings.entity';
-import { DropboxSettings } from '../entities/dropbox-settings.entity';
-import { GmailSettings } from '../entities/gmail-settings.entity';
-import { GmailWatchSubscription } from '../entities/gmail-watch-subscription.entity';
 import { IntegrationToken } from '../entities/integration-token.entity';
 import { OpenProtocolSettings } from '../entities/open-protocol-settings.entity';
 import { User } from '../entities/user.entity';
 import { Workspace } from '../entities/workspace.entity';
 
 export enum IntegrationProvider {
-  GOOGLE_DRIVE = 'google_drive',
-  DROPBOX = 'dropbox',
-  GMAIL = 'gmail',
   S3_COMPATIBLE = 's3_compatible',
   WEBDAV = 'webdav',
   IMAP = 'imap',
@@ -73,30 +66,6 @@ export class Integration {
     token => token.integration,
   )
   token: IntegrationToken | null;
-
-  @OneToOne(
-    () => DriveSettings,
-    settings => settings.integration,
-  )
-  driveSettings: DriveSettings | null;
-
-  @OneToOne(
-    () => DropboxSettings,
-    settings => settings.integration,
-  )
-  dropboxSettings: DropboxSettings | null;
-
-  @OneToOne(
-    () => GmailSettings,
-    settings => settings.integration,
-  )
-  gmailSettings: GmailSettings | null;
-
-  @OneToOne(
-    () => GmailWatchSubscription,
-    subscription => subscription.integration,
-  )
-  gmailWatchSubscription: GmailWatchSubscription | null;
 
   @OneToOne(
     () => OpenProtocolSettings,

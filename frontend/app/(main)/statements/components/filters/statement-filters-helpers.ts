@@ -22,14 +22,7 @@ export const parseNumber = (value?: number | string | null): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-export const isGmailReceipt = (s: StatementFilterItem): boolean => s.source === 'gmail';
-
-export const isStoreReceipt = (s: StatementFilterItem): boolean => {
-  if (s.source !== 'scan') {
-    return false;
-  }
-  return s.receiptSource !== 'gmail';
-};
+export const isStoreReceipt = (s: StatementFilterItem): boolean => s.source === 'scan';
 
 export const resolveStatementAmount = (s: StatementFilterItem): number => {
   const debit = parseNumber(s.totalDebit);
@@ -42,7 +35,7 @@ const resolveReceiptDateValue = (s: StatementFilterItem): string =>
   s.parsedData?.date || s.receivedAt || s.createdAt || '';
 
 export const resolveStatementDateValue = (s: StatementFilterItem): string => {
-  if (s.source === 'gmail' || s.source === 'scan') {
+  if (s.source === 'scan') {
     return resolveReceiptDateValue(s);
   }
   return s.statementDateTo || s.statementDateFrom || s.createdAt || '';
@@ -252,9 +245,6 @@ export const applyTypeFilter = <T extends StatementFilterItem>(
   typeValue: string,
 ): T[] =>
   result.filter(s => {
-    if (typeValue === 'gmail') {
-      return isGmailReceipt(s);
-    }
     if (typeValue === 'receipt') {
       return isStoreReceipt(s);
     }

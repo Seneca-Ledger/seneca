@@ -10,6 +10,8 @@ import { ReceiptStageService } from '../../../../src/modules/receipts/services/r
 import { ReceiptMatchService } from '../../../../src/modules/receipts/services/receipt-match.service';
 import { ReceiptSplitService } from '../../../../src/modules/receipts/services/receipt-split.service';
 import { ReceiptPlaceSuggestionService } from '../../../../src/modules/receipts/services/receipt-place-suggestion.service';
+import { ReceiptDocumentsService } from '../../../../src/modules/receipts/services/receipt-documents.service';
+import { ReceiptDuplicateService } from '../../../../src/modules/receipts/services/receipt-duplicate.service';
 
 describe('ReceiptsController', () => {
   let controller: ReceiptsController;
@@ -63,6 +65,8 @@ describe('ReceiptsController', () => {
         { provide: ReceiptMatchService, useValue: { refresh: jest.fn(), candidates: jest.fn() } },
         { provide: ReceiptSplitService, useValue: { suggest: jest.fn(), apply: jest.fn() } },
         { provide: ReceiptPlaceSuggestionService, useValue: placeSuggestionService },
+        { provide: ReceiptDocumentsService, useValue: {} },
+        { provide: ReceiptDuplicateService, useValue: {} },
       ],
     });
 

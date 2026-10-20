@@ -18,7 +18,7 @@ const listed = [
 const pages: Record<string, unknown> = {
   '/statements': { data: [], items: [], total: 0, page: 1, limit: 500 },
   '/transactions': { data: listed, items: listed, total: 2, page: 1, limit: 500 },
-  '/integrations/gmail/receipts': {
+  '/receipts/documents': {
     receipts: [
       { id: 'approved', status: 'approved' },
       { id: 'draft', status: 'draft' },
@@ -44,6 +44,6 @@ describe('useAnalyticsData', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.transactions.map(item => item.id)).toEqual(['confirmed']);
-    expect(result.current.gmailReceipts.map(item => item.id)).toEqual(['approved']);
+    expect(result.current.receipts.map(item => item.id)).toEqual(['approved']);
   });
 });

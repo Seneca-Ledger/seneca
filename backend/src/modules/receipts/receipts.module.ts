@@ -18,7 +18,9 @@ import { TransactionsModule } from '../transactions/transactions.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { ReceiptsController } from './receipts.controller';
 import { ReceiptsService } from './receipts.service';
+import { EmailReceiptParserService } from './services/email-receipt-parser.service';
 import { ReceiptCategoryService } from './services/receipt-category.service';
+import { ReceiptDocumentsService } from './services/receipt-documents.service';
 import { ReceiptDuplicateService } from './services/receipt-duplicate.service';
 import { ReceiptLocationService } from './services/receipt-location.service';
 import { ReceiptMatchService } from './services/receipt-match.service';
@@ -49,7 +51,9 @@ import { ReceiptStageService } from './services/receipt-stage.service';
   controllers: [ReceiptsController],
   providers: [
     ReceiptsService,
+    EmailReceiptParserService,
     ReceiptCategoryService,
+    ReceiptDocumentsService,
     ReceiptDuplicateService,
     ReceiptLocationService,
     ReceiptPlaceSuggestionService,
@@ -58,6 +62,12 @@ import { ReceiptStageService } from './services/receipt-stage.service';
     ReceiptMatchService,
     ReceiptSplitService,
   ],
-  exports: [ReceiptsService, ReceiptCategoryService, ReceiptDuplicateService, ReceiptMatchService],
+  exports: [
+    ReceiptsService,
+    ReceiptCategoryService,
+    ReceiptDuplicateService,
+    ReceiptMatchService,
+    EmailReceiptParserService,
+  ],
 })
 export class ReceiptsModule {}

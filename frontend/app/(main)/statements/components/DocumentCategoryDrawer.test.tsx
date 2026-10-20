@@ -6,12 +6,10 @@ import { DocumentCategoryDrawer } from './DocumentCategoryDrawer';
 
 const api = vi.hoisted(() => ({
   patch: vi.fn(),
-  updateReceiptParsedData: vi.fn(),
 }));
 
 vi.mock('@/app/lib/api', () => ({
   default: { patch: api.patch },
-  gmailReceiptsApi: { updateReceiptParsedData: api.updateReceiptParsedData },
 }));
 
 vi.mock('@/app/lib/query-fn-schema', () => ({
@@ -35,7 +33,6 @@ const pick = async (source: string | undefined, onClose = vi.fn()) => {
 describe('DocumentCategoryDrawer', () => {
   beforeEach(() => {
     api.patch.mockReset().mockResolvedValue({ data: {} });
-    api.updateReceiptParsedData.mockReset().mockResolvedValue({ data: {} });
   });
 
   it('lists only enabled categories', async () => {
@@ -56,14 +53,5 @@ describe('DocumentCategoryDrawer', () => {
     expect(api.patch).toHaveBeenCalledWith('/receipts/doc-1', {
       parsedData: { categoryId: 'c-food', category: 'Food' },
     });
-  });
-
-  it('saves a Gmail receipt category through the Gmail receipts endpoint', async () => {
-    await pick('gmail');
-    expect(api.updateReceiptParsedData).toHaveBeenCalledWith('doc-1', {
-      categoryId: 'c-food',
-      category: 'Food',
-    });
-    expect(api.patch).not.toHaveBeenCalled();
   });
 });

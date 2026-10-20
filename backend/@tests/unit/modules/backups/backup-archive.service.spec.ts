@@ -54,7 +54,9 @@ describe('BackupArchiveService', () => {
     });
     const container = new AdmZip(archive);
     const manifest = JSON.parse(container.getEntry('manifest.json')?.getData().toString() ?? '{}');
-    manifest.encryption.payload.ciphertext = `A${manifest.encryption.payload.ciphertext.slice(1)}`;
+    const { ciphertext } = manifest.encryption.payload;
+    // Always a different first character: a ciphertext that already began with 'A' stayed intact.
+    manifest.encryption.payload.ciphertext = `${ciphertext[0] === 'A' ? 'B' : 'A'}${ciphertext.slice(1)}`;
     container.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     const tampered = container.toBuffer();
 

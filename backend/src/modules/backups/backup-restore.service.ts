@@ -139,6 +139,61 @@ const asDraftEntry = (entry: Record<string, unknown>): Record<string, unknown> =
   postedAt: null,
 });
 
+/**
+ * Rows of sources that are gone, in a backup made while they existed:
+ * receipts imported from Gmail are left out the way RemoveGoogleAndDropbox
+ * deleted the live ones (their notes go, other links to them are cleared),
+ * a Gmail message id that an IMAP receipt kept moves to `messageId`, and a
+ * Google Sheets table comes back as a manual one.
+ */
+export function withoutRemovedSources(
+  collections: Record<string, unknown[]>,
+): Record<string, unknown[]> {
+  const rowsOf = (table: string) => (collections[table] ?? []) as Record<string, unknown>[];
+  const gmailReceiptIds = new Set(
+    rowsOf('receipts')
+      .filter(row => row.source === 'gmail')
+      .map(row => String(row.id)),
+  );
+  const linked = (id: unknown) => gmailReceiptIds.has(String(id));
+  return Object.fromEntries(
+    Object.entries(collections).map(([table, rows]) => {
+      const records = rows as Record<string, unknown>[];
+      if (table === 'receipts') {
+        return [
+          table,
+          records
+            .filter(row => row.source !== 'gmail')
+            .map(({ gmailMessageId, gmailThreadId: _thread, ...row }) => ({
+              ...row,
+              ...(row.messageId === undefined && gmailMessageId !== undefined
+                ? { messageId: gmailMessageId }
+                : {}),
+              ...(linked(row.duplicateOfId) ? { duplicateOfId: null } : {}),
+            })),
+        ];
+      }
+      if (table === 'custom_tables') {
+        return [
+          table,
+          records.map(row =>
+            row.source === 'google_sheets_import' ? { ...row, source: 'manual' } : row,
+          ),
+        ];
+      }
+      if (gmailReceiptIds.size === 0) {
+        return [table, records];
+      }
+      return [
+        table,
+        table === 'notes'
+          ? records.filter(row => !linked(row.receiptId))
+          : records.map(row => (linked(row.receiptId) ? { ...row, receiptId: null } : row)),
+      ];
+    }),
+  );
+}
+
 @Injectable()
 export class BackupRestoreService {
   constructor(
@@ -480,7 +535,7 @@ export class BackupRestoreService {
   private sortedCollections(
     collections: Record<string, unknown[]>,
   ): Array<[string, Record<string, unknown>[]]> {
-    const entries = Object.entries(collections)
+    const entries = Object.entries(withoutRemovedSources(collections))
       .filter(
         ([tableName]) =>
           tableName !== 'workspace' &&

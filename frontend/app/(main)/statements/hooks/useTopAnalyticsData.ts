@@ -20,7 +20,7 @@ type RecordsResult<TRecord, TFromOption> = {
   currencyOptions: string[];
 };
 
-type AnalyticsRawData = { statements: unknown; transactions: unknown; gmailReceipts: unknown };
+type AnalyticsRawData = { statements: unknown; transactions: unknown; receipts: unknown };
 
 type RecordsConfig<TFlow extends string> = {
   workspaceCurrency: string;
@@ -37,7 +37,7 @@ type AggregationParams<TRecord, TFlow extends string, TSort extends string> = {
   workspaceCurrency: string;
   resolvedTheme: string | undefined;
   sourceStatementLabel: string;
-  sourceGmailLabel: string;
+  sourceReceiptLabel: string;
   totalIncomeLabel: string;
   totalSpendLabel: string;
 };
@@ -86,7 +86,7 @@ export function useTopAnalyticsData<
 >(
   config: TopAnalyticsDataConfig<TRecord, TAggregateRow, TFromOption, TFlow, TSort, TAggregation>,
 ): TopAnalyticsDataReturn<TRecord, TAggregateRow, TFromOption, TAggregation> {
-  const { statements, transactions, gmailReceipts, loading } = useAnalyticsData({
+  const { statements, transactions, receipts, loading } = useAnalyticsData({
     user: config.user,
     currentWorkspace: config.currentWorkspace,
     workspaces: config.workspaces,
@@ -98,7 +98,7 @@ export function useTopAnalyticsData<
 
   const { flowFilteredRecords, flowRecordsWithoutDateFilter, fromOptions, currencyOptions } =
     config.useRecords(
-      { statements, transactions, gmailReceipts },
+      { statements, transactions, receipts },
       {
         workspaceCurrency: config.workspaceCurrency,
         appliedFilters: config.state.filterState.appliedFilters,
@@ -115,7 +115,7 @@ export function useTopAnalyticsData<
     workspaceCurrency: config.workspaceCurrency,
     resolvedTheme: config.resolvedTheme,
     sourceStatementLabel: config.labels.sourceStatement,
-    sourceGmailLabel: config.labels.sourceGmail,
+    sourceReceiptLabel: config.labels.sourceReceipt,
     totalIncomeLabel: config.labels.totalIncome,
     totalSpendLabel: config.labels.totalSpend,
   });

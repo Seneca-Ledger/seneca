@@ -41,7 +41,7 @@ const renderTable = (
       loading={false}
       displayStatements={statements}
       paginatedStatements={statements}
-      gmailSyncSkeletonKeys={[]}
+      skeletonKeys={[]}
       allVisibleSelected={false}
       selectedCount={0}
       selectedStatementIds={[]}
@@ -83,7 +83,7 @@ describe('StatementsListTable upload skeleton', () => {
         loading={false}
         displayStatements={[]}
         paginatedStatements={[]}
-        gmailSyncSkeletonKeys={['local-upload-123-0']}
+        skeletonKeys={['local-upload-123-0']}
         allVisibleSelected={false}
         selectedCount={0}
         selectedStatementIds={[]}
@@ -118,7 +118,7 @@ describe('StatementsListTable upload skeleton', () => {
     );
 
     expect(screen.queryByText('No statements')).toBeNull();
-    expect(screen.getAllByTestId('gmail-sync-skeleton-row')).toHaveLength(1);
+    expect(screen.getAllByTestId('upload-skeleton-row')).toHaveLength(1);
   });
 });
 

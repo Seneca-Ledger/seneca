@@ -10,7 +10,7 @@ import {
   resolveCategorySourceChannel,
 } from '@/app/(main)/statements/components/top-categories.utils';
 import type {
-  GmailReceipt,
+  ReceiptDocument,
   StatementMeta,
   Transaction,
 } from '@/app/(main)/statements/types/statement-types';
@@ -19,15 +19,12 @@ import {
   getTransactionDate,
   resolveCurrencyCode,
 } from '@/app/lib/analytics-common';
-import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
+import { resolveReceiptMerchantLabel } from '@/app/lib/receipt-merchant';
 
 export const getBankDisplayName = (bankName?: string | null): string => {
   const raw = (bankName ?? '').trim();
   if (!raw) {
     return 'Unknown';
-  }
-  if (raw.toLowerCase() === 'gmail') {
-    return 'Gmail';
   }
   const resolved = resolveBankLogo(raw);
   if (!resolved) {
@@ -187,7 +184,7 @@ export const mapTransactionToCategoryRecord = (
 };
 
 type ReceiptParsedBase = { vendor?: string; date?: string; currency?: string; amount?: number };
-const extractReceiptParsedBase = (receipt: GmailReceipt): ReceiptParsedBase => ({
+const extractReceiptParsedBase = (receipt: ReceiptDocument): ReceiptParsedBase => ({
   vendor: receipt.parsedData?.vendor,
   date: receipt.parsedData?.date,
   currency: receipt.parsedData?.currency,
@@ -200,7 +197,7 @@ type ReceiptParsedCategory = {
   transactionId?: string | null;
   transactionType?: string;
 };
-const extractReceiptParsedCategory = (receipt: GmailReceipt): ReceiptParsedCategory => ({
+const extractReceiptParsedCategory = (receipt: ReceiptDocument): ReceiptParsedCategory => ({
   category: receipt.parsedData?.category as string | undefined,
   categoryId: receipt.parsedData?.categoryId as string | undefined,
   transactionId: receipt.transactionId,
@@ -213,40 +210,39 @@ const resolveParsedCategoryName = (category?: string, categoryId?: string): stri
 const resolveReceiptDateValue = (parsedDate?: string, receivedAt?: string | null): string =>
   parsedDate ?? receivedAt ?? '';
 
-type GmailCategoryRecordInput = {
-  receipt: GmailReceipt;
+type ReceiptCategoryRecordInput = {
+  receipt: ReceiptDocument;
   categoryName: string;
   amount: number;
   merchant: string;
   parsedDate: string | undefined;
   currency: string;
-  ch: TopCategorySourceChannel;
   flow: ReturnType<typeof resolveCategoryFlow>;
   parsedTransactionId: string | null | undefined;
 };
 
-const buildGmailCategoryRecord = ({
+const buildReceiptCategoryRecord = ({
   receipt,
   categoryName,
   amount,
   merchant,
   parsedDate,
   currency,
-  ch,
   flow,
   parsedTransactionId,
-}: GmailCategoryRecordInput): TopCategoryRecord => ({
+}: ReceiptCategoryRecordInput): TopCategoryRecord => ({
   id: receipt.id,
-  source: 'gmail',
+  source: 'scan',
+  receiptSource: receipt.source,
   fileName: categoryName,
   subject: receipt.subject,
   sender: receipt.sender,
   status: receipt.status,
-  fileType: ch === 'gmail' ? 'gmail' : 'receipt',
+  fileType: 'receipt',
   createdAt: receipt.receivedAt,
   statementDateFrom: parsedDate ?? receipt.receivedAt,
   statementDateTo: null,
-  bankName: ch === 'gmail' ? 'gmail' : 'receipt',
+  bankName: 'receipt',
   totalDebit: amount,
   totalCredit: null,
   currency,
@@ -260,8 +256,8 @@ const buildGmailCategoryRecord = ({
   amount,
   currencyValue: currency,
   dateValue: resolveReceiptDateValue(parsedDate, receipt.receivedAt),
-  sourceType: 'gmail',
-  sourceChannel: ch as TopCategorySourceChannel,
+  sourceType: 'receipt',
+  sourceChannel: 'receipt',
   flowType: flow.flowType,
   transactionId: parsedTransactionId ?? null,
   color: null,
@@ -272,8 +268,8 @@ const buildGmailCategoryRecord = ({
   counterpartyName: merchant,
 });
 
-export const mapGmailReceiptToCategoryRecord = (
-  receipt: GmailReceipt,
+export const mapReceiptToCategoryRecord = (
+  receipt: ReceiptDocument,
   workspaceCurrency: string,
 ): TopCategoryRecord | null => {
   const {
@@ -286,7 +282,7 @@ export const mapGmailReceiptToCategoryRecord = (
     extractReceiptParsedCategory(receipt);
   const categoryName = resolveParsedCategoryName(category, categoryId);
   const flow = resolveCategoryFlow({
-    sourceType: 'gmail',
+    sourceType: 'receipt',
     amount: parsedAmount ?? 0,
     transactionType: transactionType as 'income' | 'expense' | null,
   });
@@ -294,23 +290,20 @@ export const mapGmailReceiptToCategoryRecord = (
     return null;
   }
   const amount = flow.amount;
-  const merchant = resolveGmailMerchantLabel({
+  const merchant = resolveReceiptMerchantLabel({
     vendor,
     sender: receipt.sender,
     subject: receipt.subject,
     fallback: categoryName,
   });
   const currency = resolveCurrencyCode(parsedCurrency, workspaceCurrency);
-  const isLocalReceipt = !!receipt.source && receipt.source !== 'gmail';
-  const ch: TopCategorySourceChannel = isLocalReceipt ? 'receipt' : 'gmail';
-  return buildGmailCategoryRecord({
+  return buildReceiptCategoryRecord({
     receipt,
     categoryName,
     amount,
     merchant,
     parsedDate,
     currency,
-    ch: ch as TopCategorySourceChannel,
     flow,
     parsedTransactionId: transactionId,
   });

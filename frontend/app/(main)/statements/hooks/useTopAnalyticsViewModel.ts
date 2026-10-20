@@ -16,7 +16,6 @@ type WorkspaceLike = { id: string; name?: string | null };
 type SourceLabels = {
   sourceBank: string;
   sourceReceipt: string;
-  sourceGmailInbox: string;
   sourceCrypto: string;
 };
 type DrillLabels = {
@@ -94,7 +93,6 @@ export function useTopAnalyticsViewModel<TState, TData>(
     () => ({
       sourceBank: labels.sourceBank,
       sourceReceipt: labels.sourceReceipt,
-      sourceGmailInbox: labels.sourceGmailInbox,
       sourceCrypto: labels.sourceCrypto,
     }),
     [labels],

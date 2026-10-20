@@ -107,7 +107,7 @@ const buildComparison = (
     activeFlowType === 'income' ? prevTotals.income : prevTotals.expense,
   ),
   statementsAmount: getComparisonDelta(totals.statementAmount, prevTotals.statementAmount),
-  receiptsAmount: getComparisonDelta(totals.gmailAmount, prevTotals.gmailAmount),
+  receiptsAmount: getComparisonDelta(totals.receiptAmount, prevTotals.receiptAmount),
   operations: getComparisonDelta(totals.count, prevTotals.count),
   avgPerPeriod: getComparisonDelta(totals.avgPerPeriod, prevTotals.avgPerPeriod),
 });
