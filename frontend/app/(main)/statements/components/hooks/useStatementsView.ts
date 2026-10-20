@@ -228,6 +228,7 @@ export function useStatementsView({
   setDuplicateOverrides: ReturnType<typeof useStatementsDuplicates>['setDuplicateOverrides'];
   // selection
   selectedStatementIds: string[];
+  setSelectedStatementIds: (ids: string[]) => void;
   selectedActionsOpen: boolean;
   setSelectedActionsOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
   allVisibleSelected: boolean;
@@ -473,6 +474,7 @@ export function useStatementsView({
 
   const {
     selectedStatementIds,
+    setSelectedStatementIds,
     selectedActionsOpen,
     setSelectedActionsOpen,
     allVisibleSelected,
@@ -669,6 +671,7 @@ export function useStatementsView({
     statementReviewCounts,
     setDuplicateOverrides,
     selectedStatementIds,
+    setSelectedStatementIds,
     selectedActionsOpen,
     setSelectedActionsOpen,
     allVisibleSelected,

@@ -9,7 +9,9 @@ import {
 } from '@/app/components/navigation/helpers/navigation-config';
 import { ModalShell } from '@/app/components/ui/modal-shell';
 import { useIntlayer } from '@/app/i18n';
+import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import {
+  DASHBOARD_SHORTCUTS,
   GLOBAL_SHORTCUTS,
   NAV_BINDINGS,
   NOTIFICATIONS_BINDING,
@@ -70,6 +72,13 @@ function BorrowedActionShortcuts(): React.JSX.Element {
   );
 }
 
+/** The group takes the dashboard's own name from the sidebar dictionary. */
+function DashboardShortcuts(): React.JSX.Element {
+  const { nav } = useIntlayer('navigation');
+  const dashboard = buildNavItems(nav).find(item => item.path === DEFAULT_APP_ROUTE);
+  return <ShortcutGroup title={dashboard?.label} entries={DASHBOARD_SHORTCUTS} />;
+}
+
 function ShortcutGroup({
   title,
   entries,
@@ -111,6 +120,7 @@ export function KeyboardShortcutsModal({
           <BorrowedActionShortcuts />
         </ShortcutGroup>
         <ShortcutGroup title={t.groups.statements} entries={STATEMENTS_SHORTCUTS} />
+        <DashboardShortcuts />
       </Box>
     </ModalShell>
   );
