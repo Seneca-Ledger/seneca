@@ -18,6 +18,7 @@ import {
   type UpdateClientInput,
 } from '@/app/lib/invoices-api';
 import { ClientDrawer } from './ClientDrawer';
+import { ClientsListSkeleton } from './InvoicesSkeletons';
 
 export function ClientsView(): React.JSX.Element {
   const router = useRouter();
@@ -83,7 +84,7 @@ export function ClientsView(): React.JSX.Element {
   };
 
   if (loading) {
-    return <div style={{ padding: 40 }}>—</div>;
+    return <ClientsListSkeleton />;
   }
 
   return (
