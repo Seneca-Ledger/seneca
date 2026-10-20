@@ -41,8 +41,8 @@ export class PasswordResetService {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await this.userRepository.findOne({
       where: { email: normalizedEmail },
-      // workspaceId included so the mailer can pick up workspace SMTP settings;
-      // without it getSmtpSettings throws "Workspace is required".
+      // workspaceId included so the mailer can use the SMTP the user set up in
+      // their home workspace (see getAccountSmtpSettings).
       select: ['id', 'email', 'name', 'isActive', 'workspaceId'],
     });
 
@@ -83,7 +83,7 @@ export class PasswordResetService {
           '',
           'If you did not ask for this, you can ignore this email — your password stays unchanged.',
         ].join('\n'),
-        user,
+        accountOf: user,
       });
 
       if (!sent) {

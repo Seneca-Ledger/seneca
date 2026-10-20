@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
@@ -17,8 +17,9 @@ export class ForecastController {
   @SchemaResponse(ForecastResponse)
   async getForecast(
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
     @SchemaQuery(ForecastQuery) query: ForecastQuery,
   ) {
-    return this.forecastService.getForecast(workspaceId, query);
+    return this.forecastService.getForecast(workspaceId, query, selfMemberId);
   }
 }

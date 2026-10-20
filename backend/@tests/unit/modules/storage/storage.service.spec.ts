@@ -296,6 +296,22 @@ describe('StorageService', () => {
 
     beforeEach(() => {
       jest.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
+      // The uploader shares from inside the workspace.
+      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+        role: WorkspaceRole.OWNER,
+        permissions: null,
+      } as WorkspaceMember);
+    });
+
+    it('refuses the uploader once they have left the workspace', async () => {
+      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
+      jest.spyOn(filePermissionRepository, 'findOne').mockResolvedValue(null);
+      const saveSpy = jest.spyOn(sharedLinkRepository, 'save');
+
+      await expect(service.createSharedLink('1', '1', createDto)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(saveSpy).not.toHaveBeenCalled();
     });
 
     it('should create shared link', async () => {

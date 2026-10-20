@@ -1,9 +1,11 @@
-import { Controller, Delete, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiKeyAllowed } from '../../common/decorators/api-key-allowed.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
 import {
   EntityImportResult,
   ImportSuggestion,
@@ -31,21 +33,27 @@ export class EntityImportsController {
   }
 
   @Post()
+  // Scoped keys are let through: the service checks the scope the target needs.
+  @ApiKeyAllowed()
   @SchemaResponse(EntityImportResult)
   run(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @SchemaBody(RunEntityImportBody) dto: RunEntityImportBody,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.entityImport.run(user.id, workspaceId, dto);
+    // Which scope a key needs depends on the target, so the service checks it.
+    return this.entityImport.run(user.id, workspaceId, dto, req.apiKey);
   }
 
   @Delete(':batchId')
+  @ApiKeyAllowed()
   undo(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Param('batchId', new ParseUUIDPipe()) batchId: string,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.entityImport.undo(user.id, workspaceId, batchId);
+    return this.entityImport.undo(user.id, workspaceId, batchId, req.apiKey);
   }
 }

@@ -2,6 +2,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { onlyFlows } from '../../common/utils/counted-transactions.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
 import { readWorkspaceProfile } from '../../common/utils/workspace-profile.util';
 import type { ForecastQuery, ForecastResponse } from '../../contracts';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
@@ -61,7 +62,11 @@ export class ForecastService {
     private readonly taxReserveService?: TaxReserveService,
   ) {}
 
-  async getForecast(workspaceId: string, query: ForecastQuery): Promise<ForecastResponse> {
+  async getForecast(
+    workspaceId: string,
+    query: ForecastQuery,
+    viewerMemberId: string | null = null,
+  ): Promise<ForecastResponse> {
     const horizonDays = query.days ?? 90;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -78,8 +83,8 @@ export class ForecastService {
       this.receivableEvents(workspaceId, currency, todayKey, projectionEnd),
       this.invoiceEvents(workspaceId, currency, todayKey, projectionEnd),
       this.goalEvents(workspaceId, currency, todayKey, projectionEnd),
-      this.monthlyHistory(workspaceId, currency, today),
-      this.incomeHistory(workspaceId, today),
+      this.monthlyHistory(workspaceId, currency, today, viewerMemberId),
+      this.incomeHistory(workspaceId, today, viewerMemberId),
     ]);
 
     const recurring = detectRecurringIncome(
@@ -301,6 +306,7 @@ export class ForecastService {
     workspaceId: string,
     currency: string,
     today: Date,
+    viewerMemberId: string | null,
   ): Promise<{
     monthlyIncome: number;
     monthlyExpense: number;
@@ -310,10 +316,12 @@ export class ForecastService {
   }> {
     const since = new Date(today.getFullYear(), today.getMonth() - HISTORY_MONTHS, 1);
     const until = new Date(today.getFullYear(), today.getMonth(), 0);
+    // Another member's private rows count under the placeholder, not their party.
+    const party = redactedSql('t', 't.counterparty_name');
     const historyQuery = this.transactionRepository
       .createQueryBuilder('t')
       .select('t.currency', 'currency')
-      .addSelect('t.counterpartyName', 'party')
+      .addSelect(party, 'party')
       .addSelect(
         'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE 0 END), 0)',
         'income',
@@ -328,9 +336,13 @@ export class ForecastService {
       .andWhere('t.transferPairId IS NULL')
       .andWhere('t.transactionDate >= :since', { since })
       .andWhere('t.transactionDate <= :until', { until })
-      .setParameters({ income: TransactionType.INCOME, expense: TransactionType.EXPENSE })
+      .setParameters({
+        income: TransactionType.INCOME,
+        expense: TransactionType.EXPENSE,
+        [PRIVACY_VIEWER_PARAM]: viewerMemberId,
+      })
       .groupBy('t.currency')
-      .addGroupBy('t.counterpartyName')
+      .addGroupBy(party)
       .getRawMany<{ currency: string; party: string | null; income: string; expense: string }>();
 
     let income = 0;
@@ -393,16 +405,19 @@ export class ForecastService {
     };
   }
 
-  private async incomeHistory(workspaceId: string, today: Date) {
+  private async incomeHistory(workspaceId: string, today: Date, viewerMemberId: string | null) {
     const since = new Date(today.getFullYear(), today.getMonth() - INCOME_LOOKBACK_MONTHS, 1);
     const incomeQuery = this.transactionRepository
       .createQueryBuilder('t')
       .select([
-        't.counterpartyName AS "counterpartyName"',
+        `${redactedSql('t', 't.counterparty_name')} AS "counterpartyName"`,
         't.credit AS amount',
         't.transactionDate AS "transactionDate"',
       ])
-      .where('t.workspaceId = :workspaceId', { workspaceId });
+      .where('t.workspaceId = :workspaceId', {
+        workspaceId,
+        [PRIVACY_VIEWER_PARAM]: viewerMemberId,
+      });
     return onlyFlows(incomeQuery, 't')
       .andWhere('t.transactionType = :income', { income: TransactionType.INCOME })
       .andWhere('t.isDuplicate = false')

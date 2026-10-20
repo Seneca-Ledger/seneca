@@ -15,13 +15,17 @@ import { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { WebhookEndpointsService } from './services/webhook-endpoints.service';
 
+/**
+ * An endpoint token lets anyone holding it upload into the workspace, so minting
+ * or changing one is managing an integration (owner and admins).
+ */
 @ApiTags('Webhook Endpoints')
 @Controller('webhook-endpoints')
 export class WebhookEndpointsController {
   constructor(private readonly service: WebhookEndpointsService) {}
 
   @Post()
-  @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   @ApiOperation({ summary: 'Create inbound webhook endpoint' })
   @SchemaResponse(CreatedWebhookEndpoint)
   async create(
@@ -51,7 +55,7 @@ export class WebhookEndpointsController {
   }
 
   @Patch(':id')
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   async update(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
@@ -63,7 +67,7 @@ export class WebhookEndpointsController {
   }
 
   @Delete(':id')
-  @WorkspaceAuth(Permission.STATEMENT_DELETE)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   async delete(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,

@@ -331,6 +331,9 @@ jobs:
         with:
           token: ${{ secrets.QLTY_COVERAGE_TOKEN }}
           files: backend/coverage/lcov.info
+          # lcov paths are relative to backend/ (src/...); map them to
+          # repo-root paths so Qlty can match files
+          add-prefix: backend/
 
       - name: Upload coverage
         if: always()

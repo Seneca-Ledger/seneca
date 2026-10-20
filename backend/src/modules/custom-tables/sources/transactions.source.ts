@@ -1,5 +1,6 @@
 import type { Repository } from 'typeorm';
 import { countedSql } from '../../../common/utils/counted-transactions.util';
+import { redactPrivateRows } from '../../../common/utils/transaction-privacy.util';
 import { CustomTableColumnType } from '../../../entities/custom-table-column.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 import type { SourceAdapter, SourceColumnDef, SourceFilters, SourceRow } from './source.types';
@@ -67,7 +68,10 @@ export class TransactionsSource implements SourceAdapter {
       qb.andWhere('tx.id IN (:...ids)', { ids: filters.ids });
     }
 
-    const transactions = await qb.getMany();
+    // A table is read by the whole workspace (and can be shared publicly), so
+    // whoever fills it, private rows go in as everyone else sees them: date and
+    // amount, no merchant or purpose.
+    const transactions = redactPrivateRows(await qb.getMany(), null);
     return transactions.map(tx => {
       const magnitude = Math.abs(
         toNumber(tx.amount) ?? toNumber(tx.credit) ?? toNumber(tx.debit) ?? 0,

@@ -135,7 +135,7 @@ describe('StatementsController', () => {
 
     const result = await controller.findAll(currentUser, 'ws-1', filters);
 
-    expect(statementsService.findAll).toHaveBeenCalledWith('ws-1', filters);
+    expect(statementsService.findAll).toHaveBeenCalledWith('ws-1', filters, null);
     expect(result).toEqual({
       data: [{ id: 'stmt-1' }],
       items: [{ id: 'stmt-1' }],

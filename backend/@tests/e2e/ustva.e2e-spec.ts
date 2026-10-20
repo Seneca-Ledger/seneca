@@ -126,6 +126,16 @@ describe('UStVA Kennzahlen (e2e)', () => {
     expect((await ustva('2025-12-01', '2026-01-31')).body.unsupported).toBe('period_spans_years');
   });
 
+  it('rejects a period that is not two ISO dates', async () => {
+    await auth(api().get('/tax/returns/ustva?periodStart[x]=1&periodEnd=2026-03-31')).expect(400);
+    await auth(
+      api().get('/tax/returns/ustva?periodStart=2026-01-01&periodStart=2026-02-01&periodEnd=2026-03-31'),
+    ).expect(400);
+    await auth(
+      api().get('/tax/returns/export?periodStart=2026-01-01&periodEnd=2026-03-31&format=html'),
+    ).expect(400);
+  });
+
   it('is only for a VAT-registered business in Germany', async () => {
     await auth(api().put('/tax/settings/vat-status')).send({ status: 'small_business' }).expect(200);
     expect((await ustva('2026-03-01', '2026-03-31')).body.unsupported).toBe('not_registered');

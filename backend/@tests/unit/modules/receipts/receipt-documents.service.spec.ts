@@ -132,7 +132,7 @@ describe('ReceiptDocumentsService', () => {
     it('reports a receipt without a PDF or image attachment as missing', async () => {
       receiptRepository.findOne.mockResolvedValue({
         id: 'receipt-1',
-        attachmentPaths: ['/tmp/not-a-pdf.txt'],
+        attachmentPaths: ['receipts/not-a-pdf.txt'],
         metadata: { attachments: [{ filename: 'not-a-pdf.txt', mimeType: 'text/plain' }] },
       } as Receipt);
       jest.spyOn(fs.promises, 'access').mockResolvedValue(undefined);
@@ -146,7 +146,7 @@ describe('ReceiptDocumentsService', () => {
     it('reports an attachment gone from disk as missing', async () => {
       receiptRepository.findOne.mockResolvedValue({
         id: 'receipt-1',
-        attachmentPaths: ['/tmp/gone.pdf'],
+        attachmentPaths: ['receipts/gone.pdf'],
         metadata: {},
       } as Receipt);
       jest.spyOn(fs.promises, 'access').mockRejectedValue(new Error('ENOENT'));
@@ -157,10 +157,27 @@ describe('ReceiptDocumentsService', () => {
       });
     });
 
+    it('never reads a stored path outside the uploads directory', async () => {
+      receiptRepository.findOne.mockResolvedValue({
+        id: 'receipt-1',
+        attachmentPaths: ['/etc/passwd'],
+        metadata: {},
+      } as Receipt);
+      const accessSpy = jest.spyOn(fs.promises, 'access').mockResolvedValue(undefined);
+      const readFileSpy = jest.spyOn(fs.promises, 'readFile');
+
+      await expect(service.thumbnail('receipt-1', workspaceId, '')).resolves.toEqual({
+        kind: 'missing',
+        error: 'No attachment found',
+      });
+      expect(accessSpy).not.toHaveBeenCalled();
+      expect(readFileSpy).not.toHaveBeenCalled();
+    });
+
     it('serves an image attachment as its own thumbnail', async () => {
       receiptRepository.findOne.mockResolvedValue({
         id: 'receipt-thumb-1',
-        attachmentPaths: ['/tmp/receipt-thumb.jpg'],
+        attachmentPaths: ['receipts/receipt-thumb.jpg'],
         metadata: { attachments: [{ filename: 'receipt-thumb.jpg', mimeType: 'image/jpeg' }] },
       } as Receipt);
       jest.spyOn(fs.promises, 'access').mockResolvedValue(undefined);

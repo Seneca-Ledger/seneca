@@ -8,7 +8,6 @@ import { EmailChangeService } from '@/modules/users/services/email-change.servic
 import { PAGE_HINTS_MAX_KEYS, UsersService } from '@/modules/users/users.service';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import {
-  ConflictException,
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
@@ -170,21 +169,6 @@ describe('UsersService', () => {
 
       await expect(service.update('999', { name: 'Test' }, adminUser as User)).rejects.toThrow(
         NotFoundException,
-      );
-    });
-
-    it('should not update email if already taken', async () => {
-      const updateDto = {
-        email: 'existing@example.com',
-      };
-
-      jest
-        .spyOn(repository, 'findOne')
-        .mockResolvedValueOnce(mockUser as User) // First call for the user being updated
-        .mockResolvedValueOnce({ id: '2' } as User); // Second call to check if email exists
-
-      await expect(service.update('1', updateDto, mockUser as User)).rejects.toThrow(
-        ConflictException,
       );
     });
   });

@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Repository } from 'typeorm';
 import { runExecutable } from '../../../common/utils/thumbnail-command.util';
-import { resolveUploadsDir } from '../../../common/utils/uploads.util';
+import { resolveInUploadsDir, resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { Category, Receipt, ReceiptSource, ReceiptStatus, StatementStage } from '../../../entities';
 import { attachReceiptCategories } from '../helpers/attach-receipt-categories';
 
@@ -232,9 +232,15 @@ export class ReceiptDocumentsService {
     if (!storedPath) {
       return null;
     }
-    const resolvedPath = path.isAbsolute(storedPath)
-      ? storedPath
-      : path.join(resolveUploadsDir(), storedPath);
+    // NULL when the stored path points outside the uploads directory.
+    const uploadsDir = resolveUploadsDir();
+    const resolvedPath = resolveInUploadsDir(
+      path.isAbsolute(storedPath) ? storedPath : path.join(uploadsDir, storedPath),
+      path.resolve(uploadsDir),
+    );
+    if (!resolvedPath) {
+      return null;
+    }
     try {
       await fs.promises.access(resolvedPath, fs.constants.R_OK);
       return resolvedPath;

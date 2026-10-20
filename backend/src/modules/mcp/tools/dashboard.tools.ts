@@ -30,7 +30,13 @@ export function dashboardTools(dashboard: DashboardService, insights: InsightsSe
       output: DashboardResponse,
       readOnly: true,
       run: (ctx, args) =>
-        dashboard.getDashboard(ctx.user.id, ctx.workspaceId, args.range ?? '30d', args.date),
+        dashboard.getDashboard(
+          ctx.user.id,
+          ctx.workspaceId,
+          args.range ?? '30d',
+          args.date,
+          ctx.memberId,
+        ),
     }),
     defineTool({
       name: 'get_trends',
@@ -48,7 +54,8 @@ export function dashboardTools(dashboard: DashboardService, insights: InsightsSe
       permissions: [Permission.REPORT_VIEW],
       output: DashboardTrendsResponse,
       readOnly: true,
-      run: (ctx, args) => dashboard.getTrends(ctx.workspaceId, args.days ?? 30, args.month),
+      run: (ctx, args) =>
+        dashboard.getTrends(ctx.workspaceId, args.days ?? 30, args.month, ctx.memberId),
     }),
     defineTool({
       name: 'list_insights',

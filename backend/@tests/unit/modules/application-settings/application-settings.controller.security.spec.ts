@@ -1,5 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { PERMISSIONS_KEY } from '@/common/decorators/require-permission.decorator';
+import { InstanceAdminGuard } from '@/common/guards/instance-admin.guard';
 import { WorkspaceContextGuard } from '@/common/guards/workspace-context.guard';
 import { PermissionsGuard } from '@/common/guards/permissions.guard';
 import { Permission } from '@/common/enums/permissions.enum';
@@ -26,6 +27,15 @@ describe('ApplicationSettingsController security metadata', () => {
     expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual([
       Permission.WORKSPACE_SETTINGS_MANAGE,
     ]);
+  });
+
+  // The model root is shared by every workspace on the server.
+  it('lets only an instance admin install a categorization model', () => {
+    const handler = ApplicationSettingsController.prototype.uploadLocalCategorizationModel;
+
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual(
+      expect.arrayContaining([InstanceAdminGuard]),
+    );
   });
 
   // Settings belong to the workspace open in the request; without the guard

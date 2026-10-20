@@ -19,6 +19,10 @@ import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BalanceService } from './balance.service';
 
+/**
+ * Reading the balance sheet is a report; changing it changes what the workspace owns and owes, so the
+ * writes take the wallet permissions, like crypto holdings (owner and admins).
+ */
 @Controller('reports/balance')
 export class BalanceController {
   constructor(private readonly balanceService: BalanceService) {}
@@ -53,7 +57,7 @@ export class BalanceController {
   }
 
   @Put('snapshot')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   async updateSnapshot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -63,7 +67,7 @@ export class BalanceController {
   }
 
   @Post('accounts')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_CREATE)
   async createAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -74,7 +78,7 @@ export class BalanceController {
 
   @Delete('accounts/:id')
   @HttpCode(204)
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_DELETE)
   async deleteAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -84,7 +88,7 @@ export class BalanceController {
   }
 
   @Patch('accounts/:id/classification')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   async updateClassification(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

@@ -4,6 +4,8 @@ import apiClient from '@/app/lib/api';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer' | 'accountant';
+/** Ownership is never invited, only transferred. */
+export type InviteRole = Exclude<WorkspaceRole, 'owner'>;
 
 export type WorkspaceMember = {
   id: string;
@@ -82,7 +84,7 @@ type UseMemberManagementReturn = {
   revokingInvitationId: string | null;
   handleInvite: (params: {
     email: string;
-    role: WorkspaceRole;
+    role: InviteRole;
     permissions: InvitePermissions;
   }) => Promise<void>;
   handleChangeMemberRole: (member: WorkspaceMember, nextRole: WorkspaceRole) => Promise<void>;
@@ -126,7 +128,7 @@ function useMemberActions({
     permissions,
   }: {
     email: string;
-    role: WorkspaceRole;
+    role: InviteRole;
     permissions: InvitePermissions;
   }): Promise<void> => {
     if (!wid) {
@@ -222,7 +224,9 @@ function useInvitationActions({
     await (async () => {
       await apiClient.post(`/workspaces/${wid}/invitations`, {
         email: invite.email,
-        role: invite.role,
+        // Ownership moves only by transfer; an owner-role invitation from before
+        // that rule goes out again as admin.
+        role: invite.role === 'owner' ? 'admin' : invite.role,
         permissions: invite.role === 'member' ? (invite.permissions ?? undefined) : undefined,
       } satisfies ContractInput<'InviteMemberBody'>);
       toast.success('Invitation resent');

@@ -15,6 +15,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { InstanceAdminGuard } from '../../common/guards/instance-admin.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import {
   LocalCategorizationStatus,
@@ -67,6 +68,9 @@ export class ApplicationSettingsController {
 
   @Post('local-categorization/model')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  // The model root is shared by the whole server: replacing a model there
+  // changes it for every workspace, so it is an instance admin's call.
+  @UseGuards(InstanceAdminGuard)
   @UseInterceptors(
     FileInterceptor('model', {
       storage: memoryStorage(),
@@ -82,7 +86,7 @@ export class ApplicationSettingsController {
   }
 
   @Get('email/smtp')
-  @UseGuards(WorkspaceContextGuard)
+  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   getSmtp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.getSmtpStatus(user, workspaceId);
   }
@@ -135,7 +139,7 @@ export class ApplicationSettingsController {
   }
 
   @Get('app')
-  @UseGuards(WorkspaceContextGuard)
+  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   getApp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.getAppStatus(user, workspaceId);
   }

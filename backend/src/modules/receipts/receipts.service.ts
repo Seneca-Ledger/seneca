@@ -17,6 +17,7 @@ import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
 import { payeeKeyOf } from '../../common/utils/payee-key.util';
 import { taxLockedConflict } from '../../common/utils/tax-lock.util';
+import { assertWorkspaceOwned } from '../../common/utils/workspace-refs.util';
 import type { ReceiptsQuery } from '../../contracts';
 import {
   Category,
@@ -233,6 +234,13 @@ export class ReceiptsService {
     if (!receipt) {
       return null;
     }
+    // The category is copied onto the receipt's transaction: one of this workspace's only.
+    await assertWorkspaceOwned(
+      this.receiptRepository.manager,
+      Category,
+      [dto.parsedData?.categoryId as string | null | undefined],
+      workspaceId,
+    );
     const before = this.changedFields(receipt, dto);
 
     if (dto.status) {
@@ -362,6 +370,12 @@ export class ReceiptsService {
       }
       const currency = await this.workspaceCurrency.resolve(workspaceId);
       const fields = receiptTransactionFields(receipt, workspaceId, currency);
+      await assertWorkspaceOwned(
+        this.transactionRepository.manager,
+        Category,
+        [fields.categoryId],
+        workspaceId,
+      );
       await this.transactionRepository.update(
         { id: target.id, workspaceId },
         {
@@ -516,9 +530,19 @@ export class ReceiptsService {
         // Approving the receipt confirms the bank row it documents. As with a
         // matched entry in YNAB, the receipt's category wins over whatever the
         // import filled in, but never over one a person or their rule chose.
+        const takesCategory =
+          receipt.parsedData?.categoryId && !hasDecidedCategory(target) && !target.taxLocked;
+        if (takesCategory) {
+          await assertWorkspaceOwned(
+            manager,
+            Category,
+            [receipt.parsedData.categoryId],
+            workspaceId,
+          );
+        }
         await transactions.update(
           { id: target.id, workspaceId },
-          receipt.parsedData?.categoryId && !hasDecidedCategory(target) && !target.taxLocked
+          takesCategory
             ? {
                 isVerified: true,
                 categoryId: receipt.parsedData.categoryId,
@@ -548,8 +572,10 @@ export class ReceiptsService {
       if (scanTransaction?.taxLocked) {
         throw taxLockedConflict(1);
       }
+      // Whatever the stored or the requested category, it must be one of this workspace's.
+      const fields = buildTransaction(receipt);
+      await assertWorkspaceOwned(manager, Category, [fields.categoryId], workspaceId);
       if (scanTransaction) {
-        const fields = buildTransaction(receipt);
         await transactions.update(
           { id: scanTransaction.id, workspaceId },
           {
@@ -577,7 +603,7 @@ export class ReceiptsService {
       }
 
       const transaction = await transactions.save(
-        transactions.create(withLedgerSides({ ...buildTransaction(receipt), isVerified: true })),
+        transactions.create(withLedgerSides({ ...fields, isVerified: true })),
       );
       const previousStatus = receipt.status;
       receipt.status = ReceiptStatus.APPROVED;
@@ -647,6 +673,7 @@ export class ReceiptsService {
     userId: string,
     categoryId?: string,
   ) {
+    await assertWorkspaceOwned(this.receiptRepository.manager, Category, [categoryId], workspaceId);
     // Resolved once for the batch: a receipt whose parse found no currency is
     // booked in the workspace's own.
     const workspaceCurrency = await this.workspaceCurrency.resolve(workspaceId);

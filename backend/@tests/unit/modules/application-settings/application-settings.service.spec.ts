@@ -7,6 +7,10 @@ jest.mock('../../../../src/common/utils/egress-url.util', () => ({
   // Egress policy is covered by common/utils/egress-url.util.spec.ts; here the
   // provider hostnames are fixtures that no DNS server can resolve.
   assertPublicEgressHost: jest.fn().mockResolvedValue(undefined),
+  pinPublicEgressHost: jest.fn(async (host: string) => ({
+    host: '198.51.100.7',
+    servername: host,
+  })),
 }));
 
 const mockCategorize = jest.fn();
@@ -303,6 +307,82 @@ describe('ApplicationSettingsService', () => {
     expect(assertPublicEgressHost).toHaveBeenCalledWith('mail.example.com');
   });
 
+  it('tests a workspace SMTP server on the address that passed the egress check', async () => {
+    const nodemailer = require('nodemailer');
+    (nodemailer.createTransport as jest.Mock).mockClear();
+
+    await createService().saveSmtpSettings(user, {
+      host: 'mail.example.com',
+      port: 587,
+      from: `${APP_NAME} <noreply@example.com>`,
+    });
+
+    expect(nodemailer.createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ host: '198.51.100.7', servername: 'mail.example.com' }),
+    );
+  });
+
+  describe('SMTP server choice', () => {
+    const smtpRow = (workspaceId: string, host: string, updatedByUserId: string) => ({
+      workspaceId,
+      key: WorkspaceServiceSettingsKey.SMTP,
+      config: { host, port: 587, from: `noreply@${host}` },
+      encryptedSecrets: {},
+      updatedByUserId,
+    });
+    const rows = [
+      smtpRow('workspace-1', 'smtp.home.example', 'user-1'),
+      smtpRow('workspace-2', 'smtp.other.example', 'admin-2'),
+    ];
+
+    beforeEach(() => {
+      delete process.env.SMTP_HOST;
+      delete process.env.SMTP_FROM;
+      repository.findOne.mockImplementation(
+        ({ where }: { where: { workspaceId: string; key: string } }) =>
+          Promise.resolve(
+            rows.find(row => row.workspaceId === where.workspaceId && row.key === where.key) ??
+              null,
+          ),
+      );
+    });
+
+    it('uses the server of the workspace it is given', async () => {
+      const smtp = await createService().getSmtpSettings('workspace-2');
+
+      expect(smtp).toMatchObject({ host: 'smtp.other.example', source: 'workspace' });
+    });
+
+    it('falls back to the environment, never to a home workspace, without one', async () => {
+      process.env.SMTP_HOST = 'relay.internal';
+      process.env.SMTP_FROM = 'noreply@instance.example';
+
+      const smtp = await createService().getSmtpSettings(null);
+
+      expect(smtp).toMatchObject({ host: 'relay.internal', source: 'env' });
+    });
+
+    it('sends account mail through the home workspace server the user saved', async () => {
+      const smtp = await createService().getAccountSmtpSettings({
+        id: 'user-1',
+        workspaceId: 'workspace-1',
+      });
+
+      expect(smtp).toMatchObject({ host: 'smtp.home.example', source: 'workspace' });
+    });
+
+    // Another admin of the home workspace could point its SMTP at a server they
+    // read and collect the user's password-reset link.
+    it("does not send account mail through a server someone else saved", async () => {
+      const smtp = await createService().getAccountSmtpSettings({
+        id: 'user-1',
+        workspaceId: 'workspace-2',
+      });
+
+      expect(smtp).toMatchObject({ host: null, source: 'disabled' });
+    });
+  });
+
   it('writes to the workspace of the request, not the one the user registered with', async () => {
     const service = createService();
 
@@ -345,13 +425,16 @@ describe('ApplicationSettingsService', () => {
     });
   });
 
-  it('tests local categorization with the saved local model path', async () => {
-    await createService().saveLocalCategorizationSettings(user, {
-      enabled: true,
-      modelId: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-      threshold: 0.35,
-      localModelPath: '/tmp/seneca-models',
-    });
+  // A path saved through the API (before it was refused) must not steer the
+  // loader or the installed-model probe anywhere outside the model root.
+  it('loads the model from the model root, never from a stored path', async () => {
+    process.env.LOCAL_CATEGORIZATION_MODEL_ROOT = '/srv/seneca-models';
+    saved[WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION] = {
+      workspaceId: 'workspace-1',
+      key: WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
+      config: { enabled: true, threshold: 0.35, localModelPath: '/etc' },
+      encryptedSecrets: {},
+    };
     mockCategorize.mockResolvedValue('Продукты');
     mockGetModelLoadError.mockReturnValue(null);
 
@@ -371,9 +454,11 @@ describe('ApplicationSettingsService', () => {
         categories: ['Продукты', 'Транспорт'],
         threshold: 0.35,
         allowRemoteModels: false,
-        localModelPath: '/tmp/seneca-models',
+        localModelPath: '/srv/seneca-models',
       }),
     );
+    const status = await createService().getLocalCategorizationStatus(user);
+    expect(status.settings.localModelPath).toBe('/srv/seneca-models');
   });
 
   it('installs a local categorization model archive into workspace storage', async () => {

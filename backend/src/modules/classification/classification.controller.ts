@@ -1,27 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import {
-  Controller,
-  HttpCode,
-  HttpStatus,
-  NotFoundException,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, HttpCode, HttpStatus, NotFoundException, Param, Post } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { Permission } from '../../common/enums/permissions.enum';
+import { redactPrivate } from '../../common/utils/transaction-privacy.util';
 import { ClassifyBulkBody } from '../../contracts';
 import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ClassificationService } from './services/classification.service';
 
+/** Re-running the rules rewrites a row's category, so it takes the right to edit transactions. */
 @Controller('classification')
-@UseGuards(JwtAuthGuard, WorkspaceContextGuard)
 export class ClassificationController {
   constructor(
     private classificationService: ClassificationService,
@@ -31,10 +24,12 @@ export class ClassificationController {
 
   @Post('transaction/:id')
   @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async classifyTransaction(
     @Param('id') id: string,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     const transaction = await this.transactionRepository.findOne({
       where: { id, workspaceId },
@@ -42,6 +37,11 @@ export class ClassificationController {
 
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
+    }
+
+    // A category picked by hand outranks the rules, as in the bulk re-run.
+    if (transaction.categorySource === TransactionCategorySource.MANUAL) {
+      return transaction;
     }
 
     const classification = await this.classificationService.classifyTransaction(
@@ -52,11 +52,12 @@ export class ClassificationController {
     Object.assign(transaction, classification);
     await this.transactionRepository.save(transaction);
 
-    return transaction;
+    return redactPrivate(transaction, selfMemberId);
   }
 
   @Post('bulk')
   @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async classifyBulk(
     @SchemaBody(ClassifyBulkBody) body: ClassifyBulkBody,
     @CurrentUser() user: User,

@@ -88,8 +88,9 @@ export class ReportsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @Query('days', new DefaultValuePipe(30), ParseIntPipe) days?: number,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
-    return this.reportsService.getStatementsSummary(workspaceId, days);
+    return this.reportsService.getStatementsSummary(workspaceId, days, selfMemberId ?? null);
   }
 
   /** Income sources → categories → subcategories, a treemap and a period comparison; `format=csv` exports the table. */
@@ -204,6 +205,7 @@ export class ReportsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @Query('date') date?: string,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     const reportDate =
       date === 'latest'
@@ -211,7 +213,11 @@ export class ReportsController {
         : date ||
           (await this.reportsService.getLatestTransactionDate(workspaceId)) ||
           new Date().toISOString().split('T')[0];
-    return this.reportsService.generateDailyReport(workspaceId, reportDate ?? '');
+    return this.reportsService.generateDailyReport(
+      workspaceId,
+      reportDate ?? '',
+      selfMemberId ?? null,
+    );
   }
 
   @Get('monthly')
@@ -221,6 +227,7 @@ export class ReportsController {
     @WorkspaceId() workspaceId: string,
     @Query('year') year?: string,
     @Query('month') month?: string,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     const latest = await this.reportsService.getLatestTransactionPeriod(workspaceId);
     const currentDate = new Date();
@@ -228,7 +235,12 @@ export class ReportsController {
     const reportMonth = month
       ? Number.parseInt(month, 10)
       : latest.month || currentDate.getMonth() + 1;
-    return this.reportsService.generateMonthlyReport(workspaceId, reportYear, reportMonth);
+    return this.reportsService.generateMonthlyReport(
+      workspaceId,
+      reportYear,
+      reportMonth,
+      selfMemberId ?? null,
+    );
   }
 
   @Post('custom')
@@ -239,8 +251,9 @@ export class ReportsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @SchemaBody(CustomReportBody) dto: CustomReportBody,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
-    return this.reportsService.generateCustomReport(workspaceId, dto);
+    return this.reportsService.generateCustomReport(workspaceId, dto, selfMemberId ?? null);
   }
 
   @Post('export')
@@ -252,6 +265,7 @@ export class ReportsController {
     @WorkspaceId() workspaceId: string,
     @SchemaBody(ExportReportBody) dto: ExportReportBody,
     @Res() res: Response,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     // Generate report based on date range
     let reportData: DailyReport | MonthlyReport | CustomReport;
@@ -263,11 +277,19 @@ export class ReportsController {
         dateTo: dto.dateTo,
         format: dto.format === ExportFormat.EXCEL ? ReportFormat.EXCEL : ReportFormat.CSV,
       };
-      reportData = await this.reportsService.generateCustomReport(workspaceId, customDto);
+      reportData = await this.reportsService.generateCustomReport(
+        workspaceId,
+        customDto,
+        selfMemberId ?? null,
+      );
     } else {
       // Daily report for today
       const today = new Date().toISOString().split('T')[0];
-      reportData = await this.reportsService.generateDailyReport(workspaceId, today);
+      reportData = await this.reportsService.generateDailyReport(
+        workspaceId,
+        today,
+        selfMemberId ?? null,
+      );
     }
 
     // Export report
@@ -334,10 +356,12 @@ export class ReportsController {
     @WorkspaceId() workspaceId: string,
     @SchemaBody(WorkspaceExportBody) dto: WorkspaceExportBody,
     @Res() res: Response,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     const { filePath, fileName, mimeType } = await this.reportsService.exportWorkspaceTransactions(
       workspaceId,
       toEnum(WorkspaceExportFormat, dto.format) || WorkspaceExportFormat.EXCEL,
+      selfMemberId ?? null,
     );
 
     res.setHeader('Content-Type', mimeType);

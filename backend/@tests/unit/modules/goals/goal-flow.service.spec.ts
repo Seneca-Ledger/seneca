@@ -45,6 +45,7 @@ function createTransactionRepo(rows: Rows) {
       }),
       groupBy: jest.fn(() => builder),
       addGroupBy: jest.fn(() => builder),
+      setParameter: jest.fn(() => builder),
       getRawMany: jest.fn(async () =>
         aliases.includes('merchant') ? (rows.merchants ?? []) : (rows.categories ?? []),
       ),

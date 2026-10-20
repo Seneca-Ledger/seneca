@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Post, Query, Res } from '@nestjs/common';
+import { Controller, Get, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
@@ -8,6 +8,7 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  TaxReturnExportQuery,
   TaxReturnPeriodBody,
   TaxReturnPeriodQuery,
   TaxReturnPreview,
@@ -38,8 +39,7 @@ export class TaxReturnsController {
   @SchemaResponse(TaxReturnRecord)
   async getForPeriod(
     @WorkspaceId() workspaceId: string,
-    @Query('periodStart') periodStart: string,
-    @Query('periodEnd') periodEnd: string,
+    @SchemaQuery(TaxReturnPeriodQuery) { periodStart, periodEnd }: TaxReturnPeriodQuery,
   ) {
     return this.taxReturnsService.getForPeriod(workspaceId, periodStart, periodEnd);
   }
@@ -64,8 +64,7 @@ export class TaxReturnsController {
   @SchemaResponse(UstvaResult)
   async ustva(
     @WorkspaceId() workspaceId: string,
-    @Query('periodStart') periodStart: string,
-    @Query('periodEnd') periodEnd: string,
+    @SchemaQuery(TaxReturnPeriodQuery) { periodStart, periodEnd }: TaxReturnPeriodQuery,
   ) {
     return this.ustvaService.build(workspaceId, periodStart, periodEnd);
   }
@@ -101,15 +100,9 @@ export class TaxReturnsController {
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
   async export(
     @WorkspaceId() workspaceId: string,
-    @Query('periodStart') periodStart: string,
-    @Query('periodEnd') periodEnd: string,
-    @Query('format') format: string,
+    @SchemaQuery(TaxReturnExportQuery) { periodStart, periodEnd, format }: TaxReturnExportQuery,
     @Res() res: Response,
   ): Promise<void> {
-    if (format !== 'pdf' && format !== 'xlsx' && format !== 'csv') {
-      throw new BadRequestException("Format must be 'pdf', 'xlsx' or 'csv'");
-    }
-
     const { buffer, fileName, contentType } = await this.taxReturnsService.export(
       workspaceId,
       periodStart,

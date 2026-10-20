@@ -133,7 +133,12 @@ describe('category guessing', () => {
         { provide: getRepositoryToken(Branch), useValue: { find: async () => [] } },
         {
           provide: getRepositoryToken(Wallet),
-          useValue: { find: async () => [], findOne: async () => null },
+          useValue: {
+            find: async () => [],
+            findOne: async () => null,
+            // A matched rule's targets are checked through it; here they are the workspace's.
+            manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
+          },
         },
         { provide: getRepositoryToken(CategorizationRule), useValue: { find: async () => [] } },
         { provide: getRepositoryToken(Workspace), useValue: { findOne: async () => null } },

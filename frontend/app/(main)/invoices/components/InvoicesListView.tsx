@@ -19,6 +19,7 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import { formatMoney } from '@/app/lib/format-money';
 import { type Invoice, type InvoiceStatus, invoicesApi } from '@/app/lib/invoices-api';
 import { InvoiceAgeingPanel } from './InvoiceAgeingPanel';
+import { InvoicesListSkeleton } from './InvoicesSkeletons';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
 
 const PAGE_SIZE = 20;
@@ -138,11 +139,7 @@ export function InvoicesListView(): React.JSX.Element {
   };
 
   if (authLoading || workspaceLoading || loading) {
-    return (
-      <div className="container-shared seneca-stmt-list" style={{ padding: '40px 16px' }}>
-        —
-      </div>
-    );
+    return <InvoicesListSkeleton />;
   }
 
   const noInvoices = items.length === 0 && status === 'all';

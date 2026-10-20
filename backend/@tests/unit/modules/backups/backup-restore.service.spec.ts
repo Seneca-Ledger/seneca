@@ -25,6 +25,7 @@ describe('BackupRestoreService', () => {
         },
       ],
       transaction: jest.fn().mockImplementation(callback => callback(manager)),
+      query: jest.fn().mockResolvedValue([]),
     };
     const archive = {
       open: jest.fn().mockResolvedValue({
@@ -89,6 +90,7 @@ describe('BackupRestoreService', () => {
           },
         ],
         transaction: jest.fn().mockImplementation(callback => callback(manager)),
+        query: jest.fn().mockResolvedValue([]),
       } as never,
       workspaceRepository as never,
       memberRepository as never,
@@ -129,6 +131,7 @@ describe('BackupRestoreService', () => {
           { tableName: 'categories', target: 'Category', columns: [{ propertyName: 'id' }, { propertyName: 'workspaceId' }, { propertyName: 'name' }] },
         ],
         transaction: jest.fn().mockImplementation(callback => callback(manager)),
+        query: jest.fn().mockResolvedValue([]),
       } as never,
       workspaceRepository as never,
       memberRepository as never,
@@ -181,6 +184,7 @@ describe('BackupRestoreService', () => {
           { tableName: 'ledger_accounts', target: 'LedgerAccount', columns: columns('id', 'workspaceId', 'name') },
         ],
         transaction: jest.fn().mockImplementation(callback => callback(manager)),
+        query: jest.fn().mockResolvedValue([]),
       } as never,
       workspaceRepository as never,
       memberRepository as never,
@@ -190,6 +194,227 @@ describe('BackupRestoreService', () => {
     await service.restore(Buffer.from('archive'), 'backup password', { id: 'user-1', workspaceId: 'workspace-1' } as never);
 
     expect(inserted).toEqual(['LedgerAccount', 'Category']);
+  });
+
+  describe('what an archive may restore', () => {
+    type Column = { propertyName: string; databaseName?: string; type?: string; isNullable?: boolean };
+    const column = (propertyName: string, options: Partial<Column> = {}): Column => ({
+      propertyName,
+      databaseName: propertyName.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`),
+      isNullable: true,
+      ...options,
+    });
+    const table = (tableName: string, ...columns: Column[]) => ({ tableName, target: tableName, columns });
+    const workspaceTable = (tableName: string, ...columns: Column[]) =>
+      table(tableName, column('id', { type: 'uuid', isNullable: false }), column('workspaceId', { type: 'uuid' }), ...columns);
+
+    /** Restores `collections` against these tables and foreign keys; answers what each table got. */
+    const restoreWith = async (
+      metadatas: ReturnType<typeof table>[],
+      foreignKeys: Array<{ source: string; column: string; target: string }>,
+      collections: Record<string, unknown[]>,
+    ) => {
+      const inserted: Record<string, Record<string, unknown>[]> = {};
+      const workspaceRepository = {
+        create: jest.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
+        save: jest.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
+        delete: jest.fn(),
+      };
+      const manager = {
+        getRepository: jest.fn().mockImplementation((target: string) => ({
+          insert: jest.fn().mockImplementation(async (values: Record<string, unknown>[]) => {
+            inserted[target] = values;
+          }),
+        })),
+        query: jest.fn().mockResolvedValue([]),
+      };
+      const service = new BackupRestoreService(
+        {
+          entityMetadatas: metadatas,
+          transaction: jest.fn().mockImplementation(callback => callback(manager)),
+          query: jest.fn().mockResolvedValue(foreignKeys),
+        } as never,
+        workspaceRepository as never,
+        { create: jest.fn().mockImplementation(value => value), save: jest.fn() } as never,
+        {
+          open: jest.fn().mockResolvedValue({
+            manifest: { collections: {}, files: [] },
+            collections: { workspace: [{ id: 'old-workspace', name: 'Finance' }], ...collections },
+            files: new Map(),
+          }),
+        } as never,
+      );
+      const result = service.restore(Buffer.from('archive'), 'backup password', { id: 'user-1' } as never);
+      return { result, inserted, workspaceRepository };
+    };
+
+    const categoryRow = { id: 'old-category', workspaceId: 'old-workspace', name: 'Travel' };
+    const categories = workspaceTable('categories', column('name'));
+
+    it('refuses a table every workspace shares, before making a workspace', async () => {
+      const { result, workspaceRepository } = await restoreWith(
+        [categories, table('exchange_rates', column('id'), column('rate'))],
+        [],
+        { categories: [categoryRow], exchange_rates: [{ id: 'rate-1', rate: 0.01 }] },
+      );
+
+      await expect(result).rejects.toThrow('Backup contains unsupported collection: exchange_rates');
+      expect(workspaceRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('refuses a table without a workspace that is no related collection', async () => {
+      const { result } = await restoreWith(
+        [categories, table('shared_links', column('id'), column('statementId', { type: 'uuid' }), column('token'))],
+        [],
+        { shared_links: [{ id: 'link-1', statementId: 'their-statement', token: 'known' }] },
+      );
+
+      await expect(result).rejects.toThrow('Backup contains unsupported collection: shared_links');
+    });
+
+    it('skips a workspace table that backups leave out', async () => {
+      const { result, inserted } = await restoreWith(
+        [categories, workspaceTable('webhook_endpoints', column('url'))],
+        [],
+        { categories: [categoryRow], webhook_endpoints: [{ id: 'hook-1', workspaceId: 'old-workspace', url: 'http://10.0.0.1' }] },
+      );
+
+      await result;
+      expect(Object.keys(inserted)).toEqual(['categories']);
+    });
+
+    it('keeps references to restored rows and to reference data, and cuts every other one', async () => {
+      const { result, inserted } = await restoreWith(
+        [
+          categories,
+          workspaceTable(
+            'transactions',
+            column('categoryId', { type: 'uuid' }),
+            column('ownerMemberId', { type: 'uuid' }),
+            column('statementId', { type: 'uuid' }),
+            column('splitGroupId', { type: 'uuid' }),
+            column('userId', { type: 'uuid' }),
+            column('token'),
+            column('shareToken'),
+            column('externalId'),
+            column('meta'),
+          ),
+          workspaceTable('tax_rates', column('jurisdictionId', { type: 'uuid', isNullable: false })),
+        ],
+        [
+          { source: 'transactions', column: 'category_id', target: 'categories' },
+          { source: 'transactions', column: 'owner_member_id', target: 'workspace_members' },
+          { source: 'transactions', column: 'user_id', target: 'users' },
+          { source: 'tax_rates', column: 'jurisdiction_id', target: 'tax_jurisdictions' },
+        ],
+        {
+          categories: [categoryRow],
+          transactions: [
+            {
+              id: 'old-transaction',
+              workspaceId: 'old-workspace',
+              categoryId: 'old-category',
+              ownerMemberId: 'their-member',
+              statementId: '11111111-1111-4111-8111-111111111111',
+              splitGroupId: '22222222-2222-4222-8222-222222222222',
+              userId: 'old-user',
+              token: 'secret',
+              shareToken: 'public',
+              externalId: 'bank-123',
+              meta: {
+                categoryId: '33333333-3333-4333-8333-333333333333',
+                categoryIds: ['old-category', '44444444-4444-4444-8444-444444444444'],
+                jurisdictionId: '55555555-5555-4555-8555-555555555555',
+                note: '66666666-6666-4666-8666-666666666666',
+                own: { id: 'old-category' },
+              },
+            },
+          ],
+          tax_rates: [{ id: 'old-rate', workspaceId: 'old-workspace', jurisdictionId: 'jurisdiction-de' }],
+        },
+      );
+
+      await result;
+      const newCategoryId = inserted.categories[0].id;
+      const [transaction] = inserted.transactions;
+      expect(transaction).toEqual({
+        id: expect.any(String),
+        workspaceId: 'new-workspace',
+        categoryId: newCategoryId,
+        ownerMemberId: null,
+        statementId: null,
+        splitGroupId: '22222222-2222-4222-8222-222222222222',
+        userId: 'user-1',
+        shareToken: null,
+        externalId: 'bank-123',
+        meta: {
+          categoryId: null,
+          categoryIds: [newCategoryId],
+          jurisdictionId: '55555555-5555-4555-8555-555555555555',
+          note: '66666666-6666-4666-8666-666666666666',
+          own: { id: newCategoryId },
+        },
+      });
+      expect(inserted.tax_rates[0]).toMatchObject({ jurisdictionId: 'jurisdiction-de' });
+    });
+
+    it('drops a row whose required reference leads outside the archive, and the rows that need it', async () => {
+      const { result, inserted } = await restoreWith(
+        [
+          categories,
+          workspaceTable('budgets', column('categoryId', { type: 'uuid', isNullable: false })),
+          workspaceTable('invoices', column('number')),
+          table(
+            'invoice_line_items',
+            column('id', { type: 'uuid', isNullable: false }),
+            column('invoiceId', { type: 'uuid', isNullable: false }),
+            column('budgetId', { type: 'uuid', isNullable: false }),
+          ),
+        ],
+        [{ source: 'budgets', column: 'category_id', target: 'categories' }],
+        {
+          categories: [categoryRow],
+          budgets: [
+            { id: 'own-budget', workspaceId: 'old-workspace', categoryId: 'old-category' },
+            { id: 'their-budget', workspaceId: 'old-workspace', categoryId: 'their-category' },
+          ],
+          invoices: [{ id: 'old-invoice', workspaceId: 'old-workspace', number: 'INV-1' }],
+          invoice_line_items: [
+            { id: 'own-line', invoiceId: 'old-invoice', budgetId: 'own-budget' },
+            // Under another workspace's invoice: a related collection follows its parent only.
+            { id: 'their-line', invoiceId: 'their-invoice', budgetId: 'own-budget' },
+            // Needs the budget that was dropped.
+            { id: 'orphan-line', invoiceId: 'old-invoice', budgetId: 'their-budget' },
+          ],
+        },
+      );
+
+      await result;
+      expect(inserted.budgets).toEqual([expect.objectContaining({ categoryId: inserted.categories[0].id })]);
+      expect(inserted.invoice_line_items).toEqual([
+        { id: expect.any(String), invoiceId: inserted.invoices[0].id, budgetId: inserted.budgets[0].id },
+      ]);
+    });
+
+    it('does not let a restored audit event be undone against a row that did not come along', async () => {
+      const { result, inserted } = await restoreWith(
+        [categories, workspaceTable('audit_events', column('entityId', { type: 'uuid', isNullable: false }), column('isUndoable'))],
+        [],
+        {
+          categories: [categoryRow],
+          audit_events: [
+            { id: 'own-event', workspaceId: 'old-workspace', entityId: 'old-category', isUndoable: true },
+            { id: 'their-event', workspaceId: 'old-workspace', entityId: 'their-category', isUndoable: true },
+          ],
+        },
+      );
+
+      await result;
+      expect(inserted.audit_events).toEqual([
+        expect.objectContaining({ entityId: inserted.categories[0].id, isUndoable: true }),
+        expect.objectContaining({ entityId: 'their-category', isUndoable: false }),
+      ]);
+    });
   });
 });
 

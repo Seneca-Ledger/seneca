@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ExportScheduleFormat } from '../../../src/entities/custom-table-export-schedule.entity';
 import { CustomTableExportSchedulesService } from '../../../src/modules/custom-tables/custom-table-export-schedules.service';
 
@@ -150,6 +150,41 @@ describe('CustomTableExportSchedulesService', () => {
 
     await expect(service.readLastFile('ws-1', SCHEDULE_ID)).rejects.toBeInstanceOf(
       NotFoundException,
+    );
+  });
+
+  it('keeps the file inside the export directory when the table name holds a path', async () => {
+    const { service, scheduleRepository, customTablesService } = buildService();
+    customTablesService.exportRows.mockResolvedValue({
+      buffer: Buffer.from('file-bytes'),
+      fileName: 'a/../../../../tmp/pwn.xlsx',
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const result = await service.runSchedule(SCHEDULE_ID);
+
+    const saved = scheduleRepository.save.mock.calls.at(-1)?.[0] as {
+      lastFilePath: string;
+      lastFileName: string;
+    };
+    expect(path.dirname(saved.lastFilePath)).toBe(path.resolve(tmp, 'scheduled-exports'));
+    expect(path.basename(saved.lastFilePath)).toMatch(
+      new RegExp(`^${SCHEDULE_ID}-\\d{4}-\\d{2}-\\d{2}\\.xlsx$`),
+    );
+    expect(result.fileName).toMatch(/^\d{4}-\d{2}-\d{2}-pwn\.xlsx$/);
+    expect(saved.lastFileName).toBe(result.fileName);
+  });
+
+  it('refuses a stored file path outside the export directory', async () => {
+    const { service } = buildService({
+      id: SCHEDULE_ID,
+      workspaceId: 'ws-1',
+      lastFilePath: __filename,
+      lastFileName: 'report.xlsx',
+    });
+
+    await expect(service.readLastFile('ws-1', SCHEDULE_ID)).rejects.toBeInstanceOf(
+      BadRequestException,
     );
   });
 });

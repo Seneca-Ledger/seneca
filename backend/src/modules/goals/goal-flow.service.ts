@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { flowsSql } from '../../common/utils/counted-transactions.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
 import type {
   GoalFlowBudget,
   GoalFlowLink,
@@ -99,6 +100,7 @@ export class GoalFlowService {
     workspaceId: string,
     month: string | undefined,
     now = new Date(),
+    viewerMemberId: string | null = null,
   ): Promise<GoalFlowResponse> {
     const goal = await this.goalRepository.findOne({ where: { id: goalId, workspaceId } });
     assertFound(goal, 'Goal');
@@ -129,7 +131,7 @@ export class GoalFlowService {
 
     const [categoryRows, merchantRows, cash] = await Promise.all([
       this.loadCategoryTotals(workspaceId, everyCategoryId, window),
-      this.loadMerchantTotals(workspaceId, everyCategoryId, window),
+      this.loadMerchantTotals(workspaceId, everyCategoryId, window, viewerMemberId),
       this.loadCashTotal(workspaceId, window),
     ]);
 
@@ -439,14 +441,19 @@ export class GoalFlowService {
     workspaceId: string,
     categoryIds: string[],
     window: { start: Date; end: Date },
+    viewerMemberId: string | null,
   ): Promise<MerchantTotalRow[]> {
     if (categoryIds.length === 0) {
       return [];
     }
 
     // Same merchant key as subscription detection: the normalized vendor when
-    // enrichment produced one, the raw counterparty otherwise.
-    const merchant = 'LOWER(TRIM(COALESCE(t.vendor_normalized, t.counterparty_name)))';
+    // enrichment produced one, the raw counterparty otherwise. Another member's
+    // private rows still count, under the placeholder rather than their merchant.
+    const merchant = redactedSql(
+      't',
+      'LOWER(TRIM(COALESCE(t.vendor_normalized, t.counterparty_name)))',
+    );
 
     return this.expenseQuery(workspaceId, categoryIds, window)
       .select('t.category_id', 'categoryId')
@@ -456,6 +463,7 @@ export class GoalFlowService {
       .groupBy('t.category_id')
       .addGroupBy(merchant)
       .addGroupBy('t.currency')
+      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
       .getRawMany<MerchantTotalRow>();
   }
 

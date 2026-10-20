@@ -68,7 +68,10 @@ export type ApiKeyScope = Wire<typeof ApiKeyScope>;
 export const CreateApiKeyBody = Schema.Struct({
   name: Schema.String.check(Schema.isMaxLength(255)),
   expiresAt: optionalNullable(Schema.String),
-  /** The scopes the key is limited to, e.g. ['transaction.view', 'report.view']. Required for new keys. */
-  scopes: Schema.Array(ApiKeyScope).check(Schema.isUnique()),
+  /**
+   * The scopes the key is limited to, e.g. ['transaction.view', 'report.view']. Required for new
+   * keys, and never empty: an empty list used to mint a legacy key with its owner's full reach.
+   */
+  scopes: Schema.Array(ApiKeyScope).check(Schema.isMinLength(1), Schema.isUnique()),
 });
 export type CreateApiKeyBody = Wire<typeof CreateApiKeyBody>;

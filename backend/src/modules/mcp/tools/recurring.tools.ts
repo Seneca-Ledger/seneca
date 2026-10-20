@@ -73,7 +73,8 @@ export function recurringTools(deps: {
       permissions: [Permission.TRANSACTION_VIEW],
       output: PayeesPage,
       readOnly: true,
-      run: (ctx, args) => deps.payees.list(ctx.workspaceId, args satisfies PayeesQuery),
+      run: (ctx, args) =>
+        deps.payees.list(ctx.workspaceId, args satisfies PayeesQuery, ctx.memberId),
     }),
   ];
 }

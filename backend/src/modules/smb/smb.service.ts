@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { flowsSql } from '../../common/utils/counted-transactions.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Client } from '../../entities/client.entity';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
@@ -81,10 +82,13 @@ export class SmbService {
     private readonly auditService: AuditService,
   ) {}
 
-  async getReconciliation(workspaceId: string): Promise<ReconciliationResponse> {
+  async getReconciliation(
+    workspaceId: string,
+    viewerMemberId: string | null = null,
+  ): Promise<ReconciliationResponse> {
     const currency = await this.workspaceCurrency(workspaceId);
     const items = await this.openItems(workspaceId, currency);
-    const rows = await this.bankRows(workspaceId);
+    const rows = await this.bankRows(workspaceId, viewerMemberId);
     const matches = matchOpenItems(items, rows);
     const matchedItems = new Set(matches.map(match => match.itemId));
     const matchedRows = new Set(matches.map(match => match.transactionId));
@@ -146,7 +150,7 @@ export class SmbService {
       where: { id: invoice.clientId, workspaceId },
     });
     if (!client?.email) throw new BadRequestException('The client has no email address');
-    if (!(await this.mailerService.isConfigured(user))) {
+    if (!(await this.mailerService.isConfigured(workspaceId))) {
       throw new ConflictException('SMTP is not configured for this workspace');
     }
 
@@ -173,7 +177,7 @@ export class SmbService {
       to: client.email,
       subject: fill(text.subject),
       text: fill(text.body),
-      user,
+      workspaceId,
     });
     if (sent) {
       invoice.reminderCount = (invoice.reminderCount ?? 0) + 1;
@@ -226,7 +230,7 @@ export class SmbService {
   }
 
   /** Recent statement rows not yet linked to any bill. */
-  private async bankRows(workspaceId: string): Promise<BankRow[]> {
+  private async bankRows(workspaceId: string, viewerMemberId: string | null): Promise<BankRow[]> {
     const since = new Date();
     since.setDate(since.getDate() - LOOKBACK_DAYS);
     const rows = await this.transactionRepository
@@ -239,10 +243,15 @@ export class SmbService {
         't.debit AS debit',
         't.credit AS credit',
         't.transactionDate AS "date"',
-        't.counterpartyName AS "counterpartyName"',
-        't.paymentPurpose AS "paymentPurpose"',
+        // Another member's private rows are matched (and shown) by date and
+        // amount only, not by what they were.
+        `${redactedSql('t', 't.counterparty_name')} AS "counterpartyName"`,
+        `${redactedSql('t', 't.payment_purpose')} AS "paymentPurpose"`,
       ])
-      .where('t.workspaceId = :workspaceId', { workspaceId })
+      .where('t.workspaceId = :workspaceId', {
+        workspaceId,
+        [PRIVACY_VIEWER_PARAM]: viewerMemberId,
+      })
       .andWhere('(t.statementId IS NULL OR s.deletedAt IS NULL)')
       .andWhere('(s.status IS NULL OR s.status NOT IN (:...excluded))', {
         excluded: [StatementStatus.ERROR, StatementStatus.PROCESSING],

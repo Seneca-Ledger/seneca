@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as xlsx from 'xlsx';
@@ -276,6 +277,8 @@ async function writePdf(doc: ReportDocument, filePath: string): Promise<void> {
 /**
  * Renders `doc` into `targetDir` in the requested format.
  * `baseName` must already be filesystem-safe (it is built from a template id and ISO dates).
+ * `fileName` is what the reader sees; the file on disk carries a random prefix,
+ * because the same template and period always give the same `baseName`.
  */
 export async function writeReportFile(
   doc: ReportDocument,
@@ -284,7 +287,7 @@ export async function writeReportFile(
   targetDir: string,
 ): Promise<ReportFile> {
   const fileName = `${baseName}.${EXTENSIONS[format]}`;
-  const filePath = path.join(targetDir, fileName);
+  const filePath = path.join(targetDir, `${randomUUID()}-${fileName}`);
 
   if (format === 'excel') {
     writeExcel(doc, filePath);

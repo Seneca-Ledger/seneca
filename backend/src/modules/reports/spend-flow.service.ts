@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository, SelectQueryBuilder } from 'typeorm';
 import { onlyFlows } from '../../common/utils/counted-transactions.util';
 import { applyOwnerFilter, parseOwnerFilter } from '../../common/utils/transaction-owner.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
 import type { SpendFlowQuery } from '../../contracts';
 import { Category } from '../../entities/category.entity';
 import { FileType } from '../../entities/statement.entity';
@@ -55,8 +56,12 @@ export class SpendFlowService {
   ): Promise<SpendFlowResponse> {
     const type = query.type ?? 'expense';
 
-    // Same merchant key as goal flow and subscription detection.
-    const merchant = 'LOWER(TRIM(COALESCE(t.vendor_normalized, t.counterparty_name)))';
+    // Same merchant key as goal flow and subscription detection. Another
+    // member's private rows count under the placeholder, key and label alike.
+    const merchant = redactedSql(
+      't',
+      'LOWER(TRIM(COALESCE(t.vendor_normalized, t.counterparty_name)))',
+    );
     const qb = this.transactionRepository
       .createQueryBuilder('t')
       .leftJoin('t.statement', 'statement')
@@ -64,7 +69,7 @@ export class SpendFlowService {
       .addSelect(merchant, 'merchantKey')
       // vendor_normalized is stored lower-cased: fine as a key, not as a label.
       .addSelect(
-        'COALESCE(MAX(TRIM(t.counterparty_name)), MAX(TRIM(t.vendor_normalized)))',
+        `COALESCE(MAX(${redactedSql('t', 'TRIM(t.counterparty_name)')}), MAX(${redactedSql('t', 'TRIM(t.vendor_normalized)')}))`,
         'merchantName',
       )
       .addSelect('t.currency', 'currency')
@@ -76,7 +81,8 @@ export class SpendFlowService {
       .andWhere('t.is_duplicate = false')
       .andWhere('(t.statement_id IS NULL OR statement.deleted_at IS NULL)')
       // Money moved between the user's own accounts is neither spending nor income.
-      .andWhere('t.transfer_pair_id IS NULL');
+      .andWhere('t.transfer_pair_id IS NULL')
+      .setParameter(PRIVACY_VIEWER_PARAM, selfMemberId);
     onlyFlows(qb, 't');
     applyOwnerFilter(qb, 't', parseOwnerFilter(query.owner, selfMemberId));
 

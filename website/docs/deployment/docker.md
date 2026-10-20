@@ -118,7 +118,23 @@ restart it. `MAP_PBF_URL` selects the OpenStreetMap extract. See [Receipt Maps](
 ## Reverse proxy
 
 Terminate HTTPS in front of the stack and forward `X-Forwarded-For` and `X-Forwarded-Proto`. The backend trusts one
-proxy hop, so rate limits key on the real client IP.
+proxy hop by default, so rate limits key on the real client IP.
+
+That trust is only safe while the proxy is the way in. Compose publishes the API on `BACKEND_PORT` (3001) on all
+interfaces, and a client that connects to it directly can send its own `X-Forwarded-For` and choose the IP the login
+and password-reset limits count against. Either keep that port closed to everything but the proxy (firewall, or
+`"127.0.0.1:${BACKEND_PORT:-3001}:3001"` in `docker-compose.yml` when the browser reaches the API through the proxy), or
+set `TRUST_PROXY` to the proxy's networks instead of a hop count:
+
+```bash
+# proxy on this host or in the Docker network
+TRUST_PROXY=loopback, linklocal, uniquelocal
+# or: proxy elsewhere in a private network
+TRUST_PROXY=10.0.0.0/8
+```
+
+Direct clients with a public address are then never believed. Have the proxy replace, not append to, a client's own
+`X-Forwarded-For` (Caddy does this by default; in nginx use `proxy_set_header X-Forwarded-For $remote_addr`).
 
 ## Health checks
 

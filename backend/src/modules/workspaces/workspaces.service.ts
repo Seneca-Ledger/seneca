@@ -13,7 +13,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { render } from '@react-email/render';
 import nodemailer from 'nodemailer';
 import * as React from 'react';
-import type { Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
@@ -42,7 +42,10 @@ import {
 } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { VatStatus, WorkspaceKind } from '../../entities/workspace.entity';
-import { ApplicationSettingsService } from '../application-settings/application-settings.service';
+import {
+  ApplicationSettingsService,
+  smtpConnectTarget,
+} from '../application-settings/application-settings.service';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { BalanceService } from '../balance/balance.service';
@@ -186,10 +189,17 @@ export class WorkspacesService {
       order: { createdAt: 'ASC' },
     });
 
-    const invitations = await this.invitationRepository.find({
-      where: { workspaceId: workspace.id, status: WorkspaceInvitationStatus.PENDING },
-      order: { createdAt: 'DESC' },
-    });
+    // Open invitations carry their tokens, so only those who may invite see
+    // them: the home workspace of someone who joined by invitation is the
+    // inviter's, and a viewer there must not get links meant for others.
+    const callerRole = members.find(member => member.userId === currentUser.id)?.role;
+    const invitations =
+      callerRole === WorkspaceRole.OWNER || callerRole === WorkspaceRole.ADMIN
+        ? await this.invitationRepository.find({
+            where: { workspaceId: workspace.id, status: WorkspaceInvitationStatus.PENDING },
+            order: { createdAt: 'DESC' },
+          })
+        : [];
 
     const invitationResponses = await Promise.all(
       invitations.map(async invite => ({
@@ -201,7 +211,7 @@ export class WorkspacesService {
         token: invite.token,
         expiresAt: invite.expiresAt,
         createdAt: invite.createdAt,
-        link: await this.buildInvitationLink(invite.token, requestAppOrigin, currentUser),
+        link: await this.buildInvitationLink(invite.token, workspace.id, requestAppOrigin),
       })),
     );
 
@@ -508,6 +518,18 @@ export class WorkspacesService {
 
     await this.workspaceMemberRepository.delete(member.id);
 
+    // The links that let them in stop working with the membership.
+    if (member.user?.email) {
+      await this.invitationRepository.update(
+        {
+          workspaceId,
+          email: member.user.email.trim().toLowerCase(),
+          status: In([WorkspaceInvitationStatus.PENDING, WorkspaceInvitationStatus.ACCEPTED]),
+        },
+        { status: WorkspaceInvitationStatus.CANCELLED },
+      );
+    }
+
     if (member.user?.workspaceId === workspaceId) {
       await this.userRepository.update(member.userId, { workspaceId: null });
     }
@@ -553,6 +575,11 @@ export class WorkspacesService {
 
     const email = dto.email.trim().toLowerCase();
     const role = toEnum(WorkspaceRole, dto.role) || WorkspaceRole.MEMBER;
+    // Ownership moves only by transfer: an owner-role member can be neither
+    // removed nor demoted, so an admin could plant one for good.
+    if (role === WorkspaceRole.OWNER) {
+      throw new BadRequestException(appError('INVITATION_INVALID'));
+    }
     const permissions: WorkspaceMemberPermissions | null =
       role === WorkspaceRole.MEMBER
         ? ((dto.permissions as WorkspaceMemberPermissions | undefined) ?? null)
@@ -587,10 +614,11 @@ export class WorkspacesService {
       await this.auditInvitationCreated(workspaceId, currentUser.id, updated);
       const invitationLink = await this.buildInvitationLink(
         updated.token,
+        workspaceId,
         requestAppOrigin,
-        currentUser,
       );
       await this.sendInvitationEmail({
+        workspaceId,
         email,
         workspaceName: workspace.name,
         invitationLink,
@@ -625,10 +653,11 @@ export class WorkspacesService {
     await this.auditInvitationCreated(workspaceId, currentUser.id, savedInvitation);
     const invitationLink = await this.buildInvitationLink(
       savedInvitation.token,
+      workspaceId,
       requestAppOrigin,
-      currentUser,
     );
     await this.sendInvitationEmail({
+      workspaceId,
       email,
       workspaceName: workspace.name,
       invitationLink,
@@ -653,9 +682,10 @@ export class WorkspacesService {
     return this.inviteMember(workspace.id, currentUser, dto, requestAppOrigin);
   }
 
-  private async buildInvitationLink(token: string, requestAppOrigin?: string, user?: User) {
+  /** The link is to `workspaceId`, so its public URL is the one that counts. */
+  private async buildInvitationLink(token: string, workspaceId: string, requestAppOrigin?: string) {
     const settingsOrigin = this.normalizeToOrigin(
-      (await this.applicationSettingsService?.getAppSettings(user))?.publicUrl,
+      (await this.applicationSettingsService?.getAppSettings(workspaceId))?.publicUrl,
     );
     const envOrigin = this.normalizeToOrigin(process.env.APP_URL || process.env.FRONTEND_URL);
     const requestOrigin = this.normalizeToOrigin(requestAppOrigin);
@@ -740,6 +770,33 @@ export class WorkspacesService {
     };
   }
 
+  /** Refuses an expired, revoked or otherwise unusable invitation. */
+  private async assertInvitationUsable(invitation: WorkspaceInvitation): Promise<void> {
+    if (
+      invitation.status === WorkspaceInvitationStatus.PENDING &&
+      invitation.expiresAt &&
+      invitation.expiresAt.getTime() < Date.now()
+    ) {
+      invitation.status = WorkspaceInvitationStatus.EXPIRED;
+      await this.invitationRepository.save(invitation);
+      throw new BadRequestException(appError('INVITATION_EXPIRED'));
+    }
+
+    if (invitation.status === WorkspaceInvitationStatus.CANCELLED) {
+      throw new BadRequestException(appError('INVITATION_REVOKED'));
+    }
+
+    if (
+      ![WorkspaceInvitationStatus.PENDING, WorkspaceInvitationStatus.ACCEPTED].includes(
+        invitation.status,
+      ) ||
+      // Written before invitations refused `owner`: ownership moves only by transfer.
+      invitation.role === WorkspaceRole.OWNER
+    ) {
+      throw new BadRequestException(appError('INVITATION_UNAVAILABLE'));
+    }
+  }
+
   async acceptInvitation(currentUser: User, token: string) {
     const trimmedToken = token?.trim();
     if (!trimmedToken) {
@@ -761,27 +818,7 @@ export class WorkspacesService {
       throw new ForbiddenException(appError('INVITATION_WRONG_ACCOUNT', { email: expectedEmail }));
     }
 
-    if (
-      invitation.status === WorkspaceInvitationStatus.PENDING &&
-      invitation.expiresAt &&
-      invitation.expiresAt.getTime() < Date.now()
-    ) {
-      invitation.status = WorkspaceInvitationStatus.EXPIRED;
-      await this.invitationRepository.save(invitation);
-      throw new BadRequestException(appError('INVITATION_EXPIRED'));
-    }
-
-    if (invitation.status === WorkspaceInvitationStatus.CANCELLED) {
-      throw new BadRequestException(appError('INVITATION_REVOKED'));
-    }
-
-    if (
-      ![WorkspaceInvitationStatus.PENDING, WorkspaceInvitationStatus.ACCEPTED].includes(
-        invitation.status,
-      )
-    ) {
-      throw new BadRequestException(appError('INVITATION_UNAVAILABLE'));
-    }
+    await this.assertInvitationUsable(invitation);
 
     const workspace = await this.workspaceRepository.findOne({
       where: { id: invitation.workspaceId },
@@ -794,6 +831,12 @@ export class WorkspacesService {
     const existingMembership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId: workspace.id, userId: currentUser.id },
     });
+
+    // Accepting twice is harmless while the membership lasts. Once the member
+    // is removed, the link they accepted must not bring them back.
+    if (!existingMembership && invitation.status !== WorkspaceInvitationStatus.PENDING) {
+      throw new BadRequestException(appError('INVITATION_UNAVAILABLE'));
+    }
 
     let memberAdded = false;
     if (!existingMembership) {
@@ -1207,6 +1250,11 @@ export class WorkspacesService {
       throw new ForbiddenException(appError('WORKSPACE_NOT_A_MEMBER'));
     }
 
+    // The flag lives on the workspace, so every member sees it: a setting, not a preference.
+    if (![WorkspaceRole.OWNER, WorkspaceRole.ADMIN].includes(membership.role)) {
+      throw new ForbiddenException(appError('WORKSPACE_ADMIN_REQUIRED_TO_EDIT_SETTINGS'));
+    }
+
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
     });
@@ -1249,6 +1297,8 @@ export class WorkspacesService {
   }
 
   private async sendInvitationEmail(params: {
+    /** The workspace invited to; its SMTP server sends the mail. */
+    workspaceId: string;
     email: string;
     workspaceName: string;
     invitationLink: string;
@@ -1256,7 +1306,7 @@ export class WorkspacesService {
     role?: WorkspaceRole | null;
     user?: User;
   }) {
-    const smtp = await this.applicationSettingsService?.getSmtpSettings(params.user);
+    const smtp = await this.applicationSettingsService?.getSmtpSettings(params.workspaceId);
     // The invitee usually has no account yet, so the inviter's locale is the
     // only signal we have for which language to write in.
     const locale = params.user?.locale ?? 'en';
@@ -1283,20 +1333,20 @@ export class WorkspacesService {
       locale,
     });
 
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: Number.isFinite(smtpPort) ? smtpPort : 587,
-      secure: smtp?.secure ?? process.env.SMTP_SECURE === 'true',
-      auth:
-        (smtp?.user && smtp?.pass) || (process.env.SMTP_USER && process.env.SMTP_PASS)
-          ? {
-              user: smtp?.user || process.env.SMTP_USER,
-              pass: smtp?.pass || process.env.SMTP_PASS,
-            }
-          : undefined,
-    });
-
     try {
+      // Inside the try: a host that no longer resolves publicly is a failed mail.
+      const transporter = nodemailer.createTransport({
+        ...(await smtpConnectTarget(smtp, smtpHost)),
+        port: Number.isFinite(smtpPort) ? smtpPort : 587,
+        secure: smtp?.secure ?? process.env.SMTP_SECURE === 'true',
+        auth:
+          (smtp?.user && smtp?.pass) || (process.env.SMTP_USER && process.env.SMTP_PASS)
+            ? {
+                user: smtp?.user || process.env.SMTP_USER,
+                pass: smtp?.pass || process.env.SMTP_PASS,
+              }
+            : undefined,
+      });
       const html = await render(emailReact);
       const timeoutMs =
         smtp?.timeoutMs || Number.parseInt(process.env.SMTP_TIMEOUT_MS || '10000', 10);

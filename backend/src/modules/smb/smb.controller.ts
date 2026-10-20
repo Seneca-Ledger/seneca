@@ -1,5 +1,5 @@
 import { Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
@@ -17,8 +17,8 @@ export class ReconciliationController {
   @Get()
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
   @SchemaResponse(ReconciliationResponse)
-  async get(@WorkspaceId() workspaceId: string) {
-    return this.smbService.getReconciliation(workspaceId);
+  async get(@WorkspaceId() workspaceId: string, @WorkspaceMemberId() selfMemberId: string | null) {
+    return this.smbService.getReconciliation(workspaceId, selfMemberId);
   }
 
   @Get('ageing')

@@ -18,6 +18,7 @@ describe('DashboardController', () => {
       activeWorkspaceId,
       '30d',
       undefined,
+      null,
     );
   });
 
@@ -37,6 +38,7 @@ describe('DashboardController', () => {
       activeWorkspaceId,
       'month',
       '2026-03-01',
+      null,
     );
   });
 
@@ -56,6 +58,7 @@ describe('DashboardController', () => {
       activeWorkspaceId,
       '30d',
       undefined,
+      null,
     );
   });
 
@@ -71,7 +74,7 @@ describe('DashboardController', () => {
     const result = await controller.getTrends(user, activeWorkspaceId, 30);
 
     expect(result).toEqual({ ok: true });
-    expect(dashboardService.getTrends).toHaveBeenCalledWith(activeWorkspaceId, 30, undefined);
+    expect(dashboardService.getTrends).toHaveBeenCalledWith(activeWorkspaceId, 30, undefined, null);
   });
 
   it('passes a picked month to trends and rejects a malformed one', async () => {
@@ -80,7 +83,7 @@ describe('DashboardController', () => {
     const user = { id: 'user-1' } as any;
 
     await controller.getTrends(user, 'active-workspace', 30, '2026-07');
-    expect(dashboardService.getTrends).toHaveBeenCalledWith('active-workspace', 30, '2026-07');
+    expect(dashboardService.getTrends).toHaveBeenCalledWith('active-workspace', 30, '2026-07', null);
 
     await expect(controller.getTrends(user, 'active-workspace', 30, 'July')).rejects.toThrow(
       'month must be YYYY-MM',

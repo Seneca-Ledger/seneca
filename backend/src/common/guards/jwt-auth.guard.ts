@@ -9,6 +9,9 @@ import { AuthGuard } from '@nestjs/passport';
 import type { ApiKeysService } from '../../modules/api-keys/api-keys.service';
 import { IS_PUBLIC_KEY } from '../../modules/auth/decorators/public.decorator';
 import type { AuthenticatedUser } from '../../modules/auth/strategies/jwt.strategy';
+import { API_KEY_ALLOWED_KEY } from '../decorators/api-key-allowed.decorator';
+import { PERMISSIONS_KEY } from '../decorators/require-permission.decorator';
+import type { Permission } from '../enums/permissions.enum';
 import type { AuthenticatedRequest } from '../interfaces/authenticated-request.interface';
 
 @Injectable()
@@ -36,7 +39,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     const apiKey = request.headers['x-api-key'] as string | undefined;
 
     if (apiKey) {
-      return this.authenticateWithApiKey(apiKey, request);
+      return this.authenticateWithApiKey(apiKey, request, context);
     }
 
     return super.canActivate(context) as Promise<boolean>;
@@ -45,6 +48,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   private async authenticateWithApiKey(
     rawKey: string,
     request: AuthenticatedRequest,
+    context: ExecutionContext,
   ): Promise<boolean> {
     let apiKeysService = this.apiKeysService;
     if (!apiKeysService) {
@@ -78,6 +82,26 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
     request.headers['x-workspace-id'] = apiKey.workspaceId;
 
+    if (request.apiKey.scopes !== null && !this.checksScopes(context)) {
+      throw new ForbiddenException('This route does not accept scoped API keys');
+    }
+
     return true;
+  }
+
+  /**
+   * Scopes are enforced by `PermissionsGuard`, against the permissions a route
+   * declares. A route that declares none would run with the key owner's full
+   * rights (deleting a workspace, inviting admins), so a scoped key may use it
+   * only when the route is marked `@ApiKeyAllowed()`. Legacy keys without
+   * scopes keep their owner's reach.
+   */
+  private checksScopes(context: ExecutionContext): boolean {
+    const targets = [context.getHandler(), context.getClass()];
+    const required = this.reflector.getAllAndOverride<Permission[]>(PERMISSIONS_KEY, targets);
+    return (
+      (required?.length ?? 0) > 0 ||
+      this.reflector.getAllAndOverride<boolean>(API_KEY_ALLOWED_KEY, targets) === true
+    );
   }
 }

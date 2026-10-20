@@ -21,6 +21,9 @@ const DIGEST_HOUR = 9;
 const WEEKLY_DIGEST_WEEKDAY = 1; // Monday
 const DIGEST_BATCH_LIMIT = 200;
 
+const digestText = (items: Notification[]) =>
+  items.map(item => `• ${item.title}\n  ${item.message}`).join('\n\n');
+
 @Injectable()
 export class NotificationDeliveryService {
   private readonly logger = new Logger(NotificationDeliveryService.name);
@@ -84,7 +87,7 @@ export class NotificationDeliveryService {
         to: user.email,
         subject: notification.title,
         text: notification.message,
-        user,
+        workspaceId: notification.workspaceId,
       });
     }
 
@@ -211,6 +214,31 @@ export class NotificationDeliveryService {
     }
   }
 
+  /**
+   * One digest mail per workspace, each through that workspace's SMTP server:
+   * a single mail would have to borrow one tenant's server for the others.
+   * Answers the notifications whose mail went out.
+   */
+  private async mailDigest(pending: Notification[], user: User): Promise<Notification[]> {
+    const byWorkspace = new Map<string, Notification[]>();
+    for (const item of pending) {
+      byWorkspace.set(item.workspaceId, [...(byWorkspace.get(item.workspaceId) ?? []), item]);
+    }
+    const emailed: Notification[] = [];
+    for (const [workspaceId, items] of byWorkspace) {
+      const sent = await this.mailerService.send({
+        to: user.email,
+        subject: `${APP_NAME}: ${items.length}`,
+        text: digestText(items),
+        workspaceId,
+      });
+      if (sent) {
+        emailed.push(...items);
+      }
+    }
+    return emailed;
+  }
+
   private async sendDigest(
     pending: Notification[],
     user: User,
@@ -218,13 +246,14 @@ export class NotificationDeliveryService {
   ): Promise<void> {
     const channels = [...new Set(pending.flatMap(item => item.pendingChannels ?? []))];
     const subject = `${APP_NAME}: ${pending.length}`;
-    const body = pending.map(item => `• ${item.title}\n  ${item.message}`).join('\n\n');
+    const body = digestText(pending);
 
     let delivered = true;
+    let emailed: Notification[] = [];
 
     if (channels.includes(NotificationChannel.EMAIL)) {
-      delivered =
-        (await this.mailerService.send({ to: user.email, subject, text: body, user })) && delivered;
+      emailed = await this.mailDigest(pending, user);
+      delivered = emailed.length === pending.length;
     }
 
     if (channels.includes(NotificationChannel.TELEGRAM) && user.telegramChatId) {
@@ -250,6 +279,14 @@ export class NotificationDeliveryService {
     }
 
     if (!delivered) {
+      // A workspace whose mail did go out does not get it again with the retry.
+      for (const item of emailed) {
+        await this.notificationRepository.update(item.id, {
+          pendingChannels: (item.pendingChannels ?? []).filter(
+            channel => channel !== NotificationChannel.EMAIL,
+          ),
+        });
+      }
       return;
     }
 

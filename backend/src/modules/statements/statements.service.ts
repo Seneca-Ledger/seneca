@@ -29,7 +29,12 @@ import { resolveFileType, validateFile } from '../../common/utils/file-validator
 import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/filename.util';
 import { toMinor } from '../../common/utils/money.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
+import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../common/utils/transaction-privacy.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import type {
   ConvertDroppedSampleBody,
   CreateManualExpenseBody,
@@ -203,6 +208,7 @@ export class StatementsService {
   private async loadTransactionSummaries(
     workspaceId: string,
     statementIds: string[],
+    viewerMemberId: string | null,
   ): Promise<Map<string, StatementTransactionSummary>> {
     if (statementIds.length === 0) {
       return new Map();
@@ -221,7 +227,9 @@ export class StatementsService {
       .leftJoin('transaction.wallet', 'wallet')
       .select('transaction.statementId', 'statementId')
       .addSelect(
-        "(ARRAY_REMOVE(ARRAY_AGG(NULLIF(transaction.paymentPurpose, '') ORDER BY transaction.transactionDate ASC, transaction.createdAt ASC), NULL))[1]",
+        // The first purpose the viewer may read: another member's private row
+        // does not get to describe the whole document.
+        `(ARRAY_REMOVE(ARRAY_AGG(NULLIF(transaction.paymentPurpose, '') ORDER BY transaction.transactionDate ASC, transaction.createdAt ASC) FILTER (WHERE ${readablePrivateSql('transaction')}), NULL))[1]`,
         'description',
       )
       .addSelect(
@@ -239,6 +247,7 @@ export class StatementsService {
       .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.statementId IN (:...statementIds)', { statementIds })
       .groupBy('transaction.statementId')
+      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
       .getRawMany<StatementTransactionSummaryRow>();
 
     return new Map(
@@ -293,9 +302,9 @@ export class StatementsService {
   }
 
   /** Who owns the wallet, or null when it is shared. */
-  private async walletOwnerMemberId(walletId: string): Promise<string | null> {
+  private async walletOwnerMemberId(walletId: string, workspaceId: string): Promise<string | null> {
     const wallet = await this.walletRepository.findOne({
-      where: { id: walletId },
+      where: { id: walletId, workspaceId },
       select: ['ownerMemberId'],
     });
     return wallet?.ownerMemberId ?? null;
@@ -665,6 +674,15 @@ export class StatementsService {
 
     const walletId =
       payload.transaction.walletId || (originalTransaction?.walletId as string) || null;
+    const categoryId =
+      payload.transaction.categoryId || (originalTransaction?.categoryId as string) || null;
+    const branchId =
+      payload.transaction.branchId || (originalTransaction?.branchId as string) || null;
+    await assertWorkspaceRefs(this.transactionRepository.manager, workspaceId, {
+      categoryId,
+      branchId,
+      walletId,
+    });
 
     const transaction = this.transactionRepository.create({
       workspaceId,
@@ -701,13 +719,12 @@ export class StatementsService {
         payload.transaction.paymentPurpose?.trim() ||
         String(originalTransaction?.paymentPurpose || '').trim() ||
         'Не указано',
-      categoryId:
-        payload.transaction.categoryId || (originalTransaction?.categoryId as string) || null,
+      categoryId,
       categorySource: payload.transaction.categoryId ? TransactionCategorySource.MANUAL : null,
-      branchId: payload.transaction.branchId || (originalTransaction?.branchId as string) || null,
+      branchId,
       walletId,
       // Same rule as the import path: the row starts on whoever owns the wallet.
-      ownerMemberId: walletId ? await this.walletOwnerMemberId(walletId) : null,
+      ownerMemberId: walletId ? await this.walletOwnerMemberId(walletId, workspaceId) : null,
       article: payload.transaction.article || (originalTransaction?.article as string) || null,
       comments: payload.transaction.comments || (originalTransaction?.comments as string) || null,
       transactionType,
@@ -896,6 +913,7 @@ export class StatementsService {
   async findAll(
     workspaceId: string,
     filters: StatementsQuery = {},
+    viewerMemberId: string | null = null,
   ): Promise<{
     data: Statement[];
     total: number;
@@ -1154,6 +1172,7 @@ export class StatementsService {
     const transactionSummaries = await this.loadTransactionSummaries(
       workspaceId,
       dataRaw.map(statement => statement.id),
+      viewerMemberId,
     );
     const data = await Promise.all(
       dataRaw.map(async st => {

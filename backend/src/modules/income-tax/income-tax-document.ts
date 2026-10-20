@@ -1,6 +1,7 @@
 import * as xlsx from 'xlsx';
 import { APP_NAME } from '../../common/brand';
 import { toCsv } from '../../common/utils/csv.util';
+import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import type { IncomeTaxDraft } from './income-tax.types';
 
 /**
@@ -220,8 +221,9 @@ export function buildIncomeTaxXlsx(draft: IncomeTaxDraft): Buffer {
     rows.map(row => ({
       Line: lineKey,
       Date: row.date,
-      Counterparty: row.counterparty,
-      Category: row.categoryName ?? '',
+      // Bank and user text: a leading = + - @ must not become a formula once edited.
+      Counterparty: neutralizeSpreadsheetFormulaCell(row.counterparty),
+      Category: neutralizeSpreadsheetFormulaCell(row.categoryName ?? ''),
       Currency: row.currency,
       Amount: row.amount,
       'Exchange rate': row.exchangeRate,

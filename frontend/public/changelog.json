@@ -1,14 +1,934 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "2891b98b3d7df26ac65c977698470ac28cf07dd1"
+      "main": "d6289053d363b21f614d9b0040442051d7c57fd3"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-19T13:34:02.669Z",
+    "lastGeneratedAt": "2026-10-20T09:11:41.810Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-20-d628905",
+      "version": "main-d628905",
+      "branch": "main",
+      "date": "2026-10-20T09:11:41.810Z",
+      "title": "Release update - October 20, 2026",
+      "summary": "This release includes 1 feature and 36 fixes.",
+      "markdown": "## Features\n- **security**: TRUST_PROXY setting for which peers may set the client IP\n\n## Fixes\n- **egress**: Block NAT64/6to4/site-local IPv6, drop credentials on cross-origin redirects\n- **reports**: Keep generated report files per workspace\n- **custom-tables**: Name scheduled export files from fixed parts\n- **telegram**: Act for a chat only on the bot that serves its workspace\n- **telegram**: Send-report only to the caller's own connected chat\n- **payables**: Unique export file and formula-safe cells\n- **exports**: Neutralise spreadsheet formulas in remaining exports\n- **mail**: Send workspace mail through that workspace's SMTP, never the home one\n- **users**: PUT /users/:id no longer changes the e-mail address\n- **workspaces**: Close owner-role invites, invitation replay and token exposure\n- **api-keys**: Keep scoped keys off routes without declared permissions\n- **classification**: Keep categorization rule targets in the rule's workspace\n- **receipts**: Only book receipts under the workspace's own categories\n- **statements**: Check ids when converting a dropped sample\n- **invoices,metals,webhooks**: Scope line categories, lot owners and endpoint defaults\n- **backups**: Restore only workspace tables and cut references outside the archive\n- **backups**: Cap what an uploaded archive may unpack and throttle imports\n- **push**: Egress-check push endpoints and stop endpoint takeover\n- **gmail**: Send the receipt xlsx export in the response\n- **classification**: Require TRANSACTION_EDIT and keep manual categories\n- **authz**: Gate balance-sheet, investment and metals writes on wallet permissions\n- **authz**: Enforce API-key scopes on entity imports and search\n- **webhooks**: Require INTEGRATION_MANAGE to manage subscriptions and endpoints\n- **authz**: Close read-only gaps on integration and settings routes\n- **storage**: Drop removed uploaders and send bulk delete through the trash\n- **reports**: Pause schedules whose creator can no longer export\n- **settings**: Refuse a local model path from the API, model upload instance-admin only\n- **integrations**: Probe a new S3 endpoint through the pinned-lookup agents\n- **transactions**: Redact private rows on every route that hands one back\n- **privacy**: Keep private merchants out of merchant-keyed aggregates\n- **privacy**: Search, receipt picker, documents list and bill matching\n- **privacy**: Custom-table fill, statement CSV export and private-row notes\n- **privacy**: Dashboard, reports and forecast name no one else's private rows\n- **tax**: No private counterparties in returns, USt-VA, income tax, DATEV counts\n- **entity-imports**: Let scoped API keys reach the import routes that check scopes\n- **invoices**: Show a skeleton instead of a dash while loading",
+      "commits": [
+        {
+          "sha": "32459bb0d9628fb52ae825211d82d56b97ab623c",
+          "shortSha": "32459bb0",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T21:12:36Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "99eb8a33344f983fbbd261a5be0062a113c9ca3d",
+          "shortSha": "99eb8a33",
+          "subject": "chore(tour): regenerate guide screenshots [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T21:59:14Z",
+          "files": [
+            "frontend/public/tour/be/dashboard-categories-dark.webp",
+            "frontend/public/tour/be/dashboard-categories-light.webp",
+            "frontend/public/tour/bg/dashboard-categories-dark.webp",
+            "frontend/public/tour/bs/dashboard-categories-light.webp",
+            "frontend/public/tour/de/dashboard-categories-dark.webp",
+            "frontend/public/tour/de/dashboard-categories-light.webp",
+            "frontend/public/tour/fr/dashboard-categories-dark.webp",
+            "frontend/public/tour/fr/dashboard-categories-light.webp",
+            "frontend/public/tour/hr/dashboard-categories-dark.webp",
+            "frontend/public/tour/id/dashboard-categories-dark.webp",
+            "frontend/public/tour/id/dashboard-categories-light.webp",
+            "frontend/public/tour/ja/dashboard-categories-dark.webp",
+            "frontend/public/tour/ja/dashboard-categories-light.webp",
+            "frontend/public/tour/mk/dashboard-categories-dark.webp",
+            "frontend/public/tour/mk/dashboard-categories-light.webp",
+            "frontend/public/tour/nl/dashboard-categories-dark.webp",
+            "frontend/public/tour/nl/dashboard-categories-light.webp",
+            "frontend/public/tour/pt/dashboard-categories-dark.webp",
+            "frontend/public/tour/pt/dashboard-categories-light.webp",
+            "frontend/public/tour/ru/dashboard-categories-dark.webp",
+            "frontend/public/tour/ru/dashboard-categories-light.webp",
+            "frontend/public/tour/sk/dashboard-categories-dark.webp",
+            "frontend/public/tour/sk/dashboard-categories-light.webp",
+            "frontend/public/tour/sl/dashboard-categories-dark.webp",
+            "frontend/public/tour/uk/dashboard-categories-dark.webp",
+            "frontend/public/tour/uk/dashboard-categories-light.webp"
+          ]
+        },
+        {
+          "sha": "5c852d2f1c65c8a9845637de0681c9f0d282741a",
+          "shortSha": "5c852d2f",
+          "subject": "fix(egress): block NAT64/6to4/site-local IPv6, drop credentials on cross-origin redirects",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:12:17+03:00",
+          "files": [
+            "backend/@tests/unit/common/utils/egress-url.util.spec.ts",
+            "backend/src/common/utils/egress-url.util.ts"
+          ]
+        },
+        {
+          "sha": "2ad5818f07169922a576cdd771969446d80e384d",
+          "shortSha": "2ad5818f",
+          "subject": "fix(reports): keep generated report files per workspace",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:12:39+03:00",
+          "files": [
+            "backend/@tests/e2e/report-files-isolation.e2e-spec.ts",
+            "backend/@tests/unit/modules/reports/reports.service.spec.ts",
+            "backend/src/modules/reports/report-document.util.ts",
+            "backend/src/modules/reports/reports.service.ts"
+          ]
+        },
+        {
+          "sha": "f9c0e67e414d3b67c3414c84a3abf971e8a0e604",
+          "shortSha": "f9c0e67e",
+          "subject": "fix(custom-tables): name scheduled export files from fixed parts",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:16:44+03:00",
+          "files": [
+            "backend/@tests/e2e/custom-table-export-schedule-path.e2e-spec.ts",
+            "backend/@tests/unit/custom-tables/custom-table-export-schedules.service.spec.ts",
+            "backend/src/modules/custom-tables/custom-table-export-schedules.service.ts"
+          ]
+        },
+        {
+          "sha": "bb0693148004537ed22ce31ca33ccf83c2d37f22",
+          "shortSha": "bb069314",
+          "subject": "fix(telegram): act for a chat only on the bot that serves its workspace",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:17:25+03:00",
+          "files": [
+            "backend/@tests/e2e/telegram-connect.e2e-spec.ts",
+            "backend/@tests/unit/modules/telegram/telegram-inbound.service.spec.ts",
+            "backend/@tests/unit/modules/telegram/telegram.service.spec.ts",
+            "backend/src/modules/telegram/telegram.service.ts"
+          ]
+        },
+        {
+          "sha": "03e05eafa1c26c39f69f9ce7a0bf3f4df4b25490",
+          "shortSha": "03e05eaf",
+          "subject": "fix(telegram): send-report only to the caller's own connected chat",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:17:25+03:00",
+          "files": [
+            "backend/@tests/unit/modules/telegram/telegram.service.spec.ts",
+            "backend/src/modules/telegram/telegram.service.ts"
+          ]
+        },
+        {
+          "sha": "e24d7b625974a73b1e60b5bfa4eef0b27635f343",
+          "shortSha": "e24d7b62",
+          "subject": "fix(payables): unique export file and formula-safe cells",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:22:40+03:00",
+          "files": [
+            "backend/@tests/unit/modules/payables/payables-export.service.spec.ts",
+            "backend/src/modules/payables/payables-export.service.ts"
+          ]
+        },
+        {
+          "sha": "598a4b367a903a8c1245c364c452f85e3dffd6e2",
+          "shortSha": "598a4b36",
+          "subject": "fix(exports): neutralise spreadsheet formulas in remaining exports",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:22:40+03:00",
+          "files": [
+            "backend/@tests/unit/custom-tables/custom-tables-export.service.spec.ts",
+            "backend/@tests/unit/modules/income-tax/income-tax-document.spec.ts",
+            "backend/@tests/unit/modules/subscriptions/subscriptions.controller.spec.ts",
+            "backend/@tests/unit/modules/tax/tax-return-document.spec.ts",
+            "backend/src/modules/custom-tables/custom-tables.service.ts",
+            "backend/src/modules/income-tax/income-tax-document.ts",
+            "backend/src/modules/subscriptions/subscriptions.controller.ts",
+            "backend/src/modules/tax/tax-return-document.ts"
+          ]
+        },
+        {
+          "sha": "9cbf5a027e91d554e9db2b710dd496f9de05ec52",
+          "shortSha": "9cbf5a02",
+          "subject": "fix(mail): send workspace mail through that workspace's SMTP, never the home one",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:25:07+03:00",
+          "files": [
+            "backend/@tests/e2e/workspace-smtp.e2e-spec.ts",
+            "backend/@tests/unit/modules/application-settings/application-settings.service.spec.ts",
+            "backend/@tests/unit/modules/auth/password-reset.service.spec.ts",
+            "backend/@tests/unit/modules/mailer/mailer.service.spec.ts",
+            "backend/@tests/unit/modules/notifications/notification-delivery.service.spec.ts",
+            "backend/src/modules/application-settings/application-settings.service.ts",
+            "backend/src/modules/auth/password-reset.service.ts",
+            "backend/src/modules/invoices/invoice-delivery.service.ts",
+            "backend/src/modules/mailer/mailer.service.ts",
+            "backend/src/modules/notifications/notification-delivery.service.ts",
+            "backend/src/modules/reports/report-schedules.service.ts",
+            "backend/src/modules/smb/smb.service.ts",
+            "backend/src/modules/users/services/email-change.service.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts"
+          ]
+        },
+        {
+          "sha": "904869b614f31bb7fca60453dfd48fc17dbb18e4",
+          "shortSha": "904869b6",
+          "subject": "fix(users): PUT /users/:id no longer changes the e-mail address",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:25:43+03:00",
+          "files": [
+            "backend/@tests/e2e/helpers/leak-guard.ts",
+            "backend/@tests/e2e/users.e2e-spec.ts",
+            "backend/@tests/unit/modules/users/users.service.spec.ts",
+            "backend/src/contracts/requests/users.ts",
+            "backend/src/modules/users/users.service.ts",
+            "frontend/app/lib/contracts/requests/users.ts",
+            "packages/contracts/src/requests/users.ts"
+          ]
+        },
+        {
+          "sha": "df8ece183cc39f1f8c84f8b3c026b067ba9833c0",
+          "shortSha": "df8ece18",
+          "subject": "fix(workspaces): close owner-role invites, invitation replay and token exposure",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:25:43+03:00",
+          "files": [
+            "backend/@tests/e2e/workspaces.e2e-spec.ts",
+            "backend/@tests/unit/modules/workspaces/workspaces.service.logic.spec.ts",
+            "backend/src/contracts/requests/workspaces.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts",
+            "frontend/app/(main)/workspaces/components/WorkspaceMembersView.tsx",
+            "frontend/app/(main)/workspaces/components/hooks/useMemberManagement.ts",
+            "frontend/app/lib/contracts/requests/workspaces.ts",
+            "packages/contracts/src/requests/workspaces.ts"
+          ]
+        },
+        {
+          "sha": "ecc4a319edc58b23e09b1018e5ad2ad67d6b9285",
+          "shortSha": "ecc4a319",
+          "subject": "fix(api-keys): keep scoped keys off routes without declared permissions",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:25:43+03:00",
+          "files": [
+            "backend/@tests/e2e/api-key-scopes.e2e-spec.ts",
+            "backend/@tests/unit/common/authz/request-permissions.spec.ts",
+            "backend/@tests/unit/modules/auth/guards/jwt-auth.guard.spec.ts",
+            "backend/src/common/authz/request-permissions.ts",
+            "backend/src/common/decorators/api-key-allowed.decorator.ts",
+            "backend/src/common/guards/jwt-auth.guard.ts",
+            "backend/src/contracts/requests/api-keys.ts",
+            "backend/src/modules/api-keys/api-keys.service.ts",
+            "backend/src/modules/mcp/mcp.controller.ts",
+            "frontend/app/lib/contracts/requests/api-keys.ts",
+            "packages/contracts/src/requests/api-keys.ts",
+            "website/docs/guides/mcp.md"
+          ]
+        },
+        {
+          "sha": "3ccc3cb043137ff8710c6d5f75293c7076519022",
+          "shortSha": "3ccc3cb0",
+          "subject": "fix(classification): keep categorization rule targets in the rule's workspace",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:26:37+03:00",
+          "files": [
+            "backend/@tests/unit/modules/classification/categorization-rules.controller.spec.ts",
+            "backend/@tests/unit/modules/classification/category-guessing.spec.ts",
+            "backend/@tests/unit/modules/classification/payee-history.spec.ts",
+            "backend/@tests/unit/modules/classification/services/classification.service.provenance.spec.ts",
+            "backend/@tests/unit/modules/classification/services/classification.service.spec.ts",
+            "backend/src/common/utils/workspace-refs.util.ts",
+            "backend/src/contracts/requests/classification.ts",
+            "backend/src/modules/classification/categorization-rules.controller.ts",
+            "backend/src/modules/classification/services/classification.service.ts",
+            "backend/src/modules/transactions/transactions.service.ts",
+            "frontend/app/lib/contracts/requests/classification.ts",
+            "packages/contracts/src/requests/classification.ts"
+          ]
+        },
+        {
+          "sha": "daa544d09362c84e2e518a3cbe47831c024fb50d",
+          "shortSha": "daa544d0",
+          "subject": "fix(receipts): only book receipts under the workspace's own categories",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:26:37+03:00",
+          "files": [
+            "backend/@tests/unit/modules/receipts/receipts.service.spec.ts",
+            "backend/src/contracts/requests/receipts.ts",
+            "backend/src/modules/gmail/dto/update-parsed-data.dto.ts",
+            "backend/src/modules/gmail/dto/update-receipt.dto.ts",
+            "backend/src/modules/gmail/gmail.controller.ts",
+            "backend/src/modules/receipts/receipts.service.ts",
+            "frontend/app/lib/contracts/requests/receipts.ts",
+            "packages/contracts/src/requests/receipts.ts"
+          ]
+        },
+        {
+          "sha": "c3bc18e7acddb55e6ab7fae2935b4a43cbf3cfde",
+          "shortSha": "c3bc18e7",
+          "subject": "fix(statements): check ids when converting a dropped sample",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:26:37+03:00",
+          "files": [
+            "backend/src/contracts/requests/statements.ts",
+            "backend/src/modules/statements/statements.service.ts",
+            "frontend/app/lib/contracts/requests/statements.ts",
+            "packages/contracts/src/requests/statements.ts"
+          ]
+        },
+        {
+          "sha": "e01992ad858989f711b95553769feefac5b0a3cd",
+          "shortSha": "e01992ad",
+          "subject": "fix(invoices,metals,webhooks): scope line categories, lot owners and endpoint defaults",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:26:37+03:00",
+          "files": [
+            "backend/src/modules/investments/metals.service.ts",
+            "backend/src/modules/invoices/invoices.service.ts",
+            "backend/src/modules/webhooks/services/webhook-endpoints.service.ts"
+          ]
+        },
+        {
+          "sha": "139685014cd0f092d1b0f56bcfb82d12f02ee457",
+          "shortSha": "13968501",
+          "subject": "test(e2e): cover body ids pointing into another workspace",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:26:37+03:00",
+          "files": [
+            "backend/@tests/e2e/cross-workspace-references.e2e-spec.ts"
+          ]
+        },
+        {
+          "sha": "f8aa41be12c74dfb08b7c2029927db907fb118d7",
+          "shortSha": "f8aa41be",
+          "subject": "fix(backups): restore only workspace tables and cut references outside the archive",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:26:45+03:00",
+          "files": [
+            "backend/@tests/e2e/backup-restore-isolation.e2e-spec.ts",
+            "backend/@tests/unit/modules/backups/backup-restore.service.spec.ts",
+            "backend/src/modules/backups/backup-data.service.ts",
+            "backend/src/modules/backups/backup-restore.service.ts"
+          ]
+        },
+        {
+          "sha": "6355cc391cd7c767298ff2a1dfb72b7f9e8d3a49",
+          "shortSha": "6355cc39",
+          "subject": "fix(backups): cap what an uploaded archive may unpack and throttle imports",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:26:45+03:00",
+          "files": [
+            "backend/@tests/unit/modules/backups/backup-archive.service.spec.ts",
+            "backend/src/modules/backups/backup-archive.service.ts",
+            "backend/src/modules/backups/backups.controller.ts"
+          ]
+        },
+        {
+          "sha": "b7827549fc0d769f0e13cc31526811b2973adf83",
+          "shortSha": "b7827549",
+          "subject": "fix(push): egress-check push endpoints and stop endpoint takeover",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:27:48+03:00",
+          "files": [
+            "backend/@tests/e2e/push.e2e-spec.ts",
+            "backend/@tests/unit/modules/push/push.service.spec.ts",
+            "backend/src/modules/push/push.service.ts",
+            "backend/src/modules/push/web-push.d.ts"
+          ]
+        },
+        {
+          "sha": "da40374464367959f631e091fb15622b59df16c0",
+          "shortSha": "da403744",
+          "subject": "fix(gmail): send the receipt xlsx export in the response",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:28:09+03:00",
+          "files": [
+            "backend/@tests/unit/modules/gmail/gmail-receipt-export.service.spec.ts",
+            "backend/src/modules/gmail/gmail.controller.ts",
+            "backend/src/modules/gmail/services/gmail-receipt-export.service.ts",
+            "frontend/app/lib/api.ts",
+            "frontend/app/storage/gmail-receipts/[id]/hooks/useGmailReceiptActions.ts",
+            "frontend/app/storage/gmail-receipts/[id]/page.test.tsx"
+          ]
+        },
+        {
+          "sha": "1f746e9d142e8a8ef8d477116303d6778b7d873e",
+          "shortSha": "1f746e9d",
+          "subject": "fix(classification): require TRANSACTION_EDIT and keep manual categories",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:28:48+03:00",
+          "files": [
+            "backend/@tests/unit/modules/classification/classification.controller.spec.ts",
+            "backend/src/modules/classification/classification.controller.ts"
+          ]
+        },
+        {
+          "sha": "a033b6d3db8ccc52bbf494c9f0b9e62fb8f05122",
+          "shortSha": "a033b6d3",
+          "subject": "fix(authz): gate balance-sheet, investment and metals writes on wallet permissions",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:28:48+03:00",
+          "files": [
+            "backend/src/modules/balance/balance.controller.ts",
+            "backend/src/modules/investments/investments.controller.ts",
+            "backend/src/modules/investments/metals.controller.ts",
+            "website/docs/guides/workspaces-and-rbac.md"
+          ]
+        },
+        {
+          "sha": "0abc141fa453481248d652be621b874fbd34704d",
+          "shortSha": "0abc141f",
+          "subject": "fix(authz): enforce API-key scopes on entity imports and search",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:28:48+03:00",
+          "files": [
+            "backend/@tests/unit/entity-imports/entity-import.service.spec.ts",
+            "backend/src/common/authz/request-permissions.ts",
+            "backend/src/modules/entity-imports/entity-import.service.ts",
+            "backend/src/modules/entity-imports/entity-imports.controller.ts",
+            "backend/src/modules/search/search.controller.ts"
+          ]
+        },
+        {
+          "sha": "38ee08539e3a895a1960d2341f3150b96c07ee4e",
+          "shortSha": "38ee0853",
+          "subject": "fix(webhooks): require INTEGRATION_MANAGE to manage subscriptions and endpoints",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:28:48+03:00",
+          "files": [
+            "backend/src/modules/webhooks/webhook-endpoints.controller.ts",
+            "backend/src/modules/webhooks/webhook-subscriptions.controller.ts"
+          ]
+        },
+        {
+          "sha": "5fd493a2487005649fae523327b6abd8c09e5dd0",
+          "shortSha": "5fd493a2",
+          "subject": "fix(authz): close read-only gaps on integration and settings routes",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:28:48+03:00",
+          "files": [
+            "backend/@tests/unit/modules/workspaces/workspaces.service.members.spec.ts",
+            "backend/src/modules/application-settings/application-settings.controller.ts",
+            "backend/src/modules/bank-sync/bank-sync.controller.ts",
+            "backend/src/modules/peppol/peppol.controller.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts"
+          ]
+        },
+        {
+          "sha": "9f0db61340520be624b49a3e7ce49ae792ff6ccd",
+          "shortSha": "9f0db613",
+          "subject": "fix(storage): drop removed uploaders and send bulk delete through the trash",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:28:48+03:00",
+          "files": [
+            "backend/@tests/unit/modules/storage/storage.service.spec.ts",
+            "backend/src/modules/storage/storage.service.ts"
+          ]
+        },
+        {
+          "sha": "0f2c1dd02ac8c5365b1af9c1d639dae0acdb6502",
+          "shortSha": "0f2c1dd0",
+          "subject": "fix(reports): pause schedules whose creator can no longer export",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:28:48+03:00",
+          "files": [
+            "backend/@tests/integration/version-workspace-crons.spec.ts",
+            "backend/@tests/unit/modules/reports/report-schedules.service.spec.ts",
+            "backend/src/modules/reports/report-schedules.service.ts",
+            "backend/src/modules/reports/reports.module.ts"
+          ]
+        },
+        {
+          "sha": "c09e722df02179f181a708936fed7944969de55f",
+          "shortSha": "c09e722d",
+          "subject": "test(e2e): cover write permissions across the fixed routes",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:28:48+03:00",
+          "files": [
+            "backend/@tests/e2e/write-permissions.e2e-spec.ts"
+          ]
+        },
+        {
+          "sha": "12494edb2af273bdbb757cf47eeb1971f52e4137",
+          "shortSha": "12494edb",
+          "subject": "test(reports): remove the files two generator tests leave behind",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:29:51+03:00",
+          "files": [
+            "backend/@tests/unit/modules/reports/reports.service.spec.ts"
+          ]
+        },
+        {
+          "sha": "0ee7639294b8eaeec866cce9f3d25ce6562b1d66",
+          "shortSha": "0ee76392",
+          "subject": "fix(settings): refuse a local model path from the API, model upload instance-admin only",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:30:34+03:00",
+          "files": [
+            "backend/@tests/e2e/local-categorization-settings.e2e-spec.ts",
+            "backend/@tests/unit/modules/application-settings/application-settings.controller.security.spec.ts",
+            "backend/@tests/unit/modules/application-settings/application-settings.service.spec.ts",
+            "backend/src/contracts/requests/application-settings.ts",
+            "backend/src/modules/application-settings/application-settings.controller.ts",
+            "backend/src/modules/application-settings/application-settings.service.ts",
+            "frontend/app/lib/contracts/requests/application-settings.ts",
+            "packages/contracts/src/requests/application-settings.ts"
+          ]
+        },
+        {
+          "sha": "84b9eddeba88b724e0ceddb5e96737d4741db547",
+          "shortSha": "84b9edde",
+          "subject": "fix(integrations): probe a new S3 endpoint through the pinned-lookup agents",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:31:35+03:00",
+          "files": [
+            "backend/@tests/unit/modules/open-protocol-integrations/s3-auto-backup.spec.ts",
+            "backend/src/modules/open-protocol-integrations/open-protocol-integrations.service.ts"
+          ]
+        },
+        {
+          "sha": "84c1f245c87cb2292c77ff6b4af414f7301d56cf",
+          "shortSha": "84c1f245",
+          "subject": "feat(security): TRUST_PROXY setting for which peers may set the client IP",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:33:01+03:00",
+          "files": [
+            ".env.example",
+            "backend/@tests/unit/common/utils/trust-proxy.util.spec.ts",
+            "backend/src/common/utils/trust-proxy.util.ts",
+            "backend/src/main.ts",
+            "website/docs/deployment/docker.md"
+          ]
+        },
+        {
+          "sha": "f80c9c78df6ef053a675856301e5178ce5bee196",
+          "shortSha": "f80c9c78",
+          "subject": "Merge branch 'fix/backup-restore-scope' into sec/integration",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:36:20+03:00",
+          "files": []
+        },
+        {
+          "sha": "cbf7b938044050f6c770ccb3224d54d87fe1da65",
+          "shortSha": "cbf7b938",
+          "subject": "Merge branch 'fix/telegram-bot-binding' into sec/integration",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:36:21+03:00",
+          "files": []
+        },
+        {
+          "sha": "4dcf03b3a20783779086194179211d2848ba1c11",
+          "shortSha": "4dcf03b3",
+          "subject": "Merge branch 'fix/export-files' into sec/integration",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:36:21+03:00",
+          "files": []
+        },
+        {
+          "sha": "93842022f2eff371464836c554e747cfce54685f",
+          "shortSha": "93842022",
+          "subject": "Merge branch 'fix/body-id-scoping' into sec/integration",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:36:21+03:00",
+          "files": [
+            "backend/src/modules/gmail/gmail.controller.ts"
+          ]
+        },
+        {
+          "sha": "a66fb9b4baaf9b73c505608d59fbd4e8f589fbf5",
+          "shortSha": "a66fb9b4",
+          "subject": "Merge branch 'fix/membership-and-key-scopes' into sec/integration",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:36:21+03:00",
+          "files": []
+        },
+        {
+          "sha": "6d6482d95e4791ffcbae61725d2218c146183461",
+          "shortSha": "6d6482d9",
+          "subject": "Merge branch 'fix/write-permissions' into sec/integration",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:36:35+03:00",
+          "files": [
+            "backend/src/common/authz/request-permissions.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts"
+          ]
+        },
+        {
+          "sha": "b3dc8244dc9e6126bd4465ae93a20628080d30a3",
+          "shortSha": "b3dc8244",
+          "subject": "Merge branch 'fix/smtp-workspace-egress' into sec/integration",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:36:46+03:00",
+          "files": [
+            "backend/src/modules/application-settings/application-settings.controller.ts",
+            "backend/src/modules/reports/report-schedules.service.ts",
+            "backend/src/modules/workspaces/workspaces.service.ts"
+          ]
+        },
+        {
+          "sha": "e6a0d3b25be979d8aa2a68d33279e53829e9040e",
+          "shortSha": "e6a0d3b2",
+          "subject": "fix(transactions): redact private rows on every route that hands one back",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:40:36+03:00",
+          "files": [
+            "backend/@tests/unit/modules/mcp/mcp-tools.spec.ts",
+            "backend/src/common/utils/transaction-privacy.util.ts",
+            "backend/src/modules/classification/categorization-rules.controller.ts",
+            "backend/src/modules/classification/classification.controller.ts",
+            "backend/src/modules/mcp/tools/transactions.tools.ts",
+            "backend/src/modules/transactions/services/cross-statement-deduplication.service.ts",
+            "backend/src/modules/transactions/transactions.controller.ts"
+          ]
+        },
+        {
+          "sha": "1b34c8bdb419d10b152969fa0fb7cad572c8e264",
+          "shortSha": "1b34c8bd",
+          "subject": "fix(privacy): keep private merchants out of merchant-keyed aggregates",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:40:36+03:00",
+          "files": [
+            "backend/@tests/unit/modules/goals/goal-flow.service.spec.ts",
+            "backend/src/modules/goals/goal-flow.service.ts",
+            "backend/src/modules/goals/goals.controller.ts",
+            "backend/src/modules/insights/stoic/stoic-behavior.service.ts",
+            "backend/src/modules/mcp/tools/recurring.tools.ts",
+            "backend/src/modules/payees/payees.controller.ts",
+            "backend/src/modules/payees/payees.service.ts",
+            "backend/src/modules/subscriptions/subscription-detection.service.ts"
+          ]
+        },
+        {
+          "sha": "a209743cd62b4d3bd6fa72d95a47b4941b5535c3",
+          "shortSha": "a209743c",
+          "subject": "fix(privacy): search, receipt picker, documents list and bill matching",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:40:36+03:00",
+          "files": [
+            "backend/@tests/unit/modules/statements/statements.controller.spec.ts",
+            "backend/src/modules/mcp/tools/search.tools.ts",
+            "backend/src/modules/payables/payables.controller.ts",
+            "backend/src/modules/payables/payables.service.ts",
+            "backend/src/modules/receipts/receipts.controller.ts",
+            "backend/src/modules/receipts/services/receipt-match.service.ts",
+            "backend/src/modules/search/search.controller.ts",
+            "backend/src/modules/search/search.service.ts",
+            "backend/src/modules/smb/smb.controller.ts",
+            "backend/src/modules/smb/smb.service.ts",
+            "backend/src/modules/statements/statements.controller.ts",
+            "backend/src/modules/statements/statements.service.ts"
+          ]
+        },
+        {
+          "sha": "0f51067680d815c381b1662b9fd6f027d4c4c0e6",
+          "shortSha": "0f510676",
+          "subject": "fix(privacy): custom-table fill, statement CSV export and private-row notes",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:40:36+03:00",
+          "files": [
+            "backend/src/modules/custom-tables/sources/transactions.source.ts",
+            "backend/src/modules/notes/notes.controller.ts",
+            "backend/src/modules/notes/notes.service.ts",
+            "backend/src/modules/storage/storage.service.ts"
+          ]
+        },
+        {
+          "sha": "453061e134e38fc3ad505195cf14cfa303c8c193",
+          "shortSha": "453061e1",
+          "subject": "fix(privacy): dashboard, reports and forecast name no one else's private rows",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:40:36+03:00",
+          "files": [
+            "backend/@tests/unit/modules/dashboard/dashboard.controller.spec.ts",
+            "backend/@tests/unit/modules/dashboard/dashboard.service.spec.ts",
+            "backend/@tests/unit/modules/reports/reports.controller.spec.ts",
+            "backend/src/modules/dashboard/dashboard.controller.ts",
+            "backend/src/modules/dashboard/dashboard.service.ts",
+            "backend/src/modules/forecast/forecast.controller.ts",
+            "backend/src/modules/forecast/forecast.service.ts",
+            "backend/src/modules/mcp/tools/dashboard.tools.ts",
+            "backend/src/modules/mcp/tools/planning.tools.ts",
+            "backend/src/modules/reports/cash-flow-map.service.ts",
+            "backend/src/modules/reports/reports.controller.ts",
+            "backend/src/modules/reports/reports.service.ts",
+            "backend/src/modules/reports/spend-flow.service.ts"
+          ]
+        },
+        {
+          "sha": "8dfb368d2fcb9adfd2fa00a7f42417078576103f",
+          "shortSha": "8dfb368d",
+          "subject": "fix(tax): no private counterparties in returns, USt-VA, income tax, DATEV counts",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:40:36+03:00",
+          "files": [
+            "backend/@tests/unit/modules/income-tax/income-tax-draft.service.spec.ts",
+            "backend/src/modules/datev/datev.controller.ts",
+            "backend/src/modules/datev/datev.service.ts",
+            "backend/src/modules/income-tax/income-tax-draft.service.ts",
+            "backend/src/modules/tax/tax-returns.service.ts",
+            "backend/src/modules/tax/ustva/ustva.service.ts"
+          ]
+        },
+        {
+          "sha": "3bd974b6b4e4336fa57ad48a5410f98cb78afe18",
+          "shortSha": "3bd974b6",
+          "subject": "test(privacy): e2e per route group for private-row leaks",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:40:36+03:00",
+          "files": [
+            "backend/@tests/e2e/transaction-privacy.e2e-spec.ts"
+          ]
+        },
+        {
+          "sha": "ec6a154a5aa78770a35291b3d451eec9206975e1",
+          "shortSha": "ec6a154a",
+          "subject": "fix(entity-imports): let scoped API keys reach the import routes that check scopes",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:41:50+03:00",
+          "files": [
+            "backend/src/modules/entity-imports/entity-imports.controller.ts"
+          ]
+        },
+        {
+          "sha": "6219bbdb86c5ddd7f1564a47630d525ef6e89df2",
+          "shortSha": "6219bbdb",
+          "subject": "Merge branch 'fix/private-rows' into sec/integration",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:42:12+03:00",
+          "files": [
+            "backend/src/modules/classification/categorization-rules.controller.ts",
+            "backend/src/modules/classification/classification.controller.ts",
+            "backend/src/modules/reports/reports.service.ts",
+            "backend/src/modules/search/search.controller.ts",
+            "backend/src/modules/smb/smb.service.ts",
+            "backend/src/modules/statements/statements.service.ts",
+            "backend/src/modules/storage/storage.service.ts"
+          ]
+        },
+        {
+          "sha": "1a0e5caf4ed6402f0306f3130569f0e0afa7c26a",
+          "shortSha": "1a0e5caf",
+          "subject": "test(statements): give the summary query mock setParameter and the viewer argument",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:49:39+03:00",
+          "files": [
+            "backend/@tests/unit/statements.service.spec.ts"
+          ]
+        },
+        {
+          "sha": "c1ecbb4c36462fbdd927cefe3119075fe11be9c8",
+          "shortSha": "c1ecbb4c",
+          "subject": "Merge branch 'fix/private-rows' into sec/integration",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T01:49:39+03:00",
+          "files": []
+        },
+        {
+          "sha": "16e0eef7599417769f8e4dabd511d39d881e144c",
+          "shortSha": "16e0eef7",
+          "subject": "fix(invoices): show a skeleton instead of a dash while loading",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T12:06:03+03:00",
+          "files": [
+            "frontend/app/(main)/invoices/components/ClientsView.tsx",
+            "frontend/app/(main)/invoices/components/InvoiceDetailView.tsx",
+            "frontend/app/(main)/invoices/components/InvoicesListView.tsx",
+            "frontend/app/(main)/invoices/components/InvoicesSkeletons.tsx"
+          ]
+        },
+        {
+          "sha": "d73a525c5dfb17414402d328f64f7f8cf816f603",
+          "shortSha": "d73a525c",
+          "subject": "Merge pull request #353 from symonbaikov/fix/invoices-loading-skeleton",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T12:07:27+03:00",
+          "files": []
+        },
+        {
+          "sha": "d6289053d363b21f614d9b0040442051d7c57fd3",
+          "shortSha": "d6289053",
+          "subject": "Merge commit from fork",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T12:11:11+03:00",
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "changelog-2026-10-19-df376c1",
+      "version": "main-df376c1",
+      "branch": "main",
+      "date": "2026-10-19T21:12:36.546Z",
+      "title": "Release update - October 19, 2026",
+      "summary": "This release includes 3 fixes.",
+      "markdown": "## Fixes\n- **deps**: Override shell-quote and Docusaurus tinypool/source-map-js to patched versions\n- **security**: Bound stored file paths to uploads, validate tax return queries\n- **security**: Inline the uploads bound in calculateFileHash so CodeQL sees it",
+      "commits": [
+        {
+          "sha": "43af3ca765a6e7f97ea64420ba8ca331c40548bc",
+          "shortSha": "43af3ca7",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T18:05:17Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "1e46b406088b36b97afe2f0d3f6f52327aa7514a",
+          "shortSha": "1e46b406",
+          "subject": "fix(deps): override shell-quote and Docusaurus tinypool/source-map-js to patched versions",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T22:58:22+03:00",
+          "files": [
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".agent/skills/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".agents/skills/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".claude/skills/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".codex/skills/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/core.cpython-313.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-313.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc",
+            ".github/prompts/ui-ux-pro-max/scripts/__pycache__/search.cpython-314.pyc",
+            "package-lock.json",
+            "package.json",
+            "website/package-lock.json",
+            "website/package.json"
+          ]
+        },
+        {
+          "sha": "aaa389e5cdf03d9838cf0c7224e03f12625c0da3",
+          "shortSha": "aaa389e5",
+          "subject": "fix(security): bound stored file paths to uploads, validate tax return queries",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T22:58:22+03:00",
+          "files": [
+            "backend/@tests/e2e/ustva.e2e-spec.ts",
+            "backend/@tests/unit/common/utils/uploads.util.spec.ts",
+            "backend/@tests/unit/modules/gmail/gmail-controller-thumbnail.spec.ts",
+            "backend/@tests/unit/modules/google-drive/google-drive.service.spec.ts",
+            "backend/@tests/unit/modules/mcp/mcp-tools.spec.ts",
+            "backend/scripts/create-admin.ts",
+            "backend/src/common/services/file-storage.service.ts",
+            "backend/src/common/utils/file-hash.util.ts",
+            "backend/src/common/utils/file-validator.util.ts",
+            "backend/src/common/utils/uploads.util.ts",
+            "backend/src/contracts/requests/queries.ts",
+            "backend/src/modules/crypto/crypto.controller.ts",
+            "backend/src/modules/e-invoices/zugferd.ts",
+            "backend/src/modules/gmail/gmail.controller.ts",
+            "backend/src/modules/google-drive/google-drive.service.ts",
+            "backend/src/modules/parsing/services/universal-amount-parser.service.ts",
+            "backend/src/modules/tax/tax-returns.controller.ts",
+            "frontend/app/lib/contracts/requests/queries.ts",
+            "packages/contracts/src/requests/queries.ts"
+          ]
+        },
+        {
+          "sha": "0ffdc1a0324860ead4d0d37fcec71bc8afae37cb",
+          "shortSha": "0ffdc1a0",
+          "subject": "chore: stop tracking Python bytecode from skill scripts",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T22:58:22+03:00",
+          "files": [
+            ".gitignore"
+          ]
+        },
+        {
+          "sha": "2d9b054f94a7ec7b244e21792dd89d6842250a64",
+          "shortSha": "2d9b054f",
+          "subject": "fix(security): inline the uploads bound in calculateFileHash so CodeQL sees it",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T23:04:07+03:00",
+          "files": [
+            "backend/src/common/utils/file-hash.util.ts"
+          ]
+        },
+        {
+          "sha": "df376c1c673d982bd3eab59e41d52baa83000f58",
+          "shortSha": "df376c1c",
+          "subject": "Merge pull request #352 from symonbaikov/fix/security-alerts",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T00:12:00+03:00",
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "changelog-2026-10-19-900ff01",
+      "version": "main-900ff01",
+      "branch": "main",
+      "date": "2026-10-19T18:05:17.347Z",
+      "title": "Release update - October 19, 2026",
+      "summary": "This release includes routine maintenance updates.",
+      "markdown": "## Other\n- Routine maintenance updates.",
+      "commits": [
+        {
+          "sha": "6958487c4c5706a619e70071bb32355a6851bdd8",
+          "shortSha": "6958487c",
+          "subject": "ci: prefix lcov paths with backend/ for Qlty file matching",
+          "author": "peterbaikov",
+          "date": "2026-08-28T15:04:16+03:00",
+          "files": [
+            ".github/workflows/ci.yml"
+          ]
+        },
+        {
+          "sha": "72d097dcf1650cf79f99004ccc4f1e77f2950932",
+          "shortSha": "72d097dc",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-19T13:34:03Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "390ed73d6fdacc85e2146d1a1272cb2664ae716d",
+          "shortSha": "390ed73d",
+          "subject": "Merge remote-tracking branch 'origin/main' into ci/qlty-add-prefix",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T20:10:35+03:00",
+          "files": [
+            ".github/workflows/ci.yml"
+          ]
+        },
+        {
+          "sha": "b48c8e2e308cf59e19e2df963de986dbf79ba068",
+          "shortSha": "b48c8e2e",
+          "subject": "Merge pull request #134 from symonbaikov/ci/qlty-add-prefix",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T20:53:51+03:00",
+          "files": []
+        },
+        {
+          "sha": "900ff01cfeea4165e13b1ba98108480e626ede4f",
+          "shortSha": "900ff01c",
+          "subject": "ci: retrigger after missed push event",
+          "author": "Symon Baikov",
+          "date": "2026-10-19T21:04:48+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-19-2891b98",
       "version": "main-2891b98",
