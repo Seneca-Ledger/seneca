@@ -1,14 +1,75 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "4b27cde8e695b49a8caef955b3fbb943a2dec681"
+      "main": "44d736680057657171d7ce525db169af03885487"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-20T16:22:01.186Z",
+    "lastGeneratedAt": "2026-10-20T16:48:01.219Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-20-44d7366",
+      "version": "main-44d7366",
+      "branch": "main",
+      "date": "2026-10-20T16:48:01.219Z",
+      "title": "Release update - October 20, 2026",
+      "summary": "This release includes 1 feature.",
+      "markdown": "## Features\n- **dashboard**: Faint line icons on KPI cards",
+      "commits": [
+        {
+          "sha": "e40d33e9a3cc07d4c20b8d4da317f3c77193666c",
+          "shortSha": "e40d33e9",
+          "subject": "feat(dashboard): faint line icons on KPI cards",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T18:20:57+03:00",
+          "files": [
+            "frontend/app/components/dashboard/OverviewTab.tsx",
+            "frontend/app/components/dashboard/ui/KpiCard.tsx",
+            "frontend/app/components/dashboard/ui/__tests__/KpiCard.test.tsx",
+            "frontend/app/lib/category-line-icons.tsx",
+            "frontend/app/styles/components/_dashboard.scss"
+          ]
+        },
+        {
+          "sha": "3ae869ba313504ed9a543b4515929f9503204401",
+          "shortSha": "3ae869ba",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-20T16:22:01Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "7f4ec2a80084f98359b13bd63957fbbc9f55178a",
+          "shortSha": "7f4ec2a8",
+          "subject": "Merge pull request #357 from symonbaikov/feat/dashboard-kpi-icons",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T19:33:51+03:00",
+          "files": []
+        },
+        {
+          "sha": "bef06954221a0b5870baed9bd138390dc33194b9",
+          "shortSha": "bef06954",
+          "subject": "docs(claude): test fixtures are invented, keeping the real case's shape",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T19:42:30+03:00",
+          "files": [
+            "CLAUDE.md"
+          ]
+        },
+        {
+          "sha": "44d736680057657171d7ce525db169af03885487",
+          "shortSha": "44d73668",
+          "subject": "Merge pull request #358 from symonbaikov/docs/test-fixtures-rule",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T19:47:27+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-20-4b27cde",
       "version": "main-4b27cde",
