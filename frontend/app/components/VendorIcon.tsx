@@ -10,14 +10,9 @@ export type VendorIconProps = {
   size?: number;
 };
 
+/** The first letter or digit of the name: "ACME Store - Wireless Buds" is "A", never "AS". */
 const initialsOf = (vendorName: string): string =>
-  vendorName
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(word => word[0] ?? '')
-    .join('')
-    .toUpperCase() || '?';
+  vendorName.match(/[\p{L}\p{N}]/u)?.[0]?.toLocaleUpperCase() ?? '?';
 
 /**
  * A vendor's brand mark: a bundled SVG when we ship one, otherwise a favicon

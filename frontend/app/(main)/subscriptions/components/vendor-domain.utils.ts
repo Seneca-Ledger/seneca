@@ -16,3 +16,18 @@ export const guessVendorDomain = (vendorName: string): string => {
   const slug = name.replace(/[^a-z0-9]/g, '');
   return slug ? `${slug}.com` : '';
 };
+
+/**
+ * The Website field takes whatever people paste, often a full address
+ * ("https://ksp.co.il/"). The API stores a bare domain only, so the scheme,
+ * credentials, port, path, query and fragment are dropped before sending.
+ */
+export const toVendorDomain = (input: string): string =>
+  input
+    .trim()
+    .toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
+    .replace(/^[^/?#]*@/, '')
+    .replace(/[/?#].*$/, '')
+    .replace(/:\d*$/, '')
+    .replace(/\.$/, '');
