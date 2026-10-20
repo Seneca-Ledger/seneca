@@ -58,10 +58,40 @@
     border: 1px solid $seneca-color-ink-150;
     border-radius: $seneca-radius-lg;
     overflow: hidden;
+    // Its own stacking context, so the background icon sits under the text.
+    isolation: isolate;
 
     @include dark {
       background: $seneca-color-surface-dk;
       border-color: $seneca-color-ink-150-dk;
+    }
+  }
+
+  // What the figure is, drawn large and faint at the card's right, centred on
+  // its height and whole inside the card: a background, not an element. Not in
+  // the middle, where the figure and the sparkline are read. Sage at 15% in
+  // both themes (--cat-tone-1 is lighter in dark), a 1.5px line at any size.
+  &__stat-icon {
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    z-index: -1;
+    width: 120px;
+    height: 120px;
+    transform: translateY(-50%);
+    color: var(--cat-tone-1);
+    opacity: 0.15;
+    pointer-events: none;
+
+    * {
+      stroke-width: 1.5px;
+      vector-effect: non-scaling-stroke;
+    }
+
+    @media (max-width: 640px) {
+      right: 12px;
+      width: 88px;
+      height: 88px;
     }
   }
 

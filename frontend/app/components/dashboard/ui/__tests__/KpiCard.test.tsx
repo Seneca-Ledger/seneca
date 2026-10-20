@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { PiggyBank } from '@/app/lib/category-line-icons';
 import { SectionSpanProvider } from '../../section-span';
 import { KpiCard } from '../KpiCard';
 
@@ -58,5 +59,20 @@ describe('KpiCard', () => {
     rerender(<SectionSpanProvider value={6}>{tile}</SectionSpanProvider>);
     expect(screen.getByText('Average per day')).toBeInTheDocument();
     expect(screen.getByText('$10')).toBeInTheDocument();
+  });
+
+  it('draws its icon as decoration behind the content, hidden from screen readers', () => {
+    const { container } = render(<KpiCard label="Savings rate" value="98%" icon={PiggyBank} />);
+    const icon = container.querySelector('svg.seneca-dashboard__stat-icon');
+
+    expect(icon).not.toBeNull();
+    expect(icon).toHaveAttribute('aria-hidden', 'true');
+    // First in the card, so the label and the figure stay the content read first.
+    expect(container.querySelector('.seneca-dashboard__stat')?.firstElementChild).toBe(icon);
+  });
+
+  it('draws no icon unless given one', () => {
+    const { container } = render(<KpiCard label="Net" value="$0" />);
+    expect(container.querySelector('.seneca-dashboard__stat-icon')).toBeNull();
   });
 });

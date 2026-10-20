@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import Link from 'next/link';
 import type React from 'react';
+import type { LucideIcon } from '@/app/components/icons';
 import { GRID_COLUMNS } from '../overview-layout';
 import { useSectionSpan } from '../section-span';
 import { Sparkline } from './Sparkline';
@@ -26,6 +27,11 @@ export interface KpiCardProps {
   details?: Array<{ label: string; value: React.ReactNode }>;
   /** With half a row or more: a full chart in place of the sparkline. */
   wideChart?: React.ReactNode;
+  /**
+   * A line icon of what the figure is, drawn faintly in the top-right corner
+   * behind the content and cut by the card's edge. Decorative: the label says it.
+   */
+  icon?: LucideIcon;
 }
 
 export function KpiCard({
@@ -40,6 +46,7 @@ export function KpiCard({
   wideSpark,
   details,
   wideChart,
+  icon: Icon,
 }: KpiCardProps): React.JSX.Element {
   // A tile given half a row or more has room to say more than its figure.
   const roomy = useSectionSpan() >= GRID_COLUMNS / 2;
@@ -47,6 +54,7 @@ export function KpiCard({
   const line = chart ? undefined : roomy && wideSpark ? wideSpark : spark;
   const body = (
     <>
+      {Icon && <Icon className="seneca-dashboard__stat-icon" aria-hidden="true" />}
       <div className="seneca-dashboard__stat-label">
         {/* The figure stays ink; the tone shows only as this dot and the sparkline. */}
         {tone !== 'neutral' && (

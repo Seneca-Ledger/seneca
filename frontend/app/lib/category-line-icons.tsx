@@ -346,6 +346,29 @@ export const Wallet = lineIcon(
   ],
   'Wallet',
 );
+/**
+ * Not Lucide icons: money in and money out, drawn here on Lucide's grid and
+ * stroke so the pair differs by more than the arrow — a coin dropping into an
+ * open tray, an arrow leaving a closed wallet.
+ */
+export const TrayArrowDown = lineIcon(
+  [
+    ['path', { d: 'M12 3v8' }],
+    ['path', { d: 'm8.5 7.5 3.5 3.5 3.5-3.5' }],
+    ['path', { d: 'M3 13v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6' }],
+    ['circle', { cx: '12', cy: '17', r: '2' }],
+  ],
+  'TrayArrowDown',
+);
+export const WalletArrowUp = lineIcon(
+  [
+    ['path', { d: 'M12 12V3' }],
+    ['path', { d: 'm8.5 6.5 3.5-3.5 3.5 3.5' }],
+    ['path', { d: 'M9 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-4' }],
+    ['path', { d: 'M21 15h-4a1 1 0 0 0 0 2h4' }],
+  ],
+  'WalletArrowUp',
+);
 export const Banknote = lineIcon(
   [
     ['rect', { width: '20', height: '12', x: '2', y: '6', rx: '2' }],
