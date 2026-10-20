@@ -34,6 +34,7 @@ import {
 import { type Payable, payablesApi } from '@/app/lib/payables-api';
 import { CreditNoteDialog } from './CreditNoteDialog';
 import { InvoiceEmailDrawer } from './InvoiceEmailDrawer';
+import { InvoiceDetailSkeleton } from './InvoicesSkeletons';
 import { InvoiceWizard } from './invoice-wizard/InvoiceWizard';
 import { lineAmount, useInvoiceForm } from './invoice-wizard/useInvoiceForm';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
@@ -307,7 +308,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
   };
 
   if (loading) {
-    return <div style={{ padding: 40 }}>—</div>;
+    return <InvoiceDetailSkeleton />;
   }
 
   return (
