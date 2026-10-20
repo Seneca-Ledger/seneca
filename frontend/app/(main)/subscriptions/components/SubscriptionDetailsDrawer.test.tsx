@@ -20,20 +20,24 @@ vi.mock('@/app/lib/query-fn-schema', () => ({
   apiQueryDecoded: vi.fn(async () => ({ charges: [], decisions: [] })),
 }));
 
+const SUBSCRIPTION_ID = 'sub-1';
+const VENDOR_NAME = 'Vendor - Plan';
+const OWNER_ID = 'member-1';
+
 const subscription: SubscriptionItem = normalizeSubscription(
   subscriptionRow({
-    id: 'sub-1',
-    vendorName: 'KSP - AirPods Pro',
-    amount: '42.00',
-    currency: 'ILS',
-    ownerId: 'user-1',
+    id: SUBSCRIPTION_ID,
+    vendorName: VENDOR_NAME,
+    amount: '10.00',
+    currency: 'USD',
+    ownerId: OWNER_ID,
     nextChargeDate: '2026-11-10',
   }),
 );
 
 const members = [
-  { id: 'user-1', name: 'Administrator', email: 'admin@example.com' },
-  { id: 'user-2', name: 'Keller', email: 'keller@example.com' },
+  { id: OWNER_ID, name: 'Member One', email: 'member-1@example.com' },
+  { id: 'member-2', name: 'Member Two', email: 'member-2@example.com' },
 ] as React.ComponentProps<typeof SubscriptionDetailsDrawer>['members'];
 
 function renderDrawer(overrides: Partial<SubscriptionItem> = {}) {
@@ -56,10 +60,10 @@ describe('SubscriptionDetailsDrawer', () => {
     renderDrawer();
 
     expect(screen.getByText('Active')).toHaveClass('lumio-sub-detail__dot');
-    expect(screen.getByText('₪42')).toBeInTheDocument();
+    expect(screen.getByText('$10')).toBeInTheDocument();
     expect(screen.getByText('Expected charge').nextSibling).toHaveTextContent('Nov 10, 2026');
     expect(screen.getByText('Last charge').nextSibling).toHaveTextContent('—');
-    expect(screen.getByText('K')).toBeInTheDocument();
+    expect(screen.getByText(VENDOR_NAME[0])).toBeInTheDocument();
   });
 
   it('offers to assign an owner only once a different person is picked', () => {
@@ -74,7 +78,7 @@ describe('SubscriptionDetailsDrawer', () => {
     expect(screen.getByRole('tab', { name: 'Review' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('tab', { name: 'Keep' }));
 
-    expect(onDecision).toHaveBeenCalledWith('sub-1', 'keep', { reviewAt: undefined });
+    expect(onDecision).toHaveBeenCalledWith(SUBSCRIPTION_ID, 'keep', { reviewAt: undefined });
     expect(screen.getByRole('tab', { name: 'Keep' })).toHaveAttribute('aria-selected', 'true');
   });
 
@@ -83,15 +87,15 @@ describe('SubscriptionDetailsDrawer', () => {
 
     fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Not used' } });
     fireEvent.change(screen.getByLabelText('Realized annual savings'), {
-      target: { value: '504' },
+      target: { value: '120' },
     });
     const cancel = screen.getByRole('button', { name: 'Record cancellation' });
     expect(cancel).toHaveClass('MuiButton-text');
     fireEvent.click(cancel);
 
-    expect(onDecision).toHaveBeenCalledWith('sub-1', 'cancelled', {
+    expect(onDecision).toHaveBeenCalledWith(SUBSCRIPTION_ID, 'cancelled', {
       note: 'Not used',
-      realizedAnnualSavings: 504,
+      realizedAnnualSavings: 120,
     });
   });
 });

@@ -21,7 +21,7 @@ describe('guessVendorDomain', () => {
 
 describe('toVendorDomain', () => {
   it('reduces a pasted address to the bare domain the API accepts', () => {
-    expect(toVendorDomain('https://ksp.co.il/')).toBe('ksp.co.il');
+    expect(toVendorDomain('https://example.co.il/')).toBe('example.co.il');
     expect(toVendorDomain(' HTTP://Www.Figma.com:443/pricing?x=1#top ')).toBe('www.figma.com');
     expect(toVendorDomain('user@example.com/path')).toBe('example.com');
   });
