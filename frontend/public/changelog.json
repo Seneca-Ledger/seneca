@@ -1,14 +1,85 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "44d736680057657171d7ce525db169af03885487"
+      "main": "040c4a33210f9fcb905ac79471aca408c2d5a704"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-20T16:48:01.219Z",
+    "lastGeneratedAt": "2026-10-20T17:59:24.712Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-20-040c4a3",
+      "version": "main-040c4a3",
+      "branch": "main",
+      "date": "2026-10-20T17:59:24.712Z",
+      "title": "Release update - October 20, 2026",
+      "summary": "This release includes 1 feature.",
+      "markdown": "## Features\n- **subscriptions**: Details drawer refresh, vendor domain from URL, single-letter vendor initial",
+      "commits": [
+        {
+          "sha": "7a5a3d0d730b448808447637d4e7f0101dc2f6df",
+          "shortSha": "7a5a3d0d",
+          "subject": "feat(subscriptions): details drawer refresh, vendor domain from URL, single-letter vendor initial",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T18:20:57+03:00",
+          "files": [
+            "frontend/app/(main)/subscriptions/components/SubscriptionDetailsDrawer.test.tsx",
+            "frontend/app/(main)/subscriptions/components/SubscriptionDetailsDrawer.tsx",
+            "frontend/app/(main)/subscriptions/components/vendor-domain.utils.test.ts",
+            "frontend/app/(main)/subscriptions/components/vendor-domain.utils.ts",
+            "frontend/app/(main)/subscriptions/hooks/useSubscriptionsPage.ts",
+            "frontend/app/(main)/subscriptions/subscriptions.content.ts",
+            "frontend/app/components/VendorIcon.tsx",
+            "frontend/app/styles/components/_charge-calendar.scss"
+          ]
+        },
+        {
+          "sha": "7f450555e4819358532aeac70a0a971559ba545c",
+          "shortSha": "7f450555",
+          "subject": "test(subscriptions): neutral fixtures, vendor initial tested on its own",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T19:34:36+03:00",
+          "files": [
+            "frontend/app/(main)/subscriptions/components/SubscriptionDetailsDrawer.test.tsx",
+            "frontend/app/(main)/subscriptions/components/vendor-domain.utils.test.ts",
+            "frontend/app/components/VendorIcon.test.tsx",
+            "frontend/app/components/VendorIcon.tsx"
+          ]
+        },
+        {
+          "sha": "3d5a9279336201ce6edf3a659c7ba295972eed42",
+          "shortSha": "3d5a9279",
+          "subject": "test(subscriptions): vendor fixture keeps the real case's shape",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T19:41:12+03:00",
+          "files": [
+            "frontend/app/(main)/subscriptions/components/SubscriptionDetailsDrawer.test.tsx",
+            "frontend/app/components/VendorIcon.test.tsx",
+            "frontend/app/components/VendorIcon.tsx"
+          ]
+        },
+        {
+          "sha": "96998e5fe851c2ed52d29c69c17f6ae9d34332f7",
+          "shortSha": "96998e5f",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-20T16:48:01Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "040c4a33210f9fcb905ac79471aca408c2d5a704",
+          "shortSha": "040c4a33",
+          "subject": "Merge pull request #356 from symonbaikov/feat/subscription-drawer-refresh",
+          "author": "Symon Baikov",
+          "date": "2026-10-20T20:58:55+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-20-44d7366",
       "version": "main-44d7366",
