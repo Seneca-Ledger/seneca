@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
@@ -22,7 +23,6 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { VatFilingSettings, WorkspaceTaxSettings } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import { useCategoryName } from '@/app/lib/use-category-name';
 import { OfficialRatesPanel } from './OfficialRatesPanel';
 import { SettingsSection } from './SettingsSection';
 
@@ -43,7 +43,6 @@ function fill(template: string, params: Record<string, string | number>): string
  */
 export function TaxStatusSection(): React.ReactElement {
   const t = useIntlayer('workspaceTaxStatus');
-  const categoryName = useCategoryName();
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
 
@@ -294,20 +293,15 @@ export function TaxStatusSection(): React.ReactElement {
               inputProps={{ inputMode: 'decimal', 'aria-label': t.percentLabel.value }}
               sx={{ width: 200 }}
             />
-            <Select
+            <CategoryPickerField
               size="small"
               value={paymentsCategoryId}
-              displayEmpty
-              aria-label={t.paymentsCategoryLabel.value}
+              ariaLabel={t.paymentsCategoryLabel.value}
+              categories={expenseCategories}
               onChange={setPaymentsCategoryId}
-              options={[
-                { value: '', label: t.noPaymentsCategory.value },
-                ...expenseCategories.map(category => ({
-                  value: category.id,
-                  label: categoryName(category.name),
-                })),
-              ]}
-              sx={{ minWidth: 220 }}
+              placeholder={t.noPaymentsCategory.value}
+              clearLabel={t.noPaymentsCategory.value}
+              sx={{ width: 'auto', minWidth: 220, maxWidth: 300 }}
             />
             <Button
               type="submit"

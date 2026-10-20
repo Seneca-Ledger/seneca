@@ -2,11 +2,10 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { Check } from '@/app/components/icons';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
-import { Select } from '@/app/components/ui/select';
 import { TextTabs } from '@/app/components/ui/text-tabs';
-import { useCategoryName } from '@/app/lib/use-category-name';
 import type { CreateTableForm } from '../hooks/useCreateTable';
 import { useSourcePreview } from '../hooks/useSourcePreview';
 import type { TableCategory } from '../hooks/useTablesList';
@@ -247,7 +246,6 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
     onClose,
     labels,
   } = props;
-  const categoryName = useCategoryName();
   const existingNames = existingTables.map(table => table.name);
   const nameRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -327,17 +325,14 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
           </label>
           <div className="seneca-ct__field seneca-ct__field--wide">
             <span className="seneca-ct__label">{labels.category}</span>
-            <Select
+            <CategoryPickerField
               size="small"
+              ariaLabel={labels.category}
               value={form.categoryId}
+              categories={categories}
               onChange={categoryId => setForm(prev => ({ ...prev, categoryId }))}
-              options={[
-                { value: '', label: labels.noCategory },
-                ...categories.map(category => ({
-                  value: category.id,
-                  label: categoryName(category.name),
-                })),
-              ]}
+              placeholder={labels.noCategory}
+              clearLabel={labels.noCategory}
             />
           </div>
           <StartFromPicker

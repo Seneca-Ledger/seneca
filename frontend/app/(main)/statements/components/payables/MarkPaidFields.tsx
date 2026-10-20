@@ -10,13 +10,13 @@ import RadioGroup from '@mui/material/RadioGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { Trash2 } from '@/app/components/icons';
 import type { Category } from '@/app/components/transactions/types';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import type { PayablePayment, PaymentCandidate } from '@/app/lib/payables-api';
-import { useCategoryName } from '@/app/lib/use-category-name';
 
 export type WalletOption = { id: string; name: string; currency: string; isActive?: boolean };
 
@@ -101,7 +101,6 @@ export function CashFields(props: {
 }): React.JSX.Element {
   const t = useIntlayer('payableMarkPaid');
   const unbookedText = useIntlayer('payablesUnbooked');
-  const categoryName = useCategoryName();
   const { value, onChange } = props;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -141,25 +140,16 @@ export function CashFields(props: {
         </Box>
       )}
       <Box>
-        <Typography
-          component="label"
-          id="mark-paid-category-label"
-          htmlFor="mark-paid-category"
-          variant="caption"
-        >
+        <Typography component="label" htmlFor="mark-paid-category" variant="caption">
           {t.category.value}
         </Typography>
-        <Select
+        <CategoryPickerField
           id="mark-paid-category"
-          labelId="mark-paid-category-label"
+          ariaLabel={t.category.value}
           value={value.categoryId}
-          options={[
-            { value: '', label: t.noCategory.value },
-            ...props.categories.map(category => ({
-              value: category.id,
-              label: categoryName(category.name),
-            })),
-          ]}
+          categories={props.categories}
+          placeholder={t.noCategory.value}
+          clearLabel={t.noCategory.value}
           onChange={categoryId => onChange({ ...value, categoryId })}
         />
       </Box>

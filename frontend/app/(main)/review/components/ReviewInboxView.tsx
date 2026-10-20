@@ -23,6 +23,7 @@ import {
   buildListHeaderLabels,
 } from '@/app/(main)/statements/components/StatementsListView.utils';
 import { StatementsToolbarButton } from '@/app/(main)/statements/components/StatementsToolbarButton';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
 import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
@@ -208,16 +209,6 @@ export function ReviewInboxView({ state }: Props) {
     subscription: t.tabSubscriptions.value,
   };
 
-  const categoryOptions = useMemo(
-    () => [
-      { value: '', label: t.categoryPlaceholder.value },
-      ...categories
-        .filter(category => category.isEnabled !== false)
-        .map(category => ({ value: category.id, label: getCategoryDisplayName(category, locale) })),
-    ],
-    [categories, locale, t.categoryPlaceholder.value],
-  );
-
   const groups = useMemo(() => (grouped ? groupByPayee(items) : null), [grouped, items]);
   const orderedItems = useMemo(
     () => (groups ? groups.flatMap(group => group.items) : items),
@@ -243,7 +234,7 @@ export function ReviewInboxView({ state }: Props) {
         if (kind === 'transaction') approveWithCategory();
       },
       c: () => {
-        categorySelectRef.current?.querySelector<HTMLElement>('[role="combobox"], select')?.focus();
+        categorySelectRef.current?.querySelector<HTMLElement>('button')?.focus();
       },
       Escape: () => clearSelection(),
     },
@@ -776,11 +767,14 @@ export function ReviewInboxView({ state }: Props) {
                 sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}
               >
                 <Box ref={categorySelectRef} sx={{ minWidth: 220 }}>
-                  <Select
+                  <CategoryPickerField
                     id="review-category"
+                    size="small"
+                    ariaLabel={t.categoryPlaceholder.value}
                     value={categoryId}
+                    categories={categories}
                     onChange={setCategoryId}
-                    options={categoryOptions}
+                    placeholder={t.categoryPlaceholder.value}
                   />
                 </Box>
                 {/* Outlined like "Approve as is" until a category is picked; then the page's one filled button. */}
@@ -838,13 +832,6 @@ export function ReviewInboxView({ state }: Props) {
             return;
           }
           void state.setCategory(id, picked).then(() => setCategoryRowId(null));
-        }}
-        showAllOption={false}
-        labels={{
-          title: editText.labels.categoryDrawerTitle.value,
-          searchPlaceholder: editText.labels.categorySearchPlaceholder.value,
-          allOption: editText.labels.categoryAllOption.value,
-          noResults: editText.labels.categoryNoResults.value,
         }}
       />
     </div>

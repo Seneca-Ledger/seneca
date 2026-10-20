@@ -64,7 +64,8 @@ describe('ReceiptParsedDataForm', () => {
     });
   });
 
-  it('localizes the category option name in the selected locale', () => {
+  it('picks the category in the side drawer, named in the selected locale', () => {
+    const onChange = vi.fn();
     render(
       <ReceiptParsedDataForm
         value={baseValue}
@@ -76,13 +77,29 @@ describe('ReceiptParsedDataForm', () => {
             isSystem: true,
           },
         ]}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Category' }));
+    expect(screen.getByRole('button', { name: 'Create category' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Meals and entertainment' }));
+
+    expect(onChange).toHaveBeenCalledWith({ ...baseValue, categoryId: 'meals' });
+  });
+
+  it('shows the chosen category on the field', () => {
+    render(
+      <ReceiptParsedDataForm
+        value={{ ...baseValue, categoryId: 'meals' }}
+        categories={[{ id: 'meals', name: 'Meals and entertainment', isEnabled: true }]}
         onChange={vi.fn()}
       />,
     );
 
-    const option = screen.getByRole('option', { name: 'Meals and entertainment' });
-    expect(option).toBeTruthy();
-    expect((option as HTMLOptionElement).value).toBe('meals');
+    expect(screen.getByRole('button', { name: 'Category' }).textContent).toContain(
+      'Meals and entertainment',
+    );
   });
 
   it('keeps line items collapsed until asked, then lists them and adds a line', () => {

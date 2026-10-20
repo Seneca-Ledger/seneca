@@ -4,6 +4,7 @@ import { alpha, Box, Button, Skeleton, TextField, type Theme, Typography } from 
 import { useQuery } from '@tanstack/react-query';
 import { useDeferredValue, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { Pencil, Search as SearchIcon } from '@/app/components/icons';
 import { offerAction } from '@/app/components/payees/offer-action-toast';
 import type { Payee, PayeeMode } from '@/app/components/payees/types';
@@ -415,14 +416,17 @@ export default function WorkspacePayeesView() {
             sx={{ minWidth: 190 }}
           />
           {payee.mode === 'always' && (
-            <Select
+            <CategoryPickerField
               size="small"
               value={payee.category?.id ?? ''}
               disabled={busy}
-              aria-label={t.pickCategory.value}
-              onChange={value => void save(payee.id, { mode: 'always', categoryId: value })}
-              options={categoryOptions}
-              sx={{ minWidth: 180 }}
+              ariaLabel={t.pickCategory.value}
+              categories={categoriesQuery.data ?? []}
+              placeholder={t.pickCategory.value}
+              onChange={value => {
+                if (value) void save(payee.id, { mode: 'always', categoryId: value });
+              }}
+              sx={{ width: 'auto', minWidth: 180, maxWidth: 260 }}
             />
           )}
         </Box>

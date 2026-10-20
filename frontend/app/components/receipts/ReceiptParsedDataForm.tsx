@@ -6,13 +6,13 @@ import MuiButton from '@mui/material/Button';
 import { useTheme } from 'next-themes';
 import { useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronDown, Trash2 } from '@/app/components/icons';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
-import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
@@ -116,7 +116,6 @@ export function ReceiptParsedDataForm({
   const tCurrency = useIntlayer('receiptCurrencyDrawer');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
-  const enabledCategories = categories.filter(category => category.isEnabled !== false);
   const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
   const [recentCurrencies, setRecentCurrencies] = useState<string[]>([
@@ -328,20 +327,14 @@ export function ReceiptParsedDataForm({
           </Field>
 
           <Field compact={compact} htmlFor="receipt-category" label={t.category.value}>
-            <Select
-              fullWidth
+            <CategoryPickerField
               id="receipt-category"
-              inputProps={{ 'aria-label': t.category.value }}
+              ariaLabel={t.category.value}
               value={value.categoryId}
+              categories={categories}
               onChange={categoryId => onChange({ ...value, categoryId })}
-              options={[
-                { value: '', label: t.selectCategory.value },
-                ...enabledCategories.map(category => ({
-                  value: category.id,
-                  label: getCategoryDisplayName(category, locale),
-                })),
-              ]}
-              sx={selectSx}
+              placeholder={t.selectCategory.value}
+              size={compact ? 'compact' : 'medium'}
             />
           </Field>
 

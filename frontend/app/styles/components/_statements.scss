@@ -1020,7 +1020,7 @@
 
   &__search {
     border-bottom: 1px solid $color-border;
-    padding-bottom: 16px;
+    padding-bottom: 12px;
 
     @include dark {
       border-bottom-color: $seneca-color-border-dk;
@@ -1034,7 +1034,7 @@
 
   &__search-icon {
     position: absolute;
-    left: 16px;
+    left: 12px;
     top: 50%;
     transform: translateY(-50%);
     pointer-events: none;
@@ -1046,13 +1046,13 @@
   }
 
   &__search-input {
-    height: 56px;
+    height: 40px;
     width: 100%;
     border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
     background: $color-card-bg;
-    padding: 0 16px 0 48px;
-    font-size: 16px;
+    padding: 0 12px 0 38px;
+    font-size: 14px;
     color: $color-foreground;
     transition: border-color 0.15s, box-shadow 0.15s;
 
@@ -1074,6 +1074,11 @@
     padding-top: 12px;
     border-top: 1px solid $color-border;
 
+    // "+ Create category": room between the plus and the words.
+    button {
+      gap: 8px;
+    }
+
     @include dark {
       border-top-color: $seneca-color-border-dk;
     }
@@ -1083,25 +1088,48 @@
     flex: 1;
     overflow-y: auto;
     padding-bottom: 96px;
+    // A thin scrollbar that shows only while the pointer is over the list.
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+
+    &:hover {
+      scrollbar-color: var(--input) transparent;
+    }
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border-radius: 3px;
+      background: transparent;
+    }
+
+    &:hover::-webkit-scrollbar-thumb {
+      background: var(--input);
+    }
   }
 
   &__option {
     display: flex;
     width: 100%;
+    min-height: 46px;
     align-items: center;
-    justify-content: space-between;
-    padding: 20px 16px;
+    gap: 12px;
+    padding: 0 12px;
     text-align: left;
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 400;
     cursor: pointer;
     transition: background-color 0.15s;
     background: none;
     border: none;
-    color: $color-foreground;
+    // Compact rows read as a list with a hairline between them.
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
 
-    @include dark {
-      color: $seneca-color-text-primary-dk;
+    &:last-child {
+      border-bottom: none;
     }
 
     &:hover {
@@ -1115,7 +1143,26 @@
     &--selected {
       background: color-mix(in srgb, var(--primary) 10%, transparent);
       color: var(--primary);
+      font-weight: 500;
     }
+  }
+
+  &__option-icon {
+    flex: none;
+    color: var(--cat-tone-1);
+  }
+
+  &__option-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Doubled class to outrank MUI's own button colour without !important.
+  &__footer &__create {
+    color: var(--primary);
   }
 
   &__no-results {
