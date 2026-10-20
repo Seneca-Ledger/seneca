@@ -14,17 +14,24 @@ import { AnalyticsPeriodContext } from '@/app/(main)/statements/components/analy
 import { FromFilterDropdown } from '@/app/(main)/statements/components/filters/FromFilterDropdown';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { DashboardCard } from '@/app/components/dashboard/ui';
-import { ChevronDown } from '@/app/components/icons';
+import { ChevronDown, type LucideIcon } from '@/app/components/icons';
 import { useWorkspaceMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
 import { OwnerFilterDropdown } from '@/app/components/transactions/OwnerFilterDropdown';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
+import {
+  fillTemplateNodes,
+  PRIVATE_CLASS,
+  PrivateAmount,
+} from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { blobOf } from '@/app/lib/blob-of';
+import { ArrowLeftRight, Scale, TrayArrowDown, WalletArrowUp } from '@/app/lib/category-line-icons';
 import { formatMoney } from '@/app/lib/format-money';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { useCategoryName } from '@/app/lib/use-category-name';
 import { PERIOD_PRESETS, presetRangeValues } from '../report-period-presets';
 import { CashFlowTab } from './CashFlowTab';
@@ -56,10 +63,10 @@ function Delta({
   const delta = amount - previous;
   if (Math.round(delta * 100) === 0) return <span>—</span>;
   return (
-    <span>
+    <PrivateAmount>
       {delta > 0 ? '+' : '−'}
       {formatAmount(Math.abs(delta))}
-    </span>
+    </PrivateAmount>
   );
 }
 
@@ -93,8 +100,8 @@ function CategoryTable({
       <td style={child ? { paddingLeft: 24, color: 'var(--text-muted)' } : { fontWeight: 500 }}>
         {name}
       </td>
-      <td className="num">{formatTile(amount)}</td>
-      {compare && <td className="num muted">{formatTile(previous ?? 0)}</td>}
+      <td className={`num ${PRIVATE_CLASS}`}>{formatTile(amount)}</td>
+      {compare && <td className={`num muted ${PRIVATE_CLASS}`}>{formatTile(previous ?? 0)}</td>}
       {compare && (
         <td className="num muted">
           <Delta amount={amount} previous={previous} formatAmount={formatTile} />
@@ -190,10 +197,12 @@ export function periodLabel(from: string, to: string, locale: string): string {
  * tooltip), and what it was in the period before — named, not "before". The
  * figure stays ink: spending is not an error. Only Net carries its change, small,
  * terracotta when it fell and sage when it rose. Zero against zero says so in
- * words instead of comparing nothing with nothing.
+ * words instead of comparing nothing with nothing. The icon is the dashboard
+ * tile's: faint, behind the text, saying what the figure is.
  */
 function CashFlowTile({
   label,
+  icon: Icon,
   value,
   previous,
   nothing,
@@ -204,6 +213,7 @@ function CashFlowTile({
   formatAmount,
 }: {
   label: string;
+  icon: LucideIcon;
   value: number;
   previous: number | null;
   nothing: string | null;
@@ -222,12 +232,13 @@ function CashFlowTile({
   } else if (previous !== null && previousLabel) {
     caption = (
       <>
-        {vsTemplate
-          .replace('{{amount}}', formatWhole(previous))
-          .replace('{{period}}', previousLabel)}
+        {fillTemplateNodes(vsTemplate.replace('{{period}}', previousLabel), {
+          amount: formatWhole(previous),
+        })}
         {showDelta && Math.round(delta) !== 0 ? (
           <Box
             component="span"
+            className={PRIVATE_CLASS}
             sx={{ ml: 0.75, color: delta < 0 ? 'var(--money-down)' : 'var(--money-up)' }}
           >
             {delta > 0 ? '+' : '−'}
@@ -240,6 +251,10 @@ function CashFlowTile({
   return (
     <Box
       sx={{
+        position: 'relative',
+        // Its own stacking context and clip, so the icon sits under the text.
+        overflow: 'hidden',
+        isolation: 'isolate',
         p: '22px',
         border: '1px solid',
         borderColor: 'divider',
@@ -247,9 +262,9 @@ function CashFlowTile({
         bgcolor: 'background.paper',
       }}
     >
+      <Icon className="seneca-dashboard__stat-icon" aria-hidden="true" />
       <Typography sx={{ fontSize: 14, color: 'var(--text-muted)' }}>{label}</Typography>
       <Typography
-        title={formatAmount(value)}
         sx={{
           mt: 0.5,
           fontSize: 30,
@@ -259,7 +274,7 @@ function CashFlowTile({
           color: 'var(--foreground)',
         }}
       >
-        {formatWhole(value)}
+        <PrivateAmount title={formatAmount(value)}>{formatWhole(value)}</PrivateAmount>
       </Typography>
       {caption ? (
         <Typography sx={{ mt: 0.75, fontSize: 14, color: 'var(--text-muted)' }}>
@@ -303,12 +318,15 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
     ? periodLabel(data.previousPeriod.from, data.previousPeriod.to, locale)
     : '';
   const isMobile = useIsMobile();
+  const privacy = usePrivacyMode();
   const option = useMemo(
     () =>
-      data ? buildCashFlowSankey(data, resolvedTheme, formatAmount, isMobile, categoryName) : null,
+      data
+        ? buildCashFlowSankey(data, resolvedTheme, formatAmount, isMobile, categoryName, privacy)
+        : null,
     // formatAmount is rebuilt every render; the chart only needs to follow the data and theme.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, resolvedTheme, currency, locale, isMobile, categoryName],
+    [data, resolvedTheme, currency, locale, isMobile, categoryName, privacy],
   );
   const roots = (data?.availableCategories ?? []).filter(category => !category.parentId);
   const allSelected = filters.categories.length === 0;
@@ -349,7 +367,10 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
   };
 
   return (
-    <Box sx={{ display: 'grid', gap: 3 }}>
+    // minmax(0, 1fr): an implicit column grows to its widest child, and the charts'
+    // canvases keep the pixel width they were drawn at, so opening the sidebar
+    // pushed the page sideways instead of narrowing the charts.
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 3 }}>
       {/* One period for the whole tab: text tabs, the range in words under them,
           dates only for Custom; the switches live in Options, export is a link. */}
       <Box sx={{ display: 'grid', gap: 1 }}>
@@ -494,6 +515,7 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
           data-tour-shot="reports-flow"
           sx={{
             display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr)',
             gap: 3,
             opacity: isFetching ? 0.6 : 1,
             transition: 'opacity 150ms',
@@ -515,6 +537,7 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
               {
                 key: 'cfIncome',
                 fallback: 'Income',
+                icon: TrayArrowDown,
                 value: data.income.total,
                 previous: data.previous?.income,
                 nothing: text('cfNoIncome', 'No income recorded'),
@@ -522,6 +545,7 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
               {
                 key: 'cfSpending',
                 fallback: 'Spending',
+                icon: WalletArrowUp,
                 value: data.expense.total,
                 previous: data.previous?.expense,
                 nothing: text('cfNoSpending', 'No spending recorded'),
@@ -529,6 +553,7 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
               {
                 key: 'cfNet',
                 fallback: 'Net',
+                icon: Scale,
                 value: data.net,
                 previous: data.previous?.net,
                 nothing: null,
@@ -539,6 +564,7 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
                     {
                       key: 'cfTransfers',
                       fallback: 'Transfers & investments',
+                      icon: ArrowLeftRight,
                       value: data.transfers,
                       previous: undefined,
                       nothing: null,
@@ -549,6 +575,7 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
               <CashFlowTile
                 key={item.key}
                 label={text(item.key, item.fallback)}
+                icon={item.icon}
                 value={item.value}
                 previous={item.previous ?? null}
                 nothing={item.nothing}
