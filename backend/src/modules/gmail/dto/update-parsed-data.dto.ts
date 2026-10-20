@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class UpdateParsedDataDto {
   @ApiProperty({ required: false })
@@ -29,7 +29,7 @@ export class UpdateParsedDataDto {
 
   @ApiProperty({ required: false, description: 'Category ID' })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   categoryId?: string;
 
   @ApiProperty({ required: false })

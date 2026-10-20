@@ -12,6 +12,17 @@ export const isBackupFileName = (name: string): boolean =>
   name.endsWith(BACKUP_FILE_EXTENSION) || name.endsWith('.lumio-backup');
 const DATA_KEY_LENGTH = 32;
 
+/**
+ * What opening an archive may unpack. adm-zip inflates an entry no further
+ * than the size its header declares, so checking the declared sizes first
+ * bounds memory: an upload is capped at 200 MB, and its one manifest carries
+ * the payload as base64 text, so even the largest real backup stays well inside.
+ */
+const MAX_MANIFEST_BYTES = 300 * 1024 * 1024;
+const MAX_PAYLOAD_BYTES = 1024 * 1024 * 1024;
+const MAX_PAYLOAD_ENTRIES = 100_000;
+const TOO_LARGE = 'backup is too large';
+
 type ArchiveInput = {
   password?: string;
   workspace: { id: string; name: string };
@@ -121,6 +132,7 @@ export class BackupArchiveService {
       if (!manifestEntry) {
         throw new Error('missing manifest');
       }
+      this.assertUnpackedSize([manifestEntry], MAX_MANIFEST_BYTES, 1);
       const manifest = JSON.parse(manifestEntry.getData().toString('utf8')) as BackupManifest;
       this.validateManifest(manifest);
 
@@ -138,6 +150,7 @@ export class BackupArchiveService {
       );
       const payload = this.decrypt(manifest.encryption.payload, dataKey, 'backup is corrupted');
       const inner = new AdmZip(payload);
+      this.assertUnpackedSize(inner.getEntries(), MAX_PAYLOAD_BYTES, MAX_PAYLOAD_ENTRIES);
       const collections: Record<string, unknown[]> = {};
       const files = new Map<string, Buffer>();
 
@@ -162,11 +175,19 @@ export class BackupArchiveService {
     } catch (error) {
       if (
         error instanceof Error &&
-        ['password is invalid', 'backup is corrupted'].includes(error.message)
+        ['password is invalid', 'backup is corrupted', TOO_LARGE].includes(error.message)
       ) {
         throw error;
       }
       throw new Error('backup is corrupted');
+    }
+  }
+
+  /** Refuses entries that would unpack to more than `maxBytes` together, or too many of them. */
+  private assertUnpackedSize(entries: AdmZip.IZipEntry[], maxBytes: number, maxEntries: number) {
+    const declared = entries.reduce((total, entry) => total + entry.header.size, 0);
+    if (entries.length > maxEntries || declared > maxBytes) {
+      throw new Error(TOO_LARGE);
     }
   }
 

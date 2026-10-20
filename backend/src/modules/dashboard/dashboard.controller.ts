@@ -7,7 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -40,11 +40,18 @@ export class DashboardController {
     @WorkspaceId() workspaceId: string,
     @Query('range') range: '7d' | '30d' | '90d' | 'month' = '30d',
     @Query('date') date?: string,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     const validRange: '7d' | '30d' | '90d' | 'month' = ['7d', '30d', '90d', 'month'].includes(range)
       ? range
       : '30d';
-    return this.dashboardService.getDashboard(user.id, workspaceId, validRange, date);
+    return this.dashboardService.getDashboard(
+      user.id,
+      workspaceId,
+      validRange,
+      date,
+      selfMemberId ?? null,
+    );
   }
 
   @Get('cash-flow')
@@ -63,11 +70,12 @@ export class DashboardController {
     @WorkspaceId() workspaceId: string,
     @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
     @Query('month') month?: string,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     if (month !== undefined && !parseMonthWindow(month)) {
       throw new BadRequestException('month must be YYYY-MM');
     }
-    return this.dashboardService.getTrends(workspaceId, days, month);
+    return this.dashboardService.getTrends(workspaceId, days, month, selfMemberId ?? null);
   }
 
   @Get('health-history')

@@ -70,7 +70,8 @@ export type WorkspaceMemberPermissionsInput = Wire<typeof WorkspaceMemberPermiss
 
 export const InviteMemberBody = Schema.Struct({
   email: Email,
-  role: optionalNullable(Schema.Literals(['owner', 'admin', 'member', 'viewer', 'accountant'])),
+  /** No `owner`: ownership moves only by transfer (`PATCH …/members/:userId/role`). */
+  role: optionalNullable(Schema.Literals(['admin', 'member', 'viewer', 'accountant'])),
   permissions: optionalNullable(WorkspaceMemberPermissionsInput),
 });
 export type InviteMemberBody = Wire<typeof InviteMemberBody>;

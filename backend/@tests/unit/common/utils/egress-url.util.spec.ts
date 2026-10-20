@@ -6,6 +6,7 @@ import {
   createPublicEgressLookup,
   fetchPublicUrl,
   isBlockedEgressAddress,
+  pinPublicEgressHost,
 } from '@/common/utils/egress-url.util';
 
 describe('egress-url.util', () => {
@@ -16,7 +17,25 @@ describe('egress-url.util', () => {
     },
   );
 
-  it.each(['8.8.8.8', '1.1.1.1', '2606:4700:4700::1111'])(
+  // Ranges that reach IPv4 or local networks through IPv6: NAT64 (64:ff9b::/96,
+  // 64:ff9b:1::/48), 6to4 (2002::/16) and the deprecated site-local fec0::/10,
+  // plus spellings of loopback that are not the compressed '::1'.
+  it.each([
+    '64:ff9b::7f00:1',
+    '64:ff9b:1::a00:1',
+    '2002:7f00:1::',
+    'fec0::1',
+    'feff::1',
+    '0:0:0:0:0:0:0:1',
+    '0000:0000:0000:0000:0000:0000:0000:0001',
+    '::ffff:127.0.0.1',
+    'fe80::1%eth0',
+    'FC00::1',
+  ])('blocks IPv6 address %s that leads to a private network', address => {
+    expect(isBlockedEgressAddress(address)).toBe(true);
+  });
+
+  it.each(['8.8.8.8', '1.1.1.1', '2606:4700:4700::1111', '2001:4860:4860::8888'])(
     'allows public address %s',
     address => {
       expect(isBlockedEgressAddress(address)).toBe(false);
@@ -124,6 +143,38 @@ describe('fetchPublicUrl', () => {
     );
   });
 
+  // A credential meant for the first host must not be replayed to whatever host
+  // that one redirects to.
+  it('drops Authorization and Cookie when a redirect leaves the origin', async () => {
+    const spy = jest
+      .fn()
+      .mockResolvedValueOnce(respond(302, 'http://1.1.1.1/next'))
+      .mockResolvedValueOnce(respond(200));
+    global.fetch = spy as unknown as typeof fetch;
+
+    await fetchPublicUrl('http://8.8.8.8/start', {
+      headers: { Authorization: 'Basic c2VjcmV0', Cookie: 'sid=1', Accept: 'text/csv' },
+    });
+
+    const headers = new Headers(spy.mock.calls[1][1].headers);
+    expect(headers.get('authorization')).toBeNull();
+    expect(headers.get('cookie')).toBeNull();
+    expect(headers.get('accept')).toBe('text/csv');
+    expect(new Headers(spy.mock.calls[0][1].headers).get('authorization')).toBe('Basic c2VjcmV0');
+  });
+
+  it('keeps Authorization on a redirect within the same origin', async () => {
+    const spy = jest
+      .fn()
+      .mockResolvedValueOnce(respond(302, '/next'))
+      .mockResolvedValueOnce(respond(200));
+    global.fetch = spy as unknown as typeof fetch;
+
+    await fetchPublicUrl('http://8.8.8.8/start', { headers: { Authorization: 'Bearer t' } });
+
+    expect(new Headers(spy.mock.calls[1][1].headers).get('authorization')).toBe('Bearer t');
+  });
+
   it('keeps the method and body for a 308, which preserves them by spec', async () => {
     const spy = jest
       .fn()
@@ -176,5 +227,36 @@ describe('createPublicEgressLookup', () => {
       true,
     );
     expect(result.error?.code).toBe('EHOSTUNREACH');
+  });
+});
+
+describe('pinPublicEgressHost', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('connects to the checked address and keeps the name for TLS', async () => {
+    jest.spyOn(dns, 'lookup').mockResolvedValueOnce([
+      { address: '2a00:1450:4001:c02::6c', family: 6 },
+      { address: '142.250.102.108', family: 4 },
+    ] as never);
+
+    await expect(pinPublicEgressHost('smtp.example.test')).resolves.toEqual({
+      host: '142.250.102.108',
+      servername: 'smtp.example.test',
+    });
+  });
+
+  it('refuses a name that resolves to a private address', async () => {
+    jest
+      .spyOn(dns, 'lookup')
+      .mockResolvedValueOnce([{ address: '10.0.0.25', family: 4 }] as never);
+
+    await expect(pinPublicEgressHost('smtp.example.test')).rejects.toThrow(BadRequestException);
+  });
+
+  it('passes a public IP literal through and refuses a private one', async () => {
+    await expect(pinPublicEgressHost('8.8.8.8')).resolves.toEqual({ host: '8.8.8.8' });
+    await expect(pinPublicEgressHost('127.0.0.1')).rejects.toThrow(BadRequestException);
   });
 });

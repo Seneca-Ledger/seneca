@@ -11,12 +11,14 @@ import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { fromMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import { assertWorkspaceOwned } from '../../common/utils/workspace-refs.util';
 import type {
   CreateInvoiceBody,
   InvoiceLineItemInput,
   InvoicesQuery,
   UpdateInvoiceBody,
 } from '../../contracts';
+import { Category } from '../../entities/category.entity';
 import { Client } from '../../entities/client.entity';
 import { CreditNoteStatus } from '../../entities/credit-note.entity';
 import { Invoice, InvoiceRecurrenceInterval, InvoiceStatus } from '../../entities/invoice.entity';
@@ -117,6 +119,7 @@ export class InvoicesService {
   async create(workspaceId: string, dto: CreateInvoiceBody): Promise<Invoice> {
     const client = await this.clientInWorkspace(workspaceId, dto.clientId);
     await this.taxRatesInWorkspace(workspaceId, dto.lineItems);
+    await this.categoriesInWorkspace(workspaceId, dto.lineItems);
     return this.buildDraft(workspaceId, dto.clientId, {
       issueDate: dto.issueDate,
       dueDate: dto.dueDate ?? (await this.dueDateFor(workspaceId, client, dto.issueDate)),
@@ -275,6 +278,7 @@ export class InvoicesService {
 
       if (dto.lineItems) {
         await this.taxRatesInWorkspace(workspaceId, dto.lineItems);
+        await this.categoriesInWorkspace(workspaceId, dto.lineItems);
         await this.replaceLineItems(manager, invoice.id, dto.lineItems);
       }
       return this.recalculateTotals(manager, invoice.id);
@@ -708,6 +712,22 @@ export class InvoicesService {
     if (found !== ids.length) {
       throw new NotFoundException('Tax rate not found');
     }
+  }
+
+  /**
+   * A line's category comes from the request and is carried onto credit notes
+   * and journal lines: one of another workspace's is "not found".
+   */
+  private categoriesInWorkspace(
+    workspaceId: string,
+    lineItems: ReadonlyArray<{ categoryId?: string | null }>,
+  ): Promise<void> {
+    return assertWorkspaceOwned(
+      this.invoiceRepository.manager,
+      Category,
+      lineItems.map(item => item.categoryId),
+      workspaceId,
+    );
   }
 
   private parseDateOnly(value: string): Date {

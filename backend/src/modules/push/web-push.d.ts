@@ -16,6 +16,10 @@ declare module 'web-push' {
   export function sendNotification(
     subscription: WebPushSubscription,
     payload?: string | Buffer | null,
-    options?: { TTL?: number; urgency?: 'very-low' | 'low' | 'normal' | 'high' },
+    options?: {
+      TTL?: number;
+      urgency?: 'very-low' | 'low' | 'normal' | 'high';
+      agent?: import('node:https').Agent;
+    },
   ): Promise<{ statusCode: number; body: string }>;
 }

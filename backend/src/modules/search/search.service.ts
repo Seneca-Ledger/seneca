@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../common/utils/transaction-privacy.util';
 import { Category } from '../../entities/category.entity';
 import { Payable, PayableDirection } from '../../entities/payable.entity';
 import { Receipt } from '../../entities/receipt.entity';
@@ -43,7 +47,11 @@ export class SearchService {
     private readonly receiptRepo: Repository<Receipt>,
   ) {}
 
-  async search(workspaceId: string, rawQuery: string): Promise<SearchResponse> {
+  async search(
+    workspaceId: string,
+    rawQuery: string,
+    viewerMemberId: string | null = null,
+  ): Promise<SearchResponse> {
     const query = (rawQuery ?? '').trim();
     if (query.length < MIN_QUERY_LENGTH) {
       return { query, results: [] };
@@ -52,7 +60,7 @@ export class SearchService {
     const needle = `%${query.toLowerCase()}%`;
 
     const [transactions, statements, payables, categories] = await Promise.all([
-      this.searchTransactions(workspaceId, needle),
+      this.searchTransactions(workspaceId, needle, viewerMemberId),
       this.searchStatements(workspaceId, needle),
       this.searchPayables(workspaceId, needle),
       this.searchCategories(workspaceId, needle),
@@ -61,7 +69,11 @@ export class SearchService {
     return { query, results: [...transactions, ...statements, ...payables, ...categories] };
   }
 
-  private async searchTransactions(workspaceId: string, needle: string): Promise<SearchResult[]> {
+  private async searchTransactions(
+    workspaceId: string,
+    needle: string,
+    viewerMemberId: string | null,
+  ): Promise<SearchResult[]> {
     const rows = await this.transactionRepo
       .createQueryBuilder('t')
       .innerJoinAndSelect('t.statement', 's')
@@ -71,6 +83,9 @@ export class SearchService {
         '(LOWER(t.counterpartyName) LIKE :needle OR LOWER(t.paymentPurpose) LIKE :needle)',
         { needle },
       )
+      // Matching on what another member's private row was would give it away
+      // even with the text blanked: the hit itself is the answer.
+      .andWhere(readablePrivateSql('t'), { [PRIVACY_VIEWER_PARAM]: viewerMemberId })
       .orderBy('t.transactionDate', 'DESC')
       .take(PER_KIND_LIMIT)
       .getMany();

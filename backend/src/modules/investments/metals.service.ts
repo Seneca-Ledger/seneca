@@ -210,7 +210,10 @@ export class MetalsService {
       costCurrency:
         dto.costTotal === undefined ? null : (dto.costCurrency ?? currency).toUpperCase(),
       counterparty: dto.counterparty ?? null,
-      ownerUserId: dto.ownerUserId ?? userId,
+      // Same rule as updateLot: an owner named in the request is a member of this workspace.
+      ownerUserId: dto.ownerUserId
+        ? await this.requireMemberId(workspaceId, dto.ownerUserId)
+        : userId,
       price: dto.price ?? 0,
       priceCurrency,
       priceSource: InvestmentPriceSource.MANUAL,

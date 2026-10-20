@@ -17,6 +17,7 @@ import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
+import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import type {
   CreateFolderBody,
@@ -789,6 +790,10 @@ export class StorageService {
       where: { statementId },
       order: { transactionDate: 'DESC' },
     });
+    // As in getFileDetails: a private row reads as a placeholder to all but its owner.
+    const workspaceId = transactions[0]?.workspaceId;
+    const membership = workspaceId ? await this.findMembership(workspaceId, userId) : null;
+    redactPrivateRows(transactions, membership?.id ?? null);
 
     const header = [
       'date',
@@ -801,7 +806,8 @@ export class StorageService {
       'paymentPurpose',
     ];
     const rows = transactions.map(t => [
-      t.transactionDate ? t.transactionDate.toISOString().split('T')[0] : '',
+      // The `date` column comes back as a string, not a Date.
+      t.transactionDate ? new Date(t.transactionDate).toISOString().split('T')[0] : '',
       t.documentNumber ?? '',
       t.counterpartyName ?? '',
       t.counterpartyBin ?? '',
@@ -835,7 +841,18 @@ export class StorageService {
       await this.checkFileAccess(userId, st.id, 'edit');
     }
 
-    await this.statementRepository.delete(uniqueIds);
+    // The same path as deleting one file: to the trash, audited, and refused
+    // for rows on a filed tax return — checked for all first, so a refusal
+    // leaves none trashed. Files already in the trash stay as they are.
+    const toTrash = statements.filter(item => !item.deletedAt);
+    if (toTrash.length) {
+      await assertNoTaxLockedTransactions(this.transactionRepository, {
+        statementId: In(toTrash.map(st => st.id)),
+      });
+    }
+    for (const st of toTrash) {
+      await this.statementsService.remove(st.id, userId, st.workspaceId);
+    }
     return {
       deleted: statements.length,
       missing: uniqueIds.length - statements.length,
@@ -1346,21 +1363,20 @@ export class StorageService {
     const membership = await this.findMembership(statement.workspaceId, userId);
 
     // Uploading the file does not outrank the role: a viewer who dropped a
-    // statement in still only reads it.
-    if (statement.userId === userId) {
-      if (membership) {
-        if (
-          requiredAction === 'edit' &&
-          !workspaceMemberCanEdit(membership.role, 'canEditStatements', membership.permissions)
-        ) {
-          throw new ForbiddenException(appError('STATEMENTS_EDIT_FORBIDDEN'));
-        }
-        if (
-          requiredAction === 'share' &&
-          !workspaceMemberCanEdit(membership.role, 'canShareFiles', membership.permissions)
-        ) {
-          throw new ForbiddenException(appError('SHARING_FORBIDDEN'));
-        }
+    // statement in still only reads it. Nor does it outlast the membership: an
+    // uploader who left the workspace is just anyone, down to an explicit grant.
+    if (statement.userId === userId && membership) {
+      if (
+        requiredAction === 'edit' &&
+        !workspaceMemberCanEdit(membership.role, 'canEditStatements', membership.permissions)
+      ) {
+        throw new ForbiddenException(appError('STATEMENTS_EDIT_FORBIDDEN'));
+      }
+      if (
+        requiredAction === 'share' &&
+        !workspaceMemberCanEdit(membership.role, 'canShareFiles', membership.permissions)
+      ) {
+        throw new ForbiddenException(appError('SHARING_FORBIDDEN'));
       }
       return;
     }

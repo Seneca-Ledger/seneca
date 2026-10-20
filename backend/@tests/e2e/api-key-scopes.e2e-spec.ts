@@ -66,6 +66,10 @@ describe('API key scopes and trusted agents (e2e)', () => {
 
   it('requires scopes on a new key and refuses the ones a key may never hold', async () => {
     await as(owner, request(server()).post('/api-keys')).send({ name: 'No scopes' }).expect(400);
+    // An empty list used to be stored as `null`, which is a legacy key with the owner's full reach.
+    await as(owner, request(server()).post('/api-keys'))
+      .send({ name: 'Empty scopes', scopes: [] })
+      .expect(400);
     await as(owner, request(server()).post('/api-keys'))
       .send({ name: 'Too much', scopes: ['api_key.manage'] })
       .expect(400);
@@ -101,6 +105,49 @@ describe('API key scopes and trusted agents (e2e)', () => {
       .field('date', today())
       .expect(403);
     expect(refused.body.message ?? JSON.stringify(refused.body)).toMatch(/scope/i);
+  });
+
+  /**
+   * Scopes are checked by `PermissionsGuard`, which only routes that declare a
+   * permission have. Everything else (workspace, member and account routes)
+   * would run with the owner's full rights, so a scoped key may not use them.
+   */
+  it('keeps a scoped key off routes that declare no permission', async () => {
+    await withKey(readKey, request(server()).delete(`/workspaces/${owner.workspaceId}`)).expect(
+      403,
+    );
+    await withKey(readKey, request(server()).patch(`/workspaces/${owner.workspaceId}`))
+      .send({ name: 'Renamed by a key' })
+      .expect(403);
+    await withKey(readKey, request(server()).post(`/workspaces/${owner.workspaceId}/invitations`))
+      .send({ email: `scopes-invitee-${stamp}@example.com`, role: 'admin' })
+      .expect(403);
+    await withKey(readKey, request(server()).put(`/users/${owner.userId}`))
+      .send({ name: 'Renamed by a key' })
+      .expect(403);
+    await withKey(readKey, request(server()).get('/auth/me')).expect(403);
+
+    const workspace = await as(
+      owner,
+      request(server()).get(`/workspaces/${owner.workspaceId}`),
+    ).expect(200);
+    expect(workspace.body.name).not.toBe('Renamed by a key');
+    const invitations = await as(
+      owner,
+      request(server()).get(`/workspaces/${owner.workspaceId}/invitations`),
+    ).expect(200);
+    expect(invitations.body).toEqual([]);
+  });
+
+  it('leaves a legacy key without scopes the reach it always had', async () => {
+    const legacy = await as(owner, request(server()).post('/api-keys'))
+      .send({ name: 'Legacy', scopes: ['transaction.view'] })
+      .expect(201);
+    await dataSource.query('UPDATE api_keys SET scopes = NULL WHERE id = $1', [legacy.body.id]);
+
+    await withKey(legacy.body.key, request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(
+      200,
+    );
   });
 
   it('audits what a writing key does as that key, undoable', async () => {

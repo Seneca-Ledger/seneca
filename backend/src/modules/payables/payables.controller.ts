@@ -2,7 +2,7 @@ import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Res } from '@
 import type { Response } from 'express';
 import * as fs from 'fs';
 import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
@@ -84,8 +84,9 @@ export class PayablesController {
   async findPaymentCandidates(
     @Param('id', new ParseUUIDPipe()) id: string,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.payablesService.findPaymentCandidates(id, workspaceId);
+    return this.payablesService.findPaymentCandidates(id, workspaceId, selfMemberId);
   }
 
   @Get(':id/payments')

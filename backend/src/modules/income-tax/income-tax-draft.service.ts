@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, type QueryDeepPartialEntity, type Repository, type SelectQueryBuilder } from 'typeorm';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import {
   ActorType,
   AuditAction,
@@ -381,6 +382,9 @@ export class IncomeTaxDraftService {
         .getMany(),
       this.mappingRepository.find({ where: { workspaceId, formKey: pack.formKey } }),
     ]);
+    // The declaration is the workspace's (and is frozen on finalising): a
+    // private row's amount counts, its counterparty is nobody's to read there.
+    redactPrivateRows(transactions, null);
 
     const lineByKey = new Map(pack.lines.map(line => [line.key, line]));
     const lineByCategory = new Map<string, FormLine>();

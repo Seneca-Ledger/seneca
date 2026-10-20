@@ -39,12 +39,17 @@ function createService(overrides: Partial<Record<string, unknown>> = {}) {
     getSmtpSettings: jest.fn(async () => ({ source: 'disabled', host: null, from: null })),
     ...(overrides.applicationSettings as object),
   };
+  const workspaceMemberRepository = {
+    findOne: jest.fn(async () => ({ role: 'owner', permissions: null })),
+    ...(overrides.workspaceMemberRepository as object),
+  };
 
   const service = new ReportSchedulesService(
     scheduleRepository as never,
     userRepository as never,
     reportsService as never,
     applicationSettings as never,
+    workspaceMemberRepository as never,
   );
 
   return { service, scheduleRepository, reportsService, applicationSettings };
@@ -205,6 +210,37 @@ describe('ReportSchedulesService.runDue', () => {
     expect(sendMail.mock.calls[0][0].subject).toMatch(/^Profit & Loss \(P&L\): /);
     expect(result).toEqual({ ran: 1, failed: 0 });
     expect(scheduleRepository.save.mock.calls[0][0].lastError).toBeNull();
+  });
+
+  it.each([
+    ['was removed from the workspace', null],
+    ['was demoted to viewer', { role: 'viewer', permissions: null }],
+  ])('pauses, without mailing, a schedule whose creator %s', async (_label, membership) => {
+    const { service, scheduleRepository, reportsService } = createService({
+      scheduleRepository: { find: jest.fn(async () => [dueSchedule('s1')]) },
+      workspaceMemberRepository: { findOne: jest.fn(async () => membership) },
+    });
+
+    const result = await service.runDue(now);
+
+    expect(reportsService.generateFromTemplate).not.toHaveBeenCalled();
+    expect(result).toEqual({ ran: 0, failed: 0 });
+    const saved = scheduleRepository.save.mock.calls[0][0];
+    expect(saved.isActive).toBe(false);
+    expect(saved.lastError).toMatch(/can no longer export/);
+  });
+
+  it('keeps mailing for an accountant, who may export', async () => {
+    const { service, reportsService } = createService({
+      scheduleRepository: { find: jest.fn(async () => [dueSchedule('s1')]) },
+      workspaceMemberRepository: {
+        findOne: jest.fn(async () => ({ role: 'accountant', permissions: null })),
+      },
+    });
+
+    await service.runDue(now);
+
+    expect(reportsService.generateFromTemplate).toHaveBeenCalledTimes(1);
   });
 });
 

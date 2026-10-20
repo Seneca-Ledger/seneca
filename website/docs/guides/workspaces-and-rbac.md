@@ -20,8 +20,9 @@ A request passes when either layer allows it:
    permissions set on the user). A global `admin` passes every check and can open the `/admin`
    dashboard.
 2. **Workspace role** — `owner`, `admin`, `member` or `viewer`:
-   - Owners and admins manage workspace settings and integrations, view the audit log, and create,
-     edit and delete budgets, wallets, payables, categories, branches and subscriptions.
+   - Owners and admins manage workspace settings and integrations (webhooks included), view the
+     audit log, and create, edit and delete budgets, wallets, investments, metals, balance-sheet
+     lines, payables, categories, branches and subscriptions.
    - Uploading, editing and deleting statements and transactions is allowed for workspace members
      unless their `canEditStatements` flag is `false`; owners and admins always have it.
 

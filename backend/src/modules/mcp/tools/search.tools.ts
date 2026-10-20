@@ -21,7 +21,7 @@ export function searchTools(search: SearchService): McpTool[] {
       permissions: [Permission.TRANSACTION_VIEW],
       output: SearchResponse,
       readOnly: true,
-      run: (ctx, args) => search.search(ctx.workspaceId, args.q),
+      run: (ctx, args) => search.search(ctx.workspaceId, args.q, ctx.memberId),
     }),
   ];
 }

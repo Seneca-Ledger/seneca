@@ -16,7 +16,7 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
@@ -287,12 +287,16 @@ export class ReceiptsController {
   @Get(':id/transaction-matches')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @SchemaResponse(ReceiptTransactionMatches)
-  async transactionMatches(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async transactionMatches(
+    @Param('id') id: string,
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+  ) {
     const receipt = await this.receiptMatchService.refresh(id, workspaceId);
     if (!receipt) {
       throw new BadRequestException('Receipt not found');
     }
-    const candidates = await this.receiptMatchService.candidates(receipt);
+    const candidates = await this.receiptMatchService.candidates(receipt, selfMemberId);
     return {
       suggestion: receipt.metadata?.transactionMatch ?? null,
       data: candidates.map(entry => ({

@@ -1100,10 +1100,14 @@ export class OpenProtocolIntegrationsService {
   }
 
   private async assertS3Connection(config: S3Config): Promise<void> {
+    // The same pinned-lookup agents as the runtime client: the endpoint was just
+    // checked, and the probe must not connect wherever it resolves next (DNS rebinding).
+    const { httpAgent, httpsAgent } = createPublicEgressHttpAgents();
     const client = new S3Client({
       endpoint: config.endpoint,
       region: config.region,
       forcePathStyle: config.forcePathStyle,
+      requestHandler: new NodeHttpHandler({ httpAgent, httpsAgent }),
       credentials:
         config.accessKeyId && config.secretAccessKey
           ? {

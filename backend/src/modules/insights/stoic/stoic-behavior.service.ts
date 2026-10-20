@@ -3,6 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import { flowsSql } from '../../../common/utils/counted-transactions.util';
 import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../../common/utils/transaction-privacy.util';
+import {
   Subscription,
   SubscriptionFrequency,
   SubscriptionStatus,
@@ -77,8 +81,13 @@ export class StoicBehaviorService {
       1,
     );
 
+    // Advice is the workspace's and names merchants, so nobody's private rows
+    // feed the merchant lists; their money still counts in every total below.
+    const named = readablePrivateSql('t');
+    const nobody = { [PRIVACY_VIEWER_PARAM]: null };
     const [merchantRows, previousRows, weekdayRows, flowRows, subscriptions] = await Promise.all([
       this.expenses(workspaceId, month)
+        .andWhere(named, nobody)
         .select('t.counterparty_name', 'name')
         .addSelect('t.category_id', 'categoryId')
         .addSelect('t.currency', 'currency')
@@ -95,6 +104,7 @@ export class StoicBehaviorService {
           total: string;
         }>(),
       this.expenses(workspaceId, previous)
+        .andWhere(named, nobody)
         .select('t.counterparty_name', 'name')
         .addSelect('COUNT(*)', 'count')
         .groupBy('t.counterparty_name')

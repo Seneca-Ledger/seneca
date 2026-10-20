@@ -450,6 +450,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
     const reportSchedules = job(ReportSchedulesService, {
       scheduleRepository: repo(ReportSchedule),
       userRepository: repo(User),
+      workspaceMemberRepository: repo(WorkspaceMember),
     });
     const runSchedule = jest
       .spyOn(reportSchedules as never, 'runSchedule')

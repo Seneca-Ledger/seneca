@@ -34,7 +34,10 @@ const ROWS = [
   },
 ];
 
-function buildService(): {
+function buildService(
+  columns: Array<Record<string, unknown>> = COLUMNS,
+  table: Record<string, unknown> = { id: TABLE_ID, name: 'Отчёт' },
+): {
   service: CustomTablesService;
   rowQueryBuilder: { skip: jest.Mock; take: jest.Mock };
 } {
@@ -46,10 +49,10 @@ function buildService(): {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
-    getOne: jest.fn().mockResolvedValue({ id: TABLE_ID, name: 'Отчёт' }),
+    getOne: jest.fn().mockResolvedValue(table),
   });
 
-  customTableColumnRepository.find.mockResolvedValue(COLUMNS);
+  customTableColumnRepository.find.mockResolvedValue(columns);
 
   const rowQueryBuilder = {
     where: jest.fn().mockReturnThis(),
@@ -126,6 +129,27 @@ describe('CustomTablesService.exportRows', () => {
     rowQueryBuilder.getCount.mockResolvedValue(100_001);
 
     await expect(service.exportRows('workspace-1', TABLE_ID, { format: 'csv' })).rejects.toMatchObject({ response: { code: 'EXPORT_TOO_MANY_ROWS' } });
+  });
+
+  it('neutralises formula-looking column and summary titles in CSV', async () => {
+    const { service } = buildService(
+      [{ key: 'date', title: '=HYPERLINK("http://evil.example","x")', type: CustomTableColumnType.DATE, position: 0 }],
+      {
+        id: TABLE_ID,
+        name: 'Отчёт',
+        viewSettings: { summaries: [{ id: 's1', title: '@total', expression: 'SUM(1)' }] },
+      },
+    );
+    jest.spyOn(service, 'getSummaries').mockResolvedValue({
+      items: [{ id: 's1', title: '@total', expression: 'SUM(1)', value: '-1+cmd' }],
+    } as never);
+
+    const result = await service.exportRows('workspace-1', TABLE_ID, { format: 'csv' });
+    const csv = result.buffer.toString('utf-8');
+
+    expect(csv).toContain(`"'=HYPERLINK(""http://evil.example"",""x"")"`);
+    expect(csv).toContain("'@total,'-1+cmd");
+    expect(csv).not.toMatch(/(^|\n|,)"?=HYPERLINK/);
   });
 
   it('prefixes CSV with a BOM so Excel reads Cyrillic correctly', async () => {

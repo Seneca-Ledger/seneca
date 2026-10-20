@@ -82,7 +82,8 @@ export function planningTools(deps: {
       permissions: [Permission.REPORT_VIEW],
       output: ForecastResponse,
       readOnly: true,
-      run: (ctx, args) => deps.forecast.getForecast(ctx.workspaceId, { days: args.days }),
+      run: (ctx, args) =>
+        deps.forecast.getForecast(ctx.workspaceId, { days: args.days }, ctx.memberId),
     }),
   ];
 }

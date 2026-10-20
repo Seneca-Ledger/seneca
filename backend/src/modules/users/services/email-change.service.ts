@@ -92,7 +92,7 @@ export class EmailChangeService {
           '',
           'If this was not you, you can ignore this email — the account keeps its current address.',
         ].join('\n'),
-        user,
+        accountOf: user,
       });
 
       if (!sent) {

@@ -121,8 +121,8 @@ export const DeleteMyAccountBody = Schema.Struct({
 });
 export type DeleteMyAccountBody = Wire<typeof DeleteMyAccountBody>;
 
+/** No `email`: an address changes only through `PATCH /users/me/email` and its confirmation link. */
 export const UpdateUserBody = Schema.Struct({
-  email: optionalNullable(Email),
   name: optionalNullable(Schema.String),
   company: optionalNullable(Schema.String),
   role: optionalNullable(Schema.Literals(['admin', 'user', 'viewer'])),

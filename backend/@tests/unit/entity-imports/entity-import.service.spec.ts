@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EntityImportService } from '../../../src/modules/entity-imports/entity-import.service';
 
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111';
@@ -42,6 +42,20 @@ const build = () => {
 };
 
 describe('EntityImportService', () => {
+  it("refuses an API key without the target's create scope, before reading a row", async () => {
+    const { service, dataSource } = build();
+    const readOnlyKey = { scopes: ['payable.view', 'statement.view'] };
+    const dto = { target: 'payables' as const, mapping: { vendor: 0, amount: 1 }, rows: [['A', '1']] };
+
+    await expect(service.run(USER_ID, WORKSPACE_ID, dto, readOnlyKey)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    await expect(
+      service.run(USER_ID, WORKSPACE_ID, dto, { scopes: ['payable.create'] }),
+    ).resolves.toMatchObject({ target: 'payables' });
+  });
+
   it('rejects a mapping without the required fields', async () => {
     const { service } = build();
     await expect(

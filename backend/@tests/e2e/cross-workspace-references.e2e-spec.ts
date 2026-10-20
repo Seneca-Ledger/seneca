@@ -7,6 +7,7 @@ import type { TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { Receipt, ReceiptSource, ReceiptStatus } from '../../src/entities/receipt.entity';
 import {
   deleteUserByEmail,
   type E2eAccount,
@@ -40,6 +41,23 @@ describe('Cross-workspace references (e2e)', () => {
     );
     return row.id;
   };
+  const theirCategory = () => idIn(b, 'categories', `name LIKE '${bMarker}%'`);
+  const theirWallet = () => idIn(b, 'wallets', `name LIKE '${bMarker}%'`);
+  const theirBranch = () => idIn(b, 'branches', `name LIKE '${bMarker}%'`);
+  /** A dated receipt of A's, ready to approve, carrying `parsedData` on top. */
+  const receiptOfA = (parsedData: Record<string, unknown> = {}) =>
+    dataSource.getRepository(Receipt).save({
+      userId: a.userId,
+      workspaceId: a.workspaceId,
+      source: ReceiptSource.SCAN,
+      subject: 'Xref receipt',
+      sender: 'scan',
+      receivedAt: new Date(),
+      status: ReceiptStatus.NEEDS_REVIEW,
+      parsedData: { amount: 7, currency: 'USD', vendor: 'Xref shop', date: '2026-01-02', ...parsedData },
+    });
+  const reloaded = (receipt: Receipt) =>
+    dataSource.getRepository(Receipt).findOneByOrFail({ id: receipt.id });
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await e2eTestingModule({
@@ -143,5 +161,185 @@ describe('Cross-workspace references (e2e)', () => {
     });
     expect(res.status).toBe(404);
     expect(res.text).not.toContain(bMarker);
+  });
+
+  it('does not save a rule that files rows under B’s category, wallet or branch', async () => {
+    for (const result of [
+      { categoryId: await theirCategory() },
+      { walletId: await theirWallet() },
+      { branchId: await theirBranch() },
+    ]) {
+      await as(request(server()).post('/categorization-rules'))
+        .send({
+          name: 'Xref theirs',
+          conditions: [{ field: 'counterparty_name', operator: 'contains', value: 'x' }],
+          result,
+        })
+        .expect(404);
+    }
+    const mine = await idIn(a, 'categorization_rules');
+    await as(request(server()).put(`/categorization-rules/${mine}`))
+      .send({ result: { categoryId: await theirCategory() } })
+      .expect(404);
+    const rules = await dataSource.query(
+      `SELECT name, result FROM categorization_rules WHERE workspace_id = $1`,
+      [a.workspaceId],
+    );
+    expect(rules.map((rule: { name: string }) => rule.name)).not.toContain('Xref theirs');
+    expect(JSON.stringify(rules)).not.toContain(await theirCategory());
+  });
+
+  it('passes over a stored rule that names B’s wallet and category', async () => {
+    const transactionId = await idIn(a, 'transactions');
+    await dataSource.query(
+      `INSERT INTO categorization_rules (user_id, workspace_id, name, conditions, result, priority, is_active)
+       VALUES ($1, $2, 'Xref stored', $3, $4, 999, true)`,
+      [
+        a.userId,
+        a.workspaceId,
+        JSON.stringify([{ field: 'counterparty_name', operator: 'contains', value: 'axref' }]),
+        JSON.stringify({ categoryId: await theirCategory(), walletId: await theirWallet() }),
+      ],
+    );
+    const res = await as(
+      request(server()).post(`/classification/transaction/${transactionId}`),
+    ).expect(200);
+    const [row] = await dataSource.query(
+      'SELECT category_id, wallet_id, owner_member_id FROM transactions WHERE id = $1',
+      [transactionId],
+    );
+    expect(row.category_id).not.toBe(await theirCategory());
+    expect(row.wallet_id).not.toBe(await theirWallet());
+    expect(res.text).not.toContain(bMarker);
+  });
+
+  it('does not put B’s category on A’s receipt', async () => {
+    const receipt = await receiptOfA();
+    await as(request(server()).patch(`/receipts/${receipt.id}`))
+      .send({ parsedData: { categoryId: await theirCategory() } })
+      .expect(404);
+    expect((await reloaded(receipt)).parsedData.categoryId).toBeUndefined();
+  });
+
+  it('does not take server-owned receipt fields from the client', async () => {
+    const receipt = await receiptOfA();
+    await as(request(server()).patch(`/receipts/${receipt.id}`))
+      .send({ parsedData: { categorySource: 'manual', validationIssues: [] } })
+      .expect(400);
+    await as(request(server()).patch(`/integrations/gmail/receipts/${receipt.id}`))
+      .send({ parsedData: { categorySource: 'manual' } })
+      .expect(400);
+  });
+
+  it('does not book a receipt under B’s category', async () => {
+    const receipt = await receiptOfA();
+    await as(request(server()).post('/receipts/bulk-approve'))
+      .send({ receiptIds: [receipt.id], categoryId: await theirCategory() })
+      .expect(404);
+    // A category stored before the check existed is refused at approval too.
+    const stored = await receiptOfA({ categoryId: await theirCategory() });
+    await as(request(server()).post(`/receipts/${stored.id}/approve`))
+      .send({})
+      .expect(404);
+    for (const id of [receipt.id, stored.id]) {
+      const after = await dataSource.getRepository(Receipt).findOneByOrFail({ id });
+      expect(after.transactionId).toBeNull();
+      expect(after.status).toBe(ReceiptStatus.NEEDS_REVIEW);
+    }
+  });
+
+  it('does not book a Gmail receipt under B’s category', async () => {
+    const receipt = await receiptOfA();
+    const categoryId = await theirCategory();
+    await as(request(server()).post(`/integrations/gmail/receipts/${receipt.id}/approve`))
+      .send({ amount: 7, description: 'Xref', date: '2026-01-02', categoryId })
+      .expect(404);
+    await as(request(server()).post('/integrations/gmail/receipts/bulk-approve'))
+      .send({ receiptIds: [receipt.id], categoryId })
+      .expect(404);
+    await as(request(server()).patch(`/integrations/gmail/receipts/${receipt.id}/parsed-data`))
+      .send({ categoryId })
+      .expect(404);
+    await as(request(server()).patch(`/integrations/gmail/receipts/${receipt.id}`))
+      .send({ parsedData: { categoryId } })
+      .expect(404);
+    const after = await reloaded(receipt);
+    expect(after.transactionId).toBeNull();
+    expect(after.parsedData.categoryId).toBeUndefined();
+  });
+
+  it('does not convert a dropped row into one of B’s wallet, category or branch', async () => {
+    const statementId = await idIn(a, 'statements');
+    const count = async () =>
+      (
+        await dataSource.query('SELECT count(*)::int AS n FROM transactions WHERE statement_id = $1', [
+          statementId,
+        ])
+      )[0].n;
+    const before = await count();
+    for (const ref of [
+      { walletId: await theirWallet() },
+      { categoryId: await theirCategory() },
+      { branchId: await theirBranch() },
+    ]) {
+      await as(request(server()).post(`/statements/${statementId}/convert-dropped-sample`))
+        .send({
+          index: 0,
+          warning: 'xref',
+          transaction: { transactionDate: '2026-01-01', debit: 1, ...ref },
+        })
+        .expect(404);
+    }
+    expect(await count()).toBe(before);
+  });
+
+  it('does not file A’s invoice line under B’s category', async () => {
+    const res = await as(request(server()).post('/invoices')).send({
+      clientId: await idIn(a, 'clients'),
+      issueDate: '2026-01-05',
+      lineItems: [
+        { description: 'Xref work', quantity: 1, unitPrice: 100, categoryId: await theirCategory() },
+      ],
+    });
+    expect(res.status).toBe(404);
+    const lines = await dataSource.query(
+      `SELECT id FROM invoice_line_items WHERE description = 'Xref work'`,
+    );
+    expect(lines).toHaveLength(0);
+  });
+
+  it('does not hand A’s metal lot to B’s owner', async () => {
+    const res = await as(request(server()).post('/metals/lots')).send({
+      metal: 'XAG',
+      quantity: 1,
+      unitWeight: 1,
+      weightUnit: 'ozt',
+      ownerUserId: b.userId,
+      price: 30,
+    });
+    expect(res.status).toBe(404);
+    const held = await dataSource.query(
+      'SELECT id FROM investment_holdings WHERE workspace_id = $1 AND owner_user_id = $2',
+      [a.workspaceId, b.userId],
+    );
+    expect(held).toHaveLength(0);
+  });
+
+  it('does not point A’s inbound webhook at B’s wallet or branch', async () => {
+    await as(request(server()).post('/webhook-endpoints'))
+      .send({ name: 'Xref hook', defaultWalletId: await theirWallet() })
+      .expect(404);
+    await as(request(server()).post('/webhook-endpoints'))
+      .send({ name: 'Xref hook', defaultBranchId: await theirBranch() })
+      .expect(404);
+    const mine = await idIn(a, 'webhook_endpoints');
+    await as(request(server()).patch(`/webhook-endpoints/${mine}`))
+      .send({ defaultWalletId: await theirWallet() })
+      .expect(404);
+    const [endpoint] = await dataSource.query(
+      'SELECT default_wallet_id FROM webhook_endpoints WHERE id = $1',
+      [mine],
+    );
+    expect(endpoint.default_wallet_id).toBeNull();
   });
 });

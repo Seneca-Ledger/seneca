@@ -3,6 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../common/utils/transaction-privacy.util';
+import {
   NotificationCategory,
   NotificationSeverity,
   NotificationType,
@@ -51,6 +55,9 @@ export class SubscriptionDetectionService {
       .andWhere(countedSql('t'))
       .andWhere('t.transaction_date >= :since', { since })
       .andWhere('t.counterparty_name IS NOT NULL')
+      // A detected subscription is named after its merchant and shown to the
+      // whole workspace, so nobody's private rows feed it.
+      .andWhere(readablePrivateSql('t'), { [PRIVACY_VIEWER_PARAM]: null })
       .orderBy('t.transaction_date', 'ASC')
       .getMany();
 

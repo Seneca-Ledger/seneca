@@ -5,7 +5,7 @@ import { CustomTableColumnType } from '@/entities/custom-table-column.entity';
 import { WorkspaceExportFormat } from '@/modules/reports/dto/workspace-export.dto';
 import { AuditService } from '@/modules/audit/audit.service';
 import { ReportsService } from '@/modules/reports/reports.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 function createRepoMock() {
   return {} as any;
@@ -487,7 +487,7 @@ describe('generateFromTemplate', () => {
   it('scopes the query when wallet and category filters are set', async () => {
     mockTransactionRepository.find.mockResolvedValue([]);
 
-    await generate({
+    const result = await generate({
       templateId: 'pnl',
       dateFrom: '2024-01-01',
       dateTo: '2024-12-31',
@@ -495,6 +495,7 @@ describe('generateFromTemplate', () => {
       walletIds: ['11111111-1111-4111-8111-111111111111'],
       categoryIds: ['22222222-2222-4222-8222-222222222222'],
     });
+    track(result.filePath);
 
     const conditions = mockTransactionRepository.rowsQuery.andWhere.mock.calls;
     expect(conditions).toContainEqual([
@@ -510,7 +511,7 @@ describe('generateFromTemplate', () => {
   it('omits the filter keys entirely when the arrays are empty', async () => {
     mockTransactionRepository.find.mockResolvedValue([]);
 
-    await generate({
+    const result = await generate({
       templateId: 'pnl',
       dateFrom: '2024-01-01',
       dateTo: '2024-12-31',
@@ -518,6 +519,7 @@ describe('generateFromTemplate', () => {
       walletIds: [],
       categoryIds: [],
     });
+    track(result.filePath);
 
     // An empty list would render as `IN ()` and silently match nothing.
     const sql = mockTransactionRepository.rowsQuery.andWhere.mock.calls.map(
@@ -1028,10 +1030,18 @@ describe('generateFromTemplate', () => {
   });
 
   it('should return stored history report download metadata', async () => {
+    mockTransactionRepository.find.mockResolvedValue([]);
+    const generated = await generate({
+      templateId: 'pnl',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-12-31',
+      format: 'excel',
+    });
+    track(generated.filePath);
     mockReportHistoryRepo.findOne = jest.fn().mockResolvedValue({
       id: 'report-1',
       workspaceId: 'ws1',
-      filePath: __filename,
+      filePath: generated.filePath,
       fileName: 'history-report.xlsx',
       format: 'excel',
     });
@@ -1042,10 +1052,41 @@ describe('generateFromTemplate', () => {
       where: { id: 'report-1', workspaceId: 'ws1' },
     });
     expect(result).toEqual({
-      filePath: __filename,
+      filePath: path.resolve(generated.filePath),
       fileName: 'history-report.xlsx',
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
+  });
+
+  it('writes each workspace its own file even for the same template and period', async () => {
+    mockTransactionRepository.find.mockResolvedValue([]);
+    const dto = { templateId: 'pnl', dateFrom: '2024-01-01', dateTo: '2024-12-31', format: 'csv' };
+
+    const first = await service.generateFromTemplate('ws1', 'user1', dto as any);
+    const second = await service.generateFromTemplate('ws2', 'user2', dto as any);
+    track(first.filePath);
+    track(second.filePath);
+
+    expect(first.filePath).not.toBe(second.filePath);
+    expect(first.filePath).toContain(`${path.sep}reports${path.sep}ws1${path.sep}`);
+    expect(second.filePath).toContain(`${path.sep}reports${path.sep}ws2${path.sep}`);
+    // The reader still gets the readable name.
+    expect(first.fileName).toBe('pnl-2024-01-01-2024-12-31.csv');
+  });
+
+  it('refuses a history file outside the workspace report directory', async () => {
+    mockReportHistoryRepo.findOne = jest.fn().mockResolvedValue({
+      id: 'report-1',
+      workspaceId: 'ws1',
+      // Exists, but is not this workspace's report.
+      filePath: __filename,
+      fileName: 'history-report.xlsx',
+      format: 'excel',
+    });
+
+    await expect(service.downloadHistoryReport('ws1', 'report-1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });
 

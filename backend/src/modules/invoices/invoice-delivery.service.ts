@@ -201,7 +201,6 @@ export class InvoiceDeliveryService {
         to: recipient,
         subject,
         text,
-        user,
         workspaceId,
         attachments: [
           { filename: pdf.fileName, content: pdf.data, contentType: 'application/pdf' },

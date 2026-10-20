@@ -1,5 +1,6 @@
 import { Schema } from 'effect';
 import { Permission } from '../../../common/enums/permissions.enum';
+import { redactPrivate } from '../../../common/utils/transaction-privacy.util';
 import { TransactionListPage, type UpdateTransactionBody } from '../../../contracts';
 import type { TransactionsService } from '../../transactions/transactions.service';
 import { defineTool, type McpTool } from '../mcp-tool';
@@ -74,13 +75,16 @@ export function transactionTools(transactions: TransactionsService): McpTool[] {
       }),
       permissions: [Permission.TRANSACTION_EDIT],
       readOnly: false,
-      run: (ctx, { id, ...changes }) =>
-        transactions.update(
-          id,
-          ctx.workspaceId,
-          ctx.user.id,
-          changes satisfies UpdateTransactionBody,
-          null,
+      run: async (ctx, { id, ...changes }) =>
+        redactPrivate(
+          await transactions.update(
+            id,
+            ctx.workspaceId,
+            ctx.user.id,
+            changes satisfies UpdateTransactionBody,
+            null,
+            ctx.memberId,
+          ),
           ctx.memberId,
         ),
     }),

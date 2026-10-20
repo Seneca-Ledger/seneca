@@ -27,9 +27,11 @@ made it (a workspace viewer's key reads, whatever its scopes say), and some perm
 granted to keys at all: managing keys, people, workspace settings or integrations. The full key is
 shown once, and it works only in the workspace it was made in.
 
-API: `POST /api-keys { name, scopes[], expiresAt? }`, `GET /api-keys/scopes` for the list and presets,
-`GET /api-keys`, `DELETE /api-keys/:id`. Keys created before scopes existed carry `scopes: null` and
-keep their owner's full reach; recreate them with scopes to narrow them.
+API: `POST /api-keys { name, scopes[], expiresAt? }` (at least one scope), `GET /api-keys/scopes` for
+the list and presets, `GET /api-keys`, `DELETE /api-keys/:id`. Over REST a scoped key reaches only routes
+that ask for a permission; account, workspace and member management (`/auth/*`, `/users/*`,
+`/workspaces/*`) answer it `403`. Keys created before scopes existed carry `scopes: null` and keep their
+owner's full reach; recreate them with scopes to narrow them.
 
 ## Connect a client
 

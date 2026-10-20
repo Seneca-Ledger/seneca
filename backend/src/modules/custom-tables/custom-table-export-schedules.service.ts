@@ -5,8 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
-import { normalizeFilename } from '../../common/utils/filename.util';
-import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { sanitizeArchiveEntryName } from '../../common/utils/filename.util';
+import { resolveInUploadsDir, resolveUploadsDir } from '../../common/utils/uploads.util';
 import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import { CustomTable } from '../../entities/custom-table.entity';
 import {
@@ -145,11 +145,18 @@ export class CustomTableExportSchedulesService {
       },
     );
 
-    const dir = path.join(resolveUploadsDir(), 'scheduled-exports');
+    const dir = this.exportsDir();
     await fs.promises.mkdir(dir, { recursive: true });
     // Имя со штампом времени: прошлые выгрузки не затираются, их можно сверить.
-    const stamped = normalizeFilename(`${new Date().toISOString().slice(0, 10)}-${fileName}`);
-    const filePath = path.join(dir, `${schedule.id}-${stamped}`);
+    const date = new Date().toISOString().slice(0, 10);
+    // Пользователь видит имя из названия таблицы, но без пути и управляющих символов.
+    const stamped = `${date}-${sanitizeArchiveEntryName(fileName)}`;
+    // На диске — только id, дата и формат: название таблицы задаёт редактор,
+    // и `../` в нём раньше уводил запись в любой каталог сервера.
+    const filePath = path.join(dir, `${schedule.id}-${date}.${schedule.format}`);
+    if (!resolveInUploadsDir(filePath, dir)) {
+      throw new BadRequestException(appError('EXPORT_FILE_UNAVAILABLE'));
+    }
     await fs.promises.writeFile(filePath, buffer);
 
     schedule.lastRunAt = new Date();
@@ -160,6 +167,10 @@ export class CustomTableExportSchedulesService {
 
     this.logger.log(`Scheduled export ${schedule.id} written to ${filePath}`);
     return { fileName: stamped, rows: buffer.length };
+  }
+
+  private exportsDir(): string {
+    return path.resolve(resolveUploadsDir(), 'scheduled-exports');
   }
 
   async recordFailure(scheduleId: string, error: unknown): Promise<void> {
@@ -181,9 +192,14 @@ export class CustomTableExportSchedulesService {
     if (!(schedule?.lastFilePath && schedule.lastFileName)) {
       throw new NotFoundException(appError('EXPORT_FILE_NOT_READY'));
     }
+    // Строки, записанные до исправления, могли указывать за пределы каталога.
+    const filePath = resolveInUploadsDir(schedule.lastFilePath, this.exportsDir());
+    if (!filePath) {
+      throw new BadRequestException(appError('EXPORT_FILE_UNAVAILABLE'));
+    }
     try {
-      const buffer = await fs.promises.readFile(schedule.lastFilePath);
-      return { buffer, fileName: schedule.lastFileName };
+      const buffer = await fs.promises.readFile(filePath);
+      return { buffer, fileName: sanitizeArchiveEntryName(schedule.lastFileName) };
     } catch {
       throw new BadRequestException(appError('EXPORT_FILE_UNAVAILABLE'));
     }

@@ -5,7 +5,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Repository } from 'typeorm';
+import { hasPermissions } from '../../common/authz/request-permissions';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
+import { Permission } from '../../common/enums/permissions.enum';
 import { formatMoney } from '../../common/utils/format-money.util';
 import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { SendTelegramReportBody, TelegramConnection } from '../../contracts';
@@ -57,6 +59,13 @@ const CALLBACK_PATTERN = /^(rcpt|stmt):del:([0-9a-f-]{36})$/;
 const API_TIMEOUT_MS = 10_000;
 // Bots may download files of up to 20 MB.
 const FILE_DOWNLOAD_TIMEOUT_MS = 60_000;
+
+/** A connected chat's account, with its membership of the workspace the bot answers for. */
+interface LinkedSender {
+  user: User;
+  workspaceId: string;
+  member: WorkspaceMember;
+}
 
 /** A bot token is "<bot id>:<secret>"; the id alone names the bot. */
 export const botIdOf = (botToken: string): string => botToken.split(':')[0];
@@ -177,6 +186,12 @@ export class TelegramService {
    * workspace. Null once the user is no longer a member of it.
    */
   async resolveWorkspaceId(user: User): Promise<string | null> {
+    return (await this.linkedMembership(user))?.workspaceId ?? null;
+  }
+
+  private async linkedMembership(
+    user: User,
+  ): Promise<{ workspaceId: string; member: WorkspaceMember } | null> {
     const workspaceId = user.telegramWorkspaceId ?? user.workspaceId;
     if (!workspaceId) {
       return null;
@@ -184,13 +199,17 @@ export class TelegramService {
 
     // A past version is never the bot's workspace: no reports from it and no
     // documents filed into it, scheduled or sent from the chat.
-    const membership = await this.workspaceMemberRepository.findOne({
+    const member = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId: user.id, workspace: STANDARD_WORKSPACE },
     });
-    return membership ? workspaceId : null;
+    return member ? { workspaceId, member } : null;
   }
 
   async sendReport(user: User, dto: SendTelegramReportBody, workspaceId: string) {
+    // Reports go to the caller's own connected chat, never to one they name.
+    if (dto.chatId && dto.chatId !== user.telegramChatId) {
+      throw new BadRequestException('chatId must be your connected Telegram chat');
+    }
     const chatId = dto.chatId || user.telegramChatId;
     if (!chatId) {
       throw new BadRequestException(
@@ -469,7 +488,7 @@ export class TelegramService {
     // user is matched to an account — once matched, their in-app locale
     // choice (User.locale) always wins, see resolveLocale().
     const fallbackLocale = resolveTelegramLocale(message.from?.language_code);
-    const knownUser = telegramId ? await this.findUserByTelegram(telegramId, chatId) : null;
+    const knownUser = telegramId ? await this.findLinkedUser(telegramId, chatId) : null;
     const locale = knownUser?.locale || fallbackLocale;
 
     if (text?.startsWith('/start')) {
@@ -592,13 +611,17 @@ export class TelegramService {
 
   /**
    * The user and workspace behind a chat, or a reply explaining why there is none.
-   * With an update id it also claims the update, and returns null without a reply
-   * for a redelivery: the first delivery has already booked and answered it.
+   * The user needs `permission` in that workspace, as the same action through the
+   * API would; without it they get `deniedKey`. With an update id it also claims
+   * the update, and returns null without a reply for a redelivery: the first
+   * delivery has already booked and answered it.
    */
   private async resolveSender(
     chatId: string,
     telegramId: string | null,
     fallbackLocale: string,
+    permission: Permission,
+    deniedKey: TelegramMessageKey,
     updateId?: number,
   ): Promise<{ user: User; workspaceId: string } | null> {
     if (!telegramId) {
@@ -608,10 +631,20 @@ export class TelegramService {
       );
       return null;
     }
-    const user = await this.findUserByTelegram(telegramId, chatId);
-    const workspaceId = user ? await this.resolveWorkspaceId(user) : null;
-    if (!(user && workspaceId)) {
+    const sender = await this.findLinkedSender(telegramId, chatId);
+    if (!sender) {
       await this.sendMessage(chatId, renderTelegramMessage(fallbackLocale, 'not_connected'));
+      return null;
+    }
+    const { user, workspaceId, member } = sender;
+    const allowed = hasPermissions([permission], {
+      user,
+      workspaceRole: member.role,
+      workspaceMemberPermissions: member.permissions,
+    });
+    if (!allowed) {
+      this.logger.warn(`Telegram: user ${user.id} lacks ${permission} in workspace ${workspaceId}`);
+      await this.send(chatId, user, deniedKey);
       return null;
     }
     if (updateId !== undefined && !(await this.claimUpdate(updateId, user.id, workspaceId))) {
@@ -660,7 +693,14 @@ export class TelegramService {
     fallbackLocale: string,
     updateId?: number,
   ): Promise<void> {
-    const sender = await this.resolveSender(chatId, telegramId, fallbackLocale, updateId);
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.STATEMENT_UPLOAD,
+      'receipt_photo_failed',
+      updateId,
+    );
     if (!sender) {
       return;
     }
@@ -726,7 +766,7 @@ export class TelegramService {
   ): Promise<void> {
     const parsed = parseExpenseText(text);
     if (!parsed) {
-      const user = telegramId ? await this.findUserByTelegram(telegramId, chatId) : null;
+      const user = telegramId ? await this.findLinkedUser(telegramId, chatId) : null;
       await this.sendMessage(
         chatId,
         renderTelegramMessage(user?.locale || fallbackLocale, 'expense_text_unparsed'),
@@ -734,7 +774,14 @@ export class TelegramService {
       );
       return;
     }
-    const sender = await this.resolveSender(chatId, telegramId, fallbackLocale, updateId);
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.STATEMENT_UPLOAD,
+      'expense_text_failed',
+      updateId,
+    );
     if (!sender) {
       return;
     }
@@ -820,14 +867,22 @@ export class TelegramService {
       await this.answerCallbackQuery(query.id);
       return;
     }
-    const sender = await this.resolveSender(chatId, telegramId, fallbackLocale);
+    const [, kind, id] = match;
+    // What the same delete needs through the API: receipts and statements differ.
+    const permission = kind === 'rcpt' ? Permission.STATEMENT_EDIT : Permission.STATEMENT_DELETE;
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      permission,
+      'delete_failed',
+    );
     if (!sender) {
       await this.answerCallbackQuery(query.id);
       return;
     }
     const { user, workspaceId } = sender;
     const locale = user.locale || 'en';
-    const [, kind, id] = match;
     try {
       if (kind === 'rcpt') {
         if (!this.receiptsService) throw new Error('Receipts are not available');
@@ -884,13 +939,17 @@ export class TelegramService {
       return;
     }
 
-    const user = await this.findUserByTelegram(telegramId, chatId);
-    const workspaceId = user ? await this.resolveWorkspaceId(user) : null;
-
-    if (!(user && workspaceId)) {
-      await this.sendMessage(chatId, renderTelegramMessage(fallbackLocale, 'not_connected'));
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.REPORT_VIEW,
+      'report_failed',
+    );
+    if (!sender) {
       return;
     }
+    const { user, workspaceId } = sender;
 
     const args = text.split(' ').filter(Boolean);
     const arg = args[1];
@@ -950,12 +1009,17 @@ export class TelegramService {
       return;
     }
 
-    const user = await this.findUserByTelegram(telegramId, chatId);
-    const workspaceId = user ? await this.resolveWorkspaceId(user) : null;
-    if (!(user && workspaceId)) {
-      await this.sendMessage(chatId, renderTelegramMessage(fallbackLocale, 'not_connected'));
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.GOAL_VIEW,
+      'report_failed',
+    );
+    if (!sender) {
       return;
     }
+    const { user, workspaceId } = sender;
 
     const locale = user.locale || 'en';
     const goals = await this.goalsService.findAll(workspaceId);
@@ -991,12 +1055,17 @@ export class TelegramService {
       return;
     }
 
-    const user = await this.findUserByTelegram(telegramId, chatId);
-    const workspaceId = user ? await this.resolveWorkspaceId(user) : null;
-    if (!(user && workspaceId)) {
-      await this.sendMessage(chatId, renderTelegramMessage(fallbackLocale, 'not_connected'));
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.REPORT_VIEW,
+      'report_failed',
+    );
+    if (!sender) {
       return;
     }
+    const { user, workspaceId } = sender;
 
     const locale = user.locale || 'en';
     const netWorth = await this.netWorthService.getNetWorth(workspaceId, '30d', locale);
@@ -1046,7 +1115,14 @@ export class TelegramService {
     fallbackLocale: string,
     updateId?: number,
   ): Promise<void> {
-    const sender = await this.resolveSender(chatId, telegramId, fallbackLocale, updateId);
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.STATEMENT_UPLOAD,
+      'document_failed',
+      updateId,
+    );
     if (!sender) {
       return;
     }
@@ -1084,32 +1160,66 @@ export class TelegramService {
     }
   }
 
+  /**
+   * The account behind an update, with the workspace the bot answers for — but
+   * only when the update came in on the bot that serves that workspace (its own
+   * bot, else the shared one), the bot the chat was connected through. Every
+   * field of an update can be forged by whoever holds the bot's token, and a
+   * workspace admin holds their own bot's: the bot it arrived on is the one
+   * thing the sender cannot choose, so it decides whose chats it may speak for.
+   */
+  private async findLinkedSender(
+    telegramId: string | null,
+    chatId: string,
+  ): Promise<LinkedSender | null> {
+    const user = await this.findUserByTelegram(telegramId, chatId);
+    const linked = user ? await this.linkedMembership(user) : null;
+    if (!(user && linked && (await this.servesWorkspace(user, linked.workspaceId)))) {
+      return null;
+    }
+
+    // A chat connected before chats were recorded: remember it now.
+    if (!user.telegramChatId) {
+      user.telegramChatId = chatId;
+      await this.userRepository.save(user);
+    }
+    return { user, ...linked };
+  }
+
+  private async findLinkedUser(telegramId: string, chatId: string): Promise<User | null> {
+    return (await this.findLinkedSender(telegramId, chatId))?.user ?? null;
+  }
+
+  /** Whether the bot the update being handled came in on is the bot of `workspaceId`. */
+  private async servesWorkspace(user: User, workspaceId: string): Promise<boolean> {
+    const inbound = this.inboundBot.getStore();
+    const settings = await this.applicationSettingsService?.getTelegramSettings(user, workspaceId);
+    const served = settings?.botToken || this.botToken;
+    return Boolean(inbound) && inbound === served;
+  }
+
+  /**
+   * The account the chat is connected to. The chat decides, not the sender: a
+   * sender id only finds an account whose chat was never recorded.
+   */
   private async findUserByTelegram(
     telegramId: string | null,
     chatId: string,
   ): Promise<User | null> {
-    const query = this.userRepository
+    const byChat = await this.userRepository
       .createQueryBuilder('user')
-      .where('user.isActive = :isActive', { isActive: true });
-
-    if (telegramId) {
-      query.andWhere('(user.telegramId = :telegramId OR user.telegramChatId = :chatId)', {
-        telegramId,
-        chatId,
-      });
-    } else {
-      query.andWhere('user.telegramChatId = :chatId', { chatId });
+      .where('user.isActive = :isActive', { isActive: true })
+      .andWhere('user.telegramChatId = :chatId', { chatId })
+      .getOne();
+    if (byChat || !telegramId) {
+      return byChat ?? null;
     }
-
-    const user = await query.getOne();
-
-    // Auto-bind chatId if user has telegramId but no chatId saved
-    if (user && !user.telegramChatId) {
-      user.telegramChatId = chatId;
-      await this.userRepository.save(user);
-    }
-
-    return user || null;
+    return this.userRepository
+      .createQueryBuilder('user')
+      .where('user.isActive = :isActive', { isActive: true })
+      .andWhere('user.telegramId = :telegramId', { telegramId })
+      .andWhere('user.telegramChatId IS NULL')
+      .getOne();
   }
 
   private sanitizeFileName(fileName: string): string {

@@ -19,6 +19,10 @@ import { WebhookDeliveryService } from './services/webhook-delivery.service';
 import { WebhookDispatcherService } from './services/webhook-dispatcher.service';
 import { WebhookSubscriptionsService } from './services/webhook-subscriptions.service';
 
+/**
+ * A subscription sends the workspace's events to any outside URL, so setting
+ * one up is managing an integration (owner and admins), not editing statements.
+ */
 @ApiTags('Webhook Subscriptions')
 @Controller('webhook-subscriptions')
 export class WebhookSubscriptionsController {
@@ -30,7 +34,7 @@ export class WebhookSubscriptionsController {
   ) {}
 
   @Post()
-  @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   async create(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(CreateWebhookSubscriptionBody) dto: CreateWebhookSubscriptionBody,
@@ -55,7 +59,7 @@ export class WebhookSubscriptionsController {
   }
 
   @Patch(':id')
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   async update(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
@@ -67,7 +71,7 @@ export class WebhookSubscriptionsController {
   }
 
   @Delete(':id')
-  @WorkspaceAuth(Permission.STATEMENT_DELETE)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   async delete(
     @Param('id') id: string,
     @WorkspaceId() workspaceId: string,
@@ -86,7 +90,7 @@ export class WebhookSubscriptionsController {
   }
 
   @Post(':id/test')
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   @ApiOperation({ summary: 'Send a test ping to the subscription URL' })
   async testPing(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const sub = await this.service.findOne(id, workspaceId);

@@ -5,6 +5,7 @@ import { Between, IsNull, Not, Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { countedWhere } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import {
   TaxReturn,
@@ -131,6 +132,9 @@ export class TaxReturnsService {
       }),
       order: { transactionDate: 'ASC' },
     });
+    // A return is the workspace's document, frozen into a snapshot on filing:
+    // a private row's tax counts, its counterparty is nobody's to read there.
+    redactPrivateRows(transactions, null);
 
     const currency = jurisdiction.currency;
     let outputMinor = 0;
