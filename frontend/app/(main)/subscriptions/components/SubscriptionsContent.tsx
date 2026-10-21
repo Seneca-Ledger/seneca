@@ -22,10 +22,23 @@ import { Pencil, Plus, Trash2 } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { CalendarLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
+import {
+  fillTemplateNodes,
+  PRIVATE_CLASS,
+  PrivateAmount,
+} from '@/app/components/ui/private-amount';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { blobOf } from '@/app/lib/blob-of';
+import {
+  AlarmClock,
+  Calendar,
+  Copy,
+  PiggyBank,
+  Repeat,
+  TrendingUp,
+} from '@/app/lib/category-line-icons';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import {
@@ -315,37 +328,68 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
         {[
           {
             label: t.kpiMonthlyCost.value,
-            value: formatAmount(props.summary.totalMonthlyCost, props.workspaceCurrency),
+            icon: Repeat,
+            value: (
+              <PrivateAmount>
+                {formatAmount(props.summary.totalMonthlyCost, props.workspaceCurrency)}
+              </PrivateAmount>
+            ),
           },
-          { label: t.kpiForecast.value, value: String(props.summary.upcoming30DaysCount) },
+          {
+            label: t.kpiForecast.value,
+            icon: Calendar,
+            value: String(props.summary.upcoming30DaysCount),
+          },
           {
             label: t.kpiPriceChanges.value,
+            icon: TrendingUp,
             // The yearly effect is the number people actually ask for.
-            value: props.summary.priceChangeYearlyEffect
-              ? `${props.summary.priceChangeCount} · ${t.yearlyEffect.value.replace(
-                  '{{amount}}',
-                  formatAmount(props.summary.priceChangeYearlyEffect, props.workspaceCurrency),
-                )}`
-              : String(props.summary.priceChangeCount),
+            value: props.summary.priceChangeYearlyEffect ? (
+              <>
+                {`${props.summary.priceChangeCount} · `}
+                {fillTemplateNodes(t.yearlyEffect.value, {
+                  amount: formatAmount(
+                    props.summary.priceChangeYearlyEffect,
+                    props.workspaceCurrency,
+                  ),
+                })}
+              </>
+            ) : (
+              String(props.summary.priceChangeCount)
+            ),
             // Only a count that needs attention gets a colour.
             accent: props.summary.priceChangeCount > 0 ? 'warning.main' : undefined,
           },
           {
             label: t.kpiDuplicates.value,
+            icon: Copy,
             value: String(props.summary.duplicateCount ?? 0),
             accent: props.summary.duplicateCount ? 'warning.main' : undefined,
           },
           {
             label: t.kpiReviewsOverdue.value,
+            icon: AlarmClock,
             value: String(props.summary.overdueReviewCount),
             accent: props.summary.overdueReviewCount > 0 ? 'error.main' : undefined,
           },
           {
             label: t.realizedAnnualSavings.value,
-            value: formatAmount(props.summary.realizedAnnualSavings, props.workspaceCurrency),
+            icon: PiggyBank,
+            value: (
+              <PrivateAmount>
+                {formatAmount(props.summary.realizedAnnualSavings, props.workspaceCurrency)}
+              </PrivateAmount>
+            ),
           },
-        ].map(({ label, value, accent }) => (
-          <Card key={label} variant="outlined">
+        ].map(({ label, icon: Icon, value, accent }) => (
+          // Its own stacking context, so the icon sits under the text.
+          <Card key={label} variant="outlined" sx={{ position: 'relative', isolation: 'isolate' }}>
+            {/* The dashboard tile's faint icon, smaller: these cards are half as tall. */}
+            <Icon
+              className="seneca-dashboard__stat-icon"
+              aria-hidden="true"
+              style={{ width: 64, height: 64 }}
+            />
             <CardContent sx={{ py: 1.75, '&:last-child': { pb: 1.75 } }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                 {label}
@@ -585,7 +629,9 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                         </Box>
                       </Box>
                     </td>
-                    <td>{formatAmount(subscription.amount, subscription.currency)}</td>
+                    <td className={PRIVATE_CLASS}>
+                      {formatAmount(subscription.amount, subscription.currency)}
+                    </td>
                     <td>{formatDate(subscription.nextChargeDate)}</td>
                     <td>{ownerLabel(subscription.ownerId) ?? t.unassigned}</td>
                     <td>
