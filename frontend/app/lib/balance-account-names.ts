@@ -1,4 +1,4 @@
-import { getIntlayer } from 'react-intlayer';
+import { getCachedIntlayer } from '@/app/lib/locale-packs';
 import { normalizeLocale } from './locale';
 
 /**
@@ -69,7 +69,7 @@ const dictionaryFor = (locale: string): Dictionary | null => {
   }
   let dictionary: Dictionary | null = null;
   try {
-    dictionary = getIntlayer('balanceAccountNames', locale) as Dictionary;
+    dictionary = getCachedIntlayer('balanceAccountNames', locale) as Dictionary;
   } catch {
     dictionary = null;
   }

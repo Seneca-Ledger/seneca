@@ -1,5 +1,5 @@
 import type { AxiosError } from 'axios';
-import { getIntlayer } from 'react-intlayer';
+import { getCachedIntlayer } from '@/app/lib/locale-packs';
 import { DEFAULT_LOCALE, readLocaleFromCookie } from './locale';
 
 export interface ApiErrorResponse {
@@ -49,10 +49,10 @@ function translateErrorCode(
   }
 
   try {
-    const dictionary = getIntlayer('apiErrors', readLocaleFromCookie() ?? DEFAULT_LOCALE) as Record<
-      string,
-      { value?: unknown } | string | undefined
-    >;
+    const dictionary = getCachedIntlayer(
+      'apiErrors',
+      readLocaleFromCookie() ?? DEFAULT_LOCALE,
+    ) as Record<string, { value?: unknown } | string | undefined>;
     const entry = dictionary[code];
     const raw = typeof entry === 'string' ? entry : entry?.value;
     // A missing dictionary yields a path-stringifying Proxy, not undefined —

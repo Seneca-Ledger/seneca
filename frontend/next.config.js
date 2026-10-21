@@ -173,4 +173,46 @@ const nextConfig = {
   },
 };
 
-module.exports = withBundleAnalyzer(withIntlayerSync(nextConfig));
+// Browser bundles get empty dictionary entries: components read the current
+// language's pack (app/i18n.ts), so the dictionaries in all 35 locales stay on
+// the server. Applied after withIntlayerSync, whose own aliases for the entries
+// would otherwise win.
+const CLIENT_DICTIONARIES_ENTRY = './app/lib/client-dictionaries-entry.ts';
+const DICTIONARY_ENTRIES = [
+  '@intlayer/dictionaries-entry',
+  '@intlayer/unmerged-dictionaries-entry',
+];
+
+const withClientDictionariesEntry = config => {
+  const { webpack } = config;
+  const turbopackAlias = config.turbopack?.resolveAlias;
+  return {
+    ...config,
+    // withIntlayerSync aliases the entries for Turbopack only when it runs (next dev).
+    ...(turbopackAlias?.[DICTIONARY_ENTRIES[0]] && {
+      turbopack: {
+        ...config.turbopack,
+        resolveAlias: {
+          ...turbopackAlias,
+          ...Object.fromEntries(
+            DICTIONARY_ENTRIES.map(entry => [
+              entry,
+              { browser: CLIENT_DICTIONARIES_ENTRY, default: turbopackAlias[entry] },
+            ]),
+          ),
+        },
+      },
+    }),
+    webpack: (webpackConfig, options) => {
+      const result = webpack ? webpack(webpackConfig, options) : webpackConfig;
+      if (!options.isServer) {
+        for (const entry of DICTIONARY_ENTRIES) {
+          result.resolve.alias[entry] = path.resolve(__dirname, CLIENT_DICTIONARIES_ENTRY);
+        }
+      }
+      return result;
+    },
+  };
+};
+
+module.exports = withBundleAnalyzer(withClientDictionariesEntry(withIntlayerSync(nextConfig)));

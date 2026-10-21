@@ -1,5 +1,5 @@
-import { getIntlayer } from 'react-intlayer';
 import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
+import { getCachedIntlayer } from '@/app/lib/locale-packs';
 import {
   type AuditAction,
   type AuditEvent,
@@ -152,7 +152,7 @@ const interpolate = (template: string, params: Record<string, string | number>):
 
 const readDictionary = (): AuditDictionary => {
   try {
-    return getIntlayer(
+    return getCachedIntlayer(
       'auditDescriptions',
       readLocaleFromCookie() ?? DEFAULT_LOCALE,
     ) as AuditDictionary;

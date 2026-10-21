@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "postinstall": "intlayer build",
-    "prebuild": "intlayer build",
+    "postinstall": "intlayer build && node scripts/build-locale-packs.mjs --if-present",
+    "prebuild": "intlayer build && node scripts/build-locale-packs.mjs",
     "build": "NODE_OPTIONS=--max-old-space-size=12288 next build --webpack",
     "analyze": "ANALYZE=true next build --webpack",
     "start": "next start",
