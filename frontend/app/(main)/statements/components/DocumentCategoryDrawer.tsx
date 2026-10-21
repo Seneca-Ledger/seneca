@@ -21,7 +21,7 @@ export interface CategoryTarget {
  * Each kind of document keeps its category where its own page saves it: a
  * statement on the stored file, a receipt in the receipt's parsed data.
  */
-async function saveDocumentCategory(
+export async function saveDocumentCategory(
   target: CategoryTarget,
   categoryId: string,
   categoryName: string | null,

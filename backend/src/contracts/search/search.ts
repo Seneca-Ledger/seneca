@@ -13,6 +13,14 @@ export const SearchResponse = Schema.Struct({
       title: Schema.String,
       subtitle: Schema.NullOr(Schema.String),
       href: Schema.String,
+      /** The file holding Space over the result previews: a scan's receipt or the statement. */
+      document: Schema.NullOr(
+        Schema.Struct({
+          source: Schema.Literals(['statement', 'receipt']),
+          id: Schema.String,
+          fileName: Schema.String,
+        }),
+      ),
     }),
   ),
 });

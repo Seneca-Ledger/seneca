@@ -39,6 +39,7 @@ export function PaletteRowView({
   const label = row.kind === 'command' ? row.command.label : row.result.title;
   const subtitle = row.kind === 'result' ? row.result.subtitle : null;
   const binding = row.kind === 'command' ? row.command.binding : undefined;
+  const hint = row.kind === 'command' ? row.command.hint : undefined;
 
   return (
     <Box
@@ -91,6 +92,11 @@ export function PaletteRowView({
         )}
       </Box>
       {binding && <ShortcutHint binding={binding} />}
+      {hint && !binding && (
+        <Typography sx={{ fontSize: 13, color: 'text.secondary', flexShrink: 0 }}>
+          {hint}
+        </Typography>
+      )}
     </Box>
   );
 }

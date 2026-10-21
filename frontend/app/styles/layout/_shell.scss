@@ -167,7 +167,7 @@ $seneca-sidebar-brand-height: 44px;
 // ── Brand ──
 // Inset from the sidebar edges by the focus-ring reach: the sidebar clips overflow.
 // The wordmark is gone: the emblem alone heads the sidebar and the room it used to
-// take now carries search, notifications, settings and the collapse toggle.
+// take now carries help, search, notifications, settings and the collapse toggle.
 .seneca-sidebar__brand {
   display: flex;
   align-items: center;
@@ -213,8 +213,9 @@ $seneca-sidebar-brand-height: 44px;
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
+    // Five actions beside the emblem fill the full sidebar's brand row exactly.
+    width: 26px;
+    height: 26px;
     border: none;
     border-radius: $seneca-radius-full;
     background: transparent;
