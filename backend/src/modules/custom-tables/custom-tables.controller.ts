@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  AddSourceStatementsBody,
   BatchCreateCustomTableRowsBody,
   ClassifyPaidStatusBody,
   CreateCustomTableBody,
@@ -247,6 +248,27 @@ export class CustomTablesController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     const result = await this.customTablesService.refreshFromSource(user.id, workspaceId, id);
+    await this.customTablesCache.bumpTable(workspaceId, id);
+    await this.customTablesCache.bumpRows(workspaceId, id);
+    await this.customTablesCache.bumpList(workspaceId);
+    return result;
+  }
+
+  @Post(':id/source-statements')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RefreshedFromSource)
+  async addSourceStatements(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaBody(AddSourceStatementsBody) dto: AddSourceStatementsBody,
+  ) {
+    const result = await this.customTablesService.addSourceStatements(
+      user.id,
+      workspaceId,
+      id,
+      dto.statementIds,
+    );
     await this.customTablesCache.bumpTable(workspaceId, id);
     await this.customTablesCache.bumpRows(workspaceId, id);
     await this.customTablesCache.bumpList(workspaceId);

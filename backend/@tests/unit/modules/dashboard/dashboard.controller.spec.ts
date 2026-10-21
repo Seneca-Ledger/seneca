@@ -90,24 +90,6 @@ describe('DashboardController', () => {
     );
   });
 
-  it('defaults the health history to the current year and rejects absurd years', async () => {
-    const dashboardService = { getHealthHistory: jest.fn(async () => ({ ok: true })) };
-    const controller = new DashboardController(dashboardService as any);
-
-    await controller.getHealthHistory('active-workspace');
-    expect(dashboardService.getHealthHistory).toHaveBeenCalledWith(
-      'active-workspace',
-      new Date().getFullYear(),
-    );
-
-    await controller.getHealthHistory('active-workspace', 2025);
-    expect(dashboardService.getHealthHistory).toHaveBeenLastCalledWith('active-workspace', 2025);
-
-    await expect(controller.getHealthHistory('active-workspace', 12)).rejects.toThrow(
-      'year is out of range',
-    );
-  });
-
   it('defaults the monthly cash flow to 12 months for the active workspace', async () => {
     const dashboardService = { getMonthlyCashFlow: jest.fn(async () => ({ ok: true })) };
     const controller = new DashboardController(dashboardService as any);

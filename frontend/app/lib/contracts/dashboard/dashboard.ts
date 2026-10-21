@@ -145,36 +145,6 @@ export const DashboardMonthlyCashFlowResponse = Schema.Struct({
 });
 export type DashboardMonthlyCashFlowResponse = Wire<typeof DashboardMonthlyCashFlowResponse>;
 
-/**
- * One month of Data Health / Finance Ops history. Items are counted in the month they are dated
- * by (statements by upload, transactions by transaction date, receipts by receipt date, payables
- * by due date); nothing is stored, so fixing old data changes old months.
- */
-export const DashboardHealthMonth = Schema.Struct({
-  month: Month,
-  transactions: Schema.Number,
-  /** Uncategorized transactions plus uncategorized receipts. */
-  uncategorized: Schema.Number,
-  statementsUploaded: Schema.Number,
-  statementErrors: Schema.Number,
-  /** Rows waiting in Review, by transaction date. */
-  statementsPendingReview: Schema.Number,
-  statementsPendingSubmit: Schema.Number,
-  parsingWarnings: Schema.Number,
-  /** Receipts Review still lists, by the date they came in. */
-  receiptsPendingReview: Schema.Number,
-  overduePayments: Schema.Number,
-});
-export type DashboardHealthMonth = Wire<typeof DashboardHealthMonth>;
-
-/** `GET /dashboard/health-history`. */
-export const DashboardHealthHistoryResponse = Schema.Struct({
-  year: Schema.Number,
-  /** January up to the current month for the current year, all 12 for past years, `[]` for future years. */
-  months: Schema.Array(DashboardHealthMonth),
-});
-export type DashboardHealthHistoryResponse = Wire<typeof DashboardHealthHistoryResponse>;
-
 const NamedTotal = Schema.Struct({
   name: Schema.String,
   amount: Schema.Number,

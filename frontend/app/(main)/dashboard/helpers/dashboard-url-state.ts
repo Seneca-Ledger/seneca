@@ -1,13 +1,9 @@
 /**
- * Dashboard state that lives in the URL (`?month=YYYY-MM&tab=trends&cf=5y`) so a
+ * Dashboard state that lives in the URL (`?month=YYYY-MM&cf=5y`) so a
  * reload or a shared link restores the same view. Pure helpers, no React.
  */
 
 import type { DashboardCashFlowRange } from '@/app/hooks/useDashboard.types';
-
-export const DASHBOARD_TABS = ['overview', 'trends', 'finance-ops', 'data-health'] as const;
-export type DashboardTabId = (typeof DASHBOARD_TABS)[number];
-export const DEFAULT_DASHBOARD_TAB: DashboardTabId = 'overview';
 
 const MONTH_PARAM = /^(\d{4})-(\d{2})$/;
 
@@ -32,13 +28,7 @@ export function formatMonthParam(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export function parseTabParam(value: string | null | undefined): DashboardTabId {
-  return (DASHBOARD_TABS as readonly string[]).includes(value ?? '')
-    ? (value as DashboardTabId)
-    : DEFAULT_DASHBOARD_TAB;
-}
-
-/** Trends cash-flow period (`?cf=`), in the order the switcher shows them. */
+/** Cash-flow card period (`?cf=`), in the order the switcher shows them. */
 export const CASH_FLOW_RANGES = [
   'all',
   '5y',
@@ -56,7 +46,7 @@ export function parseCashFlowRangeParam(value: string | null | undefined): Dashb
 /** Applies a patch to the current query; `null` removes a key. Returns the query string without `?`. */
 export function withDashboardParams(
   current: URLSearchParams | string,
-  patch: { month?: string | null; tab?: string | null; cf?: string | null },
+  patch: { month?: string | null; cf?: string | null },
 ): string {
   const next = new URLSearchParams(current);
   for (const [key, value] of Object.entries(patch)) {

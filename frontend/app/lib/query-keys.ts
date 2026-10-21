@@ -11,10 +11,6 @@
 export const queryKeys = {
   dashboard: (o: { workspaceId: string | null; range: string; date: string | null }) =>
     ['dashboard', o.workspaceId, o.range, o.date] as const,
-  dashboardTrends: (o: { workspaceId: string | null; days: number; month: string | null }) =>
-    ['dashboard', 'trends', o.workspaceId, o.days, o.month] as const,
-  dashboardHealthHistory: (o: { workspaceId: string | null; year: number }) =>
-    ['dashboard', 'health-history', o.workspaceId, o.year] as const,
   dashboardCashFlow: (o: { workspaceId: string | null; range: string; month: string | null }) =>
     ['dashboard', 'cash-flow', o.workspaceId, o.range, o.month] as const,
   dashboardCommitments: (workspaceId: string | null, days: number) =>

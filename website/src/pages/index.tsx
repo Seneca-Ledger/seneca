@@ -17,7 +17,7 @@ const features = [
   {
     title: 'Dashboards and reports',
     description:
-      'Cash flow, trends, top categories and merchants, a data health view, and custom reports with CSV and XLSX export.',
+      'Cash flow, trends, top categories and merchants, a month-close checklist, and custom reports with CSV and XLSX export.',
   },
   {
     title: 'Budgets, goals and net worth',

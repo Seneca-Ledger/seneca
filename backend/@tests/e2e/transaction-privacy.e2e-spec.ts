@@ -218,6 +218,20 @@ describe('Private transactions (e2e)', () => {
       );
     });
 
+    it('keeps the row out of the partner’s search, which would match it by the hidden merchant', async () => {
+      const search = (account: E2eAccount) =>
+        as(account, request(server()).get('/search?q=jewellery')).expect(200);
+
+      const theirs = await search(partner);
+      // The answer echoes the query, so only the results are looked at.
+      expect(JSON.stringify(theirs.body.results)).not.toMatch(/jewellery/i);
+      expect(theirs.body.results.map((hit: { id: string }) => hit.id)).not.toContain(ids.gift);
+
+      const own = await search(owner);
+      const hit = own.body.results.find((result: { id: string }) => result.id === ids.gift);
+      expect(hit?.title).toBe('Jewellery shop');
+    });
+
     it('keeps the row, its date and its amount in the partner’s list', async () => {
       const theirs = (await listFor(partner)).find(tx => tx.id === ids.gift);
       expect(theirs).toBeDefined();

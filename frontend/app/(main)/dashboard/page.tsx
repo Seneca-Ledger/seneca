@@ -33,8 +33,6 @@ function DashboardPageInner(): React.JSX.Element {
     error,
     isPending,
     data,
-    activeTab,
-    setActiveTab,
     refetch,
     formatAmount,
     periodBanner,
@@ -70,8 +68,6 @@ function DashboardPageInner(): React.JSX.Element {
           onRefresh={() => {
             void refetch();
           }}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
           formatAmount={formatAmount}
           periodBanner={periodBanner}
           displayMonth={displayMonth}

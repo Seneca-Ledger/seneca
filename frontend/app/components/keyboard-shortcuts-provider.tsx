@@ -1,10 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useTheme } from 'next-themes';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CommandPalette from '@/app/components/command-palette/CommandPalette';
 import { toggleCommandPalette } from '@/app/components/command-palette/command-palette-store';
+import { useThemeToggle } from '@/app/components/navigation/hooks/useThemeToggle';
 import { toggleSidebarCollapsed } from '@/app/components/navigation/sidebar-collapsed-store';
 import { openAppPanel } from '@/app/components/panels/app-panels-store';
 import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
@@ -15,6 +15,7 @@ import {
   SHORTCUT_EXPORT,
   SHORTCUT_FOCUS_SEARCH,
   SHORTCUT_OPEN_FILTERS,
+  SHORTCUT_SHOW_SHORTCUTS,
 } from '@/app/lib/keyboard-shortcuts';
 import { openScanUpload } from '@/app/lib/statement-expense-drawer';
 import { KeyboardShortcutsModal } from './keyboard-shortcuts-modal';
@@ -26,7 +27,7 @@ export function KeyboardShortcutsProvider({
   children: React.ReactNode;
 }): React.JSX.Element {
   const router = useRouter();
-  const { resolvedTheme, setTheme } = useTheme();
+  const toggleTheme = useThemeToggle();
   const [helpOpen, setHelpOpen] = useState(false);
 
   // Built once: the hook registers bindings on mount and never re-reads the map.
@@ -77,7 +78,7 @@ export function KeyboardShortcutsProvider({
       },
       'Alt+Shift+KeyT': event => {
         event.preventDefault();
-        setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+        toggleTheme();
       },
     };
     for (const [path, binding] of Object.entries(NAV_BINDINGS)) {
@@ -87,9 +88,15 @@ export function KeyboardShortcutsProvider({
       };
     }
     return map;
-  }, [router, resolvedTheme, setTheme]);
+  }, [router, toggleTheme]);
 
   useKeyboardShortcuts(bindings, true, { allowInEditable: ['$mod+KeyK'] });
+
+  useEffect(() => {
+    const show = (): void => setHelpOpen(true);
+    window.addEventListener(SHORTCUT_SHOW_SHORTCUTS, show);
+    return () => window.removeEventListener(SHORTCUT_SHOW_SHORTCUTS, show);
+  }, []);
 
   return (
     <>

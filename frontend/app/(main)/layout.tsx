@@ -7,8 +7,12 @@ import { MainSidePanelLayout } from '@/app/components/side-panel/MainSidePanelLa
 export default function MainLayout({ children }: { children: ReactNode }): React.JSX.Element {
   return (
     <MainSidePanelLayout>
-      <AlertBanner />
-      <DailyQuoteBanner />
+      {/* Spacing and the page gutter live on the wrapper (.seneca-page-banners), so
+          the banners line up with the page below whichever of them shows. */}
+      <div className="seneca-page-banners">
+        <AlertBanner />
+        <DailyQuoteBanner />
+      </div>
       {children}
     </MainSidePanelLayout>
   );

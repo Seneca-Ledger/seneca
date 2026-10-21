@@ -10,14 +10,13 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChartTooltipCard, legendText } from './ChartParts';
+import { ChartTooltipCard } from './ChartParts';
 import {
   computeYearTicks,
   formatMonthLabel,
@@ -33,7 +32,6 @@ import {
   HOVER_CURSOR,
   INACTIVE_BAR_OPACITY,
   INCOME_FILL,
-  LEGEND_STYLE,
 } from './chart-theme';
 
 export interface CashFlowBarPoint {
@@ -148,14 +146,6 @@ export function CashFlowBars({
               />
             );
           }}
-        />
-        <Legend
-          verticalAlign="top"
-          height={28}
-          iconType="square"
-          iconSize={10}
-          wrapperStyle={LEGEND_STYLE}
-          formatter={legendText}
         />
         <Bar
           dataKey="income"

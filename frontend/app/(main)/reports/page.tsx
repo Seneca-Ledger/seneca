@@ -18,7 +18,6 @@ import {
   Scale,
   Table2,
 } from '@/app/components/icons';
-import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
@@ -234,7 +233,6 @@ export default function ReportsPage(): React.JSX.Element {
           </button>
         </Box>
         <Box sx={{ px: { xs: 2, sm: 4 }, pb: 4 }}>
-          <UnconfirmedNotice style={{ marginBottom: 16 }} />
           <BalanceSheet />
         </Box>
       </Box>
@@ -282,7 +280,6 @@ export default function ReportsPage(): React.JSX.Element {
       </Box>
 
       <Box sx={{ px: { xs: 2, sm: 4 }, py: 3 }}>
-        <UnconfirmedNotice style={{ marginBottom: 16 }} />
         {tab === 'tax' && <TaxReturnView />}
         {tab === 'tax-year' && <TaxYearView />}
         {tab === 'cash-flow' && (

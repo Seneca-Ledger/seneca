@@ -15,7 +15,6 @@ import { WorkspaceContextGuard } from '../../common/guards/workspace-context.gua
 import {
   CashFlowQuery,
   DashboardCommitmentsResponse,
-  DashboardHealthHistoryResponse,
   DashboardMonthlyCashFlowResponse,
   DashboardResponse,
   DashboardTrendsResponse,
@@ -24,9 +23,6 @@ import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { DashboardService } from './dashboard.service';
 import { parseMonthWindow } from './dashboard-window.util';
-
-const MIN_HISTORY_YEAR = 1970;
-const MAX_HISTORY_YEAR = 9999;
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
@@ -76,19 +72,6 @@ export class DashboardController {
       throw new BadRequestException('month must be YYYY-MM');
     }
     return this.dashboardService.getTrends(workspaceId, days, month, selfMemberId ?? null);
-  }
-
-  @Get('health-history')
-  @SchemaResponse(DashboardHealthHistoryResponse)
-  async getHealthHistory(
-    @WorkspaceId() workspaceId: string,
-    @Query('year', new ParseIntPipe({ optional: true })) year?: number,
-  ) {
-    const resolvedYear = year ?? new Date().getFullYear();
-    if (resolvedYear < MIN_HISTORY_YEAR || resolvedYear > MAX_HISTORY_YEAR) {
-      throw new BadRequestException('year is out of range');
-    }
-    return this.dashboardService.getHealthHistory(workspaceId, resolvedYear);
   }
 
   @Get('commitments')

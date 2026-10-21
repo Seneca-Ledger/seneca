@@ -363,64 +363,6 @@
   }
 }
 
-/* ── Unconfirmed notice: a quiet hairline row, not an alert ── */
-.seneca-unconfirmed {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border: 1px solid $seneca-color-ink-150;
-  border-radius: $seneca-radius-md;
-  font-size: 13px;
-  line-height: 1.4;
-  color: $seneca-color-ink-500;
-
-  @include dark {
-    border-color: $seneca-color-ink-150-dk;
-    color: $seneca-color-ink-500-dk;
-  }
-
-  &__dot {
-    flex-shrink: 0;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: $seneca-color-attention;
-
-    @include dark {
-      background: $seneca-color-warning-dk;
-    }
-  }
-
-  &__text {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__action {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    flex-shrink: 0;
-    font-weight: $seneca-font-weight-medium;
-    color: $seneca-color-ink-900;
-    text-decoration: none;
-    transition: color 120ms;
-
-    @include dark {
-      color: $seneca-color-ink-900-dk;
-    }
-
-    &:hover {
-      color: $seneca-color-ink-600;
-
-      @include dark {
-        color: $seneca-color-ink-600-dk;
-      }
-    }
-  }
-}
-
 // Advice page: one list with hairlines instead of a stack of framed cards.
 .seneca-advice {
   margin: 0;

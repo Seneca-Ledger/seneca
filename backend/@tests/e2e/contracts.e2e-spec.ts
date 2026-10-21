@@ -62,7 +62,6 @@ import {
   CustomTableSummaries,
   DailyQuote,
   DashboardCommitmentsResponse,
-  DashboardHealthHistoryResponse,
   DashboardMonthlyCashFlowResponse,
   DashboardResponse,
   DashboardTrendsResponse,
@@ -312,10 +311,6 @@ describe('API contracts (e2e)', () => {
 
     it('GET /dashboard/cash-flow', async () => {
       matches(DashboardMonthlyCashFlowResponse, (await get('/dashboard/cash-flow?range=12m')).body);
-    });
-
-    it('GET /dashboard/health-history', async () => {
-      matches(DashboardHealthHistoryResponse, (await get('/dashboard/health-history')).body);
     });
 
     it('GET /dashboard/commitments', async () => {

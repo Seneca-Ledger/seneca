@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-export type AppPanelKey = 'integrations' | 'plugins' | 'notifications' | 'whatsNew';
+export type AppPanelKey = 'integrations' | 'plugins' | 'notifications' | 'whatsNew' | 'help';
 
 export type AppPanelState = {
   /** The list drawer (first layer) that is open, if any. */

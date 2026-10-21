@@ -17,6 +17,7 @@ const createRepositoryMock = () => ({
 	create: jest.fn((value?: unknown) => value),
 	delete: jest.fn(),
 	update: jest.fn(),
+	count: jest.fn(),
 	createQueryBuilder: jest.fn(),
 });
 
@@ -374,6 +375,107 @@ describe("CustomTablesService.refreshFromSource", () => {
 		await expect(
 			service.refreshFromSource("user-1", "workspace-1", TABLE_ID),
 		).rejects.toBeInstanceOf(BadRequestException);
+	});
+});
+
+describe("CustomTablesService.addSourceStatements", () => {
+	const DOC_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+	const DOC_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+	const DOC_C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+	const documentsTable = {
+		id: TABLE_ID,
+		workspaceId: "workspace-1",
+		sourceBinding: {
+			kind: "transactions",
+			filters: { statementIds: [DOC_A] },
+			syncedAt: null,
+		},
+	};
+
+	function setup(table: unknown, foundStatements: number) {
+		const built = build(adapterMock(sourceRows));
+		built.repos.customTable.findOne.mockResolvedValue(table);
+		built.repos.statement.count.mockResolvedValue(foundStatements);
+		jest
+			.spyOn(built.service, "refreshFromSource")
+			.mockResolvedValue({
+				tableId: TABLE_ID,
+				inserted: 2,
+				updated: 0,
+				unchanged: 1,
+				total: 3,
+				syncedAt: "2026-10-20T00:00:00.000Z",
+			});
+		return built;
+	}
+
+	it("adds the new documents to the binding once and refreshes the table", async () => {
+		const { service, repos } = setup(documentsTable, 3);
+
+		const result = await service.addSourceStatements(
+			"user-1",
+			"workspace-1",
+			TABLE_ID,
+			[DOC_A, DOC_B, DOC_C, DOC_B],
+		);
+
+		expect(repos.customTable.findOne).toHaveBeenCalledWith({
+			where: { id: TABLE_ID, workspaceId: "workspace-1" },
+		});
+		expect(repos.statement.count).toHaveBeenCalledWith({
+			where: expect.objectContaining({ workspaceId: "workspace-1" }),
+		});
+		expect(repos.customTable.update).toHaveBeenCalledWith(
+			{ id: TABLE_ID, workspaceId: "workspace-1" },
+			{
+				sourceBinding: expect.objectContaining({
+					kind: "transactions",
+					filters: { statementIds: [DOC_A, DOC_B, DOC_C] },
+				}),
+			},
+		);
+		expect(service.refreshFromSource).toHaveBeenCalledWith(
+			"user-1",
+			"workspace-1",
+			TABLE_ID,
+		);
+		expect(result).toEqual(expect.objectContaining({ inserted: 2 }));
+	});
+
+	it.each([
+		["a date range", { dateFrom: "2026-09-01" }],
+		["picked records", { statementIds: [DOC_A], ids: [DOC_B] }],
+	])("refuses a table bound to %s, which a document filter would narrow", async (_name, filters) => {
+		const { service, repos } = setup(
+			{ ...documentsTable, sourceBinding: { kind: "transactions", filters, syncedAt: null } },
+			1,
+		);
+		await expect(
+			service.addSourceStatements("user-1", "workspace-1", TABLE_ID, [DOC_B]),
+		).rejects.toMatchObject({
+			response: expect.objectContaining({ code: "SOURCE_NOT_DOCUMENTS" }),
+		});
+		expect(repos.customTable.update).not.toHaveBeenCalled();
+	});
+
+	it("treats a document of another workspace as not found", async () => {
+		const { service, repos } = setup(documentsTable, 0);
+		await expect(
+			service.addSourceStatements("user-1", "workspace-1", TABLE_ID, [DOC_B]),
+		).rejects.toMatchObject({
+			response: expect.objectContaining({ code: "STATEMENT_NOT_FOUND" }),
+		});
+		expect(repos.customTable.update).not.toHaveBeenCalled();
+	});
+
+	it("treats a table of another workspace as not found", async () => {
+		const { service, repos } = setup(null, 1);
+		await expect(
+			service.addSourceStatements("user-1", "workspace-1", TABLE_ID, [DOC_B]),
+		).rejects.toMatchObject({
+			response: expect.objectContaining({ code: "TABLE_NOT_FOUND" }),
+		});
+		expect(repos.customTable.update).not.toHaveBeenCalled();
 	});
 });
 

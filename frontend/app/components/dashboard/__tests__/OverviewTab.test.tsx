@@ -1,6 +1,6 @@
 import type { DashboardData } from '@/app/hooks/useDashboard';
 // @vitest-environment jsdom
-import { type render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, type render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { budgetItem, categoryRef } from '@/app/test/fixtures/contracts';
@@ -9,6 +9,22 @@ import '../test-setup';
 import { OverviewTab } from '../OverviewTab';
 
 const apiGet = vi.hoisted(() => vi.fn());
+const onSelectMonth = vi.hoisted(() => vi.fn());
+
+// The card has its own test; here only what the Overview hands it matters.
+vi.mock('../CashFlowCard', () => ({
+  CashFlowCard: ({
+    activeMonth,
+    onSelectMonth: select,
+  }: {
+    activeMonth?: string;
+    onSelectMonth?: (month: string) => void;
+  }) => (
+    <button type="button" data-testid="cash-flow" onClick={() => select?.('2025-11')}>
+      {activeMonth}
+    </button>
+  ),
+}));
 
 // `apiBaseUrl` is read at module load by the goal cover thumbnail.
 vi.mock('@/app/lib/api', () => ({ default: { get: apiGet }, apiBaseUrl: 'http://api.test/api/v1' }));
@@ -99,6 +115,7 @@ function renderTab(
       formatAmount={formatAmount}
       isLoading={false}
       displayMonth={displayMonth}
+      onSelectMonth={onSelectMonth}
     />,
   );
 }
@@ -165,7 +182,7 @@ describe('OverviewTab', () => {
       snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
     });
 
-    expect(screen.getByText('0%').className).toBe('seneca-dashboard__stat-value');
+    expect(screen.getByText('0%').className).toBe('seneca-dashboard__stat-value seneca-private');
   });
 
   it('says under the savings rate that the current month is not over yet', () => {
@@ -187,12 +204,21 @@ describe('OverviewTab', () => {
     expect(screen.queryByText('Month in progress')).not.toBeInTheDocument();
   });
 
-  it('no longer hosts cash flow, quick actions or the upload zone', () => {
+  it('hosts the cash flow and the month close, but no quick actions or upload zone', () => {
     renderTab(baseData);
 
-    expect(document.body.textContent).not.toMatch(/cash flow/i);
+    expect(screen.getByTestId('cash-flow')).toHaveTextContent('2026-02');
+    expect(screen.getByText('sections.monthClose')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/quick actions|parsingIssuesFound/i);
     expect(screen.queryByRole('link', { name: /openExpenseDrawer/ })).not.toBeInTheDocument();
+  });
+
+  it('switches the dashboard month from a cash flow bar', () => {
+    renderTab(baseData);
+
+    fireEvent.click(screen.getByTestId('cash-flow'));
+
+    expect(onSelectMonth).toHaveBeenCalledWith(2025, 10);
   });
 
   it('deep-links the recent-transactions "view all" link to the selected month, not today', () => {

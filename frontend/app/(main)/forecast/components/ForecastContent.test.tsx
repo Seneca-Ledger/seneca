@@ -15,9 +15,6 @@ vi.mock('../hooks/useForecast', async importOriginal => ({
   useForecast: () => hookMock.state,
 }));
 vi.mock('./ForecastChart', () => ({ ForecastChart: () => <div data-testid="forecast-chart" /> }));
-vi.mock('@/app/components/review/UnconfirmedNotice', () => ({
-  UnconfirmedNotice: () => <div data-testid="unconfirmed-notice" />,
-}));
 
 const data: ForecastData = {
   currency: 'USD',
@@ -146,13 +143,6 @@ describe('ForecastContent', () => {
     render(<ForecastContent />);
 
     expect(screen.getByText('Landlord').closest('li')).toHaveStyle({ opacity: '0.45' });
-  });
-
-  it('warns that unconfirmed rows are left out, like every screen with numbers', () => {
-    setState();
-    render(<ForecastContent />);
-
-    expect(screen.getByTestId('unconfirmed-notice')).toBeInTheDocument();
   });
 
   it('offers an empty state when there is nothing to project', () => {

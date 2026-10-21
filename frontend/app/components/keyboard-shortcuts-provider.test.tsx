@@ -10,6 +10,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/statements/submit',
 }));
 vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light', setTheme: vi.fn() }) }));
+vi.mock('@/app/hooks/useAuth', () => ({ useAuth: () => ({ user: null, setUser: vi.fn() }) }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true }),
@@ -18,6 +19,7 @@ vi.mock('@/app/lib/api', () => ({
   default: { get: vi.fn(() => Promise.resolve({ data: { data: { query: '', results: [] } } })) },
 }));
 
+import { SHORTCUT_SHOW_SHORTCUTS } from '@/app/lib/keyboard-shortcuts';
 import { openCommandPalette } from './command-palette/command-palette-store';
 import { KeyboardShortcutsProvider } from './keyboard-shortcuts-provider';
 import { DrawerShell } from './ui/drawer-shell';
@@ -58,5 +60,18 @@ describe('KeyboardShortcutsProvider with a drawer open', () => {
     fireEvent.keyDown(input, { key: 'd', code: 'KeyD' });
     await waitFor(() => expect(routerMocks.push).toHaveBeenCalledWith('/dashboard'));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the shortcuts modal when the Help panel asks', async () => {
+    renderWithQuery(
+      <KeyboardShortcutsProvider>
+        <span>Page</span>
+      </KeyboardShortcutsProvider>,
+    );
+    expect(screen.queryByText('Keyboard Shortcuts')).toBeNull();
+    act(() => {
+      window.dispatchEvent(new CustomEvent(SHORTCUT_SHOW_SHORTCUTS));
+    });
+    expect(await screen.findByText('Keyboard Shortcuts')).toBeTruthy();
   });
 });

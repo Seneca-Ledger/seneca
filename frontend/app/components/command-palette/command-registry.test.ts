@@ -23,6 +23,8 @@ function deps(overrides: Partial<CommandDeps> = {}): CommandDeps {
       toggleExperimental: 'Toggle experimental features',
       keyboardShortcuts: 'Keyboard shortcuts',
       notifications: 'Notifications',
+      previousMonth: 'Previous month',
+      nextMonth: 'Next month',
       settings: 'Settings',
       whatsNew: "What's new",
       reportBug: 'Report a bug',
@@ -74,6 +76,21 @@ describe('buildCommands', () => {
     const openHelp = vi.fn();
     buildCommands(deps({ openHelp })).find(command => command.id === 'help.shortcuts')?.run();
     expect(openHelp).toHaveBeenCalled();
+  });
+
+  it('offers the month steps only on the dashboard, where the month strip listens', () => {
+    const dashboard = buildCommands(deps({ pathname: '/dashboard' }));
+    const elsewhere = buildCommands(deps({ pathname: '/statements' }));
+    expect(elsewhere.find(command => command.id === 'action.previousMonth')).toBeUndefined();
+    expect(dashboard.find(command => command.id === 'action.previousMonth')?.binding).toBe(
+      'ArrowLeft',
+    );
+
+    const heard = vi.fn();
+    window.addEventListener('shortcuts:next-month', heard);
+    dashboard.find(command => command.id === 'action.nextMonth')?.run();
+    window.removeEventListener('shortcuts:next-month', heard);
+    expect(heard).toHaveBeenCalledTimes(1);
   });
 
   it('offers Open filters only on the Documents list, the one page that has them', () => {
