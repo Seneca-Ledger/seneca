@@ -1,14 +1,166 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "040c4a33210f9fcb905ac79471aca408c2d5a704"
+      "main": "8f66ae0275a3ff87e48c9f2d84737f0a23833606"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-20T17:59:24.712Z",
+    "lastGeneratedAt": "2026-10-21T10:10:12.084Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-21-8f66ae0",
+      "version": "main-8f66ae0",
+      "branch": "main",
+      "date": "2026-10-21T10:10:12.084Z",
+      "title": "Release update - October 21, 2026",
+      "summary": "This release includes 1 improvement and 1 fix.",
+      "markdown": "## Improvements\n- **i18n**: Ship only the current language's dictionaries to the browser\n\n## Fixes\n- **deps**: Bump follow-redirects, launch-editor and vitest's vite past new advisories",
+      "commits": [
+        {
+          "sha": "daf57318cf869d8d5eda4e6e3da16735d45b9bea",
+          "shortSha": "daf57318",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-20T17:59:25Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "c1302b610581a9062b8e6536cbccc3733136cb93",
+          "shortSha": "c1302b61",
+          "subject": "chore(tour): regenerate guide screenshots [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-20T18:44:49Z",
+          "files": [
+            "frontend/public/tour/be/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/be/subscriptions-calendar-light.webp",
+            "frontend/public/tour/bg/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/bg/subscriptions-calendar-light.webp",
+            "frontend/public/tour/bs/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/bs/subscriptions-calendar-light.webp",
+            "frontend/public/tour/cs/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/cs/subscriptions-calendar-light.webp",
+            "frontend/public/tour/da/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/da/subscriptions-calendar-light.webp",
+            "frontend/public/tour/de/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/de/subscriptions-calendar-light.webp",
+            "frontend/public/tour/en/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/en/subscriptions-calendar-light.webp",
+            "frontend/public/tour/es/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/es/subscriptions-calendar-light.webp",
+            "frontend/public/tour/fi/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/fi/subscriptions-calendar-light.webp",
+            "frontend/public/tour/fo/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/fo/subscriptions-calendar-light.webp",
+            "frontend/public/tour/fr/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/fr/subscriptions-calendar-light.webp",
+            "frontend/public/tour/hi/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/hi/subscriptions-calendar-light.webp",
+            "frontend/public/tour/hr/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/hr/subscriptions-calendar-light.webp",
+            "frontend/public/tour/hsb/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/hsb/subscriptions-calendar-light.webp",
+            "frontend/public/tour/id/dashboard-categories-dark.webp",
+            "frontend/public/tour/id/dashboard-categories-light.webp",
+            "frontend/public/tour/id/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/id/subscriptions-calendar-light.webp",
+            "frontend/public/tour/is/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/is/subscriptions-calendar-light.webp",
+            "frontend/public/tour/it/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/it/subscriptions-calendar-light.webp",
+            "frontend/public/tour/ja/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/ja/subscriptions-calendar-light.webp",
+            "frontend/public/tour/kk/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/kk/subscriptions-calendar-light.webp",
+            "frontend/public/tour/ko/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/ko/subscriptions-calendar-light.webp",
+            "frontend/public/tour/mk/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/mk/subscriptions-calendar-light.webp",
+            "frontend/public/tour/nb/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/nb/subscriptions-calendar-light.webp",
+            "frontend/public/tour/nl/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/nl/subscriptions-calendar-light.webp",
+            "frontend/public/tour/nn/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/nn/subscriptions-calendar-light.webp",
+            "frontend/public/tour/pl/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/pl/subscriptions-calendar-light.webp",
+            "frontend/public/tour/pt/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/pt/subscriptions-calendar-light.webp",
+            "frontend/public/tour/ru/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/ru/subscriptions-calendar-light.webp",
+            "frontend/public/tour/sk/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/sk/subscriptions-calendar-light.webp",
+            "frontend/public/tour/sl/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/sl/subscriptions-calendar-light.webp",
+            "frontend/public/tour/sr/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/sr/subscriptions-calendar-light.webp",
+            "frontend/public/tour/sv/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/sv/subscriptions-calendar-light.webp",
+            "frontend/public/tour/tr/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/tr/subscriptions-calendar-light.webp",
+            "frontend/public/tour/uk/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/uk/subscriptions-calendar-light.webp",
+            "frontend/public/tour/vi/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/vi/subscriptions-calendar-light.webp",
+            "frontend/public/tour/zh/subscriptions-calendar-dark.webp",
+            "frontend/public/tour/zh/subscriptions-calendar-light.webp"
+          ]
+        },
+        {
+          "sha": "2fb1568ccbe6c404dcf955e9e86fabad19274a5e",
+          "shortSha": "2fb1568c",
+          "subject": "perf(i18n): ship only the current language's dictionaries to the browser",
+          "author": "Symon Baikov",
+          "date": "2026-10-21T11:56:40+03:00",
+          "files": [
+            "frontend/Dockerfile",
+            "frontend/app/audit/utils/formatAuditEvent.ts",
+            "frontend/app/i18n.test.tsx",
+            "frontend/app/i18n.ts",
+            "frontend/app/lib/api-error.ts",
+            "frontend/app/lib/balance-account-names.ts",
+            "frontend/app/lib/client-dictionaries-entry.ts",
+            "frontend/app/lib/locale-packs.ts",
+            "frontend/app/lib/statement-categories.ts",
+            "frontend/app/providers.test.tsx",
+            "frontend/app/providers.tsx",
+            "frontend/intlayer.config.ts",
+            "frontend/next.config.js",
+            "frontend/package.json",
+            "frontend/scripts/build-locale-packs.mjs"
+          ]
+        },
+        {
+          "sha": "2d33b8e45e4f6df1400c0db5e29a36dd39562e00",
+          "shortSha": "2d33b8e4",
+          "subject": "fix(deps): bump follow-redirects, launch-editor and vitest's vite past new advisories",
+          "author": "Symon Baikov",
+          "date": "2026-10-21T12:11:12+03:00",
+          "files": [
+            "frontend/package-lock.json"
+          ]
+        },
+        {
+          "sha": "5e0b42118c02e6439082333449d40f0da6751d5e",
+          "shortSha": "5e0b4211",
+          "subject": "Merge pull request #364 from symonbaikov/fix/frontend-audit-advisories",
+          "author": "Symon Baikov",
+          "date": "2026-10-21T12:33:36+03:00",
+          "files": []
+        },
+        {
+          "sha": "8f66ae0275a3ff87e48c9f2d84737f0a23833606",
+          "shortSha": "8f66ae02",
+          "subject": "Merge pull request #363 from symonbaikov/perf/intlayer-dynamic-dictionaries",
+          "author": "Symon Baikov",
+          "date": "2026-10-21T13:09:45+03:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-20-040c4a3",
       "version": "main-040c4a3",
