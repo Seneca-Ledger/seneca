@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import Link from 'next/link';
 import type React from 'react';
 import type { LucideIcon } from '@/app/components/icons';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { GRID_COLUMNS } from '../overview-layout';
 import { useSectionSpan } from '../section-span';
 import { Sparkline } from './Sparkline';
@@ -11,6 +12,8 @@ export type KpiTone = 'neutral' | 'positive' | 'negative' | 'warning' | 'info';
 export interface KpiCardProps {
   label: string;
   value: React.ReactNode;
+  /** The figure is a count, not an amount: it stays readable in privacy mode. */
+  plainValue?: boolean;
   tone?: KpiTone;
   caption?: React.ReactNode;
   /** A quiet line under the caption that qualifies the figure ("Month in progress"). */
@@ -23,8 +26,11 @@ export interface KpiCardProps {
   attentionId?: string;
   /** With half a row or more: a longer sparkline in place of `spark`. */
   wideSpark?: { points: number[] };
-  /** With half a row or more: label–value lines under the figure. */
-  details?: Array<{ label: string; value: React.ReactNode }>;
+  /**
+   * With half a row or more: label–value lines under the figure. A value is an
+   * amount, redacted in privacy mode, unless `plain` (it marks its own amounts).
+   */
+  details?: Array<{ label: string; value: React.ReactNode; plain?: boolean }>;
   /** With half a row or more: a full chart in place of the sparkline. */
   wideChart?: React.ReactNode;
   /**
@@ -37,6 +43,7 @@ export interface KpiCardProps {
 export function KpiCard({
   label,
   value,
+  plainValue = false,
   tone = 'neutral',
   caption,
   note,
@@ -65,7 +72,9 @@ export function KpiCard({
         )}
         {label}
       </div>
-      <div className="seneca-dashboard__stat-value">{value}</div>
+      <div className={clsx('seneca-dashboard__stat-value', !plainValue && PRIVATE_CLASS)}>
+        {value}
+      </div>
       {caption && (
         <div className="seneca-dashboard__stat-row">
           <span className="seneca-dashboard__stat-sub">{caption}</span>
@@ -77,7 +86,7 @@ export function KpiCard({
           {details.map(detail => (
             <div key={detail.label}>
               <dt>{detail.label}</dt>
-              <dd>{detail.value}</dd>
+              <dd className={detail.plain ? undefined : PRIVATE_CLASS}>{detail.value}</dd>
             </div>
           ))}
         </dl>

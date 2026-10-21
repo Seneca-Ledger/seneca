@@ -7,17 +7,21 @@ import { useMemo } from 'react';
 import { BudgetSummaryWidget } from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
 import { CashRunwayWidget } from '@/app/(main)/dashboard/components/CashRunwayWidget';
 import { parseDateOnly, resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
+import { parseMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
 import { FileUp } from '@/app/components/icons';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { PiggyBank, Scale, TrayArrowDown, WalletArrowUp } from '@/app/lib/category-line-icons';
 import { Spinner } from '../ui/spinner';
 import { AdviceCard } from './AdviceCard';
+import { CashFlowCard } from './CashFlowCard';
 import { CryptoPortfolioCard } from './CryptoPortfolioCard';
 import { computeNet, computeSavingsRate, signTone } from './dashboard-stats.util';
 import { GettingStartedCard } from './GettingStartedCard';
 import { GoalsProgressCard } from './GoalsProgressCard';
 import { MoneyOwedCard } from './MoneyOwedCard';
+import { MonthCloseCard } from './MonthCloseCard';
 import { NetWorthCard } from './NetWorthCard';
 import { OverviewLayout } from './OverviewLayout';
 import type { KpiSectionId } from './overview-layout';
@@ -37,6 +41,8 @@ interface OverviewTabProps {
   formatAmount: (value: number) => string;
   isLoading?: boolean;
   displayMonth: Date;
+  /** Switches the dashboard month (0-based `month`), as the header month strip does. */
+  onSelectMonth: (year: number, month: number) => void;
 }
 
 const SPARK_POINTS = 10;
@@ -154,8 +160,15 @@ function kpiTiles({
   const days = elapsedDays(data);
   const month = days.length >= 2 ? days : null;
   const perDay = (total: number) => formatAmount(days.length > 0 ? total / days.length : 0);
+  // The day stays readable in privacy mode; only its amount is redacted.
   const dayLine = (best: { date: string; amount: number } | null) =>
-    best ? `${formatAmount(best.amount)} · ${formatDay(best.date)}` : '—';
+    best ? (
+      <>
+        <PrivateAmount>{formatAmount(best.amount)}</PrivateAmount> · {formatDay(best.date)}
+      </>
+    ) : (
+      '—'
+    );
   const split = [
     { label: labels.income, value: formatAmount(income) },
     { label: labels.spent, value: formatAmount(expense) },
@@ -172,7 +185,11 @@ function kpiTiles({
         wideSpark={month ? { points: month.map(p => p.income) } : undefined}
         details={[
           { label: labels.avgPerDay, value: perDay(income) },
-          { label: labels.biggestDay, value: dayLine(biggestDay(days, p => p.income)) },
+          {
+            label: labels.biggestDay,
+            value: dayLine(biggestDay(days, p => p.income)),
+            plain: true,
+          },
         ]}
       />
     ),
@@ -188,7 +205,11 @@ function kpiTiles({
         wideSpark={month ? { points: month.map(p => p.expense) } : undefined}
         details={[
           { label: labels.avgPerDay, value: perDay(expense) },
-          { label: labels.biggestDay, value: dayLine(biggestDay(days, p => p.expense)) },
+          {
+            label: labels.biggestDay,
+            value: dayLine(biggestDay(days, p => p.expense)),
+            plain: true,
+          },
         ]}
       />
     ),
@@ -226,6 +247,7 @@ export function OverviewTab({
   formatAmount,
   isLoading,
   displayMonth,
+  onSelectMonth,
 }: OverviewTabProps): React.JSX.Element {
   const t = useIntlayer('overviewTab');
   const wideText = useIntlayer('dashboardWideView');
@@ -282,6 +304,21 @@ export function OverviewTab({
             formatDay,
           }),
           'safe-to-spend': <SafeToSpendTile formatAmount={formatAmount} />,
+          'cash-flow': (
+            <CashFlowCard
+              formatAmount={formatAmount}
+              activeMonth={monthKey(displayMonth)}
+              onSelectMonth={key => {
+                const picked = parseMonthParam(key);
+                if (picked) {
+                  onSelectMonth(picked.getFullYear(), picked.getMonth());
+                }
+              }}
+            />
+          ),
+          'month-close': (
+            <MonthCloseCard data={data} formatAmount={formatAmount} displayMonth={displayMonth} />
+          ),
           crypto: (
             <CryptoPortfolioCard
               formatAmount={formatAmount}

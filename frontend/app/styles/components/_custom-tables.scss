@@ -5,10 +5,12 @@
   display: flex;
   flex-direction: column;
   gap: $seneca-space-4;
-  padding: var(--seneca-page-top, #{$seneca-space-4}) $seneca-space-4 $seneca-space-6;
+  // The app's page gutter, so the banners above line up with the toolbar.
+  padding: var(--seneca-page-top, #{$seneca-space-4}) var(--seneca-page-x, #{$seneca-space-4})
+    $seneca-space-6;
 
   @include respond-to('md') {
-    padding: var(--seneca-page-top, #{$seneca-space-3}) $seneca-space-3 $seneca-space-5;
+    padding-bottom: $seneca-space-5;
   }
 
   // A table page: the grid runs to the bottom edge of the window.

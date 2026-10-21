@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Card } from '@/app/components/ui/card';
+import { fillTemplateNodes, PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
@@ -58,7 +59,7 @@ function PayableSummaryCards({
             {/* One shape for every card: label, figure, count — so the row does not jump. */}
             <div className="seneca-payable-summary__card-content">
               <div className="seneca-payable-summary__label">{item.label}</div>
-              <div className="seneca-payable-summary__value">
+              <div className={`seneca-payable-summary__value ${PRIVATE_CLASS}`}>
                 {item.value === 0 ? EMPTY : money(item.value)}
               </div>
               <div className="seneca-payable-summary__count">
@@ -66,7 +67,9 @@ function PayableSummaryCards({
                 {item.key === 'paidTotal' && unbooked > 0 && (
                   <span className="seneca-payable-summary__unbooked">
                     {' · '}
-                    {unbookedText.notInAccountTotal.value.replace('{amount}', money(unbooked))}
+                    {fillTemplateNodes(unbookedText.notInAccountTotal.value, {
+                      amount: money(unbooked),
+                    })}
                   </span>
                 )}
               </div>

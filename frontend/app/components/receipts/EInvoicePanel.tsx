@@ -2,6 +2,7 @@
 
 import { Alert, Box, Chip, Stack, Typography } from '@mui/material';
 import type React from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import type { EInvoiceSummary } from '@/app/lib/api';
 
@@ -122,8 +123,9 @@ export function EInvoicePanel({
               sx={{ fontVariantNumeric: 'tabular-nums' }}
             >
               {CATEGORY_KEYS[item.category] ? t[CATEGORY_KEYS[item.category]].value : item.category}
-              {item.rate === null ? '' : ` ${item.rate} %`} · {t.base.value} {money(item.base)} ·{' '}
-              {t.vat.value} {money(item.tax)}
+              {item.rate === null ? '' : ` ${item.rate} %`} · {t.base.value}{' '}
+              <PrivateAmount>{money(item.base)}</PrivateAmount> · {t.vat.value}{' '}
+              <PrivateAmount>{money(item.tax)}</PrivateAmount>
               {item.exemptionReason ? ` · ${item.exemptionReason}` : ''}
             </Typography>
           ))}

@@ -9,8 +9,6 @@ describe('queryKeys', () => {
   it('keeps every key shape stable', () => {
     expect({
       dashboard: queryKeys.dashboard({ workspaceId: 'w1', range: '30d', date: null }),
-      dashboardTrends: queryKeys.dashboardTrends({ workspaceId: 'w1', days: 30, month: '2026-07' }),
-      dashboardHealthHistory: queryKeys.dashboardHealthHistory({ workspaceId: 'w1', year: 2026 }),
       dashboardCashFlow: queryKeys.dashboardCashFlow({
         workspaceId: 'w1',
         range: '12m',
@@ -51,8 +49,6 @@ describe('queryKeys', () => {
       search: queryKeys.search({ workspaceId: 'w1', q: 'rent' }),
     }).toEqual({
       dashboard: ['dashboard', 'w1', '30d', null],
-      dashboardTrends: ['dashboard', 'trends', 'w1', 30, '2026-07'],
-      dashboardHealthHistory: ['dashboard', 'health-history', 'w1', 2026],
       dashboardCashFlow: ['dashboard', 'cash-flow', 'w1', '12m', '2026-07'],
       statements: ['statements', 'w1', { stage: 'submit' }],
       receiptDocuments: ['receipt-documents', 'w1', { limit: 50 }],

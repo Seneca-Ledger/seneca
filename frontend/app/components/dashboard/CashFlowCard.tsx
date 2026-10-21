@@ -13,6 +13,7 @@ import {
 } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
 import { formatAxisAmount, formatMonthLabel } from '@/app/components/charts/chart-format';
 import { LazyCashFlowBars } from '@/app/components/charts/lazy-charts';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import {
   type DashboardCashFlowRange,
@@ -119,17 +120,17 @@ export function CashFlowCard({
         />
       }
     >
-      <div className="seneca-chart__total">
+      <div className={`seneca-chart__total ${PRIVATE_CLASS}`}>
         {headline ? netFigure(headline.net, formatAmount) : '…'}
       </div>
       <div className="seneca-chart__breakdown">
         {headline && (
           <>
             <span className="seneca-chart__breakdown-series seneca-chart__breakdown-series--income">
-              {`${t.income.value} ${formatAmount(headline.income)}`}
+              {t.income.value} <PrivateAmount>{formatAmount(headline.income)}</PrivateAmount>
             </span>
             <span className="seneca-chart__breakdown-series seneca-chart__breakdown-series--expense">
-              {`${t.expense.value} ${formatAmount(headline.expense)}`}
+              {t.expense.value} <PrivateAmount>{formatAmount(headline.expense)}</PrivateAmount>
             </span>
           </>
         )}

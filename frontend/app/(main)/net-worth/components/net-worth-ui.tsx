@@ -2,6 +2,7 @@
 
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -37,9 +38,9 @@ export function WholeMoney({
   locale: string;
 }): React.JSX.Element {
   return (
-    <span title={formatMoney(value, currency, locale)}>
+    <PrivateAmount title={formatMoney(value, currency, locale)}>
       {formatMoney(value, currency, locale, { fractionDigits: 0 })}
-    </span>
+    </PrivateAmount>
   );
 }
 

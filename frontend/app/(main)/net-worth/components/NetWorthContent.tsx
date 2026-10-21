@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, ChevronDown } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -127,7 +128,7 @@ export function NetWorthContent() {
   // The headline in whole units, the cents waiting in the tooltip.
   const showWhole = (value: number) =>
     inMetal ? (
-      formatOunces(value)
+      <PrivateAmount>{formatOunces(value)}</PrivateAmount>
     ) : (
       <WholeMoney value={value} currency={currency} locale={locale} />
     );
@@ -221,8 +222,10 @@ export function NetWorthContent() {
                       : 'var(--money-down)',
                 }}
               >
-                {unchanged ? '' : isPositive ? '+' : '−'}
-                {show(Math.abs(headline?.change ?? 0))}
+                <PrivateAmount>
+                  {unchanged ? '' : isPositive ? '+' : '−'}
+                  {show(Math.abs(headline?.change ?? 0))}
+                </PrivateAmount>
                 {!unchanged &&
                   headline?.changePercent != null &&
                   ` (${isPositive ? '+' : '−'}${Math.abs(headline.changePercent)}%)`}
@@ -238,16 +241,17 @@ export function NetWorthContent() {
             )}
             {!inMetal && data.allTimeHigh && (
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                {t.allTimeHigh.value
-                  .replace('{{value}}', formatMoney(data.allTimeHigh.value, currency, locale))
-                  .replace(
+                {fillTemplateNodes(
+                  t.allTimeHigh.value.replace(
                     '{{date}}',
                     formatStoredDateWithOptions(
                       `${data.allTimeHigh.date}T00:00:00`,
                       { day: 'numeric', month: 'long', year: 'numeric' },
                       locale,
                     ),
-                  )}
+                  ),
+                  { value: formatMoney(data.allTimeHigh.value, currency, locale) },
+                )}
               </Typography>
             )}
 

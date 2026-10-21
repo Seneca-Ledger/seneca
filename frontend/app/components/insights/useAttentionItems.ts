@@ -1,17 +1,8 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 import { useInsights } from '@/app/hooks/useInsights';
 import { byWorkPriority, isWorkInsight, type WorkInsight } from './work-insights';
-
-/**
- * The dashboard says how many rows wait for confirmation right under its month
- * strip (UnconfirmedNotice): one message lives in one place.
- */
-const SHOWN_ON_THE_PAGE: Record<string, WorkInsight['type']> = {
-  '/dashboard': 'operational.unapproved_count',
-};
 
 export interface AttentionItems {
   items: WorkInsight[];
@@ -22,16 +13,7 @@ export interface AttentionItems {
 
 /** The work items for the strip above the page, most blocking first. */
 export function useAttentionItems(): AttentionItems {
-  const pathname = usePathname();
   const { items, isPending, dismiss } = useInsights({ severities: ['warn', 'critical'] });
-  const shownHere = SHOWN_ON_THE_PAGE[pathname ?? ''];
-  const work = useMemo(
-    () =>
-      items
-        .filter(isWorkInsight)
-        .filter(item => item.type !== shownHere)
-        .sort(byWorkPriority),
-    [items, shownHere],
-  );
+  const work = useMemo(() => items.filter(isWorkInsight).sort(byWorkPriority), [items]);
   return { items: work, isPending, snooze: dismiss };
 }

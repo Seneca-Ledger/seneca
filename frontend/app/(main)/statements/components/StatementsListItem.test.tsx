@@ -705,6 +705,52 @@ describe('StatementsListItem', () => {
     );
   });
 
+  it('marks the amount for privacy mode on desktop and on the phone', () => {
+    const root = createRoot(container);
+
+    const statement: Statement = {
+      id: 'statement-private-amount',
+      source: 'statement',
+      fileName: 'Private.pdf',
+      status: 'completed',
+      totalDebit: 1200,
+      totalCredit: 0,
+      createdAt: '2026-02-01T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+      currency: 'KZT',
+    };
+
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Kaspi"
+          amountLabel="1,200 KZT"
+          dateLabel="01/31/2026"
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          typeLabel="PDF"
+        />,
+      );
+    });
+
+    const amounts = container.querySelectorAll('.seneca-private');
+    expect(container.querySelector('.seneca-stmt-list-item__amount')).toHaveClass('seneca-private');
+    expect(container.querySelector('.seneca-stmt-list-item__mobile-amount')).toHaveClass(
+      'seneca-private',
+    );
+    // Only the figure: the merchant and the date stay readable.
+    expect(Array.from(amounts, node => node.textContent?.replace(/\s+/g, ''))).toEqual([
+      '1,200KZT',
+      '1,200KZT',
+    ]);
+  });
+
   it('marks a duplicate with a caption, a line on the left and a Review link', () => {
     const root = createRoot(container);
 

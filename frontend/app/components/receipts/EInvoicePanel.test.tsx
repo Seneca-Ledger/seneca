@@ -35,7 +35,13 @@ describe('EInvoicePanel', () => {
     render(<EInvoicePanel einvoice={INVOICE} issues={[]} currency="EUR" />);
     expect(screen.getByText('123456XX')).toBeInTheDocument();
     expect(screen.getByText('DE123456789')).toBeInTheDocument();
-    expect(screen.getByText(/vatStandard 19 % · base 100.00 EUR · vat 19.00 EUR/)).toBeInTheDocument();
+    // The amounts are their own (redactable) spans, so match the whole line.
+    const vatLine = screen.getByText(
+      (_, element) =>
+        element?.tagName === 'P' &&
+        /vatStandard 19 % · base 100.00 EUR · vat 19.00 EUR/.test(element.textContent ?? ''),
+    );
+    expect(vatLine.querySelectorAll('.seneca-private')).toHaveLength(2);
     expect(screen.queryByText('notEn16931')).not.toBeInTheDocument();
     expect(screen.queryByText('reverseCharge')).not.toBeInTheDocument();
   });

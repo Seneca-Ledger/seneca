@@ -27,6 +27,8 @@ export type SpendFlowChartOptions = {
   isIncome: boolean;
   /** How a stored category name reads in the user's language; merchants stay as written. */
   categoryName?: (name: string) => string;
+  /** Privacy mode: node labels show the name only, no amount or share (the tooltip still does). */
+  privacy?: boolean;
 };
 
 /**
@@ -222,6 +224,9 @@ export function buildSpendFlowSankey(
             const node = byId.get(String(params.name ?? ''));
             if (!node) {
               return '';
+            }
+            if (options.privacy) {
+              return `{n|${labelOf(node)}}`;
             }
             // The name in ink, the amount and share under it in grey: 13px, no bold.
             return `{n|${labelOf(node)}}\n{v|${formatAmount(node.amount)} · ${percent(node.share)}}`;

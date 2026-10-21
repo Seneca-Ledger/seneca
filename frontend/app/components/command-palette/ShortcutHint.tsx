@@ -7,7 +7,7 @@ import { useIntlayer } from '@/app/i18n';
 import { bindingToTokens } from './shortcut-display';
 import { useIsMacPlatform } from './use-is-mac-platform';
 
-/** The key caps drawn at the end of a palette row, e.g. `G then A`. */
+/** The key caps drawn at the end of a palette row, e.g. `G then A` or `⇧ + A`. */
 export function ShortcutHint({ binding }: { binding: string }): React.JSX.Element {
   const t = useIntlayer('commandPalette');
   const isMac = useIsMacPlatform();
@@ -15,14 +15,14 @@ export function ShortcutHint({ binding }: { binding: string }): React.JSX.Elemen
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
       {bindingToTokens(binding, isMac).map((token, index) =>
-        token.kind === 'sep' ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: tokens are positional
-          <Typography key={index} variant="caption" sx={{ color: 'text.secondary' }}>
-            {t.chordThen}
-          </Typography>
-        ) : (
+        token.kind === 'key' ? (
           // biome-ignore lint/suspicious/noArrayIndexKey: tokens are positional
           <Kbd key={index}>{token.text}</Kbd>
+        ) : (
+          // biome-ignore lint/suspicious/noArrayIndexKey: tokens are positional
+          <Typography key={index} variant="caption" sx={{ color: 'text.secondary' }}>
+            {token.kind === 'sep' ? t.chordThen : '+'}
+          </Typography>
         ),
       )}
     </Box>

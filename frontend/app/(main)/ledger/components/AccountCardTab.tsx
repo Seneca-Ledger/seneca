@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useState } from 'react';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage, getApiErrorStatus } from '@/app/lib/api-error';
 import { useAccountCard } from '../hooks/useLedger';
@@ -96,8 +97,11 @@ export function AccountCardTab({
       {card.data ? (
         <>
           <Typography variant="body2">
-            {t.openingBalance}: <strong>{card.data.openingBalance}</strong> · {t.closingBalance}:{' '}
-            <strong>{card.data.closingBalance}</strong> {card.data.baseCurrency}
+            {t.openingBalance}:{' '}
+            <strong className={PRIVATE_CLASS}>{card.data.openingBalance}</strong> ·{' '}
+            {t.closingBalance}:{' '}
+            <strong className={PRIVATE_CLASS}>{card.data.closingBalance}</strong>{' '}
+            {card.data.baseCurrency}
           </Typography>
           {card.data.lines.length === 0 ? (
             <Alert severity="info">{t.emptyAccount}</Alert>
@@ -129,13 +133,15 @@ export function AccountCardTab({
                       >
                         {line.memo ?? ''}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" className={PRIVATE_CLASS}>
                         {line.side === 'debit' ? line.baseAmount : ''}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" className={PRIVATE_CLASS}>
                         {line.side === 'credit' ? line.baseAmount : ''}
                       </TableCell>
-                      <TableCell align="right">{line.runningBalance}</TableCell>
+                      <TableCell align="right" className={PRIVATE_CLASS}>
+                        {line.runningBalance}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

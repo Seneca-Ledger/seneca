@@ -3,6 +3,7 @@
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
 import Typography from '@mui/material/Typography';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
@@ -141,6 +142,7 @@ export function ForecastEvents({
                   </Box>
                   <Typography
                     variant="body2"
+                    className={PRIVATE_CLASS}
                     sx={{
                       fontWeight: 500,
                       fontVariantNumeric: 'tabular-nums',

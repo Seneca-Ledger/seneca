@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useMonthLabel } from '@/app/components/dashboard/use-month-label';
 import { ChevronLeft, ChevronRight } from '@/app/components/icons';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { tokens } from '@/lib/theme-tokens';
 import {
   STOIC_CLASSES,
@@ -177,8 +178,8 @@ function ClassLegend({
           {/* Planned against actual means nothing until there is a plan. */}
           {hasPlan ? (
             <Typography variant="body2" sx={{ mt: 0.75, fontVariantNumeric: 'tabular-nums' }}>
-              {t.planned.value} {share(planned[stoicClass])} · {t.actual.value}{' '}
-              {share(actual[stoicClass])}
+              {t.planned.value} <PrivateAmount>{share(planned[stoicClass])}</PrivateAmount> ·{' '}
+              {t.actual.value} <PrivateAmount>{share(actual[stoicClass])}</PrivateAmount>
             </Typography>
           ) : null}
         </Box>
@@ -203,7 +204,9 @@ function SpendingFact({
   const sentence =
     percent >= 100
       ? t.allSpendingIs.value.replace('{class}', names[top])
-      : t.mostSpendingIs.value.replace('{class}', names[top]).replace('{share}', String(percent));
+      : fillTemplateNodes(t.mostSpendingIs.value.replace('{class}', names[top]), {
+          share: String(percent),
+        });
   return (
     <Typography
       variant="body2"

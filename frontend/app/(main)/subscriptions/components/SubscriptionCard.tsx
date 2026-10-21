@@ -2,6 +2,7 @@
 import { Box, Button, Card, CardContent, Chip, IconButton, Typography } from '@mui/material';
 
 import { Pencil, Trash2 } from '@/app/components/icons';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
@@ -108,7 +109,9 @@ export function SubscriptionCard({
               </Typography>
             </Box>
             <Typography variant="h6" fontWeight={700} color="primary">
-              {formatAmount(subscription.amount, subscription.currency)}
+              <PrivateAmount>
+                {formatAmount(subscription.amount, subscription.currency)}
+              </PrivateAmount>
               <Typography component="span" variant="body2" color="text.secondary">
                 {t[FREQUENCY_LABELS[subscription.frequency]]}
               </Typography>
@@ -128,7 +131,7 @@ export function SubscriptionCard({
         </Box>
         {priceChange && subscription.riskStatus === 'price_changed' && (
           <Typography variant="body2" color="warning.main" sx={{ mb: 1 }}>
-            {fill(t.priceChangeDetail.value, {
+            {fillTemplateNodes(t.priceChangeDetail.value, {
               previous: formatAmount(priceChange.previous, subscription.currency),
               current: formatAmount(priceChange.current, subscription.currency),
               delta: formatAmount(priceChange.delta, subscription.currency),
@@ -151,10 +154,10 @@ export function SubscriptionCard({
           )}
           {typeof subscription.costPerUse === 'number' && (
             <Typography variant="body2" color="text.secondary">
-              {fill(t.costPerUse.value, {
-                amount: formatAmount(subscription.costPerUse, subscription.currency),
-                count: String(subscription.usageCount ?? 0),
-              })}
+              {fillTemplateNodes(
+                fill(t.costPerUse.value, { count: String(subscription.usageCount ?? 0) }),
+                { amount: formatAmount(subscription.costPerUse, subscription.currency) },
+              )}
             </Typography>
           )}
         </Box>
@@ -183,7 +186,7 @@ export function SubscriptionCard({
                 ) : (
                   onSinkingFund && (
                     <Button size="small" variant="outlined" color="inherit" onClick={onSinkingFund}>
-                      {fill(t.setAside.value, {
+                      {fillTemplateNodes(t.setAside.value, {
                         amount: formatAmount(setAside, subscription.currency),
                       })}
                     </Button>

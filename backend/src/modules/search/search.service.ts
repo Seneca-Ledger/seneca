@@ -10,7 +10,7 @@ import { Payable, PayableDirection } from '../../entities/payable.entity';
 import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
-import { documentHref, findScanReceipts } from './document-href';
+import { type DocumentFile, documentFile, documentHref, findScanReceipts } from './document-href';
 
 export type SearchResultKind = 'transaction' | 'statement' | 'payable' | 'receivable' | 'category';
 
@@ -20,6 +20,8 @@ export interface SearchResult {
   title: string;
   subtitle: string | null;
   href: string;
+  /** What holding Space over the result previews; null when there is no file to show. */
+  document: DocumentFile | null;
 }
 
 export interface SearchResponse {
@@ -104,6 +106,7 @@ export class SearchService {
       subtitle: row.paymentPurpose || null,
       // A row lives in its document; there is no separate transactions list.
       href: documentHref(statement, receipts),
+      document: documentFile(statement, receipts),
     }));
   }
 
@@ -144,6 +147,7 @@ export class SearchService {
       title: row.fileName,
       subtitle: row.bankName ?? null,
       href: documentHref(row, receipts),
+      document: documentFile(row, receipts),
     }));
   }
 
@@ -167,6 +171,7 @@ export class SearchService {
         title: row.vendor,
         subtitle: row.comment ?? null,
         href: isReceivable ? '/statements/receive' : '/statements/pay',
+        document: null,
       };
     });
   }
@@ -186,6 +191,7 @@ export class SearchService {
       title: row.name,
       subtitle: null,
       href: '/categories',
+      document: null,
     }));
   }
 }

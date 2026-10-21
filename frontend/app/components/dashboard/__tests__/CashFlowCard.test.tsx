@@ -3,7 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../test-setup';
-import { CashFlowCard } from '../CashFlowCard';
+import { CashFlowCard, chartedMonths } from '../CashFlowCard';
+import { wholeLine } from './whole-line';
 
 const chartProps = vi.hoisted(() => vi.fn<(props: Record<string, unknown>) => void>());
 const hooksMock = vi.hoisted(() => ({ useDashboardCashFlow: vi.fn() }));
@@ -75,7 +76,7 @@ describe('CashFlowCard', () => {
     chartProps.mockClear();
     routerMock.replace.mockClear();
     hooksMock.useDashboardCashFlow.mockReset();
-    searchMock.query = 'tab=trends';
+    searchMock.query = 'month=2026-08';
   });
 
   it('shows the net total without a plus and the income/expense split', () => {
@@ -89,8 +90,8 @@ describe('CashFlowCard', () => {
     render(<CashFlowCard formatAmount={v => `$${v}`} />);
 
     expect(screen.getByText('$26731')).toBeInTheDocument();
-    expect(screen.getByText('Income $44141')).toBeInTheDocument();
-    expect(screen.getByText('Expense $17410')).toBeInTheDocument();
+    expect(screen.getByText(wholeLine('Income $44141'))).toBeInTheDocument();
+    expect(screen.getByText(wholeLine('Expense $17410'))).toBeInTheDocument();
     const [props] = chartProps.mock.calls.at(-1) ?? [];
     expect((props?.points as unknown[]).length).toBe(2);
   });
@@ -107,18 +108,20 @@ describe('CashFlowCard', () => {
 
     expect(hooksMock.useDashboardCashFlow).toHaveBeenLastCalledWith('12m', '2026-07');
     expect(screen.getByText('$412')).toBeInTheDocument();
-    expect(screen.getByText('Income $980')).toBeInTheDocument();
-    expect(screen.getByText('Expense $568')).toBeInTheDocument();
+    expect(screen.getByText(wholeLine('Income $980'))).toBeInTheDocument();
+    expect(screen.getByText(wholeLine('Expense $568'))).toBeInTheDocument();
     expect(screen.getByText('Jul 2026')).toBeInTheDocument();
   });
 
   it('shows zeros for a picked month with no row in the series', () => {
     hooksMock.useDashboardCashFlow.mockReturnValue(loaded([]));
 
-    render(<CashFlowCard formatAmount={v => `$${v}`} activeMonth="2026-07" />);
+    const { container } = render(
+      <CashFlowCard formatAmount={v => `$${v}`} activeMonth="2026-07" />,
+    );
 
-    expect(screen.getByText('$0')).toBeInTheDocument();
-    expect(screen.getByText('Income $0')).toBeInTheDocument();
+    expect(container.querySelector('.seneca-chart__total')?.textContent).toBe('$0');
+    expect(screen.getByText(wholeLine('Income $0'))).toBeInTheDocument();
   });
 
   it('passes the picked month and the month picker through to the chart', () => {
@@ -144,24 +147,24 @@ describe('CashFlowCard', () => {
     expect(screen.getByRole('tab', { name: '12 mo' })).toHaveAttribute('aria-selected', 'true');
     unmount();
 
-    searchMock.query = 'tab=trends&cf=5y';
+    searchMock.query = 'month=2026-08&cf=5y';
     render(<CashFlowCard formatAmount={String} />);
     expect(hooksMock.useDashboardCashFlow).toHaveBeenLastCalledWith('5y', undefined);
     expect(screen.getByRole('tab', { name: '5 years' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('writes the picked range to the URL and drops the default', () => {
-    searchMock.query = 'tab=trends&cf=5y';
+    searchMock.query = 'month=2026-08&cf=5y';
     hooksMock.useDashboardCashFlow.mockReturnValue(loaded([]));
 
     render(<CashFlowCard formatAmount={String} />);
     fireEvent.click(screen.getByRole('tab', { name: 'All time' }));
-    expect(routerMock.replace).toHaveBeenLastCalledWith('/dashboard?tab=trends&cf=all', {
+    expect(routerMock.replace).toHaveBeenLastCalledWith('/dashboard?month=2026-08&cf=all', {
       scroll: false,
     });
 
     fireEvent.click(screen.getByRole('tab', { name: '12 mo' }));
-    expect(routerMock.replace).toHaveBeenLastCalledWith('/dashboard?tab=trends', { scroll: false });
+    expect(routerMock.replace).toHaveBeenLastCalledWith('/dashboard?month=2026-08', { scroll: false });
   });
 
   it('shows a loss with a typographic minus', () => {
@@ -190,5 +193,26 @@ describe('CashFlowCard', () => {
 
     expect(screen.getByText('…')).toBeInTheDocument();
     expect(screen.queryByTestId('mock-chart')).not.toBeInTheDocument();
+  });
+});
+
+describe('chartedMonths', () => {
+  const point = (month: string, income = 0, expense = 0) => ({
+    month,
+    income,
+    expense,
+    net: income - expense,
+  });
+
+  it('opens on the first month with money in or out', () => {
+    const points = [point('2026-01'), point('2026-02'), point('2026-03', 5), point('2026-04')];
+
+    expect(chartedMonths(points).map(p => p.month)).toEqual(['2026-03', '2026-04']);
+  });
+
+  it('keeps an earlier picked month on the chart', () => {
+    const points = [point('2026-01'), point('2026-02'), point('2026-03', 5)];
+
+    expect(chartedMonths(points, '2026-02').map(p => p.month)).toEqual(['2026-02', '2026-03']);
   });
 });

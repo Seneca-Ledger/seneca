@@ -23,6 +23,7 @@ import { Fragment, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import { ChevronDown, ChevronRight } from '@/app/components/icons';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -76,6 +77,7 @@ function Figure({ label, value }: { label: string; value: string }) {
     <Box sx={{ flex: { xs: '1 1 140px', md: '0 0 auto' }, minWidth: { md: 170 } }}>
       <Typography sx={{ fontSize: 14, color: 'var(--text-muted)' }}>{label}</Typography>
       <Typography
+        className={PRIVATE_CLASS}
         sx={{
           mt: 0.5,
           fontSize: 28,
@@ -406,7 +408,7 @@ export function TaxYearView(): React.ReactElement {
                         <TableCell align="right" sx={NARROW_HIDDEN}>
                           {category.documentCount}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>
+                        <TableCell align="right" className={PRIVATE_CLASS} sx={{ fontWeight: 600 }}>
                           {money(category.total, currency)}
                         </TableCell>
                       </TableRow>
@@ -439,7 +441,7 @@ export function TaxYearView(): React.ReactElement {
                               <TableCell align="right" sx={NARROW_HIDDEN}>
                                 {row.documentCount}
                               </TableCell>
-                              <TableCell align="right">
+                              <TableCell align="right" className={PRIVATE_CLASS}>
                                 {row.converted === null
                                   ? money(row.amount, row.currency)
                                   : money(row.converted, currency)}

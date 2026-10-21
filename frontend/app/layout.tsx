@@ -16,6 +16,7 @@ import TopBar from './components/TopBar';
 import { WelcomeTutorialHost } from './components/welcome-tutorial/WelcomeTutorialHost';
 import { FONT_FAMILY_VARIABLES } from './font-faces';
 import { normalizeLocale } from './lib/locale';
+import { PRIVACY_BOOT_SCRIPT } from './lib/privacy-mode-boot';
 import { PALETTE_MODE_COOKIE, parsePaletteModeCookie } from './lib/theme-preference';
 import { Providers } from './providers';
 
@@ -52,6 +53,18 @@ export default async function RootLayout({
 
   return (
     <html lang={resolvedLocale} suppressHydrationWarning>
+      <head>
+        {/* Privacy mode before the first paint: a reload must not flash the figures. */}
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a fixed inline string, no user input */}
+        <script dangerouslySetInnerHTML={{ __html: PRIVACY_BOOT_SCRIPT }} />
+        <link
+          rel="preload"
+          href="/fonts/redacted-script-latin-400-normal.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin=""
+        />
+      </head>
       {process.env.NODE_ENV === 'development' ? <ReactScan /> : null}
       <body style={BODY_STYLE} suppressHydrationWarning>
         {/* First Tab stop: jumps past the sidebar and top bar; shown only while focused. */}

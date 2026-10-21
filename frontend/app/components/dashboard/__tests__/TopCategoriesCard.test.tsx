@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../test-setup';
 import { SectionSpanProvider } from '../section-span';
 import { TopCategoriesCard } from '../TopCategoriesCard';
+import { wholeLine } from './whole-line';
 
 // Mirrors react-intlayer's renderIntlayerNode: a Proxy over a rendered
 // Fragment whose `.value` is intercepted to return the plain string, so the
@@ -202,7 +203,7 @@ describe('TopCategoriesCard', () => {
     expect(screen.queryByText(/Operations/)).not.toBeInTheDocument();
 
     rerender(<SectionSpanProvider value={12}>{card}</SectionSpanProvider>);
-    expect(screen.getByText('Operations: 3 · Average spend: $4')).toBeInTheDocument();
+    expect(screen.getByText(wholeLine('Operations: 3 · Average spend: $4'))).toBeInTheDocument();
   });
 
   it("names a system category in the reader's language but links by its stored name", () => {

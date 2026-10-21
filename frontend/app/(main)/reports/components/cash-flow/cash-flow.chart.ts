@@ -13,6 +13,9 @@ export function buildCashFlowSankey(
   formatAmount: (value: number) => string,
   compact = false,
   categoryName: (name: string) => string = name => name,
+  // Privacy mode: the canvas is out of reach of the CSS redaction, so the labels
+  // drop the amount and keep the name. The tooltip, shown on hover, keeps it.
+  privacy = false,
 ): Record<string, unknown> {
   const isDark = resolvedTheme === 'dark';
   const color = isDark ? tokens.dark.color : tokens.color;
@@ -87,9 +90,9 @@ export function buildCashFlowSankey(
           ...(compact ? { width: 130, overflow: 'truncate' } : {}),
           formatter: (params: { name?: string; value?: unknown }) => {
             const node = byId.get(String(params.name ?? ''));
-            return node
-              ? `{name|${labelOf(node)}}\n{value|${formatAmount(Number(params.value ?? 0))}}`
-              : '';
+            if (!node) return '';
+            if (privacy) return `{name|${labelOf(node)}}`;
+            return `{name|${labelOf(node)}}\n{value|${formatAmount(Number(params.value ?? 0))}}`;
           },
           rich: {
             name: { color: color.textPrimary, fontSize: 13 },

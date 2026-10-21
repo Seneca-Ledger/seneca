@@ -31,6 +31,17 @@ describe('buildCashFlowSankey', () => {
     expect(nodes.find(node => node.name === 'cat:rent')?.label?.position).toBe('left');
     expect(nodes.find(node => node.name === 'balance')?.label?.position).toBeUndefined();
   });
+
+  it('privacy hides amounts: labels keep the name, the tooltip keeps the figure', () => {
+    const option = buildCashFlowSankey(data, 'light', value => `€${value}`, false, undefined, true);
+    const series = (option.series as SankeySeries[])[0];
+    const tooltip = option.tooltip as { formatter: (params: { dataType?: string; value?: number }) => string };
+
+    expect(series.label.formatter({ name: 'cat:rent', value: 300 })).toBe(
+      '{name|Marketing and advertising}',
+    );
+    expect(tooltip.formatter({ dataType: 'edge', value: 300 })).toBe('€300');
+  });
 });
 
 describe('buildCashFlowSankey in the reader\'s language', () => {

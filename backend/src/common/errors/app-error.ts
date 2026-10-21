@@ -22,6 +22,8 @@ export const ERR = {
   TABLE_NOT_LINKED_TO_SOURCE: 'Table is not linked to an app data source',
   SOURCE_KIND_UNKNOWN: 'Unknown data source',
   SOURCE_EMPTY: 'No records match the selected filters',
+  SOURCE_NOT_DOCUMENTS: 'Only a table built from documents can take more documents',
+  SOURCE_TOO_MANY_DOCUMENTS: 'A table can be built from at most {{limit}} documents',
   SOURCE_TOO_MANY_ROWS: 'Too many records match the filters (limit {{limit}}); narrow them down',
   SOURCE_FILTER_INVALID: 'Invalid data source filter value',
   SOURCE_COLUMNS_NOT_FOUND: 'The table has no columns linked to its data source',

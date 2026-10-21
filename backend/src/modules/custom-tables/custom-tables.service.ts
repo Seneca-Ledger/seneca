@@ -53,6 +53,7 @@ import type {
   UpdateCustomTableViewSettingsColumnBody,
   UpdateCustomTableViewsBody,
 } from '../../contracts';
+import { MAX_SOURCE_STATEMENTS } from '../../contracts';
 import {
   ActorType,
   AuditAction,
@@ -1884,6 +1885,48 @@ export class CustomTablesService {
       },
     });
     return { tableId: table.id, ...result };
+  }
+
+  /**
+   * Adds documents to a table built from documents' transactions, then
+   * refreshes it. Only such a table qualifies: on one bound to a date range or
+   * to picked records, a document filter would narrow the table instead of
+   * growing it. Ids already in the binding are kept once, so a repeat is a no-op.
+   */
+  async addSourceStatements(
+    userId: string,
+    workspaceId: string,
+    tableId: string,
+    statementIds: readonly string[],
+  ): ReturnType<CustomTablesService['refreshFromSource']> {
+    await this.ensureCanEditCustomTables(userId, workspaceId);
+    const table = await this.customTableRepository.findOne({ where: { id: tableId, workspaceId } });
+    if (!table) {
+      throw new NotFoundException(appError('TABLE_NOT_FOUND'));
+    }
+    const binding = table.sourceBinding;
+    const current = binding?.filters?.statementIds;
+    if (binding?.kind !== 'transactions' || !Array.isArray(current) || binding.filters?.ids) {
+      throw new BadRequestException(appError('SOURCE_NOT_DOCUMENTS'));
+    }
+    const requested = [...new Set(statementIds)];
+    const found = await this.statementRepository.count({
+      where: { id: In(requested), workspaceId, deletedAt: IsNull() },
+    });
+    if (found !== requested.length) {
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
+    }
+    const merged = [...new Set([...current.map(String), ...requested])];
+    if (merged.length > MAX_SOURCE_STATEMENTS) {
+      throw new BadRequestException(
+        appError('SOURCE_TOO_MANY_DOCUMENTS', { limit: MAX_SOURCE_STATEMENTS }),
+      );
+    }
+    await this.customTableRepository.update(
+      { id: table.id, workspaceId },
+      { sourceBinding: { ...binding, filters: { ...binding.filters, statementIds: merged } } },
+    );
+    return this.refreshFromSource(userId, workspaceId, table.id);
   }
 
   /**

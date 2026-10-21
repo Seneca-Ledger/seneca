@@ -11,7 +11,7 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { useExperimentalMode } from '@/app/lib/experimental-mode';
 import { openCommandPalette } from './command-palette/command-palette-store';
-import { Bell, Heart, PanelLeftClose, Search, Settings } from './icons';
+import { Bell, CircleHelp, Heart, PanelLeftClose, Search, Settings } from './icons';
 import { AccountMenu } from './navigation/AccountMenu';
 import {
   buildNavItems,
@@ -39,7 +39,7 @@ function SidebarContent({
   const { hasPermission } = usePermissions();
   const { loading: authLoading } = useAuth();
   const { loading: workspaceLoading, currentWorkspace } = useWorkspace();
-  const { nav, supportProject, shell, userMenu } = useIntlayer('navigation');
+  const { nav, supportProject, shell, userMenu, help } = useIntlayer('navigation');
   const notificationsText = useIntlayer('notificationDropdown');
   const { unreadCount } = useNotifications();
 
@@ -69,6 +69,17 @@ function SidebarContent({
 
         {/* Folded away in the idle rail, where there is only room for the emblem. */}
         <div className="seneca-sidebar__brand-actions">
+          <button
+            type="button"
+            className="seneca-sidebar__brand-action"
+            onClick={() => {
+              openAppPanel('help');
+            }}
+            title={help.title.value}
+            aria-label={help.title.value}
+          >
+            <CircleHelp size={17} />
+          </button>
           <button
             type="button"
             className="seneca-sidebar__brand-action"

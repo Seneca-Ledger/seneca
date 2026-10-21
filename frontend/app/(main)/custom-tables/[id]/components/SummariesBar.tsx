@@ -3,6 +3,7 @@
 import { Pencil, Trash2 } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { SummaryInput, SummaryItem } from '../hooks/useTableSummaries';
 import { formatCellNumber } from '../utils/numberFormat';
@@ -151,7 +152,12 @@ export function SummariesBar({
             className={`seneca-ct__summary${item.error ? ' seneca-ct__summary--error' : ''}`}
           >
             <span className="seneca-ct__summary-title">{item.title}</span>
-            <span className="seneca-ct__summary-value" title={item.expression}>
+            <span
+              className={`seneca-ct__summary-value${
+                !item.error && typeof item.value === 'number' ? ` ${PRIVATE_CLASS}` : ''
+              }`}
+              title={item.expression}
+            >
               {formatValue(item)}
             </span>
             <span className="seneca-ct__summary-actions">

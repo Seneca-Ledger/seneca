@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronRight } from '@/app/components/icons';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
@@ -420,11 +421,13 @@ export function TransactionDetailsTab({
                 style={{ display: 'block', width: '100%', textAlign: 'left', marginTop: 6 }}
               >
                 {formatDate(candidate.transactionDate, locale)} · {candidate.counterpartyName} ·{' '}
-                {formatAmount(
-                  Math.abs(candidate.amount),
-                  candidate.currency ?? transaction.currency ?? 'KZT',
-                  locale,
-                )}
+                <PrivateAmount>
+                  {formatAmount(
+                    Math.abs(candidate.amount),
+                    candidate.currency ?? transaction.currency ?? 'KZT',
+                    locale,
+                  )}
+                </PrivateAmount>
               </button>
             ))
           )}

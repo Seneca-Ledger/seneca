@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronRight } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import { Checkbox } from '../ui/checkbox';
+import { PRIVATE_CLASS } from '../ui/private-amount';
 import { CategoryDropdown } from './CategoryDropdown';
 import type { TransactionRowFormatters, TransactionRowHandlers } from './TransactionRow';
 import type { Category, Transaction } from './types';
@@ -51,10 +52,17 @@ function MobileAmounts({
   return (
     <div className="seneca-tx-card__amounts">
       {debit > 0 && (
-        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>{fmtAmt(debit)}</p>
+        <p
+          className={PRIVATE_CLASS}
+          style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}
+        >
+          {fmtAmt(debit)}
+        </p>
       )}
       {credit > 0 && (
-        <p style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>{fmtAmt(credit)}</p>
+        <p className={PRIVATE_CLASS} style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>
+          {fmtAmt(credit)}
+        </p>
       )}
       {debit <= 0 && credit <= 0 && (
         <p style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>—</p>

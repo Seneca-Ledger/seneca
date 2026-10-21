@@ -13,10 +13,6 @@
     @media (max-width: 640px) {
       height: 224px;
     }
-
-    &--compact {
-      height: 200px;
-    }
   }
 
   &__empty {
@@ -83,36 +79,6 @@
         margin-left: 16px;
       }
     }
-  }
-
-  &__legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 16px;
-    margin: 12px 0 0;
-    padding: 0;
-    list-style: none;
-    font-size: 13px;
-    color: var(--muted-foreground);
-  }
-
-  &__legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  &__legend-value {
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    color: var(--foreground);
-  }
-
-  &__swatch {
-    flex: none;
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
   }
 
   &__footer {
@@ -259,31 +225,6 @@
 
     @include dark {
       background: $seneca-color-warning-dk;
-    }
-  }
-}
-
-// A year with one or two busy months, as "September: 1 · October: 8" instead of a chart.
-.seneca-history-line {
-  margin: 4px 0 0;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  color: var(--foreground);
-
-  &__separator {
-    color: var(--text-muted);
-  }
-
-  &__month {
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-
-    &:hover {
-      color: var(--primary);
     }
   }
 }

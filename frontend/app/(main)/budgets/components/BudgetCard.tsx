@@ -5,6 +5,7 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { budgetTone } from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
 import { Pencil, Trash2 } from '@/app/components/icons';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
@@ -127,8 +128,8 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          {formatAmount(budget.spentAmount, budget.currency)} /{' '}
-          {formatAmount(availableAmount, budget.currency)}
+          <PrivateAmount>{formatAmount(budget.spentAmount, budget.currency)}</PrivateAmount> /{' '}
+          <PrivateAmount>{formatAmount(availableAmount, budget.currency)}</PrivateAmount>
         </Typography>
         {/* The share stays neutral; only an overspent budget says so in colour. */}
         <Typography
@@ -151,10 +152,9 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
             color: carriedAmount > 0 ? 'text.secondary' : 'var(--money-down)',
           }}
         >
-          {(carriedAmount > 0 ? t.carriedIn : t.overspendCarriedIn).value.replace(
-            '{{amount}}',
-            formatAmount(Math.abs(carriedAmount), budget.currency),
-          )}
+          {fillTemplateNodes((carriedAmount > 0 ? t.carriedIn : t.overspendCarriedIn).value, {
+            amount: formatAmount(Math.abs(carriedAmount), budget.currency),
+          })}
         </Typography>
       )}
       {/* Spending in a currency with no rate is left out of the figure, not counted one to one. */}
@@ -164,9 +164,9 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
           variant="caption"
           sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}
         >
-          {t.unconvertedSpending.value
-            .replace('{{amount}}', formatMoney(entry.amount, entry.currency, locale))
-            .replace('{{currency}}', budget.currency)}
+          {fillTemplateNodes(t.unconvertedSpending.value.replace('{{currency}}', budget.currency), {
+            amount: formatMoney(entry.amount, entry.currency, locale),
+          })}
         </Typography>
       ))}
       {/* Spending earlier in the period than the start: without this, 0 reads as broken. */}
@@ -176,10 +176,9 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
           variant="caption"
           sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}
         >
-          {t.beforeStartSpending.value.replace(
-            '{{amount}}',
-            formatMoney(entry.amount, entry.currency, locale),
-          )}
+          {fillTemplateNodes(t.beforeStartSpending.value, {
+            amount: formatMoney(entry.amount, entry.currency, locale),
+          })}
         </Typography>
       ))}
     </Box>

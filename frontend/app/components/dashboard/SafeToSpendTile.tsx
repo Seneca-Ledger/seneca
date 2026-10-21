@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
 import { ForecastChart } from '@/app/(main)/forecast/components/ForecastChart';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import type { ForecastResponse } from '@/app/lib/contracts';
@@ -76,13 +77,20 @@ export function SafeToSpendTile({ formatAmount }: SafeToSpendTileProps): React.J
   const details = [
     {
       label: t.lowestBalance.value,
-      value: `${formatAmount(data.lowestBalance)} · ${formatDate(data.lowestBalanceDate)}`,
+      value: (
+        <>
+          <PrivateAmount>{formatAmount(data.lowestBalance)}</PrivateAmount> ·{' '}
+          {formatDate(data.lowestBalanceDate)}
+        </>
+      ),
+      plain: true,
     },
     {
       label: t.shortfall.value,
       value: data.shortfallDate
         ? fill(t.shortfallOn.value, { date: formatDate(data.shortfallDate) })
         : t.noShortfall.value,
+      plain: true,
     },
     ...(data.taxReserve && data.taxReserve > 0
       ? [{ label: t.heldForTax.value, value: formatAmount(data.taxReserve) }]
@@ -93,6 +101,8 @@ export function SafeToSpendTile({ formatAmount }: SafeToSpendTileProps): React.J
     return (
       <KpiCard
         label={named(t.runway.value)}
+        // A number of months, not an amount: it stays readable in privacy mode.
+        plainValue
         value={
           data.runwayMonths === null
             ? t.runwayGrowing.value

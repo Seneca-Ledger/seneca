@@ -3,6 +3,7 @@
 import { visuallyHidden } from '@mui/utils';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import type { InvoiceForm } from './useInvoiceForm';
@@ -111,18 +112,18 @@ export function WizardTotals({ form }: { form: InvoiceForm }): React.ReactElemen
     <dl className="seneca-invoice-wizard__totals">
       <div>
         <dt>{t.detail.subtotal.value}</dt>
-        <dd>{formatMoney(totals.subtotal, currency, locale)}</dd>
+        <dd className={PRIVATE_CLASS}>{formatMoney(totals.subtotal, currency, locale)}</dd>
       </div>
       <div>
         <dt>
           {t.detail.tax.value}
           {onlyRate !== undefined ? ` (${onlyRate}%)` : ''}
         </dt>
-        <dd>{formatMoney(totals.taxTotal, currency, locale)}</dd>
+        <dd className={PRIVATE_CLASS}>{formatMoney(totals.taxTotal, currency, locale)}</dd>
       </div>
       <div className="seneca-invoice-wizard__total">
         <dt>{t.columns.total.value}</dt>
-        <dd>{formatMoney(totals.total, currency, locale)}</dd>
+        <dd className={PRIVATE_CLASS}>{formatMoney(totals.total, currency, locale)}</dd>
       </div>
     </dl>
   );

@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
 import { useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -72,6 +73,7 @@ function Figure({
     <Box sx={{ flex: { xs: '1 1 140px', md: '0 0 auto' }, minWidth: { md: 160 } }}>
       <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{label}</Typography>
       <Typography
+        className={PRIVATE_CLASS}
         sx={{ fontSize: emphasis ? 22 : 18, fontWeight: 600, color: 'text.primary', mt: 0.25 }}
       >
         {value}
@@ -417,13 +419,13 @@ export function TaxReturnView(): React.ReactElement {
                           ? t[DIRECTION_LABEL[line.direction]]
                           : line.direction}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" className={PRIVATE_CLASS}>
                         {formatMoney(line.taxAmount, line.currency)}
                       </TableCell>
                       <TableCell align="right">
                         {line.exchangeRate === 1 ? '—' : line.exchangeRate}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" className={PRIVATE_CLASS}>
                         {formatMoney(line.taxAmountConverted, currency)}
                       </TableCell>
                     </TableRow>

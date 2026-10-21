@@ -12,6 +12,7 @@ import {
 } from '@/app/components/transactions/helpers/transactionMapper';
 import { useBulkUpdateCategory } from '@/app/components/transactions/hooks/useBulkUpdateCategory';
 import type { Transaction } from '@/app/components/transactions/types';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -151,7 +152,7 @@ export function StatementTransactionsPanel({
                 )}
               </span>
               <span
-                className={`seneca-stmt-tx-panel__amount${isIncome ? ' seneca-stmt-tx-panel__amount--income' : ''}`}
+                className={`seneca-stmt-tx-panel__amount${isIncome ? ' seneca-stmt-tx-panel__amount--income' : ''} ${PRIVATE_CLASS}`}
               >
                 {isIncome ? '+' : ''}
                 {formatAmount(tx.debit || tx.credit, tx.currency)}

@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight } from '@/app/components/icons';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import type { CryptoDisposal, CryptoGains } from '../hooks/useCrypto';
 
@@ -134,13 +135,17 @@ function GainValue({
 }): React.JSX.Element {
   if (isZeroMoney(value)) {
     return (
-      <Box component="span" sx={{ color: 'var(--muted-foreground)' }}>
+      <Box component="span" className={PRIVATE_CLASS} sx={{ color: 'var(--muted-foreground)' }}>
         {money(0)}
       </Box>
     );
   }
   return (
-    <Box component="span" sx={{ color: value > 0 ? 'var(--money-up)' : 'var(--money-down)' }}>
+    <Box
+      component="span"
+      className={PRIVATE_CLASS}
+      sx={{ color: value > 0 ? 'var(--money-up)' : 'var(--money-down)' }}
+    >
       {value > 0 ? '+' : ''}
       {money(value)}
     </Box>
@@ -310,14 +315,14 @@ export function GainsBody({ gains, labels, locale, money }: GainsBodyProps): Rea
         {' · '}
         <span>
           {labels.proceeds}{' '}
-          <Box component="span" sx={valueSx}>
+          <Box component="span" className={PRIVATE_CLASS} sx={valueSx}>
             {money(gains.proceeds)}
           </Box>
         </span>
         {' · '}
         <span>
           {labels.cost}{' '}
-          <Box component="span" sx={valueSx}>
+          <Box component="span" className={PRIVATE_CLASS} sx={valueSx}>
             {money(gains.cost)}
           </Box>
         </span>
@@ -410,10 +415,14 @@ export function GainsBody({ gains, labels, locale, money }: GainsBodyProps): Rea
                       <TableCell align="right" sx={numberCell}>
                         {amountFormat.format(group.amount)}
                       </TableCell>
-                      <TableCell align="right" sx={numberCell}>
+                      <TableCell align="right" className={PRIVATE_CLASS} sx={numberCell}>
                         {money(group.proceeds)}
                       </TableCell>
-                      <TableCell align="right" sx={{ ...numberCell, ...muted }}>
+                      <TableCell
+                        align="right"
+                        className={PRIVATE_CLASS}
+                        sx={{ ...numberCell, ...muted }}
+                      >
                         {money(group.cost)}
                       </TableCell>
                       <TableCell align="right" sx={numberCell}>
@@ -440,10 +449,18 @@ export function GainsBody({ gains, labels, locale, money }: GainsBodyProps): Rea
                           <TableCell align="right" sx={{ ...numberCell, ...muted }}>
                             {amountFormat.format(lot.amount)}
                           </TableCell>
-                          <TableCell align="right" sx={{ ...numberCell, ...muted }}>
+                          <TableCell
+                            align="right"
+                            className={PRIVATE_CLASS}
+                            sx={{ ...numberCell, ...muted }}
+                          >
                             {money(lot.proceeds)}
                           </TableCell>
-                          <TableCell align="right" sx={{ ...numberCell, ...muted }}>
+                          <TableCell
+                            align="right"
+                            className={PRIVATE_CLASS}
+                            sx={{ ...numberCell, ...muted }}
+                          >
                             {money(lot.cost)}
                           </TableCell>
                           <TableCell align="right" sx={{ ...numberCell, ...muted }}>

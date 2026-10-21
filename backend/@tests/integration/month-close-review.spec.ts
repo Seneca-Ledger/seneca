@@ -1,7 +1,7 @@
 /**
  * Integration test — the month close and Review agree, against a real Postgres.
  *
- * Every step of the dashboard's month close (Finance ops, Data quality) shows
+ * Every step of the dashboard's month close (the Overview widget) shows
  * how many things are left and links to Review, limited to that month. The
  * number is a promise: open the link and that many rows are there. Both sides
  * decide in SQL, so only a database shows whether they agree. Seeded with the
@@ -313,18 +313,5 @@ describe('month close counts are what Review lists (real Postgres)', () => {
     );
 
     expect([page.counts.transaction, page.counts.duplicate, page.counts.receipt]).toEqual(totals);
-  });
-
-  it("the year's history shows the month with the same numbers", async () => {
-    const month = DAY.slice(0, 7);
-    const history = await dashboard.getHealthHistory(workspaceId, Number(DAY.slice(0, 4)));
-    const entry = history.months.find(item => item.month === month);
-    const current = await health();
-
-    expect(entry).toMatchObject({
-      uncategorized: current.uncategorizedTransactions,
-      statementsPendingReview: current.statementsPendingReview,
-      receiptsPendingReview: current.receiptsPendingReview,
-    });
   });
 });

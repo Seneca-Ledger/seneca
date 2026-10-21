@@ -30,11 +30,6 @@ export function parseMonthWindow(month: string | undefined): DashboardWindow | n
   return match ? getMonthWindowBounds(new Date(Number(match[1]), Number(match[2]) - 1, 1)) : null;
 }
 
-/** January 1 00:00 to December 31 23:59:59.999 of `year`, local time. */
-export function getYearWindowBounds(year: number): DashboardWindow {
-  return { since: new Date(year, 0, 1), endDate: new Date(year, 11, 31, 23, 59, 59, 999) };
-}
-
 export const CASH_FLOW_RANGES = ['12m', 'this_year', '5y', 'all'] as const;
 
 export type CashFlowRange = (typeof CASH_FLOW_RANGES)[number];

@@ -12,8 +12,6 @@ export type {
   DashboardCashFlowRange,
   DashboardDataHealth,
   DashboardFinancialSnapshot,
-  DashboardHealthHistoryResponse as DashboardHealthHistory,
-  DashboardHealthMonth,
   DashboardMonthlyCashFlowPoint,
   DashboardMonthlyCashFlowResponse as DashboardMonthlyCashFlow,
   DashboardRange,
@@ -21,7 +19,6 @@ export type {
   DashboardResponse as DashboardData,
   DashboardTopCategory,
   DashboardTopMerchant,
-  DashboardTrendsResponse as DashboardTrends,
 } from '@/app/lib/contracts';
 
 export interface DashboardNotification {

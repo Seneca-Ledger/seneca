@@ -9,6 +9,7 @@ import { useTodayNote } from '@/app/components/dashboard/overview-month';
 import { useIsWideSection } from '@/app/components/dashboard/section-span';
 import { CardEmpty, CardLink, DashboardCard, ListRow } from '@/app/components/dashboard/ui';
 import { AlertTriangle } from '@/app/components/icons';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import type { DashboardCommitmentsResponse } from '@/app/lib/contracts';
@@ -61,9 +62,8 @@ function RunwayBody({
         date: data.shortfallDate ?? '',
         days: String(data.horizonDays),
       })
-    : fillTemplate(text(t.safeSummary), {
+    : fillTemplateNodes(fillTemplate(text(t.safeSummary), { days: String(data.horizonDays) }), {
         amount: formatAmount(data.lowestBalance),
-        days: String(data.horizonDays),
       });
   const items = (limit: number): React.JSX.Element => (
     <div className="seneca-dashboard__list">
@@ -78,7 +78,7 @@ function RunwayBody({
               item.date
             )
           }
-          trailing={formatAmount(item.amount)}
+          trailing={<PrivateAmount>{formatAmount(item.amount)}</PrivateAmount>}
         />
       ))}
     </div>
@@ -114,7 +114,9 @@ function RunwayBody({
       )}{' '}
       {data.unscheduledCommitted > 0 && (
         <p className="seneca-dashboard__card-note seneca-dashboard__card-note--footer">
-          {fillTemplate(text(t.unscheduled), { amount: formatAmount(data.unscheduledCommitted) })}
+          {fillTemplateNodes(text(t.unscheduled), {
+            amount: formatAmount(data.unscheduledCommitted),
+          })}
         </p>
       )}
     </>

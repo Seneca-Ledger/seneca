@@ -5,7 +5,6 @@ import {
   type FindOperator,
   In,
   IsNull,
-  type ObjectLiteral,
   type Repository,
   type SelectQueryBuilder,
 } from 'typeorm';
@@ -20,8 +19,6 @@ import type {
   DashboardCommitmentsResponse,
   DashboardDataHealth,
   DashboardFinancialSnapshot,
-  DashboardHealthHistoryResponse,
-  DashboardHealthMonth,
   DashboardMonthlyCashFlowResponse,
   DashboardRecentTransaction,
   DashboardResponse,
@@ -56,7 +53,6 @@ import {
   getCashFlowRangeBounds,
   getMonthWindowBounds,
   getWindowBounds,
-  getYearWindowBounds,
   parseMonthWindow,
 } from './dashboard-window.util';
 
@@ -70,13 +66,6 @@ const UNCATEGORIZED_KEY = '__uncategorized__';
  * Which history counter a statement in each status feeds. What waits for review
  * is counted from the Review queue itself (its rows), not from statement statuses.
  */
-const STATEMENT_STATUS_METRIC: Partial<
-  Record<string, 'statementErrors' | 'statementsPendingSubmit'>
-> = {
-  [StatementStatus.ERROR]: 'statementErrors',
-  [StatementStatus.UPLOADED]: 'statementsPendingSubmit',
-};
-
 /** A period's trends, every amount already in the workspace currency. */
 interface TrendRows {
   daily: Map<string, DashboardCashFlowPoint>;
@@ -91,7 +80,7 @@ interface TrendRows {
   totals: { income: number; expense: number; rows: number };
 }
 
-/** The categories and payers the Trends tab lists. */
+/** The categories and payers a period's trends list. */
 const TREND_LIST_LIMIT = 10;
 
 /** Rows for the recent-transactions card with the row to itself; a half-width card shows six. */
@@ -184,7 +173,7 @@ export class DashboardService {
     // cash-flow buckets daily (see getTransactionGroupFormat) for month mode.
     const bucketDays = isMonth ? daysInMonth(effectiveWindow.since) : days;
 
-    // The month dashboard counts its queues (Finance Ops, Data Health) for that month too;
+    // The month dashboard counts its queues (the month close) for that month too;
     // the rolling 7d/30d/90d ranges keep the live, all-time queue totals.
     const queueWindow = isMonth ? effectiveWindow : null;
 
@@ -1048,170 +1037,6 @@ export class DashboardService {
       .andWhere("jsonb_array_length(COALESCE(s.parsing_details->'warnings', '[]'::jsonb)) > 0");
   }
 
-  /**
-   * Per-month history of the queues shown on Data Health and Finance Ops, for one calendar year.
-   * Nothing is stored: each item is counted in the month it is dated by, so fixing old data
-   * changes old months too.
-   */
-  async getHealthHistory(
-    workspaceId: string,
-    year: number,
-  ): Promise<DashboardHealthHistoryResponse> {
-    const now = new Date();
-    if (year > now.getFullYear()) {
-      return { year, months: [] };
-    }
-    const window = getYearWindowBounds(year);
-    const lastMonthIndex = year === now.getFullYear() ? now.getMonth() : 11;
-    const months = new Map<string, DashboardHealthMonth>();
-    for (let index = 0; index <= lastMonthIndex; index++) {
-      const month = `${year}-${String(index + 1).padStart(2, '0')}`;
-      months.set(month, {
-        month,
-        transactions: 0,
-        uncategorized: 0,
-        statementsUploaded: 0,
-        statementErrors: 0,
-        statementsPendingReview: 0,
-        statementsPendingSubmit: 0,
-        parsingWarnings: 0,
-        receiptsPendingReview: 0,
-        overduePayments: 0,
-      });
-    }
-
-    const [
-      transactionRows,
-      uncategorizedRows,
-      statementRows,
-      warningRows,
-      pendingReceiptRows,
-      overdueRows,
-      reviewRows,
-      reviewDuplicateRows,
-    ] = await Promise.all([
-      this.getTransactionHistoryRows(workspaceId, window),
-      this.countByMonth(
-        uncategorizedRowsQuery(this.transactionRepo, workspaceId),
-        QUEUE_DATE_COLUMN.row,
-        window,
-      ),
-      this.getStatementStatusHistoryRows(workspaceId, window),
-      this.countByMonth(this.createParsingWarningsQuery(workspaceId), 's.createdAt', window),
-      this.countByMonth(
-        pendingReceiptsQuery(this.receiptRepo, workspaceId),
-        QUEUE_DATE_COLUMN.receipt,
-        window,
-      ),
-      this.countByMonth(
-        this.payableRepo
-          .createQueryBuilder('p')
-          .where('p.workspaceId = :workspaceId', { workspaceId })
-          .andWhere('p.status = :overdue', { overdue: PayableStatus.OVERDUE })
-          .andWhere('p.deletedAt IS NULL'),
-        'p.dueDate',
-        window,
-      ),
-      this.countByMonth(
-        unconfirmedRowsQuery(this.transactionRepo, workspaceId),
-        QUEUE_DATE_COLUMN.row,
-        window,
-      ),
-      this.countByMonth(
-        reviewDuplicatesQuery(this.transactionRepo, workspaceId),
-        QUEUE_DATE_COLUMN.row,
-        window,
-      ),
-    ]);
-
-    const add = (
-      month: string,
-      key: Exclude<keyof DashboardHealthMonth, 'month'>,
-      count: string,
-    ): void => {
-      const entry = months.get(month);
-      if (entry) {
-        entry[key] += Number.parseInt(count, 10) || 0;
-      }
-    };
-    for (const row of transactionRows) {
-      add(row.month, 'transactions', row.total);
-    }
-    for (const row of uncategorizedRows) {
-      add(row.month, 'uncategorized', row.count);
-    }
-    for (const row of statementRows) {
-      add(row.month, 'statementsUploaded', row.count);
-      const metric = STATEMENT_STATUS_METRIC[row.status];
-      if (metric) {
-        add(row.month, metric, row.count);
-      }
-    }
-    for (const row of warningRows) {
-      add(row.month, 'parsingWarnings', row.count);
-    }
-    for (const row of pendingReceiptRows) {
-      add(row.month, 'receiptsPendingReview', row.count);
-    }
-    for (const row of overdueRows) {
-      add(row.month, 'overduePayments', row.count);
-    }
-    for (const row of [...reviewRows, ...reviewDuplicateRows]) {
-      add(row.month, 'statementsPendingReview', row.count);
-    }
-
-    return { year, months: Array.from(months.values()) };
-  }
-
-  private getTransactionHistoryRows(
-    workspaceId: string,
-    window: DashboardWindow,
-  ): Promise<Array<{ month: string; total: string }>> {
-    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
-    // Data health counts every row, confirmed or not: it shows what needs work.
-    this.applyActiveStatementTransactionFilters(query, workspaceId, window.since, window.endDate, {
-      confirmedOnly: false,
-    });
-    return query
-      .select("TO_CHAR(t.transactionDate, 'YYYY-MM')", 'month')
-      .addSelect('COUNT(t.id)', 'total')
-      .groupBy("TO_CHAR(t.transactionDate, 'YYYY-MM')")
-      .getRawMany<{ month: string; total: string }>();
-  }
-
-  private getStatementStatusHistoryRows(
-    workspaceId: string,
-    window: DashboardWindow,
-  ): Promise<Array<{ month: string; status: string; count: string }>> {
-    return this.withinWindow(
-      this.statementRepo
-        .createQueryBuilder('s')
-        .where('s.workspaceId = :workspaceId', { workspaceId })
-        .andWhere('s.deletedAt IS NULL'),
-      's.createdAt',
-      window,
-    )
-      .select("TO_CHAR(s.createdAt, 'YYYY-MM')", 'month')
-      .addSelect('s.status', 'status')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy("TO_CHAR(s.createdAt, 'YYYY-MM')")
-      .addGroupBy('s.status')
-      .getRawMany<{ month: string; status: string; count: string }>();
-  }
-
-  /** Row count per `YYYY-MM` of `dateColumn`, inside `window`. */
-  private countByMonth<T extends ObjectLiteral>(
-    query: SelectQueryBuilder<T>,
-    dateColumn: string,
-    window: DashboardWindow,
-  ): Promise<Array<{ month: string; count: string }>> {
-    return this.withinWindow(query, dateColumn, window)
-      .select(`TO_CHAR(${dateColumn}, 'YYYY-MM')`, 'month')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy(`TO_CHAR(${dateColumn}, 'YYYY-MM')`)
-      .getRawMany<{ month: string; count: string }>();
-  }
-
   async getTrends(
     workspaceId: string,
     days = 30,
@@ -1610,7 +1435,7 @@ export class DashboardService {
   }
 
   /**
-   * The Trends tab's figures for a period. Rows are summed per currency and
+   * A period's trends (MCP `get_trends`, the assistant). Rows are summed per currency and
    * converted into the workspace currency before they are added up, as the cash
    * flow chart does: a sale in shekels must not count as that many dollars.
    */

@@ -12,6 +12,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   ChevronUp,
+  Eye,
   LogOut,
   Moon,
   Plug,
@@ -25,6 +26,7 @@ import { useAuth } from '@/app/hooks/useAuth';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { setPrivacyMode, usePrivacyMode } from '@/app/lib/privacy-mode';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { useThemePreference } from './hooks/useThemePreference';
 
@@ -61,6 +63,8 @@ export function AccountMenu({
     resolveLabel,
     navTheme: undefined,
   });
+
+  const privacy = usePrivacyMode();
 
   if (!user) {
     return null;
@@ -167,6 +171,15 @@ export function AccountMenu({
           </ListItemIcon>
           <ListItemText>{userMenu.darkMode}</ListItemText>
           <Switch checked={isDark} size="small" tabIndex={-1} sx={{ mr: -1 }} />
+        </MenuItem>
+
+        {/* Amounts as scribbles until hovered, on this device; stays open like the theme row. */}
+        <MenuItem onClick={() => setPrivacyMode(!privacy)}>
+          <ListItemIcon>
+            <Eye size={18} />
+          </ListItemIcon>
+          <ListItemText>{userMenu.privacyMode}</ListItemText>
+          <Switch checked={privacy} size="small" tabIndex={-1} sx={{ mr: -1 }} />
         </MenuItem>
 
         {canOpenApps ? (

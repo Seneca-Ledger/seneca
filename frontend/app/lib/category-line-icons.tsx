@@ -279,6 +279,33 @@ export const Repeat = lineIcon(
   ],
   'Repeat',
 );
+export const Calendar = lineIcon(
+  [
+    ['path', { d: 'M8 2v4' }],
+    ['path', { d: 'M16 2v4' }],
+    ['rect', { width: '18', height: '18', x: '3', y: '4', rx: '2' }],
+    ['path', { d: 'M3 10h18' }],
+  ],
+  'Calendar',
+);
+export const Copy = lineIcon(
+  [
+    ['rect', { width: '14', height: '14', x: '8', y: '8', rx: '2', ry: '2' }],
+    ['path', { d: 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2' }],
+  ],
+  'Copy',
+);
+export const AlarmClock = lineIcon(
+  [
+    ['circle', { cx: '12', cy: '13', r: '8' }],
+    ['path', { d: 'M12 9v4l2 2' }],
+    ['path', { d: 'M5 3 2 6' }],
+    ['path', { d: 'm22 6-3-3' }],
+    ['path', { d: 'M6.38 18.7 4 21' }],
+    ['path', { d: 'M17.64 18.67 20 21' }],
+  ],
+  'AlarmClock',
+);
 export const Smartphone = lineIcon(
   [
     ['rect', { width: '14', height: '20', x: '5', y: '2', rx: '2', ry: '2' }],

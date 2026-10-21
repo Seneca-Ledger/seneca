@@ -58,6 +58,7 @@ describe('SearchService', () => {
         title: 'Owes Us Ltd',
         subtitle: null,
         href: '/statements/receive',
+        document: null,
       },
       {
         kind: 'payable',
@@ -65,6 +66,7 @@ describe('SearchService', () => {
         title: 'We Owe Ltd',
         subtitle: null,
         href: '/statements/pay',
+        document: null,
       },
     ]);
   });
@@ -74,7 +76,7 @@ describe('SearchService', () => {
       {
         id: 't-1',
         statementId: 's-9',
-        statement: { id: 's-9', status: 'completed', parsingDetails: null },
+        statement: { id: 's-9', fileName: 'march.pdf', status: 'completed', parsingDetails: null },
         counterpartyName: 'Lidl',
         paymentPurpose: 'Groceries',
       },
@@ -96,6 +98,7 @@ describe('SearchService', () => {
         title: 'Lidl',
         subtitle: 'Groceries',
         href: '/statements/s-9/edit',
+        document: { source: 'statement', id: 's-9', fileName: 'march.pdf' },
       },
     ]);
   });
@@ -133,6 +136,7 @@ describe('SearchService', () => {
           title: 'receipt-scan.jpg',
           subtitle: null,
           href: '/storage/s-1',
+          document: { source: 'statement', id: 's-1', fileName: 'receipt-scan.jpg' },
         },
         {
           kind: 'statement',
@@ -140,6 +144,7 @@ describe('SearchService', () => {
           title: 'march.pdf',
           subtitle: 'Kaspi',
           href: '/statements/s-2/edit',
+          document: { source: 'statement', id: 's-2', fileName: 'march.pdf' },
         },
       ],
     });
@@ -169,6 +174,12 @@ describe('SearchService', () => {
       '/storage/receipts/r-1',
       '/storage/receipts/r-2',
       '/statements/s-bank/edit',
+    ]);
+    // The preview shows the same file the click opens.
+    expect(result.results.map(item => item.document)).toEqual([
+      { source: 'receipt', id: 'r-1', fileName: 'other' },
+      { source: 'receipt', id: 'r-2', fileName: 'mail' },
+      { source: 'statement', id: 's-bank', fileName: 'other bank' },
     ]);
     // Only scans are looked up, and only inside the workspace.
     expect(receiptRepo.find).toHaveBeenCalledTimes(1);

@@ -40,6 +40,7 @@ import {
   ReceiptLineIcon,
 } from '@/app/components/ui/empty-state-icons';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
@@ -511,7 +512,10 @@ export function ReviewInboxView({ state }: Props) {
             <div style={columnStyle('category')}>{renderCategory(item)}</div>
           ) : null}
           <div style={isMobile ? { flex: '0 0 auto' } : columnStyle('amount')}>
-            <span className="seneca-stmt-list-item__amount" style={{ color: 'var(--foreground)' }}>
+            <span
+              className={`seneca-stmt-list-item__amount ${PRIVATE_CLASS}`}
+              style={{ color: 'var(--foreground)' }}
+            >
               {amount ? (
                 <>
                   {amount.figure}

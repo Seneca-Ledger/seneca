@@ -4,7 +4,8 @@ import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import '../test-setup';
-import { FinanceOpsTab } from '../FinanceOpsTab';
+import { MonthCloseCard } from '../MonthCloseCard';
+import { wholeLine } from './whole-line';
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: { href: string; children?: React.ReactNode }) => (
@@ -23,7 +24,7 @@ vi.mock('@/app/i18n', async () => {
         headlineDone: value('{month} is ready to close'),
         leftToReview: value('To review: {count}'),
         leftUncategorized: value('Without a category: {count}'),
-        overdue: value('Overdue payments: {count} · {amount}'),
+        notCounted: value('Not counted yet: {amount}'),
         parsing: value('Parsing warnings: {count}'),
         unread: value('Statements that could not be read: {count}'),
       }),
@@ -33,19 +34,14 @@ vi.mock('@/app/i18n', async () => {
 
 const displayMonth = new Date(2026, 9, 1);
 
-const renderTab = (dashboard: DashboardData = data) =>
-  render(
-    <FinanceOpsTab data={dashboard} formatAmount={value => `$${value}`} displayMonth={displayMonth} />,
-  );
-
 const data: DashboardData = {
   snapshot: {
     totalBalance: 0,
-    income30d: 0,
-    expense30d: 0,
-    netFlow30d: 0,
+    income30d: 100,
+    expense30d: 250,
+    netFlow30d: -150,
     totalPayable: 0,
-    totalOverdue: 0,
+    totalOverdue: 120,
     unapprovedCash: 0,
     currency: 'KZT',
     missingRates: [],
@@ -65,23 +61,32 @@ const data: DashboardData = {
     statementsPendingReview: 2,
     statementsPendingSubmit: 1,
     receiptsPendingReview: 0,
-    unapprovedCash: 0,
+    unapprovedCash: -40,
     lastUploadDate: '2026-02-01T00:00:00.000Z',
     parsingWarnings: 3,
   },
 };
 
-describe('FinanceOpsTab', () => {
-  it('says how far the month is from closing', () => {
-    renderTab();
+const renderCard = (dashboard: DashboardData = data) =>
+  render(
+    <MonthCloseCard
+      data={dashboard}
+      formatAmount={value => `$${value}`}
+      displayMonth={displayMonth}
+    />,
+  );
 
-    expect(screen.getByRole('heading', { name: 'October 2026: 1 of 3 done' })).toBeInTheDocument();
+describe('MonthCloseCard', () => {
+  it('says how far the month in view is from closing', () => {
+    renderCard();
+
+    expect(screen.getByText('sections.monthClose')).toBeInTheDocument();
+    expect(screen.getByText('October 2026: 1 of 3 done')).toBeInTheDocument();
   });
 
   it('lists every step once, with what is left and a link to Review for the month', () => {
-    renderTab();
+    renderCard();
 
-    expect(screen.getByText('To review: 2')).toBeInTheDocument();
     expect(screen.getByText('Without a category: 6')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /actionReview/ })).toHaveAttribute(
       'href',
@@ -91,47 +96,35 @@ describe('FinanceOpsTab', () => {
       'href',
       '/review?uncategorized=true&month=2026-10',
     );
-    // Done steps carry no action; there is no step for sending statements anywhere.
+    // A done step carries no action.
     expect(screen.queryByRole('link', { name: /actionMatch/ })).toBeNull();
-    expect(screen.queryByText(/submitted/i)).toBeNull();
   });
 
-  it('lists statements that could not be read as needing attention, not as review', () => {
-    renderTab({ ...data, dataHealth: { ...data.dataHealth, statementsWithErrors: 1 } });
+  it('tells the money still in Review on the review step, even when it is spending', () => {
+    renderCard();
 
-    expect(screen.getByText('To review: 2')).toBeInTheDocument();
+    expect(
+      screen.getByText(wholeLine('To review: 2 · Not counted yet: −$40')),
+    ).toBeInTheDocument();
+  });
+
+  it('lists statements worth a look after the steps, and nothing the Overview already shows', () => {
+    renderCard({ ...data, dataHealth: { ...data.dataHealth, statementsWithErrors: 1 } });
+
     expect(screen.getByText('Statements that could not be read: 1')).toBeInTheDocument();
-  });
-
-  it('shows what else needs attention only when there is something', () => {
-    const { unmount } = renderTab();
-    expect(screen.getByText('Overdue payments: 2 · $0')).toBeInTheDocument();
     expect(screen.getByText('Parsing warnings: 3')).toBeInTheDocument();
-    unmount();
-
-    renderTab({
-      ...data,
-      actions: [],
-      dataHealth: { ...data.dataHealth, parsingWarnings: 0 },
-    });
-    expect(screen.queryByText('attentionTitle')).toBeNull();
+    // Overdue bills live in Money owed, spending above income in the Net KPI.
+    expect(document.body.textContent).not.toMatch(/overdue|overspent/);
+    expect(screen.queryByRole('link', { name: /upload/ })).toBeNull();
   });
 
   it('says the month is ready once every step is done', () => {
-    renderTab({
+    renderCard({
       ...data,
       dataHealth: { ...data.dataHealth, statementsPendingReview: 0, uncategorizedTransactions: 0 },
     });
 
-    expect(screen.getByRole('heading', { name: 'October 2026 is ready to close' })).toBeInTheDocument();
-  });
-
-  it('puts the statement upload in a quiet button', () => {
-    renderTab();
-
-    expect(screen.getByRole('link', { name: /upload/ })).toHaveAttribute(
-      'href',
-      '/statements?openExpenseDrawer=scan',
-    );
+    expect(screen.getByText('October 2026 is ready to close')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Not counted yet/);
   });
 });

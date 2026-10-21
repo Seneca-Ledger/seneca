@@ -17,6 +17,7 @@ import {
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
 import { useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -120,6 +121,7 @@ export function SpendFlowChart({
   const query = useSpendFlow(groupBy, type, month);
   const { locale } = useLocale();
   const categoryName = useCategoryName();
+  const privacy = usePrivacyMode();
   // Fetch the echarts chunk alongside the data: otherwise LazyECharts' own
   // plain skeleton replaces the sankey-shaped one for a moment after the data lands.
   useEffect(() => {
@@ -142,8 +144,9 @@ export function SpendFlowChart({
       compact,
       isIncome: type === 'income',
       categoryName,
+      privacy,
     });
-  }, [data, resolvedTheme, chartLabels, compact, type, locale, categoryName]);
+  }, [data, resolvedTheme, chartLabels, compact, type, locale, categoryName, privacy]);
 
   const flashNode = useMemo(() => {
     if (!data) {

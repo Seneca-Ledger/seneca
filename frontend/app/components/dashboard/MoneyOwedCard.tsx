@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -9,12 +10,6 @@ import { invoicesApi } from '@/app/lib/invoices-api';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useTodayNote } from './overview-month';
 import { DashboardCard, ListRow } from './ui';
-
-const fill = (template: string, values: Record<string, string>): string =>
-  Object.entries(values).reduce(
-    (text, [key, value]) => text.replaceAll(`{{${key}}}`, value),
-    template,
-  );
 
 interface MoneyOwedCardProps {
   /**
@@ -55,7 +50,7 @@ export function MoneyOwedCard({
   const overdueLine = (amount: string | null) =>
     amount ? (
       <span className="seneca-dashboard__amount--negative">
-        {fill(t.overdueAmount.value, { amount })}
+        {fillTemplateNodes(t.overdueAmount.value, { amount })}
       </span>
     ) : (
       t.nothingOverdue.value
@@ -74,7 +69,7 @@ export function MoneyOwedCard({
               href="/invoices"
               primary={several ? `${t.owedToYou.value} · ${total.currency}` : t.owedToYou.value}
               secondary={overdueLine(overdue > 0 ? money(overdue) : null)}
-              trailing={money(total.total)}
+              trailing={<PrivateAmount>{money(total.total)}</PrivateAmount>}
             />
           );
         })}
@@ -83,7 +78,7 @@ export function MoneyOwedCard({
             href={overduePayable > 0 ? '/statements/pay?status=overdue' : '/statements/pay'}
             primary={t.youOwe.value}
             secondary={overdueLine(overduePayable > 0 ? formatAmount(overduePayable) : null)}
-            trailing={formatAmount(owed)}
+            trailing={<PrivateAmount>{formatAmount(owed)}</PrivateAmount>}
           />
         )}
       </div>

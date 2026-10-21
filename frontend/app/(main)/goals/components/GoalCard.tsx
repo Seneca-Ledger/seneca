@@ -6,6 +6,7 @@ import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import NextLink from 'next/link';
 import type React from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
 import type { Goal } from '../hooks/useGoals';
@@ -61,9 +62,9 @@ export function GoalCard({ goal, locale, labels, note, actions }: GoalCardProps)
           </Box>
         </Box>
         <Typography variant="body1" fontWeight={600}>
-          {money(goal.currentAmount)}{' '}
+          <PrivateAmount>{money(goal.currentAmount)}</PrivateAmount>{' '}
           <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
-            / {money(goal.targetAmount)}
+            / <PrivateAmount>{money(goal.targetAmount)}</PrivateAmount>
           </Typography>
         </Typography>
       </Box>
@@ -91,9 +92,14 @@ export function GoalCard({ goal, locale, labels, note, actions }: GoalCardProps)
             variant="body2"
             sx={{ color: goal.isReached ? 'success.main' : 'text.secondary' }}
           >
-            {goal.isReached
-              ? labels.reached
-              : `${money(goal.remaining)} ${labels.remaining} · ${goal.percent}%`}
+            {goal.isReached ? (
+              labels.reached
+            ) : (
+              <>
+                <PrivateAmount>{money(goal.remaining)}</PrivateAmount> {labels.remaining} ·{' '}
+                {goal.percent}%
+              </>
+            )}
           </Typography>
           {note && (
             <Typography variant="caption" sx={{ display: 'block', color: 'success.main' }}>

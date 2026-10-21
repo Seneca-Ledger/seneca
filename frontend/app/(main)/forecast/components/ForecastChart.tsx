@@ -4,6 +4,7 @@ import { ChartRangeFooter } from '@/app/components/charts/ChartParts';
 import { formatDayLabel } from '@/app/components/charts/chart-format';
 import { LazyNetWorthArea } from '@/app/components/charts/lazy-charts';
 import { useLocale } from '@/app/i18n';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import type { ForecastDay, ForecastEvent } from '../hooks/useForecast';
 
 interface ForecastChartProps {
@@ -30,6 +31,7 @@ export function ForecastChart({
   formatTick,
 }: ForecastChartProps) {
   const { locale } = useLocale();
+  const privacy = usePrivacyMode();
   const points = days.map(day => ({ date: day.date, value: day.balance }));
   const positive = days.length === 0 || days[days.length - 1].balance >= 0;
   const signed = (amount: number) => `${amount > 0 ? '+' : '−'}${formatValue(Math.abs(amount))}`;
@@ -40,7 +42,13 @@ export function ForecastChart({
   const markers = [
     ...(lowest ? [{ date: lowest.date }] : []),
     ...(biggest && biggest.date !== lowest?.date
-      ? [{ date: biggest.date, label: `${biggest.label} ${signed(biggest.amount)}` }]
+      ? [
+          {
+            date: biggest.date,
+            // Drawn into the SVG, where privacy mode cannot redact it: the name alone then.
+            label: privacy ? biggest.label : `${biggest.label} ${signed(biggest.amount)}`,
+          },
+        ]
       : []),
   ];
 

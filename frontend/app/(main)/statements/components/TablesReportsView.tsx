@@ -11,6 +11,7 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
@@ -191,11 +192,13 @@ export default function TablesReportsView() {
   }, []);
 
   const timeseries = report?.timeseries;
+  // Privacy mode: the canvas is out of reach of the CSS redaction, so the value axes drop their figures.
+  const privacy = usePrivacyMode();
   const trendChartOption = useMemo(() => {
     if (!timeseries?.length) return null;
     return {
       xAxis: { type: 'category', data: timeseries.map(item => item.date) },
-      yAxis: { type: 'value' },
+      yAxis: { type: 'value', axisLabel: { show: !privacy } },
       series: [
         {
           type: 'line',
@@ -204,7 +207,7 @@ export default function TablesReportsView() {
         },
       ],
     };
-  }, [timeseries]);
+  }, [timeseries, privacy]);
 
   const sourceSplitOption = useMemo(() => {
     if (!report) return null;
@@ -227,7 +230,7 @@ export default function TablesReportsView() {
     return {
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { top: 10, right: 30, bottom: 20, left: 140 },
-      xAxis: { type: 'value' },
+      xAxis: { type: 'value', axisLabel: { show: !privacy } },
       yAxis: {
         type: 'category',
         data: topRows.map(item => item.counterparty),
@@ -245,7 +248,7 @@ export default function TablesReportsView() {
         },
       ],
     };
-  }, [aggregatedRows]);
+  }, [aggregatedRows, privacy]);
 
   const selectedTablesCount = selectedTableIds.length;
   const chartTheme = resolvedTheme === 'dark' ? 'dark' : 'light';

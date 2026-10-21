@@ -15,6 +15,7 @@ import {
 import React, { useCallback, useMemo, useState } from 'react';
 import { Search as SearchIcon } from '@/app/components/icons';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import type { StatementTransaction } from '@/app/lib/contracts';
@@ -169,8 +170,18 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
 
     const renderers: Record<string, (tx: Transaction) => React.ReactNode> = {
       transactionDate: tx => formatDate(tx.transactionDate),
-      debit: tx => (Number(tx.debit) > 0 ? formatAmount(Number(tx.debit), tx.currency) : t.dash),
-      credit: tx => (Number(tx.credit) > 0 ? formatAmount(Number(tx.credit), tx.currency) : t.dash),
+      debit: tx =>
+        Number(tx.debit) > 0 ? (
+          <PrivateAmount>{formatAmount(Number(tx.debit), tx.currency)}</PrivateAmount>
+        ) : (
+          t.dash
+        ),
+      credit: tx =>
+        Number(tx.credit) > 0 ? (
+          <PrivateAmount>{formatAmount(Number(tx.credit), tx.currency)}</PrivateAmount>
+        ) : (
+          t.dash
+        ),
       currency: tx => tx.currency || FALLBACK_CURRENCY,
       exchangeRate: tx =>
         tx.exchangeRate
@@ -207,11 +218,15 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
       counterpartyBin: tx => tx.counterpartyBin || t.dash.value,
       documentNumber: tx => tx.documentNumber || t.dash.value,
       amountForeign: tx =>
-        tx.amountForeign
-          ? Number(tx.amountForeign).toLocaleString(resolveLocaleTag(locale), {
+        tx.amountForeign ? (
+          <PrivateAmount>
+            {Number(tx.amountForeign).toLocaleString(resolveLocaleTag(locale), {
               minimumFractionDigits: 2,
-            })
-          : t.dash,
+            })}
+          </PrivateAmount>
+        ) : (
+          t.dash
+        ),
     };
 
     const columns: ColumnDef[] = [];
