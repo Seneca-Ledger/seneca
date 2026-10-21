@@ -8,6 +8,7 @@ import { useTheme as useNextTheme } from 'next-themes';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { IntlayerProviderContent } from 'react-intlayer';
+import { LocalePackGate, loadLocalePack } from '@/app/i18n';
 import { useAppearancePreferences } from '@/app/lib/appearance-preferences';
 import { migrateLegacyStorageKeys } from '@/app/lib/legacy-storage-keys';
 import {
@@ -150,7 +151,8 @@ export function Providers({
     if (mounted && resolvedTheme) persistPaletteModeCookie(paletteMode);
   }, [mounted, resolvedTheme, paletteMode]);
   useEffect(() => {
-    setLocale(readLocaleFromCookie() ?? initialLocale);
+    const cookieLocale = readLocaleFromCookie() ?? initialLocale;
+    void loadLocalePack(cookieLocale).then(() => setLocale(cookieLocale));
   }, [initialLocale]);
   useEffect(() => {
     persistLocaleToCookie(locale);
@@ -158,32 +160,35 @@ export function Providers({
   const handleLocaleChange = useCallback((nextLocale: string): void => {
     if (!isSupportedLocale(nextLocale)) return;
     persistLocaleToCookie(nextLocale);
-    setLocale(nextLocale);
+    // Switch once the language's pack is in, so the UI never renders without texts.
+    void loadLocalePack(nextLocale).then(() => setLocale(nextLocale));
   }, []);
   return (
     <IntlayerProviderContent locale={locale} setLocale={handleLocaleChange}>
-      <HtmlLanguageSync />
-      <ThemePreferenceSync />
-      <ThemeProvider theme={muiTheme}>
-        <LocalizationProvider
-          dateAdapter={AdapterDateFns}
-          adapterLocale={pickerLocale?.dateLocale}
-          localeText={pickerLocale?.localeText}
-        >
-          {/* Выше AuthProvider и WorkspaceProvider: их собственные запросы —
-              следующие цели миграции, а NotificationProvider внутри
-              WorkspaceScopedProviders уже использует кэш. Строго вне
-              WorkspaceScopedProviders: внутри время жизни кэша привязалось бы к
-              идентичности воркспейса вместо сегмента workspaceId в ключе. */}
-          <QueryClientProvider client={getQueryClient()}>
-            <AuthProvider>
-              <WorkspaceProvider>
-                <WorkspaceScopedProviders mounted={mounted}>{children}</WorkspaceScopedProviders>
-              </WorkspaceProvider>
-            </AuthProvider>
-          </QueryClientProvider>
-        </LocalizationProvider>
-      </ThemeProvider>
+      <LocalePackGate locale={locale}>
+        <HtmlLanguageSync />
+        <ThemePreferenceSync />
+        <ThemeProvider theme={muiTheme}>
+          <LocalizationProvider
+            dateAdapter={AdapterDateFns}
+            adapterLocale={pickerLocale?.dateLocale}
+            localeText={pickerLocale?.localeText}
+          >
+            {/* Выше AuthProvider и WorkspaceProvider: их собственные запросы —
+                следующие цели миграции, а NotificationProvider внутри
+                WorkspaceScopedProviders уже использует кэш. Строго вне
+                WorkspaceScopedProviders: внутри время жизни кэша привязалось бы к
+                идентичности воркспейса вместо сегмента workspaceId в ключе. */}
+            <QueryClientProvider client={getQueryClient()}>
+              <AuthProvider>
+                <WorkspaceProvider>
+                  <WorkspaceScopedProviders mounted={mounted}>{children}</WorkspaceScopedProviders>
+                </WorkspaceProvider>
+              </AuthProvider>
+            </QueryClientProvider>
+          </LocalizationProvider>
+        </ThemeProvider>
+      </LocalePackGate>
     </IntlayerProviderContent>
   );
 }

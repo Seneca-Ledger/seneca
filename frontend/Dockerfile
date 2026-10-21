@@ -10,6 +10,8 @@ COPY next.config.* ./
 COPY tailwind.config.* ./
 COPY postcss.config.* ./
 COPY intlayer.config.* ./
+# postinstall runs it after intlayer build
+COPY scripts/build-locale-packs.mjs ./scripts/
 
 # The marker lets scripts/dev-entrypoint.sh detect a lockfile or Node change and
 # refresh the node_modules volume without rebuilding the image.

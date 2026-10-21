@@ -41,6 +41,14 @@ const config: IntlayerConfig = {
     ],
     defaultLocale: 'en',
   },
+  build: {
+    // 'dynamic' makes intlayer build write each dictionary per locale, which
+    // scripts/build-locale-packs.mjs gathers into one pack per language. The
+    // SWC optimizer stays off: it only rewrites useIntlayer imported from
+    // react-intlayer, and components read the cached hook in app/i18n.ts.
+    optimize: false,
+    importMode: 'dynamic',
+  },
 };
 
 export default config;

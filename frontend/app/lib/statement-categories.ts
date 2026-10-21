@@ -1,4 +1,4 @@
-import { getIntlayer } from 'react-intlayer';
+import { getCachedIntlayer } from '@/app/lib/locale-packs';
 import { normalizeLocale } from './locale';
 export type StatementCategorySource = 'system' | 'user' | 'parsing';
 
@@ -178,7 +178,7 @@ const getCategoryDictionary = (locale: string): CategoryDictionary | null => {
   }
   let dictionary: CategoryDictionary | null = null;
   try {
-    dictionary = getIntlayer('systemCategories', locale) as CategoryDictionary;
+    dictionary = getCachedIntlayer('systemCategories', locale) as CategoryDictionary;
   } catch {
     dictionary = null;
   }
