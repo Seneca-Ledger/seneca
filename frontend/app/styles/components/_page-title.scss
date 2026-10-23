@@ -1,0 +1,67 @@
+// A page's heading: its sidebar icon and name, and on pages with filters a
+// muted line after an arrow that says what the page shows right now.
+// Heading and summary flow as one paragraph, so a long summary wraps under it.
+.seneca-page-title {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  // Home / the page, on the right; a phone has the sidebar's back path instead.
+  &__crumbs {
+    display: flex;
+    flex-shrink: 0;
+    gap: 6px;
+    margin-left: auto;
+    font-size: 14px;
+    color: var(--text-muted);
+    white-space: nowrap;
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    @media (max-width: 767px) {
+      display: none;
+    }
+  }
+
+  &__heading {
+    display: inline;
+    margin: 0;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__icon {
+    margin-right: 6px;
+
+    svg {
+      vertical-align: -4px;
+    }
+  }
+
+  &__arrow {
+    margin: 0 2px;
+    vertical-align: -3px;
+    color: var(--text-muted);
+  }
+
+  &__summary {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+}

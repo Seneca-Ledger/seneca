@@ -13,6 +13,7 @@ import { insightHref } from '@/app/components/insights/insight-href';
 import { isWorkInsight } from '@/app/components/insights/work-insights';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { BulbLineIcon } from '@/app/components/ui/empty-state-icons';
+import { PageTitle } from '@/app/components/ui/page-title';
 import { type Insight, useInsights, useRefreshInsights } from '@/app/hooks/useInsights';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -240,6 +241,9 @@ export default function AdvicePage() {
       component="main"
       sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
     >
+      <Box sx={{ mb: 3 }}>
+        <PageTitle path="/advice" />
+      </Box>
       {isPending && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {ADVICE_SKELETON_KEYS.map(key => (

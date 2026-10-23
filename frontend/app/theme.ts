@@ -5,7 +5,7 @@ import { APP_NAME } from '@/app/lib/brand';
 import { tokens } from '@/lib/theme-tokens';
 import { selectMenuComponents } from './components/ui/select-menu-theme';
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'dark' | 'light';
 
 type AppSurfaceTokens = {
   primary: string;

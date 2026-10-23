@@ -196,7 +196,7 @@ export default function StatementsListView(): React.JSX.Element {
 
   useLockBodyScroll(v.expenseDrawerOpen);
 
-  useDocumentSelectionCommands(v, router.push);
+  const selectionActions = useDocumentSelectionCommands(v, router.push);
 
   const { t, filterState, listHeaderLabels, paginationLabels, uploadLabels } = v;
 
@@ -342,8 +342,10 @@ export default function StatementsListView(): React.JSX.Element {
       <StatementsListHeader
         selectedCount={v.selectedCount}
         selectedActionsOpen={v.selectedActionsOpen}
+        selectionActions={selectionActions}
         hasSelectedDuplicates={v.hasSelectedDuplicates}
         draftFilters={filterState.draftFilters}
+        appliedFilters={filterState.appliedFilters}
         activeFilterCount={v.activeFilterCount}
         search={v.search}
         onSearchApply={v.applySearch}
@@ -369,7 +371,7 @@ export default function StatementsListView(): React.JSX.Element {
         mergeDuplicatesLabel={mergeDuplicatesLabel}
         dismissDuplicateLabel={dismissDuplicateLabel}
         markDuplicateLabel={markDuplicateLabel}
-        onToggleActionsOpen={() => v.setSelectedActionsOpen(prev => !prev)}
+        onActionsOpenChange={v.setSelectedActionsOpen}
         onMerge={v.handleMergeSelectedDuplicates}
         onDismiss={v.handleDismissSelectedDuplicates}
         onMarkDuplicate={v.handleMarkSelectedAsDuplicate}
