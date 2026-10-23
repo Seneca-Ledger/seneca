@@ -32,6 +32,16 @@ export function usePayeesList(search: string, limit: number, page = 1) {
   });
 }
 
+/** One payee with what it files as, its mode and its VAT details. */
+export function usePayee(id: string | null) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.payee(workspaceId, id ?? ''),
+    queryFn: ({ signal }) => apiQueryDecoded({ url: `/payees/${id}`, signal, contract: 'Payee' }),
+    enabled: Boolean(workspaceId && id),
+  });
+}
+
 /**
  * Everything that changes how rows are filed: the payee list, the Review queue
  * and the transaction lists all read it.
