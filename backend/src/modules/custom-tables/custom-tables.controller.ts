@@ -41,6 +41,7 @@ import {
   CustomTableDetail,
   CustomTableGroups,
   CustomTableList,
+  CustomTableMoneyTotal,
   CustomTableRowBatch,
   CustomTableRowItem,
   CustomTableRowPage,
@@ -62,6 +63,7 @@ import {
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CustomTableMoneyTotalService } from './custom-table-money-total.service';
 import { CustomTablesService } from './custom-tables.service';
 import { CustomTablesCacheService } from './custom-tables-cache.service';
 import {
@@ -145,6 +147,7 @@ export class CustomTablesController {
   constructor(
     private readonly customTablesService: CustomTablesService,
     private readonly customTablesCache: CustomTablesCacheService,
+    private readonly moneyTotal: CustomTableMoneyTotalService,
   ) {}
 
   @Post()
@@ -550,6 +553,18 @@ export class CustomTablesController {
       );
       return { items, meta: { groupCount } };
     });
+  }
+
+  /** The table's balance: its money column over every row, in the workspace currency. */
+  @Get(':id/money-total')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableMoneyTotal)
+  async getMoneyTotal(
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) tableId: string,
+  ) {
+    // Not cached: a rate entered in settings has to show up here at once.
+    return this.moneyTotal.getTotal(workspaceId, tableId);
   }
 
   @Get(':id/aggregates')

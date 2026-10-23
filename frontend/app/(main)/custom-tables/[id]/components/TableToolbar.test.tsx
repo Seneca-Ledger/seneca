@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { CustomTableColumn } from '../utils/types';
 import { TableToolbar, type TableToolbarLabels } from './TableToolbar';
 
 vi.mock('@/app/i18n', () => ({
@@ -23,6 +24,8 @@ const labels: TableToolbarLabels = {
   deleteSelected: 'Delete {{count}}',
   view: 'View',
   more: 'More actions',
+  fullscreen: 'Full screen',
+  exitFullscreen: 'Exit full screen',
   clearSelection: 'Clear selection',
   searchHint: 'Hint',
   apply: 'Apply',
@@ -30,7 +33,11 @@ const labels: TableToolbarLabels = {
   restoreDefault: 'Restore to default',
 };
 
-const renderToolbar = (onRestoreDefault?: () => void) =>
+const renderToolbar = (
+  onRestoreDefault?: () => void,
+  onToggleExpanded = vi.fn(),
+  extra: Partial<React.ComponentProps<typeof TableToolbar>> = {},
+) =>
   render(
     <TableToolbar
       columns={[]}
@@ -42,6 +49,8 @@ const renderToolbar = (onRestoreDefault?: () => void) =>
       onGroupByChange={vi.fn()}
       selectedCount={0}
       exporting={false}
+      expanded={false}
+      onToggleExpanded={onToggleExpanded}
       onAddRow={vi.fn()}
       onAddColumn={vi.fn()}
       onAddSummary={vi.fn()}
@@ -52,6 +61,7 @@ const renderToolbar = (onRestoreDefault?: () => void) =>
       onClearSelection={vi.fn()}
       onRestoreDefault={onRestoreDefault}
       labels={labels}
+      {...extra}
     />,
   );
 
@@ -71,5 +81,39 @@ describe('TableToolbar restore to default', () => {
     openMore();
     expect(screen.getByRole('menuitem', { name: 'Add column' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Restore to default' })).toBeNull();
+  });
+});
+
+describe('TableToolbar full screen', () => {
+  it('toggles the expanded table from its own button', () => {
+    const onToggleExpanded = vi.fn();
+    renderToolbar(undefined, onToggleExpanded);
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+    expect(onToggleExpanded).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TableToolbar view panel', () => {
+  const counterparty: CustomTableColumn = {
+    id: 'column-1',
+    key: 'counterparty',
+    title: 'Counterparty',
+    type: 'text',
+    position: 0,
+    config: null,
+  };
+
+  it('opens grouping and columns in a side panel and hides a column from it', () => {
+    const onColumnVisibilityChange = vi.fn();
+    renderToolbar(undefined, vi.fn(), { columns: [counterparty], onColumnVisibilityChange });
+
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    const panel = screen.getByRole('dialog', { name: 'View' });
+    expect(panel).toHaveTextContent('Group by');
+    expect(panel).toHaveTextContent('No grouping');
+
+    const columnItems = screen.getAllByRole('menuitem', { name: counterparty.title });
+    fireEvent.click(columnItems[columnItems.length - 1] as HTMLElement);
+    expect(onColumnVisibilityChange).toHaveBeenCalledWith({ [counterparty.key]: false });
   });
 });

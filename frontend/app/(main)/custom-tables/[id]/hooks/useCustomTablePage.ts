@@ -27,6 +27,7 @@ import { useTableAggregates } from './useTableAggregates';
 import { useTableData } from './useTableData';
 import { useTableGrid } from './useTableGrid';
 import { useTableGroups } from './useTableGroups';
+import { useTableMoneyTotal } from './useTableMoneyTotal';
 import { useTableSummaries } from './useTableSummaries';
 
 interface ConvertState {
@@ -151,6 +152,7 @@ export function useCustomTablePage(tableId: string) {
     selection: aggregates,
     refreshToken,
   });
+  const moneyTotal = useTableMoneyTotal({ tableId, isAuthenticated, refreshToken });
   const summaries = useTableSummaries({
     tableId,
     isAuthenticated,
@@ -435,6 +437,7 @@ export function useCustomTablePage(tableId: string) {
     aggregates,
     aggregateValues: aggregateState.values,
     setAggregate,
+    moneyTotal,
     groupBy,
     setGroupBy,
     groups: groupState,
