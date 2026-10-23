@@ -6,6 +6,8 @@ WORKDIR /app
 # Copy dependency manifests first for better caching
 COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
+# postinstall runs it after intlayer build
+COPY frontend/scripts/build-locale-packs.mjs ./frontend/scripts/
 
 # Install dependencies for both apps
 RUN npm ci --prefix backend
