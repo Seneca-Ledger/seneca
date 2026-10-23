@@ -377,6 +377,7 @@ export function ReceiptDetailPanel({
               categories={categories}
               onChange={handleFormChange}
               onCurrencyChange={handleCurrencyChange}
+              receiptId={receipt.id}
             />
 
             <Box sx={{ mt: 3, borderTop: '1px solid var(--border-color)', pt: 2.5 }}>

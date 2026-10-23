@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { optionalNullable, TrimmedLowercase } from '../common/requests';
+import { DateOnlyInput, optionalNullable, TrimmedLowercase } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const CreateSubscriptionBody = Schema.Struct({
@@ -8,6 +8,8 @@ export const CreateSubscriptionBody = Schema.Struct({
   frequency: Schema.Literals(['weekly', 'monthly', 'quarterly', 'annual']),
   currency: optionalNullable(Schema.String),
   categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** The budget its money comes out of; null unlinks it. */
+  budgetId: optionalNullable(Schema.String.check(Schema.isUUID())),
   nextChargeDate: optionalNullable(Schema.String),
   vendorDomain: optionalNullable(
     TrimmedLowercase.check(
@@ -27,6 +29,8 @@ export const UpdateSubscriptionBody = Schema.Struct({
   status: optionalNullable(Schema.Literals(['detected', 'active', 'paused', 'cancelled'])),
   currency: optionalNullable(Schema.String),
   categoryId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** The budget its money comes out of; null unlinks it. */
+  budgetId: optionalNullable(Schema.String.check(Schema.isUUID())),
   nextChargeDate: optionalNullable(Schema.String),
   vendorDomain: optionalNullable(
     TrimmedLowercase.check(
@@ -51,3 +55,21 @@ export const RecordSubscriptionDecisionBody = Schema.Struct({
   realizedAnnualSavings: optionalNullable(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
 });
 export type RecordSubscriptionDecisionBody = Wire<typeof RecordSubscriptionDecisionBody>;
+
+/**
+ * `POST /subscriptions/:id/charges`: a payment already made. Either a bank row
+ * (`transactionId`: its date and amount are used) or a date with an optional
+ * amount (the subscription's price when left out), linked to a row later.
+ */
+export const RecordSubscriptionChargeBody = Schema.Struct({
+  transactionId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  chargeDate: optionalNullable(DateOnlyInput),
+  amount: optionalNullable(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
+});
+export type RecordSubscriptionChargeBody = Wire<typeof RecordSubscriptionChargeBody>;
+
+/** `PATCH /subscriptions/:id/charges/:chargeId`: link a payment to its bank row. */
+export const LinkSubscriptionChargeBody = Schema.Struct({
+  transactionId: Schema.String.check(Schema.isUUID()),
+});
+export type LinkSubscriptionChargeBody = Wire<typeof LinkSubscriptionChargeBody>;

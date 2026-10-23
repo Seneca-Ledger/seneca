@@ -10,6 +10,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
@@ -26,7 +27,13 @@ import {
   useLedgerMutations,
   useLedgerSettings,
 } from './hooks/useLedger';
-import { canWriteLedger, LEDGER_TABS, type LedgerTab, parseTab } from './ledger.helpers';
+import {
+  accountDisplayName,
+  canWriteLedger,
+  LEDGER_TABS,
+  type LedgerTab,
+  parseTab,
+} from './ledger.helpers';
 
 function Loading(): React.ReactElement {
   return (
@@ -96,6 +103,18 @@ function LedgerContent(): React.ReactElement {
     account: t.tabAccount,
   };
   const openAccount = (id: string): void => updateQuery({ tab: 'account', account: id });
+  const tabText: Record<LedgerTab, string> = {
+    accounts: t.tabAccounts.value,
+    journal: t.tabJournal.value,
+    'trial-balance': t.tabTrialBalance.value,
+    account: t.tabAccount.value,
+  };
+  const openedAccount =
+    tab === 'account' ? accounts.data?.find(account => account.id === accountId) : undefined;
+  // Only once the ledger is on: before that the page is the switch that turns it on.
+  const titleSummary = enabled
+    ? joinSummary([tabText[tab], openedAccount && accountDisplayName(openedAccount, systemNames)])
+    : undefined;
 
   const renderTab = (): React.ReactNode => {
     if (accounts.isError) {
@@ -204,6 +223,9 @@ function LedgerContent(): React.ReactElement {
         width: '100%',
       }}
     >
+      <Box sx={{ mb: 2 }}>
+        <PageTitle path="/ledger" summary={titleSummary} />
+      </Box>
       {renderBody()}
     </Box>
   );

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   UploadedFile,
@@ -40,8 +41,10 @@ import {
   ReceiptRecordUpdate,
   ReceiptSplitSuggestion,
   ReceiptsQuery,
+  ReceiptTax,
   ReceiptTransactionMatches,
   ReceiptUploadResult,
+  SetReceiptTaxBody,
   UpdateReceiptBody,
   UpdateReceiptLocationBody,
   UpdateReceiptStageBody,
@@ -276,6 +279,39 @@ export class ReceiptsController {
       throw new BadRequestException('Receipt not found');
     }
     return receipt;
+  }
+
+  @Get(':id/tax')
+  @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @ApiOperation({ summary: "The tax rate and amount on the receipt's transaction" })
+  @SchemaResponse(ReceiptTax)
+  async getTax(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+    const tax = await this.receiptsService.getTax(id, workspaceId);
+    if (!tax) {
+      throw new BadRequestException('Receipt not found');
+    }
+    return tax;
+  }
+
+  @Put(':id/tax')
+  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @ApiOperation({
+    summary: "Pick the tax rate of the receipt's transaction, or null to follow the rules",
+  })
+  @ApiResponse({ status: 404, description: 'Tax rate not found in this workspace' })
+  @ApiResponse({ status: 409, description: 'No transaction yet, or it is on a filed return' })
+  @SchemaResponse(ReceiptTax)
+  async setTax(
+    @Param('id') id: string,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SetReceiptTaxBody) dto: SetReceiptTaxBody,
+    @CurrentUser() user: User,
+  ) {
+    const tax = await this.receiptsService.setTax(id, workspaceId, dto.taxRateId, user.id);
+    if (!tax) {
+      throw new BadRequestException('Receipt not found');
+    }
+    return tax;
   }
 
   @Post('stage')

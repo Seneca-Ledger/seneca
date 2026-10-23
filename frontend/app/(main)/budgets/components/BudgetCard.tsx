@@ -169,6 +169,18 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
           })}
         </Typography>
       ))}
+      {/* Subscriptions paid from this budget, still to come this period. */}
+      {(budget.subscriptionReserve?.amount ?? 0) > 0 && budget.subscriptionReserve && (
+        <Typography
+          variant="caption"
+          title={budget.subscriptionReserve.items.map(item => item.vendorName).join(', ')}
+          sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}
+        >
+          {fillTemplateNodes(t.subscriptionReserve.value, {
+            amount: formatAmount(budget.subscriptionReserve.amount, budget.currency),
+          })}
+        </Typography>
+      )}
       {/* Spending earlier in the period than the start: without this, 0 reads as broken. */}
       {(budget.beforeStartSpending ?? []).map(entry => (
         <Typography

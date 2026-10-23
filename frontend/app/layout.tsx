@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import Script from 'next/script';
 import './globals.scss';
 import { getLocale } from 'next-intlayer/server';
 import { getIntlayer } from 'react-intlayer';
@@ -12,11 +13,11 @@ import { AppPanels } from './components/panels/AppPanels';
 import { ReactScan } from './components/ReactScan';
 import { ReceiptPlaceFollowupHost } from './components/receipts/place-followup/ReceiptPlaceFollowupHost';
 import { SidePanelProvider } from './components/side-panel/SidePanelContext';
-import TopBar from './components/TopBar';
 import { WelcomeTutorialHost } from './components/welcome-tutorial/WelcomeTutorialHost';
 import { FONT_FAMILY_VARIABLES } from './font-faces';
 import { normalizeLocale } from './lib/locale';
 import { PRIVACY_BOOT_SCRIPT } from './lib/privacy-mode-boot';
+import { parseSidebarCollapsedCookie, SIDEBAR_COLLAPSED_COOKIE } from './lib/sidebar-preference';
 import { PALETTE_MODE_COOKIE, parsePaletteModeCookie } from './lib/theme-preference';
 import { Providers } from './providers';
 
@@ -47,16 +48,19 @@ export default async function RootLayout({
   const locale = await getLocale();
   const resolvedLocale = normalizeLocale(typeof locale === 'string' ? locale : undefined);
   const t = getIntlayer('layout', locale);
-  const initialPaletteMode = parsePaletteModeCookie(
-    (await cookies()).get(PALETTE_MODE_COOKIE)?.value,
+  const cookieStore = await cookies();
+  const initialPaletteMode = parsePaletteModeCookie(cookieStore.get(PALETTE_MODE_COOKIE)?.value);
+  const initialSidebarCollapsed = parseSidebarCollapsedCookie(
+    cookieStore.get(SIDEBAR_COLLAPSED_COOKIE)?.value,
   );
 
   return (
     <html lang={resolvedLocale} suppressHydrationWarning>
       <head>
         {/* Privacy mode before the first paint: a reload must not flash the figures. */}
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a fixed inline string, no user input */}
-        <script dangerouslySetInnerHTML={{ __html: PRIVACY_BOOT_SCRIPT }} />
+        <Script id="privacy-boot" strategy="beforeInteractive">
+          {PRIVACY_BOOT_SCRIPT}
+        </Script>
         <link
           rel="preload"
           href="/fonts/redacted-script-latin-400-normal.woff2"
@@ -67,14 +71,14 @@ export default async function RootLayout({
       </head>
       {process.env.NODE_ENV === 'development' ? <ReactScan /> : null}
       <body style={BODY_STYLE} suppressHydrationWarning>
-        {/* First Tab stop: jumps past the sidebar and top bar; shown only while focused. */}
+        {/* First Tab stop: jumps past the sidebar; shown only while focused. */}
         <a href="#main-content" className="seneca-skip-link">
           {t.skipToContent.value}
         </a>
         <IntlayerServerProvider>
           <ThemeProvider
             attribute="class"
-            defaultTheme="system"
+            defaultTheme="dark"
             enableSystem
             disableTransitionOnChange
           >
@@ -88,9 +92,8 @@ export default async function RootLayout({
                 storageKey="seneca-side-panel"
               >
                 <div className="seneca-shell">
-                  <AppChrome />
+                  <AppChrome initialSidebarCollapsed={initialSidebarCollapsed} />
                   <div className="seneca-shell__content">
-                    <TopBar />
                     <main id="main-content" tabIndex={-1}>
                       {children}
                     </main>

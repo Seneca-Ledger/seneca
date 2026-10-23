@@ -19,6 +19,7 @@ import { AUTH_ROUTE_PREFIXES } from '@/app/lib/auth-routes';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
 import { isNavItemActive } from '../navigation/helpers/navigation-config';
 import { MobileMenuDrawer } from './MobileMenuDrawer';
+import { usePageQuickActions } from './quick-actions-store';
 
 const HIDDEN_PATHS = ['/onboarding', ...AUTH_ROUTE_PREFIXES, '/shared', '/invite'];
 
@@ -51,6 +52,7 @@ export default function MobileBottomBar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const pageActions = usePageQuickActions();
 
   const closeFab = useCallback(() => setFabOpen(false), []);
 
@@ -74,6 +76,14 @@ export default function MobileBottomBar() {
   }
 
   const avatarUrl = normalizeAvatarUrl(user?.avatarUrl);
+  const fabActions =
+    pageActions ??
+    FAB_ACTIONS.map(action => ({
+      id: action.id,
+      label: shell[action.labelKey].value,
+      icon: action.icon,
+      run: () => router.push(action.href),
+    }));
 
   return (
     <>
@@ -87,21 +97,21 @@ export default function MobileBottomBar() {
         className={`seneca-bottom-bar__fab-menu${fabOpen ? ' seneca-bottom-bar__fab-menu--open' : ''}`}
         inert={!fabOpen}
       >
-        {FAB_ACTIONS.map((action, index) => (
+        {fabActions.map((action, index) => (
           <button
             key={action.id}
             type="button"
             className="seneca-bottom-bar__fab-action"
             style={{ '--fab-index': index } as React.CSSProperties}
             onClick={() => {
-              router.push(action.href);
+              action.run();
               closeFab();
             }}
           >
             <span className="seneca-bottom-bar__fab-action-icon">
               <action.icon size={18} />
             </span>
-            <span className="seneca-bottom-bar__fab-action-label">{shell[action.labelKey]}</span>
+            <span className="seneca-bottom-bar__fab-action-label">{action.label}</span>
           </button>
         ))}
       </div>

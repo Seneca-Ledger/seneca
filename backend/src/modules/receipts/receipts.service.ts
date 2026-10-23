@@ -27,11 +27,14 @@ import {
   ReceiptSource,
   ReceiptStatus,
   Statement,
+  TaxRate,
   Transaction,
   TransactionType,
+  VatStatus,
+  Workspace,
 } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
-import { TransactionCategorySource } from '../../entities/transaction.entity';
+import { TaxSource, TransactionCategorySource } from '../../entities/transaction.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { hasDecidedCategory } from '../classification/engine/category-decision';
@@ -90,6 +93,16 @@ type ScanParams = {
 const MANUAL_RECEIPT_WORKER_ID = 'manual-receipt-sync';
 
 /** How an approval settled a receipt. */
+/** What `GET`/`PUT /receipts/:id/tax` answer (contract `ReceiptTax`). */
+export interface ReceiptTaxView {
+  transactionId: string | null;
+  assessable: boolean;
+  locked: boolean;
+  taxRateId: string | null;
+  taxSource: TaxSource | null;
+  taxAmount: number | null;
+}
+
 type ApproveMode = NonNullable<ReceiptApprovedEvent['mode']>;
 
 @Injectable()
@@ -286,6 +299,100 @@ export class ReceiptsService {
     }
 
     return saved;
+  }
+
+  /**
+   * The tax on the transaction the receipt stands for: the row it was approved
+   * into or attached to, else its scan's row. Null when the receipt is unknown.
+   */
+  async getTax(id: string, workspaceId: string): Promise<ReceiptTaxView | null> {
+    const receipt = await this.receiptRepository.findOne({ where: { id, workspaceId } });
+    if (!receipt) {
+      return null;
+    }
+    return this.taxView(await this.findReceiptTransaction(receipt, workspaceId), workspaceId);
+  }
+
+  /**
+   * Pins the rate a person picked on the receipt to its transaction, or with
+   * null hands the row back to the rules and the workspace default. The figures
+   * are worked out by the tax engine, as for any other row.
+   */
+  async setTax(
+    id: string,
+    workspaceId: string,
+    taxRateId: string | null,
+    userId: string,
+  ): Promise<ReceiptTaxView | null> {
+    const receipt = await this.receiptRepository.findOne({ where: { id, workspaceId } });
+    if (!receipt) {
+      return null;
+    }
+    const target = await this.findReceiptTransaction(receipt, workspaceId);
+    if (!target) {
+      throw new ConflictException('The receipt has no transaction to tax yet');
+    }
+    if (target.taxLocked) {
+      throw taxLockedConflict(1);
+    }
+    if (taxRateId) {
+      const owned = await this.transactionRepository.manager
+        .getRepository(TaxRate)
+        .exists({ where: { id: taxRateId, workspaceId } });
+      if (!owned) {
+        throw new NotFoundException('Tax rate not found');
+      }
+    }
+
+    const before = { taxRateId: target.taxRateId, taxSource: target.taxSource };
+    await this.transactionRepository.update(
+      { id: target.id, workspaceId, taxLocked: false },
+      taxRateId
+        ? { taxRateId, taxSource: TaxSource.MANUAL }
+        : // Not manual any more, so reassess derives the rate again.
+          { taxRateId: null, taxSource: null },
+    );
+    await this.taxAssignmentService?.reassess(workspaceId, { ids: [target.id] });
+
+    const updated = await this.transactionRepository.findOneOrFail({
+      where: { id: target.id, workspaceId },
+    });
+    await this.recordAudit({
+      workspaceId,
+      actorType: ActorType.USER,
+      actorId: userId,
+      entityType: EntityType.TRANSACTION,
+      entityId: target.id,
+      action: AuditAction.UPDATE,
+      diff: { before, after: { taxRateId: updated.taxRateId, taxSource: updated.taxSource } },
+    });
+    return this.taxView(updated, workspaceId);
+  }
+
+  private async findReceiptTransaction(
+    receipt: Receipt,
+    workspaceId: string,
+  ): Promise<Transaction | null> {
+    return receipt.transactionId
+      ? this.transactionRepository.findOne({ where: { id: receipt.transactionId, workspaceId } })
+      : this.findScanTransaction(this.transactionRepository.manager, receipt, workspaceId);
+  }
+
+  private async taxView(
+    transaction: Transaction | null,
+    workspaceId: string,
+  ): Promise<ReceiptTaxView> {
+    const workspace = await this.transactionRepository.manager
+      .getRepository(Workspace)
+      .findOne({ where: { id: workspaceId }, select: ['id', 'vatStatus'] });
+    return {
+      transactionId: transaction?.id ?? null,
+      assessable: workspace?.vatStatus === VatStatus.REGISTERED,
+      locked: transaction?.taxLocked ?? false,
+      taxRateId: transaction?.taxRateId ?? null,
+      taxSource: transaction?.taxSource ?? null,
+      taxAmount: transaction?.taxAmount ?? null,
+    };
   }
 
   /**

@@ -102,8 +102,8 @@
   }
 }
 
-// Subscription details drawer: one filled action at most, labels above fields,
-// status as a dot and a word, sections titled alike.
+// Subscription details drawer: status as a dot and a word, the price, two dates
+// and one quiet way to cancel.
 .lumio-sub-detail {
   display: flex;
   flex-direction: column;
@@ -142,6 +142,16 @@
     }
   }
 
+  // Quiet, at the far end of the status line: the way to correct a typo.
+  &__edit.MuiIconButton-root {
+    margin-left: auto;
+    color: var(--text-muted);
+
+    &:hover {
+      color: var(--primary);
+    }
+  }
+
   &__amount {
     font-size: 28px;
     font-weight: 500;
@@ -172,13 +182,31 @@
     }
   }
 
-  &__section {
+  &__actions {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 4px 16px;
     padding-top: 16px;
     border-top: 1px solid var(--border);
   }
+
+  &__link.MuiButton-root {
+    color: var(--primary);
+  }
+
+  &__destructive.MuiButton-root {
+    color: var(--money-down);
+  }
+}
+
+// Payments of a subscription, in its card and in the add form: one quiet list,
+// text actions under it, statement rows to pick in a short scrolling list.
+.lumio-sub-payments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 
   &__heading {
     margin: 0;
@@ -187,44 +215,117 @@
     color: var(--foreground);
   }
 
-  &__line {
-    margin: 0;
-    font-size: 14px;
-    font-variant-numeric: tabular-nums;
-    color: var(--foreground);
-  }
-
-  &__empty {
+  &__empty,
+  &__note {
     margin: 0;
     font-size: 13px;
     color: var(--text-muted);
   }
 
-  &__field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  &__list,
+  &__picker {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
 
-    > label {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr auto minmax(96px, auto) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 32px;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  &__source {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: right;
   }
 
   &__link.MuiButton-root {
-    align-self: flex-start;
     padding: 0;
     min-width: 0;
     color: var(--primary);
   }
 
-  &__actions {
-    display: flex;
-    flex-wrap: wrap;
+  &__manual {
+    display: grid;
+    grid-template-columns: 1fr 120px auto;
+    align-items: center;
     gap: 8px;
   }
 
-  &__destructive.MuiButton-root {
-    color: var(--money-down);
+  &__picker {
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  &__candidate {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--surface-soft);
+    }
+
+    // A row that looks like this vendor: a sage dot before the name.
+    &[data-match] &-name::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      vertical-align: 1px;
+    }
+  }
+
+  li:last-child &__candidate {
+    border-bottom: 0;
+  }
+
+  &__candidate-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+
+    .MuiButton-root {
+      padding-left: 0;
+      padding-right: 0;
+      min-width: 0;
+      color: var(--primary);
+    }
+  }
+
+  @media (max-width: 480px) {
+    &__manual {
+      grid-template-columns: 1fr 1fr;
+    }
   }
 }

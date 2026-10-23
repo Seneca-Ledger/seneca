@@ -35,6 +35,8 @@ export const SubscriptionItem = Schema.Struct({
   lastChargeDate: Schema.NullOr(DateOnly),
   categoryId: Schema.NullOr(Schema.String),
   category: Schema.NullOr(CategoryRef),
+  /** The budget its money comes out of: its payments take that budget's category. */
+  budgetId: Schema.NullOr(Schema.String),
   usageCount: Schema.Number,
   usageSince: Schema.NullOr(Timestamp),
   lastUsedAt: Schema.NullOr(Timestamp),
@@ -69,7 +71,10 @@ export const SubscriptionSummary = Schema.Struct({
   totalMonthlyCost: Schema.Number,
   activeCount: Schema.Number,
   upcomingCount: Schema.Number,
+  /** Charges due in the next 30 days, today included; a weekly plan counts each one. */
   upcoming30DaysCount: Schema.Number,
+  /** What those charges come to, in the workspace currency. */
+  upcoming30DaysAmount: Schema.Number,
   priceChangeCount: Schema.Number,
   /** What this year costs more (or less) because of the flagged price changes. */
   priceChangeYearlyEffect: Schema.Number,
@@ -78,6 +83,32 @@ export const SubscriptionSummary = Schema.Struct({
   realizedAnnualSavings: Schema.Number,
 });
 export type SubscriptionSummary = Wire<typeof SubscriptionSummary>;
+
+/** `GET /subscriptions/month-status`: this month's charges, paid so far and still to come. */
+export const SubscriptionMonthStatus = Schema.Struct({
+  /** Workspace currency the amounts are in. */
+  currency: Schema.NullOr(Schema.String),
+  /** YYYY-MM */
+  month: Schema.String,
+  paidAmount: Schema.Number,
+  paidCount: Schema.Number,
+  unpaidAmount: Schema.Number,
+  unpaidCount: Schema.Number,
+  /** Each subscription charged this month, still to pay first, then by next charge date. */
+  items: Schema.Array(
+    Schema.Struct({
+      subscriptionId: Schema.String,
+      vendorName: Schema.String,
+      vendorDomain: Schema.NullOr(Schema.String),
+      /** This month's charges together, in the workspace currency. */
+      amount: Schema.Number,
+      /** Every charge this month has fallen on or before today. */
+      paid: Schema.Boolean,
+      nextChargeDate: Schema.NullOr(DateOnly),
+    }),
+  ),
+});
+export type SubscriptionMonthStatus = Wire<typeof SubscriptionMonthStatus>;
 
 /** `GET /subscriptions/charge-calendar`: what leaves each month, row by row. */
 export const SubscriptionChargeCalendar = Schema.Struct({
@@ -117,21 +148,49 @@ export const SubscriptionDuplicateGroups = Schema.Array(
 );
 export type SubscriptionDuplicateGroups = Wire<typeof SubscriptionDuplicateGroups>;
 
+/** One payment of a subscription; `transactionId` is null until it is linked to a bank row. */
+export const SubscriptionChargeRow = Schema.Struct({
+  id: Schema.String,
+  transactionId: Schema.NullOr(Schema.String),
+  amount: DecimalString,
+  currency: Schema.String,
+  chargeDate: DateOnly,
+  expectedAmount: DecimalString,
+  expectedDate: Schema.NullOr(DateOnly),
+  matchStatus: Schema.Literals(['matched', 'price_changed', 'date_shifted']),
+  createdAt: Timestamp,
+});
+export type SubscriptionChargeRow = Wire<typeof SubscriptionChargeRow>;
+
+/**
+ * `GET /subscriptions/charge-candidates?vendorName=&statementId=`: expense rows
+ * not yet a payment of any subscription, the vendor's own first, then newest.
+ */
+export const SubscriptionChargeCandidates = Schema.Array(
+  Schema.Struct({
+    transactionId: Schema.String,
+    /** The bank's name for the payee; redacted for a private row the viewer cannot read. */
+    counterpartyName: Schema.String,
+    transactionDate: DateOnly,
+    amount: Schema.Number,
+    currency: Schema.String,
+    /** The row's payee looks like this vendor. */
+    matchesVendor: Schema.Boolean,
+  }),
+);
+export type SubscriptionChargeCandidates = Wire<typeof SubscriptionChargeCandidates>;
+
 /** `GET /subscriptions/:id`: the subscription with its charges and decisions. */
 export const SubscriptionDetail = Schema.Struct({
   subscription: SubscriptionItem.mapFields(Struct.omit(['category', 'costPerUse'])),
-  charges: Schema.Array(
-    Schema.Struct({
-      id: Schema.String,
-      transactionId: Schema.String,
-      amount: DecimalString,
-      currency: Schema.String,
-      chargeDate: DateOnly,
-      expectedAmount: DecimalString,
-      expectedDate: Schema.NullOr(DateOnly),
-      matchStatus: Schema.Literals(['matched', 'price_changed', 'date_shifted']),
-      createdAt: Timestamp,
-    }),
+  charges: Schema.Array(SubscriptionChargeRow),
+  /**
+   * Payees whose new rows become payments of this subscription on their own:
+   * those of the rows a person linked to it. `shared` when another active
+   * subscription has the same payee, so neither gets its rows automatically.
+   */
+  autoLinkPayees: Schema.Array(
+    Schema.Struct({ payeeId: Schema.String, name: Schema.String, shared: Schema.Boolean }),
   ),
   decisions: Schema.Array(
     Schema.Struct({

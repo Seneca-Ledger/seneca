@@ -49,7 +49,7 @@ function mostUsed(budgets: BudgetSummary[]): BudgetSummary[] {
  * widget is drawn at once and is fresh after a budget is edited there; any other
  * month is measured on its last day, so its spending is that month's, not this one's.
  */
-function useBudgets(month: string): { budgets: BudgetSummary[]; loaded: boolean } {
+export function useBudgets(month: string): { budgets: BudgetSummary[]; loaded: boolean } {
   const workspaceId = useWorkspaceId();
   const date = monthEndOrToday(month);
   const { data, isPending } = useQuery({

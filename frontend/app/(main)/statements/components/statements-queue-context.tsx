@@ -4,11 +4,9 @@ import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { openAppPanel } from '@/app/components/panels/app-panels-store';
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { payablesApi } from '@/app/lib/payables-api';
 import { checkContract } from '@/app/lib/query-fn-schema';
 import {
   type OpenExpenseDrawerEventDetail,
@@ -18,8 +16,6 @@ import {
 } from '@/app/lib/statement-expense-drawer';
 
 export type StatementsQueueValue = {
-  payCount: number;
-  payCountLoading: boolean;
   inboxConnected: boolean;
   onScan: () => void;
   onInboxSync: () => void;
@@ -27,10 +23,8 @@ export type StatementsQueueValue = {
 };
 
 // Rendered outside the statements layout (tests, storybook-style mounts) the
-// tabs and the upload button still render; they just have nothing to count.
+// upload button still renders; it just has nothing to act on.
 const FALLBACK_VALUE: StatementsQueueValue = {
-  payCount: 0,
-  payCountLoading: false,
   inboxConnected: false,
   onScan: () => undefined,
   onInboxSync: () => undefined,
@@ -41,50 +35,6 @@ const StatementsQueueContext = createContext<StatementsQueueValue>(FALLBACK_VALU
 
 export function useStatementsQueue(): StatementsQueueValue {
   return useContext(StatementsQueueContext);
-}
-
-function usePayCount(
-  user: unknown,
-  workspaceId: string | undefined,
-): {
-  payCount: number;
-  loading: boolean;
-} {
-  const [payCount, setPayCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  // The workspace id is not read here: payablesApi takes it from the request headers.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: it is the signal to refetch, not an input.
-  useEffect(() => {
-    let isMounted = true;
-
-    if (!user) {
-      setPayCount(0);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    payablesApi
-      .getSummary()
-      .then(summary => {
-        if (isMounted) {
-          setPayCount((summary.toPayCount || 0) + (summary.overdueCount || 0));
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user, workspaceId]);
-
-  return { payCount, loading };
 }
 
 function useInboxConnected(user: unknown): boolean {
@@ -192,9 +142,9 @@ function useUploadActions(inboxConnected: boolean): UploadActions {
 }
 
 /**
- * The Pay count, the mailbox connection and the upload actions the statements tab
- * strip and its upload button need. Mounted once by the statements layout, so
- * switching tabs neither remounts it nor reloads the counts.
+ * The mailbox connection and the upload actions the statements upload button
+ * needs. Mounted once by the statements layout, so switching pages neither remounts
+ * it nor reloads the connection.
  */
 export function StatementsQueueProvider({
   children,
@@ -202,14 +152,12 @@ export function StatementsQueueProvider({
   children: React.ReactNode;
 }): React.JSX.Element {
   const { user } = useAuth();
-  const { currentWorkspace } = useWorkspace();
-  const { payCount, loading: payCountLoading } = usePayCount(user, currentWorkspace?.id);
   const inboxConnected = useInboxConnected(user);
   const actions = useUploadActions(inboxConnected);
 
   const value = useMemo<StatementsQueueValue>(
-    () => ({ payCount, payCountLoading, inboxConnected, ...actions }),
-    [payCount, payCountLoading, inboxConnected, actions],
+    () => ({ inboxConnected, ...actions }),
+    [inboxConnected, actions],
   );
 
   return (

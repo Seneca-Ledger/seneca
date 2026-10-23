@@ -2,7 +2,7 @@
 import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BudgetSummaryWidget } from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
-import { CashRunwayWidget } from '@/app/(main)/dashboard/components/CashRunwayWidget';
+import { SubscriptionsMonthWidget } from '@/app/(main)/dashboard/components/SubscriptionsMonthWidget';
 import { budgetItem, cryptoSummary } from '@/app/test/fixtures/contracts';
 import { createTestQueryClient, renderWithQuery } from '@/app/test/query-wrapper';
 import { CryptoPortfolioCard } from '../CryptoPortfolioCard';
@@ -33,26 +33,23 @@ const RESPONSES: Record<string, unknown> = {
   '/budgets': [
     budgetItem({ id: 'b-1', name: 'Travel', currency: 'EUR', spentAmount: 10, percentUsed: 10 }),
   ],
-  '/dashboard/commitments': {
+  '/subscriptions/month-status': {
     currency: 'EUR',
-    horizonDays: 60,
-    openingBalance: 1000,
-    totalCommitted: 50,
-    unscheduledCommitted: 0,
-    days: [{ date: '2026-10-07', outflow: 50, balance: 950 }],
+    month: '2026-10',
+    paidAmount: 14,
+    paidCount: 1,
+    unpaidAmount: 50,
+    unpaidCount: 1,
     items: [
       {
-        date: '2026-10-07',
-        label: 'Telekom',
+        subscriptionId: 'sub-1',
+        vendorName: 'ACME Music',
+        vendorDomain: null,
         amount: 50,
-        source: 'subscription',
-        sourceId: 's-1',
-        isOverdue: false,
+        paid: false,
+        nextChargeDate: '2026-10-28',
       },
     ],
-    lowestBalance: 950,
-    lowestBalanceDate: '2026-10-07',
-    shortfallDate: null,
   },
 };
 
@@ -75,7 +72,11 @@ const CARDS: Array<{ name: string; ui: React.ReactElement; shows: string }> = [
     ),
     shows: 'Groceries',
   },
-  { name: 'cash runway', ui: <CashRunwayWidget formatAmount={money} />, shows: 'Telekom' },
+  {
+    name: 'subscriptions this month',
+    ui: <SubscriptionsMonthWidget formatAmount={money} />,
+    shows: '€50',
+  },
 ];
 
 describe('Overview cards coming back after a tab switch', () => {

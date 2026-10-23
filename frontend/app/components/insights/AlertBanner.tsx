@@ -144,6 +144,9 @@ function AttentionRow({ item, t, locale, onSnooze }: RowProps): React.JSX.Elemen
 /** The dashboard shows the banner under its month strip, not above the page. */
 const PAGES_WITH_THEIR_OWN_BANNER = new Set(['/dashboard']);
 
+/** The review queue is the work the banner points at: no banner above it. */
+const PAGES_WITHOUT_BANNER = new Set(['/review']);
+
 /**
  * What is left to do, above every page: the unconfirmed and uncategorized rows and
  * possible duplicates. One item is one quiet row; several fold into a single line
@@ -163,7 +166,10 @@ export function AlertBanner({
   const [open, setOpen] = useState(false);
 
   // A page that draws the banner itself gets it once, in its own place.
-  if (placement === 'top' && PAGES_WITH_THEIR_OWN_BANNER.has(pathname ?? '')) {
+  if (
+    placement === 'top' &&
+    (PAGES_WITH_THEIR_OWN_BANNER.has(pathname ?? '') || PAGES_WITHOUT_BANNER.has(pathname ?? ''))
+  ) {
     return null;
   }
   if (items.length === 0) {

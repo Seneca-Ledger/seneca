@@ -1,6 +1,7 @@
 'use client';
 
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { categoryTones } from '@/app/components/charts/chart-theme';
 import { PRIVATE_CLASS, PRIVATE_REVEAL_CLASS } from '@/app/components/ui/private-amount';
@@ -11,11 +12,24 @@ import type { CashFlowMapData } from './useCashFlowMap';
 interface CashFlowTreemapProps {
   items: CashFlowMapData['treemap'];
   formatAmount: (value: number) => string;
+  /** Opens a category's documents. */
+  onOpen: (categoryId: string) => void;
+  /** The way back from a category's subcategories. */
+  backLabel: string;
   height?: number;
 }
 
-/** Categories as tiles sized by spend; click a tile to see its subcategories. */
-export function CashFlowTreemap({ items, formatAmount, height = 320 }: CashFlowTreemapProps) {
+/**
+ * Categories as tiles sized by spend. A tile with subcategories opens them;
+ * any other tile, or a subcategory, opens its documents.
+ */
+export function CashFlowTreemap({
+  items,
+  formatAmount,
+  onOpen,
+  backLabel,
+  height = 320,
+}: CashFlowTreemapProps) {
   const [focus, setFocus] = useState<string | null>(null);
   const categoryName = useCategoryName();
   // Laid out at the box's real width: a fixed frame stretched to fit
@@ -59,8 +73,23 @@ export function CashFlowTreemap({ items, formatAmount, height = 320 }: CashFlowT
 
   if (items.length === 0) return null;
 
+  const open = (id: string): void => {
+    const item = items.find(entry => entry.id === id);
+    if (!focused && item && item.children.length > 0) setFocus(id);
+    else onOpen(id);
+  };
+
   return (
     <Box ref={boxRef} sx={{ width: '100%' }}>
+      {focused ? (
+        <Button
+          size="small"
+          onClick={() => setFocus(null)}
+          sx={{ mb: 1, px: 1, color: 'var(--primary)', textTransform: 'none' }}
+        >
+          ← {backLabel}
+        </Button>
+      ) : null}
       <svg
         viewBox={`0 0 ${width} ${height}`}
         width="100%"
@@ -75,11 +104,11 @@ export function CashFlowTreemap({ items, formatAmount, height = 320 }: CashFlowT
             role="button"
             tabIndex={0}
             aria-label={`${categoryName(tile.item.name)} ${formatAmount(tile.item.value)}`}
-            onClick={() => setFocus(focused ? null : tile.id)}
+            onClick={() => open(tile.id)}
             onKeyDown={event => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                setFocus(focused ? null : tile.id);
+                open(tile.id);
               }
             }}
             // The amount is SVG text that takes no pointer: the whole tile shows it.

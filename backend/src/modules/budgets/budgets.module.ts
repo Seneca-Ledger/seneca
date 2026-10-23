@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Budget } from '../../entities/budget.entity';
 import { Category } from '../../entities/category.entity';
 import { Goal } from '../../entities/goal.entity';
+import { Subscription } from '../../entities/subscription.entity';
+import { SubscriptionCharge } from '../../entities/subscription-charge.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
@@ -17,7 +19,16 @@ import { StoicLedgerService } from './stoic/stoic-ledger.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Budget, Category, Goal, Transaction, Wallet, Workspace]),
+    TypeOrmModule.forFeature([
+      Budget,
+      Category,
+      Goal,
+      Subscription,
+      SubscriptionCharge,
+      Transaction,
+      Wallet,
+      Workspace,
+    ]),
     NotificationsModule,
     ExchangeRatesModule,
     AuditModule,

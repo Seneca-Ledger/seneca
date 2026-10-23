@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   SubscriptionChargeCalendar,
@@ -36,6 +36,7 @@ const summary: SubscriptionSummary = {
   activeCount: 1,
   upcomingCount: 1,
   upcoming30DaysCount: 1,
+  upcoming30DaysAmount: 0,
   priceChangeCount: 1,
   priceChangeYearlyEffect: 0,
   duplicateCount: 0,
@@ -48,6 +49,7 @@ const EMPTY: SubscriptionSummary = {
   activeCount: 0,
   upcomingCount: 0,
   upcoming30DaysCount: 0,
+  upcoming30DaysAmount: 0,
   priceChangeCount: 0,
   priceChangeYearlyEffect: 0,
   duplicateCount: 0,
@@ -100,6 +102,8 @@ const renderContent = (
         categoryId: '',
         nextChargeDate: '',
         vendorDomain: '',
+        budgetId: '',
+        payments: [],
       }}
       setFormData={vi.fn()}
       saving={false}
@@ -111,8 +115,8 @@ const renderContent = (
       handleDelete={vi.fn()}
       handleConfirm={vi.fn()}
       handleDismiss={vi.fn()}
-      assignOwner={vi.fn(async () => undefined)}
       recordDecision={vi.fn(async () => undefined)}
+      setStatus={vi.fn(async () => undefined)}
     />,
   );
 
@@ -162,6 +166,36 @@ describe('SubscriptionsContent', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Upcoming charges' }));
     // The matrix loads as its own chunk, so it arrives a tick later.
     expect(await screen.findByTestId('charge-calendar')).toBeInTheDocument();
+  });
+
+  it('puts a subscription whose price changed in the group the dashboard chip rings', () => {
+    renderContent({
+      subscriptions: [
+        { ...subscription, id: 'sub-changed', riskStatus: 'price_changed' },
+        { ...subscription, id: 'sub-steady', vendorName: 'Example Cloud', riskStatus: 'none' },
+      ],
+    });
+
+    const tagged = document.querySelectorAll('tr[data-attention-group~="price-changed"]');
+    expect(Array.from(tagged).map(row => row.getAttribute('data-attention'))).toEqual([
+      'subscription:sub-changed',
+    ]);
+  });
+
+  it('shows what is due in 30 days with the number of charges under it', () => {
+    renderContent({ summary: { activeCount: 2, upcoming30DaysCount: 3, upcoming30DaysAmount: 47 } });
+
+    const card = screen.getByText('Due in 30 days').closest('.MuiCard-root') as HTMLElement;
+    expect(card).toHaveTextContent('47 USD');
+    expect(within(card).getByText('Charges: 3')).toBeInTheDocument();
+  });
+
+  it('shows price changes as a count with the signed yearly effect under it', () => {
+    renderContent({ summary: { priceChangeCount: 2, priceChangeYearlyEffect: -120 } });
+
+    const card = screen.getByText('Price changes').closest('.MuiCard-root') as HTMLElement;
+    expect(within(card).getByText('2')).toBeInTheDocument();
+    expect(card).toHaveTextContent(/−\s?(USD\s?120|\$120|120\s?USD).* a year/);
   });
 
   it('tells an empty workspace there is nothing yet, with dashes for the summary and no filters', () => {

@@ -52,6 +52,7 @@ export interface DocumentSelectionView {
   handleDismissSelectedDuplicates: () => void;
   handleSelectDetectedDuplicates: () => void;
   handleMergeSelectedDuplicates: () => void;
+  setSelectedActionsOpen: (open: boolean) => void;
 }
 
 /** A dialog, a drawer or a menu keeps its keys; Escape there closes it, not the selection. */
@@ -77,12 +78,13 @@ function flattenCategories(items: CategoryOption[]): CategoryOption[] {
  * rows (all on the page, one category, the duplicates), then act on them (set a
  * category, build or grow a table, export, mark, merge, delete). One list of
  * commands drives both, so a key and its palette row can never disagree.
+ * The "N selected" menu shows the same actions, which this hook hands back.
  */
 // eslint-disable-next-line max-lines-per-function
 export function useDocumentSelectionCommands(
   v: DocumentSelectionView,
   push: (href: string) => void,
-): void {
+): Command[] {
   const t = useIntlayer('documentSelectionCommands');
   const { labels: shortcutLabels } = useIntlayer('keyboardShortcutsModal');
   const listText = useIntlayer('statementsListUi');
@@ -106,6 +108,7 @@ export function useDocumentSelectionCommands(
     mergeDuplicates: shortcutLabels.mergeDuplicates.value,
     dismissDuplicates: shortcutLabels.dismissDuplicates.value,
     deleteSelected: shortcutLabels.deleteSelected.value,
+    selectionActions: shortcutLabels.selectionActions.value,
   };
 
   const selected = v.paginatedDisplayStatements.filter(row =>
@@ -272,6 +275,13 @@ export function useDocumentSelectionCommands(
     ...(hasSelection
       ? [
           {
+            id: 'documents.selectionActions',
+            label: labels.selectionActions,
+            icon: icon(ListChecks),
+            binding: DOCUMENT_BINDINGS.selectionActions,
+            run: () => v.setSelectedActionsOpen(true),
+          },
+          {
             id: 'documents.clearSelection',
             label: labels.clearSelection,
             icon: icon(X),
@@ -371,4 +381,19 @@ export function useDocumentSelectionCommands(
       ]),
     ),
   );
+
+  // Everything the selection can do, for the "N selected" menu: the actions in
+  // palette order, then clearing the selection and, last, deleting it.
+  const byId = (id: string): Command[] => commands.filter(command => command.id === id);
+  const tail = ['documents.clearSelection', 'documents.deleteSelected'];
+  const notAction = [
+    'documents.selectAll',
+    'documents.selectByCategory',
+    'documents.selectDuplicates',
+    'documents.selectionActions',
+    ...tail,
+  ];
+  return hasSelection
+    ? [...commands.filter(command => !notAction.includes(command.id)), ...tail.flatMap(byId)]
+    : [];
 }

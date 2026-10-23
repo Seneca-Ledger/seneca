@@ -12,7 +12,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
@@ -23,11 +23,17 @@ import {
   AssignSubscriptionOwnerBody,
   ChargeCalendarQuery,
   CreateSubscriptionBody,
+  LinkSubscriptionChargeBody,
+  RecordSubscriptionChargeBody,
   RecordSubscriptionDecisionBody,
   SubscriptionChargeCalendar,
+  SubscriptionChargeCandidates,
+  SubscriptionChargeCandidatesQuery,
+  SubscriptionChargeRow,
   SubscriptionDetail,
   SubscriptionDuplicateGroups,
   SubscriptionList,
+  SubscriptionMonthStatus,
   SubscriptionSummary,
   UpdateSubscriptionBody,
 } from '../../contracts';
@@ -62,6 +68,24 @@ export class SubscriptionsController {
     @SchemaQuery(ChargeCalendarQuery) query: ChargeCalendarQuery,
   ) {
     return this.subscriptionsService.getChargeCalendar(workspaceId, query.months);
+  }
+
+  @Get('month-status')
+  @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
+  @SchemaResponse(SubscriptionMonthStatus)
+  async getMonthStatus(@WorkspaceId() workspaceId: string) {
+    return this.subscriptionsService.getMonthStatus(workspaceId);
+  }
+
+  @Get('charge-candidates')
+  @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
+  @SchemaResponse(SubscriptionChargeCandidates)
+  async getChargeCandidates(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+    @SchemaQuery(SubscriptionChargeCandidatesQuery) query: SubscriptionChargeCandidatesQuery,
+  ) {
+    return this.subscriptionsService.getChargeCandidates(workspaceId, query, selfMemberId);
   }
 
   @Get('upcoming')
@@ -143,6 +167,42 @@ export class SubscriptionsController {
     @CurrentUser() user: User,
   ) {
     return this.subscriptionsService.createSinkingFund(id, workspaceId, user.id);
+  }
+
+  @Post(':id/charges')
+  @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
+  @SchemaResponse(SubscriptionChargeRow)
+  async recordCharge(
+    @Param('id') id: string,
+    @SchemaBody(RecordSubscriptionChargeBody) dto: RecordSubscriptionChargeBody,
+    @WorkspaceId() workspaceId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.subscriptionsService.recordCharge(id, workspaceId, user.id, dto);
+  }
+
+  @Patch(':id/charges/:chargeId')
+  @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
+  @SchemaResponse(SubscriptionChargeRow)
+  async linkCharge(
+    @Param('id') id: string,
+    @Param('chargeId') chargeId: string,
+    @SchemaBody(LinkSubscriptionChargeBody) dto: LinkSubscriptionChargeBody,
+    @WorkspaceId() workspaceId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.subscriptionsService.linkCharge(id, chargeId, workspaceId, user.id, dto);
+  }
+
+  @Delete(':id/charges/:chargeId')
+  @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
+  async removeCharge(
+    @Param('id') id: string,
+    @Param('chargeId') chargeId: string,
+    @WorkspaceId() workspaceId: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.subscriptionsService.removeCharge(id, chargeId, workspaceId, user.id);
   }
 
   @Get(':id')

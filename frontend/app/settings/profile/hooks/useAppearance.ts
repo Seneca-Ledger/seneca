@@ -5,6 +5,7 @@ import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import {
+  DEFAULT_THEME_PREFERENCE,
   resolveThemePreference,
   THEME_STORAGE_EVENT,
   type ThemePreference,
@@ -39,7 +40,7 @@ export function useAppearance(
   setUser: (user: User) => void,
   messages: UseAppearanceMessages,
 ): UseAppearanceReturn {
-  const [themePreference, setThemePreference] = useState<ThemePreference>('auto');
+  const [themePreference, setThemePreference] = useState<ThemePreference>(DEFAULT_THEME_PREFERENCE);
   const [density, setDensityState] = useState<UiDensity>('comfortable');
   const [reduceMotion, setReduceMotionState] = useState(false);
   const [showDailyQuote, setShowDailyQuoteState] = useState(true);

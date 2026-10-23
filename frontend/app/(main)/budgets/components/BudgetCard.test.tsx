@@ -35,6 +35,25 @@ describe('BudgetCard', () => {
     expect(note.textContent).toContain('USD');
   });
 
+  it('says what subscriptions paid from it still take this period', () => {
+    const { container } = card({
+      id: 'b-1',
+      name: 'Software',
+      subscriptionReserve: {
+        amount: 30,
+        items: [
+          { subscriptionId: 's-1', vendorName: 'ACME Music', amount: 10 },
+          { subscriptionId: 's-2', vendorName: 'Example Cloud', amount: 20 },
+        ],
+      },
+    });
+
+    const note = screen.getByText(/Reserved for subscriptions/);
+    expect(note.textContent).toMatch(/30/);
+    expect(note).toHaveAttribute('title', 'ACME Music, Example Cloud');
+    expect(container.textContent).toContain('Reserved for subscriptions');
+  });
+
   it('adds no note when every row was converted', () => {
     const { container } = card({ id: 'b-1', name: 'Charity', spentAmount: 12, percentUsed: 60 });
 

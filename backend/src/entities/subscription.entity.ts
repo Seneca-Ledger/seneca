@@ -9,6 +9,7 @@ import {
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
+import { Budget } from './budget.entity';
 import { Category } from './category.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -43,6 +44,7 @@ export enum SubscriptionRiskStatus {
 @Unique('UQ_subscriptions_workspace_vendor_frequency', ['workspaceId', 'vendorName', 'frequency'])
 @Index('IDX_subscriptions_workspace_status', ['workspaceId', 'status'])
 @Index('IDX_subscriptions_workspace_next_charge', ['workspaceId', 'nextChargeDate'])
+@Index('IDX_subscriptions_workspace_budget', ['workspaceId', 'budgetId'])
 export class Subscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -124,6 +126,14 @@ export class Subscription {
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
+
+  /** The budget its money comes out of: new payments take that budget's category. */
+  @ManyToOne(() => Budget, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'budget_id' })
+  budget: Budget | null;
+
+  @Column({ name: 'budget_id', type: 'uuid', nullable: true })
+  budgetId: string | null;
 
   /** "I used it" taps; with `usageSince` they give a cost per use. */
   @Column({ name: 'usage_count', type: 'int', default: 0 })
