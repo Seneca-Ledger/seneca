@@ -61,7 +61,7 @@ const chunkFiles = (files: File[], size: number): File[][] => {
   return chunks;
 };
 
-const readCreatedStatementIds = (responseData: unknown): string[] => {
+export const readCreatedStatementIds = (responseData: unknown): string[] => {
   const created = (responseData as { data?: unknown } | null)?.data;
   if (!Array.isArray(created)) {
     return [];

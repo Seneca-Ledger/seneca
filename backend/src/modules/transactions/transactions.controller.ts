@@ -20,6 +20,7 @@ import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
@@ -42,6 +43,8 @@ import {
   TransactionAttachmentList,
   TransactionCandidates,
   TransactionListPage,
+  TransactionsOverview,
+  TransactionsOverviewQuery,
   UpdateTransactionBody,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
@@ -51,6 +54,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CrossStatementDeduplicationService } from './services/cross-statement-deduplication.service';
 import { TransactionAttachmentsService } from './services/transaction-attachments.service';
 import { TransactionTagsService } from './services/transaction-tags.service';
+import { TransactionsOverviewService } from './services/transactions-overview.service';
 import { TransferPairingService } from './services/transfer-pairing.service';
 import { TransactionsService } from './transactions.service';
 
@@ -72,6 +76,7 @@ export class TransactionsController {
     private readonly transactionTagsService: TransactionTagsService,
     private readonly transactionAttachmentsService: TransactionAttachmentsService,
     private readonly transferPairingService: TransferPairingService,
+    private readonly overviewService: TransactionsOverviewService,
   ) {}
 
   @Get()
@@ -96,6 +101,7 @@ export class TransactionsController {
     @Query('currency') currency?: string,
     @Query('convert_to') convertTo?: string,
     @Query('owner') owner?: string,
+    @Query('running_balance') runningBalance?: string,
   ) {
     // Prefer snake_case for backward compatibility, fall back to camelCase
     const statementId = statementIdSnake || statementIdCamel;
@@ -120,11 +126,37 @@ export class TransactionsController {
       selfMemberId,
     );
 
+    const data =
+      runningBalance === '1'
+        ? await this.overviewService.withLedger(workspaceId, result.data)
+        : result.data;
+
     // Include 'items' field for backward compatibility
     return {
       ...result,
-      items: result.data,
+      data,
+      items: data,
     };
+  }
+
+  @Get('overview')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionsOverview)
+  async overview(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+    @SchemaQuery(TransactionsOverviewQuery) query: TransactionsOverviewQuery,
+  ) {
+    return this.overviewService.getOverview(
+      workspaceId,
+      {
+        dateFrom: query.dateFrom ? new Date(query.dateFrom) : undefined,
+        dateTo: query.dateTo ? new Date(query.dateTo) : undefined,
+        convertTo: query.convertTo,
+        owner: parseOwnerFilter(query.owner, selfMemberId),
+      },
+      selfMemberId,
+    );
   }
 
   @Get(':id')

@@ -8,15 +8,22 @@ import type {
 } from '@/app/(main)/statements/components/columns/statement-columns';
 import { DateFilterDropdown } from '@/app/(main)/statements/components/filters/DateFilterDropdown';
 import { FiltersDrawer } from '@/app/(main)/statements/components/filters/FiltersDrawer';
+import {
+  statementFilterExtras,
+  statementFilterSpan,
+} from '@/app/(main)/statements/components/filters/filter-summary';
 import { StatementsSearchPopover } from '@/app/(main)/statements/components/filters/StatementsSearchPopover';
 import type { StatementFilters } from '@/app/(main)/statements/components/filters/statement-filters';
+import type { Command } from '@/app/components/command-palette/command-registry';
 import { ChevronDown, SlidersHorizontal } from '@/app/components/icons';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { SHORTCUT_EXPORT, SHORTCUT_OPEN_FILTERS } from '@/app/lib/keyboard-shortcuts';
+import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import { tokens } from '@/lib/theme-tokens';
 import { StatementsBulkActions } from './StatementsBulkActions';
-import { StatementsQueueTabs } from './StatementsQueueTabs';
 import { StatementsToolbarButton } from './StatementsToolbarButton';
 import { StatementsUploadButton } from './StatementsUploadButton';
+import { TransactionsPageTitle } from './TransactionsPageTitle';
 
 interface FilterOption {
   value: string;
@@ -92,8 +99,11 @@ interface FilterOptionLabels {
 interface Props {
   selectedCount: number;
   selectedActionsOpen: boolean;
+  selectionActions: Command[];
   hasSelectedDuplicates: boolean;
   draftFilters: StatementFilters;
+  /** What the list is filtered by now; the drafts only count once applied. */
+  appliedFilters: StatementFilters;
   activeFilterCount: number;
   search: string;
   onSearchApply: (value: string) => void;
@@ -117,7 +127,7 @@ interface Props {
   mergeDuplicatesLabel: string;
   dismissDuplicateLabel: string;
   markDuplicateLabel: string;
-  onToggleActionsOpen: () => void;
+  onActionsOpenChange: (open: boolean) => void;
   onMerge: () => void;
   onDismiss: () => void;
   onMarkDuplicate: () => void;
@@ -172,8 +182,10 @@ function DateChipLabel({
 export function StatementsListHeader({
   selectedCount,
   selectedActionsOpen,
+  selectionActions,
   hasSelectedDuplicates,
   draftFilters,
+  appliedFilters,
   activeFilterCount,
   search,
   onSearchApply,
@@ -197,7 +209,7 @@ export function StatementsListHeader({
   mergeDuplicatesLabel,
   dismissDuplicateLabel,
   markDuplicateLabel,
-  onToggleActionsOpen,
+  onActionsOpenChange,
   onMerge,
   onDismiss,
   onMarkDuplicate,
@@ -220,6 +232,40 @@ export function StatementsListHeader({
   onColumnsReorder,
   onColumnsSave,
 }: Props): React.JSX.Element {
+  const titleText = useIntlayer('transactionsPageTitle');
+  const { locale } = useLocale();
+  const titleSpan = statementFilterSpan(appliedFilters.date, new Date());
+  const titleExtras = statementFilterExtras(appliedFilters, {
+    search,
+    routeFilterLabel,
+    typeOptions,
+    statusOptions,
+    fromOptions,
+    toOptions,
+    groupByOptions,
+    hasOptions,
+    labels: {
+      search: resolveLabel(getNestedValue(titleText, ['search']), 'Search'),
+      type: filterLabels.type,
+      status: filterLabels.status,
+      from: filterLabels.from,
+      to: filterOptionLabels.drawerTo,
+      keywords: filterOptionLabels.drawerKeywords,
+      amount: filterOptionLabels.drawerAmount,
+      limit: filterOptionLabels.drawerLimit,
+      groupBy: filterOptionLabels.drawerGroupBy,
+      has: filterOptionLabels.drawerHas,
+      currency: filterOptionLabels.hasCurrency,
+      approved: filterOptionLabels.drawerApproved,
+      billable: filterOptionLabels.drawerBillable,
+      exported: filterOptionLabels.columnExported,
+      paid: filterOptionLabels.paid,
+      yes: filterOptionLabels.yes,
+      no: filterOptionLabels.no,
+    },
+    formatNumber: value => new Intl.NumberFormat(locale).format(value),
+  });
+
   useEffect(() => {
     const handleOpenFilters = (): void => {
       onFiltersDrawerOpen();
@@ -243,12 +289,10 @@ export function StatementsListHeader({
       className="seneca-stmt-list-view__header"
       style={{ marginBottom: 24, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}
     >
-      {/* The tab strip scrolls inside its own column, so the actions stay in the corner.
+      {/* The title takes the free width, so the actions stay in the corner.
           Search, Date and Filters ride here; every other filter lives inside the Filters drawer. */}
       <div className="seneca-stmt-toolbar">
-        <div className="seneca-stmt-toolbar__tabs">
-          <StatementsQueueTabs />
-        </div>
+        <TransactionsPageTitle page="statements" span={titleSpan} extras={titleExtras} />
         <StatementsSearchPopover
           value={search}
           onApply={onSearchApply}
@@ -298,7 +342,7 @@ export function StatementsListHeader({
           ) : null}
         </StatementsToolbarButton>
         {/* Keeps the primary action from reading as one more filter button. */}
-        <span aria-hidden className="seneca-stmt-toolbar__divider" />
+        <span aria-hidden className="seneca-stmt-toolbar__divider seneca-bottom-bar-source" />
         <StatementsUploadButton />
       </div>
 
@@ -306,11 +350,12 @@ export function StatementsListHeader({
         <StatementsBulkActions
           selectedCount={selectedCount}
           selectedActionsOpen={selectedActionsOpen}
+          selectionActions={selectionActions}
           hasSelectedDuplicates={hasSelectedDuplicates}
           mergeDuplicatesLabel={mergeDuplicatesLabel}
           dismissDuplicateLabel={dismissDuplicateLabel}
           markDuplicateLabel={markDuplicateLabel}
-          onToggleActionsOpen={onToggleActionsOpen}
+          onActionsOpenChange={onActionsOpenChange}
           onMerge={onMerge}
           onDismiss={onDismiss}
           onMarkDuplicate={onMarkDuplicate}

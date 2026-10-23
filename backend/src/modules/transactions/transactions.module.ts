@@ -6,6 +6,7 @@ import { Statement } from '../../entities/statement.entity';
 import { Tag } from '../../entities/tag.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { TransactionAttachment } from '../../entities/transaction-attachment.entity';
+import { Wallet } from '../../entities/wallet.entity';
 import { AuditModule } from '../audit/audit.module';
 import { ClassificationModule } from '../classification/classification.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
@@ -15,6 +16,7 @@ import { ManualRowDuplicateService } from './services/manual-row-duplicate.servi
 import { TransactionAttachmentsService } from './services/transaction-attachments.service';
 import { TransactionFingerprintService } from './services/transaction-fingerprint.service';
 import { TransactionTagsService } from './services/transaction-tags.service';
+import { TransactionsOverviewService } from './services/transactions-overview.service';
 import { TransferPairingService } from './services/transfer-pairing.service';
 import { TransactionsController } from './transactions.controller';
 import { TransactionsService } from './transactions.service';
@@ -29,6 +31,7 @@ import { TransactionsService } from './transactions.service';
       Category,
       Tag,
       TransactionAttachment,
+      Wallet,
     ]),
     AuditModule,
     ClassificationModule,
@@ -44,6 +47,7 @@ import { TransactionsService } from './transactions.service';
     TransactionTagsService,
     TransactionAttachmentsService,
     TransferPairingService,
+    TransactionsOverviewService,
   ],
   exports: [
     TransactionsService,

@@ -30,7 +30,7 @@ afterEach(() => {
 
 describe('AccountMenu', () => {
   it('switches privacy mode from the row under the theme, and stays open', () => {
-    render(<AccountMenu />);
+    render(<AccountMenu variant="mobile" />);
     fireEvent.click(screen.getByRole('button', { name: /Administrator/ }));
 
     const row = screen.getByRole('menuitem', { name: /privacyMode/ });

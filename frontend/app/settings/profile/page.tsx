@@ -87,7 +87,7 @@ function ProfileSettingsPageInner(): React.JSX.Element {
 
   if (!user) {
     return (
-      <Box className="container-shared" sx={{ px: 2, py: 5 }}>
+      <Box className="container-shared" sx={{ px: { xs: 2, md: 4 }, py: 5 }}>
         <Alert style={{ maxWidth: 576 }} variant="default">
           {t.authRequired.value}
         </Alert>
@@ -105,7 +105,10 @@ function ProfileSettingsPageInner(): React.JSX.Element {
   };
 
   return (
-    <Box className="container-shared" sx={{ px: 2, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}>
+    <Box
+      className="container-shared"
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}
+    >
       <Box>
         <SettingsTabs activeTab={activeTab} onTabChange={setActiveTab} labels={labels} />
         {/* The selected tab already names the section on screen; the heading stays

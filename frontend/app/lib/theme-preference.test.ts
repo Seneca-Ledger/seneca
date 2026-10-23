@@ -21,8 +21,8 @@ describe('getStoredThemePreference', () => {
     expect(getStoredThemePreference()).toBe('light');
   });
 
-  it('falls back to the auto schedule when nothing was ever chosen', () => {
-    expect(getStoredThemePreference()).toBe('auto');
+  it('falls back to the dark default when nothing was ever chosen', () => {
+    expect(getStoredThemePreference()).toBe('dark');
   });
 
   it('signing out keeps the theme the user had chosen', () => {

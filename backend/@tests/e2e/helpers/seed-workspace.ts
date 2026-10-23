@@ -139,12 +139,16 @@ export async function seedWorkspace(
     estimatedAmount: 20,
     dueMonth: month,
   });
-  await send('budget', 'post', '/budgets', {
+  const budget = await send('budget', 'post', '/budgets', {
     name: `${marker} budget`,
     categoryId: category.body.id,
     limitAmount: 50,
     periodType: 'monthly',
     currency: 'USD',
+  });
+  // The subscription is paid from the budget.
+  await send('subscription budget', 'put', `/subscriptions/${subscription.body.id}`, {
+    budgetId: budget.body.id,
   });
 
   // Bills, invoices, credit notes.
@@ -353,6 +357,17 @@ export async function seedWorkspace(
     expectedAmount: 9.99,
     matchStatus: SubscriptionChargeMatchStatus.MATCHED,
   });
+  // A payee and the rule a person's link to one of its rows teaches.
+  const rule = await dataSource.query(
+    `WITH payee AS (INSERT INTO payees (workspace_id, name) VALUES ($1, $3) RETURNING id)
+     INSERT INTO subscription_payees (workspace_id, subscription_id, payee_id)
+     SELECT $1, $2, id FROM payee
+     RETURNING id`,
+    [owner.workspaceId, subscription.body.id, `${marker} payee`],
+  );
+  if (rule.length !== 1) {
+    throw new Error('Seeding subscription payee rule failed');
+  }
   await dataSource.getRepository(ReportHistory).save({
     workspaceId: owner.workspaceId,
     userId: owner.userId,

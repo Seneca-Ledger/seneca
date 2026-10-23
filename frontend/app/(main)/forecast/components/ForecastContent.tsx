@@ -7,6 +7,8 @@ import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { LoadError } from '@/app/components/ui/load-error';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -125,6 +127,19 @@ export function ForecastContent() {
     data.everydayMonthly === 0 &&
     data.openingBalance === 0;
 
+  // The horizon, then any scenario factor moved off 100%.
+  const titleSummary = joinSummary([
+    fill(t.closingBalance.value, { days: String(horizon) }),
+    ...(['incomeFactor', 'expenseFactor'] as const).map(
+      key =>
+        scenario[key] !== 1 &&
+        fill(t.factorOption.value, {
+          name: t[key].value,
+          percent: String(Math.round(scenario[key] * 100)),
+        }),
+    ),
+  ]);
+
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}>
       <Box
@@ -132,12 +147,12 @@ export function ForecastContent() {
           display: 'flex',
           flexWrap: 'wrap',
           gap: 2,
-          // No page title, as on every other page: the sidebar already names it.
           justifyContent: 'flex-end',
           alignItems: 'center',
           mb: 2,
         }}
       >
+        <PageTitle path="/forecast" summary={titleSummary} />
         <TextTabs<`${ForecastHorizon}`>
           value={`${horizon}`}
           onChange={next => setHorizon(Number(next) as ForecastHorizon)}
@@ -156,11 +171,7 @@ export function ForecastContent() {
         </Box>
       )}
 
-      {error && (
-        <Typography color="error" sx={{ py: 2, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && <LoadError spacing={2}>{t.error}</LoadError>}
 
       {data && isEmpty && <EmptyState illustration="subscriptions" description={t.empty} />}
 
@@ -198,8 +209,8 @@ export function ForecastContent() {
                 note={
                   data.runwayMonths === null
                     ? fillTemplateNodes(
-                        fill(t.changeOverDays.value, { days: String(data.horizonDays) }),
-                        { amount: signedWhole(data.closingBalance - data.openingBalance) },
+                        fill(t.changeOverDays.value, { days: String(data.runwayDays) }),
+                        { amount: signedWhole(data.runwayChange) },
                       )
                     : undefined
                 }

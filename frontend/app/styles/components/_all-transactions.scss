@@ -1,0 +1,384 @@
+@use '../abstracts' as *;
+
+// The All transactions page: three pies over the list, the months beside it.
+// Colours are CSS variables only, so both themes follow on their own.
+// The /statements pages sit in a frame that does not scroll; like the
+// Documents list, the page scrolls itself.
+.seneca-all-tx {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: calc(100vh - $global-nav-height);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--seneca-page-top, 24px) 32px 24px;
+
+  @media (max-width: 1023px) {
+    padding: var(--seneca-page-top, 24px) 24px 24px;
+  }
+
+  @media (max-width: 639px) {
+    padding: var(--seneca-page-top, 24px) 16px 24px;
+  }
+
+  > * {
+    flex-shrink: 0;
+  }
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+
+  &__card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  &__card-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__muted {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  &__figure {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__pies {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+
+    @media (max-width: 1023px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  &__pie {
+    .seneca-all-tx__card-title {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+  }
+
+  &__pie-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 240px;
+    padding: 16px;
+  }
+
+  &__donut {
+    width: 100%;
+    max-width: 240px;
+    height: 220px;
+  }
+
+  &__scope {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -8px;
+  }
+
+  &__text-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    color: var(--primary);
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    align-items: start;
+    gap: 16px;
+
+    @media (max-width: 1023px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  &__list {
+    min-width: 0;
+  }
+
+  &__list-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  &__state {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 16px;
+  }
+
+  &__bulk {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-soft);
+    font-size: 14px;
+    color: var(--foreground);
+  }
+
+  &__category-menu {
+    max-height: 320px;
+  }
+
+  &__table-wrap {
+    overflow-x: auto;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    color: var(--foreground);
+
+    th {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 8px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody tr.is-selected {
+      background: var(--primary-50);
+    }
+  }
+
+  &__num {
+    text-align: right !important;
+    white-space: nowrap;
+  }
+
+  &__income {
+    color: var(--money-up);
+  }
+
+  &__col-direction {
+    width: 28px;
+    padding-left: 16px !important;
+    color: var(--text-muted);
+
+    svg {
+      display: block;
+    }
+  }
+
+  &__col-actions,
+  &__col-check {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  &__col-check {
+    padding-right: 16px !important;
+  }
+
+  &__description {
+    min-width: 160px;
+  }
+
+  &__party {
+    max-width: 180px;
+    overflow-wrap: anywhere;
+  }
+
+  &__link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--primary);
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__menu-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 8px 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    font: inherit;
+    font-size: 13px;
+    color: var(--foreground);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--surface-soft);
+    }
+  }
+
+  &__pagination {
+    display: flex;
+    justify-content: center;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  &__months {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    @media (max-width: 1023px) {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+  }
+
+  &__month {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--primary);
+    }
+
+    &.is-active {
+      border-color: var(--primary);
+      background: var(--primary-50);
+    }
+  }
+
+  &__month-title {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--primary);
+  }
+
+  &__month-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 16px;
+    font-size: 14px;
+    color: var(--foreground);
+  }
+
+  // On a phone each row becomes a card: the labelled cells stack under the
+  // description, the direction, actions and checkbox stay on its first line.
+  @media (max-width: 767px) {
+    &__list-head {
+      flex-direction: column;
+    }
+
+    &__table {
+      thead {
+        display: none;
+      }
+
+      tbody tr {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr) auto auto;
+        column-gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      td {
+        padding: 2px 0;
+        border-bottom: 0;
+      }
+
+      td[data-label] {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        grid-column: 2 / -1;
+        text-align: right;
+
+        &::before {
+          content: attr(data-label);
+          color: var(--text-muted);
+          text-align: left;
+        }
+      }
+
+      td.seneca-all-tx__description {
+        grid-column: 2;
+        grid-row: 1;
+        text-align: left;
+
+        &::before {
+          content: none;
+        }
+      }
+    }
+
+    &__col-direction {
+      grid-row: 1;
+      padding-left: 0 !important;
+    }
+
+    &__col-actions {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    &__col-check {
+      grid-column: 4;
+      grid-row: 1;
+      padding-right: 0 !important;
+    }
+
+    &__party {
+      max-width: none;
+    }
+  }
+}
