@@ -121,6 +121,9 @@ describe('computeForecast', () => {
       irregularIncomeMonthly: 1500,
     });
     expect(growing.runwayMonths).toBeNull();
+    // The change that explains "growing" is the one over the span the runway reads.
+    expect(growing.runwayDays).toBe(365);
+    expect(growing.runwayChange).toBeGreaterThan(0);
   });
 
   it('reads no runway left, not a growing balance, when the money is already gone and still falling', () => {

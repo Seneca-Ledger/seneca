@@ -2,25 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   formatMonthParam,
   isFutureMonth,
-  parseCashFlowRangeParam,
   parseMonthParam,
   withDashboardParams,
 } from './dashboard-url-state';
 
 describe('dashboard-url-state', () => {
-  it('parses the cash flow range and falls back to 12 months', () => {
-    expect(parseCashFlowRangeParam('5y')).toBe('5y');
-    expect(parseCashFlowRangeParam('all')).toBe('all');
-    expect(parseCashFlowRangeParam('this_year')).toBe('this_year');
-    expect(parseCashFlowRangeParam('30d')).toBe('12m');
-    expect(parseCashFlowRangeParam(null)).toBe('12m');
-  });
-
-  it('patches the cash flow range alongside the other keys', () => {
-    expect(withDashboardParams('month=2026-03', { cf: 'all' })).toBe('month=2026-03&cf=all');
-    expect(withDashboardParams('month=2026-03&cf=all', { cf: null })).toBe('month=2026-03');
-  });
-
   it('parses YYYY-MM into the first of the month and rejects garbage', () => {
     expect(parseMonthParam('2026-03')?.getTime()).toBe(new Date(2026, 2, 1).getTime());
     expect(parseMonthParam('2026-13')).toBeNull();
@@ -35,8 +21,10 @@ describe('dashboard-url-state', () => {
   });
 
   it('patches the query string and removes keys set to null', () => {
-    expect(withDashboardParams('cf=5y', { month: '2026-03' })).toBe('cf=5y&month=2026-03');
-    expect(withDashboardParams('cf=5y&month=2026-03', { cf: null })).toBe('month=2026-03');
+    expect(withDashboardParams('tab=overview', { month: '2026-03' })).toBe(
+      'tab=overview&month=2026-03',
+    );
+    expect(withDashboardParams('tab=overview&month=2026-03', { month: null })).toBe('tab=overview');
     expect(withDashboardParams('', { month: undefined })).toBe('');
   });
 

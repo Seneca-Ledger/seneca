@@ -9,14 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
-import {
-  AlertTriangle,
-  CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  Download,
-  RefreshCcw,
-} from '@/app/components/icons';
+import { ChevronDown, ChevronRight } from '@/app/components/icons';
 import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
@@ -25,9 +18,9 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import { localizeBalanceAccountName } from '@/app/lib/balance-account-names';
 import type { BalanceAccountNode } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { formatMoney } from '@/app/lib/format-money';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import { resolveLocaleTag } from '@/app/lib/user-format';
 import { tokens } from '@/lib/theme-tokens';
 import apiClient from '../../../lib/api';
 import { blobOf } from '../../../lib/blob-of';
@@ -37,10 +30,6 @@ type BalanceExportFormat = 'excel' | 'pdf';
 /** Reports are written in Russian, English or Kazakh; any other interface language gets English. */
 const reportLocaleOf = (locale: string): 'ru' | 'en' | 'kk' =>
   locale === 'ru' || locale === 'kk' ? locale : 'en';
-
-const resolveLocale = (locale: string): string => {
-  return resolveLocaleTag(locale);
-};
 
 const toDateInputValue = (date: Date): string => {
   const year = date.getFullYear();
@@ -68,8 +57,9 @@ const collectExpandableDefaults = (
   result: Record<string, boolean>,
 ): void => {
   for (const account of accounts) {
+    // A group with nothing in it starts collapsed; the user's own choice wins on refresh.
     if (account.isExpandable || account.children.length > 0) {
-      result[account.id] = true;
+      result[account.id] = account.amount !== 0;
     }
     if (account.children.length > 0) {
       collectExpandableDefaults(account.children, result);
@@ -93,10 +83,7 @@ const parseContentDispositionFileName = (contentDisposition?: string): string | 
   return null;
 };
 
-// Суммы в дереве баланса — моноширинные цифры без фона, чтобы колонка читалась ровно.
-const AMOUNT_FONT = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-
-// Нейтральное предупреждение: плашка карточки с янтарной полосой слева вместо жёлтой заливки.
+// Banner-free notice: a soft strip with an ochre dot, no frame and no icon.
 function WarningNote({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
     <Box
@@ -105,21 +92,46 @@ function WarningNote({ children }: { children: React.ReactNode }): React.JSX.Ele
         display: 'flex',
         alignItems: 'center',
         gap: 1.25,
-        border: '1px solid var(--border)',
-        borderLeft: '4px solid var(--ff-dash-warning)',
         borderRadius: tokens.radius.md,
-        bgcolor: 'var(--card)',
+        bgcolor: 'var(--surface-soft)',
         px: 2,
-        py: 1.25,
+        py: 1,
         fontSize: 14,
-        color: 'var(--muted-foreground)',
+        color: 'var(--text-muted)',
       }}
     >
-      <AlertTriangle size={18} style={{ color: 'var(--ff-dash-warning)', flexShrink: 0 }} />
+      <span
+        aria-hidden
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: 'var(--attention)',
+          flexShrink: 0,
+        }}
+      />
       <span>{children}</span>
     </Box>
   );
 }
+
+// "III. Cash": the article numeral stays, small and grey, in front of the name.
+const ARTICLE_PREFIX = /^([IVXLC]+\.)\s+(.*)$/;
+
+// Text buttons for the toolbar: no frame, no fill.
+const textButtonStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  border: 'none',
+  background: 'none',
+  padding: '6px 8px',
+  fontSize: 14,
+  fontWeight: 500,
+  color: 'var(--text-muted)',
+  cursor: 'pointer',
+  borderRadius: tokens.radius.md,
+};
 
 // eslint-disable-next-line max-lines-per-function, complexity
 function BalanceSheet(): React.JSX.Element {
@@ -198,14 +210,19 @@ function BalanceSheet(): React.JSX.Element {
 
   const currencyCode = sheet?.currency || FALLBACK_CURRENCY;
 
+  // Whole units on group and total lines, cents on the lines under them.
   const formatCurrency = useCallback(
-    (value: number) =>
-      new Intl.NumberFormat(resolveLocale(locale), {
-        style: 'currency',
-        currency: currencyCode,
-        minimumFractionDigits: 2,
-      }).format(value),
+    // eslint-disable-next-line max-params
+    (value: number, fractionDigits = 2) =>
+      formatMoney(value, currencyCode, locale, { fractionDigits }),
     [locale, currencyCode],
+  );
+  // A zero is a dash: most lines of a fresh workspace are empty.
+  const formatAmount = useCallback(
+    // eslint-disable-next-line max-params
+    (value: number, fractionDigits = 2) =>
+      value === 0 ? '—' : formatCurrency(value, fractionDigits),
+    [formatCurrency],
   );
 
   const saveSnapshot = useCallback(
@@ -214,7 +231,8 @@ function BalanceSheet(): React.JSX.Element {
       if (rawValue === undefined) return;
 
       const normalized = rawValue.replace(',', '.').trim();
-      const parsed = Number.parseFloat(normalized);
+      // An emptied field is the dash for zero.
+      const parsed = normalized === '' ? 0 : Number.parseFloat(normalized);
       if (!Number.isFinite(parsed)) {
         setSaveHint(t.errors.loadReport.value);
         return;
@@ -314,11 +332,18 @@ function BalanceSheet(): React.JSX.Element {
     const isExpanded = expanded[account.id] ?? true;
     const canToggle = account.isExpandable || hasChildren;
     const isSection = level === 0;
+    const name = localizeBalanceAccountName(account.name, locale);
+    const article = ARTICLE_PREFIX.exec(name);
 
     return (
       <Box
         key={account.id}
-        sx={{ borderBottom: '1px solid var(--border)', '&:last-child': { borderBottom: 'none' } }}
+        // Hairlines only between the top-level groups.
+        sx={
+          isSection
+            ? { borderBottom: '1px solid var(--border)', '&:last-child': { borderBottom: 'none' } }
+            : undefined
+        }
       >
         <Box
           sx={{
@@ -326,16 +351,16 @@ function BalanceSheet(): React.JSX.Element {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 1.5,
-            py: 1.5,
+            py: isSection ? 1.25 : 0.75,
           }}
         >
-          <Box
-            sx={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: 1 }}
-            style={{ paddingLeft: `${level * 20}px` }}
-          >
+          <Box sx={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: 1 }}>
+            {/* One chevron column for every level; only the label steps in. */}
             {canToggle ? (
               <button
                 type="button"
+                aria-label={name}
+                aria-expanded={isExpanded}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -345,7 +370,7 @@ function BalanceSheet(): React.JSX.Element {
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: 'var(--muted-foreground)',
+                  color: 'var(--text-muted)',
                   flexShrink: 0,
                 }}
                 onClick={() => toggleExpanded(account.id)}
@@ -358,15 +383,25 @@ function BalanceSheet(): React.JSX.Element {
 
             <span
               style={{
+                paddingLeft: level * 16,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                fontSize: isSection ? 16 : 14,
-                fontWeight: isSection ? 600 : 400,
-                color: isSection ? 'var(--foreground)' : 'var(--muted-foreground)',
+                fontSize: isSection ? 15 : 14,
+                fontWeight: isSection ? 500 : 400,
+                color: isSection ? 'var(--foreground)' : 'var(--text-muted)',
               }}
             >
-              {localizeBalanceAccountName(account.name, locale)}
+              {article ? (
+                <>
+                  <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>
+                    {article[1]}
+                  </span>{' '}
+                  {article[2]}
+                </>
+              ) : (
+                name
+              )}
             </span>
           </Box>
 
@@ -376,6 +411,7 @@ function BalanceSheet(): React.JSX.Element {
                 <input
                   type="number"
                   step="0.01"
+                  placeholder="—"
                   style={{
                     width: 112,
                     border: 'none',
@@ -383,12 +419,16 @@ function BalanceSheet(): React.JSX.Element {
                     background: 'transparent',
                     padding: '4px 0',
                     textAlign: 'right',
-                    fontFamily: AMOUNT_FONT,
+                    fontFamily: 'inherit',
                     fontVariantNumeric: 'tabular-nums',
                     fontSize: 14,
                     color: 'var(--foreground)',
                   }}
-                  value={editableValues[account.id] ?? '0.00'}
+                  value={
+                    (editableValues[account.id] ?? '0.00') === '0.00'
+                      ? ''
+                      : editableValues[account.id]
+                  }
                   onChange={event =>
                     setEditableValues(prev => ({
                       ...prev,
@@ -402,11 +442,8 @@ function BalanceSheet(): React.JSX.Element {
                     }
                   }}
                   disabled={savingAccountId === account.id}
-                  aria-label={localizeBalanceAccountName(account.name, locale)}
+                  aria-label={name}
                 />
-                <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted-foreground)' }}>
-                  {currencyCode}
-                </span>
                 {savingAccountId === account.id && (
                   <CircularProgress size={16} sx={{ color: 'var(--primary)' }} />
                 )}
@@ -415,14 +452,13 @@ function BalanceSheet(): React.JSX.Element {
               <span
                 className={PRIVATE_CLASS}
                 style={{
-                  fontFamily: AMOUNT_FONT,
                   fontVariantNumeric: 'tabular-nums',
-                  fontSize: 14,
-                  fontWeight: isSection ? 600 : 400,
-                  color: isSection ? 'var(--foreground)' : 'var(--muted-foreground)',
+                  fontSize: isSection ? 15 : 14,
+                  fontWeight: isSection ? 500 : 400,
+                  color: isSection ? 'var(--foreground)' : 'var(--text-muted)',
                 }}
               >
-                {formatCurrency(account.amount)}
+                {formatAmount(account.amount, isSection ? 0 : 2)}
               </span>
             )}
           </Box>
@@ -445,179 +481,117 @@ function BalanceSheet(): React.JSX.Element {
     return (
       <>
         {text('balanceDifference', 'Balance difference')}:{' '}
-        <PrivateAmount>{formatCurrency(sheet.difference)}</PrivateAmount>
+        <PrivateAmount>{formatCurrency(sheet.difference, 0)}</PrivateAmount>
       </>
     );
   }, [formatCurrency, sheet, text]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }} data-tour-id="reports-balance">
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+        <Typography
+          component="h1"
+          sx={{ fontSize: 22, fontWeight: 500, color: 'var(--foreground)' }}
+        >
+          {text('balanceSheetTitle', 'Balance sheet')}
+        </Typography>
+        {/* The currency is named once, here, not on every line. */}
+        <Typography sx={{ fontSize: 14, color: 'var(--text-muted)' }}>{currencyCode}</Typography>
+      </Box>
+
       <Box
         sx={{
-          border: '1px solid var(--border)',
-          borderRadius: tokens.radius.lg,
-          bgcolor: 'var(--card)',
-          p: 2,
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { md: 'center' },
+          justifyContent: { md: 'space-between' },
+          gap: 1,
         }}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            alignItems: { md: 'center' },
-            justifyContent: { md: 'space-between' },
-            gap: 1.5,
-          }}
-        >
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+          <Select
+            variant="standard"
+            disableUnderline
+            sx={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}
+            value={filterMode}
+            onChange={value => setFilterMode(value as 'now' | 'date')}
+            options={[
+              { value: 'now', label: text('asOfNow', 'As of now') },
+              { value: 'date', label: text('asOfDate', 'As of date') },
+            ]}
+          />
+
+          {filterMode === 'date' && (
+            <Box sx={{ minWidth: 180 }}>
+              <CustomDatePicker
+                label={text('asOfDate', 'As of date')}
+                value={selectedDate}
+                onChange={setSelectedDate}
+              />
+            </Box>
+          )}
+
+          <button type="button" onClick={loadSheet} style={textButtonStyle}>
+            {text('refresh', 'Refresh')}
+          </button>
+        </Box>
+
+        <Box sx={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setExportMenuOpen(open => !open)}
+            disabled={!!exportingFormat}
+            style={{ ...textButtonStyle, color: 'var(--foreground)' }}
+          >
+            {exportingFormat && <CircularProgress size={16} sx={{ color: 'inherit' }} />}
+            {text('exportBalance', 'Export balance')}
+          </button>
+
+          {exportMenuOpen && (
             <Box
               sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 1,
+                position: 'absolute',
+                right: 0,
+                zIndex: 10,
+                mt: 0.5,
+                width: 144,
                 border: '1px solid var(--border)',
                 borderRadius: tokens.radius.md,
                 bgcolor: 'var(--card)',
-                px: 1.5,
-                py: 1,
-                fontSize: 14,
-                color: 'var(--foreground)',
+                p: 0.5,
+                boxShadow: 1,
               }}
             >
-              <CalendarDays size={16} style={{ color: 'var(--muted-foreground)' }} />
-              <Select
-                variant="standard"
-                disableUnderline
-                sx={{ fontSize: 14, color: 'var(--foreground)' }}
-                value={filterMode}
-                onChange={value => setFilterMode(value as 'now' | 'date')}
-                options={[
-                  { value: 'now', label: text('asOfNow', 'As of now') },
-                  { value: 'date', label: text('asOfDate', 'As of date') },
-                ]}
-              />
+              {(['excel', 'pdf'] as const).map(format => (
+                <button
+                  key={format}
+                  type="button"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '8px 12px',
+                    textAlign: 'left',
+                    fontSize: 14,
+                    color: 'var(--foreground)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => void downloadExport(format)}
+                >
+                  {format === 'excel' ? text('exportExcel', 'Excel') : text('exportPdf', 'PDF')}
+                </button>
+              ))}
             </Box>
-
-            {filterMode === 'date' && (
-              <Box sx={{ minWidth: 180 }}>
-                <CustomDatePicker
-                  label={text('asOfDate', 'As of date')}
-                  value={selectedDate}
-                  onChange={setSelectedDate}
-                />
-              </Box>
-            )}
-
-            <button
-              type="button"
-              onClick={loadSheet}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--card)',
-                padding: '8px 12px',
-                fontSize: 14,
-                color: 'var(--muted-foreground)',
-                cursor: 'pointer',
-                borderRadius: tokens.radius.md,
-              }}
-            >
-              <RefreshCcw size={16} />
-              {text('refresh', 'Refresh')}
-            </button>
-          </Box>
-
-          <Box sx={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={() => setExportMenuOpen(open => !open)}
-              disabled={!!exportingFormat}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--card)',
-                padding: '8px 12px',
-                fontSize: 14,
-                color: 'var(--foreground)',
-                cursor: 'pointer',
-                borderRadius: tokens.radius.md,
-              }}
-            >
-              {exportingFormat ? (
-                <CircularProgress size={16} sx={{ color: 'inherit' }} />
-              ) : (
-                <Download size={16} />
-              )}
-              {text('exportBalance', 'Export balance')}
-            </button>
-
-            {exportMenuOpen && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  right: 0,
-                  zIndex: 10,
-                  mt: 0.5,
-                  width: 144,
-                  border: '1px solid var(--border)',
-                  borderRadius: tokens.radius.md,
-                  bgcolor: 'var(--card)',
-                  p: 0.5,
-                  boxShadow: 1,
-                }}
-              >
-                <button
-                  type="button"
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '8px 12px',
-                    textAlign: 'left',
-                    fontSize: 14,
-                    color: 'var(--foreground)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => void downloadExport('excel')}
-                >
-                  {text('exportExcel', 'Excel')}
-                </button>
-                <button
-                  type="button"
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '8px 12px',
-                    textAlign: 'left',
-                    fontSize: 14,
-                    color: 'var(--foreground)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => void downloadExport('pdf')}
-                >
-                  {text('exportPdf', 'PDF')}
-                </button>
-              </Box>
-            )}
-          </Box>
+          )}
         </Box>
-
-        {saveHint && (
-          <Typography
-            variant="caption"
-            sx={{ mt: 1, display: 'block', color: 'var(--muted-foreground)' }}
-          >
-            {saveHint}
-          </Typography>
-        )}
       </Box>
+
+      {saveHint && (
+        <Typography variant="caption" sx={{ display: 'block', color: 'var(--text-muted)' }}>
+          {saveHint}
+        </Typography>
+      )}
 
       {(error || sheetQuery.isError) && (
         <Alert severity="error">
@@ -658,63 +632,61 @@ function BalanceSheet(): React.JSX.Element {
             transition: 'opacity 150ms ease',
           }}
         >
-          <Box
-            sx={{
-              border: '1px solid var(--border)',
-              borderRadius: tokens.radius.lg,
-              bgcolor: 'var(--card)',
-              p: 2,
-            }}
-          >
+          {(
+            [
+              {
+                key: 'assets',
+                title: text('assets', 'Assets'),
+                side: sheet.assets,
+              },
+              {
+                key: 'liabilities',
+                title: text('liabilities', 'Liabilities'),
+                side: sheet.liabilities,
+              },
+            ] as const
+          ).map(({ key, title, side }) => (
             <Box
+              key={key}
               sx={{
-                mb: 1.5,
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                flexDirection: 'column',
+                border: '1px solid var(--border)',
+                borderRadius: tokens.radius.lg,
+                bgcolor: 'var(--card)',
+                p: 2,
               }}
             >
-              <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-                {text('assets', 'Assets')}{' '}
-                <PrivateAmount>{formatCurrency(sheet.assets.total)}</PrivateAmount>
+              <Typography sx={{ mb: 1, fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}>
+                {title}
               </Typography>
+              <Box sx={{ flexGrow: 1 }}>
+                {side.sections
+                  // eslint-disable-next-line max-params
+                  .sort((a, b) => a.position - b.position)
+                  .map(section => renderAccount(section))}
+              </Box>
+              {/* Both columns end on a total line, so the two sides can be read against each other. */}
+              <Box
+                sx={{
+                  mt: 1,
+                  pt: 1.5,
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  borderTop: '1px solid var(--border)',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: 'var(--foreground)',
+                }}
+              >
+                <PrivateAmount>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {formatCurrency(side.total, 0)}
+                  </span>
+                </PrivateAmount>
+              </Box>
             </Box>
-            <Box>
-              {sheet.assets.sections
-                // eslint-disable-next-line max-params
-                .sort((a, b) => a.position - b.position)
-                .map(section => renderAccount(section))}
-            </Box>
-          </Box>
-
-          <Box
-            sx={{
-              border: '1px solid var(--border)',
-              borderRadius: tokens.radius.lg,
-              bgcolor: 'var(--card)',
-              p: 2,
-            }}
-          >
-            <Box
-              sx={{
-                mb: 1.5,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-                {text('liabilities', 'Liabilities')}{' '}
-                <PrivateAmount>{formatCurrency(sheet.liabilities.total)}</PrivateAmount>
-              </Typography>
-            </Box>
-            <Box>
-              {sheet.liabilities.sections
-                // eslint-disable-next-line max-params
-                .sort((a, b) => a.position - b.position)
-                .map(section => renderAccount(section))}
-            </Box>
-          </Box>
+          ))}
         </Box>
       ) : (
         <Box

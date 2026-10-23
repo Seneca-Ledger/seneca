@@ -145,6 +145,26 @@ export const DashboardMonthlyCashFlowResponse = Schema.Struct({
 });
 export type DashboardMonthlyCashFlowResponse = Wire<typeof DashboardMonthlyCashFlowResponse>;
 
+/** One counted row of a month, named for the cash-flow card's day tooltip. */
+export const DashboardCashFlowEntry = Schema.Struct({
+  date: Day,
+  /** The merchant, else the document's file name; a dash for someone else's private row. */
+  name: Schema.String,
+  kind: Schema.Literals(['income', 'expense']),
+  /** In the workspace currency, always positive. */
+  amount: Schema.Number,
+});
+export type DashboardCashFlowEntry = Wire<typeof DashboardCashFlowEntry>;
+
+/**
+ * `GET /dashboard/cash-flow/entries`: the rows behind the dashboard's daily cash flow, counted
+ * the same way, biggest first within a day.
+ */
+export const DashboardCashFlowEntriesResponse = Schema.Struct({
+  entries: Schema.Array(DashboardCashFlowEntry),
+});
+export type DashboardCashFlowEntriesResponse = Wire<typeof DashboardCashFlowEntriesResponse>;
+
 const NamedTotal = Schema.Struct({
   name: Schema.String,
   amount: Schema.Number,

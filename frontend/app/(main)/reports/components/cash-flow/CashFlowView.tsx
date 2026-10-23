@@ -7,10 +7,12 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
+import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AnalyticsPeriodContext } from '@/app/(main)/statements/components/analytics/flow/analytics-period';
+import { resolveDocumentsHref } from '@/app/(main)/statements/components/documents-for-rows';
 import { FromFilterDropdown } from '@/app/(main)/statements/components/filters/FromFilterDropdown';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { DashboardCard } from '@/app/components/dashboard/ui';
@@ -19,6 +21,7 @@ import { useWorkspaceMembers } from '@/app/components/transactions/hooks/useWork
 import { OwnerFilterDropdown } from '@/app/components/transactions/OwnerFilterDropdown';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
+import { LoadError } from '@/app/components/ui/load-error';
 import {
   fillTemplateNodes,
   PRIVATE_CLASS,
@@ -36,7 +39,7 @@ import { useCategoryName } from '@/app/lib/use-category-name';
 import { PERIOD_PRESETS, presetRangeValues } from '../report-period-presets';
 import { CashFlowTab } from './CashFlowTab';
 import { CashFlowTreemap } from './CashFlowTreemap';
-import { buildCashFlowSankey } from './cash-flow.chart';
+import { buildCashFlowSankey, CASH_FLOW_MIN_HEIGHT, cashFlowChartHeight } from './cash-flow.chart';
 import { useCashFlowMap } from './useCashFlowMap';
 
 type Text = (key: string, fallback: string) => string;
@@ -285,7 +288,14 @@ function CashFlowTile({
   );
 }
 
-export function CashFlowView({ focusId = null }: { focusId?: string | null }): React.JSX.Element {
+export function CashFlowView({
+  focusId = null,
+  onPeriodChange,
+}: {
+  focusId?: string | null;
+  /** Hears the period shown, as "Aug" or "Jul 2 – Aug 1", for the page heading. */
+  onPeriodChange?: (label: string) => void;
+}): React.JSX.Element {
   const t = useIntlayer('reportsPage');
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   const text: Text = (key, fallback) => labels[key]?.value ?? fallback;
@@ -314,6 +324,9 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
     () => ({ from: filters.from, to: filters.to, label: currentLabel }),
     [filters.from, filters.to, currentLabel],
   );
+  useEffect(() => {
+    onPeriodChange?.(currentLabel);
+  }, [onPeriodChange, currentLabel]);
   const previousLabel = data?.previousPeriod
     ? periodLabel(data.previousPeriod.from, data.previousPeriod.to, locale)
     : '';
@@ -328,6 +341,18 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data, resolvedTheme, currency, locale, isMobile, categoryName, privacy],
   );
+  const router = useRouter();
+  const openCategory = async (categoryId: string) => {
+    router.push(await resolveDocumentsHref({ categoryId }, filters.from, filters.to));
+  };
+  // A category or subcategory node, or the band flowing into one.
+  const sankeyEvents = {
+    click: (params: { dataType?: string; name?: string; data?: { target?: string } }) => {
+      const id = params.dataType === 'edge' ? params.data?.target : params.name;
+      const match = /^(?:cat|sub):(.+)$/.exec(id ?? '');
+      if (match) void openCategory(match[1]);
+    },
+  };
   const roots = (data?.availableCategories ?? []).filter(category => !category.parentId);
   const allSelected = filters.categories.length === 0;
 
@@ -503,11 +528,9 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
         </Typography>
       </Box>
 
-      {isPending && <Skeleton variant="rounded" height={440} />}
+      {isPending && <Skeleton variant="rounded" height={CASH_FLOW_MIN_HEIGHT} />}
       {error && (
-        <Typography color="error" sx={{ py: 2, textAlign: 'center' }}>
-          {text('cfError', 'Could not load the cash-flow map')}
-        </Typography>
+        <LoadError spacing={2}>{text('cfError', 'Could not load the cash-flow map')}</LoadError>
       )}
 
       {data && (
@@ -590,7 +613,12 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
 
           <DashboardCard title={text('cfSankeyTitle', 'Where the money went')}>
             {data.sankey.links.length > 0 && option ? (
-              <LazyECharts option={option} style={{ height: 440, width: '100%' }} notMerge />
+              <LazyECharts
+                option={option}
+                style={{ height: cashFlowChartHeight(data), width: '100%' }}
+                notMerge
+                onEvents={sankeyEvents}
+              />
             ) : (
               <EmptyState
                 illustration="cash-bundle"
@@ -629,7 +657,12 @@ export function CashFlowView({ focusId = null }: { focusId?: string | null }): R
                 compact
               />
             ) : categoriesView === 'map' && data.treemap.length > 1 ? (
-              <CashFlowTreemap items={data.treemap} formatAmount={formatAmount} />
+              <CashFlowTreemap
+                items={data.treemap}
+                formatAmount={formatAmount}
+                onOpen={categoryId => void openCategory(categoryId)}
+                backLabel={text('filterAllCategories', 'All categories')}
+              />
             ) : (
               <CategoryTable
                 data={data}
