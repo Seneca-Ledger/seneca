@@ -13,7 +13,9 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import {
+  CashFlowEntriesQuery,
   CashFlowQuery,
+  DashboardCashFlowEntriesResponse,
   DashboardCommitmentsResponse,
   DashboardMonthlyCashFlowResponse,
   DashboardResponse,
@@ -57,6 +59,16 @@ export class DashboardController {
     @SchemaQuery(CashFlowQuery) query: CashFlowQuery,
   ) {
     return this.dashboardService.getMonthlyCashFlow(workspaceId, query.range ?? '12m', query.month);
+  }
+
+  @Get('cash-flow/entries')
+  @SchemaResponse(DashboardCashFlowEntriesResponse)
+  async getCashFlowEntries(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() viewerMemberId: string | null,
+    @SchemaQuery(CashFlowEntriesQuery) query: CashFlowEntriesQuery,
+  ) {
+    return this.dashboardService.getCashFlowEntries(workspaceId, query.month, viewerMemberId);
   }
 
   @Get('trends')

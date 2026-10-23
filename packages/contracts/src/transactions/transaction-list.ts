@@ -75,6 +75,13 @@ export type TransactionList = Wire<typeof TransactionList>;
 const ListedTransaction = Schema.Struct({
   ...TransactionListItem.fields,
   reimbursementOf: Schema.NullOr(Schema.Struct({ id: Schema.String })),
+  /**
+   * The wallet's balance right after this row, with `running_balance=1`; null
+   * for a row without a wallet or one that does not count yet.
+   */
+  runningBalance: Schema.optional(Schema.NullOr(DecimalString)),
+  /** The other leg's wallet of a transfer, with `running_balance=1`. */
+  transferPairWallet: Schema.optional(Schema.NullOr(Named)),
 });
 
 /** `GET /transactions` as a page, envelope and all. `items` repeats `data` for older clients. */

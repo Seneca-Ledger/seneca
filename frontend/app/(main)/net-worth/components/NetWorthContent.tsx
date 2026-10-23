@@ -7,6 +7,8 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, ChevronDown } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { LoadError } from '@/app/components/ui/load-error';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
@@ -137,6 +139,9 @@ export function NetWorthContent() {
   const unchanged = (headline?.change ?? 0) === 0;
   const hasData = Boolean(data && (data.assetsTotal !== 0 || data.liabilitiesTotal !== 0));
 
+  const rangeLabel = (option: NetWorthRange): string =>
+    option === 'all' ? t.rangeAll.value : option.toUpperCase().replace('180D', '6M');
+
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}>
       <Box
@@ -149,6 +154,10 @@ export function NetWorthContent() {
           mb: 3,
         }}
       >
+        <PageTitle
+          path="/net-worth"
+          summary={joinSummary([rangeLabel(range), denominate && t.ouncesOfGold.value])}
+        />
         <TextTabs
           value={denominate ? 'XAU' : 'money'}
           onChange={next => setDenominate(next === 'money' ? null : 'XAU')}
@@ -161,21 +170,14 @@ export function NetWorthContent() {
         <TextTabs<NetWorthRange>
           value={range}
           onChange={setRange}
-          options={NET_WORTH_RANGES.map(option => ({
-            value: option,
-            label: option === 'all' ? t.rangeAll.value : option.toUpperCase().replace('180D', '6M'),
-          }))}
+          options={NET_WORTH_RANGES.map(option => ({ value: option, label: rangeLabel(option) }))}
           ariaLabel={t.title.value}
         />
       </Box>
 
       {isPending && <NetWorthSkeleton />}
 
-      {error && (
-        <Typography color="error" sx={{ py: 2, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && <LoadError spacing={2}>{t.error}</LoadError>}
 
       {data && (
         <Box

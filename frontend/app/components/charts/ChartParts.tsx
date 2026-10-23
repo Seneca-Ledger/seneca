@@ -22,9 +22,11 @@ export function ChartTooltipCard({
   return (
     <div className="seneca-chart__tooltip">
       <div className="seneca-chart__tooltip-title">{title}</div>
-      {rows.map(row => (
+      {rows.map((row, index) => (
         <div
-          key={`${row.label ?? ''}:${row.value}`}
+          // Two rows can read the same (two coffees at one price on one day).
+          // biome-ignore lint/suspicious/noArrayIndexKey: the rows are a fixed list per render
+          key={index}
           className={clsx(
             'seneca-chart__tooltip-row',
             row.tone && `seneca-chart__tooltip-row--${row.tone}`,

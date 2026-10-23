@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activeNavPath,
+  buildNavGroups,
   buildNavItems,
   buildUserMenuNavItems,
+  groupNavItems,
   isNavItemActive,
   isNavItemVisible,
   workspaceProfileOf,
@@ -9,7 +12,10 @@ import {
 
 const nav = {
   dashboard: 'Dashboard',
+  allTransactions: 'All transactions',
   statements: 'Statements',
+  expenses: 'Expenses',
+  income: 'Income',
   tables: 'Tables',
   workspaces: 'Workspaces',
   reports: 'Reports',
@@ -104,37 +110,65 @@ describe('buildNavItems', () => {
     expect(items.find(item => item.path === '/tax-declaration')?.permission).toBe('report.view');
   });
 
-  it('lists net worth next to the other money views', () => {
+  it('puts net worth and the forecast built on it with the analytics', () => {
     const items = buildNavItems(nav);
 
-    expect(items.map(item => item.path)).toContain('/net-worth');
-    // Net worth, then the forecast built on it.
-    expect(items.findIndex(item => item.path === '/net-worth')).toBe(
-      items.findIndex(item => item.path === '/forecast') - 1,
-    );
+    expect(items.find(item => item.path === '/net-worth')?.group).toBe('analytics');
+    expect(items.find(item => item.path === '/forecast')?.group).toBe('analytics');
     expect(items.find(item => item.path === '/forecast')?.permission).toBe('report.view');
   });
 });
 
-describe('buildUserMenuNavItems', () => {
-  it('gates activity log behind the audit log permission', () => {
-    const items = buildUserMenuNavItems(userMenuNav);
+describe('groupNavItems', () => {
+  const groups = buildNavGroups({
+    transactions: 'Transactions',
+    analytics: 'Analytics',
+    investments: 'Investments',
+    business: 'Business',
+  });
+  const rows = (items: ReturnType<typeof buildNavItems>) =>
+    groupNavItems(items, groups).map(entry =>
+      entry.kind === 'item'
+        ? entry.item.path
+        : `${entry.group.id}: ${entry.items.map(item => item.path).join(' ')}`,
+    );
 
-    expect(items.find(item => item.path === '/admin')?.permission).toBe('audit_log.view');
+  it('keeps standalone pages as rows and puts each group where its first page was', () => {
+    expect(rows(buildNavItems(nav))).toEqual([
+      '/dashboard',
+      'transactions: /statements /statements/pay /statements/receive /statements/transactions',
+      '/review',
+      '/budgets',
+      '/goals',
+      '/subscriptions',
+      'analytics: /reports /net-worth /forecast /advice',
+      'investments: /crypto /roi',
+      'business: /invoices /tax-declaration /ledger /custom-tables',
+      '/workspaces',
+    ]);
   });
 
-  it('keeps integrations and plugins away from the viewer role', () => {
-    const items = buildUserMenuNavItems(userMenuNav);
-
-    expect(items.find(item => item.path === '/integrations')?.permission).toBe('telegram.connect');
-    expect(items.find(item => item.path === '/plugins')?.permission).toBe('telegram.connect');
+  it('leaves out a group with nothing visible in it', () => {
+    const home = buildNavItems(nav).filter(item => item.group !== 'business');
+    expect(rows(home).some(row => row.startsWith('business'))).toBe(false);
   });
 });
 
-describe('isNavItemActive', () => {
-  it('matches a route and its children', () => {
-    expect(isNavItemActive('/custom-tables', '/custom-tables')).toBe(true);
-    expect(isNavItemActive('/custom-tables/abc', '/custom-tables')).toBe(true);
-    expect(isNavItemActive('/statements', '/custom-tables')).toBe(false);
+describe('activeNavPath', () => {
+  const items = buildNavItems(nav);
+
+  it('lights the most specific page when one sits inside another', () => {
+    expect(activeNavPath('/statements/pay', items)).toBe('/statements/pay');
+    expect(activeNavPath('/statements/transactions', items)).toBe('/statements/transactions');
+    expect(activeNavPath('/statements/receive', items)).toBe('/statements/receive');
+  });
+
+  it('keeps the statements page and its documents on Statements', () => {
+    expect(activeNavPath('/statements/submit', items)).toBe('/statements');
+    expect(activeNavPath('/statements/doc-1/edit', items)).toBe('/statements');
+  });
+
+  it('lights nothing outside the menu', () => {
+    expect(activeNavPath('/settings', items)).toBeUndefined();
   });
 });

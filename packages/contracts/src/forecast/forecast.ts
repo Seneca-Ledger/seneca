@@ -75,6 +75,9 @@ export const ForecastResponse = Schema.Struct({
   }),
   /** Months the opening balance lasts at the pace of the year ahead; null when not burning. */
   runwayMonths: Schema.NullOr(Schema.Number),
+  /** The balance's change over the span the runway reads, and that span in days. */
+  runwayChange: Schema.Number,
+  runwayDays: Schema.Number,
   /** What the everyday average was built from. */
   everydayMonthly: Schema.Number,
   /** Income per month beyond the detected paydays, from the same history. */

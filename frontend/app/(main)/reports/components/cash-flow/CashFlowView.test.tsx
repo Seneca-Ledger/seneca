@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CashFlowView } from './CashFlowView';
 import type { CashFlowMapData } from './useCashFlowMap';
@@ -10,8 +10,21 @@ vi.mock('@/app/i18n', async importOriginal => ({
 }));
 const hookMock = vi.hoisted(() => ({ state: {} as Record<string, unknown>, update: vi.fn() }));
 vi.mock('./useCashFlowMap', () => ({ useCashFlowMap: () => hookMock.state }));
+const sankeyEvents = vi.hoisted(() => ({
+  current: {} as Record<string, (params: Record<string, unknown>) => void>,
+}));
 vi.mock('@/app/components/ui/lazy-echarts', () => ({
-  LazyECharts: () => <div data-testid="sankey" />,
+  LazyECharts: ({ onEvents }: { onEvents?: typeof sankeyEvents.current }) => {
+    sankeyEvents.current = onEvents ?? {};
+    return <div data-testid="sankey" />;
+  },
+}));
+const router = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
+const statementsList = vi.hoisted(() => vi.fn());
+vi.mock('@/app/lib/query-fn-schema', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/lib/query-fn-schema')>()),
+  apiQueryDecoded: statementsList,
 }));
 vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }));
 // The owner control reads the household; a workspace of one renders none of it.
@@ -70,6 +83,8 @@ describe('CashFlowView', () => {
   beforeEach(() => {
     appLocale.current = 'en';
     hookMock.update.mockReset();
+    router.push.mockReset();
+    statementsList.mockReset();
     hookMock.state = {
       data,
       isPending: false,
@@ -93,6 +108,59 @@ describe('CashFlowView', () => {
     expect(screen.getByText('Groceries')).toBeInTheDocument();
     // Food went from 300 to 400: more spending, shown as +100, in grey.
     expect(screen.getAllByText(/\+.*100/).length).toBeGreaterThan(0);
+  });
+
+  it('opens the one document behind a sankey category, in the report period', async () => {
+    statementsList.mockResolvedValue([{ id: 'statement-1', status: 'completed' }]);
+    render(<CashFlowView />);
+
+    sankeyEvents.current.click({ dataType: 'node', name: 'cat:rent' });
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/statements/statement-1/edit'));
+    expect(statementsList.mock.calls[0][0].params).toMatchObject({
+      categoryId: 'rent',
+      transactionsFrom: '2026-09-01',
+      transactionsTo: '2026-09-30',
+    });
+  });
+
+  it('opens the filtered documents from a band, and ignores the income side', async () => {
+    statementsList.mockResolvedValue([
+      { id: 'statement-1', status: 'completed' },
+      { id: 'statement-2', status: 'completed' },
+    ]);
+    render(<CashFlowView />);
+
+    sankeyEvents.current.click({ dataType: 'node', name: 'total' });
+    sankeyEvents.current.click({
+      dataType: 'edge',
+      data: { source: 'total', target: 'cat:__none__' },
+    });
+
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith(
+        '/statements/submit?missingCategory=true&transactionsFrom=2026-09-01&transactionsTo=2026-09-30',
+      ),
+    );
+    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(statementsList.mock.calls[0][0].params.categoryId).toBe('uncategorized');
+  });
+
+  it("opens subcategories from the map, then a subcategory's documents", async () => {
+    statementsList.mockResolvedValue([]);
+    render(<CashFlowView />);
+
+    fireEvent.click(screen.getByTestId('treemap-tile-food'));
+    expect(router.push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('treemap-tile-groceries'));
+
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith(
+        '/statements/submit?categoryId=groceries&transactionsFrom=2026-09-01&transactionsTo=2026-09-30',
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /All categories/ }));
+    expect(screen.getByTestId('treemap-tile-rent')).toBeInTheDocument();
   });
 
   it('keeps the leaderboards away when nothing moved in the period', () => {

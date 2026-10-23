@@ -3,13 +3,15 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
-import Typography from '@mui/material/Typography';
 import NextLink from 'next/link';
 import { useEffect } from 'react';
 import { Plus } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { PiggyLineIcon } from '@/app/components/ui/empty-state-icons';
+import { LoadError } from '@/app/components/ui/load-error';
+import { PageTitle } from '@/app/components/ui/page-title';
 import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
@@ -89,6 +91,9 @@ export function BudgetsContent({
   const t = useIntlayer('budgetsPage');
   const { hasPermission } = usePermissions();
   const { balance } = useStoicBalance();
+  useQuickActions([
+    { id: 'new-budget', label: t.newBudget.value, icon: Plus, run: () => openCreate() },
+  ]);
   const classOf = new Map(
     (balance?.categories ?? []).map(category => [category.id, category.stoicClass]),
   );
@@ -105,7 +110,10 @@ export function BudgetsContent({
   }, [listReady]);
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, mb: 3 }}
+      >
+        <PageTitle path="/budgets" />
         <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 1.5 }}>
           {/* Budgets can fund a goal, so the goals page is reached from here. */}
           {/* Secondary ways in are links; the page keeps one filled button. */}
@@ -125,7 +133,11 @@ export function BudgetsContent({
           />
           {/* With no budgets the empty state's button leads; this one steps back. */}
           <ReadOnlyHint>
-            <Button variant={noBudgets ? 'text' : 'contained'} onClick={() => openCreate()}>
+            <Button
+              variant={noBudgets ? 'text' : 'contained'}
+              className="seneca-bottom-bar-source"
+              onClick={() => openCreate()}
+            >
               <Plus size={18} aria-hidden />
               {t.newBudget}
             </Button>
@@ -146,11 +158,7 @@ export function BudgetsContent({
         </Box>
       )}
 
-      {error && !isPending && (
-        <Typography color="error" sx={{ py: 4, textAlign: 'center' }}>
-          {error}
-        </Typography>
-      )}
+      {error && !isPending && <LoadError spacing={4}>{error}</LoadError>}
 
       {noBudgets && (
         <>

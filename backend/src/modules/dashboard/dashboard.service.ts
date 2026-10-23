@@ -10,9 +10,16 @@ import {
 } from 'typeorm';
 import { flowsSql, onlyFlows } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
-import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
+import {
+  canReadPrivate,
+  PRIVACY_VIEWER_PARAM,
+  PRIVATE_PLACEHOLDER,
+  redactedSql,
+} from '../../common/utils/transaction-privacy.util';
 import type {
   DashboardActionItem,
+  DashboardCashFlowEntriesResponse,
+  DashboardCashFlowEntry,
   DashboardCashFlowPoint,
   DashboardCommitmentDay,
   DashboardCommitmentItem,
@@ -561,6 +568,67 @@ export class DashboardService {
       totals: { income, expense, net: round2(income - expense) },
       points,
     };
+  }
+
+  /**
+   * The rows behind one month's daily cash flow, named, for the card's day tooltip. Same filters
+   * and sides as `sumCashFlowByBucket`, so the names add up to the bar they sit on.
+   */
+  async getCashFlowEntries(
+    workspaceId: string,
+    month: string,
+    viewerMemberId: string | null,
+  ): Promise<DashboardCashFlowEntriesResponse> {
+    const window = parseMonthWindow(month);
+    if (!window) {
+      return { entries: [] };
+    }
+    const currency = await this.getWorkspaceCurrency(workspaceId);
+    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
+    this.applyActiveStatementTransactionFilters(query, workspaceId, window.since, window.endDate);
+
+    const rows = await query
+      .select("TO_CHAR(t.transactionDate, 'YYYY-MM-DD')", 'date')
+      .addSelect('t.counterpartyName', 'counterpartyName')
+      .addSelect('s.fileName', 'fileName')
+      .addSelect('t.transactionType', 'transactionType')
+      .addSelect('t.debit', 'debit')
+      .addSelect('t.credit', 'credit')
+      .addSelect('t.currency', 'currency')
+      .addSelect('t.isPrivate', 'isPrivate')
+      .addSelect('t.ownerMemberId', 'ownerMemberId')
+      .andWhere('t.transactionType IN (:...sides)', {
+        sides: [TransactionType.INCOME, TransactionType.EXPENSE],
+      })
+      .getRawMany<{
+        date: string;
+        counterpartyName: string | null;
+        fileName: string | null;
+        transactionType: TransactionType;
+        debit: string | null;
+        credit: string | null;
+        currency: string;
+        isPrivate: boolean;
+        ownerMemberId: string | null;
+      }>();
+
+    const entries: DashboardCashFlowEntry[] = [];
+    for (const row of rows) {
+      const kind = row.transactionType === TransactionType.INCOME ? 'income' : 'expense';
+      const raw = kind === 'income' ? row.credit : row.debit;
+      const amount = round2(
+        await this.convertDashboardAmount(raw ?? '0', row.currency, currency, workspaceId),
+      );
+      if (amount <= 0) {
+        continue;
+      }
+      const name = canReadPrivate(row, viewerMemberId)
+        ? row.counterpartyName?.trim() || row.fileName?.trim() || PRIVATE_PLACEHOLDER
+        : PRIVATE_PLACEHOLDER;
+      entries.push({ date: row.date, name, kind, amount });
+    }
+    entries.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount);
+    return { entries };
   }
 
   /** Income/expense per `TO_CHAR` bucket, every currency converted into `targetCurrency`. */

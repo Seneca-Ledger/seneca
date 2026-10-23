@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronRight } from '@/app/components/icons';
+import { TransactionPayeeSection } from '@/app/components/payees/TransactionPayeeSection';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
@@ -225,6 +226,18 @@ export function TransactionDetailsTab({
               />
             </div>
           </div>
+        )}
+
+        {/* Who the money went to or came from, and how that payee is filed */}
+        {!transaction.isPrivate && (
+          <TransactionPayeeSection
+            key={transaction.id}
+            transactionId={transaction.id}
+            payee={transaction.payee ?? null}
+            counterpartyName={transaction.counterpartyName}
+            categories={categoryOptions}
+            transactionCategoryId={transaction.category?.id ?? null}
+          />
         )}
 
         {/* Who in the household it belongs to */}

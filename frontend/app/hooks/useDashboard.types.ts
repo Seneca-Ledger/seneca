@@ -8,12 +8,10 @@
 // responses from; only client-side shapes stay here.
 export type {
   DashboardActionItem,
+  DashboardCashFlowEntry,
   DashboardCashFlowPoint,
-  DashboardCashFlowRange,
   DashboardDataHealth,
   DashboardFinancialSnapshot,
-  DashboardMonthlyCashFlowPoint,
-  DashboardMonthlyCashFlowResponse as DashboardMonthlyCashFlow,
   DashboardRange,
   DashboardRecentTransaction,
   DashboardResponse as DashboardData,

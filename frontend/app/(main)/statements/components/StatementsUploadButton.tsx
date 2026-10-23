@@ -9,7 +9,8 @@ import { useStatementsQueue } from './statements-queue-context';
 
 /**
  * Upload entry point in the statements page header: opens the scan drawer
- * straight away. The drawer's own tabs cover the manual expense.
+ * straight away. The drawer's own tabs cover the manual expense. Hidden on a
+ * phone, where the bottom bar's "+" offers the same.
  */
 export function StatementsUploadButton(): React.JSX.Element {
   const t = useIntlayer('statementsPage');
@@ -17,7 +18,11 @@ export function StatementsUploadButton(): React.JSX.Element {
 
   return (
     <ReadOnlyHint>
-      <Button data-tour-id="statements-upload-trigger" onClick={onScan}>
+      <Button
+        data-tour-id="statements-upload-trigger"
+        className="seneca-bottom-bar-source"
+        onClick={onScan}
+      >
         <Plus size={18} aria-hidden />
         {resolveLabel(getNestedValue(t, ['uploadStatement']), 'Upload statement')}
       </Button>

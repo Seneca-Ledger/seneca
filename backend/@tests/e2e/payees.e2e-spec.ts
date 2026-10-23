@@ -178,6 +178,13 @@ describe('Payees (e2e)', () => {
     const classified = await classify((await book('NETFLIX.COM 4472')).id);
 
     expect(classified).toMatchObject({ categoryId: categoryIds[3], categorySource: 'learned' });
+    const shown = await as(owner, request(server()).get(`/payees/${pinned.payeeId}`)).expect(200);
+    expect(shown.body).toMatchObject({
+      id: pinned.payeeId,
+      mode: 'always',
+      category: { id: categoryIds[3] },
+      transactionCount: 2,
+    });
   });
 
   it('refuses a name another payee already has, pointing at it for a merge', async () => {
@@ -229,5 +236,6 @@ describe('Payees (e2e)', () => {
       .send({ name: 'Mine now' })
       .expect(404);
     await as(other, request(server()).get(`/payees/${mine.payeeId}/pending-review`)).expect(404);
+    await as(other, request(server()).get(`/payees/${mine.payeeId}`)).expect(404);
   });
 });

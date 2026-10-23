@@ -173,14 +173,17 @@ export function AccountMenu({
           <Switch checked={isDark} size="small" tabIndex={-1} sx={{ mr: -1 }} />
         </MenuItem>
 
-        {/* Amounts as scribbles until hovered, on this device; stays open like the theme row. */}
-        <MenuItem onClick={() => setPrivacyMode(!privacy)}>
-          <ListItemIcon>
-            <Eye size={18} />
-          </ListItemIcon>
-          <ListItemText>{userMenu.privacyMode}</ListItemText>
-          <Switch checked={privacy} size="small" tabIndex={-1} sx={{ mr: -1 }} />
-        </MenuItem>
+        {/* Amounts as scribbles until hovered, on this device; stays open like the theme row.
+            The sidebar has its own icon in the header; only the mobile drawer needs the row. */}
+        {variant === 'mobile' ? (
+          <MenuItem onClick={() => setPrivacyMode(!privacy)}>
+            <ListItemIcon>
+              <Eye size={18} />
+            </ListItemIcon>
+            <ListItemText>{userMenu.privacyMode}</ListItemText>
+            <Switch checked={privacy} size="small" tabIndex={-1} sx={{ mr: -1 }} />
+          </MenuItem>
+        ) : null}
 
         {canOpenApps ? (
           <MenuItem

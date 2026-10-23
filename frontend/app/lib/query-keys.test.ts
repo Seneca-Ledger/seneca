@@ -9,9 +9,8 @@ describe('queryKeys', () => {
   it('keeps every key shape stable', () => {
     expect({
       dashboard: queryKeys.dashboard({ workspaceId: 'w1', range: '30d', date: null }),
-      dashboardCashFlow: queryKeys.dashboardCashFlow({
+      dashboardCashFlowEntries: queryKeys.dashboardCashFlowEntries({
         workspaceId: 'w1',
-        range: '12m',
         month: '2026-07',
       }),
       statements: queryKeys.statements({ workspaceId: 'w1', params: { stage: 'submit' } }),
@@ -49,7 +48,7 @@ describe('queryKeys', () => {
       search: queryKeys.search({ workspaceId: 'w1', q: 'rent' }),
     }).toEqual({
       dashboard: ['dashboard', 'w1', '30d', null],
-      dashboardCashFlow: ['dashboard', 'cash-flow', 'w1', '12m', '2026-07'],
+      dashboardCashFlowEntries: ['dashboard', 'cash-flow-entries', 'w1', '2026-07'],
       statements: ['statements', 'w1', { stage: 'submit' }],
       receiptDocuments: ['receipt-documents', 'w1', { limit: 50 }],
       transactions: ['transactions', 'w1', { limit: 500 }],

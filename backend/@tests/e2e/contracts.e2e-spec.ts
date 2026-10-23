@@ -16,7 +16,11 @@ import { encryptText } from '../../src/common/utils/encryption.util';
 import { BackupRun, BackupRunStatus, BackupRunTrigger } from '../../src/entities/backup-run.entity';
 import { Receipt, ReceiptSource, ReceiptStatus } from '../../src/entities/receipt.entity';
 import { PEPPOL_DOCTYPES } from '../../src/modules/e-invoices/peppol-ubl-writer';
-import { Transaction, TransactionType } from '../../src/entities/transaction.entity';
+import {
+  Transaction,
+  TransactionCategorySource,
+  TransactionType,
+} from '../../src/entities/transaction.entity';
 import {
   Subscription,
   SubscriptionFrequency,
@@ -33,6 +37,7 @@ import {
   BalanceSheetResponse,
   BankSyncStatus,
   BudgetImpact,
+  BudgetItem,
   BudgetList,
   BusinessProfileResponse,
   CashFlowMap,
@@ -57,10 +62,12 @@ import {
   CustomTableGroups,
   CustomTableItem,
   CustomTableList,
+  CustomTableMoneyTotal,
   CustomTableRowItem,
   CustomTableRowPage,
   CustomTableSummaries,
   DailyQuote,
+  DashboardCashFlowEntriesResponse,
   DashboardCommitmentsResponse,
   DashboardMonthlyCashFlowResponse,
   DashboardResponse,
@@ -114,6 +121,7 @@ import {
   PayableListPage,
   PayablePaymentList,
   PayablesSummary,
+  Payee,
   PayeePendingReview,
   PayeesPage,
   PaymentCandidateList,
@@ -126,6 +134,7 @@ import {
   ReceiptRecord,
   ReceiptRecordUpdate,
   ReceiptSplitSuggestion,
+  ReceiptTax,
   ReceiptTransactionMatches,
   ReconciliationResponse,
   RecoveryCodes,
@@ -156,9 +165,12 @@ import {
   StorageViewItem,
   StorageViewList,
   SubscriptionChargeCalendar,
+  SubscriptionChargeCandidates,
+  SubscriptionChargeRow,
   SubscriptionDetail,
   SubscriptionDuplicateGroups,
   SubscriptionList,
+  SubscriptionMonthStatus,
   SubscriptionSummary,
   SystemUpdateStatus,
   TaxJurisdictionList,
@@ -228,6 +240,7 @@ import {
   StatementListPage,
   TransactionListPage,
   TransactionPayeeResult,
+  TransactionsOverview,
   UploadedIcon,
   ViewPreferenceState,
   WelcomeTutorialSeen,
@@ -311,6 +324,15 @@ describe('API contracts (e2e)', () => {
 
     it('GET /dashboard/cash-flow', async () => {
       matches(DashboardMonthlyCashFlowResponse, (await get('/dashboard/cash-flow?range=12m')).body);
+    });
+
+    it('GET /dashboard/cash-flow/entries', async () => {
+      const month = new Date().toISOString().slice(0, 7);
+      const res = await get(`/dashboard/cash-flow/entries?month=${month}`);
+      matches(DashboardCashFlowEntriesResponse, res.body);
+      expect(res.body.entries).toContainEqual(
+        expect.objectContaining({ name: 'Contract Coffee', kind: 'expense' }),
+      );
     });
 
     it('GET /dashboard/commitments', async () => {
@@ -553,10 +575,301 @@ describe('API contracts (e2e)', () => {
       expect(duplicates.body).toHaveLength(1);
     });
 
+    it('GET /subscriptions/month-status', async () => {
+      const status = await get('/subscriptions/month-status');
+      matches(SubscriptionMonthStatus, status.body);
+      // A monthly charge lands in every month, paid or still to come.
+      expect(status.body.paidCount + status.body.unpaidCount).toBeGreaterThan(0);
+      expect(status.body.items.length).toBeGreaterThan(0);
+    });
+
     it('GET /subscriptions/upcoming', async () => {
       const upcoming = await get('/subscriptions/upcoming?days=30');
       matches(UpcomingSubscriptionList, upcoming.body);
       expect(upcoming.body).toHaveLength(2);
+    });
+
+    it('records a payment by hand, links it to a bank row, then removes it', async () => {
+      const send = (method: 'post' | 'patch' | 'delete', url: string, body: object = {}) =>
+        request(app.getHttpServer())
+          [method](url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send(body);
+      const today = new Date().toISOString().slice(0, 10);
+      const monthly = (await get('/subscriptions')).body.find(
+        (row: { amount: string }) => row.amount === '12.99',
+      );
+
+      const recorded = await send('post', `/subscriptions/${monthly.id}/charges`, {
+        chargeDate: today,
+      }).expect(201);
+      matches(SubscriptionChargeRow, recorded.body);
+      expect(recorded.body).toEqual(
+        expect.objectContaining({ transactionId: null, amount: '12.99', chargeDate: today }),
+      );
+
+      const candidates = await get('/subscriptions/charge-candidates?vendorName=Contract%20Coffee');
+      matches(SubscriptionChargeCandidates, candidates.body);
+      const coffee = candidates.body.find(
+        (row: { counterpartyName: string }) => row.counterpartyName === 'Contract Coffee',
+      );
+      expect(coffee).toEqual(expect.objectContaining({ amount: 42.5, matchesVendor: true }));
+
+      const linked = await send('patch', `/subscriptions/${monthly.id}/charges/${recorded.body.id}`, {
+        transactionId: coffee.transactionId,
+      }).expect(200);
+      matches(SubscriptionChargeRow, linked.body);
+      expect(linked.body).toEqual(
+        expect.objectContaining({ id: recorded.body.id, transactionId: coffee.transactionId, amount: '42.50' }),
+      );
+      // A row that is a payment is no longer offered.
+      const after = await get('/subscriptions/charge-candidates?vendorName=Contract%20Coffee');
+      expect(after.body.map((row: { transactionId: string }) => row.transactionId)).not.toContain(
+        coffee.transactionId,
+      );
+      const detail = await get(`/subscriptions/${monthly.id}`);
+      matches(SubscriptionDetail, detail.body);
+      expect(detail.body.charges).toEqual([expect.objectContaining({ id: recorded.body.id })]);
+      const status = await get('/subscriptions/month-status');
+      matches(SubscriptionMonthStatus, status.body);
+      expect(status.body.items).toContainEqual(
+        expect.objectContaining({ subscriptionId: monthly.id, paid: true }),
+      );
+
+      // Removing the payment keeps the bank row, which is then free again.
+      await send('delete', `/subscriptions/${monthly.id}/charges/${recorded.body.id}`).expect(200);
+      expect((await get(`/subscriptions/${monthly.id}`)).body.charges).toEqual([]);
+      const freed = await get('/subscriptions/charge-candidates?vendorName=Contract%20Coffee');
+      expect(freed.body.map((row: { transactionId: string }) => row.transactionId)).toContain(
+        coffee.transactionId,
+      );
+    });
+
+    it("links a payee's new rows to the subscription a person linked one of its rows to", async () => {
+      const send = (method: 'post' | 'delete', url: string, body: object = {}) =>
+        request(app.getHttpServer())
+          [method](url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send(body);
+      const merchant = 'Contract Coffee';
+      const today = new Date().toISOString().slice(0, 10);
+      const categories = await get('/categories?type=expense');
+      const addExpense = async (amount: string): Promise<string> => {
+        const created = await request(app.getHttpServer())
+          .post('/statements/manual-expense')
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .field('amount', amount)
+          .field('currency', 'USD')
+          .field('merchant', merchant)
+          .field('categoryId', categories.body[0].id)
+          .field('date', today)
+          .expect(201);
+        return created.body.id;
+      };
+      const detailOf = async (id: string) => {
+        const detail = await get(`/subscriptions/${id}`);
+        matches(SubscriptionDetail, detail.body);
+        return detail.body;
+      };
+      const subscriptions = (await get('/subscriptions')).body;
+      const monthly = subscriptions.find((row: { amount: string }) => row.amount === '12.99');
+      const annual = subscriptions.find((row: { amount: string }) => row.amount === '15.49');
+      const coffee = (await get('/subscriptions/charge-candidates?vendorName=Contract%20Coffee')).body.find(
+        (row: { counterpartyName: string }) => row.counterpartyName === merchant,
+      );
+      const statementIds: string[] = [];
+
+      try {
+        // A person links a bank row: the subscription learns its payee.
+        const linked = await send('post', `/subscriptions/${monthly.id}/charges`, {
+          transactionId: coffee.transactionId,
+        }).expect(201);
+        expect((await detailOf(monthly.id)).autoLinkPayees).toEqual([
+          { payeeId: expect.any(String), name: merchant, shared: false },
+        ]);
+
+        // A new row of that payee becomes a payment by itself.
+        statementIds.push(await addExpense('13.10'));
+        const withAuto = await detailOf(monthly.id);
+        const auto = withAuto.charges.find(
+          (charge: { transactionId: string | null }) => charge.transactionId !== coffee.transactionId,
+        );
+        expect(withAuto.charges).toHaveLength(2);
+        expect(auto).toEqual(
+          expect.objectContaining({ amount: '13.10', chargeDate: today, matchStatus: 'matched' }),
+        );
+        expect(withAuto.subscription.lastChargeDate).toBe(today);
+
+        // Removing one payment keeps the rule while another row of the payee is a payment.
+        await send('delete', `/subscriptions/${monthly.id}/charges/${auto.id}`).expect(200);
+        expect((await detailOf(monthly.id)).autoLinkPayees).toHaveLength(1);
+
+        // A second subscription with the same payee: both say so, and neither takes new rows.
+        await send('post', `/subscriptions/${annual.id}/charges`, {
+          transactionId: auto.transactionId,
+        }).expect(201);
+        expect((await detailOf(monthly.id)).autoLinkPayees).toEqual([
+          expect.objectContaining({ name: merchant, shared: true }),
+        ]);
+        statementIds.push(await addExpense('13.20'));
+        expect((await detailOf(monthly.id)).charges).toHaveLength(1);
+        expect((await detailOf(annual.id)).charges).toHaveLength(1);
+
+        // Removing the last payment of the payee forgets the rule.
+        await send('delete', `/subscriptions/${monthly.id}/charges/${linked.body.id}`).expect(200);
+        expect((await detailOf(monthly.id)).autoLinkPayees).toEqual([]);
+        const annualCharge = (await detailOf(annual.id)).charges[0];
+        await send('delete', `/subscriptions/${annual.id}/charges/${annualCharge.id}`).expect(200);
+        expect((await detailOf(annual.id)).autoLinkPayees).toEqual([]);
+      } finally {
+        // The added rows would change what later tests count.
+        await dataSource.query('DELETE FROM transactions WHERE statement_id = ANY($1)', [statementIds]);
+        await dataSource.query('DELETE FROM statements WHERE id = ANY($1)', [statementIds]);
+      }
+    });
+
+    it("pays a subscription from a budget: reserved in the budget, its row takes the budget's category", async () => {
+      const send = (method: 'post' | 'put' | 'delete', url: string, body: object = {}) =>
+        request(app.getHttpServer())
+          [method](url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send(body);
+      const vendorName = 'ACME Music';
+      const budgetName = 'Fun money';
+      const today = new Date().toISOString().slice(0, 10);
+      const categories = (await get('/categories?type=expense')).body;
+      const [rowCategory, budgetCategory] = [categories[0].id, categories[1].id];
+      const budget = await send('post', '/budgets', {
+        name: budgetName,
+        categoryId: budgetCategory,
+        limitAmount: 80,
+        periodType: 'monthly',
+        currency: 'USD',
+      }).expect(201);
+      let subscriptionId: string | undefined;
+      const statementIds: string[] = [];
+      // Two rows of one amount on one day would be a duplicate.
+      const addExpense = async (amount: string): Promise<string> => {
+        const expense = await request(app.getHttpServer())
+          .post('/statements/manual-expense')
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .field('amount', amount)
+          .field('currency', 'USD')
+          .field('merchant', vendorName)
+          .field('categoryId', rowCategory)
+          .field('date', today)
+          .expect(201);
+        statementIds.push(expense.body.id);
+        const [row] = await dataSource.query(
+          'SELECT id FROM transactions WHERE statement_id = $1 AND workspace_id = $2',
+          [expense.body.id, owner.workspaceId],
+        );
+        return row.id;
+      };
+      const categoryOf = async (id: string) =>
+        (
+          await dataSource.query(
+            'SELECT category_id, category_source, category_reason FROM transactions WHERE id = $1',
+            [id],
+          )
+        )[0];
+      const inBudget = { category_id: budgetCategory, category_source: 'rule', category_reason: budgetName };
+
+      try {
+        const created = await send('post', '/subscriptions', {
+          vendorName,
+          amount: 4.5,
+          frequency: 'weekly',
+          currency: 'USD',
+          nextChargeDate: today,
+          budgetId: budget.body.id,
+        }).expect(201);
+        subscriptionId = created.body.id;
+        expect(created.body.budgetId).toBe(budget.body.id);
+        const listed = (await get('/subscriptions')).body;
+        matches(SubscriptionList, listed);
+        expect(listed).toContainEqual(
+          expect.objectContaining({ id: subscriptionId, budgetId: budget.body.id }),
+        );
+
+        // Today's charge and the weekly ones after it, to the end of the month.
+        const budgets = await get('/budgets');
+        matches(BudgetList, budgets.body);
+        const listedBudget = budgets.body.find((row: { id: string }) => row.id === budget.body.id);
+        expect(listedBudget.subscriptionReserve.items).toEqual([
+          { subscriptionId, vendorName, amount: expect.any(Number) },
+        ]);
+        expect(listedBudget.subscriptionReserve.amount).toBeGreaterThanOrEqual(4.5);
+        expect(listedBudget.subscriptionReserve.amount % 4.5).toBeCloseTo(0);
+        const single = await get(`/budgets/${budget.body.id}`);
+        matches(BudgetItem, single.body);
+        expect(single.body.subscriptionReserve).toEqual(listedBudget.subscriptionReserve);
+
+        // A bank row the importer categorised becomes a payment: it moves to the budget.
+        const rowId = await addExpense('4.50');
+        await dataSource.query(`UPDATE transactions SET category_source = 'keyword' WHERE id = $1`, [
+          rowId,
+        ]);
+        const recorded = await send('post', `/subscriptions/${subscriptionId}/charges`, {
+          transactionId: rowId,
+        }).expect(201);
+        matches(SubscriptionChargeRow, recorded.body);
+        expect(await categoryOf(rowId)).toEqual(inBudget);
+
+        // The payee's next rows are linked on insert. One the importer categorised moves to
+        // the budget in the same database transaction; one whose category a person picked stays.
+        const importedId = await dataSource.transaction(async manager => {
+          const saved = await manager.getRepository(Transaction).save(
+            manager.getRepository(Transaction).create({
+              workspaceId: owner.workspaceId,
+              statementId: statementIds[0],
+              transactionDate: today as unknown as Date,
+              counterpartyName: vendorName,
+              paymentPurpose: vendorName,
+              debit: 4.55,
+              amount: 4.55,
+              currency: 'USD',
+              transactionType: TransactionType.EXPENSE,
+              categoryId: rowCategory,
+              categorySource: TransactionCategorySource.KEYWORD,
+            }),
+          );
+          return saved.id;
+        });
+        const pickedId = await addExpense('4.60');
+        const linkedCharges = (await get(`/subscriptions/${subscriptionId}`)).body.charges;
+        expect(linkedCharges).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ transactionId: importedId }),
+            expect.objectContaining({ transactionId: pickedId }),
+          ]),
+        );
+        expect(await categoryOf(importedId)).toEqual(inBudget);
+        expect(await categoryOf(pickedId)).toEqual(
+          expect.objectContaining({ category_id: rowCategory, category_source: 'manual' }),
+        );
+
+        // Unlinking keeps the row where it is.
+        const unlinked = await send('put', `/subscriptions/${subscriptionId}`, {
+          budgetId: null,
+        }).expect(200);
+        expect(unlinked.body.budgetId).toBeNull();
+        const detail = await get(`/subscriptions/${subscriptionId}`);
+        matches(SubscriptionDetail, detail.body);
+        expect(detail.body.subscription.budgetId).toBeNull();
+        expect(await categoryOf(rowId)).toEqual(inBudget);
+      } finally {
+        // Later tests count the subscriptions, budgets and rows.
+        if (subscriptionId) await send('delete', `/subscriptions/${subscriptionId}`).expect(200);
+        await send('delete', `/budgets/${budget.body.id}`).expect(200);
+        await dataSource.query('DELETE FROM transactions WHERE statement_id = ANY($1)', [statementIds]);
+        await dataSource.query('DELETE FROM statements WHERE id = ANY($1)', [statementIds]);
+      }
     });
   });
 
@@ -581,10 +894,11 @@ describe('API contracts (e2e)', () => {
       matches(ReviewInboxByStatement, (await get('/review-inbox/statements')).body);
     });
 
-    it('GET /payees and /payees/:id/pending-review', async () => {
+    it('GET /payees, /payees/:id and /payees/:id/pending-review', async () => {
       const res = await get('/payees');
       matches(PayeesPage, res.body);
       expect(res.body.data.length).toBeGreaterThan(0);
+      matches(Payee, (await get(`/payees/${res.body.data[0].id}`)).body);
       matches(PayeePendingReview, (await get(`/payees/${res.body.data[0].id}/pending-review`)).body);
     });
   });
@@ -1081,6 +1395,27 @@ describe('API contracts (e2e)', () => {
       const summaries = await get(`/custom-tables/${tableId}/summaries`);
       matches(CustomTableSummaries, summaries.body);
       expect(summaries.body.items).toHaveLength(1);
+    });
+
+    it('GET /custom-tables/:id/money-total', async () => {
+      const amounts = [250.25, -40];
+      const table = await send('post', '/custom-tables', { name: 'Contract balance' }).expect(201);
+      const money = await send('post', `/custom-tables/${table.body.id}/columns`, {
+        title: 'Amount',
+        type: 'currency',
+      }).expect(201);
+      for (const value of amounts) {
+        await send('post', `/custom-tables/${table.body.id}/rows`, {
+          data: { [money.body.key]: value },
+        }).expect(201);
+      }
+      const total = await get(`/custom-tables/${table.body.id}/money-total`);
+      matches(CustomTableMoneyTotal, total.body);
+      expect(total.body).toMatchObject({
+        column: money.body.key,
+        total: amounts.reduce((a, b) => a + b, 0),
+        missing: [],
+      });
     });
 
     it('GET the public share and /reports/custom-tables/available', async () => {
@@ -1592,6 +1927,21 @@ describe('API contracts (e2e)', () => {
           .body,
       );
       matches(ReceiptRecordUpdate, (await call('delete', `/receipts/${receiptId}/location`).expect(200)).body);
+
+      const booked = (await get('/receipts')).body.data.find(
+        (receipt: { transactionId: string | null }) => receipt.transactionId,
+      );
+      const rate = (await get('/tax-rates')).body.find(
+        (candidate: { name: string }) => candidate.name === 'Mutation 5%',
+      );
+      matches(ReceiptTax, (await get(`/receipts/${booked.id}/tax`)).body);
+      const picked = await call('put', `/receipts/${booked.id}/tax`, { taxRateId: rate.id }).expect(200);
+      matches(ReceiptTax, picked.body);
+      expect(picked.body).toMatchObject({ taxRateId: rate.id, taxSource: 'manual' });
+      expect(picked.body.taxAmount).not.toBeNull();
+      const automatic = await call('put', `/receipts/${booked.id}/tax`, { taxRateId: null }).expect(200);
+      matches(ReceiptTax, automatic.body);
+      expect(automatic.body.taxSource).not.toBe('manual');
     });
     it('registration and login, which reopens the last workspace', async () => {
       const newcomer = `contracts-newcomer-${Date.now()}@example.com`;
@@ -1816,6 +2166,12 @@ describe('API contracts (e2e)', () => {
       const transactions = await get('/transactions?page=1&limit=50');
       matches(TransactionListPage, transactions.body);
       expect(transactions.body.data[0]).toHaveProperty('statementId');
+      const ledger = await get('/transactions?page=1&limit=50&running_balance=1');
+      matches(TransactionListPage, ledger.body);
+      expect(ledger.body.data[0]).toHaveProperty('runningBalance');
+      const overview = await get('/transactions/overview');
+      matches(TransactionsOverview, overview.body);
+      expect(overview.body.months).toHaveLength(12);
     });
 
     it("never hands out server paths or other members' account rows", async () => {
