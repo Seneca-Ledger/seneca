@@ -99,6 +99,7 @@ export function budgetItem(
     isActive: true,
     unconvertedSpending: [],
     beforeStartSpending: [],
+    subscriptionReserve: { amount: 0, items: [] },
     ...overrides,
   };
 }
@@ -158,6 +159,7 @@ export function subscriptionRow(
     lastChargeDate: null,
     categoryId: null,
     category: null,
+    budgetId: null,
     usageCount: 0,
     usageSince: null,
     lastUsedAt: null,

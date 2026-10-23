@@ -52,6 +52,21 @@ export const BudgetItem = Schema.Struct({
   beforeStartSpending: Schema.Array(
     Schema.Struct({ currency: Schema.String, amount: Schema.Number }),
   ),
+  /**
+   * Charges of active subscriptions paid from this budget that still fall in
+   * the current period, from today to its end, in the budget's currency.
+   * Already-paid ones are in spentAmount (their rows carry the category).
+   */
+  subscriptionReserve: Schema.Struct({
+    amount: Schema.Number,
+    items: Schema.Array(
+      Schema.Struct({
+        subscriptionId: Schema.String,
+        vendorName: Schema.String,
+        amount: Schema.Number,
+      }),
+    ),
+  }),
 });
 export type BudgetItem = Wire<typeof BudgetItem>;
 

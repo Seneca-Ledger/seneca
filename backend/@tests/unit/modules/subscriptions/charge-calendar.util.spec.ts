@@ -1,7 +1,9 @@
 import { SubscriptionFrequency } from '@/entities/subscription.entity';
 import {
   chargeAt,
+  countChargesBetween,
   projectMonthlyCharges,
+  splitMonthCharges,
 } from '@/modules/subscriptions/charge-calendar.util';
 
 const FROM = new Date(2026, 0, 15); // 15 Jan 2026
@@ -99,5 +101,80 @@ describe('chargeAt', () => {
     const mar = chargeAt(new Date(2026, 0, 31), SubscriptionFrequency.MONTHLY, 2);
     expect(mar.getMonth()).toBe(2);
     expect(mar.getDate()).toBe(31);
+  });
+});
+
+describe('splitMonthCharges', () => {
+  const TODAY = new Date(2026, 9, 15); // 15 Oct 2026
+
+  it('counts a charge already rolled forward by the cron as paid', () => {
+    // Charged on the 10th; the cron moved the next charge to 10 Nov.
+    expect(
+      splitMonthCharges(new Date(2026, 10, 10), SubscriptionFrequency.MONTHLY, TODAY),
+    ).toEqual({ paid: 1, unpaid: 0 });
+  });
+
+  it('counts a charge later this month as unpaid', () => {
+    expect(
+      splitMonthCharges(new Date(2026, 9, 20), SubscriptionFrequency.MONTHLY, TODAY),
+    ).toEqual({ paid: 0, unpaid: 1 });
+  });
+
+  it('counts a charge due today as paid', () => {
+    expect(splitMonthCharges(TODAY, SubscriptionFrequency.MONTHLY, TODAY)).toEqual({
+      paid: 1,
+      unpaid: 0,
+    });
+  });
+
+  it('splits weekly charges around today', () => {
+    // Fridays in Oct 2026: 2, 9 paid; 16, 23, 30 still to come.
+    expect(
+      splitMonthCharges(new Date(2026, 9, 16), SubscriptionFrequency.WEEKLY, TODAY),
+    ).toEqual({ paid: 2, unpaid: 3 });
+  });
+
+  it('leaves out an annual charge billed in another month', () => {
+    expect(
+      splitMonthCharges(new Date(2027, 2, 3), SubscriptionFrequency.ANNUAL, TODAY),
+    ).toEqual({ paid: 0, unpaid: 0 });
+  });
+
+  it('catches up a stale next charge from an earlier month', () => {
+    expect(
+      splitMonthCharges(new Date(2026, 8, 25), SubscriptionFrequency.MONTHLY, TODAY),
+    ).toEqual({ paid: 0, unpaid: 1 });
+  });
+
+  it('returns nothing without a charge date', () => {
+    expect(splitMonthCharges(null, SubscriptionFrequency.MONTHLY, TODAY)).toEqual({
+      paid: 0,
+      unpaid: 0,
+    });
+  });
+});
+
+describe('countChargesBetween', () => {
+  const from = new Date(2026, 4, 8);
+  const to = new Date(2026, 4, 31);
+
+  it('counts the charges between two days, both included', () => {
+    expect(countChargesBetween('2026-05-11', SubscriptionFrequency.WEEKLY, from, to)).toBe(3);
+    expect(countChargesBetween('2026-05-08', SubscriptionFrequency.WEEKLY, from, to)).toBe(4);
+    expect(countChargesBetween('2026-05-31', SubscriptionFrequency.MONTHLY, from, to)).toBe(1);
+  });
+
+  it('catches a stale next charge up and leaves out days before the range', () => {
+    expect(countChargesBetween('2026-04-03', SubscriptionFrequency.WEEKLY, from, to)).toBe(4);
+  });
+
+  it('leaves out charges already paid ahead of their day', () => {
+    expect(
+      countChargesBetween('2026-05-11', SubscriptionFrequency.WEEKLY, from, to, new Set(['2026-05-11'])),
+    ).toBe(2);
+  });
+
+  it('counts nothing without a next charge', () => {
+    expect(countChargesBetween(null, SubscriptionFrequency.MONTHLY, from, to)).toBe(0);
   });
 });

@@ -133,6 +133,15 @@ export const queryKeys = {
     ['subscriptions', o.workspaceId, 'upcoming', o.days] as const,
   subscriptionsChargeCalendar: (o: { workspaceId: string | null; months: number }) =>
     ['subscriptions', o.workspaceId, 'charge-calendar', o.months] as const,
+  subscriptionsMonthStatus: (workspaceId: string | null) =>
+    ['subscriptions', workspaceId, 'month-status'] as const,
+  subscriptionDetail: (o: { workspaceId: string | null; id: string }) =>
+    ['subscriptions', o.workspaceId, 'detail', o.id] as const,
+  subscriptionChargeCandidates: (o: {
+    workspaceId: string | null;
+    vendorName: string;
+    statementId: string | null;
+  }) => ['subscriptions', o.workspaceId, 'charge-candidates', o.vendorName, o.statementId] as const,
   auditEvents: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['audit-events', o.workspaceId, o.params] as const,
   forecast: (o: { workspaceId: string | null; days: number; scenario: string }) =>

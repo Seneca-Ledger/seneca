@@ -1,58 +1,78 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { subscriptionRow } from '@/app/test/fixtures/contracts';
+import { budgetItem, subscriptionRow } from '@/app/test/fixtures/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import type { SubscriptionItem } from '../hooks/useSubscriptionsPage';
 import { normalizeSubscription } from '../hooks/useSubscriptionsPage';
 import { SubscriptionDetailsDrawer } from './SubscriptionDetailsDrawer';
+
+const apiPost = vi.hoisted(() => vi.fn(async () => ({ data: {} })));
 
 vi.mock('@/app/i18n', async importOriginal => ({
   ...(await importOriginal<typeof import('@/app/i18n')>()),
   useLocale: () => ({ locale: 'en' }),
 }));
 
+vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
+vi.mock('@/app/lib/api', () => ({ default: { post: apiPost }, apiBaseUrl: '/api/v1' }));
+vi.mock('@/app/lib/query-fn-schema', () => ({
+  apiQueryDecoded: vi.fn(async ({ url }: { url: string }) =>
+    url === '/budgets'
+      ? [budgetItem({ id: 'budget-1', name: 'Software' })]
+      : {
+    subscription: {},
+    charges: [
+      {
+        id: 'charge-1',
+        transactionId: null,
+        amount: '42.00',
+        currency: 'ILS',
+        chargeDate: '2026-09-10',
+        expectedAmount: '42.00',
+        expectedDate: null,
+        matchStatus: 'matched',
+        createdAt: '2026-09-10T00:00:00.000Z',
+      },
+    ],
+    decisions: [],
+    autoLinkPayees: [{ payeeId: 'payee-1', name: 'ACME Music Ltd', shared: false }],
+  }),
+}));
+
+vi.mock('@/app/components/CustomDatePicker', () => ({
+  default: ({ onChange }: { onChange: (value: string) => void }) => (
+    <input aria-label="Payment date" onChange={event => onChange(event.target.value)} />
+  ),
+}));
 vi.mock('@/app/components/ui/drawer-shell', () => ({
   DrawerShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@/app/lib/query-fn-schema', () => ({
-  apiQueryDecoded: vi.fn(async () => ({ charges: [], decisions: [] })),
-}));
-
-const SUBSCRIPTION_ID = 'sub-1';
-const VENDOR_NAME = 'ACME Store - Wireless Buds';
-const OWNER_ID = 'member-1';
-
 const subscription: SubscriptionItem = normalizeSubscription(
   subscriptionRow({
-    id: SUBSCRIPTION_ID,
-    vendorName: VENDOR_NAME,
-    amount: '10.00',
-    currency: 'USD',
-    ownerId: OWNER_ID,
+    id: 'sub-1',
+    vendorName: 'ACME Store - Wireless Buds',
+    amount: '42.00',
+    currency: 'ILS',
     nextChargeDate: '2026-11-10',
   }),
 );
 
-const members = [
-  { id: OWNER_ID, name: 'Member One', email: 'member-1@example.com' },
-  { id: 'member-2', name: 'Member Two', email: 'member-2@example.com' },
-] as React.ComponentProps<typeof SubscriptionDetailsDrawer>['members'];
-
 function renderDrawer(overrides: Partial<SubscriptionItem> = {}) {
   const onDecision = vi.fn(async () => undefined);
-  const onAssignOwner = vi.fn(async () => undefined);
+  const onEdit = vi.fn();
+  const onStatusChange = vi.fn(async () => undefined);
   renderWithQuery(
     <SubscriptionDetailsDrawer
       subscription={{ ...subscription, ...overrides }}
-      members={members}
       onClose={vi.fn()}
-      onAssignOwner={onAssignOwner}
+      onEdit={onEdit}
       onDecision={onDecision}
+      onStatusChange={onStatusChange}
     />,
   );
-  return { onDecision, onAssignOwner };
+  return { onDecision, onEdit, onStatusChange };
 }
 
 describe('SubscriptionDetailsDrawer', () => {
@@ -60,42 +80,105 @@ describe('SubscriptionDetailsDrawer', () => {
     renderDrawer();
 
     expect(screen.getByText('Active')).toHaveClass('lumio-sub-detail__dot');
-    expect(screen.getByText('$10')).toBeInTheDocument();
+    expect(screen.getByText('₪42')).toBeInTheDocument();
     expect(screen.getByText('Expected charge').nextSibling).toHaveTextContent('Nov 10, 2026');
     expect(screen.getByText('Last charge').nextSibling).toHaveTextContent('—');
-    expect(screen.getByText(VENDOR_NAME[0])).toBeInTheDocument();
+    expect(screen.getByText('A')).toBeInTheDocument();
   });
 
-  it('offers to assign an owner only once a different person is picked', () => {
+  it('shows nothing beyond the price and dates: no owner, review, reason or history', () => {
     renderDrawer();
 
-    expect(screen.queryByRole('button', { name: 'Assign owner' })).toBeNull();
+    expect(screen.queryByText('Owner')).toBeNull();
+    expect(screen.queryByText('Reason')).toBeNull();
+    expect(screen.queryByText('Charge history')).toBeNull();
+    expect(screen.queryByRole('tab')).toBeNull();
   });
 
-  it('switches between keep and review as one state, recorded at once', () => {
-    const { onDecision } = renderDrawer({ reviewStatus: 'needs_review' });
-
-    expect(screen.getByRole('tab', { name: 'Review' })).toHaveAttribute('aria-selected', 'true');
-    fireEvent.click(screen.getByRole('tab', { name: 'Keep' }));
-
-    expect(onDecision).toHaveBeenCalledWith(SUBSCRIPTION_ID, 'keep', { reviewAt: undefined });
-    expect(screen.getByRole('tab', { name: 'Keep' })).toHaveAttribute('aria-selected', 'true');
-  });
-
-  it('records a cancellation from a quiet text button, with the reason and savings', () => {
+  it('cancels from a quiet text button', () => {
     const { onDecision } = renderDrawer();
 
-    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Not used' } });
-    fireEvent.change(screen.getByLabelText('Realized annual savings'), {
-      target: { value: '120' },
-    });
     const cancel = screen.getByRole('button', { name: 'Record cancellation' });
     expect(cancel).toHaveClass('MuiButton-text');
     fireEvent.click(cancel);
 
-    expect(onDecision).toHaveBeenCalledWith(SUBSCRIPTION_ID, 'cancelled', {
-      note: 'Not used',
-      realizedAnnualSavings: 120,
-    });
+    expect(onDecision).toHaveBeenCalledWith('sub-1', 'cancelled');
+  });
+
+  it('lists the payments and offers to link one typed in by hand', async () => {
+    renderDrawer();
+
+    expect(await screen.findByText('Sep 10, 2026')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Link' })).toBeInTheDocument();
+  });
+
+  it('names the budget the subscription is paid from', async () => {
+    renderDrawer({ budgetId: 'budget-1' });
+
+    expect((await screen.findByText('Budget')).nextSibling).toHaveTextContent('Software');
+  });
+
+  it('says which payees are added automatically', async () => {
+    renderDrawer();
+
+    expect(
+      await screen.findByText('New rows from ACME Music Ltd are added here automatically.'),
+    ).toBeInTheDocument();
+  });
+
+  it('records a payment typed in against the subscription', async () => {
+    renderDrawer();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add payment' }));
+    fireEvent.change(screen.getByLabelText('Payment date'), { target: { value: '2026-08-10' } });
+    fireEvent.change(screen.getByPlaceholderText('42'), { target: { value: '40' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    await waitFor(() =>
+      expect(apiPost).toHaveBeenCalledWith('/subscriptions/sub-1/charges', {
+        chargeDate: '2026-08-10',
+        amount: 40,
+      }),
+    );
+  });
+
+  it('opens the form to correct the name or the price', () => {
+    const { onEdit } = renderDrawer();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Subscription' }));
+
+    expect(onEdit).toHaveBeenCalled();
+  });
+
+  it('pauses an active subscription', () => {
+    const { onStatusChange } = renderDrawer();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+
+    expect(onStatusChange).toHaveBeenCalledWith('sub-1', 'paused');
+    expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
+  });
+
+  it('resumes a paused one, which can still be cancelled', () => {
+    const { onStatusChange } = renderDrawer({ status: 'paused' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+
+    expect(onStatusChange).toHaveBeenCalledWith('sub-1', 'active');
+    expect(screen.getByRole('button', { name: 'Record cancellation' })).toBeInTheDocument();
+  });
+
+  it('brings a cancelled one back', () => {
+    const { onStatusChange } = renderDrawer({ status: 'cancelled' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reactivate' }));
+
+    expect(onStatusChange).toHaveBeenCalledWith('sub-1', 'active');
+  });
+
+  it('drops the cancel button once the subscription is cancelled', () => {
+    renderDrawer({ status: 'cancelled' });
+
+    expect(screen.queryByRole('button', { name: 'Record cancellation' })).toBeNull();
   });
 });

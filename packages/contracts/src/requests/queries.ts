@@ -79,6 +79,13 @@ export const ChargeCalendarQuery = Schema.Struct({
 });
 export type ChargeCalendarQuery = Wire<typeof ChargeCalendarQuery>;
 
+/** `GET /subscriptions/charge-candidates`: rows to link as payments of this vendor. */
+export const SubscriptionChargeCandidatesQuery = Schema.Struct({
+  vendorName: Schema.optional(Schema.String.check(Schema.isMaxLength(255))),
+  statementId: Schema.optional(Schema.String.check(Schema.isUUID())),
+});
+export type SubscriptionChargeCandidatesQuery = Wire<typeof SubscriptionChargeCandidatesQuery>;
+
 /**
  * `GET /goals` narrows the list to goals moved forward in this month;
  * `GET /goals/:id/flow` reads this month (the current one when absent).

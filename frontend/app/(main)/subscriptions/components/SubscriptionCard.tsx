@@ -58,6 +58,13 @@ export const RISK_LABELS = {
   missing_charge: 'riskMissingCharge',
 } as const;
 
+/**
+ * The `?focus=` groups a subscription answers (see useAttentionFocus):
+ * `price-changed` is the dashboard's "Price changed" chip.
+ */
+export const attentionGroups = (subscription: SubscriptionItem): string | undefined =>
+  subscription.riskStatus === 'price_changed' ? 'price-changed' : undefined;
+
 export function SubscriptionCard({
   subscription,
   onEdit,
@@ -91,6 +98,7 @@ export function SubscriptionCard({
     <Card
       variant="outlined"
       data-attention={`subscription:${subscription.id}`}
+      data-attention-group={attentionGroups(subscription)}
       sx={{ position: 'relative' }}
     >
       <CardContent sx={{ pb: 1.5, '&:last-child': { pb: 1.5 } }}>

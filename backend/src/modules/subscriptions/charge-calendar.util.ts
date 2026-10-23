@@ -71,3 +71,86 @@ export function projectMonthlyCharges(
 
   return buckets;
 }
+
+/**
+ * The charges of one subscription in the calendar month `today` falls in, split
+ * by date: on or before today counts as paid, after it as still to pay.
+ *
+ * Walks back from the next charge as well as forward, because the daily cron
+ * has already rolled `nextChargeDate` past the charges made earlier this month.
+ */
+export function splitMonthCharges(
+  nextChargeDate: Date | null,
+  frequency: SubscriptionFrequency,
+  today: Date,
+): { paid: number; unpaid: number } {
+  const split = { paid: 0, unpaid: 0 };
+  if (!nextChargeDate) return split;
+
+  const anchor = new Date(nextChargeDate);
+  if (Number.isNaN(anchor.getTime())) return split;
+
+  const month = bucketOf(today);
+  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  const count = (charge: Date): void => {
+    if (charge < endOfToday) split.paid += 1;
+    else split.unpaid += 1;
+  };
+
+  for (let index = -1; index > -MAX_STEPS; index -= 1) {
+    const charge = chargeAt(anchor, frequency, index);
+    if (bucketOf(charge) < month) break;
+    if (bucketOf(charge) === month) count(charge);
+  }
+  // Forward from the anchor itself; a stale one in an earlier month is caught up.
+  for (let index = 0; index < MAX_STEPS; index += 1) {
+    const charge = chargeAt(anchor, frequency, index);
+    if (bucketOf(charge) > month) break;
+    if (bucketOf(charge) === month) count(charge);
+  }
+
+  return split;
+}
+
+/**
+ * How many charges of one subscription fall between two days, both included,
+ * stepping from its next charge as the calendar does, less the ones in `paid`
+ * (`YYYY-MM-DD` days already covered by a payment made ahead of them). A
+ * `date` column arrives as `YYYY-MM-DD` and is read as that local day.
+ */
+export function countChargesBetween(
+  nextChargeDate: Date | string | null,
+  frequency: SubscriptionFrequency,
+  from: Date,
+  to: Date,
+  paid: ReadonlySet<string> = new Set(),
+): number {
+  if (!nextChargeDate) return 0;
+  const anchor =
+    typeof nextChargeDate === 'string'
+      ? localDayOf(nextChargeDate)
+      : new Date(nextChargeDate.getFullYear(), nextChargeDate.getMonth(), nextChargeDate.getDate());
+  if (Number.isNaN(anchor.getTime())) return 0;
+  const first = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
+  const last = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime();
+
+  let count = 0;
+  for (let index = 0; index < MAX_STEPS; index += 1) {
+    const charge = chargeAt(anchor, frequency, index);
+    const at = charge.getTime();
+    if (at > last) break;
+    if (at >= first && !paid.has(dayKey(charge))) count += 1;
+  }
+  return count;
+}
+
+function localDayOf(value: string): Date {
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate(),
+  ).padStart(2, '0')}`;
+}

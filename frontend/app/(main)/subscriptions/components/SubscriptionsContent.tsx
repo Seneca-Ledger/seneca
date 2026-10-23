@@ -16,10 +16,11 @@ import {
   Typography,
 } from '@mui/material';
 import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
+import { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
 
 import { Pencil, Plus, Trash2 } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { CalendarLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
 import {
@@ -52,7 +53,7 @@ import type {
   SubscriptionSummary,
   SubscriptionWorkspaceMember,
 } from '../hooks/useSubscriptionsPage';
-import { RISK_LABELS, STATUS_LABELS, SubscriptionCard } from './SubscriptionCard';
+import { attentionGroups, RISK_LABELS, STATUS_LABELS, SubscriptionCard } from './SubscriptionCard';
 import { SubscriptionDetailsDrawer } from './SubscriptionDetailsDrawer';
 import { SubscriptionFormDrawer } from './SubscriptionFormDrawer';
 import { filterSubscriptions } from './subscription-filter.utils';
@@ -82,7 +83,7 @@ interface SubscriptionsContentProps {
   dialogOpen: boolean;
   editingSubscription: SubscriptionItem | null;
   formData: SubscriptionFormData;
-  setFormData: (data: SubscriptionFormData) => void;
+  setFormData: Dispatch<SetStateAction<SubscriptionFormData>>;
   saving: boolean;
   openCreate: () => void;
   invalidate: () => Promise<void>;
@@ -92,12 +93,12 @@ interface SubscriptionsContentProps {
   handleDelete: (id: string) => void;
   handleConfirm: (id: string) => void;
   handleDismiss: (id: string) => void;
-  assignOwner: (id: string, ownerId: string) => Promise<void>;
   recordDecision: (
     id: string,
     decision: 'keep' | 'review' | 'cancelled' | 'price_reduced',
     values?: { note?: string; reviewAt?: string; realizedAnnualSavings?: number },
   ) => Promise<void>;
+  setStatus: (id: string, status: 'active' | 'paused') => Promise<void>;
   recordUsage?: (id: string) => Promise<void>;
   createSinkingFund?: (id: string) => Promise<void>;
   duplicateIds?: Set<string>;
@@ -165,6 +166,14 @@ const formatDate = (date: string | null) =>
 export function SubscriptionsContent(props: SubscriptionsContentProps) {
   const t = useIntlayer('subscriptionsPage');
   const { locale } = useLocale();
+  useQuickActions([
+    {
+      id: 'add-subscription',
+      label: t.addSubscription.value,
+      icon: Plus,
+      run: props.openCreate,
+    },
+  ]);
   const [search, setSearch] = useState('');
   const [ownerId, setOwnerId] = useState('');
   const [category, setCategory] = useState('');
@@ -310,7 +319,11 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
             {t.businessReport}
           </Button>
           {/* With nothing yet the empty state's own button is the one to press. */}
-          <Button variant={noneYet ? 'outlined' : 'contained'} onClick={props.openCreate}>
+          <Button
+            variant={noneYet ? 'outlined' : 'contained'}
+            className="seneca-bottom-bar-source"
+            onClick={props.openCreate}
+          >
             <Plus size={18} aria-hidden />
             {t.addSubscription}
           </Button>
@@ -338,25 +351,34 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           {
             label: t.kpiForecast.value,
             icon: Calendar,
-            value: String(props.summary.upcoming30DaysCount),
+            // The money that leaves first; how many charges that is, under it.
+            value: (
+              <PrivateAmount>
+                {formatAmount(props.summary.upcoming30DaysAmount, props.workspaceCurrency)}
+              </PrivateAmount>
+            ),
+            detail: props.summary.upcoming30DaysCount
+              ? t.kpiForecastCharges.value.replace(
+                  '{count}',
+                  String(props.summary.upcoming30DaysCount),
+                )
+              : undefined,
           },
           {
             label: t.kpiPriceChanges.value,
             icon: TrendingUp,
-            // The yearly effect is the number people actually ask for.
-            value: props.summary.priceChangeYearlyEffect ? (
-              <>
-                {`${props.summary.priceChangeCount} · `}
+            value: String(props.summary.priceChangeCount),
+            // What the changes cost over a year, signed, on a quiet line of its own.
+            detail: props.summary.priceChangeYearlyEffect ? (
+              <PrivateAmount>
                 {fillTemplateNodes(t.yearlyEffect.value, {
-                  amount: formatAmount(
-                    props.summary.priceChangeYearlyEffect,
+                  amount: `${props.summary.priceChangeYearlyEffect > 0 ? '+' : '−'}${formatAmount(
+                    Math.abs(props.summary.priceChangeYearlyEffect),
                     props.workspaceCurrency,
-                  ),
+                  )}`,
                 })}
-              </>
-            ) : (
-              String(props.summary.priceChangeCount)
-            ),
+              </PrivateAmount>
+            ) : undefined,
             // Only a count that needs attention gets a colour.
             accent: props.summary.priceChangeCount > 0 ? 'warning.main' : undefined,
           },
@@ -381,7 +403,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
               </PrivateAmount>
             ),
           },
-        ].map(({ label, icon: Icon, value, accent }) => (
+        ].map(({ label, icon: Icon, value, accent, detail }) => (
           // Its own stacking context, so the icon sits under the text.
           <Card key={label} variant="outlined" sx={{ position: 'relative', isolation: 'isolate' }}>
             {/* The dashboard tile's faint icon, smaller: these cards are half as tall. */}
@@ -406,6 +428,18 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
               >
                 {summaryEmpty ? '—' : value}
               </Typography>
+              {!summaryEmpty && detail && (
+                <Typography
+                  sx={{
+                    mt: 0.25,
+                    fontSize: 13,
+                    color: 'text.secondary',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {detail}
+                </Typography>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -612,6 +646,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                   <tr
                     key={subscription.id}
                     data-attention={`subscription:${subscription.id}`}
+                    data-attention-group={attentionGroups(subscription)}
                     onClick={() => setSelected(subscription)}
                   >
                     <td>
@@ -678,10 +713,15 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
       )}
       <SubscriptionDetailsDrawer
         subscription={selected}
-        members={props.workspaceMembers}
         onClose={() => setSelected(null)}
-        onAssignOwner={props.assignOwner}
+        // The form takes the card's place; saving refreshes the list it reopens from.
+        onEdit={() => {
+          if (!selected) return;
+          setSelected(null);
+          props.openEdit(selected);
+        }}
         onDecision={props.recordDecision}
+        onStatusChange={props.setStatus}
       />
       <SubscriptionFormDrawer
         open={props.dialogOpen}

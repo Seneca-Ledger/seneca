@@ -8,7 +8,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, type Repository } from 'typeorm';
+import { In, IsNull, MoreThanOrEqual, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql, flowsSql } from '../../common/utils/counted-transactions.util';
@@ -23,6 +23,8 @@ import {
   NotificationSeverity,
   NotificationType,
 } from '../../entities/notification.entity';
+import { Subscription, SubscriptionStatus } from '../../entities/subscription.entity';
+import { SubscriptionCharge } from '../../entities/subscription-charge.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { AuditService } from '../audit/audit.service';
@@ -30,6 +32,7 @@ import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interf
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { BudgetExceededEvent } from '../notifications/events/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
+import { countChargesBetween } from '../subscriptions/charge-calendar.util';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import {
   clampToWindow,
@@ -55,6 +58,19 @@ export interface BudgetWithSpending extends Budget {
    * start date, per currency as booked: not counted, and said so on the card.
    */
   beforeStartSpending: UnconvertedSpending[];
+  /** Charges of active subscriptions paid from it still to come this period, in its currency. */
+  subscriptionReserve: SubscriptionReserve;
+}
+
+export interface SubscriptionReserve {
+  amount: number;
+  items: Array<{ subscriptionId: string; vendorName: string; amount: number }>;
+}
+
+/** Subscriptions paid from a set of budgets, with the charge days already paid ahead. */
+interface LinkedSubscriptions {
+  subscriptions: Subscription[];
+  paidAhead: Map<string, Set<string>>;
 }
 
 /** Spending left out of a budget's figure: no rate from its currency to the budget's. */
@@ -94,6 +110,12 @@ export class BudgetsService {
     private readonly exchangeRatesService?: ExchangeRatesService,
     @Optional()
     private readonly eventEmitter?: EventEmitter2,
+    @Optional()
+    @InjectRepository(Subscription)
+    private readonly subscriptionRepository?: Repository<Subscription>,
+    @Optional()
+    @InjectRepository(SubscriptionCharge)
+    private readonly subscriptionChargeRepository?: Repository<SubscriptionCharge>,
   ) {}
 
   async create(workspaceId: string, userId: string, dto: CreateBudgetBody): Promise<Budget> {
@@ -161,7 +183,8 @@ export class BudgetsService {
       order: { name: 'ASC' },
     });
 
-    return Promise.all(budgets.map(budget => this.attachSpending(budget, at)));
+    const linked = await this.linkedSubscriptions(workspaceId, budgets);
+    return Promise.all(budgets.map(budget => this.attachSpending(budget, at, linked)));
   }
 
   async findOne(id: string, workspaceId: string): Promise<BudgetWithSpending> {
@@ -170,7 +193,8 @@ export class BudgetsService {
       relations: ['category'],
     });
     assertFound(budget, 'Budget');
-    return this.attachSpending(budget);
+    const linked = await this.linkedSubscriptions(workspaceId, [budget]);
+    return this.attachSpending(budget, new Date(), linked);
   }
 
   async update(
@@ -375,12 +399,116 @@ export class BudgetsService {
     assertFound(goal, 'Goal');
   }
 
-  private async attachSpending(budget: Budget, now = new Date()): Promise<BudgetWithSpending> {
+  private async attachSpending(
+    budget: Budget,
+    now: Date,
+    linked: LinkedSubscriptions,
+  ): Promise<BudgetWithSpending> {
     const measured = await this.measure(budget, now);
     return Object.assign(budget, {
       ...measured,
       isActive: overlapsWindow({ start: now, end: now }, budget),
+      subscriptionReserve: await this.subscriptionReserve(budget, now, linked),
     });
+  }
+
+  /**
+   * The active subscriptions paid from any of these budgets, and the charge
+   * days from today on that a payment made ahead of them already covers: a
+   * payment before its date leaves the next charge where it was.
+   */
+  private async linkedSubscriptions(
+    workspaceId: string,
+    budgets: Budget[],
+  ): Promise<LinkedSubscriptions> {
+    const linked: LinkedSubscriptions = { subscriptions: [], paidAhead: new Map() };
+    if (!this.subscriptionRepository || budgets.length === 0) return linked;
+    linked.subscriptions = await this.subscriptionRepository.find({
+      where: {
+        workspaceId,
+        status: SubscriptionStatus.ACTIVE,
+        budgetId: In(budgets.map(budget => budget.id)),
+      },
+      select: {
+        id: true,
+        budgetId: true,
+        vendorName: true,
+        amount: true,
+        currency: true,
+        frequency: true,
+        nextChargeDate: true,
+      },
+      order: { vendorName: 'ASC' },
+    });
+    if (!this.subscriptionChargeRepository || linked.subscriptions.length === 0) return linked;
+    const today = new Date();
+    const charges = await this.subscriptionChargeRepository.find({
+      where: {
+        workspaceId,
+        subscriptionId: In(linked.subscriptions.map(subscription => subscription.id)),
+        expectedDate: MoreThanOrEqual(localDay(today) as unknown as Date),
+      },
+      select: { subscriptionId: true, expectedDate: true },
+    });
+    for (const charge of charges) {
+      if (!charge.expectedDate) continue;
+      const days = linked.paidAhead.get(charge.subscriptionId) ?? new Set<string>();
+      days.add(String(charge.expectedDate).slice(0, 10));
+      linked.paidAhead.set(charge.subscriptionId, days);
+    }
+    return linked;
+  }
+
+  /**
+   * What the budget's subscriptions will still take this period: each charge
+   * from today (or the period's start, if later) to the period's end. Paid
+   * ones are behind today and their rows are in spentAmount already; a payment
+   * made early has moved the next charge past it. A subscription in a currency
+   * with no rate to the budget's is left out rather than counted one to one.
+   */
+  private async subscriptionReserve(
+    budget: Budget,
+    now: Date,
+    linked: LinkedSubscriptions,
+  ): Promise<SubscriptionReserve> {
+    const reserve: SubscriptionReserve = { amount: 0, items: [] };
+    const subscriptions = linked.subscriptions.filter(
+      subscription => subscription.budgetId === budget.id,
+    );
+    const period = clampToWindow(computePeriodRange(budget.periodType, now), budget);
+    if (!period || subscriptions.length === 0) return reserve;
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const from = period.start > startOfToday ? period.start : startOfToday;
+    if (from > period.end) return reserve;
+
+    let total = 0;
+    for (const subscription of subscriptions) {
+      const count = countChargesBetween(
+        subscription.nextChargeDate,
+        subscription.frequency,
+        from,
+        period.end,
+        linked.paidAhead.get(subscription.id),
+      );
+      if (count === 0) continue;
+      const rate = await this.rateOrNull(
+        subscription.currency,
+        budget.currency,
+        today,
+        budget.workspaceId,
+      );
+      if (rate === null) continue;
+      const amount = Number(subscription.amount) * count * rate;
+      total += amount;
+      reserve.items.push({
+        subscriptionId: subscription.id,
+        vendorName: subscription.vendorName,
+        amount: Math.round(amount * 100) / 100,
+      });
+    }
+    reserve.amount = Math.round(total * 100) / 100;
+    return reserve;
   }
 
   /**
@@ -634,6 +762,20 @@ export class BudgetsService {
     };
   }
 
+  /** The rate from one currency to another on a day: 1 for the same one, null when none is known. */
+  private async rateOrNull(
+    from: string,
+    to: string,
+    day: Date,
+    workspaceId: string,
+  ): Promise<number | null> {
+    if (!from || from.toUpperCase() === to.toUpperCase()) return 1;
+    if (!this.exchangeRatesService) return null;
+    return this.exchangeRatesService
+      .getRateOrNull(from.toUpperCase(), to.toUpperCase(), day, workspaceId)
+      .catch(() => null);
+  }
+
   /** `amount` in `to`; null when the two currencies differ and no rate is at hand. */
   private async inCurrency(
     amount: number,
@@ -790,4 +932,11 @@ function assertWindowOrdered(
   if (startsOn && endsOn && startsOn > endsOn) {
     throw new BadRequestException('Budget "endsOn" must not be earlier than "startsOn"');
   }
+}
+
+/** A day in local time, as a `date` column stores it. */
+function localDay(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate(),
+  ).padStart(2, '0')}`;
 }

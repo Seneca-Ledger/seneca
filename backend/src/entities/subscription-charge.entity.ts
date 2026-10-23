@@ -39,12 +39,13 @@ export class SubscriptionCharge {
   @Column({ name: 'subscription_id', type: 'uuid' })
   subscriptionId: string;
 
-  @ManyToOne(() => Transaction, { onDelete: 'CASCADE' })
+  /** Null for a payment recorded by hand and not linked to its bank row yet. */
+  @ManyToOne(() => Transaction, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'transaction_id' })
-  transaction: Transaction;
+  transaction: Transaction | null;
 
-  @Column({ name: 'transaction_id', type: 'uuid' })
-  transactionId: string;
+  @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
+  transactionId: string | null;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount: number;
