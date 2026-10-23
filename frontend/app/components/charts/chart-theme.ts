@@ -14,9 +14,6 @@ export const CHART_TICK = {
   fontFamily: 'var(--font-dashboard-sans)',
 };
 
-/** Bars other than the picked month are dimmed to this opacity. */
-export const INACTIVE_BAR_OPACITY = 0.45;
-
 /** A forecast is a guess: the same colours as the facts, and much fainter. */
 export const FORECAST_OPACITY = 0.35;
 

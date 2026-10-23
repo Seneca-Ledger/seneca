@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnalyticsMonthEmpty } from '@/app/(main)/statements/components/analytics/flow/AnalyticsMonthEmpty';
 import { SpendFlowSkeleton } from '@/app/(main)/statements/components/analytics/flow/SpendFlowSkeleton';
@@ -8,12 +9,15 @@ import {
   findSpendFlowNodeId,
   type SpendFlowChartLabels,
   spendFlowChartHeight,
+  spendFlowTarget,
   visibleSpendFlow,
 } from '@/app/(main)/statements/components/analytics/flow/spend-flow.chart';
 import {
   type SpendFlowGroupBy,
   useSpendFlow,
+  useSpendFlowRange,
 } from '@/app/(main)/statements/components/analytics/flow/useSpendFlow';
+import { resolveDocumentsHref } from '@/app/(main)/statements/components/documents-for-rows';
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
 import { useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -127,6 +131,19 @@ export function SpendFlowChart({
   useEffect(() => {
     void import('echarts-for-react');
   }, []);
+  const router = useRouter();
+  const range = useSpendFlowRange(month);
+  // A node, or the band flowing into it, opens the documents behind it.
+  const chartEvents = {
+    click: (params: { dataType?: string; name?: string; data?: { target?: string } }) => {
+      const id = params.dataType === 'edge' ? params.data?.target : params.name;
+      const target = id ? spendFlowTarget(id, groupBy) : null;
+      if (!target) return;
+      void resolveDocumentsHref(target, range.dateFrom, range.dateTo).then(href =>
+        router.push(href),
+      );
+    },
+  };
   const [containerRef, width] = useContainerWidth<HTMLDivElement>();
   const compact = width !== null && width < COMPACT_WIDTH;
   const data = query.data;
@@ -244,6 +261,7 @@ export function SpendFlowChart({
         option={option}
         notMerge
         onChartReady={handleChartReady}
+        onEvents={chartEvents}
         style={{ height: spendFlowChartHeight(data, compact), width: '100%' }}
       />
     );

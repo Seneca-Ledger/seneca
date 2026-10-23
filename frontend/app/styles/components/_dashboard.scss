@@ -957,6 +957,10 @@
     padding: 20px 16px 0;
   }
 
+  &__title {
+    margin-bottom: 16px;
+  }
+
   &__greet {
     display: inline-flex;
     align-items: center;
@@ -1189,8 +1193,10 @@
 }
 
 /* Too narrow for halves (a phone, a tablet with the sidebar open): cards take
-   the whole row and KPI tiles go two by two rather than a column of four. */
-@container overview (max-width: 720px) {
+   the whole row and KPI tiles go two by two rather than a column of four.
+   Phones and tablets (the shell without a sidebar, below 1024px) get it at any
+   width, so a tablet reads like a phone. */
+@mixin overview-single-column {
   .seneca-overview__section {
     grid-column: 1 / -1;
 
@@ -1203,6 +1209,14 @@
       grid-column: 1 / -1;
     }
   }
+}
+
+@container overview (max-width: 720px) {
+  @include overview-single-column;
+}
+
+@media (max-width: 1023px) {
+  @include overview-single-column;
 }
 
 /* ── Getting started checklist ── */

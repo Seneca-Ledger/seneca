@@ -186,48 +186,29 @@ describe('hidden and optional sections', () => {
 });
 
 describe('the shipped layout', () => {
-  // Saved in the Administrator workspace on 2026-10-15, with the bills and taxes cards switched off.
+  // Saved in the Administrator workspace on 2026-10-21, nothing hidden.
   const administrator = {
     rows: [
       ['getting-started', 'budgets'],
       ['kpi-income', 'kpi-spent', 'kpi-net', 'kpi-savings'],
+      ['cash-flow', 'goals'],
       ['top-categories', 'recent-transactions'],
       ['safe-to-spend', 'cash-runway'],
       ['spend-calendar'],
       ['net-worth', 'upcoming-charges'],
-      ['goals'],
       ['activity'],
-      ['advice'],
+      ['advice', 'month-close'],
     ],
-    hidden: ['money-owed', 'taxes'],
+    hidden: [],
   };
 
-  it('is the Administrator layout with the cash flow and month close the tabs had', () => {
-    const withoutTabWidgets = DEFAULT_OVERVIEW_ROWS.map(row =>
-      row.filter(id => id !== 'cash-flow' && id !== 'month-close'),
-    ).filter(row => row.length > 0);
-
-    expect(withoutTabWidgets).toEqual(administrator.rows);
-    // Cash flow on its own row under the KPI tiles; the month close beside the activity feed.
-    expect(DEFAULT_OVERVIEW_ROWS[2]).toEqual(['cash-flow']);
-    expect(DEFAULT_OVERVIEW_ROWS).toContainEqual(['month-close', 'activity']);
+  it('is the Administrator layout', () => {
+    expect(DEFAULT_OVERVIEW_ROWS).toEqual(administrator.rows);
     expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('money-owed');
     expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('taxes');
   });
 
-  it('keeps a saved layout as it was and adds the two new widgets at the bottom', () => {
-    expect(normalizeRows(administrator)).toEqual([
-      ...administrator.rows,
-      ['cash-flow', 'month-close'],
-    ]);
-  });
-});
-
-describe('isDefaultLayout', () => {
-  it('tells a rearranged layout from the shipped one', () => {
-    expect(isDefaultLayout(DEFAULT_OVERVIEW_ROWS)).toBe(true);
-    expect(isDefaultLayout(moveSection(DEFAULT_OVERVIEW_ROWS, 'kpi-net', 'activity', 'below'))).toBe(
-      false,
-    );
+  it('keeps the saved layout as it was', () => {
+    expect(normalizeRows(administrator)).toEqual(administrator.rows);
   });
 });

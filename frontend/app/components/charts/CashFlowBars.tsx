@@ -5,168 +5,134 @@
 'use client';
 
 import type React from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { ChartTooltipCard } from './ChartParts';
-import {
-  computeYearTicks,
-  formatMonthLabel,
-  formatShortMonthLabel,
-  formatSignedAmount,
-  monthAtIndex,
-} from './chart-format';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { DashboardCashFlowEntry, DashboardCashFlowPoint } from '@/app/hooks/useDashboard';
+import { ChartTooltipCard, type ChartTooltipRow } from './ChartParts';
+import { compressedAxis, formatDayLabel, formatShortDayLabel } from './chart-format';
 import {
   CHART_MARGIN,
   CHART_TICK,
   EXPENSE_FILL,
   GRID_STROKE,
   HOVER_CURSOR,
-  INACTIVE_BAR_OPACITY,
   INCOME_FILL,
 } from './chart-theme';
 
-export interface CashFlowBarPoint {
-  /** YYYY-MM */
-  month: string;
-  income: number;
-  expense: number;
-  net: number;
-}
-
 export interface CashFlowBarsProps {
-  points: CashFlowBarPoint[];
+  /** One point a day (`date` is YYYY-MM-DD). */
+  points: DashboardCashFlowPoint[];
   locale: string;
-  labels: { income: string; expense: string; net: string; noData: string };
+  labels: { income: string; expense: string; noData: string };
   formatAmount: (value: number) => string;
-  /** Short amounts for the Y axis ("$1.2K"). */
+  /** Amounts on the Y axis, in full ("$1,000"). */
   formatTick: (value: number) => string;
-  /** Picked month (YYYY-MM); when it is on the chart, the other months are dimmed. */
-  activeMonth?: string;
-  onSelectMonth?: (month: string) => void;
+  /** The top of the scale: the month's income rounded up (or its biggest bar, if larger). */
+  ceiling: number;
+  /** The month's typical spend: where the scale's lines start and its compression bends. */
+  typical: number;
+  /**
+   * Wide bars that scroll sideways (a phone): every day keeps its date and the Y axis,
+   * which would scroll away with them, is left out; a tap on a bar gives the amounts.
+   */
+  everyDay?: boolean;
+  /** What each day's bars are made of, by YYYY-MM-DD; `undefined` while it loads. */
+  entriesByDay?: ReadonlyMap<string, DashboardCashFlowEntry[]>;
 }
 
-/** Grouped monthly income/expense bars with a scale and month names; fills its parent box. */
+/** A tooltip names this many rows of a day; more are summed up as "…". */
+const TOOLTIP_ENTRIES = 5;
+
+/**
+ * A day's rows by name, biggest first: the bar colours already say income or expense, so the
+ * tooltip says what it was.
+ */
+export function entryRows(
+  entries: DashboardCashFlowEntry[] | undefined,
+  formatAmount: (value: number) => string,
+): ChartTooltipRow[] {
+  if (!entries) {
+    return [{ value: '…' }];
+  }
+  const rows: ChartTooltipRow[] = entries.slice(0, TOOLTIP_ENTRIES).map(entry => ({
+    label: entry.name,
+    value: formatAmount(entry.amount),
+    tone: entry.kind === 'income' ? 'positive' : 'negative',
+  }));
+  return entries.length > TOOLTIP_ENTRIES ? [...rows, { value: '…' }] : rows;
+}
+
+/** Grouped daily income/expense bars with a scale and dates; fills its parent box. */
 export function CashFlowBars({
   points,
   locale,
   labels,
   formatAmount,
   formatTick,
-  activeMonth,
-  onSelectMonth,
+  everyDay = false,
+  entriesByDay,
+  ceiling,
+  typical,
 }: CashFlowBarsProps): React.JSX.Element {
-  const yearTicks = computeYearTicks(points.map(point => point.month));
-  const dimOthers = points.some(point => point.month === activeMonth);
-  const cells = points.map(point => (
-    <Cell
-      key={point.month}
-      fillOpacity={!dimOthers || point.month === activeMonth ? 1 : INACTIVE_BAR_OPACITY}
-    />
-  ));
-  const cursor = onSelectMonth ? 'pointer' : undefined;
-
+  // Bars and lines are drawn at toY(amount); the labels and the tooltip keep the amounts.
+  const { ticks, toY } = compressedAxis(ceiling, typical);
+  const tickAmount = new Map(ticks.map(tick => [toY(tick), tick]));
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart
-        data={points}
-        margin={CHART_MARGIN}
-        onClick={state => {
-          const month = monthAtIndex(points, state?.activeIndex);
-          if (month) {
-            onSelectMonth?.(month);
-          }
-        }}
-      >
+      <BarChart data={points} margin={CHART_MARGIN}>
         <CartesianGrid vertical={false} stroke={GRID_STROKE} />
         <YAxis
-          tickCount={3}
-          tickFormatter={formatTick}
+          domain={[0, toY(ceiling)]}
+          ticks={ticks.map(toY)}
+          interval={0}
+          tickFormatter={(y: number) => formatTick(tickAmount.get(y) ?? 0)}
           axisLine={false}
           tickLine={false}
           tick={CHART_TICK}
-          width={56}
+          width={64}
+          hide={everyDay}
         />
         <XAxis
-          dataKey="month"
-          tickFormatter={(key: string) => formatShortMonthLabel(key, locale)}
+          dataKey="date"
+          tickFormatter={(key: string) => formatShortDayLabel(key, locale)}
           axisLine={false}
           tickLine={false}
           tick={CHART_TICK}
-          interval="preserveStartEnd"
-          minTickGap={8}
+          interval={everyDay ? 0 : 'preserveStartEnd'}
+          minTickGap={16}
         />
-        {/* A new year starts at a thin line before its January, named at the top. */}
-        {yearTicks.map(month => (
-          <ReferenceLine
-            key={month}
-            x={month}
-            position="start"
-            stroke={GRID_STROKE}
-            label={{
-              value: month.slice(0, 4),
-              position: 'insideTopLeft',
-              fill: 'var(--text-muted)',
-              fontSize: 12,
-            }}
-          />
-        ))}
         <Tooltip
           cursor={HOVER_CURSOR}
           content={({ active, payload }) => {
-            const point = payload?.[0]?.payload as CashFlowBarPoint | undefined;
+            const point = payload?.[0]?.payload as DashboardCashFlowPoint | undefined;
             if (!(active && point)) {
               return null;
             }
-            const title = formatMonthLabel(point.month, locale);
-            // A month with nothing in it says so, rather than "Income: $0, Expense: $0, Net: +$0".
+            const title = formatDayLabel(point.date, locale);
+            // A day with nothing in it says so, rather than "Income: $0, Expense: $0, Net: +$0".
             if (point.income === 0 && point.expense === 0) {
               return <ChartTooltipCard title={title} rows={[{ value: labels.noData }]} />;
             }
-            return (
-              <ChartTooltipCard
-                title={title}
-                rows={[
-                  { label: labels.income, value: formatAmount(point.income), tone: 'positive' },
-                  { label: labels.expense, value: formatAmount(point.expense), tone: 'negative' },
-                  {
-                    label: labels.net,
-                    value: formatSignedAmount(point.net, formatAmount),
-                    tone: 'strong',
-                  },
-                ]}
-              />
+            const rows = entryRows(
+              entriesByDay ? (entriesByDay.get(point.date) ?? []) : undefined,
+              formatAmount,
             );
+            return <ChartTooltipCard title={title} rows={rows} />;
           }}
         />
         <Bar
-          dataKey="income"
+          dataKey={(point: DashboardCashFlowPoint) => toY(point.income)}
           name={labels.income}
           fill={INCOME_FILL}
           radius={[2, 2, 0, 0]}
           isAnimationActive={false}
-          cursor={cursor}
-        >
-          {cells}
-        </Bar>
+        />
         <Bar
-          dataKey="expense"
+          dataKey={(point: DashboardCashFlowPoint) => toY(point.expense)}
           name={labels.expense}
           fill={EXPENSE_FILL}
           radius={[2, 2, 0, 0]}
           isAnimationActive={false}
-          cursor={cursor}
-        >
-          {cells}
-        </Bar>
+        />
       </BarChart>
     </ResponsiveContainer>
   );

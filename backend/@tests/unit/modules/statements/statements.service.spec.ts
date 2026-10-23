@@ -456,6 +456,8 @@ describe('StatementsService', () => {
         workspaceId: 'ws-1',
         categoryId: 'cat-1',
       });
+      // No subcategories: the filter is the category alone.
+      (categoryRepository.find as jest.Mock).mockResolvedValue([]);
 
       await service.findAll('ws-1', {
         limit: 15,
@@ -518,9 +520,10 @@ describe('StatementsService', () => {
         ),
       );
       expect(qb.setParameters).toHaveBeenCalledWith({ workspaceId: 'ws-1', categoryId: 'cat-1' });
-      expect(subQuery.andWhere).toHaveBeenCalledWith('transaction.categoryId = :categoryId', {
-        categoryId: 'cat-1',
-      });
+      expect(subQuery.andWhere).toHaveBeenCalledWith(
+        'transaction.categoryId IN (:...categoryIds)',
+        { categoryIds: ['cat-1'] },
+      );
       expect(qb.orderBy).toHaveBeenLastCalledWith(
         'GREATEST(COALESCE(statement.totalDebit, 0), COALESCE(statement.totalCredit, 0))',
         'ASC',

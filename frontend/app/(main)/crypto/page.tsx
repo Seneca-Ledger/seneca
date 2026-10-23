@@ -6,7 +6,9 @@ import Button from '@mui/material/Button';
 import type React from 'react';
 import { useState } from 'react';
 import { Plus, RefreshCcw } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { PageTitle } from '@/app/components/ui/page-title';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -49,6 +51,9 @@ export default function CryptoPage(): React.JSX.Element {
   } = useCrypto();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  useQuickActions([
+    { id: 'connect', label: t.connect.value, icon: Plus, run: () => setDrawerOpen(true) },
+  ]);
   const [holdingsOpen, setHoldingsOpen] = useState(false);
 
   const currency = summary?.currency ?? 'USD';
@@ -76,6 +81,9 @@ export default function CryptoPage(): React.JSX.Element {
       component="main"
       sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
     >
+      <Box sx={{ mb: 2 }}>
+        <PageTitle path="/crypto" />
+      </Box>
       <Box
         data-tour-shot="crypto-actions"
         sx={{
@@ -102,6 +110,7 @@ export default function CryptoPage(): React.JSX.Element {
         />
         <Button
           variant="contained"
+          className="seneca-bottom-bar-source"
           onClick={() => setDrawerOpen(true)}
           data-tour-shot="crypto-connect"
         >

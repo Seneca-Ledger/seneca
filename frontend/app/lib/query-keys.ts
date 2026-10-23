@@ -11,10 +11,8 @@
 export const queryKeys = {
   dashboard: (o: { workspaceId: string | null; range: string; date: string | null }) =>
     ['dashboard', o.workspaceId, o.range, o.date] as const,
-  dashboardCashFlow: (o: { workspaceId: string | null; range: string; month: string | null }) =>
-    ['dashboard', 'cash-flow', o.workspaceId, o.range, o.month] as const,
-  dashboardCommitments: (workspaceId: string | null, days: number) =>
-    ['dashboard', 'commitments', workspaceId, days] as const,
+  dashboardCashFlowEntries: (o: { workspaceId: string | null; month: string }) =>
+    ['dashboard', 'cash-flow-entries', o.workspaceId, o.month] as const,
   dashboardSetupProgress: (workspaceId: string | null) =>
     ['dashboard', 'setup-progress', workspaceId] as const,
   statements: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
@@ -26,6 +24,7 @@ export const queryKeys = {
   categories: (workspaceId: string | null) => ['categories', workspaceId] as const,
   payees: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['payees', o.workspaceId, o.params] as const,
+  payee: (workspaceId: string | null, id: string) => ['payees', workspaceId, 'one', id] as const,
   reviewInbox: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['review-inbox', o.workspaceId, o.params] as const,
   reviewInboxCounts: (workspaceId: string | null, reviewer?: string) =>

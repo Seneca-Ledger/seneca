@@ -6,6 +6,7 @@ import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { LoadError } from '@/app/components/ui/load-error';
 import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -67,11 +68,7 @@ export function ReconcileView(): React.JSX.Element {
       </Box>
 
       {isPending && <Skeleton variant="rounded" height={320} />}
-      {error && (
-        <Typography color="error" sx={{ py: 2, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && <LoadError spacing={2}>{t.error}</LoadError>}
 
       {data && (
         <Box

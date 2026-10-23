@@ -4,7 +4,7 @@ import { Box, Button } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { ModalShell } from '@/app/components/ui/modal-shell';
+import { FULL_SCREEN_ON_PHONE, ModalShell } from '@/app/components/ui/modal-shell';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -148,7 +148,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
       isOpen={open}
       onClose={onClose}
       size="sm"
-      paperSx={{ maxWidth: 520 }}
+      paperSx={{ maxWidth: 520, ...FULL_SCREEN_ON_PHONE }}
       title={
         <span style={{ fontWeight: 500 }}>
           {category ? t.dialog.editTitle : t.dialog.createTitle}

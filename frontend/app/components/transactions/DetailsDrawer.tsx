@@ -248,7 +248,13 @@ export default function DetailsDrawer({
           />
         )}
         {activeTab === 'notes' && (
-          <NotesPanel entityType="transaction" entityId={transaction.id} showTitle={false} />
+          <NotesPanel
+            // One panel per row, so an unsent note is saved on the row it was written for.
+            key={transaction.id}
+            entityType="transaction"
+            entityId={transaction.id}
+            showTitle={false}
+          />
         )}
         {activeTab === 'history' && (
           <TransactionHistoryTab

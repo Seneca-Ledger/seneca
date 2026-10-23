@@ -5,23 +5,16 @@ import { useCallback, useState } from 'react';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type {
-  DashboardCashFlowRange,
-  DashboardData,
-  DashboardMonthlyCashFlow,
-  DashboardRange,
-} from './useDashboard.types';
+import type { DashboardCashFlowEntry, DashboardData, DashboardRange } from './useDashboard.types';
 import { useWorkspaceId } from './useWorkspaceId';
 
 export type {
   DashboardActionItem,
+  DashboardCashFlowEntry,
   DashboardCashFlowPoint,
-  DashboardCashFlowRange,
   DashboardData,
   DashboardDataHealth,
   DashboardFinancialSnapshot,
-  DashboardMonthlyCashFlow,
-  DashboardMonthlyCashFlowPoint,
   DashboardNotification,
   DashboardRange,
   DashboardRecentTransaction,
@@ -49,36 +42,6 @@ interface DashboardState {
  * Голый keepPreviousData здесь недопустим — он на кадр показал бы балансы
  * воркспейса A под названием воркспейса B (workspaceId — второй сегмент ключа).
  */
-
-interface CashFlowState {
-  data: DashboardMonthlyCashFlow | undefined;
-  isPending: boolean;
-  error: string | null;
-}
-
-/** `month` (YYYY-MM) is where every range ends; without it the backend uses the current month. */
-export function useDashboardCashFlow(range: DashboardCashFlowRange, month?: string): CashFlowState {
-  const workspaceId = useWorkspaceId();
-  const query = useQuery({
-    queryKey: queryKeys.dashboardCashFlow({ workspaceId, range, month: month ?? null }),
-    queryFn: ({ signal }) =>
-      apiQueryDecoded({
-        contract: 'DashboardMonthlyCashFlowResponse',
-        url: '/dashboard/cash-flow',
-        params: (month ? { range, month } : { range }) satisfies ContractInput<'CashFlowQuery'>,
-        signal,
-      }),
-    placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
-    enabled: Boolean(workspaceId),
-  });
-
-  return {
-    data: query.data,
-    isPending: query.isPending,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load cash flow') : null,
-  };
-}
 
 export function useDashboard(
   controlledRange: DashboardRange = '30d',
@@ -133,4 +96,24 @@ export function useDashboard(
     targetDate,
     changeTargetDate,
   };
+}
+
+/**
+ * The named rows behind a month's daily cash flow (YYYY-MM), for the card's day tooltip.
+ * `undefined` until they arrive.
+ */
+export function useCashFlowEntries(month: string): DashboardCashFlowEntry[] | undefined {
+  const workspaceId = useWorkspaceId();
+  const query = useQuery({
+    queryKey: queryKeys.dashboardCashFlowEntries({ workspaceId, month }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        contract: 'DashboardCashFlowEntriesResponse',
+        url: '/dashboard/cash-flow/entries',
+        params: { month } satisfies ContractInput<'CashFlowEntriesQuery'>,
+        signal,
+      }),
+    enabled: Boolean(workspaceId),
+  });
+  return query.data?.entries;
 }

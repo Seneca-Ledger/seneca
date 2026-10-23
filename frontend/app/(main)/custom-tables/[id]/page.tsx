@@ -5,7 +5,9 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import { DataGridSkeleton } from '@/app/components/data-grid';
+import { Plus } from '@/app/components/icons';
 import { ImportSuggestionBanner } from '@/app/components/import-wizard/ImportSuggestionBanner';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { Button } from '@/app/components/ui/button';
 import { rememberRowCount, useSkeletonRows } from '../rowCountMemory';
 import { ColumnDialog } from './components/ColumnDialog';
@@ -117,17 +119,68 @@ function TablePage({ state, skeletonRows }: { state: CustomTablePageState; skele
   const { labels, data, columns, filters, grid, groups } = state;
   const [summaryDraft, setSummaryDraft] = useState<SummaryDraft | null>(null);
   const [newRowId, setNewRowId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const addRow = () => setNewRowId(state.mutations.createRow()?.id ?? null);
+  useQuickActions([{ id: 'add-row', label: labels.toolbar.addRow, icon: Plus, run: addRow }]);
   const table = data.table;
+
+  // Esc collapses the table, unless a dialog or menu is open and takes the key itself.
+  useEffect(() => {
+    if (!expanded) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Escape' &&
+        !event.defaultPrevented &&
+        !document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')
+      ) {
+        setExpanded(false);
+      }
+    };
+    // In browser full screen Esc belongs to the browser: it leaves full screen, and so does the table.
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setExpanded(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      if (document.fullscreenElement) {
+        void document.exitFullscreen();
+      }
+    };
+  }, [expanded]);
+
+  // The whole document goes full screen, not the table: menus and dialogs portal to <body>
+  // and would stay hidden behind a full-screen table. Where the browser refuses (iOS Safari,
+  // an iframe), the table still covers the app window.
+  const toggleExpanded = () => {
+    if (!expanded) {
+      document.documentElement.requestFullscreen?.().catch(() => undefined);
+    }
+    setExpanded(value => !value);
+  };
+
+  // The grid measures its height from the window; tell it the page just moved.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `expanded` is the trigger
+  useEffect(() => {
+    window.dispatchEvent(new Event('resize'));
+  }, [expanded]);
+
   if (!table) {
     return null;
   }
   const groupColumn = state.groupBy ? columns.find(c => c.key === state.groupBy) : undefined;
   return (
-    <div className="seneca-ct seneca-ct--fill">
+    <div className={`seneca-ct seneca-ct--fill${expanded ? ' seneca-ct--expanded' : ''}`}>
       <TablePageHeader
         table={table}
         total={grid.total}
+        moneyTotal={state.moneyTotal}
         onBack={() => state.router.push('/custom-tables')}
         onRename={state.rename}
         labels={labels.header}
@@ -142,6 +195,8 @@ function TablePage({ state, skeletonRows }: { state: CustomTablePageState; skele
             onGroupByChange={state.setGroupBy}
             selectedCount={state.selectedIds.length}
             exporting={state.exporting}
+            expanded={expanded}
+            onToggleExpanded={toggleExpanded}
             onAddRow={addRow}
             onAddColumn={state.columnEditor.openAdd}
             onAddSummary={() => setSummaryDraft({ title: '', expression: '' })}

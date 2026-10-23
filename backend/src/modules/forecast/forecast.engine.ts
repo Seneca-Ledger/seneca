@@ -101,6 +101,9 @@ export interface ForecastResult {
   safeToSpend: { amount: number; untilDate: string; nextIncomeDate: string | null };
   /** Months the opening balance lasts at the pace of the year ahead; null when not burning. */
   runwayMonths: number | null;
+  /** The balance's change over the span the runway reads, and that span in days. */
+  runwayChange: number;
+  runwayDays: number;
 }
 
 const DAYS_PER_MONTH = 365.25 / 12;
@@ -213,6 +216,8 @@ export function computeForecast(input: ForecastInput): ForecastResult {
     shortfallDate,
     safeToSpend: safeToSpend(input.today, horizonEnd, input.openingBalance, events),
     runwayMonths: runwayMonths(input.openingBalance, balance, projectionDays),
+    runwayChange: round(balance - input.openingBalance),
+    runwayDays: projectionDays,
   };
 }
 

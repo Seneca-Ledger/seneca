@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import { useRouter } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
+import { PageTitle } from '@/app/components/ui/page-title';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
@@ -248,6 +249,12 @@ export default function WorkspacesListContent({
     // No fixed height: the page scrolls, and the shell keeps the room under the
     // mobile bottom bar. A screen-high box with hidden overflow cut off the last cards.
     <Box sx={{ pt: embedded ? 2 : 0 }}>
+      {/* Embedded, it sits under the workspace shell, whose title row already names the page. */}
+      {embedded ? null : (
+        <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', mb: 1 }}>
+          <PageTitle path="/workspaces" />
+        </Box>
+      )}
       <WorkspaceListBody
         ls={ls}
         allCount={workspaces.length}

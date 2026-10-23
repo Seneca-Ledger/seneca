@@ -45,6 +45,12 @@ export type SpendFlowData = {
  */
 export type SpendFlowGroupBy = 'category-merchant' | 'category-subcategory' | 'merchant';
 
+/** The dates the chart covers: the page's period, or else the month. */
+export function useSpendFlowRange(month: Date): { dateFrom: string; dateTo: string } {
+  const period = useAnalyticsPeriod();
+  return period ? { dateFrom: period.from, dateTo: period.to } : monthRange(month);
+}
+
 /** The analytics sankey of the current workspace for one calendar month. */
 export function useSpendFlow(
   groupBy: SpendFlowGroupBy,
@@ -52,8 +58,7 @@ export function useSpendFlow(
   month: Date,
 ): UseQueryResult<SpendFlowData> {
   const workspaceId = useWorkspaceId();
-  const period = useAnalyticsPeriod();
-  const range = period ? { dateFrom: period.from, dateTo: period.to } : monthRange(month);
+  const range = useSpendFlowRange(month);
   const params = { groupBy, type, ...range } satisfies ContractInput<'SpendFlowQuery'>;
   return useQuery({
     queryKey: queryKeys.spendFlow({ workspaceId, params }),

@@ -33,6 +33,8 @@ vi.mock('@/app/hooks/useInsights', () => ({
 }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => refresh.workspaceId }));
 vi.mock('@/app/components/insights/insight-href', () => ({ insightHref: () => '/somewhere' }));
+// The heading reads the whole sidebar config; it has tests of its own.
+vi.mock('@/app/components/ui/page-title', () => ({ PageTitle: () => null }));
 // Every dictionary entry renders as its own key.
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () =>

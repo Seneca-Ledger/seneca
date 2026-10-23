@@ -73,11 +73,16 @@ export function UpcomingChargesCard({
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
   const flags = summary.data
     ? [
-        summary.data.priceChangeCount > 0 &&
-          fill(t.priceChanges.value, { count: String(summary.data.priceChangeCount) }),
-        summary.data.duplicateCount > 0 &&
-          fill(t.duplicates.value, { count: String(summary.data.duplicateCount) }),
-      ].filter((flag): flag is string => Boolean(flag))
+        summary.data.priceChangeCount > 0 && {
+          label: fill(t.priceChanges.value, { count: String(summary.data.priceChangeCount) }),
+          // Rings every subscription whose price changed (data-attention-group).
+          href: '/subscriptions?focus=price-changed',
+        },
+        summary.data.duplicateCount > 0 && {
+          label: fill(t.duplicates.value, { count: String(summary.data.duplicateCount) }),
+          href: undefined,
+        },
+      ].filter((flag): flag is { label: string; href: string | undefined } => Boolean(flag))
     : [];
 
   return (
@@ -123,8 +128,8 @@ export function UpcomingChargesCard({
       {flags.length > 0 && (
         <ChipGroup>
           {flags.map(flag => (
-            <Chip key={flag} tone="warning">
-              {flag}
+            <Chip key={flag.label} tone="warning" href={flag.href}>
+              {flag.label}
             </Chip>
           ))}
         </ChipGroup>
