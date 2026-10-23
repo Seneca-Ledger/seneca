@@ -24,7 +24,8 @@ export type ShortcutLabelKey =
   | 'addToTable'
   | 'markDuplicate'
   | 'mergeDuplicates'
-  | 'dismissDuplicates';
+  | 'dismissDuplicates'
+  | 'selectionActions';
 
 export type ShortcutEntry = {
   /** tinykeys syntax — the same string drives the handler and the hint chips. */
@@ -96,6 +97,8 @@ export const GLOBAL_SHORTCUTS: ShortcutEntry[] = [
  */
 export const DOCUMENT_BINDINGS = {
   selectAll: '$mod+KeyA',
+  // Gmail's "More actions" key: opens the menu of everything the selection can do.
+  selectionActions: 'Period',
   clearSelection: 'Escape',
   selectByCategory: 'KeyS KeyC',
   selectDuplicates: 'KeyS KeyD',

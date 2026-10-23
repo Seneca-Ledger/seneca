@@ -44,7 +44,7 @@ describe('RoiPage', () => {
 
     const field = screen.getByLabelText('investmentLabel');
     expect(field.getAttribute('inputmode')).toBe('decimal');
-    expect(field.getAttribute('placeholder')).toBe('10,000');
+    expect(field.getAttribute('placeholder')).toBe('0');
     expect(screen.getAllByText('€')).toHaveLength(2);
   });
 });

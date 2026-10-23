@@ -1,7 +1,8 @@
-export type ThemePreference = 'light' | 'dark' | 'auto';
-export type ResolvedAppTheme = 'light' | 'dark';
+export type ThemePreference = 'dark' | 'light' | 'auto';
+export type ResolvedAppTheme = 'dark' | 'light';
 
-export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'auto';
+/** Dark until someone picks otherwise: new accounts and signed-out pages with no choice kept. */
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'dark';
 
 export const THEME_STORAGE_EVENT = 'seneca-theme-preference-change';
 
@@ -121,8 +122,9 @@ export const getScheduledTheme = (timeZone: string | null): ResolvedAppTheme => 
  */
 export const PALETTE_MODE_COOKIE = 'seneca-palette-mode';
 
+/** No cookie yet (a first visit) paints the default, dark. */
 export const parsePaletteModeCookie = (value: string | undefined): ResolvedAppTheme =>
-  value === 'dark' ? 'dark' : 'light';
+  value === 'light' ? 'light' : 'dark';
 
 export const persistPaletteModeCookie = (mode: ResolvedAppTheme): void => {
   document.cookie = `${PALETTE_MODE_COOKIE}=${mode}; path=/; max-age=31536000; samesite=lax`;

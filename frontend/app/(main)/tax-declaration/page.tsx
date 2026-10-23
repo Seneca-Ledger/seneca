@@ -16,6 +16,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import { useIntlayer } from '@/app/i18n';
 import { AccuracyBanner } from './components/AccuracyBanner';
 import { DataCheckStep } from './components/DataCheckStep';
@@ -68,6 +69,14 @@ function TaxDeclarationContent(): React.ReactElement {
     mapping: t.stepMapping,
     draft: t.stepDraft,
     export: t.stepExport,
+  };
+
+  const stepText: Record<StepKey, string> = {
+    profile: t.stepProfile.value,
+    data: t.stepData.value,
+    mapping: t.stepMapping.value,
+    draft: t.stepDraft.value,
+    export: t.stepExport.value,
   };
 
   const renderStep = (): React.ReactNode => {
@@ -250,7 +259,20 @@ function TaxDeclarationContent(): React.ReactElement {
       sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
     >
       {/* One centred column: wider, the two cards stopped short of the edge. */}
-      <Box sx={{ maxWidth: 1100, mx: 'auto' }}>{renderBody()}</Box>
+      <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+        <Box sx={{ mb: 2.5 }}>
+          <PageTitle
+            path="/tax-declaration"
+            // The step and year mean nothing until the disclaimer is accepted.
+            summary={
+              accepted
+                ? joinSummary([stepText[step], `${t.taxYearLabel.value}: ${taxYear}`])
+                : undefined
+            }
+          />
+        </Box>
+        {renderBody()}
+      </Box>
     </Box>
   );
 }

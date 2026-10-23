@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { Check } from '@/app/components/icons';
-import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { FULL_SCREEN_ON_PHONE, ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import type { CreateTableForm } from '../hooks/useCreateTable';
 import { useSourcePreview } from '../hooks/useSourcePreview';
@@ -276,7 +276,7 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
       isOpen={open}
       onClose={onClose}
       size={source ? 'lg' : 'md'}
-      paperSx={{ maxWidth: source ? 960 : 720 }}
+      paperSx={{ maxWidth: source ? 960 : 720, ...FULL_SCREEN_ON_PHONE }}
       title={labels.title}
       footer={
         <ModalFooter

@@ -7,8 +7,10 @@ import { StatementsSearchPopover } from '@/app/(main)/statements/components/filt
 import ConfirmModal from '@/app/components/ConfirmModal';
 import { DataGrid, type GridColumnDef, useDataGrid } from '@/app/components/data-grid';
 import { ExternalLink, Plus, Trash2 } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { Button } from '@/app/components/ui/button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Select } from '@/app/components/ui/select';
 import { useAuth } from '@/app/hooks/useAuth';
@@ -146,6 +148,14 @@ export default function CustomTablesPage() {
       partialFailed: labels.create.partialFailed,
     },
   });
+  useQuickActions([
+    {
+      id: 'new-table',
+      label: labels.actions.newTable,
+      icon: Plus,
+      run: () => create.setOpen(true),
+    },
+  ]);
   const [deleteTarget, setDeleteTarget] = useState<TableListItem | null>(null);
   const columns = useListColumns(labels, setDeleteTarget);
   const table = useDataGrid<TableListItem>({
@@ -167,6 +177,13 @@ export default function CustomTablesPage() {
 
   return (
     <div className="seneca-ct">
+      <PageTitle
+        path="/custom-tables"
+        summary={joinSummary([
+          list.searchQuery.trim() && `“${list.searchQuery.trim()}”`,
+          list.sourceFilter === 'manual' && labels.actions.sourceManual,
+        ])}
+      />
       <div className="seneca-ct__toolbar">
         <span data-tour-id="search-bar">
           <StatementsSearchPopover
@@ -190,6 +207,7 @@ export default function CustomTablesPage() {
           <Button
             size="sm"
             type="button"
+            className="seneca-bottom-bar-source"
             data-tour-id="custom-tables-create-export"
             onClick={() => create.setOpen(true)}
           >

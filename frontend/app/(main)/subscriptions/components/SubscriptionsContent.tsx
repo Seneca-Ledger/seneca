@@ -23,6 +23,8 @@ import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromF
 import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { CalendarLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
+import { LoadError } from '@/app/components/ui/load-error';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import {
   fillTemplateNodes,
   PRIVATE_CLASS,
@@ -244,15 +246,39 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
     };
   }, [props.chargeCalendar, visibleSubscriptions]);
 
+  const statusLabels: Record<string, string> = {
+    all: t.tabAll.value,
+    detected: t.tabDetected.value,
+    active: t.tabActive.value,
+    paused: t.tabPaused.value,
+    cancelled: t.tabCancelled.value,
+  };
+  const riskLabels: Record<string, string> = {
+    price_changed: t.riskPriceChanged.value,
+    date_shifted: t.riskDateShifted.value,
+    missing_charge: t.riskMissingCharge.value,
+  };
+  const titleSummary = joinSummary([
+    statusLabels[props.statusFilter],
+    search.trim() && `${t.searchLabel.value}: “${search.trim()}”`,
+    ownerId && ownerLabel(ownerId),
+    category,
+    riskStatus && riskLabels[riskStatus],
+    view === 'matrix' && t.upcomingCharges.value,
+  ]);
+
   return (
     <Box
       sx={{
-        px: { xs: 2, md: 3 },
+        px: { xs: 2, md: 4 },
         pt: 'var(--seneca-page-top, 16px)',
         pb: { xs: 2, md: 3 },
         flex: 1,
       }}
     >
+      <Box sx={{ mb: 2 }}>
+        <PageTitle path="/subscriptions" summary={titleSummary} />
+      </Box>
       <Box
         sx={{
           display: 'flex',
@@ -567,9 +593,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           </Box>
         </>
       ) : props.error ? (
-        <Typography color="error" sx={{ py: 4, textAlign: 'center' }}>
-          {props.error}
-        </Typography>
+        <LoadError spacing={4}>{props.error}</LoadError>
       ) : visibleSubscriptions.length === 0 || (matrixView && visibleCalendar.rows.length === 0) ? (
         hasSubscriptions ? (
           <EmptyState

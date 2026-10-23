@@ -424,3 +424,12 @@ export const ExchangeRateQuery = Schema.Struct({
   date: Schema.optional(IsoDateString),
 });
 export type ExchangeRateQuery = Wire<typeof ExchangeRateQuery>;
+
+/** `GET /transactions/overview`: the period of the All transactions page, in one currency. */
+export const TransactionsOverviewQuery = Schema.Struct({
+  dateFrom: Schema.optional(DateOnlyInput),
+  dateTo: Schema.optional(DateOnlyInput),
+  convertTo: Schema.optional(Schema.String),
+  owner: Schema.optional(Schema.String),
+});
+export type TransactionsOverviewQuery = Wire<typeof TransactionsOverviewQuery>;

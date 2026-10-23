@@ -40,6 +40,9 @@ vi.mock('@/app/components/icons', () => ({
   ChevronRight: () => <span data-testid="chevron-right-icon" />,
 }));
 
+// The heading reads the whole sidebar config; it has tests of its own.
+vi.mock('@/app/components/ui/page-title', () => ({ PageTitle: () => null }));
+
 vi.mock('@/app/components/ui/spinner', () => ({
   Spinner: () => <div>spinner</div>,
 }));
