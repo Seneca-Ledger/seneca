@@ -94,12 +94,12 @@ export function AllTransactionsTable({
             <th>{t.description}</th>
             <th className="seneca-all-tx__num">{t.amount}</th>
             <th className="seneca-all-tx__num">{t.runningBalance}</th>
-            <th>{tTable.columnDate}</th>
+            <th className="seneca-all-tx__col-date">{tTable.columnDate}</th>
             <th>{t.sourceAccount}</th>
             <th>{t.destinationAccount}</th>
             <th>{tTable.columnCategory}</th>
             <th>{t.budget}</th>
-            <th>
+            <th className="seneca-all-tx__col-actions">
               <span className="u-visually-hidden">{t.actions}</span>
             </th>
             <th className="seneca-all-tx__col-check">
@@ -138,6 +138,7 @@ export function AllTransactionsTable({
                   className={clsx(
                     'seneca-all-tx__num seneca-all-tx__figure',
                     amount > 0 && 'seneca-all-tx__income',
+                    amount < 0 && 'seneca-all-tx__spend',
                     PRIVATE_CLASS,
                   )}
                   data-label={t.amount.value}

@@ -154,12 +154,15 @@
     max-height: 320px;
   }
 
+  // The table never scrolls sideways: fixed columns wrap inside the card, and
+  // when the card itself is narrow the rows turn into cards (below).
   &__table-wrap {
-    overflow-x: auto;
+    container-type: inline-size;
   }
 
   &__table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 14px;
     color: var(--foreground);
@@ -171,13 +174,29 @@
       font-weight: 500;
       color: var(--text-muted);
       text-align: left;
-      white-space: nowrap;
     }
 
     td {
       padding: 8px;
       border-bottom: 1px solid var(--border);
       vertical-align: middle;
+      overflow-wrap: anywhere;
+    }
+
+    th.seneca-all-tx__num {
+      width: 120px;
+    }
+
+    th.seneca-all-tx__col-date {
+      width: 104px;
+    }
+
+    th.seneca-all-tx__col-actions {
+      width: 108px;
+    }
+
+    th.seneca-all-tx__col-check {
+      width: 48px;
     }
 
     tbody tr:last-child td {
@@ -198,8 +217,14 @@
     color: var(--money-up);
   }
 
+  // Muted terracotta: money-down softened toward the warm grey so spending
+  // reads as a direction, not an alarm.
+  &__spend {
+    color: color-mix(in srgb, var(--money-down) 70%, var(--text-muted));
+  }
+
   &__col-direction {
-    width: 28px;
+    width: 40px;
     padding-left: 16px !important;
     color: var(--text-muted);
 
@@ -210,7 +235,6 @@
 
   &__col-actions,
   &__col-check {
-    width: 1%;
     white-space: nowrap;
   }
 
@@ -218,26 +242,20 @@
     padding-right: 16px !important;
   }
 
-  &__description {
-    min-width: 160px;
-  }
-
-  &__party {
-    max-width: 180px;
-    overflow-wrap: anywhere;
-  }
-
   &__link {
     padding: 0;
     border: 0;
     background: none;
     font: inherit;
-    color: var(--primary);
+    color: var(--foreground);
     text-align: left;
     cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: var(--text-muted);
+    text-underline-offset: 3px;
 
     &:hover {
-      text-decoration: underline;
+      text-decoration-color: currentColor;
     }
   }
 
@@ -311,14 +329,19 @@
     color: var(--foreground);
   }
 
-  // On a phone each row becomes a card: the labelled cells stack under the
-  // description, the direction, actions and checkbox stay on its first line.
   @media (max-width: 767px) {
     &__list-head {
       flex-direction: column;
     }
+  }
 
+  // When the list is too narrow for eleven columns each row becomes a card:
+  // the labelled cells stack under the description, the direction, actions
+  // and checkbox stay on its first line.
+  @container (max-width: 959px) {
     &__table {
+      table-layout: auto;
+
       thead {
         display: none;
       }
@@ -375,10 +398,6 @@
       grid-column: 4;
       grid-row: 1;
       padding-right: 0 !important;
-    }
-
-    &__party {
-      max-width: none;
     }
   }
 }
