@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { taxJurisdictionItem } from '@/app/test/fixtures/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { TaxStep } from './TaxStep';
 
@@ -20,9 +21,14 @@ vi.mock('@/app/i18n', () => ({
             notListed: "My country isn't listed",
             notListedHint: 'Tax features stay off',
             loadFailed: 'Could not load the list of countries.',
+            countryPlaceholder: 'Choose a country',
+            countrySearch: 'Search countries',
+            countryNotFound: 'No countries found',
           },
         }
-      : {
+      : key === 'uiShell'
+        ? { closeDrawer: { value: 'Close' } }
+        : {
           taxpayerTypeLabel: { value: 'You file as' },
           typeEmployee: { value: 'Employee' },
           typeSelfEmployed: { value: 'Self-employed' },
@@ -30,15 +36,8 @@ vi.mock('@/app/i18n', () => ({
         },
 }));
 
-const jurisdiction = (code: string, name: string) => ({
-  id: code,
-  code,
-  name,
-  taxName: 'VAT',
-  currency: 'EUR',
-  scheme: 'vat',
-  registrationThreshold: null,
-});
+const jurisdiction = (code: string, name: string) =>
+  taxJurisdictionItem({ id: `jurisdiction-${code}`, code, name });
 
 const props = {
   locale: 'en' as const,
@@ -75,6 +74,19 @@ describe('TaxStep', () => {
 
     renderWithQuery(<TaxStep {...props} taxCountry="DE" profile="home" />);
     expect(screen.queryByRole('radio', { name: /Company/ })).toBeNull();
+  });
+
+  it('picks the country from a sidebar list', async () => {
+    const onTaxCountryChange = vi.fn();
+    renderWithQuery(<TaxStep {...props} onTaxCountryChange={onTaxCountryChange} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Choose a country/ }));
+    fireEvent.change(await screen.findByPlaceholderText('Search countries'), {
+      target: { value: 'pol' },
+    });
+    expect(screen.queryByRole('button', { name: /Germany/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Poland/ }));
+    expect(onTaxCountryChange).toHaveBeenCalledWith('PL');
   });
 
   it('lets the country wait', () => {

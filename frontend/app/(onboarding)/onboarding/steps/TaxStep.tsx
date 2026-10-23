@@ -3,17 +3,16 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Briefcase, Building2, User } from '@/app/components/icons';
 import type { WorkspaceProfile } from '@/app/components/navigation/helpers/navigation-config';
 import { type ChoiceCardOption, ChoiceCards } from '@/app/components/ui/choice-cards';
-import { FORM_CONTROL_SX } from '@/app/components/ui/input';
-import { Select } from '@/app/components/ui/select';
-import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer } from '@/app/i18n';
 import { APP_NAME } from '@/app/lib/brand';
+import { CountryDrawer } from '../components/CountryDrawer';
 import { FlagIcon } from '../components/FlagIcon';
 import { FieldLabel } from '../components/OnboardingField';
+import { PickerField } from '../components/PickerField';
 import { StepHeading } from '../components/StepHeading';
 import { countryOptions, suggestedCountry, useJurisdictions } from '../lib/tax-countries';
 import { useOnboardingText } from '../lib/useOnboardingText';
@@ -43,7 +42,8 @@ export function TaxStep({
   // Taxpayer kinds are named as on the declaration page, which is where they matter.
   const declaration = useIntlayer('taxDeclarationPage');
   const jurisdictions = useJurisdictions();
-  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const countryLabel = text(['tax', 'countryLabel'], 'Tax residence');
 
   const options = useMemo(() => {
     const list = jurisdictions.data ?? [];
@@ -53,6 +53,7 @@ export function TaxStep({
       suggestedCountry(list.map(jurisdiction => jurisdiction.code)),
     );
   }, [jurisdictions.data, locale]);
+  const selectedOption = options.find(option => option.code === taxCountry);
 
   const taxpayerOptions: Array<ChoiceCardOption<TaxpayerType>> = [
     { value: 'employee', icon: <User size={20} />, title: String(declaration.typeEmployee.value) },
@@ -74,7 +75,10 @@ export function TaxStep({
   ];
 
   return (
-    <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <Box
+      component="section"
+      sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
+    >
       <StepHeading
         title={text(['tax', 'title'], 'Where do you pay tax?')}
         subtitle={text(
@@ -84,57 +88,41 @@ export function TaxStep({
       />
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <FieldLabel htmlFor="onboarding-tax-country" id="onboarding-tax-country-label">
-          {text(['tax', 'countryLabel'], 'Tax residence')}
-        </FieldLabel>
         {jurisdictions.isPending ? (
-          <Box sx={{ height: 48, display: 'flex', alignItems: 'center' }}>
-            <CircularProgress size={20} />
-          </Box>
+          <>
+            <FieldLabel>{countryLabel}</FieldLabel>
+            <Box sx={{ height: 48, display: 'flex', alignItems: 'center' }}>
+              <CircularProgress size={20} />
+            </Box>
+          </>
         ) : jurisdictions.isError ? (
-          <Box component="p" role="alert" sx={{ m: 0, fontSize: 14, color: 'var(--destructive)' }}>
-            {text(
-              ['tax', 'loadFailed'],
-              'Could not load the list of countries. You can choose one later in the workspace settings.',
-            )}
-          </Box>
+          <>
+            <FieldLabel>{countryLabel}</FieldLabel>
+            <Box
+              component="p"
+              role="alert"
+              sx={{ m: 0, fontSize: 14, color: 'var(--destructive)' }}
+            >
+              {text(
+                ['tax', 'loadFailed'],
+                'Could not load the list of countries. You can choose one later in the workspace settings.',
+              )}
+            </Box>
+          </>
         ) : (
-          <Select
-            fullWidth
+          <PickerField
             id="onboarding-tax-country"
-            labelId="onboarding-tax-country-label"
-            value={taxCountry ?? ''}
-            onChange={value => onTaxCountryChange(value || null)}
-            options={[
-              { value: '', label: text(['tax', 'countryPlaceholder'], 'Choose a country') },
-              ...options.map(option => ({
-                value: option.code,
-                // A phone's native picker shows text only; elsewhere the flag sits in the row.
-                label: isMobile ? (
-                  option.name
-                ) : (
-                  <Box
-                    component="span"
-                    sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25 }}
-                  >
-                    <FlagIcon code={option.code} />
-                    {option.name}
-                  </Box>
-                ),
-              })),
-            ]}
-            startAdornment={
-              isMobile && taxCountry ? (
-                <Box component="span" sx={{ display: 'inline-flex', mr: 1.25 }}>
-                  <FlagIcon code={taxCountry} />
-                </Box>
-              ) : undefined
+            label={countryLabel}
+            value={
+              selectedOption ? (
+                <>
+                  <FlagIcon code={selectedOption.code} />
+                  {selectedOption.name}
+                </>
+              ) : null
             }
-            sx={{
-              ...FORM_CONTROL_SX,
-              // The placeholder row reads as a hint, not as a chosen value.
-              ...(taxCountry ? {} : { color: 'var(--muted-foreground)' }),
-            }}
+            placeholder={text(['tax', 'countryPlaceholder'], 'Choose a country')}
+            onOpen={() => setDrawerOpen(true)}
           />
         )}
         {taxCountry ? null : (
@@ -178,6 +166,17 @@ export function TaxStep({
       >
         {text(['tax', 'notListed'], "My country isn't listed, or I'll decide later")}
       </Button>
+
+      <CountryDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={countryLabel}
+        searchPlaceholder={text(['tax', 'countrySearch'], 'Search countries')}
+        emptyLabel={text(['tax', 'countryNotFound'], 'No countries found')}
+        options={options}
+        selected={taxCountry}
+        onSelect={onTaxCountryChange}
+      />
     </Box>
   );
 }

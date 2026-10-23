@@ -14,11 +14,29 @@ vi.mock('@/app/i18n', () => ({
             profileRequired: 'Choose one to continue.',
           },
         }
-      : { workspaceProfileCard: { home: 'Home', business: 'Business' } },
-}));
-
-vi.mock('@/app/(main)/workspaces/components/CurrencySelector', () => ({
-  CurrencySelector: () => <div>Currency selector</div>,
+      : key === 'workspaceCurrencySelector'
+        ? { label: { value: 'Currency' }, selectCurrency: { value: 'Select a currency' } }
+        : key === 'receiptCurrencyDrawer'
+          ? {
+              title: 'Currencies',
+              closeDrawer: { value: 'Close' },
+              searchPlaceholder: { value: 'Search' },
+              recents: 'Recents',
+              all: 'All',
+              noResults: 'Nothing',
+            }
+          : key === 'uiShell'
+            ? { closeDrawer: { value: 'Close' } }
+            : key === 'navigation'
+              ? {
+                  languageModal: { title: 'Choose language' },
+                  shell: {
+                    closeLanguageDrawer: { value: 'Close' },
+                    search: { value: 'Search languages' },
+                    noLanguagesFound: 'No languages',
+                  },
+                }
+              : { workspaceProfileCard: { home: 'Home', business: 'Business' } },
 }));
 
 const props = {
@@ -71,6 +89,31 @@ describe('WorkspaceStep', () => {
 
     rerender(<WorkspaceStep {...props} onLocaleChange={vi.fn()} />);
     expect(document.getElementById('onboarding-locale')).not.toBeNull();
+  });
+
+  it('opens the currencies in a sidebar and reports the pick', async () => {
+    const onWorkspaceCurrencyChange = vi.fn();
+    render(<WorkspaceStep {...props} onWorkspaceCurrencyChange={onWorkspaceCurrencyChange} />);
+
+    const field = screen.getByRole('button', { name: /USD/ });
+    expect(screen.queryByRole('presentation')).toBeNull();
+    fireEvent.click(field);
+
+    fireEvent.change(await screen.findByPlaceholderText('Search'), { target: { value: 'EUR' } });
+    fireEvent.click(screen.getByRole('button', { name: /^EUR/ }));
+    expect(onWorkspaceCurrencyChange).toHaveBeenCalledWith('EUR');
+  });
+
+  it('picks the language from the sidebar list', async () => {
+    const onLocaleChange = vi.fn();
+    render(<WorkspaceStep {...props} onLocaleChange={onLocaleChange} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /English/ }));
+    fireEvent.change(await screen.findByPlaceholderText('Search languages'), {
+      target: { value: 'deu' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Deutsch' }));
+    expect(onLocaleChange).toHaveBeenCalledWith('de');
   });
 
   it('no longer asks for a background image', () => {

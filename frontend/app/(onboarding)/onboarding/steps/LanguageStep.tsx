@@ -131,7 +131,10 @@ export function LanguageStep({
     : undefined;
 
   return (
-    <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <Box
+      component="section"
+      sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
+    >
       <StepHeading
         eyebrow={greeting}
         title={text(['language', 'title'], 'Language and timezone')}
