@@ -13,7 +13,6 @@ import { Alert } from '@/app/components/ui/alert';
 import { Spinner } from '@/app/components/ui/spinner';
 import type { ThemePreference } from '@/app/lib/theme-preference';
 import type { UiDensity } from '@/app/theme';
-import { ModeToggle } from '@/components/mode-toggle';
 
 type Tx = (path: string[], fallback: string) => string;
 
@@ -62,18 +61,20 @@ export function ThemeSection({
         </Box>
         <CardContent>
           <Stack spacing={2}>
-            <ModeToggle
+            <TextField
+              select
+              size="small"
               value={themePreference}
-              onThemeChange={handleThemePreferenceChange}
-              showPreview={false}
-              labels={{
-                light: t.appearanceCard.light.value,
-                dark: t.appearanceCard.dark.value,
-                auto: tx(['appearanceCard', 'auto'], 'Auto'),
-                active: t.appearanceCard.active.value,
-                followsSystem: t.appearanceCard.followsSystem.value,
-              }}
-            />
+              onChange={event =>
+                void handleThemePreferenceChange(event.target.value as ThemePreference)
+              }
+              slotProps={{ htmlInput: { 'aria-label': t.appearanceCard.themeLabel.value } }}
+              sx={{ maxWidth: 320 }}
+            >
+              <MenuItem value="light">{t.appearanceCard.light.value}</MenuItem>
+              <MenuItem value="dark">{t.appearanceCard.dark.value}</MenuItem>
+              <MenuItem value="auto">{tx(['appearanceCard', 'auto'], 'Auto')}</MenuItem>
+            </TextField>
             <Typography variant="caption" color="text.secondary">
               {t.appearanceCard.followsSystem.value}
             </Typography>

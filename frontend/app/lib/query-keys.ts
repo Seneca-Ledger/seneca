@@ -11,10 +11,8 @@
 export const queryKeys = {
   dashboard: (o: { workspaceId: string | null; range: string; date: string | null }) =>
     ['dashboard', o.workspaceId, o.range, o.date] as const,
-  dashboardCashFlow: (o: { workspaceId: string | null; range: string; month: string | null }) =>
-    ['dashboard', 'cash-flow', o.workspaceId, o.range, o.month] as const,
-  dashboardCommitments: (workspaceId: string | null, days: number) =>
-    ['dashboard', 'commitments', workspaceId, days] as const,
+  dashboardCashFlowEntries: (o: { workspaceId: string | null; month: string }) =>
+    ['dashboard', 'cash-flow-entries', o.workspaceId, o.month] as const,
   dashboardSetupProgress: (workspaceId: string | null) =>
     ['dashboard', 'setup-progress', workspaceId] as const,
   statements: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
@@ -26,6 +24,7 @@ export const queryKeys = {
   categories: (workspaceId: string | null) => ['categories', workspaceId] as const,
   payees: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['payees', o.workspaceId, o.params] as const,
+  payee: (workspaceId: string | null, id: string) => ['payees', workspaceId, 'one', id] as const,
   reviewInbox: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['review-inbox', o.workspaceId, o.params] as const,
   reviewInboxCounts: (workspaceId: string | null, reviewer?: string) =>
@@ -208,6 +207,12 @@ export const queryKeys = {
   }) => ['invoices', o.workspaceId, 'peppol', o.kind, o.documentId] as const,
   clients: (workspaceId: string | null) => ['clients', workspaceId] as const,
   taxRateOptions: (workspaceId: string | null) => ['tax-rates', workspaceId, 'options'] as const,
+  taxRatesInForce: (o: { workspaceId: string | null; date: string }) =>
+    ['tax-rates', o.workspaceId, 'in-force', o.date] as const,
+  // Under 'transactions': it is the receipt's row that carries the tax, so an
+  // edit that refreshes the figures refreshes it too.
+  receiptTax: (o: { workspaceId: string | null; receiptId: string }) =>
+    ['transactions', 'receipt-tax', o.workspaceId, o.receiptId] as const,
   /** Instance-wide (the running containers), so the one key without a workspace. */
   systemUpdate: () => ['system-update'] as const,
   workspaceVersions: (workspaceId: string | null) => ['workspace-versions', workspaceId] as const,

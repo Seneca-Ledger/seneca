@@ -158,6 +158,8 @@ describe('AI assistant prompts', () => {
       monthlyIncome: 3000,
       monthlyExpense: 2400,
       runwayMonths: null,
+      runwayChange: 1200,
+      runwayDays: 365,
       shortfallDate: null,
     });
 

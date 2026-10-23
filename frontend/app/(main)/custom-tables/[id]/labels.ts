@@ -113,6 +113,7 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
   return {
     header: {
       back: t.header.back.value,
+      balanceMissingRates: t.header.balanceMissingRates.value,
       rename: t.header.rename.value,
       rows: t.header.rows.value,
       untitled: t.header.untitled.value,
@@ -143,6 +144,8 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'deleteSelected',
         'view',
         'more',
+        'fullscreen',
+        'exitFullscreen',
         'clearSelection',
         'searchHint',
       ]),

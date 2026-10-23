@@ -3,7 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpendFlowChart } from './SpendFlowChart';
 
 const useSpendFlow = vi.fn();
-vi.mock('./useSpendFlow', () => ({ useSpendFlow: (...args: unknown[]) => useSpendFlow(...args) }));
+vi.mock('./useSpendFlow', () => ({
+  useSpendFlow: (...args: unknown[]) => useSpendFlow(...args),
+  useSpendFlowRange: () => ({ dateFrom: '2026-09-01', dateTo: '2026-09-30' }),
+}));
+const router = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
+const resolveDocumentsHref = vi.hoisted(() => vi.fn());
+vi.mock('@/app/(main)/statements/components/documents-for-rows', () => ({ resolveDocumentsHref }));
 const appLocale = vi.hoisted(() => ({ current: 'en' }));
 vi.mock('@/app/i18n', () => ({ useLocale: () => ({ locale: appLocale.current }) }));
 vi.mock('@/app/components/ui/EmptyStateIllustration', () => ({ EmptyStateIllustration: () => null }));
@@ -11,16 +18,22 @@ vi.mock('@/app/components/ui/EmptyStateIllustration', () => ({ EmptyStateIllustr
 // through `onChartReady`.
 const dispatchAction = vi.fn();
 const setOption = vi.fn();
-const drawn = vi.hoisted(() => ({ option: null as Record<string, unknown> | null }));
+const drawn = vi.hoisted(() => ({
+  option: null as Record<string, unknown> | null,
+  events: {} as Record<string, (params: Record<string, unknown>) => void>,
+}));
 vi.mock('@/app/components/ui/lazy-echarts', () => ({
   LazyECharts: ({
     option,
     onChartReady,
+    onEvents,
   }: {
     option: Record<string, unknown>;
     onChartReady?: (instance: unknown) => void;
+    onEvents?: typeof drawn.events;
   }) => {
     drawn.option = option;
+    drawn.events = onEvents ?? {};
     onChartReady?.({ dispatchAction, setOption });
     return <div data-testid="sankey" />;
   },
@@ -65,6 +78,8 @@ describe('SpendFlowChart', () => {
   beforeEach(() => {
     appLocale.current = 'en';
     useSpendFlow.mockReset();
+    router.push.mockReset();
+    resolveDocumentsHref.mockReset();
     // jsdom has no ResizeObserver; the card only needs it to exist.
     vi.stubGlobal(
       'ResizeObserver',
@@ -77,6 +92,26 @@ describe('SpendFlowChart', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('opens the documents behind a band, in the chart period', async () => {
+    useSpendFlow.mockReturnValue({ data: flow, isError: false });
+    resolveDocumentsHref.mockResolvedValue('/statements/statement-1/edit');
+    render(<SpendFlowChart {...props} />);
+
+    drawn.events.click({ dataType: 'node', name: 'total' });
+    drawn.events.click({
+      dataType: 'edge',
+      data: { source: 'cat:a', target: 'm:a:acme store - mop' },
+    });
+
+    await vi.waitFor(() => expect(router.push).toHaveBeenCalledWith('/statements/statement-1/edit'));
+    expect(resolveDocumentsHref).toHaveBeenCalledTimes(1);
+    expect(resolveDocumentsHref).toHaveBeenCalledWith(
+      { categoryId: 'a', merchant: 'acme store - mop' },
+      '2026-09-01',
+      '2026-09-30',
+    );
   });
 
   it('blinks only the band a deep link names, never dimming the others', () => {

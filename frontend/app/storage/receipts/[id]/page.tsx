@@ -9,7 +9,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { ArrowLeft, CheckCircle } from '@/app/components/icons';
+import { AlertCircle, ArrowLeft, CheckCircle } from '@/app/components/icons';
 import { EInvoicePanel } from '@/app/components/receipts/EInvoicePanel';
 import { ReceiptLocationSection } from '@/app/components/receipts/location/ReceiptLocationSection';
 import { ReceiptParsedDataForm } from '@/app/components/receipts/ReceiptParsedDataForm';
@@ -232,16 +232,19 @@ function ReceiptPreviewContent({
   }
   return (
     <Box sx={{ display: 'flex', minHeight: '100%', minWidth: '100%', justifyContent: 'center' }}>
-      <img
+      <Box
+        component="img"
         src={url}
         alt={title}
-        style={{
+        sx={{
           height: 'auto',
           minHeight: 0,
           width: '180%',
           minWidth: 720,
           maxWidth: 'none',
           objectFit: 'contain',
+          // A phone fits the whole receipt to the width instead of a zoomed crop.
+          '@media (max-width: 1023px)': { width: '100%', minWidth: 0 },
         }}
       />
     </Box>
@@ -691,14 +694,22 @@ export default function ReceiptDocumentPage() {
         }}
       >
         <Box
+          role="alert"
           sx={{
             mb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
             border: `1px solid ${c.dangerSoft}`,
+            borderRadius: tokens.radius.md,
             bgcolor: c.dangerSoft,
-            p: 2,
+            px: 2,
+            py: 1.5,
+            fontSize: 14,
             color: c.danger,
           }}
         >
+          <AlertCircle size={18} aria-hidden style={{ flexShrink: 0 }} />
           {error || t.notFound}
         </Box>
         <Box
@@ -882,7 +893,8 @@ export default function ReceiptDocumentPage() {
             display: 'grid',
             alignItems: 'stretch',
             gap: { xs: 3, xl: 2.5 },
-            gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 1fr) minmax(0, 1fr)' },
+            // minmax(0, …): a wide screenshot must not stretch the column past the screen.
+            gridTemplateColumns: { xs: 'minmax(0, 1fr)', xl: 'minmax(0, 1fr) minmax(0, 1fr)' },
             gridTemplateRows: { xl: 'minmax(0, 1fr)' },
             flex: { xl: 1 },
             minHeight: { xl: 0 },
@@ -961,6 +973,7 @@ export default function ReceiptDocumentPage() {
               value={formValue}
               categories={categories}
               onChange={handleFormChange}
+              receiptId={receipt.id}
             />
 
             {receipt.parsedData?.einvoice ? (

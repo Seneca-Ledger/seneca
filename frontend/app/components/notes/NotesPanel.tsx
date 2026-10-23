@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, Typography } from '@mui/material';
-import { type ChangeEvent, type KeyboardEvent, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/app/hooks/useAuth';
 import {
@@ -142,19 +142,43 @@ export function NotesPanel({ entityType, entityId, showTitle = true }: NotesPane
     }
   };
 
+  // What is typed is never lost: it is sent when the field loses focus and when
+  // the panel goes away (the drawer closes, another tab opens), not only on Send.
+  const pending = useRef({ draft, candidates, addNote, sending: false });
+  useEffect(() => {
+    Object.assign(pending.current, { draft, candidates, addNote });
+  });
+  useEffect(
+    () => () => {
+      const { draft: unsent, candidates: people, addNote: send, sending } = pending.current;
+      const body = unsent.trim();
+      if (body && !sending) {
+        send({ body, mentionedUserIds: collectMentionedIds(body, people) }).catch(() =>
+          toast.error(t.addFailed.value),
+        );
+      }
+    },
+    [t.addFailed],
+  );
+
   const submit = async (): Promise<void> => {
     const body = draft.trim();
-    if (!body || isAdding) {
+    // Blur and the Send click arrive together; the second one finds it sending.
+    if (!body || pending.current.sending) {
       return;
     }
+    pending.current.sending = true;
     try {
       await addNote({ body, mentionedUserIds: collectMentionedIds(body, candidates) });
-      setDraft('');
+      // Only what was sent is cleared: text typed meanwhile stays to be sent next.
+      setDraft(current => (current.trim() === body ? '' : current));
       setCaret(0);
     } catch (error) {
       // Причина бывает содержательной («упомянутого нет в воркспейсе») —
       // общая заглушка её бы съела.
       toast.error(getApiErrorMessage(error, t.addFailed.value));
+    } finally {
+      pending.current.sending = false;
     }
   };
 
@@ -191,6 +215,7 @@ export function NotesPanel({ entityType, entityId, showTitle = true }: NotesPane
           value={draft}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onBlur={() => void submit()}
           onSelect={(event: React.SyntheticEvent<HTMLTextAreaElement>) =>
             setCaret(event.currentTarget.selectionStart ?? 0)
           }

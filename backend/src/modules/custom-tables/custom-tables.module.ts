@@ -25,6 +25,7 @@ import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditModule } from '../audit/audit.module';
 import { BudgetsModule } from '../budgets/budgets.module';
 import { ClassificationModule } from '../classification/classification.module';
+import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { PayablesModule } from '../payables/payables.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -35,6 +36,7 @@ import { CustomTableCommentsController } from './custom-table-comments.controlle
 import { CustomTableCommentsService } from './custom-table-comments.service';
 import { CustomTableExportSchedulesScheduler } from './custom-table-export-schedules.scheduler';
 import { CustomTableExportSchedulesService } from './custom-table-export-schedules.service';
+import { CustomTableMoneyTotalService } from './custom-table-money-total.service';
 import {
   CustomTableSharesController,
   PublicCustomTableSharesController,
@@ -77,6 +79,7 @@ import { SourceWriteBackService } from './write-back/source-write-back.service';
     AuditModule,
     BudgetsModule,
     ClassificationModule,
+    ExchangeRatesModule,
     BullModule.registerQueue({ name: CUSTOM_TABLE_RECALC_QUEUE }),
     WorkspaceCurrencyModule,
     TaxModule,
@@ -102,6 +105,7 @@ import { SourceWriteBackService } from './write-back/source-write-back.service';
     CustomTableExportSchedulesService,
     CustomTableExportSchedulesScheduler,
     CustomTableCommentsService,
+    CustomTableMoneyTotalService,
     SourceWriteBackService,
   ],
   exports: [CustomTablesService],

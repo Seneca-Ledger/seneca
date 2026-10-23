@@ -97,12 +97,40 @@ export class PayeesService {
     const page = query.page ?? 1;
     const limit = query.limit ?? DEFAULT_LIMIT;
     const search = query.search?.trim() ?? '';
+    const { data, total } = await this.views(workspaceId, { search }, page, limit, viewerMemberId);
+    return { data, total, page, limit };
+  }
 
+  /** One payee as the list shows it. */
+  async get(
+    workspaceId: string,
+    id: string,
+    viewerMemberId: string | null = null,
+  ): Promise<PayeeView> {
+    const { data } = await this.views(workspaceId, { id }, 1, 1, viewerMemberId);
+    if (!data[0]) {
+      throw new NotFoundException('Payee not found');
+    }
+    return data[0];
+  }
+
+  private async views(
+    workspaceId: string,
+    filter: { search?: string; id?: string },
+    page: number,
+    limit: number,
+    viewerMemberId: string | null,
+  ): Promise<{ data: PayeeView[]; total: number }> {
     const filtered = this.payeeRepository
       .createQueryBuilder('payee')
       .where('payee.workspaceId = :workspaceId', { workspaceId });
-    if (search) {
-      filtered.andWhere("payee.name ILIKE :pattern ESCAPE '\\'", { pattern: likePattern(search) });
+    if (filter.search) {
+      filtered.andWhere("payee.name ILIKE :pattern ESCAPE '\\'", {
+        pattern: likePattern(filter.search),
+      });
+    }
+    if (filter.id) {
+      filtered.andWhere('payee.id = :id', { id: filter.id });
     }
 
     const [total, rows] = await Promise.all([
@@ -199,7 +227,7 @@ export class PayeesService {
       };
     });
 
-    return { data, total, page, limit };
+    return { data, total };
   }
 
   async update(
@@ -497,7 +525,7 @@ export class PayeesService {
       .andWhere('transaction.isDuplicate = false')
       .andWhere('transaction.splitGroupId IS NULL')
       .andWhere(
-        `(transaction.categoryId IS NULL OR transaction.categorySource IN (:...undecided))`,
+        '(transaction.categoryId IS NULL OR transaction.categorySource IN (:...undecided))',
         {
           undecided: [
             TransactionCategorySource.DEFAULT,

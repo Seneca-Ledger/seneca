@@ -20,6 +20,7 @@ import {
 } from '@/app/lib/statement-expense-drawer';
 import { tokens } from '@/lib/theme-tokens';
 import { CurrencyDrawer } from './components/CurrencyDrawer';
+import { ReceiptTaxField } from './ReceiptTaxField';
 import type { EditableReceiptParsedData, ReceiptCategoryOption } from './receipt-types';
 
 /** Fields are stacked one per row so the form reads as a single column. */
@@ -102,6 +103,8 @@ export interface ReceiptParsedDataFormProps {
   onCurrencyChange?: (value: EditableReceiptParsedData) => void | Promise<void>;
   /** Two fields per row and shorter controls, for the full-page receipt view. */
   compact?: boolean;
+  /** The receipt being edited: its transaction's tax rate is picked in the form. */
+  receiptId?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
@@ -111,6 +114,7 @@ export function ReceiptParsedDataForm({
   onChange,
   onCurrencyChange,
   compact = false,
+  receiptId,
 }: ReceiptParsedDataFormProps) {
   const { locale } = useLocale();
   const t = useIntlayer('receiptParsedDataForm');
@@ -293,21 +297,17 @@ export function ReceiptParsedDataForm({
             </Box>
           </Field>
 
-          <Field compact={compact} htmlFor="receipt-tax" label={t.tax.value}>
-            <Input
-              id="receipt-tax"
-              style={controlStyle}
-              aria-label={t.tax.value}
-              type="number"
-              value={value.tax}
-              onChange={event =>
-                onChange({
-                  ...value,
-                  tax: event.target.value === '' ? '' : Number(event.target.value),
-                })
-              }
-            />
-          </Field>
+          {receiptId ? (
+            <Field compact={compact} htmlFor="receipt-tax" label={t.tax.value}>
+              <ReceiptTaxField
+                id="receipt-tax"
+                receiptId={receiptId}
+                date={value.date}
+                currency={value.currency}
+                sx={selectSx}
+              />
+            </Field>
+          ) : null}
 
           <Field compact={compact} htmlFor="receipt-payment-method" label={t.paymentMethod.value}>
             <Select

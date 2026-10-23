@@ -29,6 +29,7 @@ export const OVERVIEW_SECTION_IDS = [
   'goals',
   'net-worth',
   'budgets',
+  // This month's subscriptions; the id is the old cash runway card's, so saved layouts keep the slot.
   'cash-runway',
   'activity',
   'month-close',
@@ -60,20 +61,19 @@ const CARD_UNITS = 2;
 const LEGACY_KPI_ROW = 'kpis';
 
 /**
- * The arrangement set up in the Administrator workspace, made everyone's
- * starting point, with the cash flow and month close that came from the tabs.
+ * The arrangement set up in the Administrator workspace (2026-10-21), made
+ * everyone's starting point.
  */
 export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
   ['getting-started', 'budgets'],
   [...KPI_SECTION_IDS],
-  ['cash-flow'],
+  ['cash-flow', 'goals'],
   ['top-categories', 'recent-transactions'],
   ['safe-to-spend', 'cash-runway'],
   ['spend-calendar'],
   ['net-worth', 'upcoming-charges'],
-  ['goals'],
-  ['month-close', 'activity'],
-  ['advice'],
+  ['activity'],
+  ['advice', 'month-close'],
 ];
 
 const KNOWN = new Set<string>(OVERVIEW_SECTION_IDS);

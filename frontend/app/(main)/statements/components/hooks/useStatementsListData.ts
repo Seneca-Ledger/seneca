@@ -5,6 +5,7 @@ import { useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import type { StatementFilters } from '../filters/statement-filters';
 import type { ReceiptDocument } from '../receipt-document-mapping';
+import type { RowsFilter } from '../StatementsListView.utils';
 import { useAutoOpenParsedStatement } from './useAutoOpenParsedStatement';
 import { useReceiptDocumentsQuery } from './useReceiptDocumentsQuery';
 import { type StatementRecord, useStatementsQuery } from './useStatementsQuery';
@@ -19,6 +20,7 @@ const NO_RECEIPTS: ReceiptDocument[] = [];
 interface UseStatementsListDataParams {
   appliedFilters: StatementFilters;
   categoryId?: string | null;
+  rowsFilter?: RowsFilter | null;
   receiptStatus?: string | null;
   search: string;
   user: unknown;
@@ -45,6 +47,7 @@ export interface UseStatementsListDataResult {
 export function useStatementsListData({
   appliedFilters,
   categoryId,
+  rowsFilter,
   receiptStatus,
   search,
   user,
@@ -57,6 +60,7 @@ export function useStatementsListData({
   const statementsQuery = useStatementsQuery({
     appliedFilters,
     categoryId,
+    rowsFilter,
     search,
     enabled: Boolean(user),
   });

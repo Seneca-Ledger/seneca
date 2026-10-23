@@ -50,6 +50,10 @@ export const CashFlowQuery = Schema.Struct({
 });
 export type CashFlowQuery = Wire<typeof CashFlowQuery>;
 
+/** `GET /dashboard/cash-flow/entries`. */
+export const CashFlowEntriesQuery = Schema.Struct({ month: Month });
+export type CashFlowEntriesQuery = Wire<typeof CashFlowEntriesQuery>;
+
 /** `GET /reports/net-worth`. */
 export const NetWorthQuery = Schema.Struct({
   range: Schema.optional(Schema.Literals(['30d', '90d', '180d', 'ytd', '1y', '3y', '5y', 'all'])),
@@ -293,7 +297,13 @@ export const StatementsQuery = Schema.Struct({
   dateMode: Schema.optional(Schema.Literals(['on', 'after', 'before'])),
   dateFrom: Schema.optional(IsoDateString),
   dateTo: Schema.optional(IsoDateString),
+  /** A category with its subcategories, or `uncategorized`. */
   categoryId: Schema.optional(Schema.String),
+  /** A merchant as the analytics charts key it (vendor or counterparty, lower-cased). */
+  merchant: Schema.optional(Schema.String),
+  /** With `categoryId` or `merchant`: only their transactions dated in this window count. */
+  transactionsFrom: Schema.optional(DateOnlyInput),
+  transactionsTo: Schema.optional(DateOnlyInput),
 });
 export type StatementsQuery = Wire<typeof StatementsQuery>;
 
@@ -416,3 +426,12 @@ export const ExchangeRateQuery = Schema.Struct({
   date: Schema.optional(IsoDateString),
 });
 export type ExchangeRateQuery = Wire<typeof ExchangeRateQuery>;
+
+/** `GET /transactions/overview`: the period of the All transactions page, in one currency. */
+export const TransactionsOverviewQuery = Schema.Struct({
+  dateFrom: Schema.optional(DateOnlyInput),
+  dateTo: Schema.optional(DateOnlyInput),
+  convertTo: Schema.optional(Schema.String),
+  owner: Schema.optional(Schema.String),
+});
+export type TransactionsOverviewQuery = Wire<typeof TransactionsOverviewQuery>;

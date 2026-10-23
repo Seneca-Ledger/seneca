@@ -32,12 +32,6 @@ describe('workspace tabs helpers', () => {
         href: '/workspaces/categories',
         active: false,
       },
-      {
-        id: 'payees',
-        label: 'Payees',
-        href: '/workspaces/payees',
-        active: false,
-      },
     ]);
   });
 

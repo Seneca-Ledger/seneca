@@ -1134,23 +1134,41 @@ export class StatementsService {
       );
     }
 
-    if (filters.categoryId) {
-      const categorySubQuery = this.transactionRepository
+    if (filters.categoryId || filters.merchant) {
+      // Documents holding a row of this category and/or merchant, dated in the window if given.
+      const rowSubQuery = this.transactionRepository
         .createQueryBuilder('transaction')
         .select('DISTINCT transaction.statementId')
         .where('transaction.workspaceId = :workspaceId', { workspaceId })
         .andWhere('transaction.statementId IS NOT NULL');
 
       if (filters.categoryId === 'uncategorized') {
-        categorySubQuery.andWhere('transaction.categoryId IS NULL');
-      } else {
-        categorySubQuery.andWhere('transaction.categoryId = :categoryId', {
-          categoryId: filters.categoryId,
+        rowSubQuery.andWhere('transaction.categoryId IS NULL');
+      } else if (filters.categoryId) {
+        // A parent's figure in the reports includes its subcategories; so does its list.
+        const categoryIds = await this.categoryWithDescendants(workspaceId, filters.categoryId);
+        rowSubQuery.andWhere('transaction.categoryId IN (:...categoryIds)', { categoryIds });
+      }
+      if (filters.merchant) {
+        // The merchant key the analytics charts group by.
+        rowSubQuery.andWhere(
+          'LOWER(TRIM(COALESCE(transaction.vendorNormalized, transaction.counterpartyName))) = :merchant',
+          { merchant: filters.merchant.trim().toLowerCase() },
+        );
+      }
+      if (filters.transactionsFrom) {
+        rowSubQuery.andWhere('transaction.transactionDate >= :transactionsFrom', {
+          transactionsFrom: filters.transactionsFrom,
+        });
+      }
+      if (filters.transactionsTo) {
+        rowSubQuery.andWhere('transaction.transactionDate <= :transactionsTo', {
+          transactionsTo: filters.transactionsTo,
         });
       }
 
-      qb.andWhere(`statement.id IN (${categorySubQuery.getQuery()})`).setParameters(
-        categorySubQuery.getParameters(),
+      qb.andWhere(`statement.id IN (${rowSubQuery.getQuery()})`).setParameters(
+        rowSubQuery.getParameters(),
       );
     }
 
@@ -1196,6 +1214,24 @@ export class StatementsService {
       page: page ?? 1,
       limit: limit ?? total,
     };
+  }
+
+  /** The category and every category below it, within the workspace. */
+  private async categoryWithDescendants(
+    workspaceId: string,
+    categoryId: string,
+  ): Promise<string[]> {
+    const categories = await this.categoryRepository.find({
+      where: { workspaceId },
+      select: { id: true, parentId: true },
+    });
+    const ids = [categoryId];
+    for (let index = 0; index < ids.length; index++) {
+      for (const category of categories) {
+        if (category.parentId === ids[index] && !ids.includes(category.id)) ids.push(category.id);
+      }
+    }
+    return ids;
   }
 
   async findOne(id: string, workspaceId: string): Promise<Statement> {
