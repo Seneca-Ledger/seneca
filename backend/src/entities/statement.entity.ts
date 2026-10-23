@@ -15,6 +15,7 @@ import {
 type JsonObject = Record<string, unknown>;
 
 import { normalizeFilename } from '../common/utils/filename.util';
+import { nulFreeTransformer } from '../common/utils/nul-chars.util';
 import { Category } from './category.entity';
 import { Folder } from './folder.entity';
 import { Tag } from './tag.entity';
@@ -152,7 +153,8 @@ export class Statement {
   })
   stage: StatementStage;
 
-  @Column({ name: 'error_message', type: 'text', nullable: true })
+  // Both carry text read out of the file, which may hold a NUL Postgres refuses.
+  @Column({ name: 'error_message', type: 'text', nullable: true, transformer: nulFreeTransformer })
   errorMessage: string | null;
 
   @Column({ name: 'total_transactions', default: 0 })
@@ -219,7 +221,12 @@ export class Statement {
   @Column({ name: 'parsing_attempts', default: 0 })
   parsingAttempts: number;
 
-  @Column({ name: 'parsing_details', type: 'jsonb', nullable: true })
+  @Column({
+    name: 'parsing_details',
+    type: 'jsonb',
+    nullable: true,
+    transformer: nulFreeTransformer,
+  })
   parsingDetails: {
     detectedBank?: string;
     detectedFormat?: string;
