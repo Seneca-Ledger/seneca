@@ -86,7 +86,10 @@ export function CompletionStep({ data, mode }: CompletionStepProps) {
   ];
 
   return (
-    <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <Box
+      component="section"
+      sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
+    >
       <StepHeading
         title={text(['completion', 'title'], 'Done! Setup complete')}
         subtitle={text(

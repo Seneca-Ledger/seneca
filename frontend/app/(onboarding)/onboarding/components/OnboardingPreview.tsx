@@ -157,7 +157,18 @@ function WorkspacePreview({ data, text }: { data: OnboardingData; text: Onboardi
         <Box component="p" sx={overlineSx}>
           {text(['preview', 'menuTitle'], 'Your menu')}
         </Box>
-        <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+        {/* Two columns: the whole menu fits the screen beside the form. */}
+        <Box
+          component="ul"
+          sx={{
+            m: 0,
+            p: 0,
+            listStyle: 'none',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            columnGap: 2,
+          }}
+        >
           {items.map(item => {
             // Until a profile is chosen, show the business menu — the one a workspace gets by default.
             const hidden = item.businessOnly && data.profile === 'home';
@@ -170,6 +181,7 @@ function WorkspacePreview({ data, text }: { data: OnboardingData; text: Onboardi
                   alignItems: 'center',
                   gap: 1.5,
                   py: 0.75,
+                  minWidth: 0,
                   fontSize: 14,
                   color: 'var(--foreground)',
                   opacity: hidden ? 0.25 : 1,
