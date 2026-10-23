@@ -53,7 +53,7 @@
     "framer-motion": "^12.34.3",
     "intlayer": "^7.5.11",
     "leaflet": "^1.9.4",
-    "next": "^16.1.2",
+    "next": "^16.4.3",
     "next-intlayer": "^7.5.11",
     "next-themes": "^0.2.1",
     "pdfjs-dist": "5.4.296",
