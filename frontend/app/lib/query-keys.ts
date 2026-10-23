@@ -208,6 +208,12 @@ export const queryKeys = {
   }) => ['invoices', o.workspaceId, 'peppol', o.kind, o.documentId] as const,
   clients: (workspaceId: string | null) => ['clients', workspaceId] as const,
   taxRateOptions: (workspaceId: string | null) => ['tax-rates', workspaceId, 'options'] as const,
+  taxRatesInForce: (o: { workspaceId: string | null; date: string }) =>
+    ['tax-rates', o.workspaceId, 'in-force', o.date] as const,
+  // Under 'transactions': it is the receipt's row that carries the tax, so an
+  // edit that refreshes the figures refreshes it too.
+  receiptTax: (o: { workspaceId: string | null; receiptId: string }) =>
+    ['transactions', 'receipt-tax', o.workspaceId, o.receiptId] as const,
   /** Instance-wide (the running containers), so the one key without a workspace. */
   systemUpdate: () => ['system-update'] as const,
   workspaceVersions: (workspaceId: string | null) => ['workspace-versions', workspaceId] as const,

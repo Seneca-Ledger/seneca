@@ -147,3 +147,9 @@ export const ApplyReceiptSplitBody = Schema.Struct({
   ),
 });
 export type ApplyReceiptSplitBody = Wire<typeof ApplyReceiptSplitBody>;
+
+/** A rate picked by hand for the receipt's transaction; null hands it back to the rules. */
+export const SetReceiptTaxBody = Schema.Struct({
+  taxRateId: Schema.NullOr(Schema.String.check(Schema.isUUID())),
+});
+export type SetReceiptTaxBody = Wire<typeof SetReceiptTaxBody>;
