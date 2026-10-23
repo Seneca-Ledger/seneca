@@ -48,6 +48,18 @@ const sizeToMaxWidth: Record<ModalSize, 'sm' | 'md' | 'lg' | 'xl' | false> = {
   full: false,
 };
 
+/** Spread into `paperSx` for a dialog that takes the whole screen on a phone. */
+export const FULL_SCREEN_ON_PHONE = {
+  '@media (max-width: 1023px)': {
+    m: 0,
+    width: '100%',
+    maxWidth: '100%',
+    height: '100%',
+    maxHeight: '100%',
+    borderRadius: 0,
+  },
+} as const;
+
 const CONFIRM_COLOR: Record<'primary' | 'destructive', 'primary' | 'error'> = {
   primary: 'primary',
   destructive: 'error',
