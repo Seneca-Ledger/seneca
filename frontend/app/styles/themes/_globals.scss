@@ -318,8 +318,6 @@ body.body-scroll-locked {
 body.ff-table-fullscreen {
   overflow: hidden;
 
-  .seneca-topbar { display: none; }
-
   .seneca-shell__sidebar { display: none; }
 
   .seneca-shell__content > main {

@@ -1124,13 +1124,7 @@
     transition: background-color 0.15s;
     background: none;
     border: none;
-    // Compact rows read as a list with a hairline between them.
-    border-bottom: 1px solid var(--border);
     color: var(--foreground);
-
-    &:last-child {
-      border-bottom: none;
-    }
 
     &:hover {
       background: $color-muted;
@@ -4146,11 +4140,6 @@
   align-items: center;
   gap: 12px;
 
-  &__tabs {
-    flex: 1;
-    min-width: 0;
-  }
-
   &__group {
     display: flex;
     flex-wrap: wrap;
@@ -4172,7 +4161,7 @@
     flex-wrap: wrap;
     gap: 8px;
 
-    &__tabs {
+    .seneca-page-title {
       flex-basis: 100%;
     }
 
@@ -4552,7 +4541,7 @@
     left: 0;
     top: calc(100% + 8px);
     z-index: 20;
-    width: 280px;
+    width: 340px;
     max-width: calc(100vw - 64px);
     border-radius: $seneca-radius-md;
     border: 1px solid #dedad2;
@@ -4585,21 +4574,47 @@
       color: $seneca-color-ink-700-dk;
     }
 
-    &:hover {
+    // Keyboard focus looks like the pointer's hover: the menu is run by arrows too.
+    &:hover,
+    &:focus-visible {
       background: #f9fafb;
+      outline: none;
 
       @include dark {
         background: $seneca-color-surface-muted-dk;
       }
     }
 
-    &--danger:hover {
+    &--danger {
+      color: var(--money-down);
+    }
+
+    &--danger:hover,
+    &--danger:focus-visible {
       background: $seneca-color-surface-error;
 
       @include dark {
         background: $seneca-color-danger-soft-dk;
       }
     }
+  }
+
+  &__bulk-menu-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.2;
+
+    svg {
+      flex-shrink: 0;
+      color: var(--text-muted);
+    }
+  }
+
+  &__bulk-menu-btn--danger &__bulk-menu-label svg {
+    color: var(--money-down);
   }
 
   &__bulk-menu-divider {

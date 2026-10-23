@@ -17,6 +17,7 @@ import TextField from '@mui/material/TextField';
 import type React from 'react';
 import { useState } from 'react';
 import { Plus } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
@@ -64,6 +65,11 @@ export function JournalTab({
   const [source, setSource] = useState<EntrySource | ''>('');
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<Open>(null);
+  useQuickActions(
+    canPost
+      ? [{ id: 'new-entry', label: t.newEntry.value, icon: Plus, run: () => setOpen('new') }]
+      : null,
+  );
 
   const list = useJournalEntries({ status, source, page });
   const detail = useJournalEntry(open && open !== 'new' ? open : null);
@@ -190,7 +196,11 @@ export function JournalTab({
         <Box sx={{ flex: 1 }} />
         {canPost ? <RevaluationButton /> : null}
         {canPost ? (
-          <Button variant="contained" onClick={() => setOpen('new')}>
+          <Button
+            variant="contained"
+            className="seneca-bottom-bar-source"
+            onClick={() => setOpen('new')}
+          >
             <Plus size={18} aria-hidden />
             {t.newEntry}
           </Button>

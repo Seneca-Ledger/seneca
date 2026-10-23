@@ -54,6 +54,7 @@ function view(overrides: Partial<DocumentSelectionView> = {}): DocumentSelection
     handleDismissSelectedDuplicates: vi.fn(),
     handleSelectDetectedDuplicates: vi.fn(),
     handleMergeSelectedDuplicates: vi.fn(),
+    setSelectedActionsOpen: vi.fn(),
     ...overrides,
   };
 }
@@ -122,6 +123,34 @@ describe('useDocumentSelectionCommands', () => {
     mount(some);
     press({ key: 'Escape', code: 'Escape' });
     expect(some.setSelectedStatementIds).toHaveBeenCalledWith([]);
+  });
+
+  it('opens the selection menu on ".", only with something selected', () => {
+    const empty = view();
+    const first = mount(empty);
+    press({ key: '.', code: 'Period' });
+    expect(empty.setSelectedActionsOpen).not.toHaveBeenCalled();
+    first.unmount();
+
+    const some = view(allSelected());
+    mount(some);
+    press({ key: '.', code: 'Period' });
+    expect(some.setSelectedActionsOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('hands the menu every action on the selection, clearing and deleting last', () => {
+    const { result } = renderHookWithQuery(() =>
+      useDocumentSelectionCommands(view(allSelected()), vi.fn()),
+    );
+    expect(result.current.map(command => command.id)).toEqual([
+      'documents.setCategory',
+      'documents.createTable',
+      'documents.addToTable',
+      'documents.export',
+      'documents.markDuplicate',
+      'documents.clearSelection',
+      'documents.deleteSelected',
+    ]);
   });
 
   it('leaves keys pressed inside a dialog to the dialog', () => {

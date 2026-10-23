@@ -263,6 +263,67 @@ describe('StatementsController (e2e)', () => {
       await dataSource.getRepository(Category).delete({ id: category.id });
     });
 
+    it('should filter by a category with its subcategories or a merchant within a transaction window', async () => {
+      const categoryRepo = dataSource.getRepository(Category);
+      const parent = await categoryRepo.save({
+        workspaceId,
+        name: 'Quokka Household',
+        type: CategoryType.EXPENSE,
+      });
+      const child = await categoryRepo.save({
+        workspaceId,
+        name: 'Quokka Cleaning',
+        type: CategoryType.EXPENSE,
+        parentId: parent.id,
+      });
+      const txRepo = dataSource.getRepository(Transaction);
+      const inWindow = '2026-06-15';
+      await txRepo.save(
+        txRepo.create({
+          workspaceId,
+          statementId,
+          currency: 'EUR',
+          transactionDate: new Date(inWindow),
+          transactionType: TransactionType.EXPENSE,
+          counterpartyName: 'ACME Store - Mop',
+          paymentPurpose: 'Floor mop',
+          amount: 12.5,
+          debit: 12.5,
+          categoryId: child.id,
+        }),
+      );
+
+      const found = async (query: Record<string, string>): Promise<boolean> => {
+        const res = await request(app.getHttpServer())
+          .get('/statements')
+          .query(query)
+          .set('Authorization', `Bearer ${accessToken}`)
+          .set('x-workspace-id', workspaceId)
+          .expect(200);
+        return res.body.data.some((statement: { id: string }) => statement.id === statementId);
+      };
+
+      expect(await found({ categoryId: parent.id })).toBe(true);
+      expect(await found({ categoryId: child.id })).toBe(true);
+      expect(
+        await found({ categoryId: parent.id, transactionsFrom: inWindow, transactionsTo: inWindow }),
+      ).toBe(true);
+      expect(
+        await found({
+          categoryId: parent.id,
+          transactionsFrom: '2026-07-01',
+          transactionsTo: '2026-07-31',
+        }),
+      ).toBe(false);
+      // The merchant key the charts use: trimmed, lower-cased counterparty.
+      expect(await found({ merchant: 'acme store - mop', transactionsFrom: inWindow })).toBe(true);
+      expect(await found({ merchant: 'acme store', transactionsFrom: inWindow })).toBe(false);
+
+      await txRepo.delete({ statementId });
+      await categoryRepo.delete({ id: child.id });
+      await categoryRepo.delete({ id: parent.id });
+    });
+
     it('should reject request without authentication', () => {
       return request(app.getHttpServer()).get('/statements').expect(401);
     });

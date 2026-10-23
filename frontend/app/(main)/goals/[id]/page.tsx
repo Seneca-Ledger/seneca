@@ -9,6 +9,7 @@ import { useParams } from 'next/navigation';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { ArrowLeft } from '@/app/components/icons';
+import { LoadError } from '@/app/components/ui/load-error';
 import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
@@ -93,11 +94,7 @@ export default function GoalDetailPage(): React.JSX.Element {
         {t.back}
       </Button>
 
-      {error && !isPending && (
-        <Typography color="error" sx={{ py: 6, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && !isPending && <LoadError spacing={6}>{t.error}</LoadError>}
 
       {showSkeleton && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

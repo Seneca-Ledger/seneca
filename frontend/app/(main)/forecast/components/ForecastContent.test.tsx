@@ -38,6 +38,8 @@ const data: ForecastData = {
   shortfallDate: null,
   safeToSpend: { amount: 480, untilDate: '2026-10-09', nextIncomeDate: '2026-10-10' },
   runwayMonths: null,
+  runwayChange: 1200,
+  runwayDays: 365,
   everydayMonthly: 300,
   irregularIncomeMonthly: 0,
   monthlyIncome: 2000,

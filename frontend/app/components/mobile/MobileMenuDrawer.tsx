@@ -9,7 +9,7 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { useExperimentalMode } from '@/app/lib/experimental-mode';
 import { AccountMenu } from '../navigation/AccountMenu';
-import { buildNavItems, isNavItemActive } from '../navigation/helpers/navigation-config';
+import { activeNavPath, buildNavItems } from '../navigation/helpers/navigation-config';
 
 interface MobileMenuDrawerProps {
   open: boolean;
@@ -26,6 +26,7 @@ export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
   const visibleNavItems = navItems.filter(
     item => hasPermission(item.permission) && (!item.experimental || experimentalMode),
   );
+  const activePath = activeNavPath(pathname ?? '', visibleNavItems);
 
   // Close on route change
   useEffect(() => {
@@ -84,7 +85,7 @@ export function MobileMenuDrawer({ open, onClose }: MobileMenuDrawerProps) {
 
           <nav className="seneca-mobile-drawer__nav">
             {visibleNavItems.map(item => {
-              const active = isNavItemActive(pathname ?? '', item.path);
+              const active = item.path === activePath;
               return (
                 <Link
                   key={item.path}

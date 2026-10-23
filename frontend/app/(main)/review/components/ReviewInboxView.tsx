@@ -13,7 +13,9 @@ import { filterEnabledCategories } from '@/app/(main)/statements/[id]/edit/editH
 import StatementCategoryDrawer from '@/app/(main)/statements/[id]/edit/StatementCategoryDrawer';
 import { statementColumnWidthStyle } from '@/app/(main)/statements/components/columns/statement-columns';
 import { DateFilterDropdown } from '@/app/(main)/statements/components/filters/DateFilterDropdown';
+import { statementFilterSpan } from '@/app/(main)/statements/components/filters/filter-summary';
 import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
+import { useFilterSummary } from '@/app/(main)/statements/components/filters/useFilterSummary';
 import { useStatementPreview } from '@/app/(main)/statements/components/hooks/useStatementPreview';
 import {
   buildDateModes,
@@ -40,6 +42,7 @@ import {
   ReceiptLineIcon,
 } from '@/app/components/ui/empty-state-icons';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { PageTitle } from '@/app/components/ui/page-title';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
@@ -209,6 +212,18 @@ export function ReviewInboxView({ state }: Props) {
     duplicate: t.tabDuplicates.value,
     subscription: t.tabSubscriptions.value,
   };
+
+  const summarize = useFilterSummary();
+  const titleSummary = summarize(
+    tabLabels[kind],
+    kind === 'subscription' ? { kind: 'allTime' } : statementFilterSpan(dateApplied, new Date()),
+    [
+      canFilterByReviewer &&
+        `${tOwner.filterLabel.value}: ${reviewer === 'me' ? tOwner.me.value : tOwner.everyone.value}`,
+      state.uncategorized && t.filterUncategorized.value,
+      grouped && t.groupByPayee.value,
+    ].filter((part): part is string => Boolean(part)),
+  );
 
   const groups = useMemo(() => (grouped ? groupByPayee(items) : null), [grouped, items]);
   const orderedItems = useMemo(
@@ -651,6 +666,9 @@ export function ReviewInboxView({ state }: Props) {
   return (
     <div className="container-shared seneca-stmt-list-view">
       <div className="seneca-stmt-list-view__header">
+        <div style={{ marginBottom: 16 }}>
+          <PageTitle path="/review" summary={titleSummary} />
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Tabs

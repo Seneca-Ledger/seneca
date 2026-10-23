@@ -32,10 +32,10 @@ html :focus-visible,
 }
 
 // ── Sticky bars ───────────────────────────────────────────────────────────────
-// When focus scrolls an element into view, keep it clear of the sticky top bar
-// (.seneca-topbar, 52px) and, on mobile, of the fixed bottom bar (56px).
+// When focus scrolls an element into view, keep it off the screen edge and, on
+// mobile, clear of the fixed bottom bar (56px).
 html {
-  scroll-padding-top: 52px + 8px;
+  scroll-padding-top: 8px;
 }
 
 @include respond-to('lg') {

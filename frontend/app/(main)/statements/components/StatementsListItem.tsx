@@ -8,7 +8,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { formatMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
 import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
 import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
-import { DocumentTypeIcon } from '@/app/components/DocumentTypeIcon';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import { AlertCircle, ChevronDown, ChevronRight, CreditCard } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
@@ -684,16 +683,7 @@ export function StatementsListItem({
             onIconClick();
           }}
           aria-label={statement.fileName}
-        >
-          <DocumentTypeIcon
-            fileType={isReceipt ? 'pdf' : statement.fileType}
-            fileName={statement.fileName}
-            fileId={statement.id}
-            source={previewSource}
-            size={28}
-            muted
-          />
-        </button>
+        ></button>
         <div className="seneca-stmt-list-item__mobile-body">
           <div className="seneca-stmt-list-item__mobile-line">
             <span className="seneca-stmt-list-item__mobile-merchant">

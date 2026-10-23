@@ -10,6 +10,7 @@ import type { StatementFilters } from '../filters/statement-filters';
 import {
   buildStatementRequestParams,
   isReceiptDerivedStatement,
+  type RowsFilter,
 } from '../StatementsListView.utils';
 
 /** A row of `GET /statements`, with the file kind the list shows. */
@@ -38,6 +39,7 @@ export function statementsRefetchInterval(data: unknown): number | false {
 export interface UseStatementsQueryParams {
   appliedFilters: StatementFilters;
   categoryId?: string | null;
+  rowsFilter?: RowsFilter | null;
   search: string;
   enabled: boolean;
 }
@@ -45,11 +47,17 @@ export interface UseStatementsQueryParams {
 export function useStatementsQuery({
   appliedFilters,
   categoryId,
+  rowsFilter,
   search,
   enabled,
 }: UseStatementsQueryParams): UseQueryResult<StatementRecord[], Error> {
   const workspaceId = useWorkspaceId();
-  const params = buildStatementRequestParams({ appliedFilters, categoryId, search });
+  const params = buildStatementRequestParams({
+    appliedFilters,
+    categoryId,
+    rowsFilter,
+    search,
+  });
 
   return useQuery({
     queryKey: queryKeys.statements({ workspaceId, params }),

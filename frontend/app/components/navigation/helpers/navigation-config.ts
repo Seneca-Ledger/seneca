@@ -1,8 +1,14 @@
 import React, { type ReactNode } from 'react';
 import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Banknote,
   BarChart2,
+  BriefcaseBusiness,
   Building2,
   Calculator,
+  ChartPie,
+  CircleDollarSign,
   Compass,
   CreditCard,
   FileText,
@@ -17,6 +23,7 @@ import {
   ReceiptText,
   Scale,
   ScrollText,
+  Shuffle,
   Table,
   TrendingUp,
   Wallet,
@@ -35,6 +42,70 @@ export interface NavItem {
   experimental?: boolean;
   /** Hidden in the home profile: household money has no invoices or ledger. */
   businessOnly?: boolean;
+  /** The sidebar folds the item under this group; without one it stays a row of its own. */
+  group?: NavGroupId;
+}
+
+export type NavGroupId = 'transactions' | 'analytics' | 'investments' | 'business';
+
+export interface NavGroup {
+  id: NavGroupId;
+  label: ReactNode;
+  icon: React.ReactElement;
+}
+
+export function buildNavGroups(labels: Record<NavGroupId, unknown>): NavGroup[] {
+  return [
+    {
+      id: 'transactions',
+      label: labels.transactions as ReactNode,
+      icon: React.createElement(Shuffle, { size: 18 }),
+    },
+    {
+      id: 'analytics',
+      label: labels.analytics as ReactNode,
+      icon: React.createElement(ChartPie, { size: 18 }),
+    },
+    {
+      id: 'investments',
+      label: labels.investments as ReactNode,
+      icon: React.createElement(CircleDollarSign, { size: 18 }),
+    },
+    {
+      id: 'business',
+      label: labels.business as ReactNode,
+      icon: React.createElement(BriefcaseBusiness, { size: 18 }),
+    },
+  ];
+}
+
+export type NavEntry =
+  | { kind: 'item'; item: NavItem }
+  | { kind: 'group'; group: NavGroup; items: NavItem[] };
+
+/**
+ * The sidebar's rows: ungrouped items where they are, each group where its first
+ * item would be. A group none of whose items is visible is left out.
+ */
+export function groupNavItems(items: NavItem[], groups: NavGroup[]): NavEntry[] {
+  const entries: NavEntry[] = [];
+  const byGroup = new Map<NavGroupId, NavItem[]>();
+  for (const item of items) {
+    const group = groups.find(candidate => candidate.id === item.group);
+    if (!group) {
+      entries.push({ kind: 'item', item });
+      continue;
+    }
+    const members = byGroup.get(group.id);
+    if (members) {
+      members.push(item);
+    } else {
+      const created = [item];
+      byGroup.set(group.id, created);
+      entries.push({ kind: 'group', group, items: created });
+    }
+  }
+  return entries;
 }
 
 export type WorkspaceProfile = 'home' | 'business';
@@ -63,7 +134,10 @@ export function isNavItemVisible(
 
 export function buildNavItems(nav: {
   dashboard: unknown;
+  allTransactions: unknown;
   statements: unknown;
+  expenses: unknown;
+  income: unknown;
   tables: unknown;
   workspaces: unknown;
   reports: unknown;
@@ -90,8 +164,30 @@ export function buildNavItems(nav: {
     {
       label: nav.statements as ReactNode,
       path: '/statements',
+      group: 'transactions',
       icon: React.createElement(FileText, { size: 18 }),
       permission: 'statement.view',
+    },
+    {
+      label: nav.expenses as ReactNode,
+      path: '/statements/pay',
+      group: 'transactions',
+      icon: React.createElement(ArrowUpRight, { size: 18 }),
+      permission: 'payable.view',
+    },
+    {
+      label: nav.income as ReactNode,
+      path: '/statements/receive',
+      group: 'transactions',
+      icon: React.createElement(ArrowDownLeft, { size: 18 }),
+      permission: 'payable.view',
+    },
+    {
+      label: nav.allTransactions as ReactNode,
+      path: '/statements/transactions',
+      group: 'transactions',
+      icon: React.createElement(Banknote, { size: 18 }),
+      permission: 'transaction.view',
     },
     {
       label: nav.review as ReactNode,
@@ -106,6 +202,12 @@ export function buildNavItems(nav: {
       permission: 'budget.view',
     },
     {
+      label: nav.goals as ReactNode,
+      path: '/goals',
+      icon: React.createElement(Flag, { size: 18 }),
+      permission: 'goal.view',
+    },
+    {
       label: nav.subscriptions as ReactNode,
       path: '/subscriptions',
       icon: React.createElement(CreditCard, { size: 18 }),
@@ -114,18 +216,14 @@ export function buildNavItems(nav: {
     {
       label: nav.reports as ReactNode,
       path: '/reports',
+      group: 'analytics',
       icon: React.createElement(BarChart2, { size: 18 }),
       permission: 'statement.view',
     },
     {
-      label: nav.goals as ReactNode,
-      path: '/goals',
-      icon: React.createElement(Flag, { size: 18 }),
-      permission: 'goal.view',
-    },
-    {
       label: nav.netWorth as ReactNode,
       path: '/net-worth',
+      group: 'analytics',
       icon: React.createElement(TrendingUp, { size: 18 }),
       // Matches the endpoint's own guard (Permission.REPORT_VIEW) so the item
       // is not offered to roles that would only get a 403 from it.
@@ -134,6 +232,7 @@ export function buildNavItems(nav: {
     {
       label: nav.forecast as ReactNode,
       path: '/forecast',
+      group: 'analytics',
       icon: React.createElement(Compass, { size: 18 }),
       // Reads the same aggregates as the dashboard and net worth (Permission.REPORT_VIEW).
       permission: 'report.view',
@@ -141,36 +240,14 @@ export function buildNavItems(nav: {
     {
       label: nav.advice as ReactNode,
       path: '/advice',
+      group: 'analytics',
       icon: React.createElement(Lightbulb, { size: 18 }),
       permission: 'statement.view',
     },
     {
-      label: nav.invoices as ReactNode,
-      path: '/invoices',
-      icon: React.createElement(ReceiptText, { size: 18 }),
-      permission: 'invoice.view',
-      businessOnly: true,
-    },
-    {
-      label: nav.taxDeclaration as ReactNode,
-      path: '/tax-declaration',
-      icon: React.createElement(Landmark, { size: 18 }),
-      // Matches the draft endpoints' read guard (Permission.REPORT_VIEW).
-      permission: 'report.view',
-      businessOnly: true,
-    },
-    {
-      label: nav.ledger as ReactNode,
-      path: '/ledger',
-      icon: React.createElement(Scale, { size: 18 }),
-      permission: 'ledger.view',
-      // Behind experimental mode until the ledger has been used on real books for a while.
-      experimental: true,
-      businessOnly: true,
-    },
-    {
       label: nav.crypto as ReactNode,
       path: '/crypto',
+      group: 'investments',
       // Crypto wallets are wallets: the endpoints guard on the same permission,
       // so the item is offered to exactly the roles that can open it.
       icon: React.createElement(Wallet, { size: 18 }),
@@ -179,14 +256,43 @@ export function buildNavItems(nav: {
     {
       label: nav.roi as ReactNode,
       path: '/roi',
+      group: 'investments',
       icon: React.createElement(Calculator, { size: 18 }),
       // A standalone calculator that reads nothing of the workspace's data,
       // so being a member is enough to open it.
       permission: 'statement.view',
     },
     {
+      label: nav.invoices as ReactNode,
+      path: '/invoices',
+      group: 'business',
+      icon: React.createElement(ReceiptText, { size: 18 }),
+      permission: 'invoice.view',
+      businessOnly: true,
+    },
+    {
+      label: nav.taxDeclaration as ReactNode,
+      path: '/tax-declaration',
+      group: 'business',
+      icon: React.createElement(Landmark, { size: 18 }),
+      // Matches the draft endpoints' read guard (Permission.REPORT_VIEW).
+      permission: 'report.view',
+      businessOnly: true,
+    },
+    {
+      label: nav.ledger as ReactNode,
+      path: '/ledger',
+      group: 'business',
+      icon: React.createElement(Scale, { size: 18 }),
+      permission: 'ledger.view',
+      // Behind experimental mode until the ledger has been used on real books for a while.
+      experimental: true,
+      businessOnly: true,
+    },
+    {
       label: nav.tables as ReactNode,
       path: '/custom-tables',
+      group: 'business',
       icon: React.createElement(Table, { size: 18 }),
       permission: 'statement.view',
       businessOnly: true,
@@ -231,4 +337,18 @@ export function buildUserMenuNavItems(nav: {
 
 export function isNavItemActive(pathname: string, itemPath: string): boolean {
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+}
+
+/**
+ * The one item a page belongs to. Items can nest (/statements holds /statements/pay),
+ * so the most specific match wins and only one row lights up.
+ */
+export function activeNavPath(pathname: string, items: NavItem[]): string | undefined {
+  let best: string | undefined;
+  for (const item of items) {
+    if (isNavItemActive(pathname, item.path) && item.path.length > (best?.length ?? -1)) {
+      best = item.path;
+    }
+  }
+  return best;
 }
