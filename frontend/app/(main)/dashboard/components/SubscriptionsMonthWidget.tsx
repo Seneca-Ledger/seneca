@@ -59,9 +59,12 @@ export function SubscriptionsMonthWidget({
   // A failed request shows the empty state rather than breaking the dashboard.
   const total = data ? data.paidCount + data.unpaidCount : 0;
   // An empty part would still get the donut's minimum angle.
-  // The hover says what each part is in the subscriptions' own currencies.
+  // The hover says what each part is in the subscriptions' own currencies;
+  // nothing to add when they are all in the workspace's, the amount says it.
   const inOwnCurrencies = (amounts: Array<{ currency: string; amount: number }>) =>
-    amounts.map(entry => formatMoney(entry.amount, entry.currency, locale));
+    amounts.length === 1 && amounts[0].currency === data?.currency
+      ? undefined
+      : amounts.map(entry => formatMoney(entry.amount, entry.currency, locale));
   const slices: DonutSlice[] = data
     ? [
         {

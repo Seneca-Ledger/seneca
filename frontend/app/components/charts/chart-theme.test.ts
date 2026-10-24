@@ -20,10 +20,21 @@ describe('categoryTones', () => {
 
 describe('merchantTones', () => {
   const merchants = Array.from({ length: 12 }, (_, index) => `ACME Store ${index + 1}`);
+  const familyOf = (tone: string) => {
+    const index = Number(/(\d+)\)$/.exec(tone)?.[1]) - 1;
+    return [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 0][index];
+  };
 
-  it('keeps a merchant on its tone on every chart', () => {
+  it('gives the first merchant its own tone, the one its bars use alone', () => {
     const alone = merchantTones(['ACME Store 1'])[0];
-    expect(merchantTones(['Example Bakery', 'ACME Store 1'])[1]).toBe(alone);
+    expect(merchantTones(['ACME Store 1', 'Example Bakery', 'Example Cafe'])[0]).toBe(alone);
+  });
+
+  it('keeps up to four lines in four different hue families', () => {
+    for (let start = 0; start < 8; start++) {
+      const four = merchantTones(merchants.slice(start, start + 4));
+      expect(new Set(four.map(familyOf)).size).toBe(4);
+    }
   });
 
   it('gives twelve merchants on one chart twelve different tones', () => {

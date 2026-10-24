@@ -93,7 +93,8 @@ export function PayeeLines({
             );
           }}
         />
-        <Legend verticalAlign="top" height={28} wrapperStyle={LEGEND_STYLE} />
+        {/* In the order given: the payee first, then the others by size. */}
+        <Legend verticalAlign="top" height={28} wrapperStyle={LEGEND_STYLE} itemSorter={null} />
         {lines.map((line, index) => (
           <Line
             key={line.payeeId}

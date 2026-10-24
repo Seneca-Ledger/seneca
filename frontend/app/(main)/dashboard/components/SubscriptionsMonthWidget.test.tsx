@@ -92,9 +92,8 @@ describe('SubscriptionsMonthWidget', () => {
     apiGet.mockResolvedValue({ data: status() });
     renderWithQuery(<SubscriptionsMonthWidget formatAmount={money} />);
 
-    expect(await screen.findByTestId('donut')).toHaveTextContent(
-      `paid:${PAID}[€14.00],unpaid:${UNPAID}[€237.50]`,
-    );
+    // All in the workspace currency: the amount already says it, no extra lines.
+    expect(await screen.findByTestId('donut')).toHaveTextContent(`paid:${PAID},unpaid:${UNPAID}`);
     const [unpaid, paid] = screen.getAllByRole('link', { name: /ACME Music|Example Cloud/ });
     expect(unpaid).toHaveTextContent('Example Cloud');
     expect(unpaid).toHaveTextContent('Oct 28');

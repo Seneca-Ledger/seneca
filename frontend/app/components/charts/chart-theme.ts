@@ -91,24 +91,48 @@ export function categoryTones(items: Array<{ key: string; isOther?: boolean }>):
 
 /** Twelve calm tones for merchants (`--merchant-tone-*` in _globals.scss). */
 const MERCHANT_TONE_COUNT = 12;
+/**
+ * The hue family of each merchant tone, in token order: green (sage, pine,
+ * eucalyptus, moss), warm red (terracotta, dusty rose, clay), blue (dusty
+ * blue, slate, lavender grey), yellow (sand, soft ochre).
+ */
+const MERCHANT_TONE_FAMILY = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 0];
 
 /**
- * One tone per merchant, by its name: the same merchant has the same colour on
- * every chart, and up to twelve on one chart never share one. Past twelve a
- * tone repeats rather than fail.
+ * One tone per merchant on a chart. The first name keeps its own tone (held by
+ * the name, so a payee's bars and its line match); each next one keeps its own
+ * too while that hue family is still free on the chart, and otherwise moves to
+ * the nearest tone of a free family, so up to four lines never share a family
+ * and up to twelve never share a tone. Past twelve a tone repeats.
  */
 export function merchantTones(names: string[]): string[] {
-  return toneIndexes(
-    names.map(name => ({ key: name })),
-    MERCHANT_TONE_COUNT,
-  ).map(index => `var(--merchant-tone-${index + 1})`);
+  const taken = new Set<number>();
+  const families = new Set<number>();
+  const assigned = new Map<string, number>();
+  for (const name of names) {
+    if (assigned.has(name)) {
+      continue;
+    }
+    const own = stableHash(name) % MERCHANT_TONE_COUNT;
+    const free = (tone: number, wholeFamily: boolean) =>
+      !(taken.has(tone) || (wholeFamily && families.has(MERCHANT_TONE_FAMILY[tone])));
+    const steps = Array.from(
+      { length: MERCHANT_TONE_COUNT },
+      (_, step) => (own + step) % MERCHANT_TONE_COUNT,
+    );
+    const tone =
+      steps.find(candidate => free(candidate, families.size < 4)) ??
+      steps.find(candidate => free(candidate, false)) ??
+      own;
+    taken.add(tone);
+    families.add(MERCHANT_TONE_FAMILY[tone]);
+    assigned.set(name, tone);
+  }
+  return names.map(name => `var(--merchant-tone-${(assigned.get(name) ?? 0) + 1})`);
 }
 
 /** Each item's tone index (−1 for the rollup), held by the key, not the rank. */
-function toneIndexes(
-  items: Array<{ key: string; isOther?: boolean }>,
-  toneCount: number = CATEGORY_TONES.length,
-): number[] {
+function toneIndexes(items: Array<{ key: string; isOther?: boolean }>): number[] {
   const assigned = new Map<string, number>();
   const taken = new Set<number>();
   const keyed = items
@@ -117,9 +141,9 @@ function toneIndexes(
     .filter((key, index, all) => all.indexOf(key) === index)
     .sort();
   for (const key of keyed) {
-    let tone = stableHash(key) % toneCount;
-    for (let step = 0; step < toneCount && taken.has(tone); step++) {
-      tone = (tone + 1) % toneCount;
+    let tone = stableHash(key) % CATEGORY_TONES.length;
+    for (let step = 0; step < CATEGORY_TONES.length && taken.has(tone); step++) {
+      tone = (tone + 1) % CATEGORY_TONES.length;
     }
     taken.add(tone);
     assigned.set(key, tone);
