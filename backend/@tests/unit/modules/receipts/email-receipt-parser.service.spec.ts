@@ -1,17 +1,18 @@
-jest.mock('pdf-parse', () => jest.fn());
+jest.mock('../../../../src/common/utils/pdf-text.util', () => ({ parsePdf: jest.fn() }));
 
 const { EmailReceiptParserService, normalizeDateHeader } =
   require('../../../../src/modules/receipts/services/email-receipt-parser.service') as typeof import('../../../../src/modules/receipts/services/email-receipt-parser.service');
 const { UniversalAmountParser } =
   require('../../../../src/modules/parsing/services/universal-amount-parser.service') as typeof import('../../../../src/modules/parsing/services/universal-amount-parser.service');
-const pdfParse = require('pdf-parse') as jest.MockedFunction<typeof import('pdf-parse')>;
+const { parsePdf } =
+  require('../../../../src/common/utils/pdf-text.util') as typeof import('../../../../src/common/utils/pdf-text.util');
 
 describe('EmailReceiptParserService', () => {
   let service: InstanceType<typeof EmailReceiptParserService>;
-  let pdfParseMock: jest.MockedFunction<typeof pdfParse>;
+  let pdfParseMock: jest.MockedFunction<typeof parsePdf>;
 
   beforeEach(() => {
-    pdfParseMock = pdfParse as jest.MockedFunction<typeof pdfParse>;
+    pdfParseMock = parsePdf as jest.MockedFunction<typeof parsePdf>;
     pdfParseMock.mockReset();
     service = new EmailReceiptParserService(new UniversalAmountParser());
   });
