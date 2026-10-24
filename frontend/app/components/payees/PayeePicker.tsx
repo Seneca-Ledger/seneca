@@ -8,6 +8,25 @@ import type { PayeeChoice, PayeeRef } from './types';
 import { usePayeesList } from './usePayees';
 
 const SUGGESTIONS = 20;
+/** A drawer has the room for a longer list. */
+const INLINE_SUGGESTIONS = 50;
+
+/**
+ * The list as part of the drawer rather than a layer over the page: always
+ * shown, as long as it needs to be, scrolled with the drawer, and leaving with
+ * it when the drawer slides away.
+ */
+function InlineList({
+  open,
+  className,
+  children,
+}: {
+  open: boolean;
+  className?: string;
+  children?: React.ReactNode;
+}): React.JSX.Element | null {
+  return open ? <div className={className}>{children}</div> : null;
+}
 
 type Option = { kind: 'payee'; id: string; name: string } | { kind: 'create'; name: string };
 
@@ -37,7 +56,7 @@ export function PayeePicker({
   const t = useIntlayer('payees');
   const [input, setInput] = useState('');
   const search = useDeferredValue(input);
-  const { data, isFetching } = usePayeesList(search, SUGGESTIONS);
+  const { data, isFetching } = usePayeesList(search, inline ? INLINE_SUGGESTIONS : SUGGESTIONS);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Opened in a popover, whose transition starts hidden: focusing on mount
@@ -106,9 +125,16 @@ export function PayeePicker({
           inputProps={{ ...params.inputProps, 'aria-label': t.payee.value }}
         />
       )}
-      slotProps={
-        inline ? { popper: { disablePortal: true, placement: 'bottom-start' } } : undefined
-      }
+      {...(inline
+        ? {
+            open: true,
+            slots: { popper: InlineList },
+            slotProps: {
+              paper: { elevation: 0, sx: { bgcolor: 'transparent', mt: 1 } },
+              listbox: { sx: { maxHeight: 'none', p: 0 } },
+            },
+          }
+        : {})}
       sx={{ minWidth: 260 }}
     />
   );

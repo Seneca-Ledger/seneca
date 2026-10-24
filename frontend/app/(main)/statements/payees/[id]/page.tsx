@@ -99,6 +99,16 @@ export default function PayeePage(): React.JSX.Element {
 
   const [renaming, setRenaming] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  // The picker stays until the drawer has slid away, so its rows leave with it.
+  const [pickerShown, setPickerShown] = useState(false);
+  const openMerge = () => {
+    setPickerShown(true);
+    setMergeOpen(true);
+  };
+  const closeMerge = () => {
+    setMergeOpen(false);
+    setTimeout(() => setPickerShown(false), 300);
+  };
   const [pickingAlways, setPickingAlways] = useState(false);
 
   const fail = (error: unknown) => toast.error(getApiErrorMessage(error, tPayees.failed.value));
@@ -203,7 +213,7 @@ export default function PayeePage(): React.JSX.Element {
                   <Button variant="outlined" onClick={() => setRenaming(data.name)}>
                     {t.rename}
                   </Button>
-                  <Button variant="outlined" onClick={() => setMergeOpen(true)}>
+                  <Button variant="outlined" onClick={openMerge}>
                     {t.mergeWith}
                   </Button>
                 </div>
@@ -385,16 +395,14 @@ export default function PayeePage(): React.JSX.Element {
 
           <DrawerShell
             isOpen={mergeOpen}
-            onClose={() => setMergeOpen(false)}
+            onClose={closeMerge}
             position="right"
             width="md"
             title={t.mergeDrawerTitle.value}
           >
-            <div
-              style={{ display: 'grid', gap: 12, padding: '4px 4px 16px', position: 'relative' }}
-            >
+            <div style={{ display: 'grid', gap: 12, padding: '4px 4px 16px' }}>
               <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{t.mergeHint}</p>
-              {mergeOpen && (
+              {pickerShown && (
                 <PayeePicker
                   inline
                   existingOnly
@@ -408,7 +416,7 @@ export default function PayeePage(): React.JSX.Element {
                       .mutateAsync({ targetId: id, sourceIds: [choice.payeeId] })
                       .then(() => {
                         toast.success(tPayees.merged.value);
-                        setMergeOpen(false);
+                        closeMerge();
                       })
                       .catch(fail);
                   }}
