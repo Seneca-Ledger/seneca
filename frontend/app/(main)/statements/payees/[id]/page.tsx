@@ -26,6 +26,8 @@ import {
   useUpdatePayee,
 } from '@/app/components/payees/usePayees';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { ChartLineIcon } from '@/app/components/ui/empty-state-icons';
 import { LoadError } from '@/app/components/ui/load-error';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
@@ -87,17 +89,22 @@ function PeersSection({ payeeId }: { payeeId: string }): React.JSX.Element | nul
     return null;
   }
   const category = data.category ? localizeStatementCategoryName(data.category.name, locale) : null;
+  const empty = data.series.length < 2;
   return (
-    <section className="seneca-all-tx__card seneca-payees__section">
+    // With nobody to compare, the card takes the rest of the column, as tall as the cards beside it.
+    <section
+      className="seneca-all-tx__card seneca-payees__section"
+      style={empty ? { flex: 1, gridTemplateRows: 'auto 1fr' } : undefined}
+    >
       <h2 className="seneca-all-tx__card-title">
         {category
           ? t.comparisonTitle.value.replace('{{category}}', category)
           : t.comparisonTitlePlain}
       </h2>
-      {data.series.length < 2 ? (
-        <span className="seneca-all-tx__muted" style={{ fontSize: 14 }}>
-          {t.comparisonEmpty}
-        </span>
+      {empty ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <EmptyState compact icon={<ChartLineIcon />} description={t.comparisonEmpty} />
+        </div>
       ) : (
         <div className="seneca-payees__lines">
           <LazyPayeeLines
@@ -302,8 +309,8 @@ export default function PayeePage(): React.JSX.Element {
             </div>
           )}
 
-          <div className="seneca-all-tx__body">
-            <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
+          <div className="seneca-all-tx__body" style={{ alignItems: 'stretch' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
               {info && (
                 <section className="seneca-all-tx__card seneca-payees__section">
                   <h2 className="seneca-all-tx__card-title">{t.monthsTitle}</h2>
