@@ -8,6 +8,7 @@ describe('ReceiptDocumentsService', () => {
     where: jest.fn(),
     andWhere: jest.fn(),
     leftJoin: jest.fn(),
+    leftJoinAndSelect: jest.fn(),
     orderBy: jest.fn(),
     take: jest.fn(),
     skip: jest.fn(),
@@ -23,7 +24,15 @@ describe('ReceiptDocumentsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    for (const method of ['where', 'andWhere', 'leftJoin', 'orderBy', 'take', 'skip'] as const) {
+    for (const method of [
+      'where',
+      'andWhere',
+      'leftJoin',
+      'leftJoinAndSelect',
+      'orderBy',
+      'take',
+      'skip',
+    ] as const) {
       queryBuilder[method].mockReturnValue(queryBuilder);
     }
     queryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
@@ -86,6 +95,12 @@ describe('ReceiptDocumentsService', () => {
       expect(queryBuilder.andWhere).toHaveBeenCalledWith(
         "NULLIF(TRIM(receipt.parsed_data->>'amount'), '') IS NULL",
       );
+    });
+
+    it('loads the receipt tags with the list', async () => {
+      await service.list(workspaceId, {});
+
+      expect(queryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('receipt.tags', 'tags');
     });
 
     it('resolves the picked category name for listed receipts', async () => {

@@ -68,6 +68,8 @@ const TABLES_WITHOUT_WORKSPACE: Record<string, string> = {
   file_versions: 'child of statements',
   invoice_line_items: 'child of invoices',
   journal_lines: 'child of journal_entries',
+  payable_tags: 'join of payables and tags',
+  receipt_tags: 'join of receipts and tags',
   statement_tags: 'join of statements and tags',
   transaction_tags: 'join of transactions and tags',
   // Shared reference data, the same for every workspace.
