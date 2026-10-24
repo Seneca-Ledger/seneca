@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { AuditEventDrawer } from '@/app/audit/components/AuditEventDrawer';
 import { FileText } from '@/app/components/icons';
 import { NotesPanel } from '@/app/components/notes/NotesPanel';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -13,7 +12,6 @@ import { DrawerShell } from '../ui/drawer-shell';
 import { PRIVATE_CLASS } from '../ui/private-amount';
 import { TextTabs } from '../ui/text-tabs';
 import { formatDate } from './helpers/transactionFormatters';
-import { useTransactionHistory } from './hooks/useTransactionHistory';
 import { useTransactionReviewActions } from './hooks/useTransactionReviewActions';
 import { TransactionDetailsTab } from './TransactionDetailsTab';
 import { TransactionHistoryTab } from './TransactionHistoryTab';
@@ -195,15 +193,6 @@ export default function DetailsDrawer({
   const notes = useIntlayer('notes');
   const [activeTab, setActiveTab] = useState<TabId>('details');
 
-  const {
-    historyEvents,
-    historyLoading,
-    historyDrawerOpen,
-    selectedHistoryEvent,
-    openEventDrawer,
-    closeEventDrawer,
-  } = useTransactionHistory(open, transaction?.id);
-
   if (!transaction) return null;
 
   const tabs: Array<{ value: TabId; label: React.ReactNode }> = [
@@ -256,20 +245,8 @@ export default function DetailsDrawer({
             showTitle={false}
           />
         )}
-        {activeTab === 'history' && (
-          <TransactionHistoryTab
-            events={historyEvents}
-            loading={historyLoading}
-            onSelect={openEventDrawer}
-          />
-        )}
+        {activeTab === 'history' && <TransactionHistoryTab transactionId={transaction.id} />}
       </div>
-
-      <AuditEventDrawer
-        event={selectedHistoryEvent}
-        open={historyDrawerOpen}
-        onClose={closeEventDrawer}
-      />
     </DrawerShell>
   );
 }

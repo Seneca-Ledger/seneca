@@ -10,34 +10,7 @@ vi.mock('@/app/lib/api', () => ({
   },
 }));
 
-import { fetchAuditEvents, fetchEntityHistory } from './audit';
-
-describe('fetchEntityHistory', () => {
-  beforeEach(() => {
-    getMock.mockReset();
-  });
-
-  it('returns history payload on success', async () => {
-    const payload = [{ id: 'evt-1' }];
-    getMock.mockResolvedValueOnce({ data: payload });
-
-    await expect(fetchEntityHistory('table_row', 'row-1')).resolves.toEqual(payload);
-    expect(getMock).toHaveBeenCalledWith('/audit-events/entity/table_row/row-1');
-  });
-
-  it('returns empty array when API returns 403', async () => {
-    getMock.mockRejectedValueOnce({ response: { status: 403 } });
-
-    await expect(fetchEntityHistory('table_cell', 'row-1')).resolves.toEqual([]);
-  });
-
-  it('rethrows non-403 errors', async () => {
-    const error = { response: { status: 500 } };
-    getMock.mockRejectedValueOnce(error);
-
-    await expect(fetchEntityHistory('table_cell', 'row-1')).rejects.toEqual(error);
-  });
-});
+import { fetchAuditEvents } from './audit';
 
 describe('fetchAuditEvents', () => {
   beforeEach(() => {

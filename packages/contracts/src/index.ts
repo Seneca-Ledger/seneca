@@ -85,6 +85,7 @@ export * from './subscriptions/subscriptions';
 export * from './tax/income-tax';
 export * from './tax/tax';
 export * from './tax/tax-engine';
+export * from './transactions/transaction-history';
 export * from './transactions/transaction-list';
 export * from './transactions/transactions-overview';
 export * from './users/users';

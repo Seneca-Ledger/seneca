@@ -42,6 +42,7 @@ import {
   StorageTagList,
   TransactionAttachmentList,
   TransactionCandidates,
+  TransactionHistory,
   TransactionListPage,
   TransactionsOverview,
   TransactionsOverviewQuery,
@@ -54,6 +55,7 @@ import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CrossStatementDeduplicationService } from './services/cross-statement-deduplication.service';
 import { TransactionAttachmentsService } from './services/transaction-attachments.service';
+import { TransactionHistoryService } from './services/transaction-history.service';
 import { TransactionTagsService } from './services/transaction-tags.service';
 import { TransactionsOverviewService } from './services/transactions-overview.service';
 import { TransferPairingService } from './services/transfer-pairing.service';
@@ -78,6 +80,7 @@ export class TransactionsController {
     private readonly transactionAttachmentsService: TransactionAttachmentsService,
     private readonly transferPairingService: TransferPairingService,
     private readonly overviewService: TransactionsOverviewService,
+    private readonly transactionHistoryService: TransactionHistoryService,
   ) {}
 
   @Get()
@@ -173,6 +176,31 @@ export class TransactionsController {
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.transactionsService.findOneFor(id, workspaceId, selfMemberId);
+  }
+
+  @Get(':id/history')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionHistory)
+  history(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+  ) {
+    return this.transactionHistoryService.history(workspaceId, user.id, id, selfMemberId);
+  }
+
+  @Post(':id/history/:eventId/undo')
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(TransactionHistory)
+  undoHistory(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('eventId', new ParseUUIDPipe()) eventId: string,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+  ) {
+    return this.transactionHistoryService.undo(workspaceId, user.id, id, eventId, selfMemberId);
   }
 
   @Put(':id')

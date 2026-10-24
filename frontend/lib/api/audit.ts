@@ -103,15 +103,6 @@ export interface AuditEventMeta {
   [key: string]: AuditJsonValue | undefined;
 }
 
-type ApiErrorLike = {
-  response?: {
-    status?: number;
-  };
-};
-
-const isForbiddenApiError = (error: unknown): boolean =>
-  typeof error === 'object' && error !== null && (error as ApiErrorLike).response?.status === 403;
-
 export type AuditEvent = ContractAuditEvent;
 
 export interface AuditEventFilter {
@@ -138,21 +129,6 @@ export const fetchAuditEvents = async (filter: AuditEventFilter): Promise<AuditE
   const response = await apiClient.get('/audit-events', { params: filter });
   // The page has a `data` key: checked raw, not through apiQueryDecoded's unwrap.
   return checkContract('AuditEventPage', response.data, '/audit-events');
-};
-
-export const fetchEntityHistory = async (
-  entityType: EntityType,
-  entityId: string,
-): Promise<AuditEvent[]> => {
-  try {
-    const response = await apiClient.get(`/audit-events/entity/${entityType}/${entityId}`);
-    return checkContract('AuditEventList', response.data, '/audit-events/entity/:type/:id');
-  } catch (error: unknown) {
-    if (isForbiddenApiError(error)) {
-      return [];
-    }
-    throw error;
-  }
 };
 
 export const rollbackEvent = async (eventId: string): Promise<RollbackResponse> => {
