@@ -260,7 +260,6 @@ export default function PayeePage(): React.JSX.Element {
                   <MonthBars summary={info} />
                 </section>
               )}
-              <PayeeTransactions payeeId={id} />
             </div>
 
             <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
@@ -380,6 +379,9 @@ export default function PayeePage(): React.JSX.Element {
               )}
             </div>
           </div>
+
+          {/* Full width: the table has nine columns and needs the room. */}
+          <PayeeTransactions payeeId={id} />
 
           <DrawerShell
             isOpen={mergeOpen}

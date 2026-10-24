@@ -97,3 +97,13 @@
     }
   }
 }
+
+// The table turns into cards in a narrow column (see _all-transactions); the
+// brand mark would sit on the first label there, and the name already says it.
+.seneca-all-tx__table-wrap {
+  @container (max-width: 959px) {
+    .seneca-payees__col-icon {
+      display: none;
+    }
+  }
+}
