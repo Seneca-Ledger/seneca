@@ -790,8 +790,13 @@ export default function EditStatementPage(): React.JSX.Element {
               <Divider sx={{ mb: 3 }} />
               <Typography
                 variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', mb: 2, fontWeight: 600, textTransform: 'uppercase' }}
+                sx={{
+                  color: 'text.secondary',
+                  display: 'block',
+                  mb: 2,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                }}
               >
                 {labels.extractedMetadata?.value || 'Extracted metadata'}
               </Typography>
@@ -807,7 +812,12 @@ export default function EditStatementPage(): React.JSX.Element {
                 }}
               >
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.bank?.value || 'Bank'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -815,7 +825,12 @@ export default function EditStatementPage(): React.JSX.Element {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.bankDetectedBy?.value || 'Detected by'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -823,7 +838,12 @@ export default function EditStatementPage(): React.JSX.Element {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.format?.value || 'Format'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -831,7 +851,12 @@ export default function EditStatementPage(): React.JSX.Element {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.foundTransactions?.value || 'Transactions found'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -839,7 +864,12 @@ export default function EditStatementPage(): React.JSX.Element {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.createdTransactions?.value || 'Transactions created'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -859,7 +889,12 @@ export default function EditStatementPage(): React.JSX.Element {
                 {statement.parsingDetails.warnings &&
                   statement.parsingDetails.warnings.length > 0 && (
                     <Box>
-                      <Typography variant="caption" color="warning.main">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'warning.main',
+                        }}
+                      >
                         {labels.warnings?.value || 'Warnings'}
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 500, color: 'warning.main' }}>
@@ -870,7 +905,12 @@ export default function EditStatementPage(): React.JSX.Element {
                 {statement.parsingDetails.otherBankMentions &&
                   statement.parsingDetails.otherBankMentions.length > 0 && (
                     <Box sx={{ gridColumn: { xs: '1 / -1', md: 'span 2' } }}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {labels.otherBankMentions?.value || 'Other bank mentions'}
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>

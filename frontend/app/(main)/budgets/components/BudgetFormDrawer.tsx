@@ -164,7 +164,9 @@ function LimitAmountField({
       value={value || ''}
       onChange={event => onChange(Number(event.target.value))}
       fullWidth
-      inputProps={{ min: 0, step: 1000 }}
+      slotProps={{
+        htmlInput: { min: 0, step: 1000 },
+      }}
     />
   );
 }

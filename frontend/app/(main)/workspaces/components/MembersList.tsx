@@ -155,8 +155,8 @@ export function MembersList({
               <Box sx={{ minWidth: 0 }}>
                 <Typography
                   variant="body2"
-                  fontWeight={500}
                   sx={{
+                    fontWeight: 500,
                     color: 'var(--foreground)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

@@ -170,7 +170,13 @@ export function ReportGenerator({
         sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2.5 }}
       >
         <Box>
-          <Typography variant="body1" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
+          <Typography
+            variant="body1"
+            sx={{
+              fontWeight: 600,
+              color: 'var(--foreground)',
+            }}
+          >
             {template.name}
           </Typography>
           <Typography variant="body2" sx={{ mt: 0.25, color: 'var(--muted-foreground)' }}>

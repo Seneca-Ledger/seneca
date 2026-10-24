@@ -169,19 +169,21 @@ export function DrawerShell({
       className={className}
       ref={rootRef}
       sx={zIndex !== undefined ? { zIndex } : undefined}
-      PaperProps={{
-        role: 'dialog',
-        'aria-labelledby': title ? 'drawer-title' : undefined,
-        sx: [
-          {
-            width: drawerWidth,
-            maxWidth: '100%',
-            borderRadius: tokens.radius.xl,
-            display: 'flex',
-            flexDirection: 'column',
-          },
-          ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-        ],
+      slotProps={{
+        paper: {
+          role: 'dialog',
+          'aria-labelledby': title ? 'drawer-title' : undefined,
+          sx: [
+            {
+              width: drawerWidth,
+              maxWidth: '100%',
+              borderRadius: tokens.radius.xl,
+              display: 'flex',
+              flexDirection: 'column',
+            },
+            ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+          ],
+        },
       }}
     >
       {(title || showCloseButton) && (
@@ -196,7 +198,13 @@ export function DrawerShell({
           }}
         >
           {title && (
-            <Typography id="drawer-title" variant="h6" fontWeight={700}>
+            <Typography
+              id="drawer-title"
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+              }}
+            >
               {title}
             </Typography>
           )}

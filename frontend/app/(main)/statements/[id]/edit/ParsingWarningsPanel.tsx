@@ -198,7 +198,13 @@ export function ParsingWarningsPanel({
     <>
       <Alert severity="warning" variant="outlined" sx={{ mt: 3, alignItems: 'flex-start' }}>
         <AlertTitle sx={{ mb: 0.5 }}>{title}</AlertTitle>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 1.5,
+          }}
+        >
           {helperText}
         </Typography>
         <WarningsList

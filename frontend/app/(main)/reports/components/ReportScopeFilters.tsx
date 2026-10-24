@@ -106,7 +106,12 @@ export function ReportScopeFilters({
       {options.map(option => (
         <MenuItem key={option.id} value={option.id} sx={{ fontSize: 12 }}>
           <Checkbox size="small" checked={selected.includes(option.id)} />
-          <ListItemText primaryTypographyProps={{ fontSize: 12 }} primary={option.name} />
+          <ListItemText
+            primary={option.name}
+            slotProps={{
+              primary: { sx: { fontSize: 12 } },
+            }}
+          />
         </MenuItem>
       ))}
     </Select>

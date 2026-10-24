@@ -163,8 +163,10 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={2}
-            alignItems="center"
-            sx={{ textAlign: { xs: 'center', sm: 'left' } }}
+            sx={{
+              alignItems: 'center',
+              textAlign: { xs: 'center', sm: 'left' },
+            }}
           >
             <AvatarUploadButton
               avatarUrl={avatarUrl}
@@ -181,7 +183,13 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
                 {displayName}
               </Typography>
               {user?.email ? (
-                <Typography variant="body2" color="text.secondary" noWrap>
+                <Typography
+                  variant="body2"
+                  noWrap
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {user.email}
                 </Typography>
               ) : null}

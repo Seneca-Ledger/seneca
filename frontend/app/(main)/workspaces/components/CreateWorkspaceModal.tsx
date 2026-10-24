@@ -168,7 +168,13 @@ function Step1Content({
     <Stack spacing={3}>
       {/* Home hides the business pages from the menu; nothing else changes. */}
       <Stack spacing={1}>
-        <Typography variant="body2" fontWeight={600} id="workspace-profile-label">
+        <Typography
+          variant="body2"
+          id="workspace-profile-label"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.profileLabel}
         </Typography>
         <ToggleButtonGroup
@@ -179,18 +185,38 @@ function Step1Content({
           aria-labelledby="workspace-profile-label"
         >
           <ToggleButton value="home" sx={{ textTransform: 'none', flexDirection: 'column' }}>
-            <Typography variant="body2" fontWeight={600}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+              }}
+            >
               {t.profileHome}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.profileHomeHint}
             </Typography>
           </ToggleButton>
           <ToggleButton value="business" sx={{ textTransform: 'none', flexDirection: 'column' }}>
-            <Typography variant="body2" fontWeight={600}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+              }}
+            >
               {t.profileBusiness}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.profileBusinessHint}
             </Typography>
           </ToggleButton>
@@ -202,18 +228,22 @@ function Step1Content({
         value={name}
         onChange={e => onNameChange(e.target.value)}
         placeholder="My Workspace"
-        inputProps={{ maxLength: 255 }}
         fullWidth
+        slotProps={{
+          htmlInput: { maxLength: 255 },
+        }}
       />
       <TextField
         label="Description (optional)"
         value={description}
         onChange={e => onDescriptionChange(e.target.value)}
         placeholder="What is this workspace for?"
-        inputProps={{ maxLength: 500 }}
         multiline
         minRows={4}
         fullWidth
+        slotProps={{
+          htmlInput: { maxLength: 500 },
+        }}
       />
     </Stack>
   );
@@ -247,7 +277,14 @@ function Step2Content({
         }}
       />
       <Box>
-        <Typography variant="body2" fontWeight={500} sx={{ mb: 1.5, color: 'var(--foreground)' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 500,
+            mb: 1.5,
+            color: 'var(--foreground)',
+          }}
+        >
           Background Image
         </Typography>
         <BackgroundSelector
@@ -544,8 +581,10 @@ export function CreateWorkspaceModal({
               <Typography
                 id={dialogTitleId}
                 variant="h5"
-                fontWeight={600}
                 style={{ color: 'var(--foreground)' }}
+                sx={{
+                  fontWeight: 600,
+                }}
               >
                 Create New Workspace
               </Typography>

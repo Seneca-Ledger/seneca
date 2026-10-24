@@ -383,8 +383,10 @@ export function ProfileStep({
                         onChange={event =>
                           setDetail('homeOfficeDays', numberOrUndefined(event.target.value))
                         }
-                        inputProps={{ min: 0, max: 366 }}
                         fullWidth
+                        slotProps={{
+                          htmlInput: { min: 0, max: 366 },
+                        }}
                       />
                       <QuickValues
                         current={details.homeOfficeDays}
@@ -427,8 +429,10 @@ export function ProfileStep({
                         onChange={event =>
                           setDetail('homeStudyMonths', numberOrUndefined(event.target.value))
                         }
-                        inputProps={{ min: 0, max: 12 }}
                         fullWidth
+                        slotProps={{
+                          htmlInput: { min: 0, max: 12 },
+                        }}
                       />
                       <QuickValues
                         current={details.homeStudyMonths}
@@ -472,7 +476,9 @@ export function ProfileStep({
                       onChange={event =>
                         setDetail('previousYearTurnover', numberOrUndefined(event.target.value))
                       }
-                      inputProps={{ min: 0 }}
+                      slotProps={{
+                        htmlInput: { min: 0 },
+                      }}
                     />
                     <FormControlLabel
                       control={
@@ -528,7 +534,9 @@ export function ProfileStep({
                         onChange={event =>
                           setDetail('previousYearRevenue', numberOrUndefined(event.target.value))
                         }
-                        inputProps={{ min: 0 }}
+                        slotProps={{
+                          htmlInput: { min: 0 },
+                        }}
                       />
                     ) : null}
                   </Stack>

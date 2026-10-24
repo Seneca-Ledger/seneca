@@ -77,8 +77,11 @@ export function ReportTemplateCard({
         <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="body2"
-            fontWeight={600}
-            sx={{ color: 'var(--foreground)', lineHeight: 1.3 }}
+            sx={{
+              fontWeight: 600,
+              color: 'var(--foreground)',
+              lineHeight: 1.3,
+            }}
           >
             {template.name}
           </Typography>

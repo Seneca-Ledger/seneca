@@ -321,7 +321,12 @@ const DropdownMenuLabel = React.forwardRef<HTMLDivElement, DropdownMenuLabelProp
       style={{ padding: '8px 12px', paddingLeft: inset ? 32 : 12, ...style }}
       {...props}
     >
-      <Typography variant="body2" fontWeight={600}>
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 600,
+        }}
+      >
         {children}
       </Typography>
     </div>

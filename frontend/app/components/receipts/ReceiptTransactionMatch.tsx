@@ -163,7 +163,12 @@ export function ReceiptTransactionMatch({
           <Typography variant="subtitle2">
             {match.kind === 'multi' ? t.matchMulti.value : t.matchTitle.value}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.matchHelp.value}
           </Typography>
           {candidates.map(row => (
@@ -196,7 +201,12 @@ export function ReceiptTransactionMatch({
       {approved &&
         (split ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.splitAlready.value}
             </Typography>
             <Button
@@ -211,7 +221,12 @@ export function ReceiptTransactionMatch({
         ) : suggestion ? (
           <>
             <Typography variant="subtitle2">{t.splitPreview.value}</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.splitReviewHint.value}
             </Typography>
             <Box sx={{ display: 'grid', gap: 0.75 }}>
@@ -280,7 +295,12 @@ export function ReceiptTransactionMatch({
                 {t.splitApply.value}
               </Button>
             ) : (
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.splitOneCategory.value}
               </Typography>
             )}

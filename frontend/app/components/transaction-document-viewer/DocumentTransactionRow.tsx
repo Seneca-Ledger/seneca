@@ -37,36 +37,64 @@ export function DocumentTransactionRow({
       <TableCell sx={{ minWidth: 100 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Calendar size={16} style={{ color: 'var(--mui-palette-text-secondary)' }} />
-          <Typography variant="body2" fontWeight="500">
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: '500',
+            }}
+          >
             {formatDate(transaction.transactionDate)}
           </Typography>
         </Box>
       </TableCell>
       <TableCell>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {transaction.documentNumber || '—'}
         </Typography>
       </TableCell>
       <TableCell sx={{ minWidth: 200 }}>
-        <Typography variant="body2" fontWeight="600" color="text.primary">
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: '600',
+            color: 'text.primary',
+          }}
+        >
           {transaction.counterpartyName}
         </Typography>
         {transaction.counterpartyBank && (
-          <Typography variant="caption" color="text.secondary" display="block">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              display: 'block',
+            }}
+          >
             {transaction.counterpartyBank}
           </Typography>
         )}
       </TableCell>
       <TableCell>
-        <Typography variant="body2" color="text.secondary" fontFamily="monospace">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            fontFamily: 'monospace',
+          }}
+        >
           {transaction.counterpartyBin || '—'}
         </Typography>
       </TableCell>
       <TableCell sx={{ maxWidth: 300 }}>
         <Typography
           variant="body2"
-          color="text.secondary"
           sx={{
+            color: 'text.secondary',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             display: '-webkit-box',
@@ -97,28 +125,56 @@ export function DocumentTransactionRow({
       </TableCell>
       <TableCell align="right">
         {transaction.debit ? (
-          <Typography variant="body2" fontWeight="700" color="error.main">
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: '700',
+              color: 'error.main',
+            }}
+          >
             {formatNumber(transaction.debit, transaction.currency)}
           </Typography>
         ) : (
-          <Typography variant="body2" color="text.disabled">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.disabled',
+            }}
+          >
             —
           </Typography>
         )}
       </TableCell>
       <TableCell align="right">
         {transaction.credit ? (
-          <Typography variant="body2" fontWeight="700" color="success.main">
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: '700',
+              color: 'success.main',
+            }}
+          >
             {formatNumber(transaction.credit, transaction.currency)}
           </Typography>
         ) : (
-          <Typography variant="body2" color="text.disabled">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.disabled',
+            }}
+          >
             —
           </Typography>
         )}
       </TableCell>
       <TableCell>
-        <Typography variant="body2" color="text.secondary" fontFamily="monospace">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            fontFamily: 'monospace',
+          }}
+        >
           {transaction.currency || FALLBACK_CURRENCY}
         </Typography>
       </TableCell>
