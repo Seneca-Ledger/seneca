@@ -100,6 +100,7 @@ describe('ClassificationService', () => {
           useValue: {
             find: jest.fn(),
             findOne: jest.fn(),
+            update: jest.fn(),
           },
         },
         {
@@ -315,21 +316,21 @@ describe('ClassificationService', () => {
   });
 
   describe('workspace-scoped classification', () => {
-    it('loads user rules scoped to workspace when workspaceId is provided', async () => {
+    it("loads every member's rules of the workspace, not only the importer's", async () => {
       const findSpy = jest.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([]);
-      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(mockCategory as Category);
 
-      await (service as any).getClassificationRules('1', 'ws-1');
+      await service.getClassificationRules('ws-1');
 
       expect(findSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            userId: '1',
-            workspaceId: 'ws-1',
-            isActive: true,
-          }),
-        }),
+        expect.objectContaining({ where: { workspaceId: 'ws-1', isActive: true } }),
       );
+    });
+
+    it('reads no rules at all without a workspace to scope them by', async () => {
+      const findSpy = jest.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([]);
+
+      await expect(service.getClassificationRules(null)).resolves.toEqual([]);
+      expect(findSpy).not.toHaveBeenCalled();
     });
 
     it('hands the row to the person a rule names, over the wallet it landed in', async () => {

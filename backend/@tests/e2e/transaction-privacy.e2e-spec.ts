@@ -326,11 +326,6 @@ describe('Private transactions (e2e)', () => {
       const routes: Array<(account: E2eAccount) => request.Test> = [
         account => as(account, request(server()).get(`/transactions/${ids.gift}/split`)),
         account => as(account, request(server()).put(`/transactions/${ids.gift}`)).send({}),
-        account =>
-          as(account, request(server()).post('/categorization-rules/test')).send({
-            conditions: [{ field: 'amount', operator: 'greater_than', value: -1 }],
-            transactionIds: [ids.gift],
-          }),
         account => as(account, request(server()).get('/transactions/duplicates/detect')),
         account =>
           as(account, request(server()).get(`/transactions/${refundId}/transfer-candidates`)),
@@ -344,6 +339,18 @@ describe('Private transactions (e2e)', () => {
           expect(named(theirs)).toBe(false);
           expect(named(mine)).toBe(true);
         }
+        // The rule preview leaves another member's private row out altogether: even
+        // a rule on the amount would otherwise say the row is there and what it cost.
+        const preview = await both(account =>
+          as(account, request(server()).post('/categorization-rules/test')).send({
+            conditions: [{ field: 'amount', operator: 'greater_than', value: -1 }],
+            transactionIds: [ids.gift],
+          }),
+        );
+        expect(preview.mine.body.matchedTransactions).toBe(1);
+        expect(named(preview.mine)).toBe(true);
+        expect(preview.theirs.body.matchedTransactions).toBe(0);
+        expect(preview.theirs.text).not.toContain(ids.gift);
         // The rule test cannot be turned into a yes/no question about the merchant either.
         const probe = await as(partner, request(server()).post('/categorization-rules/test'))
           .send({

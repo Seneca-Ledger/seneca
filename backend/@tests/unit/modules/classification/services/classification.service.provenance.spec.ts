@@ -53,7 +53,7 @@ describe('ClassificationService provenance and switches', () => {
     findOne: jest.fn(async () => ({ id: 'payee-1', name: 'Magnum', mode: 'auto', categoryId: null })),
   };
   const workspaceRepository = { findOne: jest.fn() };
-  const ruleRepository = { find: jest.fn(async () => []) };
+  const ruleRepository = { find: jest.fn(async () => []), update: jest.fn() };
   const categoryRepository = {
     find: jest.fn(async () => []),
     findOne: jest.fn(async () => null),

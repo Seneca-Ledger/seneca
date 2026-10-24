@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -10,23 +11,26 @@ import {
   Put,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
-import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import {
+  CategorizationRuleApplyResult,
+  CategorizationRule as CategorizationRuleContract,
+  CategorizationRuleList,
+  CategorizationRuleTestResult,
   CreateCategorizationRuleBody,
   TestCategorizationRuleBody,
   UpdateCategorizationRuleBody,
 } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { CategorizationRule } from '../../entities/categorization-rule.entity';
-import { Transaction } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
@@ -50,13 +54,25 @@ type CategorizationRuleAuditSnapshot = {
   updatedAt: string;
 };
 
+/** A regex that does not compile is the caller's mistake, not a 500 or a rule that never fires. */
+function assertPatternsCompile(conditions: readonly ClassificationCondition[]): void {
+  for (const condition of conditions) {
+    if (condition.operator !== 'regex') {
+      continue;
+    }
+    try {
+      new RegExp(String(condition.value), 'i');
+    } catch {
+      throw new BadRequestException(`Invalid pattern: ${condition.value}`);
+    }
+  }
+}
+
 @Controller('categorization-rules')
 export class CategorizationRulesController {
   constructor(
     @InjectRepository(CategorizationRule)
     private categorizationRuleRepository: Repository<CategorizationRule>,
-    @InjectRepository(Transaction)
-    private transactionRepository: Repository<Transaction>,
     @InjectRepository(WorkspaceMember)
     private workspaceMemberRepository: Repository<WorkspaceMember>,
     private classificationService: ClassificationService,
@@ -65,12 +81,10 @@ export class CategorizationRulesController {
 
   @Get()
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
-  async findAll(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(CategorizationRuleList)
+  async findAll(@WorkspaceId() workspaceId: string) {
     const rules = await this.categorizationRuleRepository.find({
-      where: {
-        userId: user.id,
-        workspaceId,
-      },
+      where: { workspaceId },
       order: {
         priority: 'DESC',
         createdAt: 'DESC',
@@ -85,29 +99,15 @@ export class CategorizationRulesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
-  async findOne(
-    @Param('id') id: string,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    const rule = await this.categorizationRuleRepository.findOne({
-      where: {
-        id,
-        userId: user.id,
-        workspaceId,
-      },
-    });
-
-    if (!rule) {
-      throw new NotFoundException('Categorization rule not found');
-    }
-
-    return rule;
+  @SchemaResponse(CategorizationRuleContract)
+  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+    return this.findRule(id, workspaceId);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(CategorizationRuleContract)
   async create(
     @SchemaBody(CreateCategorizationRuleBody) dto: CreateCategorizationRuleBody,
     @CurrentUser() user: User,
@@ -118,6 +118,7 @@ export class CategorizationRulesController {
       workspaceId,
       dto.result?.ownerMemberId,
     );
+    assertPatternsCompile(dto.conditions);
     // Every row the rule matches would point at what it names.
     await assertWorkspaceRefs(this.categorizationRuleRepository.manager, workspaceId, dto.result);
 
@@ -153,23 +154,14 @@ export class CategorizationRulesController {
   @Put(':id')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(CategorizationRuleContract)
   async update(
     @Param('id') id: string,
     @SchemaBody(UpdateCategorizationRuleBody) dto: UpdateCategorizationRuleBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    const rule = await this.categorizationRuleRepository.findOne({
-      where: {
-        id,
-        userId: user.id,
-        workspaceId,
-      },
-    });
-
-    if (!rule) {
-      throw new NotFoundException('Categorization rule not found');
-    }
+    const rule = await this.findRule(id, workspaceId);
 
     const before = this.toAuditSnapshot(rule);
     if (dto.name != null) {
@@ -179,6 +171,7 @@ export class CategorizationRulesController {
       rule.description = dto.description;
     }
     if (dto.conditions != null) {
+      assertPatternsCompile(dto.conditions);
       rule.conditions = dto.conditions;
     }
     if (dto.result != null) {
@@ -222,17 +215,9 @@ export class CategorizationRulesController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    const rule = await this.categorizationRuleRepository.findOne({
-      where: {
-        id,
-        userId: user.id,
-        workspaceId,
-      },
-    });
-
-    if (!rule) {
-      throw new NotFoundException('Categorization rule not found');
-    }
+    const rule = await this.findRule(id, workspaceId);
+    // Taken before remove(), which clears the entity's id.
+    const before = this.toAuditSnapshot(rule);
 
     await this.categorizationRuleRepository.remove(rule);
 
@@ -242,9 +227,9 @@ export class CategorizationRulesController {
       actorType: ActorType.USER,
       actorId: user.id,
       entityType: EntityType.RULE,
-      entityId: rule.id,
+      entityId: before.id,
       action: AuditAction.DELETE,
-      diff: { before: this.toAuditSnapshot(rule), after: null },
+      diff: { before, after: null },
       isUndoable: true,
     });
   }
@@ -254,104 +239,55 @@ export class CategorizationRulesController {
   @AllowInVersion()
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategorizationRuleTestResult)
   async testRule(
     @SchemaBody(TestCategorizationRuleBody) dto: TestCategorizationRuleBody,
-    @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    // Ids from the request: another workspace's transactions are not there to test against.
-    // Matched as the caller sees them: a condition on the merchant must not
-    // answer yes or no about another member's private row either.
-    const transactions = redactPrivateRows(
-      await this.transactionRepository.findBy({
-        id: In(dto.transactionIds),
-        workspaceId,
-      }),
-      selfMemberId,
-    );
-
-    const matches = transactions.filter(transaction =>
-      this.classificationService.matchesRule(transaction, dto.conditions),
-    );
-
-    return {
-      totalTransactions: transactions.length,
-      matchedTransactions: matches.length,
-      matches: matches.map(t => ({
-        id: t.id,
-        date: t.transactionDate,
-        amount: t.debit || t.credit || t.amount,
-        counterparty: t.counterpartyName,
-        purpose: t.paymentPurpose,
-        matchReason: this.getMatchReason(t, dto.conditions),
-      })),
-    };
+    assertPatternsCompile(dto.conditions);
+    // Ids from the request are looked up in this workspace only; without ids the
+    // preview runs on the workspace's recent rows.
+    return this.classificationService.previewRule({
+      workspaceId,
+      viewerMemberId: selfMemberId,
+      conditions: dto.conditions,
+      transactionIds: dto.transactionIds,
+    });
   }
 
-  private getMatchReason(transaction: Transaction, conditions: ClassificationCondition[]): string {
-    const matchedConditions: string[] = [];
-
-    for (const condition of conditions) {
-      const fieldValue = this.getFieldValue(transaction, condition.field);
-      if (!fieldValue) {
-        continue;
-      }
-
-      let matches = false;
-      const value = String(fieldValue).toLowerCase();
-      const conditionValue = String(condition.value).toLowerCase();
-
-      switch (condition.operator) {
-        case 'contains':
-          matches = value.includes(conditionValue);
-          break;
-        case 'equals':
-          matches = value === conditionValue;
-          break;
-        case 'starts_with':
-          matches = value.startsWith(conditionValue);
-          break;
-        case 'ends_with':
-          matches = value.endsWith(conditionValue);
-          break;
-        case 'regex':
-          matches = new RegExp(conditionValue, 'i').test(value);
-          break;
-        case 'greater_than':
-          matches = Number(fieldValue) > Number(condition.value);
-          break;
-        case 'less_than':
-          matches = Number(fieldValue) < Number(condition.value);
-          break;
-      }
-
-      if (matches) {
-        matchedConditions.push(`${condition.field} ${condition.operator} "${condition.value}"`);
-      }
+  /**
+   * Files the existing rows the rule matches under its category. Asked for by
+   * the user after saving a rule, never run on its own.
+   */
+  @Post(':id/apply')
+  @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.CATEGORY_EDIT, Permission.TRANSACTION_EDIT)
+  @SchemaResponse(CategorizationRuleApplyResult)
+  async applyRule(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+  ) {
+    const rule = await this.findRule(id, workspaceId);
+    if (!rule.result.categoryId) {
+      throw new BadRequestException('The rule sets no category to apply');
     }
-
-    return matchedConditions.join(' AND ');
+    return this.classificationService.applyRuleToExisting({
+      rule,
+      userId: user.id,
+      viewerMemberId: selfMemberId,
+    });
   }
 
-  private getFieldValue(
-    transaction: Transaction,
-    field: ClassificationCondition['field'],
-  ): string | number | null {
-    switch (field) {
-      case 'counterparty_name':
-        return transaction.counterpartyName;
-      case 'payment_purpose':
-        return transaction.paymentPurpose;
-      case 'amount':
-        return transaction.amount || transaction.debit || transaction.credit || 0;
-      case 'counterparty_bin':
-        return transaction.counterpartyBin || null;
-      case 'document_number':
-        return transaction.documentNumber || null;
-      case 'owner':
-        return null;
+  /** Rules belong to the workspace: any member who may see categories sees them all. */
+  private async findRule(id: string, workspaceId: string): Promise<CategorizationRule> {
+    const rule = await this.categorizationRuleRepository.findOne({ where: { id, workspaceId } });
+    if (!rule) {
+      throw new NotFoundException('Categorization rule not found');
     }
+    return rule;
   }
 
   private toAuditSnapshot(rule: CategorizationRule): CategorizationRuleAuditSnapshot {

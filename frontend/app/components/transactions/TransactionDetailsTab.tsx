@@ -1,14 +1,19 @@
 /* eslint-disable max-lines */
 'use client';
 
+import NextLink from 'next/link';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronRight } from '@/app/components/icons';
 import { TransactionPayeeSection } from '@/app/components/payees/TransactionPayeeSection';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
+import { RuleFormDialog } from '@/app/components/rules/RuleFormDialog';
+import { fill } from '@/app/components/rules/rule-text';
+import type { RuleSeed } from '@/app/components/rules/types';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
+import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { isPrivateCategory, pickableCategories } from '@/app/lib/private-category';
@@ -39,6 +44,19 @@ interface ActionRowProps {
   hint?: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+}
+
+/** A rule draft from a row: its payee as written, and the category it has now. */
+function ruleSeedFrom(transaction: Transaction, categoryId: string): RuleSeed {
+  return {
+    id: null,
+    name: '',
+    conditions: [
+      { field: 'counterparty_name', operator: 'contains', value: transaction.counterpartyName },
+    ],
+    result: categoryId ? { categoryId } : {},
+    priority: 0,
+  };
 }
 
 /** One action of the list: what it does, a line on what it means, an arrow. */
@@ -72,6 +90,14 @@ export function TransactionDetailsTab({
   const [updating, setUpdating] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const offerPayeeQueue = useOfferPayeeQueue();
+  const tRules = useIntlayer('categorizationRules');
+  const { hasPermission } = usePermissions();
+  const [ruleSeed, setRuleSeed] = useState<RuleSeed | null>(null);
+  // Another member's private row shows a placeholder for the payee: nothing to match on.
+  const canMakeRule =
+    hasPermission('category.edit') &&
+    !transaction.isPrivate &&
+    Boolean(transaction.counterpartyName);
 
   // The list refresh (and drawer close) is owned by the container — a split turns
   // one row into several, so the drawer must not keep showing the stale original.
@@ -225,6 +251,11 @@ export function TransactionDetailsTab({
                 sx={{ flex: 1 }}
               />
             </div>
+            {transaction.categorySource === 'rule' && transaction.categoryReason && (
+              <NextLink href="/rules" className="seneca-tx-detail__rule-link">
+                {fill(tRules.drawer.fromRule.value, { name: transaction.categoryReason })}
+              </NextLink>
+            )}
           </div>
         )}
 
@@ -375,6 +406,15 @@ export function TransactionDetailsTab({
           {onMarkIgnored && (
             <ActionRow label={t.markIgnored.value} onClick={() => void handleMarkIgnored()} />
           )}
+
+          {/* A rule from this row: the payee as the bank wrote it, the row's category */}
+          {canMakeRule && (
+            <ActionRow
+              label={tRules.drawer.createFromRow.value}
+              hint={tRules.drawer.createFromRowHint}
+              onClick={() => setRuleSeed(ruleSeedFrom(transaction, currentCategoryId))}
+            />
+          )}
         </div>
       </div>
 
@@ -469,6 +509,8 @@ export function TransactionDetailsTab({
           }}
         />
       )}
+
+      {ruleSeed && <RuleFormDialog open seed={ruleSeed} onClose={() => setRuleSeed(null)} />}
     </div>
   );
 }

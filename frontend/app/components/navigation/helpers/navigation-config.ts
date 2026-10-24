@@ -27,6 +27,7 @@ import {
   Table,
   TrendingUp,
   Wallet,
+  Workflow,
 } from '@/app/components/icons';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 export const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
@@ -153,6 +154,7 @@ export function buildNavItems(nav: {
   ledger: unknown;
   invoices: unknown;
   review: unknown;
+  rules: unknown;
 }): NavItem[] {
   return [
     {
@@ -188,6 +190,13 @@ export function buildNavItems(nav: {
       group: 'transactions',
       icon: React.createElement(Banknote, { size: 18 }),
       permission: 'transaction.view',
+    },
+    {
+      label: nav.rules as ReactNode,
+      path: '/rules',
+      group: 'transactions',
+      icon: React.createElement(Workflow, { size: 18 }),
+      permission: 'category.view',
     },
     {
       label: nav.review as ReactNode,

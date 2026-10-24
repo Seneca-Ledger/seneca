@@ -21,7 +21,9 @@ export const ClassificationConditionInput = Schema.Struct({
     'greater_than',
     'less_than',
   ]),
-  value: Schema.Union([Schema.String, Schema.Finite]),
+  // Bounded: a rule runs against every imported row, and a long pattern is
+  // where a pathological regex hides.
+  value: Schema.Union([Schema.String.check(Schema.isMaxLength(200)), Schema.Finite]),
 });
 export type ClassificationConditionInput = Wire<typeof ClassificationConditionInput>;
 
@@ -59,7 +61,8 @@ export type UpdateCategorizationRuleBody = Wire<typeof UpdateCategorizationRuleB
 
 export const TestCategorizationRuleBody = Schema.Struct({
   conditions: Schema.Array(ClassificationConditionInput).check(Schema.isMinLength(1)),
-  transactionIds: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
+  /** Rows to test against; without them the workspace's most recent rows are used. */
+  transactionIds: Schema.optional(Schema.Array(Schema.String).check(Schema.isMinLength(1))),
 });
 export type TestCategorizationRuleBody = Wire<typeof TestCategorizationRuleBody>;
 
