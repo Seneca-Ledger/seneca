@@ -44,9 +44,8 @@ const apiOrigin = (() => {
 // product feature, not a convenience: omitting them does not harden anything,
 // it just breaks the feature silently at the CSP layer. A deployment that does
 // not use these integrations can drop the corresponding entry.
-// Bank logos (brand-logo.ts) and the default identicon the backend assigns to
-// users without an uploaded avatar (jwt.strategy.ts).
-const REMOTE_IMAGE_HOSTS = 'https://logo.clearbit.com https://api.dicebear.com';
+// Bank logos (brand-logo.ts).
+const REMOTE_IMAGE_HOSTS = 'https://logo.clearbit.com';
 
 // react-scan (components/ReactScan.tsx) is mounted only when NODE_ENV is
 // development and checks its own version over the network. Allowing it keeps

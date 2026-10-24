@@ -26,6 +26,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
 import type { WorkspaceOverview } from '@/app/lib/contracts';
+import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
@@ -82,14 +83,6 @@ const readMemberPermissions = (member: {
 
 const isWorkspaceRole = (role: string): role is WorkspaceRole =>
   (ALL_ROLES as string[]).includes(role);
-
-const getInitials = (value?: string) =>
-  (value || '?')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase() ?? '')
-    .join('');
 
 const getApiMessage = (err: unknown, fallback: string) => {
   if (!err || typeof err !== 'object') {
@@ -886,14 +879,13 @@ export default function WorkspaceMembersView() {
                         flexShrink: 0,
                         overflow: 'hidden',
                         borderRadius: tokens.radius.full,
-                        // Monochrome initials: the avatar identifies, it does not decorate.
-                        bgcolor: theme => alpha(theme.palette.text.primary, 0.08),
-                        color: 'var(--muted-foreground)',
+                        bgcolor: avatarTone(member.email),
+                        color: 'var(--foreground)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: 12,
-                        fontWeight: 600,
+                        fontSize: 14,
+                        fontWeight: 500,
                       }}
                     >
                       {normalizeAvatarUrl(member.avatarUrl) ? (
@@ -903,7 +895,7 @@ export default function WorkspaceMembersView() {
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                       ) : (
-                        getInitials(member.name || member.email)
+                        avatarInitial(member.name || member.email)
                       )}
                     </Box>
                     <Box sx={{ minWidth: 0 }}>

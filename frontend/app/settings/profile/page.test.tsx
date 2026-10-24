@@ -16,7 +16,7 @@ const authUser = vi.hoisted(() => ({
   name: 'Symon Baikov',
   timeZone: '',
   lastLogin: '2026-01-01T00:00:00.000Z',
-  avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=test',
+  avatarUrl: '/api/v1/users/avatars/member-1.png',
 }));
 const i18nContent = vi.hoisted(() => {
   const createI18nProxy = (path: string[] = []) =>

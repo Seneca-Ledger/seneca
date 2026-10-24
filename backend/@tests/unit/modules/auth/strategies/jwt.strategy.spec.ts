@@ -20,7 +20,7 @@ describe('JwtStrategy', () => {
     role: UserRole.USER,
     isActive: true,
     workspaceId: 'ws-1',
-    avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=existing',
+    avatarUrl: '/api/v1/users/avatars/existing.png',
   };
 
   beforeAll(async () => {
@@ -149,23 +149,16 @@ describe('JwtStrategy', () => {
       expect(result.role).toBe(UserRole.USER);
     });
 
-    it('should assign a DiceBear avatar when missing', async () => {
+    it('leaves a user without a photo without one: the app draws their initial', async () => {
       const payload = { sub: '1', email: 'test@example.com', role: UserRole.USER };
       const userWithoutAvatar = { ...mockUser, avatarUrl: null };
-      const updateSpy = jest
-        .spyOn(userRepository, 'update')
-        .mockResolvedValue({ affected: 1, generatedMaps: [], raw: [] });
+      const updateSpy = jest.spyOn(userRepository, 'update');
       jest.spyOn(userRepository, 'findOne').mockResolvedValue(userWithoutAvatar as User);
 
       const result = await strategy.validate(payload);
 
-      expect(updateSpy).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({
-          avatarUrl: expect.stringContaining('https://api.dicebear.com/'),
-        }),
-      );
-      expect(result.avatarUrl).toContain('https://api.dicebear.com/');
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(result.avatarUrl).toBeNull();
     });
 
     it('should reject a token whose session was revoked', async () => {

@@ -12,6 +12,7 @@ import { LanguageDrawer } from '@/app/components/navigation/LanguageDrawer';
 import { Alert } from '@/app/components/ui/alert';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { formatTimeZoneLabel } from '@/app/lib/timezone';
 import {
@@ -27,11 +28,7 @@ import { useAppearance } from '@/app/settings/profile/hooks/useAppearance';
 import { useAvatarUpload } from '@/app/settings/profile/hooks/useAvatarUpload';
 import { useProfileForm } from '@/app/settings/profile/hooks/useProfileForm';
 import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
-import {
-  getInitials,
-  resolveTimeZoneOptions,
-  type TimeZoneOption,
-} from '@/app/settings/profile/profileHelpers';
+import { resolveTimeZoneOptions, type TimeZoneOption } from '@/app/settings/profile/profileHelpers';
 
 import type { SettingsTabProps } from './types';
 
@@ -153,7 +150,6 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
   );
 
   const displayName = profileName || user?.name || user?.email?.split('@')[0] || '—';
-  const initials = getInitials(displayName);
   const avatarUrl = normalizeAvatarUrl(user?.avatarUrl);
 
   return (
@@ -169,7 +165,8 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
             <AvatarUploadButton
               avatarUrl={avatarUrl}
               displayName={displayName}
-              initials={initials}
+              initial={avatarInitial(displayName)}
+              tone={avatarTone(user?.email)}
               showImage={!avatarError}
               disabled={avatarUploading}
               inputRef={avatarInputRef}

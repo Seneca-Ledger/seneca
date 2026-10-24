@@ -19,13 +19,13 @@ import {
   Puzzle,
   Settings,
   Sparkles,
-  User,
 } from '@/app/components/icons';
 import { openAppPanel } from '@/app/components/panels/app-panels-store';
 import { useAuth } from '@/app/hooks/useAuth';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
 import { setPrivacyMode, usePrivacyMode } from '@/app/lib/privacy-mode';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { useThemePreference } from './hooks/useThemePreference';
@@ -121,7 +121,7 @@ export function AccountMenu({
         aria-expanded={Boolean(anchor)}
         data-tour-id={variant === 'sidebar' ? 'user-menu-trigger' : undefined}
       >
-        <span className="seneca-account__avatar">
+        <span className="seneca-account__avatar" style={{ background: avatarTone(user.email) }}>
           {avatarUrl && !avatarError ? (
             <img
               src={avatarUrl}
@@ -131,7 +131,7 @@ export function AccountMenu({
               }}
             />
           ) : (
-            <User size={14} />
+            avatarInitial(user.name || user.email)
           )}
         </span>
         <span className="seneca-account__name">{user.name}</span>
