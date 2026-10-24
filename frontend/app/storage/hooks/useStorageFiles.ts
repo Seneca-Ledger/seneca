@@ -55,7 +55,6 @@ export interface UseStorageFilesReturn {
   handleEmptyTrash: () => Promise<void>;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function useStorageFiles(
   messages: UseStorageFilesMessages,
   listMode: 'active' | 'trash',

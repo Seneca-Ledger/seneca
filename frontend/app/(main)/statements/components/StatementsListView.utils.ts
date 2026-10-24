@@ -1,5 +1,3 @@
-/* eslint-disable max-lines */
-
 import { resolveBankLogo } from '@bank-logos';
 import { getCachedIntlayer } from '@/app/i18n';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
@@ -190,7 +188,6 @@ type StatementCurrencyLike = {
   parsingDetails?: StatementParsingDetails | null;
 };
 
-// eslint-disable-next-line complexity
 export const resolveStatementCurrency = (statement: StatementCurrencyLike): string =>
   (
     statement.parsedData?.currency ||
@@ -208,7 +205,6 @@ export const parseAmountValue = (value?: number | string | null): number | null 
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-// eslint-disable-next-line complexity
 export const formatStatementAmount = (statement: StatementLike): string => {
   if (statement.source === 'scan') {
     const amount = parseAmountValue(statement.parsedData?.amount ?? null);
@@ -250,7 +246,6 @@ export const formatStatementAmount = (statement: StatementLike): string => {
 const resolveReceiptDateValue = (statement: StatementLike): string =>
   statement.receivedAt || statement.createdAt || statement.parsedData?.date || '';
 
-// eslint-disable-next-line complexity
 export const formatStatementDate = (statement: StatementLike): string => {
   const dateValue =
     statement.source === 'scan'
@@ -266,7 +261,6 @@ export const formatStatementDate = (statement: StatementLike): string => {
   return formatStoredDate(date);
 };
 
-// eslint-disable-next-line complexity
 export const resolveStatementSortDate = (statement: StatementLike): number => {
   const dateValue =
     statement.source === 'scan'
@@ -518,11 +512,9 @@ export const reconcileFiltersWithColumns = ({
 // Label builder helpers (extracted from StatementsListView for reuse)
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IntlayerDict = any;
 type TxFn = (path: string[], fallback: string) => string;
 
-// eslint-disable-next-line complexity
 export const buildFilterLabels = (t: IntlayerDict): FilterLabels => ({
   type: resolveLabel(t.filters?.type, 'Type'),
   status: resolveLabel(t.filters?.status, 'Status'),
@@ -532,7 +524,6 @@ export const buildFilterLabels = (t: IntlayerDict): FilterLabels => ({
   columns: resolveLabel(t.filters?.columns, 'Columns'),
 });
 
-// eslint-disable-next-line complexity
 export const buildListHeaderLabels = (t: IntlayerDict): Record<string, string> => ({
   receipt: resolveLabel(t.listHeader?.receipt, 'Receipt'),
   type: resolveLabel(t.listHeader?.type, 'Type'),
@@ -556,7 +547,6 @@ export const buildUploadLabels = (t: IntlayerDict): StatementUploadLabels => ({
   uploadFailed: resolveLabel(t.uploadModal?.uploadFailed, 'Failed to upload files'),
 });
 
-// eslint-disable-next-line max-lines-per-function
 export const buildFilterOptionLabels = (_t: IntlayerDict, tx: TxFn): FilterOptionLabels => ({
   apply: tx(['filters', 'apply'], 'Apply'),
   reset: tx(['filters', 'reset'], 'Reset'),
@@ -719,7 +709,6 @@ interface StatementForFromOptions {
   receiptSource?: string;
 }
 
-/* eslint-disable complexity, max-lines-per-function */
 export const buildFromOptions = (
   stagedStatements: StatementForFromOptions[],
 ): Array<{
@@ -773,7 +762,6 @@ export const buildFromOptions = (
 
   return Array.from(seen.values());
 };
-/* eslint-enable complexity, max-lines-per-function */
 
 interface StatementForCurrencyOptions {
   parsedData?: { currency?: string };
@@ -792,7 +780,6 @@ export const buildCurrencyOptions = (stagedStatements: StatementForCurrencyOptio
   return Array.from(unique.values());
 };
 
-// eslint-disable-next-line complexity
 export const computeActiveFilterCount = (appliedFilters: StatementFilters): number => {
   let count = 0;
   if (appliedFilters.type) {

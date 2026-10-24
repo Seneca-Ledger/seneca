@@ -72,7 +72,6 @@ export const readCreatedStatementIds = (responseData: unknown): string[] => {
   });
 };
 
-// eslint-disable-next-line complexity
 export const extractUploadErrorMessage = (error: unknown, fallback: string): string => {
   // HttpExceptionFilter wraps failures as { error: { message } }; older/plain
   // Nest responses still use a top-level { message }.

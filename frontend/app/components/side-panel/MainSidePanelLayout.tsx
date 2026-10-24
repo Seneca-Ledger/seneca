@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import Box from '@mui/material/Box';
@@ -78,7 +77,6 @@ function computeDragX(
   return Math.max(-240, deltaX);
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, max-lines-per-function, complexity
 function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
   const config = useCurrentSidePanelConfig();
   const sidePanel = useSidePanel();
@@ -111,7 +109,6 @@ function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setMobileSidePanelOpen(false);
@@ -142,7 +139,6 @@ function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
   );
 
   React.useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const handleMenuVisibility = (event: Event) => {
       const customEvent = event as CustomEvent<{ open?: boolean }>;
       setGlobalMobileMenuOpen(Boolean(customEvent.detail?.open));
@@ -389,7 +385,6 @@ function MainSidePanelLayoutInner({ children }: { children: React.ReactNode }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function MainSidePanelLayout({ children }: { children: React.ReactNode }) {
   // SidePanelProvider sits in the root layout so the shell can render the panel.
   return <MainSidePanelLayoutInner>{children}</MainSidePanelLayoutInner>;

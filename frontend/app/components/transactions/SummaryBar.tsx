@@ -23,7 +23,6 @@ interface SummaryBarProps {
   fixing?: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const getBankDisplayName = (bankName: string) => {
   const resolved = resolveBankLogo(bankName);
   if (!resolved) return bankName;
@@ -33,7 +32,6 @@ const getBankDisplayName = (bankName: string) => {
 /**
  * Summary bar component showing file metadata, parsing status, and financial totals
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export default function SummaryBar({
   statement,
   transactions,
@@ -51,13 +49,11 @@ export default function SummaryBar({
     const totalErrors = transactions.filter(tx => tx.hasErrors).length;
     const uncategorized = transactions.filter(tx => !tx.category).length;
 
-    // eslint-disable-next-line max-params
     const debitTotal = transactions.reduce((sum, tx) => {
       const debitValue = Number(tx.debit);
       return sum + (Number.isNaN(debitValue) ? 0 : debitValue);
     }, 0);
 
-    // eslint-disable-next-line max-params
     const creditTotal = transactions.reduce((sum, tx) => {
       const creditValue = Number(tx.credit);
       return sum + (Number.isNaN(creditValue) ? 0 : creditValue);

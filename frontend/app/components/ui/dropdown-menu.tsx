@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import Divider from '@mui/material/Divider';
@@ -278,7 +277,6 @@ interface DropdownMenuRadioItemProps extends React.HTMLAttributes<HTMLLIElement>
 }
 
 const DropdownMenuRadioItem = React.forwardRef<HTMLLIElement, DropdownMenuRadioItemProps>(
-  // eslint-disable-next-line max-params
   ({ children, value, disabled, className, ...props }, ref): React.JSX.Element => {
     const radioCtx = React.useContext(RadioGroupContext);
 
@@ -313,7 +311,6 @@ interface DropdownMenuLabelProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const DropdownMenuLabel = React.forwardRef<HTMLDivElement, DropdownMenuLabelProps>(
-  // eslint-disable-next-line max-params
   ({ children, inset, className, style, ...props }, ref): React.JSX.Element => (
     <div
       ref={ref}
@@ -341,7 +338,6 @@ interface DropdownMenuSeparatorProps extends React.HTMLAttributes<HTMLHRElement>
 }
 
 const DropdownMenuSeparator = React.forwardRef<HTMLHRElement, DropdownMenuSeparatorProps>(
-  // eslint-disable-next-line max-params
   ({ className, ...props }, ref): React.JSX.Element => (
     <Divider ref={ref} className={className} {...(props as object)} />
   ),
@@ -378,7 +374,6 @@ const DropdownMenuSubTrigger = React.forwardRef<
   HTMLLIElement,
   DropdownMenuItemProps & { inset?: boolean }
 >(
-  // eslint-disable-next-line max-params
   ({ children, inset, className, ...props }, ref): React.JSX.Element => (
     <MenuItem
       ref={ref}

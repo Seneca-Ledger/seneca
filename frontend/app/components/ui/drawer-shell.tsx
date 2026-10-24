@@ -127,7 +127,6 @@ const widthMap: Record<DrawerWidth, number | string> = {
  * - Body scroll lock
  * - Keyboard (ESC) support
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function DrawerShell({
   isOpen,
   onClose,
@@ -145,7 +144,6 @@ export function DrawerShell({
   footer,
 }: DrawerShellProps) {
   const t = useIntlayer('uiShell');
-  // eslint-disable-next-line max-params
   const handleClose = (_event: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
     if (reason === 'backdropClick' && !closeOnBackdropClick) {
       return;

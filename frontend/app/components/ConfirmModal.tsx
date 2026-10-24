@@ -21,7 +21,6 @@ interface ConfirmModalProps {
   manualClose?: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export default function ConfirmModal({
   isOpen,
   onClose,
@@ -40,7 +39,6 @@ export default function ConfirmModal({
   const resolvedConfirmText = confirmText ?? t.buttons.confirm.value;
   const resolvedCancelText = cancelText ?? t.buttons.cancel.value;
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleConfirm = () => {
     onConfirm();
     if (!(isLoading || manualClose)) {

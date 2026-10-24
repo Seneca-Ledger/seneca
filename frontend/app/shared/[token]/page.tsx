@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 import {
   Alert,
@@ -32,7 +31,6 @@ const sharePasswordHeaders = (password?: string): Record<string, string> =>
 /**
  * Public page for accessing shared files
  */
-// eslint-disable-next-line max-lines-per-function, complexity, @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export default function SharedFilePage() {
   const params = useParams();
   const token = params.token as string;

@@ -190,7 +190,6 @@ function LedgerContent(): React.ReactElement {
         >
           <Tabs
             value={tab}
-            // eslint-disable-next-line max-params
             onChange={(_event, value: LedgerTab) => updateQuery({ tab: value })}
             variant="scrollable"
             scrollButtons={false}

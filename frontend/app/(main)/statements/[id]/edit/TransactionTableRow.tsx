@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function */
 'use client';
 import {
   Box,

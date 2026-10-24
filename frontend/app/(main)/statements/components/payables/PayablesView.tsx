@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import Skeleton from '@mui/material/Skeleton';
@@ -126,7 +125,6 @@ function PayablesViewSkeleton(): React.JSX.Element {
   );
 }
 
-// eslint-disable-next-line complexity
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (!error || typeof error !== 'object') {
     return fallback;
@@ -165,7 +163,6 @@ type PayablesViewProps = {
   direction?: PayableDirection;
 };
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}): React.JSX.Element {
   const searchParams = useSearchParams();
   useAttentionFocus();

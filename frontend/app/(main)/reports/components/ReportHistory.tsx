@@ -128,12 +128,10 @@ const FORMAT_CHIP_COLORS: Record<string, { bg: string; color: string }> = {
   csv: { bg: 'var(--color-info-soft-bg)', color: '#0c4a6e' },
 };
 
-// eslint-disable-next-line max-lines-per-function
 export function ReportHistory(): React.JSX.Element {
   const t = useIntlayer('reportsPage');
   const { locale } = useLocale();
   const labels = t.labels as Record<string, { value?: string } | undefined>;
-  // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
   /** The stored name is English; show the template in the reader's language. */
   const templateName = (item: ReportHistoryItem): string =>
@@ -141,7 +139,6 @@ export function ReportHistory(): React.JSX.Element {
   const [history, setHistory] = useState<ReportHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // eslint-disable-next-line complexity
   const getRelativeTime = (isoDate: string): string => {
     const date = new Date(isoDate);
     const now = new Date();
@@ -319,7 +316,6 @@ export function ReportHistory(): React.JSX.Element {
                 text('historyGenerated', 'Generated'),
                 text('historySize', 'Size'),
                 text('historyDownload', 'Download'),
-                // eslint-disable-next-line max-params
               ].map((label, i) => (
                 <TableCell
                   key={label}

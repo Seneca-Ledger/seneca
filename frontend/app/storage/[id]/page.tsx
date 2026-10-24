@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 import { resolveBankLogo } from '@bank-logos';
 import { Box, Chip, Typography } from '@mui/material';
@@ -108,7 +107,6 @@ function FileDetailsSkeleton(): React.JSX.Element {
 /**
  * File details page with transactions, sharing, and permissions
  */
-// eslint-disable-next-line max-lines-per-function, complexity, @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export default function FileDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -164,7 +162,6 @@ export default function FileDetailsPage() {
       });
   };
 
-  // eslint-disable-next-line max-lines-per-function
   const loadPreview = async (
     availabilityStatusOverride?: FileAvailabilityStatus,
   ): Promise<void> => {
@@ -205,7 +202,6 @@ export default function FileDetailsPage() {
       });
   };
 
-  // eslint-disable-next-line complexity
   const loadDetailsAndPreview = useEffectEvent(async (isCancelled: () => boolean) => {
     const loadedDetails = await loadFileDetails();
     if (isCancelled()) {
@@ -598,7 +594,6 @@ export default function FileDetailsPage() {
               label: t.cards.account,
               value: statement.accountNumber || t.cards.dash.value,
             },
-            // eslint-disable-next-line max-params
           ].map((card, idx) => (
             <Box
               key={idx}
@@ -918,7 +913,6 @@ export default function FileDetailsPage() {
                 </Box>
               ) : (
                 <Box sx={{ display: 'grid', gap: 1.5 }}>
-                  {/* eslint-disable-next-line max-lines-per-function */}
                   {sharedLinks.map(link => (
                     <Box
                       key={link.id}

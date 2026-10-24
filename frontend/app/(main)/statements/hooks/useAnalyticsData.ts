@@ -51,7 +51,6 @@ async function fetchAllPages<T>(
   let total = Number.POSITIVE_INFINITY;
 
   while (results.length < total) {
-    // eslint-disable-next-line no-await-in-loop
     const batch = await load(page, offset);
     results.push(...batch.items);
     total = batch.total;
@@ -75,7 +74,6 @@ async function fetchAllPages<T>(
  * over the same data, so `useAnalyticsData` below hands them a shared result
  * when an `AnalyticsDataProvider` is above them; this is the fetching half.
  */
-// eslint-disable-next-line max-lines-per-function
 export function useAnalyticsDataFetch(
   {
     user,
@@ -126,7 +124,6 @@ export function useAnalyticsDataFetch(
   // Effect event so the effect below depends only on the user/workspace key
   // while always calling the latest loader (no eslint-disable, which would make
   // React Compiler skip this hook).
-  // eslint-disable-next-line max-lines-per-function
   const loadAnalytics = useEffectEvent(async (isMounted: () => boolean): Promise<void> => {
     if (!user) {
       return;
@@ -152,7 +149,6 @@ export function useAnalyticsDataFetch(
 
         const tag = { workspaceId: target.id, workspaceName: target.name };
 
-        // eslint-disable-next-line no-await-in-loop
         const workspaceStatements = await fetchAllPages(500, async page => {
           const response = await apiClient.get('/statements', {
             params: { page, limit: 500 },
@@ -166,7 +162,6 @@ export function useAnalyticsDataFetch(
         );
 
         if (includeTransactions) {
-          // eslint-disable-next-line no-await-in-loop
           const workspaceTransactions = await fetchAllPages(500, async page => {
             const response = await apiClient.get('/transactions', {
               params: { page, limit: 500 },
@@ -182,7 +177,6 @@ export function useAnalyticsDataFetch(
           );
         }
 
-        // eslint-disable-next-line no-await-in-loop
         const workspaceReceipts = await fetchAllPages(100, async (_, offset) => {
           const response = await apiClient.get('/receipts/documents', {
             params: { limit: 100, offset },

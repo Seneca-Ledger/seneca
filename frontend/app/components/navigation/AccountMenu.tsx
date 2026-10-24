@@ -36,7 +36,6 @@ import { useThemePreference } from './hooks/useThemePreference';
  * own (notifications, plugins, integrations, what's new) open the right-hand
  * panel the rest of the app already uses, so nothing escapes the sidebar.
  */
-// eslint-disable-next-line max-lines-per-function
 export function AccountMenu({
   variant = 'sidebar',
   onAction,

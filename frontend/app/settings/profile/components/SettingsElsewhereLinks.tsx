@@ -45,7 +45,6 @@ const BUG_REPORT_URL = 'https://github.com/symonbaikov/seneca/issues/new?templat
  * short on purpose, so everything it does not carry — the trash, the activity
  * log, the language, the guide — is reachable from here.
  */
-// eslint-disable-next-line max-lines-per-function
 export function SettingsElsewhereLinks({ tx }: { tx: Tx }) {
   const { hasPermission } = usePermissions();
   const { nav, userMenu, languageModal, shell } = useIntlayer('navigation');
