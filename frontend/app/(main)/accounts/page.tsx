@@ -162,6 +162,10 @@ export default function AccountsPage() {
     byGroup.set(group, [...(byGroup.get(group) ?? []), account]);
   }
   const found = findAccounts(unlinked);
+  // Statements of a found account are offered there (create it); sorting is for
+  // the rest: those an existing account would take, and those with no number.
+  const inFound = new Set(found.flatMap(account => account.statements.map(item => item.id)));
+  const toSort = unlinked.filter(statement => !inFound.has(statement.id));
   const noAccounts = !(isPending || error) && accounts.length === 0;
 
   return (
@@ -194,7 +198,7 @@ export default function AccountsPage() {
 
       <FoundStatements
         found={found}
-        unlinkedCount={accounts.length > 0 ? unlinked.length : 0}
+        unlinkedCount={accounts.length > 0 ? toSort.length : 0}
         onCreate={openFromFound}
         onSort={() => setLinkOpen(true)}
       />
@@ -278,7 +282,7 @@ export default function AccountsPage() {
 
       <LinkStatementsDrawer
         open={linkOpen}
-        statements={unlinked}
+        statements={toSort}
         accounts={accounts}
         saving={mutations.saving}
         onClose={() => setLinkOpen(false)}

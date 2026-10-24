@@ -37,6 +37,9 @@ const cardStyle = {
   gap: 12,
 } as const;
 
+/** A year of monthly statements is a wall; the latest few say enough until asked. */
+const STATEMENTS_SHOWN = 5;
+
 const titleStyle = { margin: 0, fontSize: 15, fontWeight: 500, color: 'var(--foreground)' };
 const mutedStyle = { fontSize: 13, color: 'var(--text-muted)' } as const;
 const figureStyle = {
@@ -118,6 +121,7 @@ export default function AccountPage(): React.JSX.Element {
   const [formOpen, setFormOpen] = useState(false);
   const [initialForm, setInitialForm] = useState<AccountForm | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showAllStatements, setShowAllStatements] = useState(false);
 
   const openEdit = () => {
     if (account) {
@@ -223,34 +227,41 @@ export default function AccountPage(): React.JSX.Element {
               <span style={mutedStyle}>{t.noStatements}</span>
             ) : (
               <div>
-                {statements.map(statement => (
-                  <div key={statement.id} style={listRowStyle}>
-                    <Link
-                      href={`/statements/${statement.id}/edit`}
-                      style={{ display: 'grid', gap: 2, textDecoration: 'none', minWidth: 0 }}
-                    >
-                      <span style={{ fontSize: 14, color: 'var(--foreground)' }}>
-                        {statementPeriod(statement, locale) || statement.fileName}
-                      </span>
-                      <span style={mutedStyle}>
-                        {statement.balanceEnd === null
-                          ? statement.fileName
-                          : fillTemplateNodes(t.closingBalance.value, {
-                              amount: money(statement.balanceEnd),
-                            })}
-                      </span>
-                    </Link>
-                    <ReadOnlyHint>
-                      <Button
-                        size="small"
-                        variant="text"
-                        onClick={() => void mutations.detach(account.id, statement.id)}
+                {(showAllStatements ? statements : statements.slice(0, STATEMENTS_SHOWN)).map(
+                  statement => (
+                    <div key={statement.id} style={listRowStyle}>
+                      <Link
+                        href={`/statements/${statement.id}/edit`}
+                        style={{ display: 'grid', gap: 2, textDecoration: 'none', minWidth: 0 }}
                       >
-                        {t.unlink}
-                      </Button>
-                    </ReadOnlyHint>
-                  </div>
-                ))}
+                        <span style={{ fontSize: 14, color: 'var(--foreground)' }}>
+                          {statementPeriod(statement, locale) || statement.fileName}
+                        </span>
+                        <span style={mutedStyle}>
+                          {statement.balanceEnd === null
+                            ? statement.fileName
+                            : fillTemplateNodes(t.closingBalance.value, {
+                                amount: money(statement.balanceEnd),
+                              })}
+                        </span>
+                      </Link>
+                      <ReadOnlyHint>
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => void mutations.detach(account.id, statement.id)}
+                        >
+                          {t.unlink}
+                        </Button>
+                      </ReadOnlyHint>
+                    </div>
+                  ),
+                )}
+                {statements.length > STATEMENTS_SHOWN && !showAllStatements && (
+                  <Button variant="text" onClick={() => setShowAllStatements(true)}>
+                    {t.showAllStatements.value.replace('{{count}}', String(statements.length))}
+                  </Button>
+                )}
               </div>
             )}
           </section>

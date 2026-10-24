@@ -176,7 +176,8 @@ describe('AccountsPage', () => {
     renderWithQuery(<AccountsPage />);
 
     expect(await screen.findByText('Accounts found in your statements')).toBeInTheDocument();
-    expect(screen.getByText('Statements without an account: 2')).toBeInTheDocument();
+    // Both belong to the found account, so they are not offered for sorting too.
+    expect(screen.queryByText(/Statements without an account/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 

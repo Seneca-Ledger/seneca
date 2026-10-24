@@ -133,12 +133,12 @@ export function useAccount(id: string) {
   });
   const transactions = useQuery({
     queryKey: [...base, 'transactions'],
-    queryFn: ({ signal }) =>
-      apiQueryDecoded({
-        url: `/transactions?walletId=${id}&running_balance=1&limit=50`,
-        signal,
-        contract: 'TransactionListPage',
-      }),
+    // A `{ data, total }` page: checked raw, since apiQueryDecoded would unwrap `data`.
+    queryFn: async ({ signal }) => {
+      const url = `/transactions?walletId=${id}&running_balance=1&limit=50`;
+      const response = await apiClient.get(url, { signal });
+      return checkContract('TransactionListPage', response.data, url);
+    },
     enabled,
   });
 
