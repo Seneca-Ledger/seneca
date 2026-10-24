@@ -1,6 +1,6 @@
 /**
  * Browser stand-in for `@intlayer/dictionaries-entry` and
- * `@intlayer/unmerged-dictionaries-entry` (aliased in next.config.js).
+ * `@intlayer/dictionaries-entry/unmerged` (aliased in next.config.js).
  *
  * The real entries hold every dictionary in all 35 locales — 19 MB that every
  * page used to download. In the browser, app/i18n.ts reads the current

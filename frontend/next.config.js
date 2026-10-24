@@ -180,7 +180,7 @@ const nextConfig = {
 const CLIENT_DICTIONARIES_ENTRY = './app/lib/client-dictionaries-entry.ts';
 const DICTIONARY_ENTRIES = [
   '@intlayer/dictionaries-entry',
-  '@intlayer/unmerged-dictionaries-entry',
+  '@intlayer/dictionaries-entry/unmerged',
 ];
 
 const withClientDictionariesEntry = config => {
@@ -188,7 +188,7 @@ const withClientDictionariesEntry = config => {
   const turbopackAlias = config.turbopack?.resolveAlias;
   return {
     ...config,
-    // withIntlayerSync aliases the entries for Turbopack only when it runs (next dev).
+    // withIntlayerSync aliases the entries for Turbopack (dev and build).
     ...(turbopackAlias?.[DICTIONARY_ENTRIES[0]] && {
       turbopack: {
         ...config.turbopack,
@@ -207,6 +207,8 @@ const withClientDictionariesEntry = config => {
       const result = webpack ? webpack(webpackConfig, options) : webpackConfig;
       if (!options.isServer) {
         for (const entry of DICTIONARY_ENTRIES) {
+          // Overwrite intlayer's own keys in place: its subpath keys come before
+          // the bare entry, so `@intlayer/dictionaries-entry/remote` still wins.
           result.resolve.alias[entry] = path.resolve(__dirname, CLIENT_DICTIONARIES_ENTRY);
         }
       }
