@@ -1,6 +1,7 @@
 'use client';
 
 import Autocomplete from '@mui/material/Autocomplete';
+import type { PopperProps } from '@mui/material/Popper';
 import TextField from '@mui/material/TextField';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
@@ -16,16 +17,8 @@ const INLINE_SUGGESTIONS = 50;
  * shown, as long as it needs to be, scrolled with the drawer, and leaving with
  * it when the drawer slides away.
  */
-function InlineList({
-  open,
-  className,
-  children,
-}: {
-  open: boolean;
-  className?: string;
-  children?: React.ReactNode;
-}): React.JSX.Element | null {
-  return open ? <div className={className}>{children}</div> : null;
+function InlineList({ open, className, children }: PopperProps): React.JSX.Element | null {
+  return open ? <div className={className}>{children as React.ReactNode}</div> : null;
 }
 
 type Option = { kind: 'payee'; id: string; name: string } | { kind: 'create'; name: string };
