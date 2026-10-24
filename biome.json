@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
 
   "files": {
     "includes": [
@@ -29,7 +29,11 @@
       "!**/@tests/**",
       "!**/backend/scripts/**",
       "!**/backend/src/contracts/**",
-      "!**/frontend/app/lib/contracts/**"
+      "!**/frontend/app/lib/contracts/**",
+      "!**/*.scss",
+      "!**/*.md",
+      "!**/*.yaml",
+      "!**/*.yml"
     ]
   },
 
@@ -130,6 +134,16 @@
   },
 
   "overrides": [
+    {
+      "includes": ["**/backend/**", "**/src/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noComponentHookFactories": "off"
+          }
+        }
+      }
+    },
     {
       "includes": ["**/frontend/**/*.{ts,tsx,js,jsx}", "**/app/**/*.{ts,tsx,js,jsx}"],
       "linter": {
