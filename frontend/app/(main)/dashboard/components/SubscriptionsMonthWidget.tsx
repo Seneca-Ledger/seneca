@@ -11,6 +11,7 @@ import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { formatMoney } from '@/app/lib/format-money';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
@@ -58,10 +59,25 @@ export function SubscriptionsMonthWidget({
   // A failed request shows the empty state rather than breaking the dashboard.
   const total = data ? data.paidCount + data.unpaidCount : 0;
   // An empty part would still get the donut's minimum angle.
+  // The hover says what each part is in the subscriptions' own currencies.
+  const inOwnCurrencies = (amounts: Array<{ currency: string; amount: number }>) =>
+    amounts.map(entry => formatMoney(entry.amount, entry.currency, locale));
   const slices: DonutSlice[] = data
     ? [
-        { key: 'paid', name: text(t.paid), value: data.paidAmount, color: PAID_TONE },
-        { key: 'unpaid', name: text(t.unpaid), value: data.unpaidAmount, color: UNPAID_TONE },
+        {
+          key: 'paid',
+          name: text(t.paid),
+          value: data.paidAmount,
+          color: PAID_TONE,
+          details: inOwnCurrencies(data.paidByCurrency),
+        },
+        {
+          key: 'unpaid',
+          name: text(t.unpaid),
+          value: data.unpaidAmount,
+          color: UNPAID_TONE,
+          details: inOwnCurrencies(data.unpaidByCurrency),
+        },
       ].filter(slice => slice.value > 0)
     : [];
   // "Nov 18": the month is always this one, so the year adds nothing.

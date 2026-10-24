@@ -92,6 +92,9 @@ export const SubscriptionMonthStatus = Schema.Struct({
   paidCount: Schema.Number,
   unpaidAmount: Schema.Number,
   unpaidCount: Schema.Number,
+  /** The paid and the still-to-pay parts in the currencies the subscriptions are in, unconverted. */
+  paidByCurrency: Schema.Array(Schema.Struct({ currency: Schema.String, amount: Schema.Number })),
+  unpaidByCurrency: Schema.Array(Schema.Struct({ currency: Schema.String, amount: Schema.Number })),
   /** Each subscription charged this month, still to pay first, then by next charge date. */
   items: Schema.Array(
     Schema.Struct({

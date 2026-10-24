@@ -703,6 +703,8 @@ describe('SubscriptionsService', () => {
       expect(result).toEqual(
         expect.objectContaining({ paidCount: 1, paidAmount: 9.99, unpaidCount: 0, unpaidAmount: 0 }),
       );
+      expect(result.paidByCurrency).toEqual([{ currency: 'USD', amount: 9.99 }]);
+      expect(result.unpaidByCurrency).toEqual([]);
       expect(result.items).toEqual([
         expect.objectContaining({ subscriptionId: 'sub-1', paid: true }),
       ]);

@@ -23,6 +23,8 @@ export interface DonutSlice {
   name: string;
   value: number;
   color: string;
+  /** Extra lines under the slice's amount in its tooltip. */
+  details?: string[];
   /** Where a click on the slice goes; a slice without one is not clickable. */
   href?: string;
 }
@@ -115,6 +117,7 @@ export function CategoryDonut({ slices, formatAmount }: CategoryDonutProps): Rea
                       value: `${formatAmount(slice.value)} · ${slicePercent(slice.value, total)}%`,
                       tone: 'strong',
                     },
+                    ...(slice.details ?? []).map(value => ({ value })),
                   ]}
                 />
               );

@@ -124,6 +124,13 @@ export interface ChargeCalendarRow {
   kind: 'subscription' | 'payable' | 'invoice';
 }
 
+/** Amounts per currency, rounded to cents, largest first. */
+function byCurrencyList(amounts: Map<string, number>): Array<{ currency: string; amount: number }> {
+  return [...amounts]
+    .map(([currency, amount]) => ({ currency, amount: Math.round(amount * 100) / 100 }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
 @Injectable()
 export class SubscriptionsService {
   private readonly logger = new Logger(SubscriptionsService.name);
@@ -715,6 +722,8 @@ export class SubscriptionsService {
     const today = new Date();
     const recordedThisMonth = await this.chargesInMonth(workspaceId, today);
     const status = { paidAmount: 0, paidCount: 0, unpaidAmount: 0, unpaidCount: 0 };
+    const paidByCurrency = new Map<string, number>();
+    const unpaidByCurrency = new Map<string, number>();
     const items: SubscriptionMonthStatus['items'][number][] = [];
 
     for (const sub of active) {
@@ -728,6 +737,19 @@ export class SubscriptionsService {
       // A payment recorded this month is paid whatever the date says.
       const paid = Math.min(total, Math.max(byDate.paid, recordedThisMonth.get(sub.id) ?? 0));
       const unpaid = total - paid;
+      const ownCurrency = sub.currency.toUpperCase();
+      if (paid > 0) {
+        paidByCurrency.set(
+          ownCurrency,
+          (paidByCurrency.get(ownCurrency) ?? 0) + Number(sub.amount) * paid,
+        );
+      }
+      if (unpaid > 0) {
+        unpaidByCurrency.set(
+          ownCurrency,
+          (unpaidByCurrency.get(ownCurrency) ?? 0) + Number(sub.amount) * unpaid,
+        );
+      }
 
       let amount = Number(sub.amount);
       if (workspaceCurrency && sub.currency.toUpperCase() !== workspaceCurrency) {
@@ -766,6 +788,8 @@ export class SubscriptionsService {
       ...status,
       paidAmount: Math.round(status.paidAmount * 100) / 100,
       unpaidAmount: Math.round(status.unpaidAmount * 100) / 100,
+      paidByCurrency: byCurrencyList(paidByCurrency),
+      unpaidByCurrency: byCurrencyList(unpaidByCurrency),
       items,
     };
   }
