@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ZipArchive } from 'archiver';
 import { In, Repository } from 'typeorm';
 import { APP_NAME } from '../../common/brand';
 import { FileStorageService } from '../../common/services/file-storage.service';
@@ -18,8 +19,6 @@ import { TransactionAttachment } from '../../entities/transaction-attachment.ent
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { toDateOnly } from '../tax/jurisdictions.service';
-
-import archiver = require('archiver');
 
 export type TaxPackScope = 'relevant' | 'all';
 
@@ -267,7 +266,7 @@ export class TaxPackService {
       summary.set(key, entry);
     }
 
-    const archive = archiver('zip', { zlib: { level: 6 } });
+    const archive = new ZipArchive({ zlib: { level: 6 } });
     archive.on('warning', error => this.logger.warn(`Tax pack: ${error.message}`));
     archive.pipe(output);
 
