@@ -968,6 +968,12 @@ describe('StatementsListItem', () => {
     ) as HTMLDivElement | null;
     expect(desktopContainer?.textContent).toContain('Software');
     expect(desktopContainer?.textContent).toContain('SaaS');
+    expect(desktopContainer?.querySelector('[data-testid="LocalOfferIcon"]')).not.toBeNull();
+    // Like the category, the tag opens its row of the By tag report on the statement's month.
+    expect(
+      desktopContainer?.querySelector('a[href="/reports?tab=cash-flow&month=2026-01&focus=tag%3Asaas"]')
+        ?.textContent,
+    ).toBe('SaaS');
     expect(desktopContainer?.textContent).toContain('Cloud subscription');
     expect(desktopContainer?.textContent).toContain('1 USD = 512.34 KZT');
     expect(desktopContainer?.textContent).toContain('Corporate card');
@@ -1299,6 +1305,70 @@ describe('StatementsListItem', () => {
 
     act(() => {
       link?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives each tag its own link that acts as a row click until it lights up', () => {
+    const root = createRoot(container);
+    const onView = vi.fn();
+    const statement = {
+      id: 'column-tag-link-click',
+      source: 'statement',
+      fileName: 'Summary.pdf',
+      status: 'completed',
+      totalDebit: 1200,
+      totalCredit: 0,
+      createdAt: '2026-02-05T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+      currency: 'KZT',
+      tags: [
+        { id: 'tag-1', name: 'Team Trip', color: null },
+        { id: 'tag-2', name: 'Office Move', color: null },
+      ],
+    } as StatementsListItemProps['statement'];
+
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Kaspi"
+          amountLabel="1,200 KZT"
+          dateLabel="02/05/2026"
+          onView={onView}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          columns={[{ id: 'tag', label: 'Tag', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a.seneca-stmt-tag-link'));
+    expect(links.map(link => link.getAttribute('href'))).toEqual([
+      '/reports?tab=cash-flow&month=2026-02&focus=tag%3Ateam+trip',
+      '/reports?tab=cash-flow&month=2026-02&focus=tag%3Aoffice+move',
+    ]);
+    container.addEventListener('click', event => event.preventDefault(), true);
+
+    const beforeDwell = new MouseEvent('click', { bubbles: true, cancelable: true });
+    act(() => {
+      links[1].dispatchEvent(beforeDwell);
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+    expect(beforeDwell.defaultPrevented).toBe(true);
+
+    act(() => {
+      links[1].dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    });
+    expect(links[1].className).toContain('seneca-stmt-category-link--lit');
+    expect(links[0].className).not.toContain('seneca-stmt-category-link--lit');
+
+    act(() => {
+      links[1].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     });
     expect(onView).toHaveBeenCalledTimes(1);
   });

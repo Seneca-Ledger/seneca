@@ -153,3 +153,9 @@ export const SetReceiptTaxBody = Schema.Struct({
   taxRateId: Schema.NullOr(Schema.String.check(Schema.isUUID())),
 });
 export type SetReceiptTaxBody = Wire<typeof SetReceiptTaxBody>;
+
+export const SetReceiptTagsBody = Schema.Struct({
+  /** The complete desired tag set for the receipt; an empty array clears it. */
+  tagIds: Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(50)),
+});
+export type SetReceiptTagsBody = Wire<typeof SetReceiptTagsBody>;

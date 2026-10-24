@@ -173,6 +173,8 @@ import {
   SubscriptionMonthStatus,
   SubscriptionSummary,
   SystemUpdateStatus,
+  TagList,
+  TransactionTagLinks,
   TaxJurisdictionList,
   TaxRateItem,
   TaxRateList,
@@ -1039,11 +1041,13 @@ describe('API contracts (e2e)', () => {
           .set('x-workspace-id', owner.workspaceId)
           .send(body)
           .expect(201);
+      const tag = await post('/tags', { name: 'Contract Bills', color: '#22c55e' });
       const payable = await post('/payables', {
         vendor: 'Contract Coffee',
         amount: 120.4,
         currency: 'USD',
         dueDate: '2026-12-01',
+        tagIds: [tag.body.id],
       });
       payableId = payable.body.id;
       await post(`/payables/${payableId}/payments`, { amount: 20, paidOn: '2026-10-01' });
@@ -1057,7 +1061,12 @@ describe('API contracts (e2e)', () => {
       const receivables = await get('/payables?direction=receivable');
       matches(PayableListPage, receivables.body);
       expect(receivables.body.data.length).toBeGreaterThan(0);
-      matches(Payable, (await get(`/payables/${payableId}`)).body);
+      const one = await get(`/payables/${payableId}`);
+      matches(Payable, one.body);
+      expect(one.body.tags.map((tag: { name: string }) => tag.name)).toEqual(['Contract Bills']);
+      const tagged = await get(`/payables?direction=payable&tagId=${one.body.tags[0].id}`);
+      matches(PayableListPage, tagged.body);
+      expect(tagged.body.data.map((bill: { id: string }) => bill.id)).toEqual([payableId]);
     });
 
     it('GET /payables/summary, payments and payment candidates', async () => {
@@ -1220,8 +1229,14 @@ describe('API contracts (e2e)', () => {
       statementId = files.body[0].id;
       const rows = await get(`/transactions?statement_id=${statementId}`);
       transactionId = rows.body.data[0].id;
-      tagId = (await send('post', '/storage/tags', { name: 'Contracts', color: '#22c55e' }).expect(201))
-        .body.id;
+      tagId = (
+        await send('post', '/tags', {
+          name: 'Contracts',
+          color: '#22c55e',
+          description: 'Tagged for the contract run',
+          tagDate: '2026-09-03',
+        }).expect(201)
+      ).body.id;
       await send('put', `/transactions/${transactionId}/tags`, { tagIds: [tagId] }).expect(200);
       await send('post', '/storage/folders', { name: 'Contracts folder', tagId }).expect(201);
       await send('post', '/storage/views', { name: 'Contracts view', filters: { search: 'x' } }).expect(
@@ -1279,6 +1294,26 @@ describe('API contracts (e2e)', () => {
         },
       });
       receiptId = receipt.id;
+      await send('put', `/receipts/${receiptId}/tags`, { tagIds: [tagId] }).expect(200);
+    });
+
+    it('GET /tags, with how often each tag is used, and /receipts/:id/tags', async () => {
+      const tags = await get('/tags');
+      matches(TagList, tags.body);
+      const links = await get('/tags/transaction-links');
+      matches(TransactionTagLinks, links.body);
+      expect(links.body).toContainEqual({ transactionId, tagId });
+      const contracts = tags.body.find((tag: { id: string }) => tag.id === tagId);
+      expect(contracts).toMatchObject({
+        name: 'Contracts',
+        description: 'Tagged for the contract run',
+        tagDate: '2026-09-03',
+      });
+      // The transaction and the receipt carry it.
+      expect(contracts.usageCount).toBeGreaterThanOrEqual(2);
+      const onReceipt = await get(`/receipts/${receiptId}/tags`);
+      matches(StorageTagList, onReceipt.body);
+      expect(onReceipt.body).toEqual([expect.objectContaining({ id: tagId, name: 'Contracts' })]);
     });
 
     it('GET /storage/files, /storage/files/:id, folders, tags and views', async () => {
@@ -1748,6 +1783,9 @@ describe('API contracts (e2e)', () => {
       const flow = await get('/reports/spend-flow?type=expense');
       matches(SpendFlow, flow.body);
       expect(flow.body.nodes.length).toBeGreaterThan(0);
+      const byTag = await get('/reports/spend-flow?type=expense&groupBy=tag');
+      matches(SpendFlow, byTag.body);
+      expect(byTag.body.nodes.some((node: { kind: string }) => node.kind === 'tag')).toBe(true);
     });
 
     it('GET /search and /search/recent', async () => {
@@ -1827,6 +1865,35 @@ describe('API contracts (e2e)', () => {
         StorageTagList,
         (await call('put', `/transactions/${transactionId}/tags`, { tagIds: [tag.body.id] }).expect(200)).body,
       );
+    });
+
+    it('the Tags page: create, edit and delete a tag, and tag a receipt', async () => {
+      const created = await call('post', '/tags', {
+        name: 'Page tag',
+        description: 'A weekend away',
+        tagDate: '2026-08-15',
+      }).expect(201);
+      matches(StorageTag, created.body);
+      expect(created.body).toMatchObject({ description: 'A weekend away', tagDate: '2026-08-15' });
+      const edited = await call('patch', `/tags/${created.body.id}`, {
+        description: null,
+        color: '#0ea5e9',
+      }).expect(200);
+      matches(StorageTag, edited.body);
+      expect(edited.body).toMatchObject({ name: 'Page tag', description: null, color: '#0ea5e9' });
+
+      const receiptId = (await get('/receipts')).body.data[0].id;
+      const kept = (await get(`/receipts/${receiptId}/tags`)).body.map((tag: { id: string }) => tag.id);
+      const tagged = await call('put', `/receipts/${receiptId}/tags`, {
+        tagIds: [...kept, created.body.id],
+      }).expect(200);
+      matches(StorageTagList, tagged.body);
+      expect(tagged.body.map((tag: { id: string }) => tag.id)).toContain(created.body.id);
+
+      // Deleting the tag takes it off the receipt and leaves the others.
+      await call('delete', `/tags/${created.body.id}`).expect(200);
+      const after = (await get(`/receipts/${receiptId}/tags`)).body.map((tag: { id: string }) => tag.id);
+      expect(after.sort()).toEqual([...kept].sort());
     });
 
     it('clients, invoice settings and payables, money as decimal strings', async () => {
@@ -2269,7 +2336,15 @@ describe('API contracts (e2e)', () => {
 
     it('branches, category usage, an uploaded icon and a file category', async () => {
       matches(BranchList, (await get('/branches')).body);
-      matches(CategoryUsageCounts, (await get('/categories/usage/counts')).body);
+      const usage = await get('/categories/usage/counts');
+      matches(CategoryUsageCounts, usage.body);
+      const used = Object.values(
+        usage.body as Record<string, { transactions: number; lastUsedAt: string | null }>,
+      ).filter(entry => entry.transactions > 0);
+      expect(used.length).toBeGreaterThan(0);
+      for (const entry of used) {
+        expect(entry.lastUsedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      }
       const icon = await request(app.getHttpServer())
         .post('/data-entry/custom-fields/icon')
         .set('Authorization', `Bearer ${owner.token}`)
@@ -2436,7 +2511,11 @@ describe('API contracts (e2e)', () => {
                    (SELECT count(*) FROM invoice_line_items l JOIN invoices i ON i.id = l.invoice_id
                      WHERE i.workspace_id = $1)::int AS "invoiceLines",
                    (SELECT count(*) FROM transaction_tags l JOIN transactions t ON t.id = l.transaction_id
-                     WHERE t.workspace_id = $1)::int AS "transactionTags"`,
+                     WHERE t.workspace_id = $1)::int AS "transactionTags",
+                   (SELECT count(*) FROM receipt_tags l JOIN receipts r ON r.id = l.receipt_id
+                     WHERE r.workspace_id = $1)::int AS "receiptTags",
+                   (SELECT count(*) FROM payable_tags l JOIN payables p ON p.id = l.payable_id
+                     WHERE p.workspace_id = $1)::int AS "payableTags"`,
           [workspaceId],
         );
         return row;
@@ -2444,6 +2523,8 @@ describe('API contracts (e2e)', () => {
       const source = await counts(owner.workspaceId);
       expect(source.bookedLines).toBeGreaterThan(0);
       expect(source.invoiceLines).toBeGreaterThan(0);
+      expect(source.receiptTags).toBeGreaterThan(0);
+      expect(source.payableTags).toBeGreaterThan(0);
       expect(await counts(restored.body.workspaceId)).toEqual(source);
     }, 120_000);
 

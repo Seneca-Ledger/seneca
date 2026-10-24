@@ -4,18 +4,18 @@ import MuiTooltip from '@mui/material/Tooltip';
 import clsx from 'clsx';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { formatMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
 import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
 import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
-import { AlertCircle, ChevronDown, ChevronRight, CreditCard } from '@/app/components/icons';
+import { AlertCircle, ChevronDown, ChevronRight, CreditCard, Tag } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { categoryReportHref } from '@/app/lib/category-report-href';
+import { categoryReportHref, tagReportHref } from '@/app/lib/category-report-href';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
@@ -27,6 +27,7 @@ import {
   statementColumnWidthStyle,
 } from './columns/statement-columns';
 import { isDocumentApproved, resolveStatementSortDate } from './StatementsListView.utils';
+import { useDwellLink } from './use-dwell-link';
 
 export type StatementListItem = {
   id: string;
@@ -178,21 +179,40 @@ const formatBoolean = (value: boolean | null, yes: string, no: string): string =
   return value ? yes : no;
 };
 
-/**
- * How long the pointer has to rest on the category chip before it lights up.
- * Until it does, the chip is still part of the row and a click opens the
- * statement — the green sweep is what says "this one goes somewhere else".
- */
-const CATEGORY_LINK_DELAY_MS = 450;
-
-/** The category chip opens the Top categories leaderboard on the statement's own month. */
-const categoryHref = (categoryLabel: string, statement: StatementListItem): string => {
+/** The statement's own month, `YYYY-MM`, for the report its links open. */
+const statementMonth = (statement: StatementListItem): string | null => {
   const sortDate = resolveStatementSortDate(statement);
-  return categoryReportHref(
-    categoryLabel,
-    sortDate > 0 ? formatMonthParam(new Date(sortDate)) : null,
-  );
+  return sortDate > 0 ? formatMonthParam(new Date(sortDate)) : null;
 };
+
+/** One tag of the Tag column: lights up on a resting pointer and opens its By tag row. */
+function TagLink({
+  name,
+  month,
+  title,
+}: {
+  name: string;
+  month: string | null;
+  title: string;
+}): React.JSX.Element {
+  const { lit, linkProps } = useDwellLink();
+  return (
+    <Link
+      href={tagReportHref(name, month)}
+      className={`seneca-stmt-category-link seneca-stmt-tag-link${lit ? ' seneca-stmt-category-link--lit' : ''}`}
+      title={title}
+      {...linkProps}
+    >
+      <span
+        className="seneca-stmt-category-link__text"
+        data-label={name}
+        style={{ ...textCellStyle('tag'), width: 'auto', minWidth: 0 }}
+      >
+        {name}
+      </span>
+    </Link>
+  );
+}
 
 function StatusBadge({
   status,
@@ -272,23 +292,7 @@ export function StatementsListItem({
   const listText = useIntlayer('statementsListUi');
   const { locale } = useLocale();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
-  const [categoryLit, setCategoryLit] = useState(false);
-  const categoryTimerRef = useRef<number | undefined>(undefined);
-
-  const lightCategoryAfterDwell = useCallback(() => {
-    window.clearTimeout(categoryTimerRef.current);
-    categoryTimerRef.current = window.setTimeout(
-      () => setCategoryLit(true),
-      CATEGORY_LINK_DELAY_MS,
-    );
-  }, []);
-
-  const unlightCategory = useCallback(() => {
-    window.clearTimeout(categoryTimerRef.current);
-    setCategoryLit(false);
-  }, []);
-
-  useEffect(() => () => window.clearTimeout(categoryTimerRef.current), []);
+  const { lit: categoryLit, linkProps: categoryLinkProps } = useDwellLink();
 
   const resolvedTypeLabel = typeLabel || statement.fileType;
   const isLocalReceipt = statement.source === 'scan';
@@ -396,20 +400,32 @@ export function StatementsListItem({
     </span>
   );
 
-  const handleCategoryClick = (event: React.MouseEvent<HTMLAnchorElement>): void => {
-    // Ctrl/cmd/shift-click is the browser's own "open elsewhere"; let it be,
-    // and only keep it off the row.
-    if (event.metaKey || event.ctrlKey || event.shiftKey) {
-      event.stopPropagation();
-      return;
-    }
-    if (!categoryLit) {
-      // Not lit yet, so the chip is still just a cell of the row: swallow the
-      // navigation and let the click bubble up and open the statement.
-      event.preventDefault();
-      return;
-    }
-    event.stopPropagation();
+  const renderTagCell = (): React.JSX.Element => {
+    const tagNames = (statement.tags ?? [])
+      .map(tag => tag.name?.trim())
+      .filter(Boolean) as string[];
+    if (tagNames.length === 0) return renderPlainCell('tag', null);
+    const month = statementMonth(statement);
+    return (
+      <span
+        title={tagsLabel ?? undefined}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, width: '100%' }}
+      >
+        <Tag size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+        <span style={{ display: 'flex', minWidth: 0, overflow: 'hidden' }}>
+          {tagNames.map((name, index) => (
+            <React.Fragment key={name}>
+              {index > 0 ? <span style={{ flexShrink: 0 }}>,&nbsp;</span> : null}
+              <TagLink
+                name={name}
+                month={month}
+                title={listText.tagLink.value.replace('{tag}', name)}
+              />
+            </React.Fragment>
+          ))}
+        </span>
+      </span>
+    );
   };
 
   const renderCategoryCell = (): React.JSX.Element => {
@@ -427,15 +443,9 @@ export function StatementsListItem({
     }
     return (
       <Link
-        href={categoryHref(categoryLabel, statement)}
+        href={categoryReportHref(categoryLabel, statementMonth(statement))}
         className={`seneca-stmt-category-link${categoryLit ? ' seneca-stmt-category-link--lit' : ''}`}
-        onClick={handleCategoryClick}
-        onMouseEnter={lightCategoryAfterDwell}
-        onMouseLeave={unlightCategory}
-        // Keyboard focus has no pointer crossing the column to ignore, so it
-        // lights the chip at once and Enter goes to the leaderboard.
-        onFocus={() => setCategoryLit(true)}
-        onBlur={unlightCategory}
+        {...categoryLinkProps}
         title={listText.categoryLink.value.replace('{category}', categoryText ?? categoryLabel)}
       >
         <span className="seneca-stmt-category-link__badge">
@@ -613,7 +623,7 @@ export function StatementsListItem({
       );
     if (columnId === 'to') return renderPlainCell(columnId, sourceLabel);
     if (columnId === 'category') return renderCategoryCell();
-    if (columnId === 'tag') return renderPlainCell(columnId, tagsLabel);
+    if (columnId === 'tag') return renderTagCell();
     if (columnId === 'amount') return renderAmountCell();
     if (columnId === 'action') return renderActionCell();
     if (columnId === 'approved') return renderPlainCell(columnId, approvedLabel);

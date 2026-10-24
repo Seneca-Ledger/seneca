@@ -158,6 +158,10 @@ vi.mock('react-hot-toast', () => ({
   },
 }));
 
+vi.mock('@/app/components/tags/RecordTagsField', () => ({
+  StatementTagsField: () => <div data-testid="statement-tags" />,
+}));
+
 vi.mock('@/app/components/notes/NotesPanel', () => ({
   NotesPanel: () => <div data-testid="statement-notes" />,
 }));

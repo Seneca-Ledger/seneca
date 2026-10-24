@@ -73,6 +73,7 @@ export const SOURCE_KINDS: SourceDef[] = [
       'amount',
       'type',
       'category',
+      'tags',
       'currency',
       'statement',
     ],

@@ -77,6 +77,8 @@ export const RELATED_COLLECTIONS: ReadonlyArray<{ table: string; column: string;
     { table: 'journal_lines', column: 'entryId', parent: 'journal_entries' },
     { table: 'statement_tags', column: 'statement_id', parent: 'statements' },
     { table: 'transaction_tags', column: 'transaction_id', parent: 'transactions' },
+    { table: 'receipt_tags', column: 'receipt_id', parent: 'receipts' },
+    { table: 'payable_tags', column: 'payable_id', parent: 'payables' },
   ];
 
 export const isWorkspaceScoped = (metadata: EntityMetadata): boolean =>

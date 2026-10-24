@@ -120,6 +120,49 @@ describe('CategoriesService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('getWorkspaceCategoryUsageCounts', () => {
+    const rawQuery = (rows: unknown[]) => {
+      const qb: Record<string, jest.Mock> = {};
+      for (const method of ['select', 'addSelect', 'where', 'andWhere', 'groupBy']) {
+        qb[method] = jest.fn().mockReturnValue(qb);
+      }
+      qb.getRawMany = jest.fn().mockResolvedValue(rows);
+      return qb;
+    };
+
+    it('reports the day each category was last used, from its latest transaction', async () => {
+      const transactionQb = rawQuery([
+        { categoryId: 'cat-1', count: '3', lastUsedAt: '2026-10-21' },
+        { categoryId: 'cat-2', count: '1', lastUsedAt: null },
+      ]);
+      const statementQb = rawQuery([
+        { categoryId: 'cat-1', count: '2' },
+        { categoryId: 'cat-3', count: '4' },
+      ]);
+      const transactionRepository = testingModule.get(getRepositoryToken(Transaction));
+      const statementRepository = testingModule.get(getRepositoryToken(Statement));
+      transactionRepository.createQueryBuilder.mockReturnValue(transactionQb);
+      statementRepository.createQueryBuilder = jest.fn().mockReturnValue(statementQb);
+
+      const usage = await service.getWorkspaceCategoryUsageCounts('ws-1');
+
+      expect(usage).toEqual({
+        'cat-1': { transactions: 3, statements: 2, total: 5, lastUsedAt: '2026-10-21' },
+        'cat-2': { transactions: 1, statements: 0, total: 1, lastUsedAt: null },
+        // A category used only on statements has no transaction date to report.
+        'cat-3': { transactions: 0, statements: 4, total: 4, lastUsedAt: null },
+      });
+      // Formatted in SQL, so the day never shifts with the server's time zone.
+      expect(transactionQb.addSelect).toHaveBeenCalledWith(
+        "TO_CHAR(MAX(transaction.transactionDate), 'YYYY-MM-DD')",
+        'lastUsedAt',
+      );
+      expect(transactionQb.where).toHaveBeenCalledWith('transaction.workspaceId = :workspaceId', {
+        workspaceId: 'ws-1',
+      });
+    });
+  });
+
   describe('create', () => {
     const createDto = {
       name: 'New Category',

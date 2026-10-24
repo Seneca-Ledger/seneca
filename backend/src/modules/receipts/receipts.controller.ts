@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Put,
@@ -44,15 +45,19 @@ import {
   ReceiptTax,
   ReceiptTransactionMatches,
   ReceiptUploadResult,
+  SetReceiptTagsBody,
   SetReceiptTaxBody,
+  StorageTagList,
   UpdateReceiptBody,
   UpdateReceiptLocationBody,
   UpdateReceiptStageBody,
   UploadReceiptBody,
 } from '../../contracts';
 import type { User } from '../../entities';
+import { EntityType } from '../../entities/audit-event.entity';
 import { ReceiptStatus } from '../../entities/receipt.entity';
 import { StatementStage } from '../../entities/statement.entity';
+import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateReceiptStageResultDto } from './dto/update-receipt-stage.dto';
 import { ReceiptsService } from './receipts.service';
@@ -62,6 +67,7 @@ import { ReceiptMatchService } from './services/receipt-match.service';
 import { ReceiptPlaceSuggestionService } from './services/receipt-place-suggestion.service';
 import { ReceiptSplitService } from './services/receipt-split.service';
 import { ReceiptStageService } from './services/receipt-stage.service';
+import { ReceiptTagsService } from './services/receipt-tags.service';
 
 type MulterFile = Express.Multer.File;
 
@@ -75,6 +81,7 @@ export class ReceiptsController {
     private readonly receiptSplitService: ReceiptSplitService,
     private readonly placeSuggestionService: ReceiptPlaceSuggestionService,
     private readonly documentsService: ReceiptDocumentsService,
+    private readonly receiptTagsService: ReceiptTagsService,
   ) {}
 
   @Post('upload')
@@ -312,6 +319,28 @@ export class ReceiptsController {
       throw new BadRequestException('Receipt not found');
     }
     return tax;
+  }
+
+  @Get(':id/tags')
+  @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @ApiOperation({ summary: "The receipt's tags" })
+  @SchemaResponse(StorageTagList)
+  async getTags(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+    return this.receiptTagsService.getTags(id, workspaceId);
+  }
+
+  @Put(':id/tags')
+  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @Audit({ entityType: EntityType.RECEIPT, includeDiff: true })
+  @ApiOperation({ summary: "Replace the receipt's tags; an empty list clears them" })
+  @ApiResponse({ status: 400, description: 'A tag is not in this workspace' })
+  @SchemaResponse(StorageTagList)
+  async setTags(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaBody(SetReceiptTagsBody) dto: SetReceiptTagsBody,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.receiptTagsService.setTags(id, workspaceId, dto.tagIds);
   }
 
   @Post('stage')

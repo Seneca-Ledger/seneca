@@ -54,6 +54,7 @@ import {
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { TagsService } from '../tags/tags.service';
 import { StorageService } from './storage.service';
 
 /**
@@ -66,7 +67,10 @@ export const SHARED_LINK_PASSWORD_HEADER = 'x-share-password';
 @UseGuards(JwtAuthGuard)
 @UseInterceptors(HideInternalColumnsInterceptor)
 export class StorageController {
-  constructor(private readonly storageService: StorageService) {}
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly tagsService: TagsService,
+  ) {}
 
   /**
    * Get all files in storage for current user
@@ -198,7 +202,7 @@ export class StorageController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return await this.storageService.createTag(dto, workspaceId);
+    return await this.tagsService.create(dto, workspaceId);
   }
 
   /**
@@ -209,7 +213,7 @@ export class StorageController {
   @UseGuards(WorkspaceContextGuard)
   @SchemaResponse(StorageTagList)
   async listTags(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
-    return await this.storageService.listTags(workspaceId);
+    return await this.tagsService.list(workspaceId);
   }
 
   /**
@@ -225,7 +229,7 @@ export class StorageController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return await this.storageService.updateTag(tagId, dto, workspaceId);
+    return await this.tagsService.update(tagId, dto, workspaceId);
   }
 
   /**
@@ -239,7 +243,7 @@ export class StorageController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    await this.storageService.deleteTag(tagId, workspaceId);
+    await this.tagsService.remove(tagId, workspaceId);
     return deletedResponse('Tag');
   }
 

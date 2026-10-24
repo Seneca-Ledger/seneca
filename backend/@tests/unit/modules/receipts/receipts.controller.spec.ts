@@ -12,11 +12,13 @@ import { ReceiptSplitService } from '../../../../src/modules/receipts/services/r
 import { ReceiptPlaceSuggestionService } from '../../../../src/modules/receipts/services/receipt-place-suggestion.service';
 import { ReceiptDocumentsService } from '../../../../src/modules/receipts/services/receipt-documents.service';
 import { ReceiptDuplicateService } from '../../../../src/modules/receipts/services/receipt-duplicate.service';
+import { ReceiptTagsService } from '../../../../src/modules/receipts/services/receipt-tags.service';
 
 describe('ReceiptsController', () => {
   let controller: ReceiptsController;
   let locationService: { setManual: jest.Mock; resetToAuto: jest.Mock };
   let placeSuggestionService: { suggest: jest.Mock };
+  let tagsService: { getTags: jest.Mock; setTags: jest.Mock };
   let service: {
     createFromUpload: jest.Mock;
     createFromScan: jest.Mock;
@@ -55,6 +57,10 @@ describe('ReceiptsController', () => {
     };
 
     placeSuggestionService = { suggest: jest.fn().mockResolvedValue({ needed: false }) };
+    tagsService = {
+      getTags: jest.fn().mockResolvedValue([{ id: 'tag-1', name: 'Trip' }]),
+      setTags: jest.fn().mockResolvedValue([]),
+    };
 
     const moduleBuilder = Test.createTestingModule({
       controllers: [ReceiptsController],
@@ -67,6 +73,7 @@ describe('ReceiptsController', () => {
         { provide: ReceiptPlaceSuggestionService, useValue: placeSuggestionService },
         { provide: ReceiptDocumentsService, useValue: {} },
         { provide: ReceiptDuplicateService, useValue: {} },
+        { provide: ReceiptTagsService, useValue: tagsService },
       ],
     });
 
@@ -287,5 +294,20 @@ describe('ReceiptsController', () => {
     await expect(controller.placeSuggestions('workspace-2', dto)).rejects.toThrow(
       'Receipt not found',
     );
+  });
+
+  it('reads and replaces a receipt\'s tags inside the workspace', async () => {
+    await expect(controller.getTags('receipt-1', 'workspace-1')).resolves.toEqual([
+      { id: 'tag-1', name: 'Trip' },
+    ]);
+    expect(tagsService.getTags).toHaveBeenCalledWith('receipt-1', 'workspace-1');
+
+    await expect(
+      controller.setTags('receipt-1', { tagIds: ['tag-1', 'tag-2'] }, 'workspace-1'),
+    ).resolves.toEqual([]);
+    expect(tagsService.setTags).toHaveBeenCalledWith('receipt-1', 'workspace-1', [
+      'tag-1',
+      'tag-2',
+    ]);
   });
 });

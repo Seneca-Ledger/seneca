@@ -29,6 +29,7 @@ import { buildSourceColumnTitles } from '@/app/(main)/custom-tables/labels';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ArrowLeft, CheckCircle2, ChevronDown, Layers, Save, Trash2 } from '@/app/components/icons';
 import { NotesPanel } from '@/app/components/notes/NotesPanel';
+import { StatementTagsField } from '@/app/components/tags/RecordTagsField';
 import { DetailActionButton } from '@/app/components/ui/detail-action-button';
 import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
@@ -569,6 +570,12 @@ export default function EditStatementPage(): React.JSX.Element {
           }}
         />
       )}
+
+      {statement ? (
+        <Box sx={{ mb: 2 }}>
+          <StatementTagsField statementId={statement.id} />
+        </Box>
+      ) : null}
 
       {/* Alerts */}
       {error && (

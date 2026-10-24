@@ -99,6 +99,10 @@ vi.mock('next/navigation', () => ({
 }));
 
 // The map pulls in Leaflet and React Query; its own test covers it.
+vi.mock('@/app/components/tags/RecordTagsField', () => ({
+  ReceiptTagsField: () => <div data-testid="receipt-tags" />,
+}));
+
 vi.mock('@/app/components/receipts/location/ReceiptLocationSection', () => ({
   ReceiptLocationSection: ({ receipt }: { receipt: { id: string } }) => (
     <section data-testid="receipt-location-section">Location of {receipt.id}</section>

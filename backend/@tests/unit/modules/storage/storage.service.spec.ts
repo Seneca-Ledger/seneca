@@ -485,39 +485,18 @@ describe('StorageService', () => {
     });
   });
 
-  describe('workspace-scoped tags and views', () => {
-    it('lists tags only for current workspace', async () => {
-      const tagRepository = testingModule.get(getRepositoryToken(Tag));
-      jest.spyOn(tagRepository, 'find').mockResolvedValue([{ id: 'tag-1' }] as Tag[]);
-
-      const result = await service.listTags('ws-1');
-
-      expect(result).toEqual([{ id: 'tag-1' }]);
-      expect(tagRepository.find).toHaveBeenCalledWith({
-        where: { workspaceId: 'ws-1' },
-        order: { name: 'ASC' },
-      });
-    });
-
-    it('creates tags and views inside current workspace', async () => {
-      const tagRepository = testingModule.get(getRepositoryToken(Tag));
+  // Tags moved to TagsService (tags.service.spec.ts); views stay here.
+  describe('workspace-scoped views', () => {
+    it('creates views inside current workspace', async () => {
       const viewRepository = testingModule.get(getRepositoryToken(StorageView));
-      jest.spyOn(tagRepository, 'create').mockImplementation(data => data as Tag);
-      jest
-        .spyOn(tagRepository, 'save')
-        .mockResolvedValue({ id: 'tag-1', workspaceId: 'ws-1' } as Tag);
       jest.spyOn(viewRepository, 'create').mockImplementation(data => data as StorageView);
       jest.spyOn(viewRepository, 'save').mockResolvedValue({
         id: 'view-1',
         workspaceId: 'ws-1',
       } as StorageView);
 
-      await service.createTag({ name: 'A' } as any, 'ws-1');
       await service.createView({ name: 'View', filters: {} } as any, 'user-1', 'ws-1');
 
-      expect(tagRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ workspaceId: 'ws-1' }),
-      );
       // user_id is NOT NULL: a view without its author never saved.
       expect(viewRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'user-1', workspaceId: 'ws-1' }),

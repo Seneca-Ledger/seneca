@@ -48,8 +48,13 @@ describe("TransactionsSource", () => {
 				statement: null,
 			},
 		]);
+		const query = jest.fn().mockResolvedValue([
+			{ transactionId: "tx-1", name: "Trip" },
+			{ transactionId: "tx-1", name: "Almaty" },
+		]);
 		const source = new TransactionsSource({
 			createQueryBuilder: () => qb,
+			query,
 		} as never);
 
 		const rows = await source.fetchRows("workspace-1", {});
@@ -64,6 +69,7 @@ describe("TransactionsSource", () => {
 					amount: -500,
 					type: "expense",
 					category: "Food",
+					tags: "Almaty, Trip",
 					currency: "KZT",
 					statement: "sept.pdf",
 				},
@@ -77,6 +83,7 @@ describe("TransactionsSource", () => {
 					amount: 1200.5,
 					type: "income",
 					category: "",
+					tags: "",
 					currency: "KZT",
 					statement: "",
 				},
@@ -88,6 +95,44 @@ describe("TransactionsSource", () => {
 		expect(qb.andWhere).toHaveBeenCalledWith(
 			"(tx.statementId IS NULL OR statement.deletedAt IS NULL)",
 		);
+	});
+
+	it("collects a row's own, statement and receipt tags in one workspace-scoped query", async () => {
+		const qb = createQueryBuilderMock([
+			{ id: "tx-1", transactionDate: "2026-09-03", amount: 1, currency: "EUR" },
+			{ id: "tx-2", transactionDate: "2026-09-04", amount: 2, currency: "EUR" },
+		]);
+		const query = jest.fn().mockResolvedValue([
+			{ transactionId: "tx-2", name: "Work" },
+			{ transactionId: "tx-2", name: "Berlin" },
+			{ transactionId: "tx-2", name: "Work" },
+		]);
+		const source = new TransactionsSource({
+			createQueryBuilder: () => qb,
+			query,
+		} as never);
+
+		const rows = await source.fetchRows("workspace-1", {});
+
+		expect(rows.map((row) => row.values.tags)).toEqual(["", "Berlin, Work"]);
+		expect(query).toHaveBeenCalledTimes(1);
+		const [sql, params] = query.mock.calls[0];
+		expect(sql).toContain("transaction_tags");
+		expect(sql).toContain("statement_tags");
+		expect(sql).toContain("receipt_tags");
+		expect(sql).toContain("t.workspace_id = $2");
+		expect(params).toEqual([["tx-1", "tx-2"], "workspace-1"]);
+	});
+
+	it("skips the tag query when there are no rows", async () => {
+		const query = jest.fn();
+		const source = new TransactionsSource({
+			createQueryBuilder: () => createQueryBuilderMock([]),
+			query,
+		} as never);
+
+		await expect(source.fetchRows("workspace-1", {})).resolves.toEqual([]);
+		expect(query).not.toHaveBeenCalled();
 	});
 
 	it("fills tables from confirmed transactions only", async () => {

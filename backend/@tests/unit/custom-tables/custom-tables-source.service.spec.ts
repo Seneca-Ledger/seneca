@@ -170,6 +170,7 @@ describe("CustomTablesService.createFromSource", () => {
 					kind: "transactions",
 					filters: { dateFrom: "2026-09-01" },
 					syncedAt: null,
+					fields: ["date", "amount", "currency"],
 				},
 			}),
 		);
@@ -235,6 +236,8 @@ describe("CustomTablesService.refreshFromSource", () => {
 			kind: "transactions",
 			filters: { dateFrom: "2026-09-01" },
 			syncedAt: null,
+			// Currency was a source column once; the user deleted it.
+			fields: ["date", "amount", "currency"],
 		},
 		columns: [
 			{
@@ -306,6 +309,8 @@ describe("CustomTablesService.refreshFromSource", () => {
 			}),
 		]);
 		expect(repos.row.delete).not.toHaveBeenCalled();
+		// A source column the user deleted is not brought back.
+		expect(repos.column.save).not.toHaveBeenCalled();
 		expect(manager.update).toHaveBeenCalledWith(
 			expect.anything(),
 			{ id: TABLE_ID },
@@ -316,6 +321,88 @@ describe("CustomTablesService.refreshFromSource", () => {
 				}),
 			},
 		);
+	});
+
+	it("adds a column for a field the source gained since the table was made", async () => {
+		const adapter = adapterMock(sourceRows);
+		const { service, repos, manager, updateQb } = build(adapter);
+		repos.customTable.createQueryBuilder.mockReturnValue(
+			createQueryBuilderMock({
+				getOne: {
+					...boundTable,
+					sourceBinding: {
+						...boundTable.sourceBinding,
+						fields: ["date", "amount"],
+					},
+					columns: boundTable.columns.map((column, position) => ({
+						...column,
+						position,
+					})),
+				},
+			}),
+		);
+		repos.row.find.mockResolvedValue([
+			{
+				id: "row-1",
+				sourceKey: "tx-1",
+				data: { col_date: "2026-09-01", col_amount: -500, col_note: "mine" },
+			},
+		]);
+
+		await service.refreshFromSource("user-1", "workspace-1", TABLE_ID);
+
+		expect(repos.column.save).toHaveBeenCalledTimes(1);
+		const created = repos.column.save.mock.calls[0][0] as Array<
+			Record<string, unknown>
+		>;
+		expect(created).toEqual([
+			expect.objectContaining({
+				tableId: TABLE_ID,
+				title: "Currency",
+				type: CustomTableColumnType.TEXT,
+				position: 3,
+				config: { source: { kind: "app_field", field: "currency" } },
+			}),
+		]);
+		// The new column is filled on the same refresh, for old rows and new.
+		expect(updateQb.setParameter).toHaveBeenCalledWith(
+			"patch",
+			JSON.stringify({ col_date: "2026-09-01", col_amount: -500, col_0: "EUR" }),
+		);
+		const inserted = manager.save.mock.calls[0][1] as Array<
+			Record<string, unknown>
+		>;
+		expect(inserted[0].data).toEqual({
+			col_date: "2026-09-02",
+			col_amount: 1200,
+			col_0: "EUR",
+		});
+		expect(manager.update).toHaveBeenCalledWith(
+			expect.anything(),
+			{ id: TABLE_ID },
+			{
+				sourceBinding: expect.objectContaining({
+					fields: ["date", "amount", "currency"],
+				}),
+			},
+		);
+	});
+
+	it("treats a table made before fields were recorded by the columns it has", async () => {
+		const { service, repos } = build(adapterMock([sourceRows[0]]));
+		const { fields: _fields, ...legacyBinding } = boundTable.sourceBinding;
+		repos.customTable.createQueryBuilder.mockReturnValue(
+			createQueryBuilderMock({
+				getOne: { ...boundTable, sourceBinding: legacyBinding },
+			}),
+		);
+
+		await service.refreshFromSource("user-1", "workspace-1", TABLE_ID);
+
+		const created = repos.column.save.mock.calls[0][0] as Array<
+			Record<string, unknown>
+		>;
+		expect(created.map((column) => column.title)).toEqual(["Currency"]);
 	});
 
 	it("counts identical rows as unchanged without issuing an update", async () => {

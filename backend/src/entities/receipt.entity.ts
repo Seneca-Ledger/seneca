@@ -4,12 +4,15 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import type { EInvoiceSummary } from '../modules/e-invoices/einvoice-summary';
 import { StatementStage } from './statement.entity';
+import { Tag } from './tag.entity';
 import { Transaction, type TransactionCategorySource } from './transaction.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -240,4 +243,15 @@ export class Receipt {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @ManyToMany(
+    () => Tag,
+    tag => tag.receipts,
+  )
+  @JoinTable({
+    name: 'receipt_tags',
+    joinColumn: { name: 'receipt_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
+  })
+  tags: Tag[];
 }

@@ -163,4 +163,16 @@ describe('payableFilterExtras', () => {
       payableFilterExtras({ search: 'acme', status: 'overdue', source: 'invoice' }, context),
     ).toEqual(['Search: “acme”', 'Status: Overdue', 'Source: Invoice']);
   });
+
+  it('names the chosen tag', () => {
+    const travel = { id: 'tag-1', name: 'Travel' };
+    const withTags = {
+      ...context,
+      labels: { ...context.labels, tag: 'Tags' },
+      tagOptions: { [travel.id]: travel.name },
+    };
+    expect(
+      payableFilterExtras({ search: '', status: 'all', source: 'all', tagId: travel.id }, withTags),
+    ).toEqual([`Tags: ${travel.name}`]);
+  });
 });

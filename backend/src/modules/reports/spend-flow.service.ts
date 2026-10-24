@@ -3,7 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository, SelectQueryBuilder } from 'typeorm';
 import { onlyFlows } from '../../common/utils/counted-transactions.util';
 import { applyOwnerFilter, parseOwnerFilter } from '../../common/utils/transaction-owner.util';
-import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
+import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+  redactedSql,
+} from '../../common/utils/transaction-privacy.util';
 import type { SpendFlowQuery } from '../../contracts';
 import { Category } from '../../entities/category.entity';
 import { FileType } from '../../entities/statement.entity';
@@ -11,7 +15,8 @@ import { Transaction, TransactionType } from '../../entities/transaction.entity'
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { buildRateMap, convertWith, normalizeCurrency } from '../goals/goal-money.util';
-import { buildSpendFlow, type SpendFlow } from './spend-flow.util';
+import { TRANSACTION_TAG_PAIRS_SQL } from '../tags/transaction-tag-pairs.util';
+import { buildSpendFlow, buildTagFlow, type SpendFlow } from './spend-flow.util';
 
 const DEFAULT_MERCHANTS_PER_CATEGORY = 3;
 const MAX_CATEGORIES = 6;
@@ -26,6 +31,13 @@ interface MerchantTotalRow {
   total: string;
 }
 
+interface TagTotalRow {
+  tagId: string;
+  name: string;
+  currency: string | null;
+  total: string;
+}
+
 export interface SpendFlowResponse extends SpendFlow {
   currency: string;
   type: 'income' | 'expense';
@@ -34,8 +46,9 @@ export interface SpendFlowResponse extends SpendFlow {
 }
 
 /**
- * Total → categories → merchants for the top-spenders sankey. Reads
- * transactions, not statements, because only transactions carry a category.
+ * The analytics sankeys: total → categories → merchants (or subcategories),
+ * total → merchants, and total → tags. Reads transactions, not statements,
+ * because only transactions carry a category.
  */
 @Injectable()
 export class SpendFlowService {
@@ -55,25 +68,31 @@ export class SpendFlowService {
     selfMemberId: string | null = null,
   ): Promise<SpendFlowResponse> {
     const type = query.type ?? 'expense';
+    const currency = await this.getWorkspaceCurrency(workspaceId);
+    const flow =
+      query.groupBy === 'tag'
+        ? await this.tagFlow(workspaceId, query, type, selfMemberId, currency)
+        : await this.categoryFlow(workspaceId, query, type, selfMemberId, currency);
 
-    // Same merchant key as goal flow and subscription detection. Another
-    // member's private rows count under the placeholder, key and label alike.
-    const merchant = redactedSql(
-      't',
-      'LOWER(TRIM(COALESCE(t.vendor_normalized, t.counterparty_name)))',
-    );
+    return {
+      ...flow,
+      currency,
+      type,
+      dateFrom: query.dateFrom ?? null,
+      dateTo: query.dateTo ?? null,
+    };
+  }
+
+  /** The transactions the sankey counts, with the page's filters; no selection yet. */
+  private countedTransactions(
+    workspaceId: string,
+    query: SpendFlowQuery,
+    type: 'income' | 'expense',
+    selfMemberId: string | null,
+  ): SelectQueryBuilder<Transaction> {
     const qb = this.transactionRepository
       .createQueryBuilder('t')
       .leftJoin('t.statement', 'statement')
-      .select('t.category_id', 'categoryId')
-      .addSelect(merchant, 'merchantKey')
-      // vendor_normalized is stored lower-cased: fine as a key, not as a label.
-      .addSelect(
-        `COALESCE(MAX(${redactedSql('t', 'TRIM(t.counterparty_name)')}), MAX(${redactedSql('t', 'TRIM(t.vendor_normalized)')}))`,
-        'merchantName',
-      )
-      .addSelect('t.currency', 'currency')
-      .addSelect('COALESCE(SUM(ABS(t.amount)), 0)', 'total')
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.transaction_type = :type', {
         type: type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
@@ -109,8 +128,34 @@ export class SpendFlowService {
       qb.andWhere('statement.user_id IN (:...userIds)', { userIds });
     }
     applyDocumentType(qb, query.documentType?.trim().toLowerCase());
+    return qb;
+  }
 
-    const [rows, categories, currency] = await Promise.all([
+  private async categoryFlow(
+    workspaceId: string,
+    query: SpendFlowQuery,
+    type: 'income' | 'expense',
+    selfMemberId: string | null,
+    currency: string,
+  ): Promise<SpendFlow> {
+    // Same merchant key as goal flow and subscription detection. Another
+    // member's private rows count under the placeholder, key and label alike.
+    const merchant = redactedSql(
+      't',
+      'LOWER(TRIM(COALESCE(t.vendor_normalized, t.counterparty_name)))',
+    );
+    const qb = this.countedTransactions(workspaceId, query, type, selfMemberId)
+      .select('t.category_id', 'categoryId')
+      .addSelect(merchant, 'merchantKey')
+      // vendor_normalized is stored lower-cased: fine as a key, not as a label.
+      .addSelect(
+        `COALESCE(MAX(${redactedSql('t', 'TRIM(t.counterparty_name)')}), MAX(${redactedSql('t', 'TRIM(t.vendor_normalized)')}))`,
+        'merchantName',
+      )
+      .addSelect('t.currency', 'currency')
+      .addSelect('COALESCE(SUM(ABS(t.amount)), 0)', 'total');
+
+    const [rows, categories] = await Promise.all([
       qb
         .groupBy('t.category_id')
         .addGroupBy(merchant)
@@ -120,7 +165,6 @@ export class SpendFlowService {
         where: { workspaceId },
         select: ['id', 'name', 'parentId', 'color'],
       }),
-      this.getWorkspaceCurrency(workspaceId),
     ]);
 
     const rates = await buildRateMap(
@@ -130,7 +174,7 @@ export class SpendFlowService {
       workspaceId,
     );
 
-    const flow = buildSpendFlow(
+    return buildSpendFlow(
       rows.map(row => ({
         categoryId: row.categoryId,
         merchantKey: row.merchantKey,
@@ -151,14 +195,51 @@ export class SpendFlowService {
         minMerchantShare: MIN_MERCHANT_SHARE,
       },
     );
+  }
 
-    return {
-      ...flow,
+  /**
+   * Total → tags: each counted transaction once per tag it carries. Another
+   * member's private rows stay out: which tag they carry is what they hide.
+   */
+  private async tagFlow(
+    workspaceId: string,
+    query: SpendFlowQuery,
+    type: 'income' | 'expense',
+    selfMemberId: string | null,
+    currency: string,
+  ): Promise<SpendFlow> {
+    const rows = await this.countedTransactions(workspaceId, query, type, selfMemberId)
+      .innerJoin(`(${TRANSACTION_TAG_PAIRS_SQL})`, 'tp', 'tp.transaction_id = t.id')
+      .innerJoin('tags', 'tag', 'tag.id = tp.tag_id')
+      .andWhere(readablePrivateSql('t'))
+      .select('tp.tag_id', 'tagId')
+      .addSelect('MAX(tag.name)', 'name')
+      .addSelect('t.currency', 'currency')
+      .addSelect('COALESCE(SUM(ABS(t.amount)), 0)', 'total')
+      .groupBy('tp.tag_id')
+      .addGroupBy('t.currency')
+      .getRawMany<TagTotalRow>();
+
+    const rates = await buildRateMap(
+      this.exchangeRatesService,
+      rows.map(row => normalizeCurrency(row.currency ?? currency)),
       currency,
-      type,
-      dateFrom: query.dateFrom ?? null,
-      dateTo: query.dateTo ?? null,
-    };
+      workspaceId,
+    );
+    return buildTagFlow(
+      rows.map(row => ({
+        tagId: row.tagId,
+        name: row.name,
+        amount: convertWith(rates, row.total, row.currency ?? currency),
+      })),
+      {
+        groupBy: 'tag',
+        merchantsPerCategory: DEFAULT_MERCHANTS_PER_CATEGORY,
+        maxMerchants: MAX_MERCHANTS,
+        maxCategories: MAX_CATEGORIES,
+        minMerchantShare: MIN_MERCHANT_SHARE,
+      },
+    );
   }
 
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {

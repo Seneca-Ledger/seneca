@@ -15,7 +15,7 @@ const TYPE_STATEMENT_HREFS = new Set([
 ]);
 
 const ENTITY_TYPE_HREFS: Record<string, string> = {
-  category: '/workspaces/categories',
+  category: '/categories',
   workspace: '/workspaces/overview',
   receipt: '/statements',
 };

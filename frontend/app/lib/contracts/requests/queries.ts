@@ -240,6 +240,8 @@ export const PayablesQuery = Schema.Struct({
   minAmount: Schema.optional(AtLeastZero),
   maxAmount: Schema.optional(AtLeastZero),
   includeArchived: Schema.optional(BooleanInput),
+  /** Only bills carrying this tag. */
+  tagId: Schema.optional(Schema.String.check(Schema.isUUID())),
   sort: Schema.optional(Schema.Literals(['dueDateAsc', 'dueDateDesc', 'amountDesc', 'vendorAsc'])),
   format: Schema.optional(Schema.Literals(['excel', 'csv'])),
 });
@@ -402,7 +404,7 @@ export const SpendFlowQuery = Schema.Struct({
   dateTo: Schema.optional(IsoDateString),
   type: Schema.optional(Schema.Literals(['income', 'expense'])),
   groupBy: Schema.optional(
-    Schema.Literals(['category-merchant', 'category-subcategory', 'merchant']),
+    Schema.Literals(['category-merchant', 'category-subcategory', 'merchant', 'tag']),
   ),
   statuses: Schema.optional(Schema.String),
   bankNames: Schema.optional(Schema.String),

@@ -164,11 +164,13 @@ export function statementFilterExtras(
 
 /** Every payables filter in force except the due dates, as "Label: value". */
 export function payableFilterExtras(
-  filters: { search: string; status: string; source: string },
+  filters: { search: string; status: string; source: string; tagId?: string },
   context: {
-    labels: { search: string; status: string; source: string };
+    labels: { search: string; status: string; source: string; tag?: string };
     statusOptions: Record<string, string>;
     sourceOptions: Record<string, string>;
+    /** Tag names by id. */
+    tagOptions?: Record<string, string>;
   },
 ): string[] {
   const { labels } = context;
@@ -181,6 +183,11 @@ export function payableFilterExtras(
   }
   if (filters.source !== 'all') {
     extras.push(`${labels.source}: ${context.sourceOptions[filters.source] ?? filters.source}`);
+  }
+  // Named once the tags have loaded; an id means nothing to read.
+  const tagName = filters.tagId ? context.tagOptions?.[filters.tagId] : undefined;
+  if (tagName) {
+    extras.push(`${labels.tag}: ${tagName}`);
   }
   return extras;
 }

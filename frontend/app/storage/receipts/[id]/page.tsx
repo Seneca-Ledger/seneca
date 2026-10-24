@@ -19,6 +19,7 @@ import type {
   EditableReceiptParsedData,
   ReceiptCategoryOption,
 } from '@/app/components/receipts/receipt-types';
+import { ReceiptTagsField } from '@/app/components/tags/RecordTagsField';
 import { DetailActionButton } from '@/app/components/ui/detail-action-button';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
@@ -975,6 +976,8 @@ export default function ReceiptDocumentPage() {
               onChange={handleFormChange}
               receiptId={receipt.id}
             />
+
+            <ReceiptTagsField receiptId={receipt.id} />
 
             {receipt.parsedData?.einvoice ? (
               <EInvoicePanel

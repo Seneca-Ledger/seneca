@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Banknote,
   BarChart2,
+  BookmarkOutline,
   BriefcaseBusiness,
   Building2,
   Calculator,
@@ -25,6 +26,7 @@ import {
   ScrollText,
   Shuffle,
   Table,
+  Tag,
   TrendingUp,
   Wallet,
 } from '@/app/components/icons';
@@ -46,7 +48,12 @@ export interface NavItem {
   group?: NavGroupId;
 }
 
-export type NavGroupId = 'transactions' | 'analytics' | 'investments' | 'business';
+export type NavGroupId =
+  | 'transactions'
+  | 'classification'
+  | 'analytics'
+  | 'investments'
+  | 'business';
 
 export interface NavGroup {
   id: NavGroupId;
@@ -60,6 +67,11 @@ export function buildNavGroups(labels: Record<NavGroupId, unknown>): NavGroup[] 
       id: 'transactions',
       label: labels.transactions as ReactNode,
       icon: React.createElement(Shuffle, { size: 18 }),
+    },
+    {
+      id: 'classification',
+      label: labels.classification as ReactNode,
+      icon: React.createElement(Tag, { size: 18 }),
     },
     {
       id: 'analytics',
@@ -153,6 +165,8 @@ export function buildNavItems(nav: {
   ledger: unknown;
   invoices: unknown;
   review: unknown;
+  categories: unknown;
+  tags: unknown;
 }): NavItem[] {
   return [
     {
@@ -194,6 +208,20 @@ export function buildNavItems(nav: {
       path: '/review',
       icon: React.createElement(Inbox, { size: 18 }),
       permission: 'transaction.view',
+    },
+    {
+      label: nav.categories as ReactNode,
+      path: '/categories',
+      group: 'classification',
+      icon: React.createElement(BookmarkOutline, { size: 18 }),
+      permission: 'category.view',
+    },
+    {
+      label: nav.tags as ReactNode,
+      path: '/tags',
+      group: 'classification',
+      icon: React.createElement(Tag, { size: 18 }),
+      permission: 'tag.view',
     },
     {
       label: nav.budgets as ReactNode,

@@ -9,6 +9,8 @@ import type {
   Insight,
   Payable,
   ReceiptRecord,
+  StorageFileDetails,
+  StorageTag,
   SubscriptionItem,
   TaxJurisdictionItem,
   TransactionListItem,
@@ -378,5 +380,38 @@ export function transactionItem(
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
     ...overrides,
+  };
+}
+
+/** `GET /storage/files/:id` for a statement with no rows, links or shares. */
+export function storageFileDetails(id: string, tags: StorageTag[] = []): StorageFileDetails {
+  return {
+    statement: {
+      id,
+      fileName: 'statement-2026-03.pdf',
+      fileType: 'pdf',
+      fileSize: 1024,
+      bankName: 'Example Bank',
+      accountNumber: null,
+      statementDateFrom: null,
+      statementDateTo: null,
+      status: 'parsed',
+      totalDebit: '0.00',
+      totalCredit: '0.00',
+      currency: 'EUR',
+      createdAt: TIMESTAMP,
+      deletedAt: null,
+      categoryId: null,
+      category: null,
+      folderId: null,
+      folder: null,
+      tags,
+    },
+    transactions: [],
+    sharedLinks: [],
+    permissions: [],
+    tags,
+    isOwner: true,
+    fileAvailability: { onDisk: true, inDb: false, status: 'disk' },
   };
 }

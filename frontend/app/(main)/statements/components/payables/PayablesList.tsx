@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MoreHorizontal } from '@/app/components/icons';
+import { MoreHorizontal, Tag } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import {
   DropdownMenu,
@@ -205,6 +205,14 @@ function PayablesList({
     );
   };
 
+  // Quiet, like the date: the tags say what the bill belongs to, not its state.
+  const renderTags = (payable: Payable): React.ReactNode =>
+    payable.tags && payable.tags.length > 0 ? (
+      <div className="seneca-payable-list__tags">
+        <Tag size={12} aria-hidden />
+        {payable.tags.map(tag => tag.name).join(', ')}
+      </div>
+    ) : null;
   return (
     <div className="seneca-payable-list">
       {isMobile ? (
@@ -225,6 +233,7 @@ function PayablesList({
                 </button>
                 <span className="seneca-payable-list__amount">{renderAmount(payable)}</span>
               </div>
+              {renderTags(payable)}
               <div className="seneca-payable-list__mobile-row-data">
                 <span className="seneca-payable-list__muted">
                   {formatPayableDate(payable.dueDate, locale)}
@@ -273,6 +282,7 @@ function PayablesList({
                     >
                       {payable.vendor}
                     </button>
+                    {renderTags(payable)}
                   </td>
                   <td className="seneca-payable-list__td seneca-payable-list__muted">
                     {formatPayableDate(payable.dueDate, locale)}

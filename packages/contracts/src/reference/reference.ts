@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { DecimalString, Timestamp, type Wire } from '../common/wire';
+import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
 
 export const CategoryType = Schema.Literals(['income', 'expense']);
 export type CategoryType = Wire<typeof CategoryType>;
@@ -83,6 +83,8 @@ export const CategoryUsageCount = Schema.Struct({
   transactions: Schema.Number,
   statements: Schema.Number,
   total: Schema.Number,
+  /** Date of the latest transaction in the category; null when none. Only in the workspace-wide counts. */
+  lastUsedAt: Schema.optional(Schema.NullOr(DateOnly)),
 });
 export type CategoryUsageCount = Wire<typeof CategoryUsageCount>;
 

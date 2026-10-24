@@ -31,6 +31,8 @@ const nav = {
   ledger: 'Ledger',
   invoices: 'Invoices',
   review: 'Review',
+  categories: 'Categories',
+  tags: 'Tags',
 };
 
 const userMenuNav = {
@@ -117,11 +119,24 @@ describe('buildNavItems', () => {
     expect(items.find(item => item.path === '/forecast')?.group).toBe('analytics');
     expect(items.find(item => item.path === '/forecast')?.permission).toBe('report.view');
   });
+
+  it('puts categories and tags together under classification, each behind its own view permission', () => {
+    const items = buildNavItems(nav);
+    const classification = items.filter(item => item.group === 'classification');
+
+    expect(classification.map(item => [item.path, item.permission])).toEqual([
+      ['/categories', 'category.view'],
+      ['/tags', 'tag.view'],
+    ]);
+    expect(buildNavGroups({ transactions: '', classification: 'Classification', analytics: '', investments: '', business: '' })
+      .map(group => group.id)).toContain('classification');
+  });
 });
 
 describe('groupNavItems', () => {
   const groups = buildNavGroups({
     transactions: 'Transactions',
+    classification: 'Classification',
     analytics: 'Analytics',
     investments: 'Investments',
     business: 'Business',
@@ -138,6 +153,7 @@ describe('groupNavItems', () => {
       '/dashboard',
       'transactions: /statements /statements/pay /statements/receive /statements/transactions',
       '/review',
+      'classification: /categories /tags',
       '/budgets',
       '/goals',
       '/subscriptions',

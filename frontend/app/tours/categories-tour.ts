@@ -22,7 +22,7 @@ export function createCategoriesTour(texts: {
     id: 'categories-tour',
     name: texts.name ?? 'Categories Tour',
     description: texts.description ?? 'Organizing transactions and files',
-    page: '/workspaces/categories',
+    page: '/categories',
     autoStart: false,
     steps: [
       {

@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { Email, IsoDateString, optionalNullable } from '../common/requests';
+import { DateOnlyInput, Email, IsoDateString, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const UpdateFileCategoryBody = Schema.Struct({
@@ -20,12 +20,16 @@ export type MoveFileBody = Wire<typeof MoveFileBody>;
 export const CreateTagBody = Schema.Struct({
   name: Schema.String.check(Schema.isMaxLength(64)),
   color: optionalNullable(Schema.String.check(Schema.isMaxLength(16))),
+  description: optionalNullable(Schema.String.check(Schema.isMaxLength(500))),
+  tagDate: optionalNullable(DateOnlyInput),
 });
 export type CreateTagBody = Wire<typeof CreateTagBody>;
 
 export const UpdateTagBody = Schema.Struct({
   name: optionalNullable(Schema.String.check(Schema.isMaxLength(64))),
   color: optionalNullable(Schema.String.check(Schema.isMaxLength(16))),
+  description: optionalNullable(Schema.String.check(Schema.isMaxLength(500))),
+  tagDate: optionalNullable(DateOnlyInput),
 });
 export type UpdateTagBody = Wire<typeof UpdateTagBody>;
 

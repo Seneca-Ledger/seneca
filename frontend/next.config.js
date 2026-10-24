@@ -159,6 +159,17 @@ const nextConfig = {
     ];
   },
 
+  async redirects() {
+    return [
+      {
+        // Categories moved out of the workspace tabs into a page of their own.
+        source: '/workspaces/categories',
+        destination: '/categories',
+        permanent: true,
+      },
+    ];
+  },
+
   async rewrites() {
     return [
       {

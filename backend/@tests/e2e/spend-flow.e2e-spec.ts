@@ -87,6 +87,9 @@ describe('Spend flow (e2e)', () => {
 
   afterAll(async () => {
     if (dataSource) {
+      if (owner) {
+        await dataSource.query('DELETE FROM receipts WHERE user_id = $1', [owner.userId]);
+      }
       for (const email of Object.values(emails)) {
         await deleteUserByEmail(dataSource, email);
       }
@@ -172,6 +175,63 @@ describe('Spend flow (e2e)', () => {
     await flow(owner, '?userIds=00000000-0000-0000-0000-000000000000').expect(200).expect(res => {
       expect(res.body.total).toBe(0);
     });
+  });
+
+  it('sums each transaction once per tag, from its statement, its receipt or itself', async () => {
+    const createTag = async (name: string): Promise<string> =>
+      (await as(owner, request(server()).post('/tags')).send({ name }).expect(201)).body.id;
+    const transactionOf = async (statementId: string): Promise<string> =>
+      (await dataSource.query('SELECT id FROM transactions WHERE statement_id = $1', [statementId]))[0]
+        .id;
+    const trip = await createTag('Team Trip');
+    const work = await createTag('Office Work');
+    const [coffee100, coffee50, books] = await Promise.all(statementIds.map(transactionOf));
+
+    // Trip on the 100 statement and again on its own transaction: counted once.
+    await as(owner, request(server()).patch(`/storage/files/${statementIds[0]}/tags`))
+      .send({ tagIds: [trip] })
+      .expect(200);
+    await as(owner, request(server()).put(`/transactions/${coffee100}/tags`))
+      .send({ tagIds: [trip] })
+      .expect(200);
+    await as(owner, request(server()).put(`/transactions/${books}/tags`))
+      .send({ tagIds: [trip] })
+      .expect(200);
+    // Work through a receipt attached to the 50 transaction.
+    const [receipt] = await dataSource.query(
+      `INSERT INTO receipts (user_id, workspace_id, source, subject, sender, received_at, parsed_data, transaction_id)
+       VALUES ($1, $2, 'scan', 'probe.jpg', 'scan', now(), '{}'::jsonb, $3) RETURNING id`,
+      [owner.userId, owner.workspaceId, coffee50],
+    );
+    await as(owner, request(server()).put(`/receipts/${receipt.id}/tags`))
+      .send({ tagIds: [work] })
+      .expect(200);
+
+    const res = await flow(owner, '?groupBy=tag').expect(200);
+    const nodes: FlowNode[] = res.body.nodes;
+    expect(res.body.total).toBe(400);
+    expect(nodes.find(node => node.id === `tag:${trip}`)).toMatchObject({
+      kind: 'tag',
+      name: 'Team Trip',
+      amount: 350,
+    });
+    expect(nodes.find(node => node.id === `tag:${work}`)).toMatchObject({ kind: 'tag', amount: 50 });
+    expect(res.body.links).toContainEqual({ source: 'total', target: `tag:${work}`, value: 50 });
+
+    const links = await as(owner, request(server()).get('/tags/transaction-links')).expect(200);
+    expect(links.body).toHaveLength(3);
+    expect(links.body).toEqual(
+      expect.arrayContaining([
+        { transactionId: coffee100, tagId: trip },
+        { transactionId: books, tagId: trip },
+        { transactionId: coffee50, tagId: work },
+      ]),
+    );
+
+    await flow(other, '?groupBy=tag').expect(200).expect(r => expect(r.body.total).toBe(0));
+    await as(other, request(server()).get('/tags/transaction-links'))
+      .expect(200)
+      .expect(r => expect(r.body).toEqual([]));
   });
 
   it('switches to the income side', async () => {

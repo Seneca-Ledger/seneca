@@ -12,6 +12,7 @@ import { Button } from '@/app/components/ui/button';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useAuth } from '@/app/hooks/useAuth';
+import { useTags } from '@/app/hooks/useTags';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
@@ -173,6 +174,8 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const { locale } = useLocale();
   const titleText = useIntlayer('transactionsPageTitle');
+  const tagsText = useIntlayer('tagsPage');
+  const { data: tags } = useTags();
   const router = useRouter();
   const t = useIntlayer('statementsPage');
   const tx = useCallback(
@@ -237,6 +240,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         current.source === nextFilters.source &&
         current.dueDateFrom === nextFilters.dueDateFrom &&
         current.dueDateTo === nextFilters.dueDateTo &&
+        current.tagId === nextFilters.tagId &&
         current.sort === nextFilters.sort
       ) {
         return current;
@@ -278,6 +282,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         reset: tx(['payables', 'filters', 'reset'], 'Reset'),
         allStatuses: tx(['payables', 'filters', 'allStatuses'], 'All statuses'),
         allSources: tx(['payables', 'filters', 'allSources'], 'All sources'),
+        allTags: tx(['payables', 'filters', 'allTags'], 'All tags'),
         statusOptions: {
           to_pay: dx(['status', 'toPay'], 'To pay', 'To receive'),
           scheduled: tx(['payables', 'status', 'scheduled'], 'Scheduled'),
@@ -697,9 +702,11 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
                     search: resolveLabel(getNestedValue(titleText, ['search']), 'Search'),
                     status: labels.filters.status,
                     source: labels.filters.source,
+                    tag: tagsText.title.value,
                   },
                   statusOptions: labels.filters.statusOptions,
                   sourceOptions: labels.filters.sourceOptions,
+                  tagOptions: Object.fromEntries((tags ?? []).map(tag => [tag.id, tag.name])),
                 })}
               />
               <div className="seneca-stmt-toolbar__group">
@@ -739,6 +746,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
             summary={summary}
             locale={locale}
             currency={(currentWorkspace.currency || FALLBACK_CURRENCY).toUpperCase()}
+            direction={direction}
             labels={labels.summary}
           />
 

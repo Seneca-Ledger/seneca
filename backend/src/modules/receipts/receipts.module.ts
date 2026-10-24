@@ -5,6 +5,7 @@ import {
   Receipt,
   ReceiptProcessingJob,
   Statement,
+  Tag,
   Transaction,
   User,
   WorkspaceMember,
@@ -28,6 +29,7 @@ import { ReceiptPlaceSuggestionService } from './services/receipt-place-suggesti
 import { ReceiptProcessorService } from './services/receipt-processor.service';
 import { ReceiptSplitService } from './services/receipt-split.service';
 import { ReceiptStageService } from './services/receipt-stage.service';
+import { ReceiptTagsService } from './services/receipt-tags.service';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { ReceiptStageService } from './services/receipt-stage.service';
       ReceiptProcessingJob,
       Category,
       Statement,
+      Tag,
       Transaction,
       User,
       WorkspaceMember,
@@ -61,6 +64,7 @@ import { ReceiptStageService } from './services/receipt-stage.service';
     ReceiptStageService,
     ReceiptMatchService,
     ReceiptSplitService,
+    ReceiptTagsService,
   ],
   exports: [
     ReceiptsService,

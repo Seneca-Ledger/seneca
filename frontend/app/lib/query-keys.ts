@@ -39,6 +39,15 @@ export const queryKeys = {
   // Tile-server configuration is the same in every workspace, hence no workspace segment.
   mapStyles: () => ['map-styles'] as const,
   categoryUsage: (workspaceId: string | null) => ['categories', workspaceId, 'usage'] as const,
+  // The Tags page list with usage counts; the tag pickers read it too.
+  tags: (workspaceId: string | null) => ['tags', workspaceId] as const,
+  receiptTags: (workspaceId: string | null, receiptId: string) =>
+    ['tags', workspaceId, 'receipt', receiptId] as const,
+  statementTags: (workspaceId: string | null, statementId: string) =>
+    ['tags', workspaceId, 'statement', statementId] as const,
+  // Under the tags prefix: a tag saved anywhere refreshes the By tag figures too.
+  transactionTagLinks: (workspaceId: string | null) =>
+    ['tags', workspaceId, 'transaction-links'] as const,
   goalsList: (workspaceId: string | null) => ['goals', 'list', workspaceId] as const,
   // Sits under the plain list prefix, so a contribution invalidates both.
   goalsMonth: (o: { workspaceId: string | null; month: string }) =>
