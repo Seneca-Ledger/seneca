@@ -89,8 +89,26 @@ export function categoryTones(items: Array<{ key: string; isOther?: boolean }>):
   return toneIndexes(items).map(index => (index < 0 ? OTHER_TONE : CATEGORY_TONES[index]));
 }
 
+/** Twelve calm tones for merchants (`--merchant-tone-*` in _globals.scss). */
+const MERCHANT_TONE_COUNT = 12;
+
+/**
+ * One tone per merchant, by its name: the same merchant has the same colour on
+ * every chart, and up to twelve on one chart never share one. Past twelve a
+ * tone repeats rather than fail.
+ */
+export function merchantTones(names: string[]): string[] {
+  return toneIndexes(
+    names.map(name => ({ key: name })),
+    MERCHANT_TONE_COUNT,
+  ).map(index => `var(--merchant-tone-${index + 1})`);
+}
+
 /** Each item's tone index (−1 for the rollup), held by the key, not the rank. */
-function toneIndexes(items: Array<{ key: string; isOther?: boolean }>): number[] {
+function toneIndexes(
+  items: Array<{ key: string; isOther?: boolean }>,
+  toneCount: number = CATEGORY_TONES.length,
+): number[] {
   const assigned = new Map<string, number>();
   const taken = new Set<number>();
   const keyed = items
@@ -99,9 +117,9 @@ function toneIndexes(items: Array<{ key: string; isOther?: boolean }>): number[]
     .filter((key, index, all) => all.indexOf(key) === index)
     .sort();
   for (const key of keyed) {
-    let tone = stableHash(key) % CATEGORY_TONES.length;
-    for (let step = 0; step < CATEGORY_TONES.length && taken.has(tone); step++) {
-      tone = (tone + 1) % CATEGORY_TONES.length;
+    let tone = stableHash(key) % toneCount;
+    for (let step = 0; step < toneCount && taken.has(tone); step++) {
+      tone = (tone + 1) % toneCount;
     }
     taken.add(tone);
     assigned.set(key, tone);

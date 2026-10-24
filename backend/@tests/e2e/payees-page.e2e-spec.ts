@@ -236,6 +236,43 @@ describe('Payees page (e2e)', () => {
     expect(summary.subscriptions).toEqual([{ id: subscriptionId, name: 'Example Bakery Club' }]);
   });
 
+  it('draws a payee against the biggest others of its category, month by month', async () => {
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const [, , cafes, gyms] = categoryIds;
+    const inCategory = (categoryId: string) => ({
+      transactionDate: new Date(`${thisMonth}-01`),
+      categoryId,
+      categorySource: TransactionCategorySource.MANUAL,
+    });
+    const cafe = await book('Example Cafe', 10, inCategory(cafes));
+    await book('Example Cafe', 6, inCategory(cafes));
+    await book('Example Diner', 20, inCategory(cafes));
+    await book('Example Tea House', 3, inCategory(cafes));
+    await book('Example Gym', 50, inCategory(gyms));
+    // Someone else's private row: its merchant is not the viewer's to see.
+    const [{ id: someoneElse }] = await dataSource.query(
+      'SELECT id FROM workspace_members WHERE workspace_id = $1 LIMIT 1',
+      [other.workspaceId],
+    );
+    await book('Example Bistro', 40, { ...inCategory(cafes), isPrivate: true, ownerMemberId: someoneElse });
+
+    const peers = (
+      await as(owner, request(server()).get(`/payees/${cafe.payeeId}/peers`)).expect(200)
+    ).body;
+    const at = peers.months.indexOf(thisMonth);
+    expect(peers).toMatchObject({ direction: 'expense', category: { id: cafes } });
+    expect(peers.series.map((line: { name: string }) => line.name)).toEqual([
+      'Example Cafe',
+      'Example Diner',
+      'Example Tea House',
+    ]);
+    expect(peers.series[0]).toMatchObject({ isSelf: true });
+    expect(peers.series[0].values[at]).toBe(16);
+    expect(peers.series[1].values[at]).toBe(20);
+
+    await as(other, request(server()).get(`/payees/${cafe.payeeId}/peers`)).expect(404);
+  });
+
   it('shows another workspace none of it', async () => {
     const [storeRow] = (await overview(`month=${month}`)).rows;
     const othersView = (

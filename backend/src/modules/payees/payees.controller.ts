@@ -20,6 +20,7 @@ import {
   Payee,
   PayeeChangeResult,
   PayeeDuplicateGroups,
+  PayeePeers,
   PayeePendingReview,
   PayeeRecord,
   PayeeSummary,
@@ -84,6 +85,17 @@ export class PayeesController {
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.overviewService.summary(workspaceId, id, selfMemberId);
+  }
+
+  @Get('payees/:id/peers')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(PayeePeers)
+  async peers(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+  ) {
+    return this.overviewService.peers(workspaceId, id, selfMemberId);
   }
 
   @Post('payees/:id/apply-category')

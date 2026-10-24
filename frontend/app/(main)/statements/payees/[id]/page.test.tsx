@@ -2,7 +2,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Payee, PayeeSummary } from '@/app/lib/contracts';
+import type { Payee, PayeePeers, PayeeSummary } from '@/app/lib/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import PayeePage from './page';
 
@@ -14,6 +14,11 @@ vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/components/payees/offer-action-toast', () => offers);
 vi.mock('../components/PayeeTransactions', () => ({ PayeeTransactions: () => null }));
 vi.mock('@/app/components/payees/PayeePicker', () => ({ PayeePicker: () => null }));
+vi.mock('@/app/components/charts/lazy-charts', () => ({
+  LazyPayeeLines: ({ lines }: { lines: Array<{ name: string }> }) => (
+    <div data-testid="peer-lines">{lines.map(line => line.name).join(', ')}</div>
+  ),
+}));
 vi.mock('@/app/components/versions/ReadOnlyHint', () => ({
   ReadOnlyHint: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -37,6 +42,8 @@ vi.mock('@/app/i18n', async () => {
     useIntlayer: () =>
       autoDictionary({
         rename: value('Rename'),
+        comparisonTitle: value('Against others in {{category}}'),
+        comparisonEmpty: value('No other payees in this category yet.'),
         save: value('Save'),
         applyToPast: value('Apply to past transactions ({{count}})'),
         splitAlias: value('This is someone else'),
@@ -83,17 +90,55 @@ const summary: PayeeSummary = {
   missingRates: [],
 };
 
+const months = summary.months.map(month => month.month);
+const peers = (lines: PayeePeers['series']): PayeePeers => ({
+  currency: 'EUR',
+  direction: 'expense',
+  category: { id: 'c-1', name: 'Groceries' },
+  months,
+  series: lines,
+  missingRates: [],
+});
+const line = (payeeId: string, name: string, isSelf = false) => ({
+  payeeId,
+  name,
+  isSelf,
+  values: months.map(() => 10),
+});
+let peersAnswer = peers([line('p-store', store, true), line('p-bakery', 'Example Bakery')]);
+
 describe('PayeePage', () => {
   beforeEach(() => {
+    peersAnswer = peers([line('p-store', store, true), line('p-bakery', 'Example Bakery')]);
     api.get.mockReset().mockImplementation((url: string) =>
       Promise.resolve({
-        data: url === '/payees/p-store' ? payee : url.endsWith('/summary') ? summary : [],
+        data:
+          url === '/payees/p-store'
+            ? payee
+            : url.endsWith('/summary')
+              ? summary
+              : url.endsWith('/peers')
+                ? peersAnswer
+                : [],
       }),
     );
     api.post.mockReset().mockResolvedValue({ data: { updated: 4 } });
     api.delete.mockReset().mockResolvedValue({ data: { updated: 1 } });
     api.patch.mockReset();
     offers.offerAction.mockReset();
+  });
+
+  it('draws the payee against the others of its category', async () => {
+    renderWithQuery(<PayeePage />);
+    expect(await screen.findByText('Against others in Groceries')).toBeInTheDocument();
+    expect(screen.getByTestId('peer-lines')).toHaveTextContent(`${store}, Example Bakery`);
+  });
+
+  it('says so when its category has nobody else', async () => {
+    peersAnswer = peers([line('p-store', store, true)]);
+    renderWithQuery(<PayeePage />);
+    expect(await screen.findByText('No other payees in this category yet.')).toBeInTheDocument();
+    expect(screen.queryByTestId('peer-lines')).not.toBeInTheDocument();
   });
 
   it('applies the pinned category to the past rows nobody categorised', async () => {

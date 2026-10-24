@@ -65,6 +65,20 @@
   --cat-tone-4:         #7c93a8;
   --cat-tone-5:         #a98b76;
   --cat-tone-other:     #a7ada3;
+
+  /* Merchants: one calm tone each, held by the name (merchantTones in chart-theme.ts). */
+  --merchant-tone-1:      #6f8f7b; /* sage */
+  --merchant-tone-2:      #7f8a52; /* moss */
+  --merchant-tone-3:      #3f6f60; /* pine */
+  --merchant-tone-4:      #8fae9e; /* eucalyptus */
+  --merchant-tone-5:      #7c93a8; /* dusty blue */
+  --merchant-tone-6:      #5f7486; /* slate */
+  --merchant-tone-7:      #8b84a3; /* lavender grey */
+  --merchant-tone-8:      #c4a57a; /* sand */
+  --merchant-tone-9:      #a98b76; /* clay */
+  --merchant-tone-10:     #b8665a; /* terracotta */
+  --merchant-tone-11:     #b48886; /* dusty rose */
+  --merchant-tone-12:     #b39555; /* soft ochre */
   --radius:             #{$seneca-radius-md};
   --radius-sm:          #{$seneca-radius-sm};
   --radius-md:          #{$seneca-radius-md};
@@ -159,6 +173,20 @@
   --cat-tone-4:         #93a9bd;
   --cat-tone-5:         #bfa18b;
   --cat-tone-other:     #7d8279;
+
+  /* Merchants: one calm tone each, held by the name (merchantTones in chart-theme.ts). */
+  --merchant-tone-1:      #8fb39f; /* sage */
+  --merchant-tone-2:      #a3ad74; /* moss */
+  --merchant-tone-3:      #6fa392; /* pine */
+  --merchant-tone-4:      #a9c7b8; /* eucalyptus */
+  --merchant-tone-5:      #93a9bd; /* dusty blue */
+  --merchant-tone-6:      #8aa0b3; /* slate */
+  --merchant-tone-7:      #a9a2c1; /* lavender grey */
+  --merchant-tone-8:      #dcc39e; /* sand */
+  --merchant-tone-9:      #bfa18b; /* clay */
+  --merchant-tone-10:     #d9806f; /* terracotta */
+  --merchant-tone-11:     #cfa3a1; /* dusty rose */
+  --merchant-tone-12:     #d1b576; /* soft ochre */
   --radius:             #{$seneca-radius-md};
   --radius-sm:          #{$seneca-radius-sm};
   --radius-md:          #{$seneca-radius-md};

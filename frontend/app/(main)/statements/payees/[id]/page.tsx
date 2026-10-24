@@ -9,6 +9,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
+import { merchantTones } from '@/app/components/charts/chart-theme';
+import { LazyPayeeLines } from '@/app/components/charts/lazy-charts';
 import { ArrowLeft } from '@/app/components/icons';
 import { offerAction } from '@/app/components/payees/offer-action-toast';
 import { PayeePicker } from '@/app/components/payees/PayeePicker';
@@ -18,6 +20,7 @@ import {
   useApplyPayeeCategory,
   useMergePayees,
   usePayee,
+  usePayeePeers,
   usePayeeSummary,
   useSplitPayeeAlias,
   useUpdatePayee,
@@ -35,6 +38,7 @@ import type { PayeeSummary } from '@/app/lib/contracts';
 import { formatMoney } from '@/app/lib/format-money';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import { PayeeTransactions } from '../components/PayeeTransactions';
 
 const formatDay = (date: string, locale: string) =>
@@ -43,7 +47,7 @@ const formatDay = (date: string, locale: string) =>
   );
 
 /** Twelve quiet bars: what went to the payee each month, or came from it when nothing went. */
-function MonthBars({ summary }: { summary: PayeeSummary }): React.JSX.Element {
+function MonthBars({ summary, tone }: { summary: PayeeSummary; tone: string }): React.JSX.Element {
   const { locale } = useLocale();
   const spends = summary.spentLastYear > 0;
   const values = summary.months.map(month => (spends ? month.spent : month.received));
@@ -61,7 +65,7 @@ function MonthBars({ summary }: { summary: PayeeSummary }): React.JSX.Element {
           >
             <span
               className="seneca-payees__bar-fill"
-              style={{ height: highest > 0 ? `${(value / highest) * 90}%` : 0 }}
+              style={{ height: highest > 0 ? `${(value / highest) * 90}%` : 0, background: tone }}
             />
             <span className="seneca-payees__bar-label">
               {monthName.format(new Date(`${month.month}-01T00:00:00Z`))}
@@ -70,6 +74,42 @@ function MonthBars({ summary }: { summary: PayeeSummary }): React.JSX.Element {
         );
       })}
     </div>
+  );
+}
+
+/** The payee against the biggest others of its category, a smooth line each. */
+function PeersSection({ payeeId }: { payeeId: string }): React.JSX.Element | null {
+  const t = useIntlayer('payeesPage');
+  const { locale } = useLocale();
+  const peers = usePayeePeers(payeeId);
+  const data = peers.data;
+  if (!data) {
+    return null;
+  }
+  const category = data.category ? localizeStatementCategoryName(data.category.name, locale) : null;
+  return (
+    <section className="seneca-all-tx__card seneca-payees__section">
+      <h2 className="seneca-all-tx__card-title">
+        {category
+          ? t.comparisonTitle.value.replace('{{category}}', category)
+          : t.comparisonTitlePlain}
+      </h2>
+      {data.series.length < 2 ? (
+        <span className="seneca-all-tx__muted" style={{ fontSize: 14 }}>
+          {t.comparisonEmpty}
+        </span>
+      ) : (
+        <div className="seneca-payees__lines">
+          <LazyPayeeLines
+            months={data.months}
+            lines={data.series}
+            locale={locale}
+            formatValue={value => formatMoney(value, data.currency, locale)}
+            formatTick={value => formatMoney(value, data.currency, locale, { notation: 'compact' })}
+          />
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -267,9 +307,10 @@ export default function PayeePage(): React.JSX.Element {
               {info && (
                 <section className="seneca-all-tx__card seneca-payees__section">
                   <h2 className="seneca-all-tx__card-title">{t.monthsTitle}</h2>
-                  <MonthBars summary={info} />
+                  <MonthBars summary={info} tone={merchantTones([data.name])[0]} />
                 </section>
               )}
+              <PeersSection payeeId={id} />
             </div>
 
             <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>

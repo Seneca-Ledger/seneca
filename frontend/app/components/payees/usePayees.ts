@@ -220,3 +220,16 @@ export function useSplitPayeeAlias() {
     onSuccess: invalidate,
   });
 }
+
+/** The payee month by month against the biggest others of its category. */
+export function usePayeePeers(id: string) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.payees({ workspaceId, params: { view: 'peers', id } }),
+    queryFn: ({ signal }) =>
+      apiClient
+        .get(`/payees/${id}/peers`, { signal })
+        .then(response => checkContract('PayeePeers', response.data, '/payees/:id/peers')),
+    enabled: Boolean(workspaceId && id),
+  });
+}

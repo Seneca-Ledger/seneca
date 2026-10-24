@@ -125,3 +125,26 @@ export type PayeeDuplicateGroups = Wire<typeof PayeeDuplicateGroups>;
 /** `POST /payees/:id/apply-category` and `DELETE /payees/:id/aliases/:key`. */
 export const PayeeChangeResult = Schema.Struct({ updated: Schema.Number });
 export type PayeeChangeResult = Wire<typeof PayeeChangeResult>;
+
+/**
+ * `GET /payees/:id/peers`: the payee month by month against the biggest other
+ * payees of its category, for the payee card's comparison chart.
+ */
+export const PayeePeers = Schema.Struct({
+  currency: Schema.String,
+  direction: Schema.Literals(['expense', 'income']),
+  /** Its default category, or the one most of its rows are filed under; null when none. */
+  category: Schema.NullOr(PayeeRef),
+  /** The last twelve months, oldest first; every series has a value for each. */
+  months: Schema.Array(Schema.String),
+  series: Schema.Array(
+    Schema.Struct({
+      payeeId: Schema.String,
+      name: Schema.String,
+      values: Schema.Array(Schema.Number),
+      isSelf: Schema.Boolean,
+    }),
+  ),
+  missingRates: Schema.Array(Schema.String),
+});
+export type PayeePeers = Wire<typeof PayeePeers>;
