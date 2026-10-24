@@ -81,6 +81,14 @@ describe('SubscriptionsMonthWidget', () => {
     expect(screen.getByText('E')).toBeInTheDocument();
   });
 
+  it('links each row to its subscription, ringed on the Subscriptions page', async () => {
+    apiGet.mockResolvedValue({ data: status() });
+    renderWithQuery(<SubscriptionsMonthWidget formatAmount={money} />);
+
+    const row = await screen.findByRole('link', { name: /Example Cloud/ });
+    expect(row).toHaveAttribute('href', `/subscriptions?focus=${encodeURIComponent('subscription:sub-2')}`);
+  });
+
   it('leaves an empty part out of the ring but keeps the subscription', async () => {
     apiGet.mockResolvedValue({
       data: status({ paidAmount: 0, paidCount: 0, items: [item({ paid: false, amount: UNPAID })] }),

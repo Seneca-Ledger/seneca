@@ -369,4 +369,19 @@ describe('one rule for income and spending (real Postgres)', () => {
     const [budget] = await budgets.findAll(workspaceId, new Date(DAY));
     expect(budget.spentAmount).toBe(EXPENSE);
   });
+
+  it("the cash flow's budgeted share, within the budget's limit", async () => {
+    const budgeted = async () =>
+      (await dashboard.getDashboard(userId, workspaceId, 'month', DAY)).cashFlow.reduce(
+        (total, point) => total + point.budgeted,
+        0,
+      );
+    // The budget above has room for all of it.
+    expect(await budgeted()).toBe(EXPENSE);
+
+    const [budget] = await budgets.findAll(workspaceId, new Date(DAY));
+    const limit = EXPENSE - 50;
+    await budgets.update(budget.id, workspaceId, userId, { limitAmount: limit });
+    expect(await budgeted()).toBe(limit);
+  });
 });

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Budget } from '../../entities/budget.entity';
 import { CategorizationRule } from '../../entities/categorization-rule.entity';
@@ -12,6 +12,7 @@ import { Transaction } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ApplicationSettingsModule } from '../application-settings/application-settings.module';
+import { BudgetsModule } from '../budgets/budgets.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
@@ -35,6 +36,8 @@ import { SetupProgressService } from './setup-progress.service';
     ]),
     ExchangeRatesModule,
     ApplicationSettingsModule,
+    // Budgets → notifications → telegram → insights lead back here.
+    forwardRef(() => BudgetsModule),
   ],
   controllers: [DashboardController, SetupProgressController],
   providers: [DashboardService, SetupProgressService],

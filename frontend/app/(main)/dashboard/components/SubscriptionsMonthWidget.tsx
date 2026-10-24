@@ -91,7 +91,8 @@ export function SubscriptionsMonthWidget({
             {(data?.items ?? []).slice(0, MAX_ROWS).map(item => (
               <ListRow
                 key={item.subscriptionId}
-                href="/subscriptions"
+                // Rings this subscription's row there (see useAttentionFocus).
+                href={`/subscriptions?focus=${encodeURIComponent(`subscription:${item.subscriptionId}`)}`}
                 leading={
                   <VendorIcon
                     vendorName={item.vendorName}

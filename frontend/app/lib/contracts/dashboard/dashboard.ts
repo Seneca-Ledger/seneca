@@ -41,7 +41,13 @@ export type DashboardActionItem = Wire<typeof DashboardActionItem>;
 
 const DailyFlow = Schema.Struct({ date: Day, income: Schema.Number, expense: Schema.Number });
 
-export const DashboardCashFlowPoint = DailyFlow;
+export const DashboardCashFlowPoint = Schema.Struct({
+  date: Day,
+  income: Schema.Number,
+  expense: Schema.Number,
+  /** The part of `expense` a budget still had room for (within its limit), never more than it. */
+  budgeted: Schema.Number,
+});
 export type DashboardCashFlowPoint = Wire<typeof DashboardCashFlowPoint>;
 
 export const DashboardTopMerchant = Schema.Struct({
@@ -153,6 +159,8 @@ export const DashboardCashFlowEntry = Schema.Struct({
   kind: Schema.Literals(['income', 'expense']),
   /** In the workspace currency, always positive. */
   amount: Schema.Number,
+  /** The part of `amount` a budget still had room for; 0 for income and unbudgeted spending. */
+  budgeted: Schema.Number,
 });
 export type DashboardCashFlowEntry = Wire<typeof DashboardCashFlowEntry>;
 

@@ -428,6 +428,14 @@ describe('API contracts (e2e)', () => {
       });
     });
 
+    it("GET /dashboard counts the budget's category spending as budgeted", async () => {
+      const res = await get('/dashboard?range=month');
+      matches(DashboardResponse, res.body);
+      expect(
+        res.body.cashFlow.some((point: { budgeted: number }) => point.budgeted > 0),
+      ).toBe(true);
+    });
+
     it('GET /budgets', async () => {
       const res = await get('/budgets');
       matches(BudgetList, res.body);

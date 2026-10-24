@@ -10,6 +10,7 @@ import type { DashboardCashFlowEntry, DashboardCashFlowPoint } from '@/app/hooks
 import { ChartTooltipCard, type ChartTooltipRow } from './ChartParts';
 import { compressedAxis, formatDayLabel, formatShortDayLabel } from './chart-format';
 import {
+  BUDGETED_FILL,
   CHART_MARGIN,
   CHART_TICK,
   EXPENSE_FILL,
@@ -22,7 +23,7 @@ export interface CashFlowBarsProps {
   /** One point a day (`date` is YYYY-MM-DD). */
   points: DashboardCashFlowPoint[];
   locale: string;
-  labels: { income: string; expense: string; noData: string };
+  labels: { income: string; expense: string; budgeted: string; noData: string };
   formatAmount: (value: number) => string;
   /** Amounts on the Y axis, in full ("$1,000"). */
   formatTick: (value: number) => string;
@@ -44,7 +45,8 @@ const TOOLTIP_ENTRIES = 5;
 
 /**
  * A day's rows by name, biggest first: the bar colours already say income or expense, so the
- * tooltip says what it was.
+ * tooltip says what it was. A spend carries the colour of its part of the bar: blue for what a
+ * budget had room for, terracotta for the rest, and one partly over its budget is named twice.
  */
 export function entryRows(
   entries: DashboardCashFlowEntry[] | undefined,
@@ -53,12 +55,35 @@ export function entryRows(
   if (!entries) {
     return [{ value: '…' }];
   }
-  const rows: ChartTooltipRow[] = entries.slice(0, TOOLTIP_ENTRIES).map(entry => ({
-    label: entry.name,
-    value: formatAmount(entry.amount),
-    tone: entry.kind === 'income' ? 'positive' : 'negative',
-  }));
+  const rows = entries.slice(0, TOOLTIP_ENTRIES).flatMap((entry): ChartTooltipRow[] => {
+    if (entry.kind === 'income') {
+      return [{ label: entry.name, value: formatAmount(entry.amount), tone: 'positive' }];
+    }
+    const budgeted = Math.min(entry.budgeted, entry.amount);
+    const rest = entry.amount - budgeted;
+    const parts: ChartTooltipRow[] = [];
+    if (budgeted > 0) {
+      parts.push({ label: entry.name, value: formatAmount(budgeted), tone: 'budgeted' });
+    }
+    if (rest > 0 || parts.length === 0) {
+      parts.push({ label: entry.name, value: formatAmount(rest), tone: 'negative' });
+    }
+    return parts;
+  });
   return entries.length > TOOLTIP_ENTRIES ? [...rows, { value: '…' }] : rows;
+}
+
+/**
+ * A day's spending bar as two stacked parts in scale units: the budgeted part at the bottom and
+ * the rest (over a limit, or without a budget) on top. The scale is compressed, so the top part
+ * is what is left up to the whole bar's height rather than the unbudgeted amount on its own.
+ */
+export function expenseStack(
+  point: DashboardCashFlowPoint,
+  toY: (amount: number) => number,
+): { budgeted: number; rest: number } {
+  const budgeted = toY(Math.min(point.budgeted, point.expense));
+  return { budgeted, rest: toY(point.expense) - budgeted };
 }
 
 /** Grouped daily income/expense bars with a scale and dates; fills its parent box. */
@@ -127,8 +152,16 @@ export function CashFlowBars({
           isAnimationActive={false}
         />
         <Bar
-          dataKey={(point: DashboardCashFlowPoint) => toY(point.expense)}
+          dataKey={(point: DashboardCashFlowPoint) => expenseStack(point, toY).budgeted}
+          name={labels.budgeted}
+          stackId="expense"
+          fill={BUDGETED_FILL}
+          isAnimationActive={false}
+        />
+        <Bar
+          dataKey={(point: DashboardCashFlowPoint) => expenseStack(point, toY).rest}
           name={labels.expense}
+          stackId="expense"
           fill={EXPENSE_FILL}
           radius={[2, 2, 0, 0]}
           isAnimationActive={false}

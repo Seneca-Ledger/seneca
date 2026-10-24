@@ -36,6 +36,7 @@ import {
 } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { BalanceService } from '../../src/modules/balance/balance.service';
+import { BudgetsService } from '../../src/modules/budgets/budgets.service';
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { GoalsService } from '../../src/modules/goals/goals.service';
@@ -186,6 +187,7 @@ describe('editing an approved receipt reaches the figures (real Postgres)', () =
       providers: [
         ReceiptsService,
         DashboardService,
+        BudgetsService,
         WorkspaceCurrencyService,
         { provide: ReceiptProcessorService, useValue: {} },
         { provide: EventEmitter2, useValue: { emitAsync: jest.fn(async () => []) } },

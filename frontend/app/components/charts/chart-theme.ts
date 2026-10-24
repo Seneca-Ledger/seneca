@@ -23,6 +23,8 @@ export const FORECAST_OPACITY = 0.35;
  */
 export const INCOME_FILL = 'var(--cat-tone-1)';
 export const EXPENSE_FILL = 'var(--cat-tone-2)';
+/** The part of spending a budget still had room for: the dusty blue, under the terracotta. */
+export const BUDGETED_FILL = 'var(--cat-tone-4)';
 
 /** The column under the pointer: a faint wash, lighter than any bar. */
 export const HOVER_CURSOR = { fill: 'var(--surface-soft)' };

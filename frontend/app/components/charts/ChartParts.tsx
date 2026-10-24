@@ -9,7 +9,7 @@ export interface ChartTooltipRow {
   /** Omitted for single-value charts, where the title already names the point. */
   label?: string;
   value: string;
-  tone?: 'positive' | 'negative' | 'strong';
+  tone?: 'positive' | 'negative' | 'budgeted' | 'strong';
 }
 
 export function ChartTooltipCard({

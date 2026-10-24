@@ -37,6 +37,7 @@ import {
 } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { BalanceService } from '../../src/modules/balance/balance.service';
+import { BudgetsService } from '../../src/modules/budgets/budgets.service';
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { GoalsService } from '../../src/modules/goals/goals.service';
@@ -181,6 +182,7 @@ describe('month close counts are what Review lists (real Postgres)', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DashboardService,
+        BudgetsService,
         ReviewInboxService,
         WorkspaceCurrencyService,
         { provide: ExchangeRatesService, useValue: rates },
