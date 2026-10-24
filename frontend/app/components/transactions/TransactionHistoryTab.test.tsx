@@ -27,6 +27,8 @@ vi.mock('@/app/i18n', async () => {
         noCategory: value('No category'),
         private: value('Private'),
         visible: value('Visible to everyone'),
+        confirmed: value('Confirmed'),
+        unconfirmed: value('Not confirmed'),
         undo: value('Put back'),
         undone: value('Change put back'),
         undoFailed: value('This change can no longer be put back'),
@@ -93,6 +95,25 @@ describe('TransactionHistoryTab', () => {
     expect(screen.getByText('No category')).toBeInTheDocument();
     // Only the change that still holds can be put back.
     expect(screen.getAllByRole('button', { name: 'Put back' })).toHaveLength(1);
+  });
+
+  it('titles a lone change by its field, and a lone yes/no change by its new state', async () => {
+    api.get.mockResolvedValue({
+      data: {
+        ...answer,
+        entries: [
+          entry('ev-confirm', { changes: [{ field: 'confirmed', before: 'false', after: 'true' }] }),
+          entry('ev-cafe', { changes: [{ field: 'category', before: groceries, after: cafe }] }),
+        ],
+      },
+    });
+    renderWithQuery(<TransactionHistoryTab transactionId="tx-1" />);
+
+    expect(await screen.findByText('Confirmed')).toBeInTheDocument();
+    expect(screen.queryByText('Not confirmed')).not.toBeInTheDocument();
+    expect(screen.getByText('Category')).toBeInTheDocument();
+    expect(screen.getByText(groceries)).toBeInTheDocument();
+    expect(screen.getByText(cafe)).toBeInTheDocument();
   });
 
   it('puts a change back and says so', async () => {

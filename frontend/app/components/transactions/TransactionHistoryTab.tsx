@@ -1,6 +1,30 @@
 'use client';
 
 import toast from 'react-hot-toast';
+import {
+  ArrowLeftRight,
+  Banknote,
+  Calendar,
+  CheckCircleOutline,
+  CircleAlert,
+  CircleDollarSign,
+  Columns2,
+  Eye,
+  EyeOff,
+  FileText,
+  GitMerge,
+  Landmark,
+  type LucideIcon,
+  MessageCircle,
+  Pencil,
+  PencilLine,
+  Plus,
+  Store,
+  Tag,
+  Upload,
+  User,
+  Workflow,
+} from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import type { TransactionHistory, TransactionHistoryField } from '@/app/lib/contracts';
 import { formatMoney } from '@/app/lib/format-money';
@@ -10,15 +34,40 @@ import { useTransactionHistory, useUndoHistoryChange } from './hooks/useTransact
 type Entry = TransactionHistory['entries'][number];
 
 const TEXT_FIELDS = new Set<TransactionHistoryField>(['name', 'purpose', 'comment']);
+/** Yes/no fields: the new state alone says what happened. */
+const TOGGLE_FIELDS = new Set<TransactionHistoryField>(['confirmed', 'private']);
+
+const FIELD_ICONS: Record<TransactionHistoryField, LucideIcon> = {
+  category: Tag,
+  payee: Store,
+  amount: CircleDollarSign,
+  currency: Banknote,
+  type: ArrowLeftRight,
+  date: Calendar,
+  name: PencilLine,
+  purpose: PencilLine,
+  account: Landmark,
+  owner: User,
+  private: EyeOff,
+  confirmed: CheckCircleOutline,
+  comment: MessageCircle,
+};
+const KIND_ICONS: Record<Exclude<Entry['kind'], 'changed'>, LucideIcon> = {
+  created: Plus,
+  attachment: Upload,
+  split: Columns2,
+  unsplit: GitMerge,
+  rule: Workflow,
+};
 
 const fill = (template: string, params: Record<string, string | number>): string =>
   template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(params[key] ?? ''));
 
 /**
- * What happened to one row, newest first: who, when, and each field that
- * changed as "was → now". A quiet line on the left ties the entries together
- * and ends where the row came from. A change whose fields still hold what it
- * wrote can be put back.
+ * What happened to one row, newest first, as a timeline: an icon for what
+ * changed, a title saying it, "was → now" below and who · when under that.
+ * The line ends at a hollow icon for where the row came from. A change whose
+ * fields still hold what it wrote can be put back.
  */
 export function TransactionHistoryTab({
   transactionId,
@@ -120,6 +169,45 @@ export function TransactionHistoryTab({
     }
   };
 
+  // One field changed: its name is the title, or for a yes/no field the new state.
+  // Several: their names. Anything else says what happened.
+  const title = (entry: Entry): string => {
+    if (entry.kind === 'rule') return who(entry.actor);
+    if (entry.kind !== 'changed') return note(entry) ?? '';
+    const [only, ...rest] = entry.changes;
+    if (!only) return '';
+    if (rest.length === 0 && TOGGLE_FIELDS.has(only.field)) return show(only.field, only.after);
+    return entry.changes.map(change => labels[change.field]).join(', ');
+  };
+
+  const icon = (entry: Entry): { Icon: LucideIcon; tone?: 'good' | 'attention' } => {
+    if (entry.kind !== 'changed') return { Icon: KIND_ICONS[entry.kind] };
+    const [only, ...rest] = entry.changes;
+    if (!only || rest.length > 0) return { Icon: Pencil };
+    if (only.field === 'confirmed') {
+      return only.after === 'true'
+        ? { Icon: CheckCircleOutline, tone: 'good' }
+        : { Icon: CircleAlert, tone: 'attention' };
+    }
+    if (only.field === 'private' && only.after !== 'true') return { Icon: Eye };
+    return { Icon: FIELD_ICONS[only.field] };
+  };
+
+  const value = (change: Entry['changes'][number]) => (
+    <>
+      {/* Text written where there was none reads as just the text. */}
+      {!(change.before === null && TEXT_FIELDS.has(change.field)) && (
+        <>
+          <span className="seneca-tx-history__was">{show(change.field, change.before)}</span>
+          <span aria-hidden className="seneca-tx-history__arrow">
+            →
+          </span>
+        </>
+      )}
+      <span>{show(change.field, change.after)}</span>
+    </>
+  );
+
   const putBack = (entry: Entry) => {
     void undo
       .mutateAsync(entry.id)
@@ -131,62 +219,74 @@ export function TransactionHistoryTab({
   return (
     <ol className="seneca-tx-history">
       {data.entries.map(entry => {
-        const text = note(entry);
+        const { Icon, tone } = icon(entry);
+        // The title names the field of a lone change; otherwise each change carries its name.
+        const [only, ...rest] = entry.changes;
+        const titled = entry.kind === 'changed' && only && rest.length === 0;
         return (
           <li key={entry.id} className="seneca-tx-history__entry">
-            <div className="seneca-tx-history__head">
-              <span className="seneca-tx-history__who">{who(entry.actor)}</span>
-              <time className="seneca-tx-history__when" dateTime={entry.at}>
-                {when(entry.at)}
-              </time>
-              {entry.canUndo && (
-                <button
-                  type="button"
-                  className="seneca-tx-history__undo"
-                  disabled={undo.isPending}
-                  onClick={() => putBack(entry)}
-                >
-                  {t.undo}
-                </button>
+            <span
+              aria-hidden
+              className={`seneca-tx-history__icon${tone ? ` seneca-tx-history__icon--${tone}` : ''}`}
+            >
+              <Icon size={16} />
+            </span>
+            <div className="seneca-tx-history__body">
+              <div className="seneca-tx-history__head">
+                <span className="seneca-tx-history__title">{title(entry)}</span>
+                {entry.canUndo && (
+                  <button
+                    type="button"
+                    className="seneca-tx-history__undo"
+                    disabled={undo.isPending}
+                    onClick={() => putBack(entry)}
+                  >
+                    {t.undo}
+                  </button>
+                )}
+              </div>
+              {entry.kind === 'rule' && <p className="seneca-tx-history__note">{note(entry)}</p>}
+              {titled && !TOGGLE_FIELDS.has(only.field) && (
+                <p className="seneca-tx-history__value">{value(only)}</p>
               )}
+              {!titled && entry.changes.length > 0 && (
+                <dl className="seneca-tx-history__changes">
+                  {entry.changes.map(change => (
+                    <div key={change.field} className="seneca-tx-history__change">
+                      <dt>{labels[change.field]}</dt>
+                      <dd>{value(change)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              <p className="seneca-tx-history__meta">
+                {entry.kind !== 'rule' && (
+                  <>
+                    <span>{who(entry.actor)}</span>
+                    <span aria-hidden> · </span>
+                  </>
+                )}
+                <time dateTime={entry.at}>{when(entry.at)}</time>
+              </p>
             </div>
-            {text && <p className="seneca-tx-history__note">{text}</p>}
-            {entry.changes.length > 0 && (
-              <dl className="seneca-tx-history__changes">
-                {entry.changes.map(change => (
-                  <div key={change.field} className="seneca-tx-history__change">
-                    <dt>{labels[change.field]}</dt>
-                    <dd>
-                      {/* Text written where there was none reads as just the text. */}
-                      {!(change.before === null && TEXT_FIELDS.has(change.field)) && (
-                        <>
-                          <span className="seneca-tx-history__was">
-                            {show(change.field, change.before)}
-                          </span>
-                          <span aria-hidden className="seneca-tx-history__arrow">
-                            →
-                          </span>
-                        </>
-                      )}
-                      <span>{show(change.field, change.after)}</span>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
           </li>
         );
       })}
       <li className="seneca-tx-history__entry seneca-tx-history__entry--origin">
-        <div className="seneca-tx-history__head">
-          <span className="seneca-tx-history__who">
-            {data.origin.statementName
-              ? fill(t.originStatement.value, { name: data.origin.statementName })
-              : t.originManual}
-          </span>
-          <time className="seneca-tx-history__when" dateTime={data.origin.at}>
-            {when(data.origin.at)}
-          </time>
+        <span aria-hidden className="seneca-tx-history__icon">
+          {data.origin.statementName ? <FileText size={16} /> : <PencilLine size={16} />}
+        </span>
+        <div className="seneca-tx-history__body">
+          <div className="seneca-tx-history__head">
+            <span className="seneca-tx-history__title">
+              {data.origin.statementName
+                ? fill(t.originStatement.value, { name: data.origin.statementName })
+                : t.originManual}
+            </span>
+          </div>
+          <p className="seneca-tx-history__meta">
+            <time dateTime={data.origin.at}>{when(data.origin.at)}</time>
+          </p>
         </div>
       </li>
     </ol>
