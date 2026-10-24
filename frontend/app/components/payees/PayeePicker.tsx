@@ -23,10 +23,16 @@ export function PayeePicker({
   current,
   onPick,
   disabled,
+  inline = false,
+  existingOnly = false,
 }: {
   current: PayeeRef | null;
   onPick: (choice: PayeeChoice, name: string) => void;
   disabled?: boolean;
+  /** In a drawer: the list opens under the field, inside the drawer, as wide as the field. */
+  inline?: boolean;
+  /** Only payees that exist: no "create" option (merging needs one to fold in). */
+  existingOnly?: boolean;
 }) {
   const t = useIntlayer('payees');
   const [input, setInput] = useState('');
@@ -49,8 +55,10 @@ export function PayeePicker({
     const exists = (data?.data ?? []).some(
       payee => payee.name.toLowerCase() === typed.toLowerCase(),
     );
-    return typed && !exists ? [...payees, { kind: 'create', name: typed }] : payees;
-  }, [data, current?.id, input]);
+    return typed && !exists && !existingOnly
+      ? [...payees, { kind: 'create', name: typed }]
+      : payees;
+  }, [data, current?.id, input, existingOnly]);
 
   const choose = (option: Option | string | null) => {
     if (!option) return;
@@ -60,7 +68,7 @@ export function PayeePicker({
         payee => payee.name.toLowerCase() === typed.toLowerCase(),
       );
       if (match) onPick({ payeeId: match.id }, match.name);
-      else if (typed) onPick({ name: typed }, typed);
+      else if (typed && !existingOnly) onPick({ name: typed }, typed);
       return;
     }
     if (option.kind === 'payee') onPick({ payeeId: option.id }, option.name);
@@ -98,6 +106,9 @@ export function PayeePicker({
           inputProps={{ ...params.inputProps, 'aria-label': t.payee.value }}
         />
       )}
+      slotProps={
+        inline ? { popper: { disablePortal: true, placement: 'bottom-start' } } : undefined
+      }
       sx={{ minWidth: 260 }}
     />
   );

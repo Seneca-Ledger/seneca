@@ -390,10 +390,14 @@ export default function PayeePage(): React.JSX.Element {
             width="md"
             title={t.mergeDrawerTitle.value}
           >
-            <div style={{ display: 'grid', gap: 12, padding: '4px 4px 16px' }}>
+            <div
+              style={{ display: 'grid', gap: 12, padding: '4px 4px 16px', position: 'relative' }}
+            >
               <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{t.mergeHint}</p>
               {mergeOpen && (
                 <PayeePicker
+                  inline
+                  existingOnly
                   current={{ id: data.id, name: data.name }}
                   disabled={merge.isPending}
                   onPick={choice => {
