@@ -229,6 +229,8 @@ export const ERR = {
   WALLET_STATEMENT_NOT_FOUND: 'Statement not found in this workspace',
   WALLET_STATEMENT_CURRENCY_MISMATCH:
     'The account holds {{walletCurrency}}; the statement is in {{currency}}',
+  WALLET_NOT_FOUND: 'Account not found in this workspace',
+  TRANSFER_SAME_ACCOUNT: 'The transaction is already in this account',
   // Payables
   PAYABLE_PAYMENT_NOT_POSITIVE: 'A payment must be more than zero',
   PAYABLE_PAYMENT_EXCEEDS_OUTSTANDING:

@@ -99,6 +99,7 @@ export class TransactionsService {
     workspaceId: string,
     filters: {
       statementId?: string;
+      walletId?: string;
       dateFrom?: Date;
       dateTo?: Date;
       type?: string;
@@ -128,6 +129,10 @@ export class TransactionsService {
       query.andWhere('transaction.statementId = :statementId', {
         statementId: filters.statementId,
       });
+    }
+
+    if (filters.walletId) {
+      query.andWhere('transaction.walletId = :walletId', { walletId: filters.walletId });
     }
 
     if (filters.dateFrom) {

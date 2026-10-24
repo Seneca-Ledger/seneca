@@ -6,10 +6,10 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
+  AccountStatementList,
   AttachStatementsBody,
   AttachStatementsResult,
   CreateWalletRequest,
-  UnlinkedStatementList,
   UpdateWalletBody,
   WalletItem,
   WalletList,
@@ -50,7 +50,7 @@ export class WalletsController {
 
   @Get('unlinked-statements')
   @WorkspaceAuth(Permission.WALLET_VIEW)
-  @SchemaResponse(UnlinkedStatementList)
+  @SchemaResponse(AccountStatementList)
   async unlinkedStatements(@WorkspaceId() workspaceId: string) {
     return this.walletsService.unlinkedStatements(workspaceId);
   }
@@ -71,6 +71,13 @@ export class WalletsController {
   @SchemaResponse(WalletSeries)
   async series(@Param('id', ParseUUIDPipe) id: string, @WorkspaceId() workspaceId: string) {
     return this.walletsService.series(id, workspaceId);
+  }
+
+  @Get(':id/statements')
+  @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(AccountStatementList)
+  async statementsOf(@Param('id', ParseUUIDPipe) id: string, @WorkspaceId() workspaceId: string) {
+    return this.walletsService.statementsOf(id, workspaceId);
   }
 
   @Post(':id/statements')

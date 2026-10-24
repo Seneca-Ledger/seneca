@@ -168,6 +168,20 @@ describe('Accounts (e2e)', () => {
     expect(
       (await as(owner, request(server()).get('/wallets/unlinked-statements')).expect(200)).body,
     ).toEqual([]);
+    const held = (
+      await as(owner, request(server()).get(`/wallets/${walletId}/statements`)).expect(200)
+    ).body;
+    expect(held).toEqual([expect.objectContaining({ id: statementId, suggestedWalletId: walletId })]);
+    const rowsOfAccount = (
+      await as(
+        owner,
+        request(server()).get(`/transactions?walletId=${walletId}&running_balance=1`),
+      ).expect(200)
+    ).body.data as Array<{ runningBalance: string }>;
+    expect(rowsOfAccount.map(row => Number(row.runningBalance)).sort((a, b) => a - b)).toEqual([
+      closing,
+      opening + income,
+    ]);
 
     const summary = (await as(owner, request(server()).get('/wallets/summary')).expect(200)).body;
     expect(summary).toMatchObject({ currency, assets: closing, debts: 0, unconverted: [] });
@@ -207,6 +221,61 @@ describe('Accounts (e2e)', () => {
       request(server()).post(`/wallets/${usd.body.id}/statements`).send({ statementIds: [statementId] }),
     ).expect(400);
     expect(res.body.error.code).toBe('WALLET_STATEMENT_CURRENCY_MISMATCH');
+  });
+
+  it('books cash taken out of one account into another as a transfer', async () => {
+    const checking = await as(
+      owner,
+      request(server()).post('/wallets').send({ name: 'Everyday 2', currency }),
+    ).expect(201);
+    const cash = await as(
+      owner,
+      request(server()).post('/wallets').send({ name: 'Cash', type: 'cash', currency }),
+    ).expect(201);
+    const statementId = await seedStatement(owner, currency);
+    await as(
+      owner,
+      request(server())
+        .post(`/wallets/${checking.body.id}/statements`)
+        .send({ statementIds: [statementId] }),
+    ).expect(201);
+    const withdrawal = await dataSource
+      .getRepository(Transaction)
+      .findOneByOrFail({ statementId, transactionType: TransactionType.EXPENSE });
+
+    const res = await as(
+      owner,
+      request(server())
+        .post(`/transactions/${withdrawal.id}/transfer-to-account`)
+        .send({ walletId: cash.body.id }),
+    ).expect(200);
+    expect(res.body.createdId).toEqual(expect.any(String));
+
+    const mirror = await dataSource
+      .getRepository(Transaction)
+      .findOneByOrFail({ id: res.body.createdId });
+    expect(mirror).toMatchObject({
+      walletId: cash.body.id,
+      transactionType: TransactionType.INCOME,
+      transferPairId: res.body.transferPairId,
+      isVerified: true,
+    });
+    const accounts = await listAccounts(owner);
+    expect(accounts.find(account => account.id === cash.body.id)?.balance).toBe(spending);
+
+    // Both legs are taken now; the other workspace cannot reach either.
+    await as(
+      owner,
+      request(server())
+        .post(`/transactions/${withdrawal.id}/transfer-to-account`)
+        .send({ walletId: cash.body.id }),
+    ).expect(409);
+    await as(
+      other,
+      request(server())
+        .post(`/transactions/${withdrawal.id}/transfer-to-account`)
+        .send({ walletId: cash.body.id }),
+    ).expect(404);
   });
 
   it('keeps accounts and statements inside their workspace', async () => {

@@ -130,8 +130,11 @@ export type WalletSummary = Wire<typeof WalletSummary>;
 export const WalletSeries = Schema.Array(Schema.Struct({ date: DateOnly, balance: Schema.Number }));
 export type WalletSeries = Wire<typeof WalletSeries>;
 
-/** One row of `GET /wallets/unlinked-statements`: a bank statement no account holds yet. */
-export const UnlinkedStatement = Schema.Struct({
+/**
+ * A bank statement as the Accounts pages list it: one no account holds yet
+ * (`GET /wallets/unlinked-statements`) or one of an account (`GET /wallets/:id/statements`).
+ */
+export const AccountStatement = Schema.Struct({
   id: Schema.String,
   fileName: Schema.String,
   bankName: Schema.String,
@@ -142,13 +145,16 @@ export const UnlinkedStatement = Schema.Struct({
   balanceStart: Schema.NullOr(Schema.Number),
   balanceEnd: Schema.NullOr(Schema.Number),
   transactionCount: Schema.Number,
-  /** The one active account with this account number and currency, if exactly one exists. */
+  /**
+   * For a statement no account holds: the one active account with its number and
+   * currency, if exactly one exists. For an account's own statement: that account.
+   */
   suggestedWalletId: Schema.NullOr(Schema.String),
 });
-export type UnlinkedStatement = Wire<typeof UnlinkedStatement>;
+export type AccountStatement = Wire<typeof AccountStatement>;
 
-export const UnlinkedStatementList = Schema.Array(UnlinkedStatement);
-export type UnlinkedStatementList = Wire<typeof UnlinkedStatementList>;
+export const AccountStatementList = Schema.Array(AccountStatement);
+export type AccountStatementList = Wire<typeof AccountStatementList>;
 
 /** `POST /wallets/:id/statements`. */
 export const AttachStatementsResult = Schema.Struct({ attached: Schema.Number });

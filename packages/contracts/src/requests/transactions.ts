@@ -108,6 +108,16 @@ export const LinkTransferBody = Schema.Struct({
 });
 export type LinkTransferBody = Wire<typeof LinkTransferBody>;
 
+/**
+ * `POST /transactions/:id/transfer-to-account`: the row moved money to (or
+ * from) another of the user's accounts. Its other leg there is linked, or
+ * booked when the account has none (cash taken out at an ATM).
+ */
+export const TransferToAccountBody = Schema.Struct({
+  walletId: Schema.String.check(Schema.isUUID()),
+});
+export type TransferToAccountBody = Wire<typeof TransferToAccountBody>;
+
 export const LinkReimbursementBody = Schema.Struct({
   /** The expense this incoming transaction pays back. */
   expenseId: Schema.String.check(Schema.isUUID()),

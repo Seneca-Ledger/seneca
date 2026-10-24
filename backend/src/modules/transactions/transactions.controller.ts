@@ -45,6 +45,7 @@ import {
   TransactionListPage,
   TransactionsOverview,
   TransactionsOverviewQuery,
+  TransferToAccountBody,
   UpdateTransactionBody,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
@@ -102,6 +103,7 @@ export class TransactionsController {
     @Query('convert_to') convertTo?: string,
     @Query('owner') owner?: string,
     @Query('running_balance') runningBalance?: string,
+    @Query('walletId', new ParseUUIDPipe({ optional: true })) walletId?: string,
   ) {
     // Prefer snake_case for backward compatibility, fall back to camelCase
     const statementId = statementIdSnake || statementIdCamel;
@@ -113,6 +115,7 @@ export class TransactionsController {
       workspaceId,
       {
         statementId,
+        walletId,
         dateFrom: dateFrom ? new Date(dateFrom) : undefined,
         dateTo: dateTo ? new Date(dateTo) : undefined,
         type,
@@ -431,6 +434,17 @@ export class TransactionsController {
   ) {
     const transferPairId = await this.transferPairingService.link(workspaceId, id, body.otherId);
     return { transferPairId };
+  }
+
+  @Post(':id/transfer-to-account')
+  @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  async transferToAccount(
+    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaBody(TransferToAccountBody) body: TransferToAccountBody,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.transferPairingService.transferToAccount(workspaceId, id, body.walletId);
   }
 
   @Post(':id/unlink-transfer')

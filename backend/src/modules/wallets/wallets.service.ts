@@ -6,8 +6,8 @@ import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-b
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
 import type {
+  AccountStatement,
   CreateWalletRequest,
-  UnlinkedStatement,
   UpdateWalletBody,
   WalletItem,
   WalletReconciliation,
@@ -42,6 +42,22 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
 
 const toDateOnly = (value: string | Date | null): string | null =>
   value ? new Date(value).toISOString().slice(0, 10) : null;
+
+function toAccountStatement(statement: Statement, walletId: string | null): AccountStatement {
+  return {
+    id: statement.id,
+    fileName: statement.fileName,
+    bankName: statement.bankName,
+    accountNumber: realAccountNumber(statement.accountNumber),
+    currency: normalizeCurrencyCode(statement.currency),
+    dateFrom: toDateOnly(statement.statementDateFrom),
+    dateTo: toDateOnly(statement.statementDateTo),
+    balanceStart: statement.balanceStart === null ? null : Number(statement.balanceStart),
+    balanceEnd: statement.balanceEnd === null ? null : Number(statement.balanceEnd),
+    transactionCount: statement.totalTransactions ?? 0,
+    suggestedWalletId: walletId,
+  };
+}
 
 type Totals = { net: number; count: number; pending: number; lastDate: string | null };
 
@@ -183,7 +199,7 @@ export class WalletsService extends WorkspaceCrudBaseService<Wallet> {
    * belongs to. Receipts and manual entries are statements too, but not of a
    * bank account, so they are not offered.
    */
-  async unlinkedStatements(workspaceId: string): Promise<UnlinkedStatement[]> {
+  async unlinkedStatements(workspaceId: string): Promise<AccountStatement[]> {
     const [statements, wallets] = await Promise.all([
       this.statementRepository
         .createQueryBuilder('statement')
@@ -202,20 +218,26 @@ export class WalletsService extends WorkspaceCrudBaseService<Wallet> {
       this.repository.find({ where: { workspaceId } }),
     ]);
 
-    return statements.map(statement => ({
-      id: statement.id,
-      fileName: statement.fileName,
-      bankName: statement.bankName,
-      accountNumber: realAccountNumber(statement.accountNumber),
-      currency: normalizeCurrencyCode(statement.currency),
-      dateFrom: toDateOnly(statement.statementDateFrom),
-      dateTo: toDateOnly(statement.statementDateTo),
-      balanceStart: statement.balanceStart === null ? null : Number(statement.balanceStart),
-      balanceEnd: statement.balanceEnd === null ? null : Number(statement.balanceEnd),
-      transactionCount: statement.totalTransactions ?? 0,
-      suggestedWalletId:
+    return statements.map(statement =>
+      toAccountStatement(
+        statement,
         pickWalletForAccount(wallets, statement.accountNumber, statement.currency)?.id ?? null,
-    }));
+      ),
+    );
+  }
+
+  /** The statements an account holds, latest first. */
+  async statementsOf(id: string, workspaceId: string): Promise<AccountStatement[]> {
+    const wallet = await this.findOne(id, workspaceId);
+    const statements = await this.statementRepository
+      .createQueryBuilder('statement')
+      .where('statement.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('statement.walletId = :walletId', { walletId: wallet.id })
+      .andWhere('statement.deletedAt IS NULL')
+      .orderBy('statement.statementDateTo', 'DESC', 'NULLS LAST')
+      .addOrderBy('statement.createdAt', 'DESC')
+      .getMany();
+    return statements.map(statement => toAccountStatement(statement, wallet.id));
   }
 
   /**

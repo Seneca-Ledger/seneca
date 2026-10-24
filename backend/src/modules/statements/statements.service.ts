@@ -506,6 +506,9 @@ export class StatementsService {
     // Проверка дубликата и обе вставки — в одной транзакции под advisory-lock:
     // иначе double-submit формы проходил check-then-act дважды и создавал два
     // одинаковых расхода (тот же паттерн, что в create() для выписок).
+    const accountId = await this.accountOfUpload(payload.walletId ?? undefined, workspaceId);
+    const accountOwner = accountId ? await this.walletOwnerMemberId(accountId, workspaceId) : null;
+
     let createdTransaction: Transaction | null = null;
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
@@ -548,6 +551,7 @@ export class StatementsService {
         totalCredit: 0,
         currency,
         categoryId: category.id,
+        walletId: accountId,
         parsingDetails: {
           detectedBy: 'manual-expense',
           parserUsed: 'manual-expense',
@@ -596,6 +600,8 @@ export class StatementsService {
         taxNetAmount: taxAssignment.taxNetAmount,
         taxReverseCharge: taxAssignment.taxReverseCharge,
         taxNotionalAmount: taxAssignment.taxNotionalAmount,
+        walletId: accountId,
+        ownerMemberId: accountOwner,
         isVerified: true,
       });
 

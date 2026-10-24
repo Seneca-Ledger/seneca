@@ -83,6 +83,18 @@ describe('transfer-pairing matcher', () => {
       expect(accountKey(leg({ id: 'a', statementId: 's1' }))).toBe('statement:s1');
       expect(accountKey(leg({ id: 'a', statementId: null }))).toBeNull();
     });
+
+    it("takes the account a statement belongs to over its number", () => {
+      expect(
+        accountKey(
+          leg({ id: 'a', statementId: 's1', statement: { accountNumber: 'KZ123', walletId: 'w1' } }),
+        ),
+      ).toBe('wallet:w1');
+      // Off a statement, the row's account is the only thing that says where it is.
+      expect(accountKey(leg({ id: 'a', statementId: null, walletId: 'w-cash' }))).toBe(
+        'wallet:w-cash',
+      );
+    });
   });
 
   describe('amountsMatch', () => {
