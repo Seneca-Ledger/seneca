@@ -18,6 +18,7 @@ import { useBulkUpdateOwner } from './hooks/useBulkUpdateOwner';
 import { useContributionLink } from './hooks/useContributionLink';
 import { useTransactionSplit } from './hooks/useTransactionSplit';
 import { useTransferLink } from './hooks/useTransferLink';
+import { useTransferToAccount } from './hooks/useTransferToAccount';
 import { useWorkspaceMembers } from './hooks/useWorkspaceMembers';
 import { OWNER_SHARED, ownerValueToMemberId } from './OwnerFilterDropdown';
 import { SplitTransactionDialog } from './SplitTransactionDialog';
@@ -96,6 +97,7 @@ export function TransactionDetailsTab({
   const isReimbursementPair = transaction.transferPairKind === 'reimbursement';
   const isInvestmentPair = transaction.transferPairKind === 'investment';
   const contribution = useContributionLink(handleSplitDone);
+  const toAccount = useTransferToAccount(transaction, handleSplitDone);
 
   // The pre-split total the backend validates against: the positive side of the
   // row, not `transaction.amount`, which the mappers sign for display.
@@ -361,14 +363,22 @@ export function TransactionDetailsTab({
                 disabled={transferSaving}
               />
             ) : (
-              <ActionRow
-                label={t.transfer.link.value}
-                hint={t.sheet.transferHint}
-                onClick={() => {
-                  void loadTransferCandidates(transaction.id);
-                }}
-                disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
-              />
+              <>
+                <ActionRow
+                  label={t.transfer.link.value}
+                  hint={t.sheet.transferHint}
+                  onClick={() => {
+                    void loadTransferCandidates(transaction.id);
+                  }}
+                  disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
+                />
+                <ActionRow
+                  label={t.transfer.toAccount.value}
+                  hint={t.sheet.toAccountHint}
+                  onClick={() => toAccount.setOpen(true)}
+                  disabled={toAccount.saving || Boolean(transaction.splitGroupId)}
+                />
+              </>
             ))}
 
           {/* Mark as Ignored */}
@@ -377,6 +387,38 @@ export function TransactionDetailsTab({
           )}
         </div>
       </div>
+
+      {toAccount.open && !toAccount.loading && (
+        <div className="seneca-tx-detail__section" data-testid="transfer-accounts">
+          <div className="seneca-tx-detail__label">{t.transfer.pickAccount.value}</div>
+          {toAccount.options.length === 0 ? (
+            <div className="seneca-tx-detail__label">
+              {t.transfer.noAccounts.value.replace('{{currency}}', transaction.currency ?? '')}
+            </div>
+          ) : (
+            <div className="seneca-tx-detail__actions">
+              {toAccount.options.map(account => (
+                <button
+                  key={account.id}
+                  type="button"
+                  onClick={() => void toAccount.move(account.id)}
+                  disabled={toAccount.saving}
+                  className="seneca-tx-detail__ignore-btn"
+                >
+                  {account.name}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => toAccount.setOpen(false)}
+            className="seneca-tx-detail__ignore-btn"
+          >
+            {t.transfer.cancel.value}
+          </button>
+        </div>
+      )}
 
       {contribution.accounts && (
         <div className="seneca-tx-detail__section" data-testid="contribution-accounts">

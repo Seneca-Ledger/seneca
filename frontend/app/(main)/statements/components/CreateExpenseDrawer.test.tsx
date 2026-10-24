@@ -7,6 +7,7 @@ import CreateExpenseDrawer from './CreateExpenseDrawer';
 
 const isMobileMock = vi.hoisted(() => vi.fn(() => false));
 
+vi.mock('./ExpenseAccountField', () => ({ ExpenseAccountField: () => null }));
 vi.mock('@/app/hooks/useIsMobile', () => ({
   useIsMobile: () => isMobileMock(),
 }));

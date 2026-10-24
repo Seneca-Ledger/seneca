@@ -35,6 +35,7 @@ import {
 } from '@/app/lib/statement-expense-drawer';
 import { tokens } from '@/lib/theme-tokens';
 import { BudgetImpactNotice } from './BudgetImpactNotice';
+import { ExpenseAccountField } from './ExpenseAccountField';
 
 type Props = {
   open: boolean;
@@ -779,6 +780,12 @@ export default function CreateExpenseDrawer({
                         : t.optional}
                     </PickerButton>
                   </DetailField>
+
+                  <ExpenseAccountField
+                    currency={manualDraft.currency}
+                    value={manualDraft.walletId}
+                    onChange={walletId => setManualDraft(prev => ({ ...prev, walletId }))}
+                  />
                 </div>
               </>
             )}

@@ -31,6 +31,7 @@ const nav = {
   ledger: 'Ledger',
   invoices: 'Invoices',
   review: 'Review',
+  accounts: 'Accounts',
 };
 
 const userMenuNav = {
@@ -138,6 +139,7 @@ describe('groupNavItems', () => {
       '/dashboard',
       'transactions: /statements /statements/pay /statements/receive /statements/transactions',
       '/review',
+      '/accounts',
       '/budgets',
       '/goals',
       '/subscriptions',

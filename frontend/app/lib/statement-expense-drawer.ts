@@ -30,6 +30,8 @@ export type ManualExpenseDraft = {
   merchant: string;
   categoryId: string;
   taxRateId: string;
+  /** The account the money left; unset keeps the expense off every account. */
+  walletId?: string;
 };
 
 export type TaxRateOption = {

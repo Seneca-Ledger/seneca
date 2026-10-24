@@ -25,6 +25,9 @@ export function buildManualExpenseFormData({ payload, taxRateId }: FormDataParam
   if (taxRateId) {
     formData.append('taxRateId', taxRateId);
   }
+  if (payload.draft.walletId) {
+    formData.append('walletId', payload.draft.walletId);
+  }
   formData.append('date', payload.date);
   formData.append('allowDuplicates', payload.allowDuplicates ? 'true' : 'false');
   payload.files.forEach(file => {

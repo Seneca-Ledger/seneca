@@ -1,0 +1,10 @@
+// Accounts page (app/(main)/accounts): rows link to the account page.
+
+.seneca-account-row {
+  transition: background-color 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--surface-soft);
+  }
+}
