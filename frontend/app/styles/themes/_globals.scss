@@ -51,6 +51,8 @@
   // A soft panel inside a card (Stoic class cards); neutral, unlike MUI's
   // action.hover, which this app tints green.
   --surface-soft:       #{$seneca-color-slot-bg};
+  // Behind modals: a light warm veil, no blur, which read as murk.
+  --modal-backdrop:     rgba(36, 33, 30, 0.2);
   // Money going up or down: deep sage and terracotta, not neon.
   // Grey text that has to be read; --muted-foreground stays for captions.
   --text-muted:         #{$seneca-color-text-muted};
@@ -148,6 +150,8 @@
   --text-secondary:     #{$seneca-color-text-secondary-dk};
   --icon-badge-bg:      #{$seneca-color-ink-100-dk};
   --surface-soft:       #{$seneca-color-ink-100-dk};
+  // Ink at 20% vanishes on a graphite page; dark needs a real shade.
+  --modal-backdrop:     rgba(0, 0, 0, 0.55);
   --text-muted:         #{$seneca-color-ink-500-dk};
   --attention:          #{$seneca-color-warning-dk};
   --money-up:           #{$seneca-color-success-dk};

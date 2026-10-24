@@ -151,8 +151,7 @@ export function ModalShell({
       fullWidth
       fullScreen={size === 'full'}
       PaperProps={renderPaperProps(className, paperSx)}
-      // A light warm veil, not a heavy grey sheet: no blur, which read as murk.
-      slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(36, 33, 30, 0.2)' } } }}
+      slotProps={{ backdrop: { sx: { backgroundColor: 'var(--modal-backdrop)' } } }}
       aria-labelledby={title ? 'modal-title' : undefined}
     >
       {(title || showCloseButton) && (

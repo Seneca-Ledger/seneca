@@ -81,7 +81,7 @@ A new or changed token goes into all of these, in both themes.
 - Empty states: a line icon (1.5px stroke) in the `--icon-badge-bg` circle, a
   title of 18px/500, one grey line and one button (`EmptyState`). No illustrations.
 - Icons are line icons. Category glyphs come from `app/lib/category-line-icons.tsx`.
-- Modals use `ModalShell` (soft `#24211E` backdrop at 20%). Cancel is a ghost
+- Modals use `ModalShell` (`--modal-backdrop`: soft `#24211E` at 20% in light, black at 55% in dark). Cancel is a ghost
   text button.
 
 ## Checklist before finishing UI work
