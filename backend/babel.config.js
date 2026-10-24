@@ -10,13 +10,17 @@ const importMetaToEmptyObject = ({ types: t }) => ({
 });
 
 module.exports = {
+  // Class fields are assigned, as tsc emits them: defined fields would replace
+  // the accessors legacy decorators (TypeORM, class-validator) put on the prototype.
+  assumptions: { setPublicClassFields: true },
   presets: [
     ['@babel/preset-env', { targets: { node: 'current' } }],
-    ['@babel/preset-typescript', { allowDeclareFields: true }],
+    // Babel 8 keeps `declare` fields out of the output by default.
+    '@babel/preset-typescript',
   ],
   plugins: [
-    ['@babel/plugin-proposal-decorators', { legacy: true }],
-    ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['@babel/plugin-proposal-decorators', { version: 'legacy' }],
+    '@babel/plugin-transform-class-properties',
     'babel-plugin-transform-typescript-metadata',
     importMetaToEmptyObject,
   ],
