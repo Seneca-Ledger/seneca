@@ -13,6 +13,27 @@ import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 import { WorkspaceMember } from './workspace-member.entity';
 
+/**
+ * What kind of account it is. Decides where it sits on the Accounts page, whether
+ * its balance is an asset or a debt, and whether it counts as spendable money.
+ */
+export const WALLET_TYPES = [
+  'checking',
+  'cash',
+  'savings',
+  'deposit',
+  'brokerage',
+  'credit_card',
+  'loan',
+] as const;
+export type WalletType = (typeof WALLET_TYPES)[number];
+
+/** Debts: their balance is what is owed, kept below zero. */
+export const DEBT_WALLET_TYPES: readonly WalletType[] = ['credit_card', 'loan'];
+
+/** Money that can be spent today: safe-to-spend and the forecast start here. */
+export const SPENDABLE_WALLET_TYPES: readonly WalletType[] = ['checking', 'cash', 'credit_card'];
+
 @Entity('wallets')
 export class Wallet {
   @PrimaryGeneratedColumn('uuid')
@@ -37,6 +58,9 @@ export class Wallet {
 
   @Column()
   name: string;
+
+  @Column({ type: 'varchar', length: 16, default: 'checking' })
+  type: WalletType;
 
   @Column({ type: 'varchar', name: 'account_number', nullable: true })
   accountNumber: string | null;

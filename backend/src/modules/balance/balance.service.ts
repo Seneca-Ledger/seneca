@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository } from 'typeorm';
+import { In, Not, type Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
 import { toEnum } from '../../common/effect/to-enum';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
@@ -30,6 +30,7 @@ import {
   Workspace,
   WorkspaceMember,
 } from '../../entities';
+import { DEBT_WALLET_TYPES } from '../../entities/wallet.entity';
 import { AuditService } from '../audit/audit.service';
 import {
   addAmount,
@@ -264,12 +265,15 @@ export class BalanceService {
    * one query per date. The balance sheet asks for one date, the net worth
    * chart for its sample points; both read the same rule from here:
    *
-   * - with active wallets, their opening balances plus the movements booked
-   *   to them;
-   * - otherwise the closing balance of the latest statement of each bank
-   *   account, summed over the accounts.
+   * - every active account that is not a debt: its opening balance plus the
+   *   movements booked to it;
+   * - plus, for bank statements no account holds, the closing balance of the
+   *   latest statement of each bank account.
    *
-   * Statements in the trash, and their rows, are left out.
+   * Both together, so creating the first account moves money between the two
+   * parts instead of dropping every other bank from the total. Debts (cards,
+   * loans) are liabilities, not negative cash. Statements in the trash, and
+   * their rows, are left out.
    */
   async getCashSeries(workspaceId: string, dates: string[]): Promise<Map<string, CurrencyAmounts>> {
     const members = await this.workspaceMemberRepository.find({
@@ -284,14 +288,32 @@ export class BalanceService {
     const wallets =
       memberIds.length > 0
         ? await this.walletRepository.find({
-            where: { workspaceId, userId: In(memberIds), isActive: true },
+            where: {
+              workspaceId,
+              userId: In(memberIds),
+              isActive: true,
+              type: Not(In([...DEBT_WALLET_TYPES])),
+            },
             select: ['id', 'initialBalance', 'currency'],
           })
         : [];
 
-    return wallets.length > 0
-      ? this.getWalletCashSeries(workspaceId, wallets, dates)
-      : this.getStatementCashSeries(workspaceId, dates);
+    const [walletSeries, statementSeries] = await Promise.all([
+      wallets.length > 0 ? this.getWalletCashSeries(workspaceId, wallets, dates) : null,
+      this.getStatementCashSeries(workspaceId, dates),
+    ]);
+    if (!walletSeries) {
+      return statementSeries;
+    }
+    const series = new Map<string, CurrencyAmounts>();
+    for (const date of dates) {
+      const amounts: CurrencyAmounts = new Map(walletSeries.get(date));
+      for (const [currency, amount] of statementSeries.get(date) ?? []) {
+        addAmount(amounts, currency, amount);
+      }
+      series.set(date, amounts);
+    }
+    return series;
   }
 
   private async getWalletCashSeries(
@@ -363,6 +385,12 @@ export class BalanceService {
       .andWhere('statement.balanceEnd IS NOT NULL')
       .andWhere('statement.deletedAt IS NULL')
       .andWhere('statement.status IN (:...statuses)', { statuses: LIVE_STATEMENT_STATUSES })
+      // Held by an account: its money is in the account's balance already.
+      // Rows booked to an account by the old default-wallet guess count too.
+      .andWhere('statement.walletId IS NULL')
+      .andWhere(
+        'NOT EXISTS (SELECT 1 FROM transactions held WHERE held.statement_id = statement.id AND held.wallet_id IS NOT NULL)',
+      )
       .orderBy('date', 'ASC')
       .addOrderBy('statement.createdAt', 'ASC')
       .getRawMany<{

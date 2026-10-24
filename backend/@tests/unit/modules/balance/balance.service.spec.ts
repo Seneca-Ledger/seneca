@@ -1,3 +1,4 @@
+import { In, Not } from 'typeorm';
 import { BalanceAccountSubType, BalanceAccountType, type BalanceSnapshot } from '@/entities';
 import { DEFAULT_BALANCE_ACCOUNTS } from '@/modules/balance/balance-default-accounts';
 import { BalanceService } from '@/modules/balance/balance.service';
@@ -347,6 +348,7 @@ describe('BalanceService', () => {
         { date: '2026-02-10', currency: 'USD', credit: '0', debit: '2' },
       ]);
       transactionRepository.createQueryBuilder.mockReturnValue(builder);
+      statementRepository.createQueryBuilder.mockReturnValue(queryBuilderReturning([]));
 
       const series = await service.getCashSeries('ws-1', ['2026-01-31', '2026-02-28']);
 
@@ -357,6 +359,25 @@ describe('BalanceService', () => {
       );
       // Unconfirmed rows wait in Review and move no balance.
       expect(builder.andWhere).toHaveBeenCalledWith('transaction.isVerified = true');
+    });
+
+    it('adds the banks no account holds to the accounts, and leaves debts out', async () => {
+      // Creating the first account must not drop every other bank from cash.
+      walletRepository.find.mockResolvedValue([{ id: 'w-eur', initialBalance: '40', currency: 'EUR' }]);
+      transactionRepository.createQueryBuilder.mockReturnValue(
+        queryBuilderReturning([{ date: '2026-01-05', currency: 'EUR', credit: '10', debit: '0' }]),
+      );
+      const statements = queryBuilderReturning([
+        { bankName: 'bank', accountNumber: 'B', currency: 'EUR', balanceEnd: '200', date: '2026-01-20' },
+      ]);
+      statementRepository.createQueryBuilder.mockReturnValue(statements);
+
+      const series = await service.getCashSeries('ws-1', ['2026-01-31']);
+
+      expect(series.get('2026-01-31')).toEqual(new Map([['EUR', 250]]));
+      expect(statements.andWhere).toHaveBeenCalledWith('statement.walletId IS NULL');
+      const where = walletRepository.find.mock.calls[0][0].where;
+      expect(where.type).toEqual(Not(In(['credit_card', 'loan'])));
     });
 
     it('sums the latest live statement of each bank account', async () => {

@@ -68,7 +68,7 @@ export function moneyTools(deps: {
       permissions: [Permission.WALLET_VIEW],
       output: WalletList,
       readOnly: true,
-      run: ctx => deps.wallets.findAll(ctx.workspaceId),
+      run: ctx => deps.wallets.list(ctx.workspaceId),
     }),
     defineTool({
       name: 'list_invoices',

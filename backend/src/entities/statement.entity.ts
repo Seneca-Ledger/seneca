@@ -21,6 +21,7 @@ import { Folder } from './folder.entity';
 import { Tag } from './tag.entity';
 import { Transaction } from './transaction.entity';
 import { User } from './user.entity';
+import { Wallet } from './wallet.entity';
 import { Workspace } from './workspace.entity';
 
 export enum StatementStatus {
@@ -205,6 +206,17 @@ export class Statement {
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
+
+  /**
+   * The user's account this statement belongs to. Its rows take the account
+   * from here, so a whole file moves between accounts at once.
+   */
+  @ManyToOne(() => Wallet, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'wallet_id' })
+  wallet: Wallet | null;
+
+  @Column({ name: 'wallet_id', type: 'uuid', nullable: true })
+  walletId: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

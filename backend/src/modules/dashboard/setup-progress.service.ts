@@ -8,12 +8,15 @@ import { Goal } from '../../entities/goal.entity';
 import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import type { User } from '../../entities/user.entity';
+import { Wallet } from '../../entities/wallet.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
 import { telegramConnectionOf } from '../telegram/telegram-connection.util';
 
 /** Which first steps a workspace has taken; drives the dashboard's Getting Started checklist. */
 export interface SetupProgress {
   hasUpload: boolean;
+  /** An active account exists, so statements have somewhere to go. */
+  hasWallet: boolean;
   hasCustomCategories: boolean;
   hasBudget: boolean;
   hasGoal: boolean;
@@ -38,6 +41,8 @@ export class SetupProgressService {
     private readonly budgetRepo: Repository<Budget>,
     @InjectRepository(Goal)
     private readonly goalRepo: Repository<Goal>,
+    @InjectRepository(Wallet)
+    private readonly walletRepo: Repository<Wallet>,
     @Optional()
     private readonly applicationSettingsService?: ApplicationSettingsService,
   ) {}
@@ -45,17 +50,20 @@ export class SetupProgressService {
   async getSetupProgress(workspaceId: string, user: User): Promise<SetupProgress> {
     // Receipts count too: a scan-only user never has a statement, and the
     // dashboard's lastUploadDate looks at statements alone.
-    const [statement, receipt, userCategory, rule, budget, goal, telegram] = await Promise.all([
-      this.statementRepo.exists({ where: { workspaceId, deletedAt: IsNull() } }),
-      this.receiptRepo.exists({ where: { workspaceId } }),
-      this.categoryRepo.exists({ where: { workspaceId, source: CategorySource.USER } }),
-      this.ruleRepo.exists({ where: { workspaceId } }),
-      this.budgetRepo.exists({ where: { workspaceId } }),
-      this.goalRepo.exists({ where: { workspaceId } }),
-      this.applicationSettingsService?.getTelegramSettings(user, workspaceId),
-    ]);
+    const [statement, receipt, userCategory, rule, budget, goal, wallet, telegram] =
+      await Promise.all([
+        this.statementRepo.exists({ where: { workspaceId, deletedAt: IsNull() } }),
+        this.receiptRepo.exists({ where: { workspaceId } }),
+        this.categoryRepo.exists({ where: { workspaceId, source: CategorySource.USER } }),
+        this.ruleRepo.exists({ where: { workspaceId } }),
+        this.budgetRepo.exists({ where: { workspaceId } }),
+        this.goalRepo.exists({ where: { workspaceId } }),
+        this.walletRepo.exists({ where: { workspaceId, isActive: true } }),
+        this.applicationSettingsService?.getTelegramSettings(user, workspaceId),
+      ]);
     return {
       hasUpload: statement || receipt,
+      hasWallet: wallet,
       hasCustomCategories: userCategory || rule,
       hasBudget: budget,
       hasGoal: goal,

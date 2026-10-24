@@ -4,9 +4,11 @@ import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
 import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
+import { WalletType } from '../reference/reference';
 
 export const CreateWalletBody = Schema.Struct({
   name: Schema.String,
+  type: optionalNullable(WalletType),
   accountNumber: optionalNullable(Schema.String),
   bankName: optionalNullable(Schema.String),
   currency: optionalNullable(Schema.String),
@@ -18,6 +20,23 @@ export const CreateWalletBody = Schema.Struct({
   ownerMemberId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type CreateWalletBody = Wire<typeof CreateWalletBody>;
+
+/**
+ * `POST /wallets`: an account, plus statements to move into it right away
+ * (creating an account from statements found on the Accounts page).
+ */
+export const CreateWalletRequest = CreateWalletBody.mapFields(
+  Struct.assign({
+    statementIds: Schema.optional(Schema.Array(Schema.String.check(Schema.isUUID()))),
+  }),
+);
+export type CreateWalletRequest = Wire<typeof CreateWalletRequest>;
+
+/** `POST /wallets/:id/statements`: statements whose rows move into the account. */
+export const AttachStatementsBody = Schema.Struct({
+  statementIds: Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMinLength(1)),
+});
+export type AttachStatementsBody = Wire<typeof AttachStatementsBody>;
 
 export const UpdateWalletBody = CreateWalletBody.mapFields(Struct.map(optionalNullable)).mapFields(
   Struct.assign({

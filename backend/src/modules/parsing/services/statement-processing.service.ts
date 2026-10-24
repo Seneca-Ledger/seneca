@@ -18,6 +18,7 @@ import { ImportSessionMode } from '../../../entities/import-session.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 import { User } from '../../../entities/user.entity';
+import { Wallet } from '../../../entities/wallet.entity';
 import { extractTaxFromPurpose } from '../../classification/helpers/tax-extractor.util';
 import { ClassificationService } from '../../classification/services/classification.service';
 import { ImportSessionService } from '../../import/services/import-session.service';
@@ -32,6 +33,7 @@ import { CrossStatementDeduplicationService } from '../../transactions/services/
 import { ManualRowDuplicateService } from '../../transactions/services/manual-row-duplicate.service';
 import { TransactionFingerprintService } from '../../transactions/services/transaction-fingerprint.service';
 import { TransferPairingService } from '../../transactions/services/transfer-pairing.service';
+import { pickWalletForAccount, realAccountNumber } from '../../wallets/wallet-account-match';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { MetadataExtractionService } from './metadata-extraction.service';
 import { OcrService } from './ocr.service';
@@ -988,6 +990,35 @@ export class StatementProcessingService {
     }
   }
 
+  /**
+   * The account the statement's rows belong to: the one it was uploaded to, or
+   * else the single active account carrying its account number and currency.
+   * Found once, the match is kept on the statement.
+   */
+  private async accountOfStatement(
+    statement: Statement,
+  ): Promise<Pick<Wallet, 'id' | 'ownerMemberId'> | null> {
+    const wallets = this.dataSource.getRepository(Wallet);
+    if (statement.walletId) {
+      return wallets.findOne({
+        where: { id: statement.walletId, workspaceId: statement.workspaceId },
+        select: ['id', 'ownerMemberId'],
+      });
+    }
+    if (!realAccountNumber(statement.accountNumber)) {
+      return null;
+    }
+    const match = pickWalletForAccount(
+      await wallets.find({ where: { workspaceId: statement.workspaceId, isActive: true } }),
+      statement.accountNumber,
+      statement.currency,
+    );
+    if (match) {
+      statement.walletId = match.id;
+    }
+    return match;
+  }
+
   private async createTransactions(
     statement: Statement,
     parsedTransactions: ParsedTransaction[],
@@ -1003,6 +1034,11 @@ export class StatementProcessingService {
     const log =
       addLog ||
       ((level: string, msg: string) => this.logger[level === 'error' ? 'error' : 'log'](msg));
+
+    const account = await this.accountOfStatement(statement);
+    if (account) {
+      log('info', `Rows go to account ${account.id}`);
+    }
 
     // In-file duplicates are not dropped here: flagFingerprintDuplicates below
     // already detects same-batch fingerprint collisions (and cross-statement
@@ -1098,6 +1134,17 @@ export class StatementProcessingService {
         paymentPurpose,
         transactionType,
         ...classification,
+        // A statement is of one account, so its rows are too; a rule may still
+        // name the person, otherwise the row starts on the account's owner.
+        ...(account
+          ? {
+              walletId: account.id,
+              ownerMemberId:
+                classification.ownerMemberId !== undefined
+                  ? classification.ownerMemberId
+                  : account.ownerMemberId,
+            }
+          : {}),
         vendorNormalized: null,
         categoryHint: null,
         transactionNature: null,

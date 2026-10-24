@@ -225,6 +225,10 @@ export const ERR = {
   LEDGER_REVALUATION_BACKDATED:
     'Balances were already revalued on {{date}}; revalue on that day or later',
 
+  // Accounts (wallets)
+  WALLET_STATEMENT_NOT_FOUND: 'Statement not found in this workspace',
+  WALLET_STATEMENT_CURRENCY_MISMATCH:
+    'The account holds {{walletCurrency}}; the statement is in {{currency}}',
   // Payables
   PAYABLE_PAYMENT_NOT_POSITIVE: 'A payment must be more than zero',
   PAYABLE_PAYMENT_EXCEEDS_OUTSTANDING:

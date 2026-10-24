@@ -38,6 +38,7 @@ export type RevaluationResult = Wire<typeof RevaluationResult>;
 /** `GET /dashboard/setup-progress`: which first steps the workspace has taken. */
 export const SetupProgress = Schema.Struct({
   hasUpload: Schema.Boolean,
+  hasWallet: Schema.Boolean,
   hasCustomCategories: Schema.Boolean,
   hasBudget: Schema.Boolean,
   hasGoal: Schema.Boolean,

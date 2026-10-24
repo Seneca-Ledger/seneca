@@ -301,6 +301,27 @@ export class StatementsService {
     return value;
   }
 
+  /**
+   * The account an upload was sent to (SimpleFIN mapping, a webhook default, the
+   * upload form), kept only when it is one of this workspace's: a mapping left
+   * pointing at a deleted account must not fail the upload.
+   */
+  private async accountOfUpload(
+    walletId: string | undefined,
+    workspaceId: string,
+  ): Promise<string | null> {
+    if (!walletId) {
+      return null;
+    }
+    const exists = await this.walletRepository.exists({ where: { id: walletId, workspaceId } });
+    if (!exists) {
+      this.logger.warn(
+        `[Statements] Upload named wallet ${walletId}, not in workspace ${workspaceId}`,
+      );
+    }
+    return exists ? walletId : null;
+  }
+
   /** Who owns the wallet, or null when it is shared. */
   private async walletOwnerMemberId(walletId: string, workspaceId: string): Promise<string | null> {
     const wallet = await this.walletRepository.findOne({
@@ -809,6 +830,7 @@ export class StatementsService {
     // Parsing replaces it with the currency the file states; until then the
     // statement carries the workspace's own (the column has no default).
     const currency = await this.workspaceCurrency.resolve(workspaceId);
+    const accountId = await this.accountOfUpload(walletId, workspaceId);
 
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       const statements = manager.getRepository(Statement);
@@ -854,6 +876,7 @@ export class StatementsService {
         fileHash,
         bankName: BankName.OTHER, // Will be determined during parsing
         currency,
+        walletId: accountId,
         status: StatementStatus.UPLOADED,
         parsingDetails: requireManualCategorySelection
           ? {

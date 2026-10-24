@@ -78,7 +78,6 @@ describe('ClassificationService', () => {
     ]);
 
     jest.spyOn<any, any>(service as any, 'autoClassifyCategory').mockResolvedValue('cat-auto');
-    jest.spyOn<any, any>(service as any, 'autoDetermineWallet').mockResolvedValue('wallet-auto');
     jest.spyOn<any, any>(service as any, 'autoDetermineBranch').mockResolvedValue('branch-auto');
 
     const result = await service.classifyTransaction(transaction, 'user-1');
@@ -133,7 +132,6 @@ describe('ClassificationService', () => {
     ]);
 
     jest.spyOn<any, any>(service as any, 'autoClassifyCategory').mockResolvedValue('fallback');
-    jest.spyOn<any, any>(service as any, 'autoDetermineWallet').mockResolvedValue(undefined);
     jest.spyOn<any, any>(service as any, 'autoDetermineBranch').mockResolvedValue(undefined);
 
     const result = await service.classifyTransaction(transaction, 'user-2');

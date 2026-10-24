@@ -4,8 +4,8 @@ describe('WalletsController', () => {
   it('proxies calls to WalletsService with workspaceId', async () => {
     const walletsService = {
       create: jest.fn(async () => ({ id: 'w1' })),
-      findAll: jest.fn(async () => [{ id: 'w1' }]),
-      findOne: jest.fn(async () => ({ id: 'w1' })),
+      list: jest.fn(async () => [{ id: 'w1' }]),
+      findOneWithBalance: jest.fn(async () => ({ id: 'w1' })),
       update: jest.fn(async () => ({ id: 'w1', name: 'X' })),
       remove: jest.fn(async () => undefined),
     };
@@ -25,8 +25,8 @@ describe('WalletsController', () => {
     });
 
     expect(walletsService.create).toHaveBeenCalledWith(workspaceId, 'u1', { name: 'A' });
-    expect(walletsService.findAll).toHaveBeenCalledWith(workspaceId);
-    expect(walletsService.findOne).toHaveBeenCalledWith('w1', workspaceId);
+    expect(walletsService.list).toHaveBeenCalledWith(workspaceId);
+    expect(walletsService.findOneWithBalance).toHaveBeenCalledWith('w1', workspaceId);
     expect(walletsService.update).toHaveBeenCalledWith('w1', workspaceId, { name: 'X' });
     expect(walletsService.remove).toHaveBeenCalledWith('w1', workspaceId);
   });

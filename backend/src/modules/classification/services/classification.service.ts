@@ -161,10 +161,9 @@ export class ClassificationService {
       classification.categoryReason = match?.reason ?? null;
     }
 
-    // Auto-determine wallet if not set
-    if (!classification.walletId) {
-      classification.walletId = await this.autoDetermineWallet(transaction, userId, workspaceId);
-    }
+    // No guessing of the account: a row lands in one only through a rule, its
+    // statement's account or the user's own choice. A fallback to "the oldest
+    // wallet" put every row of every bank into the first account created.
 
     // Auto-determine branch if not set
     if (!classification.branchId) {
@@ -438,44 +437,6 @@ export class ClassificationService {
       select: ['ownerMemberId'],
     });
     return wallet?.ownerMemberId ?? null;
-  }
-
-  private async autoDetermineWallet(
-    transaction: Transaction,
-    userId: string,
-    workspaceId: string | null,
-  ): Promise<string | undefined> {
-    const scope = this.ownerScope(userId, workspaceId);
-    // Try to match by account number if available
-    if (transaction.counterpartyAccount) {
-      const wallet = await this.walletRepository.findOne({
-        where: {
-          ...scope,
-          accountNumber: transaction.counterpartyAccount,
-        },
-      });
-
-      if (wallet) {
-        return wallet.id;
-      }
-    }
-
-    // Match by wallet name presence in purpose/counterparty
-    const wallets = await this.walletRepository.find({ where: scope });
-    const searchText =
-      `${transaction.counterpartyName} ${transaction.paymentPurpose}`.toLowerCase();
-    const walletMatch = wallets.find(w => searchText.includes((w.name || '').toLowerCase()));
-    if (walletMatch) {
-      return walletMatch.id;
-    }
-
-    // Get default wallet for user
-    const defaultWallet = await this.walletRepository.findOne({
-      where: scope,
-      order: { createdAt: 'ASC' },
-    });
-
-    return defaultWallet?.id;
   }
 
   private async autoDetermineBranch(
