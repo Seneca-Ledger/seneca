@@ -167,7 +167,9 @@ export class LedgerEntriesService {
       entry.status === JournalEntryStatus.REVERSED
         ? await this.entryRepository.findOne({
             where: { workspaceId, reversalOfId: entry.id },
-            select: ['id'],
+            select: {
+              id: true,
+            },
           })
         : null;
 
@@ -342,7 +344,9 @@ export class LedgerEntriesService {
   private async existingReversal(workspaceId: string, id: string): Promise<string | null> {
     const reversal = await this.entryRepository.findOne({
       where: { workspaceId, reversalOfId: id },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     return reversal?.id ?? null;
   }
@@ -410,11 +414,18 @@ export class LedgerEntriesService {
       categoryIds.length
         ? this.categoryRepository.find({
             where: { id: In(categoryIds), workspaceId },
-            select: ['id'],
+            select: {
+              id: true,
+            },
           })
         : [],
       branchIds.length
-        ? this.branchRepository.find({ where: { id: In(branchIds), workspaceId }, select: ['id'] })
+        ? this.branchRepository.find({
+            where: { id: In(branchIds), workspaceId },
+            select: {
+              id: true,
+            },
+          })
         : [],
     ]);
     const knownCategories = new Set(categories.map(category => category.id));

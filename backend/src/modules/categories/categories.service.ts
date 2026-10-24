@@ -104,7 +104,10 @@ export class CategoriesService {
   private async resolveActorName(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
     return user?.name || user?.email || 'User';
   }
@@ -190,7 +193,10 @@ export class CategoriesService {
 
     const categories = await this.categoryRepository.find({
       where,
-      relations: ['children', 'parent'],
+      relations: {
+        children: true,
+        parent: true,
+      },
       order: { name: 'ASC' },
     });
 
@@ -211,7 +217,10 @@ export class CategoriesService {
   async findOne(id: string, workspaceId: string): Promise<Category> {
     const category = await this.categoryRepository.findOne({
       where: { id, workspaceId },
-      relations: ['children', 'parent'],
+      relations: {
+        children: true,
+        parent: true,
+      },
     });
 
     if (!category) {

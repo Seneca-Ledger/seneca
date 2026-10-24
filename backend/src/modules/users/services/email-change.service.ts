@@ -47,7 +47,9 @@ export class EmailChangeService {
 
     const taken = await this.userRepository.findOne({
       where: { email: normalized, id: Not(user.id) },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (taken) {
       throw new ConflictException('Email already in use');
@@ -120,7 +122,9 @@ export class EmailChangeService {
     // someone else between the request and the click.
     const taken = await this.userRepository.findOne({
       where: { email: record.newEmail, id: Not(record.userId) },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (taken) {
       throw new ConflictException('Email already in use');

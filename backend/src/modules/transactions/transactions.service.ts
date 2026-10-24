@@ -73,7 +73,10 @@ export class TransactionsService {
   private async resolveActorName(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
     return user?.name || user?.email || 'User';
   }
@@ -206,7 +209,12 @@ export class TransactionsService {
   async findOne(id: string, workspaceId: string): Promise<Transaction> {
     const transaction = await this.transactionRepository.findOne({
       where: { id, workspaceId },
-      relations: ['category', 'branch', 'wallet', 'payee'],
+      relations: {
+        category: true,
+        branch: true,
+        wallet: true,
+        payee: true,
+      },
     });
 
     if (!transaction) {
@@ -723,7 +731,12 @@ export class TransactionsService {
     return this.transactionRepository.find({
       // Same relations as findOne, so a caller gets one shape either way.
       where: { workspaceId, splitGroupId: transaction.splitGroupId },
-      relations: ['category', 'branch', 'wallet', 'payee'],
+      relations: {
+        category: true,
+        branch: true,
+        wallet: true,
+        payee: true,
+      },
       order: { splitIndex: 'ASC' },
     });
   }

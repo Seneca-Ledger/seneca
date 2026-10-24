@@ -632,7 +632,9 @@ export class InvoicesService {
     }
     const payable = await manager.getRepository(Payable).findOne({
       where: { id: invoice.payableId },
-      select: ['status'],
+      select: {
+        status: true,
+      },
     });
     return payable?.status === PayableStatus.PAID;
   }

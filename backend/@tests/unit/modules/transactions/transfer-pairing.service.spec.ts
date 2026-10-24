@@ -130,7 +130,7 @@ describe('TransferPairingService', () => {
 
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { id: 'a', workspaceId: WORKSPACE },
-        relations: ['statement'],
+        relations: { statement: true },
       });
       expect(repository.update).toHaveBeenCalledWith(
         { id: In(['a', 'b']), workspaceId: WORKSPACE, transferPairId: IsNull() },

@@ -131,7 +131,7 @@ describe('OpenProtocolIntegrationsService', () => {
 
     expect(integrationRepository.findOne).toHaveBeenCalledWith({
       where: { workspaceId: 'ws-open', provider: IntegrationProvider.S3_COMPATIBLE },
-      relations: ['openProtocolSettings'],
+      relations: { openProtocolSettings: true },
     });
   });
 });

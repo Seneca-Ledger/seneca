@@ -7,8 +7,8 @@ import { APP_NAME } from '../../../../src/common/brand';
 describe('TaxDeadlinesService', () => {
   let service: TaxDeadlinesService;
   let workspaceRepo: ReturnType<typeof createRepoMock>;
-  let taxReturnRepo: ReturnType<typeof createRepoMock> & { exist: jest.Mock };
-  let incomeTaxReturnRepo: ReturnType<typeof createRepoMock> & { exist: jest.Mock };
+  let taxReturnRepo: ReturnType<typeof createRepoMock> & { exists: jest.Mock };
+  let incomeTaxReturnRepo: ReturnType<typeof createRepoMock> & { exists: jest.Mock };
   let profileRepo: ReturnType<typeof createRepoMock>;
   let settingsRepo: ReturnType<typeof createRepoMock>;
   let filing: { frequency: TaxFilingPeriod | null; extension: boolean };
@@ -25,9 +25,9 @@ describe('TaxDeadlinesService', () => {
     };
     workspaceRepo = createRepoMock();
     workspaceRepo.findOne.mockImplementation(async () => workspace);
-    taxReturnRepo = Object.assign(createRepoMock(), { exist: jest.fn().mockResolvedValue(false) });
+    taxReturnRepo = Object.assign(createRepoMock(), { exists: jest.fn().mockResolvedValue(false) });
     incomeTaxReturnRepo = Object.assign(createRepoMock(), {
-      exist: jest.fn().mockResolvedValue(false),
+      exists: jest.fn().mockResolvedValue(false),
     });
     profileRepo = createRepoMock();
     profileRepo.findOne.mockResolvedValue(null);
@@ -84,7 +84,7 @@ describe('TaxDeadlinesService', () => {
     });
 
     it('marks a period filed in the app as done', async () => {
-      taxReturnRepo.exist.mockResolvedValue(true);
+      taxReturnRepo.exists.mockResolvedValue(true);
       const deadlines = await service.getUpcoming('ws-1', '2026-10-05');
       expect(deadlines.filter(item => item.kind === 'vat_return').every(item => item.done)).toBe(true);
     });
@@ -149,7 +149,7 @@ describe('TaxDeadlinesService', () => {
     });
 
     it('sends nothing for a filed return', async () => {
-      taxReturnRepo.exist.mockResolvedValue(true);
+      taxReturnRepo.exists.mockResolvedValue(true);
       expect(await service.remindWorkspace('ws-1', '2026-10-05')).toBe(0);
       expect(events.emit).not.toHaveBeenCalled();
     });

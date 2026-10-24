@@ -112,7 +112,10 @@ export class StaleStatementReaper {
         // A past version may hold a copy caught mid-parse; it stays that way.
         workspace: STANDARD_WORKSPACE,
       },
-      select: ['id', 'parsingAttempts'],
+      select: {
+        id: true,
+        parsingAttempts: true,
+      },
       take: 50,
     });
 

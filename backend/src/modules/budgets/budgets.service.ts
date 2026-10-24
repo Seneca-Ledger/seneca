@@ -179,7 +179,9 @@ export class BudgetsService {
   async findAll(workspaceId: string, at: Date = new Date()): Promise<BudgetWithSpending[]> {
     const budgets = await this.budgetRepository.find({
       where: { workspaceId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
       order: { name: 'ASC' },
     });
 
@@ -190,7 +192,9 @@ export class BudgetsService {
   async findOne(id: string, workspaceId: string): Promise<BudgetWithSpending> {
     const budget = await this.budgetRepository.findOne({
       where: { id, workspaceId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
     assertFound(budget, 'Budget');
     const linked = await this.linkedSubscriptions(workspaceId, [budget]);
@@ -260,7 +264,9 @@ export class BudgetsService {
 
     const budgets = await this.budgetRepository.find({
       where: where as any,
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
 
     for (const budget of budgets) {
@@ -664,7 +670,9 @@ export class BudgetsService {
     for (let depth = 0; depth < 5 && frontier.length > 0; depth++) {
       const children = await this.categoryRepository.find({
         where: { workspaceId, parentId: In(frontier) },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
       frontier = children.map(child => child.id).filter(id => !ids.includes(id));
       ids.push(...frontier);
@@ -698,7 +706,9 @@ export class BudgetsService {
     const chain = await this.categoryChainFor(workspaceId, dto.categoryId);
     const budgets = await this.budgetRepository.find({
       where: { workspaceId, categoryId: In(chain) },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
     const affected: BudgetImpactRow[] = [];
     for (const budget of budgets) {

@@ -350,7 +350,7 @@ describe('ClassificationService', () => {
       jest
         .spyOn(walletRepository, 'findOne')
         .mockImplementation(async (options: Record<string, any>) =>
-          options?.select?.includes('ownerMemberId')
+          options?.select?.ownerMemberId
             ? ({ ownerMemberId: 'member-self' } as Wallet)
             : ({ id: 'wallet-1' } as Wallet),
         );
@@ -410,7 +410,7 @@ describe('ClassificationService', () => {
       jest
         .spyOn(walletRepository, 'findOne')
         .mockImplementation(async (options: Record<string, any>) =>
-          options?.select?.includes('ownerMemberId')
+          options?.select?.ownerMemberId
             ? ({ ownerMemberId: 'member-partner' } as Wallet)
             : ({ id: 'wallet-1' } as Wallet),
         );
@@ -434,7 +434,7 @@ describe('ClassificationService', () => {
       jest
         .spyOn(walletRepository, 'findOne')
         .mockImplementation(async (options: Record<string, any>) =>
-          options?.select?.includes('ownerMemberId')
+          options?.select?.ownerMemberId
             ? ({ ownerMemberId: null } as Wallet)
             : ({ id: 'wallet-1' } as Wallet),
         );

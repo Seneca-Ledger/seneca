@@ -602,7 +602,7 @@ describe('WorkspacesService — member management', () => {
       await service.updateMemberRole(WS_ID, OWNER_ID, MEMBER_ID, WorkspaceRole.VIEWER);
 
       expect(workspaceMemberRepository.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({ relations: ['user'] }),
+        expect.objectContaining({ relations: { user: true } }),
       );
       expect(auditService.createEvent).toHaveBeenCalledWith({
         workspaceId: WS_ID,

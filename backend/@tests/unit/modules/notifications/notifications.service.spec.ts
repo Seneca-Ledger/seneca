@@ -281,7 +281,7 @@ describe('NotificationsService', () => {
     expect(count).toBe(0);
     expect(workspaceMemberRepository.find).toHaveBeenCalledWith({
       where: { workspaceId: 'version-1', workspace: { kind: WorkspaceKind.STANDARD } },
-      select: ['userId'],
+      select: { userId: true },
     });
   });
 

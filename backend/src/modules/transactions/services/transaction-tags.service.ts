@@ -47,7 +47,9 @@ export class TransactionTagsService {
   private async loadTransaction(transactionId: string, workspaceId: string): Promise<Transaction> {
     const transaction = await this.transactionRepository.findOne({
       where: { id: transactionId, workspaceId },
-      relations: ['tags'],
+      relations: {
+        tags: true,
+      },
     });
 
     if (!transaction) {

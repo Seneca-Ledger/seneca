@@ -107,7 +107,7 @@
     "socket.io": "^4.8.3",
     "swagger-ui-express": "^5.0.1",
     "tesseract.js": "^7.0.0",
-    "typeorm": "^0.3.27",
+    "typeorm": "^1.1.2",
     "undici": "^7.30.1",
     "unpdf": "^1.9.1",
     "web-push": "^3.6.7",

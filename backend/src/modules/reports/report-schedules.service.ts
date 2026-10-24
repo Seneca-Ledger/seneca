@@ -281,7 +281,10 @@ export class ReportSchedulesService {
   private async creatorMayStillExport(schedule: ReportSchedule): Promise<boolean> {
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId: schedule.workspaceId, userId: schedule.userId },
-      select: ['role', 'permissions'],
+      select: {
+        role: true,
+        permissions: true,
+      },
     });
     return workspaceRoleAllows(Permission.REPORT_EXPORT, membership?.role, membership?.permissions);
   }
@@ -312,7 +315,10 @@ export class ReportSchedulesService {
   private async timeZoneOf(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'timeZone'],
+      select: {
+        id: true,
+        timeZone: true,
+      },
     });
     return resolveTimeZone(user?.timeZone);
   }

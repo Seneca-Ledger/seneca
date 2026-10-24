@@ -450,7 +450,12 @@ export class CryptoService {
         .getMany(),
       this.walletRepo.find({
         where: { workspaceId },
-        select: ['id', 'label', 'address', 'chainId'],
+        select: {
+          id: true,
+          label: true,
+          address: true,
+          chainId: true,
+        },
       }),
     ]);
     const walletById = new Map(wallets.map(wallet => [wallet.id, wallet]));

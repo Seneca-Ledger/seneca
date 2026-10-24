@@ -143,7 +143,9 @@ export class BankSyncService {
       const wallets = walletIds.length
         ? await this.walletRepository.find({
             where: { workspaceId, id: In(walletIds) },
-            select: ['id'],
+            select: {
+              id: true,
+            },
           })
         : [];
       const known = new Set(wallets.map(wallet => wallet.id));
@@ -293,7 +295,10 @@ export class BankSyncService {
         status: IntegrationStatus.CONNECTED,
         workspace: STANDARD_WORKSPACE,
       },
-      relations: ['openProtocolSettings', 'connectedByUser'],
+      relations: {
+        openProtocolSettings: true,
+        connectedByUser: true,
+      },
     });
     for (const integration of integrations) {
       const config = this.configOf(integration.openProtocolSettings);
@@ -362,7 +367,9 @@ export class BankSyncService {
     for (let offset = 0; offset < ids.length; offset += 500) {
       const existing = await this.transactionRepository.find({
         where: { workspaceId, documentNumber: In(ids.slice(offset, offset + 500)) },
-        select: ['documentNumber'],
+        select: {
+          documentNumber: true,
+        },
       });
       for (const row of existing) {
         if (row.documentNumber) known.add(row.documentNumber);
@@ -390,7 +397,9 @@ export class BankSyncService {
   private async find(workspaceId: string) {
     const integration = await this.integrationRepository.findOne({
       where: { workspaceId, provider: IntegrationProvider.SIMPLEFIN },
-      relations: ['openProtocolSettings'],
+      relations: {
+        openProtocolSettings: true,
+      },
     });
     return { integration, settings: integration?.openProtocolSettings ?? null };
   }

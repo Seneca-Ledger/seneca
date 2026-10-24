@@ -367,7 +367,9 @@ export class NotificationsService {
     // No one is told about a past version (see `create`).
     const members = await this.workspaceMemberRepository.find({
       where: { workspaceId: payload.workspaceId, workspace: STANDARD_WORKSPACE },
-      select: ['userId'],
+      select: {
+        userId: true,
+      },
     });
 
     const recipientIds = members

@@ -184,7 +184,10 @@ export class LedgerPostingService {
   async baseCurrencyOf(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'ledgerBaseCurrency'],
+      select: {
+        id: true,
+        ledgerBaseCurrency: true,
+      },
     });
     if (!workspace?.ledgerBaseCurrency) {
       throw new LedgerPostingError(
@@ -434,7 +437,9 @@ export class LedgerPostingService {
         reversalOfId: IsNull(),
         sourceTransactionId: IsNull(),
       },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     let reversed = 0;
     for (const orphan of orphans) {
@@ -466,15 +471,15 @@ export class LedgerPostingService {
     const system = await this.accountsService.systemAccountIds(workspaceId);
     const statements = await this.statementRepository.find({
       where: { workspaceId, deletedAt: IsNull() },
-      select: [
-        'id',
-        'bankName',
-        'accountNumber',
-        'currency',
-        'balanceStart',
-        'statementDateFrom',
-        'createdAt',
-      ],
+      select: {
+        id: true,
+        bankName: true,
+        accountNumber: true,
+        currency: true,
+        balanceStart: true,
+        statementDateFrom: true,
+        createdAt: true,
+      },
       order: { statementDateFrom: 'ASC', createdAt: 'ASC' },
     });
 
@@ -497,7 +502,13 @@ export class LedgerPostingService {
 
     const wallets = await this.walletRepository.find({
       where: { workspaceId, isActive: true, initialBalance: Not(0) },
-      select: ['id', 'name', 'currency', 'initialBalance', 'createdAt'],
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        initialBalance: true,
+        createdAt: true,
+      },
     });
     for (const wallet of wallets) {
       results.push(
@@ -604,7 +615,10 @@ export class LedgerPostingService {
     }
     const first = await this.transactionRepository.findOne({
       where: { workspaceId, walletId: wallet.id },
-      select: ['id', 'transactionDate'],
+      select: {
+        id: true,
+        transactionDate: true,
+      },
       order: { transactionDate: 'ASC' },
     });
     const entryDate = toDateOnly(first?.transactionDate ?? wallet.createdAt);
@@ -791,7 +805,12 @@ export class LedgerPostingService {
     const statement = tx.statementId
       ? await this.statementRepository.findOne({
           where: { id: tx.statementId, workspaceId: tx.workspaceId },
-          select: ['id', 'bankName', 'accountNumber', 'deletedAt'],
+          select: {
+            id: true,
+            bankName: true,
+            accountNumber: true,
+            deletedAt: true,
+          },
         })
       : null;
     if (statement?.deletedAt) {
@@ -869,7 +888,11 @@ export class LedgerPostingService {
     if (tx.walletId) {
       const wallet = await this.walletRepository.findOne({
         where: { id: tx.walletId, workspaceId: tx.workspaceId },
-        select: ['id', 'name', 'currency'],
+        select: {
+          id: true,
+          name: true,
+          currency: true,
+        },
       });
       if (wallet) {
         return this.accountsService.walletCashAccountId(tx.workspaceId, wallet, currency);
@@ -878,7 +901,11 @@ export class LedgerPostingService {
     if (tx.cryptoWalletId) {
       const cryptoWallet = await this.cryptoWalletRepository.findOne({
         where: { id: tx.cryptoWalletId, workspaceId: tx.workspaceId },
-        select: ['id', 'label', 'address'],
+        select: {
+          id: true,
+          label: true,
+          address: true,
+        },
       });
       if (cryptoWallet) {
         return this.accountsService.cryptoAccountId(tx.workspaceId, {

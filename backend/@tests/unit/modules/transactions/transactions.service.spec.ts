@@ -282,7 +282,7 @@ describe('TransactionsService', () => {
 
       expect(findOneSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          relations: expect.arrayContaining(['category', 'branch', 'wallet']),
+          relations: expect.objectContaining({ category: true, branch: true, wallet: true }),
         }),
       );
     });

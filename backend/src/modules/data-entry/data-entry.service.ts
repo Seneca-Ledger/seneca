@@ -181,7 +181,10 @@ export class DataEntryService {
   async getHiddenBaseTabs(userId: string): Promise<DataEntryType[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'dataEntryHiddenBaseTabs'],
+      select: {
+        id: true,
+        dataEntryHiddenBaseTabs: true,
+      },
     });
     const hidden = user?.dataEntryHiddenBaseTabs;
     return Array.isArray(hidden) ? hidden : [];
@@ -192,7 +195,10 @@ export class DataEntryService {
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'dataEntryHiddenBaseTabs'],
+      select: {
+        id: true,
+        dataEntryHiddenBaseTabs: true,
+      },
     });
     if (!user) {
       throw new NotFoundException(appError('USER_NOT_FOUND'));

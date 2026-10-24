@@ -117,7 +117,9 @@ export class BackupDestinationService {
   ): Promise<{ client: WebDAVClient; rootPath: string }> {
     const integration = await this.integrationRepository.findOne({
       where: { workspaceId, provider: IntegrationProvider.WEBDAV },
-      relations: ['openProtocolSettings'],
+      relations: {
+        openProtocolSettings: true,
+      },
     });
     const settings = integration?.openProtocolSettings;
     if (!integration || integration.status !== IntegrationStatus.CONNECTED || !settings) {
