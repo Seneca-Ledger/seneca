@@ -66,14 +66,14 @@ deny[msg] {
 deny[msg] {
   input.name == "CD"
   build := input.jobs["build-and-publish"]
-  not job_uses(build, "actions/attest-build-provenance@")
+  not publishes_provenance(build)
   msg := "compliance(CD): build-and-publish must publish SLSA provenance attestation"
 }
 
 deny[msg] {
   input.name == "CD"
   build := input.jobs["build-and-publish"]
-  not job_uses(build, "actions/attest-sbom@")
+  not publishes_sbom(build)
   msg := "compliance(CD): build-and-publish must publish SBOM attestation"
 }
 
@@ -93,6 +93,31 @@ has_pull_request_trigger(wf) {
   triggers := wf[true]
   is_array(triggers)
   triggers[_] == "pull_request"
+}
+
+# actions/attest replaced attest-build-provenance and attest-sbom (now thin wrappers
+# over it): with no sbom-path or predicate input it attests SLSA build provenance,
+# with sbom-path it attests the SBOM.
+publishes_provenance(job) {
+  job_uses(job, "actions/attest-build-provenance@")
+} else {
+  some i
+  step := job.steps[i]
+  startswith(object.get(step, "uses", ""), "actions/attest@")
+  inputs := object.get(step, "with", {})
+  not inputs["sbom-path"]
+  not inputs["predicate"]
+  not inputs["predicate-path"]
+  not inputs["predicate-type"]
+}
+
+publishes_sbom(job) {
+  job_uses(job, "actions/attest-sbom@")
+} else {
+  some i
+  step := job.steps[i]
+  startswith(object.get(step, "uses", ""), "actions/attest@")
+  object.get(step, "with", {})["sbom-path"]
 }
 
 job_uses(job, prefix) {
