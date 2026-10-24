@@ -150,10 +150,6 @@
     color: var(--foreground);
   }
 
-  &__category-menu {
-    max-height: 320px;
-  }
-
   // The table never scrolls sideways: fixed columns wrap inside the card, and
   // when the card itself is narrow the rows turn into cards (below).
   &__table-wrap {

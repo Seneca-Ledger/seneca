@@ -13,7 +13,7 @@ vi.mock('@/app/lib/api', () => ({ default: api, apiBaseUrl: 'http://api.test' })
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/components/payees/offer-action-toast', () => offers);
 vi.mock('../components/PayeeTransactions', () => ({ PayeeTransactions: () => null }));
-vi.mock('@/app/components/payees/PayeePicker', () => ({ PayeePicker: () => null }));
+vi.mock('@/app/components/payees/PayeeDrawer', () => ({ PayeeDrawer: () => null }));
 vi.mock('@/app/components/charts/lazy-charts', () => ({
   LazyPayeeLines: ({ lines }: { lines: Array<{ name: string }> }) => (
     <div data-testid="peer-lines">{lines.map(line => line.name).join(', ')}</div>

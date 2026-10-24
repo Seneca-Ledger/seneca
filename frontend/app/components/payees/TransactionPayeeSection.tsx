@@ -3,7 +3,6 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import Popover from '@mui/material/Popover';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
@@ -19,7 +18,7 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { PayeeRecord } from '@/app/lib/contracts';
 import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import { offerAction } from './offer-action-toast';
-import { PayeePicker } from './PayeePicker';
+import { PayeeDrawer } from './PayeeDrawer';
 import type { Payee, PayeeMode, PayeeRef } from './types';
 import {
   useMergePayees,
@@ -116,7 +115,7 @@ export function TransactionPayeeSection({
   const t = useIntlayer('payees');
   const { locale } = useLocale();
   const [current, setCurrent] = useState<PayeeRef | null>(initial);
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [choosing, setChoosing] = useState(false);
   const [pickingAlways, setPickingAlways] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [vatEditing, setVatEditing] = useState<{
@@ -227,7 +226,7 @@ export function TransactionPayeeSection({
             aria-label={t.changePayee.value}
             title={t.changePayee.value}
             disabled={busy}
-            onClick={event => setAnchor(event.currentTarget)}
+            onClick={() => setChoosing(true)}
             sx={{ p: 0.25, opacity: 0.6, '&:hover': { opacity: 1 } }}
           >
             <Pencil size={14} />
@@ -411,32 +410,25 @@ export function TransactionPayeeSection({
         </>
       )}
 
-      <Popover
-        open={Boolean(anchor)}
-        anchorEl={anchor}
-        onClose={() => setAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        disableAutoFocus
-      >
-        <Box sx={{ p: 2 }}>
-          <PayeePicker
-            current={current}
-            disabled={busy}
-            onPick={(choice, name) => {
-              setAnchor(null);
-              void setPayee
-                .mutateAsync({ transactionId, choice })
-                .then(result => {
-                  setCurrent(result.payee);
-                  setVatEditing(null);
-                  setPickingAlways(false);
-                  toast.success(fill(t.remembered.value, { raw: counterpartyName, payee: name }));
-                })
-                .catch((error: unknown) => toast.error(getApiErrorMessage(error, t.failed.value)));
-            }}
-          />
-        </Box>
-      </Popover>
+      <PayeeDrawer
+        open={choosing}
+        title={t.changePayee.value}
+        current={current}
+        busy={busy}
+        onClose={() => setChoosing(false)}
+        onPick={(choice, name) => {
+          setChoosing(false);
+          void setPayee
+            .mutateAsync({ transactionId, choice })
+            .then(result => {
+              setCurrent(result.payee);
+              setVatEditing(null);
+              setPickingAlways(false);
+              toast.success(fill(t.remembered.value, { raw: counterpartyName, payee: name }));
+            })
+            .catch((error: unknown) => toast.error(getApiErrorMessage(error, t.failed.value)));
+        }}
+      />
     </Box>
   );
 }

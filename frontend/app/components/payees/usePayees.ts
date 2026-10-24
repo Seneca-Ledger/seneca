@@ -11,7 +11,7 @@ import { queryKeys } from '@/app/lib/query-keys';
 import type { PayeeChoice, PayeeMode } from './types';
 
 /** One page of the workspace's payees, newest-seen first, filtered by name. */
-export function usePayeesList(search: string, limit: number, page = 1) {
+export function usePayeesList(search: string, limit: number, page = 1, enabled = true) {
   const workspaceId = useWorkspaceId();
   const params = {
     search: search.trim() || undefined,
@@ -25,7 +25,7 @@ export function usePayeesList(search: string, limit: number, page = 1) {
       apiClient
         .get('/payees', { params, signal })
         .then(response => checkContract('PayeesPage', response.data, '/payees')),
-    enabled: Boolean(workspaceId),
+    enabled: enabled && Boolean(workspaceId),
     // Keeps the list on screen while the search changes, but never shows one
     // workspace's payees under another's name.
     placeholderData: (previous, previousQuery) =>

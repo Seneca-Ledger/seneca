@@ -13,7 +13,7 @@ import { merchantTones } from '@/app/components/charts/chart-theme';
 import { LazyPayeeLines } from '@/app/components/charts/lazy-charts';
 import { ArrowLeft } from '@/app/components/icons';
 import { offerAction } from '@/app/components/payees/offer-action-toast';
-import { PayeePicker } from '@/app/components/payees/PayeePicker';
+import { PayeeDrawer } from '@/app/components/payees/PayeeDrawer';
 import { takenBy } from '@/app/components/payees/TransactionPayeeSection';
 import type { PayeeMode } from '@/app/components/payees/types';
 import {
@@ -25,7 +25,6 @@ import {
   useSplitPayeeAlias,
   useUpdatePayee,
 } from '@/app/components/payees/usePayees';
-import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ChartLineIcon } from '@/app/components/ui/empty-state-icons';
 import { LoadError } from '@/app/components/ui/load-error';
@@ -146,16 +145,6 @@ export default function PayeePage(): React.JSX.Element {
 
   const [renaming, setRenaming] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
-  // The picker stays until the drawer has slid away, so its rows leave with it.
-  const [pickerShown, setPickerShown] = useState(false);
-  const openMerge = () => {
-    setPickerShown(true);
-    setMergeOpen(true);
-  };
-  const closeMerge = () => {
-    setMergeOpen(false);
-    setTimeout(() => setPickerShown(false), 300);
-  };
   const [pickingAlways, setPickingAlways] = useState(false);
 
   const fail = (error: unknown) => toast.error(getApiErrorMessage(error, tPayees.failed.value));
@@ -260,7 +249,7 @@ export default function PayeePage(): React.JSX.Element {
                   <Button variant="outlined" onClick={() => setRenaming(data.name)}>
                     {t.rename}
                   </Button>
-                  <Button variant="outlined" onClick={openMerge}>
+                  <Button variant="outlined" onClick={() => setMergeOpen(true)}>
                     {t.mergeWith}
                   </Button>
                 </div>
@@ -441,37 +430,27 @@ export default function PayeePage(): React.JSX.Element {
           {/* Full width: the table has nine columns and needs the room. */}
           <PayeeTransactions payeeId={id} />
 
-          <DrawerShell
-            isOpen={mergeOpen}
-            onClose={closeMerge}
-            position="right"
-            width="md"
+          <PayeeDrawer
+            open={mergeOpen}
             title={t.mergeDrawerTitle.value}
-          >
-            <div style={{ display: 'grid', gap: 12, padding: '4px 4px 16px' }}>
-              <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{t.mergeHint}</p>
-              {pickerShown && (
-                <PayeePicker
-                  inline
-                  existingOnly
-                  current={{ id: data.id, name: data.name }}
-                  disabled={merge.isPending}
-                  onPick={choice => {
-                    if (!('payeeId' in choice)) {
-                      return;
-                    }
-                    void merge
-                      .mutateAsync({ targetId: id, sourceIds: [choice.payeeId] })
-                      .then(() => {
-                        toast.success(tPayees.merged.value);
-                        closeMerge();
-                      })
-                      .catch(fail);
-                  }}
-                />
-              )}
-            </div>
-          </DrawerShell>
+            hint={t.mergeHint}
+            current={{ id: data.id, name: data.name }}
+            existingOnly
+            busy={merge.isPending}
+            onClose={() => setMergeOpen(false)}
+            onPick={choice => {
+              if (!('payeeId' in choice)) {
+                return;
+              }
+              void merge
+                .mutateAsync({ targetId: id, sourceIds: [choice.payeeId] })
+                .then(() => {
+                  toast.success(tPayees.merged.value);
+                  setMergeOpen(false);
+                })
+                .catch(fail);
+            }}
+          />
         </>
       )}
     </div>
