@@ -190,8 +190,8 @@ export function createPublicEgressHttpAgents() {
  * Connects fetches only to addresses that pass the same check as the URL, so a
  * resolver cannot answer the validation with a public address and the socket
  * with a private one (DNS rebinding). There is no fallback to an unchecked
- * lookup. The undici major matches the one Node 20 bundles, which global fetch
- * requires of a dispatcher.
+ * lookup. The undici major must match the one Node bundles (7 on Node 24):
+ * global fetch takes no other dispatcher.
  */
 const publicEgressDispatcher = new UndiciAgent({
   connect: { lookup: createPublicEgressLookup() },
