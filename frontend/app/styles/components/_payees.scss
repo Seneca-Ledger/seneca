@@ -1,0 +1,99 @@
+// Payees page (app/(main)/statements/payees): the All transactions layout
+// (`seneca-all-tx`) plus the few pieces of its own.
+
+.seneca-payees {
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  &__notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 8px 8px 16px;
+    border-radius: 12px;
+    background: var(--surface-soft);
+    font-size: 14px;
+    color: var(--foreground);
+  }
+
+  &__col-icon {
+    width: 52px;
+    padding-left: 16px !important;
+  }
+
+  &__figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 32px;
+  }
+
+  &__figure-label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__figure-value {
+    font-size: 18px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  &__bars {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    align-items: end;
+    gap: 6px;
+    height: 120px;
+  }
+
+  &__bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    min-width: 0;
+  }
+
+  &__bar-fill {
+    width: 100%;
+    max-width: 28px;
+    min-height: 2px;
+    border-radius: 4px 4px 0 0;
+    background: var(--primary);
+    opacity: 0.85;
+  }
+
+  &__bar-label {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  &__section {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+
+    &:first-of-type {
+      border-top: 0;
+    }
+  }
+}

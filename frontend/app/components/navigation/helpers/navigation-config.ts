@@ -24,6 +24,7 @@ import {
   Scale,
   ScrollText,
   Shuffle,
+  Store,
   Table,
   TrendingUp,
   Wallet,
@@ -155,6 +156,7 @@ export function buildNavItems(nav: {
   invoices: unknown;
   review: unknown;
   accounts: unknown;
+  payees: unknown;
 }): NavItem[] {
   return [
     {
@@ -189,6 +191,13 @@ export function buildNavItems(nav: {
       path: '/statements/transactions',
       group: 'transactions',
       icon: React.createElement(Banknote, { size: 18 }),
+      permission: 'transaction.view',
+    },
+    {
+      label: nav.payees as ReactNode,
+      path: '/statements/payees',
+      group: 'transactions',
+      icon: React.createElement(Store, { size: 18 }),
       permission: 'transaction.view',
     },
     {

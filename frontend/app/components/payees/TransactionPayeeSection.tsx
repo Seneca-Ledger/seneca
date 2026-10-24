@@ -36,7 +36,7 @@ function fill(template: string, params: Record<string, string | number>): string
 }
 
 /** The payee id a 409 on rename points at: the payee that already has the name. */
-function takenBy(error: unknown): string | null {
+export function takenBy(error: unknown): string | null {
   const data = (error as { response?: { status?: number; data?: unknown } })?.response;
   if (data?.status !== 409) return null;
   const body = JSON.stringify(data.data ?? {});

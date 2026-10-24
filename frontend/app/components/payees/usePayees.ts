@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
@@ -130,5 +131,92 @@ export function fetchPendingReview(
     url: `/payees/${payeeId}/pending-review`,
     params: excludeTransactionId ? { excludeTransactionId } : undefined,
     contract: 'PayeePendingReview',
+  });
+}
+
+/** The Payees page: who was paid (or paid us) in a month, or ever, biggest first. */
+export function usePayeesOverview(params: {
+  month?: string;
+  direction: 'expense' | 'income';
+  search: string;
+  page: number;
+  limit: number;
+}) {
+  const workspaceId = useWorkspaceId();
+  const query = {
+    month: params.month,
+    direction: params.direction,
+    search: params.search.trim() || undefined,
+    page: params.page,
+    limit: params.limit,
+  } satisfies ContractInput<'PayeesOverviewQuery'>;
+  return useQuery({
+    queryKey: queryKeys.payees({ workspaceId, params: { view: 'overview', ...query } }),
+    queryFn: ({ signal }) =>
+      apiClient
+        .get('/payees/overview', { params: query, signal })
+        .then(response => checkContract('PayeesOverview', response.data, '/payees/overview')),
+    enabled: Boolean(workspaceId),
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+  });
+}
+
+/** The payee card: its months, names, subscriptions and what a pinned category would change. */
+export function usePayeeSummary(id: string) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.payees({ workspaceId, params: { view: 'summary', id } }),
+    queryFn: ({ signal }) =>
+      apiClient
+        .get(`/payees/${id}/summary`, { signal })
+        .then(response => checkContract('PayeeSummary', response.data, '/payees/:id/summary')),
+    enabled: Boolean(workspaceId && id),
+  });
+}
+
+/** Payees whose names look like one business, to offer merging. */
+export function usePayeeDuplicates() {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.payees({ workspaceId, params: { view: 'duplicates' } }),
+    queryFn: ({ signal }) =>
+      apiClient
+        .get('/payees/duplicates', { signal })
+        .then(response =>
+          checkContract('PayeeDuplicateGroups', response.data, '/payees/duplicates'),
+        ),
+    enabled: Boolean(workspaceId),
+  });
+}
+
+/** Files the payee's past rows nobody categorised under its pinned category. */
+export function useApplyPayeeCategory() {
+  const invalidate = useInvalidatePayees();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiClient
+        .post(`/payees/${id}/apply-category`, {})
+        .then(response =>
+          checkContract('PayeeChangeResult', response.data, '/payees/:id/apply-category'),
+        ),
+    onSuccess: () => {
+      invalidateFinancialData();
+      return invalidate();
+    },
+  });
+}
+
+/** "This name is somebody else": the alias and its rows become a payee of their own. */
+export function useSplitPayeeAlias() {
+  const invalidate = useInvalidatePayees();
+  return useMutation({
+    mutationFn: ({ id, key }: { id: string; key: string }) =>
+      apiClient
+        .delete(`/payees/${id}/aliases/${encodeURIComponent(key)}`)
+        .then(response =>
+          checkContract('PayeeChangeResult', response.data, '/payees/:id/aliases/:key'),
+        ),
+    onSuccess: invalidate,
   });
 }
