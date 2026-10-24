@@ -31,6 +31,8 @@ import { hasDecidedCategory } from '../classification/engine/category-decision';
 import { ClassificationService } from '../classification/services/classification.service';
 import { ViesService } from '../reference-data/vies.service';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
+import { resolvePayeeId } from './payee-resolution';
+import { UNDECIDED_CATEGORY_SOURCES } from './payee-undecided';
 
 type CategoryRef = { id: string; name: string };
 
@@ -61,6 +63,10 @@ const VIES_RETRY_AFTER_MS = 20 * 60 * 60 * 1000;
 const VIES_RETRY_BATCH = 100;
 
 const DEFAULT_LIMIT = 50;
+
+/** node-postgres hands back [rows, count] for an UPDATE or DELETE … RETURNING through TypeORM. */
+const returnedRows = <T>(result: unknown[]): T[] =>
+  (Array.isArray(result[0]) ? result[0] : result) as T[];
 
 /** Escapes LIKE wildcards so a search for "50%" means the text "50%". */
 const likePattern = (search: string) => `%${search.replace(/[\\%_]/g, char => `\\${char}`)}%`;
@@ -180,9 +186,11 @@ export class PayeesService {
         }>(),
     ]);
 
-    const defaults = await Promise.all(
-      rows.map(row => this.classificationService.categoryForPayee(workspaceId, row.id)),
+    const defaultsById = await this.classificationService.categoriesForPayees(
+      workspaceId,
+      rows.map(row => row.id),
     );
+    const defaults = rows.map(row => defaultsById.get(row.id));
     const categoryIds = [
       ...new Set(
         [...rows.map(row => row.categoryId), ...defaults.map(match => match?.categoryId)].filter(
@@ -416,6 +424,15 @@ export class PayeesService {
         'UPDATE payee_aliases SET payee_id = $1 WHERE workspace_id = $2 AND payee_id = ANY($3::uuid[])',
         [target.id, workspaceId, sourceIds],
       );
+      // A subscription that recognised a source keeps recognising its rows,
+      // now under the target; deleting the source would drop the rule with it.
+      await manager.query(
+        `INSERT INTO subscription_payees (workspace_id, subscription_id, payee_id)
+         SELECT workspace_id, subscription_id, $1 FROM subscription_payees
+          WHERE workspace_id = $2 AND payee_id = ANY($3::uuid[])
+         ON CONFLICT (subscription_id, payee_id) DO NOTHING`,
+        [target.id, workspaceId, sourceIds],
+      );
       await manager.delete(Payee, { id: In(sourceIds), workspaceId });
 
       await this.auditService.createEvent({
@@ -429,6 +446,103 @@ export class PayeesService {
       });
       return { payee: target, merged: sources.length };
     });
+  }
+
+  /**
+   * Files the payee's past rows under its pinned category, where nobody chose
+   * one: a manual pick, a rule and a row on a filed tax return stay as they are.
+   */
+  async applyCategory(
+    workspaceId: string,
+    userId: string,
+    payeeId: string,
+  ): Promise<{ updated: number }> {
+    const payee = await this.findPayee(workspaceId, payeeId);
+    if (!(payee.mode === PayeeMode.ALWAYS && payee.categoryId)) {
+      throw new BadRequestException('Pin a category on the payee first');
+    }
+    const updated: unknown[] = await this.dataSource.query(
+      `UPDATE transactions
+          SET category_id = $3, category_source = $4, category_reason = $5
+        WHERE workspace_id = $1 AND payee_id = $2
+          AND is_duplicate = false AND tax_locked = false
+          AND category_id IS DISTINCT FROM $3
+          AND (category_id IS NULL OR category_source = ANY($6))
+        RETURNING id`,
+      [
+        workspaceId,
+        payee.id,
+        payee.categoryId,
+        TransactionCategorySource.LEARNED,
+        payee.name,
+        UNDECIDED_CATEGORY_SOURCES,
+      ],
+    );
+    const ids = returnedRows<{ id: string }>(updated).map(row => row.id);
+    if (ids.length > 0) {
+      // A raw update: the tax subscriber did not see the new category.
+      await this.taxAssignmentService.reassess(workspaceId, { ids });
+      await this.auditService.createEvent({
+        workspaceId,
+        actorType: ActorType.USER,
+        actorId: userId,
+        entityType: EntityType.PAYEE,
+        entityId: payee.id,
+        action: AuditAction.UPDATE,
+        meta: { appliedCategoryId: payee.categoryId, transactions: ids.length },
+      });
+    }
+    return { updated: ids.length };
+  }
+
+  /**
+   * "This name is somebody else": the descriptor stops meaning this payee, and
+   * its rows move to a payee of their own (found or created from the name, as
+   * an import would), which the next import of it follows too.
+   */
+  async splitAlias(
+    workspaceId: string,
+    userId: string,
+    payeeId: string,
+    payeeKey: string,
+  ): Promise<{ updated: number }> {
+    await this.findPayee(workspaceId, payeeId);
+    const moved = await this.dataSource.transaction(async manager => {
+      const deleted: unknown[] = await manager.query(
+        'DELETE FROM payee_aliases WHERE workspace_id = $1 AND payee_id = $2 AND payee_key = $3 RETURNING payee_key',
+        [workspaceId, payeeId, payeeKey],
+      );
+      if (returnedRows(deleted).length === 0) {
+        throw new NotFoundException('Alias not found');
+      }
+      const [sample] = await manager.query(
+        `SELECT counterparty_name AS "counterpartyName", payment_purpose AS "paymentPurpose"
+           FROM transactions WHERE workspace_id = $1 AND payee_key = $2
+          ORDER BY transaction_date DESC LIMIT 1`,
+        [workspaceId, payeeKey],
+      );
+      const newPayeeId = sample ? await resolvePayeeId(manager, workspaceId, sample) : null;
+      if (!newPayeeId) {
+        return { newPayeeId: null, ids: [] as string[] };
+      }
+      const updated: unknown[] = await manager.query(
+        `UPDATE transactions SET payee_id = $1
+          WHERE workspace_id = $2 AND payee_id = $3 AND payee_key = $4 RETURNING id`,
+        [newPayeeId, workspaceId, payeeId, payeeKey],
+      );
+      return { newPayeeId, ids: returnedRows<{ id: string }>(updated).map(row => row.id) };
+    });
+
+    await this.auditService.createEvent({
+      workspaceId,
+      actorType: ActorType.USER,
+      actorId: userId,
+      entityType: EntityType.PAYEE,
+      entityId: payeeId,
+      action: AuditAction.UPDATE,
+      meta: { splitAlias: payeeKey, movedTo: moved.newPayeeId, transactions: moved.ids.length },
+    });
+    return { updated: moved.ids.length };
   }
 
   /**
@@ -526,15 +640,7 @@ export class PayeesService {
       .andWhere('transaction.splitGroupId IS NULL')
       .andWhere(
         '(transaction.categoryId IS NULL OR transaction.categorySource IN (:...undecided))',
-        {
-          undecided: [
-            TransactionCategorySource.DEFAULT,
-            TransactionCategorySource.AI,
-            TransactionCategorySource.HISTORY,
-            TransactionCategorySource.LEARNED,
-            TransactionCategorySource.KEYWORD,
-          ],
-        },
+        { undecided: UNDECIDED_CATEGORY_SOURCES },
       )
       .andWhere(
         'NOT EXISTS (SELECT 1 FROM statements trashed WHERE trashed.id = transaction.statementId AND trashed.deleted_at IS NOT NULL)',

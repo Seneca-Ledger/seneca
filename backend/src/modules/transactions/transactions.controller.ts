@@ -104,6 +104,7 @@ export class TransactionsController {
     @Query('owner') owner?: string,
     @Query('running_balance') runningBalance?: string,
     @Query('walletId', new ParseUUIDPipe({ optional: true })) walletId?: string,
+    @Query('payeeId', new ParseUUIDPipe({ optional: true })) payeeId?: string,
   ) {
     // Prefer snake_case for backward compatibility, fall back to camelCase
     const statementId = statementIdSnake || statementIdCamel;
@@ -116,6 +117,7 @@ export class TransactionsController {
       {
         statementId,
         walletId,
+        payeeId,
         dateFrom: dateFrom ? new Date(dateFrom) : undefined,
         dateTo: dateTo ? new Date(dateTo) : undefined,
         type,

@@ -193,6 +193,17 @@ export const PayeesQuery = Schema.Struct({
 });
 export type PayeesQuery = Wire<typeof PayeesQuery>;
 
+/** `GET /payees/overview`: who was paid (or paid us) in a month, or ever. */
+export const PayeesOverviewQuery = Schema.Struct({
+  /** `YYYY-MM`; left out for all time. */
+  month: Schema.optional(Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}$/))),
+  direction: Schema.optional(Schema.Literals(['expense', 'income'])),
+  search: Schema.optional(Search(200)),
+  page: Schema.optional(PageInput),
+  limit: Schema.optional(wholeBetween(1, 200)),
+});
+export type PayeesOverviewQuery = Wire<typeof PayeesOverviewQuery>;
+
 /** `GET /receipts`. */
 export const ReceiptsQuery = Schema.Struct({
   status: Schema.optional(

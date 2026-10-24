@@ -2,7 +2,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
-import type { Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { payeeKeyOf } from '../../../common/utils/payee-key.util';
 import { OWNER_SHARED } from '../../../common/utils/transaction-owner.util';
 import {
@@ -374,47 +374,70 @@ export class ClassificationService {
     workspaceId: string,
     payeeId: string,
   ): Promise<AutoCategoryMatch | undefined> {
-    const settings = await this.getProcessingSettings(workspaceId);
-    if (!settings.merchantLearning) {
-      return undefined;
-    }
-
-    const payee = await this.payeeRepository.findOne({ where: { id: payeeId, workspaceId } });
-    if (!payee) {
-      return undefined;
-    }
-
-    const newestFirst = await this.payeeHistoryQuery(workspaceId, payeeId).getMany();
-    const decision = decidePayeeCategory({
-      // The matcher replays history forward; the query hands back the newest first.
-      history: [...newestFirst].reverse().map(row => ({ categoryId: row.categoryId as string })),
-      override: { mode: payee.mode, categoryId: payee.categoryId },
-    });
-
-    if (!decision) {
-      return undefined;
-    }
-
-    return {
-      categoryId: decision.categoryId,
-      source:
-        decision.basis === 'payee-pinned'
-          ? TransactionCategorySource.LEARNED
-          : TransactionCategorySource.HISTORY,
-      reason: payee.name,
-    };
+    return (await this.categoriesForPayees(workspaceId, [payeeId])).get(payeeId);
   }
 
-  private payeeHistoryQuery(workspaceId: string, payeeId: string) {
-    const query = this.transactionRepository
-      .createQueryBuilder('transaction')
-      .select(['transaction.id', 'transaction.categoryId'])
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.payeeId = :payeeId', { payeeId });
-    return onlyPayeeEvidence(query, 'transaction')
-      .orderBy('transaction.transactionDate', 'DESC')
-      .addOrderBy('transaction.createdAt', 'DESC')
-      .take(PAYEE_HISTORY_DEPTH);
+  /**
+   * `categoryForPayee` for a page of payees at once: the settings, the payees
+   * and their recent decided rows in three queries instead of three per payee.
+   */
+  async categoriesForPayees(
+    workspaceId: string,
+    payeeIds: readonly string[],
+  ): Promise<Map<string, AutoCategoryMatch>> {
+    const result = new Map<string, AutoCategoryMatch>();
+    if (payeeIds.length === 0) {
+      return result;
+    }
+    const settings = await this.getProcessingSettings(workspaceId);
+    if (!settings.merchantLearning) {
+      return result;
+    }
+
+    const ids = [...new Set(payeeIds)];
+    const [payees, evidence] = await Promise.all([
+      this.payeeRepository.find({ where: { id: In(ids), workspaceId } }),
+      onlyPayeeEvidence(
+        this.transactionRepository
+          .createQueryBuilder('transaction')
+          .select(['transaction.id', 'transaction.payeeId', 'transaction.categoryId'])
+          .where('transaction.workspaceId = :workspaceId', { workspaceId })
+          .andWhere('transaction.payeeId IN (:...ids)', { ids }),
+        'transaction',
+      )
+        .orderBy('transaction.transactionDate', 'DESC')
+        .addOrderBy('transaction.createdAt', 'DESC')
+        .getMany(),
+    ]);
+
+    // Newest first per payee, the most recent PAYEE_HISTORY_DEPTH of them.
+    const historyOf = new Map<string, Array<{ categoryId: string }>>();
+    for (const row of evidence) {
+      const history = historyOf.get(row.payeeId as string) ?? [];
+      if (history.length < PAYEE_HISTORY_DEPTH) {
+        history.push({ categoryId: row.categoryId as string });
+      }
+      historyOf.set(row.payeeId as string, history);
+    }
+
+    for (const payee of payees) {
+      const decision = decidePayeeCategory({
+        // The matcher replays history forward; the query hands back the newest first.
+        history: [...(historyOf.get(payee.id) ?? [])].reverse(),
+        override: { mode: payee.mode, categoryId: payee.categoryId },
+      });
+      if (decision) {
+        result.set(payee.id, {
+          categoryId: decision.categoryId,
+          source:
+            decision.basis === 'payee-pinned'
+              ? TransactionCategorySource.LEARNED
+              : TransactionCategorySource.HISTORY,
+          reason: payee.name,
+        });
+      }
+    }
+    return result;
   }
 
   private ownerScope(userId: string, workspaceId: string | null) {

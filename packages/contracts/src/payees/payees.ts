@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import type { Wire } from '../common/wire';
+import { DateOnly, type Wire } from '../common/wire';
 
 export const PayeeMode = Schema.Literals(['auto', 'always', 'never']);
 export type PayeeMode = Wire<typeof PayeeMode>;
@@ -59,3 +59,69 @@ export const PayeeRecord = Schema.Struct({
   supplyType: Schema.NullOr(Schema.Literals(['goods', 'services'])),
 });
 export type PayeeRecord = Wire<typeof PayeeRecord>;
+
+/** One payee on the Payees page: what went to it (or came from it) in the period. */
+export const PayeeOverviewRow = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  mode: PayeeMode,
+  /** What a new row of this payee would be filed as now. */
+  category: Schema.NullOr(PayeeRef),
+  count: Schema.Number,
+  /** In the workspace currency; rows in a currency with no rate are left out. */
+  amount: Schema.Number,
+  lastSeen: Schema.NullOr(DateOnly),
+});
+export type PayeeOverviewRow = Wire<typeof PayeeOverviewRow>;
+
+/** `GET /payees/overview`. */
+export const PayeesOverview = Schema.Struct({
+  currency: Schema.String,
+  rows: Schema.Array(PayeeOverviewRow),
+  /** Payees with a row in the period, for the pager. */
+  totalPayees: Schema.Number,
+  /** The sum over every payee of the period, not only this page. */
+  totalAmount: Schema.Number,
+  /** Rows per month for the twelve months to the period's end, like All transactions. */
+  months: Schema.Array(Schema.Struct({ month: Schema.String, count: Schema.Number })),
+  missingRates: Schema.Array(Schema.String),
+});
+export type PayeesOverview = Wire<typeof PayeesOverview>;
+
+/** `GET /payees/:id/summary`: the payee card. */
+export const PayeeSummary = Schema.Struct({
+  currency: Schema.String,
+  /** The last twelve months, oldest first, both directions. */
+  months: Schema.Array(
+    Schema.Struct({ month: Schema.String, spent: Schema.Number, received: Schema.Number }),
+  ),
+  spentLastYear: Schema.Number,
+  receivedLastYear: Schema.Number,
+  count: Schema.Number,
+  averageSpent: Schema.NullOr(Schema.Number),
+  firstSeen: Schema.NullOr(DateOnly),
+  lastSeen: Schema.NullOr(DateOnly),
+  /** How the payee is written in statements, with the latest such name. */
+  aliases: Schema.Array(
+    Schema.Struct({ key: Schema.String, example: Schema.NullOr(Schema.String) }),
+  ),
+  subscriptions: Schema.Array(PayeeRef),
+  /** Rows whose category nobody chose: what applying the pinned category would change. */
+  undecidedCount: Schema.Number,
+  missingRates: Schema.Array(Schema.String),
+});
+export type PayeeSummary = Wire<typeof PayeeSummary>;
+
+/** `GET /payees/duplicates`: groups of payees whose names look like one business. */
+export const PayeeDuplicateGroups = Schema.Array(
+  Schema.Struct({
+    payees: Schema.Array(
+      Schema.Struct({ id: Schema.String, name: Schema.String, count: Schema.Number }),
+    ),
+  }),
+);
+export type PayeeDuplicateGroups = Wire<typeof PayeeDuplicateGroups>;
+
+/** `POST /payees/:id/apply-category` and `DELETE /payees/:id/aliases/:key`. */
+export const PayeeChangeResult = Schema.Struct({ updated: Schema.Number });
+export type PayeeChangeResult = Wire<typeof PayeeChangeResult>;

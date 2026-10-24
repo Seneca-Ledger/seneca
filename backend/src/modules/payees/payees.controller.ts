@@ -1,4 +1,14 @@
-import { Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
@@ -8,8 +18,13 @@ import { Permission } from '../../common/enums/permissions.enum';
 import {
   MergePayeesBody,
   Payee,
+  PayeeChangeResult,
+  PayeeDuplicateGroups,
   PayeePendingReview,
   PayeeRecord,
+  PayeeSummary,
+  PayeesOverview,
+  PayeesOverviewQuery,
   PayeesPage,
   PayeesQuery,
   SetTransactionPayeeBody,
@@ -19,10 +34,14 @@ import {
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PayeesService } from './payees.service';
+import { PayeesOverviewService } from './payees-overview.service';
 
 @Controller()
 export class PayeesController {
-  constructor(private readonly payeesService: PayeesService) {}
+  constructor(
+    private readonly payeesService: PayeesService,
+    private readonly overviewService: PayeesOverviewService,
+  ) {}
 
   @Get('payees')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
@@ -33,6 +52,61 @@ export class PayeesController {
     @SchemaQuery(PayeesQuery) query: PayeesQuery,
   ) {
     return this.payeesService.list(workspaceId, query, selfMemberId);
+  }
+
+  @Get('payees/overview')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(PayeesOverview)
+  async overview(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+    @SchemaQuery(PayeesOverviewQuery) query: PayeesOverviewQuery,
+  ) {
+    return this.overviewService.overview(workspaceId, query, selfMemberId);
+  }
+
+  @Get('payees/duplicates')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(PayeeDuplicateGroups)
+  async duplicates(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+  ) {
+    return this.overviewService.duplicates(workspaceId, selfMemberId);
+  }
+
+  @Get('payees/:id/summary')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(PayeeSummary)
+  async summary(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+  ) {
+    return this.overviewService.summary(workspaceId, id, selfMemberId);
+  }
+
+  @Post('payees/:id/apply-category')
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(PayeeChangeResult)
+  async applyCategory(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payeesService.applyCategory(workspaceId, user.id, id);
+  }
+
+  @Delete('payees/:id/aliases/:key')
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(PayeeChangeResult)
+  async splitAlias(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('key') key: string,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.payeesService.splitAlias(workspaceId, user.id, id, key);
   }
 
   @Get('payees/:id')

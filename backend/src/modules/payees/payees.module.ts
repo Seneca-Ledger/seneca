@@ -8,10 +8,13 @@ import { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditModule } from '../audit/audit.module';
 import { ClassificationModule } from '../classification/classification.module';
+import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { ReferenceDataModule } from '../reference-data/reference-data.module';
 import { TaxModule } from '../tax/tax.module';
+import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { PayeesController } from './payees.controller';
 import { PayeesService } from './payees.service';
+import { PayeesOverviewService } from './payees-overview.service';
 import { TransactionPayeeSubscriber } from './transaction-payee.subscriber';
 
 @Module({
@@ -21,9 +24,11 @@ import { TransactionPayeeSubscriber } from './transaction-payee.subscriber';
     ClassificationModule,
     TaxModule,
     ReferenceDataModule,
+    ExchangeRatesModule,
+    WorkspaceCurrencyModule,
   ],
   controllers: [PayeesController],
-  providers: [PayeesService, TransactionPayeeSubscriber],
+  providers: [PayeesService, PayeesOverviewService, TransactionPayeeSubscriber],
   exports: [PayeesService],
 })
 export class PayeesModule {}

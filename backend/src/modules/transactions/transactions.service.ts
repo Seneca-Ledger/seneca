@@ -100,6 +100,7 @@ export class TransactionsService {
     filters: {
       statementId?: string;
       walletId?: string;
+      payeeId?: string;
       dateFrom?: Date;
       dateTo?: Date;
       type?: string;
@@ -133,6 +134,10 @@ export class TransactionsService {
 
     if (filters.walletId) {
       query.andWhere('transaction.walletId = :walletId', { walletId: filters.walletId });
+    }
+
+    if (filters.payeeId) {
+      query.andWhere('transaction.payeeId = :payeeId', { payeeId: filters.payeeId });
     }
 
     if (filters.dateFrom) {
