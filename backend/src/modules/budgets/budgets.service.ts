@@ -720,20 +720,22 @@ export class BudgetsService {
     }
     return {
       budgets: affected,
-      account: await this.accountImpact(workspaceId, dto.amount, currency),
+      account: dto.walletId
+        ? await this.accountImpact(workspaceId, dto.walletId, dto.amount, currency)
+        : null,
     };
   }
 
-  /** The wallet a manual entry lands in (the oldest active one, as classification picks it). */
+  /** The account a manual entry would leave, as the person picked it. */
   private async accountImpact(
     workspaceId: string,
+    walletId: string,
     amount: number,
     currency: string,
   ): Promise<BudgetImpact['account']> {
     if (!this.walletRepository) return null;
     const wallet = await this.walletRepository.findOne({
-      where: { workspaceId, isActive: true },
-      order: { createdAt: 'ASC' },
+      where: { id: walletId, workspaceId, isActive: true },
     });
     if (!wallet) return null;
     const converted = await this.inCurrency(amount, currency, wallet.currency, workspaceId);

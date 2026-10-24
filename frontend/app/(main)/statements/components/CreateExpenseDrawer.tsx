@@ -740,6 +740,7 @@ export default function CreateExpenseDrawer({
                     amount={manualDraft.amount}
                     currency={manualDraft.currency}
                     date={manualDate}
+                    walletId={manualDraft.walletId}
                   />
 
                   <DetailField id="expense-manual-date" label={t.date.value}>

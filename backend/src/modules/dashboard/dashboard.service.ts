@@ -8,7 +8,7 @@ import {
   type Repository,
   type SelectQueryBuilder,
 } from 'typeorm';
-import { flowsSql, onlyFlows } from '../../common/utils/counted-transactions.util';
+import { countedSql, flowsSql, onlyFlows } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import {
   canReadPrivate,
@@ -42,6 +42,7 @@ import {
   SubscriptionStatus,
 } from '../../entities/subscription.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
+import { SPENDABLE_WALLET_TYPES } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
@@ -342,6 +343,61 @@ export class DashboardService {
       currency: targetCurrency,
       missingRates,
     };
+  }
+
+  /**
+   * The money there is today. With accounts, what the everyday ones hold minus
+   * what the cards owe (savings and deposits are not for spending), plus the
+   * latest closing balance of each bank no account holds yet. Without any
+   * account, the all-time net of every approved row, as before accounts.
+   */
+  private async getOpeningBalance(workspaceId: string, targetCurrency: string): Promise<number> {
+    const [{ count }] = await this.transactionRepo.query(
+      'SELECT COUNT(*)::int AS count FROM wallets WHERE workspace_id = $1 AND is_active',
+      [workspaceId],
+    );
+    if (count === 0) {
+      return this.getAllTimeBalance(workspaceId, targetCurrency);
+    }
+
+    const rows: Array<{ currency: string; balance: string }> = await this.transactionRepo.query(
+      `SELECT w.currency, SUM(w.initial_balance + COALESCE(moved.net, 0)) AS balance
+         FROM wallets w
+         LEFT JOIN (
+           SELECT t.wallet_id, SUM(COALESCE(t.credit, 0) - COALESCE(t.debit, 0)) AS net
+             FROM transactions t
+            WHERE t.workspace_id = $1 AND ${countedSql('t')}
+            GROUP BY t.wallet_id
+         ) moved ON moved.wallet_id = w.id
+        WHERE w.workspace_id = $1 AND w.is_active AND w.type = ANY($2)
+        GROUP BY w.currency
+       UNION ALL
+       SELECT latest.currency, latest.balance_end AS balance
+         FROM (
+           SELECT DISTINCT ON (s.bank_name, s.account_number, s.currency) s.currency, s.balance_end
+             FROM statements s
+            WHERE s.workspace_id = $1 AND s.deleted_at IS NULL AND s.balance_end IS NOT NULL
+              AND s.status IN ('parsed', 'validated', 'completed') AND s.wallet_id IS NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM transactions held
+                 WHERE held.statement_id = s.id AND held.wallet_id IS NOT NULL
+              )
+            ORDER BY s.bank_name, s.account_number, s.currency,
+              COALESCE(s.statement_date_to, s.created_at::date) DESC, s.created_at DESC
+         ) latest`,
+      [workspaceId, [...SPENDABLE_WALLET_TYPES]],
+    );
+
+    let total = 0;
+    for (const row of rows) {
+      total += await this.convertDashboardAmount(
+        row.balance,
+        row.currency,
+        targetCurrency,
+        workspaceId,
+      );
+    }
+    return Math.round(total * 100) / 100;
   }
 
   /** All-time net of every approved transaction, converted into `targetCurrency`. */
@@ -1242,7 +1298,7 @@ export class DashboardService {
     horizonEnd.setDate(horizonEnd.getDate() + horizonDays - 1);
 
     const [openingBalance, payables, subscriptions] = await Promise.all([
-      this.getAllTimeBalance(workspaceId, currency),
+      this.getOpeningBalance(workspaceId, currency),
       this.payableRepo.find({
         where: {
           workspaceId,

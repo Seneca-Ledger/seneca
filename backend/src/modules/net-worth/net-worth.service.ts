@@ -21,7 +21,7 @@ import {
   Workspace,
 } from '../../entities';
 import type { InvestmentMetal } from '../../entities/investment-holding.entity';
-import { BalanceService, CASH_ACCOUNT_CODE } from '../balance/balance.service';
+import { BalanceService, CASH_ACCOUNT_CODE, DEBTS_ACCOUNT_CODE } from '../balance/balance.service';
 import { balanceAccountName } from '../balance/balance-account-name';
 import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
@@ -102,11 +102,17 @@ export class NetWorthService {
     const from = await this.resolveFrom(workspaceId, range, to);
     const dates = samplePoints(from, to, SERIES_POINTS);
 
-    const [accounts, snapshots, cashByDate, currency] = await Promise.all([
+    const [accounts, snapshots, cashByDate, debtsByDate, currency] = await Promise.all([
       this.balanceAccountRepository.find({ where: { workspaceId } }),
       this.loadSnapshots(workspaceId, to),
       this.balanceService.getCashSeries(workspaceId, dates),
+      this.balanceService.getDebtSeries(workspaceId, dates),
       this.resolveCurrency(workspaceId),
+    ]);
+    // Lines kept up from the books rather than from snapshots.
+    const computedByCode = new Map([
+      [CASH_ACCOUNT_CODE, cashByDate],
+      [DEBTS_ACCOUNT_CODE, debtsByDate],
     ]);
 
     const leaves = findLeaves(accounts);
@@ -120,7 +126,11 @@ export class NetWorthService {
       this.exchangeRatesService,
       currency,
       dates.flatMap(date =>
-        [...(cashByDate.get(date)?.keys() ?? []), ...snapshotCurrencies].map(code => ({
+        [
+          ...(cashByDate.get(date)?.keys() ?? []),
+          ...(debtsByDate.get(date)?.keys() ?? []),
+          ...snapshotCurrencies,
+        ].map(code => ({
           currency: code,
           date,
         })),
@@ -129,8 +139,9 @@ export class NetWorthService {
     );
 
     const valueAt = (accountId: string, code: string, date: string): number => {
-      if (code === CASH_ACCOUNT_CODE) {
-        return converter.convertAll(cashByDate.get(date) ?? new Map(), date);
+      const computed = computedByCode.get(code);
+      if (computed) {
+        return converter.convertAll(computed.get(date) ?? new Map(), date);
       }
       const snapshot = latestOnOrBefore(snapshotsByAccount.get(accountId), date);
       return snapshot
@@ -250,7 +261,14 @@ export class NetWorthService {
     if (!series) {
       const from = await this.resolveFrom(workspaceId, 'all', to);
       const dates = samplePoints(from, to, ALL_TIME_HIGH_POINTS);
-      const cashByDate = await this.balanceService.getCashSeries(workspaceId, dates);
+      const [cashByDate, debtsByDate] = await Promise.all([
+        this.balanceService.getCashSeries(workspaceId, dates),
+        this.balanceService.getDebtSeries(workspaceId, dates),
+      ]);
+      const computedByCode = new Map([
+        [CASH_ACCOUNT_CODE, cashByDate],
+        [DEBTS_ACCOUNT_CODE, debtsByDate],
+      ]);
       const snapshotCurrencies = [
         ...new Set(
           [...snapshotsByAccount.values()]
@@ -262,7 +280,11 @@ export class NetWorthService {
         this.exchangeRatesService,
         currency,
         dates.flatMap(date =>
-          [...(cashByDate.get(date)?.keys() ?? []), ...snapshotCurrencies].map(code => ({
+          [
+            ...(cashByDate.get(date)?.keys() ?? []),
+            ...(debtsByDate.get(date)?.keys() ?? []),
+            ...snapshotCurrencies,
+          ].map(code => ({
             currency: code,
             date,
           })),
@@ -279,8 +301,9 @@ export class NetWorthService {
                 ? -1
                 : 0;
           if (sign === 0) continue;
-          if (leaf.code === CASH_ACCOUNT_CODE) {
-            value += sign * converter.convertAll(cashByDate.get(date) ?? new Map(), date);
+          const computed = computedByCode.get(leaf.code);
+          if (computed) {
+            value += sign * converter.convertAll(computed.get(date) ?? new Map(), date);
             continue;
           }
           const snapshot = latestOnOrBefore(snapshotsByAccount.get(leaf.id), date);

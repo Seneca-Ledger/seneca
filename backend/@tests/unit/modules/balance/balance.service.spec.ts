@@ -60,6 +60,8 @@ describe('BalanceService', () => {
     jest.clearAllMocks();
     // getWorkspaceCurrency() reads the workspace on every balance sheet build.
     workspaceRepository.findOne.mockResolvedValue({ currency: 'KZT' });
+    // No credit card or loan unless a test says so.
+    walletRepository.find.mockResolvedValue([]);
 
     service = new BalanceService(
       balanceAccountRepository,
@@ -378,6 +380,18 @@ describe('BalanceService', () => {
       expect(statements.andWhere).toHaveBeenCalledWith('statement.walletId IS NULL');
       const where = walletRepository.find.mock.calls[0][0].where;
       expect(where.type).toEqual(Not(In(['credit_card', 'loan'])));
+    });
+
+    it('reads what a credit card owes as a positive debt', async () => {
+      walletRepository.find.mockResolvedValue([{ id: 'w-card', initialBalance: '-50', currency: 'EUR' }]);
+      transactionRepository.createQueryBuilder.mockReturnValue(
+        queryBuilderReturning([{ date: '2026-01-05', currency: 'EUR', credit: '0', debit: '30' }]),
+      );
+
+      const series = await service.getDebtSeries('ws-1', ['2026-01-31']);
+
+      expect(series.get('2026-01-31')).toEqual(new Map([['EUR', 80]]));
+      expect(walletRepository.find.mock.calls[0][0].where.type).toEqual(In(['credit_card', 'loan']));
     });
 
     it('sums the latest live statement of each bank account', async () => {

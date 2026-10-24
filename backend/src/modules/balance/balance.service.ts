@@ -47,6 +47,9 @@ import { BalanceExportFormat } from './dto/export-balance.dto';
 /** The one line whose risk is fixed rather than chosen. */
 export const CASH_ACCOUNT_CODE = 'ASSET_CASH';
 
+/** The liability line the credit cards and loans on the Accounts page fill. */
+export const DEBTS_ACCOUNT_CODE = 'LIABILITY_ACCOUNT_DEBTS';
+
 const LIVE_STATEMENT_STATUSES = [
   StatementStatus.PARSED,
   StatementStatus.VALIDATED,
@@ -314,6 +317,27 @@ export class BalanceService {
       series.set(date, amounts);
     }
     return series;
+  }
+
+  /**
+   * What the active credit cards and loans owe at each of `dates`, per
+   * currency, as positive amounts: the liability side of what cash leaves out.
+   */
+  async getDebtSeries(workspaceId: string, dates: string[]): Promise<Map<string, CurrencyAmounts>> {
+    const debts = await this.walletRepository.find({
+      where: { workspaceId, isActive: true, type: In([...DEBT_WALLET_TYPES]) },
+      select: ['id', 'initialBalance', 'currency'],
+    });
+    if (debts.length === 0) {
+      return new Map(dates.map(date => [date, new Map()]));
+    }
+    const balances = await this.getWalletCashSeries(workspaceId, debts, dates);
+    return new Map(
+      [...balances].map(([date, amounts]) => [
+        date,
+        new Map([...amounts].map(([currency, amount]) => [currency, -amount])),
+      ]),
+    );
   }
 
   private async getWalletCashSeries(
@@ -656,7 +680,7 @@ export class BalanceService {
 
     const snapshotDate = this.resolveDate(date);
 
-    const [accounts, snapshotsMap, cash, retainedEarnings, currency] = await Promise.all([
+    const [accounts, snapshotsMap, cash, debts, retainedEarnings, currency] = await Promise.all([
       this.balanceAccountRepository.find({
         where: { workspaceId },
         order: {
@@ -666,6 +690,9 @@ export class BalanceService {
       }),
       this.getLatestSnapshotMap(workspaceId, snapshotDate),
       this.getAutoComputedCashBalance(workspaceId, snapshotDate),
+      this.getDebtSeries(workspaceId, [snapshotDate]).then(
+        series => series.get(snapshotDate) ?? new Map<string, number>(),
+      ),
       this.getRetainedEarnings(workspaceId, snapshotDate),
       this.getWorkspaceCurrency(workspaceId),
     ]);
@@ -677,6 +704,7 @@ export class BalanceService {
       currency,
       [
         ...cash.keys(),
+        ...debts.keys(),
         ...retainedEarnings.keys(),
         ...[...snapshotsMap.values()].map(snapshotCurrency),
       ].map(code => ({ currency: code, date: snapshotDate })),
@@ -685,6 +713,7 @@ export class BalanceService {
 
     const autoAmountsByCode = new Map<string, number>([
       ['ASSET_CASH', converter.convertAll(cash, snapshotDate)],
+      [DEBTS_ACCOUNT_CODE, converter.convertAll(debts, snapshotDate)],
       ['EQUITY_RETAINED_EARNINGS', converter.convertAll(retainedEarnings, snapshotDate)],
     ]);
 

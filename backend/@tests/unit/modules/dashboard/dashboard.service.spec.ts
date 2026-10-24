@@ -63,6 +63,8 @@ const formatDateOnly = (date: Date) => {
 describe('DashboardService', () => {
   let service: DashboardService;
   const transactionRepo = createRepoMock();
+  // Raw queries: the account count for the opening balance (none unless a test says so).
+  (transactionRepo as any).query = jest.fn(async () => [{ count: 0 }]);
   const statementRepo = createRepoMock();
   const payableRepo = createRepoMock();
   const walletRepo = createRepoMock();
@@ -79,6 +81,7 @@ describe('DashboardService', () => {
     jest.resetAllMocks();
     workspaceRepo.findOne.mockResolvedValue({ currency: 'KZT' });
     exchangeRatesService.getRate.mockResolvedValue(1);
+    (transactionRepo as any).query.mockResolvedValue([{ count: 0 }]);
     service = new DashboardService(
       transactionRepo,
       statementRepo,
@@ -1141,6 +1144,25 @@ describe('DashboardService', () => {
         createQueryBuilderMock([{ currency: 'KZT', balance }]),
       );
     };
+
+    it('starts from the everyday accounts and the banks no account holds, once there are accounts', async () => {
+      const query = (transactionRepo as any).query as jest.Mock;
+      query
+        .mockResolvedValueOnce([{ count: 2 }])
+        .mockResolvedValueOnce([
+          { currency: 'KZT', balance: '700' },
+          { currency: 'KZT', balance: '-200' },
+          { currency: 'KZT', balance: '150' },
+        ]);
+      payableRepo.find.mockResolvedValue([]);
+      subscriptionRepo.find.mockResolvedValue([]);
+
+      const result = await service.getCommitments('ws-1', 10);
+
+      expect(result.openingBalance).toBe(650);
+      expect(query.mock.calls[1][1]).toEqual(['ws-1', ['checking', 'cash', 'credit_card']]);
+      expect(transactionRepo.createQueryBuilder).not.toHaveBeenCalled();
+    });
 
     it('pulls overdue payables to today and keeps undated ones off the curve', async () => {
       primeBalance('1000');

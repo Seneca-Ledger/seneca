@@ -28,6 +28,8 @@ interface Props {
   amount: string;
   currency: string;
   date: string;
+  /** The account picked for the expense; without one the notice says nothing about an account. */
+  walletId?: string;
 }
 
 const formatAmount = (value: number, currency: string): string =>
@@ -42,7 +44,7 @@ const fill = (template: string, name: [string, string], money: Record<string, st
  * account it lands in. Advice under the category field, never a gate: the
  * person can still book it.
  */
-export function BudgetImpactNotice({ categoryId, amount, currency, date }: Props) {
+export function BudgetImpactNotice({ categoryId, amount, currency, date, walletId }: Props) {
   const t = useIntlayer('statementsCreateExpenseDrawer');
   const [impact, setImpact] = useState<BudgetImpact | null>(null);
   const parsedAmount = Number(amount.replace(',', '.'));
@@ -62,6 +64,7 @@ export function BudgetImpactNotice({ categoryId, amount, currency, date }: Props
           amount: parsedAmount,
           currency,
           date: date || undefined,
+          walletId,
         } satisfies ContractInput<'BudgetImpactQuery'>,
         signal: controller.signal,
         contract: 'BudgetImpact',
@@ -73,7 +76,7 @@ export function BudgetImpactNotice({ categoryId, amount, currency, date }: Props
       clearTimeout(timer);
       controller.abort();
     };
-  }, [categoryId, parsedAmount, currency, date]);
+  }, [categoryId, parsedAmount, currency, date, walletId]);
 
   if (!impact) return null;
   const lines: Array<{ key: string; text: React.ReactNode; warn: boolean }> = impact.budgets.map(

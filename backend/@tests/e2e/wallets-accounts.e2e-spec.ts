@@ -278,6 +278,31 @@ describe('Accounts (e2e)', () => {
     ).expect(404);
   });
 
+  it('counts a card as a debt in net worth and starts the forecast from the accounts', async () => {
+    const othersCurrency: string = (
+      await as(other, request(server()).get('/wallets/summary')).expect(200)
+    ).body.currency;
+    const before = (await as(other, request(server()).get('/reports/net-worth')).expect(200)).body;
+    const owed = 120;
+    await as(
+      other,
+      request(server())
+        .post('/wallets')
+        .send({ name: 'ACME Card', type: 'credit_card', currency: othersCurrency, initialBalance: -owed }),
+    ).expect(201);
+
+    const after = (await as(other, request(server()).get('/reports/net-worth')).expect(200)).body;
+    expect(after.currency).toBe(othersCurrency);
+    expect(after.liabilitiesTotal).toBe(before.liabilitiesTotal + owed);
+    expect(after.current).toBeCloseTo(before.current - owed, 2);
+
+    // The savings account from the earlier test is not spendable; the card's debt is.
+    const commitments = (
+      await as(other, request(server()).get('/dashboard/commitments')).expect(200)
+    ).body;
+    expect(commitments.openingBalance).toBe(-owed);
+  });
+
   it('keeps accounts and statements inside their workspace', async () => {
     const [ownersAccount] = await listAccounts(owner);
     const ownersStatement = await seedStatement(owner, currency);

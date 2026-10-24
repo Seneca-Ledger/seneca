@@ -42,6 +42,8 @@ function createService(options: {
   snapshots?: SnapshotSeed[];
   /** Cash per currency, the same at every sample date. */
   cash?: Record<string, number>;
+  /** What cards and loans owe per currency, the same at every sample date. */
+  debts?: Record<string, number>;
   /** Rate to KZT by currency; absent means no rate. */
   rates?: Record<string, number | ((date: string) => number)>;
   /** Spot price of one ounce, by day; absent means that day has no quote. */
@@ -82,6 +84,10 @@ function createService(options: {
     getCashSeries: jest.fn(
       async (_workspaceId: string, dates: string[]) =>
         new Map(dates.map(date => [date, new Map(Object.entries(options.cash ?? {}))])),
+    ),
+    getDebtSeries: jest.fn(
+      async (_workspaceId: string, dates: string[]) =>
+        new Map(dates.map(date => [date, new Map(Object.entries(options.debts ?? {}))])),
     ),
   } as any;
 
@@ -127,6 +133,28 @@ describe('NetWorthService', () => {
     expect(result.current).toBe(800);
     expect(result.assetsTotal).toBe(1200);
     expect(result.liabilitiesTotal).toBe(400);
+  });
+
+  it('counts what the cards and loans on the Accounts page owe as a liability', async () => {
+    const { service } = createService({
+      accounts: [
+        ...ACCOUNTS,
+        {
+          id: 'l-debts',
+          code: 'LIABILITY_ACCOUNT_DEBTS',
+          name: 'Кредитные карты и кредиты',
+          accountType: BalanceAccountType.LIABILITY,
+          parentId: 'l-borrowed',
+        },
+      ],
+      cash: { KZT: 500 },
+      debts: { KZT: 120 },
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d');
+
+    expect(result.liabilitiesTotal).toBe(120);
+    expect(result.current).toBe(380);
   });
 
   it('holds an account at its last entered value until the next one', async () => {

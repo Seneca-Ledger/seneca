@@ -114,6 +114,8 @@ export const BudgetImpactQuery = Schema.Struct({
   amount: AtLeastZero,
   currency: Schema.optional(Schema.String),
   date: Schema.optional(IsoDateString),
+  /** The account the expense would leave; without one no account is affected. */
+  walletId: Schema.optional(Uuid),
 });
 export type BudgetImpactQuery = Wire<typeof BudgetImpactQuery>;
 
