@@ -1,4 +1,12 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn,
+  type Relation,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Workspace } from './workspace.entity';
 
 /** Offsets in days from the due date: negative before it, positive after. */
@@ -24,7 +32,7 @@ export class InvoiceSettings {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'reminders_enabled', type: 'boolean', default: false })
   remindersEnabled: boolean;

@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import type { EInvoiceSummary } from '../modules/e-invoices/einvoice-summary';
@@ -66,14 +67,14 @@ export class Receipt {
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({
     name: 'source',
@@ -202,7 +203,7 @@ export class Receipt {
 
   @ManyToOne(() => Transaction, { nullable: true })
   @JoinColumn({ name: 'transaction_id' })
-  transaction: Transaction | null;
+  transaction: Relation<Transaction | null>;
 
   @Column({ name: 'statement_id', type: 'uuid', nullable: true })
   statementId: string | null;
@@ -215,7 +216,7 @@ export class Receipt {
 
   @ManyToOne(() => Receipt, { nullable: true })
   @JoinColumn({ name: 'duplicate_of_id' })
-  duplicateOf: Receipt | null;
+  duplicateOf: Relation<Receipt | null>;
 
   @Column({ name: 'is_duplicate', type: 'boolean', default: false })
   isDuplicate: boolean;

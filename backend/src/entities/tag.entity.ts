@@ -6,6 +6,7 @@ import {
   ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Statement } from './statement.entity';
@@ -28,7 +29,7 @@ export class Tag {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -43,11 +44,11 @@ export class Tag {
     () => Statement,
     statement => statement.tags,
   )
-  statements: Statement[];
+  statements: Relation<Statement[]>;
 
   @ManyToMany(
     () => Transaction,
     transaction => transaction.tags,
   )
-  transactions: Transaction[];
+  transactions: Relation<Transaction[]>;
 }
