@@ -252,6 +252,7 @@ export function ReviewInboxView({ state }: Props) {
       c: () => {
         categorySelectRef.current?.querySelector<HTMLElement>('button')?.focus();
       },
+      // biome-ignore lint/correctness/noComponentHookFactories: a key name (tinykeys), not a component.
       Escape: () => clearSelection(),
     },
     !busy,
