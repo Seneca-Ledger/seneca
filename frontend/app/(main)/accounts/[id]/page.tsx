@@ -144,7 +144,6 @@ export default function AccountPage(): React.JSX.Element {
         pt: 'var(--seneca-page-top, 24px)',
         pb: 3,
         width: '100%',
-        maxWidth: 880,
         display: 'grid',
         gap: 3,
         alignContent: 'start',

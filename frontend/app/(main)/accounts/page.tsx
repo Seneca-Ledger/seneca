@@ -176,7 +176,6 @@ export default function AccountsPage() {
         pt: 'var(--seneca-page-top, 24px)',
         pb: 3,
         width: '100%',
-        maxWidth: 880,
         display: 'grid',
         gap: 3,
         alignContent: 'start',
@@ -216,6 +215,8 @@ export default function AccountsPage() {
 
       {noAccounts && (
         <EmptyState
+          // Alone on the page it sits in the middle; under the found accounts it follows them.
+          fill={found.length === 0}
           icon={<CoinsLineIcon />}
           title={t.emptyTitle}
           description={t.emptyHint}
