@@ -91,10 +91,10 @@ function PeersSection({ payeeId }: { payeeId: string }): React.JSX.Element | nul
   const category = data.category ? localizeStatementCategoryName(data.category.name, locale) : null;
   const empty = data.series.length < 2;
   return (
-    // With nobody to compare, the card takes the rest of the column, as tall as the cards beside it.
+    // The card takes the rest of the column, as tall as the cards beside it.
     <section
       className="seneca-all-tx__card seneca-payees__section"
-      style={empty ? { flex: 1, gridTemplateRows: 'auto 1fr' } : undefined}
+      style={{ flex: 1, gridTemplateRows: 'auto 1fr' }}
     >
       <h2 className="seneca-all-tx__card-title">
         {category
