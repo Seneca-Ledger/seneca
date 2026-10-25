@@ -232,7 +232,6 @@ function useWorkspaceActions(
   };
 }
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function useWorkspaceOverview(): WorkspaceOverviewState | null {
   const router = useRouter();
   const { currentWorkspace, refreshWorkspaces, clearWorkspace, updateWorkspaceBackground } =

@@ -12,7 +12,6 @@ type DocumentTransactionRowProps = {
   formatNumber: (v: number | undefined | null, currency?: string) => string;
 };
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function DocumentTransactionRow({
   transaction,
   formatDate,

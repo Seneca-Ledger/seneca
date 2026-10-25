@@ -61,7 +61,6 @@ const cellNode = (cell: PreviewCell): React.ReactNode =>
 /** Only the first column holds labels; everything else is a figure, so right-align it. */
 const alignFor = (index: number): 'left' | 'right' => (index === 0 ? 'left' : 'right');
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ReportPreview({
   data,
   loading,
@@ -69,7 +68,6 @@ export function ReportPreview({
 }: ReportPreviewProps): React.JSX.Element | null {
   const t = useIntlayer('reportsPage');
   const labels = t.labels as Record<string, { value?: string } | undefined>;
-  // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
 
   if (loading) {
@@ -129,7 +127,6 @@ export function ReportPreview({
           {text('previewEmpty', 'No data for this period and filter')}
         </Typography>
       ) : (
-        // eslint-disable-next-line max-lines-per-function
         data.sections.map(section => (
           <Box key={section.title ?? section.columns.join('|')} sx={{ mt: 1.5 }}>
             {section.title && (

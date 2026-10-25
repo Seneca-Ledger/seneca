@@ -67,7 +67,6 @@ export interface UseStorageFoldersReturn {
   clearFolderMoveFeedback: () => void;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function useStorageFolders(
   messages: UseStorageFoldersMessages,
   setFiles: React.Dispatch<React.SetStateAction<StorageFile[]>>,

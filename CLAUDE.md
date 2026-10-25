@@ -83,7 +83,7 @@ make dev                          # docker compose dev with hot reload
 npm --prefix backend run test:e2e
 npm --prefix backend run test:golden   # parsing golden tests (GOLDEN_ENABLED=1)
 npm --prefix backend run lint:fix      # Biome only
-npm --prefix frontend run lint:fix     # Biome AND ESLint (both run)
+npm --prefix frontend run lint:fix     # Biome
 npm --prefix backend run typecheck
 npm --prefix frontend run type-check
 
@@ -95,7 +95,7 @@ npm run migration:generate -- src/migrations/<Name>
 
 ## Gotchas
 
-- Frontend lint runs **both** Biome and ESLint — fixing one but not the other leaves CI red.
+- Lint is Biome only (ESLint was removed). In the frontend an `eslint-disable … react-hooks/*` comment is still meaningful: React Compiler skips that function.
 - `prebuild` and `postinstall` on the frontend run `intlayer build`; deleting the intlayer config or skipping it breaks both install and build.
 - Backend dev uses a manual nodemon command, not `nest start`, and bumps Node heap to 2 GB. Dev scripts (`migration:run:dev`, `seed:demo:dev`, `create-admin:dev`) run ts-node with `--transpile-only`; type-checking is `npm run typecheck`.
 - SWC was evaluated for the backend dev loop and rejected: its CommonJS getter exports hit a TDZ on circular entity imports with `emitDecoratorMetadata`. Adopting it needs the TypeORM `Relation<>` wrapper on every relation property first.

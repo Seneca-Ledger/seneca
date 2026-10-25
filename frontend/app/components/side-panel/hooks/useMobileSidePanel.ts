@@ -20,7 +20,6 @@ interface UseMobileSidePanelParams {
   pathname: string | null;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function useMobileSidePanel({ config, sidePanel, pathname }: UseMobileSidePanelParams) {
   const [mobileSidePanelOpen, setMobileSidePanelOpen] = React.useState(false);
   const [mobileSidePanelMounted, setMobileSidePanelMounted] = React.useState(false);
@@ -88,7 +87,6 @@ export function useMobileSidePanel({ config, sidePanel, pathname }: UseMobileSid
   }, [mobileSidePanelOpen, mobileSidePanelMounted]);
 
   React.useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const handleMenuVisibility = (event: Event) => {
       const customEvent = event as CustomEvent<{ open?: boolean }>;
       setGlobalMobileMenuOpen(Boolean(customEvent.detail?.open));
@@ -114,7 +112,6 @@ export function useMobileSidePanel({ config, sidePanel, pathname }: UseMobileSid
   }, [config]);
 
   const handlePanelTouchStart = React.useCallback(
-    // eslint-disable-next-line complexity
     (event: React.TouchEvent<HTMLDialogElement>): void => {
       if (!mobileSidePanelVisible) return;
       if (event.touches.length !== 1) return;
@@ -126,7 +123,6 @@ export function useMobileSidePanel({ config, sidePanel, pathname }: UseMobileSid
   );
 
   const handlePanelTouchMove = React.useCallback(
-    // eslint-disable-next-line complexity
     (event: React.TouchEvent<HTMLDialogElement>): void => {
       if (!dragActiveRef.current) return;
       if (touchStartXRef.current === null || touchStartYRef.current === null) return;

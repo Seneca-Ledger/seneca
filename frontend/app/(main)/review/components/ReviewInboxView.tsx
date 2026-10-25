@@ -129,7 +129,6 @@ function fill(template: string, params: Record<string, string | number>): string
 
 type Props = { state: UseReviewInboxResult };
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ReviewInboxView({ state }: Props) {
   const t = useIntlayer('reviewInbox');
   const tOwner = useIntlayer('transactionOwner');

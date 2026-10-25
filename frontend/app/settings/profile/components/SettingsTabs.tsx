@@ -39,7 +39,6 @@ export function SettingsTabs({
   onTabChange,
   labels,
 }: SettingsTabsProps): React.JSX.Element {
-  // eslint-disable-next-line max-params
   const handleChange = (_: React.SyntheticEvent, value: SettingsTabId): void => onTabChange(value);
   return (
     <Tabs

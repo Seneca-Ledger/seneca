@@ -261,7 +261,6 @@ async function apiSetPlugins(
   setters.setCurrentWorkspace(prev => (prev?.id === workspaceId ? { ...prev, settings } : prev));
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
   // Every workspace the API lists, opened versions included, so the current

@@ -39,7 +39,6 @@ const EXPORT_ITEMS: Array<{
   { key: 'docx', labelKey: 'docx', icon: FileText },
 ];
 
-// eslint-disable-next-line max-params
 const resolveText = (token: Token | undefined, fallback: string): string =>
   token?.value || fallback;
 
@@ -50,7 +49,6 @@ const EXPORT_EXTENSIONS: Record<ExportFormat, string> = {
   docx: 'docx',
 };
 
-// eslint-disable-next-line max-params
 const resolveDownloadFileName = (format: ExportFormat, contentDisposition?: string): string => {
   const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i);
   if (match?.[1]) return decodeURIComponent(match[1].replace(/"/g, ''));
@@ -64,7 +62,6 @@ const ITEM_FALLBACKS: Record<ExportFormat, string> = {
   csv: 'CSV',
 };
 
-// eslint-disable-next-line max-params
 function triggerDownload(blob: Blob, fileName: string): void {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -76,7 +73,6 @@ function triggerDownload(blob: Blob, fileName: string): void {
   window.URL.revokeObjectURL(url);
 }
 
-// eslint-disable-next-line max-params
 async function runExport(format: ExportFormat, t: ExportDropdownProps['t']): Promise<void> {
   const toastId = toast.loading(resolveText(t?.downloading, 'Downloading...'));
   try {

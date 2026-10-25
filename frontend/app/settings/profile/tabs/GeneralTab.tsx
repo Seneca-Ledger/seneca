@@ -35,7 +35,6 @@ import {
 
 import type { SettingsTabProps } from './types';
 
-// eslint-disable-next-line max-lines-per-function
 export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.JSX.Element {
   const { locale, availableLocales, setLocale } = useLocale();
   const { t, tx } = useSettingsText();

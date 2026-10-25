@@ -294,7 +294,6 @@ type PanelProps = {
   onSelect: (code: string) => void;
 };
 
-// eslint-disable-next-line max-lines-per-function, complexity
 function CurrencyPanel({
   minimal,
   large,
@@ -429,7 +428,6 @@ function CurrencyPanel({
   );
 }
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function CurrencySelector({
   selectedCurrency,
   onSelect,

@@ -62,12 +62,10 @@ function parseRecipients(raw: string): string[] {
     .filter(Boolean);
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.Element {
   const t = useIntlayer('reportsPage');
   const { locale } = useLocale();
   const labels = t.labels as Record<string, { value?: string } | undefined>;
-  // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
 
   const [rows, setRows] = useState<ReportScheduleRow[]>([]);

@@ -32,7 +32,6 @@ interface ReportTemplateCardProps {
   isSelected?: boolean;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function ReportTemplateCard({
   template,
   onSelect,

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 import {
   Accordion,
@@ -143,7 +142,6 @@ function EditStatementSkeleton(): React.JSX.Element {
   );
 }
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export default function EditStatementPage(): React.JSX.Element {
   const params = useParams();
   const router = useRouter();
@@ -259,13 +257,11 @@ export default function EditStatementPage(): React.JSX.Element {
     return noCategory || transaction.category?.isEnabled === false;
   }).length;
 
-  // eslint-disable-next-line max-params
   const totalIncome = transactions.reduce((sum, t) => {
     const credit = Number(t.credit);
     return sum + (Number.isNaN(credit) ? 0 : credit);
   }, 0);
 
-  // eslint-disable-next-line max-params
   const totalExpense = transactions.reduce((sum, t) => {
     const debit = Number(t.debit);
     return sum + (Number.isNaN(debit) ? 0 : debit);
@@ -674,7 +670,6 @@ export default function EditStatementPage(): React.JSX.Element {
             parsingWarningCount > 0 ||
             (statement?.parsingDetails?.droppedSamples?.length ?? 0) > 0)
         }
-        // eslint-disable-next-line max-params
         onChange={(_, expanded) => setParsingDetailsExpanded(expanded)}
         elevation={0}
         disableGutters

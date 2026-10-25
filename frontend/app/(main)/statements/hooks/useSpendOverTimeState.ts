@@ -80,7 +80,6 @@ const DEFAULT_FLOW: SpendOverTimeFlowType = 'expense';
 // localStorage helpers
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line complexity
 const loadStoredState = (storageKey: string): StoredState => {
   if (typeof window === 'undefined') {
     return {
@@ -134,7 +133,6 @@ const saveStoredState = (storageKey: string, state: StoredState): void => {
 // Hook
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line max-lines-per-function
 export function useSpendOverTimeState(storageKey: string): UseSpendOverTimeStateReturn {
   const initial = loadStoredState(storageKey);
 
@@ -169,7 +167,6 @@ export function useSpendOverTimeState(storageKey: string): UseSpendOverTimeState
     });
   }, [storageKey, appliedFilters, groupBy, viewType, workspaceFilter, activeFlowType]);
 
-  // eslint-disable-next-line complexity
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (appliedFilters.type) {

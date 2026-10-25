@@ -46,7 +46,6 @@ type DocumentTransactionTableProps = {
   totalIncome: number;
 };
 
-// eslint-disable-next-line max-lines-per-function
 export function DocumentTransactionTable({
   transactions,
   formatDate,

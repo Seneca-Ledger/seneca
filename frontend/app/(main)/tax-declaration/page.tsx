@@ -162,7 +162,6 @@ function TaxDeclarationContent(): React.ReactElement {
         >
           <Tabs
             value={step}
-            // eslint-disable-next-line max-params
             onChange={(_event, value: StepKey) => updateQuery({ step: value })}
             variant="scrollable"
             scrollButtons={false}

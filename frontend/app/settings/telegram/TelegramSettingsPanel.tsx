@@ -56,7 +56,6 @@ const loadConnection = async (): Promise<TelegramConnection | null> =>
  * Telegram bot + chat wiring and the report history. Rendered inside the
  * Notifications settings tab, after the page's own auth gate.
  */
-// eslint-disable-next-line max-lines-per-function, complexity
 export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.JSX.Element {
   const { hasPermission } = usePermissions();
   const t = useIntlayer('settingsTelegramPage');

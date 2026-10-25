@@ -28,7 +28,6 @@ const normalize = (value: string): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
-// eslint-disable-next-line complexity
 const resolveKeyFromName = (bankName: string): BankLogoKey => {
   const n = normalize(bankName);
 

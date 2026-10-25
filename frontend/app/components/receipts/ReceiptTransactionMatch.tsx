@@ -40,7 +40,6 @@ const formatMoney = (amount: number, currency: string, locale: string): string =
  * and — once attached — the split of that row by line items: a preview where
  * each line's category can be changed before anything is booked, and an undo.
  */
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ReceiptTransactionMatch({
   receipt,
   categories,
