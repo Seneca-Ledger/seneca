@@ -14,6 +14,10 @@ import {
   TrialBalance as TrialBalanceContract,
 } from '../../contracts';
 import {
+  LedgerBalanceSheet,
+  ProfitAndLoss as ProfitAndLossContract,
+} from '../../contracts/ledger/ledger-reports';
+import {
   type AccountLedger,
   type BalanceSheet,
   LedgerReportsService,
@@ -48,6 +52,7 @@ export class LedgerReportsController {
 
   @Get('profit-and-loss')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(ProfitAndLossContract)
   async profitAndLoss(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(LedgerPeriodQuery) query: LedgerPeriodQuery,
@@ -58,6 +63,7 @@ export class LedgerReportsController {
 
   @Get('balance-sheet')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(LedgerBalanceSheet)
   async balanceSheet(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(LedgerDateQuery) query: LedgerDateQuery,

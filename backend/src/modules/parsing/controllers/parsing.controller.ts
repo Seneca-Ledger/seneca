@@ -14,12 +14,14 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as xlsx from 'xlsx';
 import { SchemaBody } from '../../../common/effect/schema-body';
+import { SchemaResponse } from '../../../common/effect/schema-response';
 import { appError } from '../../../common/errors/app-error';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { validateFile } from '../../../common/utils/file-validator.util';
 import { assertSafeZipDecompressionRatio } from '../../../common/utils/zip-bomb-guard.util';
 import { multerConfig } from '../../../config/multer.config';
 import { ParseDocumentBody } from '../../../contracts';
+import { ParsedDocumentResult } from '../../../contracts/imports/import-sessions';
 import { UniversalExtractorService } from '../services/universal-extractor.service';
 
 // Local type alias keeps the decorator-metadata transform from emitting
@@ -44,6 +46,7 @@ export class ParsingController {
   @ApiOperation({ summary: 'Parse uploaded document and extract structured financial fields' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', multerConfig))
+  @SchemaResponse(ParsedDocumentResult)
   async parseDocument(
     @UploadedFile() file: MulterFile,
     @SchemaBody(ParseDocumentBody) payload: ParseDocumentBody,

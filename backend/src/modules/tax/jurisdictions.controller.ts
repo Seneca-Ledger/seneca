@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import {
   JurisdictionParams,
   JurisdictionRateList,
+  TaxJurisdictionItem,
   TaxJurisdictionList,
   TaxRatesOnDateQuery,
 } from '../../contracts';
@@ -27,6 +28,7 @@ export class JurisdictionsController {
   }
 
   @Get(':code')
+  @SchemaResponse(TaxJurisdictionItem)
   async findOne(@SchemaParams(JurisdictionParams) { code }: JurisdictionParams) {
     return this.jurisdictionsService.findByCode(code);
   }

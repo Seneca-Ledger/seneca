@@ -7,10 +7,14 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   CreateInvestmentAccountBody,
+  InvestmentAccount,
   InvestmentAccountList,
+  InvestmentContribution,
   InvestmentContributionParams,
+  InvestmentHolding,
   InvestmentParams,
   LinkContributionBody,
+  PriceRefreshResult,
   UpsertHoldingBody,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
@@ -34,6 +38,7 @@ export class InvestmentsController {
 
   @Post('accounts')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(InvestmentAccount)
   async createAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -55,6 +60,7 @@ export class InvestmentsController {
 
   @Post('accounts/:id/holdings')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(InvestmentHolding)
   async addHolding(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -66,6 +72,7 @@ export class InvestmentsController {
 
   @Patch('holdings/:id')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(InvestmentHolding)
   async updateHolding(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -90,6 +97,7 @@ export class InvestmentsController {
   @Post('refresh-prices')
   @HttpCode(200)
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(PriceRefreshResult)
   async refreshPrices(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const updated = await this.investmentsService.refreshPrices(user.id, workspaceId);
     return { updated };
@@ -98,6 +106,7 @@ export class InvestmentsController {
   /** Marks an expense as money moved into an investment account (a one-leg transfer). */
   @Post('contributions')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(InvestmentContribution)
   async linkContribution(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(LinkContributionBody) dto: LinkContributionBody,
@@ -107,6 +116,7 @@ export class InvestmentsController {
 
   @Delete('contributions/:transactionId')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(InvestmentContribution)
   async unlinkContribution(
     @WorkspaceId() workspaceId: string,
     @SchemaParams(InvestmentContributionParams) { transactionId }: InvestmentContributionParams,

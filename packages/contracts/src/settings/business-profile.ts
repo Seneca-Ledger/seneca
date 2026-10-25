@@ -39,3 +39,7 @@ export const BusinessProfileLogo = Schema.Struct({
   logoUrl: Schema.String,
 });
 export type BusinessProfileLogo = Wire<typeof BusinessProfileLogo>;
+
+/** `DELETE /business-profile/logo`. */
+export const BusinessProfileLogoCleared = Schema.Struct({ logoFile: Schema.Null });
+export type BusinessProfileLogoCleared = Wire<typeof BusinessProfileLogoCleared>;

@@ -19,6 +19,7 @@ import {
   CreatePayableBody,
   FilterPayablesBody,
   MarkPayablePaidBody,
+  MessageResult,
   Payable,
   PayableList,
   PayableListPage,
@@ -122,6 +123,7 @@ export class PayablesController {
   @Post(':id/payments/:paymentId/book')
   @WorkspaceAuth(Permission.PAYABLE_EDIT)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Payable)
   async bookPayment(
     @SchemaParams(PayablePaymentParams) { id, paymentId }: PayablePaymentParams,
     @SchemaBody(BookPayablePaymentBody) dto: BookPayablePaymentBody,
@@ -207,6 +209,7 @@ export class PayablesController {
   @Delete(':id')
   @WorkspaceAuth(Permission.PAYABLE_DELETE)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(PayableParams) { id }: PayableParams,
     @CurrentUser() user: User,

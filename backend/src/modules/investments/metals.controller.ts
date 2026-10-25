@@ -24,10 +24,14 @@ import { appError } from '../../common/errors/app-error';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   InvestmentParams,
+  MetalLot,
   MetalReceiptList,
   MetalReceiptOptionsQuery,
+  MetalSaleResult,
+  MetalSettings,
   MetalSettingsBody,
   MetalsSummary,
+  PriceRefreshResult,
   SellMetalLotBody,
   UpsertMetalLotBody,
 } from '../../contracts';
@@ -68,6 +72,7 @@ export class MetalsController {
 
   @Post('lots')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(MetalLot)
   async addLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -78,6 +83,7 @@ export class MetalsController {
 
   @Patch('lots/:id')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(MetalLot)
   async updateLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -112,6 +118,7 @@ export class MetalsController {
   /** Sells a lot, whole or in part; proceeds of zero record a gift. */
   @Post('lots/:id/sell')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(MetalSaleResult)
   async sellLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -124,6 +131,7 @@ export class MetalsController {
   /** What a dealer pays below spot, per metal. */
   @Patch('settings')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(MetalSettings)
   async saveSettings(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -164,6 +172,7 @@ export class MetalsController {
       limits: { fileSize: PHOTO_MAX_BYTES },
     }),
   )
+  @SchemaResponse(MetalLot)
   async uploadPhoto(
     @WorkspaceId() workspaceId: string,
     @SchemaParams(InvestmentParams) { id }: InvestmentParams,
@@ -175,6 +184,7 @@ export class MetalsController {
 
   @Delete('lots/:id/photo')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(MetalLot)
   async removePhoto(
     @WorkspaceId() workspaceId: string,
     @SchemaParams(InvestmentParams) { id }: InvestmentParams,
@@ -186,6 +196,7 @@ export class MetalsController {
   @Post('refresh-prices')
   @HttpCode(200)
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(PriceRefreshResult)
   async refreshPrices(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const updated = await this.metalsService.refreshPrices(user.id, workspaceId);
     return { updated };

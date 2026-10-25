@@ -10,6 +10,7 @@ import type { AuthenticatedRequest } from '../../common/interfaces/authenticated
 import {
   EntityImportBatchParams,
   EntityImportResult,
+  EntityImportUndone,
   ImportSuggestion,
   RunEntityImportBody,
   SuggestImportBody,
@@ -50,6 +51,7 @@ export class EntityImportsController {
 
   @Delete(':batchId')
   @ApiKeyAllowed()
+  @SchemaResponse(EntityImportUndone)
   undo(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

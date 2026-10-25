@@ -136,3 +136,23 @@ export const MetalsSummary = Schema.Struct({
   jurisdiction: Schema.NullOr(Schema.String),
 });
 export type MetalsSummary = Wire<typeof MetalsSummary>;
+
+/** What a dealer pays below spot, in percent, per metal. */
+export const MetalDealerDiscounts = Schema.Struct({
+  XAU: Schema.Number,
+  XAG: Schema.Number,
+  XPT: Schema.Number,
+  XPD: Schema.Number,
+});
+export type MetalDealerDiscounts = Wire<typeof MetalDealerDiscounts>;
+
+/** `PATCH /metals/settings`. */
+export const MetalSettings = Schema.Struct({ dealerDiscount: MetalDealerDiscounts });
+export type MetalSettings = Wire<typeof MetalSettings>;
+
+/** `POST /metals/lots/:id/sell`: the sale, and what is left of the lot (null when sold out). */
+export const MetalSaleResult = Schema.Struct({
+  sale: MetalSale,
+  lot: Schema.NullOr(MetalLot),
+});
+export type MetalSaleResult = Wire<typeof MetalSaleResult>;

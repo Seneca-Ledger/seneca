@@ -126,7 +126,8 @@ describe('TaxRatesService', () => {
       const existing = { id: 'rate-1', workspaceId: 'ws-1', name: 'Old', rate: 10 };
       repo.findOne
         .mockResolvedValueOnce(existing) // findOne in update
-        .mockResolvedValueOnce(null); // duplicate check
+        .mockResolvedValueOnce(null) // duplicate check
+        .mockResolvedValueOnce(existing); // read back after saving
 
       await service.update('rate-1', 'ws-1', { name: 'New Name', rate: 25 });
       expect(repo.save).toHaveBeenCalledWith(
@@ -161,7 +162,8 @@ describe('TaxRatesService', () => {
       const existing = { id: 'rate-1', workspaceId: 'ws-1', name: 'Same' };
       repo.findOne
         .mockResolvedValueOnce(existing) // findOne
-        .mockResolvedValueOnce({ id: 'rate-1', name: 'Same' }); // same record
+        .mockResolvedValueOnce({ id: 'rate-1', name: 'Same' }) // same record
+        .mockResolvedValueOnce(existing); // read back after saving
 
       await expect(service.update('rate-1', 'ws-1', { name: 'Same' })).resolves.toBeDefined();
     });
@@ -231,7 +233,8 @@ describe('TaxRatesService', () => {
     it('records an UPDATE with before and after', async () => {
       repo.findOne
         .mockResolvedValueOnce({ id: 'rate-1', workspaceId: 'ws-1', name: 'Old', rate: 10 })
-        .mockResolvedValueOnce(null);
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'rate-1' });
 
       await service.update('rate-1', 'ws-1', { name: 'New', rate: 25 }, 'user-1');
 

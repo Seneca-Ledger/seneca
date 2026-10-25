@@ -243,7 +243,7 @@ export class TaxReturnsService {
     const totals = await this.computeTotals(workspaceId, periodStart, periodEnd);
     const jurisdiction = await this.adoptionService.getCurrentJurisdiction(workspaceId);
 
-    const draft = this.returnRepository.create({
+    const draft = await this.returnRepository.save({
       ...(existing ?? {}),
       workspaceId,
       // biome-ignore lint/style/noNonNullAssertion: computeTotals already threw if absent.
@@ -258,8 +258,7 @@ export class TaxReturnsService {
       filedAt: null,
       snapshot: null,
     });
-
-    return this.returnRepository.save(draft);
+    return this.returnRepository.findOneByOrFail({ id: draft.id });
   }
 
   /**
@@ -337,7 +336,7 @@ export class TaxReturnsService {
       kind: 'vat_return',
       periodEnd,
     } satisfies TaxDeadlineResolvedEvent);
-    return filed;
+    return this.returnRepository.findOneByOrFail({ id: filed.id });
   }
 
   /**

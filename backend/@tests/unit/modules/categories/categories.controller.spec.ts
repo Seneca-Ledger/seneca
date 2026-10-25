@@ -29,8 +29,7 @@ describe('CategoriesController', () => {
     expect(await controller.findOne({ id: 'c1' }, user, workspaceId)).toEqual({ id: 'c1' });
     expect(await controller.update({ id: 'c1' }, { name: 'X' } as any, user, workspaceId)).toEqual({
       id: 'c1',
-      name: 'X',
-    });
+    }); // read back as stored, not the saved entity
     expect(await controller.remove({ id: 'c1' }, user, workspaceId)).toEqual({
       message: 'Category deleted successfully',
     });

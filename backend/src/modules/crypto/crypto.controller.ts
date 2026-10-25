@@ -26,18 +26,23 @@ import { multerConfig } from '../../config/multer.config';
 import {
   ConnectCryptoWalletBody,
   CryptoGains,
+  CryptoGainsByOwner,
   CryptoGainsQuery,
   CryptoHistory,
   CryptoHistoryQuery,
   CryptoHoldingParams,
   CryptoIconParams,
   CryptoNetworkList,
+  CryptoRemoved,
   CryptoSummary,
   CryptoSummaryQuery,
+  CryptoSyncResult,
   CryptoTransactionList,
   CryptoTransactionsQuery,
+  CryptoWallet,
   CryptoWalletList,
   CryptoWalletParams,
+  ExchangeImportResult,
   ManualHoldingBody,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
@@ -146,6 +151,7 @@ export class CryptoController {
    */
   @Get('gains/by-owner')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoGainsByOwner)
   async getGainsByOwner(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(CryptoGainsQuery) query: CryptoGainsQuery,
@@ -155,6 +161,7 @@ export class CryptoController {
 
   @Post('holdings')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(CryptoWallet)
   async upsertHolding(
     @SchemaBody(ManualHoldingBody) dto: ManualHoldingBody,
     @WorkspaceId() workspaceId: string,
@@ -165,6 +172,7 @@ export class CryptoController {
 
   @Delete('holdings/:asset')
   @WorkspaceAuth(Permission.WALLET_DELETE)
+  @SchemaResponse(CryptoRemoved)
   async removeHolding(
     @SchemaParams(CryptoHoldingParams) { asset }: CryptoHoldingParams,
     @WorkspaceId() workspaceId: string,
@@ -182,6 +190,7 @@ export class CryptoController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @WorkspaceAuth(Permission.WALLET_CREATE)
   @UseInterceptors(FileInterceptor('file', multerConfig))
+  @SchemaResponse(ExchangeImportResult)
   async importExchangeCsv(
     // `unknown`, not `Express.Multer.File`: the decorator's emitted metadata would
     // reference a namespace that exists only in the type system.
@@ -203,6 +212,7 @@ export class CryptoController {
 
   @Post('wallets')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(CryptoWalletList)
   async connect(
     @SchemaBody(ConnectCryptoWalletBody) dto: ConnectCryptoWalletBody,
     @WorkspaceId() workspaceId: string,
@@ -216,6 +226,7 @@ export class CryptoController {
   @Post('wallets/:id/sync')
   @Throttle({ default: { limit: 6, ttl: 60000 } })
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(CryptoSyncResult)
   async sync(
     @SchemaParams(CryptoWalletParams) { id }: CryptoWalletParams,
     @WorkspaceId() workspaceId: string,
@@ -226,6 +237,7 @@ export class CryptoController {
 
   @Delete('wallets/:id')
   @WorkspaceAuth(Permission.WALLET_DELETE)
+  @SchemaResponse(CryptoRemoved)
   async remove(
     @SchemaParams(CryptoWalletParams) { id }: CryptoWalletParams,
     @WorkspaceId() workspaceId: string,

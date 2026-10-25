@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '../../../../src/common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../src/common/guards/permissions.guard';
 import { WorkspaceContextGuard } from '../../../../src/common/guards/workspace-context.guard';
+import { ReceiptApprovalsController } from '../../../../src/modules/receipts/receipt-approvals.controller';
 import { ReceiptsController } from '../../../../src/modules/receipts/receipts.controller';
 import { ReceiptsService } from '../../../../src/modules/receipts/receipts.service';
 import { ReceiptLocationService } from '../../../../src/modules/receipts/services/receipt-location.service';
@@ -16,6 +17,7 @@ import { ReceiptDuplicateService } from '../../../../src/modules/receipts/servic
 
 describe('ReceiptsController', () => {
   let controller: ReceiptsController;
+  let approvals: ReceiptApprovalsController;
   let locationService: { setManual: Mock; resetToAuto: Mock };
   let placeSuggestionService: { suggest: Mock };
   let service: {
@@ -58,7 +60,7 @@ describe('ReceiptsController', () => {
     placeSuggestionService = { suggest: vi.fn().mockResolvedValue({ needed: false }) };
 
     const moduleBuilder = Test.createTestingModule({
-      controllers: [ReceiptsController],
+      controllers: [ReceiptsController, ReceiptApprovalsController],
       providers: [
         { provide: ReceiptsService, useValue: service },
         { provide: ReceiptLocationService, useValue: locationService },
@@ -82,6 +84,7 @@ describe('ReceiptsController', () => {
     const module: TestingModule = await moduleBuilder.compile();
 
     controller = module.get(ReceiptsController);
+    approvals = module.get(ReceiptApprovalsController);
   });
 
   it('delegates upload to service', async () => {
@@ -127,7 +130,7 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates approval to service', async () => {
-    await controller.approve({ id: 'receipt-1' }, 'workspace-1', { id: 'user-1' } as any, {
+    await approvals.approve({ id: 'receipt-1' }, 'workspace-1', { id: 'user-1' } as any, {
       transactionId: null,
     });
 
@@ -137,7 +140,7 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates bulk approval to service', async () => {
-    await controller.bulkApprove(
+    await approvals.bulkApprove(
       { receiptIds: ['receipt-1', 'receipt-2'] } as any,
       'workspace-1',
       { id: 'user-1' } as any,

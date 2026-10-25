@@ -8,6 +8,7 @@ import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
   CreateTaxRateBody,
+  MessageResult,
   TaxRateItem,
   TaxRateList,
   TaxRecordParams,
@@ -30,6 +31,7 @@ export class TaxRatesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(TaxRateItem)
   async findOne(
     @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @WorkspaceId() workspaceId: string,
@@ -50,6 +52,7 @@ export class TaxRatesController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(TaxRateItem)
   async update(
     @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @SchemaBody(UpdateTaxRateBody) updateDto: UpdateTaxRateBody,
@@ -61,6 +64,7 @@ export class TaxRatesController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.CATEGORY_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @WorkspaceId() workspaceId: string,

@@ -2,9 +2,15 @@ import { Controller, Delete, Get, Patch, Post, UseGuards } from '@nestjs/common'
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
-import { CreateRowCommentBody, SetCommentResolvedBody } from '../../contracts';
+import { CreateRowCommentBody, MessageResult, SetCommentResolvedBody } from '../../contracts';
+import {
+  RowCommentCounts,
+  RowCommentItem,
+  RowCommentList,
+} from '../../contracts/custom-tables/custom-table-collab';
 import {
   CustomTableCommentParams,
   CustomTableParams,
@@ -21,6 +27,7 @@ export class CustomTableCommentsController {
 
   @Get(':id/rows/:rowId/comments')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RowCommentList)
   async listComments(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -32,6 +39,7 @@ export class CustomTableCommentsController {
 
   @Post(':id/rows/:rowId/comments')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RowCommentItem)
   async addComment(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -43,6 +51,7 @@ export class CustomTableCommentsController {
 
   @Get(':id/comment-counts')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RowCommentCounts)
   async countComments(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -54,6 +63,7 @@ export class CustomTableCommentsController {
 
   @Patch(':id/comments/:commentId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RowCommentItem)
   async setResolved(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -65,6 +75,7 @@ export class CustomTableCommentsController {
 
   @Delete(':id/comments/:commentId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(MessageResult)
   async deleteComment(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

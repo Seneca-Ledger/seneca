@@ -11,6 +11,7 @@ import {
   ClientList,
   ClientParams,
   CreateClientBody,
+  MessageResult,
   UpdateClientBody,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
@@ -64,6 +65,7 @@ export class ClientsController {
   @Delete(':id')
   @WorkspaceAuth(Permission.CLIENT_DELETE)
   @Audit({ entityType: EntityType.CLIENT, includeDiff: true, isUndoable: true })
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(ClientParams) { id }: ClientParams,
     @WorkspaceId() workspaceId: string,

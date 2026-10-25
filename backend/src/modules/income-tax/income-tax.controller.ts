@@ -50,6 +50,7 @@ export class IncomeTaxController {
   /** Personal acknowledgement, so anyone who may read drafts may give it. */
   @Post('disclaimer')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(IncomeTaxDisclaimer)
   async acceptDisclaimer(@CurrentUser() user: User) {
     return this.disclaimerService.accept(user.id);
   }
@@ -66,6 +67,7 @@ export class IncomeTaxController {
 
   @Put('profile')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IncomeTaxProfile)
   async saveProfile(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
@@ -92,6 +94,7 @@ export class IncomeTaxController {
 
   @Put('mappings')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IncomeTaxMappings)
   async saveMappings(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,

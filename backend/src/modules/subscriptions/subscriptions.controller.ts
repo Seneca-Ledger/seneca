@@ -25,6 +25,8 @@ import {
   LinkSubscriptionChargeBody,
   RecordSubscriptionChargeBody,
   RecordSubscriptionDecisionBody,
+  SinkingFundList,
+  SinkingFundResult,
   SubscriptionBusinessReportQuery,
   SubscriptionChargeCalendar,
   SubscriptionChargeCandidates,
@@ -33,11 +35,14 @@ import {
   SubscriptionChargeRow,
   SubscriptionDetail,
   SubscriptionDuplicateGroups,
+  SubscriptionItem,
   SubscriptionList,
   SubscriptionMonthStatus,
   SubscriptionParams,
+  SubscriptionRecord,
   SubscriptionSummary,
   SubscriptionsQuery,
+  UpcomingSubscriptionList,
   UpcomingSubscriptionsQuery,
   UpdateSubscriptionBody,
 } from '../../contracts';
@@ -97,6 +102,7 @@ export class SubscriptionsController {
 
   @Get('upcoming')
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
+  @SchemaResponse(UpcomingSubscriptionList)
   async getUpcoming(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(UpcomingSubscriptionsQuery) query: UpcomingSubscriptionsQuery,
@@ -157,6 +163,7 @@ export class SubscriptionsController {
 
   @Get('sinking-funds')
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
+  @SchemaResponse(SinkingFundList)
   async sinkingFunds(@WorkspaceId() workspaceId: string) {
     return this.subscriptionsService.getSinkingFunds(workspaceId);
   }
@@ -164,6 +171,7 @@ export class SubscriptionsController {
   @Post(':id/usage')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
+  @SchemaResponse(SubscriptionItem)
   async recordUsage(
     @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @WorkspaceId() workspaceId: string,
@@ -174,6 +182,7 @@ export class SubscriptionsController {
   @Post(':id/sinking-fund')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
+  @SchemaResponse(SinkingFundResult)
   async createSinkingFund(
     @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @WorkspaceId() workspaceId: string,
@@ -212,7 +221,7 @@ export class SubscriptionsController {
     @SchemaParams(SubscriptionChargeParams) { id, chargeId }: SubscriptionChargeParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-  ) {
+  ): Promise<void> {
     await this.subscriptionsService.removeCharge(id, chargeId, workspaceId, user.id);
   }
 
@@ -228,27 +237,33 @@ export class SubscriptionsController {
 
   @Post()
   @WorkspaceAuth(Permission.SUBSCRIPTION_CREATE)
+  @SchemaResponse(SubscriptionRecord)
   async create(
     @SchemaBody(CreateSubscriptionBody) dto: CreateSubscriptionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
-    return this.subscriptionsService.create(workspaceId, user.id, dto);
+    // Re-read: the saved entity holds the amount and dates as sent, not as stored.
+    const saved = await this.subscriptionsService.create(workspaceId, user.id, dto);
+    return this.subscriptionsService.findOne(saved.id, workspaceId);
   }
 
   @Put(':id')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
+  @SchemaResponse(SubscriptionRecord)
   async update(
     @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @SchemaBody(UpdateSubscriptionBody) dto: UpdateSubscriptionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
-    return this.subscriptionsService.update(id, workspaceId, user.id, dto);
+    await this.subscriptionsService.update(id, workspaceId, user.id, dto);
+    return this.subscriptionsService.findOne(id, workspaceId);
   }
 
   @Patch(':id/owner')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
+  @SchemaResponse(SubscriptionRecord)
   async assignOwner(
     @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @SchemaBody(AssignSubscriptionOwnerBody) dto: AssignSubscriptionOwnerBody,
@@ -260,17 +275,20 @@ export class SubscriptionsController {
 
   @Post(':id/decisions')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
+  @SchemaResponse(SubscriptionRecord)
   async recordDecision(
     @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @SchemaBody(RecordSubscriptionDecisionBody) dto: RecordSubscriptionDecisionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
-    return this.subscriptionsService.recordDecision(id, workspaceId, user.id, dto);
+    await this.subscriptionsService.recordDecision(id, workspaceId, user.id, dto);
+    return this.subscriptionsService.findOne(id, workspaceId);
   }
 
   @Post(':id/confirm')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
+  @SchemaResponse(SubscriptionRecord)
   async confirm(
     @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @WorkspaceId() workspaceId: string,
@@ -285,7 +303,7 @@ export class SubscriptionsController {
     @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-  ) {
+  ): Promise<void> {
     await this.subscriptionsService.dismiss(id, workspaceId, user.id);
   }
 
@@ -295,7 +313,7 @@ export class SubscriptionsController {
     @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-  ) {
+  ): Promise<void> {
     await this.subscriptionsService.remove(id, workspaceId, user.id);
   }
 }

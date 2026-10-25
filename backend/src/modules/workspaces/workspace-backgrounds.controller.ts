@@ -4,11 +4,14 @@ import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import {
   BackgroundPreviewParams,
+  BackgroundSearchPage,
   SearchBackgroundsQuery,
   SetWorkspaceBackgroundBody,
+  WorkspaceBackground,
   WorkspaceIdParams,
 } from '../../contracts';
 import type { User } from '../../entities';
@@ -31,6 +34,7 @@ export class WorkspaceBackgroundsController {
   @ApiResponse({ status: 200, description: 'A page of results with their credit lines' })
   @ApiResponse({ status: 502, description: 'The image search did not answer' })
   @ApiResponse({ status: 503, description: 'The daily search allowance is used up' })
+  @SchemaResponse(BackgroundSearchPage)
   search(@SchemaQuery(SearchBackgroundsQuery) query: SearchBackgroundsQuery) {
     return this.backgroundsService.search(query.q, query.page ?? 1);
   }
@@ -57,6 +61,7 @@ export class WorkspaceBackgroundsController {
   @ApiOperation({ summary: 'Use a searched photo as the workspace background' })
   @ApiResponse({ status: 200, description: 'The new background with its credit line' })
   @ApiResponse({ status: 403, description: 'Only owners and admins change workspace settings' })
+  @SchemaResponse(WorkspaceBackground)
   setPhoto(
     @CurrentUser() user: User,
     @SchemaParams(WorkspaceIdParams) { id }: WorkspaceIdParams,

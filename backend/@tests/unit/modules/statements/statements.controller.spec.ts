@@ -9,6 +9,8 @@ import { StatementStatus } from '@/entities/statement.entity';
 import type { User } from '@/entities/user.entity';
 import type { StatementsQuery } from '@/contracts';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
+import type { StatementStageService } from '@/modules/statements/services/statement-stage.service';
+import { StatementUploadsController } from '@/modules/statements/statement-uploads.controller';
 import { StatementsController } from '@/modules/statements/statements.controller';
 import type { StatementsService } from '@/modules/statements/statements.service';
 import type { Response } from 'express';
@@ -43,6 +45,10 @@ describe('StatementsController', () => {
 
   const controller = new StatementsController(
     statementsService as unknown as StatementsService,
+    {} as unknown as StatementStageService,
+  );
+  const uploads = new StatementUploadsController(
+    statementsService as unknown as StatementsService,
     receiptStatementService as unknown as ReceiptStatementService,
     idempotencyService as unknown as IdempotencyService,
   );
@@ -69,7 +75,7 @@ describe('StatementsController', () => {
     };
     const currentUser = { id: 'user-1' } as User;
 
-    const result = await controller.upload(
+    const result = await uploads.upload(
       [file as Express.Multer.File],
       {} as UploadStatementBody,
       currentUser,
@@ -95,13 +101,13 @@ describe('StatementsController', () => {
     const currentUser = { id: 'user-1' } as User;
     const payload = { amount: 5000, description: 'Такси' } as any;
 
-    const first = await controller.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
+    const first = await uploads.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
     expect(first).toEqual(created);
     expect(idempotencyService.checkKey).toHaveBeenCalledWith('key-1', 'user-1', 'ws-1');
     expect(idempotencyService.storeKey).toHaveBeenCalledWith('key-1', 'user-1', 'ws-1', created);
 
     idempotencyService.checkKey.mockResolvedValueOnce({ data: created, cached: true });
-    const second = await controller.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
+    const second = await uploads.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
     expect(second).toMatchObject({ id: 'stmt-manual-1', cached: true });
     expect(statementsService.createManualExpense).toHaveBeenCalledTimes(1);
   });
@@ -110,7 +116,7 @@ describe('StatementsController', () => {
     statementsService.createManualExpense.mockResolvedValue({ id: 'stmt-manual-2' });
     const currentUser = { id: 'user-1' } as User;
 
-    await controller.createManualExpense([], {} as any, currentUser, 'ws-1');
+    await uploads.createManualExpense([], {} as any, currentUser, 'ws-1');
 
     expect(idempotencyService.checkKey).not.toHaveBeenCalled();
     expect(idempotencyService.storeKey).not.toHaveBeenCalled();
@@ -188,7 +194,7 @@ describe('StatementsController', () => {
     };
     const currentUser = { id: 'user-1' } as User;
 
-    const result = await controller.uploadReceipt(
+    const result = await uploads.uploadReceipt(
       [file as Express.Multer.File],
       { language: 'ru' } as UploadReceiptScanBody,
       currentUser,
@@ -216,7 +222,7 @@ describe('StatementsController', () => {
     };
     const currentUser = { id: 'user-1' } as User;
 
-    const result = await controller.uploadReceipt(
+    const result = await uploads.uploadReceipt(
       [file as Express.Multer.File],
       {} as UploadReceiptScanBody,
       currentUser,

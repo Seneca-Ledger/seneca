@@ -97,7 +97,9 @@ export class DataEntryService {
       customFieldValue,
       customTabId,
     });
-    return this.dataEntryRepository.save(entry);
+    const saved = await this.dataEntryRepository.save(entry);
+    // The stored form, as the list reads it: the decimal amount as a string, the date as a day.
+    return this.dataEntryRepository.findOneByOrFail({ id: saved.id, workspaceId });
   }
 
   async list(params: ListParams): Promise<ListResult> {

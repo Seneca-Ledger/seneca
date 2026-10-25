@@ -349,8 +349,8 @@ export class TelegramService {
       savedRecord.sentAt = new Date();
       savedRecord.messageId = result.messageId;
       await this.telegramReportRepository.save(savedRecord);
-
-      return { status: 'sent', report: savedRecord };
+      const report = { ...savedRecord, reportDate: this.formatDateOnly(reportDate) };
+      return { status: 'sent', report };
     } catch (error) {
       savedRecord.status = ReportStatus.FAILED;
       await this.telegramReportRepository.save(savedRecord);

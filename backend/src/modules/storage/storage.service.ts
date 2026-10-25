@@ -752,7 +752,8 @@ export class StorageService {
       fileHash: saved.fileHash,
       fileName: saved.fileName,
       fileType: saved.fileType,
-      fileSize: saved.fileSize,
+      // bigint: the version list answers it as a string, so this answers the same.
+      fileSize: String(saved.fileSize),
       createdAt: saved.createdAt,
     };
   }

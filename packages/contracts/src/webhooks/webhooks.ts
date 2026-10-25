@@ -1,5 +1,7 @@
 import * as Schema from 'effect/Schema';
 import { Timestamp, type Wire } from '../common/wire';
+import { ReceiptRecord } from '../receipts/receipts';
+import { StatementStatus } from '../statements/statement-list';
 
 /** Every event an outbound webhook subscription can listen to. */
 export const WebhookEventName = Schema.Literals([
@@ -23,32 +25,67 @@ export type WebhookEventName = Wire<typeof WebhookEventName>;
 
 export { WEBHOOK_EVENT_GROUPS } from './event-groups';
 
-/** `GET /webhook-endpoints`: inbound endpoints, the token shown only as a preview. */
-export const WebhookEndpointList = Schema.Array(
-  Schema.Struct({
-    id: Schema.String,
-    name: Schema.String,
-    tokenPreview: Schema.String,
-    isActive: Schema.Boolean,
-    defaultWalletId: Schema.NullOr(Schema.String),
-    defaultBranchId: Schema.NullOr(Schema.String),
-    createdAt: Timestamp,
-  }),
-);
+/** `GET`/`PATCH /webhook-endpoints/:id`: an inbound endpoint, the token shown only as a preview. */
+export const WebhookEndpointItem = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  tokenPreview: Schema.String,
+  isActive: Schema.Boolean,
+  defaultWalletId: Schema.NullOr(Schema.String),
+  defaultBranchId: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+});
+export type WebhookEndpointItem = Wire<typeof WebhookEndpointItem>;
+
+/** `GET /webhook-endpoints`. */
+export const WebhookEndpointList = Schema.Array(WebhookEndpointItem);
 export type WebhookEndpointList = Wire<typeof WebhookEndpointList>;
 
-/** `GET /webhook-subscriptions`: outbound deliveries. Never the signing secret. */
-export const WebhookSubscriptionList = Schema.Array(
-  Schema.Struct({
-    id: Schema.String,
-    name: Schema.String,
-    url: Schema.String,
-    events: Schema.Array(WebhookEventName),
-    isActive: Schema.Boolean,
-    createdAt: Timestamp,
-  }),
-);
+/**
+ * An outbound subscription: `POST`, `GET` and `PATCH /webhook-subscriptions(/:id)`.
+ * Never the signing secret, not even on creation: the client chose it.
+ */
+export const WebhookSubscriptionItem = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  url: Schema.String,
+  events: Schema.Array(WebhookEventName),
+  isActive: Schema.Boolean,
+  createdAt: Timestamp,
+});
+export type WebhookSubscriptionItem = Wire<typeof WebhookSubscriptionItem>;
+
+/** `GET /webhook-subscriptions`. */
+export const WebhookSubscriptionList = Schema.Array(WebhookSubscriptionItem);
 export type WebhookSubscriptionList = Wire<typeof WebhookSubscriptionList>;
+
+/** `DELETE` of an endpoint or a subscription, and `POST /webhook-deliveries/:id/retry`. */
+export const WebhookActionResult = Schema.Struct({ success: Schema.Boolean });
+export type WebhookActionResult = Wire<typeof WebhookActionResult>;
+
+/** `POST /webhook-subscriptions/:id/test`: a ping delivery was queued. */
+export const WebhookTestQueued = Schema.Struct({
+  success: Schema.Boolean,
+  message: Schema.String,
+});
+export type WebhookTestQueued = Wire<typeof WebhookTestQueued>;
+
+/** `POST /webhooks/:token/statements`: the statement the upload became. */
+export const WebhookStatementAccepted = Schema.Struct({
+  success: Schema.Boolean,
+  statementId: Schema.String,
+  status: StatementStatus,
+});
+export type WebhookStatementAccepted = Wire<typeof WebhookStatementAccepted>;
+
+/** `POST /webhooks/:token/receipts`: the receipts the upload became. */
+export const WebhookReceiptAccepted = Schema.Struct({
+  success: Schema.Boolean,
+  receipts: Schema.Array(
+    Schema.Struct({ receiptId: Schema.String, status: ReceiptRecord.fields.status }),
+  ),
+});
+export type WebhookReceiptAccepted = Wire<typeof WebhookReceiptAccepted>;
 
 /** `POST /webhook-endpoints`: the only answer that carries the whole token. */
 export const CreatedWebhookEndpoint = Schema.Struct({

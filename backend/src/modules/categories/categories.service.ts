@@ -424,7 +424,8 @@ export class CategoriesService {
       actorType: ActorType.USER,
       actorId: userId,
       entityType: EntityType.CATEGORY,
-      entityId: category.id,
+      // `remove` clears the entity's id: the event had none, and every delete was a 400.
+      entityId: id,
       action: AuditAction.DELETE,
       diff: { before: category, after: null },
       meta: {
@@ -438,7 +439,7 @@ export class CategoriesService {
       actorId: userId,
       actorName: await this.resolveActorName(userId),
       action: 'deleted',
-      categoryId: category.id,
+      categoryId: id,
       categoryName: category.name,
     } satisfies CategoryChangedEvent);
   }

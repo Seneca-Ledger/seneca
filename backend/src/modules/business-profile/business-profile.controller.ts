@@ -31,6 +31,7 @@ import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   BusinessLogoFileParams,
   BusinessProfileLogo,
+  BusinessProfileLogoCleared,
   BusinessProfileResponse,
   UpdateBusinessProfileBody,
 } from '../../contracts';
@@ -141,6 +142,7 @@ export class BusinessProfileController {
 
   @Delete('logo')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(BusinessProfileLogoCleared)
   async deleteLogo(@WorkspaceId() workspaceId: string) {
     await this.businessProfileService.clearLogo(workspaceId);
     return { logoFile: null };

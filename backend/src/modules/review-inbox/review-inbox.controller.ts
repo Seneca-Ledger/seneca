@@ -9,6 +9,7 @@ import { Permission } from '../../common/enums/permissions.enum';
 import { parseReviewerFilter } from '../../common/utils/transaction-owner.util';
 import {
   ApproveTransactionsBody,
+  DuplicateResolved,
   ResolveDuplicateBody,
   ReviewApproved,
   ReviewDuplicateParams,
@@ -94,6 +95,7 @@ export class ReviewInboxController {
   @Post('duplicates/:id/resolve')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(DuplicateResolved)
   async resolveDuplicate(
     @SchemaParams(ReviewDuplicateParams) { id }: ReviewDuplicateParams,
     @SchemaBody(ResolveDuplicateBody) body: ResolveDuplicateBody,

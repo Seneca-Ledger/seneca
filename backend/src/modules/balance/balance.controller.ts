@@ -8,9 +8,13 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  BalanceAccountClassification,
+  BalanceAccountCreated,
   BalanceAccountParams,
+  BalanceAccountsTree,
   BalanceQuery,
   BalanceSheetResponse,
+  BalanceSnapshotSaved,
   CreateBalanceAccountBody,
   ExportBalanceQuery,
   UpdateAccountClassificationBody,
@@ -45,6 +49,7 @@ export class BalanceController {
 
   @Get('accounts')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(BalanceAccountsTree)
   async getAccounts(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -59,6 +64,7 @@ export class BalanceController {
 
   @Put('snapshot')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceSnapshotSaved)
   async updateSnapshot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -69,6 +75,7 @@ export class BalanceController {
 
   @Post('accounts')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(BalanceAccountCreated)
   async createAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -90,6 +97,7 @@ export class BalanceController {
 
   @Patch('accounts/:id/classification')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceAccountClassification)
   async updateClassification(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

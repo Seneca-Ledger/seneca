@@ -19,25 +19,27 @@ export const ReportHistoryList = Schema.Array(
 );
 export type ReportHistoryList = Wire<typeof ReportHistoryList>;
 
+/** One row of `GET /reports/schedules`, and the answer of creating or pausing one. */
+export const ReportScheduleItem = Schema.Struct({
+  id: Schema.String,
+  templateId: Schema.String,
+  format: Schema.String,
+  cadence: Schema.Literals(['daily', 'weekly', 'monthly']),
+  recipients: Schema.Array(Schema.String),
+  walletIds: Schema.Array(Schema.String),
+  categoryIds: Schema.Array(Schema.String),
+  groupBy: Schema.NullOr(Schema.String),
+  locale: Schema.NullOr(Schema.String),
+  isActive: Schema.Boolean,
+  lastRunAt: Schema.NullOr(Timestamp),
+  nextRunAt: Timestamp,
+  lastError: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+});
+export type ReportScheduleItem = Wire<typeof ReportScheduleItem>;
+
 /** `GET /reports/schedules`. */
-export const ReportScheduleList = Schema.Array(
-  Schema.Struct({
-    id: Schema.String,
-    templateId: Schema.String,
-    format: Schema.String,
-    cadence: Schema.Literals(['daily', 'weekly', 'monthly']),
-    recipients: Schema.Array(Schema.String),
-    walletIds: Schema.Array(Schema.String),
-    categoryIds: Schema.Array(Schema.String),
-    groupBy: Schema.NullOr(Schema.String),
-    locale: Schema.NullOr(Schema.String),
-    isActive: Schema.Boolean,
-    lastRunAt: Schema.NullOr(Timestamp),
-    nextRunAt: Timestamp,
-    lastError: Schema.NullOr(Schema.String),
-    createdAt: Timestamp,
-  }),
-);
+export const ReportScheduleList = Schema.Array(ReportScheduleItem);
 export type ReportScheduleList = Wire<typeof ReportScheduleList>;
 
 const FlowLink = Schema.Struct({

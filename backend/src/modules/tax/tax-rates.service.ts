@@ -249,7 +249,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       before,
       this.snapshotTaxRate(saved),
     );
-    return saved;
+    return this.findOne(id, workspaceId);
   }
 
   /**

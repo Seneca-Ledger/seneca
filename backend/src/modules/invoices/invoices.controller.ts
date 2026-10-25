@@ -16,17 +16,20 @@ import {
   Invoice,
   InvoiceClientParams,
   InvoiceCreated,
+  InvoiceDelivery,
   InvoiceDeliveryList,
   InvoiceListPage,
   InvoiceParams,
   InvoiceSettings,
   InvoicesQuery,
   LateFeeQuote,
+  MessageResult,
   SendInvoiceEmailBody,
   UpdateInvoiceBody,
   UpdateInvoiceSettingsBody,
   XRechnungCheck,
 } from '../../contracts';
+import { InvoiceWritten } from '../../contracts/invoices/invoice-writes';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
@@ -203,6 +206,7 @@ export class InvoicesController {
   @Put(':id')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(InvoiceWritten)
   async update(
     @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @SchemaBody(UpdateInvoiceBody) dto: UpdateInvoiceBody,
@@ -214,6 +218,7 @@ export class InvoicesController {
   @Put(':id/send')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: false })
+  @SchemaResponse(InvoiceWritten)
   async send(
     @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @CurrentUser() user: User,
@@ -225,6 +230,7 @@ export class InvoicesController {
   @Post(':id/deliveries')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: false, isUndoable: false })
+  @SchemaResponse(InvoiceDelivery)
   async emailInvoice(
     @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @SchemaBody(SendInvoiceEmailBody) dto: SendInvoiceEmailBody,
@@ -247,6 +253,7 @@ export class InvoicesController {
   @Put(':id/void')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: false })
+  @SchemaResponse(InvoiceWritten)
   async void(
     @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @CurrentUser() user: User,
@@ -258,6 +265,7 @@ export class InvoicesController {
   @Delete(':id')
   @WorkspaceAuth(Permission.INVOICE_DELETE)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @WorkspaceId() workspaceId: string,

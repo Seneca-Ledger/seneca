@@ -16,6 +16,7 @@ import { ParsingModule } from '../parsing/parsing.module';
 import { TaxModule } from '../tax/tax.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
+import { ReceiptApprovalsController } from './receipt-approvals.controller';
 import { ReceiptsController } from './receipts.controller';
 import { ReceiptsService } from './receipts.service';
 import { EmailReceiptParserService } from './services/email-receipt-parser.service';
@@ -48,7 +49,7 @@ import { ReceiptStageService } from './services/receipt-stage.service';
     TransactionsModule,
     TaxModule,
   ],
-  controllers: [ReceiptsController],
+  controllers: [ReceiptsController, ReceiptApprovalsController],
   providers: [
     ReceiptsService,
     EmailReceiptParserService,

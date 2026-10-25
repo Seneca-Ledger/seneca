@@ -5,6 +5,7 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { DailyQuote, InsightList } from '../../contracts';
+import { InsightSummary, InsightsRefreshed, UpdatedCount } from '../../contracts/feed/feed-answers';
 import {
   DailyQuoteQuery,
   InsightIdParams,
@@ -43,6 +44,7 @@ export class InsightsController {
   }
 
   @Get('summary')
+  @SchemaResponse(InsightSummary)
   async summary(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.insightsService.getSummary(user.id, workspaceId);
   }
@@ -68,6 +70,7 @@ export class InsightsController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(InsightsRefreshed)
   async refresh(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -78,6 +81,7 @@ export class InsightsController {
 
   @Post('dismiss-all')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(UpdatedCount)
   async dismissAll(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -88,6 +92,7 @@ export class InsightsController {
 
   @Post(':id/dismiss')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(UpdatedCount)
   async dismiss(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

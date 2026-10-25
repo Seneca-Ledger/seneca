@@ -2,9 +2,9 @@ vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
-import { StatementsController } from '@/modules/statements/statements.controller';
+import { StatementUploadsController } from '@/modules/statements/statement-uploads.controller';
 
-describe('StatementsController manual expense', () => {
+describe('StatementUploadsController manual expense', () => {
   it('delegates manual expense creation to the service', async () => {
     const statementsService = {
       createManualExpense: vi.fn().mockResolvedValue({ id: 'manual-statement-1' }),
@@ -14,7 +14,7 @@ describe('StatementsController manual expense', () => {
       storeKey: vi.fn(),
     };
 
-    const controller = new StatementsController(
+    const controller = new StatementUploadsController(
       statementsService as any,
       idempotencyService as any,
     );
@@ -52,7 +52,7 @@ describe('StatementsController manual expense', () => {
       storeKey: vi.fn(),
     };
 
-    const controller = new StatementsController(
+    const controller = new StatementUploadsController(
       statementsService as any,
       idempotencyService as any,
     );

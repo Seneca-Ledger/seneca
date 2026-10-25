@@ -8,6 +8,7 @@ import { Permission } from '../../common/enums/permissions.enum';
 import {
   MergePayeesBody,
   Payee,
+  PayeeMerge,
   PayeeParams,
   PayeePendingReview,
   PayeePendingReviewQuery,
@@ -63,6 +64,7 @@ export class PayeesController {
   /** Asks the EU's VIES again whether the payee's VAT number is valid. */
   @Post('payees/:id/vat-check')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(PayeeRecord)
   async recheckVatId(
     @SchemaParams(PayeeParams) { id }: PayeeParams,
     @WorkspaceId() workspaceId: string,
@@ -73,6 +75,7 @@ export class PayeesController {
   /** Folds `sourceIds` into this payee. */
   @Post('payees/:id/merge')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(PayeeMerge)
   async merge(
     @SchemaParams(PayeeParams) { id }: PayeeParams,
     @SchemaBody(MergePayeesBody) body: MergePayeesBody,

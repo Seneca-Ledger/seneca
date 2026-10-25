@@ -15,6 +15,7 @@ import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspac
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
@@ -26,6 +27,11 @@ import {
   TestCategorizationRuleBody,
   UpdateCategorizationRuleBody,
 } from '../../contracts';
+import {
+  CategorizationRule as CategorizationRuleContract,
+  CategorizationRuleList,
+  CategorizationRuleTestResult,
+} from '../../contracts/classification/categorization-rules';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { CategorizationRule } from '../../entities/categorization-rule.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -67,6 +73,7 @@ export class CategorizationRulesController {
 
   @Get()
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategorizationRuleList)
   async findAll(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const rules = await this.categorizationRuleRepository.find({
       where: {
@@ -87,6 +94,7 @@ export class CategorizationRulesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategorizationRuleContract)
   async findOne(
     @SchemaParams(CategorizationRuleParams) { id }: CategorizationRuleParams,
     @CurrentUser() user: User,
@@ -106,6 +114,7 @@ export class CategorizationRulesController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(CategorizationRuleContract)
   async create(
     @SchemaBody(CreateCategorizationRuleBody) dto: CreateCategorizationRuleBody,
     @CurrentUser() user: User,
@@ -151,6 +160,7 @@ export class CategorizationRulesController {
   @Put(':id')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(CategorizationRuleContract)
   async update(
     @SchemaParams(CategorizationRuleParams) { id }: CategorizationRuleParams,
     @SchemaBody(UpdateCategorizationRuleBody) dto: UpdateCategorizationRuleBody,
@@ -252,6 +262,7 @@ export class CategorizationRulesController {
   @AllowInVersion()
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategorizationRuleTestResult)
   async testRule(
     @SchemaBody(TestCategorizationRuleBody) dto: TestCategorizationRuleBody,
     @CurrentUser() _user: User,

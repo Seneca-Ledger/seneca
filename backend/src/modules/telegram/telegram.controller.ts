@@ -10,6 +10,7 @@ import {
   TelegramConnection,
   TelegramLink,
   TelegramReportPage,
+  TelegramReportSent,
   TelegramReportsQuery,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
@@ -58,6 +59,7 @@ export class TelegramController {
 
   @Post('send-report')
   @WorkspaceAuth(Permission.TELEGRAM_SEND)
+  @SchemaResponse(TelegramReportSent)
   async sendReport(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

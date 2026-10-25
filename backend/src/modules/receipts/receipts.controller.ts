@@ -31,8 +31,6 @@ import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { multerConfig } from '../../config/multer.config';
 import {
   ApplyReceiptSplitBody,
-  ApproveReceiptBody,
-  BulkApproveBody,
   PlaceSuggestions,
   PlaceSuggestionsBody,
   ReceiptDocumentsQuery,
@@ -40,6 +38,7 @@ import {
   ReceiptParams,
   ReceiptRecord,
   ReceiptRecordUpdate,
+  ReceiptSplitResult,
   ReceiptSplitSuggestion,
   ReceiptsQuery,
   ReceiptTax,
@@ -49,21 +48,18 @@ import {
   SetReceiptTaxBody,
   UpdateReceiptBody,
   UpdateReceiptLocationBody,
-  UpdateReceiptStageBody,
   UploadReceiptBody,
 } from '../../contracts';
+import { ReceiptDocumentsPage } from '../../contracts/receipts/receipt-documents';
 import type { User } from '../../entities';
 import { ReceiptStatus } from '../../entities/receipt.entity';
-import { StatementStage } from '../../entities/statement.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UpdateReceiptStageResultDto } from './dto/update-receipt-stage.dto';
 import { ReceiptsService } from './receipts.service';
 import { ReceiptDocumentsService } from './services/receipt-documents.service';
 import { ReceiptLocationService } from './services/receipt-location.service';
 import { ReceiptMatchService } from './services/receipt-match.service';
 import { ReceiptPlaceSuggestionService } from './services/receipt-place-suggestion.service';
 import { ReceiptSplitService } from './services/receipt-split.service';
-import { ReceiptStageService } from './services/receipt-stage.service';
 
 type MulterFile = Express.Multer.File;
 
@@ -72,7 +68,6 @@ export class ReceiptsController {
   constructor(
     private readonly receiptsService: ReceiptsService,
     private readonly locationService: ReceiptLocationService,
-    private readonly receiptStageService: ReceiptStageService,
     private readonly receiptMatchService: ReceiptMatchService,
     private readonly receiptSplitService: ReceiptSplitService,
     private readonly placeSuggestionService: ReceiptPlaceSuggestionService,
@@ -118,6 +113,7 @@ export class ReceiptsController {
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
   @UseInterceptors(FileInterceptor('file', multerConfig))
+  @SchemaResponse(ReceiptRecordUpdate)
   async scan(
     @UploadedFile() file: MulterFile,
     @SchemaBody(UploadReceiptBody) dto: UploadReceiptBody,
@@ -181,6 +177,7 @@ export class ReceiptsController {
   @Get('documents')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @ApiOperation({ summary: 'List receipts for the documents list' })
+  @SchemaResponse(ReceiptDocumentsPage)
   async listDocuments(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(ReceiptDocumentsQuery) query: ReceiptDocumentsQuery,
@@ -306,41 +303,6 @@ export class ReceiptsController {
     return tax;
   }
 
-  @Post('stage')
-  @HttpCode(HttpStatus.OK)
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
-  @ApiOperation({ summary: 'Move one or more receipts between Submit and Approve' })
-  @ApiResponse({ status: 200, type: UpdateReceiptStageResultDto })
-  async updateStage(
-    @SchemaBody(UpdateReceiptStageBody) dto: UpdateReceiptStageBody,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-  ): Promise<UpdateReceiptStageResultDto> {
-    return this.receiptStageService.updateStage(
-      dto.receiptIds,
-      toEnum(StatementStage, dto.stage),
-      user.id,
-      workspaceId,
-    );
-  }
-
-  @Post(':id/approve')
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
-  async approve(
-    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
-    @WorkspaceId() workspaceId: string,
-    @CurrentUser() user: User,
-    @SchemaBody(ApproveReceiptBody) dto: ApproveReceiptBody,
-  ) {
-    const result = await this.receiptsService.approve(id, workspaceId, user.id, {
-      attachTo: dto?.transactionId,
-    });
-    if (!result) {
-      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
-    }
-    return result;
-  }
-
   /** Bank rows this receipt may document, best first; recomputes the stored suggestion too. */
   @Get(':id/transaction-matches')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
@@ -381,6 +343,7 @@ export class ReceiptsController {
 
   @Post(':id/split')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(ReceiptSplitResult)
   async split(
     @SchemaParams(ReceiptParams) { id }: ReceiptParams,
     @SchemaBody(ApplyReceiptSplitBody) dto: ApplyReceiptSplitBody,
@@ -388,21 +351,6 @@ export class ReceiptsController {
     @CurrentUser() user: User,
   ) {
     return this.receiptSplitService.apply(id, workspaceId, user.id, dto.items ?? undefined);
-  }
-
-  @Post('bulk-approve')
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
-  async bulkApprove(
-    @SchemaBody(BulkApproveBody) dto: BulkApproveBody,
-    @WorkspaceId() workspaceId: string,
-    @CurrentUser() user: User,
-  ) {
-    return this.receiptsService.bulkApprove(
-      dto.receiptIds,
-      workspaceId,
-      user.id,
-      dto.categoryId ?? undefined,
-    );
   }
 
   @Delete(':id')

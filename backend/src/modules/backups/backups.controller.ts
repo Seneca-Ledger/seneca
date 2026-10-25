@@ -27,6 +27,7 @@ import {
   BackupImportParams,
   BackupImportPreview,
   BackupRestoreResult,
+  BackupRun,
   BackupRunList,
   BackupRunParams,
   UpdateBackupConfigurationBody,
@@ -85,6 +86,7 @@ export class BackupsController {
 
   @Post('runs')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(BackupRun)
   createRun(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.backupsService.createRun(user, workspaceId, BackupRunTrigger.MANUAL);
   }

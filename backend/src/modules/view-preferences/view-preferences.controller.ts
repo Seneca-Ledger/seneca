@@ -34,6 +34,7 @@ export class ViewPreferencesController {
 
   @Put(':scope')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(ViewPreferenceState)
   async write(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
