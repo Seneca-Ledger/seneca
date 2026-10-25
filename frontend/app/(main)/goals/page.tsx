@@ -176,7 +176,8 @@ export default function GoalsPage() {
           flexDirection: 'column',
           gap: 2,
           // Список остаётся на экране, пока мутация перезагружает цели.
-          opacity: isFetching ? 0.6 : 1,
+          // Только при рефетче: первый запрос клиент уже шлёт при гидрации, а сервер — нет.
+          opacity: isFetching && !isPending ? 0.6 : 1,
           transition: 'opacity 150ms ease',
         }}
       >

@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { CreditNote } from './credit-note.entity';
@@ -28,21 +29,21 @@ export class PeppolTransmission {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Invoice, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'invoice_id' })
-  invoice: Invoice | null;
+  invoice: Relation<Invoice | null>;
 
   @Column({ name: 'invoice_id', type: 'uuid', nullable: true })
   invoiceId: string | null;
 
   @ManyToOne(() => CreditNote, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'credit_note_id' })
-  creditNote: CreditNote | null;
+  creditNote: Relation<CreditNote | null>;
 
   @Column({ name: 'credit_note_id', type: 'uuid', nullable: true })
   creditNoteId: string | null;

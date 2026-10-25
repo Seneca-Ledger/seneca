@@ -6,7 +6,6 @@ type TrendChartRow = { label: string; income: number; expense: number };
 
 type SourceChartTotals = { statementAmount: number; receiptAmount: number };
 
-// eslint-disable-next-line max-lines-per-function, max-params, complexity
 export function buildSpendOverTimeTrendChart(
   points: SpendOverTimePoint[],
   viewType: ViewType,
@@ -118,7 +117,6 @@ export function buildSpendOverTimeSourceChart(
   };
 }
 
-// eslint-disable-next-line max-params
 export function buildSpendOverTimePeriodsChart(
   rows: TrendChartRow[],
   activeFlowType: SpendOverTimeFlowType,

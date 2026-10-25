@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { MOBILE_MENU_VISIBILITY_EVENT } from '../helpers/navigation-config';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function useMobileMenu(pathname: string) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuMounted, setMobileMenuMounted] = useState(false);
@@ -43,7 +42,6 @@ export function useMobileMenu(pathname: string) {
   // Escape key + body overflow
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setMobileMenuOpen(false);
     };

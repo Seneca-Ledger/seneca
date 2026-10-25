@@ -10,6 +10,7 @@ import type { Repository } from 'typeorm';
 // parameter from the emitted design:paramtypes metadata, which `import type` erases.
 import { DataSource } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
+import { appError } from '../../../common/errors/app-error';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { toMinor } from '../../../common/utils/money.util';
 import { extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
@@ -155,7 +156,10 @@ export class StatementProcessingService {
   private async resolveActorName(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
     return user?.name || user?.email || 'User';
   }
@@ -456,7 +460,7 @@ export class StatementProcessingService {
     });
 
     if (!statement) {
-      throw new NotFoundException(`Statement ${statementId} not found`);
+      throw new NotFoundException(appError('PARSING_STATEMENT_NOT_FOUND', { statementId }));
     }
 
     const importPreview = this.getImportPreview(statement);
@@ -473,12 +477,12 @@ export class StatementProcessingService {
         return statement;
       }
       // Nothing was previewed, so there is nothing to commit: the caller's state, not a fault.
-      throw new ConflictException(`Import preview session missing for statement ${statementId}`);
+      throw new ConflictException(appError('PARSING_PREVIEW_SESSION_MISSING', { statementId }));
     }
 
     const transactions = this.hydratePreviewTransactions(importPreview.transactions);
     if (transactions.length === 0) {
-      throw new ConflictException(`No preview transactions available for statement ${statementId}`);
+      throw new ConflictException(appError('PARSING_NO_PREVIEW_TRANSACTIONS', { statementId }));
     }
 
     const commitResult = await this.importSessionService.processImport(
@@ -572,7 +576,9 @@ export class StatementProcessingService {
 
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
 
     if (!statement) {

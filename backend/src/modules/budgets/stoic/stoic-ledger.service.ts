@@ -113,7 +113,13 @@ export class StoicLedgerService {
     const [categories, budgets, spending] = await Promise.all([
       this.categoryRepository.find({
         where: { workspaceId, type: CategoryType.EXPENSE },
-        select: ['id', 'name', 'parentId', 'stoicClass', 'helpsOthers'],
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+          stoicClass: true,
+          helpsOthers: true,
+        },
       }),
       this.budgetRepository.find({ where: { workspaceId } }),
       this.loadSpending(
@@ -241,7 +247,10 @@ export class StoicLedgerService {
   private async workspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'currency'],
+      select: {
+        id: true,
+        currency: true,
+      },
     });
     return normalizeCurrency(workspace?.currency);
   }

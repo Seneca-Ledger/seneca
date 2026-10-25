@@ -181,16 +181,20 @@ function AddHoldingRow({
         label={t.quantity.value}
         value={quantity}
         onChange={event => setQuantity(event.target.value)}
-        inputProps={{ inputMode: 'decimal' }}
         sx={{ width: 100 }}
+        slotProps={{
+          htmlInput: { inputMode: 'decimal' },
+        }}
       />
       <TextField
         size="small"
         label={`${t.price.value} (${account.currency})`}
         value={price}
         onChange={event => setPrice(event.target.value)}
-        inputProps={{ inputMode: 'decimal' }}
         sx={{ width: 130 }}
+        slotProps={{
+          htmlInput: { inputMode: 'decimal' },
+        }}
       />
       <Button size="small" variant="outlined" disabled={!canSave || saving} onClick={submit}>
         {t.addHolding}
@@ -229,7 +233,13 @@ export function InvestmentsCard({ currency, locale, embedded = false }: Investme
         <Box>
           {/* Inside Holdings the section header already names it. */}
           {embedded ? null : <CardTitle>{t.investmentsTitle}</CardTitle>}
-          <Typography variant="body2" color="text.secondary" sx={{ mt: embedded ? 0 : 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mt: embedded ? 0 : 0.5,
+            }}
+          >
             {t.investmentsHint}
           </Typography>
         </Box>
@@ -256,7 +266,12 @@ export function InvestmentsCard({ currency, locale, embedded = false }: Investme
       {/* Nothing yet: one quiet line and a way to add, no form on the page. */}
       {accounts.length === 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.noAccounts}
           </Typography>
           <Button size="small" variant="text" onClick={() => setAdding(true)}>
@@ -269,16 +284,34 @@ export function InvestmentsCard({ currency, locale, embedded = false }: Investme
       {accounts.map(account => (
         <Box key={account.id} sx={{ mt: 3 }} data-testid={`investment-account-${account.id}`}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ flex: 1 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 600,
+                flex: 1,
+              }}
+            >
               {account.name}
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+              <Typography
+                component="span"
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  ml: 1,
+                }}
+              >
                 {account.kind === 'retirement' ? t.kindRetirement : t.kindInvestment}
               </Typography>
             </Typography>
             <Typography variant="body2">
               {t.value}: <strong className={PRIVATE_CLASS}>{money(account.value)}</strong>
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.contributed}: <PrivateAmount>{money(account.contributed)}</PrivateAmount>
             </Typography>
             <Typography
@@ -328,7 +361,13 @@ export function InvestmentsCard({ currency, locale, embedded = false }: Investme
                     <td>
                       {holding.name}
                       {holding.symbol && (
-                        <Typography component="span" variant="caption" color="text.secondary">
+                        <Typography
+                          component="span"
+                          variant="caption"
+                          sx={{
+                            color: 'text.secondary',
+                          }}
+                        >
                           {' '}
                           {holding.symbol}
                         </Typography>
@@ -339,7 +378,13 @@ export function InvestmentsCard({ currency, locale, embedded = false }: Investme
                     <td>
                       <PrivateAmount>{holding.price}</PrivateAmount> {holding.priceCurrency}
                       {holding.priceSource === 'manual' && (
-                        <Typography component="span" variant="caption" color="text.secondary">
+                        <Typography
+                          component="span"
+                          variant="caption"
+                          sx={{
+                            color: 'text.secondary',
+                          }}
+                        >
                           {' '}
                           · {t.manualPrice}
                         </Typography>

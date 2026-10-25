@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { BankName, FileType } from '@/entities/statement.entity';
 import { BerekeBaseParser } from '@/modules/parsing/parsers/bereke-base.parser';
 import type { ParsedTransaction } from '@/modules/parsing/interfaces/parsed-statement.interface';
@@ -7,9 +8,9 @@ import {
   extractTextFromPdf,
 } from '@/common/utils/pdf-parser.util';
 
-jest.mock('@/common/utils/advanced-language-detector.util', () => ({
+vi.mock('@/common/utils/advanced-language-detector.util', () => ({
   advancedLanguageDetector: {
-    detectLanguage: jest.fn().mockResolvedValue({
+    detectLanguage: vi.fn().mockResolvedValue({
       locale: 'unknown',
       confidence: 0,
       method: 'legacy',
@@ -18,10 +19,10 @@ jest.mock('@/common/utils/advanced-language-detector.util', () => ({
   },
 }));
 
-jest.mock('@/common/utils/pdf-parser.util', () => ({
-  extractTextFromPdf: jest.fn(),
-  extractTextAndLayoutFromPdf: jest.fn(),
-  extractTablesFromPdf: jest.fn(),
+vi.mock('@/common/utils/pdf-parser.util', () => ({
+  extractTextFromPdf: vi.fn(),
+  extractTextAndLayoutFromPdf: vi.fn(),
+  extractTablesFromPdf: vi.fn(),
 }));
 
 type TestColumnKey = 'date' | 'document' | 'counterparty' | 'bank' | 'debit' | 'credit' | 'purpose';
@@ -119,7 +120,7 @@ describe('BerekeBaseParser', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('uses cached text in canParse and skips PDF extraction', async () => {
@@ -164,7 +165,7 @@ describe('BerekeBaseParser', () => {
   it('infers metadata dates from extracted transactions when statement range is missing', async () => {
     const text = ['Bereke statement', 'Opening balance 1 000,00', 'Closing balance 2 500,00'].join('\n');
 
-    (extractTextAndLayoutFromPdf as jest.Mock).mockResolvedValue({
+    (extractTextAndLayoutFromPdf as Mock).mockResolvedValue({
       text,
       rows: [
         { page: 1, y: 0, text: 'Header row', items: [] },
@@ -182,7 +183,7 @@ describe('BerekeBaseParser', () => {
         },
       ],
     });
-    (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
+    (extractTablesFromPdf as Mock).mockResolvedValue({ rowSets: [] });
 
     const result = await parser.parse('/tmp/mock.pdf');
 
@@ -195,8 +196,8 @@ describe('BerekeBaseParser', () => {
   it('preserves a legitimate zero opening balance instead of dropping it', async () => {
     const text = ['Bereke statement', 'Opening balance 0,00', 'Closing balance 500,00'].join('\n');
 
-    (extractTextAndLayoutFromPdf as jest.Mock).mockResolvedValue({ text, rows: [] });
-    (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
+    (extractTextAndLayoutFromPdf as Mock).mockResolvedValue({ text, rows: [] });
+    (extractTablesFromPdf as Mock).mockResolvedValue({ rowSets: [] });
 
     const result = await parser.parse('/tmp/mock.pdf');
 
@@ -356,7 +357,7 @@ describe('BerekeBaseParser', () => {
 
   it('collects successfully parsed transaction groups', () => {
     const groups = [[{ text: 'group-1' }], [{ text: 'group-2' }]];
-    const parseGroup = jest
+    const parseGroup = vi
       .fn()
       .mockReturnValueOnce({
         transactionDate: new Date('2026-01-01T00:00:00Z'),
@@ -380,7 +381,7 @@ describe('BerekeBaseParser', () => {
 
   it('invokes collector callbacks while parsing groups in a single pass', () => {
     const groups = [[{ text: 'ok-group' }], [{ text: 'bad-group' }]];
-    const parseGroup = jest
+    const parseGroup = vi
       .fn()
       .mockReturnValueOnce({
         transactionDate: new Date('2026-01-01T00:00:00Z'),
@@ -388,8 +389,8 @@ describe('BerekeBaseParser', () => {
         paymentPurpose: 'first',
       })
       .mockReturnValueOnce(null);
-    const onParsed = jest.fn();
-    const onFailed = jest.fn();
+    const onParsed = vi.fn();
+    const onFailed = vi.fn();
 
     parser.collectParsedTransactions(groups as any, undefined, parseGroup, { onParsed, onFailed });
 

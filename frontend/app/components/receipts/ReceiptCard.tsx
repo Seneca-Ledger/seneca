@@ -4,6 +4,7 @@ import { Box, Chip, Paper, Typography } from '@mui/material';
 import { Camera, FileImage, FileText, UploadCloud } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { useIntlayer } from '@/app/i18n';
 import type { ReceiptRecord } from '@/app/lib/api';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
@@ -21,9 +22,9 @@ const statusColorMap: Record<string, { bgcolor: string; color: string }> = {
 
 type ReceiptStatusKey = keyof typeof statusColorMap;
 
-function formatAmount(amount?: number, currency?: string) {
+function formatAmount(pendingLabel: string, amount?: number, currency?: string) {
   if (!Number.isFinite(amount)) {
-    return 'Amount pending';
+    return pendingLabel;
   }
 
   return (
@@ -51,6 +52,8 @@ export interface ReceiptCardProps {
 }
 
 export function ReceiptCard({ receipt, onOpen }: ReceiptCardProps) {
+  const t = useIntlayer('receiptReview');
+  const vendor = receipt.parsedData?.vendor || t.unknownVendor.value;
   const attachment = receipt.metadata?.attachments?.[0];
   const isPdf = attachment?.mimeType === 'application/pdf';
   const statusColors = statusColorMap[receipt.status as ReceiptStatusKey] ?? statusColorMap.draft;
@@ -60,7 +63,7 @@ export function ReceiptCard({ receipt, onOpen }: ReceiptCardProps) {
       component="button"
       type="button"
       onClick={() => onOpen?.(receipt)}
-      aria-label={`Open receipt ${receipt.parsedData?.vendor || 'Unknown vendor'}`}
+      aria-label={t.openReceipt.value.replace('{vendor}', vendor)}
       sx={{
         width: '100%',
         cursor: 'pointer',
@@ -108,7 +111,7 @@ export function ReceiptCard({ receipt, onOpen }: ReceiptCardProps) {
                     color: 'var(--foreground)',
                   }}
                 >
-                  {receipt.parsedData?.vendor || 'Unknown vendor'}
+                  {vendor}
                 </Typography>
                 <Typography
                   style={{
@@ -168,7 +171,11 @@ export function ReceiptCard({ receipt, onOpen }: ReceiptCardProps) {
             className={Number.isFinite(receipt.parsedData?.amount) ? PRIVATE_CLASS : undefined}
             style={{ marginTop: 16, fontSize: 18, fontWeight: 600, color: 'var(--foreground)' }}
           >
-            {formatAmount(receipt.parsedData?.amount, receipt.parsedData?.currency)}
+            {formatAmount(
+              t.amountPending.value,
+              receipt.parsedData?.amount,
+              receipt.parsedData?.currency,
+            )}
           </Typography>
         </Box>
       </Paper>

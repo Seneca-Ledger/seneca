@@ -12,28 +12,28 @@ import type { Repository } from 'typeorm';
 
 function createRepoMock<T>() {
   return {
-    findOne: jest.fn(),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    delete: jest.fn(async () => ({ affected: 1 })),
-    create: jest.fn((data: Partial<T>) => data as T),
-    createQueryBuilder: jest.fn(),
+    findOne: vi.fn(),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    delete: vi.fn(async () => ({ affected: 1 })),
+    create: vi.fn((data: Partial<T>) => data as T),
+    createQueryBuilder: vi.fn(),
   } as unknown as Repository<T> & Record<string, any>;
 }
 
 function createQueryBuilderMock() {
   const qb: any = {
-    where: jest.fn(() => qb),
-    andWhere: jest.fn(() => qb),
-    leftJoin: jest.fn(() => qb),
-    select: jest.fn(() => qb),
-    addSelect: jest.fn(() => qb),
-    groupBy: jest.fn(() => qb),
-    orderBy: jest.fn(() => qb),
-    addOrderBy: jest.fn(() => qb),
-    skip: jest.fn(() => qb),
-    take: jest.fn(() => qb),
-    getManyAndCount: jest.fn(async () => [[], 0]),
-    getRawMany: jest.fn(async () => []),
+    where: vi.fn(() => qb),
+    andWhere: vi.fn(() => qb),
+    leftJoin: vi.fn(() => qb),
+    select: vi.fn(() => qb),
+    addSelect: vi.fn(() => qb),
+    groupBy: vi.fn(() => qb),
+    orderBy: vi.fn(() => qb),
+    addOrderBy: vi.fn(() => qb),
+    skip: vi.fn(() => qb),
+    take: vi.fn(() => qb),
+    getManyAndCount: vi.fn(async () => [[], 0]),
+    getRawMany: vi.fn(async () => []),
   };
   return qb;
 }
@@ -47,7 +47,7 @@ describe('DataEntryService', () => {
   let service: DataEntryService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new DataEntryService(
       dataEntryRepository as any,
       dataEntryCustomFieldRepository as any,
@@ -57,7 +57,7 @@ describe('DataEntryService', () => {
   });
 
   it('create rejects customFieldValue without customFieldName', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       workspaceId: null,
     }));
@@ -73,11 +73,11 @@ describe('DataEntryService', () => {
   });
 
   it('create rejects unknown customTabId', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       workspaceId: null,
     }));
-    dataEntryCustomFieldRepository.findOne = jest.fn(async () => null);
+    dataEntryCustomFieldRepository.findOne = vi.fn(async () => null);
 
     await expect(
       service.create('ws-1', 'u1', {
@@ -91,8 +91,8 @@ describe('DataEntryService', () => {
 
   it('list applies filters and escapes LIKE wildcards', async () => {
     const qb = createQueryBuilderMock();
-    dataEntryRepository.createQueryBuilder = jest.fn(() => qb);
-    qb.getManyAndCount = jest.fn(async () => [[{ id: 'e1' }], 1]);
+    dataEntryRepository.createQueryBuilder = vi.fn(() => qb);
+    qb.getManyAndCount = vi.fn(async () => [[{ id: 'e1' }], 1]);
 
     const result = await service.list({
       workspaceId: 'ws-1',
@@ -123,11 +123,11 @@ describe('DataEntryService', () => {
   });
 
   it('removeBaseTab adds type to hidden list and deletes matching entries', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       dataEntryHiddenBaseTabs: [],
     }));
-    userRepository.save = jest.fn(async (u: any) => u);
+    userRepository.save = vi.fn(async (u: any) => u);
 
     await service.removeBaseTab('ws-1', 'u1', DataEntryType.CASH);
 
@@ -144,11 +144,11 @@ describe('DataEntryService', () => {
   });
 
   it('createCustomField maps unique constraint violation to BadRequestException', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       workspaceId: null,
     }));
-    dataEntryCustomFieldRepository.save = jest.fn(async () => {
+    dataEntryCustomFieldRepository.save = vi.fn(async () => {
       throw new QueryFailedError('query', [], { code: '23505' } as any);
     });
 
@@ -158,19 +158,19 @@ describe('DataEntryService', () => {
   });
 
   it('remove throws NotFoundException when entry does not exist', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       workspaceId: null,
     }));
-    dataEntryRepository.findOne = jest.fn(async () => null);
+    dataEntryRepository.findOne = vi.fn(async () => null);
 
     await expect(service.remove('u1', 'missing')).rejects.toThrow(NotFoundException);
   });
 
   it('listCustomFields returns entriesCount as number', async () => {
     const qb = createQueryBuilderMock();
-    dataEntryCustomFieldRepository.createQueryBuilder = jest.fn(() => qb);
-    qb.getRawMany = jest.fn(async () => [{ id: 'f1', name: 'Tab', icon: null, entriesCount: '3' }]);
+    dataEntryCustomFieldRepository.createQueryBuilder = vi.fn(() => qb);
+    qb.getRawMany = vi.fn(async () => [{ id: 'f1', name: 'Tab', icon: null, entriesCount: '3' }]);
 
     const rows = await service.listCustomFields('ws-1');
 

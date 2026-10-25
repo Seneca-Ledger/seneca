@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { FileStorageService } from '@/common/services/file-storage.service';
 import {
   Category,
@@ -63,128 +64,128 @@ describe('StorageService', () => {
         {
           provide: getRepositoryToken(SharedLink),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            count: jest.fn().mockResolvedValue(0),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            count: vi.fn().mockResolvedValue(0),
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(FilePermission),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            delete: jest.fn(),
-            remove: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            delete: vi.fn(),
+            remove: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Statement),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            createQueryBuilder: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(FileVersion),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(StorageView),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Folder),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Tag),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(User),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Transaction),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            createQueryBuilder: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Category),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            createQueryBuilder: vi.fn(),
           },
         },
         {
           provide: FileStorageService,
           useValue: {
-            getFileAvailability: jest.fn().mockResolvedValue({
+            getFileAvailability: vi.fn().mockResolvedValue({
               onDisk: true,
               inDb: false,
               status: 'disk',
             }),
-            getFileUrl: jest.fn(),
+            getFileUrl: vi.fn(),
           },
         },
         {
           provide: StatementsService,
           useValue: {
-            remove: jest.fn(),
+            remove: vi.fn(),
           },
         },
         {
           provide: MetricsService,
           useValue: {
-            observeStorageRead: jest.fn(),
-            observeStorageWrite: jest.fn(),
+            observeStorageRead: vi.fn(),
+            observeStorageWrite: vi.fn(),
           },
         },
       ],
@@ -206,7 +207,7 @@ describe('StorageService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -219,19 +220,19 @@ describe('StorageService', () => {
 
   describe('getStorageFiles', () => {
     beforeEach(() => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(filePermissionRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(filePermissionRepository, 'find').mockResolvedValue([]);
 
       const mockQueryBuilder = {
-        createQueryBuilder: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([mockStatement]),
+        createQueryBuilder: vi.fn().mockReturnThis(),
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        distinct: vi.fn().mockReturnThis(),
+        getMany: vi.fn().mockResolvedValue([mockStatement]),
       };
 
-      jest
+      vi
         .spyOn(statementRepository, 'createQueryBuilder')
         .mockReturnValue(mockQueryBuilder as any);
     });
@@ -246,7 +247,7 @@ describe('StorageService', () => {
     it('lists the files of the workspace the caller has open', async () => {
       await service.getStorageFiles('1', 'ws-open');
 
-      const queryBuilder = (statementRepository.createQueryBuilder as jest.Mock).mock.results[0]
+      const queryBuilder = (statementRepository.createQueryBuilder as Mock).mock.results[0]
         .value;
       expect(queryBuilder.where).toHaveBeenCalledWith('statement.workspaceId = :workspaceId', {
         workspaceId: 'ws-open',
@@ -254,7 +255,7 @@ describe('StorageService', () => {
     });
 
     it('leaves out files shared from other workspaces', async () => {
-      jest.spyOn(filePermissionRepository, 'find').mockResolvedValue([
+      vi.spyOn(filePermissionRepository, 'find').mockResolvedValue([
         { statement: { ...mockStatement, id: 'elsewhere', workspaceId: 'ws-other' } },
       ] as any);
 
@@ -264,7 +265,7 @@ describe('StorageService', () => {
     });
 
     it('should include file metadata', async () => {
-      jest.spyOn(fileStorageService, 'getFileAvailability').mockResolvedValue({
+      vi.spyOn(fileStorageService, 'getFileAvailability').mockResolvedValue({
         onDisk: true,
         inDb: true,
         status: 'both',
@@ -278,7 +279,7 @@ describe('StorageService', () => {
 
   describe('accessSharedLink', () => {
     it('rejects public access when allowAnonymous is false', async () => {
-      jest.spyOn(sharedLinkRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(sharedLinkRepository, 'findOne').mockResolvedValue({
         ...mockSharedLink,
         allowAnonymous: false,
         status: ShareLinkStatus.ACTIVE,
@@ -295,18 +296,18 @@ describe('StorageService', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
       // The uploader shares from inside the workspace.
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.OWNER,
         permissions: null,
       } as WorkspaceMember);
     });
 
     it('refuses the uploader once they have left the workspace', async () => {
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(filePermissionRepository, 'findOne').mockResolvedValue(null);
-      const saveSpy = jest.spyOn(sharedLinkRepository, 'save');
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(filePermissionRepository, 'findOne').mockResolvedValue(null);
+      const saveSpy = vi.spyOn(sharedLinkRepository, 'save');
 
       await expect(service.createSharedLink('1', '1', createDto)).rejects.toThrow(
         ForbiddenException,
@@ -315,8 +316,8 @@ describe('StorageService', () => {
     });
 
     it('should create shared link', async () => {
-      jest.spyOn(sharedLinkRepository, 'create').mockReturnValue(mockSharedLink as SharedLink);
-      jest.spyOn(sharedLinkRepository, 'save').mockResolvedValue(mockSharedLink as SharedLink);
+      vi.spyOn(sharedLinkRepository, 'create').mockReturnValue(mockSharedLink as SharedLink);
+      vi.spyOn(sharedLinkRepository, 'save').mockResolvedValue(mockSharedLink as SharedLink);
 
       const result = await service.createSharedLink('1', '1', createDto);
 
@@ -325,10 +326,10 @@ describe('StorageService', () => {
     });
 
     it('should generate unique token', async () => {
-      const createSpy = jest
+      const createSpy = vi
         .spyOn(sharedLinkRepository, 'create')
         .mockReturnValue(mockSharedLink as SharedLink);
-      jest.spyOn(sharedLinkRepository, 'save').mockResolvedValue(mockSharedLink as SharedLink);
+      vi.spyOn(sharedLinkRepository, 'save').mockResolvedValue(mockSharedLink as SharedLink);
 
       await service.createSharedLink('1', '1', createDto);
 
@@ -340,10 +341,10 @@ describe('StorageService', () => {
     });
 
     it('should set expiration date', async () => {
-      const createSpy = jest
+      const createSpy = vi
         .spyOn(sharedLinkRepository, 'create')
         .mockReturnValue(mockSharedLink as SharedLink);
-      jest.spyOn(sharedLinkRepository, 'save').mockResolvedValue(mockSharedLink as SharedLink);
+      vi.spyOn(sharedLinkRepository, 'save').mockResolvedValue(mockSharedLink as SharedLink);
 
       await service.createSharedLink('1', '1', createDto);
 
@@ -355,7 +356,7 @@ describe('StorageService', () => {
     });
 
     it('should verify resource ownership', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.createSharedLink('1', '1', createDto)).rejects.toThrow(
         NotFoundException,
@@ -368,8 +369,8 @@ describe('StorageService', () => {
         password: 'secret123',
       };
 
-      jest.spyOn(sharedLinkRepository, 'create').mockReturnValue(mockSharedLink as SharedLink);
-      jest.spyOn(sharedLinkRepository, 'save').mockResolvedValue(mockSharedLink as SharedLink);
+      vi.spyOn(sharedLinkRepository, 'create').mockReturnValue(mockSharedLink as SharedLink);
+      vi.spyOn(sharedLinkRepository, 'save').mockResolvedValue(mockSharedLink as SharedLink);
 
       await service.createSharedLink('1', '1', dtoWithPassword);
 
@@ -390,20 +391,20 @@ describe('StorageService', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue({
         id: '2',
       } as User);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         userId: '2',
         workspaceId: mockStatement.workspaceId,
       } as WorkspaceMember);
-      jest.spyOn(service as any, 'checkFileAccess').mockResolvedValue(undefined);
+      vi.spyOn(service as any, 'checkFileAccess').mockResolvedValue(undefined);
     });
 
     it('refuses to share with a user outside the file\'s workspace', async () => {
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
-      const saveSpy = jest.spyOn(filePermissionRepository, 'save');
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
+      const saveSpy = vi.spyOn(filePermissionRepository, 'save');
 
       await expect(service.grantPermission('1', '1', grantDto)).rejects.toThrow(
         'User not found in this workspace',
@@ -412,8 +413,8 @@ describe('StorageService', () => {
     });
 
     it('should grant permission to user', async () => {
-      jest.spyOn(filePermissionRepository, 'create').mockReturnValue({} as FilePermission);
-      jest.spyOn(filePermissionRepository, 'save').mockResolvedValue({} as FilePermission);
+      vi.spyOn(filePermissionRepository, 'create').mockReturnValue({} as FilePermission);
+      vi.spyOn(filePermissionRepository, 'save').mockResolvedValue({} as FilePermission);
 
       await service.grantPermission('1', '1', grantDto);
 
@@ -421,9 +422,9 @@ describe('StorageService', () => {
     });
 
     it('shares with a member found by the email they sign in with', async () => {
-      const findMember = jest.spyOn(workspaceMemberRepository, 'findOne');
-      jest.spyOn(filePermissionRepository, 'create').mockImplementation(value => value as FilePermission);
-      const saveSpy = jest
+      const findMember = vi.spyOn(workspaceMemberRepository, 'findOne');
+      vi.spyOn(filePermissionRepository, 'create').mockImplementation(value => value as FilePermission);
+      const saveSpy = vi
         .spyOn(filePermissionRepository, 'save')
         .mockImplementation(async value => value as FilePermission);
 
@@ -442,7 +443,7 @@ describe('StorageService', () => {
     });
 
     it('should handle duplicate permissions', async () => {
-      jest.spyOn(filePermissionRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(filePermissionRepository, 'findOne').mockResolvedValue({
         id: 'perm-1',
       } as FilePermission);
 
@@ -452,16 +453,16 @@ describe('StorageService', () => {
 
   describe('revokePermission', () => {
     beforeEach(() => {
-      jest.spyOn(filePermissionRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(filePermissionRepository, 'findOne').mockResolvedValue({
         id: 'perm-1',
         grantedById: '1',
         userId: '2',
       } as FilePermission);
-      jest.spyOn(service as any, 'checkFileAccess').mockResolvedValue(undefined);
+      vi.spyOn(service as any, 'checkFileAccess').mockResolvedValue(undefined);
     });
 
     it('should revoke permission', async () => {
-      const removeSpy = jest.spyOn(filePermissionRepository, 'remove').mockResolvedValue({} as any);
+      const removeSpy = vi.spyOn(filePermissionRepository, 'remove').mockResolvedValue({} as any);
 
       await service.revokePermission('perm-1', '1');
 
@@ -469,7 +470,7 @@ describe('StorageService', () => {
     });
 
     it('should verify permission ownership', async () => {
-      jest.spyOn(filePermissionRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(filePermissionRepository, 'findOne').mockResolvedValue({
         id: 'perm-1',
         grantedById: '999',
       } as FilePermission);
@@ -479,7 +480,7 @@ describe('StorageService', () => {
     });
 
     it('should throw if permission not found', async () => {
-      jest.spyOn(filePermissionRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(filePermissionRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.revokePermission('invalid', '1')).rejects.toThrow(NotFoundException);
     });
@@ -488,7 +489,7 @@ describe('StorageService', () => {
   describe('workspace-scoped tags and views', () => {
     it('lists tags only for current workspace', async () => {
       const tagRepository = testingModule.get(getRepositoryToken(Tag));
-      jest.spyOn(tagRepository, 'find').mockResolvedValue([{ id: 'tag-1' }] as Tag[]);
+      vi.spyOn(tagRepository, 'find').mockResolvedValue([{ id: 'tag-1' }] as Tag[]);
 
       const result = await service.listTags('ws-1');
 
@@ -502,12 +503,12 @@ describe('StorageService', () => {
     it('creates tags and views inside current workspace', async () => {
       const tagRepository = testingModule.get(getRepositoryToken(Tag));
       const viewRepository = testingModule.get(getRepositoryToken(StorageView));
-      jest.spyOn(tagRepository, 'create').mockImplementation(data => data as Tag);
-      jest
+      vi.spyOn(tagRepository, 'create').mockImplementation(data => data as Tag);
+      vi
         .spyOn(tagRepository, 'save')
         .mockResolvedValue({ id: 'tag-1', workspaceId: 'ws-1' } as Tag);
-      jest.spyOn(viewRepository, 'create').mockImplementation(data => data as StorageView);
-      jest.spyOn(viewRepository, 'save').mockResolvedValue({
+      vi.spyOn(viewRepository, 'create').mockImplementation(data => data as StorageView);
+      vi.spyOn(viewRepository, 'save').mockResolvedValue({
         id: 'view-1',
         workspaceId: 'ws-1',
       } as StorageView);

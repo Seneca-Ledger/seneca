@@ -1,4 +1,6 @@
+import { BadRequestException } from '@nestjs/common';
 import * as path from 'path';
+import { appError } from '../errors/app-error';
 
 const SAFE_CHARS_REGEX = /[^a-zA-Z0-9._-]/g;
 
@@ -31,7 +33,7 @@ export function sanitizeAvatarFilename(
 ): string {
   const extension = AVATAR_EXTENSION_BY_MIME[mimetype];
   if (!extension) {
-    throw new Error(`Unsupported avatar type: ${mimetype}`);
+    throw new BadRequestException(appError('FILE_AVATAR_TYPE_UNSUPPORTED', { mimetype }));
   }
 
   const trimmed = (originalName || '').trim();

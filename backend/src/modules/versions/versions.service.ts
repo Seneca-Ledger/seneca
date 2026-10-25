@@ -65,7 +65,12 @@ export class VersionsService {
   async prune(workspace: Workspace, now = new Date()): Promise<void> {
     const versions = await this.versionRepository.find({
       where: { workspaceId: workspace.id },
-      select: ['id', 'takenAt', 'status', 'fileRefs'],
+      select: {
+        id: true,
+        takenAt: true,
+        status: true,
+        fileRefs: true,
+      },
     });
     const timeZone = await this.ownerTimeZone(workspace.ownerId);
     // An opened version stays while someone looks at it; idle ones are discarded first.
@@ -75,7 +80,10 @@ export class VersionsService {
             kind: WorkspaceKind.VERSION,
             versionId: In(versions.map(version => version.id)),
           },
-          select: ['id', 'versionId'],
+          select: {
+            id: true,
+            versionId: true,
+          },
         })
       : [];
     const opened = new Set(openedRows.map(row => row.versionId as string));
@@ -93,7 +101,13 @@ export class VersionsService {
   /** The owner's time zone: their days decide which version a day keeps. */
   async ownerTimeZone(ownerId: string | null): Promise<string> {
     const owner = ownerId
-      ? await this.userRepository.findOne({ where: { id: ownerId }, select: ['id', 'timeZone'] })
+      ? await this.userRepository.findOne({
+          where: { id: ownerId },
+          select: {
+            id: true,
+            timeZone: true,
+          },
+        })
       : null;
     const zone = owner?.timeZone;
     if (zone) {
@@ -166,7 +180,9 @@ export class VersionsService {
         lastAccessedAt: LessThan(new Date(now.getTime() - OPENED_VERSION_IDLE_MS)),
         workspace: { kind: WorkspaceKind.VERSION },
       },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
     for (const member of idle) await this.discard(member.workspace);
     return idle.length;
@@ -213,12 +229,19 @@ export class VersionsService {
   private async sourceOf(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'kind', 'versionId'],
+      select: {
+        id: true,
+        kind: true,
+        versionId: true,
+      },
     });
     if (workspace?.kind !== WorkspaceKind.VERSION || !workspace.versionId) return workspaceId;
     const version = await this.versionRepository.findOne({
       where: { id: workspace.versionId },
-      select: ['id', 'workspaceId'],
+      select: {
+        id: true,
+        workspaceId: true,
+      },
     });
     return version?.workspaceId ?? workspaceId;
   }

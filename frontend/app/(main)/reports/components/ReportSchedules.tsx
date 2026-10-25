@@ -62,12 +62,10 @@ function parseRecipients(raw: string): string[] {
     .filter(Boolean);
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.Element {
   const t = useIntlayer('reportsPage');
   const { locale } = useLocale();
   const labels = t.labels as Record<string, { value?: string } | undefined>;
-  // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
 
   const [rows, setRows] = useState<ReportScheduleRow[]>([]);
@@ -148,7 +146,14 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
           mb: 3,
         }}
       >
-        <Typography variant="body1" fontWeight={600} sx={{ color: 'var(--foreground)', mb: 0.25 }}>
+        <Typography
+          variant="body1"
+          sx={{
+            fontWeight: 600,
+            color: 'var(--foreground)',
+            mb: 0.25,
+          }}
+        >
           {text('scheduleNewTitle', 'Schedule a report')}
         </Typography>
         <Typography variant="body2" sx={{ mb: 2.5, color: 'var(--muted-foreground)' }}>
@@ -221,7 +226,9 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
               placeholder="finance@example.com"
               value={recipientsRaw}
               onChange={event => setRecipientsRaw(event.target.value)}
-              InputProps={{ sx: controlSx }}
+              slotProps={{
+                input: { sx: controlSx },
+              }}
             />
           </Box>
         </Box>
@@ -260,7 +267,13 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
             }}
           >
             <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Typography variant="body2" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                  color: 'var(--foreground)',
+                }}
+              >
                 {templateName(row.templateId)} · {text(`cadence_${row.cadence}`, row.cadence)} ·{' '}
                 {row.format.toUpperCase()}
               </Typography>

@@ -46,3 +46,11 @@ export const EntityImportResult = Schema.Struct({
   createdIds: Schema.Array(Schema.String),
 });
 export type EntityImportResult = Wire<typeof EntityImportResult>;
+
+/** `DELETE /entity-imports/:batchId`: rows the batch created removed, rows it updated put back. */
+export const EntityImportUndone = Schema.Struct({
+  undone: Schema.Literal(true),
+  removed: Schema.Number,
+  restored: Schema.Number,
+});
+export type EntityImportUndone = Wire<typeof EntityImportUndone>;

@@ -7,6 +7,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Budget } from './budget.entity';
@@ -60,49 +61,49 @@ export class Note {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Statement, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'statement_id' })
-  statement: Statement | null;
+  statement: Relation<Statement | null>;
 
   @Column({ name: 'statement_id', type: 'uuid', nullable: true })
   statementId: string | null;
 
   @ManyToOne(() => Receipt, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'receipt_id' })
-  receipt: Receipt | null;
+  receipt: Relation<Receipt | null>;
 
   @Column({ name: 'receipt_id', type: 'uuid', nullable: true })
   receiptId: string | null;
 
   @ManyToOne(() => Transaction, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'transaction_id' })
-  transaction: Transaction | null;
+  transaction: Relation<Transaction | null>;
 
   @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
   transactionId: string | null;
 
   @ManyToOne(() => Budget, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'budget_id' })
-  budget: Budget | null;
+  budget: Relation<Budget | null>;
 
   @Column({ name: 'budget_id', type: 'uuid', nullable: true })
   budgetId: string | null;
 
   @ManyToOne(() => Goal, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'goal_id' })
-  goal: Goal | null;
+  goal: Relation<Goal | null>;
 
   @Column({ name: 'goal_id', type: 'uuid', nullable: true })
   goalId: string | null;
 
   @ManyToOne(() => Invoice, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'invoice_id' })
-  invoice: Invoice | null;
+  invoice: Relation<Invoice | null>;
 
   @Column({ name: 'invoice_id', type: 'uuid', nullable: true })
   invoiceId: string | null;
@@ -110,7 +111,7 @@ export class Note {
   /** Автор может быть удалён — заметка при этом остаётся. */
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'user_id' })
-  user: User | null;
+  user: Relation<User | null>;
 
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string | null;

@@ -9,10 +9,10 @@ describe('IdempotencyService', () => {
   let repository: Repository<IdempotencyKey>;
 
   const mockRepository = {
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    delete: jest.fn(),
+    findOne: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    delete: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -31,7 +31,7 @@ describe('IdempotencyService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('checkKey', () => {

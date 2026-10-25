@@ -12,6 +12,7 @@ import type { AuthenticatedUser } from '../../modules/auth/strategies/jwt.strate
 import { API_KEY_ALLOWED_KEY } from '../decorators/api-key-allowed.decorator';
 import { PERMISSIONS_KEY } from '../decorators/require-permission.decorator';
 import type { Permission } from '../enums/permissions.enum';
+import { appError } from '../errors/app-error';
 import type { AuthenticatedRequest } from '../interfaces/authenticated-request.interface';
 
 @Injectable()
@@ -60,11 +61,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     const apiKey = await apiKeysService.validate(rawKey);
 
     if (!apiKey) {
-      throw new UnauthorizedException('Invalid or revoked API key');
+      throw new UnauthorizedException(appError('AUTH_API_KEY_INVALID'));
     }
     // A deactivated account loses its keys too, as it loses its sessions (JwtStrategy).
     if (apiKey.user?.isActive === false) {
-      throw new UnauthorizedException('User is inactive');
+      throw new UnauthorizedException(appError('AUTH_USER_INACTIVE'));
     }
 
     request.user = apiKey.user as AuthenticatedUser;
@@ -78,12 +79,12 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     const requestedWorkspaceId = request.headers['x-workspace-id'];
     if (requestedWorkspaceId && String(requestedWorkspaceId) !== apiKey.workspaceId) {
-      throw new ForbiddenException('API key is not valid for the requested workspace');
+      throw new ForbiddenException(appError('AUTH_API_KEY_WRONG_WORKSPACE'));
     }
     request.headers['x-workspace-id'] = apiKey.workspaceId;
 
     if (request.apiKey.scopes !== null && !this.checksScopes(context)) {
-      throw new ForbiddenException('This route does not accept scoped API keys');
+      throw new ForbiddenException(appError('AUTH_API_KEY_ROUTE_FORBIDDEN'));
     }
 
     return true;

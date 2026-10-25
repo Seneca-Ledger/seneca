@@ -1,3 +1,4 @@
+import type { MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Cache } from 'cache-manager';
@@ -10,15 +11,15 @@ const makeCache = () => {
   const store = new Map<string, unknown>();
   return {
     store,
-    get: jest.fn(async (key: string) => store.get(key)),
-    set: jest.fn(async (key: string, value: unknown) => {
+    get: vi.fn(async (key: string) => store.get(key)),
+    set: vi.fn(async (key: string, value: unknown) => {
       store.set(key, value);
     }),
   };
 };
 
 const makeConfig = (values: Record<string, string | undefined>) =>
-  ({ get: jest.fn((key: string) => values[key]) }) as unknown as ConfigService;
+  ({ get: vi.fn((key: string) => values[key]) }) as unknown as ConfigService;
 
 // A real Response: the HTTP client reads headers and body the standard way.
 const jsonResponse = (body: unknown, status = 200) =>
@@ -26,8 +27,8 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 describe('GeocodingService', () => {
   const originalFetch = global.fetch;
-  const fetchMock = jest.fn();
-  let warnSpy: jest.SpyInstance;
+  const fetchMock = vi.fn();
+  let warnSpy: MockInstance;
 
   const create = (
     values: Record<string, string | undefined> = { GEOCODER_URL: 'http://nominatim:8080/' },
@@ -42,7 +43,7 @@ describe('GeocodingService', () => {
     // The HTTP client passes a URL object; the assertions read the string.
     global.fetch = ((input: string | URL, init?: RequestInit) =>
       fetchMock(String(input), init)) as unknown as typeof fetch;
-    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {

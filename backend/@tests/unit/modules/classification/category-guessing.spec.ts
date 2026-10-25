@@ -153,7 +153,7 @@ describe('category guessing', () => {
             del: async () => undefined,
           },
         },
-        { provide: AuditService, useValue: { createEvent: jest.fn() } },
+        { provide: AuditService, useValue: { createEvent: vi.fn() } },
       ],
     }).compile();
 

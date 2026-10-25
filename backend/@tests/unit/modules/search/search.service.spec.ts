@@ -3,18 +3,18 @@ import { ReceiptSource } from '@/entities/receipt.entity';
 import { SearchService } from '@/modules/search/search.service';
 
 const createQueryBuilderMock = (rows: unknown[]) => ({
-  innerJoinAndSelect: jest.fn().mockReturnThis(),
-  where: jest.fn().mockReturnThis(),
-  andWhere: jest.fn().mockReturnThis(),
-  orderBy: jest.fn().mockReturnThis(),
-  take: jest.fn().mockReturnThis(),
-  getMany: jest.fn().mockResolvedValue(rows),
+  innerJoinAndSelect: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  andWhere: vi.fn().mockReturnThis(),
+  orderBy: vi.fn().mockReturnThis(),
+  take: vi.fn().mockReturnThis(),
+  getMany: vi.fn().mockResolvedValue(rows),
 });
 
 const createRepoMock = (rows: unknown[] = []) =>
   ({
-    createQueryBuilder: jest.fn(() => createQueryBuilderMock(rows)),
-    find: jest.fn().mockResolvedValue(rows),
+    createQueryBuilder: vi.fn(() => createQueryBuilderMock(rows)),
+    find: vi.fn().mockResolvedValue(rows),
   }) as any;
 
 const scanDetails = { detectedBy: 'receipt-scan' };
@@ -108,7 +108,7 @@ describe('SearchService', () => {
       { id: 's-1', fileName: 'receipt-scan.jpg', bankName: null, status: 'uploaded' },
       { id: 's-2', fileName: 'march.pdf', bankName: 'Kaspi', status: 'parsed' },
     ]);
-    const statementRepo = { createQueryBuilder: jest.fn(() => builder) } as any;
+    const statementRepo = { createQueryBuilder: vi.fn(() => builder) } as any;
     const transactionRepo = createRepoMock();
     const service = new SearchService(
       transactionRepo,

@@ -1,3 +1,4 @@
+import type { MockInstance } from 'vitest';
 import { Workspace } from '@/entities/workspace.entity';
 import { Branch } from '@/entities/branch.entity';
 import { CategorizationRule } from '@/entities/categorization-rule.entity';
@@ -57,10 +58,10 @@ describe('ClassificationService', () => {
         {
           provide: getRepositoryToken(Category),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
           },
         },
         {
@@ -69,52 +70,52 @@ describe('ClassificationService', () => {
         },
         {
           provide: getRepositoryToken(Payee),
-          useValue: { findOne: jest.fn(async () => null) },
+          useValue: { findOne: vi.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(PayeeAlias),
-          useValue: { findOne: jest.fn(async () => null) },
+          useValue: { findOne: vi.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(Branch),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Wallet),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
             // A matched rule's targets are checked through it; here they are the workspace's.
             manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
           },
         },
         {
           provide: getRepositoryToken(Workspace),
-          useValue: { findOne: jest.fn(async () => null) },
+          useValue: { findOne: vi.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(CategorizationRule),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            update: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            update: vi.fn(),
           },
         },
         {
           provide: CACHE_MANAGER,
           useValue: {
-            get: jest.fn(),
-            set: jest.fn(),
-            del: jest.fn(),
+            get: vi.fn(),
+            set: vi.fn(),
+            del: vi.fn(),
           },
         },
         {
           provide: AuditService,
           useValue: {
-            createEvent: jest.fn(),
+            createEvent: vi.fn(),
           },
         },
       ],
@@ -131,11 +132,11 @@ describe('ClassificationService', () => {
   });
 
   beforeEach(() => {
-    jest.restoreAllMocks();
-    jest.clearAllMocks();
-    jest.spyOn(branchRepository, 'find').mockResolvedValue([]);
-    jest.spyOn(walletRepository, 'find').mockResolvedValue([]);
-    jest.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([]);
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
+    vi.spyOn(walletRepository, 'find').mockResolvedValue([]);
+    vi.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([]);
   });
 
   afterAll(async () => {
@@ -147,23 +148,23 @@ describe('ClassificationService', () => {
   });
 
   describe('classifyTransaction', () => {
-    let autoCategorySpy: jest.SpyInstance;
+    let autoCategorySpy: MockInstance;
 
     beforeEach(() => {
-      jest.spyOn(categoryRepository, 'find').mockResolvedValue([mockCategory as Category]);
-      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(categoryRepository, 'find').mockResolvedValue([mockCategory as Category]);
+      vi.spyOn(categoryRepository, 'findOne').mockResolvedValue({
         ...mockCategory,
         id: 'cat-1',
       } as Category);
-      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
-      autoCategorySpy = jest
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      autoCategorySpy = vi
         .spyOn<any, any>(service as any, 'autoClassifyCategory')
         .mockResolvedValue({ categoryId: 'cat-1', source: 'keyword', reason: null });
     });
 
     it('should determine transaction type from debit', async () => {
       const transaction = { ...mockTransaction, debit: 100, credit: 0 };
-      jest.spyOn(categoryRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(categoryRepository, 'find').mockResolvedValue([]);
 
       const result = await service.classifyTransaction(transaction as Transaction, '1');
 
@@ -172,7 +173,7 @@ describe('ClassificationService', () => {
 
     it('should determine transaction type from credit', async () => {
       const transaction = { ...mockTransaction, debit: 0, credit: 200 };
-      jest.spyOn(categoryRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(categoryRepository, 'find').mockResolvedValue([]);
 
       const result = await service.classifyTransaction(transaction as Transaction, '1');
 
@@ -180,7 +181,7 @@ describe('ClassificationService', () => {
     });
 
     it('should auto-classify category based on description', async () => {
-      jest.spyOn(categoryRepository, 'find').mockResolvedValue([mockCategory as Category]);
+      vi.spyOn(categoryRepository, 'find').mockResolvedValue([mockCategory as Category]);
 
       const result = await service.classifyTransaction(mockTransaction as Transaction, '1');
 
@@ -229,7 +230,7 @@ describe('ClassificationService', () => {
         keywords: ['walmart', 'supermarket', 'grocery'],
       };
 
-      jest.spyOn(categoryRepository, 'find').mockResolvedValue([groceryCategory as Category]);
+      vi.spyOn(categoryRepository, 'find').mockResolvedValue([groceryCategory as Category]);
 
       const result = await service.classifyTransaction(groceryTransaction as Transaction, '1');
 
@@ -237,7 +238,7 @@ describe('ClassificationService', () => {
     });
 
     it('should handle transactions without matches', async () => {
-      jest.spyOn(categoryRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(categoryRepository, 'find').mockResolvedValue([]);
 
       const result = await service.classifyTransaction(mockTransaction as Transaction, '1');
 
@@ -246,7 +247,7 @@ describe('ClassificationService', () => {
     });
 
     it('should emit audit event when rule matched', async () => {
-      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
         {
           id: 'rule-1',
           name: 'Test Rule',
@@ -292,7 +293,7 @@ describe('ClassificationService', () => {
         minAmount: 1000,
       };
 
-      jest.spyOn(categoryRepository, 'find').mockResolvedValue([highValueCategory as Category]);
+      vi.spyOn(categoryRepository, 'find').mockResolvedValue([highValueCategory as Category]);
 
       const highValueTx = { ...mockTransaction, debit: 1500 };
 
@@ -307,7 +308,7 @@ describe('ClassificationService', () => {
         description: 'Purchase@Store#123!',
       };
 
-      jest.spyOn(categoryRepository, 'find').mockResolvedValue([mockCategory as Category]);
+      vi.spyOn(categoryRepository, 'find').mockResolvedValue([mockCategory as Category]);
 
       const result = await service.classifyTransaction(specialTx as Transaction, '1');
 
@@ -317,7 +318,7 @@ describe('ClassificationService', () => {
 
   describe('workspace-scoped classification', () => {
     it("loads every member's rules of the workspace, not only the importer's", async () => {
-      const findSpy = jest.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([]);
+      const findSpy = vi.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([]);
 
       await service.getClassificationRules('ws-1');
 
@@ -327,7 +328,7 @@ describe('ClassificationService', () => {
     });
 
     it('reads no rules at all without a workspace to scope them by', async () => {
-      const findSpy = jest.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([]);
+      const findSpy = vi.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([]);
 
       await expect(service.getClassificationRules(null)).resolves.toEqual([]);
       expect(findSpy).not.toHaveBeenCalled();
@@ -335,7 +336,7 @@ describe('ClassificationService', () => {
 
     it('hands the row to the person a rule names, over the wallet it landed in', async () => {
       // A rule is an instruction; the wallet is only a default.
-      jest.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([
+      vi.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([
         {
           id: 'rule-1',
           name: 'Her Amazon',
@@ -347,15 +348,15 @@ describe('ClassificationService', () => {
           isActive: true,
         },
       ] as never);
-      jest.spyOn(walletRepository, 'find').mockResolvedValue([]);
-      jest
+      vi.spyOn(walletRepository, 'find').mockResolvedValue([]);
+      vi
         .spyOn(walletRepository, 'findOne')
         .mockImplementation(async (options: Record<string, any>) =>
-          options?.select?.includes('ownerMemberId')
+          options?.select?.ownerMemberId
             ? ({ ownerMemberId: 'member-self' } as Wallet)
             : ({ id: 'wallet-1' } as Wallet),
         );
-      jest.spyOn(branchRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
 
       const result = await service.classifyTransaction(
         {
@@ -371,7 +372,7 @@ describe('ClassificationService', () => {
     });
 
     it('matches a rule on who owns the row, with "shared" standing for nobody', async () => {
-      jest.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([
+      vi.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([
         {
           id: 'rule-2',
           name: 'Household groceries',
@@ -381,9 +382,9 @@ describe('ClassificationService', () => {
           isActive: true,
         },
       ] as never);
-      jest.spyOn(walletRepository, 'find').mockResolvedValue([]);
-      jest.spyOn(walletRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(branchRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(walletRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(walletRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
 
       const unclaimed = await service.classifyTransaction(
         { ...mockTransaction, id: undefined, workspaceId: 'ws-1' } as unknown as Transaction,
@@ -407,15 +408,15 @@ describe('ClassificationService', () => {
       // Classification is the one place that decides the wallet, so it is also
       // where the person comes from — otherwise every import path would need
       // its own copy of the rule.
-      jest.spyOn(walletRepository, 'find').mockResolvedValue([]);
-      jest
+      vi.spyOn(walletRepository, 'find').mockResolvedValue([]);
+      vi
         .spyOn(walletRepository, 'findOne')
         .mockImplementation(async (options: Record<string, any>) =>
-          options?.select?.includes('ownerMemberId')
+          options?.select?.ownerMemberId
             ? ({ ownerMemberId: 'member-partner' } as Wallet)
             : ({ id: 'wallet-1' } as Wallet),
         );
-      jest.spyOn(branchRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
 
       const result = await service.classifyTransaction(
         {
@@ -431,15 +432,15 @@ describe('ClassificationService', () => {
     });
 
     it('leaves the row shared when the wallet is shared', async () => {
-      jest.spyOn(walletRepository, 'find').mockResolvedValue([]);
-      jest
+      vi.spyOn(walletRepository, 'find').mockResolvedValue([]);
+      vi
         .spyOn(walletRepository, 'findOne')
         .mockImplementation(async (options: Record<string, any>) =>
-          options?.select?.includes('ownerMemberId')
+          options?.select?.ownerMemberId
             ? ({ ownerMemberId: null } as Wallet)
             : ({ id: 'wallet-1' } as Wallet),
         );
-      jest.spyOn(branchRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
 
       const result = await service.classifyTransaction(
         {
@@ -454,9 +455,9 @@ describe('ClassificationService', () => {
     });
 
     it('picks wallets and branches of the transaction’s workspace', async () => {
-      const walletFind = jest.spyOn(walletRepository, 'find').mockResolvedValue([]);
-      const walletFindOne = jest.spyOn(walletRepository, 'findOne').mockResolvedValue(null);
-      const branchFind = jest.spyOn(branchRepository, 'find').mockResolvedValue([]);
+      const walletFind = vi.spyOn(walletRepository, 'find').mockResolvedValue([]);
+      const walletFindOne = vi.spyOn(walletRepository, 'findOne').mockResolvedValue(null);
+      const branchFind = vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
       const transaction = {
         ...mockTransaction,
         workspaceId: 'ws-1',
@@ -478,7 +479,7 @@ describe('ClassificationService', () => {
 
   describe('ensureCategory', () => {
     it('creates a workspace parsing category instead of reusing a legacy user category', async () => {
-      jest
+      vi
         .spyOn(categoryRepository, 'findOne')
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({
@@ -490,14 +491,14 @@ describe('ClassificationService', () => {
           source: CategorySource.USER,
         } as Category);
 
-      const createSpy = jest.spyOn(categoryRepository, 'create').mockImplementation(
+      const createSpy = vi.spyOn(categoryRepository, 'create').mockImplementation(
         (data: Partial<Category>) =>
           ({
             id: 'workspace-cat',
             ...data,
           }) as Category,
       );
-      jest.spyOn(categoryRepository, 'save').mockImplementation(async category => category as Category);
+      vi.spyOn(categoryRepository, 'save').mockImplementation(async category => category as Category);
 
       const result = await (service as any).ensureCategory(
         '1',
@@ -522,13 +523,13 @@ describe('ClassificationService', () => {
     });
 
     it('takes the category a parallel import created first instead of failing', async () => {
-      jest
+      vi
         .spyOn(categoryRepository, 'findOne')
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({ id: 'created-in-parallel' } as Category);
-      jest.spyOn(categoryRepository, 'create').mockImplementation(data => data as Category);
-      jest
+      vi.spyOn(categoryRepository, 'create').mockImplementation(data => data as Category);
+      vi
         .spyOn(categoryRepository, 'save')
         .mockRejectedValue(Object.assign(new Error('duplicate key'), { code: '23505' }));
 

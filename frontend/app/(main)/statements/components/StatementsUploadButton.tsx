@@ -24,7 +24,7 @@ export function StatementsUploadButton(): React.JSX.Element {
         onClick={onScan}
       >
         <Plus size={18} aria-hidden />
-        {resolveLabel(getNestedValue(t, ['uploadStatement']), 'Upload statement')}
+        {resolveLabel(getNestedValue(t, ['uploadStatement']))}
       </Button>
     </ReadOnlyHint>
   );

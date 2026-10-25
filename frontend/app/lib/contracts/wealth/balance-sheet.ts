@@ -55,3 +55,49 @@ export const BalanceSheetResponse = Schema.Struct({
   missingRates: Schema.Array(Schema.String),
 });
 export type BalanceSheetResponse = Wire<typeof BalanceSheetResponse>;
+
+/** `GET /reports/balance/accounts`: the sheet's lines without its totals. */
+export const BalanceAccountsTree = Schema.Struct({
+  assets: Schema.Array(BalanceAccountNode),
+  liabilities: Schema.Array(BalanceAccountNode),
+  date: DateOnly,
+});
+export type BalanceAccountsTree = Wire<typeof BalanceAccountsTree>;
+
+/** `PUT /reports/balance/snapshot`: the amount stored for a line on a day. */
+export const BalanceSnapshotSaved = Schema.Struct({
+  accountId: Schema.String,
+  snapshotDate: DateOnly,
+  amount: Schema.Number,
+  currency: Schema.String,
+});
+export type BalanceSnapshotSaved = Wire<typeof BalanceSnapshotSaved>;
+
+/** `POST /reports/balance/accounts`: a custom line under an expandable section. */
+export const BalanceAccountCreated = Schema.Struct({
+  id: Schema.String,
+  code: Schema.String,
+  name: Schema.String,
+  nameEn: Schema.NullOr(Schema.String),
+  nameKk: Schema.NullOr(Schema.String),
+  parentId: Schema.NullOr(Schema.String),
+  accountType: BalanceAccountType,
+  subType: Schema.Literals([
+    'non_current_asset',
+    'current_asset',
+    'cash',
+    'equity',
+    'borrowed_capital',
+  ]),
+  position: Schema.Number,
+});
+export type BalanceAccountCreated = Wire<typeof BalanceAccountCreated>;
+
+/** `PATCH /reports/balance/accounts/:id/classification`. */
+export const BalanceAccountClassification = Schema.Struct({
+  id: Schema.String,
+  code: Schema.String,
+  capitalRole: Schema.NullOr(Schema.Literals(['income', 'neutral', 'drain'])),
+  riskLevel: Schema.NullOr(Schema.Literals(['low', 'medium', 'high'])),
+});
+export type BalanceAccountClassification = Wire<typeof BalanceAccountClassification>;

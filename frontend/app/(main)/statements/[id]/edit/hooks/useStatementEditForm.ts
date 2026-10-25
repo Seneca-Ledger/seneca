@@ -45,7 +45,6 @@ export interface UseStatementEditFormOptions {
   sourceColumnTitles: Record<string, string>;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function useStatementEditForm({
   statementId,
   user,

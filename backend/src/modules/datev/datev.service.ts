@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { APP_NAME } from '../../common/brand';
+import { appError } from '../../common/errors/app-error';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { toMinor } from '../../common/utils/money.util';
 import {
@@ -155,19 +156,19 @@ export class DatevService {
     const bankAccounts = input.bankAccounts ?? (sameChart ? current.bankAccounts : {});
     for (const account of Object.values(bankAccounts)) {
       if (!ACCOUNT_PATTERN.test(account)) {
-        throw new BadRequestException('A bank account must be 1–9 digits');
+        throw new BadRequestException(appError('DATEV_BANK_ACCOUNT_INVALID'));
       }
     }
     const ids = Object.keys(accounts);
     for (const [categoryId, account] of Object.entries(accounts)) {
       if (!ACCOUNT_PATTERN.test(account)) {
-        throw new BadRequestException(`Account for category ${categoryId} must be 1–9 digits`);
+        throw new BadRequestException(appError('DATEV_CATEGORY_ACCOUNT_INVALID', { categoryId }));
       }
     }
     if (ids.length > 0) {
       const owned = await this.categoryRepository.count({ where: { workspaceId, id: In(ids) } });
       if (owned !== ids.length) {
-        throw new BadRequestException('One or more categories do not belong to this workspace');
+        throw new BadRequestException(appError('TAX_CATEGORIES_NOT_IN_WORKSPACE'));
       }
     }
 
@@ -295,9 +296,7 @@ export class DatevService {
     const settings = await this.getSettings(workspaceId);
     const { bookings, preview } = await this.build(workspaceId, from, to, viewerMemberId);
     if (preview.missingSettings.length > 0) {
-      throw new BadRequestException(
-        'Enter the adviser number (Beraternummer) and client number (Mandantennummer) first',
-      );
+      throw new BadRequestException(appError('DATEV_SETTINGS_MISSING'));
     }
     const content = datevFileContent(
       {
@@ -326,11 +325,11 @@ export class DatevService {
     viewerMemberId: string | null,
   ): Promise<Built> {
     if (to < from) {
-      throw new BadRequestException('The period must not end before it starts');
+      throw new BadRequestException(appError('TAX_PERIOD_END_BEFORE_START'));
     }
     // One file stays within one fiscal year, which for an EÜR filer is the calendar year.
     if (from.slice(0, 4) !== to.slice(0, 4)) {
-      throw new BadRequestException('A DATEV file covers one calendar year at most');
+      throw new BadRequestException(appError('DATEV_PERIOD_TOO_LONG'));
     }
 
     const [settings, workspace] = await Promise.all([
@@ -423,9 +422,7 @@ export class DatevService {
     }
 
     if (bookings.length > MAX_BOOKINGS) {
-      throw new BadRequestException(
-        `DATEV takes at most ${MAX_BOOKINGS} bookings per file; export a shorter period`,
-      );
+      throw new BadRequestException(appError('DATEV_TOO_MANY_BOOKINGS', { max: MAX_BOOKINGS }));
     }
 
     return {
@@ -498,7 +495,7 @@ export class DatevService {
       relations: { taxJurisdiction: true },
     });
     if (!workspace) {
-      throw new BadRequestException('Workspace not found');
+      throw new BadRequestException(appError('WORKSPACE_NOT_FOUND'));
     }
     return workspace;
   }

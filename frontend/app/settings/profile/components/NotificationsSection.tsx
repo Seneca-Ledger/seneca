@@ -19,7 +19,7 @@ import {
 import { tokens } from '@/lib/theme-tokens';
 
 type NotificationKey = keyof NotificationPreferences;
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 type ToggleChannel = (
   key: NotificationKey,
   channel: NotificationChannel,
@@ -35,13 +35,6 @@ const ROW_GRID = {
     xs: `repeat(${notificationChannels.length}, minmax(0, 1fr))`,
     sm: `minmax(0, 1fr) repeat(${notificationChannels.length}, 64px)`,
   },
-};
-
-const CHANNEL_FALLBACKS: Record<NotificationChannel, string> = {
-  inApp: 'Bell',
-  email: 'Email',
-  telegram: 'Telegram',
-  push: 'Push',
 };
 
 type Props = {
@@ -63,10 +56,13 @@ function ChannelHeader({ tx }: { tx: Tx }) {
         <Typography
           key={channel}
           variant="caption"
-          color="text.secondary"
-          sx={{ textAlign: 'center', fontWeight: 600 }}
+          sx={{
+            color: 'text.secondary',
+            textAlign: 'center',
+            fontWeight: 600,
+          }}
         >
-          {tx(['notificationsCard', 'channels', channel], CHANNEL_FALLBACKS[channel])}
+          {tx(['notificationsCard', 'channels', channel])}
         </Typography>
       ))}
     </Box>
@@ -86,8 +82,8 @@ function NotificationSettingRow({
   saving: boolean;
   onToggle: ToggleChannel;
 }) {
-  const label = tx(['notificationsCard', 'items', settingKey, 'label'], settingKey);
-  const description = tx(['notificationsCard', 'items', settingKey, 'description'], '');
+  const label = tx(['notificationsCard', 'items', settingKey, 'label']);
+  const description = tx(['notificationsCard', 'items', settingKey, 'description']);
   const row = settings.channels[settingKey];
 
   return (
@@ -105,7 +101,12 @@ function NotificationSettingRow({
         <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
           {label}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {description}
         </Typography>
       </Stack>
@@ -117,11 +118,10 @@ function NotificationSettingRow({
             disabled={saving}
             size="small"
             color="primary"
-            inputProps={{
-              'aria-label': `${label} — ${tx(
-                ['notificationsCard', 'channels', channel],
-                CHANNEL_FALLBACKS[channel],
-              )}`,
+            slotProps={{
+              input: {
+                'aria-label': `${label} — ${tx(['notificationsCard', 'channels', channel])}`,
+              },
             }}
           />
         </Box>
@@ -148,11 +148,21 @@ function NotificationGroup({
   return (
     <Card variant="outlined">
       <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-        <Typography variant="subtitle1" fontWeight={600}>
-          {tx(['notificationsCard', titlePath, 'title'], '')}
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
+          {tx(['notificationsCard', titlePath, 'title'])}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {tx(['notificationsCard', titlePath, 'description'], '')}
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
+          {tx(['notificationsCard', titlePath, 'description'])}
         </Typography>
       </Box>
       <CardContent sx={{ overflowX: 'auto' }}>
@@ -200,7 +210,7 @@ export function NotificationsSection({
           color: 'text.secondary',
         }}
       >
-        {tx(['notificationsCard', 'loading'], 'Loading...')}
+        {tx(['notificationsCard', 'loading'])}
       </Box>
     );
   }

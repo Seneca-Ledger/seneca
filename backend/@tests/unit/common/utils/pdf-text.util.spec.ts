@@ -1,17 +1,40 @@
-jest.mock('pdf-parse', () => jest.fn(async () => ({ text: 'parsed' })));
-
-import pdfParse from 'pdf-parse';
+import { readFileSync } from 'fs';
+import * as path from 'path';
 import { parsePdf } from '@/common/utils/pdf-text.util';
 
+const fixture = (name: string): Buffer =>
+  readFileSync(path.join(__dirname, '../../../fixtures/e-invoices/zugferd', name));
+
 describe('parsePdf', () => {
-  it('hands pdf.js a plain Uint8Array copy, never a Node Buffer', async () => {
-    const pdf = Buffer.from('%PDF-1.3');
+  it('reads every page of a real PDF', async () => {
+    const result = await parsePdf(fixture('EN16931_Einfach.pdf'));
 
-    await expect(parsePdf(pdf)).resolves.toEqual({ text: 'parsed' });
+    expect(result.numpages).toBe(2);
+    // Pages come after a blank line each, the way the parsers expect them.
+    expect(result.text.startsWith('\n\n')).toBe(true);
+    expect(result.text.split('\n\n').filter(Boolean)).toHaveLength(2);
+  });
 
-    const passed = (pdfParse as unknown as jest.Mock).mock.calls[0][0] as Uint8Array;
-    expect(Buffer.isBuffer(passed)).toBe(false);
-    expect(passed).toBeInstanceOf(Uint8Array);
-    expect(Buffer.from(passed).toString()).toBe('%PDF-1.3');
+  it('keeps the words of one line on one line, separated by single spaces', async () => {
+    const { text } = await parsePdf(fixture('EN16931_Einfach.pdf'));
+    const lines = text.split('\n').filter(Boolean);
+
+    expect(lines.length).toBeGreaterThan(10);
+    expect(lines.every(line => line === line.trim())).toBe(true);
+    expect(lines.some(line => line.includes('  '))).toBe(false);
+  });
+
+  it('reads the same bytes from a Node Buffer and from a Uint8Array', async () => {
+    const bytes = fixture('Facture_DOM_MINIMUM.pdf');
+
+    const fromBuffer = await parsePdf(bytes);
+    const fromArray = await parsePdf(new Uint8Array(bytes));
+
+    expect(fromBuffer.text).toBe(fromArray.text);
+    expect(fromBuffer.text.length).toBeGreaterThan(100);
+  });
+
+  it('rejects bytes that are not a PDF', async () => {
+    await expect(parsePdf(Buffer.from('not a pdf'))).rejects.toThrow();
   });
 });

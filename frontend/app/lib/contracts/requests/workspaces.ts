@@ -113,3 +113,36 @@ export const SetWorkspaceBackgroundBody = Schema.Struct({
   photoId: Schema.String.check(Schema.isUUID()),
 });
 export type SetWorkspaceBackgroundBody = Wire<typeof SetWorkspaceBackgroundBody>;
+
+// Route parameters. Workspaces, members (users), invitations and versions all
+// have uuid keys; an invitation token is a value of its own and stays a string.
+
+const RowId = Schema.String.check(Schema.isUUID());
+
+/** `/workspaces/:id` and the routes under it. */
+export const WorkspaceIdParams = Schema.Struct({ id: RowId });
+export type WorkspaceIdParams = Wire<typeof WorkspaceIdParams>;
+
+/** `/workspaces/:id/members/:userId`, its role and permissions. */
+export const WorkspaceMemberParams = Schema.Struct({ id: RowId, userId: RowId });
+export type WorkspaceMemberParams = Wire<typeof WorkspaceMemberParams>;
+
+/** `DELETE /workspaces/:id/invitations/:invitationId`. */
+export const WorkspaceInvitationParams = Schema.Struct({ id: RowId, invitationId: RowId });
+export type WorkspaceInvitationParams = Wire<typeof WorkspaceInvitationParams>;
+
+/** `DELETE /workspaces/members/:userId`: the caller's current workspace. */
+export const CurrentWorkspaceMemberParams = Schema.Struct({ userId: RowId });
+export type CurrentWorkspaceMemberParams = Wire<typeof CurrentWorkspaceMemberParams>;
+
+/** `/workspaces/invitations/:token` and its accept. */
+export const InvitationTokenParams = Schema.Struct({ token: Schema.String });
+export type InvitationTokenParams = Wire<typeof InvitationTokenParams>;
+
+/** `GET /workspaces/backgrounds/preview/:photoId`: an Openverse image id, a uuid. */
+export const BackgroundPreviewParams = Schema.Struct({ photoId: RowId });
+export type BackgroundPreviewParams = Wire<typeof BackgroundPreviewParams>;
+
+/** `/versions/:id/open`, `/versions/:id/copy`. */
+export const WorkspaceVersionParams = Schema.Struct({ id: RowId });
+export type WorkspaceVersionParams = Wire<typeof WorkspaceVersionParams>;

@@ -2,10 +2,10 @@ import { ForbiddenException } from '@nestjs/common';
 import { WorkspacePluginsService } from '../../../../src/modules/workspaces/workspace-plugins.service';
 
 describe('WorkspacePluginsService', () => {
-  const repo = { findOne: jest.fn() };
+  const repo = { findOne: vi.fn() };
   const service = new WorkspacePluginsService(repo as any);
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('reads the switch from the workspace settings', async () => {
     repo.findOne.mockResolvedValue({ id: 'ws-1', settings: { plugins: { webhooks: true } } });
@@ -14,7 +14,7 @@ describe('WorkspacePluginsService', () => {
     await expect(service.isEnabled('ws-1', 'mcp')).resolves.toBe(false);
     expect(repo.findOne).toHaveBeenCalledWith({
       where: { id: 'ws-1' },
-      select: ['id', 'settings'],
+      select: { id: true, settings: true },
     });
   });
 

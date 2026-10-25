@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { assertPermissions } from '../authz/request-permissions';
 import { PERMISSIONS_KEY } from '../decorators/require-permission.decorator';
 import type { Permission } from '../enums/permissions.enum';
+import { appError } from '../errors/app-error';
 import type { AuthenticatedRequest } from '../interfaces/authenticated-request.interface';
 
 @Injectable()
@@ -28,7 +29,7 @@ export class PermissionsGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      throw new ForbiddenException('User not authenticated');
+      throw new ForbiddenException(appError('AUTH_NOT_AUTHENTICATED'));
     }
 
     assertPermissions(requiredPermissions, { ...request, user });

@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { Branch } from '@/entities/branch.entity';
 import { CategorizationRule } from '@/entities/categorization-rule.entity';
 import { Category, CategoryType } from '@/entities/category.entity';
@@ -66,7 +67,7 @@ describe('categorising from what this payee was filed as before', () => {
   let testingModule: TestingModule;
   let service: ClassificationService;
   let query: FakeTransactionQuery;
-  let aliases: { findOne: jest.Mock };
+  let aliases: { findOne: Mock };
 
   /** The descriptors this workspace already knows, by payee key. */
   const KNOWN_KEYS: Record<string, string> = {
@@ -78,12 +79,12 @@ describe('categorising from what this payee was filed as before', () => {
   const build = async (newestFirst: string[], instruction: Partial<Payee> | null = null) => {
     query = new FakeTransactionQuery(newestFirst.map(categoryId => ({ categoryId })));
     aliases = {
-      findOne: jest.fn(async ({ where }: { where: { payeeKey: string } }) =>
+      findOne: vi.fn(async ({ where }: { where: { payeeKey: string } }) =>
         KNOWN_KEYS[where.payeeKey] ? { payeeId: KNOWN_KEYS[where.payeeKey] } : null,
       ),
     };
     const payees = {
-      findOne: jest.fn(async ({ where }: { where: { id: string } }) =>
+      findOne: vi.fn(async ({ where }: { where: { id: string } }) =>
         where.id === 'payee-rewe'
           ? {
               id: 'payee-rewe',
@@ -134,7 +135,7 @@ describe('categorising from what this payee was filed as before', () => {
             del: async () => undefined,
           },
         },
-        { provide: AuditService, useValue: { createEvent: jest.fn() } },
+        { provide: AuditService, useValue: { createEvent: vi.fn() } },
       ],
     }).compile();
 

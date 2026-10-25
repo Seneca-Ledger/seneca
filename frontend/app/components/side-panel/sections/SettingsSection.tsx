@@ -10,7 +10,6 @@ function isToggleItem(item: SettingsToggleItem | SettingsSelectItem): item is Se
   return 'checked' in item;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, max-lines-per-function, complexity
 function SettingsToggleComponent({ item }: { item: SettingsToggleItem }) {
   return (
     <div
@@ -92,7 +91,6 @@ function SettingsToggleComponent({ item }: { item: SettingsToggleItem }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, max-lines-per-function
 function SettingsSelectComponent({ item }: { item: SettingsSelectItem }) {
   return (
     <div style={{ padding: '8px 0' }}>
@@ -121,7 +119,6 @@ function SettingsSelectComponent({ item }: { item: SettingsSelectItem }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function SettingsSectionRenderer({ section }: { section: SettingsSection }) {
   return (
     <SectionWrapper section={section}>

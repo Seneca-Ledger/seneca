@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import NextLink from 'next/link';
@@ -31,7 +30,6 @@ import type { Category, Transaction } from './types';
 interface TransactionDetailsTabProps {
   transaction: Transaction;
   categories: Category[];
-  // eslint-disable-next-line max-params
   onUpdateCategory?: (txId: string, categoryId: string) => Promise<void>;
   onMarkIgnored?: (txId: string) => Promise<void>;
   /** Refreshes the transaction list (and closes the drawer) after a split/unsplit. */
@@ -72,7 +70,6 @@ function ActionRow({ label, hint, onClick, disabled }: ActionRowProps): React.JS
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function TransactionDetailsTab({
   transaction,
   categories,
@@ -135,7 +132,6 @@ export function TransactionDetailsTab({
     ? (transaction.category?.id ?? '')
     : '';
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleUpdateCategory = async (selectedCategoryId: string) => {
     if (!(selectedCategoryId && onUpdateCategory) || selectedCategoryId === currentCategoryId) {
       return;
@@ -162,7 +158,6 @@ export function TransactionDetailsTab({
       });
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleUpdateOwner = async (value: string) => {
     const successMessage = tOwner.ownerUpdated.value;
     const failureMessage = tOwner.ownerUpdateFailed.value;
@@ -179,7 +174,6 @@ export function TransactionDetailsTab({
       .finally(() => setOwnerSaving(false));
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleTogglePrivate = async (next: boolean) => {
     const successMessage = tOwner.ownerUpdated.value;
     const failureMessage = tOwner.ownerUpdateFailed.value;
@@ -196,7 +190,6 @@ export function TransactionDetailsTab({
       .finally(() => setPrivateSaving(false));
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleMarkIgnored = async () => {
     if (!onMarkIgnored) return;
 

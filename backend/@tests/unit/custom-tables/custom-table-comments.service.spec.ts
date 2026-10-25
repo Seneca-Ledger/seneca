@@ -2,12 +2,12 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { CustomTableCommentsService } from '../../../src/modules/custom-tables/custom-table-comments.service';
 
 const createRepositoryMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  save: jest.fn(async (v: unknown) => ({ id: 'c1', createdAt: new Date(), ...(v as object) })),
-  create: jest.fn((v?: unknown) => v),
-  delete: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  findOne: vi.fn(),
+  find: vi.fn(),
+  save: vi.fn(async (v: unknown) => ({ id: 'c1', createdAt: new Date(), ...(v as object) })),
+  create: vi.fn((v?: unknown) => v),
+  delete: vi.fn(),
+  createQueryBuilder: vi.fn(),
 });
 
 const TABLE_ID = '11111111-1111-4111-8111-111111111111';
@@ -20,10 +20,10 @@ function buildService(options: { tableFound?: boolean; rowFound?: boolean } = {}
   const workspaceMemberRepository = createRepositoryMock();
 
   tableRepository.createQueryBuilder.mockReturnValue({
-    leftJoin: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getOne: jest
+    leftJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getOne: vi
       .fn()
       .mockResolvedValue(options.tableFound === false ? null : { id: TABLE_ID }),
   });
@@ -129,12 +129,12 @@ describe('CustomTableCommentsService', () => {
   it('counts only open comments per row', async () => {
     const { service, commentRepository } = buildService();
     const qb = {
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue([{ row_id: ROW_ID, cnt: '3' }]),
+      select: vi.fn().mockReturnThis(),
+      addSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      groupBy: vi.fn().mockReturnThis(),
+      getRawMany: vi.fn().mockResolvedValue([{ row_id: ROW_ID, cnt: '3' }]),
     };
     commentRepository.createQueryBuilder.mockReturnValue(qb);
 

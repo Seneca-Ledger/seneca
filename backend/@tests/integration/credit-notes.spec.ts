@@ -57,22 +57,22 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
 }
 
 describe('credit notes (real Postgres)', () => {
-  jest.setTimeout(240_000);
+  vi.setConfig({ testTimeout: 240_000 });
 
   let dataSource: DataSource;
   let invoices: InvoicesService;
@@ -86,7 +86,7 @@ describe('credit notes (real Postgres)', () => {
   let clientId: string;
   let otherClientId: string;
   let vatRateId: string;
-  const eventEmitter = { emit: jest.fn() };
+  const eventEmitter = { emit: vi.fn() };
 
   async function errorOf(promise: Promise<unknown>) {
     try {
@@ -170,8 +170,8 @@ describe('credit notes (real Postgres)', () => {
         PayablesExportService,
         LedgerPostingService,
         LedgerAccountsService,
-        { provide: ExchangeRatesService, useValue: { getRateQuote: jest.fn(), getRate: jest.fn() } },
-        { provide: NotificationsService, useValue: { createForWorkspaceMembers: jest.fn() } },
+        { provide: ExchangeRatesService, useValue: { getRateQuote: vi.fn(), getRate: vi.fn() } },
+        { provide: NotificationsService, useValue: { createForWorkspaceMembers: vi.fn() } },
         { provide: EventEmitter2, useValue: eventEmitter },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),

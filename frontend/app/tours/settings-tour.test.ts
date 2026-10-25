@@ -86,7 +86,11 @@ describe('createSettingsTour', () => {
 
     expect(viewSource).toContain('data-tour-id="workspace-name"');
     expect(viewSource).toContain('data-tour-id="workspace-currency"');
-    expect(viewSource).toContain('data-tour-id="workspace-background"');
+    // The background card is a SettingsSection, which renders its tourId as the anchor.
+    expect(viewSource).toContain('tourId="workspace-background"');
+    expect(
+      readSource('app', '(main)', 'workspaces', 'components', 'SettingsSection.tsx'),
+    ).toContain('data-tour-id={tourId}');
     expect(pageSource).toContain('activeItem="overview"');
   });
 });

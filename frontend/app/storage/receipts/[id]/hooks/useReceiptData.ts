@@ -7,6 +7,7 @@ import type {
   EditableReceiptParsedData,
   ReceiptCategoryOption,
 } from '@/app/components/receipts/receipt-types';
+import { useIntlayer } from '@/app/i18n';
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
@@ -25,19 +26,7 @@ function buildLineItems(receipt: ReceiptRecord | null): EditableReceiptLineItem[
 function extractParsedFields(
   receipt: ReceiptRecord | null,
 ): Omit<EditableReceiptParsedData, 'lineItems'> {
-  if (!receipt?.parsedData) {
-    return {
-      vendor: '',
-      amount: '',
-      currency: FALLBACK_CURRENCY,
-      date: '',
-      tax: '',
-      paymentMethod: '',
-      transactionType: 'expense',
-      categoryId: '',
-    };
-  }
-  const pd = receipt.parsedData;
+  const pd: Partial<NonNullable<ReceiptRecord['parsedData']>> = receipt?.parsedData ?? {};
   return {
     vendor: pd.vendor ?? '',
     amount: pd.amount ?? '',
@@ -126,6 +115,7 @@ interface PreviewSetters {
   setPreviewUrl: UrlSetter;
   setPreviewMimeType: (v: string | null) => void;
   setPreviewError: (v: string | null) => void;
+  previewUnavailable: string;
 }
 
 async function loadPreviewAsync(
@@ -146,7 +136,7 @@ async function loadPreviewAsync(
   } catch (err) {
     console.error('Failed to load receipt preview:', err);
     if (active.value) {
-      setters.setPreviewError('Preview unavailable');
+      setters.setPreviewError(setters.previewUnavailable);
       revokeAndSet(setters.setPreviewUrl, null);
       setters.setPreviewMimeType(null);
     }
@@ -198,6 +188,7 @@ function useLoadData(
     setError: (v: string | null) => void;
   },
 ): () => Promise<void> {
+  const t = useIntlayer('receiptDocumentPage');
   const settersRef = useRef(setters);
   useEffect(() => {
     settersRef.current = setters;
@@ -218,13 +209,13 @@ function useLoadData(
     })()
       .catch(async err => {
         console.error('Failed to load receipt details:', err);
-        setters.setError('Failed to load receipt');
-        toast.error('Failed to load receipt');
+        setters.setError(t.loadFailed.value);
+        toast.error(t.loadFailed.value);
       })
       .finally(async () => {
         setters.setLoading(false);
       });
-  }, [receiptId]);
+  }, [receiptId, t]);
 }
 
 function usePersistParsedData(
@@ -232,6 +223,7 @@ function usePersistParsedData(
   setReceipt: React.Dispatch<React.SetStateAction<ReceiptRecord | null>>,
   lastSavedRef: React.MutableRefObject<string | null>,
 ): (nextValue: EditableReceiptParsedData) => Promise<void> {
+  const t = useIntlayer('receiptDocumentPage');
   return useCallback(
     async (nextValue: EditableReceiptParsedData): Promise<void> => {
       if (!receipt) {
@@ -254,10 +246,10 @@ function usePersistParsedData(
         // An approved receipt's row follows the edit, and every figure with it.
         invalidateFinancialData();
       })().catch(async () => {
-        toast.error('Failed to autosave receipt changes.');
+        toast.error(t.autosaveFailed.value);
       });
     },
-    [receipt, setReceipt, lastSavedRef],
+    [receipt, setReceipt, lastSavedRef, t],
   );
 }
 
@@ -267,6 +259,7 @@ function useApproveReceipt(
   loadData: () => Promise<void>,
   lastSavedRef: React.MutableRefObject<string | null>,
 ): { saving: boolean; handleApprove: () => Promise<void> } {
+  const t = useIntlayer('receiptDocumentPage');
   const [saving, setSaving] = useState(false);
   const handleApprove = async (): Promise<void> => {
     if (!receipt) {
@@ -282,11 +275,11 @@ function useApproveReceipt(
       lastSavedRef.current = JSON.stringify(payload);
       await receiptsApi.approveReceipt(receipt.id);
       invalidateFinancialData();
-      toast.success('Receipt approved.');
+      toast.success(t.approved.value);
       await loadData();
     })()
       .catch(async () => {
-        toast.error('Failed to approve receipt.');
+        toast.error(t.approveFailed.value);
       })
       .finally(async () => {
         setSaving(false);
@@ -296,6 +289,7 @@ function useApproveReceipt(
 }
 
 export function useReceiptData({ receiptId }: { receiptId: string }): UseReceiptDataReturn {
+  const t = useIntlayer('receiptDocumentPage');
   const [receipt, setReceipt] = useState<ReceiptRecord | null>(null);
   const [categories, setCategories] = useState<ReceiptCategoryOption[]>([]);
   const [formValue, setFormValue] = useState<EditableReceiptParsedData>(buildInitialForm(null));
@@ -338,6 +332,7 @@ export function useReceiptData({ receiptId }: { receiptId: string }): UseReceipt
     setPreviewUrl,
     setPreviewMimeType,
     setPreviewError,
+    previewUnavailable: t.previewUnavailable.value,
   });
 
   const persistParsedData = usePersistParsedData(receipt, setReceipt, lastSavedRef);
@@ -371,7 +366,7 @@ export function useReceiptData({ receiptId }: { receiptId: string }): UseReceipt
       URL.revokeObjectURL(url);
     })().catch(async err => {
       console.error('Failed to download receipt:', err);
-      toast.error('Failed to download receipt');
+      toast.error(t.downloadFailed.value);
     });
   };
 

@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 import {
   CryptoPriceService,
   PriceUnavailableError,
@@ -14,15 +16,15 @@ const createRepoMock = () => {
   const inserted: InsertedRow[] = [];
   const repo = {
     inserted,
-    findOne: jest.fn().mockResolvedValue(null),
-    createQueryBuilder: jest.fn(() => ({
-      insert: jest.fn().mockReturnThis(),
-      into: jest.fn().mockReturnThis(),
-      values: jest.fn((rows: InsertedRow | InsertedRow[]) => {
+    findOne: vi.fn().mockResolvedValue(null),
+    createQueryBuilder: vi.fn(() => ({
+      insert: vi.fn().mockReturnThis(),
+      into: vi.fn().mockReturnThis(),
+      values: vi.fn((rows: InsertedRow | InsertedRow[]) => {
         inserted.push(...(Array.isArray(rows) ? rows : [rows]));
         return {
-          orIgnore: jest.fn().mockReturnThis(),
-          execute: jest.fn().mockResolvedValue({ raw: [] }),
+          orIgnore: vi.fn().mockReturnThis(),
+          execute: vi.fn().mockResolvedValue({ raw: [] }),
         };
       }),
     })),
@@ -53,17 +55,17 @@ const DAY_MS = 86_400_000;
 describe('CryptoPriceService', () => {
   let repo: ReturnType<typeof createRepoMock>;
   let service: CryptoPriceService;
-  let fetchMock: jest.Mock;
+  let fetchMock: Mock;
 
   beforeEach(() => {
     repo = createRepoMock();
-    service = new CryptoPriceService(repo as never);
-    fetchMock = jest.fn();
+    service = new CryptoPriceService(repo as never, new EffectRuntime());
+    fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe('primeHistoricalPrices', () => {
@@ -145,25 +147,25 @@ describe('CryptoPriceService', () => {
     });
 
     it('retries a short refusal and keeps the price it eventually gets', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       fetchMock
         .mockResolvedValueOnce(errorResponse(429, { 'retry-after': '1' }))
         .mockResolvedValueOnce(jsonResponse({ market_data: { current_price: { usd: 3999.5 } } }));
 
       const price = service.getUsdPrice('ETH', new Date('2026-01-01'));
-      await jest.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(1_000);
 
       await expect(price).resolves.toBe(3999.5);
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('retries a server error with backoff before giving up', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       fetchMock.mockResolvedValue(errorResponse(503));
 
       const price = service.getUsdPrice('ETH', new Date('2026-01-01'));
       const assertion = expect(price).rejects.toBeInstanceOf(PriceUnavailableError);
-      await jest.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(10_000);
 
       await assertion;
       expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -184,12 +186,50 @@ describe('CryptoPriceService', () => {
   });
 
   describe('getCurrentUsdPrices', () => {
+    const ETH_PRICE = 2486.72;
+    const LAST_KNOWN = '2400.5';
+
+    it('prices from the answer and stores today\'s price', async () => {
+      fetchMock.mockImplementation(
+        async () => new Response(JSON.stringify({ ethereum: { usd: ETH_PRICE } }), { status: 200 }),
+      );
+
+      await expect(service.getCurrentUsdPrices(['eth'])).resolves.toEqual({ ETH: ETH_PRICE });
+      expect(String(fetchMock.mock.calls[0][0])).toContain('simple/price?ids=ethereum');
+      expect(repo.inserted).toEqual([expect.objectContaining({ baseCurrency: 'ETH', rate: ETH_PRICE })]);
+    });
+
     it('falls back to the last known price instead of failing the dashboard', async () => {
       // The summary endpoint runs on page load; a stale value beats an error page.
-      fetchMock.mockResolvedValue(errorResponse(429, { 'retry-after': '60' }));
-      repo.findOne.mockResolvedValue({ rate: '2486.72' });
+      fetchMock.mockImplementation(
+        async () => new Response('{}', { status: 429, headers: { 'retry-after': '60' } }),
+      );
+      repo.findOne.mockResolvedValue({ rate: LAST_KNOWN });
 
-      await expect(service.getCurrentUsdPrices(['ETH'])).resolves.toEqual({ ETH: 2486.72 });
+      await expect(service.getCurrentUsdPrices(['ETH'])).resolves.toEqual({
+        ETH: Number(LAST_KNOWN),
+      });
+      // The free tier is asked once: no retry on a rate limit.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to the last known price when CoinGecko cannot be reached', async () => {
+      fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+      repo.findOne.mockResolvedValue({ rate: LAST_KNOWN });
+
+      await expect(service.getCurrentUsdPrices(['ETH'])).resolves.toEqual({
+        ETH: Number(LAST_KNOWN),
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the last known price for a coin the answer leaves out', async () => {
+      fetchMock.mockImplementation(async () => new Response('{}', { status: 200 }));
+      repo.findOne.mockResolvedValue({ rate: LAST_KNOWN });
+
+      await expect(service.getCurrentUsdPrices(['ETH'])).resolves.toEqual({
+        ETH: Number(LAST_KNOWN),
+      });
     });
   });
 

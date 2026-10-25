@@ -21,7 +21,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { tokens } from '@/lib/theme-tokens';
 
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 
 type ElsewhereLink = {
   key: string;
@@ -45,7 +45,6 @@ const BUG_REPORT_URL = 'https://github.com/symonbaikov/seneca/issues/new?templat
  * short on purpose, so everything it does not carry — the trash, the activity
  * log, the language, the guide — is reachable from here.
  */
-// eslint-disable-next-line max-lines-per-function
 export function SettingsElsewhereLinks({ tx }: { tx: Tx }) {
   const { hasPermission } = usePermissions();
   const { nav, userMenu, languageModal, shell } = useIntlayer('navigation');
@@ -63,57 +62,57 @@ export function SettingsElsewhereLinks({ tx }: { tx: Tx }) {
     {
       href: '/workspaces/overview',
       key: 'workspace',
-      label: tx(['navigation', 'links', 'workspace'], 'Workspace'),
+      label: tx(['navigation', 'links', 'workspace']),
       icon: UserCircle,
     },
     {
       panel: 'integrations',
       key: 'integrations',
-      label: tx(['navigation', 'links', 'integrations'], 'Integrations'),
+      label: tx(['navigation', 'links', 'integrations']),
       icon: Cloud,
     },
     {
       panel: 'plugins',
       key: 'developer',
-      label: tx(['navigation', 'links', 'developer'], 'API keys & webhooks'),
+      label: tx(['navigation', 'links', 'developer']),
       icon: Shield,
     },
     {
       key: 'language',
-      label: `${resolveLabel(userMenu.language, 'Language')} · ${langProps.languageLabel}`,
+      label: `${resolveLabel(userMenu.language)} · ${langProps.languageLabel}`,
       icon: Globe,
       onClick: langProps.openLanguageMenu,
     },
     {
       href: '/statements/trash',
       key: 'trash',
-      label: resolveLabel(userMenu.trash, 'Trash'),
+      label: resolveLabel(userMenu.trash),
       icon: Trash2,
     },
     {
       href: '/admin',
       key: 'activityLog',
-      label: resolveLabel(nav.activityLog, 'Activity log'),
+      label: resolveLabel(nav.activityLog),
       icon: ScrollText,
       permission: 'audit_log.view',
     },
     {
       key: 'welcomeTutorial',
-      label: resolveLabel(userMenu.welcomeTutorial, 'Guide'),
+      label: resolveLabel(userMenu.welcomeTutorial),
       icon: PlayCircle,
       onClick: openWelcomeTutorial,
     },
     {
       href: KNOWLEDGE_BASE_URL,
       key: 'knowledgeBase',
-      label: resolveLabel(userMenu.knowledgeBase, 'Knowledge base'),
+      label: resolveLabel(userMenu.knowledgeBase),
       icon: UserCircle,
       external: true,
     },
     {
       href: BUG_REPORT_URL,
       key: 'reportBug',
-      label: resolveLabel(shell.reportBug, 'Report a bug'),
+      label: resolveLabel(shell.reportBug),
       icon: Bug,
       external: true,
     },

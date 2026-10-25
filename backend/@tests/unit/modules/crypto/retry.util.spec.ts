@@ -57,12 +57,12 @@ describe('fetchJsonWithRetry', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('aborts an attempt that hangs past 20 s and asks again', async () => {
     const signals: AbortSignal[] = [];
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockImplementationOnce(
         (_url: string, init: RequestInit) =>
@@ -73,10 +73,10 @@ describe('fetchJsonWithRetry', () => {
           }),
       )
       .mockResolvedValueOnce(json({ ok: true })) as unknown as typeof fetch;
-    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    vi.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
 
     const pending = fetchJsonWithRetry('https://rpc.example', {}, 'Test RPC', () => {});
-    await jest.advanceTimersByTimeAsync(20_000 + 1_000);
+    await vi.advanceTimersByTimeAsync(20_000 + 1_000);
 
     await expect(pending).resolves.toEqual({ ok: true });
     expect(signals[0].aborted).toBe(true);
@@ -84,13 +84,13 @@ describe('fetchJsonWithRetry', () => {
   });
 
   it('names the provider in what it throws', async () => {
-    global.fetch = jest.fn(async () => new Response('', { status: 404 })) as unknown as typeof fetch;
+    global.fetch = vi.fn(async () => new Response('', { status: 404 })) as unknown as typeof fetch;
     await expect(fetchJsonWithRetry('https://x', {}, 'TronGrid', () => {})).rejects.toThrow(
       'TronGrid returned HTTP 404',
     );
     expect(global.fetch).toHaveBeenCalledTimes(1);
 
-    global.fetch = jest.fn(async () => new Response('<html>')) as unknown as typeof fetch;
+    global.fetch = vi.fn(async () => new Response('<html>')) as unknown as typeof fetch;
     await expect(fetchJsonWithRetry('https://x', {}, 'TronGrid', () => {})).rejects.toThrow(
       'TronGrid sent an unreadable answer',
     );

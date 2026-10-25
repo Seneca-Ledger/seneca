@@ -4,9 +4,9 @@ import { In } from 'typeorm';
 
 const createRepoMock = () =>
   ({
-    find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn().mockResolvedValue(null),
-    save: jest.fn(async (entity: unknown) => entity),
+    find: vi.fn().mockResolvedValue([]),
+    findOne: vi.fn().mockResolvedValue(null),
+    save: vi.fn(async (entity: unknown) => entity),
   }) as any;
 
 describe('TransactionTagsService', () => {
@@ -15,7 +15,7 @@ describe('TransactionTagsService', () => {
   let service: TransactionTagsService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     transactionRepo.save.mockImplementation(async (entity: unknown) => entity);
     service = new TransactionTagsService(transactionRepo, tagRepo);
   });

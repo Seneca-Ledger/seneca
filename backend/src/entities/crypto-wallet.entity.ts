@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
@@ -49,7 +50,7 @@ export class CryptoWallet {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -92,7 +93,7 @@ export class CryptoWallet {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'connected_by_user_id' })
-  connectedByUser: User | null;
+  connectedByUser: Relation<User | null>;
 
   @Column({ name: 'connected_by_user_id', type: 'uuid', nullable: true })
   connectedByUserId: string | null;

@@ -113,7 +113,7 @@ export class UniversalExtractorService {
         return this.extractFromText(text, context);
       }
     } catch (error) {
-      this.logger.warn('Failed to extract text from PDF via pdf-parse', error);
+      this.logger.warn('Failed to extract text from PDF via pdf.js', error);
     }
 
     const ocrResult = await this.ocrService.extractTextFromScannedPdf(pdfBuffer, {

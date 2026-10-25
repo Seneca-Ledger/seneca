@@ -13,26 +13,26 @@ import { TransactionsService } from '../../../../src/modules/transactions/transa
 
 describe('ReviewInboxService', () => {
   let service: ReviewInboxService;
-  const transactionRepository = { findOne: jest.fn(), update: jest.fn(), createQueryBuilder: jest.fn() };
-  const transactionsService = { bulkUpdate: jest.fn() };
-  const deduplicationService = { unmarkDuplicate: jest.fn() };
+  const transactionRepository = { findOne: vi.fn(), update: vi.fn(), createQueryBuilder: vi.fn() };
+  const transactionsService = { bulkUpdate: vi.fn() };
+  const deduplicationService = { unmarkDuplicate: vi.fn() };
   const receiptRepository = {
-    count: jest.fn(),
-    findAndCount: jest.fn(),
-    find: jest.fn(async () => []),
-    update: jest.fn(),
+    count: vi.fn(),
+    findAndCount: vi.fn(),
+    find: vi.fn(async () => []),
+    update: vi.fn(),
   };
-  const eventEmitter = { emit: jest.fn() };
+  const eventEmitter = { emit: vi.fn() };
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
         ReviewInboxService,
         { provide: getRepositoryToken(Transaction), useValue: transactionRepository },
         { provide: getRepositoryToken(Receipt), useValue: receiptRepository },
-        { provide: getRepositoryToken(Subscription), useValue: { count: jest.fn(), findAndCount: jest.fn() } },
-        { provide: getRepositoryToken(Statement), useValue: { findOne: jest.fn(async () => null) } },
+        { provide: getRepositoryToken(Subscription), useValue: { count: vi.fn(), findAndCount: vi.fn() } },
+        { provide: getRepositoryToken(Statement), useValue: { findOne: vi.fn(async () => null) } },
         { provide: TransactionsService, useValue: transactionsService },
         { provide: CrossStatementDeduplicationService, useValue: deduplicationService },
         { provide: EventEmitter2, useValue: eventEmitter },

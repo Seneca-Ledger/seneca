@@ -6,7 +6,7 @@ import {
 
 /** UAH has a rate to USD; XYZ has none anywhere. */
 const rates = {
-  getRateOrNull: jest.fn(async (from: string) => (from === 'UAH' ? 0.024 : null)),
+  getRateOrNull: vi.fn(async (from: string) => (from === 'UAH' ? 0.024 : null)),
 } as never;
 
 describe('goal money helpers', () => {

@@ -127,7 +127,6 @@ const widthMap: Record<DrawerWidth, number | string> = {
  * - Body scroll lock
  * - Keyboard (ESC) support
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function DrawerShell({
   isOpen,
   onClose,
@@ -145,7 +144,6 @@ export function DrawerShell({
   footer,
 }: DrawerShellProps) {
   const t = useIntlayer('uiShell');
-  // eslint-disable-next-line max-params
   const handleClose = (_event: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
     if (reason === 'backdropClick' && !closeOnBackdropClick) {
       return;
@@ -169,19 +167,21 @@ export function DrawerShell({
       className={className}
       ref={rootRef}
       sx={zIndex !== undefined ? { zIndex } : undefined}
-      PaperProps={{
-        role: 'dialog',
-        'aria-labelledby': title ? 'drawer-title' : undefined,
-        sx: [
-          {
-            width: drawerWidth,
-            maxWidth: '100%',
-            borderRadius: tokens.radius.xl,
-            display: 'flex',
-            flexDirection: 'column',
-          },
-          ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-        ],
+      slotProps={{
+        paper: {
+          role: 'dialog',
+          'aria-labelledby': title ? 'drawer-title' : undefined,
+          sx: [
+            {
+              width: drawerWidth,
+              maxWidth: '100%',
+              borderRadius: tokens.radius.xl,
+              display: 'flex',
+              flexDirection: 'column',
+            },
+            ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+          ],
+        },
       }}
     >
       {(title || showCloseButton) && (
@@ -196,7 +196,13 @@ export function DrawerShell({
           }}
         >
           {title && (
-            <Typography id="drawer-title" variant="h6" fontWeight={700}>
+            <Typography
+              id="drawer-title"
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+              }}
+            >
               {title}
             </Typography>
           )}

@@ -177,8 +177,8 @@ export function TaxRulesSection(): React.ReactElement {
                     key={rule.id}
                     direction="row"
                     spacing={1.5}
-                    alignItems="center"
                     sx={{
+                      alignItems: 'center',
                       borderRadius: tokens.radius.md,
                       border: '1px solid',
                       borderColor: 'divider',

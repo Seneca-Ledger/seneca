@@ -231,7 +231,9 @@ export class ForecastService {
   ): Promise<ForecastEvent[]> {
     const invoices = await this.invoiceRepository.find({
       where: { workspaceId, status: In([InvoiceStatus.SENT, InvoiceStatus.OVERDUE]) },
-      relations: ['client'],
+      relations: {
+        client: true,
+      },
     });
     const events: ForecastEvent[] = [];
     for (const invoice of invoices) {

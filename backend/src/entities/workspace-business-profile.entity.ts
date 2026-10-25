@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Workspace } from './workspace.entity';
@@ -26,7 +27,7 @@ export class WorkspaceBusinessProfile {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   /** The name the business trades under on its documents. */
   @Column({ name: 'legal_name', type: 'varchar', length: 255, nullable: true })

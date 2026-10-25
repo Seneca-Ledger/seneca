@@ -22,3 +22,13 @@ export type CreateCategoryBody = Wire<typeof CreateCategoryBody>;
 
 export const UpdateCategoryBody = CreateCategoryBody.mapFields(Struct.map(optionalNullable));
 export type UpdateCategoryBody = Wire<typeof UpdateCategoryBody>;
+
+/** `/categories/:id…`: a category's uuid. */
+export const CategoryParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type CategoryParams = Wire<typeof CategoryParams>;
+
+/** `GET /categories`. */
+export const CategoriesQuery = Schema.Struct({
+  type: Schema.optional(Schema.Literals(['income', 'expense'])),
+});
+export type CategoriesQuery = Wire<typeof CategoriesQuery>;

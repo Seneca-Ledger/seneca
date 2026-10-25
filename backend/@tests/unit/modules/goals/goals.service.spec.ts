@@ -46,32 +46,32 @@ function createService(options: {
   const pending = options.monthlyTotals ? [options.monthlyTotals] : [];
 
   const queryBuilder: any = {
-    select: jest.fn(() => queryBuilder),
-    addSelect: jest.fn(() => queryBuilder),
-    where: jest.fn(() => queryBuilder),
-    andWhere: jest.fn(() => queryBuilder),
-    groupBy: jest.fn(() => queryBuilder),
-    getRawMany: jest.fn(async () => pending.shift() ?? options.totals ?? []),
+    select: vi.fn(() => queryBuilder),
+    addSelect: vi.fn(() => queryBuilder),
+    where: vi.fn(() => queryBuilder),
+    andWhere: vi.fn(() => queryBuilder),
+    groupBy: vi.fn(() => queryBuilder),
+    getRawMany: vi.fn(async () => pending.shift() ?? options.totals ?? []),
   };
 
   const goalRepository = {
-    create: jest.fn((data: Partial<Goal>) => data as Goal),
-    save: jest.fn(async (data: Goal) => data),
-    find: jest.fn(async () => goals),
-    findOne: jest.fn(async () => goals[0] ?? null),
-    softRemove: jest.fn(async (data: Goal) => data),
+    create: vi.fn((data: Partial<Goal>) => data as Goal),
+    save: vi.fn(async (data: Goal) => data),
+    find: vi.fn(async () => goals),
+    findOne: vi.fn(async () => goals[0] ?? null),
+    softRemove: vi.fn(async (data: Goal) => data),
   } as any;
 
   const contributionRepository = {
-    create: jest.fn((data: Partial<GoalContribution>) => data as GoalContribution),
-    save: jest.fn(async (data: GoalContribution) => data),
-    find: jest.fn(async () => contributions),
-    findOne: jest.fn(async () => contributions[0] ?? null),
-    remove: jest.fn(async (data: GoalContribution) => data),
-    createQueryBuilder: jest.fn(() => queryBuilder),
+    create: vi.fn((data: Partial<GoalContribution>) => data as GoalContribution),
+    save: vi.fn(async (data: GoalContribution) => data),
+    find: vi.fn(async () => contributions),
+    findOne: vi.fn(async () => contributions[0] ?? null),
+    remove: vi.fn(async (data: GoalContribution) => data),
+    createQueryBuilder: vi.fn(() => queryBuilder),
   } as any;
 
-  const auditService = { createEvent: jest.fn(async () => ({})) } as any;
+  const auditService = { createEvent: vi.fn(async () => ({})) } as any;
 
   return {
     service: new GoalsService(

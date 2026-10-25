@@ -83,7 +83,7 @@ const preview = {
       date: '2026-10-01',
       amount: '25.00',
       counterparty: `${STORE} - Wireless Buds`,
-      purpose: null,
+      purpose: 'Order 1001',
       matchReason: 'counterparty_name contains "acme store"',
     },
   ],

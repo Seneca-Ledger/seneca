@@ -1,17 +1,20 @@
-import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
   BudgetImpact,
   BudgetImpactQuery,
+  BudgetItem,
   BudgetList,
   BudgetListQuery,
+  BudgetParams,
   CreateBudgetBody,
+  MessageResult,
   StoicBalance,
   UpdateBudgetBody,
 } from '../../contracts';
@@ -30,12 +33,15 @@ export class BudgetsController {
 
   @Post()
   @WorkspaceAuth(Permission.BUDGET_CREATE)
+  @SchemaResponse(BudgetItem)
   async create(
     @SchemaBody(CreateBudgetBody) createDto: CreateBudgetBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.budgetsService.create(workspaceId, user.id, createDto);
+    const saved = await this.budgetsService.create(workspaceId, user.id, createDto);
+    // Answered as the list has it: the saved entity holds the limit as sent, not as stored.
+    return this.budgetsService.findOne(saved.id, workspaceId);
   }
 
   @Get()
@@ -72,25 +78,32 @@ export class BudgetsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.BUDGET_VIEW)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(BudgetItem)
+  async findOne(
+    @SchemaParams(BudgetParams) { id }: BudgetParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.budgetsService.findOne(id, workspaceId);
   }
 
   @Put(':id')
   @WorkspaceAuth(Permission.BUDGET_EDIT)
+  @SchemaResponse(BudgetItem)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(BudgetParams) { id }: BudgetParams,
     @SchemaBody(UpdateBudgetBody) updateDto: UpdateBudgetBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.budgetsService.update(id, workspaceId, user.id, updateDto);
+    await this.budgetsService.update(id, workspaceId, user.id, updateDto);
+    return this.budgetsService.findOne(id, workspaceId);
   }
 
   @Delete(':id')
   @WorkspaceAuth(Permission.BUDGET_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(BudgetParams) { id }: BudgetParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

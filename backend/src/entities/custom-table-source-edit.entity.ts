@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { CustomTable } from './custom-table.entity';
@@ -31,14 +32,14 @@ export class CustomTableSourceEdit {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => CustomTable, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'table_id' })
-  table: CustomTable;
+  table: Relation<CustomTable>;
 
   @Column({ name: 'table_id', type: 'uuid' })
   tableId: string;
@@ -65,7 +66,7 @@ export class CustomTableSourceEdit {
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'user_id' })
-  user: User | null;
+  user: Relation<User | null>;
 
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string | null;

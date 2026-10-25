@@ -51,17 +51,17 @@ describe('TransactionsService', () => {
         {
           provide: getRepositoryToken(Transaction),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
+            createQueryBuilder: vi.fn(),
             // The cross-tenant guard counts referenced category/branch/wallet ids
             // through the manager; here every referenced id belongs to the workspace.
             manager: {
               getRepository: () => ({
-                countBy: jest.fn(async ({ id }: any) => (id?.value as string[]).length),
+                countBy: vi.fn(async ({ id }: any) => (id?.value as string[]).length),
               }),
             },
           },
@@ -69,60 +69,60 @@ describe('TransactionsService', () => {
         {
           provide: getRepositoryToken(Statement),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(User),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Category),
           useValue: {
-            findOne: jest.fn(async () => null),
-            create: jest.fn(value => value),
-            save: jest.fn(async value => value),
+            findOne: vi.fn(async () => null),
+            create: vi.fn(value => value),
+            save: vi.fn(async value => value),
           },
         },
         {
           provide: CACHE_MANAGER,
           useValue: {
-            get: jest.fn(),
-            set: jest.fn(),
-            del: jest.fn(),
+            get: vi.fn(),
+            set: vi.fn(),
+            del: vi.fn(),
           },
         },
-        { provide: TaxAssignmentService, useValue: { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } },
+        { provide: TaxAssignmentService, useValue: { resolve: vi.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } },
         {
           provide: AuditService,
           useValue: {
-            createEvent: jest.fn(),
+            createEvent: vi.fn(),
           },
         },
         {
           provide: ClassificationService,
           useValue: {
-            learnFromCorrection: jest.fn(),
+            learnFromCorrection: vi.fn(),
           },
         },
         {
           provide: ExchangeRatesService,
           useValue: {
-            bulkConvert: jest.fn().mockResolvedValue([]),
+            bulkConvert: vi.fn().mockResolvedValue([]),
           },
         },
         {
           provide: EventEmitter2,
           useValue: {
-            emit: jest.fn(),
+            emit: vi.fn(),
           },
         },
       ],
@@ -142,8 +142,8 @@ describe('TransactionsService', () => {
   });
 
   beforeEach(() => {
-    jest.restoreAllMocks();
-    jest.clearAllMocks();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -159,18 +159,18 @@ describe('TransactionsService', () => {
 
     beforeEach(() => {
       mockQueryBuilder = {
-        innerJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockTransaction], 1]),
+        innerJoin: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        addOrderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[mockTransaction], 1]),
       };
 
-      jest.spyOn(transactionRepository, 'createQueryBuilder').mockReturnValue(mockQueryBuilder);
+      vi.spyOn(transactionRepository, 'createQueryBuilder').mockReturnValue(mockQueryBuilder);
     });
 
     it('should return paginated transactions', async () => {
@@ -258,7 +258,7 @@ describe('TransactionsService', () => {
 
   describe('findOne', () => {
     it('should return transaction by id', async () => {
-      jest
+      vi
         .spyOn(transactionRepository, 'findOne')
         .mockResolvedValue(mockTransaction as Transaction);
 
@@ -268,13 +268,13 @@ describe('TransactionsService', () => {
     });
 
     it('should throw NotFoundException if not found', async () => {
-      jest.spyOn(transactionRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(transactionRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.findOne('999', 'ws-1')).rejects.toThrow(NotFoundException);
     });
 
     it('should load related entities', async () => {
-      const findOneSpy = jest
+      const findOneSpy = vi
         .spyOn(transactionRepository, 'findOne')
         .mockResolvedValue(mockTransaction as Transaction);
 
@@ -282,13 +282,13 @@ describe('TransactionsService', () => {
 
       expect(findOneSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          relations: expect.arrayContaining(['category', 'branch', 'wallet']),
+          relations: expect.objectContaining({ category: true, branch: true, wallet: true }),
         }),
       );
     });
 
     it('should scope lookups by workspace', async () => {
-      const findOneSpy = jest
+      const findOneSpy = vi
         .spyOn(transactionRepository, 'findOne')
         .mockResolvedValue(mockTransaction as Transaction);
 
@@ -310,18 +310,18 @@ describe('TransactionsService', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.ADMIN,
       } as WorkspaceMember);
-      jest
+      vi
         .spyOn(transactionRepository, 'findOne')
         .mockImplementation(async () => ({ ...mockTransaction }) as Transaction);
-      jest.spyOn(classificationService, 'learnFromCorrection').mockResolvedValue(undefined);
+      vi.spyOn(classificationService, 'learnFromCorrection').mockResolvedValue(undefined);
     });
 
     it('should update transaction', async () => {
-      jest.spyOn(transactionRepository, 'save').mockResolvedValue({
+      vi.spyOn(transactionRepository, 'save').mockResolvedValue({
         ...mockTransaction,
         ...updateDto,
       } as Transaction);
@@ -342,7 +342,7 @@ describe('TransactionsService', () => {
     it('marks a changed category as the user\'s own pick, with nothing else to record', async () => {
       // The row's own category is what the payee history reads next time, so a
       // correction teaches by itself — there is no second store to write to.
-      jest.spyOn(transactionRepository, 'save').mockImplementation(async entity => entity as never);
+      vi.spyOn(transactionRepository, 'save').mockImplementation(async entity => entity as never);
 
       const saved = await service.update('1', 'ws-1', '1', { categoryId: 'cat-2' });
 
@@ -351,7 +351,7 @@ describe('TransactionsService', () => {
     });
 
     it('drops the loaded category object so the new id is what gets saved', async () => {
-      jest.spyOn(transactionRepository, 'findOne').mockImplementation(
+      vi.spyOn(transactionRepository, 'findOne').mockImplementation(
         async () =>
           ({
             ...mockTransaction,
@@ -359,7 +359,7 @@ describe('TransactionsService', () => {
             category: { id: 'cat-1', name: 'Old' },
           }) as Transaction,
       );
-      jest
+      vi
         .spyOn(transactionRepository, 'save')
         .mockImplementation(async entity => entity as Transaction);
 
@@ -374,7 +374,7 @@ describe('TransactionsService', () => {
     });
 
     it('does not trigger learning when categoryId is unchanged', async () => {
-      jest.spyOn(transactionRepository, 'save').mockResolvedValue({
+      vi.spyOn(transactionRepository, 'save').mockResolvedValue({
         ...mockTransaction,
         categoryId: 'cat-1',
       } as Transaction);
@@ -389,13 +389,13 @@ describe('TransactionsService', () => {
         role: WorkspaceRole.MEMBER,
         permissions: { canEditStatements: false },
       } as WorkspaceMember;
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
 
       await expect(service.update('1', 'ws-1', '1', updateDto)).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw NotFoundException if transaction not found', async () => {
-      jest.spyOn(transactionRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(transactionRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.update('999', 'ws-1', '1', updateDto)).rejects.toThrow(
         NotFoundException,
@@ -415,17 +415,17 @@ describe('TransactionsService', () => {
     ];
 
     beforeEach(() => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.ADMIN,
       } as WorkspaceMember);
     });
 
     it('should update multiple transactions', async () => {
-      jest
+      vi
         .spyOn(transactionRepository, 'findOne')
         .mockResolvedValue(mockTransaction as Transaction);
-      jest.spyOn(transactionRepository, 'save').mockResolvedValue(mockTransaction as Transaction);
+      vi.spyOn(transactionRepository, 'save').mockResolvedValue(mockTransaction as Transaction);
 
       const result = await service.bulkUpdate('ws-1', '1', bulkUpdateDto);
 
@@ -434,11 +434,11 @@ describe('TransactionsService', () => {
     });
 
     it('should skip non-existent transactions', async () => {
-      jest
+      vi
         .spyOn(transactionRepository, 'findOne')
         .mockResolvedValueOnce(mockTransaction as Transaction)
         .mockResolvedValueOnce(null);
-      jest.spyOn(transactionRepository, 'save').mockResolvedValue(mockTransaction as Transaction);
+      vi.spyOn(transactionRepository, 'save').mockResolvedValue(mockTransaction as Transaction);
 
       const result = await service.bulkUpdate('ws-1', '1', bulkUpdateDto);
 
@@ -450,7 +450,7 @@ describe('TransactionsService', () => {
         role: WorkspaceRole.MEMBER,
         permissions: { canEditStatements: false },
       } as WorkspaceMember;
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
 
       await expect(service.bulkUpdate('ws-1', '1', bulkUpdateDto)).rejects.toThrow(
         ForbiddenException,
@@ -460,17 +460,17 @@ describe('TransactionsService', () => {
 
   describe('remove', () => {
     beforeEach(() => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.ADMIN,
       } as WorkspaceMember);
-      jest
+      vi
         .spyOn(transactionRepository, 'findOne')
         .mockResolvedValue(mockTransaction as Transaction);
     });
 
     it('should delete transaction', async () => {
-      const deleteSpy = jest
+      const deleteSpy = vi
         .spyOn(transactionRepository, 'delete')
         .mockResolvedValue({ affected: 1, raw: [] });
 
@@ -491,13 +491,13 @@ describe('TransactionsService', () => {
         role: WorkspaceRole.MEMBER,
         permissions: { canEditStatements: false },
       } as WorkspaceMember;
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
 
       await expect(service.remove('1', 'ws-1', '1')).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw NotFoundException if transaction not found', async () => {
-      jest.spyOn(transactionRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(transactionRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.remove('999', 'ws-1', '1')).rejects.toThrow(NotFoundException);
     });

@@ -12,21 +12,21 @@ describe('CategorizationRulesController', () => {
   let ruleRepository: Repository<CategorizationRule>;
 
   const mockRuleRepository = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    remove: jest.fn(),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    remove: vi.fn(),
     // A rule's targets are checked through it; here they are the workspace's.
     manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
   };
 
   const mockClassificationService = {
-    previewRule: jest.fn(),
-    applyRuleToExisting: jest.fn(),
+    previewRule: vi.fn(),
+    applyRuleToExisting: vi.fn(),
   };
   const mockAuditService = {
-    createEvent: jest.fn(),
+    createEvent: vi.fn(),
   };
 
   const mockUser = {
@@ -46,7 +46,7 @@ describe('CategorizationRulesController', () => {
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
-          useValue: { exists: jest.fn(async () => true) },
+          useValue: { exists: vi.fn(async () => true) },
         },
         {
           provide: ClassificationService,
@@ -70,7 +70,7 @@ describe('CategorizationRulesController', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('findAll', () => {
@@ -222,7 +222,7 @@ describe('CategorizationRulesController', () => {
       mockRuleRepository.findOne.mockResolvedValue(existingRule);
       mockRuleRepository.save.mockResolvedValue({ ...existingRule, ...updateDto });
 
-      const result = await controller.update('rule-1', updateDto, mockUser as any, mockWorkspaceId);
+      const result = await controller.update({ id: 'rule-1' }, updateDto, mockUser as any, mockWorkspaceId);
 
       expect(result.name).toBe('New Name');
       expect(result.priority).toBe(100);
@@ -239,7 +239,7 @@ describe('CategorizationRulesController', () => {
       mockRuleRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        controller.update('nonexistent', {}, mockUser as any, mockWorkspaceId),
+        controller.update({ id: 'nonexistent' }, {}, mockUser as any, mockWorkspaceId),
       ).rejects.toThrow('Categorization rule not found');
     });
   });
@@ -261,7 +261,7 @@ describe('CategorizationRulesController', () => {
         return removed;
       });
 
-      await controller.remove('rule-1', mockUser as any, mockWorkspaceId);
+      await controller.remove({ id: 'rule-1' }, mockUser as any, mockWorkspaceId);
 
       expect(mockRuleRepository.remove).toHaveBeenCalledWith(rule);
       expect(mockAuditService.createEvent).toHaveBeenCalledWith(
@@ -277,7 +277,7 @@ describe('CategorizationRulesController', () => {
       mockRuleRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        controller.remove('nonexistent', mockUser as any, mockWorkspaceId),
+        controller.remove({ id: 'nonexistent' }, mockUser as any, mockWorkspaceId),
       ).rejects.toThrow('Categorization rule not found');
     });
   });
@@ -349,7 +349,7 @@ describe('CategorizationRulesController', () => {
       });
 
       await expect(
-        controller.applyRule('rule-1', mockUser as any, mockWorkspaceId, 'member-1'),
+        controller.applyRule({ id: 'rule-1' }, mockUser as any, mockWorkspaceId, 'member-1'),
       ).resolves.toEqual({ applied: 4, skippedManual: 1 });
       expect(mockRuleRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'rule-1', workspaceId: mockWorkspaceId },
@@ -369,7 +369,7 @@ describe('CategorizationRulesController', () => {
       });
 
       await expect(
-        controller.applyRule('rule-1', mockUser as any, mockWorkspaceId, null),
+        controller.applyRule({ id: 'rule-1' }, mockUser as any, mockWorkspaceId, null),
       ).rejects.toThrow('sets no category');
       expect(mockClassificationService.applyRuleToExisting).not.toHaveBeenCalled();
     });
@@ -378,7 +378,7 @@ describe('CategorizationRulesController', () => {
       mockRuleRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        controller.applyRule('rule-1', mockUser as any, mockWorkspaceId, null),
+        controller.applyRule({ id: 'rule-1' }, mockUser as any, mockWorkspaceId, null),
       ).rejects.toThrow('Categorization rule not found');
     });
   });

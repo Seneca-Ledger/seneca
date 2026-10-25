@@ -2,6 +2,8 @@ import * as Schema from 'effect/Schema';
 import { optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
+const Uuid = Schema.String.check(Schema.isUUID());
+
 export const CreateLedgerAccountBody = Schema.Struct({
   /** Unique within the workspace; stored upper-cased. */
   code: Schema.String.check(
@@ -125,3 +127,7 @@ export const EnableLedgerBody = Schema.Struct({
   ),
 });
 export type EnableLedgerBody = Wire<typeof EnableLedgerBody>;
+
+/** A ledger account or a journal entry, by id. */
+export const LedgerRecordParams = Schema.Struct({ id: Uuid });
+export type LedgerRecordParams = Wire<typeof LedgerRecordParams>;

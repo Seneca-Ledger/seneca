@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { TransactionType } from '@/entities/transaction.entity';
 import { TransactionsService } from '@/modules/transactions/transactions.service';
 import { NotFoundException } from '@nestjs/common';
@@ -35,7 +36,7 @@ describe('TransactionsService.split', () => {
   let transactionRepository: any;
   let auditService: any;
   let cacheManager: any;
-  let lockedFindOne: jest.Mock;
+  let lockedFindOne: Mock;
   // When set, the in-transaction locked re-read returns this instead of a fresh
   // copy of the outer findOne result. Lets a test simulate a concurrent writer
   // landing between the two reads.
@@ -47,18 +48,18 @@ describe('TransactionsService.split', () => {
   const makeManager = () => {
     const repo = {
       findOne: lockedFindOne,
-      create: jest.fn((data: any) => ({ ...data })),
-      save: jest.fn(async (row: any) => {
+      create: vi.fn((data: any) => ({ ...data })),
+      save: vi.fn(async (row: any) => {
         const stored = { ...row, id: row.id ?? `new-${savedRows.length}` };
         savedRows.push(stored);
         return stored;
       }),
     };
     return {
-      transaction: jest.fn(async (cb: any) => cb({ getRepository: () => repo })),
+      transaction: vi.fn(async (cb: any) => cb({ getRepository: () => repo })),
       // Used by the guard that rejects another workspace's category ids.
       getRepository: () => ({
-        countBy: jest.fn(async ({ id }: any) => {
+        countBy: vi.fn(async ({ id }: any) => {
           const ids: string[] = id.value;
           return ownedCategoryIds ? ids.filter(one => ownedCategoryIds?.has(one)).length : ids.length;
         }),
@@ -70,32 +71,32 @@ describe('TransactionsService.split', () => {
     savedRows = [];
     lockedRow = undefined;
     ownedCategoryIds = null;
-    auditService = { createEvent: jest.fn() };
-    cacheManager = { set: jest.fn() };
+    auditService = { createEvent: vi.fn() };
+    cacheManager = { set: vi.fn() };
     // Always a FRESH object, never the same instance twice: the unlocked read and
     // the locked read must not alias, or a bug that derives from the stale read
     // would pass unnoticed.
-    lockedFindOne = jest.fn(
+    lockedFindOne = vi.fn(
       async () => lockedRow ?? { ...(await transactionRepository.findOne()) },
     );
     transactionRepository = {
-      findOne: jest.fn(async () => ({ ...ORIGINAL })),
+      findOne: vi.fn(async () => ({ ...ORIGINAL })),
       manager: makeManager(),
     };
     service = new TransactionsService(
       transactionRepository,
       {} as any,
-      { findOne: jest.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
-      { findOne: jest.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
-      { findOne: jest.fn(async () => null), create: jest.fn(x => x), save: jest.fn(async x => x) } as any,
+      { findOne: vi.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
+      { findOne: vi.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
+      { findOne: vi.fn(async () => null), create: vi.fn(x => x), save: vi.fn(async x => x) } as any,
       cacheManager as any,
       auditService as any,
-      { bulkConvert: jest.fn() } as any,
-      { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } as any,
+      { bulkConvert: vi.fn() } as any,
+      { resolve: vi.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } as any,
     );
     // ensureCanEditStatements is a private permission check with its own coverage;
     // stub it so these tests stay focused on split arithmetic.
-    (service as any).ensureCanEditStatements = jest.fn();
+    (service as any).ensureCanEditStatements = vi.fn();
   });
 
   it('splits an expense into parts whose amounts sum to the original', async () => {
@@ -460,7 +461,7 @@ describe('TransactionsService.unsplit', () => {
   // afterwards the ON DELETE SET NULL has already fired and the link is gone.
   let repos: Record<string, any>;
   let opsLog: string[];
-  let lockedFind: jest.Mock;
+  let lockedFind: Mock;
   // When set, the in-transaction locked read returns this instead of the current
   // store contents. Lets a test simulate a writer landing between the two reads.
   let lockedParts: any[] | undefined;
@@ -482,19 +483,19 @@ describe('TransactionsService.unsplit', () => {
 
   const makeManager = () => {
     const txRepo = {
-      findOne: jest.fn(readOne),
+      findOne: vi.fn(readOne),
       find: lockedFind,
-      create: jest.fn((data: any) => ({ ...data })),
-      save: jest.fn(async (row: any) => {
+      create: vi.fn((data: any) => ({ ...data })),
+      save: vi.fn(async (row: any) => {
         const stored = { ...row, id: row.id ?? `new-${newIdCounter++}` };
         store.set(stored.id, { ...stored });
         return stored;
       }),
-      update: jest.fn(async () => {
+      update: vi.fn(async () => {
         opsLog.push('update:Transaction');
         return { affected: 0 };
       }),
-      remove: jest.fn(async (rows: any[]) => {
+      remove: vi.fn(async (rows: any[]) => {
         opsLog.push('remove');
         removedBatches.push(rows);
         for (const row of rows) {
@@ -506,20 +507,20 @@ describe('TransactionsService.unsplit', () => {
     repos = {
       Transaction: txRepo,
       Receipt: {
-        update: jest.fn(async () => {
+        update: vi.fn(async () => {
           opsLog.push('update:Receipt');
           return { affected: 0 };
         }),
       },
       Payable: {
-        update: jest.fn(async () => {
+        update: vi.fn(async () => {
           opsLog.push('update:Payable');
           return { affected: 0 };
         }),
       },
     };
     return {
-      transaction: jest.fn(async (cb: any) =>
+      transaction: vi.fn(async (cb: any) =>
         cb({ getRepository: (entity: any) => repos[entity?.name] ?? txRepo }),
       ),
     };
@@ -534,30 +535,30 @@ describe('TransactionsService.unsplit', () => {
     opsLog = [];
     lockedParts = undefined;
     newIdCounter = 0;
-    auditService = { createEvent: jest.fn() };
-    cacheManager = { set: jest.fn() };
-    lockedFind = jest.fn(async (options: any) =>
+    auditService = { createEvent: vi.fn() };
+    cacheManager = { set: vi.fn() };
+    lockedFind = vi.fn(async (options: any) =>
       lockedParts
         ? lockedParts.map(part => ({ ...part }))
         : groupRows(options.where.workspaceId, options.where.splitGroupId),
     );
     transactionRepository = {
-      findOne: jest.fn(readOne),
-      find: jest.fn(async ({ where }: any) => groupRows(where.workspaceId, where.splitGroupId)),
+      findOne: vi.fn(readOne),
+      find: vi.fn(async ({ where }: any) => groupRows(where.workspaceId, where.splitGroupId)),
       manager: makeManager(),
     };
     service = new TransactionsService(
       transactionRepository,
       {} as any,
-      { findOne: jest.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
-      { findOne: jest.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
-      { findOne: jest.fn(async () => null), create: jest.fn(x => x), save: jest.fn(async x => x) } as any,
+      { findOne: vi.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
+      { findOne: vi.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
+      { findOne: vi.fn(async () => null), create: vi.fn(x => x), save: vi.fn(async x => x) } as any,
       cacheManager as any,
       auditService as any,
-      { bulkConvert: jest.fn() } as any,
-      { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } as any,
+      { bulkConvert: vi.fn() } as any,
+      { resolve: vi.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } as any,
     );
-    (service as any).ensureCanEditStatements = jest.fn();
+    (service as any).ensureCanEditStatements = vi.fn();
   });
 
   it('collapses the group into one row carrying the exact total', async () => {
@@ -835,19 +836,19 @@ describe('TransactionsService.getSplitParts', () => {
     row = { ...ORIGINAL };
     group = [];
     transactionRepository = {
-      findOne: jest.fn(async () => ({ ...row })),
-      find: jest.fn(async () => group.map(part => ({ ...part }))),
-      manager: { transaction: jest.fn() },
+      findOne: vi.fn(async () => ({ ...row })),
+      find: vi.fn(async () => group.map(part => ({ ...part }))),
+      manager: { transaction: vi.fn() },
     };
     service = new TransactionsService(
       transactionRepository,
       {} as any,
-      { findOne: jest.fn() } as any,
-      { findOne: jest.fn() } as any,
-      { set: jest.fn() } as any,
-      { createEvent: jest.fn() } as any,
-      { bulkConvert: jest.fn() } as any,
-      { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } as any,
+      { findOne: vi.fn() } as any,
+      { findOne: vi.fn() } as any,
+      { set: vi.fn() } as any,
+      { createEvent: vi.fn() } as any,
+      { bulkConvert: vi.fn() } as any,
+      { resolve: vi.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } as any,
     );
   });
 

@@ -42,20 +42,20 @@ const storeRule = {
 
 function build(rows: Transaction[], options: { ownsRefs?: boolean; rules?: unknown[] } = {}) {
   const query = {
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    addOrderBy: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    getMany: jest.fn(async () => rows),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    addOrderBy: vi.fn().mockReturnThis(),
+    take: vi.fn().mockReturnThis(),
+    getMany: vi.fn(async () => rows),
   };
   const transactions = {
-    createQueryBuilder: jest.fn(() => query),
-    update: jest.fn(async () => undefined),
+    createQueryBuilder: vi.fn(() => query),
+    update: vi.fn(async () => undefined),
   };
   const rules = {
-    find: jest.fn(async () => options.rules ?? []),
-    update: jest.fn(async () => undefined),
+    find: vi.fn(async () => options.rules ?? []),
+    update: vi.fn(async () => undefined),
   };
   const wallets = {
     manager: {
@@ -65,8 +65,8 @@ function build(rows: Transaction[], options: { ownsRefs?: boolean; rules?: unkno
       }),
     },
   };
-  const cache = { get: jest.fn(), set: jest.fn() };
-  const audit = { createEvent: jest.fn(), createBatchEvents: jest.fn() };
+  const cache = { get: vi.fn(), set: vi.fn() };
+  const audit = { createEvent: vi.fn(), createBatchEvents: vi.fn() };
   const service = new ClassificationService(
     {} as never,
     transactions as never,
@@ -228,7 +228,7 @@ describe('rules on a receipt or an invoice', () => {
 
   it("passes over a rule naming another workspace's category", async () => {
     const { service, rules } = build([], { rules: [storeRule], ownsRefs: false });
-    jest
+    vi
       .spyOn(service as unknown as { matchByPayeeHistory: () => unknown }, 'matchByPayeeHistory')
       .mockResolvedValue(undefined);
 

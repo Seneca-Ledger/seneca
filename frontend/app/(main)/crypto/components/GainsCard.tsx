@@ -519,7 +519,12 @@ export function GainsCard({
         }}
       >
         <Box>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {labels.title}
           </Typography>
           <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>

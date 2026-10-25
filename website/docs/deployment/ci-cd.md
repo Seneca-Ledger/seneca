@@ -12,7 +12,7 @@ Seneca's pipelines live in `.github/workflows`.
 - `sensitive-changes` - label gate on pull requests (see below)
 - `policy-as-code` - Conftest policies for the Compose files and workflows
 - `shellcheck`, `hadolint`, `trivy-config` - shell script, Dockerfile, and config scanning
-- `lint` - Biome for the backend, Biome + ESLint for the frontend
+- `lint` - Biome for both apps
 - `typecheck` - TypeScript checks for both apps
 - `tests` - backend unit + e2e tests against PostgreSQL 16 and Redis 7, with migrations applied twice to check
   idempotency

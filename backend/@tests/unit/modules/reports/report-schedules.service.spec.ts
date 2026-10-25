@@ -1,3 +1,4 @@
+import nodemailer from 'nodemailer';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -19,16 +20,16 @@ afterAll(() => {
 
 function createService(overrides: Partial<Record<string, unknown>> = {}) {
   const scheduleRepository = {
-    find: jest.fn(async () => []),
-    findOne: jest.fn(),
-    save: jest.fn(async (row: unknown) => row),
-    create: jest.fn((row: unknown) => row),
-    delete: jest.fn(async () => ({ affected: 1 })),
+    find: vi.fn(async () => []),
+    findOne: vi.fn(),
+    save: vi.fn(async (row: unknown) => row),
+    create: vi.fn((row: unknown) => row),
+    delete: vi.fn(async () => ({ affected: 1 })),
     ...(overrides.scheduleRepository as object),
   };
-  const userRepository = { findOne: jest.fn(async () => ({ id: 'u1' })) };
+  const userRepository = { findOne: vi.fn(async () => ({ id: 'u1' })) };
   const reportsService = {
-    generateFromTemplate: jest.fn(async () => ({
+    generateFromTemplate: vi.fn(async () => ({
       filePath: REPORT_FIXTURE,
       fileName: 'report.csv',
       contentType: 'text/csv',
@@ -36,11 +37,11 @@ function createService(overrides: Partial<Record<string, unknown>> = {}) {
     ...(overrides.reportsService as object),
   };
   const applicationSettings = {
-    getSmtpSettings: jest.fn(async () => ({ source: 'disabled', host: null, from: null })),
+    getSmtpSettings: vi.fn(async () => ({ source: 'disabled', host: null, from: null })),
     ...(overrides.applicationSettings as object),
   };
   const workspaceMemberRepository = {
-    findOne: jest.fn(async () => ({ role: 'owner', permissions: null })),
+    findOne: vi.fn(async () => ({ role: 'owner', permissions: null })),
     ...(overrides.workspaceMemberRepository as object),
   };
 
@@ -147,7 +148,7 @@ describe('ReportSchedulesService.runDue', () => {
   it('records the failure but still advances the schedule', async () => {
     const schedule = dueSchedule('s1');
     const { service, scheduleRepository } = createService({
-      scheduleRepository: { find: jest.fn(async () => [schedule]) },
+      scheduleRepository: { find: vi.fn(async () => [schedule]) },
     });
 
     // SMTP is disabled in the default mock, so delivery throws.
@@ -163,9 +164,9 @@ describe('ReportSchedulesService.runDue', () => {
 
   it('does not let one broken schedule stop the others', async () => {
     const { service, scheduleRepository, reportsService } = createService({
-      scheduleRepository: { find: jest.fn(async () => [dueSchedule('s1'), dueSchedule('s2')]) },
+      scheduleRepository: { find: vi.fn(async () => [dueSchedule('s1'), dueSchedule('s2')]) },
       reportsService: {
-        generateFromTemplate: jest
+        generateFromTemplate: vi
           .fn()
           .mockRejectedValueOnce(new Error('boom'))
           .mockResolvedValue({ filePath: '/tmp/r.csv', fileName: 'r.csv', contentType: 'text/csv' }),
@@ -181,9 +182,9 @@ describe('ReportSchedulesService.runDue', () => {
 
   it('clears a stale error after a successful run', async () => {
     const { service, scheduleRepository } = createService({
-      scheduleRepository: { find: jest.fn(async () => [dueSchedule('s1')]) },
+      scheduleRepository: { find: vi.fn(async () => [dueSchedule('s1')]) },
       applicationSettings: {
-        getSmtpSettings: jest.fn(async () => ({
+        getSmtpSettings: vi.fn(async () => ({
           source: 'env',
           host: 'smtp.example.com',
           port: 587,
@@ -197,10 +198,10 @@ describe('ReportSchedulesService.runDue', () => {
       },
     });
 
-    // Stub the transport so no real connection is attempted.
-    const nodemailer = require('nodemailer');
-    const sendMail = jest.fn(async () => undefined);
-    jest.spyOn(nodemailer, 'createTransport').mockReturnValue({ sendMail } as never);
+    // Stub the transport so no real connection is attempted; the service uses the
+    // default export, a plain CommonJS object that can be spied on.
+    const sendMail = vi.fn(async () => undefined);
+    vi.spyOn(nodemailer, 'createTransport').mockReturnValue({ sendMail } as never);
 
     const result = await service.runDue(now);
 
@@ -217,8 +218,8 @@ describe('ReportSchedulesService.runDue', () => {
     ['was demoted to viewer', { role: 'viewer', permissions: null }],
   ])('pauses, without mailing, a schedule whose creator %s', async (_label, membership) => {
     const { service, scheduleRepository, reportsService } = createService({
-      scheduleRepository: { find: jest.fn(async () => [dueSchedule('s1')]) },
-      workspaceMemberRepository: { findOne: jest.fn(async () => membership) },
+      scheduleRepository: { find: vi.fn(async () => [dueSchedule('s1')]) },
+      workspaceMemberRepository: { findOne: vi.fn(async () => membership) },
     });
 
     const result = await service.runDue(now);
@@ -232,9 +233,9 @@ describe('ReportSchedulesService.runDue', () => {
 
   it('keeps mailing for an accountant, who may export', async () => {
     const { service, reportsService } = createService({
-      scheduleRepository: { find: jest.fn(async () => [dueSchedule('s1')]) },
+      scheduleRepository: { find: vi.fn(async () => [dueSchedule('s1')]) },
       workspaceMemberRepository: {
-        findOne: jest.fn(async () => ({ role: 'accountant', permissions: null })),
+        findOne: vi.fn(async () => ({ role: 'accountant', permissions: null })),
       },
     });
 
@@ -294,7 +295,7 @@ describe('ReportSchedulesService CRUD', () => {
       nextRunAt: new Date('2020-01-01T06:00:00.000Z'),
     };
     const { service } = createService({
-      scheduleRepository: { findOne: jest.fn(async () => schedule) },
+      scheduleRepository: { findOne: vi.fn(async () => schedule) },
     });
 
     const resumed = await service.setActive('ws1', 's1', true);
@@ -305,7 +306,7 @@ describe('ReportSchedulesService CRUD', () => {
 
   it('404s when deleting a schedule from another workspace', async () => {
     const { service } = createService({
-      scheduleRepository: { delete: jest.fn(async () => ({ affected: 0 })) },
+      scheduleRepository: { delete: vi.fn(async () => ({ affected: 0 })) },
     });
     await expect(service.remove('ws1', 's1')).rejects.toThrow(NotFoundException);
   });
