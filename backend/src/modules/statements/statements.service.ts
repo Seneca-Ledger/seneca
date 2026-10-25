@@ -1,10 +1,3 @@
-import { createHash } from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
-import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
-
-import archiver = require('archiver');
-
 import { randomUUID } from 'node:crypto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
@@ -18,7 +11,11 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ZipArchive } from 'archiver';
 import { Cache } from 'cache-manager';
+import { createHash } from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
@@ -28,6 +25,7 @@ import { calculateFileHash } from '../../common/utils/file-hash.util';
 import { resolveFileType, validateFile } from '../../common/utils/file-validator.util';
 import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/filename.util';
 import { toMinor } from '../../common/utils/money.util';
+import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
 import {
   PRIVACY_VIEWER_PARAM,
@@ -1764,7 +1762,7 @@ export class StatementsService {
   async exportZip(workspaceId: string, outputStream: NodeJS.WritableStream): Promise<void> {
     const { data: statements } = await this.findAll(workspaceId, {});
 
-    const archive = archiver('zip', { zlib: { level: 5 } });
+    const archive = new ZipArchive({ zlib: { level: 5 } });
     archive.pipe(outputStream);
 
     for (const statement of statements) {
