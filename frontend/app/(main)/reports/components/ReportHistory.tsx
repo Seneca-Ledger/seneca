@@ -209,7 +209,13 @@ export function ReportHistory(): React.JSX.Element {
         }}
       >
         <EmptyStateIllustration name="reports" size="md" />
-        <Typography variant="body2" fontWeight={600} sx={{ color: 'var(--muted-foreground)' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+            color: 'var(--muted-foreground)',
+          }}
+        >
           {text('historyEmpty', 'No reports generated yet')}
         </Typography>
         <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', opacity: 0.8 }}>
@@ -249,8 +255,11 @@ export function ReportHistory(): React.JSX.Element {
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
                   variant="body2"
-                  fontWeight={500}
-                  sx={{ color: 'var(--foreground)', mb: 0.25 }}
+                  sx={{
+                    fontWeight: 500,
+                    color: 'var(--foreground)',
+                    mb: 0.25,
+                  }}
                 >
                   {templateName(item)}
                 </Typography>
@@ -336,8 +345,10 @@ export function ReportHistory(): React.JSX.Element {
                   <TableCell>
                     <Typography
                       variant="body2"
-                      fontWeight={500}
-                      sx={{ color: 'var(--foreground)' }}
+                      sx={{
+                        fontWeight: 500,
+                        color: 'var(--foreground)',
+                      }}
                     >
                       {templateName(item)}
                     </Typography>

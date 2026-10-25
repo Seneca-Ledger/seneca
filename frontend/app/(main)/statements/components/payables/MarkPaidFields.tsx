@@ -72,8 +72,10 @@ function CandidateLabel(props: { candidate: PaymentCandidate; locale: string }):
       <Typography
         component="div"
         variant="body2"
-        fontWeight={600}
-        sx={{ overflowWrap: 'anywhere' }}
+        sx={{
+          fontWeight: 600,
+          overflowWrap: 'anywhere',
+        }}
       >
         {candidate.transactionDate} ·{' '}
         <PrivateAmount>
@@ -209,8 +211,10 @@ export function AmountFields(props: {
           error={tooMuch}
           helperText={tooMuch ? String(t.amountTooMuch.value) : undefined}
           onChange={event => onChange({ ...value, amount: event.target.value })}
-          inputProps={{ min: 0, step: 0.01, 'aria-label': String(t.amount.value) }}
           sx={{ flex: '1 1 140px' }}
+          slotProps={{
+            htmlInput: { min: 0, step: 0.01, 'aria-label': String(t.amount.value) },
+          }}
         />
         <TextField
           size="small"
@@ -218,8 +222,10 @@ export function AmountFields(props: {
           label={String(t.feeAmount.value)}
           value={value.feeAmount}
           onChange={event => onChange({ ...value, feeAmount: event.target.value })}
-          inputProps={{ min: 0, step: 0.01, 'aria-label': String(t.feeAmount.value) }}
           sx={{ flex: '1 1 140px' }}
+          slotProps={{
+            htmlInput: { min: 0, step: 0.01, 'aria-label': String(t.feeAmount.value) },
+          }}
         />
       </Box>
       {Number(value.feeAmount) > 0 && <Alert severity="info">{t.feeHint.value}</Alert>}
@@ -243,7 +249,13 @@ export function PaymentLog(props: {
   }
   return (
     <Box>
-      <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 600,
+          mb: 0.5,
+        }}
+      >
         {t.paymentsTitle.value}
       </Typography>
       {props.payments.map(payment => (

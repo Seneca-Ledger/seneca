@@ -75,9 +75,9 @@ function DateRow({
   return (
     <Stack
       direction="row"
-      alignItems="center"
       spacing={1.5}
       sx={{
+        alignItems: 'center',
         py: 1,
         borderBottom: '1px solid var(--border)',
         '&:last-of-type': { borderBottom: 'none' },

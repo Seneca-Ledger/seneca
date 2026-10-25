@@ -164,9 +164,12 @@ export function LanguageStep({
           renderInput={params => (
             <TextField
               {...params}
-              inputProps={{ ...params.inputProps, id: 'onboarding-timezone-select' }}
               placeholder={text(['language', 'timeZonePlaceholder'], 'Select timezone')}
               sx={{ '& .MuiInputBase-root': { minHeight: 48, fontSize: 16 } }}
+              slotProps={{
+                ...params.slotProps,
+                htmlInput: { ...params.slotProps.htmlInput, id: 'onboarding-timezone-select' },
+              }}
             />
           )}
         />

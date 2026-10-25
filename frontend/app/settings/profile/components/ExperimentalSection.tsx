@@ -30,10 +30,20 @@ export function ExperimentalSection({ tx, enabled, setEnabled }: Props) {
             control={<Switch checked={enabled} onChange={(_event, value) => setEnabled(value)} />}
             label={
               <Stack spacing={0.25}>
-                <Typography variant="body2" fontWeight={500}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                  }}
+                >
                   {tx(['experimentalCard', 'toggleLabel'], 'Experimental mode')}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {tx(
                     ['experimentalCard', 'toggleHelp'],
                     'Unlocks features that are still in development on this device.',

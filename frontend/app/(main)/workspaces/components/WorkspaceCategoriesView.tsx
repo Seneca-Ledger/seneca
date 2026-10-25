@@ -437,8 +437,11 @@ export default function WorkspaceCategoriesView() {
           <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
             <Typography
               variant="body2"
-              fontWeight={500}
-              sx={{ mr: 1, color: 'var(--muted-foreground)' }}
+              sx={{
+                fontWeight: 500,
+                mr: 1,
+                color: 'var(--muted-foreground)',
+              }}
             >
               {t.manage.selectedCount.value.replace('{count}', String(selectedIds.size))}
             </Typography>
@@ -722,18 +725,33 @@ export default function WorkspaceCategoriesView() {
         <DialogContent dividers>
           {disableConfirm ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {disableUsedInBefore}
                 <strong>{getCategoryDisplayName(disableConfirm.category, locale)}</strong>
                 {disableUsedInAfter}
               </Typography>
-              <Typography variant="body2" color="text.primary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.primary',
+                }}
+              >
                 {(disableConfirm.usage.transactions === 1
                   ? t.manage.disableDialog.transactionsOne
                   : t.manage.disableDialog.transactionsMany
                 ).value.replace('{count}', String(disableConfirm.usage.transactions))}
               </Typography>
-              <Typography variant="body2" color="text.primary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.primary',
+                }}
+              >
                 {(disableConfirm.usage.statements === 1
                   ? t.manage.disableDialog.statementsOne
                   : t.manage.disableDialog.statementsMany

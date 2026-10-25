@@ -29,7 +29,12 @@ type MentionsBadgeProps = { label: string; mentions: readonly string[] };
 function MetaItem({ label, value }: MetaItemProps): React.ReactElement {
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {label}
       </Typography>
       <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -55,7 +60,12 @@ function StatBadge({ label, count, color }: StatBadgeProps): React.ReactElement 
 function MentionsBadge({ label, mentions }: MentionsBadgeProps): React.ReactElement {
   return (
     <Box sx={{ gridColumn: { xs: '1 / -1', md: 'span 2' } }}>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {label}
       </Typography>
       <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -169,8 +179,13 @@ export function ParsingDetailsPanel({
       <Divider sx={{ mb: 3 }} />
       <Typography
         variant="caption"
-        color="text.secondary"
-        sx={{ display: 'block', mb: 2, fontWeight: 600, textTransform: 'uppercase' }}
+        sx={{
+          color: 'text.secondary',
+          display: 'block',
+          mb: 2,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+        }}
       >
         {labelValue(labels.extractedMetadata, 'Extracted metadata')}
       </Typography>

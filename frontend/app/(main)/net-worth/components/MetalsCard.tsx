@@ -289,10 +289,20 @@ function MetalTotalsRow({
   return (
     <Box sx={{ mt: 2 }} data-testid={`metal-total-${totals.metal}`}>
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t[METAL_KEYS[totals.metal] as 'metalGold']}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {formatOunces(totals.fineOunces, locale)}
         </Typography>
         <Typography variant="body2">
@@ -308,7 +318,12 @@ function MetalTotalsRow({
           </PrivateAmount>
         </Typography>
         {totals.costPerOunce !== null && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.costPerOunce}: <PrivateAmount>{money(totals.costPerOunce)}</PrivateAmount>
           </Typography>
         )}
@@ -336,17 +351,29 @@ function MetalTotalsRow({
             }
           }}
           disabled={saving}
-          inputProps={{ inputMode: 'decimal' }}
           sx={{ width: 150 }}
+          slotProps={{
+            htmlInput: { inputMode: 'decimal' },
+          }}
         />
         {totals.pricedAt && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.priceFrom.value.replace('{{date}}', String(totals.pricedAt).slice(0, 10))}
           </Typography>
         )}
       </Box>
       {showSilverVat && totals.metal === 'XAG' && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {t.silverVatNote}
         </Typography>
       )}
@@ -404,7 +431,13 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
         <Box>
           {/* Inside Holdings the section header already names it. */}
           {embedded ? null : <CardTitle>{t.metalsTitle}</CardTitle>}
-          <Typography variant="body2" color="text.secondary" sx={{ mt: embedded ? 0 : 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mt: embedded ? 0 : 0.5,
+            }}
+          >
             {t.metalsHint}
           </Typography>
         </Box>
@@ -445,7 +478,12 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
       {/* Nothing yet: one quiet line and a way to add, no form on the page. */}
       {lots.length === 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.noLots}
           </Typography>
           <Button size="small" variant="text" onClick={() => setAdding(true)}>
@@ -516,7 +554,13 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
                         {lot.name}
                       </Box>
                     </Box>
-                    <Typography component="span" variant="caption" color="text.secondary">
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       {' '}
                       {t[METAL_KEYS[lot.metal] as 'metalGold'].value} · {lot.quantity} ×{' '}
                       {lot.unitWeight} {lot.weightUnit}
@@ -528,8 +572,10 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
                       <Typography
                         component="div"
                         variant="caption"
-                        color="text.secondary"
                         data-testid={`tax-free-${lot.id}`}
+                        sx={{
+                          color: 'text.secondary',
+                        }}
                       >
                         {t.taxFreeFrom.value.replace('{{date}}', lot.taxFreeFrom)}
                       </Typography>
@@ -650,7 +696,13 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
                   <tr key={sale.id}>
                     <td>
                       {sale.lotName}
-                      <Typography component="span" variant="caption" color="text.secondary">
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {' '}
                         {t[METAL_KEYS[sale.metal] as 'metalGold'].value} · {sale.quantity}
                         {sale.counterparty ? ` · ${sale.counterparty}` : ''}

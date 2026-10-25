@@ -126,7 +126,12 @@ export function StoicClassifyList({
   return (
     // Kept narrow so each class picker sits near its category name, not across the card.
     <Box data-attention="stoic:unclassified" sx={{ maxWidth: 720 }}>
-      <Typography variant="subtitle2" fontWeight={600}>
+      <Typography
+        variant="subtitle2"
+        sx={{
+          fontWeight: 600,
+        }}
+      >
         {t.classifyTitle.value}
       </Typography>
       <Typography variant="caption" component="p" sx={{ color: 'text.secondary', mb: 1 }}>

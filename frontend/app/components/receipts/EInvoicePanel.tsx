@@ -46,7 +46,12 @@ function Field({
   }
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {label}
       </Typography>
       <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-all' }}>
@@ -73,13 +78,27 @@ export function EInvoicePanel({
   const money = (value: number) => `${value.toFixed(2)} ${currency}`;
   return (
     <Box data-testid="einvoice-panel" sx={{ mt: 3 }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          mb: 1,
+        }}
+      >
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           {t.title.value}
         </Typography>
         <Chip size="small" label={einvoiceKind(einvoice)} />
       </Stack>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, maxWidth: 640 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+          mb: 1.5,
+          maxWidth: 640,
+        }}
+      >
         {t.readFromXml.value}
       </Typography>
 

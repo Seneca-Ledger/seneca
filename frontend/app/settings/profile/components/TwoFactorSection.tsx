@@ -33,13 +33,24 @@ function EnabledPanel({ tx, remaining, busy, onDisable, onRegenerate }: EnabledP
   return (
     <Card variant="outlined">
       <CardContent sx={{ display: 'grid', gap: 1.5 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
           <Chip
             size="small"
             color="success"
             label={tx(['securityCard', 'statusEnabled'], 'Enabled')}
           />
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {tx(['securityCard', 'recoveryRemaining'], 'Recovery codes left')}: {remaining}
           </Typography>
         </Stack>
@@ -61,7 +72,13 @@ function EnabledPanel({ tx, remaining, busy, onDisable, onRegenerate }: EnabledP
             }}
           />
         ) : (
-          <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              justifyContent: 'flex-end',
+            }}
+          >
             <Button variant="outlined" onClick={() => setPending('regenerate')}>
               {tx(['securityCard', 'regenerateButton'], 'Generate new codes')}
             </Button>

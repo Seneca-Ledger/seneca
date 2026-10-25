@@ -120,8 +120,8 @@ export function TimeZoneDrawer({
             ) : (
               <Typography
                 variant="body2"
-                color="text.secondary"
                 sx={{
+                  color: 'text.secondary',
                   borderRadius: tokens.radius.md,
                   bgcolor: 'background.paper',
                   px: 1.5,
@@ -136,8 +136,13 @@ export function TimeZoneDrawer({
 
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}
+          sx={{
+            color: 'text.secondary',
+            mt: 2,
+            pt: 2,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+          }}
         >
           {labels.help}
         </Typography>

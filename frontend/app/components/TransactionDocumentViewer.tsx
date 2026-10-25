@@ -190,7 +190,13 @@ export default function TransactionDocumentViewer({
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <Landmark size={40} style={{ marginRight: 16, opacity: 0.9 }} />
               <Box>
-                <Typography variant="h4" fontWeight="700" letterSpacing="0.5px">
+                <Typography
+                  variant="h4"
+                  sx={{
+                    fontWeight: '700',
+                    letterSpacing: '0.5px',
+                  }}
+                >
                   {headerDisplay?.title || t.bankStatement.value}
                 </Typography>
                 <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
@@ -216,7 +222,12 @@ export default function TransactionDocumentViewer({
                 <Typography variant="caption" sx={{ opacity: 0.8, display: 'block', mb: 0.5 }}>
                   {t.accountNumber}
                 </Typography>
-                <Typography variant="h6" fontWeight="600">
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: '600',
+                  }}
+                >
                   {accountNumber}
                 </Typography>
               </Box>
@@ -224,7 +235,12 @@ export default function TransactionDocumentViewer({
                 <Typography variant="caption" sx={{ opacity: 0.8, display: 'block', mb: 0.5 }}>
                   {t.statementPeriod}
                 </Typography>
-                <Typography variant="h6" fontWeight="600">
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: '600',
+                  }}
+                >
                   {formatDate(statement.statementDateFrom)} —{' '}
                   {formatDate(statement.statementDateTo)}
                 </Typography>
@@ -235,8 +251,8 @@ export default function TransactionDocumentViewer({
                 </Typography>
                 <Typography
                   variant="body2"
-                  fontWeight="600"
                   sx={{
+                    fontWeight: '600',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -279,10 +295,23 @@ export default function TransactionDocumentViewer({
               },
             }}
           >
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                display: 'block',
+                mb: 1,
+              }}
+            >
               {t.openingBalance}
             </Typography>
-            <Typography variant="h5" fontWeight="700" color="text.primary">
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: '700',
+                color: 'text.primary',
+              }}
+            >
               {formatNumber(
                 typeof statement.balanceStart === 'string'
                   ? Number.parseFloat(statement.balanceStart)
@@ -317,11 +346,22 @@ export default function TransactionDocumentViewer({
                 size={20}
                 style={{ color: 'var(--mui-palette-success-main)', marginRight: 8 }}
               />
-              <Typography variant="caption" color="success.dark">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'success.dark',
+                }}
+              >
                 {t.income}
               </Typography>
             </Box>
-            <Typography variant="h5" fontWeight="700" color="success.main">
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: '700',
+                color: 'success.main',
+              }}
+            >
               {formatNumber(totalIncome)}
             </Typography>
           </Paper>
@@ -352,11 +392,22 @@ export default function TransactionDocumentViewer({
                 size={20}
                 style={{ color: 'var(--mui-palette-error-main)', marginRight: 8 }}
               />
-              <Typography variant="caption" color="error.dark">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'error.dark',
+                }}
+              >
                 {t.expenses}
               </Typography>
             </Box>
-            <Typography variant="h5" fontWeight="700" color="error.main">
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: '700',
+                color: 'error.main',
+              }}
+            >
               {formatNumber(totalExpense)}
             </Typography>
           </Paper>
@@ -378,10 +429,23 @@ export default function TransactionDocumentViewer({
               },
             }}
           >
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                display: 'block',
+                mb: 1,
+              }}
+            >
               {t.closingBalance}
             </Typography>
-            <Typography variant="h5" fontWeight="700" color="text.primary">
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: '700',
+                color: 'text.primary',
+              }}
+            >
               {formatNumber(
                 typeof statement.balanceEnd === 'string'
                   ? Number.parseFloat(statement.balanceEnd)
@@ -420,25 +484,45 @@ export default function TransactionDocumentViewer({
             }}
           >
             <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography
+                variant="body2"
+                gutterBottom
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.balanceChange}
               </Typography>
               <Typography
                 variant="h4"
-                fontWeight="700"
                 color={netChange >= 0 ? 'success.main' : 'error.main'}
+                sx={{
+                  fontWeight: '700',
+                }}
               >
                 {netChange >= 0 ? '+' : ''}
                 {formatNumber(netChange)}
               </Typography>
             </Box>
             <Box sx={{ textAlign: 'right' }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography
+                variant="body2"
+                gutterBottom
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.totalTransactions}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Receipt size={24} style={{ color: 'var(--mui-palette-primary-main)' }} />
-                <Typography variant="h4" fontWeight="700" color="primary.main">
+                <Typography
+                  variant="h4"
+                  sx={{
+                    fontWeight: '700',
+                    color: 'primary.main',
+                  }}
+                >
                   {transactions.length}
                 </Typography>
               </Box>
@@ -471,10 +555,22 @@ export default function TransactionDocumentViewer({
               },
             }}
           >
-            <Typography variant="h6" fontWeight="700" color="text.primary">
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: '700',
+                color: 'text.primary',
+              }}
+            >
               {t.transactionList}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                mt: 0.5,
+              }}
+            >
               {t.transactionListDescription}
             </Typography>
           </Box>
@@ -626,36 +722,64 @@ export default function TransactionDocumentViewer({
                           size={16}
                           style={{ color: 'var(--mui-palette-text-secondary)' }}
                         />
-                        <Typography variant="body2" fontWeight="500">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: '500',
+                          }}
+                        >
                           {formatDate(transaction.transactionDate)}
                         </Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {transaction.documentNumber || '—'}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ minWidth: 200 }}>
-                      <Typography variant="body2" fontWeight="600" color="text.primary">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: '600',
+                          color: 'text.primary',
+                        }}
+                      >
                         {transaction.counterpartyName}
                       </Typography>
                       {transaction.counterpartyBank && (
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'text.secondary',
+                            display: 'block',
+                          }}
+                        >
                           {transaction.counterpartyBank}
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary" fontFamily="monospace">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'text.secondary',
+                          fontFamily: 'monospace',
+                        }}
+                      >
                         {transaction.counterpartyBin || '—'}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ maxWidth: 300 }}>
                       <Typography
                         variant="body2"
-                        color="text.secondary"
                         sx={{
+                          color: 'text.secondary',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           display: '-webkit-box',
@@ -690,28 +814,56 @@ export default function TransactionDocumentViewer({
                     </TableCell>
                     <TableCell align="right">
                       {transaction.debit ? (
-                        <Typography variant="body2" fontWeight="700" color="error.main">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: '700',
+                            color: 'error.main',
+                          }}
+                        >
                           {formatNumber(transaction.debit, transaction.currency)}
                         </Typography>
                       ) : (
-                        <Typography variant="body2" color="text.disabled">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: 'text.disabled',
+                          }}
+                        >
                           —
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell align="right">
                       {transaction.credit ? (
-                        <Typography variant="body2" fontWeight="700" color="success.main">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: '700',
+                            color: 'success.main',
+                          }}
+                        >
                           {formatNumber(transaction.credit, transaction.currency)}
                         </Typography>
                       ) : (
-                        <Typography variant="body2" color="text.disabled">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: 'text.disabled',
+                          }}
+                        >
                           —
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary" fontFamily="monospace">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'text.secondary',
+                          fontFamily: 'monospace',
+                        }}
+                      >
                         {transaction.currency || FALLBACK_CURRENCY}
                       </Typography>
                     </TableCell>
@@ -744,22 +896,52 @@ export default function TransactionDocumentViewer({
                 alignItems: 'center',
               }}
             >
-              <Typography variant="body1" fontWeight="700" color="text.primary">
+              <Typography
+                variant="body1"
+                sx={{
+                  fontWeight: '700',
+                  color: 'text.primary',
+                }}
+              >
                 {t.total}
               </Typography>
               <Box sx={{ textAlign: 'right' }}>
-                <Typography variant="caption" color="text.secondary" display="block">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    display: 'block',
+                  }}
+                >
                   {t.totalExpenses}
                 </Typography>
-                <Typography variant="h6" fontWeight="700" color="error.main">
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: '700',
+                    color: 'error.main',
+                  }}
+                >
                   {formatNumber(totalExpense)}
                 </Typography>
               </Box>
               <Box sx={{ textAlign: 'right' }}>
-                <Typography variant="caption" color="text.secondary" display="block">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    display: 'block',
+                  }}
+                >
                   {t.totalIncome}
                 </Typography>
-                <Typography variant="h6" fontWeight="700" color="success.main">
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: '700',
+                    color: 'success.main',
+                  }}
+                >
                   {formatNumber(totalIncome)}
                 </Typography>
               </Box>
@@ -776,15 +958,24 @@ export default function TransactionDocumentViewer({
             borderTopColor: 'grey.200',
           }}
         >
-          <Typography variant="caption" color="text.secondary" textAlign="center" display="block">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              textAlign: 'center',
+              display: 'block',
+            }}
+          >
             {t.footer}
           </Typography>
           <Typography
             variant="caption"
-            color="text.secondary"
-            textAlign="center"
-            display="block"
-            sx={{ mt: 0.5 }}
+            sx={{
+              color: 'text.secondary',
+              textAlign: 'center',
+              display: 'block',
+              mt: 0.5,
+            }}
           >
             {formatStoredDateWithOptions(
               new Date(),

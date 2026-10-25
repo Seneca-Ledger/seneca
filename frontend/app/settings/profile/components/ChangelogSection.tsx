@@ -136,8 +136,8 @@ export function ChangelogSection({
                   </Typography>
                   <Typography
                     variant="body2"
-                    color="text.secondary"
                     sx={{
+                      color: 'text.secondary',
                       mt: 1,
                       lineHeight: 1.75,
                       display: '-webkit-box',

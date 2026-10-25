@@ -152,7 +152,13 @@ export default function SharedFilePage() {
             <Typography variant="h5" align="center">
               {t.protected.title}
             </Typography>
-            <Typography variant="body1" color="text.secondary" align="center">
+            <Typography
+              variant="body1"
+              align="center"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.protected.subtitle}
             </Typography>
 
@@ -240,7 +246,12 @@ export default function SharedFilePage() {
       >
         <Card>
           <CardContent>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.cards.bank}
             </Typography>
             <Typography variant="h6">{statement.bankName}</Typography>
@@ -248,7 +259,12 @@ export default function SharedFilePage() {
         </Card>
         <Card>
           <CardContent>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.cards.fileSize}
             </Typography>
             <Typography variant="h6">{formatFileSize(statement.fileSize)}</Typography>
@@ -256,7 +272,12 @@ export default function SharedFilePage() {
         </Card>
         <Card>
           <CardContent>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.cards.transactions}
             </Typography>
             <Typography variant="h6">{transactions.length}</Typography>
@@ -264,7 +285,12 @@ export default function SharedFilePage() {
         </Card>
         <Card>
           <CardContent>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.cards.account}
             </Typography>
             <Typography variant="h6">{statement.accountNumber || t.cards.dash.value}</Typography>

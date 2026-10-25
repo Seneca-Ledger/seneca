@@ -29,7 +29,13 @@ export function GoalBudgetList({
 }: GoalBudgetListProps): React.JSX.Element {
   return (
     <Box sx={{ mt: 4 }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 600,
+          mb: 1.5,
+        }}
+      >
         {title}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -52,7 +58,12 @@ export function GoalBudgetList({
                 flexWrap: 'wrap',
               }}
             >
-              <Typography variant="body2" fontWeight={600}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {budget.name}
               </Typography>
               <Typography variant="body2">

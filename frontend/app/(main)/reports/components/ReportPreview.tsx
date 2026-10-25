@@ -133,7 +133,13 @@ export function ReportPreview({
         data.sections.map(section => (
           <Box key={section.title ?? section.columns.join('|')} sx={{ mt: 1.5 }}>
             {section.title && (
-              <Typography variant="caption" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: 'var(--foreground)',
+                }}
+              >
                 {section.title}
               </Typography>
             )}
@@ -190,8 +196,11 @@ export function ReportPreview({
         <Typography
           key={String(line[0])}
           variant="body2"
-          fontWeight={700}
-          sx={{ mt: 1, color: 'var(--foreground)' }}
+          sx={{
+            fontWeight: 700,
+            mt: 1,
+            color: 'var(--foreground)',
+          }}
         >
           {line.map((cell, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: a fixed label-and-figures line

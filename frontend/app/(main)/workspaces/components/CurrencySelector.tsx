@@ -336,7 +336,13 @@ function CurrencyPanel({
             gap: 1.5,
           }}
         >
-          <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 600,
+              color: 'var(--foreground)',
+            }}
+          >
             {title}
           </Typography>
           <button
@@ -481,7 +487,14 @@ export function CurrencySelector({
   return (
     <Box>
       {showLabel && (
-        <Typography variant="body2" fontWeight={500} sx={{ mb: 1, color: 'var(--foreground)' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 500,
+            mb: 1,
+            color: 'var(--foreground)',
+          }}
+        >
           {t.label}
         </Typography>
       )}

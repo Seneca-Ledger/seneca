@@ -49,15 +49,18 @@ function QuietHourSelect({
       value={value === null ? '' : String(value)}
       disabled={disabled}
       onChange={event => onChange(event.target.value === '' ? null : Number(event.target.value))}
-      InputLabelProps={{ shrink: true }}
-      SelectProps={{
-        // '' is a real choice here ("off"), so it has to render instead of
-        // being treated as an empty selection.
-        displayEmpty: true,
-        // 25 entries overflow the viewport, so the menu scrolls instead of the page.
-        MenuProps: { PaperProps: { sx: { maxHeight: 320 } } },
-      }}
       sx={{ minWidth: 140 }}
+      slotProps={{
+        select: {
+          // '' is a real choice here ("off"), so it has to render instead of
+          // being treated as an empty selection.
+          displayEmpty: true,
+          // 25 entries overflow the viewport, so the menu scrolls instead of the page.
+          MenuProps: { slotProps: { paper: { sx: { maxHeight: 320 } } } },
+        },
+
+        inputLabel: { shrink: true },
+      }}
     >
       <MenuItem value="">{offLabel}</MenuItem>
       {HOURS.map(hour => (
@@ -75,10 +78,20 @@ export function NotificationDeliveryCard({ tx, settings, saving, onChange }: Pro
   return (
     <Card variant="outlined">
       <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {tx(['notificationsCard', 'deliveryTitle'], 'Delivery')}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {tx(
             ['notificationsCard', 'deliveryDescription'],
             'How often email and Telegram messages go out, and when to stay silent.',
@@ -110,10 +123,20 @@ export function NotificationDeliveryCard({ tx, settings, saving, onChange }: Pro
           </TextField>
 
           <Stack spacing={0.5}>
-            <Typography variant="body2" fontWeight={600}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+              }}
+            >
               {tx(['notificationsCard', 'quietHoursTitle'], 'Quiet hours')}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {tx(
                 ['notificationsCard', 'quietHoursHelp'],
                 'Email and Telegram stay quiet in this window and are delivered afterwards. The bell is unaffected.',

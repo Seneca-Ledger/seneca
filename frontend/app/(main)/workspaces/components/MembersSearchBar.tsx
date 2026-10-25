@@ -140,12 +140,14 @@ export function MembersSearchBar({
           size="small"
           variant="outlined"
           sx={{ width: { xs: '100%', sm: 320 } }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search size={16} style={{ color: 'var(--muted-foreground)' }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={16} style={{ color: 'var(--muted-foreground)' }} />
+                </InputAdornment>
+              ),
+            },
           }}
         />
         <SortMenu sortBy={sortBy} onSortByChange={onSortByChange} />

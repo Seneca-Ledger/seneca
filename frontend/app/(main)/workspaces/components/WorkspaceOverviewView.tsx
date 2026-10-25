@@ -470,7 +470,13 @@ export default function WorkspaceOverviewView() {
               </button>
 
               {isDirty && (
-                <Typography variant="body2" fontWeight={500} sx={{ color: 'warning.main' }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    color: 'warning.main',
+                  }}
+                >
                   {t.details.unsaved}
                 </Typography>
               )}
@@ -557,7 +563,13 @@ export default function WorkspaceOverviewView() {
             >
               <ChevronLeft size={20} />
             </button>
-            <Typography variant="h6" fontWeight={500} sx={{ color: 'var(--foreground)' }}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 500,
+                color: 'var(--foreground)',
+              }}
+            >
               {t.background.drawerTitle}
             </Typography>
           </Box>

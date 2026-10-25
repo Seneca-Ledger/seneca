@@ -184,7 +184,15 @@ function TaxDeclarationContent(): React.ReactElement {
               />
             ))}
           </Tabs>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ ml: 'auto', flexShrink: 0 }}>
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{
+              alignItems: 'center',
+              ml: 'auto',
+              flexShrink: 0,
+            }}
+          >
             {/* The data check shows the score itself, large; the bar would repeat it. */}
             {draft.data && step !== 'data' ? (
               <Box sx={{ minWidth: 120 }}>

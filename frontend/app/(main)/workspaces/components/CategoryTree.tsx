@@ -144,7 +144,14 @@ export function CategoryTree({
           >
             <SearchIcon size={32} />
           </Box>
-          <Typography variant="h6" fontWeight={500} sx={{ color: 'var(--foreground)', mb: 3 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 500,
+              color: 'var(--foreground)',
+              mb: 3,
+            }}
+          >
             {labels.noData}
           </Typography>
           <button
@@ -234,8 +241,10 @@ export function CategoryTree({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography
                         variant="body1"
-                        fontWeight={600}
-                        sx={{ color: 'var(--foreground)' }}
+                        sx={{
+                          fontWeight: 600,
+                          color: 'var(--foreground)',
+                        }}
                       >
                         {getCategoryDisplayName(category, locale)}
                       </Typography>

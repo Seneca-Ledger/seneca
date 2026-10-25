@@ -92,9 +92,11 @@ export function PortfolioSummary({
             sized to be read across a desk, not squinted at. */}
         <Typography
           variant="h2"
-          fontWeight={600}
           className={PRIVATE_CLASS}
-          sx={{ lineHeight: 1.05 }}
+          sx={{
+            fontWeight: 600,
+            lineHeight: 1.05,
+          }}
         >
           {money(summary.portfolioValue)}
         </Typography>

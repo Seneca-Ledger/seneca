@@ -4,7 +4,13 @@ import { keepConfirmed } from './confirmed-analytics';
 
 const transaction = (id: string, isVerified?: boolean): Transaction => ({ id, isVerified });
 const receipt = (id: string, status: string): ReceiptDocument =>
-  ({ id, status, subject: id, sender: 's', receivedAt: '2026-09-01' }) as ReceiptDocument;
+  (({
+    id,
+    status,
+    subject: id,
+    sender: 's',
+    receivedAt: '2026-09-01'
+  }) as ReceiptDocument);
 
 describe('keepConfirmed', () => {
   it('keeps only confirmed transactions and approved receipts', () => {

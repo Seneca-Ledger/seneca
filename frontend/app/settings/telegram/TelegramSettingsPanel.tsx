@@ -281,11 +281,21 @@ export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 {t.bot.title.value}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.bot.description.value}
               </Typography>
               {sharedBot && (
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {t.bot.overrideHint.value}
                 </Typography>
               )}
@@ -336,7 +346,12 @@ export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               {t.connect.title.value}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.connect.steps.value}
             </Typography>
           </Box>
@@ -346,7 +361,13 @@ export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.
           )}
 
           {connection?.inThisWorkspace ? (
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              sx={{
+                alignItems: 'center',
+              }}
+            >
               <Chip
                 icon={<TelegramIcon size={16} />}
                 color="success"
@@ -361,7 +382,13 @@ export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.
             </Stack>
           ) : (
             <Stack spacing={1}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2}
+                sx={{
+                  alignItems: 'center',
+                }}
+              >
                 <Button
                   variant="contained"
                   startIcon={<TelegramIcon size={18} />}
@@ -382,12 +409,22 @@ export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.
                 )}
               </Stack>
               {pendingLink && (
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {t.connect.waiting.value}
                 </Typography>
               )}
               {!botConfigured && (
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {t.connect.botMissing.value}
                 </Typography>
               )}
@@ -400,14 +437,21 @@ export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.
         <Stack
           spacing={2}
           direction={{ xs: 'column', md: 'row' }}
-          justifyContent="space-between"
-          alignItems="center"
+          sx={{
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
         >
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               {t.quickSend.title.value}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.quickSend.subtitle.value}
             </Typography>
           </Box>
@@ -439,7 +483,12 @@ export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               {t.history.title.value}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.history.subtitle.value}
             </Typography>
           </Box>
@@ -459,7 +508,12 @@ export function TelegramSettingsPanel({ isAdmin }: { isAdmin: boolean }): React.
                 {reports.length === 0 && !loadingReports && (
                   <TableRow>
                     <TableCell colSpan={5}>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {t.history.empty.value}
                       </Typography>
                     </TableCell>

@@ -152,13 +152,23 @@ export function SessionsSection({
                           />
                         )}
                       </Box>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {session.os}
                         {session.ipAddress
                           ? ` · ${tx(['sessionsCard', 'ipLabel'], 'IP')}: ${session.ipAddress}`
                           : ''}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {tx(['sessionsCard', 'lastActiveLabel'], 'Last active')}:{' '}
                         {formatDateTime(session.lastUsedAt, formatPreferences)}
                       </Typography>
