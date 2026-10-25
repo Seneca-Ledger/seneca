@@ -1,3 +1,4 @@
+import { globSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import swc from 'unplugin-swc';
@@ -19,6 +20,13 @@ const swcPlugin = swc.vite({
 
 // __dirname is not defined in an ESM config.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// vi.mock replaces a module for the whole registry it lives in; specs that use
+// it keep a registry of their own.
+const mockingSpecs = globSync('@tests/**/*.spec.ts', {
+  cwd: __dirname,
+  exclude: ['@tests/e2e/**'],
+}).filter(file => /\bvi\.(do)?mock\(/.test(readFileSync(path.join(__dirname, file), 'utf8')));
 
 const shared = {
   plugins: [swcPlugin],
@@ -58,9 +66,21 @@ export default defineConfig({
         ...shared,
         extends: true,
         test: {
+          // Without mocked modules a file cannot leak into the next one, so these
+          // share one module registry per worker: about three times faster.
           name: 'unit',
           include: ['@tests/**/*.spec.ts'],
-          exclude: ['@tests/e2e/**'],
+          exclude: ['@tests/e2e/**', ...mockingSpecs],
+          isolate: false,
+          setupFiles: ['reflect-metadata', '@tests/support/shared-registry-cleanup.ts'],
+        },
+      },
+      {
+        ...shared,
+        extends: true,
+        test: {
+          name: 'unit-mocked',
+          include: mockingSpecs,
         },
       },
       {
