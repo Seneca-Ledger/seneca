@@ -358,7 +358,9 @@ export class TransferPairingService {
   private async findOwned(workspaceId: string, id: string): Promise<Transaction> {
     const row = await this.transactionRepository.findOne({
       where: { id, workspaceId },
-      relations: ['statement'],
+      relations: {
+        statement: true,
+      },
     });
     if (!row) {
       throw new NotFoundException('Transaction not found');

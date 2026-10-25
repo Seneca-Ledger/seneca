@@ -72,7 +72,9 @@ export class AuditService {
     if (dto.workspaceId) {
       const workspace = await this.workspaceRepository.findOne({
         where: { id: dto.workspaceId },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
       if (!workspace) {
         throw new BadRequestException('Workspace not found for audit event');
@@ -338,7 +340,11 @@ export class AuditService {
     if (dto.actorType === ActorType.USER && dto.actorId) {
       const user = await this.userRepository.findOne({
         where: { id: dto.actorId },
-        select: ['id', 'email', 'name'],
+        select: {
+          id: true,
+          email: true,
+          name: true,
+        },
       });
       if (user?.email) {
         return user.email;

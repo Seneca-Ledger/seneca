@@ -375,7 +375,9 @@ export class ReviewInboxService {
   ): Promise<{ approved: number; uncategorized: number }> {
     const statement = await this.statementRepository.findOne({
       where: { id: statementId, workspaceId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (!statement) {
       throw new NotFoundException('Statement not found');

@@ -283,7 +283,9 @@ export class StatementsService {
     if (workspaceId && statement.workspaceId === workspaceId) {
       const membership = await this.workspaceMemberRepository.findOne({
         where: { workspaceId, userId },
-        select: ['role'],
+        select: {
+          role: true,
+        },
       });
       if (membership && [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role)) {
         return;
@@ -303,7 +305,9 @@ export class StatementsService {
   private async walletOwnerMemberId(walletId: string, workspaceId: string): Promise<string | null> {
     const wallet = await this.walletRepository.findOne({
       where: { id: walletId, workspaceId },
-      select: ['ownerMemberId'],
+      select: {
+        ownerMemberId: true,
+      },
     });
     return wallet?.ownerMemberId ?? null;
   }
@@ -1239,7 +1243,10 @@ export class StatementsService {
     if (typeof statementRepository.createQueryBuilder !== 'function') {
       const statement = await this.statementRepository.findOne({
         where: { id, workspaceId },
-        relations: ['transactions', 'user'],
+        relations: {
+          transactions: true,
+          user: true,
+        },
       });
 
       if (!statement) {
@@ -1427,7 +1434,9 @@ export class StatementsService {
   async permanentDelete(id: string, userId: string, workspaceId: string): Promise<void> {
     const statement = await this.statementRepository.findOne({
       where: { id, workspaceId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!statement) {
@@ -1577,7 +1586,11 @@ export class StatementsService {
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'name', 'email'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
     });
     const actorLabel = user?.email || user?.name || 'User';
 
@@ -1630,7 +1643,9 @@ export class StatementsService {
   async restoreFile(id: string, userId: string, workspaceId: string) {
     const statement = await this.statementRepository.findOne({
       where: { id, workspaceId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!statement) {

@@ -8,7 +8,7 @@ const createRepoMock = () =>
   ({
     find: jest.fn().mockResolvedValue([]),
     findOne: jest.fn().mockResolvedValue(null),
-    exist: jest.fn().mockResolvedValue(true),
+    exists: jest.fn().mockResolvedValue(true),
     create: jest.fn((data: unknown) => data),
     save: jest.fn(async (entity: unknown) => entity),
     remove: jest.fn(async (entity: unknown) => entity),
@@ -33,7 +33,7 @@ describe('TransactionAttachmentsService', () => {
     jest.clearAllMocks();
     attachmentRepo.create.mockImplementation((data: unknown) => data);
     attachmentRepo.save.mockImplementation(async (entity: unknown) => entity);
-    transactionRepo.exist.mockResolvedValue(true);
+    transactionRepo.exists.mockResolvedValue(true);
 
     uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seneca-attachments-test-'));
     process.env.UPLOADS_DIR = uploadsDir;
@@ -47,7 +47,7 @@ describe('TransactionAttachmentsService', () => {
   });
 
   it('refuses to attach to a transaction outside the workspace', async () => {
-    transactionRepo.exist.mockResolvedValue(false);
+    transactionRepo.exists.mockResolvedValue(false);
 
     await expect(
       service.create('tx-1', 'ws-1', 'user-1', makeFile()),

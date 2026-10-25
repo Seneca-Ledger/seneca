@@ -32,7 +32,9 @@ export class WorkspaceContextGuard implements CanActivate {
 
     const membership = await this.dataSource.getRepository(WorkspaceMember).findOne({
       where: { workspaceId, userId: user.id },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
 
     if (!membership) {
@@ -67,7 +69,7 @@ export class WorkspaceContextGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!READ_METHODS.has(request.method.toUpperCase()) && !allowed) {
+    if (!(READ_METHODS.has(request.method.toUpperCase()) || allowed)) {
       throw new ForbiddenException(appError('VERSION_READ_ONLY'));
     }
   }

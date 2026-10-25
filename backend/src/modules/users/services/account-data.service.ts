@@ -114,7 +114,12 @@ export class AccountDataService {
   async deleteMyAccount(userId: string, currentPassword: string): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'email', 'workspaceId', 'passwordHash'],
+      select: {
+        id: true,
+        email: true,
+        workspaceId: true,
+        passwordHash: true,
+      },
     });
 
     if (!user) {

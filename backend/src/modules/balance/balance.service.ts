@@ -80,7 +80,9 @@ export class BalanceService {
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return this.normalizeCurrency(workspace?.currency);
   }
@@ -274,7 +276,9 @@ export class BalanceService {
   async getCashSeries(workspaceId: string, dates: string[]): Promise<Map<string, CurrencyAmounts>> {
     const members = await this.workspaceMemberRepository.find({
       where: { workspaceId },
-      select: ['userId'],
+      select: {
+        userId: true,
+      },
     });
 
     const memberIds = [...new Set(members.map(member => member.userId))];
@@ -285,7 +289,11 @@ export class BalanceService {
       memberIds.length > 0
         ? await this.walletRepository.find({
             where: { workspaceId, userId: In(memberIds), isActive: true },
-            select: ['id', 'initialBalance', 'currency'],
+            select: {
+              id: true,
+              initialBalance: true,
+              currency: true,
+            },
           })
         : [];
 

@@ -14,7 +14,7 @@ describe('WorkspacePluginsService', () => {
     await expect(service.isEnabled('ws-1', 'mcp')).resolves.toBe(false);
     expect(repo.findOne).toHaveBeenCalledWith({
       where: { id: 'ws-1' },
-      select: ['id', 'settings'],
+      select: { id: true, settings: true },
     });
   });
 

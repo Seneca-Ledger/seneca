@@ -109,7 +109,9 @@ export class MetalsService {
     const sales = await this.listSales(workspaceId, context);
     const account = await this.accountRepository.findOne({
       where: { workspaceId, accountKind: BalanceAccountKind.METALS },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
     const byMetal = new Map<Metal, MetalTotalsView>();
@@ -477,7 +479,7 @@ export class MetalsService {
       undefined,
       { workspaceId },
     );
-    if (!quote || !(quote.rate > 0)) return false;
+    if (!(quote && quote.rate > 0)) return false;
     lot.price = quote.rate;
     lot.priceSource = InvestmentPriceSource.AUTO;
     lot.pricedAt = new Date(`${quote.rateDate}T00:00:00.000Z`);
@@ -679,7 +681,9 @@ export class MetalsService {
   private async loadReceipts(workspaceId: string): Promise<Map<string, MetalReceiptView>> {
     const lots = await this.holdingRepository.find({
       where: { workspaceId, metal: Not(IsNull()), receiptId: Not(IsNull()) },
-      select: ['receiptId'],
+      select: {
+        receiptId: true,
+      },
     });
     const ids = [...new Set(lots.map(lot => lot.receiptId as string))];
     if (ids.length === 0) return new Map();
@@ -691,7 +695,9 @@ export class MetalsService {
   private async requireReceiptId(workspaceId: string, receiptId: string): Promise<string> {
     const receipt = await this.receiptRepository.findOne({
       where: { id: receiptId, workspaceId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (!receipt) throw new NotFoundException('Receipt not found');
     return receipt.id;
@@ -701,7 +707,9 @@ export class MetalsService {
   private async requireMemberId(workspaceId: string, userId: string): Promise<string> {
     const member = await this.memberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (!member) throw new NotFoundException('Workspace member not found');
     return userId;
@@ -755,7 +763,9 @@ export class MetalsService {
   private async workspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return this.currencyOf(workspace);
   }

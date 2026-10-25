@@ -338,7 +338,13 @@ export class PayablesService {
   ): Promise<void> {
     const transaction = await manager.getRepository(Transaction).findOne({
       where: { id: transactionId, workspaceId: payable.workspaceId },
-      select: ['id', 'amount', 'debit', 'credit', 'currency'],
+      select: {
+        id: true,
+        amount: true,
+        debit: true,
+        credit: true,
+        currency: true,
+      },
     });
     if (!transaction || transaction.currency.toUpperCase() !== payable.currency.toUpperCase()) {
       return;
@@ -367,7 +373,10 @@ export class PayablesService {
     const wallet = walletId
       ? await manager.getRepository(Wallet).findOne({
           where: { id: walletId, workspaceId },
-          select: ['id', 'currency'],
+          select: {
+            id: true,
+            currency: true,
+          },
         })
       : null;
     if (walletId && !wallet) {
@@ -1101,7 +1110,9 @@ export class PayablesService {
     });
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     const targetCurrency = this.normalizeCurrency(workspace?.currency);
     const rateCache = new Map<string, number>();
@@ -1308,7 +1319,10 @@ export class PayablesService {
   async markDueSoonNotified(id: string): Promise<void> {
     const payable = await this.payableRepository.findOne({
       where: { id },
-      select: ['id', 'dueSoonNotifiedAt'],
+      select: {
+        id: true,
+        dueSoonNotifiedAt: true,
+      },
     });
     if (!payable) {
       throw new NotFoundException('Payable not found');
@@ -1421,7 +1435,9 @@ export class PayablesService {
 
     const transaction = await this.transactionRepository.findOne({
       where: { id: linkedTransactionId, workspaceId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
     if (!transaction) {
@@ -1439,7 +1455,9 @@ export class PayablesService {
 
     const statement = await this.statementRepository.findOne({
       where: { id: statementId, workspaceId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
     if (!statement) {

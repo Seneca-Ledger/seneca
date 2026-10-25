@@ -156,7 +156,7 @@ describe('WorkspaceContextGuard', () => {
 
     expect(mockRepository.findOne).toHaveBeenCalledWith({
       where: { workspaceId: 'ws-42', userId: 'user-99' },
-      relations: ['workspace'],
+      relations: { workspace: true },
     });
   });
 

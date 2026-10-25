@@ -117,7 +117,7 @@ export class TransactionAttachmentsService {
     transactionId: string,
     workspaceId: string,
   ): Promise<void> {
-    const exists = await this.transactionRepository.exist({
+    const exists = await this.transactionRepository.exists({
       where: { id: transactionId, workspaceId },
     });
 

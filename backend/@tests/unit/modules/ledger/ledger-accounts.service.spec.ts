@@ -326,7 +326,7 @@ describe('LedgerAccountsService', () => {
       await expect(service.categoryAccountId(WS, 'child')).resolves.toBe('acc-root');
       expect(accountRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'acc-root', workspaceId: WS, isPostable: true },
-        select: ['id'],
+        select: { id: true },
       });
       expect(service.ensureChart).not.toHaveBeenCalled();
     });

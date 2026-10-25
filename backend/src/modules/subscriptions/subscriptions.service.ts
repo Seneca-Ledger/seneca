@@ -225,7 +225,9 @@ export class SubscriptionsService {
     if (status) where.status = status;
     const rows = await this.subscriptionRepository.find({
       where,
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
       order: { status: 'ASC', nextChargeDate: 'ASC' },
     });
     return rows.map(row => Object.assign(row, { costPerUse: costPerUse(row) }));
@@ -234,7 +236,9 @@ export class SubscriptionsService {
   async findOne(id: string, workspaceId: string): Promise<Subscription> {
     const subscription = await this.subscriptionRepository.findOne({
       where: { id, workspaceId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
     if (!subscription) throw new NotFoundException('Subscription not found');
     return subscription;
@@ -858,7 +862,9 @@ export class SubscriptionsService {
     const invoices = this.invoiceRepository
       ? await this.invoiceRepository.find({
           where: { workspaceId, status: In([InvoiceStatus.SENT, InvoiceStatus.OVERDUE]) },
-          relations: ['client'],
+          relations: {
+            client: true,
+          },
         })
       : [];
     for (const invoice of invoices) {
@@ -890,7 +896,9 @@ export class SubscriptionsService {
     const currency = workspace?.currency?.toUpperCase() ?? 'KZT';
     const subs = await this.subscriptionRepository.find({
       where: { workspaceId, status: SubscriptionStatus.ACTIVE },
-      relations: ['owner'],
+      relations: {
+        owner: true,
+      },
       order: { vendorName: 'ASC' },
     });
     const rows: BusinessSubscriptionsReport['rows'] = [];
@@ -1063,7 +1071,9 @@ export class SubscriptionsService {
         status: SubscriptionStatus.ACTIVE,
         nextChargeDate: LessThanOrEqual(until),
       },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
       order: { nextChargeDate: 'ASC' },
     });
   }

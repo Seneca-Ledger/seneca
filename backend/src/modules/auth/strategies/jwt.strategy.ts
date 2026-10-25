@@ -82,7 +82,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (payload.sessionId) {
       const session = await this.authSessionRepository.findOne({
         where: { id: payload.sessionId, userId: user.id, revokedAt: IsNull() },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
 
       if (!session) {

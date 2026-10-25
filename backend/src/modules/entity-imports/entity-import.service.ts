@@ -201,7 +201,11 @@ export class EntityImportService {
           }
           const all = await categoryRepo.find({
             where: { workspaceId },
-            select: ['id', 'name', 'type'],
+            select: {
+              id: true,
+              name: true,
+              type: true,
+            },
           });
           const found =
             all.find(item => item.type === type && nameKey(item.name) === nameKey(name)) ??

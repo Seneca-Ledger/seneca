@@ -58,7 +58,11 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }): Promise<boolean> {
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },
-      select: ['id', 'isActive', 'tokenVersion'],
+      select: {
+        id: true,
+        isActive: true,
+        tokenVersion: true,
+      },
     });
 
     if (!user || user.isActive === false) {
@@ -76,7 +80,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
     const session = await this.authSessionRepository.findOne({
       where: { id: payload.sessionId, userId: user.id, revokedAt: IsNull() },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
     return Boolean(session);

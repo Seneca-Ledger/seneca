@@ -88,7 +88,10 @@ export class ReceiptStatementService {
 
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['role', 'permissions'],
+      select: {
+        role: true,
+        permissions: true,
+      },
     });
 
     if (!membership) {

@@ -123,7 +123,7 @@ describe('UsersService', () => {
       expect(repository.findOne).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: '1' },
-          select: expect.any(Array),
+          select: expect.any(Object),
         }),
       );
     });
@@ -575,7 +575,7 @@ describe('UsersService', () => {
 
       expect(findOneSpy).toHaveBeenCalledTimes(2);
       for (const [options] of findOneSpy.mock.calls) {
-        expect((options as { select: string[] }).select).toContain('welcomeTutorialSeenAt');
+        expect((options as { select: Record<string, boolean> }).select).toHaveProperty('welcomeTutorialSeenAt', true);
       }
     });
   });
@@ -639,7 +639,7 @@ describe('UsersService', () => {
 
       expect(findOneSpy).toHaveBeenCalledTimes(2);
       for (const [options] of findOneSpy.mock.calls) {
-        expect((options as { select: string[] }).select).toContain('pageHintsSeen');
+        expect((options as { select: Record<string, boolean> }).select).toHaveProperty('pageHintsSeen', true);
       }
     });
   });

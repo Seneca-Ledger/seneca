@@ -572,7 +572,9 @@ export class CustomTablesService {
   private async getAllowedColumnKeys(tableId: string): Promise<Set<string>> {
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key'],
+      select: {
+        key: true,
+      },
     });
     return new Set(columns.map(c => c.key));
   }
@@ -865,7 +867,10 @@ export class CustomTablesService {
     try {
       const styles = await this.customTableColumnStyleRepository.find({
         where: { tableId },
-        select: ['columnKey', 'style'],
+        select: {
+          columnKey: true,
+          style: true,
+        },
       });
       const byKey = new Map(styles.map(s => [s.columnKey, s.style]));
       table.columns = this.attachColumnStyles(table.columns, byKey);
@@ -1963,7 +1968,11 @@ export class CustomTablesService {
     try {
       existing = await this.customTableRowRepository.find({
         where: { tableId: table.id, sourceKey: Not(IsNull()) },
-        select: ['id', 'sourceKey', 'data'],
+        select: {
+          id: true,
+          sourceKey: true,
+          data: true,
+        },
       });
     } catch (error) {
       this.throwHelpfulSchemaError(error);
@@ -2508,7 +2517,12 @@ export class CustomTablesService {
     }
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key', 'title', 'type', 'config'],
+      select: {
+        key: true,
+        title: true,
+        type: true,
+        config: true,
+      },
     });
     const others = columns.filter(col => col.key !== selfColumnKey);
     // Все колонки, включая свою: «остаток = PREV([Остаток]) + …» должен резолвиться в ключ.
@@ -2801,7 +2815,10 @@ export class CustomTablesService {
     try {
       column = await this.customTableColumnRepository.findOne({
         where: { id: columnId, tableId },
-        select: ['id', 'key'],
+        select: {
+          id: true,
+          key: true,
+        },
       });
     } catch (error) {
       this.throwHelpfulSchemaError(error);
@@ -3074,7 +3091,12 @@ export class CustomTablesService {
     const table = await this.requireTable(workspaceId, tableId);
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key', 'title', 'type', 'config'],
+      select: {
+        key: true,
+        title: true,
+        type: true,
+        config: true,
+      },
     });
     const keys = columns.map(col => col.key);
     const summaries = dto.summaries.map(item => {
@@ -3162,7 +3184,10 @@ export class CustomTablesService {
     }
     const fresh = await this.customTableRowRepository.find({
       where: { id: In(rows.map(row => row.id)) },
-      select: ['id', 'computed'],
+      select: {
+        id: true,
+        computed: true,
+      },
     });
     const byId = new Map(fresh.map(row => [row.id, row.computed]));
     for (const row of rows) {
@@ -3227,7 +3252,11 @@ export class CustomTablesService {
 
       const targetRows = await this.customTableRowRepository.find({
         where: { id: In(ids), tableId: targetTableId },
-        select: ['id', 'rowNumber', 'data'],
+        select: {
+          id: true,
+          rowNumber: true,
+          data: true,
+        },
       });
       const labelById = new Map(
         targetRows.map(target => {
@@ -3362,7 +3391,11 @@ export class CustomTablesService {
   private async loadColumnTypeMap(tableId: string): Promise<Map<string, CustomTableColumnType>> {
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key', 'type', 'config'],
+      select: {
+        key: true,
+        type: true,
+        config: true,
+      },
     });
     return new Map<string, CustomTableColumnType>(columns.map(c => [c.key, this.storageTypeOf(c)]));
   }
@@ -4196,7 +4229,11 @@ export class CustomTablesService {
         const rowIds = rows.map(r => r.id);
         const styles = await this.customTableCellStyleRepository.find({
           where: { rowId: In(rowIds) },
-          select: ['rowId', 'columnKey', 'style'],
+          select: {
+            rowId: true,
+            columnKey: true,
+            style: true,
+          },
         });
         this.mergeRowStyles(rows, styles);
       } catch (_error) {
@@ -4236,11 +4273,17 @@ export class CustomTablesService {
     try {
       rows = await this.customTableRowRepository.find({
         where: { tableId, id: In(validRowIds) },
-        select: ['id', 'data'],
+        select: {
+          id: true,
+          data: true,
+        },
       });
       columns = await this.customTableColumnRepository.find({
         where: { tableId },
-        select: ['key', 'title'],
+        select: {
+          key: true,
+          title: true,
+        },
       });
     } catch (error) {
       this.throwHelpfulSchemaError(error);
@@ -4297,7 +4340,13 @@ export class CustomTablesService {
   ): Promise<void> {
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key', 'title', 'isRequired', 'isUnique', 'type'],
+      select: {
+        key: true,
+        title: true,
+        isRequired: true,
+        isUnique: true,
+        type: true,
+      },
     });
     const guarded = columns.filter(col => col.isRequired || col.isUnique);
     if (!guarded.length) {
@@ -4665,7 +4714,10 @@ export class CustomTablesService {
 
     const column = await this.customTableColumnRepository.findOne({
       where: { tableId, key: columnKey },
-      select: ['id', 'key'],
+      select: {
+        id: true,
+        key: true,
+      },
     });
     if (!column) {
       throw new BadRequestException(appError('COLUMN_NOT_FOUND'));

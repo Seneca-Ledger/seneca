@@ -84,7 +84,10 @@ export class ApiKeysService {
 
     const apiKey = await this.apiKeyRepository.findOne({
       where: { keyHash, revokedAt: IsNull() },
-      relations: ['user', 'workspace'],
+      relations: {
+        user: true,
+        workspace: true,
+      },
     });
 
     if (!apiKey) return null;

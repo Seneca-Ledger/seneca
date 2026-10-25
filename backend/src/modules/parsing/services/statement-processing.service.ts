@@ -155,7 +155,10 @@ export class StatementProcessingService {
   private async resolveActorName(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
     return user?.name || user?.email || 'User';
   }
@@ -572,7 +575,9 @@ export class StatementProcessingService {
 
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
 
     if (!statement) {

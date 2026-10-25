@@ -43,7 +43,13 @@ export class PasswordResetService {
       where: { email: normalizedEmail },
       // workspaceId included so the mailer can use the SMTP the user set up in
       // their home workspace (see getAccountSmtpSettings).
-      select: ['id', 'email', 'name', 'isActive', 'workspaceId'],
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isActive: true,
+        workspaceId: true,
+      },
     });
 
     if (!user || user.isActive === false) {
