@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -14,15 +15,15 @@ import { ReceiptCategoryService } from '../../../../src/modules/receipts/service
 import { ReceiptDuplicateService } from '../../../../src/modules/receipts/services/receipt-duplicate.service';
 import { ReceiptLocationService } from '../../../../src/modules/receipts/services/receipt-location.service';
 
-const mockReadFile = jest.fn().mockResolvedValue(Buffer.from('receipt-binary'));
+const mockReadFile = vi.fn().mockResolvedValue(Buffer.from('receipt-binary'));
 
-jest.mock('fs/promises', () => ({
+vi.mock('fs/promises', () => ({
   readFile: (...args: unknown[]) => mockReadFile(...args),
 }));
 
-const mockReadExifGps = jest.fn();
+const mockReadExifGps = vi.fn();
 
-jest.mock('../../../../src/common/utils/exif-gps.util', () => ({
+vi.mock('../../../../src/common/utils/exif-gps.util', () => ({
   readExifGps: (...args: unknown[]) => mockReadExifGps(...args),
 }));
 
@@ -40,28 +41,28 @@ const minimalParse = {
   lineItems: [],
 };
 
-const eventEmitter = { emit: jest.fn() };
+const eventEmitter = { emit: vi.fn() };
 
 describe('ReceiptProcessorService', () => {
   let service: ReceiptProcessorService;
-  let receiptRepository: { findOne: jest.Mock; save: jest.Mock };
-  let jobRepository: { save: jest.Mock };
-  let extractor: { extractFromImage: jest.Mock; extractFromPdf: jest.Mock };
-  let locationService: { applyAutoLocation: jest.Mock };
+  let receiptRepository: { findOne: Mock; save: Mock };
+  let jobRepository: { save: Mock };
+  let extractor: { extractFromImage: Mock; extractFromPdf: Mock };
+  let locationService: { applyAutoLocation: Mock };
 
   beforeEach(async () => {
     receiptRepository = {
-      findOne: jest.fn(),
-      save: jest.fn().mockImplementation(async payload => payload),
+      findOne: vi.fn(),
+      save: vi.fn().mockImplementation(async payload => payload),
     };
     jobRepository = {
-      save: jest.fn().mockResolvedValue(undefined),
+      save: vi.fn().mockResolvedValue(undefined),
     };
     extractor = {
-      extractFromImage: jest.fn(),
-      extractFromPdf: jest.fn(),
+      extractFromImage: vi.fn(),
+      extractFromPdf: vi.fn(),
     };
-    locationService = { applyAutoLocation: jest.fn().mockResolvedValue(undefined) };
+    locationService = { applyAutoLocation: vi.fn().mockResolvedValue(undefined) };
     eventEmitter.emit.mockReset();
     mockReadExifGps.mockReset().mockResolvedValue(null);
 
@@ -73,11 +74,11 @@ describe('ReceiptProcessorService', () => {
         { provide: UniversalExtractorService, useValue: extractor },
         {
           provide: ReceiptDuplicateService,
-          useValue: { findPotentialDuplicates: jest.fn().mockResolvedValue([]) },
+          useValue: { findPotentialDuplicates: vi.fn().mockResolvedValue([]) },
         },
         {
           provide: ReceiptCategoryService,
-          useValue: { categorize: jest.fn().mockResolvedValue(null) },
+          useValue: { categorize: vi.fn().mockResolvedValue(null) },
         },
         { provide: ReceiptLocationService, useValue: locationService },
         { provide: EventEmitter2, useValue: eventEmitter },

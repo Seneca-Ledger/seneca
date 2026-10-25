@@ -1,3 +1,4 @@
+import type { Mocked } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Transaction, TransactionType } from '../../../../src/entities/transaction.entity';
 import { ImportConfigService } from '../../../../src/modules/import/config/import.config';
@@ -9,15 +10,15 @@ import {
 
 describe('IntelligentDeduplicationService - Tolerant Matching', () => {
   let service: IntelligentDeduplicationService;
-  let mockImportConfigService: jest.Mocked<ImportConfigService>;
+  let mockImportConfigService: Mocked<ImportConfigService>;
 
   beforeEach(async () => {
     // Create mock ImportConfigService with default values
     mockImportConfigService = {
-      getDedupDateToleranceDays: jest.fn().mockReturnValue(3),
-      getDedupAmountTolerancePercent: jest.fn().mockReturnValue(2),
-      getDedupTextSimilarityThreshold: jest.fn().mockReturnValue(0.75),
-      getConflictAutoResolveThreshold: jest.fn().mockReturnValue(0.95),
+      getDedupDateToleranceDays: vi.fn().mockReturnValue(3),
+      getDedupAmountTolerancePercent: vi.fn().mockReturnValue(2),
+      getDedupTextSimilarityThreshold: vi.fn().mockReturnValue(0.75),
+      getConflictAutoResolveThreshold: vi.fn().mockReturnValue(0.95),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({

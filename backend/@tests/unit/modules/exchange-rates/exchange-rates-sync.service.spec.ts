@@ -3,11 +3,11 @@ import { ExchangeRatesSyncService } from '@/modules/exchange-rates/exchange-rate
 describe('ExchangeRatesSyncService', () => {
   let syncService: ExchangeRatesSyncService;
   const exchangeRatesService = {
-    fetchAndCacheRates: jest.fn(),
+    fetchAndCacheRates: vi.fn(),
   } as any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     syncService = new ExchangeRatesSyncService(exchangeRatesService);
   });
 

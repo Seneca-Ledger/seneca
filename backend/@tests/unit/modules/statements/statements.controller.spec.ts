@@ -1,4 +1,5 @@
-jest.mock('franc', () => ({
+import type { Mock } from 'vitest';
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -15,29 +16,29 @@ import type { ConvertDroppedSampleBody, UploadReceiptScanBody, UploadStatementBo
 
 type MockResponse = {
   headersSent: boolean;
-  setHeader: jest.Mock;
-  status: jest.Mock;
-  json: jest.Mock;
-  destroy: jest.Mock;
+  setHeader: Mock;
+  status: Mock;
+  json: Mock;
+  destroy: Mock;
 };
 
 describe('StatementsController', () => {
   const statementsService = {
-    create: jest.fn(),
-    createFromReceiptScan: jest.fn(),
-    createManualExpense: jest.fn(),
-    findAll: jest.fn(),
-    convertDroppedSampleToTransaction: jest.fn(),
-    getFileStream: jest.fn(),
+    create: vi.fn(),
+    createFromReceiptScan: vi.fn(),
+    createManualExpense: vi.fn(),
+    findAll: vi.fn(),
+    convertDroppedSampleToTransaction: vi.fn(),
+    getFileStream: vi.fn(),
   };
 
   const idempotencyService = {
-    checkKey: jest.fn(),
-    storeKey: jest.fn(),
+    checkKey: vi.fn(),
+    storeKey: vi.fn(),
   };
 
   const receiptStatementService = {
-    createFromReceiptScan: jest.fn(),
+    createFromReceiptScan: vi.fn(),
   };
 
   const controller = new StatementsController(
@@ -47,7 +48,7 @@ describe('StatementsController', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     idempotencyService.checkKey.mockResolvedValue(null);
     idempotencyService.storeKey.mockResolvedValue(undefined);
   });
@@ -234,17 +235,17 @@ describe('StatementsController', () => {
   it('streams statement downloads with shared file response handling', async () => {
     const handlers: Record<string, (error: NodeJS.ErrnoException) => void> = {};
     const stream = {
-      on: jest.fn((event: string, handler: (error: NodeJS.ErrnoException) => void) => {
+      on: vi.fn((event: string, handler: (error: NodeJS.ErrnoException) => void) => {
         handlers[event] = handler;
       }),
-      pipe: jest.fn(),
+      pipe: vi.fn(),
     };
     const response: MockResponse = {
       headersSent: false,
-      setHeader: jest.fn(),
-      status: jest.fn(),
-      json: jest.fn(),
-      destroy: jest.fn(),
+      setHeader: vi.fn(),
+      status: vi.fn(),
+      json: vi.fn(),
+      destroy: vi.fn(),
     };
     const currentUser = { id: 'user-1' } as User;
 

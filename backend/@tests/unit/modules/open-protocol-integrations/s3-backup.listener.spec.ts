@@ -3,7 +3,7 @@ import { OpenProtocolIntegrationsService } from '../../../../src/modules/open-pr
 import type { StatementUploadedEvent } from '../../../../src/modules/notifications/events/notification-events';
 
 const mockService = {
-  autoBackupStatementToS3: jest.fn(),
+  autoBackupStatementToS3: vi.fn(),
 };
 
 const makeListener = () =>
@@ -18,7 +18,7 @@ const makeEvent = (): StatementUploadedEvent => ({
 });
 
 describe('S3BackupListener', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('calls autoBackupStatementToS3 with workspaceId and statementId', async () => {
     await makeListener().onStatementUploaded(makeEvent());

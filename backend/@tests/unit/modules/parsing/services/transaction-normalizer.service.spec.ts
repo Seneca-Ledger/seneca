@@ -1,3 +1,4 @@
+import type { Mocked } from 'vitest';
 import { TransactionNormalizer } from '@/modules/parsing/services/transaction-normalizer.service';
 import { UniversalDateParser } from '@/modules/parsing/services/universal-date-parser.service';
 import { UniversalAmountParser } from '@/modules/parsing/services/universal-amount-parser.service';
@@ -7,10 +8,10 @@ import type { ParsedTransaction } from '@/modules/parsing/interfaces/parsed-stat
 
 describe('TransactionNormalizer', () => {
   let service: TransactionNormalizer;
-  let mockDateParser: jest.Mocked<Pick<UniversalDateParser, 'parseDate'>>;
-  let mockAmountParser: jest.Mocked<Pick<UniversalAmountParser, 'parseAmount'>>;
-  let mockTextCleaning: jest.Mocked<Pick<TextCleaningService, 'cleanCounterpartyName' | 'cleanPaymentPurpose'>>;
-  let mockColumnValidation: jest.Mocked<Pick<ColumnValidationService, 'validateTransactions'>>;
+  let mockDateParser: Mocked<Pick<UniversalDateParser, 'parseDate'>>;
+  let mockAmountParser: Mocked<Pick<UniversalAmountParser, 'parseAmount'>>;
+  let mockTextCleaning: Mocked<Pick<TextCleaningService, 'cleanCounterpartyName' | 'cleanPaymentPurpose'>>;
+  let mockColumnValidation: Mocked<Pick<ColumnValidationService, 'validateTransactions'>>;
 
   const makeTransaction = (overrides: Partial<ParsedTransaction> = {}): ParsedTransaction => ({
     transactionDate: new Date('2026-01-15'),
@@ -51,20 +52,20 @@ describe('TransactionNormalizer', () => {
 
   beforeEach(() => {
     mockDateParser = {
-      parseDate: jest.fn().mockResolvedValue(makeDateResult()),
+      parseDate: vi.fn().mockResolvedValue(makeDateResult()),
     };
 
     mockAmountParser = {
-      parseAmount: jest.fn().mockResolvedValue(makeAmountResult(1000)),
+      parseAmount: vi.fn().mockResolvedValue(makeAmountResult(1000)),
     };
 
     mockTextCleaning = {
-      cleanCounterpartyName: jest.fn().mockResolvedValue(makeTextResult('Test Company')),
-      cleanPaymentPurpose: jest.fn().mockResolvedValue(makeTextResult('Payment for services')),
+      cleanCounterpartyName: vi.fn().mockResolvedValue(makeTextResult('Test Company')),
+      cleanPaymentPurpose: vi.fn().mockResolvedValue(makeTextResult('Payment for services')),
     };
 
     mockColumnValidation = {
-      validateTransactions: jest.fn().mockResolvedValue(makeValidationResult([makeTransaction()])),
+      validateTransactions: vi.fn().mockResolvedValue(makeValidationResult([makeTransaction()])),
     };
 
     service = new TransactionNormalizer(

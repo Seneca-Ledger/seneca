@@ -64,15 +64,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -92,7 +92,7 @@ const DAY_TWO = `${MONTH}-16`;
 const ILS_TO_USD = 0.3;
 
 describe('dashboard trends in the workspace currency (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let txRepo: Repository<Transaction>;
@@ -136,26 +136,26 @@ describe('dashboard trends in the workspace currency (real Postgres)', () => {
     const rateOf = (from: string, to: string) =>
       from === to ? 1 : from === 'ILS' && to === 'USD' ? ILS_TO_USD : Number.NaN;
     const rates = {
-      getRate: jest.fn(async (from: string, to: string) => rateOf(from, to)),
-      getRateOrNull: jest.fn(async (from: string, to: string) => rateOf(from, to)),
-      convert: jest.fn(async (amount: number, from: string, to: string) => amount * rateOf(from, to)),
-      coverageForWorkspace: jest.fn(async () => []),
+      getRate: vi.fn(async (from: string, to: string) => rateOf(from, to)),
+      getRateOrNull: vi.fn(async (from: string, to: string) => rateOf(from, to)),
+      convert: vi.fn(async (amount: number, from: string, to: string) => amount * rateOf(from, to)),
+      coverageForWorkspace: vi.fn(async () => []),
     };
     const moduleRef = await Test.createTestingModule({
       providers: [
         DashboardService,
         WorkspaceCurrencyService,
         { provide: ExchangeRatesService, useValue: rates },
-        { provide: GoalsService, useValue: { findAll: jest.fn(async () => []) } },
+        { provide: GoalsService, useValue: { findAll: vi.fn(async () => []) } },
         {
           provide: SubscriptionsService,
-          useValue: { getSummary: jest.fn(async () => ({ totalMonthlyCost: 0 })) },
+          useValue: { getSummary: vi.fn(async () => ({ totalMonthlyCost: 0 })) },
         },
-        { provide: TaxReserveService, useValue: { getReserve: jest.fn(async () => null) } },
+        { provide: TaxReserveService, useValue: { getReserve: vi.fn(async () => null) } },
         { provide: BalanceService, useValue: {} },
-        { provide: AuditService, useValue: { createEvent: jest.fn() } },
-        { provide: NotificationsService, useValue: { createForWorkspaceMembers: jest.fn() } },
-        { provide: CACHE_MANAGER, useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() } },
+        { provide: AuditService, useValue: { createEvent: vi.fn() } },
+        { provide: NotificationsService, useValue: { createForWorkspaceMembers: vi.fn() } },
+        { provide: CACHE_MANAGER, useValue: { get: vi.fn(), set: vi.fn(), del: vi.fn() } },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
           useValue: dataSource.getRepository(entity),

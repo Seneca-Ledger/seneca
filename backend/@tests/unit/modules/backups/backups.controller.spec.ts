@@ -4,8 +4,8 @@ import { BackupsController } from '../../../../src/modules/backups/backups.contr
 describe('BackupsController', () => {
   it('forwards a configuration update and manual run to the backups service', async () => {
     const service = {
-      configure: jest.fn().mockResolvedValue({ destinationKind: BackupDestinationKind.LOCAL }),
-      createRun: jest.fn().mockResolvedValue({ id: 'run-1' }),
+      configure: vi.fn().mockResolvedValue({ destinationKind: BackupDestinationKind.LOCAL }),
+      createRun: vi.fn().mockResolvedValue({ id: 'run-1' }),
     };
     const controller = new BackupsController(service as never, {} as never);
     const user = { id: 'user-1', workspaceId: 'workspace-1' } as never;
@@ -28,10 +28,10 @@ describe('BackupsController', () => {
 
   it('returns an owner-authorized archive as an attachment', async () => {
     const service = {
-      downloadRun: jest.fn().mockResolvedValue({ fileName: 'backup.seneca-backup', contents: Buffer.from('backup') }),
+      downloadRun: vi.fn().mockResolvedValue({ fileName: 'backup.seneca-backup', contents: Buffer.from('backup') }),
     };
     const controller = new BackupsController(service as never, {} as never);
-    const response = { setHeader: jest.fn(), send: jest.fn() };
+    const response = { setHeader: vi.fn(), send: vi.fn() };
     const user = { id: 'user-1', workspaceId: 'workspace-1' } as never;
 
     await controller.downloadRun('run-1', user, 'workspace-1', response as never);
@@ -48,7 +48,7 @@ describe('BackupsController', () => {
   });
 
   it('returns the new workspace identity after a confirmed import', async () => {
-    const imports = { restore: jest.fn().mockResolvedValue({ id: 'workspace-new', name: 'Restored Finance' }) };
+    const imports = { restore: vi.fn().mockResolvedValue({ id: 'workspace-new', name: 'Restored Finance' }) };
     const controller = new BackupsController({} as never, imports as never);
     const result = await controller.restoreImport(
       'import-1',

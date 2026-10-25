@@ -1,19 +1,20 @@
+import type { MockedFunction } from 'vitest';
 import { env, pipeline } from '@huggingface/transformers';
 import { TransactionCategorizer } from '@/modules/classification/helpers/transaction-categorizer';
 
-jest.mock('@huggingface/transformers', () => ({
+vi.mock('@huggingface/transformers', () => ({
   env: {
     allowRemoteModels: true,
     localModelPath: undefined,
   },
-  pipeline: jest.fn(),
+  pipeline: vi.fn(),
 }));
 
-const mockedPipeline = pipeline as jest.MockedFunction<typeof pipeline>;
+const mockedPipeline = pipeline as MockedFunction<typeof pipeline>;
 
 describe('TransactionCategorizer', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     env.allowRemoteModels = true;
     env.localModelPath = undefined;
   });
@@ -39,7 +40,7 @@ describe('TransactionCategorizer', () => {
   });
 
   it('returns the closest semantic category above the threshold and caches category vectors', async () => {
-    const extractor = jest.fn(async (text: string) => {
+    const extractor = vi.fn(async (text: string) => {
       const vectors: Record<string, number[]> = {
         продукты: [1, 0],
         транспорт: [0, 1],
@@ -81,7 +82,7 @@ describe('TransactionCategorizer', () => {
 
   it('returns null when the closest semantic category is below the threshold', async () => {
     mockedPipeline.mockResolvedValue(
-      jest.fn(async (text: string) => {
+      vi.fn(async (text: string) => {
         const vectors: Record<string, number[]> = {
           продукты: [1, 0],
           транспорт: [0, 1],
@@ -102,7 +103,7 @@ describe('TransactionCategorizer', () => {
 
   it('normalizes category labels before caching semantic vectors', async () => {
     mockedPipeline.mockResolvedValue(
-      jest.fn(async (text: string) => {
+      vi.fn(async (text: string) => {
         const vectors: Record<string, number[]> = {
           продукты: [0, 1],
           здоровье: [1, 0],

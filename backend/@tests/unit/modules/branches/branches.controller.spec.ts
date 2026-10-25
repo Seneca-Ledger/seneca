@@ -3,11 +3,11 @@ import { BranchesController } from '@/modules/branches/branches.controller';
 describe('BranchesController', () => {
   it('proxies calls to BranchesService with workspaceId', async () => {
     const branchesService = {
-      create: jest.fn(async () => ({ id: 'b1' })),
-      findAll: jest.fn(async () => [{ id: 'b1' }]),
-      findOne: jest.fn(async () => ({ id: 'b1' })),
-      update: jest.fn(async () => ({ id: 'b1', name: 'X' })),
-      remove: jest.fn(async () => undefined),
+      create: vi.fn(async () => ({ id: 'b1' })),
+      findAll: vi.fn(async () => [{ id: 'b1' }]),
+      findOne: vi.fn(async () => ({ id: 'b1' })),
+      update: vi.fn(async () => ({ id: 'b1', name: 'X' })),
+      remove: vi.fn(async () => undefined),
     };
     const controller = new BranchesController(branchesService as any);
     const user = { id: 'u1' } as any;

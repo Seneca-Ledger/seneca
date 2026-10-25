@@ -1,20 +1,21 @@
+import type { Mock } from 'vitest';
 import { BadGatewayException, BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
 import { MapsController } from '@/modules/maps/maps.controller';
 import type { MapsService } from '@/modules/maps/maps.service';
 
 describe('MapsController', () => {
-  let service: { getStyles: jest.Mock; fetchTile: jest.Mock };
+  let service: { getStyles: Mock; fetchTile: Mock };
   let controller: MapsController;
-  let res: { setHeader: jest.Mock; send: jest.Mock };
+  let res: { setHeader: Mock; send: Mock };
 
   beforeEach(() => {
     service = {
-      getStyles: jest.fn().mockResolvedValue({ styles: [], defaultStyleId: null }),
-      fetchTile: jest.fn(),
+      getStyles: vi.fn().mockResolvedValue({ styles: [], defaultStyleId: null }),
+      fetchTile: vi.fn(),
     };
     controller = new MapsController(service as unknown as MapsService);
-    res = { setHeader: jest.fn(), send: jest.fn() };
+    res = { setHeader: vi.fn(), send: vi.fn() };
   });
 
   it('returns the style list', async () => {

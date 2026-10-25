@@ -3,13 +3,13 @@ import { StorageController } from '@/modules/storage/storage.controller';
 describe('StorageController', () => {
   it('forwards workspaceId for tags and views', async () => {
     const storageService = {
-      createTag: jest.fn(async () => ({ id: 'tag-1' })),
-      listTags: jest.fn(async () => [{ id: 'tag-1' }]),
-      updateTag: jest.fn(async () => ({ id: 'tag-1', name: 'Updated' })),
-      deleteTag: jest.fn(async () => undefined),
-      createView: jest.fn(async () => ({ id: 'view-1' })),
-      listViews: jest.fn(async () => [{ id: 'view-1' }]),
-      deleteView: jest.fn(async () => ({ deleted: true })),
+      createTag: vi.fn(async () => ({ id: 'tag-1' })),
+      listTags: vi.fn(async () => [{ id: 'tag-1' }]),
+      updateTag: vi.fn(async () => ({ id: 'tag-1', name: 'Updated' })),
+      deleteTag: vi.fn(async () => undefined),
+      createView: vi.fn(async () => ({ id: 'view-1' })),
+      listViews: vi.fn(async () => [{ id: 'view-1' }]),
+      deleteView: vi.fn(async () => ({ deleted: true })),
     };
     const controller = new StorageController(storageService as any);
     const user = { id: 'u1' } as any;

@@ -2,8 +2,8 @@ import { ClassificationController } from '@/modules/classification/classificatio
 
 function createRepoMock() {
   return {
-    findOne: jest.fn(),
-    save: jest.fn(async value => value),
+    findOne: vi.fn(),
+    save: vi.fn(async value => value),
   };
 }
 
@@ -11,7 +11,7 @@ describe('ClassificationController', () => {
   it('scopes single transaction classification by workspaceId', async () => {
     const transactionRepository = createRepoMock();
     const classificationService = {
-      classifyTransaction: jest.fn(async () => ({ categoryId: 'cat-1' })),
+      classifyTransaction: vi.fn(async () => ({ categoryId: 'cat-1' })),
     };
     const transaction = { id: 'tx-1', workspaceId: 'ws-1' };
     transactionRepository.findOne.mockResolvedValue(transaction);
@@ -30,7 +30,7 @@ describe('ClassificationController', () => {
 
   it('leaves a hand-picked category alone when one row is re-classified', async () => {
     const transactionRepository = createRepoMock();
-    const classificationService = { classifyTransaction: jest.fn() };
+    const classificationService = { classifyTransaction: vi.fn() };
     const transaction = { id: 'tx-1', workspaceId: 'ws-1', categorySource: 'manual' };
     transactionRepository.findOne.mockResolvedValue(transaction);
     const controller = new ClassificationController(
@@ -48,7 +48,7 @@ describe('ClassificationController', () => {
   it('scopes bulk classification by workspaceId', async () => {
     const transactionRepository = createRepoMock();
     const classificationService = {
-      classifyTransaction: jest.fn(async () => ({ categoryId: 'cat-1' })),
+      classifyTransaction: vi.fn(async () => ({ categoryId: 'cat-1' })),
     };
     transactionRepository.findOne.mockResolvedValue({ id: 'tx-1', workspaceId: 'ws-1' });
     const controller = new ClassificationController(
@@ -71,7 +71,7 @@ describe('ClassificationController', () => {
 
   it('leaves a hand-picked category alone during bulk re-classification', async () => {
     const transactionRepository = createRepoMock();
-    const classificationService = { classifyTransaction: jest.fn() };
+    const classificationService = { classifyTransaction: vi.fn() };
     transactionRepository.findOne.mockResolvedValue({
       id: 'tx-1',
       workspaceId: 'ws-1',

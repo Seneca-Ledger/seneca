@@ -3,32 +3,32 @@ import { AuthController } from '@/modules/auth/auth.controller';
 describe('AuthController', () => {
   it('proxies register/login/logout operations', async () => {
     const authService = {
-      register: jest.fn(async () => ({ user: { id: 'u1' }, access_token: 'a', refresh_token: 'r' })),
-      login: jest.fn(async () => ({ user: { id: 'u1' }, access_token: 'a', refresh_token: 'r' })),
-      refreshToken: jest.fn(async () => ({ access_token: 'new', refresh_token: 'r2' })),
-      logout: jest.fn(async () => ({ message: 'ok' })),
-      logoutAll: jest.fn(async () => ({ message: 'ok-all' })),
-      getSessions: jest.fn(async () => [{ id: 's1' }]),
-      logoutSession: jest.fn(async () => ({ message: 'ok-session' })),
+      register: vi.fn(async () => ({ user: { id: 'u1' }, access_token: 'a', refresh_token: 'r' })),
+      login: vi.fn(async () => ({ user: { id: 'u1' }, access_token: 'a', refresh_token: 'r' })),
+      refreshToken: vi.fn(async () => ({ access_token: 'new', refresh_token: 'r2' })),
+      logout: vi.fn(async () => ({ message: 'ok' })),
+      logoutAll: vi.fn(async () => ({ message: 'ok-all' })),
+      getSessions: vi.fn(async () => [{ id: 's1' }]),
+      logoutSession: vi.fn(async () => ({ message: 'ok-session' })),
     };
     const twoFactorService = {
-      getStatus: jest.fn(async () => ({
+      getStatus: vi.fn(async () => ({
         enabled: false,
         pendingSetup: false,
         recoveryCodesRemaining: 0,
       })),
-      setup: jest.fn(async () => ({ secret: 's', otpauthUrl: 'otpauth://', qrDataUrl: 'data:' })),
-      enable: jest.fn(async () => ({ recoveryCodes: ['AAAAA-BBBBB'] })),
-      disable: jest.fn(async () => undefined),
-      regenerateRecoveryCodes: jest.fn(async () => ({ recoveryCodes: ['CCCCC-DDDDD'] })),
+      setup: vi.fn(async () => ({ secret: 's', otpauthUrl: 'otpauth://', qrDataUrl: 'data:' })),
+      enable: vi.fn(async () => ({ recoveryCodes: ['AAAAA-BBBBB'] })),
+      disable: vi.fn(async () => undefined),
+      regenerateRecoveryCodes: vi.fn(async () => ({ recoveryCodes: ['CCCCC-DDDDD'] })),
     };
     const controller = new AuthController(authService as any, twoFactorService as any);
     const cookies: Record<string, string> = {};
     const res = {
-      cookie: jest.fn((name: string, value: string) => {
+      cookie: vi.fn((name: string, value: string) => {
         cookies[name] = value;
       }),
-      clearCookie: jest.fn((name: string) => {
+      clearCookie: vi.fn((name: string) => {
         delete cookies[name];
       }),
     };

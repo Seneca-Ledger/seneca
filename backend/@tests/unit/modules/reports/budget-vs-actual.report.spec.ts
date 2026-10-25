@@ -100,9 +100,9 @@ describe('BudgetVsActualReport', () => {
     rate: (from: string) => number | null = () => 2,
   ) {
     const report = new BudgetVsActualReport(
-      { find: jest.fn(async () => budgets) } as never,
-      { find: jest.fn(async () => categories) } as never,
-      { getRateOrNull: jest.fn(async (from: string) => rate(from)) } as never,
+      { find: vi.fn(async () => budgets) } as never,
+      { find: vi.fn(async () => categories) } as never,
+      { getRateOrNull: vi.fn(async (from: string) => rate(from)) } as never,
     );
     return report.build(
       'ws1',

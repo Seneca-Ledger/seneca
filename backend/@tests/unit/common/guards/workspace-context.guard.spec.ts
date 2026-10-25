@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { ALLOW_IN_VERSION_KEY } from '@/common/decorators/allow-in-version.decorator';
 import { appError } from '@/common/errors/app-error';
 import { WorkspaceContextGuard } from '@/common/guards/workspace-context.guard';
@@ -10,8 +11,8 @@ import { DataSource } from 'typeorm';
 describe('WorkspaceContextGuard', () => {
   let testingModule: TestingModule;
   let guard: WorkspaceContextGuard;
-  let mockRepository: { findOne: jest.Mock };
-  let mockDataSource: { getRepository: jest.Mock };
+  let mockRepository: { findOne: Mock };
+  let mockDataSource: { getRepository: Mock };
 
   const mockWorkspace = { id: 'ws-1', name: 'Test Workspace' };
   const mockMembership: Partial<WorkspaceMember> = {
@@ -44,9 +45,9 @@ describe('WorkspaceContextGuard', () => {
   }
 
   beforeAll(async () => {
-    mockRepository = { findOne: jest.fn() };
+    mockRepository = { findOne: vi.fn() };
     mockDataSource = {
-      getRepository: jest.fn().mockReturnValue(mockRepository),
+      getRepository: vi.fn().mockReturnValue(mockRepository),
     };
 
     testingModule = await Test.createTestingModule({
@@ -60,7 +61,7 @@ describe('WorkspaceContextGuard', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {

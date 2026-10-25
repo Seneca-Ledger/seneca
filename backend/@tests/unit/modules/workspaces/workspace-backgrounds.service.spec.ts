@@ -1,3 +1,4 @@
+import type { MockInstance, Mocked, MockedFunction } from 'vitest';
 import * as fs from 'node:fs/promises';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EffectRuntime } from '@/common/effect/effect-runtime';
@@ -5,18 +6,18 @@ import { fetchPublicUrl } from '@/common/utils/egress-url.util';
 import { type Workspace, WorkspaceRole } from '@/entities';
 import { WorkspaceBackgroundsService } from '@/modules/workspaces/workspace-backgrounds.service';
 
-jest.mock('node:fs/promises', () => ({
-  mkdir: jest.fn(async () => undefined),
-  writeFile: jest.fn(async () => undefined),
+vi.mock('node:fs/promises', () => ({
+  mkdir: vi.fn(async () => undefined),
+  writeFile: vi.fn(async () => undefined),
 }));
 
-jest.mock('@/common/utils/egress-url.util', () => ({
-  fetchPublicUrl: jest.fn(),
+vi.mock('@/common/utils/egress-url.util', () => ({
+  fetchPublicUrl: vi.fn(),
 }));
 
 // sharp is a native module; the pipeline is replaced by one that tags its
 // input, so a test can tell which bytes ended up on disk.
-jest.mock('sharp', () => ({
+vi.mock('sharp', () => ({
   __esModule: true,
   default: (input: Buffer) => {
     const chain = {
@@ -29,8 +30,8 @@ jest.mock('sharp', () => ({
   },
 }));
 
-const mockedFs = fs as jest.Mocked<typeof fs>;
-const mockedFetchPublicUrl = fetchPublicUrl as jest.MockedFunction<typeof fetchPublicUrl>;
+const mockedFs = fs as Mocked<typeof fs>;
+const mockedFetchPublicUrl = fetchPublicUrl as MockedFunction<typeof fetchPublicUrl>;
 
 const WORKSPACE_ID = '99999999-8888-7777-6666-555555555555';
 const USER_ID = 'user-1';
@@ -65,17 +66,17 @@ function createService(role: WorkspaceRole | null = WorkspaceRole.OWNER) {
     backgroundSourceUrl: null,
   } as Workspace;
   const workspaceRepository = {
-    findOne: jest.fn(async () => stored),
-    save: jest.fn(async (data: Workspace) => data),
+    findOne: vi.fn(async () => stored),
+    save: vi.fn(async (data: Workspace) => data),
   } as any;
   const workspaceMemberRepository = {
-    findOne: jest.fn(async () => (role ? { workspaceId: WORKSPACE_ID, userId: USER_ID, role } : null)),
+    findOne: vi.fn(async () => (role ? { workspaceId: WORKSPACE_ID, userId: USER_ID, role } : null)),
   } as any;
   const cacheManager = {
-    get: jest.fn(async () => undefined),
-    set: jest.fn(async () => undefined),
+    get: vi.fn(async () => undefined),
+    set: vi.fn(async () => undefined),
   } as any;
-  const auditService = { createEvent: jest.fn(async () => undefined) } as any;
+  const auditService = { createEvent: vi.fn(async () => undefined) } as any;
 
   return {
     service: new WorkspaceBackgroundsService(
@@ -92,11 +93,11 @@ function createService(role: WorkspaceRole | null = WorkspaceRole.OWNER) {
 }
 
 describe('WorkspaceBackgroundsService', () => {
-  let fetchSpy: jest.SpyInstance;
+  let fetchSpy: MockInstance;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    fetchSpy = jest.spyOn(global, 'fetch');
+    vi.clearAllMocks();
+    fetchSpy = vi.spyOn(global, 'fetch');
   });
 
   afterEach(() => {

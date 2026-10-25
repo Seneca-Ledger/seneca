@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -159,7 +159,7 @@ describe('Peppol via Recommand (e2e)', () => {
   };
 
   beforeAll(async () => {
-    jest.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = new URL(String(input instanceof Request ? input.url : input));
       if (url.origin !== RECOMMAND_API_URL) {
         return realFetch(input, init);
@@ -202,7 +202,7 @@ describe('Peppol via Recommand (e2e)', () => {
   });
 
   afterAll(async () => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     try {
       await deleteUserByEmail(dataSource, email);
     } finally {

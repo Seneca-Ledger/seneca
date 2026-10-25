@@ -6,12 +6,12 @@ import { NotFoundException } from '@nestjs/common';
 
 const createRepoMock = () =>
   ({
-    find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn().mockResolvedValue(null),
-    exists: jest.fn().mockResolvedValue(true),
-    create: jest.fn((data: unknown) => data),
-    save: jest.fn(async (entity: unknown) => entity),
-    remove: jest.fn(async (entity: unknown) => entity),
+    find: vi.fn().mockResolvedValue([]),
+    findOne: vi.fn().mockResolvedValue(null),
+    exists: vi.fn().mockResolvedValue(true),
+    create: vi.fn((data: unknown) => data),
+    save: vi.fn(async (entity: unknown) => entity),
+    remove: vi.fn(async (entity: unknown) => entity),
   }) as any;
 
 const makeFile = (overrides: Partial<Express.Multer.File> = {}): Express.Multer.File =>
@@ -30,7 +30,7 @@ describe('TransactionAttachmentsService', () => {
   let uploadsDir: string;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     attachmentRepo.create.mockImplementation((data: unknown) => data);
     attachmentRepo.save.mockImplementation(async (entity: unknown) => entity);
     transactionRepo.exists.mockResolvedValue(true);

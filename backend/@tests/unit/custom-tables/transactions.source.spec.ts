@@ -1,9 +1,10 @@
+import type { Mock } from 'vitest';
 import { countedSql } from '@/common/utils/counted-transactions.util';
 import { TransactionType } from "../../../src/entities/transaction.entity";
 import { TransactionsSource } from "../../../src/modules/custom-tables/sources/transactions.source";
 
 const createQueryBuilderMock = (rows: unknown[]) => {
-	const qb: Record<string, jest.Mock> = {};
+	const qb: Record<string, Mock> = {};
 	for (const method of [
 		"leftJoinAndSelect",
 		"where",
@@ -12,9 +13,9 @@ const createQueryBuilderMock = (rows: unknown[]) => {
 		"addOrderBy",
 		"take",
 	]) {
-		qb[method] = jest.fn().mockReturnValue(qb);
+		qb[method] = vi.fn().mockReturnValue(qb);
 	}
-	qb.getMany = jest.fn().mockResolvedValue(rows);
+	qb.getMany = vi.fn().mockResolvedValue(rows);
 	return qb;
 };
 

@@ -4,10 +4,10 @@ import { BadRequestException } from '@nestjs/common';
 describe('CustomTablesController', () => {
   it('listRows rejects invalid filters JSON', async () => {
     const controller = new CustomTablesController(
-      { listRows: jest.fn() } as any,
+      { listRows: vi.fn() } as any,
       {
-        rowsKey: jest.fn(),
-        getOrSet: jest.fn(),
+        rowsKey: vi.fn(),
+        getOrSet: vi.fn(),
       } as any,
     );
 
@@ -18,9 +18,9 @@ describe('CustomTablesController', () => {
 
   it('updateColumnStyle bumps the table cache', async () => {
     const customTablesService = {
-      updateColumnStyle: jest.fn(async () => ({ columnKey: 'col_a', style: {} })),
+      updateColumnStyle: vi.fn(async () => ({ columnKey: 'col_a', style: {} })),
     };
-    const customTablesCache = { bumpTable: jest.fn(), bumpRows: jest.fn() };
+    const customTablesCache = { bumpTable: vi.fn(), bumpRows: vi.fn() };
     const controller = new CustomTablesController(
       customTablesService as any,
       customTablesCache as any,

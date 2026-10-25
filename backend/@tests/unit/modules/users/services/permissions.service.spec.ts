@@ -1,3 +1,4 @@
+import type { Mocked } from 'vitest';
 import { Permission, ROLE_PERMISSIONS } from '@/common/enums/permissions.enum';
 import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { User, UserRole } from '@/entities/user.entity';
@@ -11,9 +12,9 @@ import type { Repository } from 'typeorm';
 describe('PermissionsService', () => {
   let testingModule: TestingModule;
   let service: PermissionsService;
-  let userRepository: jest.Mocked<Repository<User>>;
-  let memberRepository: jest.Mocked<Repository<WorkspaceMember>>;
-  const auditService = { createEvent: jest.fn() };
+  let userRepository: Mocked<Repository<User>>;
+  let memberRepository: Mocked<Repository<WorkspaceMember>>;
+  const auditService = { createEvent: vi.fn() };
 
   const WORKSPACE_ID = 'workspace-1';
   // Global admin: holds every permission, so the "cannot grant what you do not
@@ -36,14 +37,14 @@ describe('PermissionsService', () => {
         {
           provide: getRepositoryToken(User),
           useValue: {
-            findOne: jest.fn(),
-            save: jest.fn(),
+            findOne: vi.fn(),
+            save: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         { provide: AuditService, useValue: auditService },
@@ -56,7 +57,7 @@ describe('PermissionsService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     auditService.createEvent.mockResolvedValue({});
     // Target is a member of the acting workspace unless a test says otherwise.
     memberRepository.findOne.mockResolvedValue({

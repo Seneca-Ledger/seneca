@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { IsNull, Not } from 'typeorm';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxThresholdPeriod } from '@/entities/tax-jurisdiction.entity';
@@ -9,9 +10,9 @@ describe('TaxThresholdService', () => {
   let service: TaxThresholdService;
   let workspaceRepo: ReturnType<typeof createRepoMock>;
   let transactionRepo: ReturnType<typeof createRepoMock>;
-  let adoption: { getCurrentJurisdiction: jest.Mock };
-  let exchangeRates: { getRateOrNull: jest.Mock };
-  let events: { emit: jest.Mock };
+  let adoption: { getCurrentJurisdiction: Mock };
+  let exchangeRates: { getRateOrNull: Mock };
+  let events: { emit: Mock };
   let workspace: Record<string, unknown>;
 
   const GB = {
@@ -42,7 +43,7 @@ describe('TaxThresholdService', () => {
   const NOW = new Date('2026-06-15T00:00:00.000Z');
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     workspace = {
       id: 'ws-1',
       vatStatus: VatStatus.SMALL_BUSINESS,
@@ -55,9 +56,9 @@ describe('TaxThresholdService', () => {
     workspaceRepo.save.mockImplementation(async (row: unknown) => row);
     transactionRepo = createRepoMock();
     transactionRepo.find.mockResolvedValue([]);
-    adoption = { getCurrentJurisdiction: jest.fn().mockResolvedValue(GB) };
-    exchangeRates = { getRateOrNull: jest.fn().mockResolvedValue(1) };
-    events = { emit: jest.fn() };
+    adoption = { getCurrentJurisdiction: vi.fn().mockResolvedValue(GB) };
+    exchangeRates = { getRateOrNull: vi.fn().mockResolvedValue(1) };
+    events = { emit: vi.fn() };
 
     service = new TaxThresholdService(
       workspaceRepo,
@@ -274,7 +275,7 @@ describe('TaxThresholdService', () => {
   describe('checkAll', () => {
     it('keeps sweeping after one workspace fails', async () => {
       workspaceRepo.find.mockResolvedValue([{ id: 'ws-1' }, { id: 'ws-2' }]);
-      const failing = jest
+      const failing = vi
         .spyOn(service, 'checkWorkspace')
         .mockRejectedValueOnce(new Error('rate lookup down'))
         .mockResolvedValueOnce(null);

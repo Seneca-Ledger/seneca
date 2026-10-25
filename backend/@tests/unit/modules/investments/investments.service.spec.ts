@@ -1,19 +1,20 @@
+import type { Mock } from 'vitest';
 import { countedSql } from '@/common/utils/counted-transactions.util';
 import { InvestmentsService } from '../../../../src/modules/investments/investments.service';
 
 function queryBuilder() {
-  const qb: Record<string, jest.Mock> = {};
+  const qb: Record<string, Mock> = {};
   for (const method of ['select', 'addSelect', 'where', 'andWhere', 'groupBy', 'addGroupBy']) {
-    qb[method] = jest.fn(() => qb);
+    qb[method] = vi.fn(() => qb);
   }
-  qb.getRawMany = jest.fn(async () => []);
+  qb.getRawMany = vi.fn(async () => []);
   return qb;
 }
 
 describe('InvestmentsService contributions', () => {
   it('counts only confirmed contributions as paid in', async () => {
     const qb = queryBuilder();
-    const transactionRepository = { createQueryBuilder: jest.fn(() => qb) };
+    const transactionRepository = { createQueryBuilder: vi.fn(() => qb) };
     const service = new InvestmentsService(
       {} as never,
       {} as never,

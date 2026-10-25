@@ -4,26 +4,26 @@ import { ImportSessionController } from '@/modules/import/import-session.control
 
 describe('ImportSessionController', () => {
   const importSessionService = {
-    getSession: jest.fn(),
-    getSessionSummary: jest.fn(),
-    resolveConflicts: jest.fn(),
-    cancelSession: jest.fn(),
+    getSession: vi.fn(),
+    getSessionSummary: vi.fn(),
+    resolveConflicts: vi.fn(),
+    cancelSession: vi.fn(),
   };
   const statementProcessingService = {
-    processStatement: jest.fn(),
-    commitImport: jest.fn(),
+    processStatement: vi.fn(),
+    commitImport: vi.fn(),
   };
   const statementRepository = {
-    findOne: jest.fn(),
+    findOne: vi.fn(),
   };
   const transactionRepository = {
-    count: jest.fn(),
+    count: vi.fn(),
   };
 
   let controller: ImportSessionController;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     controller = new ImportSessionController(
       importSessionService as any,
       statementProcessingService as any,

@@ -5,15 +5,15 @@ import { BadRequestException } from '@nestjs/common';
 describe('DataEntryController', () => {
   it('list clamps limit/page and returns paging metadata', async () => {
     const dataEntryService = {
-      create: jest.fn(),
-      list: jest.fn(async () => ({ items: [{ id: 'e1' }], total: 1 })),
-      remove: jest.fn(),
-      listCustomFields: jest.fn(async () => []),
-      getHiddenBaseTabs: jest.fn(async () => [DataEntryType.CASH]),
-      removeBaseTab: jest.fn(),
-      createCustomField: jest.fn(),
-      updateCustomField: jest.fn(),
-      removeCustomField: jest.fn(),
+      create: vi.fn(),
+      list: vi.fn(async () => ({ items: [{ id: 'e1' }], total: 1 })),
+      remove: vi.fn(),
+      listCustomFields: vi.fn(async () => []),
+      getHiddenBaseTabs: vi.fn(async () => [DataEntryType.CASH]),
+      removeBaseTab: vi.fn(),
+      createCustomField: vi.fn(),
+      updateCustomField: vi.fn(),
+      removeCustomField: vi.fn(),
     };
     const controller = new DataEntryController(dataEntryService as any, {} as any);
     const workspaceId = 'ws-1';
@@ -47,14 +47,14 @@ describe('DataEntryController', () => {
 
   it('forwards workspaceId to mutating actions', async () => {
     const dataEntryService = {
-      create: jest.fn(async () => ({ id: 'e1' })),
-      remove: jest.fn(async () => undefined),
-      listCustomFields: jest.fn(async () => []),
-      getHiddenBaseTabs: jest.fn(async () => []),
-      removeBaseTab: jest.fn(async () => undefined),
-      createCustomField: jest.fn(async () => ({ id: 'f1' })),
-      updateCustomField: jest.fn(async () => ({ id: 'f1' })),
-      removeCustomField: jest.fn(async () => undefined),
+      create: vi.fn(async () => ({ id: 'e1' })),
+      remove: vi.fn(async () => undefined),
+      listCustomFields: vi.fn(async () => []),
+      getHiddenBaseTabs: vi.fn(async () => []),
+      removeBaseTab: vi.fn(async () => undefined),
+      createCustomField: vi.fn(async () => ({ id: 'f1' })),
+      updateCustomField: vi.fn(async () => ({ id: 'f1' })),
+      removeCustomField: vi.fn(async () => undefined),
     };
     const controller = new DataEntryController(dataEntryService as any, {} as any);
     const user = { id: 'u1' } as any;
@@ -90,11 +90,11 @@ describe('DataEntryController', () => {
 
   it('returns cached response for a repeated idempotency key without creating a duplicate', async () => {
     const dataEntryService = {
-      create: jest.fn(async () => ({ id: 'e1' })),
+      create: vi.fn(async () => ({ id: 'e1' })),
     };
     const idempotencyService = {
-      checkKey: jest.fn(async () => null),
-      storeKey: jest.fn(async () => undefined),
+      checkKey: vi.fn(async () => null),
+      storeKey: vi.fn(async () => undefined),
     };
     const controller = new DataEntryController(
       dataEntryService as any,
@@ -117,11 +117,11 @@ describe('DataEntryController', () => {
 
   it('skips idempotency machinery when no key is provided', async () => {
     const dataEntryService = {
-      create: jest.fn(async () => ({ id: 'e1' })),
+      create: vi.fn(async () => ({ id: 'e1' })),
     };
     const idempotencyService = {
-      checkKey: jest.fn(),
-      storeKey: jest.fn(),
+      checkKey: vi.fn(),
+      storeKey: vi.fn(),
     };
     const controller = new DataEntryController(
       dataEntryService as any,
