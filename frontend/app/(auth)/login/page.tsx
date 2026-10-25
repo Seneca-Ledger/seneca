@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import { Box, Button, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
@@ -19,7 +18,6 @@ import { safeInternalPath } from '@/app/lib/safe-path';
 import { AuthHero } from '../AuthHero';
 import AuthLayout from '../AuthLayout';
 
-// eslint-disable-next-line complexity
 function extractInviteTokenFromNext(nextPath: string | null): string | null {
   if (!nextPath) {
     return null;
@@ -41,7 +39,6 @@ function extractInviteTokenFromNext(nextPath: string | null): string | null {
   }
 }
 
-// eslint-disable-next-line max-lines-per-function, complexity
 function LoginPageContent(): React.JSX.Element {
   const searchParams = useSearchParams();
   const nextPath = safeInternalPath(searchParams.get('next'));
@@ -56,7 +53,6 @@ function LoginPageContent(): React.JSX.Element {
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // eslint-disable-next-line max-lines-per-function
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError('');

@@ -15,11 +15,11 @@ import type { Repository } from 'typeorm';
 
 function createRepoMock<T>() {
   return {
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    findOne: jest.fn(),
-    find: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    createQueryBuilder: vi.fn(),
   } as unknown as Repository<T> & Record<string, any>;
 }
 
@@ -27,13 +27,13 @@ describe('AuditService', () => {
   const auditEventRepository = createRepoMock<AuditEvent>();
   const userRepository = createRepoMock<User>();
   const workspaceRepository = createRepoMock<Workspace>();
-  const rollbackService = { rollback: jest.fn() } as unknown as RollbackService;
+  const rollbackService = { rollback: vi.fn() } as unknown as RollbackService;
   const descriptionService = new AuditDescriptionService();
 
   let service: AuditService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new AuditService(
       auditEventRepository as any,
       userRepository as any,
@@ -56,7 +56,7 @@ describe('AuditService', () => {
   });
 
   it('createEvent resolves actorLabel from user when missing', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       email: 'user@example.com',
     }));
@@ -107,7 +107,7 @@ describe('AuditService', () => {
   });
 
   it('createEvent generates a human-readable description when missing', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       email: 'user@example.com',
     }));
@@ -140,7 +140,7 @@ describe('AuditService', () => {
   });
 
   it('createEvent preserves explicit description', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       email: 'user@example.com',
     }));
@@ -166,7 +166,7 @@ describe('AuditService', () => {
   });
 
   it('createBatchEvents assigns batchId to all events', async () => {
-    const createSpy = jest.spyOn(service, 'createEvent').mockResolvedValue({} as AuditEvent);
+    const createSpy = vi.spyOn(service, 'createEvent').mockResolvedValue({} as AuditEvent);
 
     const result = await service.createBatchEvents(
       [
@@ -195,14 +195,14 @@ describe('AuditService', () => {
 
   it('findEvents applies filters and pagination', async () => {
     const qb = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      skip: vi.fn().mockReturnThis(),
+      take: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
     };
-    auditEventRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+    auditEventRepository.createQueryBuilder = vi.fn().mockReturnValue(qb);
 
     const result = await service.findEvents({
       workspaceId: 'w1',
@@ -255,10 +255,10 @@ describe('AuditService', () => {
       diff: { before: { amount: 1 }, after: { amount: 2 } },
     } as AuditEvent;
 
-    auditEventRepository.findOne = jest.fn(async () => event);
-    auditEventRepository.save = jest.fn(async (data: any) => ({ id: 'rollback-1', ...data }));
-    userRepository.findOne = jest.fn(async () => ({ id: 'u1', email: 'user@example.com' }));
-    rollbackService.rollback = jest.fn().mockResolvedValue({ success: true, message: 'ok' });
+    auditEventRepository.findOne = vi.fn(async () => event);
+    auditEventRepository.save = vi.fn(async (data: any) => ({ id: 'rollback-1', ...data }));
+    userRepository.findOne = vi.fn(async () => ({ id: 'u1', email: 'user@example.com' }));
+    rollbackService.rollback = vi.fn().mockResolvedValue({ success: true, message: 'ok' });
 
     const result = await service.rollback('evt-1', 'u1');
 

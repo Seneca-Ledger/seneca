@@ -124,7 +124,9 @@ export class InvoiceRemindersService {
       (
         await this.clientRepository.find({
           where: { id: In(clientIds), remindersEnabled: false },
-          select: ['id'],
+          select: {
+            id: true,
+          },
         })
       ).map(client => client.id),
     );
@@ -141,7 +143,9 @@ export class InvoiceRemindersService {
                 id: In(payableIds),
                 status: In([PayableStatus.PAID, PayableStatus.ARCHIVED]),
               },
-              select: ['id'],
+              select: {
+                id: true,
+              },
             })
           ).map(payable => payable.id),
     );

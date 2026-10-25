@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
@@ -29,7 +30,7 @@ export class BackupConfiguration {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'destination_kind', type: 'varchar', length: 16 })
   destinationKind: BackupDestinationKind;
@@ -62,7 +63,7 @@ export class BackupConfiguration {
     () => BackupRun,
     run => run.configuration,
   )
-  runs: BackupRun[];
+  runs: Relation<BackupRun[]>;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

@@ -2,7 +2,6 @@
 
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/app/hooks/useAuth';
-import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { useThemePreference } from './useThemePreference';
 
 /**
@@ -19,8 +18,6 @@ export function useThemeToggle(): () => void {
     user,
     setUser,
     setTheme,
-    resolveLabel,
-    navTheme: undefined,
   });
 
   return () => {

@@ -13,11 +13,6 @@ import { type ViewMode, WorkspaceListFilters } from './WorkspaceListFilters';
 import { WorkspaceListView } from './WorkspaceListView';
 import { SORT_FNS, type SortOption } from './workspace-list.helpers';
 
-type TranslationValue = string | { value?: string };
-
-const resolveTranslation = (value: TranslationValue | undefined, fallback: string): string =>
-  typeof value === 'string' ? value : (value?.value ?? fallback);
-
 /** Workspace shape shared by the list views (grid + list). */
 type WorkspaceListItem = {
   id: string;
@@ -219,7 +214,6 @@ function useWorkspaceNav({
   return { handleWorkspaceClick };
 }
 
-// eslint-disable-next-line max-lines-per-function
 export default function WorkspacesListContent({
   embedded,
   redirectPathOnSelect = '/workspaces/overview',
@@ -237,9 +231,9 @@ export default function WorkspacesListContent({
   const handleCreateWorkspace = (): void => {
     router.push('/onboarding?mode=create-workspace');
   };
-  const createLabel = resolveTranslation(content.createWorkspace, 'Create workspace');
-  const noWorkspacesLabel = resolveTranslation(content.noWorkspaces, 'You have no workspaces yet');
-  const searchPlaceholder = resolveTranslation(content.searchPlaceholder, 'Search workspaces...');
+  const createLabel = content.createWorkspace.value;
+  const noWorkspacesLabel = content.noWorkspaces.value;
+  const searchPlaceholder = content.searchPlaceholder.value;
 
   if (loading) {
     return <LoadingView />;

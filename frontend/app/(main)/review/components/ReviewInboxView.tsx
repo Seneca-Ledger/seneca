@@ -129,7 +129,6 @@ function fill(template: string, params: Record<string, string | number>): string
 
 type Props = { state: UseReviewInboxResult };
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ReviewInboxView({ state }: Props) {
   const t = useIntlayer('reviewInbox');
   const tOwner = useIntlayer('transactionOwner');
@@ -147,8 +146,8 @@ export function ReviewInboxView({ state }: Props) {
   const categorySelectRef = useRef<HTMLDivElement | null>(null);
   // The statements Date dropdown, so both pages filter by date the same way.
   const statementsText = useIntlayer('statementsPage');
-  const filterOptionLabels = buildFilterOptionLabels(statementsText, (path, fallback) =>
-    resolveLabel(getNestedValue(statementsText, path), fallback),
+  const filterOptionLabels = buildFilterOptionLabels(statementsText, path =>
+    resolveLabel(getNestedValue(statementsText, path)),
   );
   const listHeaderLabels = buildListHeaderLabels(statementsText);
   const datePresets = buildDatePresets(filterOptionLabels);
@@ -252,6 +251,7 @@ export function ReviewInboxView({ state }: Props) {
       c: () => {
         categorySelectRef.current?.querySelector<HTMLElement>('button')?.focus();
       },
+      // biome-ignore lint/correctness/noComponentHookFactories: a key name (tinykeys), not a component.
       Escape: () => clearSelection(),
     },
     !busy,
@@ -780,7 +780,13 @@ export function ReviewInboxView({ state }: Props) {
           <Box
             sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, minWidth: 0 }}
           >
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 88 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                minWidth: 88,
+              }}
+            >
               {fill(t.selected.value, { count: selected.size })}
             </Typography>
             {kind === 'transaction' && (
@@ -820,12 +826,22 @@ export function ReviewInboxView({ state }: Props) {
           {/* The keys matter once there is something to act on. */}
           {!isMobile ? (
             selected.size > 0 ? (
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.shortcuts.value}
               </Typography>
             ) : null
           ) : kind === 'transaction' ? (
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.swipeHint.value}
             </Typography>
           ) : null}

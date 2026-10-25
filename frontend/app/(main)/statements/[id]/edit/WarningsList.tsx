@@ -120,7 +120,12 @@ function WarningItem({
           <ListItemIcon sx={{ minWidth: 28, mt: 0.25 }}>
             <TriangleAlert size={16} style={{ color: '#ed6c02' }} />
           </ListItemIcon>
-          <ListItemText primary={warning} primaryTypographyProps={{ variant: 'body2' }} />
+          <ListItemText
+            primary={warning}
+            slotProps={{
+              primary: { variant: 'body2' },
+            }}
+          />
         </>
       )}
     </ListItem>

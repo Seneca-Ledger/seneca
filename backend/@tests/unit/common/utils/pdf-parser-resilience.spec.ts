@@ -3,10 +3,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-const mockSpawn = jest.fn();
-const mockSpawnSync = jest.fn();
+const mockSpawn = vi.fn();
+const mockSpawnSync = vi.fn();
 
-jest.mock('child_process', () => ({
+vi.mock('child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),
   spawnSync: (...args: unknown[]) => mockSpawnSync(...args),
 }));
@@ -14,7 +14,7 @@ jest.mock('child_process', () => ({
 class FakeChildProcess extends EventEmitter {
   stdout = new EventEmitter();
   stderr = new EventEmitter();
-  kill = jest.fn();
+  kill = vi.fn();
 }
 
 describe('pdf-parser.util resilience', () => {
@@ -27,8 +27,8 @@ describe('pdf-parser.util resilience', () => {
   };
 
   beforeEach(() => {
-    jest.resetModules();
-    jest.useFakeTimers();
+    vi.resetModules();
+    vi.useFakeTimers();
     mockSpawn.mockReset();
     // Python resolution succeeds on the first candidate every time.
     mockSpawnSync.mockReturnValue({ error: undefined, status: 0 });
@@ -36,7 +36,7 @@ describe('pdf-parser.util resilience', () => {
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -48,7 +48,7 @@ describe('pdf-parser.util resilience', () => {
     const resultPromise = extractTextFromPdf(touchFile('slow.pdf'));
     const assertion = expect(resultPromise).rejects.toThrow(/timed out/);
 
-    jest.advanceTimersByTime(60_000);
+    vi.advanceTimersByTime(60_000);
     await assertion;
 
     expect(proc.kill).toHaveBeenCalledWith('SIGKILL');

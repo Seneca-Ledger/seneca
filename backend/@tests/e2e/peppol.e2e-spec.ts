@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -159,7 +159,7 @@ describe('Peppol via Recommand (e2e)', () => {
   };
 
   beforeAll(async () => {
-    jest.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = new URL(String(input instanceof Request ? input.url : input));
       if (url.origin !== RECOMMAND_API_URL) {
         return realFetch(input, init);
@@ -202,7 +202,7 @@ describe('Peppol via Recommand (e2e)', () => {
   });
 
   afterAll(async () => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     try {
       await deleteUserByEmail(dataSource, email);
     } finally {
@@ -392,7 +392,7 @@ describe('Peppol via Recommand (e2e)', () => {
     );
 
     const first = await auth(api().post('/integrations/peppol/sync')).expect(201);
-    expect(first.body).toEqual({ imported: 1 });
+    expect(first.body).toEqual({ ok: true, imported: 1 });
     expect(readIds).toEqual(expect.arrayContaining(['doc_in_1', 'doc_in_mlr']));
 
     const receipts = await dataSource.query(
@@ -405,7 +405,7 @@ describe('Peppol via Recommand (e2e)', () => {
     // Taken in but not marked read (the mark was lost): the next poll does not duplicate it.
     readIds.splice(readIds.indexOf('doc_in_1'), 1);
     const second = await auth(api().post('/integrations/peppol/sync')).expect(201);
-    expect(second.body).toEqual({ imported: 0 });
+    expect(second.body).toEqual({ ok: true, imported: 0 });
     const again = await dataSource.query(
       `SELECT count(*)::int AS n FROM receipts WHERE workspace_id = $1 AND source = 'peppol'`,
       [workspaceId],

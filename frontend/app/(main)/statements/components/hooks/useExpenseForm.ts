@@ -1,9 +1,8 @@
-/* eslint-disable max-lines */
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { useLocale } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { type DeviceLocation, getDeviceLocation } from '@/app/lib/device-location';
 import { getReceiptLocationCapture } from '@/app/lib/receipt-location-capture';
@@ -105,7 +104,6 @@ export type UseExpenseFormReturn = {
   handleSubmitManual: () => Promise<void>;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function useExpenseForm({
   open,
   initialMode,
@@ -117,6 +115,7 @@ export function useExpenseForm({
   onSubmitManual,
 }: UseExpenseFormProps) {
   const { locale } = useLocale();
+  const t = useIntlayer('statementsCreateExpenseDrawer');
   const resolvedDefaultCurrency = resolveDefaultCurrency(defaultCurrency);
 
   const [mode, setMode] = useState<StatementExpenseMode>('scan');
@@ -258,7 +257,6 @@ export function useExpenseForm({
     onClose();
   };
 
-  // eslint-disable-next-line complexity
   const handleBackClick = (): void => {
     if (categoryDrawerOpen) {
       setCategoryDrawerOpen(false);
@@ -298,7 +296,7 @@ export function useExpenseForm({
 
   const handleManualNext = (): void => {
     if (!hasManualAmount) {
-      setError('Enter a valid amount');
+      setError(t.enterValidAmount.value);
       return;
     }
     setError(null);
@@ -307,10 +305,9 @@ export function useExpenseForm({
 
   const handleSubmitScan = async (): Promise<void> => {
     if (files.length === 0) {
-      setError('Choose at least one file');
+      setError(t.chooseAtLeastOneFile.value);
       return;
     }
-
     const filesToUpload = files;
     const locationRequest = locationRequestRef.current;
     locationRequestRef.current = null;
@@ -325,13 +322,13 @@ export function useExpenseForm({
       requireManualCategorySelection: false,
       deviceLocationRequest: locationRequest,
     }).catch(async (submitError: unknown) => {
-      toast.error(getApiErrorMessage(submitError, 'Failed to upload files'));
+      toast.error(getApiErrorMessage(submitError, t.uploadFailed.value));
     });
   };
 
   const handleSubmitManual = async (): Promise<void> => {
     if (!(manualValidation.amount && manualValidation.merchant && manualValidation.category)) {
-      setError('Amount, merchant, and category are required');
+      setError(t.manualRequiredFields.value);
       return;
     }
 
@@ -348,7 +345,7 @@ export function useExpenseForm({
       handleClose();
     })()
       .catch(async (submitError: unknown) => {
-        setError(getApiErrorMessage(submitError, 'Failed to submit manual expense'));
+        setError(getApiErrorMessage(submitError, t.submitFailed.value));
       })
       .finally(async () => {
         setSubmitting(false);

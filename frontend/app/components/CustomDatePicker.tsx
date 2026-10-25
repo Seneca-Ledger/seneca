@@ -48,7 +48,6 @@ const normalizeToDate = (value?: string | null): Date | null => {
   return parsed;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export default function CustomDatePicker({
   value,
   onChange,
@@ -68,7 +67,6 @@ export default function CustomDatePicker({
   const { preferences } = useUserFormat();
   const displayFormat = resolvePickerFormat(preferences);
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleChange = (date: Date | null) => {
     if (date && isValid(date)) {
       onChange(format(date, 'yyyy-MM-dd'));
@@ -96,7 +94,6 @@ export default function CustomDatePicker({
             sx: large ? { '& .MuiInputBase-root': FORM_CONTROL_SX } : undefined,
             helperText: helperText,
             placeholder: placeholder,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any,
         }}
       />

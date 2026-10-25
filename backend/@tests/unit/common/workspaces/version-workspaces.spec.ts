@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import type { EntityManager } from 'typeorm';
 import {
   isVersionWorkspace,
@@ -19,8 +20,8 @@ describe('version workspace filters', () => {
 
   describe('isVersionWorkspace', () => {
     const managerAnswering = (answer: boolean) =>
-      ({ exists: jest.fn(async () => answer) }) as unknown as EntityManager & {
-        exists: jest.Mock;
+      ({ exists: vi.fn(async () => answer) }) as unknown as EntityManager & {
+        exists: Mock;
       };
 
     it('asks for a workspace of that id that is a past version', async () => {

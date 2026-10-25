@@ -9,6 +9,7 @@ import {
   LedgerIntegrity as LedgerIntegrityContract,
   LedgerSettings as LedgerSettingsContract,
 } from '../../contracts';
+import { LedgerSyncQueued } from '../../contracts/ledger/ledger-reports';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { LedgerIntegrity, LedgerSettings } from './ledger-sync.service';
@@ -29,6 +30,7 @@ export class LedgerSettingsController {
   /** Enables the ledger in a base currency and queues the whole history. Audited by the service. */
   @Put('settings')
   @WorkspaceAuth(Permission.LEDGER_MANAGE_ACCOUNTS)
+  @SchemaResponse(LedgerSettingsContract)
   async enable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -48,6 +50,7 @@ export class LedgerSettingsController {
   @Post('sync')
   @HttpCode(202)
   @WorkspaceAuth(Permission.LEDGER_MANAGE_ACCOUNTS)
+  @SchemaResponse(LedgerSyncQueued)
   async sync(@WorkspaceId() workspaceId: string): Promise<{ queued: true }> {
     await this.syncService.requestSync(workspaceId);
     return { queued: true };

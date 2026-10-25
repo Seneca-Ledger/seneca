@@ -152,7 +152,7 @@
         "src/data-source.ts",
         "scripts/**/*.{ts,js}",
         "@tests/**/*.ts",
-        "jest*.{js,ts}"
+        "vitest.config.mts"
       ],
       "project": [
         "src/**/*.{ts,tsx}",

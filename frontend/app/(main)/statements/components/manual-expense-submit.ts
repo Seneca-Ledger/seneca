@@ -61,12 +61,15 @@ interface SubmitManualExpenseParams {
   payload: ManualExpensePayload;
   taxRateId: string;
   onSuccess: () => Promise<void>;
+  /** Translated texts; the caller reads them from its dictionary. */
+  messages: { created: string; failed: string; unavailable: string };
 }
 
 export async function submitManualExpense({
   payload,
   taxRateId,
   onSuccess,
+  messages,
 }: SubmitManualExpenseParams): Promise<void> {
   const formData = buildManualExpenseFormData({ payload, taxRateId });
   const endpoints = ['/statements/manual-expense', '/expenses/manual', '/expenses'];
@@ -76,13 +79,13 @@ export async function submitManualExpense({
 
   for (const result of results) {
     if (result.status === 'fulfilled' && result.value === 'ok') {
-      toast.success('Manual expense created');
+      toast.success(messages.created);
       await onSuccess();
       return;
     }
     if (result.status === 'fulfilled' && result.value === 'fail') {
-      throw new Error('Failed to create manual expense');
+      throw new Error(messages.failed);
     }
   }
-  throw new Error('Manual expense creation is not available yet');
+  throw new Error(messages.unavailable);
 }

@@ -255,7 +255,10 @@ export class IncomeTaxCompletenessService {
       this.statementRepository.findOne({
         where: { workspaceId, deletedAt: IsNull() },
         order: { createdAt: 'DESC' },
-        select: ['id', 'createdAt'],
+        select: {
+          id: true,
+          createdAt: true,
+        },
       }),
       this.countActiveDays(workspaceId, taxYear, now),
     ]);

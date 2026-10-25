@@ -83,7 +83,7 @@ export class CreditNotesService {
       order: { lineItems: { sortOrder: 'ASC' } },
     });
     if (!note) {
-      throw new NotFoundException('Credit note not found');
+      throw new NotFoundException(appError('CREDIT_NOTE_NOT_FOUND'));
     }
     return note;
   }
@@ -221,7 +221,7 @@ export class CreditNotesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!note) {
-        throw new NotFoundException('Credit note not found');
+        throw new NotFoundException(appError('CREDIT_NOTE_NOT_FOUND'));
       }
       if (note.status === CreditNoteStatus.VOID) {
         throw new ConflictException(appError('CREDIT_NOTE_ALREADY_VOID'));
@@ -264,7 +264,7 @@ export class CreditNotesService {
       .where('note.id = :id AND note.workspaceId = :workspaceId', { id, workspaceId })
       .getOne();
     if (!note?.fileData) {
-      throw new NotFoundException('Credit note PDF not found');
+      throw new NotFoundException(appError('CREDIT_NOTE_PDF_NOT_FOUND'));
     }
     return { fileName: `${note.creditNoteNumber ?? 'credit-note'}.pdf`, data: note.fileData };
   }
@@ -284,7 +284,7 @@ export class CreditNotesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!invoice) {
-        throw new NotFoundException('Invoice not found');
+        throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
       }
       // A draft was never sent and a void'd invoice no longer stands: neither
       // is a document there is anything to credit against.

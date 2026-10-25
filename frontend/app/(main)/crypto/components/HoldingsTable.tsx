@@ -152,7 +152,12 @@ export function HoldingsTable({
           pb: 1.5,
         }}
       >
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {labels.title}
         </Typography>
         <Button size="small" variant="text" onClick={onAddHolding}>
@@ -179,7 +184,12 @@ export function HoldingsTable({
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
                     <TokenIcon asset={holding.asset} />
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 500,
+                      }}
+                    >
                       {holding.asset}
                     </Typography>
                   </Box>
@@ -192,7 +202,13 @@ export function HoldingsTable({
                 </TableCell>
                 <TableCell align="right" sx={{ ...numberCell, color: 'text.secondary' }}>
                   {holding.avgCost === null ? (
-                    <Typography component="span" variant="body2" color="text.disabled">
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      sx={{
+                        color: 'text.disabled',
+                      }}
+                    >
                       {labels.basisUnknown}
                     </Typography>
                   ) : (

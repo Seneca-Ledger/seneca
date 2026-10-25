@@ -84,13 +84,11 @@ export const dedupeCategoryReceiptRecords = (
   });
 };
 
-// eslint-disable-next-line max-lines-per-function
 export const createCategoryAggregateRows = (
   records: TopCategoryRecord[],
 ): TopCategoryAggregateRow[] => {
   const aggregate = new Map<string, TopCategoryAggregateRow>();
 
-  // eslint-disable-next-line complexity
   records.forEach(record => {
     const normalizedCategory = resolveCategoryName(record.category);
     const key = `${record.flowType}:${record.sourceChannel}:${record.currencyValue}:${normalizedCategory.toLowerCase()}`;

@@ -3,9 +3,9 @@
 import Box from '@mui/material/Box';
 import type { ReactNode } from 'react';
 import { useIntlayer } from '@/app/i18n';
+import { makeTx } from '@/app/lib/intlayer-resolve';
 import { LOCALE_ENDONYMS } from '@/app/lib/locale';
 import { formatTimeZoneLabel } from '@/app/lib/timezone';
-import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
 import { FlagIcon } from '../components/FlagIcon';
 import { StepHeading } from '../components/StepHeading';
 import type { OnboardingMode } from '../lib/onboarding-flow';
@@ -20,9 +20,9 @@ interface CompletionStepProps {
 
 export function CompletionStep({ data, mode }: CompletionStepProps) {
   const text = useOnboardingText(data.locale);
-  const { tx: settingsText } = useSettingsText();
+  const settingsText = makeTx(useIntlayer('settingsProfilePage'));
   const declaration = useIntlayer('taxDeclarationPage');
-  const notSet = text(['completion', 'notSet'], 'not set');
+  const notSet = text(['completion', 'notSet']);
 
   const taxpayerLabel: Record<NonNullable<OnboardingData['taxpayerType']>, string> = {
     employee: String(declaration.typeEmployee.value),
@@ -33,38 +33,36 @@ export function CompletionStep({ data, mode }: CompletionStepProps) {
   const rows: Array<{ key: string; label: string; value: ReactNode }> = [
     {
       key: 'language',
-      label: text(['completion', 'summary', 'language'], 'Language'),
+      label: text(['completion', 'summary', 'language']),
       value: LOCALE_ENDONYMS[data.locale],
     },
     ...(mode === 'standard'
       ? [
           {
             key: 'timeZone',
-            label: text(['completion', 'summary', 'timeZone'], 'Timezone'),
+            label: text(['completion', 'summary', 'timeZone']),
             value: data.timeZone ? formatTimeZoneLabel(data.timeZone, data.locale) : notSet,
           },
         ]
       : []),
     {
       key: 'workspace',
-      label: text(['completion', 'summary', 'workspace'], 'Workspace'),
+      label: text(['completion', 'summary', 'workspace']),
       value: data.workspaceName.trim() || notSet,
     },
     {
       key: 'currency',
-      label: text(['completion', 'summary', 'currency'], 'Currency'),
+      label: text(['completion', 'summary', 'currency']),
       value: data.workspaceCurrency || notSet,
     },
     {
       key: 'profile',
-      label: text(['completion', 'summary', 'profile'], 'Workspace type'),
-      value: data.profile
-        ? settingsText(['workspaceProfileCard', data.profile], data.profile)
-        : notSet,
+      label: text(['completion', 'summary', 'profile']),
+      value: data.profile ? settingsText(['workspaceProfileCard', data.profile]) : notSet,
     },
     {
       key: 'taxCountry',
-      label: text(['completion', 'summary', 'taxCountry'], 'Tax residence'),
+      label: text(['completion', 'summary', 'taxCountry']),
       value: data.taxCountry ? (
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
           <FlagIcon code={data.taxCountry} size={18} />
@@ -78,7 +76,7 @@ export function CompletionStep({ data, mode }: CompletionStepProps) {
       ? [
           {
             key: 'taxpayer',
-            label: text(['completion', 'summary', 'taxpayer'], 'Files as'),
+            label: text(['completion', 'summary', 'taxpayer']),
             value: data.taxpayerType ? taxpayerLabel[data.taxpayerType] : notSet,
           },
         ]
@@ -91,11 +89,8 @@ export function CompletionStep({ data, mode }: CompletionStepProps) {
       sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
     >
       <StepHeading
-        title={text(['completion', 'title'], 'Done! Setup complete')}
-        subtitle={text(
-          ['completion', 'subtitle'],
-          'Press the button below to continue to your workspace.',
-        )}
+        title={text(['completion', 'title'])}
+        subtitle={text(['completion', 'subtitle'])}
       />
 
       <Box component="dl" sx={{ m: 0, borderTop: '1px solid var(--border-color)' }}>
@@ -125,10 +120,7 @@ export function CompletionStep({ data, mode }: CompletionStepProps) {
         component="p"
         sx={{ m: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--muted-foreground)' }}
       >
-        {text(
-          ['completion', 'laterHint'],
-          'Mail import, file storage and Telegram can be connected at any time under Integrations.',
-        )}
+        {text(['completion', 'laterHint'])}
       </Box>
     </Box>
   );

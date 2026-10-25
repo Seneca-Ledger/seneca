@@ -280,7 +280,7 @@ Your bank is missing or parses badly? See [Wanted: real bank statements](#-wante
 | PDF Viewer | react-pdf v10 |
 | Animation | framer-motion v12 |
 | Compiler | React Compiler (babel-plugin-react-compiler) |
-| Linting | Biome + ESLint |
+| Linting | Biome |
 | Tests | Vitest v4 |
 
 ### Infrastructure
@@ -746,7 +746,7 @@ make test-e2e          # End-to-end tests
 **Code Quality**
 
 ```bash
-make lint              # Check lint: backend Biome, frontend Biome + ESLint (no auto-fix)
+make lint              # Check lint: Biome in both apps (no auto-fix)
 make lint-check        # Same check; auto-fix with npm --prefix <app> run lint:fix
 make format            # Format code with Biome
 make type-check        # TypeScript type checking

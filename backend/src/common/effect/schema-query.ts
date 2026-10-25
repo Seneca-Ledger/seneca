@@ -6,12 +6,13 @@ import {
 } from '@nestjs/common';
 import { Exit, Schema } from 'effect';
 import type { Request } from 'express';
+import { appError } from '../errors/app-error';
 import { describeSchemaFailure, describeUnstorableText } from './schema-issues';
 
 /**
  * Decodes a query string or the route parameters with an Effect Schema.
- * Mirrors the global ValidationPipe on the query DTOs it replaces: unknown
- * keys are rejected, the 400 body has the class-validator shape, and an empty
+ * Unknown keys are rejected, a failure is a 400 REQUEST_INVALID with
+ * `details.issues` (as for bodies), and an empty
  * value (`?page=`) counts as absent, as the DTOs' transformers had it.
  */
 export class EffectSchemaQueryPipe<S extends Schema.Top>
@@ -42,9 +43,8 @@ export class EffectSchemaQueryPipe<S extends Schema.Top>
         ? describeSchemaFailure(exit.cause)
         : [];
     throw new BadRequestException({
-      message: messages.length > 0 ? messages : [`Invalid ${this.what}`],
-      error: 'Bad Request',
-      statusCode: 400,
+      ...appError('REQUEST_INVALID'),
+      issues: messages.length > 0 ? messages : [`Invalid ${this.what}`],
     });
   }
 }

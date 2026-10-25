@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { IsNull, type Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { devDefault } from '../../../common/utils/dev-defaults';
 import { AuthSession } from '../../../entities/auth-session.entity';
 import { User } from '../../../entities/user.entity';
@@ -54,7 +55,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     if (!(payload?.sub && payload.email)) {
-      throw new UnauthorizedException('Invalid token payload');
+      throw new UnauthorizedException(appError('AUTH_TOKEN_PAYLOAD_INVALID'));
     }
 
     const user = await this.userRepository.findOne({
@@ -62,16 +63,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found or inactive');
+      throw new UnauthorizedException(appError('AUTH_USER_NOT_FOUND_OR_INACTIVE'));
     }
 
     if (user.isActive === false) {
-      throw new UnauthorizedException('User is inactive');
+      throw new UnauthorizedException(appError('AUTH_USER_INACTIVE'));
     }
 
     const tokenVersion = payload.tokenVersion ?? 0;
     if ((user.tokenVersion ?? 0) !== tokenVersion) {
-      throw new UnauthorizedException('Token has been revoked');
+      throw new UnauthorizedException(appError('AUTH_TOKEN_REVOKED'));
     }
 
     // Revoking a single session only marks the row; without this check the
@@ -80,11 +81,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (payload.sessionId) {
       const session = await this.authSessionRepository.findOne({
         where: { id: payload.sessionId, userId: user.id, revokedAt: IsNull() },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
 
       if (!session) {
-        throw new UnauthorizedException('Session is not active');
+        throw new UnauthorizedException(appError('AUTH_SESSION_NOT_ACTIVE'));
       }
     }
 

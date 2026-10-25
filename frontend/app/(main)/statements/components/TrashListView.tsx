@@ -98,128 +98,45 @@ export default function TrashListView() {
     return DEFAULT_TRASH_TTL_DAYS;
   }, []);
 
+  const tx = (path: string[]): string => resolveLabel(getNestedValue(t, path));
   const labels = {
-    title: resolveLabel(getNestedValue(t, ['trash', 'title']), 'Trash'),
-    retentionPolicy: resolveLabel(
-      getNestedValue(t, ['trash', 'retentionPolicy']),
-      `Deleted items are permanently removed after ${trashTtlDays} days.`,
-    ),
-    searchPlaceholder: resolveLabel(
-      getNestedValue(t, ['trash', 'searchPlaceholder']),
-      'Search in trash...',
-    ),
-    selectedCountTemplate: resolveLabel(
-      getNestedValue(t, ['trash', 'selectedCount']) ??
-        getNestedValue(t, ['trash', 'selectedLabel']),
-      'Selected: {count}',
-    ),
-    restore: resolveLabel(getNestedValue(t, ['trash', 'restore']), 'Restore'),
-    delete: resolveLabel(getNestedValue(t, ['trash', 'delete']), 'Delete'),
-    emptyTrash: resolveLabel(
-      getNestedValue(t, ['trash', 'emptyTrash']) ?? getNestedValue(t, ['trash', 'emptyAction']),
-      'Empty trash',
-    ),
-    emptyTitle: resolveLabel(
-      getNestedValue(t, ['trash', 'empty', 'title']) ?? getNestedValue(t, ['trash', 'emptyTitle']),
-      'Trash is empty',
-    ),
-    emptyDescription: resolveLabel(
-      getNestedValue(t, ['trash', 'empty', 'subtitle']) ??
-        getNestedValue(t, ['trash', 'emptyDescription']),
-      'Deleted files will appear here',
-    ),
-    typeHeader: resolveLabel(getNestedValue(t, ['trash', 'listHeader', 'type']), 'Type'),
-    deletedAtHeader: resolveLabel(
-      getNestedValue(t, ['trash', 'listHeader', 'deletedAt']) ??
-        getNestedValue(t, ['trash', 'listHeader', 'deleted']),
-      'Deleted at',
-    ),
-    autoDeleteHeader: resolveLabel(
-      getNestedValue(t, ['trash', 'listHeader', 'willDeleteAt']),
-      'Will be permanently deleted on',
-    ),
-    nameHeader: resolveLabel(getNestedValue(t, ['trash', 'listHeader', 'name']), 'Name'),
-    actionsHeader: resolveLabel(getNestedValue(t, ['trash', 'listHeader', 'actions']), 'Actions'),
-    entityTypeStatement: resolveLabel(
-      getNestedValue(t, ['trash', 'entityTypes', 'statement']),
-      'Statement',
-    ),
-    entityTypeTable: resolveLabel(getNestedValue(t, ['trash', 'entityTypes', 'table']), 'Table'),
-    entityTypeWorkspace: resolveLabel(
-      getNestedValue(t, ['trash', 'entityTypes', 'workspace']),
-      'Workspace',
-    ),
-    selectAll: resolveLabel(getNestedValue(t, ['trash', 'selectAll']), 'Select all in trash'),
-    restoreLoading: resolveLabel(getNestedValue(t, ['trash', 'restoreLoading']), 'Restoring...'),
-    restoreSuccess: resolveLabel(getNestedValue(t, ['trash', 'restoreSuccess']), 'File restored'),
-    restoreFailed: resolveLabel(
-      getNestedValue(t, ['trash', 'restoreFailed']),
-      'Failed to restore file',
-    ),
-    deleteLoading: resolveLabel(
-      getNestedValue(t, ['trash', 'deleteLoading']),
-      'Deleting forever...',
-    ),
-    deleteSuccess: resolveLabel(
-      getNestedValue(t, ['trash', 'deleteSuccess']),
-      'File deleted permanently',
-    ),
-    deleteFailed: resolveLabel(
-      getNestedValue(t, ['trash', 'deleteFailed']),
-      'Failed to delete file permanently',
-    ),
-    loadError: resolveLabel(
-      getNestedValue(t, ['trash', 'loadError']) ?? getNestedValue(t, ['loadListError']),
-      'Failed to load trash',
-    ),
-    confirmDeleteTitle: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmDeleteTitle']) ??
-        getNestedValue(t, ['trash', 'bulkDeleteTitle']),
-      'Delete permanently?',
-    ),
-    confirmDeleteMessage: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmDeleteMessage']) ??
-        getNestedValue(t, ['trash', 'bulkDeleteMessage']),
-      'Selected files will be permanently deleted.',
-    ),
-    confirmDelete: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmDelete']) ??
-        getNestedValue(t, ['trash', 'bulkDeleteConfirm']),
-      'Delete',
-    ),
-    confirmCancel: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmCancel']) ??
-        getNestedValue(t, ['trash', 'bulkDeleteCancel']),
-      'Cancel',
-    ),
-    confirmEmptyTitle: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmEmptyTitle']) ??
-        getNestedValue(t, ['trash', 'emptyTitle']),
-      'Empty trash?',
-    ),
-    confirmEmptyMessage: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmEmptyMessage']) ??
-        getNestedValue(t, ['trash', 'emptyMessage']),
-      'All files in trash will be deleted permanently.',
-    ),
-    confirmEmpty: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmEmpty']) ?? getNestedValue(t, ['trash', 'emptyConfirm']),
-      'Empty',
-    ),
-    irreversibleWarning: resolveLabel(
-      getNestedValue(t, ['trash', 'irreversibleWarning']),
-      'This action is irreversible',
-    ),
-    paginationShown: resolveLabel(
-      getNestedValue(t, ['pagination', 'shown']),
-      'Showing {from}–{to} of {count}',
-    ),
-    paginationPrevious: resolveLabel(getNestedValue(t, ['pagination', 'previous']), 'Previous'),
-    paginationNext: resolveLabel(getNestedValue(t, ['pagination', 'next']), 'Next'),
-    paginationPageOf: resolveLabel(
-      getNestedValue(t, ['pagination', 'pageOf']),
-      'Page {page} of {count}',
-    ),
+    title: tx(['trash', 'title']),
+    retentionPolicy: tx(['trash', 'retentionPolicy']),
+    searchPlaceholder: tx(['trash', 'searchPlaceholder']),
+    selectedCountTemplate: tx(['trash', 'selectedCount']),
+    restore: tx(['trash', 'restore']),
+    delete: tx(['trash', 'delete']),
+    emptyTrash: tx(['trash', 'emptyTrash']),
+    emptyTitle: tx(['trash', 'empty', 'title']),
+    emptyDescription: tx(['trash', 'empty', 'subtitle']),
+    typeHeader: tx(['trash', 'listHeader', 'type']),
+    deletedAtHeader: tx(['trash', 'listHeader', 'deletedAt']),
+    autoDeleteHeader: tx(['trash', 'listHeader', 'willDeleteAt']),
+    nameHeader: tx(['trash', 'listHeader', 'name']),
+    actionsHeader: tx(['trash', 'listHeader', 'actions']),
+    entityTypeStatement: tx(['trash', 'entityTypes', 'statement']),
+    entityTypeTable: tx(['trash', 'entityTypes', 'table']),
+    entityTypeWorkspace: tx(['trash', 'entityTypes', 'workspace']),
+    selectAll: tx(['trash', 'selectAll']),
+    restoreLoading: tx(['trash', 'restoreLoading']),
+    restoreSuccess: tx(['trash', 'restoreSuccess']),
+    restoreFailed: tx(['trash', 'restoreFailed']),
+    deleteLoading: tx(['trash', 'deleteLoading']),
+    deleteSuccess: tx(['trash', 'deleteSuccess']),
+    deleteFailed: tx(['trash', 'deleteFailed']),
+    loadError: tx(['trash', 'loadError']),
+    confirmDeleteTitle: tx(['trash', 'confirmDeleteTitle']),
+    confirmDeleteMessage: tx(['trash', 'confirmDeleteMessage']),
+    confirmDelete: tx(['trash', 'confirmDelete']),
+    confirmCancel: tx(['trash', 'confirmCancel']),
+    confirmEmptyTitle: tx(['trash', 'confirmEmptyTitle']),
+    confirmEmptyMessage: tx(['trash', 'confirmEmptyMessage']),
+    confirmEmpty: tx(['trash', 'confirmEmpty']),
+    irreversibleWarning: tx(['trash', 'irreversibleWarning']),
+    paginationShown: tx(['pagination', 'shown']),
+    paginationPrevious: tx(['pagination', 'previous']),
+    paginationNext: tx(['pagination', 'next']),
+    paginationPageOf: tx(['pagination', 'pageOf']),
   };
 
   const [files, setFiles] = useState<TrashFile[]>([]);

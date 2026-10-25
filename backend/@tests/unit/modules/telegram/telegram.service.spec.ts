@@ -5,43 +5,43 @@ import { TelegramService } from '@/modules/telegram/telegram.service';
 import { APP_NAME } from '../../../../src/common/brand';
 
 function createConfigMock() {
-  return { get: jest.fn().mockReturnValue('test-bot-token') } as any;
+  return { get: vi.fn().mockReturnValue('test-bot-token') } as any;
 }
 
 function createUserRepoMock(users: Partial<User>[] = []) {
   const queryBuilder: any = {
-    where: jest.fn(() => queryBuilder),
-    andWhere: jest.fn(() => queryBuilder),
-    getOne: jest.fn(async () => users[0] ?? null),
+    where: vi.fn(() => queryBuilder),
+    andWhere: vi.fn(() => queryBuilder),
+    getOne: vi.fn(async () => users[0] ?? null),
   };
   return {
-    merge: jest.fn((user: any, patch: any) => ({ ...user, ...patch })),
-    save: jest.fn(async (user: any) => user),
-    update: jest.fn(async () => ({ affected: 1 })),
-    createQueryBuilder: jest.fn(() => queryBuilder),
-    findOne: jest.fn(async () => null),
+    merge: vi.fn((user: any, patch: any) => ({ ...user, ...patch })),
+    save: vi.fn(async (user: any) => user),
+    update: vi.fn(async () => ({ affected: 1 })),
+    createQueryBuilder: vi.fn(() => queryBuilder),
+    findOne: vi.fn(async () => null),
   } as any;
 }
 
 function createReportRepoMock() {
   return {
-    findAndCount: jest.fn(async () => [[], 0]),
-    create: jest.fn((data: any) => ({ ...data, status: ReportStatus.PENDING })),
-    save: jest.fn(async (data: any) => data),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getOne: jest.fn(async () => null),
+    findAndCount: vi.fn(async () => [[], 0]),
+    create: vi.fn((data: any) => ({ ...data, status: ReportStatus.PENDING })),
+    save: vi.fn(async (data: any) => data),
+    createQueryBuilder: vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getOne: vi.fn(async () => null),
     })),
   } as any;
 }
 
 function createGoalsServiceMock(goals: unknown[] = []) {
-  return { findAll: jest.fn(async () => goals) } as any;
+  return { findAll: vi.fn(async () => goals) } as any;
 }
 
 function createNetWorthServiceMock(netWorth: unknown) {
-  return { getNetWorth: jest.fn(async () => netWorth) } as any;
+  return { getNetWorth: vi.fn(async () => netWorth) } as any;
 }
 
 function user(overrides: Partial<User> = {}): User {
@@ -91,18 +91,18 @@ function createService(options: {
   const goalsService = createGoalsServiceMock(options.goals);
   const netWorthService = createNetWorthServiceMock(options.netWorth ?? baseNetWorth());
   const reportsService = {
-    generateDailyReport: jest.fn(),
-    generateMonthlyReport: jest.fn(),
+    generateDailyReport: vi.fn(),
+    generateMonthlyReport: vi.fn(),
   } as any;
-  const statementsService = { create: jest.fn() } as any;
+  const statementsService = { create: vi.fn() } as any;
   const workspaceMemberRepository = {
-    findOne: jest.fn(async () => (options.member === false ? null : { role: 'owner' })),
+    findOne: vi.fn(async () => (options.member === false ? null : { role: 'owner' })),
   } as any;
 
   const applicationSettingsService = {
-    getTelegramSettings: jest.fn(async () => ({ botToken: options.workspaceBotToken ?? null })),
+    getTelegramSettings: vi.fn(async () => ({ botToken: options.workspaceBotToken ?? null })),
   } as any;
-  const linkCodes = { take: jest.fn(async () => options.linkClaim ?? null) } as any;
+  const linkCodes = { take: vi.fn(async () => options.linkClaim ?? null) } as any;
 
   const service = new TelegramService(
     createConfigMock(),
@@ -137,7 +137,7 @@ function createService(options: {
 /** Captures every `sendMessage` payload the service posts to Telegram. */
 function mockFetchOk() {
   const calls: Array<{ chat_id: string; text: string; url: string }> = [];
-  global.fetch = jest.fn(async (url: unknown, init: any) => {
+  global.fetch = vi.fn(async (url: unknown, init: any) => {
     calls.push({ ...JSON.parse(init.body), url: String(url) });
     return {
       ok: true,

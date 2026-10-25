@@ -2,18 +2,18 @@ import { WebhookDeliveryStatus } from '../../../../src/entities/webhook-delivery
 import { WebhookProcessorService } from '../../../../src/modules/webhooks/services/webhook-processor.service';
 
 describe('WebhookProcessorService with webhooks switched off', () => {
-  const deliveryRepo = { save: jest.fn() };
-  const subRepo = { findOne: jest.fn() };
-  const plugins = { isEnabled: jest.fn() };
+  const deliveryRepo = { save: vi.fn() };
+  const subRepo = { findOne: vi.fn() };
+  const plugins = { isEnabled: vi.fn() };
   const service = new WebhookProcessorService(
     deliveryRepo as any,
     subRepo as any,
     plugins as any,
   );
-  const post = jest.fn();
+  const post = vi.fn();
   (service as any).postWithPinnedDns = post;
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('does not send a delivery queued before the switch went off, and leaves it retryable', async () => {
     subRepo.findOne.mockResolvedValue({

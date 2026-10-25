@@ -35,11 +35,13 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
     <Typography
       component="h3"
       variant="subtitle1"
-      fontWeight={600}
       ref={ref as React.Ref<HTMLHeadingElement>}
       className={className}
       style={style}
       {...(props as object)}
+      sx={{
+        fontWeight: 600,
+      }}
     >
       {children}
     </Typography>
@@ -54,11 +56,13 @@ const CardDescription = React.forwardRef<
   <Typography
     component="p"
     variant="body2"
-    color="text.secondary"
     ref={ref as React.Ref<HTMLParagraphElement>}
     className={className}
     style={style}
     {...(props as object)}
+    sx={{
+      color: 'text.secondary',
+    }}
   >
     {children}
   </Typography>

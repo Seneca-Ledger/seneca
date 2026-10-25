@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { TaxJurisdiction } from './tax-jurisdiction.entity';
@@ -36,14 +37,14 @@ export class IncomeTaxReturn {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => TaxJurisdiction, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'jurisdiction_id' })
-  jurisdiction: TaxJurisdiction;
+  jurisdiction: Relation<TaxJurisdiction>;
 
   @Column({ name: 'jurisdiction_id', type: 'uuid' })
   jurisdictionId: string;
@@ -62,7 +63,7 @@ export class IncomeTaxReturn {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'finalized_by' })
-  finalizer: User | null;
+  finalizer: Relation<User | null>;
 
   @Column({ name: 'finalized_by', type: 'uuid', nullable: true })
   finalizedBy: string | null;

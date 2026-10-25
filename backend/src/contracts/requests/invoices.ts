@@ -145,3 +145,27 @@ export const SendInvoiceEmailBody = Schema.Struct({
   message: optionalNullable(Schema.String.check(Schema.isMaxLength(5000))),
 });
 export type SendInvoiceEmailBody = Wire<typeof SendInvoiceEmailBody>;
+
+const Uuid = Schema.String.check(Schema.isUUID());
+
+/** `/invoices/:id/...`, also the Peppol send and the reminder. */
+export const InvoiceParams = Schema.Struct({ id: Uuid });
+export type InvoiceParams = Wire<typeof InvoiceParams>;
+
+/** `GET /invoices/clients/:clientId/late-fee`. */
+export const InvoiceClientParams = Schema.Struct({ clientId: Uuid });
+export type InvoiceClientParams = Wire<typeof InvoiceClientParams>;
+
+/** `/clients/:id`. */
+export const ClientParams = Schema.Struct({ id: Uuid });
+export type ClientParams = Wire<typeof ClientParams>;
+
+/** `/credit-notes/:id/...`. */
+export const CreditNoteParams = Schema.Struct({ id: Uuid });
+export type CreditNoteParams = Wire<typeof CreditNoteParams>;
+
+/** `/public/invoices/:token`: the share token (base64url), not an id. */
+export const PublicInvoiceParams = Schema.Struct({
+  token: Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,128}$/)),
+});
+export type PublicInvoiceParams = Wire<typeof PublicInvoiceParams>;

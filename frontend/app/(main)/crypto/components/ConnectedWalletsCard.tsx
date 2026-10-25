@@ -127,7 +127,12 @@ export function ConnectedWalletsCard({
 
   return (
     <Paper variant="outlined" sx={{ p: 3 }}>
-      <Typography variant="subtitle1" fontWeight={600}>
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 600,
+        }}
+      >
         {labels.title}
       </Typography>
 
@@ -150,7 +155,13 @@ export function ConnectedWalletsCard({
               }}
             >
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="body2" fontWeight={500} noWrap>
+                <Typography
+                  variant="body2"
+                  noWrap
+                  sx={{
+                    fontWeight: 500,
+                  }}
+                >
                   {name}
                 </Typography>
                 <Typography sx={{ fontSize: 13, color: 'var(--text-muted)' }}>

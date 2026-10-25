@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { EffectRuntime } from '@/common/effect/effect-runtime';
 import { ExchangeRatesService } from '@/modules/exchange-rates/exchange-rates.service';
 
@@ -8,31 +9,31 @@ const jsonResponse = (body: unknown) =>
   new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
 const statusResponse = (status: number) => new Response(null, { status });
 /** The URLs fetched so far, in order. */
-const requestedUrls = () => (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url));
+const requestedUrls = () => (global.fetch as Mock).mock.calls.map(([url]) => String(url));
 
 function createRepoMock() {
   return {
-    findOne: jest.fn(),
-    createQueryBuilder: jest.fn().mockReturnValue({
-      insert: jest.fn().mockReturnThis(),
-      into: jest.fn().mockReturnThis(),
-      values: jest.fn().mockReturnThis(),
-      orIgnore: jest.fn().mockReturnThis(),
-      execute: jest.fn(),
+    findOne: vi.fn(),
+    createQueryBuilder: vi.fn().mockReturnValue({
+      insert: vi.fn().mockReturnThis(),
+      into: vi.fn().mockReturnThis(),
+      values: vi.fn().mockReturnThis(),
+      orIgnore: vi.fn().mockReturnThis(),
+      execute: vi.fn(),
     }),
   } as any;
 }
 
 function createCacheMock() {
   return {
-    get: jest.fn().mockResolvedValue(undefined),
-    set: jest.fn(),
+    get: vi.fn().mockResolvedValue(undefined),
+    set: vi.fn(),
   } as any;
 }
 
 function createConfigMock(apiKey?: string) {
   return {
-    get: jest.fn().mockReturnValue(apiKey),
+    get: vi.fn().mockReturnValue(apiKey),
   } as any;
 }
 
@@ -48,13 +49,13 @@ function createWorkspaceRateRepo() {
     });
   return {
     rows,
-    findOne: jest.fn(async ({ where, order }: any) => {
+    findOne: vi.fn(async ({ where, order }: any) => {
       const found = rows.filter(row => matches(row, where));
       if (order?.rateDate === 'DESC') found.sort((a, b) => day(b.rateDate).localeCompare(day(a.rateDate)));
       return found[0] ?? null;
     }),
-    count: jest.fn(async ({ where }: any) => rows.filter(row => matches(row, where)).length),
-    upsert: jest.fn(async (row: any) => {
+    count: vi.fn(async ({ where }: any) => rows.filter(row => matches(row, where)).length),
+    upsert: vi.fn(async (row: any) => {
       const index = rows.findIndex(
         existing =>
           existing.workspaceId === row.workspaceId &&
@@ -65,7 +66,7 @@ function createWorkspaceRateRepo() {
       if (index >= 0) rows[index] = { ...rows[index], ...row };
       else rows.push({ ...row });
     }),
-    delete: jest.fn(async (where: any) => {
+    delete: vi.fn(async (where: any) => {
       for (let i = rows.length - 1; i >= 0; i--) if (matches(rows[i], where)) rows.splice(i, 1);
     }),
   } as any;
@@ -77,8 +78,8 @@ describe('ExchangeRatesService', () => {
   let cache: ReturnType<typeof createCacheMock>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    global.fetch = jest.fn(async () => statusResponse(404)) as any;
+    vi.clearAllMocks();
+    global.fetch = vi.fn(async () => statusResponse(404)) as any;
     repo = createRepoMock();
     cache = createCacheMock();
     service = new ExchangeRatesService(repo, cache, createConfigMock(), effects);
@@ -157,7 +158,7 @@ describe('ExchangeRatesService', () => {
 
     it('fetches the current rate from the public API when no API key is configured', async () => {
       repo.findOne.mockResolvedValue(null);
-      global.fetch = jest.fn(async () =>
+      global.fetch = vi.fn(async () =>
         jsonResponse({ date: '2026-04-29', usd: { kzt: 512.34 } }),
       ) as any;
 
@@ -177,7 +178,7 @@ describe('ExchangeRatesService', () => {
 
     it('retries a failing CDN twice, then uses the public API fallback URL', async () => {
       repo.findOne.mockResolvedValue(null);
-      global.fetch = jest
+      global.fetch = vi
         .fn()
         .mockResolvedValueOnce(statusResponse(503))
         .mockResolvedValueOnce(statusResponse(503))
@@ -208,21 +209,21 @@ describe('ExchangeRatesService', () => {
 
     it('gives up on a provider that does not answer within five seconds', async () => {
       repo.findOne.mockResolvedValue(null);
-      global.fetch = jest.fn(
+      global.fetch = vi.fn(
         (_url: unknown, init?: RequestInit) =>
           new Promise<Response>((_resolve, reject) =>
             init?.signal?.addEventListener('abort', () => reject(init.signal?.reason)),
           ),
       ) as any;
-      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+      vi.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
 
       try {
         const pending = service.getRate('USD', 'KZT');
-        await jest.advanceTimersByTimeAsync(5_000);
-        await jest.advanceTimersByTimeAsync(5_000);
+        await vi.advanceTimersByTimeAsync(5_000);
+        await vi.advanceTimersByTimeAsync(5_000);
         await expect(pending).resolves.toBe(1);
       } finally {
-        jest.useRealTimers();
+        vi.useRealTimers();
       }
       expect(requestedUrls()).toHaveLength(2);
     });
@@ -328,7 +329,7 @@ describe('ExchangeRatesService', () => {
         3600 * 1000,
       );
 
-      (global.fetch as jest.Mock).mockClear();
+      (global.fetch as Mock).mockClear();
       cache.get.mockImplementation(async (key: string) =>
         key.startsWith('exchange_rate_fallback:')
           ? { rate: 0.9, rateDate: '2025-03-07', stale: true }
@@ -349,7 +350,7 @@ describe('ExchangeRatesService', () => {
 
       await serviceWithKey.getRateQuote('EUR', 'KZT', '2025-03-10');
 
-      const urls = (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url));
+      const urls = (global.fetch as Mock).mock.calls.map(([url]) => String(url));
       expect(urls.some(url => url.includes('/latest/'))).toBe(false);
       expect(urls.some(url => url.includes('@2025-03-10'))).toBe(true);
       expect(repo.createQueryBuilder).not.toHaveBeenCalled();
@@ -361,7 +362,7 @@ describe('ExchangeRatesService', () => {
 
       await serviceWithKey.getRateQuote('USD', 'KZT');
 
-      const urls = (global.fetch as jest.Mock).mock.calls.map(([url]) => String(url));
+      const urls = (global.fetch as Mock).mock.calls.map(([url]) => String(url));
       expect(urls).toContain('https://v6.exchangerate-api.com/v6/test-api-key/latest/USD');
     });
   });
@@ -445,7 +446,7 @@ describe('ExchangeRatesService', () => {
       );
 
       const mockRates = { USD: 1, EUR: 0.85, ILS: 3.67 };
-      global.fetch = jest.fn(async () =>
+      global.fetch = vi.fn(async () =>
         jsonResponse({ result: 'success', conversion_rates: mockRates }),
       ) as any;
 
@@ -463,7 +464,7 @@ describe('ExchangeRatesService', () => {
         effects,
       );
 
-      global.fetch = jest.fn(async () => statusResponse(500)) as any;
+      global.fetch = vi.fn(async () => statusResponse(500)) as any;
 
       // Should not throw
       await expect(serviceWithKey.fetchAndCacheRates('USD')).resolves.toBeUndefined();
@@ -477,7 +478,7 @@ describe('ExchangeRatesService', () => {
         effects,
       );
 
-      global.fetch = jest.fn(async () => jsonResponse({ result: 'error' })) as any;
+      global.fetch = vi.fn(async () => jsonResponse({ result: 'error' })) as any;
 
       await serviceWithKey.fetchAndCacheRates('USD');
       expect(repo.createQueryBuilder).not.toHaveBeenCalled();
@@ -491,7 +492,7 @@ describe('ExchangeRatesService', () => {
         effects,
       );
 
-      global.fetch = jest.fn().mockRejectedValue(new Error('Network error')) as any;
+      global.fetch = vi.fn().mockRejectedValue(new Error('Network error')) as any;
       await expect(serviceWithKey.fetchAndCacheRates()).resolves.toBeUndefined();
     });
   });
@@ -505,8 +506,8 @@ describe('ExchangeRatesService', () => {
     beforeEach(() => {
       workspaceRates = createWorkspaceRateRepo();
       repo.findOne.mockResolvedValue(null);
-      repo.delete = jest.fn();
-      cache.del = jest.fn();
+      repo.delete = vi.fn();
+      cache.del = vi.fn();
       scoped = new ExchangeRatesService(
         repo,
         cache,

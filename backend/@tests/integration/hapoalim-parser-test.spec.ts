@@ -6,9 +6,9 @@ import * as path from 'path';
 import { HapoalimParser } from '@/modules/parsing/parsers/hapoalim.parser';
 import { BankName, FileType } from '@/entities/statement.entity';
 
-jest.mock('@/common/utils/advanced-language-detector.util', () => ({
+vi.mock('@/common/utils/advanced-language-detector.util', () => ({
   advancedLanguageDetector: {
-    detectLanguage: jest.fn().mockResolvedValue({
+    detectLanguage: vi.fn().mockResolvedValue({
       locale: 'he',
       confidence: 0.9,
       method: 'mock',

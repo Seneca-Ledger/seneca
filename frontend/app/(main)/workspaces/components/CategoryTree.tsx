@@ -6,6 +6,7 @@ import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { ChevronRight, Lock, Search as SearchIcon, Tag } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { useIntlayer } from '@/app/i18n';
 import { resolveCategoryIconUrl } from '@/app/lib/category-icon-url';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
@@ -87,6 +88,8 @@ export function CategoryTree({
   onOpenCreateDialog,
   labels,
 }: CategoryTreeProps): React.ReactElement {
+  const { manage } = useIntlayer('categoriesPage');
+  const usedIn = (n: number): string => manage.usedIn.value.replace('{count}', String(n));
   return (
     <Box
       sx={{
@@ -113,7 +116,7 @@ export function CategoryTree({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Checkbox
-            aria-label="Select all categories"
+            aria-label={manage.selectAll.value}
             checked={selectedIds.size === categories.length && categories.length > 0}
             onCheckedChange={onToggleSelectAll}
           />
@@ -144,7 +147,14 @@ export function CategoryTree({
           >
             <SearchIcon size={32} />
           </Box>
-          <Typography variant="h6" fontWeight={500} sx={{ color: 'var(--foreground)', mb: 3 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 500,
+              color: 'var(--foreground)',
+              mb: 3,
+            }}
+          >
             {labels.noData}
           </Typography>
           <button
@@ -175,6 +185,7 @@ export function CategoryTree({
             const iconUrl = resolveCategoryIconUrl(category.icon);
             const isEnabled = category.isEnabled !== false;
             const isToggling = togglingIds.has(category.id);
+            const usage = usageCounts[category.id]?.total;
             const iconTint = alpha(categoryColor, isEnabled ? 0.16 : 0.12);
             const badgeSource = getBadgeSource(category);
             const badgeLabel = getBadgeLabel(category, {
@@ -234,8 +245,10 @@ export function CategoryTree({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography
                         variant="body1"
-                        fontWeight={600}
-                        sx={{ color: 'var(--foreground)' }}
+                        sx={{
+                          fontWeight: 600,
+                          color: 'var(--foreground)',
+                        }}
                       >
                         {getCategoryDisplayName(category, locale)}
                       </Typography>
@@ -263,11 +276,7 @@ export function CategoryTree({
                       variant="caption"
                       sx={{ color: 'var(--muted-foreground)', display: 'block', mt: 0.25 }}
                     >
-                      {usageCounts[category.id]?.total ? (
-                        <span>Used in {usageCounts[category.id].total} transactions</span>
-                      ) : (
-                        <span>Not used yet</span>
-                      )}
+                      {usage ? usedIn(usage) : manage.notUsed}
                     </Typography>
                   </Box>
                 </Box>

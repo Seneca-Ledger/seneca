@@ -165,7 +165,12 @@ function ClassLegend({
                 bgcolor: SEGMENT_COLORS[mode][stoicClass],
               }}
             />
-            <Typography variant="body2" fontWeight={500}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+              }}
+            >
               {names[stoicClass]}
             </Typography>
           </Box>
@@ -322,7 +327,13 @@ export function StoicBalance(): React.JSX.Element | null {
           gap: 1,
         }}
       >
-        <Typography id="stoic-balance-title" variant="subtitle1" fontWeight={600}>
+        <Typography
+          id="stoic-balance-title"
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.stoicTitle.value}
         </Typography>
         {current && (

@@ -25,7 +25,12 @@ export class InvoicesTarget implements ImportTarget {
     const invoiceRepo = ctx.manager.getRepository(Invoice);
     const clientRepo = ctx.manager.getRepository(Client);
     const [existingInvoices, clients] = await Promise.all([
-      invoiceRepo.find({ where: { workspaceId: ctx.workspaceId }, select: ['invoiceNumber'] }),
+      invoiceRepo.find({
+        where: { workspaceId: ctx.workspaceId },
+        select: {
+          invoiceNumber: true,
+        },
+      }),
       clientRepo.find({ where: { workspaceId: ctx.workspaceId, deletedAt: IsNull() } }),
     ]);
     const numbers = new Set(

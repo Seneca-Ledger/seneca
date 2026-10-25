@@ -1,17 +1,19 @@
-jest.mock('pdf-parse', () => jest.fn());
+import type { MockedFunction } from 'vitest';
+vi.mock('../../../../src/common/utils/pdf-text.util', () => ({ parsePdf: vi.fn() }));
 
-const { EmailReceiptParserService, normalizeDateHeader } =
-  require('../../../../src/modules/receipts/services/email-receipt-parser.service') as typeof import('../../../../src/modules/receipts/services/email-receipt-parser.service');
-const { UniversalAmountParser } =
-  require('../../../../src/modules/parsing/services/universal-amount-parser.service') as typeof import('../../../../src/modules/parsing/services/universal-amount-parser.service');
-const pdfParse = require('pdf-parse') as jest.MockedFunction<typeof import('pdf-parse')>;
+import { parsePdf } from '../../../../src/common/utils/pdf-text.util';
+import { UniversalAmountParser } from '../../../../src/modules/parsing/services/universal-amount-parser.service';
+import {
+  EmailReceiptParserService,
+  normalizeDateHeader,
+} from '../../../../src/modules/receipts/services/email-receipt-parser.service';
 
 describe('EmailReceiptParserService', () => {
   let service: InstanceType<typeof EmailReceiptParserService>;
-  let pdfParseMock: jest.MockedFunction<typeof pdfParse>;
+  let pdfParseMock: MockedFunction<typeof parsePdf>;
 
   beforeEach(() => {
-    pdfParseMock = pdfParse as jest.MockedFunction<typeof pdfParse>;
+    pdfParseMock = parsePdf as MockedFunction<typeof parsePdf>;
     pdfParseMock.mockReset();
     service = new EmailReceiptParserService(new UniversalAmountParser());
   });
@@ -149,7 +151,7 @@ describe('EmailReceiptParserService', () => {
   describe('receipts in the email body', () => {
     it('takes line items from the stripped body and normalises the Date header', async () => {
       const extractor = {
-        extractFromText: jest.fn(async () => ({
+        extractFromText: vi.fn(async () => ({
           lineItems: [
             { description: 'Echo Dot', amount: 49.99 },
             { description: 'HDMI cable', amount: 9.99 },
@@ -180,7 +182,7 @@ describe('EmailReceiptParserService', () => {
 
     it('drops body line items that do not add up to the amount the email states', async () => {
       const extractor = {
-        extractFromText: jest.fn(async () => ({
+        extractFromText: vi.fn(async () => ({
           lineItems: [
             { description: 'Page 1 of', amount: 2 },
             { description: 'Date of issueJune 13,', amount: 202 },

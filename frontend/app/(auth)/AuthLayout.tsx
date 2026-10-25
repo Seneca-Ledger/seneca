@@ -10,7 +10,6 @@ interface AuthLayoutProps {
   topRightAction?: ReactNode;
 }
 
-// eslint-disable-next-line max-lines-per-function, @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export default function AuthLayout({ children, sideContent, topRightAction }: AuthLayoutProps) {
   return (
     <Grid container sx={{ minHeight: '100vh', overflow: 'hidden' }}>

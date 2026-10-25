@@ -22,7 +22,11 @@ export class PayablesTarget implements ImportTarget {
     const repo = ctx.manager.getRepository(Payable);
     const existing = await repo.find({
       where: { workspaceId: ctx.workspaceId },
-      select: ['vendor', 'amount', 'dueDate'],
+      select: {
+        vendor: true,
+        amount: true,
+        dueDate: true,
+      },
       withDeleted: false,
     });
     const seen = new Set(

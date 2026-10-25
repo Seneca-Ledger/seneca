@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { appError } from '../../../common/errors/app-error';
 import type { TaxpayerType } from '../rule-packs/types';
 
 const MIN_TAX_YEAR = 2000;
@@ -9,7 +10,9 @@ export function parseTaxYear(value: string | number | undefined): number {
   const year = Number(value);
   const maxYear = new Date().getUTCFullYear() + 1;
   if (!Number.isInteger(year) || year < MIN_TAX_YEAR || year > maxYear) {
-    throw new BadRequestException(`taxYear must be a year between ${MIN_TAX_YEAR} and ${maxYear}`);
+    throw new BadRequestException(
+      appError('INCOME_TAX_YEAR_INVALID', { min: MIN_TAX_YEAR, max: maxYear }),
+    );
   }
   return year;
 }

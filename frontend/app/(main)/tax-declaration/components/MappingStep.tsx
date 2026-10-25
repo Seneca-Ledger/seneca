@@ -111,15 +111,18 @@ export function MappingStep({ mappings, saving, onSave }: MappingStepProps): Rea
                     disabled={saving}
                     sx={FLAT_SELECT_SX}
                     value={category.lineKey ?? ''}
-                    SelectProps={{ displayEmpty: true }}
-                    inputProps={{
-                      'aria-label': `${t.mappingLine.value}: ${categoryName(category.name)}`,
-                    }}
                     onChange={event =>
                       onSave([
                         { categoryId: category.categoryId, lineKey: event.target.value || null },
                       ])
                     }
+                    slotProps={{
+                      htmlInput: {
+                        'aria-label': `${t.mappingLine.value}: ${categoryName(category.name)}`,
+                      },
+
+                      select: { displayEmpty: true },
+                    }}
                   >
                     <MenuItem value="">{t.notAssigned}</MenuItem>
                     {linesForCategory(mappings.lines, category.type).map(line => (

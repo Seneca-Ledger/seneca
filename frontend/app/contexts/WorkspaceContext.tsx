@@ -17,6 +17,7 @@ import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { checkContract, reportContractDrift } from '@/app/lib/query-fn-schema';
 import { api } from '../lib/api';
+import { useWorkspaceSetters } from './use-workspace-setters';
 
 type WorkspaceSettings = Record<string, unknown>;
 type WorkspacePermissions = Record<string, boolean>;
@@ -96,11 +97,12 @@ const WorkspaceActionsContext = createContext<WorkspaceActions | undefined>(unde
 
 type SetState<T> = React.Dispatch<React.SetStateAction<T>>;
 
-interface WorkspaceSetters {
+export interface WorkspaceSetters {
   setWorkspaces: SetState<Workspace[]>;
   setCurrentWorkspace: SetState<Workspace | null>;
   setLoading: SetState<boolean>;
   setError: SetState<string | null>;
+  text: { current: { loadFailed: { value: string }; switchFailed: { value: string } } };
 }
 
 async function fetchAndSetWorkspaces({
@@ -108,6 +110,7 @@ async function fetchAndSetWorkspaces({
   setCurrentWorkspace,
   setLoading,
   setError,
+  text,
 }: WorkspaceSetters): Promise<void> {
   try {
     setLoading(true);
@@ -130,7 +133,7 @@ async function fetchAndSetWorkspaces({
     }
   } catch (err) {
     console.error('Failed to fetch workspaces:', err);
-    setError(getApiErrorMessage(err, 'Failed to load workspaces'));
+    setError(getApiErrorMessage(err, text.current.loadFailed.value));
   } finally {
     setLoading(false);
   }
@@ -158,7 +161,7 @@ async function apiSwitchWorkspace(
       await refreshWorkspaces();
     }
   } catch (err) {
-    setters.setError(getApiErrorMessage(err, 'Failed to switch workspace'));
+    setters.setError(getApiErrorMessage(err, setters.text.current.switchFailed.value));
     throw err;
   } finally {
     setters.setLoading(false);
@@ -261,7 +264,6 @@ async function apiSetPlugins(
   setters.setCurrentWorkspace(prev => (prev?.id === workspaceId ? { ...prev, settings } : prev));
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
   // Every workspace the API lists, opened versions included, so the current
@@ -279,10 +281,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const workspaces = useMemo(() => allWorkspaces.filter(w => !isVersion(w)), [allWorkspaces]);
   const router = useRouter();
 
-  const setters = useMemo<WorkspaceSetters>(
-    () => ({ setWorkspaces, setCurrentWorkspace, setLoading, setError }),
-    [],
-  );
+  const setters = useWorkspaceSetters({ setWorkspaces, setCurrentWorkspace, setLoading, setError });
 
   const refreshWorkspaces = useCallback(async () => fetchAndSetWorkspaces(setters), [setters]);
 

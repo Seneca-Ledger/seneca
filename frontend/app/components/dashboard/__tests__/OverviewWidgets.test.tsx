@@ -312,9 +312,12 @@ describe('TaxesCard', () => {
       '/tax/settings/reserve/amount': {
         currency: 'EUR',
         year: 2026,
+        asOf: '2026-10-13',
         vat: { net: 400, outputTax: 600, inputTax: 200 },
         incomeTax: null,
+        payments: { categoryId: null, amount: 0, count: 0 },
         total: 400,
+        missingRateCurrencies: [],
       },
       '/tax/settings/threshold': null,
       '/tax/deadlines': [
@@ -327,6 +330,8 @@ describe('TaxesCard', () => {
           done: true,
           filedElsewhere: false,
           returnName: 'Filed Q3',
+          basis: 'statute',
+          checkedAt: '2026-10-01',
         },
         {
           kind: 'income_tax',
@@ -337,6 +342,8 @@ describe('TaxesCard', () => {
           done: false,
           filedElsewhere: false,
           returnName: 'Income tax 2025',
+          basis: 'statute',
+          checkedAt: '2026-10-01',
         },
       ],
     });

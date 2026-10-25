@@ -31,7 +31,6 @@ describe('WorkspaceTabShell', () => {
       'Overview',
       'Members (3)',
       'Categories',
-      'Payees',
       'All Workspaces',
     ]);
     expect(tabs[0]).toHaveAttribute('href', '/workspaces/overview');

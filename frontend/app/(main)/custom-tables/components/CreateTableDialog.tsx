@@ -176,8 +176,8 @@ function StartFromPicker({
     { id: null, name: labels.blankName, description: labels.blankDescription, columnCount: 0 },
     ...TABLE_TEMPLATES.map(template => ({
       id: template.id,
-      name: labels.templates[template.id]?.name ?? template.name,
-      description: labels.templates[template.id]?.description ?? template.description,
+      name: labels.templates[template.id].name,
+      description: labels.templates[template.id].description,
       columnCount: template.columns.length,
     })),
   ];
@@ -220,8 +220,8 @@ function StartFromPicker({
               key={source.id}
               checked={form.sourceKind === source.id}
               icon={<SourceIcon id={source.id} />}
-              name={labels.sources[source.id]?.name ?? source.name}
-              description={labels.sources[source.id]?.description ?? source.description}
+              name={labels.sources[source.id].name}
+              description={labels.sources[source.id].description}
               columnCount={source.columnFields.length}
               columnsCountLabel={labels.columnsCount}
               onClick={() => pickSource(source.id)}
@@ -360,7 +360,7 @@ export function CreateTableDialog(props: CreateTableDialogProps) {
           <aside className="seneca-ct__create-side">
             <SourcePreviewPanel
               source={source}
-              sourceName={labels.sources[source.id]?.name ?? source.name}
+              sourceName={labels.sources[source.id].name}
               preview={preview.preview}
               total={filtered ? (whole.preview?.count ?? null) : null}
               loading={preview.loading}

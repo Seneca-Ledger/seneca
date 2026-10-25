@@ -4,12 +4,17 @@ import type { EditableReceiptParsedData } from '@/app/components/receipts/receip
 import type { ReceiptRecord } from '@/app/lib/api';
 import apiClient from '@/app/lib/api';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
-import { formatStoredDate } from '@/app/lib/user-format-store';
 import { buildParsedDataPayload } from '../hooks/useReceiptData';
 
 type ExportColumn = { title: string; type: 'text' | 'number' | 'date' };
 type ExportRow = Record<string, string | number | undefined>;
 export type ExportData = { columns: ExportColumn[]; rows: ExportRow[] };
+export type ExportLabels = Record<
+  'item' | 'vendor' | 'date' | 'amount' | 'currency' | 'source' | 'status',
+  string
+>;
+/** Translated texts of the created table and its toasts, from the calling hook. */
+export type ExportMessages = Record<'name' | 'description' | 'failed' | 'success', string>;
 
 interface ColumnBuildState {
   columns: ExportColumn[];
@@ -38,12 +43,14 @@ interface BaseColumnsArgs {
   parsedData: ReturnType<typeof buildParsedDataPayload>;
   receipt: ReceiptRecord;
   hasLineItems: boolean;
+  labels: ExportLabels;
 }
 
 function buildBaseColumns({
   parsedData,
   receipt,
   hasLineItems,
+  labels,
 }: BaseColumnsArgs): ColumnBuildState {
   const state: ColumnBuildState = { columns: [], baseRow: {} };
   const vendor = parsedData.vendor as string | undefined;
@@ -52,43 +59,45 @@ function buildBaseColumns({
   const currency = parsedData.currency as string | undefined;
 
   if (hasLineItems) {
-    state.columns.push({ title: 'Item', type: 'text' });
+    state.columns.push({ title: labels.item, type: 'text' });
   } else {
-    addFieldToExport(state, { title: 'Vendor', type: 'text', value: vendor });
+    addFieldToExport(state, { title: labels.vendor, type: 'text', value: vendor });
   }
-  addFieldToExport(state, { title: 'Date', type: 'date', value: date });
+  addFieldToExport(state, { title: labels.date, type: 'date', value: date });
   if (typeof amount === 'number' && Number.isFinite(amount)) {
-    addFieldToExport(state, { title: 'Amount', type: 'number', value: amount });
+    addFieldToExport(state, { title: labels.amount, type: 'number', value: amount });
   }
-  addFieldToExport(state, { title: 'Currency', type: 'text', value: currency });
-  addFieldToExport(state, { title: 'Source', type: 'text', value: receipt.source });
-  addFieldToExport(state, { title: 'Status', type: 'text', value: receipt.status });
+  addFieldToExport(state, { title: labels.currency, type: 'text', value: currency });
+  addFieldToExport(state, { title: labels.source, type: 'text', value: receipt.source });
+  addFieldToExport(state, { title: labels.status, type: 'text', value: receipt.status });
   return state;
 }
 
 export function buildExportData({
   receipt,
   formValue,
+  labels,
 }: {
   receipt: ReceiptRecord;
   formValue: EditableReceiptParsedData;
+  labels: ExportLabels;
 }): ExportData {
   const parsedData = buildParsedDataPayload(formValue);
   const lineItems = parsedData.lineItems as Array<{ description: string; amount: number }>;
   const hasLineItems = lineItems.length > 0;
-  const { columns, baseRow } = buildBaseColumns({ parsedData, receipt, hasLineItems });
+  const { columns, baseRow } = buildBaseColumns({ parsedData, receipt, hasLineItems, labels });
   if (!hasLineItems) {
     return { columns, rows: [baseRow] };
   }
   return {
     columns,
     rows: lineItems.map(item => ({
-      Item: item.description,
-      Date: baseRow.Date,
-      Amount: item.amount,
-      Currency: baseRow.Currency,
-      Source: baseRow.Source,
-      Status: baseRow.Status,
+      [labels.item]: item.description,
+      [labels.date]: baseRow[labels.date],
+      [labels.amount]: item.amount,
+      [labels.currency]: baseRow[labels.currency],
+      [labels.source]: baseRow[labels.source],
+      [labels.status]: baseRow[labels.status],
     })),
   };
 }
@@ -127,19 +136,21 @@ export async function createExportTable({
   receipt,
   exportData,
   router,
+  messages,
 }: {
   receipt: ReceiptRecord;
   exportData: ExportData;
   router: AppRouterInstance;
+  messages: ExportMessages;
 }): Promise<void> {
   const createRes = await apiClient.post('/custom-tables', {
-    name: `Receipt ${receipt.subject}`.slice(0, 120),
-    description: `Exported from scanned receipt on ${formatStoredDate(receipt.receivedAt)}`,
+    name: messages.name.slice(0, 120),
+    description: messages.description,
   } satisfies ContractInput<'CreateCustomTableBody'>);
   const createdTable = await checkContract('CreatedCustomTable', createRes.data, '/custom-tables');
   const tableId = createdTable.id;
   if (!tableId) {
-    toast.error('Failed to export to table');
+    toast.error(messages.failed);
     router.push('/custom-tables');
     return;
   }
@@ -161,6 +172,6 @@ export async function createExportTable({
   await apiClient.post(`/custom-tables/${tableId}/rows/batch`, {
     rows,
   } satisfies ContractInput<'BatchCreateCustomTableRowsBody'>);
-  toast.success('Table created successfully');
+  toast.success(messages.success);
   router.push(`/custom-tables/${tableId}`);
 }

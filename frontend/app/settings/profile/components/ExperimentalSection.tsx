@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import { Alert } from '@/app/components/ui/alert';
 
 type Props = {
-  tx: (path: string[], fallback: string) => string;
+  tx: (path: string[]) => string;
   enabled: boolean;
   setEnabled: (value: boolean) => void;
 };
@@ -17,12 +17,7 @@ type Props = {
 export function ExperimentalSection({ tx, enabled, setEnabled }: Props) {
   return (
     <Stack spacing={2.5}>
-      <Alert variant="default">
-        {tx(
-          ['experimentalCard', 'warning'],
-          'Experimental features are unfinished and may change or break. Turn this off to hide them.',
-        )}
-      </Alert>
+      <Alert variant="default">{tx(['experimentalCard', 'warning'])}</Alert>
 
       <Card variant="outlined">
         <CardContent>
@@ -30,14 +25,21 @@ export function ExperimentalSection({ tx, enabled, setEnabled }: Props) {
             control={<Switch checked={enabled} onChange={(_event, value) => setEnabled(value)} />}
             label={
               <Stack spacing={0.25}>
-                <Typography variant="body2" fontWeight={500}>
-                  {tx(['experimentalCard', 'toggleLabel'], 'Experimental mode')}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                  }}
+                >
+                  {tx(['experimentalCard', 'toggleLabel'])}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {tx(
-                    ['experimentalCard', 'toggleHelp'],
-                    'Unlocks features that are still in development on this device.',
-                  )}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
+                  {tx(['experimentalCard', 'toggleHelp'])}
                 </Typography>
               </Stack>
             }

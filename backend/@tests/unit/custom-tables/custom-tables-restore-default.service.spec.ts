@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { BadRequestException } from "@nestjs/common";
 import { AuditAction, EntityType } from "../../../src/entities/audit-event.entity";
 import { CustomTable } from "../../../src/entities/custom-table.entity";
@@ -25,14 +26,14 @@ const ADAPTER_COLUMNS = [
 
 /** A chainable query builder that records its where-clauses. */
 const builder = (log: Array<{ op: string; args: unknown[] }>) => {
-	const qb: Record<string, jest.Mock> = {};
+	const qb: Record<string, Mock> = {};
 	for (const method of ["delete", "update", "set", "from", "where", "andWhere"]) {
-		qb[method] = jest.fn((...args: unknown[]) => {
+		qb[method] = vi.fn((...args: unknown[]) => {
 			log.push({ op: method, args });
 			return qb;
 		});
 	}
-	qb.execute = jest.fn(async () => {
+	qb.execute = vi.fn(async () => {
 		log.push({ op: "execute", args: [] });
 		return { affected: 1 };
 	});
@@ -59,32 +60,32 @@ const setup = (options: { binding?: unknown; columns?: unknown[]; sourceKeys?: s
 		];
 	const queries: Array<{ op: string; args: unknown[] }> = [];
 	const columnRepo = {
-		find: jest.fn().mockResolvedValue(columns),
-		delete: jest.fn(async () => order.push("deleteColumns")),
-		create: jest.fn((value: Record<string, unknown>) => ({ ...value })),
-		save: jest.fn(async (value: unknown) => value),
+		find: vi.fn().mockResolvedValue(columns),
+		delete: vi.fn(async () => order.push("deleteColumns")),
+		create: vi.fn((value: Record<string, unknown>) => ({ ...value })),
+		save: vi.fn(async (value: unknown) => value),
 	};
-	const rowRepo = { createQueryBuilder: jest.fn(() => builder(queries)) };
-	const columnStyleRepo = { delete: jest.fn() };
-	const tableRepoInTx = { update: jest.fn() };
+	const rowRepo = { createQueryBuilder: vi.fn(() => builder(queries)) };
+	const columnStyleRepo = { delete: vi.fn() };
+	const tableRepoInTx = { update: vi.fn() };
 	const manager = {
-		getRepository: jest.fn((entity: unknown) => {
+		getRepository: vi.fn((entity: unknown) => {
 			if (entity === CustomTableColumn) return columnRepo;
 			if (entity === CustomTableRow) return rowRepo;
 			if (entity === CustomTableColumnStyle) return columnStyleRepo;
 			if (entity === CustomTable) return tableRepoInTx;
 			throw new Error("unexpected repository");
 		}),
-		createQueryBuilder: jest.fn(() => builder(queries)),
+		createQueryBuilder: vi.fn(() => builder(queries)),
 	};
-	const qb = { leftJoinAndSelect: jest.fn(), where: jest.fn(), andWhere: jest.fn(), getOne: jest.fn().mockResolvedValue(table) };
+	const qb = { leftJoinAndSelect: vi.fn(), where: vi.fn(), andWhere: vi.fn(), getOne: vi.fn().mockResolvedValue(table) };
 	qb.leftJoinAndSelect.mockReturnValue(qb);
 	qb.where.mockReturnValue(qb);
 	qb.andWhere.mockReturnValue(qb);
 	const customTableRepository = {
-		createQueryBuilder: jest.fn().mockReturnValue(qb),
+		createQueryBuilder: vi.fn().mockReturnValue(qb),
 		manager: {
-			transaction: jest.fn(async (work: (m: typeof manager) => Promise<unknown>) => {
+			transaction: vi.fn(async (work: (m: typeof manager) => Promise<unknown>) => {
 				order.push("transaction");
 				return work(manager);
 			}),
@@ -94,16 +95,16 @@ const setup = (options: { binding?: unknown; columns?: unknown[]; sourceKeys?: s
 		sourceKey: key,
 		values: { date: "2024-09-01", amount: -1, type: "expense" },
 	}));
-	const adapter = { kind: "transactions", columns: ADAPTER_COLUMNS, fetchRows: jest.fn(async () => sourceRows) };
-	const sources = { get: jest.fn().mockReturnValue(adapter) };
+	const adapter = { kind: "transactions", columns: ADAPTER_COLUMNS, fetchRows: vi.fn(async () => sourceRows) };
+	const sources = { get: vi.fn().mockReturnValue(adapter) };
 	const sourceWriteBack = {
-		revertTable: jest.fn(async () => {
+		revertTable: vi.fn(async () => {
 			order.push("revert");
 			return { reverted: 3, skippedChanged: 1, failed: [{ sourceKey: "tx-9", field: "amount", code: "TAX_LOCKED" }] };
 		}),
 	};
-	const auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
-	const workspaceMemberRepository = { findOne: jest.fn().mockResolvedValue(null) };
+	const auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
+	const workspaceMemberRepository = { findOne: vi.fn().mockResolvedValue(null) };
 	const service = new CustomTablesService(
 		customTableRepository as never,
 		{} as never,
@@ -126,7 +127,7 @@ const setup = (options: { binding?: unknown; columns?: unknown[]; sourceKeys?: s
 		sourceWriteBack as never,
 	);
 	// The re-fill is covered by the refresh tests; here it only has to be reached with the right input.
-	const applySourceRows = jest
+	const applySourceRows = vi
 		.spyOn(service as unknown as { applySourceRows: () => Promise<unknown> }, "applySourceRows")
 		.mockImplementation(async () => {
 			order.push("refill");

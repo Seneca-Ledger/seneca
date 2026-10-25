@@ -144,7 +144,7 @@ export class InvoicesService {
   async cloneAsDraft(template: Invoice, lineItems: InvoiceLineItem[]): Promise<Invoice> {
     const issueDate = template.nextIssueDate;
     if (!issueDate) {
-      throw new BadRequestException('Recurring invoice has no next issue date');
+      throw new BadRequestException(appError('INVOICE_RECURRING_NO_NEXT_DATE'));
     }
     return this.buildDraft(template.workspaceId, template.clientId, {
       issueDate,
@@ -234,7 +234,7 @@ export class InvoicesService {
 
     const [invoice] = result.entities;
     if (!invoice) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
     }
     return applyAmounts(
       applyEffectiveStatus(invoice, result.raw[0]?.effective_status),
@@ -251,7 +251,7 @@ export class InvoicesService {
       .where('invoice.id = :id AND invoice.workspaceId = :workspaceId', { id, workspaceId })
       .getOne();
     if (!invoice?.fileData) {
-      throw new NotFoundException('Invoice PDF not found');
+      throw new NotFoundException(appError('INVOICE_PDF_NOT_FOUND'));
     }
     return {
       fileName: `${invoice.invoiceNumber ?? 'invoice'}.pdf`,
@@ -264,7 +264,7 @@ export class InvoicesService {
       const invoices = manager.getRepository(Invoice);
       const invoice = await invoices.findOne({ where: { id, workspaceId } });
       if (!invoice) {
-        throw new NotFoundException('Invoice not found');
+        throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
       }
       if (invoice.status !== InvoiceStatus.DRAFT) {
         throw new ConflictException(appError('INVOICE_NOT_DRAFT'));
@@ -298,7 +298,7 @@ export class InvoicesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!invoice) {
-        throw new NotFoundException('Invoice not found');
+        throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
       }
       if (invoice.status !== InvoiceStatus.DRAFT) {
         throw new ConflictException(appError('INVOICE_ALREADY_SENT'));
@@ -425,7 +425,7 @@ export class InvoicesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!invoice) {
-        throw new NotFoundException('Invoice not found');
+        throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
       }
       // `invoices.status` never says 'paid' — the receivable does — so the
       // stored column alone would let a settled invoice be voided, reversing
@@ -464,7 +464,7 @@ export class InvoicesService {
   async remove(id: string, workspaceId: string): Promise<void> {
     const invoice = await this.invoiceRepository.findOne({ where: { id, workspaceId } });
     if (!invoice) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
     }
     if (invoice.status !== InvoiceStatus.DRAFT) {
       throw new ConflictException(appError('INVOICE_NOT_DRAFT'));
@@ -632,7 +632,9 @@ export class InvoicesService {
     }
     const payable = await manager.getRepository(Payable).findOne({
       where: { id: invoice.payableId },
-      select: ['status'],
+      select: {
+        status: true,
+      },
     });
     return payable?.status === PayableStatus.PAID;
   }
@@ -710,7 +712,7 @@ export class InvoicesService {
       .getRepository(TaxRate)
       .count({ where: { id: In(ids), workspaceId } });
     if (found !== ids.length) {
-      throw new NotFoundException('Tax rate not found');
+      throw new NotFoundException(appError('TAX_RATE_NOT_FOUND'));
     }
   }
 

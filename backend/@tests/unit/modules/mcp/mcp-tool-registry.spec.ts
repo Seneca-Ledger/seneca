@@ -10,8 +10,10 @@ import { McpToolRegistry } from '@/modules/mcp/mcp-tool-registry.service';
 import { NetWorthController } from '@/modules/net-worth/net-worth.controller';
 import { PayablesController } from '@/modules/payables/payables.controller';
 import { PayeesController } from '@/modules/payees/payees.controller';
+import { ReceiptApprovalsController } from '@/modules/receipts/receipt-approvals.controller';
 import { ReceiptsController } from '@/modules/receipts/receipts.controller';
 import { ReviewInboxController } from '@/modules/review-inbox/review-inbox.controller';
+import { StatementUploadsController } from '@/modules/statements/statement-uploads.controller';
 import { StatementsController } from '@/modules/statements/statements.controller';
 import { SubscriptionsController } from '@/modules/subscriptions/subscriptions.controller';
 import { TaxPackController } from '@/modules/tax-pack/tax-pack.controller';
@@ -35,14 +37,14 @@ const ROUTES: Record<string, [{ prototype: object }, string]> = {
   update_category: [CategoriesController, 'update'],
   list_statements: [StatementsController, 'findAll'],
   get_statement: [StatementsController, 'findOne'],
-  upload_statement: [StatementsController, 'upload'],
-  upload_receipt: [StatementsController, 'uploadReceipt'],
+  upload_statement: [StatementUploadsController, 'upload'],
+  upload_receipt: [StatementUploadsController, 'uploadReceipt'],
   get_review_counts: [ReviewInboxController, 'counts'],
   list_review_inbox: [ReviewInboxController, 'list'],
   approve_transactions: [ReviewInboxController, 'approveTransactions'],
   list_receipts: [ReceiptsController, 'findAll'],
   get_receipt: [ReceiptsController, 'findOne'],
-  approve_receipt: [ReceiptsController, 'approve'],
+  approve_receipt: [ReceiptApprovalsController, 'approve'],
   list_budgets: [BudgetsController, 'findAll'],
   get_stoic_balance: [BudgetsController, 'stoicBalance'],
   create_budget: [BudgetsController, 'create'],

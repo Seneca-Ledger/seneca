@@ -55,16 +55,16 @@ describe('ColumnsDrawer', () => {
 
     expect(screen.getByText('Columns')).toBeInTheDocument();
 
-    const darkSurface = Array.from(document.querySelectorAll('[class]')).find(
-      node => typeof node.className === 'string' && node.className.includes('bg-card'),
-    );
+    // Строки красит _statements.scss на токенах темы (класс seneca-col-drawer__col-item),
+    // а не Tailwind bg-card.
+    const themedRows = document.querySelectorAll('.seneca-col-drawer__col-item');
     const whiteDivider = Array.from(document.querySelectorAll('[class]')).find(
       node =>
         typeof node.className === 'string' &&
         (node.className.includes('border-gray-100') || node.className.includes('bg-white')),
     );
 
-    expect(darkSurface).toBeTruthy();
+    expect(themedRows).toHaveLength(2);
     expect(whiteDivider).toBeUndefined();
   });
 });

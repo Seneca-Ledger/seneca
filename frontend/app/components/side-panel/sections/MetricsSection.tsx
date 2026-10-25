@@ -5,7 +5,6 @@ import type { ChartItem, MetricsSection, SummaryItem } from '../types';
 import { SectionWrapper } from './components/SectionWrapper';
 import { SummaryItemComponent } from './SummarySection';
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ChartItemComponent({ item }: { item: ChartItem }): React.JSX.Element | null {
   // Simple progress bar renderer
   if (item.type === 'progress') {
@@ -53,7 +52,6 @@ export function ChartItemComponent({ item }: { item: ChartItem }): React.JSX.Ele
             strokeLinecap="round"
             strokeLinejoin="round"
             points={numericData
-              // eslint-disable-next-line max-params
               .map((d, i) => {
                 const x = (i / (numericData.length - 1)) * 100;
                 const y = height - ((d - min) / range) * height;

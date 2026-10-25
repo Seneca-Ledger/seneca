@@ -23,7 +23,6 @@ export {
   SummarySectionRenderer,
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SECTION_RENDERERS: Record<string, React.ComponentType<{ section: any }>> = {
   navigation: NavigationSectionRenderer,
   status: StatusSectionRenderer,

@@ -194,9 +194,6 @@ export const formatLabel = (
 // Reconstructed helpers consumed across the Statement Edit page
 // ---------------------------------------------------------------------------
 
-export const labelValue = (label: { value?: string } | undefined, fallback: string): string =>
-  label?.value ?? fallback;
-
 export interface FieldChangeParams {
   id: string;
   field: keyof Transaction;
@@ -220,11 +217,11 @@ type BuildHintsParams = {
     balanceEnd?: number | null;
   };
   fmt: (n?: number | null) => string;
-  labels: Record<string, { value?: string } | undefined>;
+  labels: Record<string, { value: string }>;
 };
 
 export function buildHints({ prefix, locale, meta, fmt, labels }: BuildHintsParams): MetadataHints {
-  const filePrefix = prefix ?? labelValue(labels.fromFilePrefix, 'From file: ');
+  const filePrefix = prefix ?? labels.fromFilePrefix.value;
   const { dateFrom, dateTo, balanceStart, balanceEnd } = meta ?? {};
   const dateHint = (value?: string | null): string =>
     value ? `${filePrefix}${new Date(value).toLocaleDateString(resolveLocale(locale))}` : '';
@@ -232,13 +229,9 @@ export function buildHints({ prefix, locale, meta, fmt, labels }: BuildHintsPara
     startDate: dateHint(dateFrom),
     endDate: dateHint(dateTo),
     openingBalance:
-      balanceStart != null
-        ? `${filePrefix}${fmt(balanceStart)}`
-        : labelValue(labels.enterOpeningBalance, 'Enter opening balance'),
+      balanceStart != null ? `${filePrefix}${fmt(balanceStart)}` : labels.enterOpeningBalance.value,
     closingBalance:
-      balanceEnd != null
-        ? `${filePrefix}${fmt(balanceEnd)}`
-        : labelValue(labels.enterManuallyHint, 'Enter manually if it was not detected'),
+      balanceEnd != null ? `${filePrefix}${fmt(balanceEnd)}` : labels.enterManuallyHint.value,
   };
 }
 

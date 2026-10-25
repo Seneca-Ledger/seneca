@@ -144,7 +144,12 @@ export class StoicBehaviorService {
           workspaceId,
           status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.DETECTED]),
         },
-        select: ['id', 'amount', 'currency', 'frequency'],
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          frequency: true,
+        },
       }),
     ]);
 

@@ -200,7 +200,13 @@ export function NetWorthContent() {
               p: 3,
             }}
           >
-            <Typography variant="h3" fontWeight={600} sx={{ lineHeight: 1.1 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 600,
+                lineHeight: 1.1,
+              }}
+            >
               {showWhole(headline?.current ?? 0)}
             </Typography>
 
@@ -281,7 +287,12 @@ export function NetWorthContent() {
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   {t.assets}
                 </Typography>
-                <Typography variant="body1" fontWeight={500}>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: 500,
+                  }}
+                >
                   <WholeMoney value={data.assetsTotal} currency={currency} locale={locale} />
                 </Typography>
               </Box>
@@ -289,7 +300,12 @@ export function NetWorthContent() {
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   {t.liabilities}
                 </Typography>
-                <Typography variant="body1" fontWeight={500}>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: 500,
+                  }}
+                >
                   <WholeMoney value={data.liabilitiesTotal} currency={currency} locale={locale} />
                 </Typography>
               </Box>

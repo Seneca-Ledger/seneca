@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { flowsSql } from '../../common/utils/counted-transactions.util';
 import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
@@ -142,16 +143,16 @@ export class SmbService {
     invoiceId: string,
   ): Promise<{ sent: boolean; to: string; reminderCount: number }> {
     const invoice = await this.invoiceRepository.findOne({ where: { id: invoiceId, workspaceId } });
-    if (!invoice) throw new NotFoundException('Invoice not found');
+    if (!invoice) throw new NotFoundException(appError('SMB_INVOICE_NOT_FOUND'));
     if (invoice.status !== InvoiceStatus.SENT && invoice.status !== InvoiceStatus.OVERDUE) {
-      throw new BadRequestException('Only a sent or overdue invoice can be reminded about');
+      throw new BadRequestException(appError('SMB_REMINDER_INVOICE_STATUS'));
     }
     const client = await this.clientRepository.findOne({
       where: { id: invoice.clientId, workspaceId },
     });
-    if (!client?.email) throw new BadRequestException('The client has no email address');
+    if (!client?.email) throw new BadRequestException(appError('SMB_CLIENT_NO_EMAIL'));
     if (!(await this.mailerService.isConfigured(workspaceId))) {
-      throw new ConflictException('SMTP is not configured for this workspace');
+      throw new ConflictException(appError('SMB_SMTP_NOT_CONFIGURED'));
     }
 
     const locale = (user.locale ?? 'en').slice(0, 2);
@@ -293,7 +294,9 @@ export class SmbService {
   private async workspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     const normalized = String(workspace?.currency || '')
       .trim()

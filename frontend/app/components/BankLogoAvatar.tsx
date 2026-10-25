@@ -2,6 +2,7 @@
 
 import { resolveBankLogo } from '@bank-logos';
 import { Landmark } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 
 import { LogoAvatar } from './LogoAvatar';
 
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export function BankLogoAvatar({ bankName, size = 32, className, rounded = true }: Props) {
+  const t = useIntlayer('imageAlt');
   const resolved = resolveBankLogo(bankName);
   const src = resolved.key !== 'other' ? resolved.src : null;
 
@@ -21,7 +23,7 @@ export function BankLogoAvatar({ bankName, size = 32, className, rounded = true 
   return (
     <LogoAvatar
       src={src}
-      alt={bankName || resolved.displayName || 'Bank'}
+      alt={bankName || resolved.displayName || t.bank.value}
       size={size}
       imgClassName={className}
       imgStyle={{ borderRadius, backgroundColor: 'var(--muted)', objectFit: 'contain' }}

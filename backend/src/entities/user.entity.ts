@@ -7,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { AuthSession } from './auth-session.entity';
@@ -186,7 +187,7 @@ export class User {
 
   @ManyToOne(() => Workspace, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace | null;
+  workspace: Relation<Workspace | null>;
 
   @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
   workspaceId: string | null;
@@ -247,41 +248,41 @@ export class User {
     () => Statement,
     statement => statement.user,
   )
-  statements: Statement[];
+  statements: Relation<Statement[]>;
 
   @OneToMany(
     () => TelegramReport,
     report => report.user,
   )
-  telegramReports: TelegramReport[];
+  telegramReports: Relation<TelegramReport[]>;
 
   @OneToMany(
     () => Category,
     category => category.user,
   )
-  categories: Category[];
+  categories: Relation<Category[]>;
 
   @OneToMany(
     () => Branch,
     branch => branch.user,
   )
-  branches: Branch[];
+  branches: Relation<Branch[]>;
 
   @OneToMany(
     () => Wallet,
     wallet => wallet.user,
   )
-  wallets: Wallet[];
+  wallets: Relation<Wallet[]>;
 
   @OneToMany(
     () => WorkspaceMember,
     membership => membership.user,
   )
-  workspaceMemberships: WorkspaceMember[];
+  workspaceMemberships: Relation<WorkspaceMember[]>;
 
   @OneToMany(
     () => AuthSession,
     authSession => authSession.user,
   )
-  authSessions: AuthSession[];
+  authSessions: Relation<AuthSession[]>;
 }

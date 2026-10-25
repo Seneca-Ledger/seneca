@@ -120,7 +120,6 @@ export const getComparisonDelta = (
   };
 };
 
-/* eslint-disable complexity */
 export const resolveAmountFlow = <TExpenseFlowType extends string>(
   input: ResolveAmountFlowInput<TExpenseFlowType>,
 ): { flowType: 'income' | TExpenseFlowType; amount: number } => {
@@ -159,7 +158,6 @@ export const resolveAmountFlow = <TExpenseFlowType extends string>(
     amount: parseAmount(input.amount),
   };
 };
-/* eslint-enable complexity */
 
 export const formatDateISO = (date: Date): string => {
   const year = date.getFullYear();

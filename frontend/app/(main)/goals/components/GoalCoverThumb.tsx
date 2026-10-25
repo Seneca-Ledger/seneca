@@ -53,9 +53,9 @@ export function GoalCoverThumb({ cover, size = 56, alt }: GoalCoverThumbProps) {
         component="img"
         src={`${uploadsOrigin}${cover.url}`}
         alt={alt}
-        width={size}
-        height={size}
         sx={{
+          width: size,
+          height: size,
           flexShrink: 0,
           borderRadius: tokens.radius.md,
           objectFit: 'cover',

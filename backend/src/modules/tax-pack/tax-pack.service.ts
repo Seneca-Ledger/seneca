@@ -2,8 +2,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ZipArchive } from 'archiver';
 import { In, Repository } from 'typeorm';
 import { APP_NAME } from '../../common/brand';
+import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { toCsv } from '../../common/utils/csv.util';
@@ -18,8 +20,6 @@ import { TransactionAttachment } from '../../entities/transaction-attachment.ent
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { toDateOnly } from '../tax/jurisdictions.service';
-
-import archiver = require('archiver');
 
 export type TaxPackScope = 'relevant' | 'all';
 
@@ -182,11 +182,11 @@ export class TaxPackService {
   ): Promise<void> {
     const { from, to, scope } = options;
     if (to < from) {
-      throw new BadRequestException('The period must not end before it starts');
+      throw new BadRequestException(appError('TAX_PERIOD_END_BEFORE_START'));
     }
     const days = (Date.parse(to) - Date.parse(from)) / 86_400_000;
     if (days > MAX_RANGE_DAYS) {
-      throw new BadRequestException('A tax pack covers at most three years');
+      throw new BadRequestException(appError('TAX_PACK_PERIOD_TOO_LONG'));
     }
 
     const currency = await this.workspaceCurrency(workspaceId);
@@ -267,7 +267,7 @@ export class TaxPackService {
       summary.set(key, entry);
     }
 
-    const archive = archiver('zip', { zlib: { level: 6 } });
+    const archive = new ZipArchive({ zlib: { level: 6 } });
     archive.on('warning', error => this.logger.warn(`Tax pack: ${error.message}`));
     archive.pipe(output);
 

@@ -14,7 +14,9 @@ import {
 
 describe('tables reports helpers', () => {
   it('formats source labels and comparison helpers', () => {
-    expect(getSourceLabel('manual')).toBe('Manual');
+    const manualLabel = 'Entered by hand';
+    expect(getSourceLabel('manual', manualLabel)).toBe(manualLabel);
+    expect(getSourceLabel('telegram', manualLabel)).toBe('telegram');
     expect(getComparisonColor('up')).toBe('text-emerald-600');
     expect(getComparisonColor('down')).toBe('text-red-500');
     expect(getComparisonColor('flat')).toBe('text-gray-400');

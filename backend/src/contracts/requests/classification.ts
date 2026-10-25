@@ -74,3 +74,15 @@ export const ClassifyBulkBody = Schema.Struct({
   transactionIds: Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMinLength(1)),
 });
 export type ClassifyBulkBody = Wire<typeof ClassifyBulkBody>;
+
+/** `POST /classification/transaction/:id`. */
+export const ClassifyTransactionParams = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+});
+export type ClassifyTransactionParams = Wire<typeof ClassifyTransactionParams>;
+
+/** `/categorization-rules/:id`. */
+export const CategorizationRuleParams = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+});
+export type CategorizationRuleParams = Wire<typeof CategorizationRuleParams>;

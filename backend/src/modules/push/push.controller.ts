@@ -2,7 +2,13 @@ import { Controller, Delete, Get, HttpCode, Post, UseGuards } from '@nestjs/comm
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { PushPublicKey, PushSubscriptionBody, PushUnsubscribeBody } from '../../contracts';
+import {
+  PushPublicKey,
+  PushSubscriptionBody,
+  PushSubscriptionCreated,
+  PushSubscriptionList,
+  PushUnsubscribeBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PushService } from './push.service';
@@ -20,6 +26,7 @@ export class PushController {
   }
 
   @Get('subscriptions')
+  @SchemaResponse(PushSubscriptionList)
   async list(@CurrentUser() user: User) {
     const rows = await this.pushService.listForUser(user.id);
     return rows.map(row => ({
@@ -32,6 +39,7 @@ export class PushController {
   }
 
   @Post('subscriptions')
+  @SchemaResponse(PushSubscriptionCreated)
   async subscribe(
     @CurrentUser() user: User,
     @SchemaBody(PushSubscriptionBody) dto: PushSubscriptionBody,

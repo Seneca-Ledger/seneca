@@ -23,20 +23,22 @@ export class WorkspaceContextGuard implements CanActivate {
     const user = request.user;
 
     if (!workspaceId) {
-      throw new ForbiddenException('Workspace context is required');
+      throw new ForbiddenException(appError('WORKSPACE_CONTEXT_REQUIRED'));
     }
 
     if (!user?.id) {
-      throw new ForbiddenException('User not authenticated');
+      throw new ForbiddenException(appError('AUTH_NOT_AUTHENTICATED'));
     }
 
     const membership = await this.dataSource.getRepository(WorkspaceMember).findOne({
       where: { workspaceId, userId: user.id },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
 
     if (!membership) {
-      throw new ForbiddenException('You are not a member of this workspace');
+      throw new ForbiddenException(appError('WORKSPACE_NOT_A_MEMBER'));
     }
 
     if (membership.workspace?.kind === WorkspaceKind.VERSION) {
@@ -67,7 +69,7 @@ export class WorkspaceContextGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!READ_METHODS.has(request.method.toUpperCase()) && !allowed) {
+    if (!(READ_METHODS.has(request.method.toUpperCase()) || allowed)) {
       throw new ForbiddenException(appError('VERSION_READ_ONLY'));
     }
   }

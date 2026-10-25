@@ -78,7 +78,7 @@ async function textOf(input: Partial<InvoiceDocumentInput> = {}): Promise<string
 }
 
 describe('buildInvoicePdf', () => {
-  jest.setTimeout(60_000);
+  vi.setConfig({ testTimeout: 60_000 });
 
   it('prints who is billing: name, address, tax ids and contacts', async () => {
     const text = await textOf();

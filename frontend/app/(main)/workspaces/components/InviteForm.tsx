@@ -5,16 +5,17 @@ import React, { useState } from 'react';
 import { Send as SendIcon } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Select } from '@/app/components/ui/select';
+import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import type { InvitePermissions, WorkspaceRole } from './hooks/useMemberManagement';
 
-const PERMISSION_LABELS: Record<keyof InvitePermissions, string> = {
-  canEditStatements: 'Statements',
-  canEditCustomTables: 'Tables',
-  canEditCategories: 'Categories',
-  canEditDataEntry: 'Data entry',
-  canShareFiles: 'File sharing & access',
-};
+const PERMISSION_KEYS: Array<keyof InvitePermissions> = [
+  'canEditStatements',
+  'canEditCustomTables',
+  'canEditCategories',
+  'canEditDataEntry',
+  'canShareFiles',
+];
 
 const DEFAULT_PERMISSIONS: InvitePermissions = {
   canEditStatements: true,
@@ -50,6 +51,7 @@ function EmailRoleFields({
   onEmailChange,
   onRoleChange,
 }: EmailRoleFieldsProps): React.ReactElement {
+  const t = useIntlayer('workspaceMembers');
   const inputStyle: React.CSSProperties = {
     width: '100%',
     border: '1px solid var(--border-color)',
@@ -74,7 +76,7 @@ function EmailRoleFields({
           htmlFor="invite-email"
           style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}
         >
-          Email
+          {t.invite.email}
         </label>
         <input
           id="invite-email"
@@ -91,7 +93,7 @@ function EmailRoleFields({
           htmlFor="invite-role"
           style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}
         >
-          Role
+          {t.invite.role}
         </label>
         <Select
           fullWidth
@@ -100,9 +102,9 @@ function EmailRoleFields({
           onChange={value => onRoleChange(value as WorkspaceRole)}
           disabled={!isOwnerOrAdmin}
           options={[
-            { value: 'member', label: 'Member' },
-            { value: 'viewer', label: 'Viewer' },
-            { value: 'admin', label: 'Admin' },
+            { value: 'member', label: t.roles.member.value },
+            { value: 'viewer', label: t.roles.viewer.value },
+            { value: 'admin', label: t.roles.admin.value },
           ]}
         />
       </div>
@@ -121,10 +123,11 @@ function PermissionsGrid({
   isOwnerOrAdmin,
   onPermissionChange,
 }: PermissionsGridProps): React.ReactElement {
+  const t = useIntlayer('workspaceMembers');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}>
-        Access permissions
+        {t.invite.permissionsTitle}
       </span>
       <div
         style={{
@@ -133,7 +136,7 @@ function PermissionsGrid({
           gap: 8,
         }}
       >
-        {(Object.keys(PERMISSION_LABELS) as Array<keyof InvitePermissions>).map(key => (
+        {PERMISSION_KEYS.map(key => (
           <label
             key={key}
             style={{
@@ -149,7 +152,7 @@ function PermissionsGrid({
               onCheckedChange={checked => onPermissionChange(key, checked)}
               disabled={!isOwnerOrAdmin}
             />
-            {PERMISSION_LABELS[key]}
+            {t.permissions[key]}
           </label>
         ))}
       </div>
@@ -158,6 +161,7 @@ function PermissionsGrid({
 }
 
 export function InviteForm({ isOwnerOrAdmin, onInvite }: InviteFormProps): React.ReactElement {
+  const t = useIntlayer('workspaceMembers');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -227,7 +231,7 @@ export function InviteForm({ isOwnerOrAdmin, onInvite }: InviteFormProps): React
             color: 'var(--color-warning-soft-text)',
           }}
         >
-          Only owner or admin can invite new members.
+          {t.invite.onlyOwnerOrAdmin}
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -238,7 +242,7 @@ export function InviteForm({ isOwnerOrAdmin, onInvite }: InviteFormProps): React
           disabled={!isOwnerOrAdmin || inviteLoading}
           startIcon={<SendIcon size={16} />}
         >
-          {inviteLoading ? 'Sending...' : 'Send invitation'}
+          {inviteLoading ? t.sending : t.invite.send}
         </Button>
       </div>
     </form>

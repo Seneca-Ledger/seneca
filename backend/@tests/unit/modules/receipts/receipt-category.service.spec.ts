@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Category, Receipt } from '@/entities';
@@ -7,16 +8,16 @@ import { ReceiptCategoryService } from '@/modules/receipts/services/receipt-cate
 
 describe('ReceiptCategoryService', () => {
   let service: ReceiptCategoryService;
-  let categoryRepository: { findOne: jest.Mock };
-  let classification: { suggestForPayee: jest.Mock };
+  let categoryRepository: { findOne: Mock };
+  let classification: { suggestForPayee: Mock };
 
   const receipt = (parsedData: Receipt['parsedData']) =>
     ({ workspaceId: 'workspace-1', userId: 'user-1', parsedData }) as Receipt;
 
   beforeEach(async () => {
-    categoryRepository = { findOne: jest.fn() };
+    categoryRepository = { findOne: vi.fn() };
     classification = {
-      suggestForPayee: jest.fn(async () => null),
+      suggestForPayee: vi.fn(async () => null),
     };
 
     const module: TestingModule = await Test.createTestingModule({

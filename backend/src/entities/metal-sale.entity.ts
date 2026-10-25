@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { InvestmentHolding, type InvestmentMetal } from './investment-holding.entity';
 import { Workspace } from './workspace.entity';
@@ -23,14 +24,14 @@ export class MetalSale {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => InvestmentHolding, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'lot_id' })
-  lot: InvestmentHolding | null;
+  lot: Relation<InvestmentHolding | null>;
 
   @Column({ name: 'lot_id', type: 'uuid', nullable: true })
   lotId: string | null;
