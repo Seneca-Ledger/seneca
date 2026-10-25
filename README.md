@@ -1,7 +1,8 @@
 <div align="center">
-<img width="150" height="150" alt="Seneca logo" src="https://github.com/user-attachments/assets/eded65fe-0490-4ff8-bbe9-76f2a6711983" />
+<img width="150" height="150" alt="N (5)" src="https://github.com/user-attachments/assets/766c9c0b-50b5-4eaf-8b17-871c4a8c1a49" />
 
-<h1>Seneca</h1>
+
+<h1>Seneca Ledger</h1>
 
 <p align="center">
   :globe_with_meridians: <a href="https://github.com/symonbaikov/seneca/releases/latest">Download</a> · :book: <a href="https://symonbaikov.github.io/seneca/">Documentation</a>
