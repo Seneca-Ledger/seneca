@@ -94,15 +94,16 @@ describe('WorkspacesListContent', () => {
     expect(pushMock).toHaveBeenCalledWith('/onboarding?mode=create-workspace');
   });
 
-  it('renders the shared spinner while loading', async () => {
+  it('renders card-shaped skeletons while loading', async () => {
     workspaceState.loading = true;
 
     try {
       const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
       const html = renderToStaticMarkup(<WorkspacesListContent />);
 
-      expect(html).toContain('role="progressbar"');
-      expect(html).toContain('Loading...');
+      // One cover placeholder per skeleton card, in place of the workspace cards.
+      expect(html.match(/MuiSkeleton-rectangular/g)).toHaveLength(6);
+      expect(html).not.toContain('Main Workspace');
     } finally {
       workspaceState.loading = false;
     }

@@ -97,6 +97,8 @@ vi.mock('@mui/material/TextField', () => ({
   ),
 }));
 
+import { CreateWorkspaceModal } from './CreateWorkspaceModal';
+
 describe('CreateWorkspaceModal', () => {
   beforeEach(() => {
     postMock.mockReset();
@@ -110,8 +112,6 @@ describe('CreateWorkspaceModal', () => {
   });
 
   it('opens currency selection in a drawer-like picker instead of the inline modal picker', async () => {
-    const { CreateWorkspaceModal } = await import('./CreateWorkspaceModal');
-
     render(<CreateWorkspaceModal isOpen onClose={onCloseMock} onSuccess={onSuccessMock} />);
 
     fireEvent.change(screen.getByLabelText('Workspace Name'), {
@@ -128,8 +128,6 @@ describe('CreateWorkspaceModal', () => {
   });
 
   it('creates the workspace from the customization step', async () => {
-    const { CreateWorkspaceModal } = await import('./CreateWorkspaceModal');
-
     render(<CreateWorkspaceModal isOpen onClose={onCloseMock} onSuccess={onSuccessMock} />);
 
     fireEvent.change(screen.getByLabelText('Workspace Name'), {

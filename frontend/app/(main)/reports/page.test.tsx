@@ -68,14 +68,17 @@ vi.mock('./components/ReportHistory', () => ({
   ReportHistory: () => <div>Report History</div>,
 }));
 
+// Imported once at collection: a dynamic import inside a test spends its
+// timeout on the module graph under a loaded run.
+import ReportsPage from './page';
+
 describe('ReportsPage', () => {
   // Explicit, so one failing case cannot leave its tree mounted and make the
   // next one find two of every tab.
   afterEach(cleanup);
 
   it('renders localized page copy and tab labels from i18n', async () => {
-    apiQuery.mockResolvedValue({ vatStatus: 'not_registered' });
-    const { default: ReportsPage } = await import('./page');
+    apiQuery.mockResolvedValue({ jurisdiction: null, vatStatus: 'not_registered' });
     renderWithQuery(<ReportsPage />);
 
     expect(screen.getByRole('tab', { name: 'Modeles' })).toBeInTheDocument();
@@ -89,8 +92,7 @@ describe('ReportsPage', () => {
   });
 
   it('offers the tax year to every workspace, and the VAT return only where VAT is charged', async () => {
-    apiQuery.mockResolvedValue({ vatStatus: 'not_registered' });
-    const { default: ReportsPage } = await import('./page');
+    apiQuery.mockResolvedValue({ jurisdiction: null, vatStatus: 'not_registered' });
     renderWithQuery(<ReportsPage />);
 
     fireEvent.click(await screen.findByRole('tab', { name: 'Annee fiscale' }));
@@ -99,8 +101,7 @@ describe('ReportsPage', () => {
   });
 
   it('shows the VAT return to a VAT-registered workspace', async () => {
-    apiQuery.mockResolvedValue({ vatStatus: 'registered' });
-    const { default: ReportsPage } = await import('./page');
+    apiQuery.mockResolvedValue({ jurisdiction: null, vatStatus: 'registered' });
     renderWithQuery(<ReportsPage />);
 
     fireEvent.click(await screen.findByRole('tab', { name: 'Declaration TVA' }));

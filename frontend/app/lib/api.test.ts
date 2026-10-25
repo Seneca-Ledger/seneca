@@ -54,7 +54,7 @@ describe('api single-flight refresh', () => {
     Object.defineProperty(window, 'location', {
       configurable: true,
       writable: true,
-      value: { href: '' } as Location,
+      value: { href: '', pathname: '/dashboard' } as Location,
     });
   });
 
