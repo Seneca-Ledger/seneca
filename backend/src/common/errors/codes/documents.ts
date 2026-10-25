@@ -90,6 +90,7 @@ export const DOCUMENTS_ERRORS = {
   EXPENSE_TAX_RATE_NOT_FOUND: 'Tax rate not found',
   // ── receipts ────────────────────────────────────────────────────────────
   RECEIPT_NOT_FOUND: 'Receipt not found',
+  RECEIPT_ORIGINAL_NOT_FOUND: 'Original receipt not found',
   RECEIPT_SCAN_NO_FILES: 'No receipt files provided',
   // The reason is the OCR / validation text recorded on the failed scan.
   RECEIPT_SCAN_FAILED: '{{reason}}',
