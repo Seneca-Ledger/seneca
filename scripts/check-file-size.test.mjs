@@ -94,6 +94,6 @@ test('compares a branch with its merge base in CI mode', () => {
 
 test('says to split the file into hooks and helpers', () => {
   const message = report([{ file: 'frontend/app/x.ts', lines: 320, before: null }]);
-  assert.match(message, /^✖ Разбей на хуки\/хелперы/);
-  assert.match(message, /frontend\/app\/x\.ts: 320 строк кода/);
+  assert.match(message, /^✖ Split it into hooks\/helpers/);
+  assert.match(message, /frontend\/app\/x\.ts: 320 lines of code/);
 });

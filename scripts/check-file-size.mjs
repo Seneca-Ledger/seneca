@@ -94,16 +94,16 @@ export function findOversized(cwd, options) {
 export function report(oversized) {
   const rows = oversized.map(({ file, lines, before }) =>
     before === null
-      ? `  ${file}: ${lines} строк кода (новый файл, лимит ${MAX_CODE_LINES})`
-      : `  ${file}: ${lines} строк кода (было ${before}, лимит ${MAX_CODE_LINES} — файл не должен расти)`,
+      ? `  ${file}: ${lines} lines of code (new file, limit ${MAX_CODE_LINES})`
+      : `  ${file}: ${lines} lines of code (was ${before}, limit ${MAX_CODE_LINES}; it must not grow)`,
   );
   return [
-    '✖ Разбей на хуки/хелперы.',
+    '✖ Split it into hooks/helpers.',
     '',
     ...rows,
     '',
-    'Вынеси логику в хуки (hooks/), хелперы (helpers/, utils/) или lib/.',
-    'Пустые строки и комментарии не считаются.',
+    'Move the logic into hooks (hooks/), helpers (helpers/, utils/) or lib/.',
+    'Blank lines and comments are not counted.',
   ].join('\n');
 }
 
