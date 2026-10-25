@@ -16,7 +16,7 @@ import { appError } from '@/common/errors/app-error';
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
 
 // Same name for the schema and its type, as in packages/contracts: under
-// Babel the parameter's design type then resolves to the schema object.
+// Jest's transform the parameter's design type then resolves to the schema object.
 const Body = Schema.Struct({
   name: Schema.String.check(Schema.isBetweenLength(1, 5)),
   amount: Schema.optional(Schema.NullOr(Schema.Number)),

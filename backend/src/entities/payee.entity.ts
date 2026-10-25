@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Category } from './category.entity';
@@ -34,7 +35,7 @@ export class Payee {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   @Index()
@@ -50,7 +51,7 @@ export class Payee {
   // SET NULL rather than CASCADE: deleting a category drops the pin, not the payee.
   @ManyToOne(() => Category, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   /** The pinned category, read only when `mode` is `always`. */
   @Column({ name: 'category_id', type: 'uuid', nullable: true })

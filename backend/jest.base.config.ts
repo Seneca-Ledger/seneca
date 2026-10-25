@@ -1,11 +1,9 @@
 import type { Config } from 'jest';
 import * as path from 'path';
 
-// Already-compiled ESM packages Jest has to turn into CommonJS. They need only
-// that: the app's Babel config (legacy decorators) would lower their classes
-// and choke on static blocks, and takes ~6 s on unpdf's 1.7 MB pdf.js bundle,
-// past Jest's 5 s test timeout. @nestjs/* ship ESM from v12 (the app itself
-// loads them through Node's require(esm)); unpdf loads pdf.js with import().
+// ESM-only packages Jest has to turn into CommonJS (see swc-esm-transform.js).
+// @nestjs/* ship ESM from v12 (the app itself loads them through Node's
+// require(esm)); unpdf loads its pdf.js bundle with import().
 const ESM_PACKAGES = [
   '@nestjs',
   'unpdf',
@@ -16,7 +14,28 @@ const ESM_PACKAGES = [
   'is-stream',
   '@scure',
   '@noble',
+  'otplib',
+  '@otplib',
+  'effect',
+  '@effect',
 ].join('|');
+
+// The app's TypeScript, compiled the way tsc builds it: legacy decorators with
+// their design:type metadata (Nest DI, TypeORM, class-validator) and class
+// fields assigned, not defined, so they do not replace what decorators put on
+// the prototype. Relation properties are typed Relation<T> so their metadata
+// does not touch the related class (circular entity imports).
+const APP_SWC = {
+  jsc: {
+    parser: { syntax: 'typescript', decorators: true },
+    transform: { legacyDecorator: true, decoratorMetadata: true, useDefineForClassFields: false },
+    target: 'es2022',
+    keepClassNames: true,
+  },
+  module: { type: 'commonjs' },
+};
+
+const ESM_TRANSFORM = path.join(__dirname, '@tests/support/swc-esm-transform.js');
 
 const baseConfig: Config = {
   testEnvironment: 'node',
@@ -31,26 +50,12 @@ const baseConfig: Config = {
   },
   clearMocks: true,
   transform: {
-    [`/node_modules/(${ESM_PACKAGES})/.+\\.[cm]?js$`]: [
-      'babel-jest',
-      {
-        configFile: false,
-        babelrc: false,
-        compact: true,
-        // CommonJS files of these packages (or their deps) stay as they are.
-        sourceType: 'unambiguous',
-        plugins: [
-          path.join(__dirname, '@tests/support/babel-esm-to-cjs.js'),
-          '@babel/plugin-transform-modules-commonjs',
-          '@babel/plugin-transform-dynamic-import',
-        ],
-      },
-    ],
-    '^.+\\.(t|j)sx?$': ['babel-jest', { rootMode: 'upward' }],
+    // Listed first: Jest takes the first pattern that matches.
+    '/node_modules/unpdf/.+\\.[cm]?js$': [ESM_TRANSFORM, { isModule: true }],
+    [`/node_modules/(${ESM_PACKAGES})/.+\\.[cm]?js$`]: ESM_TRANSFORM,
+    '^.+\\.(t|j)sx?$': ['@swc/jest', APP_SWC],
   },
-  // otplib and its crypto/base32 plugins and effect ship ESM only, so they need transforming too
-  // (with the app's config, above), as do ESM_PACKAGES.
-  transformIgnorePatterns: [`/node_modules/(?!(otplib|@otplib|effect|@effect|${ESM_PACKAGES})/)`],
+  transformIgnorePatterns: [`/node_modules/(?!(${ESM_PACKAGES})/)`],
 };
 
 export default baseConfig;

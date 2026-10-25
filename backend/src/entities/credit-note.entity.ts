@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Client } from './client.entity';
@@ -39,14 +40,14 @@ export class CreditNote {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Client, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'client_id' })
-  client: Client;
+  client: Relation<Client>;
 
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
@@ -99,13 +100,13 @@ export class CreditNote {
     () => CreditNoteLineItem,
     lineItem => lineItem.creditNote,
   )
-  lineItems: CreditNoteLineItem[];
+  lineItems: Relation<CreditNoteLineItem[]>;
 
   @OneToMany(
     () => CreditNoteApplication,
     application => application.creditNote,
   )
-  applications: CreditNoteApplication[];
+  applications: Relation<CreditNoteApplication[]>;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

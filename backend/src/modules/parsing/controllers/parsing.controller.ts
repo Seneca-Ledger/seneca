@@ -21,7 +21,7 @@ import { multerConfig } from '../../../config/multer.config';
 import { ParseDocumentBody } from '../../../contracts';
 import { UniversalExtractorService } from '../services/universal-extractor.service';
 
-// Local type alias prevents babel-plugin-transform-typescript-metadata from emitting
+// Local type alias keeps the decorator-metadata transform from emitting
 // the ambient `Express` namespace as a runtime expression in decorator metadata.
 type MulterFile = Express.Multer.File;
 

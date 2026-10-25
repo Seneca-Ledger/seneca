@@ -5,7 +5,7 @@ import * as path from 'node:path';
  * With strictNullChecks, tsc emits `Object` as the design type of a property
  * declared `string | null`, and TypeORM cannot infer a column type from it:
  * the app (and every migration run) fails at startup with
- * `DataTypeNotSupportedError`. Jest compiles with Babel, whose metadata differs,
+ * `DataTypeNotSupportedError`. Jest compiles with SWC, not tsc, so its metadata can differ,
  * so no other unit test notices. A column whose property type is a union must
  * name its type.
  */

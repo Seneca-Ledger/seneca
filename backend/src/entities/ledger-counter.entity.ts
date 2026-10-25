@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn, type Relation } from 'typeorm';
 import { Workspace } from './workspace.entity';
 
 /**
@@ -13,7 +13,7 @@ export class LedgerCounter {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   /** bigint comes back from the driver as a string. */
   @Column({ name: 'next_entry_no', type: 'bigint', default: 1 })
