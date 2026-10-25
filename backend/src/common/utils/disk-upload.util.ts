@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { BadRequestException } from '@nestjs/common';
+import { appError } from '../errors/app-error';
 import { resolveUploadsDir } from './uploads.util';
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -40,14 +41,16 @@ export async function writeBase64Upload(
   maxBytes: number,
 ): Promise<Express.Multer.File> {
   if (!BASE64.test(base64)) {
-    throw new BadRequestException('The file content is not valid base64');
+    throw new BadRequestException(appError('FILE_BASE64_INVALID'));
   }
   const buffer = Buffer.from(base64, 'base64');
   if (buffer.length === 0) {
-    throw new BadRequestException('The file is empty');
+    throw new BadRequestException(appError('FILE_EMPTY'));
   }
   if (buffer.length > maxBytes) {
-    throw new BadRequestException(`The file exceeds ${Math.floor(maxBytes / 1024 / 1024)} MB`);
+    throw new BadRequestException(
+      appError('FILE_TOO_LARGE_MB', { limit: Math.floor(maxBytes / 1024 / 1024) }),
+    );
   }
   const extension = extname(fileName).toLowerCase();
   const uploadsDir = resolveUploadsDir();

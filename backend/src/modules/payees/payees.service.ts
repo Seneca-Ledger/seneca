@@ -9,6 +9,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { type DataSource, In, IsNull, LessThan, Not, Or, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import {
   PRIVACY_VIEWER_PARAM,
   readablePrivateSql,
@@ -109,7 +110,7 @@ export class PayeesService {
   ): Promise<PayeeView> {
     const { data } = await this.views(workspaceId, { id }, 1, 1, viewerMemberId);
     if (!data[0]) {
-      throw new NotFoundException('Payee not found');
+      throw new NotFoundException(appError('PAYEE_NOT_FOUND'));
     }
     return data[0];
   }
@@ -252,7 +253,7 @@ export class PayeesService {
     if (dto.name != null) {
       const name = dto.name.trim();
       if (!name) {
-        throw new BadRequestException('A payee needs a name');
+        throw new BadRequestException(appError('PAYEE_NAME_REQUIRED'));
       }
       const taken = await this.payeeRepository
         .createQueryBuilder('payee')
@@ -262,11 +263,7 @@ export class PayeesService {
         .getOne();
       if (taken) {
         // Two payees with one name are one payee: the client offers a merge.
-        throw new ConflictException({
-          code: 'PAYEE_NAME_TAKEN',
-          message: 'Another payee already has this name',
-          payeeId: taken.id,
-        });
+        throw new ConflictException({ ...appError('PAYEE_NAME_TAKEN'), payeeId: taken.id });
       }
       payee.name = name;
     }
@@ -277,7 +274,7 @@ export class PayeesService {
     const mode = toEnum(PayeeMode, dto.mode) ?? payee.mode;
     const categoryId = dto.categoryId !== undefined ? dto.categoryId : payee.categoryId;
     if (mode === PayeeMode.ALWAYS && !categoryId) {
-      throw new BadRequestException('Pick the category this payee always gets');
+      throw new BadRequestException(appError('PAYEE_CATEGORY_REQUIRED'));
     }
     payee.mode = mode;
     // A pin means nothing outside "always"; keeping it would resurface later.
@@ -400,7 +397,7 @@ export class PayeesService {
     return this.dataSource.transaction(async manager => {
       const target = await manager.findOne(Payee, { where: { id: targetId, workspaceId } });
       if (!target) {
-        throw new NotFoundException('Payee not found');
+        throw new NotFoundException(appError('PAYEE_NOT_FOUND'));
       }
       const sources = await manager.find(Payee, {
         where: { id: In(dto.sourceIds.filter(sourceId => sourceId !== targetId)), workspaceId },
@@ -458,7 +455,7 @@ export class PayeesService {
       where: { id: transactionId, workspaceId },
     });
     if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
     const payee = dto.payeeId
       ? await this.findPayee(workspaceId, dto.payeeId)
@@ -557,7 +554,7 @@ export class PayeesService {
   private async findPayee(workspaceId: string, id: string): Promise<Payee> {
     const payee = await this.payeeRepository.findOne({ where: { id, workspaceId } });
     if (!payee) {
-      throw new NotFoundException('Payee not found');
+      throw new NotFoundException(appError('PAYEE_NOT_FOUND'));
     }
     return payee;
   }
@@ -565,7 +562,7 @@ export class PayeesService {
   private async findCategory(workspaceId: string, id: string): Promise<Category> {
     const category = await this.categoryRepository.findOne({ where: { id, workspaceId } });
     if (!category) {
-      throw new BadRequestException('Category not found in this workspace');
+      throw new BadRequestException(appError('PAYEE_CATEGORY_NOT_FOUND'));
     }
     return category;
   }
@@ -573,7 +570,7 @@ export class PayeesService {
   private async findOrCreateByName(workspaceId: string, raw: string): Promise<Payee> {
     const name = raw.trim();
     if (!name) {
-      throw new BadRequestException('A payee needs a name');
+      throw new BadRequestException(appError('PAYEE_NAME_REQUIRED'));
     }
     const existing = await this.payeeRepository
       .createQueryBuilder('payee')

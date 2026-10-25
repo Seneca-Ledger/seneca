@@ -12,6 +12,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, type QueryDeepPartialEntity, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import type { CaptureLocation } from '../../common/utils/capture-location.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
@@ -330,7 +331,7 @@ export class ReceiptsService {
     }
     const target = await this.findReceiptTransaction(receipt, workspaceId);
     if (!target) {
-      throw new ConflictException('The receipt has no transaction to tax yet');
+      throw new ConflictException(appError('RECEIPT_NO_TRANSACTION_TO_TAX'));
     }
     if (target.taxLocked) {
       throw taxLockedConflict(1);
@@ -340,7 +341,7 @@ export class ReceiptsService {
         .getRepository(TaxRate)
         .exists({ where: { id: taxRateId, workspaceId } });
       if (!owned) {
-        throw new NotFoundException('Tax rate not found');
+        throw new NotFoundException(appError('RECEIPT_TAX_RATE_NOT_FOUND'));
       }
     }
 
@@ -621,7 +622,7 @@ export class ReceiptsService {
       if (attachTo) {
         const target = await transactions.findOne({ where: { id: attachTo, workspaceId } });
         if (!target) {
-          throw new NotFoundException('Transaction to attach to was not found');
+          throw new NotFoundException(appError('RECEIPT_ATTACH_TARGET_NOT_FOUND'));
         }
         const taken = await receipts.findOne({
           where: { transactionId: attachTo, workspaceId },
@@ -630,7 +631,7 @@ export class ReceiptsService {
           },
         });
         if (taken && taken.id !== receipt.id) {
-          throw new ConflictException('Another receipt is already attached to that transaction');
+          throw new ConflictException(appError('RECEIPT_TRANSACTION_TAKEN'));
         }
         // The bank row is the real payment; the transaction the scan booked
         // would count it twice. Flagged, not deleted, like any duplicate.
@@ -1108,7 +1109,7 @@ export class ReceiptsService {
     // Without its own date the expense would be booked on the day it was
     // approved. Attaching to a bank row needs none: the bank's date stands.
     if (!receipt.parsedData?.date) {
-      throw new BadRequestException('Set the receipt date before approving it');
+      throw new BadRequestException(appError('RECEIPT_DATE_REQUIRED'));
     }
     return receiptTransactionFields(receipt, workspaceId, workspaceCurrency, categoryId);
   }

@@ -4,6 +4,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import type {
   Metal,
@@ -183,12 +184,12 @@ export class MetalsService {
     workspaceId: string,
     dto: UpsertMetalLotBody,
   ): Promise<MetalLotView> {
-    if (!dto.metal) throw new BadRequestException('A lot needs a metal');
+    if (!dto.metal) throw new BadRequestException(appError('METALS_LOT_METAL_REQUIRED'));
     if (!dto.unitWeight || dto.unitWeight <= 0) {
-      throw new BadRequestException('A lot needs the weight of one piece');
+      throw new BadRequestException(appError('METALS_WEIGHT_REQUIRED'));
     }
     const quantity = dto.quantity ?? 1;
-    if (quantity <= 0) throw new BadRequestException('A lot needs at least one piece');
+    if (quantity <= 0) throw new BadRequestException(appError('METALS_LOT_PIECES_REQUIRED'));
 
     const account = await this.ensureMetalsAccount(workspaceId, userId);
     const currency = await this.workspaceCurrency(workspaceId);
@@ -241,11 +242,11 @@ export class MetalsService {
     if (dto.metal !== undefined) lot.metal = toEnum(InvestmentMetal, dto.metal);
     if (dto.name != null) lot.name = dto.name;
     if (dto.quantity != null) {
-      if (dto.quantity <= 0) throw new BadRequestException('A lot needs at least one piece');
+      if (dto.quantity <= 0) throw new BadRequestException(appError('METALS_LOT_PIECES_REQUIRED'));
       lot.quantity = dto.quantity;
     }
     if (dto.unitWeight != null) {
-      if (dto.unitWeight <= 0) throw new BadRequestException('A lot needs the weight of one piece');
+      if (dto.unitWeight <= 0) throw new BadRequestException(appError('METALS_WEIGHT_REQUIRED'));
       lot.unitWeight = dto.unitWeight;
     }
     if (dto.weightUnit !== undefined) lot.weightUnit = toEnum(MetalWeightUnit, dto.weightUnit);
@@ -323,8 +324,8 @@ export class MetalsService {
     const lot = await this.requireLot(workspaceId, lotId);
     const held = Number(lot.quantity);
     const pieces = dto.quantity ?? held;
-    if (!(pieces > 0)) throw new BadRequestException('A sale needs at least one piece');
-    if (pieces > held) throw new BadRequestException('The lot does not hold that many pieces');
+    if (!(pieces > 0)) throw new BadRequestException(appError('METALS_SALE_PIECES_REQUIRED'));
+    if (pieces > held) throw new BadRequestException(appError('METALS_SALE_EXCEEDS_LOT'));
 
     const currency = await this.workspaceCurrency(workspaceId);
     const share = pieces / held;
@@ -699,7 +700,7 @@ export class MetalsService {
         id: true,
       },
     });
-    if (!receipt) throw new NotFoundException('Receipt not found');
+    if (!receipt) throw new NotFoundException(appError('METALS_RECEIPT_NOT_FOUND'));
     return receipt.id;
   }
 
@@ -711,7 +712,7 @@ export class MetalsService {
         id: true,
       },
     });
-    if (!member) throw new NotFoundException('Workspace member not found');
+    if (!member) throw new NotFoundException(appError('METALS_MEMBER_NOT_FOUND'));
     return userId;
   }
 
@@ -739,7 +740,7 @@ export class MetalsService {
     const section = await this.accountRepository.findOne({
       where: { workspaceId, code: INVESTMENTS_SECTION_CODE },
     });
-    if (!section) throw new NotFoundException('Investments section not found');
+    if (!section) throw new NotFoundException(appError('INVESTMENTS_SECTION_NOT_FOUND'));
     const created = await this.balanceService.createCustomAccount(userId, workspaceId, {
       name: METALS_ACCOUNT_NAME,
       nameEn: METALS_ACCOUNT_NAME,
@@ -756,7 +757,7 @@ export class MetalsService {
     const lot = await this.holdingRepository.findOne({
       where: { id: lotId, workspaceId, metal: Not(IsNull()) },
     });
-    if (!lot) throw new NotFoundException('Metal lot not found');
+    if (!lot) throw new NotFoundException(appError('METALS_LOT_NOT_FOUND'));
     return lot;
   }
 

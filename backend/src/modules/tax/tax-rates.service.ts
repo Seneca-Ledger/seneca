@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder } from 'typeorm';
 import { IsNull, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
 import type { CreateTaxRateBody, UpdateTaxRateBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
@@ -150,7 +151,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
   ): Promise<TaxRate> {
     const name = createDto.name.trim();
     if (!name) {
-      throw new BadRequestException('Tax rate name is required');
+      throw new BadRequestException(appError('TAX_RATE_NAME_REQUIRED'));
     }
 
     const duplicate = await this.repository.findOne({
@@ -158,7 +159,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
     });
 
     if (duplicate) {
-      throw new BadRequestException('Tax rate with this name already exists');
+      throw new BadRequestException(appError('TAX_RATE_NAME_TAKEN'));
     }
 
     // Hand-made rates carry no statutory lineage, so they span the whole
@@ -206,7 +207,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
     if (updateDto.name != null) {
       const normalizedName = updateDto.name.trim();
       if (!normalizedName) {
-        throw new BadRequestException('Tax rate name is required');
+        throw new BadRequestException(appError('TAX_RATE_NAME_REQUIRED'));
       }
 
       const duplicate = await this.repository.findOne({
@@ -214,7 +215,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       });
 
       if (duplicate && duplicate.id !== id) {
-        throw new BadRequestException('Tax rate with this name already exists');
+        throw new BadRequestException(appError('TAX_RATE_NAME_TAKEN'));
       }
 
       taxRate.name = normalizedName;
@@ -268,7 +269,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
     const currentFrom = String(current.validFrom).slice(0, 10);
     const currentTo = current.validTo ? String(current.validTo).slice(0, 10) : null;
     if (!(currentFrom < from && (currentTo === null || currentTo >= from))) {
-      throw new BadRequestException('The rate is not in force on that date');
+      throw new BadRequestException(appError('TAX_RATE_NOT_IN_FORCE'));
     }
     const before = this.snapshotTaxRate(current);
     const dayBefore = new Date(`${from}T00:00:00Z`);

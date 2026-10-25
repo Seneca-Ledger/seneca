@@ -10,6 +10,7 @@ import {
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
+import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import {
@@ -81,7 +82,7 @@ export class DashboardController {
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     if (month !== undefined && !parseMonthWindow(month)) {
-      throw new BadRequestException('month must be YYYY-MM');
+      throw new BadRequestException(appError('DASHBOARD_MONTH_INVALID'));
     }
     return this.dashboardService.getTrends(workspaceId, days, month, selfMemberId ?? null);
   }

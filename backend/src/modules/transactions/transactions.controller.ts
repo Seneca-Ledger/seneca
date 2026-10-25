@@ -23,6 +23,7 @@ import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
 import { parseOwnerFilter } from '../../common/utils/transaction-owner.util';
@@ -261,9 +262,7 @@ export class TransactionsController {
     } else {
       // BadRequestException, not Error: a plain Error leaves the exception
       // filter with nothing to map and the client gets a 500 for bad input.
-      throw new BadRequestException(
-        'Invalid bulk update format. Expected {items} or {ids, updates}',
-      );
+      throw new BadRequestException(appError('TRANSACTION_BULK_UPDATE_FORMAT'));
     }
 
     return redactPrivateRows(

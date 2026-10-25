@@ -10,6 +10,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, MoreThanOrEqual, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql, flowsSql } from '../../common/utils/counted-transactions.util';
 import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
@@ -135,9 +136,7 @@ export class BudgetsService {
     });
 
     if (existing) {
-      throw new ConflictException(
-        `Budget for this category with period "${dto.periodType}" already exists`,
-      );
+      throw new ConflictException(appError('BUDGET_ALREADY_EXISTS', { period: dto.periodType }));
     }
 
     assertWindowOrdered(dto.startsOn, dto.endsOn);
@@ -940,7 +939,7 @@ function assertWindowOrdered(
   endsOn: string | null | undefined,
 ): void {
   if (startsOn && endsOn && startsOn > endsOn) {
-    throw new BadRequestException('Budget "endsOn" must not be earlier than "startsOn"');
+    throw new BadRequestException(appError('BUDGET_WINDOW_INVALID'));
   }
 }
 

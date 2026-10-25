@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { IsNull, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import type {
   ChangeEmailBody,
@@ -96,7 +97,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(appError('USER_NOT_FOUND'));
     }
 
     return user;
@@ -115,9 +116,7 @@ export class UsersService {
           'user.workspaceMemberships',
           'membership',
           'membership.workspaceId = :workspaceId',
-          {
-            workspaceId,
-          },
+          { workspaceId },
         )
         .where('user.deletedAt IS NULL')
         .orderBy('user.createdAt', 'DESC')
@@ -158,7 +157,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(appError('USER_NOT_FOUND'));
     }
 
     return user;
@@ -167,7 +166,7 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserBody, currentUser: User): Promise<User> {
     // Only admins can update users
     if (currentUser.role !== UserRole.ADMIN && currentUser.id !== id) {
-      throw new ForbiddenException('You can only update your own profile');
+      throw new ForbiddenException(appError('USER_PROFILE_UPDATE_OWN_ONLY'));
     }
 
     const user = await this.findOne(id);
@@ -189,7 +188,8 @@ export class UsersService {
         p => !validPermissions.includes(p as Permission),
       );
       if (invalidPermissions.length > 0) {
-        throw new BadRequestException(`Invalid permissions: ${invalidPermissions.join(', ')}`);
+        const permissions = invalidPermissions.join(', ');
+        throw new BadRequestException(appError('USER_PERMISSIONS_INVALID', { permissions }));
       }
     }
 
@@ -227,12 +227,12 @@ export class UsersService {
   async remove(id: string, currentUser: User): Promise<void> {
     // Only admins can delete users
     if (currentUser.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only admins can delete users');
+      throw new ForbiddenException(appError('USER_DELETE_ADMIN_ONLY'));
     }
 
     // Prevent self-deletion
     if (currentUser.id === id) {
-      throw new ForbiddenException('You cannot delete your own account');
+      throw new ForbiddenException(appError('USER_DELETE_SELF_FORBIDDEN'));
     }
 
     const target = await this.findOne(id);
@@ -337,7 +337,7 @@ export class UsersService {
     const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new ForbiddenException('Current password is incorrect');
+      throw new ForbiddenException(appError('AUTH_CURRENT_PASSWORD_INCORRECT'));
     }
 
     await this.emailChangeService.requestEmailChange(user, dto.email);
@@ -349,7 +349,7 @@ export class UsersService {
     const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new ForbiddenException('Current password is incorrect');
+      throw new ForbiddenException(appError('AUTH_CURRENT_PASSWORD_INCORRECT'));
     }
 
     user.passwordHash = await hashPassword(dto.newPassword);

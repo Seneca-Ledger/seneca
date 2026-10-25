@@ -28,6 +28,7 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
@@ -172,7 +173,7 @@ export class StatementsController {
     @WorkspaceId() workspaceId: string,
   ) {
     if (!files?.length) {
-      throw new BadRequestException('No files provided');
+      throw new BadRequestException(appError('UPLOAD_NO_FILES'));
     }
 
     try {
@@ -208,7 +209,7 @@ export class StatementsController {
     @WorkspaceId() workspaceId: string,
   ) {
     if (!this.isUploadedFile(file)) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException(appError('UPLOAD_NO_FILE'));
     }
 
     await validateFiles([file]);
@@ -224,11 +225,11 @@ export class StatementsController {
     returnUnwrappedSingle: boolean,
   ) {
     if (!files || files.length === 0) {
-      throw new BadRequestException('No files provided');
+      throw new BadRequestException(appError('UPLOAD_NO_FILES'));
     }
 
     if (files.length > 2) {
-      throw new BadRequestException('Maximum 2 files allowed');
+      throw new BadRequestException(appError('STATEMENT_UPLOAD_TOO_MANY_FILES'));
     }
 
     // Check idempotency key if provided

@@ -117,9 +117,7 @@ export class TaxReturnsService {
   ): Promise<ReturnTotals> {
     const jurisdiction = await this.adoptionService.getCurrentJurisdiction(workspaceId);
     if (!jurisdiction) {
-      throw new BadRequestException(
-        'This workspace has no tax jurisdiction. Pick a country before building a return.',
-      );
+      throw new BadRequestException(appError('TAX_RETURN_NO_JURISDICTION'));
     }
 
     const transactions = await this.transactionRepository.find({
@@ -231,7 +229,7 @@ export class TaxReturnsService {
     periodEnd: string,
   ): Promise<TaxReturn> {
     if (periodEnd < periodStart) {
-      throw new BadRequestException('Period end must not be before period start');
+      throw new BadRequestException(appError('TAX_RETURN_PERIOD_INVALID'));
     }
 
     const existing = await this.returnRepository.findOne({
@@ -282,7 +280,7 @@ export class TaxReturnsService {
     });
 
     if (existing?.status === TaxReturnStatus.FILED) {
-      throw new ConflictException('This period has already been filed');
+      throw new ConflictException(appError('TAX_RETURN_ALREADY_FILED'));
     }
 
     const totals = await this.computeTotals(workspaceId, periodStart, periodEnd);
@@ -360,7 +358,7 @@ export class TaxReturnsService {
     });
 
     if (!existing || existing.status !== TaxReturnStatus.FILED) {
-      throw new BadRequestException('This period is not filed');
+      throw new BadRequestException(appError('TAX_RETURN_NOT_FILED'));
     }
 
     const lockedIds = (existing.snapshot ?? []).map(line => line.transactionId);

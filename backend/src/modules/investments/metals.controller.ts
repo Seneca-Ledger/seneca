@@ -21,6 +21,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   MetalReceiptList,
@@ -164,7 +165,7 @@ export class MetalsController {
     @Param('id') id: string,
     @UploadedFile() file: UploadedPhoto | undefined,
   ) {
-    if (!file) throw new BadRequestException('No photo uploaded');
+    if (!file) throw new BadRequestException(appError('METALS_PHOTO_NOT_UPLOADED'));
     return this.metalsService.setPhoto(workspaceId, id, file.filename);
   }
 

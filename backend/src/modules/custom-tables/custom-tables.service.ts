@@ -97,6 +97,7 @@ import {
   collectFieldRefs,
   evaluateFormula,
   evaluateFormulaDetailed,
+  FormulaError,
   type FormulaResultType,
   type FormulaValue,
   inferFormulaResultType,
@@ -2536,7 +2537,7 @@ export class CustomTablesService {
         { selfKey },
       );
     } catch (error) {
-      throw new BadRequestException(error instanceof Error ? error.message : 'Invalid formula');
+      throw new BadRequestException(appError(...FormulaError.argsOf(error)));
     }
 
     const refsByKey = new Map<string, string[]>();
@@ -3104,7 +3105,7 @@ export class CustomTablesService {
       try {
         assertValidFormula(expression, keys);
       } catch (error) {
-        throw new BadRequestException(error instanceof Error ? error.message : 'Invalid formula');
+        throw new BadRequestException(appError(...FormulaError.argsOf(error)));
       }
       return { id: item.id?.trim() || randomUUID(), title: item.title.trim(), expression };
     });

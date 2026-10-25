@@ -17,6 +17,7 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
@@ -133,7 +134,7 @@ export class BackupsController {
   }
 
   private requiredFile(file: MulterFile | undefined): Buffer {
-    if (!file?.buffer?.length) throw new BadRequestException('Backup file is required');
+    if (!file?.buffer?.length) throw new BadRequestException(appError('BACKUP_FILE_REQUIRED'));
     return file.buffer;
   }
 }

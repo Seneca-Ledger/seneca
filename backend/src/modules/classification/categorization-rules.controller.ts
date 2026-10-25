@@ -16,6 +16,7 @@ import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspac
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
 import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
@@ -99,7 +100,7 @@ export class CategorizationRulesController {
     });
 
     if (!rule) {
-      throw new NotFoundException('Categorization rule not found');
+      throw new NotFoundException(appError('CATEGORIZATION_RULE_NOT_FOUND'));
     }
 
     return rule;
@@ -168,7 +169,7 @@ export class CategorizationRulesController {
     });
 
     if (!rule) {
-      throw new NotFoundException('Categorization rule not found');
+      throw new NotFoundException(appError('CATEGORIZATION_RULE_NOT_FOUND'));
     }
 
     const before = this.toAuditSnapshot(rule);
@@ -231,7 +232,7 @@ export class CategorizationRulesController {
     });
 
     if (!rule) {
-      throw new NotFoundException('Categorization rule not found');
+      throw new NotFoundException(appError('CATEGORIZATION_RULE_NOT_FOUND'));
     }
 
     await this.categorizationRuleRepository.remove(rule);

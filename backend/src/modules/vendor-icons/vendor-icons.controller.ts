@@ -10,6 +10,7 @@ import {
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { appError } from '../../common/errors/app-error';
 import { VendorIconsService } from './vendor-icons.service';
 
 // No workspace scope: an icon carries no tenant data. The global JwtAuthGuard
@@ -30,15 +31,15 @@ export class VendorIconsController {
   async getIcon(@Param('domain') domain: string, @Res() res: Response) {
     const icon = await this.vendorIconsService.fetchIcon(domain);
     if (icon.status === 'invalid') {
-      throw new BadRequestException('Not a vendor domain');
+      throw new BadRequestException(appError('VENDOR_ICON_DOMAIN_INVALID'));
     }
     // 404 rather than a placeholder: it fires the <img> error handler, which is
     // how the client falls back to initials.
     if (icon.status === 'missing') {
-      throw new NotFoundException('No icon for this vendor');
+      throw new NotFoundException(appError('VENDOR_ICON_NOT_FOUND'));
     }
     if (icon.status === 'unavailable') {
-      throw new BadGatewayException('Vendor icons are unavailable');
+      throw new BadGatewayException(appError('VENDOR_ICONS_UNAVAILABLE'));
     }
 
     res.setHeader('Content-Type', icon.contentType);

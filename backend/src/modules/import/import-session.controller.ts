@@ -14,6 +14,7 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { CommitImportBody } from '../../contracts';
 import { Statement, StatementStatus } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -37,7 +38,7 @@ export class ImportSessionController {
   async getSessionSummary(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const session = await this.importSessionService.getSession(id);
     if (session.workspaceId !== workspaceId) {
-      throw new NotFoundException('Import session not found');
+      throw new NotFoundException(appError('IMPORT_SESSION_NOT_FOUND'));
     }
     return this.importSessionService.getSessionSummary(id);
   }
@@ -50,7 +51,7 @@ export class ImportSessionController {
     });
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
 
     // Nothing else to check: this is a read endpoint (STATEMENT_VIEW), so it
@@ -75,7 +76,7 @@ export class ImportSessionController {
     });
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
 
     const importPreview = statement.parsingDetails?.importPreview as
@@ -101,7 +102,7 @@ export class ImportSessionController {
           importCommit: statement.parsingDetails?.importCommit ?? null,
         };
       }
-      throw new BadRequestException('Import preview session not found');
+      throw new BadRequestException(appError('IMPORT_PREVIEW_SESSION_NOT_FOUND'));
     }
 
     if (body?.resolutions) {
@@ -122,7 +123,7 @@ export class ImportSessionController {
   async cancelSession(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const session = await this.importSessionService.getSession(id);
     if (session.workspaceId !== workspaceId) {
-      throw new NotFoundException('Import session not found');
+      throw new NotFoundException(appError('IMPORT_SESSION_NOT_FOUND'));
     }
     await this.importSessionService.cancelSession(id);
     return { cancelled: true };

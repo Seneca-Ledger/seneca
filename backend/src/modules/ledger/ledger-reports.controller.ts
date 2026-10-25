@@ -4,6 +4,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import {
   AccountLedger as AccountLedgerContract,
   AccountLedgerQuery,
@@ -21,7 +22,7 @@ import {
 
 function assertPeriod(query: LedgerPeriodQuery): void {
   if (query.dateFrom && query.dateTo && query.dateFrom > query.dateTo) {
-    throw new BadRequestException('dateFrom must not be after dateTo');
+    throw new BadRequestException(appError('LEDGER_REPORT_RANGE_INVALID'));
   }
 }
 

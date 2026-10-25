@@ -13,6 +13,7 @@ import * as bcrypt from 'bcrypt';
 import { createHmac, randomUUID } from 'crypto';
 import type { StringValue } from 'ms';
 import { IsNull, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { DEV_DEFAULTS } from '../../common/utils/dev-defaults';
 import { hashPassword } from '../../common/utils/password-hash.util';
@@ -207,12 +208,10 @@ export class AuthService {
 
     await this.validateInvitationForEmail(invitationToken, normalizedEmail);
 
-    const existingUser = await this.userRepository.findOne({
-      where: { email: normalizedEmail },
-    });
+    const existingUser = await this.userRepository.findOne({ where: { email: normalizedEmail } });
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException(appError('AUTH_EMAIL_TAKEN'));
     }
 
     const passwordHash = await hashPassword(registerDto.password);
@@ -269,17 +268,17 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(appError('AUTH_INVALID_CREDENTIALS'));
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('User account is inactive');
+      throw new UnauthorizedException(appError('AUTH_ACCOUNT_INACTIVE'));
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(appError('AUTH_INVALID_CREDENTIALS'));
     }
 
     if (user.twoFactorEnabledAt) {
@@ -305,21 +304,21 @@ export class AuthService {
     });
 
     if (!invitation) {
-      throw new BadRequestException('Invitation not found or already used');
+      throw new BadRequestException(appError('INVITATION_NOT_FOUND_OR_USED'));
     }
 
     if (invitation.status !== WorkspaceInvitationStatus.PENDING) {
-      throw new BadRequestException('Invitation is not pending');
+      throw new BadRequestException(appError('AUTH_INVITATION_NOT_PENDING'));
     }
 
     if (invitation.expiresAt && invitation.expiresAt.getTime() < Date.now()) {
       invitation.status = WorkspaceInvitationStatus.EXPIRED;
       await this.workspaceInvitationRepository.save(invitation);
-      throw new BadRequestException('Invitation has expired');
+      throw new BadRequestException(appError('INVITATION_EXPIRED'));
     }
 
     if (invitation.email.trim().toLowerCase() !== email) {
-      throw new BadRequestException('Email does not match invitation');
+      throw new BadRequestException(appError('AUTH_INVITATION_EMAIL_MISMATCH'));
     }
 
     return invitation;
@@ -359,7 +358,7 @@ export class AuthService {
       });
 
       if (payload.type !== 'refresh') {
-        throw new UnauthorizedException('Invalid token type');
+        throw new UnauthorizedException(appError('AUTH_TOKEN_TYPE_INVALID'));
       }
 
       const user = await this.userRepository.findOne({
@@ -367,16 +366,16 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new UnauthorizedException('User not found or inactive');
+        throw new UnauthorizedException(appError('AUTH_USER_NOT_FOUND_OR_INACTIVE'));
       }
 
       const tokenVersion = payload.tokenVersion ?? 0;
       if ((user.tokenVersion ?? 0) !== tokenVersion) {
-        throw new UnauthorizedException('Token has been revoked');
+        throw new UnauthorizedException(appError('AUTH_TOKEN_REVOKED'));
       }
 
       if (!payload.sessionId) {
-        throw new UnauthorizedException('Session is missing');
+        throw new UnauthorizedException(appError('AUTH_SESSION_MISSING'));
       }
 
       const session = await this.authSessionRepository.findOne({
@@ -388,12 +387,12 @@ export class AuthService {
       });
 
       if (!session) {
-        throw new UnauthorizedException('Session is not active');
+        throw new UnauthorizedException(appError('AUTH_SESSION_NOT_ACTIVE'));
       }
 
       const refreshTokenHash = this.hashRefreshToken(refreshToken);
       if (session.refreshTokenHash !== refreshTokenHash) {
-        throw new UnauthorizedException('Refresh token does not match session');
+        throw new UnauthorizedException(appError('AUTH_REFRESH_TOKEN_MISMATCH'));
       }
 
       const parsedDevice = this.parseUserAgent(
@@ -449,7 +448,7 @@ export class AuthService {
 
       return { access_token: accessToken, refresh_token: newRefreshToken };
     } catch (_error) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException(appError('AUTH_REFRESH_TOKEN_INVALID'));
     }
   }
 
@@ -522,7 +521,7 @@ export class AuthService {
     );
 
     if (!result.affected) {
-      throw new NotFoundException('Session not found');
+      throw new NotFoundException(appError('AUTH_SESSION_NOT_FOUND'));
     }
 
     await this.recordSessionRevocation(userId, { sessions: 'revoked', sessionId });

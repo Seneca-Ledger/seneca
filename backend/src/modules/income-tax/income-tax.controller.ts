@@ -5,6 +5,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
   IncomeTaxDisclaimer,
@@ -134,7 +135,7 @@ export class IncomeTaxController {
     @Res() res: Response,
   ): Promise<void> {
     if (format !== 'pdf' && format !== 'xlsx' && format !== 'csv') {
-      throw new BadRequestException("Format must be 'pdf', 'xlsx' or 'csv'");
+      throw new BadRequestException(appError('INCOME_TAX_EXPORT_FORMAT_INVALID'));
     }
 
     const { buffer, fileName, contentType } = await this.returnsService.export(
