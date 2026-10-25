@@ -164,5 +164,12 @@
   },
   "engines": {
     "node": ">=22.18"
-  }
+  },
+  "trustedDependencies": [
+    "@swc/core",
+    "bcrypt",
+    "msgpackr-extract",
+    "onnxruntime-node",
+    "protobufjs"
+  ]
 }

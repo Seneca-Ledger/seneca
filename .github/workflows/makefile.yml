@@ -23,17 +23,27 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
-        run: npm ci --prefix backend
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Install frontend deps
-        run: npm ci --prefix frontend
+        working-directory: frontend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Setup bootstrap checks
         run: |
