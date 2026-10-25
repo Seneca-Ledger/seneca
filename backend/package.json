@@ -16,14 +16,14 @@
     "format": "biome format --config-path=.. --write src/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run test:unit",
-    "test:unit": "jest --config jest.unit.config.ts",
-    "test:golden": "GOLDEN_ENABLED=1 jest --config jest.unit.config.ts --testMatch '<rootDir>/src/modules/parsing/__tests__/parsing.golden.spec.ts'",
+    "test:unit": "vitest run --project 'unit*'",
+    "test:golden": "GOLDEN_ENABLED=1 vitest run --project golden",
     "golden:record": "ts-node -r tsconfig-paths/register scripts/record-golden.ts",
-    "test:parsing": "jest --config jest.unit.config.ts @tests/unit/test/parsing-regression.spec.ts",
-    "test:e2e": "jest --config jest.e2e.config.ts --forceExit",
-    "test:ci": "npm run test:unit -- --runInBand && npm run test:e2e",
-    "test:watch": "jest --config jest.unit.config.ts --watch",
-    "test:cov": "jest --config jest.unit.config.ts --coverage",
+    "test:parsing": "vitest run --project 'unit*' @tests/unit/test/parsing-regression.spec.ts",
+    "test:e2e": "vitest run --project e2e",
+    "test:ci": "vitest run --project 'unit*' --no-file-parallelism --coverage && npm run test:e2e",
+    "test:watch": "vitest --project 'unit*'",
+    "test:cov": "vitest run --project 'unit*' --coverage",
     "typeorm": "typeorm-ts-node-commonjs -d src/data-source.ts",
     "migration:run": "npm run build:scripts && node scripts/run-migrations-with-lock.js",
     "migration:run:dev": "ts-node --transpile-only -r tsconfig-paths/register scripts/run-migrations.ts",
@@ -108,7 +108,7 @@
     "socket.io": "^4.8.3",
     "swagger-ui-express": "^5.0.1",
     "tesseract.js": "^7.0.0",
-    "typeorm": "^0.3.27",
+    "typeorm": "^1.1.2",
     "undici": "^7.30.1",
     "unpdf": "^1.9.1",
     "web-push": "^3.6.7",
@@ -116,20 +116,15 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
-    "@babel/core": "^7.28.6",
-    "@babel/plugin-proposal-class-properties": "^7.18.6",
-    "@babel/plugin-proposal-decorators": "^7.28.6",
-    "@babel/preset-env": "^7.28.6",
-    "@babel/preset-typescript": "^7.28.5",
     "@biomejs/biome": "^2.6.3",
     "@effect/language-service": "0.87.4",
     "@nestjs/cli": "^12.0.10",
     "@nestjs/schematics": "^12.0.10",
     "@nestjs/testing": "^12.2.0",
+    "@swc/core": "^1.16.20",
     "@types/archiver": "^8.0.0",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
-    "@types/jest": "^30.0.0",
     "@types/mailparser": "^3.4.6",
     "@types/multer": "^2.3.0",
     "@types/node": "^24.19.2",
@@ -140,14 +135,14 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/supertest": "^7.2.1",
-    "babel-jest": "^30.2.0",
-    "babel-plugin-transform-typescript-metadata": "^0.4.0",
-    "jest": "^30.2.0",
+    "@vitest/coverage-v8": "^5.0.5",
     "nodemon": "^3.1.11",
     "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "unplugin-swc": "^2.0.0",
+    "vitest": "^5.0.5"
   },
   "overrides": {
     "diff": "8.0.3",
@@ -169,5 +164,12 @@
   },
   "engines": {
     "node": ">=22.18"
-  }
+  },
+  "trustedDependencies": [
+    "@swc/core",
+    "bcrypt",
+    "msgpackr-extract",
+    "onnxruntime-node",
+    "protobufjs"
+  ]
 }

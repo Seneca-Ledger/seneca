@@ -1,9 +1,10 @@
+import type { Mock } from 'vitest';
 import type Redis from 'ioredis';
 import { RedisThrottlerStorage } from '@/common/services/redis-throttler-storage.service';
 
 const fakeRedis = (result: unknown) => {
-  const redis = { eval: jest.fn().mockResolvedValue(result), disconnect: jest.fn() };
-  return redis as unknown as Redis & { eval: jest.Mock; disconnect: jest.Mock };
+  const redis = { eval: vi.fn().mockResolvedValue(result), disconnect: vi.fn() };
+  return redis as unknown as Redis & { eval: Mock; disconnect: Mock };
 };
 
 describe('RedisThrottlerStorage', () => {

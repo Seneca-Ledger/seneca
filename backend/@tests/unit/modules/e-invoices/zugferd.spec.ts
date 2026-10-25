@@ -92,7 +92,7 @@ async function invoicePdf(): Promise<Buffer> {
 }
 
 describe('embedXRechnung (ZUGFeRD, profile XRECHNUNG)', () => {
-  jest.setTimeout(60_000);
+  vi.setConfig({ testTimeout: 60_000 });
 
   it('carries the XML unchanged, as the alternative representation, with PDF/A-3 metadata', async () => {
     const xml = writeXRechnung(input);

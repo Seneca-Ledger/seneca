@@ -3,11 +3,11 @@ import { WorkspacesController } from '@/modules/workspaces/workspaces.controller
 describe('WorkspacesController', () => {
   it('uses Origin header when present', async () => {
     const workspacesService = {
-      getWorkspaceOverview: jest.fn(async () => ({ ok: true })),
-      inviteMember: jest.fn(),
-      removeMember: jest.fn(),
-      getInvitationInfo: jest.fn(),
-      acceptInvitation: jest.fn(),
+      getWorkspaceOverview: vi.fn(async () => ({ ok: true })),
+      inviteMember: vi.fn(),
+      removeMember: vi.fn(),
+      getInvitationInfo: vi.fn(),
+      acceptInvitation: vi.fn(),
     };
     const controller = new WorkspacesController(workspacesService as any);
 
@@ -25,11 +25,11 @@ describe('WorkspacesController', () => {
 
   it('falls back to x-forwarded-host when origin/referer missing', async () => {
     const workspacesService = {
-      getWorkspaceOverview: jest.fn(async () => ({ ok: true })),
-      inviteMember: jest.fn(),
-      removeMember: jest.fn(),
-      getInvitationInfo: jest.fn(),
-      acceptInvitation: jest.fn(async () => ({ ok: true })),
+      getWorkspaceOverview: vi.fn(async () => ({ ok: true })),
+      inviteMember: vi.fn(),
+      removeMember: vi.fn(),
+      getInvitationInfo: vi.fn(),
+      acceptInvitation: vi.fn(async () => ({ ok: true })),
     };
     const controller = new WorkspacesController(workspacesService as any);
 

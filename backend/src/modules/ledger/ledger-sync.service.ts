@@ -152,7 +152,11 @@ export class LedgerSyncService {
     };
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'ledgerBaseCurrency', 'kind'],
+      select: {
+        id: true,
+        ledgerBaseCurrency: true,
+        kind: true,
+      },
     });
     // A job queued for a past version is dropped: its ledger stays as copied.
     if (!workspace?.ledgerBaseCurrency || workspace.kind === WorkspaceKind.VERSION) {
@@ -262,7 +266,10 @@ export class LedgerSyncService {
     const [workspace, suggested, pending] = await Promise.all([
       this.workspaceRepository.findOne({
         where: { id: workspaceId },
-        select: ['id', 'ledgerBaseCurrency'],
+        select: {
+          id: true,
+          ledgerBaseCurrency: true,
+        },
       }),
       this.workspaceRepository.query(
         `SELECT upper("currency") AS "currency" FROM "transactions"
@@ -456,15 +463,15 @@ export class LedgerSyncService {
 
     const statements = await this.statementRepository.find({
       where: { workspaceId, deletedAt: IsNull() },
-      select: [
-        'id',
-        'bankName',
-        'accountNumber',
-        'currency',
-        'balanceEnd',
-        'statementDateTo',
-        'createdAt',
-      ],
+      select: {
+        id: true,
+        bankName: true,
+        accountNumber: true,
+        currency: true,
+        balanceEnd: true,
+        statementDateTo: true,
+        createdAt: true,
+      },
       order: { statementDateTo: 'DESC', createdAt: 'DESC' },
     });
     const latest = new Map<string, Statement>();

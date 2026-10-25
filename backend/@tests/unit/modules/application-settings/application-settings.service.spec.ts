@@ -1,24 +1,32 @@
-jest.mock('nodemailer', () => ({
-  createTransport: jest.fn(() => ({
-    verify: jest.fn().mockResolvedValue(true),
-  })),
-}));
-jest.mock('../../../../src/common/utils/egress-url.util', () => ({
+import type { Mock } from 'vitest';
+import AdmZip from 'adm-zip';
+import * as nodemailerModule from 'nodemailer';
+vi.mock('nodemailer', () => {
+  const mock = {
+    createTransport: vi.fn(() => ({
+      verify: vi.fn().mockResolvedValue(true),
+    })),
+  };
+  // The service imports nodemailer's default export.
+  return { ...mock, default: mock };
+});
+vi.mock('../../../../src/common/utils/egress-url.util', () => ({
   // Egress policy is covered by common/utils/egress-url.util.spec.ts; here the
   // provider hostnames are fixtures that no DNS server can resolve.
-  assertPublicEgressHost: jest.fn().mockResolvedValue(undefined),
-  pinPublicEgressHost: jest.fn(async (host: string) => ({
+  assertPublicEgressHost: vi.fn().mockResolvedValue(undefined),
+  pinPublicEgressHost: vi.fn(async (host: string) => ({
     host: '198.51.100.7',
     servername: host,
   })),
 }));
 
-const mockCategorize = jest.fn();
-const mockGetModelLoadError = jest.fn();
-const mockTransactionCategorizerConstructor = jest.fn();
+const mockCategorize = vi.fn();
+const mockGetModelLoadError = vi.fn();
+const mockTransactionCategorizerConstructor = vi.fn();
 
-jest.mock('../../../../src/modules/classification/helpers/transaction-categorizer', () => ({
-  TransactionCategorizer: jest.fn().mockImplementation(options => {
+vi.mock('../../../../src/modules/classification/helpers/transaction-categorizer', () => ({
+  // Built with `new`: a mock constructor must be a function, not an arrow.
+  TransactionCategorizer: vi.fn().mockImplementation(function (options) {
     mockTransactionCategorizerConstructor(options);
     return {
       categorize: mockCategorize,
@@ -42,24 +50,24 @@ describe('ApplicationSettingsService', () => {
   const user = { id: 'user-1', workspaceId: 'workspace-1' } as never;
   const saved: Record<string, unknown> = {};
   const repository = {
-    findOne: jest.fn(),
-    create: jest.fn(input => input),
-    save: jest.fn(async entity => {
+    findOne: vi.fn(),
+    create: vi.fn(input => input),
+    save: vi.fn(async entity => {
       saved[String(entity.key)] = entity;
       return entity;
     }),
-    delete: jest.fn(),
+    delete: vi.fn(),
   };
 
   let instanceSaved: Record<string, unknown> | null = null;
   const instanceRepository = {
-    findOne: jest.fn(async () => instanceSaved),
-    create: jest.fn(input => input),
-    save: jest.fn(async entity => {
+    findOne: vi.fn(async () => instanceSaved),
+    create: vi.fn(input => input),
+    save: vi.fn(async entity => {
       instanceSaved = entity;
       return entity;
     }),
-    delete: jest.fn(async () => {
+    delete: vi.fn(async () => {
       instanceSaved = null;
     }),
   };
@@ -82,14 +90,14 @@ describe('ApplicationSettingsService', () => {
     mockCategorize.mockReset();
     mockGetModelLoadError.mockReset();
     mockTransactionCategorizerConstructor.mockClear();
-    (assertPublicEgressHost as jest.Mock).mockResolvedValue(undefined);
-    (assertPublicEgressHost as jest.Mock).mockClear();
+    (assertPublicEgressHost as Mock).mockResolvedValue(undefined);
+    (assertPublicEgressHost as Mock).mockClear();
     Object.keys(saved).forEach(key => delete saved[key]);
     instanceSaved = null;
     instanceRepository.save.mockClear();
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: jest.fn().mockResolvedValue({ ok: true }),
+      json: vi.fn().mockResolvedValue({ ok: true }),
     }) as never;
   });
 
@@ -100,7 +108,7 @@ describe('ApplicationSettingsService', () => {
   describe('Telegram connection check', () => {
     const botToken = '123456:abc-DEF_ghi';
     const telegramAnswer = (status: number, body: unknown) =>
-      (global.fetch as jest.Mock).mockImplementation(
+      (global.fetch as Mock).mockImplementation(
         async () =>
           new Response(JSON.stringify(body), {
             status,
@@ -113,7 +121,7 @@ describe('ApplicationSettingsService', () => {
 
       await createService().saveTelegramSettings(user, { botToken, timeoutMs: 1000 });
 
-      const [input] = (global.fetch as jest.Mock).mock.calls[0];
+      const [input] = (global.fetch as Mock).mock.calls[0];
       expect(String(input)).toBe(`https://api.telegram.org/bot${botToken}/getMe`);
       expect(saved[WorkspaceServiceSettingsKey.TELEGRAM]).toBeDefined();
     });
@@ -127,7 +135,7 @@ describe('ApplicationSettingsService', () => {
     });
 
     it('reports an unreachable Telegram instead of an invalid token', async () => {
-      (global.fetch as jest.Mock).mockRejectedValue(new Error('connect ECONNREFUSED'));
+      (global.fetch as Mock).mockRejectedValue(new Error('connect ECONNREFUSED'));
 
       await expect(
         createService().saveTelegramSettings(user, { botToken, timeoutMs: 1000 }),
@@ -163,7 +171,7 @@ describe('ApplicationSettingsService', () => {
     it('lists the server bot and each workspace bot once, each with its public address', async () => {
       process.env.TELEGRAM_BOT_TOKEN = '1:env';
       Object.assign(repository, {
-        find: jest.fn(async () => [row('ws-a', '2:a'), row('ws-b', '1:env'), row('ws-c', null)]),
+        find: vi.fn(async () => [row('ws-a', '2:a'), row('ws-b', '1:env'), row('ws-c', null)]),
       });
       repository.findOne.mockImplementation(async ({ where }: { where: { workspaceId: string } }) =>
         where.workspaceId === 'ws-a' ? { config: { publicUrl: 'https://a.example' } } : null,
@@ -177,7 +185,7 @@ describe('ApplicationSettingsService', () => {
 
     it('skips a token it cannot decrypt and keeps the others', async () => {
       const broken = { ...row('ws-a', null), encryptedSecrets: { botToken: `enc:${Buffer.alloc(40, 7).toString('base64')}` } };
-      Object.assign(repository, { find: jest.fn(async () => [broken, row('ws-b', '3:b')]) });
+      Object.assign(repository, { find: vi.fn(async () => [broken, row('ws-b', '3:b')]) });
       repository.findOne.mockResolvedValue(null);
 
       await expect(createService().listTelegramBots()).resolves.toEqual([
@@ -188,7 +196,7 @@ describe('ApplicationSettingsService', () => {
     it('lists the bot an instance admin saved as the shared one, instead of TELEGRAM_BOT_TOKEN', async () => {
       process.env.TELEGRAM_BOT_TOKEN = '1:env';
       instanceSaved = { key: 'telegram', encryptedSecrets: { botToken: encryptText('4:shared') } };
-      Object.assign(repository, { find: jest.fn(async () => []) });
+      Object.assign(repository, { find: vi.fn(async () => []) });
 
       await expect(createService().listTelegramBots()).resolves.toEqual([
         { botToken: '4:shared', publicUrl: 'http://127.0.0.1:3000' },
@@ -198,7 +206,7 @@ describe('ApplicationSettingsService', () => {
 
   describe('shared Telegram bot', () => {
     const getMeAnswers = (status: number, body: unknown) =>
-      (global.fetch as jest.Mock).mockImplementation(
+      (global.fetch as Mock).mockImplementation(
         async () =>
           new Response(JSON.stringify(body), {
             status,
@@ -266,7 +274,7 @@ describe('ApplicationSettingsService', () => {
       await expect(service.saveInstanceTelegramSettings(user, { botToken: '4:shared' })).resolves.toEqual({
         source: 'instance',
       });
-      const [input] = (global.fetch as jest.Mock).mock.calls[0];
+      const [input] = (global.fetch as Mock).mock.calls[0];
       expect(String(input)).toBe('https://api.telegram.org/bot4:shared/getMe');
       const stored = instanceSaved as { encryptedSecrets: { botToken: string }; updatedByUserId: string };
       expect(stored.encryptedSecrets.botToken).not.toBe('4:shared');
@@ -308,8 +316,8 @@ describe('ApplicationSettingsService', () => {
   });
 
   it('tests a workspace SMTP server on the address that passed the egress check', async () => {
-    const nodemailer = require('nodemailer');
-    (nodemailer.createTransport as jest.Mock).mockClear();
+    const nodemailer = vi.mocked(nodemailerModule);
+    (nodemailer.createTransport as Mock).mockClear();
 
     await createService().saveSmtpSettings(user, {
       host: 'mail.example.com',
@@ -462,7 +470,6 @@ describe('ApplicationSettingsService', () => {
   });
 
   it('installs a local categorization model archive into workspace storage', async () => {
-    const AdmZip = require('adm-zip');
     const tempRoot = mkdtempSync(path.join(tmpdir(), 'seneca-model-test-'));
     process.env.LOCAL_CATEGORIZATION_MODEL_ROOT = tempRoot;
 

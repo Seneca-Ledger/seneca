@@ -193,7 +193,10 @@ export class PayeesService {
     const categories = categoryIds.length
       ? await this.categoryRepository.find({
           where: { id: In(categoryIds), workspaceId },
-          select: ['id', 'name'],
+          select: {
+            id: true,
+            name: true,
+          },
         })
       : [];
     const nameOf = new Map(categories.map(category => [category.id, category.name]));
@@ -401,7 +404,10 @@ export class PayeesService {
       }
       const sources = await manager.find(Payee, {
         where: { id: In(dto.sourceIds.filter(sourceId => sourceId !== targetId)), workspaceId },
-        select: ['id', 'name'],
+        select: {
+          id: true,
+          name: true,
+        },
       });
       if (!sources.length) {
         return { payee: target, merged: 0 };

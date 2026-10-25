@@ -1,4 +1,11 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  type Relation,
+} from 'typeorm';
 import { JournalEntry } from './journal-entry.entity';
 import { LedgerAccount } from './ledger-account.entity';
 
@@ -21,7 +28,7 @@ export class JournalLine {
     { onDelete: 'CASCADE' },
   )
   @JoinColumn({ name: 'entry_id' })
-  entry: JournalEntry;
+  entry: Relation<JournalEntry>;
 
   @Column({ name: 'entry_id', type: 'uuid' })
   entryId: string;
@@ -31,7 +38,7 @@ export class JournalLine {
 
   @ManyToOne(() => LedgerAccount)
   @JoinColumn({ name: 'account_id' })
-  account: LedgerAccount;
+  account: Relation<LedgerAccount>;
 
   @Column({ name: 'account_id', type: 'uuid' })
   accountId: string;

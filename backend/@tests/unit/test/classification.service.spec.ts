@@ -10,11 +10,11 @@ import { ClassificationService } from '@/modules/classification/services/classif
 
 function createRepoMock<T>() {
   return {
-    findOne: jest.fn(),
-    find: jest.fn(),
-    create: jest.fn(data => data as T),
-    save: jest.fn(data => Promise.resolve(data as T)),
-    createQueryBuilder: jest.fn(),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    create: vi.fn(data => data as T),
+    save: vi.fn(data => Promise.resolve(data as T)),
+    createQueryBuilder: vi.fn(),
   } as any;
 }
 
@@ -27,11 +27,11 @@ describe('ClassificationService', () => {
   const branchRepo = createRepoMock<Branch>();
   const walletRepo = createRepoMock<Wallet>();
   const categorizationRuleRepo = createRepoMock<CategorizationRule>();
-  const cacheManager = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
-  const auditService = { createEvent: jest.fn() } as AuditService;
+  const cacheManager = { get: vi.fn(), set: vi.fn(), del: vi.fn() };
+  const auditService = { createEvent: vi.fn() } as AuditService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     walletRepo.find.mockResolvedValue([]);
     branchRepo.find.mockResolvedValue([]);
     service = new ClassificationService(
@@ -42,7 +42,7 @@ describe('ClassificationService', () => {
       branchRepo as any,
       walletRepo as any,
       categorizationRuleRepo as any,
-      { findOne: jest.fn(async () => null) } as any,
+      { findOne: vi.fn(async () => null) } as any,
       cacheManager as any,
       auditService as any,
     );
@@ -56,7 +56,7 @@ describe('ClassificationService', () => {
       paymentPurpose: 'Продажи Kaspi',
     } as unknown as Transaction;
 
-    jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
+    vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
       {
         name: 'Kaspi sales',
         type: 'category',
@@ -77,9 +77,9 @@ describe('ClassificationService', () => {
       },
     ]);
 
-    jest.spyOn<any, any>(service as any, 'autoClassifyCategory').mockResolvedValue('cat-auto');
-    jest.spyOn<any, any>(service as any, 'autoDetermineWallet').mockResolvedValue('wallet-auto');
-    jest.spyOn<any, any>(service as any, 'autoDetermineBranch').mockResolvedValue('branch-auto');
+    vi.spyOn<any, any>(service as any, 'autoClassifyCategory').mockResolvedValue('cat-auto');
+    vi.spyOn<any, any>(service as any, 'autoDetermineWallet').mockResolvedValue('wallet-auto');
+    vi.spyOn<any, any>(service as any, 'autoDetermineBranch').mockResolvedValue('branch-auto');
 
     const result = await service.classifyTransaction(transaction, 'user-1');
 
@@ -113,7 +113,7 @@ describe('ClassificationService', () => {
       paymentPurpose: 'Рекламные услуги',
     } as unknown as Transaction;
 
-    jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
+    vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
       {
         name: 'Low priority',
         type: 'category',
@@ -132,9 +132,9 @@ describe('ClassificationService', () => {
       },
     ]);
 
-    jest.spyOn<any, any>(service as any, 'autoClassifyCategory').mockResolvedValue('fallback');
-    jest.spyOn<any, any>(service as any, 'autoDetermineWallet').mockResolvedValue(undefined);
-    jest.spyOn<any, any>(service as any, 'autoDetermineBranch').mockResolvedValue(undefined);
+    vi.spyOn<any, any>(service as any, 'autoClassifyCategory').mockResolvedValue('fallback');
+    vi.spyOn<any, any>(service as any, 'autoDetermineWallet').mockResolvedValue(undefined);
+    vi.spyOn<any, any>(service as any, 'autoDetermineBranch').mockResolvedValue(undefined);
 
     const result = await service.classifyTransaction(transaction, 'user-2');
 

@@ -50,27 +50,27 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
 }
 
 describe('ledger sync (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let sync: LedgerSyncService;
   let txRepo: Repository<Transaction>;
-  const queue = { enqueue: jest.fn().mockResolvedValue(undefined) };
+  const queue = { enqueue: vi.fn().mockResolvedValue(undefined) };
   const rates: Record<string, number> = { USD: 0.9 };
 
   let workspaceId: string;
@@ -140,11 +140,11 @@ describe('ledger sync (real Postgres)', () => {
         LedgerPostingService,
         LedgerAccountsService,
         { provide: LedgerSyncQueue, useValue: queue },
-        { provide: AuditService, useValue: { createEvent: jest.fn().mockResolvedValue(undefined) } },
+        { provide: AuditService, useValue: { createEvent: vi.fn().mockResolvedValue(undefined) } },
         {
           provide: ExchangeRatesService,
           useValue: {
-            getRateQuote: jest.fn(async (from: string, to: string, date: string) =>
+            getRateQuote: vi.fn(async (from: string, to: string, date: string) =>
               to === 'EUR' && rates[from] !== undefined
                 ? { rate: rates[from], rateDate: date, stale: false }
                 : null,

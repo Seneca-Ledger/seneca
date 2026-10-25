@@ -7,10 +7,10 @@ const USER_ID = 'user-1';
 
 function createService(account: Record<string, unknown> | null) {
   const balanceAccountRepository = {
-    findOne: jest.fn(async () => account),
-    save: jest.fn(async (data: unknown) => data),
+    findOne: vi.fn(async () => account),
+    save: vi.fn(async (data: unknown) => data),
   } as any;
-  const auditService = { createEvent: jest.fn(async () => undefined) } as any;
+  const auditService = { createEvent: vi.fn(async () => undefined) } as any;
 
   const service = new BalanceService(
     balanceAccountRepository,

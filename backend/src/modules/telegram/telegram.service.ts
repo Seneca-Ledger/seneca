@@ -850,7 +850,9 @@ export class TelegramService {
   private async workspaceCurrency(workspaceId: string): Promise<string | null> {
     const member = await this.workspaceMemberRepository.findOne({
       where: { workspaceId },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
     const currency = (member as { workspace?: { currency?: string | null } } | null)?.workspace
       ?.currency;

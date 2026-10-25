@@ -163,7 +163,9 @@ export class PublicInvoicesService {
     }
     const payable = await this.payableRepository.findOne({
       where: { id: invoice.payableId },
-      select: ['status'],
+      select: {
+        status: true,
+      },
     });
     if (payable?.status === PayableStatus.PAID) {
       return 'paid';

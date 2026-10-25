@@ -382,9 +382,13 @@ export class ReceiptsService {
     transaction: Transaction | null,
     workspaceId: string,
   ): Promise<ReceiptTaxView> {
-    const workspace = await this.transactionRepository.manager
-      .getRepository(Workspace)
-      .findOne({ where: { id: workspaceId }, select: ['id', 'vatStatus'] });
+    const workspace = await this.transactionRepository.manager.getRepository(Workspace).findOne({
+      where: { id: workspaceId },
+      select: {
+        id: true,
+        vatStatus: true,
+      },
+    });
     return {
       transactionId: transaction?.id ?? null,
       assessable: workspace?.vatStatus === VatStatus.REGISTERED,
@@ -409,7 +413,9 @@ export class ReceiptsService {
 
     const category = await this.categoryRepository.findOne({
       where: { id: categoryId, workspaceId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (!category) {
       return;
@@ -523,7 +529,10 @@ export class ReceiptsService {
       }
       const statement = await this.statementRepository.findOne({
         where: { id: target.statementId, workspaceId },
-        select: ['id', 'parsingDetails'],
+        select: {
+          id: true,
+          parsingDetails: true,
+        },
       });
       return statement?.parsingDetails?.detectedBy === 'receipt-scan';
     }
@@ -616,7 +625,9 @@ export class ReceiptsService {
         }
         const taken = await receipts.findOne({
           where: { transactionId: attachTo, workspaceId },
-          select: ['id'],
+          select: {
+            id: true,
+          },
         });
         if (taken && taken.id !== receipt.id) {
           throw new ConflictException('Another receipt is already attached to that transaction');
@@ -764,7 +775,10 @@ export class ReceiptsService {
     }
     const statement = await manager.getRepository(Statement).findOne({
       where: { id: receipt.statementId, workspaceId },
-      select: ['id', 'parsingDetails'],
+      select: {
+        id: true,
+        parsingDetails: true,
+      },
     });
     if (statement?.parsingDetails?.detectedBy !== 'receipt-scan') {
       return null;

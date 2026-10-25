@@ -101,5 +101,9 @@
   "engines": {
     "node": ">=22.18"
   },
-  "type": "module"
+  "type": "module",
+  "trustedDependencies": [
+    "@parcel/watcher",
+    "esbuild"
+  ]
 }

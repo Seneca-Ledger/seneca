@@ -99,7 +99,15 @@ export class AuthService {
     const email = DEV_DEFAULTS.ADMIN_EMAIL;
     const existing = await this.userRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'passwordHash', 'role', 'isActive', 'name', 'workspaceId'],
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        role: true,
+        isActive: true,
+        name: true,
+        workspaceId: true,
+      },
     });
 
     const passwordHash = await hashPassword(DEV_DEFAULTS.ADMIN_PASSWORD);
@@ -145,7 +153,9 @@ export class AuthService {
     if (workspaceId) {
       const workspace = await this.workspaceRepository.findOne({
         where: { id: workspaceId },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
       if (!workspace) {
         workspaceId = null;
@@ -173,7 +183,9 @@ export class AuthService {
 
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId: user.id },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
     if (!membership) {
@@ -236,24 +248,24 @@ export class AuthService {
     const normalizedEmail = loginDto.email.trim().toLowerCase();
     const user = await this.userRepository.findOne({
       where: { email: normalizedEmail },
-      select: [
-        'id',
-        'email',
-        'passwordHash',
-        'name',
-        'role',
-        'workspaceId',
-        'lastWorkspaceId',
-        'locale',
-        'timeZone',
-        'themePreference',
-        'mapStylePreference',
-        'onboardingCompletedAt',
-        'avatarUrl',
-        'isActive',
-        'tokenVersion',
-        'twoFactorEnabledAt',
-      ],
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        name: true,
+        role: true,
+        workspaceId: true,
+        lastWorkspaceId: true,
+        locale: true,
+        timeZone: true,
+        themePreference: true,
+        mapStylePreference: true,
+        onboardingCompletedAt: true,
+        avatarUrl: true,
+        isActive: true,
+        tokenVersion: true,
+        twoFactorEnabledAt: true,
+      },
     });
 
     if (!user) {
@@ -523,7 +535,13 @@ export class AuthService {
   ): Promise<void> {
     // The sessions are already revoked; a failed lookup must not undo that answer.
     const user = await this.userRepository
-      .findOne({ where: { id: userId }, select: ['id', 'workspaceId'] })
+      .findOne({
+        where: { id: userId },
+        select: {
+          id: true,
+          workspaceId: true,
+        },
+      })
       .catch(() => null);
     await recordSecurityEvent(this.auditService, this.logger, {
       workspaceId: user?.workspaceId,

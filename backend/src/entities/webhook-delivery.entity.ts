@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { WebhookSubscription } from './webhook-subscription.entity';
@@ -30,7 +31,7 @@ export class WebhookDelivery {
 
   @ManyToOne(() => WebhookSubscription, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'subscription_id' })
-  subscription: WebhookSubscription;
+  subscription: Relation<WebhookSubscription>;
 
   @Column({ type: 'varchar', length: 64 })
   event: string;

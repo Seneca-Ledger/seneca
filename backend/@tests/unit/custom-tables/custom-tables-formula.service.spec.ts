@@ -1,24 +1,25 @@
+import type { Mock } from 'vitest';
 import { CustomTableColumnType } from "../../../src/entities/custom-table-column.entity";
 import { CustomTablesService } from "../../../src/modules/custom-tables/custom-tables.service";
 
 const TABLE_ID = "11111111-1111-4111-8111-111111111111";
 
 const createRepositoryMock = () => ({
-	findOne: jest.fn(),
-	find: jest.fn(),
-	save: jest.fn(),
-	create: jest.fn((value?: unknown) => value),
-	delete: jest.fn(),
-	update: jest.fn(),
-	createQueryBuilder: jest.fn(),
+	findOne: vi.fn(),
+	find: vi.fn(),
+	save: vi.fn(),
+	create: vi.fn((value?: unknown) => value),
+	delete: vi.fn(),
+	update: vi.fn(),
+	createQueryBuilder: vi.fn(),
 });
 
 const tableQueryBuilder = () => {
-	const qb: Record<string, jest.Mock> = {};
+	const qb: Record<string, Mock> = {};
 	for (const method of ["leftJoinAndSelect", "where", "andWhere", "orderBy"]) {
-		qb[method] = jest.fn().mockReturnValue(qb);
+		qb[method] = vi.fn().mockReturnValue(qb);
 	}
-	qb.getOne = jest.fn().mockResolvedValue({ id: TABLE_ID, workspaceId: "workspace-1" });
+	qb.getOne = vi.fn().mockResolvedValue({ id: TABLE_ID, workspaceId: "workspace-1" });
 	return qb;
 };
 
@@ -76,7 +77,7 @@ function build() {
 		repos.transaction as never,
 		repos.user as never,
 		repos.workspaceMember as never,
-		{ createEvent: jest.fn(), createBatchEvents: jest.fn() } as never,
+		{ createEvent: vi.fn(), createBatchEvents: vi.fn() } as never,
 	);
 	return { service, repos };
 }

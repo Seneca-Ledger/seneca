@@ -3,16 +3,16 @@ import { TaxRatesController } from '@/modules/tax/tax-rates.controller';
 describe('TaxRatesController', () => {
   let controller: TaxRatesController;
   const taxRatesService = {
-    findAll: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
+    findAll: vi.fn(),
+    findOne: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
   } as any;
   const user = { id: 'user-1' } as any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     controller = new TaxRatesController(taxRatesService);
   });
 

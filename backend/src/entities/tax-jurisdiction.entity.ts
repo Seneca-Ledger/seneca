@@ -1,4 +1,4 @@
-import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn, type Relation } from 'typeorm';
 import { TaxJurisdictionRate } from './tax-jurisdiction-rate.entity';
 
 export enum TaxScheme {
@@ -86,5 +86,5 @@ export class TaxJurisdiction {
     () => TaxJurisdictionRate,
     rate => rate.jurisdiction,
   )
-  rates: TaxJurisdictionRate[];
+  rates: Relation<TaxJurisdictionRate[]>;
 }

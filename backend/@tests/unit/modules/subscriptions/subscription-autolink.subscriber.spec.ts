@@ -15,11 +15,11 @@ const payeeId = 'payee-example-cloud';
 const vendorName = 'Example Cloud';
 
 describe('SubscriptionAutoLinkSubscriber', () => {
-  const subscriptionRepository = { findOne: jest.fn(), save: jest.fn() };
-  const chargeRepository = { findOne: jest.fn(), create: jest.fn(), save: jest.fn() };
-  const auditService = { createEvent: jest.fn() };
+  const subscriptionRepository = { findOne: vi.fn(), save: vi.fn() };
+  const chargeRepository = { findOne: vi.fn(), create: vi.fn(), save: vi.fn() };
+  const auditService = { createEvent: vi.fn() };
   const manager = {
-    query: jest.fn(),
+    query: vi.fn(),
     getRepository: (entity: unknown) =>
       new Map<unknown, unknown>([
         [Subscription, subscriptionRepository],
@@ -61,8 +61,8 @@ describe('SubscriptionAutoLinkSubscriber', () => {
     manager.query.mock.calls.filter(([sql]) => /FROM subscription_payees/.test(sql));
 
   beforeEach(() => {
-    jest.resetAllMocks();
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    vi.resetAllMocks();
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     ruled = ['sub-1'];
     queryRunner = { isTransactionActive: true, data: {} };
     manager.query.mockImplementation(async (sql: string) =>

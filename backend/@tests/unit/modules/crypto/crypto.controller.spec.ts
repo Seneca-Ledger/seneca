@@ -2,7 +2,7 @@ import { CryptoController } from '../../../../src/modules/crypto/crypto.controll
 
 describe('CryptoController.getSummary', () => {
   const build = () => {
-    const cryptoService = { getSummary: jest.fn(async () => ({})) };
+    const cryptoService = { getSummary: vi.fn(async () => ({})) };
     return { controller: new CryptoController(cryptoService as never), cryptoService };
   };
 

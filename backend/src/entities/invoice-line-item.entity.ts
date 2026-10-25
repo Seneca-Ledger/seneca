@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Category } from './category.entity';
@@ -22,7 +23,7 @@ export class InvoiceLineItem {
     { onDelete: 'CASCADE' },
   )
   @JoinColumn({ name: 'invoice_id' })
-  invoice: Invoice;
+  invoice: Relation<Invoice>;
 
   @Column({ name: 'invoice_id', type: 'uuid' })
   invoiceId: string;
@@ -49,7 +50,7 @@ export class InvoiceLineItem {
 
   @ManyToOne(() => TaxRate, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'tax_rate_id' })
-  taxRate: TaxRate | null;
+  taxRate: Relation<TaxRate | null>;
 
   @Column({ name: 'tax_rate_id', type: 'uuid', nullable: true })
   taxRateId: string | null;
@@ -57,7 +58,7 @@ export class InvoiceLineItem {
   /** Which income account the line's revenue books to; falls back to a generic sales account. */
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;

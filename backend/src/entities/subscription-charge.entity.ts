@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
 } from 'typeorm';
 import { Subscription } from './subscription.entity';
@@ -27,14 +28,14 @@ export class SubscriptionCharge {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Subscription, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'subscription_id' })
-  subscription: Subscription;
+  subscription: Relation<Subscription>;
 
   @Column({ name: 'subscription_id', type: 'uuid' })
   subscriptionId: string;
@@ -42,7 +43,7 @@ export class SubscriptionCharge {
   /** Null for a payment recorded by hand and not linked to its bank row yet. */
   @ManyToOne(() => Transaction, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'transaction_id' })
-  transaction: Transaction | null;
+  transaction: Relation<Transaction | null>;
 
   @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
   transactionId: string | null;

@@ -106,7 +106,11 @@ export class StorageService {
   private findMembership(workspaceId: string, userId: string) {
     return this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['id', 'role', 'permissions'],
+      select: {
+        id: true,
+        role: true,
+        permissions: true,
+      },
     });
   }
 
@@ -137,13 +141,14 @@ export class StorageService {
             userId,
             isActive: true,
           },
-          relations: [
-            'statement',
-            'statement.category',
-            'statement.user',
-            'statement.folder',
-            'statement.tags',
-          ],
+          relations: {
+            statement: {
+              category: true,
+              user: true,
+              folder: true,
+              tags: true,
+            },
+          },
         });
       } catch (error) {
         // If permissions table doesn't exist yet, just use empty array
@@ -288,7 +293,12 @@ export class StorageService {
   async getFileDetails(statementId: string, userId: string) {
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['category', 'user', 'folder', 'tags'],
+      relations: {
+        category: true,
+        user: true,
+        folder: true,
+        tags: true,
+      },
     });
 
     if (!statement) {
@@ -302,7 +312,11 @@ export class StorageService {
     const transactions = await this.transactionRepository.find({
       where: { statementId },
       order: { transactionDate: 'DESC' },
-      relations: ['category', 'branch', 'wallet'],
+      relations: {
+        category: true,
+        branch: true,
+        wallet: true,
+      },
     });
 
     // Get shared links
@@ -314,7 +328,10 @@ export class StorageService {
     // Get permissions
     const permissions = await this.filePermissionRepository.find({
       where: { statementId },
-      relations: ['user', 'grantedBy'],
+      relations: {
+        user: true,
+        grantedBy: true,
+      },
     });
 
     const isOwner = statement.userId === userId;
@@ -356,7 +373,9 @@ export class StorageService {
 
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
 
     if (!statement) {
@@ -387,7 +406,9 @@ export class StorageService {
     await this.checkFileAccess(userId, statementId, 'edit');
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['tags'],
+      relations: {
+        tags: true,
+      },
     });
     if (!statement) {
       throw new NotFoundException('File not found');
@@ -493,7 +514,9 @@ export class StorageService {
     return await this.folderRepository.find({
       where: this.folderScope(workspaceId, userId),
       order: { name: 'ASC' },
-      relations: ['tag'],
+      relations: {
+        tag: true,
+      },
     });
   }
 
@@ -740,16 +763,16 @@ export class StorageService {
     return await this.fileVersionRepository.find({
       where: { statementId },
       order: { createdAt: 'DESC' },
-      select: [
-        'id',
-        'statementId',
-        'createdBy',
-        'fileHash',
-        'fileName',
-        'fileType',
-        'fileSize',
-        'createdAt',
-      ],
+      select: {
+        id: true,
+        statementId: true,
+        createdBy: true,
+        fileHash: true,
+        fileName: true,
+        fileType: true,
+        fileSize: true,
+        createdAt: true,
+      },
     });
   }
 
@@ -1042,7 +1065,10 @@ export class StorageService {
     await this.checkFileAccess(userId, statementId, 'share');
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      select: ['id', 'deletedAt'],
+      select: {
+        id: true,
+        deletedAt: true,
+      },
     });
     if (!statement) {
       throw new NotFoundException('File not found');
@@ -1157,7 +1183,11 @@ export class StorageService {
   async accessSharedLink(token: string, password?: string) {
     const link = await this.sharedLinkRepository.findOne({
       where: { token },
-      relations: ['statement', 'statement.category'],
+      relations: {
+        statement: {
+          category: true,
+        },
+      },
     });
 
     if (!link) {
@@ -1203,7 +1233,11 @@ export class StorageService {
       transactions = await this.transactionRepository.find({
         where: { statementId: link.statement.id },
         order: { transactionDate: 'DESC' },
-        relations: ['category', 'branch', 'wallet'],
+        relations: {
+          category: true,
+          branch: true,
+          wallet: true,
+        },
       });
       // Whoever holds the link is nobody's member: every private row stays hidden.
       redactPrivateRows(transactions, null);
@@ -1234,7 +1268,10 @@ export class StorageService {
     // file could be shared with any account in the system, in any tenant.
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      select: ['id', 'workspaceId'],
+      select: {
+        id: true,
+        workspaceId: true,
+      },
     });
     if (!statement) {
       throw new NotFoundException('File not found');
@@ -1282,7 +1319,10 @@ export class StorageService {
 
     return await this.filePermissionRepository.find({
       where: { statementId },
-      relations: ['user', 'grantedBy'],
+      relations: {
+        user: true,
+        grantedBy: true,
+      },
       order: { createdAt: 'DESC' },
     });
   }
@@ -1351,7 +1391,9 @@ export class StorageService {
   ): Promise<void> {
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!statement) {

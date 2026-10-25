@@ -120,7 +120,10 @@ export class ImportSessionService {
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
 
     return user?.name || user?.email || 'User';
@@ -262,7 +265,10 @@ export class ImportSessionService {
     // Fetch and validate session
     const session = await this.importSessionRepository.findOne({
       where: { id: sessionId },
-      relations: ['workspace', 'statement'],
+      relations: {
+        workspace: true,
+        statement: true,
+      },
     });
 
     if (!session) {
@@ -617,7 +623,10 @@ export class ImportSessionService {
     try {
       const workspace = await this.workspaceRepository.findOne({
         where: { id: session.workspaceId },
-        select: ['id', 'settings'],
+        select: {
+          id: true,
+          settings: true,
+        },
       });
       const { duplicateResolution: defaultDuplicateResolution } = readProcessingSettings(workspace);
 

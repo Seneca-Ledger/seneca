@@ -56,7 +56,9 @@ export class ExchangeRatesController {
   async coverage(@WorkspaceId() workspaceId: string) {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     const currency = (workspace?.currency || 'KZT').toUpperCase();
     const currencies = await this.exchangeRatesService.coverageForWorkspace(workspaceId, currency);

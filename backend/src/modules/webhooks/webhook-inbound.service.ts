@@ -26,7 +26,9 @@ export class WebhookInboundService {
   private async resolveWorkspaceOwner(workspaceId: string): Promise<User> {
     const member = await this.memberRepo.findOne({
       where: { workspaceId, role: WorkspaceRole.OWNER },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
     if (!member?.user) throw new NotFoundException('Workspace owner not found');
     return member.user;

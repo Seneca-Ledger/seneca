@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Transaction } from './transaction.entity';
 import { User } from './user.entity';
@@ -24,21 +25,21 @@ export class TransactionAttachment {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Transaction, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'transaction_id' })
-  transaction: Transaction;
+  transaction: Relation<Transaction>;
 
   @Column({ name: 'transaction_id', type: 'uuid' })
   transactionId: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'uploaded_by_id' })
-  uploadedBy: User | null;
+  uploadedBy: Relation<User | null>;
 
   @Column({ name: 'uploaded_by_id', type: 'uuid', nullable: true })
   uploadedById: string | null;

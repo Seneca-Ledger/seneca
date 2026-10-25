@@ -11,11 +11,11 @@ function context(mapping: Record<string, number>, options: { account?: boolean }
   const saved: Record<string, unknown>[] = [];
   const repos: Record<string, unknown> = {
     BalanceAccount: {
-      findOne: jest.fn(async () => (options.account === false ? null : ACCOUNT)),
+      findOne: vi.fn(async () => (options.account === false ? null : ACCOUNT)),
     },
     InvestmentHolding: {
-      create: jest.fn((lot: Record<string, unknown>) => lot),
-      save: jest.fn(async (lot: Record<string, unknown>) => {
+      create: vi.fn((lot: Record<string, unknown>) => lot),
+      save: vi.fn(async (lot: Record<string, unknown>) => {
         saved.push(lot);
         return { ...lot, id: `lot-${saved.length}` };
       }),

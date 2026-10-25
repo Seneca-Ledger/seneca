@@ -3,11 +3,11 @@ import { InsightsController } from '@/modules/insights/insights.controller';
 describe('InsightsController', () => {
   it('forwards mandatory workspaceId from guard instead of query param', async () => {
     const insightsService = {
-      list: jest.fn(async () => ({ items: [], total: 0, limit: 30, offset: 0 })),
-      getSummary: jest.fn(async () => ({ total: 0, byCategory: {} })),
-      refresh: jest.fn(async () => ({ created: 1, updated: 0, total: 1 })),
-      dismissAll: jest.fn(async () => ({ updated: 3 })),
-      dismiss: jest.fn(async () => ({ updated: 1 })),
+      list: vi.fn(async () => ({ items: [], total: 0, limit: 30, offset: 0 })),
+      getSummary: vi.fn(async () => ({ total: 0, byCategory: {} })),
+      refresh: vi.fn(async () => ({ created: 1, updated: 0, total: 1 })),
+      dismissAll: vi.fn(async () => ({ updated: 3 })),
+      dismiss: vi.fn(async () => ({ updated: 1 })),
     };
     const controller = new InsightsController(insightsService as any, {} as any);
     const user = { id: 'u1' } as any;
@@ -43,7 +43,7 @@ describe('InsightsController', () => {
   });
 
   it('picks the daily quote for the reader own calendar day', async () => {
-    const dailyQuoteService = { forUser: jest.fn(async () => ({})) };
+    const dailyQuoteService = { forUser: vi.fn(async () => ({})) };
     const controller = new InsightsController({} as any, dailyQuoteService as any);
 
     await controller.dailyQuote({ id: 'user-1' } as any, 'ws-1', '2026-09-29');

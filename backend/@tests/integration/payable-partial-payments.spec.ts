@@ -51,15 +51,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -72,7 +72,7 @@ const daysAgo = (days: number): string => {
 };
 
 describe('partial payments (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let payables: PayablesService;
@@ -149,8 +149,8 @@ describe('partial payments (real Postgres)', () => {
       providers: [
         PayablesService,
         WorkspaceCurrencyService,
-        { provide: ExchangeRatesService, useValue: { getRateQuote: jest.fn(), getRate: jest.fn() } },
-        { provide: NotificationsService, useValue: { createForWorkspaceMembers: jest.fn() } },
+        { provide: ExchangeRatesService, useValue: { getRateQuote: vi.fn(), getRate: vi.fn() } },
+        { provide: NotificationsService, useValue: { createForWorkspaceMembers: vi.fn() } },
         { provide: PayablesExportService, useValue: {} },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),

@@ -3,11 +3,11 @@ import { WalletsController } from '@/modules/wallets/wallets.controller';
 describe('WalletsController', () => {
   it('proxies calls to WalletsService with workspaceId', async () => {
     const walletsService = {
-      create: jest.fn(async () => ({ id: 'w1' })),
-      findAll: jest.fn(async () => [{ id: 'w1' }]),
-      findOne: jest.fn(async () => ({ id: 'w1' })),
-      update: jest.fn(async () => ({ id: 'w1', name: 'X' })),
-      remove: jest.fn(async () => undefined),
+      create: vi.fn(async () => ({ id: 'w1' })),
+      findAll: vi.fn(async () => [{ id: 'w1' }]),
+      findOne: vi.fn(async () => ({ id: 'w1' })),
+      update: vi.fn(async () => ({ id: 'w1', name: 'X' })),
+      remove: vi.fn(async () => undefined),
     };
     const controller = new WalletsController(walletsService as any);
     const user = { id: 'u1' } as any;

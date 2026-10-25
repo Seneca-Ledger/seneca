@@ -56,10 +56,14 @@ describe('decodeTelegramUpdate', () => {
 });
 
 describe('TelegramWebhookController', () => {
-  const handleUpdate = jest.fn().mockResolvedValue(undefined);
+  const handleUpdate = vi.fn().mockResolvedValue(undefined);
   const controller = new TelegramWebhookController({ handleUpdate } as never);
 
-  beforeEach(() => handleUpdate.mockClear());
+  beforeEach(() => {
+
+    handleUpdate.mockClear();
+
+  });
 
   it('hands a valid update to the service', async () => {
     await expect(controller.handleUpdate({ update_id: 1, message: { chat: { id: 5 }, text: '/help' } })).resolves.toEqual({
@@ -70,7 +74,7 @@ describe('TelegramWebhookController', () => {
   });
 
   it('hands an update on a per-bot webhook to the service with that bot', async () => {
-    const bots = { tokenOf: jest.fn(() => '123:secret') };
+    const bots = { tokenOf: vi.fn(() => '123:secret') };
     const perBot = new TelegramWebhookController({ handleUpdate } as never, bots as never);
 
     await expect(perBot.handleBotUpdate('123', { update_id: 3, message: { text: '/help' } })).resolves.toEqual({

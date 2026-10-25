@@ -14,32 +14,32 @@ import {
 
 function createRepoMock<T>() {
   return {
-    findOne: jest.fn(),
-    find: jest.fn(async () => []),
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    createQueryBuilder: jest.fn(),
-    update: jest.fn(async () => ({ affected: 1 })),
+    findOne: vi.fn(),
+    find: vi.fn(async () => []),
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    createQueryBuilder: vi.fn(),
+    update: vi.fn(async () => ({ affected: 1 })),
   } as any;
 }
 
 function createQueryBuilderMock() {
   const qb: any = {
-    where: jest.fn(() => qb),
-    andWhere: jest.fn(() => qb),
-    orderBy: jest.fn(() => qb),
-    take: jest.fn(() => qb),
-    skip: jest.fn(() => qb),
-    select: jest.fn(() => qb),
-    addSelect: jest.fn(() => qb),
-    groupBy: jest.fn(() => qb),
-    update: jest.fn(() => qb),
-    delete: jest.fn(() => qb),
-    from: jest.fn(() => qb),
-    set: jest.fn(() => qb),
-    execute: jest.fn(async () => ({ affected: 1 })),
-    getManyAndCount: jest.fn(async () => [[], 0]),
-    getRawMany: jest.fn(async () => []),
+    where: vi.fn(() => qb),
+    andWhere: vi.fn(() => qb),
+    orderBy: vi.fn(() => qb),
+    take: vi.fn(() => qb),
+    skip: vi.fn(() => qb),
+    select: vi.fn(() => qb),
+    addSelect: vi.fn(() => qb),
+    groupBy: vi.fn(() => qb),
+    update: vi.fn(() => qb),
+    delete: vi.fn(() => qb),
+    from: vi.fn(() => qb),
+    set: vi.fn(() => qb),
+    execute: vi.fn(async () => ({ affected: 1 })),
+    getManyAndCount: vi.fn(async () => [[], 0]),
+    getRawMany: vi.fn(async () => []),
   };
   return qb;
 }
@@ -48,19 +48,19 @@ describe('InsightsService', () => {
   const insightRepository = createRepoMock<Insight>();
   const userRepository = createRepoMock<User>();
   const operationalAnalyzer = {
-    analyze: jest.fn(),
+    analyze: vi.fn(),
   } as any;
   const financialAnalyzer = {
-    analyze: jest.fn(async () => []),
+    analyze: vi.fn(async () => []),
   } as any;
   const stoicAnalyzer = {
-    analyze: jest.fn(async () => []),
+    analyze: vi.fn(async () => []),
   } as any;
 
   let service: InsightsService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     financialAnalyzer.analyze.mockResolvedValue([]);
     stoicAnalyzer.analyze.mockResolvedValue([]);
     insightRepository.find.mockResolvedValue([]);

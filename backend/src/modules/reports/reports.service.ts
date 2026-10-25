@@ -3122,7 +3122,9 @@ export class ReportsService {
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return this.normalizeCurrency(workspace?.currency);
   }
@@ -3598,7 +3600,9 @@ export class ReportsService {
       where: { workspaceId },
       order: { generatedAt: 'DESC' },
       take: 50,
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
   }
 

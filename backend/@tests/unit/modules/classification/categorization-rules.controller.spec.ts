@@ -15,24 +15,24 @@ describe('CategorizationRulesController', () => {
   let classificationService: ClassificationService;
 
   const mockRuleRepository = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    remove: jest.fn(),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    remove: vi.fn(),
     // A rule's targets are checked through it; here they are the workspace's.
     manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
   };
 
   const mockTransactionRepository = {
-    findBy: jest.fn(),
+    findBy: vi.fn(),
   };
 
   const mockClassificationService = {
-    matchesRule: jest.fn(),
+    matchesRule: vi.fn(),
   };
   const mockAuditService = {
-    createEvent: jest.fn(),
+    createEvent: vi.fn(),
   };
 
   const mockUser = {
@@ -56,7 +56,7 @@ describe('CategorizationRulesController', () => {
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
-          useValue: { exists: jest.fn(async () => true) },
+          useValue: { exists: vi.fn(async () => true) },
         },
         {
           provide: ClassificationService,
@@ -82,7 +82,7 @@ describe('CategorizationRulesController', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('findAll', () => {
@@ -328,7 +328,7 @@ describe('CategorizationRulesController', () => {
       mockTransactionRepository.findBy.mockResolvedValue(transactions);
 
       // Mock the private matchesRule method
-      (classificationService as any).matchesRule = jest.fn((transaction, conditions) => {
+      (classificationService as any).matchesRule = vi.fn((transaction, conditions) => {
         return transaction.paymentPurpose.toLowerCase().includes('salary');
       });
 
@@ -369,7 +369,7 @@ describe('CategorizationRulesController', () => {
       ];
 
       mockTransactionRepository.findBy.mockResolvedValue(transactions);
-      (classificationService as any).matchesRule = jest.fn(() => false);
+      (classificationService as any).matchesRule = vi.fn(() => false);
 
       const result = await controller.testRule(dto, mockUser as any, mockWorkspaceId);
 

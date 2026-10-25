@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxRateKind } from '@/entities/tax-jurisdiction-rate.entity';
 import { VatStatus } from '@/entities/workspace.entity';
@@ -19,9 +20,9 @@ describe('OfficialVatRatesService', () => {
   let rates: Array<Record<string, unknown>>;
   let versions: TedbVersion[];
   let settings: Record<string, unknown> | null;
-  let taxRates: { startNewVersion: jest.Mock; addStatutoryRate: jest.Mock };
-  let assignment: { reassess: jest.Mock };
-  let events: { emit: jest.Mock };
+  let taxRates: { startNewVersion: Mock; addStatutoryRate: Mock };
+  let assignment: { reassess: Mock };
+  let events: { emit: Mock };
   let service: OfficialVatRatesService;
 
   beforeEach(() => {
@@ -54,7 +55,7 @@ describe('OfficialVatRatesService', () => {
 
     const workspaceRepo = createRepoMock();
     workspaceRepo.findOne.mockImplementation(async () => workspace);
-    (workspaceRepo as unknown as { findOneOrFail: jest.Mock }).findOneOrFail = jest.fn(
+    (workspaceRepo as unknown as { findOneOrFail: Mock }).findOneOrFail = vi.fn(
       async () => workspace,
     );
     const rateRepo = createRepoMock();
@@ -66,15 +67,15 @@ describe('OfficialVatRatesService', () => {
       return row;
     });
     const tedb = {
-      stored: jest.fn(async () => ({
+      stored: vi.fn(async () => ({
         snapshot: { country: 'AT', rangeFrom: '2024-10-11', rangeTo: '2027-10-11', versions },
         fetchedAt: new Date('2026-10-11T05:00:00Z'),
       })),
-      snapshot: jest.fn(),
+      snapshot: vi.fn(),
     };
-    taxRates = { startNewVersion: jest.fn(), addStatutoryRate: jest.fn() };
-    assignment = { reassess: jest.fn() };
-    events = { emit: jest.fn() };
+    taxRates = { startNewVersion: vi.fn(), addStatutoryRate: vi.fn() };
+    assignment = { reassess: vi.fn() };
+    events = { emit: vi.fn() };
     service = new OfficialVatRatesService(
       workspaceRepo as never,
       rateRepo as never,
@@ -153,11 +154,11 @@ describe('OfficialVatRatesService', () => {
 
   it('applies a standard change to the rate and its twin, then reassesses from that date', async () => {
     versions.push({ ...versions[1], from: '2027-01-01', standard: 22 });
-    jest.useFakeTimers().setSystemTime(new Date('2026-10-11T12:00:00Z'));
+    vi.useFakeTimers().setSystemTime(new Date('2026-10-11T12:00:00Z'));
     try {
       await service.apply('ws-1', 'standard_changed:22:2027-01-01', 'user-1');
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
     expect(taxRates.startNewVersion.mock.calls.map(call => call[1]).sort()).toEqual([
       'std',
@@ -168,11 +169,11 @@ describe('OfficialVatRatesService', () => {
   });
 
   it('adds a missing reduced rate from the day it applies', async () => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-10-11T12:00:00Z'));
+    vi.useFakeTimers().setSystemTime(new Date('2026-10-11T12:00:00Z'));
     try {
       await service.apply('ws-1', 'reduced_missing:4.9:2026-07-01', 'user-1');
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
     expect(taxRates.addStatutoryRate).toHaveBeenCalledWith(
       'ws-1',
@@ -190,7 +191,7 @@ describe('OfficialVatRatesService', () => {
   });
 
   it('announces a difference once', async () => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-10-11T12:00:00Z'));
+    vi.useFakeTimers().setSystemTime(new Date('2026-10-11T12:00:00Z'));
     try {
       const check = await service.check('ws-1');
       await (service as unknown as { announce: (id: string, c: unknown) => Promise<void> }).announce(
@@ -202,7 +203,7 @@ describe('OfficialVatRatesService', () => {
         check,
       );
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
     expect(events.emit).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledWith('tax.rates.official_changed', {

@@ -397,7 +397,9 @@ export class OpenProtocolIntegrationsService {
   async autoBackupStatementToS3(workspaceId: string, statementId: string): Promise<void> {
     const integration = await this.integrationRepository.findOne({
       where: { workspaceId, provider: IntegrationProvider.S3_COMPATIBLE },
-      relations: ['openProtocolSettings'],
+      relations: {
+        openProtocolSettings: true,
+      },
     });
     if (!integration?.openProtocolSettings) {
       return;
@@ -674,7 +676,9 @@ export class OpenProtocolIntegrationsService {
   ): Promise<string | null> {
     const existing = await this.statementRepository.findOne({
       where: { workspaceId, fileName: Like(`%${syntheticId.slice(-24)}%`) },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (existing) {
       return null;
@@ -972,7 +976,9 @@ export class OpenProtocolIntegrationsService {
   private async findProtocolIntegration(workspaceId: string, provider: IntegrationProvider) {
     const integration = await this.integrationRepository.findOne({
       where: { workspaceId, provider },
-      relations: ['openProtocolSettings'],
+      relations: {
+        openProtocolSettings: true,
+      },
     });
 
     return {

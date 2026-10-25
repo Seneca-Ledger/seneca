@@ -1,12 +1,13 @@
+import type { Mock } from 'vitest';
 import { decodeBody, rejectedFields } from '../../../helpers/schema-body';
 import { UploadReceiptScanBody } from '@/contracts';
 import exifr from 'exifr';
 import { toCaptureLocation } from '@/common/utils/capture-location.util';
 import { readExifGps } from '@/common/utils/exif-gps.util';
 
-jest.mock('exifr', () => ({ __esModule: true, default: { gps: jest.fn() } }));
+vi.mock('exifr', () => ({ __esModule: true, default: { gps: vi.fn() } }));
 
-const gpsMock = exifr.gps as jest.Mock;
+const gpsMock = exifr.gps as Mock;
 
 describe('toCaptureLocation', () => {
   it('rounds the point to about a metre and the accuracy to whole metres', () => {
@@ -49,7 +50,10 @@ describe('capture location multipart fields', () => {
 });
 
 describe('readExifGps', () => {
-  beforeEach(() => gpsMock.mockReset());
+  // Braces: a function returned from beforeEach runs as Vitest's teardown.
+  beforeEach(() => {
+    gpsMock.mockReset();
+  });
 
   it('returns the rounded GPS tag of the photo', async () => {
     gpsMock.mockResolvedValue({ latitude: 43.238312345, longitude: 76.945398765 });

@@ -1,18 +1,19 @@
-jest.mock('imapflow', () => ({ ImapFlow: jest.fn() }));
-jest.mock('webdav', () => ({ createClient: jest.fn() }));
-jest.mock('../../../../src/common/utils/egress-url.util', () => ({
-  assertPublicEgressHost: jest.fn(),
-  assertPublicEgressUrl: jest.fn(),
-  createPublicEgressHttpAgents: jest.fn(() => ({
-    lookup: jest.fn(),
+import type { Mock } from 'vitest';
+vi.mock('imapflow', () => ({ ImapFlow: vi.fn() }));
+vi.mock('webdav', () => ({ createClient: vi.fn() }));
+vi.mock('../../../../src/common/utils/egress-url.util', () => ({
+  assertPublicEgressHost: vi.fn(),
+  assertPublicEgressUrl: vi.fn(),
+  createPublicEgressHttpAgents: vi.fn(() => ({
+    lookup: vi.fn(),
     httpAgent: {},
     httpsAgent: {},
   })),
 }));
-jest.mock('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn(),
-  PutObjectCommand: jest.fn(),
-  HeadBucketCommand: jest.fn(),
+vi.mock('@aws-sdk/client-s3', () => ({
+  S3Client: vi.fn(),
+  PutObjectCommand: vi.fn(),
+  HeadBucketCommand: vi.fn(),
 }));
 
 import { ImapFlow } from 'imapflow';
@@ -25,15 +26,17 @@ const makeMailboxList = () => [
   { path: 'Sent', name: 'Sent' },
 ];
 
-const connectMock = jest.fn();
-const listMock = jest.fn();
-const logoutMock = jest.fn();
+const connectMock = vi.fn();
+const listMock = vi.fn();
+const logoutMock = vi.fn();
 
-(ImapFlow as jest.Mock).mockImplementation(() => ({
+(ImapFlow as Mock).mockImplementation(function () {
+    return {
   connect: connectMock,
   list: listMock,
   logout: logoutMock,
-}));
+};
+  });
 
 const createService = () =>
   new OpenProtocolIntegrationsService(
@@ -51,7 +54,7 @@ const createService = () =>
 
 describe('OpenProtocolIntegrationsService.listImapFolders', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     connectMock.mockResolvedValue(undefined);
     listMock.mockResolvedValue(makeMailboxList());
     logoutMock.mockResolvedValue(undefined);

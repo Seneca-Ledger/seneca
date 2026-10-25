@@ -72,7 +72,10 @@ export class FinancialAnalyzer implements InsightAnalyzer {
   ): Promise<(row: T, amount: string | number) => number> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'currency'],
+      select: {
+        id: true,
+        currency: true,
+      },
     });
     const currency = normalizeCurrency(workspace?.currency);
     const rates = await buildRateMap(
@@ -293,7 +296,9 @@ export class FinancialAnalyzer implements InsightAnalyzer {
 
     const budgets = await this.budgetRepository.find({
       where: { workspaceId },
-      select: ['categoryId'],
+      select: {
+        categoryId: true,
+      },
     });
     const budgetedIds = new Set(budgets.map(budget => budget.categoryId));
 

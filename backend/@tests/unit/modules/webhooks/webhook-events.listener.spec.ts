@@ -6,13 +6,13 @@ import { MAX_IMPORTED_IDS } from '../../../../src/modules/webhooks/webhook-paylo
 
 describe('WebhookEventsListener', () => {
   let listener: WebhookEventsListener;
-  const mockDispatcher = { dispatch: jest.fn() };
-  const mockLogger = { error: jest.fn() };
+  const mockDispatcher = { dispatch: vi.fn() };
+  const mockLogger = { error: vi.fn() };
 
   beforeEach(() => {
     listener = new WebhookEventsListener(mockDispatcher as any);
     (listener as any).logger = mockLogger;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockDispatcher.dispatch.mockResolvedValue(undefined);
   });
 
@@ -111,7 +111,7 @@ describe('WebhookEventsListener', () => {
     });
     expect(sent(WebhookEvent.RECEIPT_APPROVED)).toMatchObject({ mode: 'attached_to_bank_row' });
 
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     await listener.onReceiptApproved({ workspaceId: 'ws-1', receiptId: 'r-1', transactionId: 't-1' });
     expect(sent(WebhookEvent.RECEIPT_APPROVED)).toMatchObject({ mode: 'created' });
   });

@@ -169,7 +169,9 @@ export class LedgerRevaluationService {
         status: JournalEntryStatus.POSTED,
         reversalOfId: IsNull(),
       },
-      select: ['id'],
+      select: {
+        id: true,
+      },
       order: { entryDate: 'DESC' },
     });
     return this.describe(

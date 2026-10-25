@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { IsNull, Not } from 'typeorm';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
@@ -10,9 +11,9 @@ describe('TaxReturnsService', () => {
   let service: TaxReturnsService;
   let returnRepo: ReturnType<typeof createRepoMock>;
   let transactionRepo: ReturnType<typeof createRepoMock>;
-  let adoption: { getCurrentJurisdiction: jest.Mock };
-  let exchangeRates: { getRateOrNull: jest.Mock };
-  let auditService: { createEvent: jest.Mock };
+  let adoption: { getCurrentJurisdiction: Mock };
+  let exchangeRates: { getRateOrNull: Mock };
+  let auditService: { createEvent: Mock };
 
   const KZ = { id: 'j-kz', code: 'KZ', currency: 'KZT' };
 
@@ -28,16 +29,16 @@ describe('TaxReturnsService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     returnRepo = createRepoMock();
     transactionRepo = createRepoMock();
     transactionRepo.find.mockResolvedValue([]);
     returnRepo.findOne.mockResolvedValue(null);
     returnRepo.create.mockImplementation((input: unknown) => input);
     returnRepo.save.mockImplementation(async (input: unknown) => input);
-    adoption = { getCurrentJurisdiction: jest.fn().mockResolvedValue(KZ) };
-    exchangeRates = { getRateOrNull: jest.fn().mockResolvedValue(1) };
-    auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    adoption = { getCurrentJurisdiction: vi.fn().mockResolvedValue(KZ) };
+    exchangeRates = { getRateOrNull: vi.fn().mockResolvedValue(1) };
+    auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
 
     service = new TaxReturnsService(
       returnRepo,
@@ -46,7 +47,7 @@ describe('TaxReturnsService', () => {
       exchangeRates as never,
       {} as never,
       auditService as never,
-      { emit: jest.fn() } as never,
+      { emit: vi.fn() } as never,
     );
   });
 
@@ -228,21 +229,21 @@ describe('TaxReturnsService', () => {
 
   describe('file', () => {
     const manager = {
-      save: jest.fn(async (_entity: unknown, row: unknown) => row),
-      createQueryBuilder: jest.fn(),
+      save: vi.fn(async (_entity: unknown, row: unknown) => row),
+      createQueryBuilder: vi.fn(),
     };
 
     beforeEach(() => {
       const update = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        whereInIds: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+        update: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        whereInIds: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue({ affected: 1 }),
       };
       manager.save.mockClear();
       manager.createQueryBuilder.mockReturnValue(update);
       returnRepo.manager = {
-        transaction: jest.fn(async (cb: (m: unknown) => unknown) => cb(manager)),
+        transaction: vi.fn(async (cb: (m: unknown) => unknown) => cb(manager)),
       } as never;
     });
 
@@ -346,20 +347,20 @@ describe('TaxReturnsService', () => {
 
   describe('reopen', () => {
     const manager = {
-      save: jest.fn(async (_entity: unknown, row: unknown) => row),
-      createQueryBuilder: jest.fn(),
+      save: vi.fn(async (_entity: unknown, row: unknown) => row),
+      createQueryBuilder: vi.fn(),
     };
 
     beforeEach(() => {
       const update = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        whereInIds: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+        update: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        whereInIds: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue({ affected: 1 }),
       };
       manager.createQueryBuilder.mockReturnValue(update);
       returnRepo.manager = {
-        transaction: jest.fn(async (cb: (m: unknown) => unknown) => cb(manager)),
+        transaction: vi.fn(async (cb: (m: unknown) => unknown) => cb(manager)),
       } as never;
     });
 

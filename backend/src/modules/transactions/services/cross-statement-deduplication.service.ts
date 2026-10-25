@@ -291,9 +291,13 @@ export class CrossStatementDeduplicationService {
     if (ids.length === 0 || typeof manager?.getRepository !== 'function') {
       return result;
     }
-    const statements = await manager
-      .getRepository(Statement)
-      .find({ where: { id: In(ids) }, select: ['id', 'accountNumber'] });
+    const statements = await manager.getRepository(Statement).find({
+      where: { id: In(ids) },
+      select: {
+        id: true,
+        accountNumber: true,
+      },
+    });
     for (const statement of statements) {
       const account = statement.accountNumber?.trim();
       if (account) {

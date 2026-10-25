@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
   NotificationDigestMode,
   NotificationPreference,
@@ -13,9 +14,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 describe('NotificationDeliveryService', () => {
   let service: NotificationDeliveryService;
-  let mailerService: { send: jest.Mock };
-  let telegramService: { sendPlainMessage: jest.Mock };
-  let notificationRepository: { update: jest.Mock; createQueryBuilder: jest.Mock };
+  let mailerService: { send: Mock };
+  let telegramService: { sendPlainMessage: Mock };
+  let notificationRepository: { update: Mock; createQueryBuilder: Mock };
 
   const user = {
     id: 'u1',
@@ -44,9 +45,9 @@ describe('NotificationDeliveryService', () => {
     }) as NotificationPreference;
 
   beforeEach(async () => {
-    mailerService = { send: jest.fn(async () => true) };
-    telegramService = { sendPlainMessage: jest.fn(async () => ({ messageId: '1' })) };
-    notificationRepository = { update: jest.fn(), createQueryBuilder: jest.fn() };
+    mailerService = { send: vi.fn(async () => true) };
+    telegramService = { sendPlainMessage: vi.fn(async () => ({ messageId: '1' })) };
+    notificationRepository = { update: vi.fn(), createQueryBuilder: vi.fn() };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -54,12 +55,12 @@ describe('NotificationDeliveryService', () => {
         { provide: getRepositoryToken(Notification), useValue: notificationRepository },
         {
           provide: getRepositoryToken(NotificationPreference),
-          useValue: { findOne: jest.fn(), update: jest.fn() },
+          useValue: { findOne: vi.fn(), update: vi.fn() },
         },
-        { provide: getRepositoryToken(User), useValue: { findOne: jest.fn() } },
+        { provide: getRepositoryToken(User), useValue: { findOne: vi.fn() } },
         { provide: MailerService, useValue: mailerService },
         { provide: TelegramService, useValue: telegramService },
-        { provide: PushService, useValue: { sendToUser: jest.fn(async () => true) } },
+        { provide: PushService, useValue: { sendToUser: vi.fn(async () => true) } },
       ],
     }).compile();
 

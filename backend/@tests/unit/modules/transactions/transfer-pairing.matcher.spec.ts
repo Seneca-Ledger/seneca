@@ -87,7 +87,7 @@ describe('transfer-pairing matcher', () => {
 
   describe('amountsMatch', () => {
     it('matches to the cent in one currency and never consults a rate', async () => {
-      const lookup = jest.fn(noRates);
+      const lookup = vi.fn(noRates);
       expect(await amountsMatch(out('a', { amount: 100 }), inc('b', { amount: 100 }), lookup)).toBe(
         true,
       );

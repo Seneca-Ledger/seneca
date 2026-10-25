@@ -5,11 +5,11 @@ import { TransactionsController } from '@/modules/transactions/transactions.cont
 describe('TransactionsController', () => {
   it('parses query params in findAll', async () => {
     const transactionsService = {
-      findAll: jest.fn(async () => ({ data: [], total: 0, page: 2, limit: 10 })),
-      findOne: jest.fn(),
-      update: jest.fn(),
-      bulkUpdate: jest.fn(),
-      remove: jest.fn(),
+      findAll: vi.fn(async () => ({ data: [], total: 0, page: 2, limit: 10 })),
+      findOne: vi.fn(),
+      update: vi.fn(),
+      bulkUpdate: vi.fn(),
+      remove: vi.fn(),
     };
     const controller = new TransactionsController(transactionsService as any, {} as any);
 
@@ -54,11 +54,11 @@ describe('TransactionsController', () => {
     [undefined, { kind: 'all' }],
   ])('turns owner=%s into %o', async (owner, expected) => {
     const transactionsService = {
-      findAll: jest.fn(async () => ({ data: [], total: 0, page: 1, limit: 50 })),
-      findOne: jest.fn(),
-      update: jest.fn(),
-      bulkUpdate: jest.fn(),
-      remove: jest.fn(),
+      findAll: vi.fn(async () => ({ data: [], total: 0, page: 1, limit: 50 })),
+      findOne: vi.fn(),
+      update: vi.fn(),
+      bulkUpdate: vi.fn(),
+      remove: vi.fn(),
     };
     const controller = new TransactionsController(transactionsService as any, {} as any);
 
@@ -81,11 +81,11 @@ describe('TransactionsController', () => {
 
   it('bulkUpdate forwards items', async () => {
     const transactionsService = {
-      findAll: jest.fn(),
-      findOne: jest.fn(),
-      update: jest.fn(),
-      bulkUpdate: jest.fn(async () => [{ id: 't1' }]),
-      remove: jest.fn(),
+      findAll: vi.fn(),
+      findOne: vi.fn(),
+      update: vi.fn(),
+      bulkUpdate: vi.fn(async () => [{ id: 't1' }]),
+      remove: vi.fn(),
     };
     const controller = new TransactionsController(transactionsService as any, {} as any);
     const result = await controller.bulkUpdate(
@@ -106,7 +106,7 @@ describe('TransactionsController', () => {
   describe('split routes', () => {
     it('getSplitParts delegates with (id, workspaceId)', async () => {
       const parts = [{ id: 'p1' }, { id: 'p2' }];
-      const transactionsService = { getSplitParts: jest.fn(async () => parts) };
+      const transactionsService = { getSplitParts: vi.fn(async () => parts) };
       const controller = new TransactionsController(transactionsService as any, {} as any);
 
       const result = await controller.getSplitParts('t1', 'ws-1');
@@ -117,7 +117,7 @@ describe('TransactionsController', () => {
 
     it('split delegates with (id, workspaceId, userId, dto)', async () => {
       const created = [{ id: 'p1' }, { id: 'p2' }];
-      const transactionsService = { split: jest.fn(async () => created) };
+      const transactionsService = { split: vi.fn(async () => created) };
       const controller = new TransactionsController(transactionsService as any, {} as any);
       const dto = { parts: [{ amount: 60 }, { amount: 40 }] } as any;
 
@@ -129,7 +129,7 @@ describe('TransactionsController', () => {
 
     it('unsplit delegates with (id, workspaceId, userId)', async () => {
       const survivor = { id: 't1' };
-      const transactionsService = { unsplit: jest.fn(async () => survivor) };
+      const transactionsService = { unsplit: vi.fn(async () => survivor) };
       const controller = new TransactionsController(transactionsService as any, {} as any);
 
       const result = await controller.unsplit('t1', { id: 'u1' } as any, 'ws-1');

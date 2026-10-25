@@ -3,8 +3,8 @@ import { NotificationEventsListener } from '../../../../src/modules/notification
 
 describe('NotificationEventsListener — tax deadlines', () => {
   const notificationsService = {
-    removeForWorkspace: jest.fn(async () => 1),
-    createForWorkspaceMembers: jest.fn(async () => 1),
+    removeForWorkspace: vi.fn(async () => 1),
+    createForWorkspaceMembers: vi.fn(async () => 1),
   };
   const listener = new NotificationEventsListener(notificationsService as never);
   const types = [NotificationType.TAX_DEADLINE_UPCOMING, NotificationType.TAX_DEADLINE_OVERDUE];
@@ -17,7 +17,7 @@ describe('NotificationEventsListener — tax deadlines', () => {
     returnName: 'Umsatzsteuer-Voranmeldung',
   };
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('removes the due-soon reminder for the period before the overdue one goes out', async () => {
     await listener.onTaxDeadlineUpcoming({ ...q3, daysLeft: -1 });

@@ -20,8 +20,8 @@ export class SearchController {
 
   @Get()
   @WorkspaceAuth(...SEARCH_PERMISSIONS)
-  // Без значения по умолчанию у параметра: babel не умеет транспилировать
-  // параметр-декоратор вместе с default value и выдаёт синтаксически битый JS.
+  // Без значения по умолчанию у параметра: Babel, которым раньше собирались тесты,
+  // не умел транспилировать параметр-декоратор вместе с default value.
   @SchemaResponse(SearchResponse)
   async search(
     @WorkspaceId() workspaceId: string,

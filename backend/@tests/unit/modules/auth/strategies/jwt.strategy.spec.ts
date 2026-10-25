@@ -30,7 +30,7 @@ describe('JwtStrategy', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockImplementation((key: string) => {
+            get: vi.fn().mockImplementation((key: string) => {
               if (key === 'JWT_SECRET') return 'test-secret';
               if (key === 'JWT_ACCESS_SECRET') return 'test-secret';
               if (key === 'JWT_REFRESH_SECRET') return 'test-refresh-secret';
@@ -41,14 +41,14 @@ describe('JwtStrategy', () => {
         {
           provide: getRepositoryToken(User),
           useValue: {
-            findOne: jest.fn(),
-            update: jest.fn(),
+            findOne: vi.fn(),
+            update: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(AuthSession),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
       ],
@@ -62,9 +62,9 @@ describe('JwtStrategy', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Default: the session behind the token is still active.
-    jest
+    vi
       .spyOn(authSessionRepository, 'findOne')
       .mockResolvedValue({ id: 'session-1' } as AuthSession);
   });
@@ -85,7 +85,7 @@ describe('JwtStrategy', () => {
         role: UserRole.USER,
         sessionId: 'session-1',
       };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
 
       const result = await strategy.validate(payload);
 
@@ -102,14 +102,14 @@ describe('JwtStrategy', () => {
 
     it('should throw UnauthorizedException if user not found', async () => {
       const payload = { sub: '999', email: 'test@example.com', role: UserRole.USER };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(null);
 
       await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
     });
 
     it('should throw UnauthorizedException if user is inactive', async () => {
       const payload = { sub: '1', email: 'test@example.com', role: UserRole.USER };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue({
         ...mockUser,
         isActive: false,
       } as User);
@@ -119,7 +119,7 @@ describe('JwtStrategy', () => {
 
     it('should accept payload with valid sub and email', async () => {
       const payload = { sub: '1', email: 'test@example.com', role: UserRole.USER };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
 
       const result = await strategy.validate(payload);
 
@@ -133,7 +133,7 @@ describe('JwtStrategy', () => {
         ...mockUser,
         workspaceId: 'ws-1',
       };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(userWithWorkspace as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(userWithWorkspace as User);
 
       const result = await strategy.validate(payload);
 
@@ -142,7 +142,7 @@ describe('JwtStrategy', () => {
 
     it('should include user role in result', async () => {
       const payload = { sub: '1', email: 'test@example.com', role: UserRole.USER };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
 
       const result = await strategy.validate(payload);
 
@@ -152,10 +152,10 @@ describe('JwtStrategy', () => {
     it('should assign a DiceBear avatar when missing', async () => {
       const payload = { sub: '1', email: 'test@example.com', role: UserRole.USER };
       const userWithoutAvatar = { ...mockUser, avatarUrl: null };
-      const updateSpy = jest
+      const updateSpy = vi
         .spyOn(userRepository, 'update')
         .mockResolvedValue({ affected: 1, generatedMaps: [], raw: [] });
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(userWithoutAvatar as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(userWithoutAvatar as User);
 
       const result = await strategy.validate(payload);
 
@@ -175,8 +175,8 @@ describe('JwtStrategy', () => {
         role: UserRole.USER,
         sessionId: 'session-1',
       };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(authSessionRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(authSessionRepository, 'findOne').mockResolvedValue(null);
 
       await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
       expect(authSessionRepository.findOne).toHaveBeenCalledWith(
@@ -188,8 +188,8 @@ describe('JwtStrategy', () => {
 
     it('should accept a legacy token that carries no sessionId', async () => {
       const payload = { sub: '1', email: 'test@example.com', role: UserRole.USER };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      const sessionSpy = jest.spyOn(authSessionRepository, 'findOne');
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      const sessionSpy = vi.spyOn(authSessionRepository, 'findOne');
 
       await expect(strategy.validate(payload)).resolves.toBeDefined();
       expect(sessionSpy).not.toHaveBeenCalled();
@@ -211,7 +211,7 @@ describe('JwtStrategy', () => {
   describe('configuration', () => {
     it('should use JWT_ACCESS_SECRET from config', () => {
       const configService = new ConfigService();
-      const getSpy = jest.spyOn(configService, 'get').mockReturnValue('test-secret');
+      const getSpy = vi.spyOn(configService, 'get').mockReturnValue('test-secret');
 
       // Create new strategy to test constructor
       new JwtStrategy(configService, userRepository, authSessionRepository);
@@ -221,7 +221,7 @@ describe('JwtStrategy', () => {
 
     it('should extract JWT from Authorization header', async () => {
       const payload = { sub: '1', email: 'test@example.com', role: UserRole.USER };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
 
       // The strategy should be configured to extract from header
       const result = await strategy.validate(payload);
