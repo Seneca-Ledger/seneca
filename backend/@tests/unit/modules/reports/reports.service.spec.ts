@@ -24,12 +24,12 @@ describe('ReportsService (helpers)', () => {
       createRepoMock() as any,
       createRepoMock() as any,
       createRepoMock() as any,
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as AuditService,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as AuditService,
       createRepoMock() as any,
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
   });
 
@@ -73,22 +73,22 @@ describe('ReportsService (helpers)', () => {
 
   it('getSpendOverTimeReport fills empty periods', async () => {
     const qb = {
-      innerJoin: jest.fn().mockReturnThis(),
-      leftJoin: jest.fn().mockReturnThis(),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn(async () => [
+      innerJoin: vi.fn().mockReturnThis(),
+      leftJoin: vi.fn().mockReturnThis(),
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      addSelect: vi.fn().mockReturnThis(),
+      groupBy: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      getRawMany: vi.fn(async () => [
         { period: '2025-01-01', income: '100', expense: '0', count: '1' },
         { period: '2025-01-03', income: '0', expense: '20', count: '1' },
       ]),
     };
     const transactionRepository = {
-      createQueryBuilder: jest.fn(() => qb),
+      createQueryBuilder: vi.fn(() => qb),
     };
     const localService = new ReportsService(
       transactionRepository as any,
@@ -99,12 +99,12 @@ describe('ReportsService (helpers)', () => {
       createRepoMock() as any,
       createRepoMock() as any,
       createRepoMock() as any,
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as AuditService,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as AuditService,
       createRepoMock() as any,
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
 
     const result = await (localService as any).getSpendOverTimeReport('ws-1', {
@@ -135,21 +135,21 @@ describe('ReportsService (helpers)', () => {
 
   it('getSpendOverTimeReport supports quarterly grouping', async () => {
     const qb = {
-      innerJoin: jest.fn().mockReturnThis(),
-      leftJoin: jest.fn().mockReturnThis(),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn(async () => [
+      innerJoin: vi.fn().mockReturnThis(),
+      leftJoin: vi.fn().mockReturnThis(),
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      addSelect: vi.fn().mockReturnThis(),
+      groupBy: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      getRawMany: vi.fn(async () => [
         { period: '2025-Q1', income: '100', expense: '40', count: '2' },
       ]),
     };
     const transactionRepository = {
-      createQueryBuilder: jest.fn(() => qb),
+      createQueryBuilder: vi.fn(() => qb),
     };
     const localService = new ReportsService(
       transactionRepository as any,
@@ -160,12 +160,12 @@ describe('ReportsService (helpers)', () => {
       createRepoMock() as any,
       createRepoMock() as any,
       createRepoMock() as any,
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as AuditService,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as AuditService,
       createRepoMock() as any,
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
 
     const result = await (localService as any).getSpendOverTimeReport('ws-1', {
@@ -195,21 +195,21 @@ describe('ReportsService (helpers)', () => {
 
   it('getSpendOverTimeReport supports yearly grouping', async () => {
     const qb = {
-      innerJoin: jest.fn().mockReturnThis(),
-      leftJoin: jest.fn().mockReturnThis(),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn(async () => [
+      innerJoin: vi.fn().mockReturnThis(),
+      leftJoin: vi.fn().mockReturnThis(),
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      addSelect: vi.fn().mockReturnThis(),
+      groupBy: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      getRawMany: vi.fn(async () => [
         { period: '2025', income: '250', expense: '150', count: '3' },
       ]),
     };
     const transactionRepository = {
-      createQueryBuilder: jest.fn(() => qb),
+      createQueryBuilder: vi.fn(() => qb),
     };
     const localService = new ReportsService(
       transactionRepository as any,
@@ -220,12 +220,12 @@ describe('ReportsService (helpers)', () => {
       createRepoMock() as any,
       createRepoMock() as any,
       createRepoMock() as any,
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as AuditService,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as AuditService,
       createRepoMock() as any,
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
 
     const result = await (localService as any).getSpendOverTimeReport('ws-1', {
@@ -272,32 +272,32 @@ describe('generateFromTemplate', () => {
     // The rows are read through a query builder (the shared counting rule);
     // `find` stays the place a test puts them, so the builder hands back its answer.
     const rowsQuery: any = {
-      andWhere: jest.fn(() => rowsQuery),
-      where: jest.fn(() => rowsQuery),
-      leftJoinAndSelect: jest.fn(() => rowsQuery),
-      getMany: jest.fn(() => mockTransactionRepository.find()),
+      andWhere: vi.fn(() => rowsQuery),
+      where: vi.fn(() => rowsQuery),
+      leftJoinAndSelect: vi.fn(() => rowsQuery),
+      getMany: vi.fn(() => mockTransactionRepository.find()),
     };
     mockTransactionRepository = {
-      find: jest.fn(),
-      createQueryBuilder: jest.fn(() => rowsQuery),
+      find: vi.fn(),
+      createQueryBuilder: vi.fn(() => rowsQuery),
       rowsQuery,
     };
     mockReportHistoryRepo = {
-      save: jest.fn().mockResolvedValue({}),
-      find: jest.fn().mockResolvedValue([]),
+      save: vi.fn().mockResolvedValue({}),
+      find: vi.fn().mockResolvedValue([]),
     };
     mockWorkspaceRepository = {
-      findOne: jest.fn(async () => ({ currency: 'EUR' })),
+      findOne: vi.fn(async () => ({ currency: 'EUR' })),
     };
-    mockExchangeRates = { getRateOrNull: jest.fn(async () => 2) };
+    mockExchangeRates = { getRateOrNull: vi.fn(async () => 2) };
     mockHoldingsSnapshot = {
-      build: jest.fn(async () => ({
+      build: vi.fn(async () => ({
         document: { title: 'Investment Holdings', subtitle: 's', sections: [] },
         missingRates: ['XYZ'],
       })),
     };
     mockBalanceService = {
-      exportBalanceSheet: jest.fn(async () => ({
+      exportBalanceSheet: vi.fn(async () => ({
         fileName: 'balance-sheet-2024-01-31.xlsx',
         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         buffer: Buffer.from('balance'),
@@ -313,8 +313,8 @@ describe('generateFromTemplate', () => {
       createRepoMock() as any,
       createRepoMock() as any,
       createRepoMock() as any,
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as AuditService,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as AuditService,
       mockReportHistoryRepo as any,
       mockWorkspaceRepository as any,
       mockExchangeRates as any,
@@ -350,7 +350,7 @@ describe('generateFromTemplate', () => {
 
   it('getCustomTablesSummary scopes tables by workspaceId', async () => {
     const customTableRepository = {
-      find: jest.fn(async () => []),
+      find: vi.fn(async () => []),
     };
 
     const localService = new ReportsService(
@@ -362,12 +362,12 @@ describe('generateFromTemplate', () => {
       createRepoMock() as any,
       createRepoMock() as any,
       createRepoMock() as any,
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as AuditService,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as AuditService,
       createRepoMock() as any,
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
 
     await localService.getCustomTablesSummary('ws-1', { days: 30, tableIds: [] } as any);
@@ -1038,7 +1038,7 @@ describe('generateFromTemplate', () => {
       format: 'excel',
     });
     track(generated.filePath);
-    mockReportHistoryRepo.findOne = jest.fn().mockResolvedValue({
+    mockReportHistoryRepo.findOne = vi.fn().mockResolvedValue({
       id: 'report-1',
       workspaceId: 'ws1',
       filePath: generated.filePath,
@@ -1075,7 +1075,7 @@ describe('generateFromTemplate', () => {
   });
 
   it('refuses a history file outside the workspace report directory', async () => {
-    mockReportHistoryRepo.findOne = jest.fn().mockResolvedValue({
+    mockReportHistoryRepo.findOne = vi.fn().mockResolvedValue({
       id: 'report-1',
       workspaceId: 'ws1',
       // Exists, but is not this workspace's report.
@@ -1092,18 +1092,18 @@ describe('generateFromTemplate', () => {
 
 describe('exportWorkspaceTransactions', () => {
   it('queries all workspace transactions and delegates excel export', async () => {
-    const getMany = jest.fn(async () => [{ id: 'tx-1' }]);
+    const getMany = vi.fn(async () => [{ id: 'tx-1' }]);
     const qb = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      leftJoin: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      addOrderBy: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      leftJoin: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      addOrderBy: vi.fn().mockReturnThis(),
       getMany,
     };
     const transactionRepository = {
-      createQueryBuilder: jest.fn(() => qb),
+      createQueryBuilder: vi.fn(() => qb),
     };
     const service = new ReportsService(
       transactionRepository as any,
@@ -1114,14 +1114,14 @@ describe('exportWorkspaceTransactions', () => {
       createRepoMock() as any,
       createRepoMock() as any,
       createRepoMock() as any,
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as AuditService,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as AuditService,
       createRepoMock() as any,
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
-    const excelSpy = jest
+    const excelSpy = vi
       .spyOn(service as any, 'generateWorkspaceExcel')
       .mockResolvedValue(undefined);
 

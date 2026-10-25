@@ -112,7 +112,9 @@ export class TransactionsTarget implements ImportTarget {
     const existing = fingerprints.length
       ? await ctx.manager.getRepository(Transaction).find({
           where: { workspaceId: ctx.workspaceId, fingerprint: In(fingerprints) },
-          select: ['fingerprint'],
+          select: {
+            fingerprint: true,
+          },
         })
       : [];
     for (const item of existing) {

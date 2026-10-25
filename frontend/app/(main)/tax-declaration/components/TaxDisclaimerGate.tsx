@@ -83,7 +83,9 @@ export function TaxDisclaimerGate({
             onChange={event => setChecked(event.target.checked)}
             disabled={accepting}
             sx={{ p: 0, mt: '2px' }}
-            inputProps={{ 'aria-label': t.disclaimerConsent.value }}
+            slotProps={{
+              input: { 'aria-label': t.disclaimerConsent.value },
+            }}
           />
           <Typography sx={{ fontSize: 14, lineHeight: 1.6, color: 'text.primary' }}>
             {t.disclaimerConsent}

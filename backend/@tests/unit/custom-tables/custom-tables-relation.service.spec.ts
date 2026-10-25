@@ -1,15 +1,16 @@
+import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { CustomTableColumnType } from '../../../src/entities/custom-table-column.entity';
 import { CustomTablesService } from '../../../src/modules/custom-tables/custom-tables.service';
 
 const createRepositoryMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  save: jest.fn(async (v: unknown) => v),
-  create: jest.fn((value?: unknown) => value),
-  delete: jest.fn(),
-  update: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  findOne: vi.fn(),
+  find: vi.fn(),
+  save: vi.fn(async (v: unknown) => v),
+  create: vi.fn((value?: unknown) => value),
+  delete: vi.fn(),
+  update: vi.fn(),
+  createQueryBuilder: vi.fn(),
 });
 
 const TABLE_ID = '11111111-1111-4111-8111-111111111111';
@@ -32,13 +33,13 @@ function buildService(): Harness {
   customTableRepository.createQueryBuilder.mockImplementation(() => {
     let requestedId: string | null = null;
     const qb = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn((_sql: string, params: { tableId?: string }) => {
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      where: vi.fn((_sql: string, params: { tableId?: string }) => {
         requestedId = params?.tableId ?? null;
         return qb;
       }),
-      andWhere: jest.fn().mockReturnThis(),
-      getOne: jest.fn(async () =>
+      andWhere: vi.fn().mockReturnThis(),
+      getOne: vi.fn(async () =>
         requestedId === FOREIGN_TABLE_ID ? null : { id: requestedId, name: 'Таблица' },
       ),
     };
@@ -63,7 +64,7 @@ function buildService(): Harness {
     createRepositoryMock() as never,
     createRepositoryMock() as never,
     workspaceMemberRepository as never,
-    { createEvent: jest.fn(), createBatchEvents: jest.fn() } as never,
+    { createEvent: vi.fn(), createBatchEvents: vi.fn() } as never,
   );
 
   return { service, rowRepo: customTableRowRepository };
@@ -108,7 +109,7 @@ describe('relation columns', () => {
 
   it('lists options labelled by the display column', async () => {
     const { service, rowRepo } = buildService();
-    const columnRepo = (service as unknown as { customTableColumnRepository: { findOne: jest.Mock } })
+    const columnRepo = (service as unknown as { customTableColumnRepository: { findOne: Mock } })
       .customTableColumnRepository;
     columnRepo.findOne.mockResolvedValue({
       key: 'vendor',
@@ -116,11 +117,11 @@ describe('relation columns', () => {
       config: { targetTableId: TARGET_TABLE_ID, displayColumnKey: 'name' },
     });
     rowRepo.createQueryBuilder.mockReturnValue({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      take: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue([
         { id: TARGET_ROW_ID, rowNumber: 1, data: { name: 'Магнум' } },
         { id: 'x', rowNumber: 2, data: { name: '  ' } },
       ]),

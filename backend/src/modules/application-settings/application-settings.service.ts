@@ -13,6 +13,7 @@ import nodemailer from 'nodemailer';
 import type { Repository } from 'typeorm';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { getWith } from '../../common/effect/http-json';
+import { appError } from '../../common/errors/app-error';
 import { assertPublicEgressHost, pinPublicEgressHost } from '../../common/utils/egress-url.util';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import type {
@@ -338,7 +339,7 @@ export class ApplicationSettingsService {
     requestWorkspaceId?: string,
   ) {
     if (!file?.buffer?.length) {
-      throw new BadRequestException('Model archive is required');
+      throw new BadRequestException(appError('APP_SETTINGS_MODEL_ARCHIVE_REQUIRED'));
     }
 
     const existing = await this.getLocalCategorizationSettings(user, requestWorkspaceId);
@@ -700,7 +701,7 @@ export class ApplicationSettingsService {
       !parts.length ||
       parts.some(part => part === '.' || part === '..' || path.isAbsolute(part))
     ) {
-      throw new BadRequestException('modelId is invalid');
+      throw new BadRequestException(appError('APP_SETTINGS_MODEL_ID_INVALID'));
     }
     return path.join(modelRoot, ...parts);
   }
@@ -710,12 +711,12 @@ export class ApplicationSettingsService {
     try {
       zip = new AdmZip(buffer);
     } catch {
-      throw new BadRequestException('Model archive must be a valid ZIP file');
+      throw new BadRequestException(appError('APP_SETTINGS_MODEL_ARCHIVE_NOT_ZIP'));
     }
 
     const entries = zip.getEntries();
     if (entries.length > MAX_MODEL_ARCHIVE_ENTRIES) {
-      throw new BadRequestException('Model archive contains too many files');
+      throw new BadRequestException(appError('APP_SETTINGS_MODEL_ARCHIVE_TOO_MANY_FILES'));
     }
 
     // A running total of what actually lands on disk, rather than trusting the
@@ -732,7 +733,7 @@ export class ApplicationSettingsService {
         normalizedName.startsWith('..') ||
         normalizedName.includes(`${path.sep}..${path.sep}`)
       ) {
-        throw new BadRequestException('Model archive contains unsafe paths');
+        throw new BadRequestException(appError('APP_SETTINGS_MODEL_ARCHIVE_UNSAFE_PATHS'));
       }
 
       const targetPath = path.join(destination, normalizedName);
@@ -744,7 +745,7 @@ export class ApplicationSettingsService {
       const data = entry.getData();
       writtenBytes += data.length;
       if (writtenBytes > MAX_MODEL_UNCOMPRESSED_BYTES) {
-        throw new BadRequestException('Model archive expands beyond the allowed size');
+        throw new BadRequestException(appError('APP_SETTINGS_MODEL_ARCHIVE_TOO_LARGE'));
       }
 
       await fs.mkdir(path.dirname(targetPath), { recursive: true });
@@ -759,7 +760,7 @@ export class ApplicationSettingsService {
         return candidate;
       }
     }
-    throw new BadRequestException('Model archive must contain config.json and an ONNX model file');
+    throw new BadRequestException(appError('APP_SETTINGS_MODEL_ARCHIVE_INCOMPLETE'));
   }
 
   private async walkDirectories(root: string): Promise<string[]> {
@@ -796,7 +797,7 @@ export class ApplicationSettingsService {
 
   private async assertSmtpConnection(settings: SmtpRuntimeSettings) {
     if (!(settings.host && settings.from)) {
-      throw new BadRequestException('SMTP host and from are required');
+      throw new BadRequestException(appError('APP_SETTINGS_SMTP_HOST_FROM_REQUIRED'));
     }
     const transporter = nodemailer.createTransport({
       ...(await smtpConnectTarget(settings, settings.host)),
@@ -816,17 +817,17 @@ export class ApplicationSettingsService {
     try {
       await transporter.verify();
     } catch {
-      throw new BadRequestException('Unable to verify SMTP connection');
+      throw new BadRequestException(appError('APP_SETTINGS_SMTP_VERIFY_FAILED'));
     }
   }
 
   private async assertTelegramConnection(settings: TelegramRuntimeSettings) {
     if (!settings.botToken) {
-      throw new BadRequestException('Telegram botToken is required');
+      throw new BadRequestException(appError('APP_SETTINGS_TELEGRAM_TOKEN_REQUIRED'));
     }
     // Bot tokens are "<digits>:<base64url>"; nothing else may shape the request path.
     if (!/^\d+:[\w-]+$/.test(settings.botToken)) {
-      throw new BadRequestException('Telegram bot token is invalid');
+      throw new BadRequestException(appError('APP_SETTINGS_TELEGRAM_TOKEN_INVALID'));
     }
     const outcome = await this.effects.run(
       getWith(
@@ -843,10 +844,12 @@ export class ApplicationSettingsService {
       ).pipe(Effect.catch(() => Effect.succeed({ ok: false, unreachable: true } as const))),
     );
     if ('unreachable' in outcome) {
-      throw new BadRequestException('Unable to connect to Telegram');
+      throw new BadRequestException(appError('APP_SETTINGS_TELEGRAM_UNREACHABLE'));
     }
     if (!outcome.ok) {
-      throw new BadRequestException(outcome.description || 'Telegram bot token is invalid');
+      const reason = outcome.description;
+      if (reason) throw new BadRequestException(appError('TELEGRAM_TOKEN_REJECTED', { reason }));
+      throw new BadRequestException(appError('APP_SETTINGS_TELEGRAM_TOKEN_INVALID'));
     }
   }
 
@@ -856,7 +859,7 @@ export class ApplicationSettingsService {
     // workspace (getSmtpSettings) or is account mail (getAccountSmtpSettings).
     const workspaceId = requestWorkspaceId || user.workspaceId || user.lastWorkspaceId;
     if (!workspaceId) {
-      throw new BadRequestException('Workspace is required');
+      throw new BadRequestException(appError('APP_SETTINGS_WORKSPACE_REQUIRED'));
     }
     return workspaceId;
   }
@@ -864,7 +867,7 @@ export class ApplicationSettingsService {
   private requiredString(value: unknown, name: string): string {
     const text = this.stringValue(value);
     if (!text) {
-      throw new BadRequestException(`${name} is required`);
+      throw new BadRequestException(appError('APP_SETTINGS_FIELD_REQUIRED', { field: name }));
     }
     return text;
   }
@@ -919,7 +922,7 @@ export class ApplicationSettingsService {
       const hasScheme = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed);
       return new URL(hasScheme ? trimmed : `https://${trimmed}`).origin;
     } catch {
-      throw new BadRequestException('publicUrl must be a valid URL');
+      throw new BadRequestException(appError('APP_SETTINGS_PUBLIC_URL_INVALID'));
     }
   }
 }

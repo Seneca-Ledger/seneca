@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -36,26 +37,26 @@ function row(overrides: Partial<Transaction> & { id: string }): Transaction {
 describe('TransferPairingService', () => {
   let service: TransferPairingService;
   const repository = {
-    findOne: jest.fn(),
-    update: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    findOne: vi.fn(),
+    update: vi.fn(),
+    createQueryBuilder: vi.fn(),
   };
-  const exchangeRates = { getRateOrNull: jest.fn(async () => null) };
+  const exchangeRates = { getRateOrNull: vi.fn(async () => null) };
 
   /** One query builder per call; each resolves `getMany` with the next batch. */
   function queueQueries(...batches: Transaction[][]) {
     for (const batch of batches) {
-      const qb: Record<string, jest.Mock> = {};
+      const qb: Record<string, Mock> = {};
       for (const method of ['leftJoin', 'addSelect', 'where', 'andWhere']) {
-        qb[method] = jest.fn(() => qb);
+        qb[method] = vi.fn(() => qb);
       }
-      qb.getMany = jest.fn(async () => batch);
+      qb.getMany = vi.fn(async () => batch);
       repository.createQueryBuilder.mockReturnValueOnce(qb);
     }
   }
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
         TransferPairingService,
@@ -130,7 +131,7 @@ describe('TransferPairingService', () => {
 
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { id: 'a', workspaceId: WORKSPACE },
-        relations: ['statement'],
+        relations: { statement: true },
       });
       expect(repository.update).toHaveBeenCalledWith(
         { id: In(['a', 'b']), workspaceId: WORKSPACE, transferPairId: IsNull() },
@@ -220,18 +221,18 @@ describe('TransferPairingService', () => {
 describe('TransferPairingService reimbursements', () => {
   let service: TransferPairingService;
   const repository = {
-    findOne: jest.fn(),
-    update: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    findOne: vi.fn(),
+    update: vi.fn(),
+    createQueryBuilder: vi.fn(),
   };
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
         TransferPairingService,
         { provide: getRepositoryToken(Transaction), useValue: repository },
-        { provide: ExchangeRatesService, useValue: { getRateOrNull: jest.fn(async () => null) } },
+        { provide: ExchangeRatesService, useValue: { getRateOrNull: vi.fn(async () => null) } },
       ],
     }).compile();
     service = module.get(TransferPairingService);

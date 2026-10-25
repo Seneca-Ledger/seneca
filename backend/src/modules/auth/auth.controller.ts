@@ -1,28 +1,21 @@
-import {
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Req,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
 import type { CurrentUser as CurrentUserView } from '../../contracts';
 import {
+  AuthSessionParams,
   CurrentUser as CurrentUserContract,
   ForgotPasswordBody,
   LoginBody,
   LoginResponse,
+  MessageResult,
   RecoveryCodes,
   RegisterBody,
   RegisterResponse,
@@ -154,6 +147,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('2fa/disable')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async disableTwoFactor(
     @CurrentUser() user: User,
     @SchemaBody(TwoFactorPasswordBody) dto: TwoFactorPasswordBody,
@@ -183,6 +177,7 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async forgotPassword(
     @SchemaBody(ForgotPasswordBody) dto: ForgotPasswordBody,
   ): Promise<{ message: string }> {
@@ -195,6 +190,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async resetPassword(
     @SchemaBody(ResetPasswordBody) dto: ResetPasswordBody,
     @Res({ passthrough: true }) res: Response,
@@ -210,6 +206,7 @@ export class AuthController {
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -228,6 +225,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async logout(
     @CurrentUser() user: User,
     @Req() req: AuthenticatedRequest,
@@ -242,6 +240,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async logoutAll(
     @CurrentUser() user: User,
     @Res({ passthrough: true }) res: Response,
@@ -262,9 +261,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('sessions/:sessionId/logout')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async logoutSession(
     @CurrentUser() user: User,
-    @Param('sessionId') sessionId: string,
+    @SchemaParams(AuthSessionParams) { sessionId }: AuthSessionParams,
     @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {

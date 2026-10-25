@@ -18,3 +18,7 @@ export const UpdateBranchBody = Schema.Struct({
   isActive: optionalNullable(Schema.Boolean),
 });
 export type UpdateBranchBody = Wire<typeof UpdateBranchBody>;
+
+/** `/branches/:id`: a branch's uuid. */
+export const BranchParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type BranchParams = Wire<typeof BranchParams>;

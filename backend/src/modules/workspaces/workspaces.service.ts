@@ -90,7 +90,10 @@ export class WorkspacesService {
   private async resolveActorName(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
 
     return user?.name || user?.email || 'User';
@@ -185,7 +188,9 @@ export class WorkspacesService {
 
     const members = await this.workspaceMemberRepository.find({
       where: { workspaceId: workspace.id },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
       order: { createdAt: 'ASC' },
     });
 
@@ -249,7 +254,9 @@ export class WorkspacesService {
 
     const members = await this.workspaceMemberRepository.find({
       where: { workspaceId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
       order: { createdAt: 'ASC' },
     });
 
@@ -322,7 +329,9 @@ export class WorkspacesService {
 
     const member = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId: targetUserId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!member) {
@@ -375,7 +384,9 @@ export class WorkspacesService {
 
     const member = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId: targetUserId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!member) {
@@ -501,7 +512,9 @@ export class WorkspacesService {
 
     const member = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId: targetUserId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!member) {
@@ -587,7 +600,10 @@ export class WorkspacesService {
 
     const existingUser = await this.userRepository.findOne({
       where: { email },
-      select: ['id', 'workspaceId'],
+      select: {
+        id: true,
+        workspaceId: true,
+      },
     });
 
     if (existingUser) {
@@ -734,7 +750,9 @@ export class WorkspacesService {
 
     const invitation = await this.invitationRepository.findOne({
       where: { token: trimmedToken },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
 
     if (!invitation) {
@@ -929,7 +947,10 @@ export class WorkspacesService {
   private async assertWritable(workspaceId: string): Promise<void> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'kind'],
+      select: {
+        id: true,
+        kind: true,
+      },
     });
     if (workspace?.kind === WorkspaceKind.VERSION) {
       throw new ForbiddenException(appError('VERSION_READ_ONLY'));
@@ -939,7 +960,9 @@ export class WorkspacesService {
   async getUserWorkspaces(userId: string): Promise<WorkspaceResponseDto[]> {
     const memberships = await this.workspaceMemberRepository.find({
       where: { userId },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
       order: { lastAccessedAt: 'DESC' },
     });
 
@@ -982,7 +1005,9 @@ export class WorkspacesService {
   ): Promise<WorkspaceResponseDto | null> {
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
 
     if (!membership) {
@@ -1199,7 +1224,10 @@ export class WorkspacesService {
     // A past version is looked at, not worked in: signing in again lands in a real workspace.
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'kind'],
+      select: {
+        id: true,
+        kind: true,
+      },
     });
     if (workspace?.kind !== WorkspaceKind.VERSION) {
       await this.userRepository.update(userId, { lastWorkspaceId: workspaceId });

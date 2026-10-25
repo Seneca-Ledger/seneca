@@ -1,10 +1,11 @@
+import type { Mocked } from 'vitest';
 import { IntelligentDeduplicationService } from '@/modules/parsing/services/intelligent-deduplication.service';
 import { ImportConfigService } from '@/modules/import/config/import.config';
 import type { ParsedTransaction } from '@/modules/parsing/interfaces/parsed-statement.interface';
 
 describe('IntelligentDeduplicationService', () => {
   let service: IntelligentDeduplicationService;
-  let mockImportConfigService: jest.Mocked<Pick<ImportConfigService,
+  let mockImportConfigService: Mocked<Pick<ImportConfigService,
     | 'getDedupDateToleranceDays'
     | 'getDedupAmountTolerancePercent'
     | 'getDedupTextSimilarityThreshold'
@@ -22,10 +23,10 @@ describe('IntelligentDeduplicationService', () => {
 
   beforeEach(() => {
     mockImportConfigService = {
-      getDedupDateToleranceDays: jest.fn().mockReturnValue(3),
-      getDedupAmountTolerancePercent: jest.fn().mockReturnValue(2),
-      getDedupTextSimilarityThreshold: jest.fn().mockReturnValue(0.75),
-      getConflictAutoResolveThreshold: jest.fn().mockReturnValue(0.95),
+      getDedupDateToleranceDays: vi.fn().mockReturnValue(3),
+      getDedupAmountTolerancePercent: vi.fn().mockReturnValue(2),
+      getDedupTextSimilarityThreshold: vi.fn().mockReturnValue(0.75),
+      getConflictAutoResolveThreshold: vi.fn().mockReturnValue(0.95),
     };
 
     service = new IntelligentDeduplicationService(

@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
@@ -73,7 +74,7 @@ export class BalanceAccount {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -84,7 +85,7 @@ export class BalanceAccount {
     { nullable: true, onDelete: 'CASCADE' },
   )
   @JoinColumn({ name: 'parent_id' })
-  parent: BalanceAccount | null;
+  parent: Relation<BalanceAccount | null>;
 
   @Column({ name: 'parent_id', type: 'uuid', nullable: true })
   parentId: string | null;
@@ -93,7 +94,7 @@ export class BalanceAccount {
     () => BalanceAccount,
     account => account.parent,
   )
-  children: BalanceAccount[];
+  children: Relation<BalanceAccount[]>;
 
   @Column({ length: 80 })
   code: string;

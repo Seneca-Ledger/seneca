@@ -1,6 +1,7 @@
 'use client';
 
 import toast from 'react-hot-toast';
+import { useIntlayer } from '@/app/i18n';
 import apiClient, { type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { buildParsedDataPayload } from '../helpers/receipt-builders';
@@ -44,13 +45,14 @@ export function useReceiptActions({
   onClose,
   onUpdated,
 }: UseReceiptActionsParams): UseReceiptActionsReturn {
+  const t = useIntlayer('receiptReview');
   const handleCurrencyChange = async (nextValue: EditableReceiptParsedData): Promise<void> => {
     if (!receipt) return;
     try {
       await patchReceipt(receipt.id, { parsedData: buildParsedDataPayload(nextValue) });
       onUpdated?.();
     } catch {
-      toast.error('Failed to save receipt currency.');
+      toast.error(t.currencySaveFailed.value);
     }
   };
 
@@ -58,7 +60,7 @@ export function useReceiptActions({
     if (!receipt) return;
     await withSaving(setSaving, async () => {
       await patchReceipt(receipt.id, { parsedData: payload });
-      toast.success('Receipt draft saved.');
+      toast.success(t.draftSaved.value);
       onUpdated?.();
     });
   };
@@ -67,7 +69,7 @@ export function useReceiptActions({
     if (!receipt) return;
     await withSaving(setSaving, async () => {
       await patchReceipt(receipt.id, { status: 'rejected' });
-      toast.success('Receipt rejected.');
+      toast.success(t.rejected.value);
       onUpdated?.();
       onClose();
     });
@@ -78,7 +80,7 @@ export function useReceiptActions({
     await withSaving(setSaving, async () => {
       await patchReceipt(receipt.id, { parsedData: payload });
       await receiptsApi.approveReceipt(receipt.id);
-      toast.success('Receipt approved.');
+      toast.success(t.approved.value);
       onUpdated?.();
       onClose();
     });

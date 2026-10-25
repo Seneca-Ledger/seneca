@@ -4,12 +4,12 @@ import { ReportsService } from '@/modules/reports/reports.service';
 
 const createQueryBuilderMock = (transactions: any[]) => {
   const queryBuilder = {
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    getMany: jest.fn().mockResolvedValue(transactions),
+    leftJoinAndSelect: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    take: vi.fn().mockReturnThis(),
+    getMany: vi.fn().mockResolvedValue(transactions),
   };
 
   return queryBuilder;
@@ -49,7 +49,7 @@ describe('ReportsService top categories report', () => {
 
     const queryBuilder = createQueryBuilderMock(transactions);
     const transactionRepository = {
-      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+      createQueryBuilder: vi.fn().mockReturnValue(queryBuilder),
     };
 
     const service = new ReportsService(
@@ -61,11 +61,11 @@ describe('ReportsService top categories report', () => {
       {} as any,
       {} as any,
       {} as any,
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as AuditService,
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as AuditService,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
 
     const result = await service.getTopCategoriesReport('ws-1', {

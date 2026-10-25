@@ -1,5 +1,5 @@
-jest.mock('webdav', () => ({
-  createClient: jest.fn(),
+vi.mock('webdav', () => ({
+  createClient: vi.fn(),
 }));
 
 import { OpenProtocolIntegrationsService } from '../../../../src/modules/open-protocol-integrations/open-protocol-integrations.service';
@@ -8,7 +8,7 @@ import { IntegrationProvider, IntegrationStatus } from '../../../../src/entities
 describe('OpenProtocolIntegrationsService', () => {
   const originalEnv = process.env;
   const integrationRepository = {
-    findOne: jest.fn().mockResolvedValue(null),
+    findOne: vi.fn().mockResolvedValue(null),
   };
 
   const createService = () =>
@@ -35,7 +35,7 @@ describe('OpenProtocolIntegrationsService', () => {
   });
 
   describe('sync audit', () => {
-    const auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    const auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
     const serviceWithAudit = () =>
       new OpenProtocolIntegrationsService(
         integrationRepository as never,
@@ -57,7 +57,11 @@ describe('OpenProtocolIntegrationsService', () => {
         3,
       );
 
-    beforeEach(() => auditService.createEvent.mockClear());
+    beforeEach(() => {
+
+      auditService.createEvent.mockClear();
+
+    });
 
     it('records the sync against the integration row', async () => {
       // audit_events.entity_id is NOT NULL: an event without it never got written.
@@ -131,7 +135,7 @@ describe('OpenProtocolIntegrationsService', () => {
 
     expect(integrationRepository.findOne).toHaveBeenCalledWith({
       where: { workspaceId: 'ws-open', provider: IntegrationProvider.S3_COMPATIBLE },
-      relations: ['openProtocolSettings'],
+      relations: { openProtocolSettings: true },
     });
   });
 });

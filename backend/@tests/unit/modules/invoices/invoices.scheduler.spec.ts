@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { InvoiceLineItem } from '@/entities/invoice-line-item.entity';
 import { Invoice, InvoiceRecurrenceInterval } from '@/entities/invoice.entity';
 import { InvoicesScheduler } from '@/modules/invoices/invoices.scheduler';
@@ -8,17 +9,17 @@ import type { Repository } from 'typeorm';
 
 function createRepositoryMock<T extends object>() {
   return {
-    find: jest.fn(async () => []),
-    update: jest.fn(),
-  } as unknown as Repository<T> & Record<string, jest.Mock>;
+    find: vi.fn(async () => []),
+    update: vi.fn(),
+  } as unknown as Repository<T> & Record<string, Mock>;
 }
 
 describe('InvoicesScheduler', () => {
   let testingModule: TestingModule;
   let scheduler: InvoicesScheduler;
-  let invoiceRepository: Record<string, jest.Mock>;
-  let lineItemRepository: Record<string, jest.Mock>;
-  let invoicesService: { cloneAsDraft: jest.Mock };
+  let invoiceRepository: Record<string, Mock>;
+  let lineItemRepository: Record<string, Mock>;
+  let invoicesService: { cloneAsDraft: Mock };
 
   const template = {
     id: 'template-1',
@@ -35,10 +36,10 @@ describe('InvoicesScheduler', () => {
   } as Invoice;
 
   beforeAll(async () => {
-    invoiceRepository = createRepositoryMock<Invoice>() as unknown as Record<string, jest.Mock>;
+    invoiceRepository = createRepositoryMock<Invoice>() as unknown as Record<string, Mock>;
     lineItemRepository = createRepositoryMock<InvoiceLineItem>() as unknown as Record<
       string,
-      jest.Mock
+      Mock
     >;
 
     testingModule = await Test.createTestingModule({
@@ -46,7 +47,7 @@ describe('InvoicesScheduler', () => {
         InvoicesScheduler,
         { provide: getRepositoryToken(Invoice), useValue: invoiceRepository },
         { provide: getRepositoryToken(InvoiceLineItem), useValue: lineItemRepository },
-        { provide: InvoicesService, useValue: { cloneAsDraft: jest.fn() } },
+        { provide: InvoicesService, useValue: { cloneAsDraft: vi.fn() } },
       ],
     }).compile();
 
@@ -59,7 +60,7 @@ describe('InvoicesScheduler', () => {
   ] as InvoiceLineItem[];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     invoiceRepository.find.mockResolvedValue([template]);
     lineItemRepository.find.mockResolvedValue(lineItems);
     invoicesService.cloneAsDraft.mockResolvedValue({ id: 'copy-1' } as Invoice);

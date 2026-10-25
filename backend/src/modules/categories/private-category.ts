@@ -1,4 +1,4 @@
-import type { Repository } from 'typeorm';
+import { IsNull, type Repository } from 'typeorm';
 import { Category, CategorySource, type CategoryType } from '../../entities/category.entity';
 
 /**
@@ -31,7 +31,8 @@ export async function ensurePrivateCategory(
   type: CategoryType,
 ): Promise<Category> {
   const existing = await categoryRepository.findOne({
-    where: { workspaceId, type, name: PRIVATE_CATEGORY_NAME, parentId: undefined },
+    // Top level only, as UQ_categories_private (parent_id IS NULL) has it.
+    where: { workspaceId, type, name: PRIVATE_CATEGORY_NAME, parentId: IsNull() },
   });
   if (existing) {
     return existing;

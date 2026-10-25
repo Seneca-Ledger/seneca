@@ -3,14 +3,14 @@ import { NoteEntityType } from '../../../../src/entities/note.entity';
 import { NotesService } from '../../../../src/modules/notes/notes.service';
 
 const createRepositoryMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  exists: jest.fn().mockResolvedValue(true),
-  count: jest.fn(),
-  save: jest.fn(async (v: unknown) => ({ id: 'n1', createdAt: new Date(), ...(v as object) })),
-  create: jest.fn((v?: unknown) => v),
-  delete: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  findOne: vi.fn(),
+  find: vi.fn(),
+  exists: vi.fn().mockResolvedValue(true),
+  count: vi.fn(),
+  save: vi.fn(async (v: unknown) => ({ id: 'n1', createdAt: new Date(), ...(v as object) })),
+  create: vi.fn((v?: unknown) => v),
+  delete: vi.fn(),
+  createQueryBuilder: vi.fn(),
 });
 
 const WORKSPACE_ID = 'ws-1';
@@ -22,7 +22,7 @@ function buildService() {
   const statementRepository = createRepositoryMock();
   const receiptRepository = createRepositoryMock();
   const workspaceMemberRepository = createRepositoryMock();
-  const eventEmitter = { emit: jest.fn() };
+  const eventEmitter = { emit: vi.fn() };
 
   noteRepository.findOne.mockResolvedValue({
     id: 'n1',
@@ -36,7 +36,7 @@ function buildService() {
 
   // The targets a note can hang off; these cases only use statements, so the
   // rest just have to exist.
-  const absentTarget = { exists: jest.fn(async () => false) };
+  const absentTarget = { exists: vi.fn(async () => false) };
   const service = new NotesService(
     noteRepository as never,
     statementRepository as never,
@@ -166,12 +166,12 @@ describe('NotesService', () => {
   it('scopes the open-note counters to the workspace', async () => {
     const { service, noteRepository } = buildService();
     const queryBuilder = {
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue([{ entity_id: STATEMENT_ID, cnt: '2' }]),
+      select: vi.fn().mockReturnThis(),
+      addSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      groupBy: vi.fn().mockReturnThis(),
+      getRawMany: vi.fn().mockResolvedValue([{ entity_id: STATEMENT_ID, cnt: '2' }]),
     };
     noteRepository.createQueryBuilder.mockReturnValue(queryBuilder);
 

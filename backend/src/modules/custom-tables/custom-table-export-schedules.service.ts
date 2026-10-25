@@ -75,7 +75,7 @@ export class CustomTableExportSchedulesService {
     await this.requireTable(workspaceId, tableId);
     const intervalHours = Math.min(Math.max(dto.intervalHours ?? 168, 1), 24 * 31);
 
-    return this.scheduleRepository.save(
+    const saved = await this.scheduleRepository.save(
       this.scheduleRepository.create({
         tableId,
         workspaceId,
@@ -86,6 +86,8 @@ export class CustomTableExportSchedulesService {
         enabled: true,
       }),
     );
+    // Answer the stored row, as the list reads it: save() leaves unset columns undefined.
+    return this.scheduleRepository.findOneByOrFail({ id: saved.id, workspaceId });
   }
 
   async listSchedules(workspaceId: string, tableId: string): Promise<CustomTableExportSchedule[]> {

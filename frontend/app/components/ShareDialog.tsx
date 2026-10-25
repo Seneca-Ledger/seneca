@@ -120,11 +120,21 @@ function LinkRow({
         secondary={
           <Box>
             {link.description && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {link.description}
               </Typography>
             )}
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {createdPrefix}: {formatDate(link.createdAt)} • {visitsPrefix}: {link.accessCount}
             </Typography>
           </Box>
@@ -252,7 +262,13 @@ export default function ShareDialog({
           {t.activeLinks.value} ({sharedLinks.length})
         </Typography>
         {sharedLinks.length === 0 ? (
-          <Typography color="text.secondary">{t.noLinks}</Typography>
+          <Typography
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {t.noLinks}
+          </Typography>
         ) : (
           <LinkList
             links={sharedLinks}

@@ -112,7 +112,9 @@ export class GoalFlowService {
     const [allBudgets, contributed] = await Promise.all([
       this.budgetRepository.find({
         where: { workspaceId, goalId },
-        relations: ['category'],
+        relations: {
+          category: true,
+        },
         order: { name: 'ASC' },
       }),
       this.sumContributions(workspaceId, goalId),
@@ -588,7 +590,9 @@ export class GoalFlowService {
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return normalizeCurrency(workspace?.currency);
   }

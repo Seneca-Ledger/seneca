@@ -11,9 +11,7 @@ import type { SummaryItem, SummarySection } from '../types';
 import { RenderIcon } from './components/RenderIcon';
 import { SectionWrapper } from './components/SectionWrapper';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function SummaryItemComponent({ item }: { item: SummaryItem }) {
-  // eslint-disable-next-line complexity
   const formattedValue = useMemo(() => {
     if (typeof item.value === 'string') return item.value;
 
@@ -126,7 +124,6 @@ export function SummaryItemComponent({ item }: { item: SummaryItem }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function SummarySectionRenderer({ section }: { section: SummarySection }) {
   const gridStyle = useMemo((): React.CSSProperties => {
     if (section.layout === 'list') {

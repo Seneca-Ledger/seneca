@@ -1,8 +1,14 @@
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 import {
   currencyForSymbol,
   normalizeStockSymbol,
   parseStooqCsv,
+  StockPriceService,
 } from '@/modules/investments/stock-price.service';
+
+vi.mock('@/common/utils/egress-url.util', () => ({
+  assertPublicEgressUrl: vi.fn(async () => undefined),
+}));
 
 describe('stock prices', () => {
   it('reads closes out of the Stooq CSV and skips unknown symbols', () => {
@@ -24,5 +30,44 @@ describe('stock prices', () => {
     expect(currencyForSymbol('VWCE.DE')).toBe('EUR');
     expect(currencyForSymbol('AAPL.US')).toBe('USD');
     expect(currencyForSymbol('7203.JP')).toBe('JPY');
+  });
+});
+
+describe('StockPriceService.getPrices', () => {
+  const CLOSE = 233.45;
+  const CSV = `Symbol,Date,Time,Open,High,Low,Close,Volume\nACME.US,2026-09-30,22:00:00,230,235,229,${CLOSE},100\n`;
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let service: StockPriceService;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+    service = new StockPriceService(new EffectRuntime());
+  });
+
+  it('quotes the symbols from the CSV and caches them', async () => {
+    fetchMock.mockImplementation(async () => new Response(CSV, { status: 200 }));
+
+    const first = await service.getPrices(['acme']);
+    const second = await service.getPrices(['ACME.US']);
+
+    expect(first.get('ACME.US')).toMatchObject({ price: CLOSE, currency: 'USD' });
+    expect(second.get('ACME.US')?.price).toBe(CLOSE);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('s=acme.us');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the price out, asking once, when Stooq refuses', async () => {
+    fetchMock.mockImplementation(async () => new Response('busy', { status: 503 }));
+
+    await expect(service.getPrices(['ACME'])).resolves.toEqual(new Map());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the price out when Stooq cannot be reached', async () => {
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+
+    await expect(service.getPrices(['ACME'])).resolves.toEqual(new Map());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

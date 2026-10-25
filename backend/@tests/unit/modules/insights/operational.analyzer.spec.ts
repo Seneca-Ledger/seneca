@@ -3,11 +3,11 @@ import { OperationalAnalyzer } from '@/modules/insights/analyzers/operational.an
 
 function createCountQueryBuilder(count: number) {
   const builder = {
-    innerJoin: jest.fn().mockReturnThis(),
-    leftJoin: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getCount: jest.fn().mockResolvedValue(count),
+    innerJoin: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getCount: vi.fn().mockResolvedValue(count),
   };
 
   return builder;
@@ -15,13 +15,13 @@ function createCountQueryBuilder(count: number) {
 
 describe('OperationalAnalyzer', () => {
   const transactionRepository = {
-    createQueryBuilder: jest.fn(),
+    createQueryBuilder: vi.fn(),
   } as any;
 
   let analyzer: OperationalAnalyzer;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     analyzer = new OperationalAnalyzer(transactionRepository);
   });
 

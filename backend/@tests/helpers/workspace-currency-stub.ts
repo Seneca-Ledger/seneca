@@ -8,8 +8,8 @@ import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace
  */
 export function workspaceCurrencyStub(currency = 'USD') {
   return {
-    resolve: jest.fn(async () => currency),
-    resolveFor: jest.fn(async (_workspaceId: string, given: string | null | undefined) =>
+    resolve: vi.fn(async () => currency),
+    resolveFor: vi.fn(async (_workspaceId: string, given: string | null | undefined) =>
       given?.trim() ? given.trim().toUpperCase() : currency,
     ),
   };

@@ -17,12 +17,12 @@ const columns = [
 
 const build = (rows: Array<Record<string, unknown>>, withQueue = false) => {
   const rowRepository = {
-    count: jest.fn().mockResolvedValue(rows.length),
-    find: jest.fn().mockResolvedValue(rows),
-    query: jest.fn().mockResolvedValue(undefined),
+    count: vi.fn().mockResolvedValue(rows.length),
+    find: vi.fn().mockResolvedValue(rows),
+    query: vi.fn().mockResolvedValue(undefined),
   };
-  const columnRepository = { find: jest.fn().mockResolvedValue(columns) };
-  const queue = withQueue ? { add: jest.fn().mockResolvedValue(undefined) } : undefined;
+  const columnRepository = { find: vi.fn().mockResolvedValue(columns) };
+  const queue = withQueue ? { add: vi.fn().mockResolvedValue(undefined) } : undefined;
   const service = new FormulaRecalcService(
     rowRepository as never,
     columnRepository as never,

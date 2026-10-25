@@ -100,6 +100,7 @@ describe('useReceiptUpload', () => {
     const container = document.createElement('div');
     const root = createRoot(container);
     const error = {
+      isAxiosError: true,
       response: {
         data: {
           message: 'Upload failed badly',

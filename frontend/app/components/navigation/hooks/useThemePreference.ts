@@ -3,6 +3,7 @@
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import type { User } from '@/app/hooks/useAuth';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import {
@@ -19,19 +20,15 @@ interface UseThemePreferenceParams {
   user: User | null;
   setUser: Dispatch<SetStateAction<User | null>>;
   setTheme: (theme: string) => void;
-  resolveLabel: (token: unknown, fallback: string) => string;
-  navTheme: unknown;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function useThemePreference({
   userThemePreference,
   user,
   setUser,
   setTheme,
-  resolveLabel,
-  navTheme,
 }: UseThemePreferenceParams) {
+  const themeUpdateFailed = useIntlayer('navigation').userMenu.themeUpdateFailed.value;
   const [selectedTheme, setSelectedTheme] = useState<ThemePreference>(() =>
     getStoredThemePreference(),
   );
@@ -41,7 +38,6 @@ export function useThemePreference({
   }, [userThemePreference]);
 
   const handleThemePreferenceChange = useCallback(
-    // eslint-disable-next-line max-lines-per-function
     async (nextThemePreference: ThemePreference) => {
       const previousThemePreference = selectedTheme;
       const previousUser = user;
@@ -102,10 +98,10 @@ export function useThemePreference({
             detail: { themePreference: previousThemePreference },
           }),
         );
-        toast.error(resolveLabel(navTheme, 'Failed to update theme'));
+        toast.error(themeUpdateFailed);
       });
     },
-    [selectedTheme, user, setUser, setTheme, resolveLabel, navTheme],
+    [selectedTheme, user, setUser, setTheme, themeUpdateFailed],
   );
 
   return { selectedTheme, handleThemePreferenceChange };

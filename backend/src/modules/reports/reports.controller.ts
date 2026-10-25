@@ -1,23 +1,11 @@
-import {
-  Controller,
-  DefaultValuePipe,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Post,
-  Query,
-  Res,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Controller, Get, Post, Res, UseInterceptors } from '@nestjs/common';
 import type { Response } from 'express';
 import * as fs from 'fs';
 import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -27,25 +15,36 @@ import {
   AvailableCustomTables,
   CashFlowMapAnswer,
   CashFlowMapQuery,
-  CreateReportScheduleBody,
   CustomReportBody,
   CustomTablesReport,
   CustomTablesReportBody,
   CustomTablesReportDrillDown,
   CustomTablesReportDrillDownBody,
   CustomTablesSummaryBody,
+  DailyReportQuery,
   ExportReportBody,
   GenerateReportBody,
+  MonthlyReportQuery,
   ReportHistoryList,
+  ReportHistoryParams,
   ReportPreview,
-  ReportScheduleList,
   SpendFlow,
   SpendFlowQuery,
   SpendOverTimeQuery,
+  StatementsSummaryQuery,
   TopCategoriesQuery,
-  UpdateReportScheduleActiveBody,
   WorkspaceExportBody,
 } from '../../contracts';
+import {
+  CustomReport as CustomReportContract,
+  CustomTablesSummary,
+  DailyReport as DailyReportContract,
+  LatestReportPeriod,
+  MonthlyReport as MonthlyReportContract,
+  SpendOverTimeReport,
+  StatementsSummary,
+  TopCategoriesReport,
+} from '../../contracts/reports/report-summaries';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CashFlowMapService } from './cash-flow-map.service';
@@ -56,7 +55,6 @@ import { WorkspaceExportFormat } from './dto/workspace-export.dto';
 import type { CustomReport } from './interfaces/custom-report.interface';
 import type { DailyReport } from './interfaces/daily-report.interface';
 import type { MonthlyReport } from './interfaces/monthly-report.interface';
-import { ReportSchedulesService } from './report-schedules.service';
 import { ReportsService } from './reports.service';
 import { SpendFlowService } from './spend-flow.service';
 
@@ -64,7 +62,6 @@ import { SpendFlowService } from './spend-flow.service';
 export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
-    private readonly reportSchedules: ReportSchedulesService,
     private readonly spendFlowService: SpendFlowService,
     private readonly cashFlowMapService: CashFlowMapService,
   ) {}
@@ -84,12 +81,14 @@ export class ReportsController {
 
   @Get('statements/summary')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(StatementsSummary)
   async getStatementsSummary(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('days', new DefaultValuePipe(30), ParseIntPipe) days?: number,
+    @SchemaQuery(StatementsSummaryQuery) query: StatementsSummaryQuery,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
+    const days = query.days ?? 30;
     return this.reportsService.getStatementsSummary(workspaceId, days, selfMemberId ?? null);
   }
 
@@ -123,6 +122,7 @@ export class ReportsController {
 
   @Get('top-categories')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(TopCategoriesReport)
   async getTopCategories(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -145,6 +145,7 @@ export class ReportsController {
 
   @Get('spend-over-time')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(SpendOverTimeReport)
   async getSpendOverTimeReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -158,6 +159,7 @@ export class ReportsController {
   // Reads only: allowed in a past version.
   @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(CustomTablesSummary)
   async getCustomTablesSummary(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -201,10 +203,11 @@ export class ReportsController {
 
   @Get('daily')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(DailyReportContract)
   async getDailyReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('date') date?: string,
+    @SchemaQuery(DailyReportQuery) { date }: DailyReportQuery,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     const reportDate =
@@ -222,19 +225,17 @@ export class ReportsController {
 
   @Get('monthly')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(MonthlyReportContract)
   async getMonthlyReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('year') year?: string,
-    @Query('month') month?: string,
+    @SchemaQuery(MonthlyReportQuery) { year, month }: MonthlyReportQuery,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     const latest = await this.reportsService.getLatestTransactionPeriod(workspaceId);
     const currentDate = new Date();
-    const reportYear = year ? Number.parseInt(year, 10) : latest.year || currentDate.getFullYear();
-    const reportMonth = month
-      ? Number.parseInt(month, 10)
-      : latest.month || currentDate.getMonth() + 1;
+    const reportYear = year ?? (latest.year || currentDate.getFullYear());
+    const reportMonth = month ?? (latest.month || currentDate.getMonth() + 1);
     return this.reportsService.generateMonthlyReport(
       workspaceId,
       reportYear,
@@ -247,6 +248,7 @@ export class ReportsController {
   // Reads only: allowed in a past version.
   @AllowInVersion()
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(CustomReportContract)
   async getCustomReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -385,7 +387,7 @@ export class ReportsController {
   async downloadHistoryReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('reportId') reportId: string,
+    @SchemaParams(ReportHistoryParams) { reportId }: ReportHistoryParams,
     @Res() res: Response,
   ) {
     const { filePath, fileName, contentType } = await this.reportsService.downloadHistoryReport(
@@ -398,47 +400,9 @@ export class ReportsController {
     fileStream.pipe(res);
   }
 
-  @Get('schedules')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
-  @SchemaResponse(ReportScheduleList)
-  async listSchedules(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
-    return this.reportSchedules.list(workspaceId);
-  }
-
-  @Post('schedules')
-  @WorkspaceAuth(Permission.REPORT_EXPORT)
-  async createSchedule(
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-    @SchemaBody(CreateReportScheduleBody) dto: CreateReportScheduleBody,
-  ) {
-    return this.reportSchedules.create(workspaceId, user.id, dto);
-  }
-
-  @Patch('schedules/:scheduleId')
-  @WorkspaceAuth(Permission.REPORT_EXPORT)
-  async updateScheduleActive(
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-    @Param('scheduleId') scheduleId: string,
-    @SchemaBody(UpdateReportScheduleActiveBody) dto: UpdateReportScheduleActiveBody,
-  ) {
-    return this.reportSchedules.setActive(workspaceId, scheduleId, dto.isActive);
-  }
-
-  @Delete('schedules/:scheduleId')
-  @WorkspaceAuth(Permission.REPORT_EXPORT)
-  async deleteSchedule(
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-    @Param('scheduleId') scheduleId: string,
-  ) {
-    await this.reportSchedules.remove(workspaceId, scheduleId);
-    return { success: true };
-  }
-
   @Get('latest')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(LatestReportPeriod)
   async getLatestPeriod(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.reportsService.getLatestTransactionPeriod(workspaceId);
   }

@@ -1,3 +1,8 @@
+import type { Mock } from 'vitest';
+import { appError } from '@/common/errors/app-error';
+import * as filenameUtil from '@/common/utils/filename.util';
+import * as fileValidatorUtil from '@/common/utils/file-validator.util';
+import * as fileHashUtil from '@/common/utils/file-hash.util';
 import * as fs from 'fs';
 import { Category } from '@/entities/category.entity';
 import { ReceiptStatus } from '@/entities/receipt.entity';
@@ -15,9 +20,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
 
-jest.mock('@/common/utils/file-hash.util');
-jest.mock('@/common/utils/file-validator.util');
-jest.mock('@/common/utils/filename.util');
+vi.mock('@/common/utils/file-hash.util');
+vi.mock('@/common/utils/file-validator.util');
+vi.mock('@/common/utils/filename.util');
 
 describe('ReceiptStatementService', () => {
   let testingModule: TestingModule;
@@ -45,51 +50,51 @@ describe('ReceiptStatementService', () => {
         {
           provide: getRepositoryToken(Statement),
           useValue: {
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            findOne: jest.fn(),
-            manager: { transaction: jest.fn() },
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            findOne: vi.fn(),
+            manager: { transaction: vi.fn() },
           },
         },
         {
           provide: getRepositoryToken(Transaction),
           useValue: {
-            create: jest.fn(),
-            save: jest.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Category),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(TaxRate),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
-        { provide: TaxAssignmentService, useValue: { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } },
+        { provide: TaxAssignmentService, useValue: { resolve: vi.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } },
         {
           provide: AuditService,
           useValue: {
-            createEvent: jest.fn(),
+            createEvent: vi.fn(),
           },
         },
         {
           provide: ReceiptsService,
           useValue: {
-            createFromScan: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
+            createFromScan: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
           },
         },
       ],
@@ -107,22 +112,22 @@ describe('ReceiptStatementService', () => {
     );
     receiptsService = testingModule.get<ReceiptsService>(ReceiptsService);
 
-    jest.spyOn(fs.promises, 'readFile').mockResolvedValue(Buffer.from('test'));
+    vi.spyOn(fs.promises, 'readFile').mockResolvedValue(Buffer.from('test'));
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+    vi.clearAllMocks();
+    vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
       role: WorkspaceRole.ADMIN,
     } as WorkspaceMember);
-    jest.spyOn(categoryRepository, 'findOne').mockResolvedValue({
+    vi.spyOn(categoryRepository, 'findOne').mockResolvedValue({
       id: 'cat-1',
       workspaceId: 'ws-1',
       type: 'expense',
       isEnabled: true,
       name: 'Meals',
     } as unknown as Category);
-    jest.spyOn(taxRateRepository, 'findOne').mockResolvedValue({
+    vi.spyOn(taxRateRepository, 'findOne').mockResolvedValue({
       id: 'tax-1',
       workspaceId: 'ws-1',
       isEnabled: true,
@@ -131,17 +136,17 @@ describe('ReceiptStatementService', () => {
       rate: 12,
     } as TaxRate);
 
-    jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
-    (statementRepository.manager.transaction as jest.Mock).mockImplementation(
+    vi.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
+    (statementRepository.manager.transaction as Mock).mockImplementation(
       async (work: (manager: unknown) => unknown) =>
-        work({ query: jest.fn(), getRepository: () => statementRepository }),
+        work({ query: vi.fn(), getRepository: () => statementRepository }),
     );
 
-    const { calculateFileHash } = require('@/common/utils/file-hash.util');
+    const { calculateFileHash } = vi.mocked(fileHashUtil);
     calculateFileHash.mockResolvedValue('abc123');
-    const { getFileTypeFromMime } = require('@/common/utils/file-validator.util');
+    const { getFileTypeFromMime } = vi.mocked(fileValidatorUtil);
     getFileTypeFromMime.mockReturnValue(FileType.IMAGE);
-    const { normalizeFilename } = require('@/common/utils/filename.util');
+    const { normalizeFilename } = vi.mocked(filenameUtil);
     normalizeFilename.mockReturnValue('receipt.jpg');
   });
 
@@ -157,16 +162,16 @@ describe('ReceiptStatementService', () => {
       size: 1024,
     } as Express.Multer.File;
 
-    jest.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
-    jest
+    vi.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
+    vi
       .spyOn(statementRepository, 'save')
       .mockImplementation(async (input: any) => ({ id: 'stmt-ocr-1', ...input }));
-    jest.spyOn(statementRepository, 'update').mockResolvedValue({ affected: 1 } as any);
-    jest.spyOn(transactionRepository, 'create').mockImplementation((input: any) => input);
-    jest
+    vi.spyOn(statementRepository, 'update').mockResolvedValue({ affected: 1 } as any);
+    vi.spyOn(transactionRepository, 'create').mockImplementation((input: any) => input);
+    vi
       .spyOn(transactionRepository, 'save')
       .mockImplementation(async (input: any) => ({ id: 'tx-ocr-1', ...input }));
-    jest.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
+    vi.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
       id: 'receipt-1',
       status: ReceiptStatus.DRAFT,
       subject: 'receipt.jpg',
@@ -232,16 +237,16 @@ describe('ReceiptStatementService', () => {
       size: 1024,
     } as Express.Multer.File;
 
-    jest.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
-    jest
+    vi.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
+    vi
       .spyOn(statementRepository, 'save')
       .mockImplementation(async (input: any) => ({ id: 'stmt-nocat-1', ...input }));
-    jest.spyOn(statementRepository, 'update').mockResolvedValue({ affected: 1 } as any);
-    jest.spyOn(transactionRepository, 'create').mockImplementation((input: any) => input);
-    jest
+    vi.spyOn(statementRepository, 'update').mockResolvedValue({ affected: 1 } as any);
+    vi.spyOn(transactionRepository, 'create').mockImplementation((input: any) => input);
+    vi
       .spyOn(transactionRepository, 'save')
       .mockImplementation(async (input: any) => ({ id: 'tx-nocat-1', ...input }));
-    jest.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
+    vi.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
       id: 'receipt-3',
       status: ReceiptStatus.DRAFT,
       subject: 'receipt.jpg',
@@ -282,13 +287,13 @@ describe('ReceiptStatementService', () => {
       size: 2048,
     } as Express.Multer.File;
 
-    jest.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
-    jest
+    vi.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
+    vi
       .spyOn(statementRepository, 'save')
       .mockImplementation(async (input: any) => ({ id: 'stmt-noamt-1', ...input }));
-    jest.spyOn(statementRepository, 'update').mockResolvedValue({ affected: 1 } as any);
-    jest.spyOn(transactionRepository, 'create').mockImplementation((input: any) => input);
-    jest.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
+    vi.spyOn(statementRepository, 'update').mockResolvedValue({ affected: 1 } as any);
+    vi.spyOn(transactionRepository, 'create').mockImplementation((input: any) => input);
+    vi.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
       id: 'receipt-2',
       status: ReceiptStatus.DRAFT,
       subject: 'receipt.pdf',
@@ -321,6 +326,7 @@ describe('ReceiptStatementService', () => {
   });
 
   it('surfaces receipt processing errors from OCR metadata', async () => {
+    const reason = 'OCR engine timeout';
     const file = {
       path: '/tmp/receipt.jpg',
       originalname: 'receipt.jpg',
@@ -328,13 +334,13 @@ describe('ReceiptStatementService', () => {
       size: 1024,
     } as Express.Multer.File;
 
-    jest.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
+    vi.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
       id: 'receipt-failed',
       status: ReceiptStatus.FAILED,
       subject: 'receipt.jpg',
       parsedData: {},
       metadata: {
-        processingError: 'OCR engine timeout',
+        processingError: reason,
       },
     } as any);
 
@@ -344,7 +350,7 @@ describe('ReceiptStatementService', () => {
         workspaceId: 'ws-1',
         files: [file],
       }),
-    ).rejects.toThrow(new BadRequestException('OCR engine timeout'));
+    ).rejects.toThrow(new BadRequestException(appError('RECEIPT_SCAN_FAILED', { reason })));
   });
   describe('the same file again', () => {
     const file = {
@@ -356,8 +362,8 @@ describe('ReceiptStatementService', () => {
     const filed = { id: 'stmt-filed', fileHash: 'abc123' } as Statement;
 
     it('hands back the document already filed instead of booking it again', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(filed);
-      const unlink = jest.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(filed);
+      const unlink = vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined);
 
       const result = await service.createFromReceiptScan({
         user: mockUser as User,
@@ -375,12 +381,12 @@ describe('ReceiptStatementService', () => {
     });
 
     it('drops its own copy when the same file was filed while it was being read', async () => {
-      jest
+      vi
         .spyOn(statementRepository, 'findOne')
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(filed);
-      jest.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
-      jest.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
+      vi.spyOn(statementRepository, 'create').mockImplementation((input: any) => input);
+      vi.spyOn(receiptsService, 'createFromScan').mockResolvedValue({
         id: 'receipt-raced',
         status: ReceiptStatus.DRAFT,
         subject: 'invoice.pdf',

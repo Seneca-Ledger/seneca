@@ -1,0 +1,89 @@
+import * as Schema from 'effect/Schema';
+import { IsoDateString, NumericInput } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+/** Entity, actor, batch and event ids of the trail are all uuid columns. */
+const RowId = Schema.String.check(Schema.isUUID());
+const Count = NumericInput.check(Schema.isInt());
+
+/** The backend `EntityType` enum. */
+export const AuditEntityType = Schema.Literals([
+  'transaction',
+  'statement',
+  'receipt',
+  'payable',
+  'invoice',
+  'client',
+  'category',
+  'rule',
+  'workspace',
+  'integration',
+  'table_row',
+  'table_cell',
+  'branch',
+  'wallet',
+  'custom_table',
+  'custom_table_column',
+  'budget',
+  'subscription',
+  'ledger_account',
+  'journal_entry',
+  'goal',
+  'crypto_wallet',
+  'tax_rate',
+  'tax_rule',
+  'tax_return',
+  'workspace_member',
+  'api_key',
+  'webhook',
+  'backup',
+  'user',
+  'payee',
+]);
+
+/** `GET /audit-events`. Page and limit are clamped by the service (50 per page, 200 at most). */
+export const AuditEventsQuery = Schema.Struct({
+  entityType: Schema.optional(AuditEntityType),
+  entityId: Schema.optional(RowId),
+  actorType: Schema.optional(Schema.Literals(['user', 'system', 'integration', 'ai'])),
+  actorId: Schema.optional(RowId),
+  action: Schema.optional(
+    Schema.Literals([
+      'create',
+      'update',
+      'delete',
+      'import',
+      'link',
+      'unlink',
+      'match',
+      'unmatch',
+      'apply_rule',
+      'rollback',
+      'export',
+    ]),
+  ),
+  actorLabel: Schema.optional(Schema.String.check(Schema.isMaxLength(255))),
+  dateFrom: Schema.optional(IsoDateString),
+  dateTo: Schema.optional(IsoDateString),
+  batchId: Schema.optional(RowId),
+  severity: Schema.optional(Schema.Literals(['info', 'warn', 'critical'])),
+  page: Schema.optional(Count),
+  limit: Schema.optional(Count),
+});
+export type AuditEventsQuery = Wire<typeof AuditEventsQuery>;
+
+/** `GET /audit-events/activity`: how many entries (20 when absent, clamped to 1..100). */
+export const WorkspaceActivityQuery = Schema.Struct({ limit: Schema.optional(Count) });
+export type WorkspaceActivityQuery = Wire<typeof WorkspaceActivityQuery>;
+
+/** `GET /audit-events/entity/:entityType/:entityId`. */
+export const AuditEntityParams = Schema.Struct({ entityType: AuditEntityType, entityId: RowId });
+export type AuditEntityParams = Wire<typeof AuditEntityParams>;
+
+/** `GET /audit-events/batch/:batchId`. */
+export const AuditBatchParams = Schema.Struct({ batchId: RowId });
+export type AuditBatchParams = Wire<typeof AuditBatchParams>;
+
+/** `GET /audit-events/:id`, `POST /audit-events/:id/rollback`. */
+export const AuditEventParams = Schema.Struct({ id: RowId });
+export type AuditEventParams = Wire<typeof AuditEventParams>;

@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -34,7 +35,7 @@ export class WorkspaceVersion {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -84,7 +85,7 @@ export class WorkspaceVersion {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;

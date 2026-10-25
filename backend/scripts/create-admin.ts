@@ -25,7 +25,13 @@ async function createAdmin() {
 
     const existingUser = await userRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'role', 'isActive', 'name'],
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        name: true
+      },
     });
 
     let adminUser: User;
@@ -61,7 +67,13 @@ async function createAdmin() {
 
     adminUser = (await userRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'name', 'workspaceId', 'lastWorkspaceId'],
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        workspaceId: true,
+        lastWorkspaceId: true
+      },
     })) as User;
 
     let workspaceId = adminUser.workspaceId;
@@ -82,7 +94,9 @@ async function createAdmin() {
 
     const existingMembership = await workspaceMemberRepository.findOne({
       where: { workspaceId: workspaceId as string, userId: adminUser.id },
-      select: ['id'],
+      select: {
+        id: true
+      },
     });
 
     if (!existingMembership) {

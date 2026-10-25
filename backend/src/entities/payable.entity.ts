@@ -7,6 +7,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Transaction } from './transaction.entity';
@@ -44,14 +45,14 @@ export class Payable {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;
@@ -85,7 +86,7 @@ export class Payable {
 
   @ManyToOne(() => Transaction, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'linked_transaction_id' })
-  linkedTransaction: Transaction | null;
+  linkedTransaction: Relation<Transaction | null>;
 
   @Column({ name: 'linked_transaction_id', type: 'uuid', nullable: true })
   linkedTransactionId: string | null;

@@ -212,7 +212,7 @@ export class TaxDeadlinesService {
       if (!dueDate) {
         continue;
       }
-      const filed = await this.taxReturnRepository.exist({
+      const filed = await this.taxReturnRepository.exists({
         where: {
           workspaceId: workspace.id,
           periodStart: period.start,
@@ -264,7 +264,7 @@ export class TaxDeadlinesService {
       if (!(info && standard) || standard.date < today) {
         continue;
       }
-      const finalized = await this.incomeTaxReturnRepository.exist({
+      const finalized = await this.incomeTaxReturnRepository.exists({
         where: { workspaceId: workspace.id, taxYear, status: IncomeTaxReturnStatus.FINALIZED },
       });
       deadlines.push({
@@ -346,7 +346,9 @@ export class TaxDeadlinesService {
     // A past version is a copy, not a workspace anyone files from.
     const workspaces = await this.workspaceRepository.find({
       where: { taxJurisdictionId: Not(IsNull()), kind: WorkspaceKind.STANDARD },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     for (const workspace of workspaces) {
       try {

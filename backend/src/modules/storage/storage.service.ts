@@ -106,7 +106,11 @@ export class StorageService {
   private findMembership(workspaceId: string, userId: string) {
     return this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['id', 'role', 'permissions'],
+      select: {
+        id: true,
+        role: true,
+        permissions: true,
+      },
     });
   }
 
@@ -137,13 +141,14 @@ export class StorageService {
             userId,
             isActive: true,
           },
-          relations: [
-            'statement',
-            'statement.category',
-            'statement.user',
-            'statement.folder',
-            'statement.tags',
-          ],
+          relations: {
+            statement: {
+              category: true,
+              user: true,
+              folder: true,
+              tags: true,
+            },
+          },
         });
       } catch (error) {
         // If permissions table doesn't exist yet, just use empty array
@@ -288,11 +293,16 @@ export class StorageService {
   async getFileDetails(statementId: string, userId: string) {
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['category', 'user', 'folder', 'tags'],
+      relations: {
+        category: true,
+        user: true,
+        folder: true,
+        tags: true,
+      },
     });
 
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     // Check if user has access
@@ -302,7 +312,11 @@ export class StorageService {
     const transactions = await this.transactionRepository.find({
       where: { statementId },
       order: { transactionDate: 'DESC' },
-      relations: ['category', 'branch', 'wallet'],
+      relations: {
+        category: true,
+        branch: true,
+        wallet: true,
+      },
     });
 
     // Get shared links
@@ -314,7 +328,10 @@ export class StorageService {
     // Get permissions
     const permissions = await this.filePermissionRepository.find({
       where: { statementId },
-      relations: ['user', 'grantedBy'],
+      relations: {
+        user: true,
+        grantedBy: true,
+      },
     });
 
     const isOwner = statement.userId === userId;
@@ -356,11 +373,13 @@ export class StorageService {
 
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
 
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     let category: Category | null = null;
@@ -370,7 +389,7 @@ export class StorageService {
       });
 
       if (!category) {
-        throw new NotFoundException('Category not found');
+        throw new NotFoundException(appError('CATEGORY_NOT_FOUND'));
       }
     }
 
@@ -387,10 +406,12 @@ export class StorageService {
     await this.checkFileAccess(userId, statementId, 'edit');
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['tags'],
+      relations: {
+        tags: true,
+      },
     });
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     // Ids from the request: only the file's own workspace's tags exist for it.
@@ -402,7 +423,7 @@ export class StorageService {
         })
       : [];
     if (tags.length !== uniqueTagIds.length) {
-      throw new NotFoundException('Tag not found');
+      throw new NotFoundException(appError('STORAGE_TAG_NOT_FOUND'));
     }
     statement.tags = tags;
     const saved = await this.statementRepository.save(statement);
@@ -430,7 +451,7 @@ export class StorageService {
       where: { id: tagId, workspaceId },
     });
     if (!tag) {
-      throw new NotFoundException('Tag not found');
+      throw new NotFoundException(appError('STORAGE_TAG_NOT_FOUND'));
     }
 
     if (dto.name != null) {
@@ -448,7 +469,7 @@ export class StorageService {
       where: { id: tagId, workspaceId },
     });
     if (!tag) {
-      throw new NotFoundException('Tag not found');
+      throw new NotFoundException(appError('STORAGE_TAG_NOT_FOUND'));
     }
 
     // Remove tag from folders
@@ -476,7 +497,7 @@ export class StorageService {
       // Tags are shared across the workspace (see listTags).
       tag = await this.tagRepository.findOne({ where: { id: tagId, workspaceId } });
       if (!tag) {
-        throw new NotFoundException('Tag not found');
+        throw new NotFoundException(appError('STORAGE_TAG_NOT_FOUND'));
       }
     }
     const folder = this.folderRepository.create({
@@ -493,7 +514,9 @@ export class StorageService {
     return await this.folderRepository.find({
       where: this.folderScope(workspaceId, userId),
       order: { name: 'ASC' },
-      relations: ['tag'],
+      relations: {
+        tag: true,
+      },
     });
   }
 
@@ -502,7 +525,7 @@ export class StorageService {
       where: { id: folderId, userId, workspaceId },
     });
     if (!folder) {
-      throw new NotFoundException('Folder not found');
+      throw new NotFoundException(appError('STORAGE_FOLDER_NOT_FOUND'));
     }
 
     if (dto.name != null) {
@@ -513,7 +536,7 @@ export class StorageService {
       if (tagId) {
         const tag = await this.tagRepository.findOne({ where: { id: tagId, workspaceId } });
         if (!tag) {
-          throw new NotFoundException('Tag not found');
+          throw new NotFoundException(appError('STORAGE_TAG_NOT_FOUND'));
         }
         folder.tagId = tag.id;
         folder.tag = tag;
@@ -531,7 +554,7 @@ export class StorageService {
       where: { id: folderId, userId, workspaceId },
     });
     if (!folder) {
-      throw new NotFoundException('Folder not found');
+      throw new NotFoundException(appError('STORAGE_FOLDER_NOT_FOUND'));
     }
 
     const statements = await this.statementRepository.find({
@@ -563,7 +586,7 @@ export class StorageService {
       where: { id: statementId },
     });
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     let folder: Folder | null = null;
@@ -574,7 +597,7 @@ export class StorageService {
         where: this.folderScope(statement.workspaceId, userId, folderId),
       });
       if (!folder) {
-        throw new NotFoundException('Folder not found');
+        throw new NotFoundException(appError('STORAGE_FOLDER_NOT_FOUND'));
       }
     }
 
@@ -590,7 +613,7 @@ export class StorageService {
       where: { id: statementId },
     });
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
     if (statement.deletedAt) {
       return { status: 'already_trashed', deletedAt: statement.deletedAt };
@@ -606,7 +629,7 @@ export class StorageService {
       where: { id: statementId },
     });
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
     if (!statement.deletedAt) {
       return { status: 'active' };
@@ -622,10 +645,10 @@ export class StorageService {
       where: { id: statementId },
     });
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
     if (!statement.deletedAt) {
-      throw new BadRequestException('File is not in trash');
+      throw new BadRequestException(appError('STORAGE_FILE_NOT_IN_TRASH'));
     }
     await this.statementsService.remove(statementId, userId, statement.workspaceId);
     return { status: 'deleted' };
@@ -653,7 +676,7 @@ export class StorageService {
       where: { id, workspaceId },
     });
     if (!view) {
-      throw new NotFoundException('View not found');
+      throw new NotFoundException(appError('STORAGE_VIEW_NOT_FOUND'));
     }
     await this.storageViewRepository.remove(view);
     return { deleted: true };
@@ -669,7 +692,7 @@ export class StorageService {
       .getOne();
 
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     let fileData = statement.fileData ?? null;
@@ -702,12 +725,12 @@ export class StorageService {
     }
 
     if (!fileData) {
-      throw new NotFoundException('File data is unavailable for versioning');
+      throw new NotFoundException(appError('STORAGE_FILE_DATA_UNAVAILABLE_VERSIONING'));
     }
 
     const actualHash = crypto.createHash('sha256').update(fileData).digest('hex');
     if (actualHash !== statement.fileHash) {
-      throw new BadRequestException('File hash mismatch');
+      throw new BadRequestException(appError('STORAGE_FILE_HASH_MISMATCH'));
     }
 
     const version = this.fileVersionRepository.create({
@@ -729,7 +752,8 @@ export class StorageService {
       fileHash: saved.fileHash,
       fileName: saved.fileName,
       fileType: saved.fileType,
-      fileSize: saved.fileSize,
+      // bigint: the version list answers it as a string, so this answers the same.
+      fileSize: String(saved.fileSize),
       createdAt: saved.createdAt,
     };
   }
@@ -740,16 +764,16 @@ export class StorageService {
     return await this.fileVersionRepository.find({
       where: { statementId },
       order: { createdAt: 'DESC' },
-      select: [
-        'id',
-        'statementId',
-        'createdBy',
-        'fileHash',
-        'fileName',
-        'fileType',
-        'fileSize',
-        'createdAt',
-      ],
+      select: {
+        id: true,
+        statementId: true,
+        createdBy: true,
+        fileHash: true,
+        fileName: true,
+        fileType: true,
+        fileSize: true,
+        createdAt: true,
+      },
     });
   }
 
@@ -762,7 +786,7 @@ export class StorageService {
     });
 
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     const { stream, fileName, mimeType } = await this.getFileStream(statement, userId, 'download');
@@ -775,11 +799,11 @@ export class StorageService {
       where: { id: statementId },
     });
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
     const restored = await this.fileStorageService.restoreFile(statement);
     if (!restored) {
-      throw new NotFoundException('File data is unavailable for restore');
+      throw new NotFoundException(appError('STORAGE_FILE_DATA_UNAVAILABLE_RESTORE'));
     }
     return { status: 'restored', source: restored.source };
   }
@@ -947,7 +971,7 @@ export class StorageService {
     });
 
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     const started = Date.now();
@@ -970,7 +994,7 @@ export class StorageService {
     });
 
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     const started = Date.now();
@@ -1042,13 +1066,16 @@ export class StorageService {
     await this.checkFileAccess(userId, statementId, 'share');
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      select: ['id', 'deletedAt'],
+      select: {
+        id: true,
+        deletedAt: true,
+      },
     });
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
     if (statement.deletedAt) {
-      throw new BadRequestException('File is in trash');
+      throw new BadRequestException(appError('STORAGE_FILE_IN_TRASH'));
     }
 
     // Generate unique token
@@ -1104,7 +1131,7 @@ export class StorageService {
     });
 
     if (!link) {
-      throw new NotFoundException('Shared link not found');
+      throw new NotFoundException(appError('STORAGE_SHARED_LINK_NOT_FOUND'));
     }
 
     // Check if user is owner
@@ -1142,7 +1169,7 @@ export class StorageService {
     });
 
     if (!link) {
-      throw new NotFoundException('Shared link not found');
+      throw new NotFoundException(appError('STORAGE_SHARED_LINK_NOT_FOUND'));
     }
 
     // Check if user is owner
@@ -1157,16 +1184,20 @@ export class StorageService {
   async accessSharedLink(token: string, password?: string) {
     const link = await this.sharedLinkRepository.findOne({
       where: { token },
-      relations: ['statement', 'statement.category'],
+      relations: {
+        statement: {
+          category: true,
+        },
+      },
     });
 
     if (!link) {
-      throw new NotFoundException('Shared link not found');
+      throw new NotFoundException(appError('STORAGE_SHARED_LINK_NOT_FOUND'));
     }
 
     // Check if link is active
     if (link.status !== ShareLinkStatus.ACTIVE) {
-      throw new ForbiddenException('Shared link is not active');
+      throw new ForbiddenException(appError('STORAGE_SHARED_LINK_INACTIVE'));
     }
 
     // Check if link is expired
@@ -1174,21 +1205,21 @@ export class StorageService {
       // Auto-expire the link
       link.status = ShareLinkStatus.EXPIRED;
       await this.sharedLinkRepository.save(link);
-      throw new ForbiddenException('Shared link has expired');
+      throw new ForbiddenException(appError('STORAGE_SHARED_LINK_EXPIRED'));
     }
 
     if (link.allowAnonymous === false) {
-      throw new ForbiddenException('Shared link requires authenticated access');
+      throw new ForbiddenException(appError('STORAGE_SHARED_LINK_AUTH_REQUIRED'));
     }
 
     // Check password if required
     if (link.password) {
       if (!password) {
-        throw new UnauthorizedException('Password required');
+        throw new UnauthorizedException(appError('STORAGE_PASSWORD_REQUIRED'));
       }
       const isValid = await bcrypt.compare(password, link.password);
       if (!isValid) {
-        throw new UnauthorizedException('Invalid password');
+        throw new UnauthorizedException(appError('STORAGE_PASSWORD_INVALID'));
       }
     }
 
@@ -1203,7 +1234,11 @@ export class StorageService {
       transactions = await this.transactionRepository.find({
         where: { statementId: link.statement.id },
         order: { transactionDate: 'DESC' },
-        relations: ['category', 'branch', 'wallet'],
+        relations: {
+          category: true,
+          branch: true,
+          wallet: true,
+        },
       });
       // Whoever holds the link is nobody's member: every private row stays hidden.
       redactPrivateRows(transactions, null);
@@ -1234,10 +1269,13 @@ export class StorageService {
     // file could be shared with any account in the system, in any tenant.
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      select: ['id', 'workspaceId'],
+      select: {
+        id: true,
+        workspaceId: true,
+      },
     });
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     // The dialog takes a user id or the email a member signs in with.
@@ -1247,7 +1285,7 @@ export class StorageService {
         : { workspaceId: statement.workspaceId, userId: dto.userId },
     });
     if (!granteeMembership) {
-      throw new NotFoundException('User not found in this workspace');
+      throw new NotFoundException(appError('STORAGE_USER_NOT_IN_WORKSPACE'));
     }
     const granteeId = granteeMembership.userId;
 
@@ -1257,7 +1295,7 @@ export class StorageService {
     });
 
     if (existing) {
-      throw new BadRequestException('Permission already exists for this user');
+      throw new BadRequestException(appError('STORAGE_PERMISSION_EXISTS'));
     }
 
     const permission = this.filePermissionRepository.create({
@@ -1282,7 +1320,10 @@ export class StorageService {
 
     return await this.filePermissionRepository.find({
       where: { statementId },
-      relations: ['user', 'grantedBy'],
+      relations: {
+        user: true,
+        grantedBy: true,
+      },
       order: { createdAt: 'DESC' },
     });
   }
@@ -1300,7 +1341,7 @@ export class StorageService {
     });
 
     if (!permission) {
-      throw new NotFoundException('Permission not found');
+      throw new NotFoundException(appError('STORAGE_PERMISSION_NOT_FOUND'));
     }
 
     // Check if user is owner or granted the permission
@@ -1332,7 +1373,7 @@ export class StorageService {
     });
 
     if (!permission) {
-      throw new NotFoundException('Permission not found');
+      throw new NotFoundException(appError('STORAGE_PERMISSION_NOT_FOUND'));
     }
 
     // Check if user is owner or granted the permission
@@ -1351,11 +1392,13 @@ export class StorageService {
   ): Promise<void> {
     const statement = await this.statementRepository.findOne({
       where: { id: statementId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!statement) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException(appError('STORAGE_FILE_NOT_FOUND'));
     }
 
     // Access follows membership in the file's own workspace, whichever
@@ -1403,12 +1446,12 @@ export class StorageService {
     const permission = await this.getUserPermissionForStatement(userId, statementId);
 
     if (!permission?.isActive) {
-      throw new ForbiddenException('You do not have access to this file');
+      throw new ForbiddenException(appError('STORAGE_ACCESS_DENIED'));
     }
 
     // Check if permission is expired
     if (permission.expiresAt && new Date(permission.expiresAt) < new Date()) {
-      throw new ForbiddenException('Your permission has expired');
+      throw new ForbiddenException(appError('STORAGE_PERMISSION_EXPIRED'));
     }
 
     // Check action permission
@@ -1419,7 +1462,7 @@ export class StorageService {
     );
 
     if (!hasPermission) {
-      throw new ForbiddenException(`You do not have permission to ${requiredAction} this file`);
+      throw new ForbiddenException(appError('STORAGE_ACTION_DENIED', { action: requiredAction }));
     }
   }
 

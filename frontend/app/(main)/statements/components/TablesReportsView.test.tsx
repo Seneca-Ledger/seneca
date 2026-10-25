@@ -1,9 +1,10 @@
 import { createTestQueryClient } from '@/app/test/query-wrapper';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { tokens } from '@/lib/theme-tokens';
 import TablesReportsView from './TablesReportsView';
 
 const apiMocks = vi.hoisted(() => ({
@@ -206,11 +207,10 @@ describe('TablesReportsView', () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain('Tables reports');
-    expect(container.textContent).toContain('Aggregated insights from your custom tables');
+    // Заголовок страницы с 8a9f5622 рисует вкладка Statements, не сам вид.
     expect(container.textContent).toContain('Vendor A');
     expect(container.textContent).toContain('Manual Table');
-    expect(apiMocks.get).toHaveBeenCalledWith('/reports/custom-tables/available');
+    expect(apiMocks.get).toHaveBeenCalledWith('/reports/custom-tables/available', expect.anything());
     expect(apiMocks.post).toHaveBeenCalledWith(
       '/reports/custom-tables/report',
       {
@@ -284,7 +284,7 @@ describe('TablesReportsView', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('row', { name: /Vendor A Manual Manual Table 2 50 100/i }));
+      fireEvent.click(screen.getByRole('row', { name: /Vendor A Manual Manual Table 2 50 USD 100 USD/i }));
     });
 
     await act(async () => {
@@ -300,7 +300,8 @@ describe('TablesReportsView', () => {
     });
     expect(screen.getByText(/Vendor A — Drill-down/i)).toBeInTheDocument();
     expect(screen.queryByText('No records found')).not.toBeInTheDocument();
-    expect(screen.getByText('100 USD')).toBeInTheDocument();
+    // 100 USD есть и в строке лидерборда, поэтому ищем внутри диалога.
+    expect(within(screen.getByRole('dialog')).getByText('100 USD')).toBeInTheDocument();
     expect(screen.getAllByText('Manual')).toHaveLength(2);
   });
 
@@ -337,7 +338,7 @@ describe('TablesReportsView', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('includes dark theme surface classes for the main controls and cards', async () => {
+  it('paints the main controls from the dark palette in dark mode', async () => {
     themeMock.resolvedTheme = 'dark';
 
     await act(async () => {
@@ -353,15 +354,13 @@ describe('TablesReportsView', () => {
       await Promise.resolve();
     });
 
-    expect(
-      screen.getByPlaceholderText('Search counterparties, categories, tables...').className,
-    ).toContain('dark:bg-slate-900/60');
-    expect(screen.getByRole('button', { name: /^Tables$/i }).className).toContain(
-      'dark:border-slate-700',
-    );
-    expect(screen.getByText('Total').parentElement?.className).toContain('dark:bg-slate-900/60');
-    expect(screen.getByText('Top counterparties').parentElement?.className).toContain(
-      'dark:border-slate-700/70',
-    );
+    // Цвета теперь из токенов темы (inline style), а не dark:-классы Tailwind.
+    const expected = document.createElement('span');
+    expected.style.color = tokens.dark.color.ink900;
+    expected.style.borderColor = tokens.dark.color.ink150;
+    const search = screen.getByPlaceholderText('Search counterparties, categories, tables...');
+    expect(search.style.color).toBe(expected.style.color);
+    expect(search.style.borderColor).toBe(expected.style.borderColor);
+    expect(search.style.background).toBe('var(--card-bg)');
   });
 });

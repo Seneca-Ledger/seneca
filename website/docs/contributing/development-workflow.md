@@ -30,7 +30,7 @@ deployment changes.
 
 ## CI checks
 
-CI runs policy-as-code, shell/Dockerfile/config scans, Biome and ESLint, type checks, backend unit and e2e tests,
+CI runs policy-as-code, shell/Dockerfile/config scans, Biome, type checks, backend unit and e2e tests,
 builds, dependency audits and license checks, a secrets scan, and a Docker image build. Frontend Vitest tests are
 not part of CI — run them locally. See [CI/CD](../deployment/ci-cd).
 

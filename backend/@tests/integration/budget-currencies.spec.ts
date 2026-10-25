@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 /**
  * Integration test — a budget counts spending in its own currency, against a real Postgres.
  *
@@ -46,15 +47,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -73,7 +74,7 @@ const RATES: Record<string, number> = { 'UAH>USD': 0.024 };
 const LAST_MONTH_RATES: Record<string, number> = { 'UAH>USD': 0.025 };
 
 describe('a budget counts spending in its own currency (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let txRepo: Repository<Transaction>;
@@ -81,7 +82,7 @@ describe('a budget counts spending in its own currency (real Postgres)', () => {
   let userId: string;
   let donateId: string;
   let budgets: BudgetsService;
-  let getRateOrNull: jest.Mock;
+  let getRateOrNull: Mock;
 
   const expense = (amount: number, currency: string, day = THIS_MONTH) =>
     txRepo.save(
@@ -118,7 +119,7 @@ describe('a budget counts spending in its own currency (real Postgres)', () => {
     await dataSource.initialize();
     await dataSource.runMigrations();
 
-    getRateOrNull = jest.fn(async (from: string, to: string, date?: Date | string) => {
+    getRateOrNull = vi.fn(async (from: string, to: string, date?: Date | string) => {
       if (from === to) return 1;
       const day = date instanceof Date ? isoDay(date) : String(date).slice(0, 10);
       const table = day < THIS_MONTH ? LAST_MONTH_RATES : RATES;
@@ -129,8 +130,8 @@ describe('a budget counts spending in its own currency (real Postgres)', () => {
         BudgetsService,
         WorkspaceCurrencyService,
         { provide: ExchangeRatesService, useValue: { getRateOrNull } },
-        { provide: NotificationsService, useValue: { createForWorkspaceMembers: jest.fn() } },
-        { provide: AuditService, useValue: { createEvent: jest.fn() } },
+        { provide: NotificationsService, useValue: { createForWorkspaceMembers: vi.fn() } },
+        { provide: AuditService, useValue: { createEvent: vi.fn() } },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
           useValue: dataSource.getRepository(entity),
@@ -229,7 +230,7 @@ describe('a budget counts spending in its own currency (real Postgres)', () => {
 
   it('names the spending a mid-month start leaves out instead of showing a bare 0', async () => {
     // Only Date is faked: the database driver still needs real timers.
-    jest.useFakeTimers({
+    vi.useFakeTimers({
       now: new Date(now.getFullYear(), now.getMonth(), 20, 12),
       doNotFake: [
         'nextTick',
@@ -263,7 +264,7 @@ describe('a budget counts spending in its own currency (real Postgres)', () => {
       );
       expect(measured.beforeStartSpending).toHaveLength(2);
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 

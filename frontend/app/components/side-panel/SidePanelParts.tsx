@@ -3,10 +3,13 @@
 import React from 'react';
 import { AlertCircle, PanelLeftClose, PanelLeftOpen, RefreshCw } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
+import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import { SectionRenderer } from './sections';
 import { RenderIcon } from './sections/components/RenderIcon';
 import type { ActionItem, SidePanelProps, SidePanelSection } from './types';
+
+export { filterSections } from './filter-sections';
 
 export const BTN_BASE: React.CSSProperties = {
   padding: 8,
@@ -66,6 +69,7 @@ export function PanelContent({
   onRetry,
   sections,
 }: ContentProps): React.JSX.Element {
+  const t = useIntlayer('sidePanel');
   if (loading)
     return (
       <div
@@ -79,7 +83,7 @@ export function PanelContent({
         }}
       >
         <Spinner size={32} />
-        <p style={{ fontSize: 14, color: 'var(--muted-foreground)', margin: 0 }}>Loading...</p>
+        <p style={{ fontSize: 14, color: 'var(--muted-foreground)', margin: 0 }}>{t.loading}</p>
       </div>
     );
   if (error)
@@ -104,7 +108,7 @@ export function PanelContent({
             margin: '0 0 4px',
           }}
         >
-          Error loading content
+          {t.loadError}
         </p>
         <p
           style={{
@@ -135,7 +139,7 @@ export function PanelContent({
             }}
           >
             <RefreshCw size={14} />
-            Retry
+            {t.retry}
           </button>
         )}
       </div>
@@ -154,7 +158,7 @@ export function PanelContent({
         <p
           style={{ fontSize: 14, color: 'var(--muted-foreground)', textAlign: 'center', margin: 0 }}
         >
-          No content available
+          {t.noContent}
         </p>
       </div>
     );
@@ -255,12 +259,15 @@ function HeaderActions({
   showToggle,
   onToggle,
 }: HeaderActionsProps): React.JSX.Element {
+  const t = useIntlayer('sidePanel');
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
       {actions?.map(a => (
         <ActionBtn key={a.id} action={a} size={16} />
       ))}
-      {showToggle && <CollapseBtn position={position} onToggle={onToggle} label="Collapse panel" />}
+      {showToggle && (
+        <CollapseBtn position={position} onToggle={onToggle} label={t.collapsePanel.value} />
+      )}
     </div>
   );
 }
@@ -317,22 +324,4 @@ export function PanelFooter({ footer }: FooterProps): React.JSX.Element | null {
       )}
     </div>
   );
-}
-
-export function filterSections({
-  sections,
-  enabledSections,
-  permissions,
-  hasPermission,
-}: {
-  sections: SidePanelSection[];
-  enabledSections?: string[];
-  permissions?: SidePanelProps['permissions'];
-  hasPermission: (p: string) => boolean;
-}): SidePanelSection[] {
-  return sections.filter(s => {
-    if (enabledSections && !enabledSections.includes(s.id)) return false;
-    const req = permissions?.sections?.[s.id];
-    return !req || req.every(p => hasPermission(p));
-  });
 }

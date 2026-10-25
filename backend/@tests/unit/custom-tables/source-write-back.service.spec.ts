@@ -28,18 +28,18 @@ const journal = () => {
 	let seq = 0;
 	return {
 		rows,
-		findOne: jest.fn(async ({ where }: { where: Partial<Edit> }) =>
+		findOne: vi.fn(async ({ where }: { where: Partial<Edit> }) =>
 			rows.find(row =>
 				Object.entries(where).every(([key, value]) => row[key as keyof Edit] === value),
 			) ?? null,
 		),
-		find: jest.fn(async ({ where }: { where: Partial<Edit> }) =>
+		find: vi.fn(async ({ where }: { where: Partial<Edit> }) =>
 			rows.filter(row =>
 				Object.entries(where).every(([key, value]) => row[key as keyof Edit] === value),
 			),
 		),
-		create: jest.fn((value: Partial<Edit>) => ({ ...value }) as Edit),
-		save: jest.fn(async (value: Edit) => {
+		create: vi.fn((value: Partial<Edit>) => ({ ...value }) as Edit),
+		save: vi.fn(async (value: Edit) => {
 			if (!value.id) {
 				seq += 1;
 				value.id = `edit-${seq}`;
@@ -48,7 +48,7 @@ const journal = () => {
 			}
 			return value;
 		}),
-		delete: jest.fn(async (ids: string | string[]) => {
+		delete: vi.fn(async (ids: string | string[]) => {
 			for (const id of Array.isArray(ids) ? ids : [ids]) {
 				const index = rows.findIndex(row => row.id === id);
 				if (index >= 0) {
@@ -66,57 +66,57 @@ const setup = (options: { role?: WorkspaceRole | null; globalAdmin?: boolean } =
 	};
 	const edits = journal();
 	const memberRepository = {
-		findOne: jest.fn().mockResolvedValue(
+		findOne: vi.fn().mockResolvedValue(
 			options.role === null
 				? null
 				: { id: "member-1", role: options.role ?? WorkspaceRole.OWNER, permissions: null },
 		),
 	};
 	const userRepository = {
-		findOne: jest
+		findOne: vi
 			.fn()
 			.mockResolvedValue({ id: USER, role: options.globalAdmin ? UserRole.ADMIN : UserRole.USER }),
 	};
 	const categoryRepository = {
-		findOne: jest.fn(async ({ where }: { where: { id: string } }) => ({
+		findOne: vi.fn(async ({ where }: { where: { id: string } }) => ({
 			id: where.id,
 			name: { "cat-rent": "Rent", "cat-travel": "Travel" }[where.id],
 		})),
-		find: jest.fn().mockResolvedValue([
+		find: vi.fn().mockResolvedValue([
 			{ id: "cat-rent", name: "Rent", type: "expense", isEnabled: true },
 			{ id: "cat-travel-income", name: "Travel", type: "income", isEnabled: true },
 			{ id: "cat-travel", name: "Travel", type: "expense", isEnabled: true },
 			{ id: "cat-old", name: "Old", type: "expense", isEnabled: false },
 		]),
 	};
-	const clientRepository = { find: jest.fn().mockResolvedValue([]) };
+	const clientRepository = { find: vi.fn().mockResolvedValue([]) };
 	// The transaction's document: a bank statement unless a test says otherwise.
 	const statement = { id: "stmt-1", parsingDetails: { detectedBy: "csv" } as { detectedBy?: string } };
 	const receipts: Array<{ id: string; parsedData: Record<string, unknown> | null }> = [];
 	const transactionRepository = {
-		findOne: jest.fn(async () => ({
+		findOne: vi.fn(async () => ({
 			id: TX,
 			statementId: statement.id,
 			categoryId: categoryIdByName[String(records[TX]?.category)] ?? null,
 		})),
 	};
 	const statementRepository = {
-		findOne: jest.fn(async () => statement),
-		update: jest.fn().mockResolvedValue(undefined),
+		findOne: vi.fn(async () => statement),
+		update: vi.fn().mockResolvedValue(undefined),
 	};
 	const receiptRepository = {
-		find: jest.fn(async () => receipts),
-		save: jest.fn(async (value: unknown) => value),
+		find: vi.fn(async () => receipts),
+		save: vi.fn(async (value: unknown) => value),
 	};
 	const adapter = {
-		fetchRows: jest.fn(async (_ws: string, filters: { ids?: string[] }) =>
+		fetchRows: vi.fn(async (_ws: string, filters: { ids?: string[] }) =>
 			(filters.ids ?? [])
 				.filter(id => records[id])
 				.map(id => ({ sourceKey: id, values: { ...records[id] } })),
 		),
 	};
-	const sources = { get: jest.fn().mockReturnValue(adapter) };
-	const auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+	const sources = { get: vi.fn().mockReturnValue(adapter) };
+	const auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
 	const categoryIdByName: Record<string, string> = { Rent: "cat-rent", Travel: "cat-travel" };
 	const categoryNames: Record<string, string> = {
 		"cat-rent": "Rent",
@@ -124,7 +124,7 @@ const setup = (options: { role?: WorkspaceRole | null; globalAdmin?: boolean } =
 		"cat-travel-income": "Travel",
 	};
 	const transactions = {
-		update: jest.fn(async (id: string, _ws: string, _user: string, dto: Record<string, unknown>) => {
+		update: vi.fn(async (id: string, _ws: string, _user: string, dto: Record<string, unknown>) => {
 			const record = records[id];
 			if (dto.debit != null) {
 				record.amount = -Number(dto.debit);
@@ -144,12 +144,12 @@ const setup = (options: { role?: WorkspaceRole | null; globalAdmin?: boolean } =
 		}),
 	};
 	const payables = {
-		findOne: jest.fn(),
-		update: jest.fn(),
-		markAsPaid: jest.fn(),
-		archive: jest.fn(),
-		listPayments: jest.fn().mockResolvedValue([]),
-		removePayment: jest.fn(),
+		findOne: vi.fn(),
+		update: vi.fn(),
+		markAsPaid: vi.fn(),
+		archive: vi.fn(),
+		listPayments: vi.fn().mockResolvedValue([]),
+		removePayment: vi.fn(),
 	};
 	const service = new SourceWriteBackService(
 		edits as never,
@@ -163,10 +163,10 @@ const setup = (options: { role?: WorkspaceRole | null; globalAdmin?: boolean } =
 		sources as never,
 		auditService as never,
 		transactions as never,
-		{ update: jest.fn() } as never,
+		{ update: vi.fn() } as never,
 		payables as never,
-		{ update: jest.fn() } as never,
-		{ update: jest.fn() } as never,
+		{ update: vi.fn() } as never,
+		{ update: vi.fn() } as never,
 	);
 	return {
 		service,
@@ -407,7 +407,7 @@ describe("SourceWriteBackService payables", () => {
 		const s = setup();
 		const payable = { status: "to_pay", vendor: "WeWork", paidAmount: 0 };
 		s.sources.get.mockReturnValue({
-			fetchRows: jest.fn(async () => [{ sourceKey: TX, values: { ...payable } }]),
+			fetchRows: vi.fn(async () => [{ sourceKey: TX, values: { ...payable } }]),
 		});
 		s.payables.update.mockImplementation(async (_i: string, _w: string, _u: string, dto: { vendor: string }) => {
 			payable.vendor = dto.vendor;
@@ -427,7 +427,7 @@ describe("SourceWriteBackService payables", () => {
 		const s = setup();
 		const payable = { status: "to_pay", paidAmount: 0 };
 		s.sources.get.mockReturnValue({
-			fetchRows: jest.fn(async () => [{ sourceKey: TX, values: { status: payable.status } }]),
+			fetchRows: vi.fn(async () => [{ sourceKey: TX, values: { status: payable.status } }]),
 		});
 		s.payables.findOne.mockImplementation(async () => payable);
 		s.payables.listPayments.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "pay-9" }]);

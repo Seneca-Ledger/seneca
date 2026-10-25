@@ -1,11 +1,11 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Res } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import * as fs from 'fs';
 import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -19,12 +19,16 @@ import {
   CreatePayableBody,
   FilterPayablesBody,
   MarkPayablePaidBody,
+  MessageResult,
   Payable,
   PayableList,
   PayableListPage,
+  PayableParams,
   PayablePaymentList,
+  PayablePaymentParams,
   PayablesQuery,
   PayablesSummary,
+  PayableTransactionParams,
   PaymentCandidateList,
   UpdatePayableBody,
 } from '../../contracts';
@@ -74,7 +78,10 @@ export class PayablesController {
   @Get(':id')
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
   @SchemaResponse(Payable)
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+  async findOne(
+    @SchemaParams(PayableParams) { id }: PayableParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.payablesService.findOne(id, workspaceId);
   }
 
@@ -82,7 +89,7 @@ export class PayablesController {
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
   @SchemaResponse(PaymentCandidateList)
   async findPaymentCandidates(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayableParams) { id }: PayableParams,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
@@ -93,7 +100,7 @@ export class PayablesController {
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
   @SchemaResponse(PayablePaymentList)
   async listPayments(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayableParams) { id }: PayableParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.payablesService.listPayments(id, workspaceId);
@@ -104,7 +111,7 @@ export class PayablesController {
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
   @SchemaResponse(Payable)
   async addPayment(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayableParams) { id }: PayableParams,
     @SchemaBody(AddPayablePaymentBody) dto: AddPayablePaymentBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -116,9 +123,9 @@ export class PayablesController {
   @Post(':id/payments/:paymentId/book')
   @WorkspaceAuth(Permission.PAYABLE_EDIT)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(Payable)
   async bookPayment(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
+    @SchemaParams(PayablePaymentParams) { id, paymentId }: PayablePaymentParams,
     @SchemaBody(BookPayablePaymentBody) dto: BookPayablePaymentBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -131,8 +138,7 @@ export class PayablesController {
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
   @SchemaResponse(Payable)
   async removePayment(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
+    @SchemaParams(PayablePaymentParams) { id, paymentId }: PayablePaymentParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.payablesService.removePayment(id, paymentId, workspaceId);
@@ -143,7 +149,7 @@ export class PayablesController {
   @WorkspaceAuth(Permission.PAYABLE_VIEW)
   @SchemaResponse(AllocationSuggestion)
   async suggestAllocation(
-    @Param('transactionId', new ParseUUIDPipe()) transactionId: string,
+    @SchemaParams(PayableTransactionParams) { transactionId }: PayableTransactionParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.payablesService.suggestAllocation(workspaceId, transactionId);
@@ -167,7 +173,7 @@ export class PayablesController {
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
   @SchemaResponse(Payable)
   async update(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayableParams) { id }: PayableParams,
     @SchemaBody(UpdatePayableBody) updateDto: UpdatePayableBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -180,7 +186,7 @@ export class PayablesController {
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
   @SchemaResponse(Payable)
   async markAsPaid(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayableParams) { id }: PayableParams,
     @SchemaBody(MarkPayablePaidBody) body: MarkPayablePaidBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -193,7 +199,7 @@ export class PayablesController {
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
   @SchemaResponse(Payable)
   async archive(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayableParams) { id }: PayableParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -203,8 +209,9 @@ export class PayablesController {
   @Delete(':id')
   @WorkspaceAuth(Permission.PAYABLE_DELETE)
   @Audit({ entityType: EntityType.PAYABLE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayableParams) { id }: PayableParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

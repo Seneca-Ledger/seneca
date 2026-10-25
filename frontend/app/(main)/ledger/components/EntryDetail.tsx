@@ -42,7 +42,15 @@ export function EntryDetail({
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        sx={{
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {entry.entryDate}
         </Typography>

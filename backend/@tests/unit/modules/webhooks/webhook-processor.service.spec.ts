@@ -5,11 +5,11 @@ import { WebhookDeliveryStatus } from '../../../../src/entities/webhook-delivery
 describe('WebhookProcessorService', () => {
   let service: WebhookProcessorService;
   const mockDeliveryRepo = {
-    createQueryBuilder: jest.fn(),
-    save: jest.fn(),
-    query: jest.fn(),
+    createQueryBuilder: vi.fn(),
+    save: vi.fn(),
+    query: vi.fn(),
   };
-  const mockSubRepo = { findOne: jest.fn() };
+  const mockSubRepo = { findOne: vi.fn() };
 
   beforeEach(() => {
     service = new WebhookProcessorService(mockDeliveryRepo as any, mockSubRepo as any);

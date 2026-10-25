@@ -1,6 +1,6 @@
 'use client';
 
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -56,7 +56,9 @@ function PartRow({
         onChange={e => onChange(index, 'amount', e.target.value)}
         size="small"
         sx={{ width: 160 }}
-        inputProps={{ min: 0, step: '0.01' }}
+        slotProps={{
+          htmlInput: { min: 0, step: '0.01' },
+        }}
       />
       <Box sx={{ flex: 1, minWidth: 0 }} data-testid={`split-category-${index}`}>
         <CategoryPickerField
@@ -103,7 +105,12 @@ export function SplitTransactionDialog(props: SplitTransactionDialogProps): Reac
       <DialogContent
         sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {fillTemplateNodes(t.splitDialog.totalToAllocate.value, {
             amount: `${totalAmount.toFixed(2)} ${currency}`,
           })}

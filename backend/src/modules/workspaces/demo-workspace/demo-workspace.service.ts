@@ -92,7 +92,9 @@ export class DemoWorkspaceService {
   private async findDemoId(userId: string): Promise<string | null> {
     const demo = await this.workspaceRepository.findOne({
       where: { demoOfUserId: userId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     return demo?.id ?? null;
   }

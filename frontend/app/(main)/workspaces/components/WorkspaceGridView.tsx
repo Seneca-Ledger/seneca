@@ -34,7 +34,14 @@ function EmptyWorkspacesState({
   return (
     <Box sx={{ textAlign: 'center', py: 6 }}>
       <EmptyStateIllustration name="workspaces" size="lg" />
-      <Typography variant="h6" fontWeight={600} sx={{ mb: 1, color: 'var(--foreground)' }}>
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: 600,
+          mb: 1,
+          color: 'var(--foreground)',
+        }}
+      >
         {noWorkspacesLabel}
       </Typography>
       <Typography variant="body2" sx={{ mb: 3, color: 'var(--text-secondary)' }}>
@@ -69,7 +76,14 @@ function NoResultsState(): React.JSX.Element {
   return (
     <Box sx={{ textAlign: 'center', py: 6 }}>
       <EmptyStateIllustration name="no-results" size="md" />
-      <Typography variant="h6" fontWeight={600} sx={{ mb: 1, color: 'var(--foreground)' }}>
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: 600,
+          mb: 1,
+          color: 'var(--foreground)',
+        }}
+      >
         {t.noResults.title}
       </Typography>
       <Typography variant="body2" sx={{ mb: 3, color: 'var(--text-secondary)' }}>

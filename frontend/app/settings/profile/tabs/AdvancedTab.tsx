@@ -52,8 +52,8 @@ export function AdvancedTab({ user }: SettingsTabProps): React.JSX.Element {
 
       <SettingsAccordion
         id="changelog"
-        title={tx(['changelogCard', 'title'], 'Changelog')}
-        description={tx(['changelogCard', 'description'], '')}
+        title={tx(['changelogCard', 'title'])}
+        description={tx(['changelogCard', 'description'])}
         icon={Clock}
         defaultExpanded
       >
@@ -73,7 +73,7 @@ export function AdvancedTab({ user }: SettingsTabProps): React.JSX.Element {
       <Card variant="outlined">
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, px: 1.5, pt: 0.5, pb: 1 }}>
-            {tx(['navigation', 'elsewhere'], 'Elsewhere')}
+            {tx(['navigation', 'elsewhere'])}
           </Typography>
           <SettingsElsewhereLinks tx={tx} />
           <ResetPageHintsButton />

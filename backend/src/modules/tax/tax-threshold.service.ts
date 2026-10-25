@@ -247,7 +247,9 @@ export class TaxThresholdService {
         // A past version is a copy of books already checked; it raises no alerts.
         kind: WorkspaceKind.STANDARD,
       },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
     for (const workspace of workspaces) {

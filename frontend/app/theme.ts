@@ -94,6 +94,43 @@ const getSharedOptions = (
             whiteSpace: 'nowrap',
             transition: 'background-color .15s, border-color .15s, color .15s, transform .06s',
             '&:active': { transform: 'translateY(1px)' },
+            // v9 dropped the compound classes (containedPrimary, outlinedPrimary);
+            // the same overrides go here as variants.
+            variants: [
+              {
+                // In dark mode the palette's primary is the light accent used for
+                // text, icons and outlined variants, where it has to stay bright to
+                // be legible. As a filled background under white text it is only
+                // 2.2:1, so contained buttons take the deeper brand green instead
+                // (5.2:1). Keep both roles — swapping the palette value would fix
+                // the buttons and break every primary-coloured label.
+                props: { variant: 'contained', color: 'primary' },
+                style: ({ theme }: { theme: import('@mui/material/styles').Theme }) =>
+                  theme.palette.mode === 'dark'
+                    ? {
+                        backgroundColor: DARK_PRIMARY_FILL,
+                        '&:hover': { backgroundColor: DARK_PRIMARY_FILL_HOVER },
+                      }
+                    : {
+                        '&:hover': { backgroundColor: theme.palette.primary.dark },
+                      },
+              },
+              {
+                // A secondary action is a white button with dark text, not green-on-
+                // transparent: the accent is reserved for the one primary action on a
+                // screen. Error and other colours keep their own outlined look.
+                props: { variant: 'outlined', color: 'primary' },
+                style: {
+                  backgroundColor: c.surface,
+                  borderColor: c.ink150,
+                  color: c.ink900,
+                  '&:hover': {
+                    backgroundColor: c.ink50,
+                    borderColor: c.ink300,
+                  },
+                },
+              },
+            ],
           },
           sizeSmall: {
             height: 32,
@@ -111,35 +148,8 @@ const getSharedOptions = (
               boxShadow: 'none',
             },
           },
-          // In dark mode the palette's primary is the light accent used for
-          // text, icons and outlined variants, where it has to stay bright to
-          // be legible. As a filled background under white text it is only
-          // 2.2:1, so contained buttons take the deeper brand green instead
-          // (5.2:1). Keep both roles — swapping the palette value would fix
-          // the buttons and break every primary-coloured label.
-          containedPrimary: ({ theme }: { theme: import('@mui/material/styles').Theme }) =>
-            theme.palette.mode === 'dark'
-              ? {
-                  backgroundColor: DARK_PRIMARY_FILL,
-                  '&:hover': { backgroundColor: DARK_PRIMARY_FILL_HOVER },
-                }
-              : {
-                  '&:hover': { backgroundColor: theme.palette.primary.dark },
-                },
           outlined: {
             boxShadow: 'none',
-          },
-          // A secondary action is a white button with dark text, not green-on-
-          // transparent: the accent is reserved for the one primary action on a
-          // screen. Error and other colours keep their own outlined look.
-          outlinedPrimary: {
-            backgroundColor: c.surface,
-            borderColor: c.ink150,
-            color: c.ink900,
-            '&:hover': {
-              backgroundColor: c.ink50,
-              borderColor: c.ink300,
-            },
           },
         },
       },

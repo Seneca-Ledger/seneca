@@ -1,9 +1,9 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Res } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -14,17 +14,22 @@ import {
   CreateInvoiceBody,
   CreditNoteList,
   Invoice,
+  InvoiceClientParams,
   InvoiceCreated,
+  InvoiceDelivery,
   InvoiceDeliveryList,
   InvoiceListPage,
+  InvoiceParams,
   InvoiceSettings,
   InvoicesQuery,
   LateFeeQuote,
+  MessageResult,
   SendInvoiceEmailBody,
   UpdateInvoiceBody,
   UpdateInvoiceSettingsBody,
   XRechnungCheck,
 } from '../../contracts';
+import { InvoiceWritten } from '../../contracts/invoices/invoice-writes';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
@@ -106,7 +111,7 @@ export class InvoicesController {
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   @SchemaResponse(LateFeeQuote)
   async lateFee(
-    @Param('clientId', new ParseUUIDPipe()) clientId: string,
+    @SchemaParams(InvoiceClientParams) { clientId }: InvoiceClientParams,
     @WorkspaceId() workspaceId: string,
   ): Promise<LateFeeQuote> {
     const [{ lateFeePercent }, overdue] = await Promise.all([
@@ -126,7 +131,10 @@ export class InvoicesController {
   @Get(':id')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   @SchemaResponse(Invoice)
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+  async findOne(
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.invoicesService.findOne(id, workspaceId);
   }
 
@@ -135,7 +143,7 @@ export class InvoicesController {
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   @SchemaResponse(CreditNoteList)
   async creditNotes(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.creditNotesService.findForInvoice(id, workspaceId);
@@ -144,7 +152,7 @@ export class InvoicesController {
   @Get(':id/pdf')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   async downloadPdf(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
   ) {
@@ -161,7 +169,7 @@ export class InvoicesController {
   @Get(':id/xrechnung')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   async downloadXRechnung(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
   ) {
@@ -176,7 +184,7 @@ export class InvoicesController {
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   @SchemaResponse(XRechnungCheck)
   async checkXRechnung(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.xrechnungService.check(id, workspaceId);
@@ -185,7 +193,7 @@ export class InvoicesController {
   @Get(':id/preview')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   async previewPdf(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
   ) {
@@ -198,8 +206,9 @@ export class InvoicesController {
   @Put(':id')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: true })
+  @SchemaResponse(InvoiceWritten)
   async update(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @SchemaBody(UpdateInvoiceBody) dto: UpdateInvoiceBody,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -209,8 +218,9 @@ export class InvoicesController {
   @Put(':id/send')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: false })
+  @SchemaResponse(InvoiceWritten)
   async send(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -220,8 +230,9 @@ export class InvoicesController {
   @Post(':id/deliveries')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: false, isUndoable: false })
+  @SchemaResponse(InvoiceDelivery)
   async emailInvoice(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @SchemaBody(SendInvoiceEmailBody) dto: SendInvoiceEmailBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -233,7 +244,7 @@ export class InvoicesController {
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   @SchemaResponse(InvoiceDeliveryList)
   async deliveries(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.invoiceDeliveryService.history(id, workspaceId);
@@ -242,8 +253,9 @@ export class InvoicesController {
   @Put(':id/void')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: false })
+  @SchemaResponse(InvoiceWritten)
   async void(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -253,7 +265,11 @@ export class InvoicesController {
   @Delete(':id')
   @WorkspaceAuth(Permission.INVOICE_DELETE)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: true })
-  async remove(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(MessageResult)
+  async remove(
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     await this.invoicesService.remove(id, workspaceId);
     return deletedResponse('Invoice');
   }

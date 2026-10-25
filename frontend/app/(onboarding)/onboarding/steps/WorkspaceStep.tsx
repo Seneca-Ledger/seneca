@@ -7,7 +7,7 @@ import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDra
 import { ChoiceCards } from '@/app/components/ui/choice-cards';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
 import { useIntlayer } from '@/app/i18n';
-import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
+import { makeTx } from '@/app/lib/intlayer-resolve';
 import { LocaleField } from '../components/LocaleField';
 import { FieldLabel, OnboardingTextField } from '../components/OnboardingField';
 import { PickerField } from '../components/PickerField';
@@ -41,11 +41,11 @@ export function WorkspaceStep({
   onLocaleChange,
 }: WorkspaceStepProps) {
   const text = useOnboardingText(locale);
-  const { tx: settingsText } = useSettingsText();
+  const settingsText = makeTx(useIntlayer('settingsProfilePage'));
   const currencyText = useIntlayer('workspaceCurrencySelector');
   const picker = useCurrencyPickerState(workspaceCurrency);
 
-  const profileLabel = text(['workspace', 'profileLabel'], 'What is this workspace for?');
+  const profileLabel = text(['workspace', 'profileLabel']);
 
   return (
     <Box
@@ -53,19 +53,16 @@ export function WorkspaceStep({
       sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
     >
       <StepHeading
-        title={text(['workspace', 'title'], 'Set up your first workspace')}
-        subtitle={text(
-          ['workspace', 'subtitle'],
-          'Set workspace name and default currency for accurate data tracking.',
-        )}
+        title={text(['workspace', 'title'])}
+        subtitle={text(['workspace', 'subtitle'])}
       />
 
       <OnboardingTextField
         id="workspace-name"
-        label={text(['workspace', 'nameLabel'], 'Workspace name')}
+        label={text(['workspace', 'nameLabel'])}
         value={workspaceName}
         onChange={onWorkspaceNameChange}
-        placeholder={text(['workspace', 'namePlaceholder'], 'For example: My Company workspace')}
+        placeholder={text(['workspace', 'namePlaceholder'])}
       />
 
       {/* With a language to ask too, the two pickers share a row so the step fits the screen. */}
@@ -87,22 +84,16 @@ export function WorkspaceStep({
             onOpen={() => picker.setCurrencyDrawerOpen(true)}
           />
           <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-            {text(
-              ['workspace', 'currencyHint'],
-              'This currency will be used by default for new records.',
-            )}
+            {text(['workspace', 'currencyHint'])}
           </Box>
         </Box>
 
         {onLocaleChange ? (
           <LocaleField
-            label={text(['language', 'localeLabel'], 'Language')}
+            label={text(['language', 'localeLabel'])}
             value={locale}
             onChange={onLocaleChange}
-            hint={text(
-              ['language', 'timeZoneHint'],
-              'You can always change this later in profile settings.',
-            )}
+            hint={text(['language', 'timeZoneHint'])}
           />
         ) : null}
       </Box>
@@ -117,27 +108,21 @@ export function WorkspaceStep({
             {
               value: 'home',
               icon: <Home size={20} />,
-              title: settingsText(['workspaceProfileCard', 'home'], 'Home'),
-              description: settingsText(
-                ['workspaceProfileCard', 'homeHint'],
-                'Personal or family money',
-              ),
+              title: settingsText(['workspaceProfileCard', 'home']),
+              description: settingsText(['workspaceProfileCard', 'homeHint']),
             },
             {
               value: 'business',
               icon: <Briefcase size={20} />,
-              title: settingsText(['workspaceProfileCard', 'business'], 'Business'),
-              description: settingsText(
-                ['workspaceProfileCard', 'businessHint'],
-                'Invoices, payables, ledger, tax',
-              ),
+              title: settingsText(['workspaceProfileCard', 'business']),
+              description: settingsText(['workspaceProfileCard', 'businessHint']),
             },
           ]}
         />
         {/* Says why Next is greyed out; it goes once the question is answered. */}
         {profile ? null : (
           <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-            {text(['workspace', 'profileRequired'], 'Choose one to continue.')}
+            {text(['workspace', 'profileRequired'])}
           </Box>
         )}
       </Box>

@@ -130,14 +130,21 @@ export class SourceWriteBackService {
   private async followScanDocument(transactionId: string, workspaceId: string): Promise<void> {
     const transaction = await this.transactionRepository.findOne({
       where: { id: transactionId, workspaceId },
-      select: ['id', 'statementId', 'categoryId'],
+      select: {
+        id: true,
+        statementId: true,
+        categoryId: true,
+      },
     });
     if (!transaction?.statementId) {
       return;
     }
     const statement = await this.statementRepository.findOne({
       where: { id: transaction.statementId, workspaceId },
-      select: ['id', 'parsingDetails'],
+      select: {
+        id: true,
+        parsingDetails: true,
+      },
     });
     if (statement?.parsingDetails?.detectedBy !== 'receipt-scan') {
       return;
@@ -146,7 +153,10 @@ export class SourceWriteBackService {
     const category = categoryId
       ? await this.categoryRepository.findOne({
           where: { id: categoryId, workspaceId },
-          select: ['id', 'name'],
+          select: {
+            id: true,
+            name: true,
+          },
         })
       : null;
     await this.statementRepository.update({ id: statement.id, workspaceId }, { categoryId });
@@ -427,7 +437,10 @@ export class SourceWriteBackService {
     }
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'role'],
+      select: {
+        id: true,
+        role: true,
+      },
     });
     if (user?.role === UserRole.ADMIN) {
       return member?.id ?? null;
@@ -465,7 +478,12 @@ export class SourceWriteBackService {
     }
     const all = await this.categoryRepository.find({
       where: { workspaceId },
-      select: ['id', 'name', 'type', 'isEnabled'],
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        isEnabled: true,
+      },
     });
     const named = all.filter(item => item.isEnabled !== false && nameKey(item.name) === key);
     return (named.find(item => item.type === type) ?? named[0])?.id ?? null;
@@ -475,7 +493,10 @@ export class SourceWriteBackService {
     const key = nameKey(name);
     const clients = await this.clientRepository.find({
       where: { workspaceId },
-      select: ['id', 'name'],
+      select: {
+        id: true,
+        name: true,
+      },
     });
     return clients.find(client => nameKey(client.name) === key)?.id ?? null;
   }

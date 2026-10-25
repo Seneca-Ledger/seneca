@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { type Dictionary, t } from 'intlayer';
 import { APP_NAME } from '@/app/lib/brand';
 

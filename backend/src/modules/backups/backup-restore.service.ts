@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import type { DataSource, EntityManager, EntityMetadata, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { appDefaultCurrency } from '../../common/utils/currency.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import { WorkspaceRole } from '../../entities';
@@ -388,7 +389,7 @@ export class BackupRestoreService {
   private sourceWorkspace(opened: Pick<OpenedBackup, 'collections'>): Record<string, unknown> {
     const workspace = opened.collections.workspace?.[0];
     if (workspace && typeof workspace === 'object') return workspace as Record<string, unknown>;
-    throw new BadRequestException('Backup does not contain workspace data');
+    throw new BadRequestException(appError('BACKUP_NO_WORKSPACE_DATA'));
   }
 
   /** A new id for every row that is restored, and the new workspace for the old one. */
@@ -423,7 +424,7 @@ export class BackupRestoreService {
         metadata &&
         (isWorkspaceScoped(metadata) || RELATED_COLLECTIONS.some(item => item.table === tableName));
       if (!metadata || !backedUp)
-        throw new BadRequestException(`Backup contains unsupported collection: ${tableName}`);
+        throw new BadRequestException(appError('BACKUP_UNKNOWN_COLLECTION', { table: tableName }));
       if (EXCLUDED_TABLES.has(tableName)) continue;
       tables.push({
         metadata,
@@ -672,7 +673,8 @@ export class BackupRestoreService {
     stagedFiles: Array<{ stagedPath: string; targetPath: string }>,
   ): Promise<string> {
     const contents = files.get(portablePath);
-    if (!contents) throw new BadRequestException(`Backup document is missing: ${portablePath}`);
+    if (!contents)
+      throw new BadRequestException(appError('BACKUP_DOCUMENT_MISSING', { path: portablePath }));
     const safeName = path.basename(portablePath);
     const targetPath = path.join(resolveUploadsDir(), `restored-${restoredId}-${safeName}`);
     const stagedPath = path.join(restoreDirectory, `${randomUUID()}-${safeName}`);

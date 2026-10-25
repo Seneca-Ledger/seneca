@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, IsNull, Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { generateTransactionFingerprint } from '../../../common/utils/fingerprint.util';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 
@@ -207,7 +208,7 @@ export class TransactionFingerprintService {
     );
 
     if (result.affected === 0) {
-      throw new NotFoundException(`Transaction not found: ${transactionId}`);
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND_ID', { id: transactionId }));
     }
 
     const updated = await this.transactionRepository.findOne({
@@ -215,7 +216,7 @@ export class TransactionFingerprintService {
     });
 
     if (!updated) {
-      throw new NotFoundException(`Transaction not found: ${transactionId}`);
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND_ID', { id: transactionId }));
     }
 
     return updated;

@@ -48,13 +48,13 @@ describe('SidePanel navigation styles', () => {
     );
 
     expect(activeButton).toBeTruthy();
-    expect(activeButton?.className).not.toContain('bg-[#ede8e1]');
 
-    const activeIconWrapper = activeButton?.querySelector('span.h-9.w-9') as HTMLSpanElement | null;
+    // The 36px icon box: tinted with the primary token, never filled.
+    const activeIconWrapper = activeButton?.querySelector('span') as HTMLSpanElement | null;
     expect(activeIconWrapper).toBeTruthy();
-    expect(activeIconWrapper?.className).toContain('text-primary');
-    expect(activeIconWrapper?.className).not.toContain('bg-white');
-    expect(activeIconWrapper?.className).not.toContain('bg-gray-100');
+    expect(activeIconWrapper?.style.width).toBe('36px');
+    expect(activeIconWrapper?.style.color).toBe('var(--primary)');
+    expect(activeIconWrapper?.style.backgroundColor).toBe('');
   });
 
   it('adds left inset to navigation rows to align with header logo axis', async () => {
@@ -72,6 +72,6 @@ describe('SidePanel navigation styles', () => {
     const firstNavButton = container.querySelector('button');
 
     expect(firstNavButton).toBeTruthy();
-    expect(firstNavButton?.className).toContain('px-4');
+    expect(firstNavButton?.style.paddingLeft).toBe('10px');
   });
 });

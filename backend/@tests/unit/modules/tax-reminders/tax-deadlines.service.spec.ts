@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxFilingPeriod } from '@/entities/tax-jurisdiction.entity';
 import { VatStatus } from '@/entities/workspace.entity';
@@ -7,12 +8,12 @@ import { APP_NAME } from '../../../../src/common/brand';
 describe('TaxDeadlinesService', () => {
   let service: TaxDeadlinesService;
   let workspaceRepo: ReturnType<typeof createRepoMock>;
-  let taxReturnRepo: ReturnType<typeof createRepoMock> & { exist: jest.Mock };
-  let incomeTaxReturnRepo: ReturnType<typeof createRepoMock> & { exist: jest.Mock };
+  let taxReturnRepo: ReturnType<typeof createRepoMock> & { exists: Mock };
+  let incomeTaxReturnRepo: ReturnType<typeof createRepoMock> & { exists: Mock };
   let profileRepo: ReturnType<typeof createRepoMock>;
   let settingsRepo: ReturnType<typeof createRepoMock>;
   let filing: { frequency: TaxFilingPeriod | null; extension: boolean };
-  let events: { emit: jest.Mock };
+  let events: { emit: Mock };
   let workspace: Record<string, unknown>;
   let holidays: string[];
 
@@ -25,9 +26,9 @@ describe('TaxDeadlinesService', () => {
     };
     workspaceRepo = createRepoMock();
     workspaceRepo.findOne.mockImplementation(async () => workspace);
-    taxReturnRepo = Object.assign(createRepoMock(), { exist: jest.fn().mockResolvedValue(false) });
+    taxReturnRepo = Object.assign(createRepoMock(), { exists: vi.fn().mockResolvedValue(false) });
     incomeTaxReturnRepo = Object.assign(createRepoMock(), {
-      exist: jest.fn().mockResolvedValue(false),
+      exists: vi.fn().mockResolvedValue(false),
     });
     profileRepo = createRepoMock();
     profileRepo.findOne.mockResolvedValue(null);
@@ -35,7 +36,7 @@ describe('TaxDeadlinesService', () => {
     settingsRepo.findOne.mockResolvedValue(null);
     settingsRepo.save.mockImplementation(async (row: unknown) => row);
     filing = { frequency: TaxFilingPeriod.QUARTERLY, extension: false };
-    events = { emit: jest.fn() };
+    events = { emit: vi.fn() };
     holidays = [];
     service = new TaxDeadlinesService(
       workspaceRepo as never,
@@ -43,9 +44,9 @@ describe('TaxDeadlinesService', () => {
       incomeTaxReturnRepo as never,
       profileRepo as never,
       settingsRepo as never,
-      { getVatFiling: jest.fn(async () => filing) } as never,
+      { getVatFiling: vi.fn(async () => filing) } as never,
       events as never,
-      { holidaysFor: jest.fn(async () => new Set(holidays)) } as never,
+      { holidaysFor: vi.fn(async () => new Set(holidays)) } as never,
     );
   });
 
@@ -84,7 +85,7 @@ describe('TaxDeadlinesService', () => {
     });
 
     it('marks a period filed in the app as done', async () => {
-      taxReturnRepo.exist.mockResolvedValue(true);
+      taxReturnRepo.exists.mockResolvedValue(true);
       const deadlines = await service.getUpcoming('ws-1', '2026-10-05');
       expect(deadlines.filter(item => item.kind === 'vat_return').every(item => item.done)).toBe(true);
     });
@@ -149,7 +150,7 @@ describe('TaxDeadlinesService', () => {
     });
 
     it('sends nothing for a filed return', async () => {
-      taxReturnRepo.exist.mockResolvedValue(true);
+      taxReturnRepo.exists.mockResolvedValue(true);
       expect(await service.remindWorkspace('ws-1', '2026-10-05')).toBe(0);
       expect(events.emit).not.toHaveBeenCalled();
     });

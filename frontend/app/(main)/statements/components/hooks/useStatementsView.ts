@@ -168,7 +168,6 @@ function sortStatements(statements: Statement[], direction: 'asc' | 'desc'): Sta
   });
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function useStatementsView({
   router,
   searchParams,
@@ -284,8 +283,7 @@ export function useStatementsView({
     Record<string, string>
   >({});
 
-  const tx = (path: string[], fallback: string): string =>
-    resolveLabel(getNestedValue(t, path), fallback);
+  const tx = (path: string[]): string => resolveLabel(getNestedValue(t, path));
 
   const filterLabels = buildFilterLabels(t);
   const filterOptionLabels = buildFilterOptionLabels(t, tx);
@@ -372,8 +370,8 @@ export function useStatementsView({
     page,
     pageSize: PAGE_SIZE,
     router,
-    loadListErrorLabel: resolveLabel(t.loadListError, 'Failed to load statements'),
-    refreshFailedLabel: resolveLabel(t.refreshFailed, 'Failed to refresh statements'),
+    loadListErrorLabel: t.loadListError.value,
+    refreshFailedLabel: t.refreshFailed.value,
   });
 
   // Effect events: the loaders are re-created by their hooks each render, and

@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHmac, randomBytes } from 'crypto';
 import { IsNull, LessThan, type Repository } from 'typeorm';
 import { APP_NAME } from '../../common/brand';
+import { appError } from '../../common/errors/app-error';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { requireSecret } from '../../common/utils/required-secret.util';
 import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
@@ -43,7 +44,13 @@ export class PasswordResetService {
       where: { email: normalizedEmail },
       // workspaceId included so the mailer can use the SMTP the user set up in
       // their home workspace (see getAccountSmtpSettings).
-      select: ['id', 'email', 'name', 'isActive', 'workspaceId'],
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isActive: true,
+        workspaceId: true,
+      },
     });
 
     if (!user || user.isActive === false) {
@@ -107,12 +114,12 @@ export class PasswordResetService {
     // One message for every failure mode: expired, already used, never existed.
     // Distinguishing them tells an attacker which guesses were closer.
     if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Reset link is invalid or has expired');
+      throw new BadRequestException(appError('AUTH_RESET_LINK_INVALID'));
     }
 
     const user = await this.userRepository.findOne({ where: { id: record.userId } });
     if (!(user && user.isActive !== false)) {
-      throw new BadRequestException('Reset link is invalid or has expired');
+      throw new BadRequestException(appError('AUTH_RESET_LINK_INVALID'));
     }
 
     user.passwordHash = await hashPassword(newPassword);

@@ -44,15 +44,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -66,7 +66,7 @@ const filesIn = (directory: string): string[] =>
     : [];
 
 describe('workspace versions are taken and kept (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let snapshots: VersionSnapshotService;

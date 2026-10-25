@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger } from '@nes
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import {
   assertPublicEgressUrl,
   createPublicEgressHttpAgents,
@@ -46,13 +47,13 @@ export class PushService {
 
   async subscribe(userId: string, dto: PushSubscriptionBody): Promise<PushSubscription> {
     if (!this.isEnabled()) {
-      throw new ConflictException('Web push is not configured on this server');
+      throw new ConflictException(appError('PUSH_NOT_CONFIGURED'));
     }
     // The server POSTs to this URL on every notification: a push service, never
     // an address inside the network it runs in.
     const endpoint = await assertPublicEgressUrl(dto.endpoint);
     if (endpoint.protocol !== 'https:') {
-      throw new BadRequestException('Push endpoint must be an https URL');
+      throw new BadRequestException(appError('PUSH_ENDPOINT_INSECURE'));
     }
     const existing = await this.subscriptionRepository.findOne({
       where: { endpoint: dto.endpoint },
@@ -64,7 +65,7 @@ export class PushService {
       secretsMatch(dto.keys.p256dh, existing?.p256dh ?? '') &&
       secretsMatch(dto.keys.auth, existing?.auth ?? '');
     if (existing && existing.userId !== userId && !sameKeys) {
-      throw new ConflictException('This push endpoint belongs to another account');
+      throw new ConflictException(appError('PUSH_ENDPOINT_TAKEN'));
     }
     const row =
       existing ??

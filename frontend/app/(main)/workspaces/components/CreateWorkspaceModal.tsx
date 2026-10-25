@@ -11,7 +11,7 @@ import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
-import React, { useId, useState } from 'react';
+import React, { useId } from 'react';
 import toast from 'react-hot-toast';
 import { ChevronLeft, ChevronRight } from '@/app/components/icons';
 import type { WorkspaceProfile } from '@/app/components/navigation/helpers/navigation-config';
@@ -24,6 +24,7 @@ import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { AVAILABLE_BACKGROUNDS } from '../constants';
 import { BackgroundSelector } from './BackgroundSelector';
 import { CurrencySelector } from './CurrencySelector';
+import { useWorkspaceFormState } from './hooks/useWorkspaceFormState';
 
 type ApiErrorLike = { response?: { data?: { message?: string } } };
 
@@ -40,73 +41,14 @@ interface CreateWorkspaceModalProps {
   onSuccess: () => void;
 }
 
-function useWorkspaceFormState(): {
-  step: number;
-  name: string;
-  description: string;
-  profile: WorkspaceProfile;
-  selectedBackground: string | null;
-  selectedCurrency: string | null;
-  loading: boolean;
-  currencyDrawerOpen: boolean;
-  setStep: (v: number) => void;
-  setName: (v: string) => void;
-  setDescription: (v: string) => void;
-  setProfile: (v: WorkspaceProfile) => void;
-  setSelectedBackground: (v: string | null) => void;
-  setSelectedCurrency: (v: string | null) => void;
-  setLoading: (v: boolean) => void;
-  setCurrencyDrawerOpen: (v: boolean) => void;
-  reset: () => void;
-} {
-  const [step, setStep] = useState(1);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  // Business is how every workspace behaved before the profile existed.
-  const [profile, setProfile] = useState<WorkspaceProfile>('business');
-  const [selectedBackground, setSelectedBackground] = useState<string | null>(
-    AVAILABLE_BACKGROUNDS[0],
-  );
-  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
-  const reset = (): void => {
-    setStep(1);
-    setName('');
-    setDescription('');
-    setProfile('business');
-    setSelectedBackground(AVAILABLE_BACKGROUNDS[0]);
-    setSelectedCurrency(null);
-    setCurrencyDrawerOpen(false);
-  };
-  return {
-    step,
-    name,
-    description,
-    profile,
-    selectedBackground,
-    selectedCurrency,
-    loading,
-    currencyDrawerOpen,
-    setStep,
-    setName,
-    setDescription,
-    setProfile,
-    setSelectedBackground,
-    setSelectedCurrency,
-    setLoading,
-    setCurrencyDrawerOpen,
-    reset,
-  };
-}
-
 function StepBadges({ step }: { step: number }): React.JSX.Element {
+  const t = useIntlayer('createWorkspaceModal');
   const items = [
-    { id: 1, label: 'Basic Info' },
-    { id: 2, label: 'Customization' },
+    { id: 1, label: t.stepBasicInfo },
+    { id: 2, label: t.stepCustomization },
   ];
   return (
-    <nav aria-label="Workspace setup steps" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+    <nav aria-label={t.stepsAria.value} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {items.map(item => (
         <Box
           key={item.id}
@@ -129,6 +71,7 @@ function StepBadges({ step }: { step: number }): React.JSX.Element {
 }
 
 function StepIndicator({ step }: { step: number }): React.JSX.Element {
+  const t = useIntlayer('createWorkspaceModal');
   return (
     <Box
       sx={{
@@ -140,7 +83,7 @@ function StepIndicator({ step }: { step: number }): React.JSX.Element {
       }}
     >
       <Typography variant="body2" style={{ color: 'var(--muted-foreground)' }}>
-        Step {step} of 2
+        {t.stepOf.value.replace('{current}', String(step)).replace('{total}', '2')}
       </Typography>
       <StepBadges step={step} />
     </Box>
@@ -164,11 +107,18 @@ function Step1Content({
   onProfileChange,
 }: Step1Props): React.JSX.Element {
   const t = useIntlayer('createWorkspaceModal');
+  const { details } = useIntlayer('workspaceOverview');
   return (
     <Stack spacing={3}>
       {/* Home hides the business pages from the menu; nothing else changes. */}
       <Stack spacing={1}>
-        <Typography variant="body2" fontWeight={600} id="workspace-profile-label">
+        <Typography
+          variant="body2"
+          id="workspace-profile-label"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.profileLabel}
         </Typography>
         <ToggleButtonGroup
@@ -179,41 +129,65 @@ function Step1Content({
           aria-labelledby="workspace-profile-label"
         >
           <ToggleButton value="home" sx={{ textTransform: 'none', flexDirection: 'column' }}>
-            <Typography variant="body2" fontWeight={600}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+              }}
+            >
               {t.profileHome}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.profileHomeHint}
             </Typography>
           </ToggleButton>
           <ToggleButton value="business" sx={{ textTransform: 'none', flexDirection: 'column' }}>
-            <Typography variant="body2" fontWeight={600}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+              }}
+            >
               {t.profileBusiness}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.profileBusinessHint}
             </Typography>
           </ToggleButton>
         </ToggleButtonGroup>
       </Stack>
       <TextField
-        label="Workspace Name"
+        label={details.name}
         required
         value={name}
         onChange={e => onNameChange(e.target.value)}
-        placeholder="My Workspace"
-        inputProps={{ maxLength: 255 }}
+        placeholder={t.namePlaceholder.value}
         fullWidth
+        slotProps={{
+          htmlInput: { maxLength: 255 },
+        }}
       />
       <TextField
-        label="Description (optional)"
+        label={t.descriptionLabel}
         value={description}
         onChange={e => onDescriptionChange(e.target.value)}
-        placeholder="What is this workspace for?"
-        inputProps={{ maxLength: 500 }}
+        placeholder={t.profileLabel.value}
         multiline
         minRows={4}
         fullWidth
+        slotProps={{
+          htmlInput: { maxLength: 500 },
+        }}
       />
     </Stack>
   );
@@ -233,6 +207,7 @@ function Step2Content({
   onSelectBackground,
   onOpenCurrencyDrawer,
 }: Step2Props): React.JSX.Element {
+  const t = useIntlayer('createWorkspaceModal');
   return (
     <Stack spacing={4}>
       <CurrencySelector
@@ -247,8 +222,15 @@ function Step2Content({
         }}
       />
       <Box>
-        <Typography variant="body2" fontWeight={500} sx={{ mb: 1.5, color: 'var(--foreground)' }}>
-          Background Image
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 500,
+            mb: 1.5,
+            color: 'var(--foreground)',
+          }}
+        >
+          {t.backgroundImage}
         </Typography>
         <BackgroundSelector
           selectedBackground={selectedBackground}
@@ -268,9 +250,10 @@ type ActionsProps = {
   onFinishStep2: () => void;
 };
 function Step1Actions({ onNext }: { onNext: () => void }): React.JSX.Element {
+  const t = useIntlayer('createWorkspaceModal');
   return (
     <Button type="button" variant="contained" onClick={onNext} endIcon={<ChevronRight size={16} />}>
-      Next
+      {t.next}
     </Button>
   );
 }
@@ -282,9 +265,10 @@ function Step2Actions({
   loading: boolean;
   onFinishStep2: () => void;
 }): React.JSX.Element {
+  const t = useIntlayer('createWorkspaceModal');
   return (
     <Button type="button" variant="contained" onClick={onFinishStep2} disabled={loading}>
-      {loading ? 'Creating...' : 'Create workspace'}
+      {loading ? t.creating : t.create}
     </Button>
   );
 }
@@ -296,6 +280,7 @@ function ModalActions({
   onNext,
   onFinishStep2,
 }: ActionsProps): React.JSX.Element {
+  const t = useIntlayer('createWorkspaceModal');
   return (
     <DialogActions sx={{ px: 4, py: 3, justifyContent: 'space-between' }}>
       <Box>
@@ -306,7 +291,7 @@ function ModalActions({
             onClick={onBack}
             startIcon={<ChevronLeft size={16} />}
           >
-            Back
+            {t.back}
           </Button>
         )}
       </Box>
@@ -372,9 +357,10 @@ function useWorkspaceCreation({
   selectedCurrency,
   setLoading,
 }: CreationHookParams): { createWorkspace: () => Promise<string | undefined> } {
+  const t = useIntlayer('createWorkspaceModal');
   const createWorkspace = async (): Promise<string | undefined> => {
     if (!name.trim()) {
-      toast.error('Workspace name is required');
+      toast.error(t.nameRequired.value);
       return undefined;
     }
     setLoading(true);
@@ -389,10 +375,10 @@ function useWorkspaceCreation({
       };
       const response = await api.post('/workspaces', payload);
       const created = await checkContract('WorkspaceSummary', response.data, '/workspaces');
-      toast.success('Workspace created successfully');
+      toast.success(t.created.value);
       return created.id;
     } catch (error: unknown) {
-      toast.error(getApiMessage({ error, fallback: 'Failed to create workspace' }));
+      toast.error(getApiMessage({ error, fallback: t.createFailed.value }));
       throw error;
     } finally {
       setLoading(false);
@@ -470,6 +456,7 @@ function useModalHandlers({
   finalize: () => Promise<void>;
   handleNext: () => void;
 } {
+  const t = useIntlayer('createWorkspaceModal');
   const finalize = async (): Promise<void> => {
     const id = await createWorkspace().catch(() => undefined);
     if (!id) {
@@ -483,7 +470,7 @@ function useModalHandlers({
   };
   const handleNext = (): void => {
     if (s.step === 1 && !s.name.trim()) {
-      toast.error('Workspace name is required');
+      toast.error(t.nameRequired.value);
       return;
     }
     s.setStep(s.step + 1);
@@ -497,6 +484,8 @@ export function CreateWorkspaceModal({
   onSuccess,
 }: CreateWorkspaceModalProps): React.JSX.Element {
   const { switchWorkspace, refreshWorkspaces } = useWorkspace();
+  const t = useIntlayer('createWorkspaceModal');
+  const page = useIntlayer('workspaces-selector');
   const dialogTitleId = useId();
   const s = useWorkspaceFormState();
   const { createWorkspace } = useWorkspaceCreation({
@@ -538,19 +527,21 @@ export function CreateWorkspaceModal({
                 color: 'var(--primary)',
               }}
             >
-              Workspace setup
+              {t.eyebrow}
             </Typography>
             <Box>
               <Typography
                 id={dialogTitleId}
                 variant="h5"
-                fontWeight={600}
                 style={{ color: 'var(--foreground)' }}
+                sx={{
+                  fontWeight: 600,
+                }}
               >
-                Create New Workspace
+                {page.createWorkspace}
               </Typography>
               <Typography variant="body2" style={{ color: 'var(--muted-foreground)' }}>
-                Create a dedicated space for your documents, receipts, and reports.
+                {t.subtitle}
               </Typography>
             </Box>
             <StepIndicator step={s.step} />

@@ -1,7 +1,11 @@
+# Bun only installs packages (from package-lock.json); Node runs the app.
+FROM oven/bun:1.4.4-alpine AS bun
+
 # Build stage
 FROM node:24-alpine AS builder
 
 WORKDIR /app
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
 # Copy dependency manifests first for better caching
 COPY backend/package*.json ./backend/
@@ -10,8 +14,11 @@ COPY frontend/package*.json ./frontend/
 COPY frontend/scripts/build-locale-packs.mjs ./frontend/scripts/
 
 # Install dependencies for both apps
-RUN npm ci --prefix backend
-RUN npm ci --prefix frontend
+WORKDIR /app/backend
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile --network-concurrency=16
+WORKDIR /app/frontend
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile --network-concurrency=16
+WORKDIR /app
 
 # Copy source code
 COPY backend ./backend
@@ -31,8 +38,11 @@ RUN npm run build --prefix frontend
 # Build backend
 RUN npm run build --prefix backend
 
-# Remove devDependencies from backend for the runtime image
-RUN npm --prefix backend prune --omit=dev
+# Reinstall backend with production deps only for the runtime image
+WORKDIR /app/backend
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  rm -rf node_modules && bun install --frozen-lockfile --network-concurrency=16 --production
+WORKDIR /app
 
 # Runtime image
 FROM node:24-alpine AS runner
@@ -41,7 +51,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV API_PORT=4000
-ENV HOSTNAME=0.0.0.0
+ENV HOST=0.0.0.0
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Install Python + pdfplumber for PDF parsing + pdf2image for thumbnails.
@@ -66,11 +76,10 @@ COPY --from=builder /app/backend/node_modules ./backend/node_modules
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/backend/scripts ./backend/scripts
 
-# Frontend standalone output
-COPY --from=builder /app/frontend/.next/standalone ./frontend
-COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
-COPY --from=builder /app/frontend/public ./frontend/public
-COPY --from=builder /app/frontend/package*.json ./frontend/
+# Frontend standalone output (vinext); static files, public/ included, live in dist/client
+COPY --from=builder /app/frontend/dist/standalone/server.js /app/frontend/dist/standalone/package.json ./frontend/
+COPY --from=builder /app/frontend/dist/standalone/dist ./frontend/dist
+COPY --from=builder /app/frontend/dist/standalone/node_modules ./frontend/node_modules
 
 # Startup script to run both servers
 COPY scripts/start.sh ./scripts/start.sh

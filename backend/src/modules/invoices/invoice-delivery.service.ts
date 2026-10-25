@@ -144,7 +144,7 @@ export class InvoiceDeliveryService {
       where: { id: invoiceId, workspaceId },
     });
     if (!invoice) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
     }
     // A draft has no number and no stored document; issuing it is a separate,
     // irreversible step the user takes deliberately.

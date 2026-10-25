@@ -14,35 +14,35 @@ function createService(
 ) {
   const users = options.users ?? [];
   const queryBuilder: any = {
-    where: jest.fn(() => queryBuilder),
-    andWhere: jest.fn(() => queryBuilder),
-    getOne: jest.fn(async () => users[0] ?? null),
+    where: vi.fn(() => queryBuilder),
+    andWhere: vi.fn(() => queryBuilder),
+    getOne: vi.fn(async () => users[0] ?? null),
   };
   const userRepository = {
-    merge: jest.fn((entity: any, patch: any) => ({ ...entity, ...patch })),
-    save: jest.fn(async (entity: any) => entity),
-    createQueryBuilder: jest.fn(() => queryBuilder),
-    findOne: jest.fn(async () => null),
+    merge: vi.fn((entity: any, patch: any) => ({ ...entity, ...patch })),
+    save: vi.fn(async (entity: any) => entity),
+    createQueryBuilder: vi.fn(() => queryBuilder),
+    findOne: vi.fn(async () => null),
   } as any;
   const statementsService = {
-    create: jest.fn(),
-    createManualExpense: jest.fn(async () => ({ id: '11111111-1111-4111-8111-111111111111' })),
-    remove: jest.fn(async () => undefined),
+    create: vi.fn(),
+    createManualExpense: vi.fn(async () => ({ id: '11111111-1111-4111-8111-111111111111' })),
+    remove: vi.fn(async () => undefined),
   } as any;
   const receiptsService = {
-    createFromScan: jest.fn(async () => ({
+    createFromScan: vi.fn(async () => ({
       id: '22222222-2222-4222-8222-222222222222',
       status: 'draft',
       parsedData: { amount: 42.5, currency: 'EUR', vendor: 'REWE' },
     })),
-    delete: jest.fn(async () => ({ deleted: true })),
+    delete: vi.fn(async () => ({ deleted: true })),
   } as any;
-  const classificationService = { ensureCategory: jest.fn(async () => 'cat-none') } as any;
-  const transactionRepository = { update: jest.fn(async () => ({ affected: 1 })) } as any;
+  const classificationService = { ensureCategory: vi.fn(async () => 'cat-none') } as any;
+  const transactionRepository = { update: vi.fn(async () => ({ affected: 1 })) } as any;
   // Behaves like the unique (key, user_id, workspace_id) constraint.
   const claimedKeys = new Set<string>();
   const idempotencyKeyRepository = {
-    insert: jest.fn(async (row: any) => {
+    insert: vi.fn(async (row: any) => {
       const id = `${row.key}|${row.userId}|${row.workspaceId}`;
       if (claimedKeys.has(id)) {
         throw Object.assign(new Error('duplicate key'), { code: '23505' });
@@ -52,17 +52,17 @@ function createService(
     }),
   } as any;
   const workspaceMemberRepository = {
-    findOne: jest.fn(async () => ({ role: 'owner', ...options.member, workspace: { currency: 'KZT' } })),
+    findOne: vi.fn(async () => ({ role: 'owner', ...options.member, workspace: { currency: 'KZT' } })),
   } as any;
 
   const service = new TelegramService(
-    { get: jest.fn().mockReturnValue('test-bot-token') } as any,
+    { get: vi.fn().mockReturnValue('test-bot-token') } as any,
     userRepository,
-    { findAndCount: jest.fn(async () => [[], 0]) } as any,
-    { generateDailyReport: jest.fn(), generateMonthlyReport: jest.fn() } as any,
+    { findAndCount: vi.fn(async () => [[], 0]) } as any,
+    { generateDailyReport: vi.fn(), generateMonthlyReport: vi.fn() } as any,
     statementsService,
-    { findAll: jest.fn(async () => []) } as any,
-    { getNetWorth: jest.fn() } as any,
+    { findAll: vi.fn(async () => []) } as any,
+    { getNetWorth: vi.fn() } as any,
     workspaceMemberRepository,
     undefined,
     receiptsService,
@@ -70,7 +70,7 @@ function createService(
     transactionRepository,
     idempotencyKeyRepository,
   );
-  jest
+  vi
     .spyOn(service as any, 'downloadTelegramFile')
     .mockResolvedValue({ originalname: 'receipt.jpg', mimetype: 'image/jpeg', path: '/tmp/r.jpg' });
 
@@ -80,7 +80,7 @@ function createService(
 /** Every Telegram API call the service makes, by endpoint, with the parsed body. */
 function mockFetch() {
   const calls: Array<{ url: string; body: any }> = [];
-  global.fetch = jest.fn(async (url: unknown, init: any) => {
+  global.fetch = vi.fn(async (url: unknown, init: any) => {
     calls.push({ url: String(url), body: JSON.parse(init.body) });
     return { ok: true, status: 200, json: async () => ({ ok: true, result: { message_id: 1 } }) };
   }) as any;
@@ -321,11 +321,11 @@ describe('TelegramService inbound', () => {
       return service as any;
     };
 
-    afterEach(() => jest.useRealTimers());
+    afterEach(() => vi.useRealTimers());
 
     it('asks Telegram for the file path again after a temporary error', async () => {
       const statuses = [502, 200];
-      global.fetch = jest.fn(async () => {
+      global.fetch = vi.fn(async () => {
         const status = statuses.shift() ?? 200;
         return new Response(JSON.stringify(status === 200 ? { ok: true, result: { file_path: 'photos/a.jpg' } } : {}), {
           status,
@@ -337,8 +337,8 @@ describe('TelegramService inbound', () => {
     });
 
     it('gives up on a download that stalls instead of holding the update forever', async () => {
-      jest.useFakeTimers();
-      global.fetch = jest.fn(async (url: unknown, init: RequestInit) => {
+      vi.useFakeTimers();
+      global.fetch = vi.fn(async (url: unknown, init: RequestInit) => {
         if (String(url).endsWith('/getFile')) {
           return new Response(JSON.stringify({ ok: true, result: { file_path: 'photos/a.jpg' } }));
         }
@@ -349,7 +349,7 @@ describe('TelegramService inbound', () => {
 
       const download = fileService().downloadTelegramFile('file-1', 'a.jpg', 'image/jpeg');
       const outcome = expect(download).rejects.toThrow('Telegram file download timed out');
-      await jest.advanceTimersByTimeAsync(60_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await outcome;
     });
   });

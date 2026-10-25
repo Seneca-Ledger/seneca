@@ -29,7 +29,9 @@ export class MetalsTarget implements ImportTarget {
     const repo = ctx.manager.getRepository(InvestmentHolding);
     const account = await ctx.manager.getRepository(BalanceAccount).findOne({
       where: { workspaceId: ctx.workspaceId, accountKind: BalanceAccountKind.METALS },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     const results: RowResult[] = [];
 

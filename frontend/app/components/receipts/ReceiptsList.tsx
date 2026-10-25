@@ -2,6 +2,7 @@
 
 import { Box, Typography } from '@mui/material';
 import { NoteCountsProvider } from '@/app/components/notes/NoteCountsContext';
+import { useIntlayer } from '@/app/i18n';
 import type { ReceiptRecord } from '@/app/lib/api';
 import { ReceiptCard } from './ReceiptCard';
 
@@ -21,6 +22,7 @@ const SKELETON_KEYS = [
 ];
 
 export function ReceiptsList({ receipts, isLoading = false, onOpenReceipt }: ReceiptsListProps) {
+  const t = useIntlayer('receiptReview');
   if (isLoading) {
     return (
       <Box
@@ -61,10 +63,10 @@ export function ReceiptsList({ receipts, isLoading = false, onOpenReceipt }: Rec
         }}
       >
         <Typography style={{ fontSize: 18, fontWeight: 600, color: 'var(--foreground)' }}>
-          No receipts yet
+          {t.emptyTitle}
         </Typography>
         <Typography style={{ marginTop: 8, fontSize: 14, color: 'var(--muted-foreground)' }}>
-          Upload a receipt or scan one with your camera to start reviewing extracted data.
+          {t.emptyHint}
         </Typography>
       </Box>
     );

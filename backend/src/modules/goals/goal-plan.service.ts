@@ -206,7 +206,9 @@ export class GoalPlanService {
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return normalizeCurrency(workspace?.currency);
   }

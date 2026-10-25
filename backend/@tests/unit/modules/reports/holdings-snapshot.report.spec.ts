@@ -46,10 +46,10 @@ function build({
   rate = (_from: string): number | null => 2,
 } = {}) {
   const report = new HoldingsSnapshotReport(
-    { listAccounts: jest.fn(async () => accounts) } as never,
-    { getSummary: jest.fn(async () => ({ currency: 'EUR', lots })) } as never,
-    { getHoldings: jest.fn(async () => ({ currency: 'USD', ...crypto })) } as never,
-    { getRateOrNull: jest.fn(async (from: string) => rate(from)) } as never,
+    { listAccounts: vi.fn(async () => accounts) } as never,
+    { getSummary: vi.fn(async () => ({ currency: 'EUR', lots })) } as never,
+    { getHoldings: vi.fn(async () => ({ currency: 'USD', ...crypto })) } as never,
+    { getRateOrNull: vi.fn(async (from: string) => rate(from)) } as never,
   );
   return report.build('ws1', text, 'EUR', NOW);
 }
