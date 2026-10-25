@@ -33,6 +33,7 @@ import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 export const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
 
 export type { AppLocale as AppLanguage } from '@/app/lib/locale';
+export { groupNavItems, type NavEntry } from './group-nav-items';
 
 export interface NavItem {
   label: ReactNode;
@@ -78,35 +79,6 @@ export function buildNavGroups(labels: Record<NavGroupId, unknown>): NavGroup[] 
       icon: React.createElement(BriefcaseBusiness, { size: 18 }),
     },
   ];
-}
-
-export type NavEntry =
-  | { kind: 'item'; item: NavItem }
-  | { kind: 'group'; group: NavGroup; items: NavItem[] };
-
-/**
- * The sidebar's rows: ungrouped items where they are, each group where its first
- * item would be. A group none of whose items is visible is left out.
- */
-export function groupNavItems(items: NavItem[], groups: NavGroup[]): NavEntry[] {
-  const entries: NavEntry[] = [];
-  const byGroup = new Map<NavGroupId, NavItem[]>();
-  for (const item of items) {
-    const group = groups.find(candidate => candidate.id === item.group);
-    if (!group) {
-      entries.push({ kind: 'item', item });
-      continue;
-    }
-    const members = byGroup.get(group.id);
-    if (members) {
-      members.push(item);
-    } else {
-      const created = [item];
-      byGroup.set(group.id, created);
-      entries.push({ kind: 'group', group, items: created });
-    }
-  }
-  return entries;
 }
 
 export type WorkspaceProfile = 'home' | 'business';

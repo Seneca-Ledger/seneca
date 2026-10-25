@@ -40,7 +40,7 @@ import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { ClassificationCondition } from './interfaces/classification-rule.interface';
-import { ClassificationService } from './services/classification.service';
+import { RuleApplicationService } from './services/rule-application.service';
 
 type CategorizationRuleAuditSnapshot = {
   id: string;
@@ -81,7 +81,7 @@ export class CategorizationRulesController {
     private categorizationRuleRepository: Repository<CategorizationRule>,
     @InjectRepository(WorkspaceMember)
     private workspaceMemberRepository: Repository<WorkspaceMember>,
-    private classificationService: ClassificationService,
+    private ruleApplicationService: RuleApplicationService,
     private auditService: AuditService,
   ) {}
 
@@ -257,7 +257,7 @@ export class CategorizationRulesController {
     assertPatternsCompile(dto.conditions);
     // Ids from the request are looked up in this workspace only; without ids the
     // preview runs on the workspace's recent rows.
-    return this.classificationService.previewRule({
+    return this.ruleApplicationService.previewRule({
       workspaceId,
       viewerMemberId: selfMemberId,
       conditions: dto.conditions,
@@ -283,7 +283,7 @@ export class CategorizationRulesController {
     if (!rule.result.categoryId) {
       throw new BadRequestException(appError('CATEGORIZATION_RULE_NO_CATEGORY'));
     }
-    return this.classificationService.applyRuleToExisting({
+    return this.ruleApplicationService.applyRuleToExisting({
       rule,
       userId: user.id,
       viewerMemberId: selfMemberId,

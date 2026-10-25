@@ -2,10 +2,8 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
-import { In, type Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { payeeKeyOf } from '../../../common/utils/payee-key.util';
-import { OWNER_SHARED } from '../../../common/utils/transaction-owner.util';
-import { canReadPrivate } from '../../../common/utils/transaction-privacy.util';
 import {
   DEFAULT_PROCESSING_SETTINGS,
   readProcessingSettings,
@@ -27,9 +25,9 @@ import { Wallet } from '../../../entities/wallet.entity';
 import { Workspace } from '../../../entities/workspace.entity';
 import { AuditService } from '../../audit/audit.service';
 import { UNCATEGORIZED_CATEGORY_NAME } from '../../categories/uncategorized-category';
-import { hasDecidedCategory } from '../engine/category-decision';
 import { decidePayeeCategory } from '../engine/payee-category.matcher';
 import { onlyPayeeEvidence } from '../engine/payee-evidence';
+import { matchesConditions } from '../engine/rule-conditions';
 import {
   type ClassificationCondition,
   type ClassificationRule,
@@ -49,10 +47,6 @@ export type AutoCategoryMatch = {
  */
 const PAYEE_HISTORY_DEPTH = 12;
 const PROCESSING_SETTINGS_TTL_MS = 60_000;
-/** How many of a workspace's most recent rows a rule preview or apply looks at. */
-const RULE_SCAN_LIMIT = 5000;
-/** How many matching rows the preview hands back as examples. */
-const RULE_PREVIEW_MATCHES = 20;
 
 @Injectable()
 export class ClassificationService {
@@ -243,19 +237,7 @@ export class ClassificationService {
   }
 
   matchesRule(transaction: Transaction, conditions: ClassificationCondition[]): boolean {
-    return conditions.every(condition => this.conditionHolds(transaction, condition));
-  }
-
-  /** The conditions a matching row satisfied, worded for the rule preview. */
-  explainMatch(transaction: Transaction, conditions: ClassificationCondition[]): string {
-    return conditions
-      .filter(condition => this.conditionHolds(transaction, condition))
-      .map(condition => `${condition.field} ${condition.operator} "${condition.value}"`)
-      .join(' AND ');
-  }
-
-  private conditionHolds(transaction: Transaction, condition: ClassificationCondition): boolean {
-    return this.evaluateCondition(this.getFieldValue(transaction, condition.field), condition);
+    return matchesConditions(transaction, conditions);
   }
 
   /**
@@ -283,111 +265,6 @@ export class ClassificationService {
     return null;
   }
 
-  /**
-   * The workspace's rows a rule would be tried on, newest first: not duplicates,
-   * not split parts, not in a trashed statement. `transactionIds` narrows it to
-   * those rows. One row more than the limit is read to tell a full page from
-   * a truncated one.
-   */
-  private async rowsForRule(
-    workspaceId: string,
-    transactionIds?: readonly string[],
-  ): Promise<{ rows: Transaction[]; truncated: boolean }> {
-    const query = this.transactionRepository
-      .createQueryBuilder('transaction')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.isDuplicate = false')
-      .andWhere('transaction.splitGroupId IS NULL')
-      .andWhere(
-        'NOT EXISTS (SELECT 1 FROM statements trashed WHERE trashed.id = transaction.statementId AND trashed.deleted_at IS NOT NULL)',
-      )
-      .orderBy('transaction.transactionDate', 'DESC')
-      .addOrderBy('transaction.id', 'DESC')
-      .take(RULE_SCAN_LIMIT + 1);
-    if (transactionIds) {
-      query.andWhere('transaction.id IN (:...transactionIds)', { transactionIds });
-    }
-    const rows = await query.getMany();
-    return { rows: rows.slice(0, RULE_SCAN_LIMIT), truncated: rows.length > RULE_SCAN_LIMIT };
-  }
-
-  /**
-   * What a rule would match, as the caller sees the rows: another member's
-   * private row is left out entirely, since even its amount would answer a
-   * question about it.
-   */
-  async previewRule(input: {
-    workspaceId: string;
-    viewerMemberId: string | null;
-    conditions: ClassificationCondition[];
-    transactionIds?: readonly string[];
-  }) {
-    const { rows, truncated } = await this.rowsForRule(input.workspaceId, input.transactionIds);
-    const readable = rows.filter(row => canReadPrivate(row, input.viewerMemberId));
-    const matches = readable.filter(row => this.matchesRule(row, input.conditions));
-    return {
-      totalTransactions: readable.length,
-      matchedTransactions: matches.length,
-      overridable: matches.filter(row => !hasDecidedCategory(row)).length,
-      truncated,
-      matches: matches.slice(0, RULE_PREVIEW_MATCHES).map(row => ({
-        id: row.id,
-        date: row.transactionDate ? String(row.transactionDate) : null,
-        amount: row.debit || row.credit || row.amount,
-        counterparty: row.counterpartyName,
-        purpose: row.paymentPurpose,
-        matchReason: this.explainMatch(row, input.conditions),
-      })),
-    };
-  }
-
-  /**
-   * Files the workspace's existing matches under the rule's category. Only rows
-   * nobody decided: a category picked by hand, or put there by a rule, stays.
-   * Wallet and owner are not touched on old rows: moving a row between
-   * accounts changes balances, and that is not what "apply" promises.
-   */
-  async applyRuleToExisting(input: {
-    rule: CategorizationRule;
-    userId: string;
-    viewerMemberId: string | null;
-  }): Promise<{ applied: number; skippedManual: number }> {
-    const { rule, userId, viewerMemberId } = input;
-    const categoryId = rule.result.categoryId;
-    if (!categoryId) {
-      return { applied: 0, skippedManual: 0 };
-    }
-    const { rows } = await this.rowsForRule(rule.workspaceId);
-    const matches = rows.filter(
-      row => canReadPrivate(row, viewerMemberId) && this.matchesRule(row, rule.conditions),
-    );
-    const open = matches.filter(row => !hasDecidedCategory(row));
-    if (open.length > 0) {
-      await this.transactionRepository.update(
-        { id: In(open.map(row => row.id)), workspaceId: rule.workspaceId },
-        { categoryId, categorySource: TransactionCategorySource.RULE, categoryReason: rule.name },
-      );
-      await this.auditService.createBatchEvents(
-        open.map(row => ({
-          workspaceId: rule.workspaceId,
-          actorType: ActorType.USER,
-          actorId: userId,
-          entityType: EntityType.TRANSACTION,
-          entityId: row.id,
-          action: AuditAction.APPLY_RULE,
-          diff: {
-            before: { categoryId: row.categoryId, categorySource: row.categorySource },
-            after: { categoryId, categorySource: TransactionCategorySource.RULE },
-          },
-          meta: { ruleId: rule.id, ruleName: rule.name, confidence: 1 },
-        })),
-      );
-      await this.recordRuleMatch(rule.id, rule.workspaceId, open.length);
-      await this.cacheManager.set(`reports:version:${rule.workspaceId}`, Date.now().toString(), 0);
-    }
-    return { applied: open.length, skippedManual: matches.length - open.length };
-  }
-
   /** Keeps the "matched N times, last on …" line on the rules page true. */
   async recordRuleMatch(ruleId: string | undefined, workspaceId: string | null, count = 1) {
     if (!ruleId || !workspaceId || count < 1) {
@@ -397,64 +274,6 @@ export class ClassificationService {
       { id: ruleId, workspaceId },
       { matchCount: () => `match_count + ${Math.trunc(count)}`, lastMatchedAt: new Date() },
     );
-  }
-
-  private getFieldValue(transaction: Transaction, field: string): string | number | null {
-    switch (field) {
-      case 'counterparty_name':
-        return transaction.counterpartyName;
-      case 'payment_purpose':
-        return transaction.paymentPurpose;
-      case 'amount':
-        return transaction.amount || transaction.debit || transaction.credit || 0;
-      case 'counterparty_bin':
-        return transaction.counterpartyBin || null;
-      case 'document_number':
-        return transaction.documentNumber || null;
-      // `shared` rather than null: the condition evaluator treats null as "no
-      // value" and refuses to match, so a rule about shared rows needs a word.
-      case 'owner':
-        return transaction.ownerMemberId ?? OWNER_SHARED;
-      default:
-        return null;
-    }
-  }
-
-  private evaluateCondition(
-    fieldValue: string | number | null,
-    condition: ClassificationCondition,
-  ): boolean {
-    if (fieldValue === null || fieldValue === undefined) {
-      return false;
-    }
-
-    const conditionValue = condition.value;
-    const fieldStr = String(fieldValue).toLowerCase();
-    const conditionStr = String(conditionValue).toLowerCase();
-
-    switch (condition.operator) {
-      case 'contains':
-        return fieldStr.includes(conditionStr);
-      case 'equals':
-        return fieldStr === conditionStr;
-      case 'starts_with':
-        return fieldStr.startsWith(conditionStr);
-      case 'ends_with':
-        return fieldStr.endsWith(conditionStr);
-      case 'regex':
-        try {
-          const regex = new RegExp(conditionValue as string, 'i');
-          return regex.test(fieldStr);
-        } catch {
-          return false;
-        }
-      case 'greater_than':
-        return Number(fieldValue) > Number(conditionValue);
-      case 'less_than':
-        return Number(fieldValue) < Number(conditionValue);
-      default:
-        return false;
-    }
   }
 
   private async autoClassifyCategory(

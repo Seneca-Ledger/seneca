@@ -5,7 +5,7 @@ import { CategorizationRule } from '../../../../src/entities/categorization-rule
 import { WorkspaceMember } from '@/entities/workspace-member.entity';
 import { AuditService } from '../../../../src/modules/audit/audit.service';
 import { CategorizationRulesController } from '../../../../src/modules/classification/categorization-rules.controller';
-import { ClassificationService } from '../../../../src/modules/classification/services/classification.service';
+import { RuleApplicationService } from '../../../../src/modules/classification/services/rule-application.service';
 
 describe('CategorizationRulesController', () => {
   let controller: CategorizationRulesController;
@@ -21,7 +21,7 @@ describe('CategorizationRulesController', () => {
     manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
   };
 
-  const mockClassificationService = {
+  const mockRuleApplicationService = {
     previewRule: vi.fn(),
     applyRuleToExisting: vi.fn(),
   };
@@ -49,8 +49,8 @@ describe('CategorizationRulesController', () => {
           useValue: { exists: vi.fn(async () => true) },
         },
         {
-          provide: ClassificationService,
-          useValue: mockClassificationService,
+          provide: RuleApplicationService,
+          useValue: mockRuleApplicationService,
         },
         {
           provide: AuditService,
@@ -291,7 +291,7 @@ describe('CategorizationRulesController', () => {
         truncated: false,
         matches: [],
       };
-      mockClassificationService.previewRule.mockResolvedValue(preview);
+      mockRuleApplicationService.previewRule.mockResolvedValue(preview);
       const dto = {
         conditions: [
           { field: 'payment_purpose' as const, operator: 'contains' as const, value: 'salary' },
@@ -299,7 +299,7 @@ describe('CategorizationRulesController', () => {
       };
 
       await expect(controller.testRule(dto, mockWorkspaceId, 'member-1')).resolves.toBe(preview);
-      expect(mockClassificationService.previewRule).toHaveBeenCalledWith({
+      expect(mockRuleApplicationService.previewRule).toHaveBeenCalledWith({
         workspaceId: mockWorkspaceId,
         viewerMemberId: 'member-1',
         conditions: dto.conditions,
@@ -315,7 +315,7 @@ describe('CategorizationRulesController', () => {
       await expect(controller.testRule(dto, mockWorkspaceId, null)).rejects.toThrow(
         'Invalid pattern',
       );
-      expect(mockClassificationService.previewRule).not.toHaveBeenCalled();
+      expect(mockRuleApplicationService.previewRule).not.toHaveBeenCalled();
     });
   });
 
@@ -343,7 +343,7 @@ describe('CategorizationRulesController', () => {
         result: { categoryId: 'cat-1' },
       };
       mockRuleRepository.findOne.mockResolvedValue(rule);
-      mockClassificationService.applyRuleToExisting.mockResolvedValue({
+      mockRuleApplicationService.applyRuleToExisting.mockResolvedValue({
         applied: 4,
         skippedManual: 1,
       });
@@ -354,7 +354,7 @@ describe('CategorizationRulesController', () => {
       expect(mockRuleRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'rule-1', workspaceId: mockWorkspaceId },
       });
-      expect(mockClassificationService.applyRuleToExisting).toHaveBeenCalledWith({
+      expect(mockRuleApplicationService.applyRuleToExisting).toHaveBeenCalledWith({
         rule,
         userId: mockUser.id,
         viewerMemberId: 'member-1',
@@ -371,7 +371,7 @@ describe('CategorizationRulesController', () => {
       await expect(
         controller.applyRule({ id: 'rule-1' }, mockUser as any, mockWorkspaceId, null),
       ).rejects.toThrow('sets no category');
-      expect(mockClassificationService.applyRuleToExisting).not.toHaveBeenCalled();
+      expect(mockRuleApplicationService.applyRuleToExisting).not.toHaveBeenCalled();
     });
 
     it('is not found for a rule outside the workspace', async () => {

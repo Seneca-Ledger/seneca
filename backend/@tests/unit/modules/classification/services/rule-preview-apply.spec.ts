@@ -6,6 +6,7 @@ import {
 } from '@/entities/transaction.entity';
 import type { AuditService } from '@/modules/audit/audit.service';
 import { ClassificationService } from '@/modules/classification/services/classification.service';
+import { RuleApplicationService } from '@/modules/classification/services/rule-application.service';
 
 const WORKSPACE = 'workspace-1';
 const ME = 'member-me';
@@ -79,19 +80,25 @@ function build(rows: Transaction[], options: { ownsRefs?: boolean; rules?: unkno
     cache as never,
     audit as unknown as AuditService,
   );
-  return { service, query, transactions, rules, cache, audit };
+  const rulesService = new RuleApplicationService(
+    transactions as never,
+    service,
+    audit as unknown as AuditService,
+    cache as never,
+  );
+  return { service, rulesService, query, transactions, rules, cache, audit };
 }
 
 describe('rule preview', () => {
   it('counts matches and how many of them nobody decided', async () => {
-    const { service } = build([
+    const { rulesService } = build([
       row('open'),
       row('picked', { categoryId: 'cat-food', categorySource: TransactionCategorySource.MANUAL }),
       row('guessed', { categoryId: 'cat-food', categorySource: TransactionCategorySource.HISTORY }),
       row('other', { counterpartyName: 'Corner Bakery' }),
     ]);
 
-    const preview = await service.previewRule({
+    const preview = await rulesService.previewRule({
       workspaceId: WORKSPACE,
       viewerMemberId: ME,
       conditions: storeRule.conditions,
@@ -106,12 +113,12 @@ describe('rule preview', () => {
   });
 
   it("leaves another member's private row out, even for a rule on the amount", async () => {
-    const { service } = build([
+    const { rulesService } = build([
       row('mine'),
       row('theirs', { isPrivate: true, ownerMemberId: PARTNER }),
     ]);
 
-    const preview = await service.previewRule({
+    const preview = await rulesService.previewRule({
       workspaceId: WORKSPACE,
       viewerMemberId: ME,
       conditions: [{ field: 'amount', operator: 'greater_than', value: 10 }],
@@ -122,9 +129,9 @@ describe('rule preview', () => {
   });
 
   it('scopes the scan to the workspace and to the ids asked for', async () => {
-    const { service, query } = build([row('a')]);
+    const { rulesService, query } = build([row('a')]);
 
-    await service.previewRule({
+    await rulesService.previewRule({
       workspaceId: WORKSPACE,
       viewerMemberId: ME,
       conditions: storeRule.conditions,
@@ -140,9 +147,9 @@ describe('rule preview', () => {
   });
 
   it('says when there were more rows than it looked at', async () => {
-    const { service } = build(Array.from({ length: 5001 }, (_, index) => row(`tx-${index}`)));
+    const { rulesService } = build(Array.from({ length: 5001 }, (_, index) => row(`tx-${index}`)));
 
-    const preview = await service.previewRule({
+    const preview = await rulesService.previewRule({
       workspaceId: WORKSPACE,
       viewerMemberId: ME,
       conditions: storeRule.conditions,
@@ -156,7 +163,7 @@ describe('rule preview', () => {
 
 describe('applying a rule to existing rows', () => {
   it('files only undecided matches and keeps what a person or a rule chose', async () => {
-    const { service, transactions, rules, audit } = build([
+    const { rulesService, transactions, rules, audit } = build([
       row('open'),
       row('guessed', { categoryId: 'cat-food', categorySource: TransactionCategorySource.HISTORY }),
       row('picked', { categoryId: 'cat-food', categorySource: TransactionCategorySource.MANUAL }),
@@ -164,7 +171,7 @@ describe('applying a rule to existing rows', () => {
       row('other', { counterpartyName: 'Corner Bakery' }),
     ]);
 
-    const result = await service.applyRuleToExisting({
+    const result = await rulesService.applyRuleToExisting({
       rule: storeRule,
       userId: 'user-1',
       viewerMemberId: ME,
@@ -190,11 +197,11 @@ describe('applying a rule to existing rows', () => {
   });
 
   it("never touches another member's private row", async () => {
-    const { service, transactions } = build([
+    const { rulesService, transactions } = build([
       row('theirs', { isPrivate: true, ownerMemberId: PARTNER }),
     ]);
 
-    const result = await service.applyRuleToExisting({
+    const result = await rulesService.applyRuleToExisting({
       rule: storeRule,
       userId: 'user-1',
       viewerMemberId: ME,

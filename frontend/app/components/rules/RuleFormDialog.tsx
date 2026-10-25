@@ -4,23 +4,16 @@ import { Button } from '@mui/material';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
-import { Plus, X } from '@/app/components/icons';
 import { offerAction } from '@/app/components/payees/offer-action-toast';
 import { useWorkspaceMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
 import { OWNER_SHARED } from '@/app/components/transactions/OwnerFilterDropdown';
 import { FULL_SCREEN_ON_PHONE, ModalShell } from '@/app/components/ui/modal-shell';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
+import { RuleConditionsField } from './RuleConditionsField';
+import { RulePreview } from './RulePreview';
 import { describeConditions, fill } from './rule-text';
-import {
-  EMPTY_CONDITION,
-  operatorsFor,
-  type RuleCondition,
-  type RuleDraftBody,
-  type RuleField,
-  type RuleSeed,
-  TEXT_FIELDS,
-} from './types';
+import { EMPTY_CONDITION, type RuleDraftBody, type RuleSeed } from './types';
 import {
   completeConditions,
   useApplyRule,
@@ -32,7 +25,6 @@ import { useRuleWords } from './useRuleWords';
 
 /** The select's value for "this rule does not touch the field". */
 const NO_CHANGE = '';
-const PREVIEW_EXAMPLES = 5;
 
 interface RuleFormDialogProps {
   open: boolean;
@@ -80,25 +72,6 @@ export function RuleFormDialog({ open, seed, onClose }: RuleFormDialogProps) {
     memberId === OWNER_SHARED
       ? words.shared
       : (members.find(member => member.memberId === memberId)?.label ?? null);
-
-  const fieldOptions: RuleField[] = [
-    ...TEXT_FIELDS,
-    'amount',
-    ...(members.length > 0 ? (['owner'] as RuleField[]) : []),
-  ];
-
-  const setCondition = (index: number, next: RuleCondition) =>
-    setDraft(current => ({
-      ...current,
-      conditions: current.conditions.map((condition, at) => (at === index ? next : condition)),
-    }));
-
-  const changeField = (index: number, field: RuleField) =>
-    setCondition(index, {
-      field,
-      operator: operatorsFor(field)[0],
-      value: field === 'owner' ? OWNER_SHARED : '',
-    });
 
   const handleSave = async () => {
     const body: RuleDraftBody = {
@@ -191,85 +164,12 @@ export function RuleFormDialog({ open, seed, onClose }: RuleFormDialogProps) {
           />
         </div>
 
-        <fieldset className="seneca-rule-dialog__group">
-          <legend className="seneca-rule-dialog__label">{t.dialog.conditionsLabel}</legend>
-          {draft.conditions.map((condition, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: rows have no identity but their place
-            <div className="seneca-rule-dialog__condition" key={index}>
-              <Select
-                inputProps={{ 'aria-label': t.dialog.fieldLabel.value }}
-                value={condition.field}
-                onChange={value => changeField(index, value as RuleField)}
-                options={[...new Set([...fieldOptions, condition.field])].map(field => ({
-                  value: field,
-                  label: words.field[field],
-                }))}
-                size="small"
-              />
-              <Select
-                inputProps={{ 'aria-label': t.dialog.operatorLabel.value }}
-                value={condition.operator}
-                onChange={value =>
-                  setCondition(index, {
-                    ...condition,
-                    operator: value as RuleCondition['operator'],
-                  })
-                }
-                options={[...new Set([...operatorsFor(condition.field), condition.operator])].map(
-                  operator => ({ value: operator, label: words.operator[operator] }),
-                )}
-                size="small"
-              />
-              {condition.field === 'owner' ? (
-                <Select
-                  inputProps={{ 'aria-label': t.dialog.valueLabel.value }}
-                  value={String(condition.value)}
-                  onChange={value => setCondition(index, { ...condition, value })}
-                  options={ownerOptions}
-                  size="small"
-                />
-              ) : (
-                <input
-                  aria-label={t.dialog.valueLabel.value}
-                  className="seneca-rule-dialog__input"
-                  type={condition.field === 'amount' ? 'number' : 'text'}
-                  inputMode={condition.field === 'amount' ? 'decimal' : undefined}
-                  value={String(condition.value)}
-                  onChange={event =>
-                    setCondition(index, { ...condition, value: event.target.value })
-                  }
-                />
-              )}
-              {draft.conditions.length > 1 && (
-                <button
-                  type="button"
-                  className="seneca-rule-dialog__remove"
-                  aria-label={t.dialog.removeCondition.value}
-                  onClick={() =>
-                    setDraft({
-                      ...draft,
-                      conditions: draft.conditions.filter((_, at) => at !== index),
-                    })
-                  }
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="text"
-            size="small"
-            startIcon={<Plus size={16} />}
-            onClick={() =>
-              setDraft({ ...draft, conditions: [...draft.conditions, EMPTY_CONDITION] })
-            }
-            sx={{ alignSelf: 'flex-start' }}
-          >
-            {t.dialog.addCondition}
-          </Button>
-        </fieldset>
+        <RuleConditionsField
+          conditions={draft.conditions}
+          onChange={next => setDraft(current => ({ ...current, conditions: next }))}
+          ownerOptions={ownerOptions}
+          hasMembers={members.length > 0}
+        />
 
         <fieldset className="seneca-rule-dialog__group">
           <legend className="seneca-rule-dialog__label">{t.dialog.actionsLabel}</legend>
@@ -355,42 +255,11 @@ export function RuleFormDialog({ open, seed, onClose }: RuleFormDialogProps) {
           <span className="seneca-rule-dialog__hint">{t.dialog.priorityHint}</span>
         </div>
 
-        <section className="seneca-rule-dialog__preview" aria-live="polite">
-          <span className="seneca-rule-dialog__label">{t.dialog.previewTitle}</span>
-          {problem ? (
-            <span className="seneca-rule-dialog__hint">{problem}</span>
-          ) : preview.data ? (
-            <>
-              <span>
-                {preview.data.matchedTransactions > 0
-                  ? fill(t.dialog.previewMatches.value, {
-                      count: preview.data.matchedTransactions,
-                    })
-                  : t.dialog.previewNone}
-              </span>
-              {draft.result.categoryId && preview.data.overridable > 0 ? (
-                <span className="seneca-rule-dialog__hint">
-                  {fill(t.dialog.previewOverridable.value, { count: preview.data.overridable })}
-                </span>
-              ) : null}
-              {preview.data.matches.length > 0 && (
-                <ul className="seneca-rule-dialog__examples">
-                  {preview.data.matches.slice(0, PREVIEW_EXAMPLES).map(match => (
-                    <li key={match.id}>
-                      <span>{match.counterparty ?? match.purpose}</span>
-                      <span className="seneca-rule-dialog__example-meta">
-                        {match.date} · {match.amount}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {preview.data.truncated ? (
-                <span className="seneca-rule-dialog__hint">{t.dialog.previewTruncated}</span>
-              ) : null}
-            </>
-          ) : null}
-        </section>
+        <RulePreview
+          problem={problem}
+          preview={preview.data}
+          setsCategory={Boolean(draft.result.categoryId)}
+        />
       </form>
     </ModalShell>
   );

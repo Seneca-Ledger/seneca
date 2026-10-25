@@ -4,15 +4,12 @@ import NextLink from 'next/link';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
-import { ChevronRight } from '@/app/components/icons';
 import { TransactionPayeeSection } from '@/app/components/payees/TransactionPayeeSection';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
-import { RuleFormDialog } from '@/app/components/rules/RuleFormDialog';
+import { RuleFromRowAction } from '@/app/components/rules/RuleFromRowAction';
 import { fill } from '@/app/components/rules/rule-text';
-import type { RuleSeed } from '@/app/components/rules/types';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
-import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { isPrivateCategory, pickableCategories } from '@/app/lib/private-category';
@@ -25,6 +22,7 @@ import { useTransferLink } from './hooks/useTransferLink';
 import { useWorkspaceMembers } from './hooks/useWorkspaceMembers';
 import { OWNER_SHARED, ownerValueToMemberId } from './OwnerFilterDropdown';
 import { SplitTransactionDialog } from './SplitTransactionDialog';
+import { ActionRow } from './TransactionActionRow';
 import type { Category, Transaction } from './types';
 
 interface TransactionDetailsTabProps {
@@ -34,40 +32,6 @@ interface TransactionDetailsTabProps {
   onMarkIgnored?: (txId: string) => Promise<void>;
   /** Refreshes the transaction list (and closes the drawer) after a split/unsplit. */
   onSplitDone?: () => void | Promise<void>;
-}
-
-interface ActionRowProps {
-  label: React.ReactNode;
-  /** One line on what the action means, for the ones whose name alone does not say. */
-  hint?: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}
-
-/** A rule draft from a row: its payee as written, and the category it has now. */
-function ruleSeedFrom(transaction: Transaction, categoryId: string): RuleSeed {
-  return {
-    id: null,
-    name: '',
-    conditions: [
-      { field: 'counterparty_name', operator: 'contains', value: transaction.counterpartyName },
-    ],
-    result: categoryId ? { categoryId } : {},
-    priority: 0,
-  };
-}
-
-/** One action of the list: what it does, a line on what it means, an arrow. */
-function ActionRow({ label, hint, onClick, disabled }: ActionRowProps): React.JSX.Element {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} className="seneca-tx-action">
-      <span className="seneca-tx-action__text">
-        <span className="seneca-tx-action__label">{label}</span>
-        {hint && <span className="seneca-tx-action__hint">{hint}</span>}
-      </span>
-      <ChevronRight size={16} className="seneca-tx-action__arrow" aria-hidden />
-    </button>
-  );
 }
 
 export function TransactionDetailsTab({
@@ -88,13 +52,6 @@ export function TransactionDetailsTab({
   const [splitOpen, setSplitOpen] = useState(false);
   const offerPayeeQueue = useOfferPayeeQueue();
   const tRules = useIntlayer('categorizationRules');
-  const { hasPermission } = usePermissions();
-  const [ruleSeed, setRuleSeed] = useState<RuleSeed | null>(null);
-  // Another member's private row shows a placeholder for the payee: nothing to match on.
-  const canMakeRule =
-    hasPermission('category.edit') &&
-    !transaction.isPrivate &&
-    Boolean(transaction.counterpartyName);
 
   // The list refresh (and drawer close) is owned by the container — a split turns
   // one row into several, so the drawer must not keep showing the stale original.
@@ -401,13 +358,7 @@ export function TransactionDetailsTab({
           )}
 
           {/* A rule from this row: the payee as the bank wrote it, the row's category */}
-          {canMakeRule && (
-            <ActionRow
-              label={tRules.drawer.createFromRow.value}
-              hint={tRules.drawer.createFromRowHint}
-              onClick={() => setRuleSeed(ruleSeedFrom(transaction, currentCategoryId))}
-            />
-          )}
+          <RuleFromRowAction transaction={transaction} categoryId={currentCategoryId} />
         </div>
       </div>
 
@@ -502,8 +453,6 @@ export function TransactionDetailsTab({
           }}
         />
       )}
-
-      {ruleSeed && <RuleFormDialog open seed={ruleSeed} onClose={() => setRuleSeed(null)} />}
     </div>
   );
 }
