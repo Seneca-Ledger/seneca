@@ -581,15 +581,18 @@ describe('invoice status (real Postgres)', () => {
 
       expect(await errorOf(publicInvoices.view(token))).toEqual({
         status: 404,
-        code: undefined,
+        code: 'INVOICE_NOT_FOUND',
       });
-      expect(await errorOf(publicInvoices.pdf(token))).toEqual({ status: 404, code: undefined });
+      expect(await errorOf(publicInvoices.pdf(token))).toEqual({
+        status: 404,
+        code: 'INVOICE_NOT_FOUND',
+      });
     });
 
     it('does not answer an unknown token', async () => {
       expect(await errorOf(publicInvoices.view('not-a-real-token'))).toEqual({
         status: 404,
-        code: undefined,
+        code: 'INVOICE_NOT_FOUND',
       });
     });
   });
