@@ -97,3 +97,22 @@ test('says to split the file into hooks and helpers', () => {
   assert.match(message, /^✖ Split it into hooks\/helpers/);
   assert.match(message, /frontend\/app\/x\.ts: 320 lines of code/);
 });
+
+test('during a merge, a file may be as long as the longer of the two sides', () => {
+  const { root, git, write } = makeRepo();
+  git('checkout', '-q', '-b', 'feature');
+  write('frontend/app/small.ts', `${code(10)}// feature\n`);
+  git('commit', '-qam', 'feature');
+  git('checkout', '-q', 'main');
+  write('frontend/app/big.ts', code(MAX_CODE_LINES + 70));
+  git('commit', '-qam', 'main grows');
+  git('checkout', '-q', 'feature');
+  git('merge', '-q', '--no-commit', 'main');
+  assert.deepEqual(findOversized(root, { staged: true }), []);
+
+  write('frontend/app/big.ts', code(MAX_CODE_LINES + 80));
+  git('add', '-A');
+  assert.deepEqual(findOversized(root, { staged: true }), [
+    { file: 'frontend/app/big.ts', lines: MAX_CODE_LINES + 80, before: MAX_CODE_LINES + 70 },
+  ]);
+});

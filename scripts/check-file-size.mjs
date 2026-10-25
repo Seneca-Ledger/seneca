@@ -5,6 +5,7 @@
 // big files shrink as they are touched instead of freezing work on them.
 //
 //   node scripts/check-file-size.mjs --staged       pre-commit: the index against HEAD
+//                                                   (and MERGE_HEAD during a merge)
 //   node scripts/check-file-size.mjs --base <ref>   CI: HEAD against its merge base with <ref>
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -44,7 +45,13 @@ export function countCodeLines(source) {
 }
 
 function git(cwd, args) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    // A missing path is expected (a new file); keep git's message off the terminal.
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 }
 
 function contentAt(cwd, spec) {
@@ -55,15 +62,25 @@ function contentAt(cwd, spec) {
   }
 }
 
+/** MERGE_HEAD too while a merge is in progress: both sides are a previous version. */
+function stagedBaseRefs(cwd) {
+  try {
+    git(cwd, ['rev-parse', '-q', '--verify', 'MERGE_HEAD']);
+    return ['HEAD', 'MERGE_HEAD'];
+  } catch {
+    return ['HEAD'];
+  }
+}
+
 /**
- * The files a change adds or modifies, with where their previous version lives:
- * `[{ file, before, after }]`, `before` null for a new file.
+ * The files a change adds or modifies, with their previous versions:
+ * `[{ file, befores, after }]`, `befores` empty for a new file.
  */
 function changedFiles(cwd, { staged, base }) {
   const diffArgs = staged
     ? ['diff', '--cached', '--name-status', '-M', '--diff-filter=AMR']
     : ['diff', '--name-status', '-M', '--diff-filter=AMR', `${base}...HEAD`];
-  const fromRef = staged ? 'HEAD' : git(cwd, ['merge-base', base, 'HEAD']).trim();
+  const fromRefs = staged ? stagedBaseRefs(cwd) : [git(cwd, ['merge-base', base, 'HEAD']).trim()];
   return git(cwd, diffArgs)
     .split('\n')
     .filter(Boolean)
@@ -73,7 +90,9 @@ function changedFiles(cwd, { staged, base }) {
       const previousPath = status.startsWith('R') ? paths[0] : file;
       return {
         file,
-        before: status === 'A' ? null : contentAt(cwd, `${fromRef}:${previousPath}`),
+        befores: fromRefs
+          .map(ref => contentAt(cwd, `${ref}:${previousPath}`))
+          .filter(content => content !== null),
         after: contentAt(cwd, staged ? `:${file}` : `HEAD:${file}`) ?? '',
       };
     });
@@ -83,10 +102,10 @@ function changedFiles(cwd, { staged, base }) {
 export function findOversized(cwd, options) {
   return changedFiles(cwd, options)
     .filter(({ file }) => isChecked(file))
-    .map(({ file, before, after }) => ({
+    .map(({ file, befores, after }) => ({
       file,
       lines: countCodeLines(after),
-      before: before === null ? null : countCodeLines(before),
+      before: befores.length === 0 ? null : Math.max(...befores.map(countCodeLines)),
     }))
     .filter(({ lines, before }) => lines > MAX_CODE_LINES && (before === null || lines > before));
 }
