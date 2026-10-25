@@ -276,7 +276,9 @@ export class BudgetsService {
     const budgets = (await this.budgetRepository.find({ where: { workspaceId } })).filter(budget =>
       overlapsWindow({ start: from, end: to }, budget),
     );
-    if (budgets.length === 0) return [];
+    if (budgets.length === 0) {
+      return [];
+    }
 
     const dayBefore = new Date(from.getFullYear(), from.getMonth(), from.getDate() - 1);
     const planned = await Promise.all(
@@ -345,7 +347,10 @@ export class BudgetsService {
           amount: string;
         }>(),
       this.categoryRepository
-        ? this.categoryRepository.find({ where: { workspaceId }, select: ['id', 'parentId'] })
+        ? this.categoryRepository.find({
+            where: { workspaceId },
+            select: { id: true, parentId: true },
+          })
         : Promise.resolve([] as Category[]),
     ]);
 

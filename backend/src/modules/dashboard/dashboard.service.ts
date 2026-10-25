@@ -44,6 +44,7 @@ import {
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
+import type { WithinLimitAmount } from '../budgets/budget-within-limit.util';
 import { BudgetsService } from '../budgets/budgets.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import {
@@ -546,7 +547,9 @@ export class DashboardService {
     const rows = await this.budgetsService.withinLimitSpending(workspaceId, since, endDate);
     for (const row of rows) {
       const point = points.get(row.date);
-      if (!point) continue;
+      if (!point) {
+        continue;
+      }
       const amount = await this.convertDashboardAmount(
         row.amount,
         row.currency,
@@ -669,27 +672,45 @@ export class DashboardService {
       if (amount <= 0) {
         continue;
       }
-      const name = canReadPrivate(row, viewerMemberId)
-        ? row.counterpartyName?.trim() || row.fileName?.trim() || PRIVATE_PLACEHOLDER
-        : PRIVATE_PLACEHOLDER;
+      const name = this.cashFlowEntryName(row, viewerMemberId);
       const within = kind === 'expense' ? budgetedById.get(row.id) : undefined;
-      const budgeted = within
-        ? Math.min(
-            amount,
-            round2(
-              await this.convertDashboardAmount(
-                within.amount,
-                within.currency,
-                currency,
-                workspaceId,
-              ),
-            ),
-          )
-        : 0;
+      const budgeted = within ? await this.budgetedPart(amount, within, currency, workspaceId) : 0;
       entries.push({ date: row.date, name, kind, amount, budgeted });
     }
     entries.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount);
     return { entries };
+  }
+
+  /** Who a day-tooltip row is for: the counterparty, else the file, hidden when it is private. */
+  private cashFlowEntryName(
+    row: {
+      counterpartyName: string | null;
+      fileName: string | null;
+      isPrivate: boolean;
+      ownerMemberId: string | null;
+    },
+    viewerMemberId: string | null,
+  ): string {
+    if (!canReadPrivate(row, viewerMemberId)) {
+      return PRIVATE_PLACEHOLDER;
+    }
+    return row.counterpartyName?.trim() || row.fileName?.trim() || PRIVATE_PLACEHOLDER;
+  }
+
+  /** The within-limit part of an expense, in the workspace currency and never above it. */
+  private async budgetedPart(
+    amount: number,
+    within: WithinLimitAmount,
+    currency: string,
+    workspaceId: string,
+  ): Promise<number> {
+    const converted = await this.convertDashboardAmount(
+      within.amount,
+      within.currency,
+      currency,
+      workspaceId,
+    );
+    return Math.min(amount, round2(converted));
   }
 
   /** Income/expense per `TO_CHAR` bucket, every currency converted into `targetCurrency`. */

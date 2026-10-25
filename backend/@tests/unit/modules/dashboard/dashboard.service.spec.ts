@@ -74,7 +74,7 @@ describe('DashboardService', () => {
     getRate: vi.fn(),
     coverageForWorkspace: vi.fn(async () => []),
   };
-  const budgetsService = { withinLimitSpending: jest.fn() };
+  const budgetsService = { withinLimitSpending: vi.fn() };
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -748,7 +748,7 @@ describe('DashboardService', () => {
 
   it("getCashFlow adds each day's budgeted share, converted and never above its spending", async () => {
     const month = createExpectedMonthWindow('2026-10-15');
-    jest.spyOn(service as any, 'sumCashFlowByBucket').mockResolvedValue(
+    vi.spyOn(service as any, 'sumCashFlowByBucket').mockResolvedValue(
       new Map([
         ['2026-10-03', { date: '2026-10-03', income: 0, expense: 60, budgeted: 0 }],
         ['2026-10-09', { date: '2026-10-09', income: 500, expense: 70, budgeted: 0 }],
@@ -812,7 +812,7 @@ describe('DashboardService', () => {
 
   it('getCashFlow leaves weekly buckets without a budgeted share', async () => {
     const window = createExpectedWindow(90, '2026-10-15');
-    jest
+    vi
       .spyOn(service as any, 'sumCashFlowByBucket')
       .mockResolvedValue(
         new Map([['2026-W40', { date: '2026-W40', income: 0, expense: 60, budgeted: 0 }]]),
