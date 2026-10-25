@@ -12,7 +12,7 @@ import {
   unsubscribeThisDevice,
 } from '@/app/lib/offline/push-subscription';
 
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 
 /** Subscribes or unsubscribes this browser / installed app for web push. */
 export function PushNotificationsCard({ tx }: { tx: Tx }) {
@@ -31,11 +31,11 @@ export function PushNotificationsCard({ tx }: { tx: Tx }) {
         await unsubscribeThisDevice();
       } else {
         const ok = await subscribeThisDevice();
-        if (!ok) toast.error(tx(['pushCard', 'failed'], 'Could not enable push'));
+        if (!ok) toast.error(tx(['pushCard', 'failed']));
       }
       setStatus(await readPushStatus());
     } catch {
-      toast.error(tx(['pushCard', 'failed'], 'Could not enable push'));
+      toast.error(tx(['pushCard', 'failed']));
     } finally {
       setBusy(false);
     }
@@ -43,11 +43,11 @@ export function PushNotificationsCard({ tx }: { tx: Tx }) {
 
   if (!status) return null;
   const blocker = !status.supported
-    ? tx(['pushCard', 'unsupported'], 'This browser cannot receive push')
+    ? tx(['pushCard', 'unsupported'])
     : !status.enabled
-      ? tx(['pushCard', 'serverOff'], 'Push keys are not set on the server')
+      ? tx(['pushCard', 'serverOff'])
       : status.permission === 'denied'
-        ? tx(['pushCard', 'denied'], 'Notifications are blocked in the browser settings')
+        ? tx(['pushCard', 'denied'])
         : null;
 
   return (
@@ -63,8 +63,7 @@ export function PushNotificationsCard({ tx }: { tx: Tx }) {
           color: 'text.secondary',
         }}
       >
-        {blocker ??
-          (status.subscribed ? tx(['pushCard', 'subscribed'], 'This device receives push') : '')}
+        {blocker ?? (status.subscribed ? tx(['pushCard', 'subscribed']) : '')}
       </Typography>
       {!blocker && (
         <Button
@@ -72,9 +71,7 @@ export function PushNotificationsCard({ tx }: { tx: Tx }) {
           disabled={busy}
           onClick={() => void toggle()}
         >
-          {status.subscribed
-            ? tx(['pushCard', 'disable'], 'Turn off on this device')
-            : tx(['pushCard', 'enable'], 'Enable on this device')}
+          {status.subscribed ? tx(['pushCard', 'disable']) : tx(['pushCard', 'enable'])}
         </Button>
       )}
     </Stack>

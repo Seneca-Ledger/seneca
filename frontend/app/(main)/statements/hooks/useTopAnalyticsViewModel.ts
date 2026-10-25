@@ -28,7 +28,7 @@ type DrillLabels = {
   amount: string;
 };
 
-type TxFn = (path: string[], fallback: string) => string;
+type TxFn = (path: string[]) => string;
 
 type DataParams<TState> = {
   user: unknown;

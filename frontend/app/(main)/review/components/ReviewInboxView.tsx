@@ -146,8 +146,8 @@ export function ReviewInboxView({ state }: Props) {
   const categorySelectRef = useRef<HTMLDivElement | null>(null);
   // The statements Date dropdown, so both pages filter by date the same way.
   const statementsText = useIntlayer('statementsPage');
-  const filterOptionLabels = buildFilterOptionLabels(statementsText, (path, fallback) =>
-    resolveLabel(getNestedValue(statementsText, path), fallback),
+  const filterOptionLabels = buildFilterOptionLabels(statementsText, path =>
+    resolveLabel(getNestedValue(statementsText, path)),
   );
   const listHeaderLabels = buildListHeaderLabels(statementsText);
   const datePresets = buildDatePresets(filterOptionLabels);

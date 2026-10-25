@@ -23,7 +23,7 @@ type Props = {
       submit: { value: string };
     };
   };
-  tx: (path: string[], fallback: string) => string;
+  tx: (path: string[]) => string;
   profileMessage: string | null;
   profileError: string | null;
   profileLoading: boolean;
@@ -220,7 +220,7 @@ export function ProfileSection({
       />
 
       {hasProfileChanges && (
-        <Alert variant="warning">{tx(['profileCard', 'unsavedChanges'], 'Unsaved changes')}</Alert>
+        <Alert variant="warning">{tx(['profileCard', 'unsavedChanges'])}</Alert>
       )}
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>

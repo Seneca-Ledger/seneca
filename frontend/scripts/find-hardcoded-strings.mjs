@@ -37,6 +37,9 @@ const CALLS = /^(toast(\.\w+)?|alert|confirm|window\.confirm|window\.alert)$/;
 const ERROR_FALLBACKS = /(^|\.)(getApiErrorMessage|getErrorMessage)$/;
 // Parameters meant to hold display text, e.g. `manualLabel = 'Manual'`.
 const TEXT_PARAM = /(label|title|text|message|caption|placeholder|fallback)$/i;
+// Helpers that look a text up and take an English stand-in after the key.
+const TRANSLATE_HELPER =
+  /(^|\.)(tx|resolveLabel|resolveText|resolveTranslation\w*|labelValue|translate|getLabel)$/;
 // A first argument read from a dictionary: `t.x`, `labels.x`, `content.x`, `messages.x`.
 const DICTIONARY_REF = /^(t|labels|content|messages|texts|dict|copy)(\?\.|\.)/;
 
@@ -128,7 +131,12 @@ function scanSource(file, source) {
       const callee = node.expression.getText();
       // labelValue(labels.fix, 'Fix'): a dictionary node with an English stand-in.
       const first = node.arguments[0];
-      const dictionaryFallback = node.arguments.length > 1 && DICTIONARY_REF.test(first.getText());
+      const dictionaryFallback =
+        node.arguments.length > 1 &&
+        (DICTIONARY_REF.test(first.getText()) ||
+          TRANSLATE_HELPER.test(callee) ||
+          // tx(['filters', 'type'], 'Type'): a key path with an English stand-in.
+          (ts.isArrayLiteralExpression(first) && first.elements.every(isLiteral)));
       const args = CALLS.test(callee)
         ? node.arguments.slice(0, 1)
         : ERROR_FALLBACKS.test(callee) || dictionaryFallback

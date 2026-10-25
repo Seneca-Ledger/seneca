@@ -283,8 +283,7 @@ export function useStatementsView({
     Record<string, string>
   >({});
 
-  const tx = (path: string[], fallback: string): string =>
-    resolveLabel(getNestedValue(t, path), fallback);
+  const tx = (path: string[]): string => resolveLabel(getNestedValue(t, path));
 
   const filterLabels = buildFilterLabels(t);
   const filterOptionLabels = buildFilterOptionLabels(t, tx);

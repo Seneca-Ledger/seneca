@@ -40,18 +40,14 @@ function EnabledPanel({ tx, remaining, busy, onDisable, onRegenerate }: EnabledP
             alignItems: 'center',
           }}
         >
-          <Chip
-            size="small"
-            color="success"
-            label={tx(['securityCard', 'statusEnabled'], 'Enabled')}
-          />
+          <Chip size="small" color="success" label={tx(['securityCard', 'statusEnabled'])} />
           <Typography
             variant="body2"
             sx={{
               color: 'text.secondary',
             }}
           >
-            {tx(['securityCard', 'recoveryRemaining'], 'Recovery codes left')}: {remaining}
+            {tx(['securityCard', 'recoveryRemaining'])}: {remaining}
           </Typography>
         </Stack>
 
@@ -62,8 +58,8 @@ function EnabledPanel({ tx, remaining, busy, onDisable, onRegenerate }: EnabledP
             destructive={pending === 'disable'}
             submitLabel={
               pending === 'disable'
-                ? tx(['securityCard', 'disableButton'], 'Disable 2FA')
-                : tx(['securityCard', 'regenerateButton'], 'Generate new codes')
+                ? tx(['securityCard', 'disableButton'])
+                : tx(['securityCard', 'regenerateButton'])
             }
             onCancel={() => setPending(null)}
             onSubmit={password => {
@@ -80,10 +76,10 @@ function EnabledPanel({ tx, remaining, busy, onDisable, onRegenerate }: EnabledP
             }}
           >
             <Button variant="outlined" onClick={() => setPending('regenerate')}>
-              {tx(['securityCard', 'regenerateButton'], 'Generate new codes')}
+              {tx(['securityCard', 'regenerateButton'])}
             </Button>
             <Button color="error" onClick={() => setPending('disable')}>
-              {tx(['securityCard', 'disableButton'], 'Disable 2FA')}
+              {tx(['securityCard', 'disableButton'])}
             </Button>
           </Stack>
         )}
@@ -109,7 +105,7 @@ function DisabledPanel({
         <PasswordPrompt
           tx={tx}
           busy={busy}
-          submitLabel={tx(['securityCard', 'enableButton'], 'Enable 2FA')}
+          submitLabel={tx(['securityCard', 'enableButton'])}
           onSubmit={onStart}
         />
       </CardContent>

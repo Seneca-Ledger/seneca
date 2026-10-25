@@ -87,7 +87,8 @@ vi.mock('next-themes', () => ({
 
 vi.mock('@/app/i18n', async () => {
   const actual = await vi.importActual<typeof import('react-intlayer')>('react-intlayer');
-  const realKeys = new Set(['statementsAnalyticsRecords', 'dashboardHeader']);
+  // statementsPage is real: the section's labels come only from its en dictionary.
+  const realKeys = new Set(['statementsAnalyticsRecords', 'dashboardHeader', 'statementsPage']);
   return {
     useLocale: () => ({ locale: 'en' }),
     useIntlayer: (key: string) =>
@@ -246,7 +247,8 @@ describe('TopCategoriesSection', () => {
       rowButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(document.body.textContent).toContain('Software - Operations');
+    // en statementsPage › topCategoriesAnalytics.drillDown
+    expect(document.body.textContent).toContain('Software - Drill-down');
     expect(document.body.textContent).toContain('Main workspace');
   });
 });

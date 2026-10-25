@@ -20,7 +20,7 @@ type Props = {
       logoutAllButton: { value: string };
     };
   };
-  tx: (path: string[], fallback: string) => string;
+  tx: (path: string[]) => string;
   sessionsMessage: string | null;
   sessionsError: string | null;
   sessionsLoading: boolean;
@@ -50,12 +50,7 @@ export function SessionsSection({
       <EmptyStateIllustration name="sessions" size="sm" />
       {sessionsMessage && <Alert variant="success">{sessionsMessage}</Alert>}
       {sessionsError && <Alert variant="error">{sessionsError}</Alert>}
-      <Alert variant="warning">
-        {tx(
-          ['sessionsCard', 'securityHint'],
-          'Only sign out devices you recognize. Signing out current device ends this session immediately.',
-        )}
-      </Alert>
+      <Alert variant="warning">{tx(['sessionsCard', 'securityHint'])}</Alert>
 
       <Box
         sx={{
@@ -77,7 +72,7 @@ export function SessionsSection({
 
       <Stack spacing={1.5}>
         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-          {tx(['sessionsCard', 'activeSessionsLabel'], 'Active devices')}
+          {tx(['sessionsCard', 'activeSessionsLabel'])}
         </Typography>
 
         {sessionsLoading ? (
@@ -96,7 +91,7 @@ export function SessionsSection({
             }}
           >
             <Spinner size={18} />
-            {tx(['sessionsCard', 'loadingLabel'], 'Loading sessions...')}
+            {tx(['sessionsCard', 'loadingLabel'])}
           </Box>
         ) : sessions.length ? (
           <Stack spacing={1}>
@@ -145,7 +140,7 @@ export function SessionsSection({
                         </Typography>
                         {session.isCurrent && (
                           <Chip
-                            label={tx(['sessionsCard', 'currentSessionBadge'], 'This device')}
+                            label={tx(['sessionsCard', 'currentSessionBadge'])}
                             color="info"
                             size="small"
                             variant="outlined"
@@ -160,7 +155,7 @@ export function SessionsSection({
                       >
                         {session.os}
                         {session.ipAddress
-                          ? ` · ${tx(['sessionsCard', 'ipLabel'], 'IP')}: ${session.ipAddress}`
+                          ? ` · ${tx(['sessionsCard', 'ipLabel'])}: ${session.ipAddress}`
                           : ''}
                       </Typography>
                       <Typography
@@ -169,7 +164,7 @@ export function SessionsSection({
                           color: 'text.secondary',
                         }}
                       >
-                        {tx(['sessionsCard', 'lastActiveLabel'], 'Last active')}:{' '}
+                        {tx(['sessionsCard', 'lastActiveLabel'])}:{' '}
                         {formatDateTime(session.lastUsedAt, formatPreferences)}
                       </Typography>
                     </Stack>
@@ -184,7 +179,7 @@ export function SessionsSection({
                       startIcon={isLogoutLoading ? <Spinner size={14} /> : <LogOut size={18} />}
                       size="small"
                     >
-                      {tx(['sessionsCard', 'logoutSessionButton'], 'Log out')}
+                      {tx(['sessionsCard', 'logoutSessionButton'])}
                     </Button>
                   </Box>
                 </Box>
@@ -204,7 +199,7 @@ export function SessionsSection({
               color: 'text.secondary',
             }}
           >
-            {tx(['sessionsCard', 'emptySessionsLabel'], 'No active sessions found.')}
+            {tx(['sessionsCard', 'emptySessionsLabel'])}
           </Box>
         )}
       </Stack>

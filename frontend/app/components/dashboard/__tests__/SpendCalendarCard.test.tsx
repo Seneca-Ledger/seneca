@@ -110,7 +110,7 @@ vi.mock('@/app/hooks/usePullToRefresh', () => ({
 
 vi.mock('@/app/i18n', async () => {
   const actual = await vi.importActual<typeof import('react-intlayer')>('react-intlayer');
-  const realKeys = new Set(['statementsSpendOverTime', 'statementsAnalyticsRecords']);
+  const realKeys = new Set(['statementsSpendOverTime', 'statementsAnalyticsRecords', 'statementsPage']);
   return {
     useLocale: () => ({ locale: 'en' }),
     useIntlayer: (key: string) =>
