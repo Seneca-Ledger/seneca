@@ -1,0 +1,46 @@
+import { type Dictionary, t } from 'intlayer';
+
+const content = {
+  key: 'sharedInvoicePage',
+  content: {
+    notFound: t({
+      ru: 'Счёт не найден',
+      en: 'Invoice not found',
+      kk: 'Шот табылмады',
+      de: 'Rechnung nicht gefunden',
+      fr: 'Facture introuvable',
+      es: 'Factura no encontrada',
+      pt: 'Fatura não encontrada',
+      tr: 'Fatura bulunamadı',
+      uk: 'Рахунок не знайдено',
+      zh: '未找到发票',
+      pl: 'Nie znaleziono faktury',
+      it: 'Fattura non trovata',
+      sk: 'Faktúra sa nenašla',
+      ja: '請求書が見つかりません',
+      ko: '인보이스를 찾을 수 없습니다',
+      hi: 'इनवॉइस नहीं मिला',
+      nl: 'Factuur niet gevonden',
+      sv: 'Fakturan hittades inte',
+      vi: 'Không tìm thấy hóa đơn',
+      id: 'Faktur tidak ditemukan',
+      da: 'Fakturaen blev ikke fundet',
+      nb: 'Fant ikke fakturaen',
+      nn: 'Fann ikkje fakturaen',
+      fi: 'Laskua ei löytynyt',
+      is: 'Reikningur fannst ekki',
+      fo: 'Rokningin varð ikki funnin',
+      cs: 'Faktura nebyla nalezena',
+      bg: 'Фактурата не е намерена',
+      hr: 'Račun nije pronađen',
+      sr: 'Фактура није пронађена',
+      sl: 'Računa ni mogoče najti',
+      mk: 'Фактурата не е пронајдена',
+      be: 'Рахунак не знойдзены',
+      bs: 'Faktura nije pronađena',
+      hsb: 'Zličbowanka njeje so namakała',
+    }),
+  },
+} satisfies Dictionary;
+
+export default content;

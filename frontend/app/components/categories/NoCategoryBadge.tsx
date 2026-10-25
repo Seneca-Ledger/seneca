@@ -28,8 +28,8 @@ export function NoCategoryBadge({
   onClick?: () => void;
 }): React.JSX.Element {
   const t = useIntlayer('noCategory');
-  const label = resolveLabel(getNestedValue(t, ['label']), 'Add category');
-  const hint = resolveLabel(getNestedValue(t, ['hint']), label);
+  const label = resolveLabel(getNestedValue(t, ['label']));
+  const hint = resolveLabel(getNestedValue(t, ['hint']));
   const content = (
     <>
       <span aria-hidden className="seneca-no-category__slot" style={{ width: size, height: size }}>

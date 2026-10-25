@@ -53,8 +53,8 @@ function PayableFiltersBar({
   const [dateOpen, setDateOpen] = React.useState(false);
   const [filtersOpen, setFiltersOpen] = React.useState(false);
 
-  const dateLabel = resolveLabel(getNestedValue(t, ['filters', 'date']), 'Date');
-  const filtersLabel = resolveLabel(getNestedValue(t, ['filters', 'filters']), 'Filters');
+  const dateLabel = resolveLabel(getNestedValue(t, ['filters', 'date']));
+  const filtersLabel = resolveLabel(getNestedValue(t, ['filters', 'filters']));
 
   const update = <K extends keyof PayablesFiltersState>(
     key: K,

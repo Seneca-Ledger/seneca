@@ -48,19 +48,16 @@ export function SecurityTab({ section, user }: SettingsTabProps): React.JSX.Elem
     handlePasswordSubmit,
   } = usePasswordForm({
     mismatch: t.validation.passwordMismatch.value,
-    confirmSubmit: tx(
-      ['passwordCard', 'confirmSubmit'],
-      'Update password now? You may need to sign in again on other devices.',
-    ),
+    confirmSubmit: tx(['passwordCard', 'confirmSubmit']),
     successFallback: t.passwordCard.successFallback.value,
     errorFallback: t.passwordCard.errorFallback.value,
   });
 
   const twoFactor = useTwoFactor(isAuthenticated, {
-    loadError: tx(['securityCard', 'loadError'], 'Failed to load two-factor status'),
-    enabledMessage: tx(['securityCard', 'enabledMessage'], 'Two-factor authentication enabled'),
-    disabledMessage: tx(['securityCard', 'disabledMessage'], 'Two-factor authentication disabled'),
-    errorFallback: tx(['securityCard', 'errorFallback'], 'Two-factor action failed'),
+    loadError: tx(['securityCard', 'loadError']),
+    enabledMessage: tx(['securityCard', 'enabledMessage']),
+    disabledMessage: tx(['securityCard', 'disabledMessage']),
+    errorFallback: tx(['securityCard', 'errorFallback']),
   });
 
   const {
@@ -72,21 +69,12 @@ export function SecurityTab({ section, user }: SettingsTabProps): React.JSX.Elem
     handleLogoutSession,
     handleLogoutAll,
   } = useSessions(isAuthenticated, {
-    loadError: tx(['sessionsCard', 'sessionsLoadError'], 'Failed to load sessions'),
-    logoutAllConfirm: tx(
-      ['sessionsCard', 'logoutAllConfirm'],
-      'Log out of all devices? You will need to sign in again on each device.',
-    ),
-    logoutCurrentConfirm: tx(
-      ['sessionsCard', 'logoutCurrentConfirm'],
-      'Log out on this device? You will need to sign in again.',
-    ),
-    logoutSessionConfirm: tx(
-      ['sessionsCard', 'logoutSessionConfirm'],
-      'Log out this device session?',
-    ),
-    sessionLogoutSuccess: tx(['sessionsCard', 'sessionLogoutSuccess'], 'Session logged out'),
-    sessionLogoutError: tx(['sessionsCard', 'sessionLogoutError'], 'Failed to log out session'),
+    loadError: tx(['sessionsCard', 'sessionsLoadError']),
+    logoutAllConfirm: tx(['sessionsCard', 'logoutAllConfirm']),
+    logoutCurrentConfirm: tx(['sessionsCard', 'logoutCurrentConfirm']),
+    logoutSessionConfirm: tx(['sessionsCard', 'logoutSessionConfirm']),
+    sessionLogoutSuccess: tx(['sessionsCard', 'sessionLogoutSuccess']),
+    sessionLogoutError: tx(['sessionsCard', 'sessionLogoutError']),
   });
 
   return (
@@ -130,11 +118,8 @@ export function SecurityTab({ section, user }: SettingsTabProps): React.JSX.Elem
 
       <SettingsAccordion
         id="two-factor"
-        title={tx(['securityCard', 'title'], 'Two-factor authentication')}
-        description={tx(
-          ['securityCard', 'description'],
-          'Ask for a one-time code from your authenticator app on every login.',
-        )}
+        title={tx(['securityCard', 'title'])}
+        description={tx(['securityCard', 'description'])}
         icon={ShieldCheck}
         defaultExpanded={openSection === 'two-factor'}
       >

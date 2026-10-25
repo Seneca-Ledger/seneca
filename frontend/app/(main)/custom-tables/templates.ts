@@ -4,10 +4,8 @@ import type { ColumnType, CustomTableColumnConfig, SelectOptionDef } from './[id
 export type TableTemplateId = 'invoices' | 'payables' | 'budget' | 'pipeline' | 'subscriptions';
 
 export interface TemplateColumn {
-  /** Ключ внутри шаблона: по нему подставляются названия и ссылки формул. */
+  /** Ключ внутри шаблона: по нему из словаря берётся название и подставляются ссылки формул. */
   key: string;
-  /** Английское название — запасной вариант, если в словаре нет перевода. */
-  title: string;
   type: ColumnType;
   config?: CustomTableColumnConfig;
   isRequired?: boolean;
@@ -18,8 +16,6 @@ export interface TemplateColumn {
 
 export interface TableTemplate {
   id: TableTemplateId;
-  name: string;
-  description: string;
   columns: TemplateColumn[];
 }
 
@@ -39,65 +35,58 @@ const option = (value: string, color?: string): SelectOptionDef => ({
 export const TABLE_TEMPLATES: TableTemplate[] = [
   {
     id: 'invoices',
-    name: 'Invoices',
-    description: 'Issued invoices with due dates, payment status and totals.',
     columns: [
-      { key: 'invoiceNumber', title: 'Invoice #', type: 'text', isRequired: true, isUnique: true },
-      { key: 'client', title: 'Client', type: 'text' },
-      { key: 'issueDate', title: 'Issue date', type: 'date' },
-      { key: 'dueDate', title: 'Due date', type: 'date' },
-      { key: 'amount', title: 'Amount', type: 'currency' },
-      { key: 'paid', title: 'Paid', type: 'boolean' },
+      { key: 'invoiceNumber', type: 'text', isRequired: true, isUnique: true },
+      { key: 'client', type: 'text' },
+      { key: 'issueDate', type: 'date' },
+      { key: 'dueDate', type: 'date' },
+      { key: 'amount', type: 'currency' },
+      { key: 'paid', type: 'boolean' },
       {
         key: 'status',
-        title: 'Status',
         type: 'select',
         config: {
           options: [
-            option('Draft', 'gray'),
-            option('Sent', 'blue'),
-            option('Paid', 'green'),
-            option('Overdue', 'red'),
+            option('draft', 'gray'),
+            option('sent', 'blue'),
+            option('paid', 'green'),
+            option('overdue', 'red'),
           ],
         },
       },
-      { key: 'notes', title: 'Notes', type: 'text' },
+      { key: 'notes', type: 'text' },
     ],
   },
   {
     id: 'payables',
-    name: 'Payables',
-    description: 'Supplier bills to approve and pay, with due dates.',
     columns: [
-      { key: 'vendor', title: 'Vendor', type: 'text', isRequired: true },
-      { key: 'invoiceNumber', title: 'Invoice #', type: 'text' },
-      { key: 'dueDate', title: 'Due date', type: 'date' },
-      { key: 'amount', title: 'Amount', type: 'currency' },
+      { key: 'vendor', type: 'text', isRequired: true },
+      { key: 'invoiceNumber', type: 'text' },
+      { key: 'dueDate', type: 'date' },
+      { key: 'amount', type: 'currency' },
       {
         key: 'category',
-        title: 'Category',
         type: 'select',
         config: {
           options: [
-            option('Rent', 'violet'),
-            option('Utilities', 'teal'),
-            option('Services', 'blue'),
-            option('Goods', 'amber'),
-            option('Other', 'gray'),
+            option('rent', 'violet'),
+            option('utilities', 'teal'),
+            option('services', 'blue'),
+            option('goods', 'amber'),
+            option('other', 'gray'),
           ],
         },
       },
-      { key: 'paid', title: 'Paid', type: 'boolean' },
+      { key: 'paid', type: 'boolean' },
       {
         key: 'status',
-        title: 'Status',
         type: 'select',
         config: {
           options: [
-            option('Pending', 'amber'),
-            option('Approved', 'blue'),
-            option('Paid', 'green'),
-            option('Rejected', 'red'),
+            option('pending', 'amber'),
+            option('approved', 'blue'),
+            option('paid', 'green'),
+            option('rejected', 'red'),
           ],
         },
       },
@@ -105,99 +94,86 @@ export const TABLE_TEMPLATES: TableTemplate[] = [
   },
   {
     id: 'budget',
-    name: 'Budget',
-    description: 'Planned vs actual spend by category, with variance and usage.',
     columns: [
-      { key: 'category', title: 'Category', type: 'text', isRequired: true },
-      { key: 'period', title: 'Period', type: 'date' },
-      { key: 'planned', title: 'Planned', type: 'currency' },
-      { key: 'actual', title: 'Actual', type: 'currency' },
+      { key: 'category', type: 'text', isRequired: true },
+      { key: 'period', type: 'date' },
+      { key: 'planned', type: 'currency' },
+      { key: 'actual', type: 'currency' },
       {
         key: 'variance',
-        title: 'Variance',
         type: 'formula',
         money: true,
         config: { expression: '[actual] - [planned]' },
       },
       {
         key: 'usedPercent',
-        title: 'Used %',
         type: 'formula',
         config: { expression: '[actual] / [planned] * 100', format: 'percent', precision: 0 },
       },
-      { key: 'owner', title: 'Owner', type: 'text' },
+      { key: 'owner', type: 'text' },
     ],
   },
   {
     id: 'pipeline',
-    name: 'Sales pipeline',
-    description: 'Deals by stage with amount, probability and weighted value.',
     columns: [
-      { key: 'deal', title: 'Deal', type: 'text', isRequired: true },
-      { key: 'company', title: 'Company', type: 'text' },
+      { key: 'deal', type: 'text', isRequired: true },
+      { key: 'company', type: 'text' },
       {
         key: 'stage',
-        title: 'Stage',
         type: 'select',
         config: {
           options: [
-            option('Lead', 'gray'),
-            option('Qualified', 'blue'),
-            option('Proposal', 'violet'),
-            option('Negotiation', 'amber'),
-            option('Won', 'green'),
-            option('Lost', 'red'),
+            option('lead', 'gray'),
+            option('qualified', 'blue'),
+            option('proposal', 'violet'),
+            option('negotiation', 'amber'),
+            option('won', 'green'),
+            option('lost', 'red'),
           ],
         },
       },
-      { key: 'amount', title: 'Amount', type: 'currency' },
+      { key: 'amount', type: 'currency' },
       {
         key: 'probability',
-        title: 'Probability',
         type: 'number',
         config: { format: 'percent', precision: 0 },
       },
       {
         key: 'weighted',
-        title: 'Weighted value',
         type: 'formula',
         money: true,
         config: { expression: '[amount] * [probability] / 100' },
       },
-      { key: 'closeDate', title: 'Expected close', type: 'date' },
-      { key: 'owner', title: 'Owner', type: 'text' },
+      { key: 'closeDate', type: 'date' },
+      { key: 'owner', type: 'text' },
     ],
   },
   {
     id: 'subscriptions',
-    name: 'Subscriptions',
-    description: 'Recurring services with billing period and next charge date.',
     columns: [
-      { key: 'service', title: 'Service', type: 'text', isRequired: true },
-      { key: 'plan', title: 'Plan', type: 'text' },
+      { key: 'service', type: 'text', isRequired: true },
+      { key: 'plan', type: 'text' },
       {
         key: 'billing',
-        title: 'Billing',
         type: 'select',
-        config: { options: [option('Monthly', 'blue'), option('Yearly', 'violet')] },
+        config: { options: [option('monthly', 'blue'), option('yearly', 'violet')] },
       },
-      { key: 'amount', title: 'Amount', type: 'currency' },
-      { key: 'nextCharge', title: 'Next charge', type: 'date' },
-      { key: 'active', title: 'Active', type: 'boolean' },
+      { key: 'amount', type: 'currency' },
+      { key: 'nextCharge', type: 'date' },
+      { key: 'active', type: 'boolean' },
       {
         key: 'category',
-        title: 'Category',
         type: 'select',
         config: {
           options: [
-            option('Software', 'blue'),
-            option('Infrastructure', 'teal'),
-            option('Marketing', 'orange'),
-            option('Other', 'gray'),
+            option('software', 'blue'),
+            option('infrastructure', 'teal'),
+            option('marketing', 'orange'),
+            option('other', 'gray'),
           ],
         },
       },
-      { key: 'notes', title: 'Notes', type: 'text' },
+      { key: 'notes', type: 'text' },
     ],
   },
 ];
@@ -213,22 +189,45 @@ export interface TemplateColumnPayload {
   };
 }
 
-/** Тело POST /columns для каждой колонки шаблона в нужном порядке. */
+/** Варианты выбора хранятся ключами словаря; в таблицу они уходят переведёнными. */
+const translateOptions = (
+  config: CustomTableColumnConfig,
+  options: Record<string, string>,
+): CustomTableColumnConfig =>
+  config.options
+    ? {
+        ...config,
+        options: config.options.map(item =>
+          typeof item === 'string'
+            ? (options[item] ?? item)
+            : { ...item, value: options[item.value] ?? item.value },
+        ),
+      }
+    : { ...config };
+
+/**
+ * Тело POST /columns для каждой колонки шаблона в нужном порядке. Названия и
+ * варианты выбора — на языке пользователя: они становятся данными его таблицы.
+ */
 export function buildTemplateColumnPayloads(
   template: TableTemplate,
-  { titles, currency }: { titles: Record<string, string>; currency: string },
+  {
+    titles,
+    options,
+    currency,
+  }: { titles: Record<string, string>; options: Record<string, string>; currency: string },
 ): TemplateColumnPayload[] {
   return template.columns.map(column => {
     const config: CustomTableColumnConfig | undefined =
       column.type === 'currency' || column.money
         ? { precision: 2, ...(column.config ?? {}), currency }
         : column.config
-          ? { ...column.config }
+          ? translateOptions(column.config, options)
           : undefined;
     return {
       templateKey: column.key,
       body: {
-        title: titles[column.key] ?? column.title,
+        title: titles[column.key] ?? column.key,
         type: column.type,
         isRequired: Boolean(column.isRequired),
         isUnique: Boolean(column.isUnique),

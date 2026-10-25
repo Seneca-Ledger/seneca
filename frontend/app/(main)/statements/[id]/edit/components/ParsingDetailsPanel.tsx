@@ -8,7 +8,6 @@ import {
   countArray,
   formatLabel,
   getParsingStats,
-  labelValue,
   toOptionalStr,
   toUpperOrUndefined,
 } from '../editHelpers';
@@ -18,7 +17,7 @@ import {
   type ResolveWarningPayload,
 } from '../ParsingWarningsPanel';
 
-type Labels = Record<string, { value?: string } | undefined>;
+type Labels = Record<string, { value: string }>;
 
 export type ParsingDetailsData = StatementParsingDetails;
 
@@ -87,39 +86,25 @@ function ParsingMetaGrid({ pd, labels }: MetaGridProps): React.ReactElement {
         gap: 2,
       }}
     >
-      <MetaItem label={labelValue(labels.bank, 'Bank')} value={pd.detectedBank} />
-      <MetaItem label={labelValue(labels.bankDetectedBy, 'Detected by')} value={pd.detectedBy} />
+      <MetaItem label={labels.bank.value} value={pd.detectedBank} />
+      <MetaItem label={labels.bankDetectedBy.value} value={pd.detectedBy} />
+      <MetaItem label={labels.format.value} value={toUpperOrUndefined(pd.detectedFormat)} />
       <MetaItem
-        label={labelValue(labels.format, 'Format')}
-        value={toUpperOrUndefined(pd.detectedFormat)}
-      />
-      <MetaItem
-        label={labelValue(labels.foundTransactions, 'Transactions found')}
+        label={labels.foundTransactions.value}
         value={toOptionalStr(pd.transactionsFound)}
       />
       <MetaItem
-        label={labelValue(labels.createdTransactions, 'Transactions created')}
+        label={labels.createdTransactions.value}
         value={toOptionalStr(pd.transactionsCreated)}
       />
       {errCount > 0 && (
-        <StatBadge
-          label={labelValue(labels.errors, 'Errors')}
-          count={errCount}
-          color="error.main"
-        />
+        <StatBadge label={labels.errors.value} count={errCount} color="error.main" />
       )}
       {warnCount > 0 && (
-        <StatBadge
-          label={labelValue(labels.warnings, 'Warnings')}
-          count={warnCount}
-          color="warning.main"
-        />
+        <StatBadge label={labels.warnings.value} count={warnCount} color="warning.main" />
       )}
       {mentions.length > 0 && (
-        <MentionsBadge
-          label={labelValue(labels.otherBankMentions, 'Other bank mentions')}
-          mentions={mentions}
-        />
+        <MentionsBadge label={labels.otherBankMentions.value} mentions={mentions} />
       )}
     </Box>
   );
@@ -143,19 +128,16 @@ function ParsingWarnings({
   if (warnCount === 0 && dropCount === 0) {
     return null;
   }
-  const helperText = formatLabel(
-    labelValue(labels.alertParsingWarnings, '{count} flagged rows. Review before submitting.'),
-    { count: warnCount },
-  );
+  const helperText = formatLabel(labels.alertParsingWarnings.value, { count: warnCount });
   return (
     <ParsingWarningsPanel
       warnings={pd.warnings ?? []}
       droppedSamples={pd.droppedSamples ?? []}
       onConvertDroppedSample={onConvert}
       onResolveWarning={onResolve}
-      fixTooltipLabel={labelValue(labels.fixDroppedRow, 'Fix')}
-      resolveBalanceTooltipLabel={labelValue(labels.balanceEnd, 'Review balances')}
-      title={labelValue(labels.warnings, 'Warnings')}
+      fixTooltipLabel={labels.fixDroppedRow.value}
+      resolveBalanceTooltipLabel={labels.balanceEnd.value}
+      title={labels.warnings.value}
       helperText={helperText}
     />
   );
@@ -187,7 +169,7 @@ export function ParsingDetailsPanel({
           textTransform: 'uppercase',
         }}
       >
-        {labelValue(labels.extractedMetadata, 'Extracted metadata')}
+        {labels.extractedMetadata.value}
       </Typography>
       <ParsingMetaGrid pd={pd} labels={labels} />
       <ParsingWarnings pd={pd} labels={labels} onConvert={onConvert} onResolve={onResolve} />

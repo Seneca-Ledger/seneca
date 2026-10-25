@@ -7,6 +7,7 @@ import type {
   EditableReceiptParsedData,
   ReceiptCategoryOption,
 } from '@/app/components/receipts/receipt-types';
+import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 
 interface ReceiptMetadataPanelProps {
@@ -16,6 +17,7 @@ interface ReceiptMetadataPanelProps {
 }
 
 function PanelHeading(): React.ReactElement {
+  const t = useIntlayer('receiptDocumentPage');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   return (
@@ -32,10 +34,10 @@ function PanelHeading(): React.ReactElement {
     >
       <Box>
         <Typography style={{ fontSize: 18, fontWeight: 600, color: c.ink900 }}>
-          Parsed fields
+          {t.parsedFields}
         </Typography>
         <Typography style={{ marginTop: 4, fontSize: 14, color: c.ink500 }}>
-          Review and correct the extracted receipt data before approval.
+          {t.parsedFieldsHint}
         </Typography>
       </Box>
     </Box>

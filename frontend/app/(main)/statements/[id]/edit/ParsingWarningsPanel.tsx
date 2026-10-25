@@ -175,11 +175,12 @@ export function ParsingWarningsPanel({
   droppedSamples = NO_DROPPED_SAMPLES,
   onConvertDroppedSample,
   onResolveWarning,
-  fixTooltipLabel = 'Fix',
-  resolveBalanceTooltipLabel = 'Review balances',
-  title = 'Parsing warnings',
-  helperText = 'Review the flagged rows before submitting this statement.',
+  fixTooltipLabel,
+  resolveBalanceTooltipLabel,
+  title,
+  helperText,
 }: ParsingWarningsPanelProps): React.JSX.Element | null {
+  const t = useIntlayer('statementDroppedSampleForm');
   const editableEntries = useMemo(
     () => buildEditableEntries({ droppedSamples, warnings }),
     [droppedSamples, warnings],
@@ -198,7 +199,7 @@ export function ParsingWarningsPanel({
   return (
     <>
       <Alert severity="warning" variant="outlined" sx={{ mt: 3, alignItems: 'flex-start' }}>
-        <AlertTitle sx={{ mb: 0.5 }}>{title}</AlertTitle>
+        <AlertTitle sx={{ mb: 0.5 }}>{title ?? t.panelTitle}</AlertTitle>
         <Typography
           variant="body2"
           sx={{
@@ -206,14 +207,14 @@ export function ParsingWarningsPanel({
             mb: 1.5,
           }}
         >
-          {helperText}
+          {helperText ?? t.panelHelper}
         </Typography>
         <WarningsList
           warnings={warnings}
           editableEntryByReason={panel.editableEntryByReason}
           editableEntryByTxKey={panel.editableEntryByTxKey}
-          fixTooltipLabel={fixTooltipLabel}
-          resolveBalanceTooltipLabel={resolveBalanceTooltipLabel}
+          fixTooltipLabel={fixTooltipLabel ?? t.panelFix.value}
+          resolveBalanceTooltipLabel={resolveBalanceTooltipLabel ?? t.panelReviewBalances.value}
           extractTxKey={extractTxKey}
           onSelectWarning={panel.handleSelectWarning}
           onResolve={panel.handleResolve}

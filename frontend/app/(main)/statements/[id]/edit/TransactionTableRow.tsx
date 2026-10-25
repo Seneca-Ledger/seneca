@@ -77,7 +77,7 @@ function EditCell({
         value={(edited[field] as string) || (transaction[field] as string) || ''}
         onChange={e => onFieldChange(transaction.id, field, e.target.value)}
       >
-        <MenuItem value="">{labels.notSelected?.value || 'Not selected'}</MenuItem>
+        <MenuItem value="">{labels.notSelected?.value}</MenuItem>
         {options.map(opt => (
           <MenuItem key={opt.id} value={opt.id}>
             {opt.name}
@@ -108,7 +108,7 @@ function CategoryChip({
   if (!transaction.category?.name) {
     return (
       <Chip
-        label={labels.noCategoryOption?.value || 'No category'}
+        label={labels.noCategoryOption?.value}
         size="small"
         icon={<TriangleAlert size={16} />}
         sx={{
@@ -130,9 +130,7 @@ function CategoryChip({
     locale,
   );
   const isDisabled = category.isEnabled === false;
-  const label = isDisabled
-    ? `${displayName} — ${labels.assignCategory?.value || 'Assign category'}`
-    : displayName;
+  const label = isDisabled ? `${displayName} — ${labels.assignCategory?.value}` : displayName;
 
   return (
     <Chip
@@ -299,7 +297,7 @@ export function TransactionTableRow({
             <IconButton
               size="small"
               onClick={() => {
-                if (window.confirm(labels.confirmDeleteOne?.value || 'Delete transaction?')) {
+                if (window.confirm(labels.confirmDeleteOne?.value)) {
                   void onDelete(transaction.id);
                 }
               }}

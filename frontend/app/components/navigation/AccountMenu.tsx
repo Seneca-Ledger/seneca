@@ -27,7 +27,6 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
 import { setPrivacyMode, usePrivacyMode } from '@/app/lib/privacy-mode';
-import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { useThemePreference } from './hooks/useThemePreference';
 
 /**
@@ -59,8 +58,6 @@ export function AccountMenu({
     user,
     setUser,
     setTheme,
-    resolveLabel,
-    navTheme: undefined,
   });
 
   const privacy = usePrivacyMode();

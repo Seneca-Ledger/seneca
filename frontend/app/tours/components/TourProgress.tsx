@@ -5,6 +5,7 @@
 'use client';
 
 import { Box, LinearProgress, Typography } from '@mui/material';
+import { useIntlayer } from '@/app/i18n';
 
 interface TourProgressProps {
   current: number;
@@ -13,6 +14,7 @@ interface TourProgressProps {
 }
 
 export function TourProgress({ current, total, className = '' }: TourProgressProps) {
+  const t = useIntlayer('tourControls');
   const progress = (current / total) * 100;
 
   return (
@@ -25,7 +27,7 @@ export function TourProgress({ current, total, className = '' }: TourProgressPro
             fontWeight: 500,
           }}
         >
-          Tour progress
+          {t.tourProgress}
         </Typography>
         <Typography
           variant="caption"

@@ -1,13 +1,14 @@
 'use client';
 
 import { Box, IconButton, Typography } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { FileImage, FileText, UploadCloud, X } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
 import { ModalShell } from '@/app/components/ui/modal-shell';
 import { Select } from '@/app/components/ui/select';
+import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import { useReceiptUpload } from './hooks/useReceiptUpload';
 
@@ -21,16 +22,7 @@ const ACCEPTED_TYPES = new Set([
   'application/pdf',
 ]);
 
-const LANGUAGE_OPTIONS = [
-  { value: 'auto', label: 'Auto-detect' },
-  { value: 'eng', label: 'English' },
-  { value: 'deu', label: 'German' },
-  { value: 'fra', label: 'French' },
-  { value: 'spa', label: 'Spanish' },
-  { value: 'rus', label: 'Russian' },
-  { value: 'jpn', label: 'Japanese' },
-  { value: 'ara', label: 'Arabic' },
-];
+const LANGUAGE_CODES = ['auto', 'eng', 'deu', 'fra', 'spa', 'rus', 'jpn', 'ara'] as const;
 
 export interface ReceiptUploadModalProps {
   isOpen: boolean;
@@ -39,6 +31,7 @@ export interface ReceiptUploadModalProps {
 }
 
 export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploadModalProps) {
+  const t = useIntlayer('receiptCapture');
   const { uploadReceipts, uploading, progress, error } = useReceiptUpload();
   const [files, setFiles] = useState<File[]>([]);
   const [language, setLanguage] = useState('auto');
@@ -46,13 +39,14 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
 
   const visibleError = localError ?? error;
 
-  const uploadLabel = useMemo(() => {
-    if (files.length === 1) {
-      return 'Upload 1 receipt';
-    }
-
-    return `Upload ${files.length} receipts`;
-  }, [files.length]);
+  const uploadLabel =
+    files.length === 1
+      ? t.uploadOne.value
+      : t.uploadMany.value.replace('{count}', String(files.length));
+  const languageOptions = LANGUAGE_CODES.map(value => ({
+    value,
+    label: t.languages[value].value,
+  }));
 
   const resetState = () => {
     setFiles([]);
@@ -64,12 +58,12 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
     const nextFiles = incomingFiles.slice(0, 5);
 
     if (nextFiles.some(file => !ACCEPTED_TYPES.has(file.type))) {
-      setLocalError('Only JPG, PNG, WEBP, BMP, TIFF, and PDF files are supported.');
+      setLocalError(t.unsupportedType.value);
       return;
     }
 
     if (nextFiles.some(file => file.size > MAX_FILE_SIZE)) {
-      setLocalError('Each file must be 10 MB or smaller.');
+      setLocalError(t.tooLarge.value);
       return;
     }
 
@@ -79,13 +73,13 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
 
   const handleSubmit = async () => {
     if (files.length === 0) {
-      setLocalError('Select at least one receipt to upload.');
+      setLocalError(t.selectAtLeastOne.value);
       return;
     }
 
     await (async () => {
       await uploadReceipts(files, language);
-      toast.success('Receipts uploaded and queued for processing.');
+      toast.success(t.uploaded.value);
       resetState();
       onClose();
       onUploaded?.();
@@ -101,7 +95,7 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
         resetState();
         onClose();
       }}
-      title="Upload receipts"
+      title={t.uploadTitle.value}
       size="lg"
       footer={
         <>
@@ -112,7 +106,7 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
               onClose();
             }}
           >
-            Cancel
+            {t.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={uploading || files.length === 0}>
             {uploadLabel}
@@ -153,10 +147,10 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
             </Box>
             <Box>
               <Typography style={{ fontSize: 16, fontWeight: 600, color: 'var(--foreground)' }}>
-                Drop receipt images or PDFs here
+                {t.dropHere}
               </Typography>
               <Typography style={{ marginTop: 4, fontSize: 14, color: 'var(--muted-foreground)' }}>
-                Up to 5 files, 10 MB each. JPG, PNG, WEBP, BMP, TIFF, and PDF supported.
+                {t.limits}
               </Typography>
             </Box>
           </Box>
@@ -173,7 +167,7 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
             type="file"
             accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,application/pdf,.xml,application/xml,text/xml"
             multiple
-            aria-label="Select receipt files"
+            aria-label={t.selectFiles.value}
             onChange={event => {
               validateAndStoreFiles(Array.from(event.target.files ?? []));
             }}
@@ -185,15 +179,15 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
             htmlFor="receipt-language"
             style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)' }}
           >
-            OCR language
+            {t.ocrLanguage}
           </label>
           <Select
             fullWidth
             id="receipt-language"
-            inputProps={{ 'aria-label': 'OCR language' }}
+            inputProps={{ 'aria-label': t.ocrLanguage.value }}
             value={language}
             onChange={setLanguage}
-            options={LANGUAGE_OPTIONS}
+            options={languageOptions}
             sx={FORM_CONTROL_SX}
           />
         </Box>
@@ -225,7 +219,7 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
             <Typography
               style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-info-soft-text)' }}
             >
-              Uploading... {progress}%
+              {t.uploading.value.replace('{progress}', String(progress))}
             </Typography>
           </Box>
         ) : null}
@@ -276,13 +270,13 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
                         {file.name}
                       </Typography>
                       <Typography style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                        {t.fileSizeMb.value.replace('{size}', (file.size / 1024 / 1024).toFixed(2))}
                       </Typography>
                     </Box>
                   </Box>
                   <IconButton
                     size="small"
-                    aria-label={`Remove ${file.name}`}
+                    aria-label={t.removeFile.value.replace('{name}', file.name)}
                     onClick={() => {
                       setFiles(currentFiles =>
                         currentFiles.filter(currentFile => currentFile !== file),

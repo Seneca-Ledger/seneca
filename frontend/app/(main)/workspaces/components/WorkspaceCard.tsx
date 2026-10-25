@@ -34,7 +34,7 @@ interface WorkspaceCardProps {
 }
 
 export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: WorkspaceCardProps) {
-  const { roles } = useIntlayer('workspacesListView');
+  const { roles, favorite } = useIntlayer('workspacesListView');
   const [isFavorite, setIsFavorite] = useState(workspace.isFavorite);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -51,7 +51,7 @@ export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: Workspac
       await onFavoriteToggle?.(workspace.id);
     })().catch(async (error: unknown) => {
       setIsFavorite(!nextFavorite);
-      toast.error(getApiMessage(error, 'Failed to update favorite status'));
+      toast.error(getApiMessage(error, favorite.updateFailed.value));
     });
   };
 
@@ -171,7 +171,7 @@ export function WorkspaceCard({ workspace, onClick, onFavoriteToggle }: Workspac
           color: isFavorite ? 'warning.main' : 'var(--muted-foreground)',
           '&:hover': { bgcolor: theme => alpha(theme.palette.text.primary, 0.06) },
         }}
-        aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        aria-label={(isFavorite ? favorite.remove : favorite.add).value}
       >
         {isFavorite ? <StarIcon sx={{ fontSize: 18 }} /> : <StarBorderIcon sx={{ fontSize: 18 }} />}
       </IconButton>

@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { fetchGoalFlow, type GoalFlowResponse } from '@/app/lib/goals-api';
 import { queryKeys } from '@/app/lib/query-keys';
@@ -17,6 +18,7 @@ export interface GoalFlowState {
 
 export function useGoalFlow(goalId: string, month: string): GoalFlowState {
   const workspaceId = useWorkspaceId();
+  const t = useIntlayer('goalDetailPage');
   const query = useQuery({
     queryKey: queryKeys.goalFlow({ workspaceId, goalId, month }),
     queryFn: ({ signal }) => fetchGoalFlow(goalId, month, signal),
@@ -36,7 +38,7 @@ export function useGoalFlow(goalId: string, month: string): GoalFlowState {
     data: query.data,
     isPending: query.isPending,
     isFetching: query.isFetching,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load goal flow') : null,
+    error: query.isError ? getApiErrorMessage(query.error, t.flowLoadFailed.value) : null,
     refetch,
   };
 }

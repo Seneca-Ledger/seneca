@@ -52,10 +52,7 @@ function StoragePageContent({
   const t = useIntlayer('storagePage');
   const { locale } = useLocale();
 
-  const tx = useCallback(
-    (path: string[], fallback: string) => resolveLabel(getNestedValue(t, path), fallback),
-    [t],
-  );
+  const tx = useCallback((path: string[]) => resolveLabel(getNestedValue(t, path)), [t]);
 
   const filtersHook = useStorageFilters(
     { loadCategoriesFailed: t.toasts.loadCategoriesFailed.value },
@@ -96,7 +93,7 @@ function StoragePageContent({
       folderDeleteFailed: t.toasts.folderDeleteFailed.value,
       folderUpdated: t.toasts.folderUpdated.value,
       folderUpdateFailed: t.toasts.folderUpdateFailed.value,
-      fileMovedTo: tx(['toasts', 'fileMovedTo'], 'File moved to folder'),
+      fileMovedTo: tx(['toasts', 'fileMovedTo']),
     },
     filesHook.setFiles,
     activeModal === 'folders',
@@ -426,18 +423,18 @@ function StoragePageContent({
           trashSelectRowLabel={t.trash.selectRow.value}
           dragDropRowHintLabel={t.dragDrop.rowHint.value}
           previewLabel={t.preview.value}
-          sharedLinksShortLabel={resolveLabel(t.sharedLinksShort, 'links')}
-          categoryNoneLabel={resolveLabel(t.categoryCell.none, 'No category')}
+          sharedLinksShortLabel={t.sharedLinksShort.value}
+          categoryNoneLabel={t.categoryCell.none.value}
           ownerLabel={t.permission.owner.value}
           trashRestoreActionLabel={t.trash.restoreAction.value}
           trashDeleteActionLabel={t.trash.deleteAction.value}
           viewTooltipLabel={t.actions.tooltipView.value}
           downloadTooltipLabel={t.actions.tooltipDownload.value}
           deleteActionLabel={t.actions.delete.value}
-          paginationShownTemplate={tx(['pagination', 'shown'], 'Showing {from}–{to} of {count}')}
-          paginationPageOfTemplate={tx(['pagination', 'pageOf'], 'Page {page} of {count}')}
-          paginationPreviousLabel={tx(['pagination', 'previous'], 'Previous')}
-          paginationNextLabel={tx(['pagination', 'next'], 'Next')}
+          paginationShownTemplate={tx(['pagination', 'shown'])}
+          paginationPageOfTemplate={tx(['pagination', 'pageOf'])}
+          paginationPreviousLabel={tx(['pagination', 'previous'])}
+          paginationNextLabel={tx(['pagination', 'next'])}
           getPermissionLabel={boundGetPermissionLabel}
           formatDate={boundFormatDate}
           renderTrashExpiryBadge={renderTrashExpiryBadge}
@@ -529,7 +526,7 @@ function StoragePageContent({
               folderListEmptyLabel: t.modals.folderListEmpty,
               dragAndDropLabel: t.dragAndDrop.value,
               doneLabel: t.done.value,
-              fileMovedToLabel: tx(['toasts', 'fileMovedTo'], 'File moved to folder'),
+              fileMovedToLabel: tx(['toasts', 'fileMovedTo']),
               tagsTitle: t.tags.title,
               tagsClearLabel: t.tags.clear,
               dragDropSubtitleLabel: t.dragDrop.subtitle,
@@ -538,7 +535,7 @@ function StoragePageContent({
               modalsFileSearchPlaceholder: t.modals.fileSearchPlaceholder.value,
               modalsFilesEmpty: t.modals.filesEmpty,
               dragDropRowHintLabel: t.dragDrop.rowHint.value,
-              tableFromLabel: tx(['table', 'from'], 'from'),
+              tableFromLabel: tx(['table', 'from']),
               onSetActiveFolderId: foldersHook.setActiveFolderId,
               onSetPickedFolderId: foldersHook.setPickedFolderId,
               onSetEditingFolderName: foldersHook.setEditingFolderName,

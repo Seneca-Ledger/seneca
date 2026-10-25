@@ -33,6 +33,7 @@ describe('buildTemplateColumnPayloads', () => {
 
     const payloads = buildTemplateColumnPayloads(pipeline, {
       titles: { amount: 'Сумма' },
+      options: {},
       currency: 'EUR',
     });
 
@@ -44,9 +45,26 @@ describe('buildTemplateColumnPayloads', () => {
       isUnique: false,
       config: { precision: 2, currency: 'EUR' },
     });
-    // Без перевода — английское название из шаблона.
-    expect(payloads.find(p => p.templateKey === 'deal')?.body.title).toBe('Deal');
+    // Без перевода — ключ шаблона: английских названий в модуле нет.
+    expect(payloads.find(p => p.templateKey === 'deal')?.body.title).toBe('deal');
     expect(payloads.find(p => p.templateKey === 'deal')?.body.isRequired).toBe(true);
+  });
+
+  it('writes select choices in the given language and keeps their colours', () => {
+    const invoices = TABLE_TEMPLATES.find(t => t.id === 'invoices');
+    if (!invoices) throw new Error('missing template');
+    const draft = 'Черновик';
+
+    const payloads = buildTemplateColumnPayloads(invoices, {
+      titles: {},
+      options: { draft },
+      currency: 'USD',
+    });
+
+    const options = payloads.find(p => p.templateKey === 'status')?.body.config?.options;
+    const values = options?.map(item => (typeof item === 'string' ? item : item.value));
+    expect(values).toEqual([draft, 'sent', 'paid', 'overdue']);
+    expect(options?.[0]).toMatchObject({ value: draft, color: expect.stringMatching(/^#/) });
   });
 });
 
@@ -62,7 +80,11 @@ describe('applyTemplate', () => {
   it('posts columns in order and rewrites formulas with the keys the server returned', async () => {
     const budget = TABLE_TEMPLATES.find(t => t.id === 'budget');
     if (!budget) throw new Error('missing template');
-    const payloads = buildTemplateColumnPayloads(budget, { titles: {}, currency: 'USD' });
+    const payloads = buildTemplateColumnPayloads(budget, {
+      titles: {},
+      options: {},
+      currency: 'USD',
+    });
     const post = vi.fn(async (_url: string, body: { title: string }) => ({
       key: `srv_${body.title.toLowerCase().replace(/\W+/g, '')}`,
     }));
@@ -72,7 +94,7 @@ describe('applyTemplate', () => {
     expect(result.failed).toEqual([]);
     expect(post).toHaveBeenCalledTimes(budget.columns.length);
     expect(post.mock.calls.every(([url]) => url === '/custom-tables/t1/columns')).toBe(true);
-    const variance = post.mock.calls.find(([, body]) => body.title === 'Variance')?.[1] as {
+    const variance = post.mock.calls.find(([, body]) => body.title === 'variance')?.[1] as {
       config?: { expression?: string; currency?: string };
     };
     expect(variance.config?.expression).toBe('[srv_actual] - [srv_planned]');
@@ -81,9 +103,13 @@ describe('applyTemplate', () => {
   });
 
   it('keeps going after a failed column and reports it', async () => {
-    const payloads = buildTemplateColumnPayloads(TABLE_TEMPLATES[0], { titles: {}, currency: 'USD' });
+    const payloads = buildTemplateColumnPayloads(TABLE_TEMPLATES[0], {
+      titles: {},
+      options: {},
+      currency: 'USD',
+    });
     const post = vi.fn(async (_url: string, body: { title: string }) => {
-      if (body.title === 'Client') throw new Error('boom');
+      if (body.title === 'client') throw new Error('boom');
       return { key: `k_${body.title}` };
     });
 

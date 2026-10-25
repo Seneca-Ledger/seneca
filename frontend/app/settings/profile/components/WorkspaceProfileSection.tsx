@@ -15,7 +15,7 @@ import apiClient from '@/app/lib/api';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 
 /**
  * Home or business. Only the menu changes: the home profile hides the
@@ -38,9 +38,7 @@ export function WorkspaceProfileSection({ tx }: { tx: Tx }) {
       // The sidebar reads the profile off the workspace, so it has to be re-read.
       await refreshWorkspaces();
     } catch (err: unknown) {
-      setError(
-        getApiErrorMessage(err, tx(['workspaceProfileCard', 'saveError'], 'Could not save')),
-      );
+      setError(getApiErrorMessage(err, tx(['workspaceProfileCard', 'saveError'])));
     } finally {
       setSaving(false);
     }
@@ -54,7 +52,7 @@ export function WorkspaceProfileSection({ tx }: { tx: Tx }) {
         value={profile}
         onChange={(_event, value: WorkspaceProfile | null) => void choose(value)}
         disabled={saving}
-        aria-label={tx(['workspaceProfileCard', 'title'], 'Workspace profile')}
+        aria-label={tx(['workspaceProfileCard', 'title'])}
       >
         <ToggleButton value="home" sx={{ textTransform: 'none', px: 2.5 }}>
           <Stack
@@ -68,7 +66,7 @@ export function WorkspaceProfileSection({ tx }: { tx: Tx }) {
                 fontWeight: 600,
               }}
             >
-              {tx(['workspaceProfileCard', 'home'], 'Home')}
+              {tx(['workspaceProfileCard', 'home'])}
             </Typography>
             <Typography
               variant="caption"
@@ -76,7 +74,7 @@ export function WorkspaceProfileSection({ tx }: { tx: Tx }) {
                 color: 'text.secondary',
               }}
             >
-              {tx(['workspaceProfileCard', 'homeHint'], 'Personal or family money')}
+              {tx(['workspaceProfileCard', 'homeHint'])}
             </Typography>
           </Stack>
         </ToggleButton>
@@ -92,7 +90,7 @@ export function WorkspaceProfileSection({ tx }: { tx: Tx }) {
                 fontWeight: 600,
               }}
             >
-              {tx(['workspaceProfileCard', 'business'], 'Business')}
+              {tx(['workspaceProfileCard', 'business'])}
             </Typography>
             <Typography
               variant="caption"
@@ -100,7 +98,7 @@ export function WorkspaceProfileSection({ tx }: { tx: Tx }) {
                 color: 'text.secondary',
               }}
             >
-              {tx(['workspaceProfileCard', 'businessHint'], 'Invoices, payables, ledger, tax')}
+              {tx(['workspaceProfileCard', 'businessHint'])}
             </Typography>
           </Stack>
         </ToggleButton>

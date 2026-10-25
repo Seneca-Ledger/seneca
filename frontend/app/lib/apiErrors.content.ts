@@ -6,7 +6,7 @@ import { APP_NAME } from '@/app/lib/brand';
  *
  * Partial by design: a code that is absent here falls back to the English
  * message the backend already sends, so this dictionary can grow gradually.
- * Keys must match `ERR` in backend/src/common/errors/app-error.ts.
+ * Keys must match `ERR` in backend/src/common/errors/app-error.ts, except `fallback`.
  * `{{param}}` placeholders are interpolated from `error.params`.
  */
 const content = {
@@ -3489,6 +3489,44 @@ const content = {
       be: 'Зараз ствараецца здымак, паспрабуйце крыху пазней',
       bs: 'Upravo se pravi snimak; pokušajte ponovo za trenutak',
       hsb: 'Runje so snapshot wotewzaja; spytajće za wokomik hišće raz',
+    }),
+    /** Not a backend code: the message when an error carries no text of its own. */
+    fallback: t({
+      ru: 'Произошла ошибка',
+      en: 'An error occurred',
+      kk: 'Қате орын алды',
+      de: 'Ein Fehler ist aufgetreten',
+      fr: 'Une erreur s’est produite',
+      es: 'Se produjo un error',
+      pt: 'Ocorreu um erro',
+      tr: 'Bir hata oluştu',
+      uk: 'Сталася помилка',
+      zh: '发生错误',
+      pl: 'Wystąpił błąd',
+      it: 'Si è verificato un errore',
+      sk: 'Vyskytla sa chyba',
+      ja: 'エラーが発生しました',
+      ko: '오류가 발생했습니다',
+      hi: 'एक त्रुटि हुई',
+      nl: 'Er is een fout opgetreden',
+      sv: 'Ett fel uppstod',
+      vi: 'Đã xảy ra lỗi',
+      id: 'Terjadi kesalahan',
+      da: 'Der opstod en fejl',
+      nb: 'Det oppstod en feil',
+      nn: 'Det oppstod ein feil',
+      fi: 'Tapahtui virhe',
+      is: 'Villa kom upp',
+      fo: 'Ein feilur hendi',
+      cs: 'Došlo k chybě',
+      bg: 'Възникна грешка',
+      hr: 'Došlo je do pogreške',
+      sr: 'Дошло је до грешке',
+      sl: 'Prišlo je do napake',
+      mk: 'Настана грешка',
+      be: 'Адбылася памылка',
+      bs: 'Došlo je do greške',
+      hsb: 'Zmylk je wustupił',
     }),
   },
 } satisfies Dictionary;

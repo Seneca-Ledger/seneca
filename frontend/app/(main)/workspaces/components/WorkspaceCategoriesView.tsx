@@ -154,7 +154,7 @@ export default function WorkspaceCategoriesView() {
   const t = useIntlayer('categoriesPage');
   const { locale } = useLocale();
   const { user } = useAuth();
-  const tx = (path: string[], fallback: string) => resolveLabel(getNestedValue(t, path), fallback);
+  const tx = (path: string[]) => resolveLabel(getNestedValue(t, path));
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -174,11 +174,11 @@ export default function WorkspaceCategoriesView() {
 
   const getCategoryBadgeLabel = (category: Category) => {
     if (category.source === 'parsing') {
-      return tx(['sourceBadges', 'parsing'], 'Parsing data');
+      return tx(['sourceBadges', 'parsing']);
     }
 
     if (category.isSystem || category.source === 'system') {
-      return tx(['sourceBadges', 'system'], 'System');
+      return tx(['sourceBadges', 'system']);
     }
 
     return null;
@@ -395,7 +395,7 @@ export default function WorkspaceCategoriesView() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 data-tour-id="categories-search"
-                placeholder={tx(['searchPlaceholder'], 'Find category')}
+                placeholder={tx(['searchPlaceholder'])}
                 style={{
                   width: '100%',
                   border: '1px solid var(--border)',
@@ -520,9 +520,9 @@ export default function WorkspaceCategoriesView() {
                 }
                 onCheckedChange={handleToggleSelectAll}
               />
-              <span>{tx(['columns', 'name'], 'Name')}</span>
+              <span>{tx(['columns', 'name'])}</span>
             </Box>
-            <span>{tx(['enabled'], 'Enabled')}</span>
+            <span>{tx(['enabled'])}</span>
           </Box>
 
           {categoriesQuery.isPending ? (
@@ -537,7 +537,7 @@ export default function WorkspaceCategoriesView() {
                 <SearchIcon size={28} />
               </Box>
               <Typography sx={{ fontSize: 15, fontWeight: 500, color: 'var(--foreground)', mb: 2 }}>
-                {tx(['noData'], 'No categories')}
+                {tx(['noData'])}
               </Typography>
               <button
                 type="button"

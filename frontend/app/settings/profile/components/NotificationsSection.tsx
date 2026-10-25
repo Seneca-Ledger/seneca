@@ -19,7 +19,7 @@ import {
 import { tokens } from '@/lib/theme-tokens';
 
 type NotificationKey = keyof NotificationPreferences;
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 type ToggleChannel = (
   key: NotificationKey,
   channel: NotificationChannel,
@@ -35,13 +35,6 @@ const ROW_GRID = {
     xs: `repeat(${notificationChannels.length}, minmax(0, 1fr))`,
     sm: `minmax(0, 1fr) repeat(${notificationChannels.length}, 64px)`,
   },
-};
-
-const CHANNEL_FALLBACKS: Record<NotificationChannel, string> = {
-  inApp: 'Bell',
-  email: 'Email',
-  telegram: 'Telegram',
-  push: 'Push',
 };
 
 type Props = {
@@ -69,7 +62,7 @@ function ChannelHeader({ tx }: { tx: Tx }) {
             fontWeight: 600,
           }}
         >
-          {tx(['notificationsCard', 'channels', channel], CHANNEL_FALLBACKS[channel])}
+          {tx(['notificationsCard', 'channels', channel])}
         </Typography>
       ))}
     </Box>
@@ -89,8 +82,8 @@ function NotificationSettingRow({
   saving: boolean;
   onToggle: ToggleChannel;
 }) {
-  const label = tx(['notificationsCard', 'items', settingKey, 'label'], settingKey);
-  const description = tx(['notificationsCard', 'items', settingKey, 'description'], '');
+  const label = tx(['notificationsCard', 'items', settingKey, 'label']);
+  const description = tx(['notificationsCard', 'items', settingKey, 'description']);
   const row = settings.channels[settingKey];
 
   return (
@@ -127,10 +120,7 @@ function NotificationSettingRow({
             color="primary"
             slotProps={{
               input: {
-                'aria-label': `${label} — ${tx(
-                  ['notificationsCard', 'channels', channel],
-                  CHANNEL_FALLBACKS[channel],
-                )}`,
+                'aria-label': `${label} — ${tx(['notificationsCard', 'channels', channel])}`,
               },
             }}
           />
@@ -164,7 +154,7 @@ function NotificationGroup({
             fontWeight: 600,
           }}
         >
-          {tx(['notificationsCard', titlePath, 'title'], '')}
+          {tx(['notificationsCard', titlePath, 'title'])}
         </Typography>
         <Typography
           variant="body2"
@@ -172,7 +162,7 @@ function NotificationGroup({
             color: 'text.secondary',
           }}
         >
-          {tx(['notificationsCard', titlePath, 'description'], '')}
+          {tx(['notificationsCard', titlePath, 'description'])}
         </Typography>
       </Box>
       <CardContent sx={{ overflowX: 'auto' }}>
@@ -220,7 +210,7 @@ export function NotificationsSection({
           color: 'text.secondary',
         }}
       >
-        {tx(['notificationsCard', 'loading'], 'Loading...')}
+        {tx(['notificationsCard', 'loading'])}
       </Box>
     );
   }

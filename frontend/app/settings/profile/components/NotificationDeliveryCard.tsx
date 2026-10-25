@@ -10,7 +10,7 @@ import Typography from '@mui/material/Typography';
 import type { NotificationSettings } from '@/app/settings/profile/profileHelpers';
 import { notificationDigestModes } from '@/app/settings/profile/profileHelpers';
 
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 
 type Props = {
   tx: Tx;
@@ -21,12 +21,6 @@ type Props = {
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const formatHour = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
-
-const DIGEST_FALLBACKS: Record<string, string> = {
-  instant: 'Right away',
-  daily: 'Daily summary',
-  weekly: 'Weekly summary',
-};
 
 function QuietHourSelect({
   label,
@@ -73,7 +67,7 @@ function QuietHourSelect({
 }
 
 export function NotificationDeliveryCard({ tx, settings, saving, onChange }: Props) {
-  const offLabel = tx(['notificationsCard', 'quietHoursOff'], 'Off');
+  const offLabel = tx(['notificationsCard', 'quietHoursOff']);
 
   return (
     <Card variant="outlined">
@@ -84,7 +78,7 @@ export function NotificationDeliveryCard({ tx, settings, saving, onChange }: Pro
             fontWeight: 600,
           }}
         >
-          {tx(['notificationsCard', 'deliveryTitle'], 'Delivery')}
+          {tx(['notificationsCard', 'deliveryTitle'])}
         </Typography>
         <Typography
           variant="body2"
@@ -92,10 +86,7 @@ export function NotificationDeliveryCard({ tx, settings, saving, onChange }: Pro
             color: 'text.secondary',
           }}
         >
-          {tx(
-            ['notificationsCard', 'deliveryDescription'],
-            'How often email and Telegram messages go out, and when to stay silent.',
-          )}
+          {tx(['notificationsCard', 'deliveryDescription'])}
         </Typography>
       </Box>
       <CardContent>
@@ -103,21 +94,18 @@ export function NotificationDeliveryCard({ tx, settings, saving, onChange }: Pro
           <TextField
             select
             size="small"
-            label={tx(['notificationsCard', 'digestLabel'], 'Frequency')}
+            label={tx(['notificationsCard', 'digestLabel'])}
             value={settings.digestMode}
             disabled={saving}
             onChange={event =>
               onChange({ digestMode: event.target.value as NotificationSettings['digestMode'] })
             }
-            helperText={tx(
-              ['notificationsCard', 'digestHelp'],
-              'Summaries are sent in the morning, in your time zone.',
-            )}
+            helperText={tx(['notificationsCard', 'digestHelp'])}
             sx={{ maxWidth: 320 }}
           >
             {notificationDigestModes.map(mode => (
               <MenuItem key={mode} value={mode}>
-                {tx(['notificationsCard', 'digestModes', mode], DIGEST_FALLBACKS[mode])}
+                {tx(['notificationsCard', 'digestModes', mode])}
               </MenuItem>
             ))}
           </TextField>
@@ -129,7 +117,7 @@ export function NotificationDeliveryCard({ tx, settings, saving, onChange }: Pro
                 fontWeight: 600,
               }}
             >
-              {tx(['notificationsCard', 'quietHoursTitle'], 'Quiet hours')}
+              {tx(['notificationsCard', 'quietHoursTitle'])}
             </Typography>
             <Typography
               variant="caption"
@@ -137,21 +125,18 @@ export function NotificationDeliveryCard({ tx, settings, saving, onChange }: Pro
                 color: 'text.secondary',
               }}
             >
-              {tx(
-                ['notificationsCard', 'quietHoursHelp'],
-                'Email and Telegram stay quiet in this window and are delivered afterwards. The bell is unaffected.',
-              )}
+              {tx(['notificationsCard', 'quietHoursHelp'])}
             </Typography>
             <Stack direction="row" spacing={1} sx={{ pt: 1, flexWrap: 'wrap', gap: 1 }}>
               <QuietHourSelect
-                label={tx(['notificationsCard', 'quietHoursFrom'], 'From')}
+                label={tx(['notificationsCard', 'quietHoursFrom'])}
                 value={settings.quietHoursStart}
                 disabled={saving}
                 offLabel={offLabel}
                 onChange={value => onChange({ quietHoursStart: value })}
               />
               <QuietHourSelect
-                label={tx(['notificationsCard', 'quietHoursTo'], 'To')}
+                label={tx(['notificationsCard', 'quietHoursTo'])}
                 value={settings.quietHoursEnd}
                 disabled={saving}
                 offLabel={offLabel}

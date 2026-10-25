@@ -6,7 +6,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { type DateFormatPreference, formatDate } from '@/app/lib/user-format';
 
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 
 type Props = {
   tx: Tx;
@@ -17,14 +17,10 @@ type Props = {
   setFirstDayOfWeek: (value: number | null) => void;
 };
 
-const DATE_FORMAT_FALLBACKS: Record<DateFormatPreference, string> = {
-  auto: 'Follow the language',
-  dmy: 'Day.Month.Year',
-  mdy: 'Month/Day/Year',
-  ymd: 'Year-Month-Day',
-};
+const DATE_FORMATS: DateFormatPreference[] = ['auto', 'dmy', 'mdy', 'ymd'];
 
-const WEEKDAY_FALLBACKS = ['Sunday', 'Monday'];
+/** Index is the day number the API stores: 0 = Sunday, 1 = Monday. */
+const WEEKDAYS = ['sunday', 'monday'];
 
 /** A fixed date makes the difference between the orders obvious in the dropdown. */
 const SAMPLE_DATE = new Date(2026, 10, 5);
@@ -48,7 +44,7 @@ export function RegionalFormatFields({
             fontWeight: 600,
           }}
         >
-          {tx(['profileCard', 'dateFormatLabel'], 'Date format')}
+          {tx(['profileCard', 'dateFormatLabel'])}
         </Typography>
         <TextField
           id="profile-date-format"
@@ -58,9 +54,9 @@ export function RegionalFormatFields({
           onChange={event => setDateFormat(event.target.value as DateFormatPreference)}
           fullWidth
         >
-          {(Object.keys(DATE_FORMAT_FALLBACKS) as DateFormatPreference[]).map(option => (
+          {DATE_FORMATS.map(option => (
             <MenuItem key={option} value={option}>
-              {tx(['profileCard', 'dateFormats', option], DATE_FORMAT_FALLBACKS[option])}
+              {tx(['profileCard', 'dateFormats', option])}
               {' — '}
               {formatDate(SAMPLE_DATE, { locale, dateFormat: option })}
             </MenuItem>
@@ -77,7 +73,7 @@ export function RegionalFormatFields({
             fontWeight: 600,
           }}
         >
-          {tx(['profileCard', 'firstDayOfWeekLabel'], 'First day of the week')}
+          {tx(['profileCard', 'firstDayOfWeekLabel'])}
         </Typography>
         <TextField
           id="profile-week-start"
@@ -92,12 +88,10 @@ export function RegionalFormatFields({
             select: { displayEmpty: true },
           }}
         >
-          <MenuItem value="">
-            {tx(['profileCard', 'dateFormats', 'auto'], DATE_FORMAT_FALLBACKS.auto)}
-          </MenuItem>
-          {WEEKDAY_FALLBACKS.map((fallback, day) => (
-            <MenuItem key={fallback} value={String(day)}>
-              {tx(['profileCard', 'weekdays', fallback.toLowerCase()], fallback)}
+          <MenuItem value="">{tx(['profileCard', 'dateFormats', 'auto'])}</MenuItem>
+          {WEEKDAYS.map((weekday, day) => (
+            <MenuItem key={weekday} value={String(day)}>
+              {tx(['profileCard', 'weekdays', weekday])}
             </MenuItem>
           ))}
         </TextField>

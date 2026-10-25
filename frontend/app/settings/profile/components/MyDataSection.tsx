@@ -12,7 +12,7 @@ import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 type Props = {
-  tx: (path: string[], fallback: string) => string;
+  tx: (path: string[]) => string;
   onAccountDeleted: () => void;
 };
 
@@ -44,10 +44,10 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
     await (async () => {
       const response = await apiClient.get('/users/me/export');
       downloadJson(response.data, 'seneca-account-export.json');
-      setMessage(tx(['myDataCard', 'exportSuccess'], 'Your data has been downloaded.'));
+      setMessage(tx(['myDataCard', 'exportSuccess']));
     })()
       .catch(async caught => {
-        setError(getApiErrorMessage(caught, tx(['myDataCard', 'exportFailed'], 'Export failed.')));
+        setError(getApiErrorMessage(caught, tx(['myDataCard', 'exportFailed'])));
       })
       .finally(async () => {
         setExporting(false);
@@ -63,12 +63,7 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
       onAccountDeleted();
     })()
       .catch(async caught => {
-        setError(
-          getApiErrorMessage(
-            caught,
-            tx(['myDataCard', 'deleteFailed'], 'Account deletion failed.'),
-          ),
-        );
+        setError(getApiErrorMessage(caught, tx(['myDataCard', 'deleteFailed'])));
       })
       .finally(async () => {
         setDeleting(false);
@@ -88,7 +83,7 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
             fontWeight: 600,
           }}
         >
-          {tx(['myDataCard', 'exportTitle'], 'Download your data')}
+          {tx(['myDataCard', 'exportTitle'])}
         </Typography>
         <Typography
           variant="body2"
@@ -98,13 +93,10 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
             mb: 1.5,
           }}
         >
-          {tx(
-            ['myDataCard', 'exportDescription'],
-            'A JSON copy of your profile, sessions, memberships, notifications, and audit trail. Workspace financial records are not included — they belong to the workspace.',
-          )}
+          {tx(['myDataCard', 'exportDescription'])}
         </Typography>
         <Button variant="outlined" size="small" onClick={handleExport} disabled={exporting}>
-          {exporting ? <Spinner size={16} /> : tx(['myDataCard', 'exportButton'], 'Download JSON')}
+          {exporting ? <Spinner size={16} /> : tx(['myDataCard', 'exportButton'])}
         </Button>
       </Box>
 
@@ -116,7 +108,7 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
             color: 'error.main',
           }}
         >
-          {tx(['myDataCard', 'deleteTitle'], 'Delete your account')}
+          {tx(['myDataCard', 'deleteTitle'])}
         </Typography>
         <Typography
           variant="body2"
@@ -126,10 +118,7 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
             mb: 1.5,
           }}
         >
-          {tx(
-            ['myDataCard', 'deleteDescription'],
-            'This cannot be undone. If you are the only owner of a workspace, transfer ownership first.',
-          )}
+          {tx(['myDataCard', 'deleteDescription'])}
         </Typography>
 
         {confirmOpen ? (
@@ -137,7 +126,7 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
             <TextField
               type="password"
               size="small"
-              label={tx(['myDataCard', 'passwordLabel'], 'Current password')}
+              label={tx(['myDataCard', 'passwordLabel'])}
               value={password}
               onChange={event => setPassword(event.target.value)}
               autoComplete="current-password"
@@ -150,11 +139,7 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
                 onClick={handleDelete}
                 disabled={deleting || password.length === 0}
               >
-                {deleting ? (
-                  <Spinner size={16} />
-                ) : (
-                  tx(['myDataCard', 'deleteConfirm'], 'Delete permanently')
-                )}
+                {deleting ? <Spinner size={16} /> : tx(['myDataCard', 'deleteConfirm'])}
               </Button>
               <Button
                 variant="text"
@@ -165,7 +150,7 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
                 }}
                 disabled={deleting}
               >
-                {tx(['myDataCard', 'cancel'], 'Cancel')}
+                {tx(['myDataCard', 'cancel'])}
               </Button>
             </Stack>
           </Stack>
@@ -176,7 +161,7 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
             size="small"
             onClick={() => setConfirmOpen(true)}
           >
-            {tx(['myDataCard', 'deleteButton'], 'Delete account')}
+            {tx(['myDataCard', 'deleteButton'])}
           </Button>
         )}
       </Box>

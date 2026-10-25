@@ -80,7 +80,7 @@ function RegionPreview({ data, text }: { data: OnboardingData; text: OnboardingT
     <PreviewCard>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <Box component="p" sx={overlineSx}>
-          {text(['preview', 'today'], 'Today')}
+          {text(['preview', 'today'])}
         </Box>
         <Box
           sx={{
@@ -155,7 +155,7 @@ function WorkspacePreview({ data, text }: { data: OnboardingData; text: Onboardi
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <Box component="p" sx={overlineSx}>
-          {text(['preview', 'menuTitle'], 'Your menu')}
+          {text(['preview', 'menuTitle'])}
         </Box>
         {/* Two columns: the whole menu fits the screen beside the form. */}
         <Box
@@ -221,13 +221,10 @@ function TaxPreview({ data, text }: { data: OnboardingData; text: OnboardingText
     return (
       <PreviewCard>
         <Box sx={{ fontSize: 20, fontWeight: 600, color: 'var(--muted-foreground)' }}>
-          {text(['preview', 'noCountry'], 'No tax country yet')}
+          {text(['preview', 'noCountry'])}
         </Box>
         <Box sx={{ fontSize: 14, lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
-          {text(
-            ['tax', 'notListedHint'],
-            'Tax features stay off until a country is chosen in the workspace settings.',
-          )}
+          {text(['tax', 'notListedHint'])}
         </Box>
       </PreviewCard>
     );
@@ -261,7 +258,7 @@ function TaxPreview({ data, text }: { data: OnboardingData; text: OnboardingText
           }}
         >
           <Box sx={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
-            {text(['preview', 'rateLabel'], 'Standard rate')}
+            {text(['preview', 'rateLabel'])}
           </Box>
           <Box sx={{ fontSize: 28, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
             {formatRate(rate.data.rate)}
@@ -271,21 +268,17 @@ function TaxPreview({ data, text }: { data: OnboardingData; text: OnboardingText
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <Box component="p" sx={overlineSx}>
-          {text(['preview', 'unlocksTitle'], 'This turns on')}
+          {text(['preview', 'unlocksTitle'])}
         </Box>
         <Box
           component="ul"
           sx={{ m: 0, p: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}
         >
-          <UnlockRow>
-            {text(['preview', 'unlockVat'], 'VAT rates on receipts and invoices')}
-          </UnlockRow>
-          <UnlockRow>{text(['preview', 'unlockDeclaration'], 'Income tax declaration')}</UnlockRow>
+          <UnlockRow>{text(['preview', 'unlockVat'])}</UnlockRow>
+          <UnlockRow>{text(['preview', 'unlockDeclaration'])}</UnlockRow>
           {/* The holding-period rule is German law (metals.service.ts), nowhere else. */}
           {data.taxCountry === 'DE' ? (
-            <UnlockRow>
-              {text(['preview', 'unlockMetals'], '§23 holding period for precious metals')}
-            </UnlockRow>
+            <UnlockRow>{text(['preview', 'unlockMetals'])}</UnlockRow>
           ) : null}
         </Box>
       </Box>
@@ -300,7 +293,7 @@ function BusinessPreview({ data, text }: { data: OnboardingData; text: Onboardin
   return (
     <PreviewCard>
       <Box component="p" sx={overlineSx}>
-        {text(['preview', 'invoiceTitle'], 'Invoice')}
+        {text(['preview', 'invoiceTitle'])}
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <Box sx={{ fontSize: 20, fontWeight: 600, overflowWrap: 'anywhere' }}>

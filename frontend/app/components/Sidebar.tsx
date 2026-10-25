@@ -259,9 +259,7 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
           <span className="seneca-sidebar__support-icon" aria-hidden="true">
             <Heart />
           </span>
-          <span className="seneca-sidebar__support-label">
-            {(supportProject as { value?: string })?.value ?? 'Support the project'}
-          </span>
+          <span className="seneca-sidebar__support-label">{supportProject.value}</span>
         </a>
       </div>
     </>

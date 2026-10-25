@@ -24,12 +24,12 @@ export const getNestedValue = (root: unknown, path: string[]): unknown => {
 };
 
 /**
- * Resolves a display label from an unknown intlayer value.
- * Returns the string directly when the value is already a string,
- * falls back to `record.value` when available, otherwise returns `fallback`.
+ * Resolves a display label from an unknown intlayer value: the string itself,
+ * or the node's `value`. Texts come from dictionaries only, so there is no
+ * English fallback; a missing key reads as an empty string.
  */
-export const resolveLabel = (value: unknown, fallback: string): string => {
+export const resolveLabel = (value: unknown): string => {
   if (typeof value === 'string') return value;
   const record = getRecord(value);
-  return typeof record?.value === 'string' ? (record.value as string) : fallback;
+  return typeof record?.value === 'string' ? (record.value as string) : '';
 };

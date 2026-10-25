@@ -83,9 +83,9 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
     avatarInputRef,
     handleAvatarSelect,
   } = useAvatarUpload(user, setUser, {
-    sizeError: tx(['profileCard', 'avatarSizeError'], 'Avatar file is too large'),
-    updated: tx(['profileCard', 'avatarUpdated'], 'Avatar updated'),
-    errorFallback: tx(['profileCard', 'avatarError'], 'Failed to update avatar'),
+    sizeError: tx(['profileCard', 'avatarSizeError']),
+    updated: tx(['profileCard', 'avatarUpdated']),
+    errorFallback: tx(['profileCard', 'avatarError']),
   });
 
   const {
@@ -236,7 +236,7 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
           hasProfileChanges={hasProfileChanges}
           handleProfileSubmit={handleProfileSubmit}
           languageLabel={language.languageLabel}
-          languageFieldLabel={resolveLabel(userMenu.language, 'Language')}
+          languageFieldLabel={resolveLabel(userMenu.language)}
           isLanguageDrawerOpen={language.languageModalOpen}
           onOpenLanguageDrawer={language.openLanguageMenu}
           isTimeZoneModalOpen={isTimeZoneModalOpen}
@@ -253,7 +253,7 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
 
       <SettingsAccordion
         id="appearance"
-        title={tx(['appearanceCard', 'detailsTitle'], 'Density & motion')}
+        title={tx(['appearanceCard', 'detailsTitle'])}
         description={t.appearanceCard.description.value}
         icon={Palette}
         defaultExpanded={openSection === 'appearance'}

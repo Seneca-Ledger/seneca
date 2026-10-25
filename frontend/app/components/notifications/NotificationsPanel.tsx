@@ -72,13 +72,6 @@ function extractCount(message: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-function resolveTranslationValue(
-  value: string | { value?: string } | undefined,
-  fallback: string,
-): string {
-  return typeof value === 'string' ? value : (value?.value ?? fallback);
-}
-
 /**
  * Notifications as the second sidebar everything else in the app uses, opened
  * from the account menu. A panel rather than a dropdown: the list is long, the
@@ -101,30 +94,15 @@ export function NotificationsPanel() {
 
   const handleClose = closeAppPanel;
 
-  const receiptUncategorizedTitle = resolveTranslationValue(
-    t.notificationTypes?.receiptUncategorized?.title,
-    'Receipt without category',
-  );
-  const receiptUncategorizedMessage = resolveTranslationValue(
-    t.notificationTypes?.receiptUncategorized?.message,
-    'Receipt "{{name}}" has no category',
-  );
-  const receiptUncategorizedFallback = resolveTranslationValue(
-    t.notificationTypes?.receiptUncategorized?.messageFallback,
-    'Found a receipt without category',
-  );
-  const transactionUncategorizedTitle = resolveTranslationValue(
-    t.notificationTypes?.transactionUncategorized?.title,
-    'Transactions without category',
-  );
-  const transactionUncategorizedMessageSingular = resolveTranslationValue(
-    t.notificationTypes?.transactionUncategorized?.messageSingular,
-    '{{count}} transaction needs a category',
-  );
-  const transactionUncategorizedMessagePlural = resolveTranslationValue(
-    t.notificationTypes?.transactionUncategorized?.messagePlural,
-    '{{count}} transactions need a category',
-  );
+  const receiptUncategorizedTitle = t.notificationTypes.receiptUncategorized.title.value;
+  const receiptUncategorizedMessage = t.notificationTypes.receiptUncategorized.message.value;
+  const receiptUncategorizedFallback =
+    t.notificationTypes.receiptUncategorized.messageFallback.value;
+  const transactionUncategorizedTitle = t.notificationTypes.transactionUncategorized.title.value;
+  const transactionUncategorizedMessageSingular =
+    t.notificationTypes.transactionUncategorized.messageSingular.value;
+  const transactionUncategorizedMessagePlural =
+    t.notificationTypes.transactionUncategorized.messagePlural.value;
 
   const getLocalizedNotificationCopy = (notification: {
     type: string;

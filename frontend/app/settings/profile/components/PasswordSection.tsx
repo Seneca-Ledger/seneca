@@ -23,7 +23,7 @@ type Props = {
       submit: { value: string };
     };
   };
-  tx: (path: string[], fallback: string) => string;
+  tx: (path: string[]) => string;
   passwordMessage: string | null;
   passwordError: string | null;
   passwordLoading: boolean;
@@ -51,12 +51,7 @@ export function PasswordSection({
       <EmptyStateIllustration name="password" size="sm" />
       {passwordMessage && <Alert variant="success">{passwordMessage}</Alert>}
       {passwordError && <Alert variant="error">{passwordError}</Alert>}
-      <Alert variant="warning">
-        {tx(
-          ['passwordCard', 'securityHint'],
-          'Use a unique password and keep your account email secure. Confirm before applying password changes.',
-        )}
-      </Alert>
+      <Alert variant="warning">{tx(['passwordCard', 'securityHint'])}</Alert>
 
       <Stack spacing={0.5}>
         <Typography

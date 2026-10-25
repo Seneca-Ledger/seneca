@@ -1,66 +1,61 @@
 import { FLOW_LABEL_PATHS } from '@/app/(main)/statements/components/analytics/flow/flow-label-paths';
 import { getNestedValue, resolveLabel } from '@/app/lib/analytics-common';
 
-type TxFn = (path: string[], fallback: string) => string;
+type TxFn = (path: string[]) => string;
 
-const LABEL_PATHS: Record<string, [string[], string]> = {
+const LABEL_PATHS: Record<string, string[]> = {
   ...FLOW_LABEL_PATHS,
-  title: [['topCategoriesAnalytics', 'title'], 'Top categories'],
-  subtitle: [['topCategoriesAnalytics', 'subtitle'], 'Spending analytics by categories.'],
-  totalSpend: [['topCategoriesAnalytics', 'totalSpend'], 'Total spend'],
-  statementsSpend: [['topCategoriesAnalytics', 'statementsSpend'], 'Statements'],
-  receiptsSpend: [['topCategoriesAnalytics', 'receiptsSpend'], 'Receipts'],
-  totalOperations: [['topCategoriesAnalytics', 'totalOperations'], 'Operations'],
-  topCategories: [['topCategoriesAnalytics', 'topCategories'], 'Top categories'],
-  topIncomeCategories: [['topCategoriesAnalytics', 'topIncomeCategories'], 'Top income categories'],
-  sourceSplit: [['topCategoriesAnalytics', 'sourceSplit'], 'Source split'],
-  spendTrend: [['topCategoriesAnalytics', 'spendTrend'], 'Spending trend'],
-  incomeTrend: [['topCategoriesAnalytics', 'incomeTrend'], 'Income trend'],
-  leaderboard: [['topCategoriesAnalytics', 'leaderboard'], 'Top categories list'],
-  incomeLeaderboard: [
-    ['topCategoriesAnalytics', 'incomeLeaderboard'],
-    'Top income categories list',
-  ],
-  totalIncome: [['topCategoriesAnalytics', 'totalIncome'], 'Total income'],
-  tabSpenders: [['topCategoriesAnalytics', 'tabSpenders'], 'Expenses'],
-  tabIncomeSenders: [['topCategoriesAnalytics', 'tabIncomeSenders'], 'Income'],
-  source: [['topCategoriesAnalytics', 'source'], 'Source'],
-  category: [['topCategoriesAnalytics', 'category'], 'Category'],
-  amount: [['topCategoriesAnalytics', 'amount'], 'Amount'],
-  operations: [['topCategoriesAnalytics', 'operations'], 'Operations'],
-  average: [['topCategoriesAnalytics', 'average'], 'Average'],
-  lastOperation: [['topCategoriesAnalytics', 'lastOperation'], 'Last operation'],
-  sourceStatement: [['topCategoriesAnalytics', 'sourceStatement'], 'Statement'],
-  sourceBank: [['topCategoriesAnalytics', 'sourceBank'], 'Bank'],
-  sourceReceipt: [['topCategoriesAnalytics', 'sourceReceipt'], 'Receipt'],
-  sourceCrypto: [['topCategoriesAnalytics', 'sourceCrypto'], 'Crypto'],
-  workspace: [['topCategoriesAnalytics', 'workspace'], 'Workspace'],
-  allWorkspaces: [['topCategoriesAnalytics', 'allWorkspaces'], 'All workspaces'],
-  currentWorkspace: [['topCategoriesAnalytics', 'currentWorkspace'], 'Current workspace'],
-  sortByAmount: [['topCategoriesAnalytics', 'sortByAmount'], 'Amount'],
-  sortByAverage: [['topCategoriesAnalytics', 'sortByAverage'], 'Average'],
-  sortByOperations: [['topCategoriesAnalytics', 'sortByOperations'], 'Operations'],
-  vsPreviousPeriod: [['topCategoriesAnalytics', 'vsPreviousPeriod'], 'vs previous period'],
-  comparisonNoData: [['topCategoriesAnalytics', 'comparisonNoData'], 'No previous period data'],
-  drillDown: [['topCategoriesAnalytics', 'drillDown'], 'Operations'],
-  close: [['common', 'close'], 'Close'],
-  noOperations: [['topCategoriesAnalytics', 'noOperations'], 'No operations found'],
-  filters: [['filters', 'filters'], 'Filters'],
-  type: [['filters', 'type'], 'Type'],
-  status: [['filters', 'status'], 'Status'],
-  date: [['filters', 'date'], 'Date'],
-  from: [['filters', 'from'], 'From'],
-  apply: [['filters', 'apply'], 'Apply'],
-  reset: [['filters', 'reset'], 'Reset'],
-  loadError: [[], 'Failed to load category data'],
+  title: ['topCategoriesAnalytics', 'title'],
+  subtitle: ['topCategoriesAnalytics', 'subtitle'],
+  totalSpend: ['topCategoriesAnalytics', 'totalSpend'],
+  statementsSpend: ['topCategoriesAnalytics', 'statementsSpend'],
+  receiptsSpend: ['topCategoriesAnalytics', 'receiptsSpend'],
+  totalOperations: ['topCategoriesAnalytics', 'totalOperations'],
+  topCategories: ['topCategoriesAnalytics', 'topCategories'],
+  topIncomeCategories: ['topCategoriesAnalytics', 'topIncomeCategories'],
+  sourceSplit: ['topCategoriesAnalytics', 'sourceSplit'],
+  spendTrend: ['topCategoriesAnalytics', 'spendTrend'],
+  incomeTrend: ['topCategoriesAnalytics', 'incomeTrend'],
+  leaderboard: ['topCategoriesAnalytics', 'leaderboard'],
+  incomeLeaderboard: ['topCategoriesAnalytics', 'incomeLeaderboard'],
+  totalIncome: ['topCategoriesAnalytics', 'totalIncome'],
+  tabSpenders: ['topCategoriesAnalytics', 'tabSpenders'],
+  tabIncomeSenders: ['topCategoriesAnalytics', 'tabIncomeSenders'],
+  source: ['topCategoriesAnalytics', 'source'],
+  category: ['topCategoriesAnalytics', 'category'],
+  amount: ['topCategoriesAnalytics', 'amount'],
+  operations: ['topCategoriesAnalytics', 'operations'],
+  average: ['topCategoriesAnalytics', 'average'],
+  lastOperation: ['topCategoriesAnalytics', 'lastOperation'],
+  sourceStatement: ['topCategoriesAnalytics', 'sourceStatement'],
+  sourceBank: ['topCategoriesAnalytics', 'sourceBank'],
+  sourceReceipt: ['topCategoriesAnalytics', 'sourceReceipt'],
+  sourceCrypto: ['topCategoriesAnalytics', 'sourceCrypto'],
+  workspace: ['topCategoriesAnalytics', 'workspace'],
+  allWorkspaces: ['topCategoriesAnalytics', 'allWorkspaces'],
+  currentWorkspace: ['topCategoriesAnalytics', 'currentWorkspace'],
+  sortByAmount: ['topCategoriesAnalytics', 'sortByAmount'],
+  sortByAverage: ['topCategoriesAnalytics', 'sortByAverage'],
+  sortByOperations: ['topCategoriesAnalytics', 'sortByOperations'],
+  vsPreviousPeriod: ['topCategoriesAnalytics', 'vsPreviousPeriod'],
+  comparisonNoData: ['topCategoriesAnalytics', 'comparisonNoData'],
+  drillDown: ['topCategoriesAnalytics', 'drillDown'],
+  close: ['viewFile', 'close'],
+  noOperations: ['topCategoriesAnalytics', 'noOperations'],
+  filters: ['filters', 'filters'],
+  type: ['filters', 'type'],
+  status: ['filters', 'status'],
+  date: ['filters', 'date'],
+  from: ['filters', 'from'],
+  apply: ['filters', 'apply'],
+  reset: ['filters', 'reset'],
+  loadError: ['topCategoriesAnalytics', 'loadError'],
 };
 
 export const buildTopCategoriesLabels = (tx: TxFn): Record<string, string> =>
-  Object.fromEntries(
-    Object.entries(LABEL_PATHS).map(([k, [p, f]]) => [k, p.length === 0 ? f : tx(p, f)]),
-  );
+  Object.fromEntries(Object.entries(LABEL_PATHS).map(([k, p]) => [k, tx(p)]));
 
 export const createTx =
   (t: unknown): TxFn =>
-  (path, fallback) =>
-    resolveLabel(getNestedValue(t, path), fallback);
+  path =>
+    resolveLabel(getNestedValue(t, path));

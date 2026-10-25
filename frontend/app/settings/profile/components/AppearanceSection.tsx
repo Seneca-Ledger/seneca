@@ -14,7 +14,7 @@ import { Spinner } from '@/app/components/ui/spinner';
 import type { ThemePreference } from '@/app/lib/theme-preference';
 import type { UiDensity } from '@/app/theme';
 
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 
 type ThemeProps = {
   t: {
@@ -83,7 +83,7 @@ export function ThemeSection({
             >
               <MenuItem value="light">{t.appearanceCard.light.value}</MenuItem>
               <MenuItem value="dark">{t.appearanceCard.dark.value}</MenuItem>
-              <MenuItem value="auto">{tx(['appearanceCard', 'auto'], 'Auto')}</MenuItem>
+              <MenuItem value="auto">{tx(['appearanceCard', 'auto'])}</MenuItem>
             </TextField>
             <Typography
               variant="caption"
@@ -142,7 +142,7 @@ export function AppearanceSection({
             fontWeight: 600,
           }}
         >
-          {tx(['appearanceCard', 'densityLabel'], 'Interface density')}
+          {tx(['appearanceCard', 'densityLabel'])}
         </Typography>
         <Typography
           variant="body2"
@@ -150,10 +150,7 @@ export function AppearanceSection({
             color: 'text.secondary',
           }}
         >
-          {tx(
-            ['appearanceCard', 'densityHelp'],
-            'Compact fits more rows on screen in tables and lists.',
-          )}
+          {tx(['appearanceCard', 'densityHelp'])}
         </Typography>
       </Box>
       <TextField
@@ -163,10 +160,8 @@ export function AppearanceSection({
         onChange={event => setDensity(event.target.value as UiDensity)}
         sx={{ maxWidth: 320 }}
       >
-        <MenuItem value="comfortable">
-          {tx(['appearanceCard', 'densityComfortable'], 'Comfortable')}
-        </MenuItem>
-        <MenuItem value="compact">{tx(['appearanceCard', 'densityCompact'], 'Compact')}</MenuItem>
+        <MenuItem value="comfortable">{tx(['appearanceCard', 'densityComfortable'])}</MenuItem>
+        <MenuItem value="compact">{tx(['appearanceCard', 'densityCompact'])}</MenuItem>
       </TextField>
 
       <FormControlLabel
@@ -181,7 +176,7 @@ export function AppearanceSection({
                 fontWeight: 500,
               }}
             >
-              {tx(['appearanceCard', 'reduceMotionLabel'], 'Reduce motion')}
+              {tx(['appearanceCard', 'reduceMotionLabel'])}
             </Typography>
             <Typography
               variant="caption"
@@ -189,10 +184,7 @@ export function AppearanceSection({
                 color: 'text.secondary',
               }}
             >
-              {tx(
-                ['appearanceCard', 'reduceMotionHelp'],
-                'Turns off non-essential transitions and animations.',
-              )}
+              {tx(['appearanceCard', 'reduceMotionHelp'])}
             </Typography>
           </Stack>
         }
@@ -210,7 +202,7 @@ export function AppearanceSection({
                 fontWeight: 500,
               }}
             >
-              {tx(['appearanceCard', 'dailyQuoteLabel'], 'Daily quote')}
+              {tx(['appearanceCard', 'dailyQuoteLabel'])}
             </Typography>
             <Typography
               variant="caption"
@@ -218,10 +210,7 @@ export function AppearanceSection({
                 color: 'text.secondary',
               }}
             >
-              {tx(
-                ['appearanceCard', 'dailyQuoteHelp'],
-                'A short quote above the pages, picked for your current advice. The advice itself stays on the Advice page.',
-              )}
+              {tx(['appearanceCard', 'dailyQuoteHelp'])}
             </Typography>
           </Stack>
         }

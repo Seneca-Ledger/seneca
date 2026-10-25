@@ -177,7 +177,7 @@ export default function SummaryBar({
             {onDownload && (
               <Button variant="outline" size="sm" onClick={onDownload}>
                 <Download size={16} style={{ marginRight: 8 }} />
-                {t.download?.value || 'Download'}
+                {t.download}
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={onExport}>
