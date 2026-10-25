@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { fetchGoalPlan, type GoalPlanResponse } from '@/app/lib/goals-api';
 import { queryKeys } from '@/app/lib/query-keys';
@@ -19,6 +20,7 @@ export interface GoalPlanState {
  */
 export function useGoalPlan(goalId: string): GoalPlanState {
   const workspaceId = useWorkspaceId();
+  const t = useIntlayer('goalDetailPage');
   const query = useQuery({
     queryKey: queryKeys.goalPlan({ workspaceId, goalId }),
     queryFn: ({ signal }) => fetchGoalPlan(goalId, signal),
@@ -28,6 +30,6 @@ export function useGoalPlan(goalId: string): GoalPlanState {
   return {
     data: query.data,
     isPending: query.isPending,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load goal plan') : null,
+    error: query.isError ? getApiErrorMessage(query.error, t.planLoadFailed.value) : null,
   };
 }

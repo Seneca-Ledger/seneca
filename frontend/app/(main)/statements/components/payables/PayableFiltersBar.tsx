@@ -43,7 +43,6 @@ interface PayableFiltersBarProps {
  * Payable filters as two toolbar buttons, the way the Submit page carries its
  * own: the due-date range behind Date, everything else behind Filters.
  */
-// eslint-disable-next-line max-lines-per-function
 function PayableFiltersBar({
   value,
   onChange,
@@ -54,8 +53,8 @@ function PayableFiltersBar({
   const [dateOpen, setDateOpen] = React.useState(false);
   const [filtersOpen, setFiltersOpen] = React.useState(false);
 
-  const dateLabel = resolveLabel(getNestedValue(t, ['filters', 'date']), 'Date');
-  const filtersLabel = resolveLabel(getNestedValue(t, ['filters', 'filters']), 'Filters');
+  const dateLabel = resolveLabel(getNestedValue(t, ['filters', 'date']));
+  const filtersLabel = resolveLabel(getNestedValue(t, ['filters', 'filters']));
 
   const update = <K extends keyof PayablesFiltersState>(
     key: K,

@@ -3,16 +3,16 @@ import { TaxRatesController } from '@/modules/tax/tax-rates.controller';
 describe('TaxRatesController', () => {
   let controller: TaxRatesController;
   const taxRatesService = {
-    findAll: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
+    findAll: vi.fn(),
+    findOne: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
   } as any;
   const user = { id: 'user-1' } as any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     controller = new TaxRatesController(taxRatesService);
   });
 
@@ -29,7 +29,7 @@ describe('TaxRatesController', () => {
     const mockRate = { id: 'rate-1', name: 'VAT' };
     taxRatesService.findOne.mockResolvedValue(mockRate);
 
-    const result = await controller.findOne('rate-1', 'ws-1');
+    const result = await controller.findOne({ id: 'rate-1' }, 'ws-1');
     expect(result).toEqual(mockRate);
     expect(taxRatesService.findOne).toHaveBeenCalledWith('rate-1', 'ws-1');
   });
@@ -49,7 +49,7 @@ describe('TaxRatesController', () => {
     const updated = { id: 'rate-1', rate: 25 };
     taxRatesService.update.mockResolvedValue(updated);
 
-    const result = await controller.update('rate-1', dto as any, 'ws-1', user);
+    const result = await controller.update({ id: 'rate-1' }, dto as any, 'ws-1', user);
     expect(result).toEqual(updated);
     expect(taxRatesService.update).toHaveBeenCalledWith('rate-1', 'ws-1', dto, 'user-1');
   });
@@ -57,7 +57,7 @@ describe('TaxRatesController', () => {
   it('remove delegates to service and returns success message', async () => {
     taxRatesService.remove.mockResolvedValue(undefined);
 
-    const result = await controller.remove('rate-1', 'ws-1', user);
+    const result = await controller.remove({ id: 'rate-1' }, 'ws-1', user);
     expect(result).toEqual({ message: 'Tax rate deleted successfully' });
     expect(taxRatesService.remove).toHaveBeenCalledWith('rate-1', 'ws-1', 'user-1');
   });

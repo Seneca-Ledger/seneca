@@ -4,6 +4,8 @@ import * as Schema from 'effect/Schema';
 import { IsoDateString, NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
+const Uuid = Schema.String.check(Schema.isUUID());
+
 export const CreateInvestmentAccountBody = Schema.Struct({
   name: Schema.String.check(Schema.isBetweenLength(1, 255)),
   /** Investment (brokerage, ISA, ETF savings plan) or retirement (pension, 401k, IRA). */
@@ -101,3 +103,16 @@ export const MetalSettingsBody = Schema.Struct({
   dealerDiscount: optionalNullable(DealerDiscountInput),
 });
 export type MetalSettingsBody = Wire<typeof MetalSettingsBody>;
+
+/** An investment account, a holding or a metal lot, by id. */
+export const InvestmentParams = Schema.Struct({ id: Uuid });
+export type InvestmentParams = Wire<typeof InvestmentParams>;
+
+export const InvestmentContributionParams = Schema.Struct({ transactionId: Uuid });
+export type InvestmentContributionParams = Wire<typeof InvestmentContributionParams>;
+
+/** `GET /metals/receipt-options`: at most this many receipts (1–200), default 50. */
+export const MetalReceiptOptionsQuery = Schema.Struct({
+  limit: Schema.optional(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
+});
+export type MetalReceiptOptionsQuery = Wire<typeof MetalReceiptOptionsQuery>;

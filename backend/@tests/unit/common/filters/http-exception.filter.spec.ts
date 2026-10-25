@@ -10,8 +10,8 @@ const queryFailed = (code: string, message: string) =>
   );
 
 function respond(exception: unknown): { status: number; body: { error: Record<string, unknown> } } {
-  const json = jest.fn();
-  const status = jest.fn((_code: number) => ({ json }));
+  const json = vi.fn();
+  const status = vi.fn((_code: number) => ({ json }));
   const host = {
     switchToHttp: () => ({
       getResponse: () => ({ status }),

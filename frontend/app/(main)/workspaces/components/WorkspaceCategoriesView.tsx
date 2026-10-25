@@ -154,7 +154,7 @@ export default function WorkspaceCategoriesView() {
   const t = useIntlayer('categoriesPage');
   const { locale } = useLocale();
   const { user } = useAuth();
-  const tx = (path: string[], fallback: string) => resolveLabel(getNestedValue(t, path), fallback);
+  const tx = (path: string[]) => resolveLabel(getNestedValue(t, path));
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -174,11 +174,11 @@ export default function WorkspaceCategoriesView() {
 
   const getCategoryBadgeLabel = (category: Category) => {
     if (category.source === 'parsing') {
-      return tx(['sourceBadges', 'parsing'], 'Parsing data');
+      return tx(['sourceBadges', 'parsing']);
     }
 
     if (category.isSystem || category.source === 'system') {
-      return tx(['sourceBadges', 'system'], 'System');
+      return tx(['sourceBadges', 'system']);
     }
 
     return null;
@@ -395,7 +395,7 @@ export default function WorkspaceCategoriesView() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 data-tour-id="categories-search"
-                placeholder={tx(['searchPlaceholder'], 'Find category')}
+                placeholder={tx(['searchPlaceholder'])}
                 style={{
                   width: '100%',
                   border: '1px solid var(--border)',
@@ -437,8 +437,11 @@ export default function WorkspaceCategoriesView() {
           <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
             <Typography
               variant="body2"
-              fontWeight={500}
-              sx={{ mr: 1, color: 'var(--muted-foreground)' }}
+              sx={{
+                fontWeight: 500,
+                mr: 1,
+                color: 'var(--muted-foreground)',
+              }}
             >
               {t.manage.selectedCount.value.replace('{count}', String(selectedIds.size))}
             </Typography>
@@ -517,9 +520,9 @@ export default function WorkspaceCategoriesView() {
                 }
                 onCheckedChange={handleToggleSelectAll}
               />
-              <span>{tx(['columns', 'name'], 'Name')}</span>
+              <span>{tx(['columns', 'name'])}</span>
             </Box>
-            <span>{tx(['enabled'], 'Enabled')}</span>
+            <span>{tx(['enabled'])}</span>
           </Box>
 
           {categoriesQuery.isPending ? (
@@ -534,7 +537,7 @@ export default function WorkspaceCategoriesView() {
                 <SearchIcon size={28} />
               </Box>
               <Typography sx={{ fontSize: 15, fontWeight: 500, color: 'var(--foreground)', mb: 2 }}>
-                {tx(['noData'], 'No categories')}
+                {tx(['noData'])}
               </Typography>
               <button
                 type="button"
@@ -722,18 +725,33 @@ export default function WorkspaceCategoriesView() {
         <DialogContent dividers>
           {disableConfirm ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {disableUsedInBefore}
                 <strong>{getCategoryDisplayName(disableConfirm.category, locale)}</strong>
                 {disableUsedInAfter}
               </Typography>
-              <Typography variant="body2" color="text.primary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.primary',
+                }}
+              >
                 {(disableConfirm.usage.transactions === 1
                   ? t.manage.disableDialog.transactionsOne
                   : t.manage.disableDialog.transactionsMany
                 ).value.replace('{count}', String(disableConfirm.usage.transactions))}
               </Typography>
-              <Typography variant="body2" color="text.primary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.primary',
+                }}
+              >
                 {(disableConfirm.usage.statements === 1
                   ? t.manage.disableDialog.statementsOne
                   : t.manage.disableDialog.statementsMany

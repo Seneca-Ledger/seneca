@@ -435,7 +435,9 @@ export class ClassificationService {
     }
     const wallet = await this.walletRepository.findOne({
       where: { id: walletId, workspaceId },
-      select: ['ownerMemberId'],
+      select: {
+        ownerMemberId: true,
+      },
     });
     return wallet?.ownerMemberId ?? null;
   }
@@ -734,7 +736,10 @@ export class ClassificationService {
 
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'settings'],
+      select: {
+        id: true,
+        settings: true,
+      },
     });
     const settings = readProcessingSettings(workspace);
 

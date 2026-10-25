@@ -26,9 +26,9 @@ export function DataTab({ section, user, logout }: SettingsTabProps): React.JSX.
   const openSection = resolveOpenSection('data', section);
 
   const processing = useProcessing(!!user, currentWorkspace?.id, {
-    loadError: tx(['processingCard', 'loadError'], 'Failed to load processing settings'),
-    saveError: tx(['processingCard', 'saveError'], 'Failed to save processing settings'),
-    savedMessage: tx(['notificationsCard', 'messages', 'saved'], 'Saved'),
+    loadError: tx(['processingCard', 'loadError']),
+    saveError: tx(['processingCard', 'saveError']),
+    savedMessage: tx(['notificationsCard', 'messages', 'saved']),
   });
 
   const {
@@ -49,8 +49,8 @@ export function DataTab({ section, user, logout }: SettingsTabProps): React.JSX.
     <Stack spacing={2}>
       <SettingsAccordion
         id="workspace-profile"
-        title={tx(['workspaceProfileCard', 'title'], 'Workspace profile')}
-        description={tx(['workspaceProfileCard', 'description'], '')}
+        title={tx(['workspaceProfileCard', 'title'])}
+        description={tx(['workspaceProfileCard', 'description'])}
         icon={Home}
         defaultExpanded={openSection === 'workspace-profile'}
       >
@@ -59,8 +59,8 @@ export function DataTab({ section, user, logout }: SettingsTabProps): React.JSX.
 
       <SettingsAccordion
         id="processing"
-        title={tx(['processingCard', 'title'], 'Processing')}
-        description={tx(['processingCard', 'description'], '')}
+        title={tx(['processingCard', 'title'])}
+        description={tx(['processingCard', 'description'])}
         icon={SlidersHorizontal}
         defaultExpanded={openSection === 'processing'}
       >
@@ -69,8 +69,8 @@ export function DataTab({ section, user, logout }: SettingsTabProps): React.JSX.
 
       <SettingsAccordion
         id="exchange-rates"
-        title={tx(['exchangeRatesCard', 'title'], 'Exchange rates')}
-        description={tx(['exchangeRatesCard', 'description'], '')}
+        title={tx(['exchangeRatesCard', 'title'])}
+        description={tx(['exchangeRatesCard', 'description'])}
         icon={DollarSign}
         defaultExpanded={openSection === 'exchange-rates'}
       >
@@ -89,8 +89,8 @@ export function DataTab({ section, user, logout }: SettingsTabProps): React.JSX.
 
       <SettingsAccordion
         id="sync"
-        title={tx(['syncCard', 'title'], 'Sync & backup')}
-        description={tx(['syncCard', 'description'], 'Export and sync files to your filesystem')}
+        title={tx(['syncCard', 'title'])}
+        description={tx(['syncCard', 'description'])}
         icon={Cloud}
         defaultExpanded={openSection === 'sync'}
       >
@@ -106,11 +106,8 @@ export function DataTab({ section, user, logout }: SettingsTabProps): React.JSX.
 
       <SettingsAccordion
         id="my-data"
-        title={tx(['myDataCard', 'title'], 'My data')}
-        description={tx(
-          ['myDataCard', 'description'],
-          'Download a copy of your data, or delete your account',
-        )}
+        title={tx(['myDataCard', 'title'])}
+        description={tx(['myDataCard', 'description'])}
         icon={Shield}
         defaultExpanded={openSection === 'my-data'}
       >

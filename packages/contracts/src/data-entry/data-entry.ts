@@ -1,0 +1,47 @@
+import * as Schema from 'effect/Schema';
+import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
+
+const DataEntryKind = Schema.Literals(['cash', 'raw', 'debit', 'credit']);
+
+/** One hand-entered amount; a custom tab's entries carry its id. */
+export const DataEntryItem = Schema.Struct({
+  id: Schema.String,
+  type: DataEntryKind,
+  date: DateOnly,
+  amount: DecimalString,
+  note: Schema.NullOr(Schema.String),
+  currency: Schema.String,
+  customFieldName: Schema.NullOr(Schema.String),
+  customFieldIcon: Schema.NullOr(Schema.String),
+  customFieldValue: Schema.NullOr(Schema.String),
+  customTabId: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type DataEntryItem = Wire<typeof DataEntryItem>;
+
+/** `GET /data-entry`: newest date first. */
+export const DataEntryPage = Schema.Struct({
+  items: Schema.Array(DataEntryItem),
+  total: Schema.Number,
+  page: Schema.Number,
+  limit: Schema.Number,
+});
+export type DataEntryPage = Wire<typeof DataEntryPage>;
+
+/** A custom tab, as `POST` and `PATCH /data-entry/custom-fields` answer it. */
+export const DataEntryCustomFieldItem = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+});
+export type DataEntryCustomFieldItem = Wire<typeof DataEntryCustomFieldItem>;
+
+/** `GET /data-entry/custom-fields`: the tabs, and the base tabs this person hid. */
+export const DataEntryCustomFieldList = Schema.Struct({
+  items: Schema.Array(
+    Schema.Struct({ ...DataEntryCustomFieldItem.fields, entriesCount: Schema.Number }),
+  ),
+  hiddenBaseTabs: Schema.Array(DataEntryKind),
+});
+export type DataEntryCustomFieldList = Wire<typeof DataEntryCustomFieldList>;

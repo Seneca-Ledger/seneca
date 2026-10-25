@@ -6,6 +6,7 @@
 
 import { Button } from '@mui/material';
 import { PlayCircle } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 import { useTour } from '../../hooks/useTour';
 
 interface TourButtonProps {
@@ -25,12 +26,13 @@ export function TourButton({
   tourId,
   variant = 'outlined',
   size = 'small',
-  label = 'Show tour',
+  label,
   icon = DEFAULT_ICON,
   disabled = false,
   className = '',
 }: TourButtonProps) {
   const { startTour, isActive, isCompleted } = useTour(tourId);
+  const t = useIntlayer('tourControls');
 
   const handleClick = () => {
     if (!isActive) {
@@ -51,7 +53,7 @@ export function TourButton({
         fontWeight: 500,
       }}
     >
-      {isCompleted ? 'Repeat tour' : label}
+      {isCompleted ? t.repeatTour : (label ?? t.showTour)}
     </Button>
   );
 }

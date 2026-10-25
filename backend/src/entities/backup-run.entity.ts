@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { BackupConfiguration } from './backup-configuration.entity';
@@ -33,7 +34,7 @@ export class BackupRun {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'configuration_id', type: 'uuid' })
   configurationId: string;
@@ -44,7 +45,7 @@ export class BackupRun {
     { onDelete: 'CASCADE' },
   )
   @JoinColumn({ name: 'configuration_id' })
-  configuration: BackupConfiguration;
+  configuration: Relation<BackupConfiguration>;
 
   @Column({ type: 'varchar', length: 16 })
   trigger: BackupRunTrigger;

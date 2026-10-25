@@ -16,7 +16,6 @@ type LanguageDrawerProps = {
   handleLanguageSelect: (code: string) => void;
 };
 
-// eslint-disable-next-line max-lines-per-function
 export function LanguageDrawer({
   isOpen,
   onClose,

@@ -161,7 +161,14 @@ export function ConnectWalletDrawer({
       <div className="seneca-payable-drawer__body">
         <div style={{ display: 'grid', gap: 16 }}>
           <Box component="fieldset" sx={{ border: 0, m: 0, p: 0 }}>
-            <Typography component="legend" variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+            <Typography
+              component="legend"
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                mb: 1,
+              }}
+            >
               {labels.walletsLabel}
             </Typography>
             <Box
@@ -208,7 +215,13 @@ export function ConnectWalletDrawer({
                     }}
                   />
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" fontWeight={600} noWrap>
+                    <Typography
+                      variant="body2"
+                      noWrap
+                      sx={{
+                        fontWeight: 600,
+                      }}
+                    >
                       {wallet.name}
                     </Typography>
                     <Typography
@@ -254,7 +267,14 @@ export function ConnectWalletDrawer({
 
           {family === 'evm' && evmNetworks.length > 0 && (
             <Box component="fieldset" sx={{ border: 0, m: 0, p: 0 }}>
-              <Typography component="legend" variant="body2" fontWeight={600} sx={{ mb: 1.25 }}>
+              <Typography
+                component="legend"
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.25,
+                }}
+              >
                 {labels.networksLabel}
               </Typography>
               <Box

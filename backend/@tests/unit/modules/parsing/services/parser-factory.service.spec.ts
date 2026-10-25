@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { extractTextFromPdf } from '@/common/utils/pdf-parser.util';
 import { BankName, FileType } from '@/entities/statement.entity';
 import { BerekeNewParser } from '@/modules/parsing/parsers/bereke-new.parser';
@@ -8,9 +9,9 @@ import { KaspiParser } from '@/modules/parsing/parsers/kaspi.parser';
 import { ParserFactoryService } from '@/modules/parsing/services/parser-factory.service';
 import { Test, type TestingModule } from '@nestjs/testing';
 
-jest.mock('@/common/utils/advanced-language-detector.util', () => ({
+vi.mock('@/common/utils/advanced-language-detector.util', () => ({
   advancedLanguageDetector: {
-    detectLanguage: jest.fn().mockResolvedValue({
+    detectLanguage: vi.fn().mockResolvedValue({
       locale: 'unknown',
       confidence: 0,
       method: 'legacy',
@@ -19,8 +20,8 @@ jest.mock('@/common/utils/advanced-language-detector.util', () => ({
   },
 }));
 
-jest.mock('@/common/utils/pdf-parser.util', () => ({
-  extractTextFromPdf: jest.fn().mockResolvedValue('kaspi bank statement'),
+vi.mock('@/common/utils/pdf-parser.util', () => ({
+  extractTextFromPdf: vi.fn().mockResolvedValue('kaspi bank statement'),
 }));
 
 describe('ParserFactoryService', () => {
@@ -40,14 +41,14 @@ describe('ParserFactoryService', () => {
     // the fallback-loop tests below actually exercise (and catch a
     // regression in) the Bereke `instanceof` guards instead of trivially
     // passing because every parser was forced to return false.
-    jest.spyOn(BerekeNewParser.prototype, 'canParse').mockResolvedValue(false);
-    jest.spyOn(BerekeOldParser.prototype, 'canParse').mockResolvedValue(false);
-    jest.spyOn(KaspiParser.prototype, 'canParse').mockResolvedValue(false);
-    jest.spyOn(HapoalimParser.prototype, 'canParse').mockResolvedValue(false);
+    vi.spyOn(BerekeNewParser.prototype, 'canParse').mockResolvedValue(false);
+    vi.spyOn(BerekeOldParser.prototype, 'canParse').mockResolvedValue(false);
+    vi.spyOn(KaspiParser.prototype, 'canParse').mockResolvedValue(false);
+    vi.spyOn(HapoalimParser.prototype, 'canParse').mockResolvedValue(false);
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -66,7 +67,7 @@ describe('ParserFactoryService', () => {
     });
 
     it('returns first parser that can parse', async () => {
-      jest.spyOn(KaspiParser.prototype, 'canParse').mockResolvedValue(true);
+      vi.spyOn(KaspiParser.prototype, 'canParse').mockResolvedValue(true);
 
       const parser = await service.getParser(BankName.KASPI, FileType.PDF, '/tmp/mock.pdf');
 
@@ -75,7 +76,7 @@ describe('ParserFactoryService', () => {
 
     it('forwards cachedText into parser canParse', async () => {
       const cachedText = 'kaspi bank statement';
-      const canParseSpy = jest.spyOn(KaspiParser.prototype, 'canParse').mockResolvedValue(true);
+      const canParseSpy = vi.spyOn(KaspiParser.prototype, 'canParse').mockResolvedValue(true);
 
       const parser = await service.getParser(
         BankName.KASPI,
@@ -127,7 +128,7 @@ describe('ParserFactoryService', () => {
     });
 
     it('detects Bereke by header name even when body mentions Kaspi', async () => {
-      (extractTextFromPdf as jest.Mock).mockResolvedValueOnce(
+      (extractTextFromPdf as Mock).mockResolvedValueOnce(
         [
           'Statement for account',
           'Bereke Bank',
@@ -145,7 +146,7 @@ describe('ParserFactoryService', () => {
     });
 
     it('prefers first header match and records ambiguity when both banks appear', async () => {
-      (extractTextFromPdf as jest.Mock).mockResolvedValueOnce(
+      (extractTextFromPdf as Mock).mockResolvedValueOnce(
         ['Kaspi Bank and Bereke Bank', 'Header line continues', '01.01.2024 2000'].join('\n'),
       );
 
@@ -160,7 +161,7 @@ describe('ParserFactoryService', () => {
     });
 
     it('falls back to header BIC when header lacks bank names', async () => {
-      (extractTextFromPdf as jest.Mock).mockResolvedValueOnce(
+      (extractTextFromPdf as Mock).mockResolvedValueOnce(
         ['Statement header without bank name', 'BIC: BRKEKZKA', '01.01.2024 1000'].join('\n'),
       );
 

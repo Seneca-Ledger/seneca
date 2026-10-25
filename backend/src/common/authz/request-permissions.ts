@@ -5,6 +5,7 @@ import type {
   WorkspaceRole,
 } from '../../entities/workspace-member.entity';
 import { Permission, ROLE_PERMISSIONS } from '../enums/permissions.enum';
+import { appError } from '../errors/app-error';
 import { workspaceRoleAllows } from './workspace-permissions';
 
 /** Who is asking: the user, the API key they came with, and their membership. */
@@ -77,7 +78,9 @@ export function assertPermissions(
   }
   assertApiKeyScopes(required, subject.apiKey);
   if (!roleAllows(required, subject)) {
-    throw new ForbiddenException(`Insufficient permissions. Required: ${required.join(', ')}`);
+    throw new ForbiddenException(
+      appError('AUTHZ_PERMISSIONS_REQUIRED', { permissions: required.join(', ') }),
+    );
   }
 }
 
@@ -91,7 +94,9 @@ export function assertApiKeyScopes(
 ): void {
   const missing = missingScopes(required, apiKey);
   if (missing.length > 0) {
-    throw new ForbiddenException(`API key scope missing: ${missing.join(', ')}`);
+    throw new ForbiddenException(
+      appError('AUTHZ_API_KEY_SCOPE_MISSING', { scopes: missing.join(', ') }),
+    );
   }
 }
 

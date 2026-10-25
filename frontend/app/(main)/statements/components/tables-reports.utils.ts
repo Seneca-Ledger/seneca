@@ -34,12 +34,13 @@ export const DEFAULT_TABLES_REPORTS_FILTERS: TablesReportsFilters = {
   search: '',
 };
 
+// Labels come from the statementsTablesReports dictionary where the presets render.
 export const DATE_PRESETS = [
-  { label: 'Last 7 days', value: 7 },
-  { label: 'Last 30 days', value: 30 },
-  { label: 'Last 90 days', value: 90 },
-  { label: 'Last 365 days', value: 365 },
-  { label: 'Year to date', value: -1 },
+  { value: 7 },
+  { value: 30 },
+  { value: 90 },
+  { value: 365 },
+  { value: -1 },
 ] as const;
 
 export function loadTablesReportsFilters(): TablesReportsFilters {
@@ -76,7 +77,7 @@ export function formatAmount(value: number, currency?: string | null): string {
   return currency ? `${formatted} ${currency}` : formatted;
 }
 
-export function getSourceLabel(source: string, manualLabel = 'Manual'): string {
+export function getSourceLabel(source: string, manualLabel: string): string {
   return source === 'manual' ? manualLabel : source;
 }
 

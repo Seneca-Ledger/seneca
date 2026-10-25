@@ -3,34 +3,36 @@ import { ExportFormat } from '@/modules/reports/dto/export-report.dto';
 import { WorkspaceExportFormat } from '@/modules/reports/dto/workspace-export.dto';
 import { ReportsController } from '@/modules/reports/reports.controller';
 
-jest.mock('fs', () => {
-  const actual = jest.requireActual('fs');
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<typeof import('fs')>('fs');
   return {
     ...actual,
-    createReadStream: jest.fn(),
-    unlinkSync: jest.fn(),
+    createReadStream: vi.fn(),
+    unlinkSync: vi.fn(),
   };
 });
 
 describe('ReportsController', () => {
   it('getDailyReport resolves latest when date=latest', async () => {
     const reportsService = {
-      getStatementsSummary: jest.fn(),
-      getCustomTablesSummary: jest.fn(),
-      getLatestTransactionDate: jest.fn(async () => '2025-01-02'),
-      generateDailyReport: jest.fn(async () => ({ day: 'ok' })),
-      getLatestTransactionPeriod: jest.fn(async () => ({
+      getStatementsSummary: vi.fn(),
+      getCustomTablesSummary: vi.fn(),
+      getLatestTransactionDate: vi.fn(async () => '2025-01-02'),
+      generateDailyReport: vi.fn(async () => ({ day: 'ok' })),
+      getLatestTransactionPeriod: vi.fn(async () => ({
         year: 2025,
         month: 1,
       })),
-      generateMonthlyReport: jest.fn(),
-      generateCustomReport: jest.fn(),
-      exportReport: jest.fn(),
+      generateMonthlyReport: vi.fn(),
+      generateCustomReport: vi.fn(),
+      exportReport: vi.fn(),
     };
     const controller = new ReportsController(reportsService as any);
     const workspaceId = 'ws-1';
 
-    const result = await controller.getDailyReport({ id: 'u1' } as any, workspaceId, 'latest');
+    const result = await controller.getDailyReport({ id: 'u1' } as any, workspaceId, {
+      date: 'latest',
+    });
 
     expect(result).toEqual({ day: 'ok' });
     expect(reportsService.generateDailyReport).toHaveBeenCalledWith(workspaceId, '2025-01-02', null);
@@ -42,23 +44,23 @@ describe('ReportsController', () => {
     (fs.createReadStream as any).mockReturnValue(stream);
 
     const reportsService = {
-      getStatementsSummary: jest.fn(),
-      getCustomTablesSummary: jest.fn(),
-      getLatestTransactionDate: jest.fn(),
-      generateDailyReport: jest.fn(async () => ({ day: 'ok' })),
-      getLatestTransactionPeriod: jest.fn(async () => ({
+      getStatementsSummary: vi.fn(),
+      getCustomTablesSummary: vi.fn(),
+      getLatestTransactionDate: vi.fn(),
+      generateDailyReport: vi.fn(async () => ({ day: 'ok' })),
+      getLatestTransactionPeriod: vi.fn(async () => ({
         year: 2025,
         month: 1,
       })),
-      generateMonthlyReport: jest.fn(),
-      generateCustomReport: jest.fn(async () => ({ ok: true })),
-      exportReport: jest.fn(async () => ({
+      generateMonthlyReport: vi.fn(),
+      generateCustomReport: vi.fn(async () => ({ ok: true })),
+      exportReport: vi.fn(async () => ({
         filePath: '/tmp/report.csv',
         fileName: 'r.csv',
       })),
     };
     const res = new PassThrough() as any;
-    res.setHeader = jest.fn();
+    res.setHeader = vi.fn();
     const controller = new ReportsController(reportsService as any);
     const workspaceId = 'ws-1';
 
@@ -83,14 +85,14 @@ describe('ReportsController', () => {
     (fs.unlinkSync as any).mockClear();
 
     const reportsService = {
-      generateFromTemplate: jest.fn(async () => ({
+      generateFromTemplate: vi.fn(async () => ({
         filePath: '/uploads/reports/pnl.xlsx',
         fileName: 'pnl.xlsx',
         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       })),
     };
     const res = new PassThrough() as any;
-    res.setHeader = jest.fn();
+    res.setHeader = vi.fn();
     const controller = new ReportsController(reportsService as any);
     const dto = {
       templateId: 'pnl',
@@ -110,7 +112,7 @@ describe('ReportsController', () => {
   });
 
   it('getHistory is scoped by workspace, not by user', async () => {
-    const reportsService = { getReportHistory: jest.fn(async () => []) };
+    const reportsService = { getReportHistory: vi.fn(async () => []) };
     const controller = new ReportsController(reportsService as any);
 
     await controller.getHistory({ id: 'u1' } as any, 'ws-1');
@@ -124,29 +126,29 @@ describe('ReportsController', () => {
     (fs.createReadStream as any).mockReturnValue(stream);
 
     const reportsService = {
-      getStatementsSummary: jest.fn(),
-      getCustomTablesSummary: jest.fn(),
-      getLatestTransactionDate: jest.fn(),
-      generateDailyReport: jest.fn(),
-      getLatestTransactionPeriod: jest.fn(),
-      generateMonthlyReport: jest.fn(),
-      generateCustomReport: jest.fn(),
-      exportReport: jest.fn(),
-      downloadHistoryReport: jest.fn(async () => ({
+      getStatementsSummary: vi.fn(),
+      getCustomTablesSummary: vi.fn(),
+      getLatestTransactionDate: vi.fn(),
+      generateDailyReport: vi.fn(),
+      getLatestTransactionPeriod: vi.fn(),
+      generateMonthlyReport: vi.fn(),
+      generateCustomReport: vi.fn(),
+      exportReport: vi.fn(),
+      downloadHistoryReport: vi.fn(async () => ({
         filePath: '/tmp/history.xlsx',
         fileName: 'history.xlsx',
         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       })),
     };
     const res = new PassThrough() as any;
-    res.setHeader = jest.fn();
+    res.setHeader = vi.fn();
     const controller = new ReportsController(reportsService as any);
     const workspaceId = 'ws-1';
 
     await (controller as any).downloadHistoryReport(
       { id: 'u1' } as any,
       workspaceId,
-      'report-1',
+      { reportId: 'report-1' },
       res,
     );
 
@@ -167,22 +169,22 @@ describe('ReportsController', () => {
     (fs.createReadStream as any).mockReturnValue(stream);
 
     const reportsService = {
-      getStatementsSummary: jest.fn(),
-      getCustomTablesSummary: jest.fn(),
-      getLatestTransactionDate: jest.fn(),
-      generateDailyReport: jest.fn(),
-      getLatestTransactionPeriod: jest.fn(),
-      generateMonthlyReport: jest.fn(),
-      generateCustomReport: jest.fn(),
-      exportReport: jest.fn(),
-      exportWorkspaceTransactions: jest.fn(async () => ({
+      getStatementsSummary: vi.fn(),
+      getCustomTablesSummary: vi.fn(),
+      getLatestTransactionDate: vi.fn(),
+      generateDailyReport: vi.fn(),
+      getLatestTransactionPeriod: vi.fn(),
+      generateMonthlyReport: vi.fn(),
+      generateCustomReport: vi.fn(),
+      exportReport: vi.fn(),
+      exportWorkspaceTransactions: vi.fn(async () => ({
         filePath: '/tmp/workspace.docx',
         fileName: 'workspace.docx',
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       })),
     };
     const res = new PassThrough() as any;
-    res.setHeader = jest.fn();
+    res.setHeader = vi.fn();
     const controller = new ReportsController(reportsService as any);
 
     await (controller as any).exportWorkspaceTransactions(
@@ -212,14 +214,14 @@ describe('ReportsController', () => {
     (fs.createReadStream as any).mockReturnValue(stream);
 
     const reportsService = {
-      exportWorkspaceTransactions: jest.fn(async () => ({
+      exportWorkspaceTransactions: vi.fn(async () => ({
         filePath: '/tmp/workspace.xlsx',
         fileName: 'workspace.xlsx',
         mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       })),
     };
     const res = new PassThrough() as any;
-    res.setHeader = jest.fn();
+    res.setHeader = vi.fn();
     const controller = new ReportsController(reportsService as any);
 
     await (controller as any).exportWorkspaceTransactions(
@@ -235,15 +237,15 @@ describe('ReportsController', () => {
 
   it('getTopCategories delegates to reports service', async () => {
     const reportsService = {
-      getStatementsSummary: jest.fn(),
-      getCustomTablesSummary: jest.fn(),
-      getLatestTransactionDate: jest.fn(),
-      generateDailyReport: jest.fn(),
-      getLatestTransactionPeriod: jest.fn(),
-      generateMonthlyReport: jest.fn(),
-      generateCustomReport: jest.fn(),
-      exportReport: jest.fn(),
-      getTopCategoriesReport: jest.fn(async () => ({ categories: [] })),
+      getStatementsSummary: vi.fn(),
+      getCustomTablesSummary: vi.fn(),
+      getLatestTransactionDate: vi.fn(),
+      generateDailyReport: vi.fn(),
+      getLatestTransactionPeriod: vi.fn(),
+      generateMonthlyReport: vi.fn(),
+      generateCustomReport: vi.fn(),
+      exportReport: vi.fn(),
+      getTopCategoriesReport: vi.fn(async () => ({ categories: [] })),
     };
     const controller = new ReportsController(reportsService as any);
     const workspaceId = 'ws-1';
@@ -265,16 +267,16 @@ describe('ReportsController', () => {
 
   it('getSpendOverTime delegates to reports service', async () => {
     const reportsService = {
-      getStatementsSummary: jest.fn(),
-      getCustomTablesSummary: jest.fn(),
-      getLatestTransactionDate: jest.fn(),
-      generateDailyReport: jest.fn(),
-      getLatestTransactionPeriod: jest.fn(),
-      generateMonthlyReport: jest.fn(),
-      generateCustomReport: jest.fn(),
-      exportReport: jest.fn(),
-      getTopCategoriesReport: jest.fn(),
-      getSpendOverTimeReport: jest.fn(async () => ({ points: [] })),
+      getStatementsSummary: vi.fn(),
+      getCustomTablesSummary: vi.fn(),
+      getLatestTransactionDate: vi.fn(),
+      generateDailyReport: vi.fn(),
+      getLatestTransactionPeriod: vi.fn(),
+      generateMonthlyReport: vi.fn(),
+      generateCustomReport: vi.fn(),
+      exportReport: vi.fn(),
+      getTopCategoriesReport: vi.fn(),
+      getSpendOverTimeReport: vi.fn(async () => ({ points: [] })),
     };
     const controller = new ReportsController(reportsService as any);
     const workspaceId = 'ws-1';
@@ -304,7 +306,7 @@ describe('ReportsController', () => {
 
   it('getCustomTablesReport delegates to reports service', async () => {
     const reportsService = {
-      getCustomTablesReport: jest.fn(async () => ({ aggregatedRows: [] })),
+      getCustomTablesReport: vi.fn(async () => ({ aggregatedRows: [] })),
     };
     const controller = new ReportsController(reportsService as any);
 
@@ -323,7 +325,7 @@ describe('ReportsController', () => {
 
   it('getCustomTablesReportDrillDown delegates to reports service', async () => {
     const reportsService = {
-      getCustomTablesReportDrillDown: jest.fn(async () => ({ items: [] })),
+      getCustomTablesReportDrillDown: vi.fn(async () => ({ items: [] })),
     };
     const controller = new ReportsController(reportsService as any);
 
@@ -341,7 +343,7 @@ describe('ReportsController', () => {
 
   it('getAvailableCustomTables delegates to reports service', async () => {
     const reportsService = {
-      getAvailableCustomTables: jest.fn(async () => [{ id: 'table-1' }]),
+      getAvailableCustomTables: vi.fn(async () => [{ id: 'table-1' }]),
     };
     const controller = new ReportsController(reportsService as any);
 

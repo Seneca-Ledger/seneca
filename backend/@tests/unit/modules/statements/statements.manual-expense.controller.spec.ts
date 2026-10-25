@@ -1,20 +1,20 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
-import { StatementsController } from '@/modules/statements/statements.controller';
+import { StatementUploadsController } from '@/modules/statements/statement-uploads.controller';
 
-describe('StatementsController manual expense', () => {
+describe('StatementUploadsController manual expense', () => {
   it('delegates manual expense creation to the service', async () => {
     const statementsService = {
-      createManualExpense: jest.fn().mockResolvedValue({ id: 'manual-statement-1' }),
+      createManualExpense: vi.fn().mockResolvedValue({ id: 'manual-statement-1' }),
     };
     const idempotencyService = {
-      checkKey: jest.fn(),
-      storeKey: jest.fn(),
+      checkKey: vi.fn(),
+      storeKey: vi.fn(),
     };
 
-    const controller = new StatementsController(
+    const controller = new StatementUploadsController(
       statementsService as any,
       idempotencyService as any,
     );
@@ -44,15 +44,15 @@ describe('StatementsController manual expense', () => {
 
   it('delegates statement file attach to the service', async () => {
     const statementsService = {
-      createManualExpense: jest.fn(),
-      attachFile: jest.fn().mockResolvedValue({ id: 'statement-1' }),
+      createManualExpense: vi.fn(),
+      attachFile: vi.fn().mockResolvedValue({ id: 'statement-1' }),
     };
     const idempotencyService = {
-      checkKey: jest.fn(),
-      storeKey: jest.fn(),
+      checkKey: vi.fn(),
+      storeKey: vi.fn(),
     };
 
-    const controller = new StatementsController(
+    const controller = new StatementUploadsController(
       statementsService as any,
       idempotencyService as any,
     );
@@ -66,7 +66,7 @@ describe('StatementsController manual expense', () => {
       path: '/tmp/receipt.pdf',
     } as Express.Multer.File;
 
-    const result = await controller.attachFile('statement-1', file, user, workspaceId);
+    const result = await controller.attachFile({ id: 'statement-1' }, file, user, workspaceId);
 
     expect(statementsService.attachFile).toHaveBeenCalledWith(
       'statement-1',

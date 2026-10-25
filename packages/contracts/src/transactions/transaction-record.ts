@@ -1,0 +1,65 @@
+import * as Schema from 'effect/Schema';
+import { DateOnly, DecimalString, type Wire } from '../common/wire';
+import { PayeeRef } from '../payees/payees';
+import { TransactionListItem } from './transaction-list';
+
+/**
+ * One transaction as stored: `GET /transactions/:id` and the writes that
+ * answer rows (`PUT /transactions/:id`, split, unsplit, bulk update). A
+ * private row of someone else's arrives redacted, its payee null.
+ */
+export const TransactionRecord = Schema.Struct({
+  ...TransactionListItem.fields,
+  payeeId: Schema.NullOr(Schema.String),
+  payee: Schema.NullOr(PayeeRef),
+  categorySource: Schema.NullOr(
+    Schema.Literals(['manual', 'rule', 'keyword', 'learned', 'history', 'ai', 'default']),
+  ),
+  /** The parts of one split share the group; `splitIndex` orders them. */
+  splitGroupId: Schema.NullOr(Schema.String),
+  splitIndex: Schema.NullOr(Schema.Number),
+  isDuplicate: Schema.Boolean,
+});
+export type TransactionRecord = Wire<typeof TransactionRecord>;
+
+/** `GET /transactions/:id/split`, `POST /transactions/:id/split` and `POST /transactions/bulk-update`. */
+export const TransactionRecordList = Schema.Array(TransactionRecord);
+export type TransactionRecordList = Wire<typeof TransactionRecordList>;
+
+/** `POST /transactions/duplicates/merge`: the row the others now duplicate. */
+export const DuplicatesMerged = Schema.Struct({
+  success: Schema.Boolean,
+  master: Schema.Struct({
+    id: Schema.String,
+    date: DateOnly,
+    amount: Schema.NullOr(DecimalString),
+    counterparty: Schema.String,
+  }),
+});
+export type DuplicatesMerged = Wire<typeof DuplicatesMerged>;
+
+/** `POST /transactions/:id/unmark-duplicate`. */
+export const DuplicateUnmarked = Schema.Struct({
+  success: Schema.Boolean,
+  transaction: Schema.Struct({ id: Schema.String, isDuplicate: Schema.Boolean }),
+});
+export type DuplicateUnmarked = Wire<typeof DuplicateUnmarked>;
+
+/** `POST /transactions/transfers/detect`: pairs found and pairs written. */
+export const TransfersDetected = Schema.Struct({ found: Schema.Number, paired: Schema.Number });
+export type TransfersDetected = Wire<typeof TransfersDetected>;
+
+/** `POST /transactions/:id/link-transfer`. */
+export const TransferLinked = Schema.Struct({ transferPairId: Schema.String });
+export type TransferLinked = Wire<typeof TransferLinked>;
+
+/** `POST /transactions/:id/link-reimbursement`: `full` when the income covers the whole expense. */
+export const ReimbursementLinked = Schema.Struct({
+  full: Schema.Boolean,
+  transferPairId: Schema.NullOr(Schema.String),
+});
+export type ReimbursementLinked = Wire<typeof ReimbursementLinked>;
+
+/** `POST /transactions/:id/unlink-transfer` and `/unlink-reimbursement`. */
+export const PairUnlinked = Schema.Struct({ unlinked: Schema.Boolean });
+export type PairUnlinked = Wire<typeof PairUnlinked>;

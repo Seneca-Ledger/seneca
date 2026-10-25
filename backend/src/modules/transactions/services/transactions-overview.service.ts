@@ -155,7 +155,11 @@ export class TransactionsOverviewService {
       pairIds.length > 0
         ? await this.transactionRepository.find({
             where: { workspaceId, transferPairId: In(pairIds) },
-            select: ['id', 'transferPairId', 'walletId'],
+            select: {
+              id: true,
+              transferPairId: true,
+              walletId: true,
+            },
           })
         : [];
     const walletNames = await this.walletNames(
@@ -259,7 +263,10 @@ export class TransactionsOverviewService {
     }
     const wallets = await this.walletRepository.find({
       where: { workspaceId, id: In(wanted) },
-      select: ['id', 'name'],
+      select: {
+        id: true,
+        name: true,
+      },
     });
     return new Map(wallets.map(wallet => [wallet.id, wallet.name]));
   }

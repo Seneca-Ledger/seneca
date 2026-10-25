@@ -2,25 +2,25 @@ import { AuditAction, EntityType, Severity } from '../../../../src/entities/audi
 import { WebhookEvent } from '../../../../src/entities/webhook-subscription.entity';
 import { WebhookSubscriptionsService } from '../../../../src/modules/webhooks/services/webhook-subscriptions.service';
 
-jest.mock('../../../../src/common/utils/egress-url.util', () => ({
-  assertPublicEgressUrl: jest.fn().mockResolvedValue(undefined),
+vi.mock('../../../../src/common/utils/egress-url.util', () => ({
+  assertPublicEgressUrl: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('WebhookSubscriptionsService audit events', () => {
   const SECRET = 'super-signing-secret-123';
   const repo = {
-    create: jest.fn((e: any) => ({ ...e })),
-    save: jest.fn(async (e: any) => ({ id: 'sub-1', isActive: true, ...e })),
-    findOne: jest.fn(),
-    delete: jest.fn(),
+    create: vi.fn((e: any) => ({ ...e })),
+    save: vi.fn(async (e: any) => ({ id: 'sub-1', isActive: true, ...e })),
+    findOne: vi.fn(),
+    delete: vi.fn(),
   };
-  const auditService = { createEvent: jest.fn() };
+  const auditService = { createEvent: vi.fn() };
   let service: WebhookSubscriptionsService;
 
   const payload = () => JSON.stringify(auditService.createEvent.mock.calls);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     auditService.createEvent.mockResolvedValue({});
     service = new WebhookSubscriptionsService(repo as any, auditService as any);
   });

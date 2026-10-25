@@ -163,7 +163,15 @@ export function CryptoTransactionsTable({
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ px: 2, pt: 2, pb: 1 }}>
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 600,
+          px: 2,
+          pt: 2,
+          pb: 1,
+        }}
+      >
         {labels.title}
       </Typography>
       {body}

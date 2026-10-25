@@ -5,6 +5,7 @@ import type { LookupFunction } from 'node:net';
 import * as net from 'node:net';
 import { BadRequestException } from '@nestjs/common';
 import { Agent as UndiciAgent } from 'undici';
+import { appError } from '../errors/app-error';
 
 type LookupResult = Array<{ address: string }>;
 type LookupFn = (host: string) => Promise<LookupResult>;
@@ -78,12 +79,12 @@ export async function assertPublicEgressHost(
 ): Promise<void> {
   const normalizedHost = host.trim().replace(/^\[|\]$/g, '');
   if (!normalizedHost || normalizedHost.toLowerCase() === 'localhost') {
-    throw new BadRequestException('Destination host is not allowed');
+    throw new BadRequestException(appError('EGRESS_HOST_NOT_ALLOWED'));
   }
 
   if (net.isIP(normalizedHost)) {
     if (isBlockedEgressAddress(normalizedHost)) {
-      throw new BadRequestException('Destination address is not allowed');
+      throw new BadRequestException(appError('EGRESS_ADDRESS_NOT_ALLOWED'));
     }
     return;
   }
@@ -91,10 +92,10 @@ export async function assertPublicEgressHost(
   const lookup = options.lookup || (async (name: string) => dns.lookup(name, { all: true }));
   // A name that does not resolve is the caller's typo, not a server failure.
   const records = await lookup(normalizedHost).catch(() => {
-    throw new BadRequestException('Destination host cannot be resolved');
+    throw new BadRequestException(appError('EGRESS_HOST_UNRESOLVED'));
   });
   if (records.length === 0 || records.some(record => isBlockedEgressAddress(record.address))) {
-    throw new BadRequestException('Destination resolves to a blocked address');
+    throw new BadRequestException(appError('EGRESS_ADDRESS_BLOCKED'));
   }
 }
 
@@ -106,11 +107,11 @@ export async function assertPublicEgressUrl(
   try {
     parsed = new URL(value);
   } catch {
-    throw new BadRequestException('Destination URL is invalid');
+    throw new BadRequestException(appError('EGRESS_URL_INVALID'));
   }
 
   if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new BadRequestException('Destination URL protocol is not allowed');
+    throw new BadRequestException(appError('EGRESS_PROTOCOL_NOT_ALLOWED'));
   }
 
   await assertPublicEgressHost(parsed.hostname, options);
@@ -190,8 +191,8 @@ export function createPublicEgressHttpAgents() {
  * Connects fetches only to addresses that pass the same check as the URL, so a
  * resolver cannot answer the validation with a public address and the socket
  * with a private one (DNS rebinding). There is no fallback to an unchecked
- * lookup. The undici major matches the one Node 20 bundles, which global fetch
- * requires of a dispatcher.
+ * lookup. The undici major must match the one Node bundles (7 on Node 24):
+ * global fetch takes no other dispatcher.
  */
 const publicEgressDispatcher = new UndiciAgent({
   connect: { lookup: createPublicEgressLookup() },
@@ -243,7 +244,7 @@ export async function fetchPublicUrl(
   }
 
   if (redirectsLeft <= 0) {
-    throw new BadRequestException('Destination redirected too many times');
+    throw new BadRequestException(appError('EGRESS_TOO_MANY_REDIRECTS'));
   }
 
   const target = new URL(location, normalizedUrl).toString();

@@ -82,7 +82,9 @@ export class CustomTableCommentsService {
     await this.requireRow(workspaceId, tableId, rowId);
     const comments = await this.commentRepository.find({
       where: { rowId, tableId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
       order: { createdAt: 'ASC' },
     });
     return comments.map(comment => this.toView(comment));
@@ -116,7 +118,9 @@ export class CustomTableCommentsService {
     );
     const withAuthor = await this.commentRepository.findOne({
       where: { id: saved.id },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
     return this.toView(withAuthor ?? saved);
   }
@@ -130,7 +134,9 @@ export class CustomTableCommentsService {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const comment = await this.commentRepository.findOne({
       where: { id: commentId, workspaceId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
     if (!comment) {
       throw new NotFoundException(appError('COMMENT_NOT_FOUND'));

@@ -139,7 +139,9 @@ export function DisclaimerGate({
             onChange={event => setChecked(event.target.checked)}
             disabled={submitting}
             sx={{ p: 0, mt: '2px' }}
-            inputProps={{ 'aria-label': consentLabel }}
+            slotProps={{
+              input: { 'aria-label': consentLabel },
+            }}
           />
           <Typography sx={{ fontSize: 14, lineHeight: 1.6, color: 'var(--foreground)' }}>
             {consentLabel}
@@ -165,7 +167,13 @@ export function DisclaimerGate({
           }}
         >
           {submitting ? (
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: 'center',
+              }}
+            >
               <CircularProgress size={16} color="inherit" />
               <span>{savingLabel}</span>
             </Stack>

@@ -1,4 +1,4 @@
-/// <reference types="jest" />
+/// <reference types="vitest/globals" />
 
 import * as fs from 'fs';
 import * as path from 'path';

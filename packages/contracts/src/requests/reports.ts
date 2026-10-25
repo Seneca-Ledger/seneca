@@ -4,6 +4,8 @@ import * as Struct from 'effect/Struct';
 import { Email, IsoDateString, NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
+const Uuid = Schema.String.check(Schema.isUUID());
+
 export const CustomTablesBaseQueryInput = Schema.Struct({
   days: optionalNullable(
     NumericInput.check(
@@ -155,3 +157,40 @@ export const UpdateReportScheduleActiveBody = Schema.Struct({
   isActive: Schema.Boolean,
 });
 export type UpdateReportScheduleActiveBody = Wire<typeof UpdateReportScheduleActiveBody>;
+
+export const ReportHistoryParams = Schema.Struct({ reportId: Uuid });
+export type ReportHistoryParams = Wire<typeof ReportHistoryParams>;
+
+export const ReportScheduleParams = Schema.Struct({ scheduleId: Uuid });
+export type ReportScheduleParams = Wire<typeof ReportScheduleParams>;
+
+/** `GET /reports/statements/summary`: the last `days`, default 30. */
+export const StatementsSummaryQuery = Schema.Struct({
+  days: Schema.optional(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
+});
+export type StatementsSummaryQuery = Wire<typeof StatementsSummaryQuery>;
+
+/** `GET /reports/daily`: a day, or `latest` (also the default) for the last day with transactions. */
+export const DailyReportQuery = Schema.Struct({
+  date: Schema.optional(Schema.Union([Schema.Literal('latest'), IsoDateString])),
+});
+export type DailyReportQuery = Wire<typeof DailyReportQuery>;
+
+/** `GET /reports/monthly`: defaults to the latest month with transactions. */
+export const MonthlyReportQuery = Schema.Struct({
+  year: Schema.optional(
+    NumericInput.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(1900),
+      Schema.isLessThanOrEqualTo(2100),
+    ),
+  ),
+  month: Schema.optional(
+    NumericInput.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(1),
+      Schema.isLessThanOrEqualTo(12),
+    ),
+  ),
+});
+export type MonthlyReportQuery = Wire<typeof MonthlyReportQuery>;

@@ -1,19 +1,20 @@
+import type { Mock } from 'vitest';
 import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { SmbService } from '../../../../src/modules/smb/smb.service';
 
 function queryBuilder() {
-  const qb: Record<string, jest.Mock> = {};
+  const qb: Record<string, Mock> = {};
   for (const method of ['leftJoin', 'select', 'where', 'andWhere']) {
-    qb[method] = jest.fn(() => qb);
+    qb[method] = vi.fn(() => qb);
   }
-  qb.getRawMany = jest.fn(async () => []);
+  qb.getRawMany = vi.fn(async () => []);
   return qb;
 }
 
 describe('SmbService bank rows', () => {
   it('reconciles bills against confirmed bank rows only', async () => {
     const qb = queryBuilder();
-    const transactionRepository = { createQueryBuilder: jest.fn(() => qb) };
+    const transactionRepository = { createQueryBuilder: vi.fn(() => qb) };
     const service = new SmbService(
       {} as never,
       transactionRepository as never,

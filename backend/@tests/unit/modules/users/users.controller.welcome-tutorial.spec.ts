@@ -4,7 +4,7 @@ import { UsersController } from '@/modules/users/users.controller';
 describe('UsersController welcome tutorial', () => {
   it('marks the tutorial seen for the caller and returns only the timestamp', async () => {
     const seenAt = new Date('2026-09-25T12:00:00.000Z');
-    const usersService = { markWelcomeTutorialSeen: jest.fn(async () => seenAt) };
+    const usersService = { markWelcomeTutorialSeen: vi.fn(async () => seenAt) };
     const controller = new UsersController(
       usersService as any,
       {} as any,

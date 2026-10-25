@@ -1,17 +1,18 @@
+import type { Mock } from 'vitest';
 import { buildContentDisposition } from '@/common/utils/http-file.util';
 import { pipeFileStreamResponse } from '@/common/utils/stream-response.util';
 
 type MockResponse = {
   headersSent: boolean;
-  setHeader: jest.Mock;
-  status: jest.Mock;
-  json: jest.Mock;
-  destroy: jest.Mock;
+  setHeader: Mock;
+  status: Mock;
+  json: Mock;
+  destroy: Mock;
 };
 
 type MockStream = {
-  on: jest.Mock;
-  pipe: jest.Mock;
+  on: Mock;
+  pipe: Mock;
   emitError: (error: NodeJS.ErrnoException) => void;
 };
 
@@ -19,10 +20,10 @@ describe('pipeFileStreamResponse', () => {
   const createResponse = (): MockResponse => {
     const response: MockResponse = {
       headersSent: false,
-      setHeader: jest.fn(),
-      status: jest.fn(),
-      json: jest.fn(),
-      destroy: jest.fn(),
+      setHeader: vi.fn(),
+      status: vi.fn(),
+      json: vi.fn(),
+      destroy: vi.fn(),
     };
 
     response.status.mockReturnValue(response);
@@ -34,10 +35,10 @@ describe('pipeFileStreamResponse', () => {
     const handlers: Record<string, (error: NodeJS.ErrnoException) => void> = {};
 
     return {
-      on: jest.fn((event: string, handler: (error: NodeJS.ErrnoException) => void) => {
+      on: vi.fn((event: string, handler: (error: NodeJS.ErrnoException) => void) => {
         handlers[event] = handler;
       }),
-      pipe: jest.fn(),
+      pipe: vi.fn(),
       emitError: (error: NodeJS.ErrnoException) => handlers.error?.(error),
     };
   };

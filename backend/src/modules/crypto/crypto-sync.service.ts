@@ -523,7 +523,11 @@ export class CryptoSyncService {
         cryptoLeg: 'value',
         transferPairId: IsNull(),
       },
-      select: ['id', 'cryptoTxHash', 'transactionType'],
+      select: {
+        id: true,
+        cryptoTxHash: true,
+        transactionType: true,
+      },
     });
 
     const byHash = new Map<string, Transaction[]>();
@@ -553,7 +557,9 @@ export class CryptoSyncService {
   private async getWorkspaceAddresses(workspaceId: string, chainId: number): Promise<string[]> {
     const wallets = await this.walletRepo.find({
       where: { workspaceId, chainId },
-      select: ['address'],
+      select: {
+        address: true,
+      },
     });
     return wallets.flatMap(wallet => (wallet.address ? [wallet.address] : []));
   }
@@ -561,7 +567,10 @@ export class CryptoSyncService {
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['id', 'currency'],
+      select: {
+        id: true,
+        currency: true,
+      },
     });
     return currencyCodeOrDefault(workspace?.currency);
   }

@@ -97,7 +97,9 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <AuditFilterBar filters={auditFilters} onFiltersChange={handleFiltersChange} />
+        <div data-tour-id="admin-audit-filters">
+          <AuditFilterBar filters={auditFilters} onFiltersChange={handleFiltersChange} />
+        </div>
 
         {auditError && (
           <div

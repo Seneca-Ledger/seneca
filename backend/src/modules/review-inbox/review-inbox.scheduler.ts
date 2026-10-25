@@ -33,7 +33,9 @@ export class ReviewInboxScheduler {
     // Nothing in a past version waits for anyone: it cannot be changed.
     const workspaces = await this.workspaceRepository.find({
       where: { kind: WorkspaceKind.STANDARD },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     for (const workspace of workspaces) {
       try {

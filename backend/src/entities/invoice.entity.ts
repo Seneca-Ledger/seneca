@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Client } from './client.entity';
@@ -54,14 +55,14 @@ export class Invoice {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Client, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'client_id' })
-  client: Client;
+  client: Relation<Client>;
 
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
@@ -182,7 +183,7 @@ export class Invoice {
     () => InvoiceLineItem,
     lineItem => lineItem.invoice,
   )
-  lineItems: InvoiceLineItem[];
+  lineItems: Relation<InvoiceLineItem[]>;
 
   /**
    * Read models only, filled from the receivable's payments: what has arrived

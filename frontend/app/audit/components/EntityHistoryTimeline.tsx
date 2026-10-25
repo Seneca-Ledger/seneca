@@ -87,7 +87,13 @@ function TimelineEventItem({
         <Box
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
         >
-          <Typography variant="body2" fontWeight={600} style={{ color: 'var(--foreground)' }}>
+          <Typography
+            variant="body2"
+            style={{ color: 'var(--foreground)' }}
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {event.action.replace(/_/g, ' ')}
           </Typography>
           <Typography variant="caption" style={{ color: 'var(--muted-foreground)' }}>

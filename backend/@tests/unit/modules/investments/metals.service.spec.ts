@@ -1,3 +1,4 @@
+import * as nodeFs from 'node:fs';
 import {
   InvestmentAssetClass,
   InvestmentMetal,
@@ -30,22 +31,22 @@ function build(
   const saved: Lot[] = [];
   const savedSales: Lot[] = [];
   const accountRepository = {
-    findOne: jest.fn(async () => ({ id: 'acc-1', workspaceId: WORKSPACE })),
-    findOneByOrFail: jest.fn(async () => ({ id: 'acc-1', workspaceId: WORKSPACE })),
-    update: jest.fn(async () => undefined),
+    findOne: vi.fn(async () => ({ id: 'acc-1', workspaceId: WORKSPACE })),
+    findOneByOrFail: vi.fn(async () => ({ id: 'acc-1', workspaceId: WORKSPACE })),
+    update: vi.fn(async () => undefined),
   };
   const holdingRepository = {
-    create: jest.fn((lot: Lot) => ({ ...lot, id: 'lot-1' })),
-    save: jest.fn(async (lot: Lot) => {
+    create: vi.fn((lot: Lot) => ({ ...lot, id: 'lot-1' })),
+    save: vi.fn(async (lot: Lot) => {
       saved.push(lot);
       return lot;
     }),
-    find: jest.fn(async () => options.lots ?? []),
-    findOne: jest.fn(async () => (options.lots ?? [])[0] ?? null),
-    remove: jest.fn(async () => undefined),
+    find: vi.fn(async () => options.lots ?? []),
+    findOne: vi.fn(async () => (options.lots ?? [])[0] ?? null),
+    remove: vi.fn(async () => undefined),
   };
   const workspaceRepository = {
-    findOne: jest.fn(async () => ({
+    findOne: vi.fn(async () => ({
       id: WORKSPACE,
       currency: 'EUR',
       taxJurisdiction:
@@ -53,13 +54,13 @@ function build(
     })),
   };
   const saleRepository = {
-    create: jest.fn((sale: Lot) => ({ ...sale, id: 'sale-1', createdAt: new Date() })),
-    save: jest.fn(async (sale: Lot) => {
+    create: vi.fn((sale: Lot) => ({ ...sale, id: 'sale-1', createdAt: new Date() })),
+    save: vi.fn(async (sale: Lot) => {
       savedSales.push(sale);
       return sale;
     }),
-    find: jest.fn(async () => options.sales ?? []),
-    update: jest.fn(async () => ({ affected: 1 })),
+    find: vi.fn(async () => options.sales ?? []),
+    update: vi.fn(async () => ({ affected: 1 })),
   };
   // Stateful on purpose: saving settings re-reads them, and a mock that forgets
   // the write would pass a service that never persisted anything.
@@ -67,37 +68,37 @@ function build(
     ? { config: { dealerDiscount: { ...options.discounts } } }
     : null;
   const memberRepository = {
-    findOne: jest.fn(async () => (options.members ?? [])[0] ?? null),
+    findOne: vi.fn(async () => (options.members ?? [])[0] ?? null),
   };
   const receiptRepository = {
-    find: jest.fn(async () => options.receipts ?? []),
-    findOne: jest.fn(async () => (options.receipts ?? [])[0] ?? null),
+    find: vi.fn(async () => options.receipts ?? []),
+    findOne: vi.fn(async () => (options.receipts ?? [])[0] ?? null),
   };
   const settingsRepository = {
-    findOne: jest.fn(async () => settingsRow),
-    create: jest.fn((row: Lot) => row),
-    save: jest.fn(async (row: Lot) => {
+    findOne: vi.fn(async () => settingsRow),
+    create: vi.fn((row: Lot) => row),
+    save: vi.fn(async (row: Lot) => {
       settingsRow = row;
       return row;
     }),
   };
-  const balanceService = { seedDefaultAccounts: jest.fn(async () => undefined) };
+  const balanceService = { seedDefaultAccounts: vi.fn(async () => undefined) };
   const exchangeRatesService = {
-    getRateQuote: jest.fn(async (_from: string, _to: string, date?: string) => {
+    getRateQuote: vi.fn(async (_from: string, _to: string, date?: string) => {
       if (date && options.quoteByDate) {
         const rate = options.quoteByDate[date];
         return rate === undefined ? null : { rate, rateDate: date, stale: false };
       }
       return options.quote ?? { rate: SPOT_EUR, rateDate: '2026-10-04', stale: false };
     }),
-    getRateOrNull: jest.fn(async (_from: string, _to: string, date?: string) => {
+    getRateOrNull: vi.fn(async (_from: string, _to: string, date?: string) => {
       if (options.ratesByDate) {
         return options.ratesByDate[date ?? 'today'] ?? null;
       }
       return options.rate === undefined ? 1 : options.rate;
     }),
   };
-  const investmentsService = { writeSnapshot: jest.fn(async () => undefined) };
+  const investmentsService = { writeSnapshot: vi.fn(async () => undefined) };
   const service = new MetalsService(
     accountRepository as never,
     holdingRepository as never,
@@ -393,7 +394,7 @@ describe('MetalsService', () => {
   });
 
   it('serves the photo from the uploads path and removes the one it replaces', async () => {
-    const unlink = jest.spyOn(require('node:fs').promises, 'unlink').mockResolvedValue(undefined);
+    const unlink = vi.spyOn(nodeFs.promises, 'unlink').mockResolvedValue(undefined);
     const { service } = build({ lots: [krugerrands({ photoFile: 'old.jpg' })] });
 
     const lot = await service.setPhoto(WORKSPACE, 'lot-1', 'new.webp');
@@ -485,7 +486,7 @@ describe('MetalsService', () => {
   });
 
   it('takes the photo with the lot, whether it is deleted or sold out', async () => {
-    const unlink = jest.spyOn(require('node:fs').promises, 'unlink').mockResolvedValue(undefined);
+    const unlink = vi.spyOn(nodeFs.promises, 'unlink').mockResolvedValue(undefined);
 
     const deleted = build({ lots: [krugerrands({ photoFile: 'gone.jpg' })] });
     await deleted.service.deleteLot(USER, WORKSPACE, 'lot-1');

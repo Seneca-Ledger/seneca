@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
+import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
@@ -48,6 +49,7 @@ export function useDashboard(
   controlledDate?: string,
 ): DashboardState {
   const workspaceId = useWorkspaceId();
+  const t = useIntlayer('dashboardPage');
   const [range, setRange] = useState<DashboardRange>(controlledRange);
   const [targetDate, setTargetDate] = useState<string | null>(controlledDate ?? null);
 
@@ -89,7 +91,7 @@ export function useDashboard(
     data: query.data,
     isPending: query.isPending,
     isFetching: query.isFetching,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load dashboard') : null,
+    error: query.isError ? getApiErrorMessage(query.error, t.error.load.value) : null,
     refetch,
     range,
     changeRange,

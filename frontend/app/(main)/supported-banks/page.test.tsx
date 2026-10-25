@@ -25,7 +25,7 @@ const content = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('next-intlayer', () => ({
+vi.mock('@/app/i18n', () => ({
   useIntlayer: () => content,
 }));
 
@@ -33,13 +33,16 @@ vi.mock('next/image', () => ({
   default: (props: React.ComponentProps<'img'>) => <img {...props} alt={props.alt ?? 'image'} />,
 }));
 
+// Imported once at collection: a dynamic import inside a test spends its
+// timeout on the module graph under a loaded run.
+import SupportedBanksPage from './page';
+
 describe('SupportedBanksPage', () => {
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   it('renders supported bank cards for Kaspi and Bereke', async () => {
-    const { default: SupportedBanksPage } = await import('./page');
     const container = document.createElement('div');
     const root = createRoot(container);
 
@@ -47,7 +50,8 @@ describe('SupportedBanksPage', () => {
       root.render(<SupportedBanksPage />);
     });
 
-    expect(container.textContent).toContain('Supported banks');
+    // The page heading lives in the app shell now; the card opens on the parser status.
+    expect(container.textContent).toContain('Parser is active');
     expect(container.textContent).toContain('Kaspi');
     expect(container.textContent).toContain('Bereke');
     expect(container.querySelector('[data-supported-bank="kaspi"]')).toBeTruthy();

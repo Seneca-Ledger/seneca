@@ -171,20 +171,42 @@ export default function AcceptInvitePage() {
       <Card variant="outlined">
         <CardContent>
           <Stack spacing={2}>
-            <Box display="flex" alignItems="center" gap={1}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
               <ShieldCheck size={24} />
-              <Typography variant="h5" fontWeight={700}>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 700,
+                }}
+              >
                 {t.title}
               </Typography>
             </Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.subtitle}
             </Typography>
 
             {invitationError && <Alert severity="error">{invitationError}</Alert>}
 
             {invitationLoading && (
-              <Box display="flex" justifyContent="center" py={2}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  py: 2,
+                }}
+              >
                 <Spinner size={40} />
               </Box>
             )}
@@ -215,7 +237,13 @@ export default function AcceptInvitePage() {
             {acceptError && <Alert severity="error">{acceptError}</Alert>}
             {acceptSuccess && <Alert severity="success">{acceptSuccess}</Alert>}
 
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                justifyContent: 'flex-end',
+              }}
+            >
               {authLoading ? (
                 <Spinner size={20} />
               ) : !user ? (

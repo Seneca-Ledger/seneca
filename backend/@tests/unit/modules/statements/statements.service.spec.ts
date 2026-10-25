@@ -1,3 +1,7 @@
+import type { Mock } from 'vitest';
+import * as filenameUtil from '@/common/utils/filename.util';
+import * as fileValidatorUtil from '@/common/utils/file-validator.util';
+import * as fileHashUtil from '@/common/utils/file-hash.util';
 import * as fs from 'fs';
 import { FileStorageService } from '@/common/services/file-storage.service';
 import { Category } from '@/entities/category.entity';
@@ -27,35 +31,35 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
 import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
-jest.mock('@/common/utils/file-hash.util');
-jest.mock('@/common/utils/file-validator.util');
-jest.mock('@/common/utils/filename.util');
+vi.mock('@/common/utils/file-hash.util');
+vi.mock('@/common/utils/file-validator.util');
+vi.mock('@/common/utils/filename.util');
 
 describe('StatementsService', () => {
   // create() оборачивает проверку дубликатов и вставку в транзакцию с advisory-lock;
   // менеджер прокидывает вызовы в тот же мок-репозиторий, чтобы ассерты не менялись.
   const statementRepositoryMock: Record<string, unknown> = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
-    delete: jest.fn(),
-    count: jest.fn(),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      getOne: jest.fn().mockResolvedValue(null),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+    delete: vi.fn(),
+    count: vi.fn(),
+    createQueryBuilder: vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue([]),
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      getOne: vi.fn().mockResolvedValue(null),
     })),
   };
   const statementManagerMock = {
-    query: jest.fn(),
-    getRepository: jest.fn(() => statementRepositoryMock),
-    transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(statementManagerMock)),
+    query: vi.fn(),
+    getRepository: vi.fn(() => statementRepositoryMock),
+    transaction: vi.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(statementManagerMock)),
   };
   statementRepositoryMock.manager = statementManagerMock;
 
@@ -114,70 +118,70 @@ describe('StatementsService', () => {
         {
           provide: getRepositoryToken(Transaction),
           useValue: {
-            create: jest.fn(),
-            createQueryBuilder: jest.fn(() => ({
-              select: jest.fn().mockReturnThis(),
-              where: jest.fn().mockReturnThis(),
-              andWhere: jest.fn().mockReturnThis(),
-              getQuery: jest
+            create: vi.fn(),
+            createQueryBuilder: vi.fn(() => ({
+              select: vi.fn().mockReturnThis(),
+              where: vi.fn().mockReturnThis(),
+              andWhere: vi.fn().mockReturnThis(),
+              getQuery: vi
                 .fn()
                 .mockReturnValue('SELECT transaction.statementId FROM transactions'),
-              getParameters: jest.fn().mockReturnValue({}),
+              getParameters: vi.fn().mockReturnValue({}),
             })),
-            find: jest.fn(),
-            save: jest.fn(),
-            delete: jest.fn(),
-            count: jest.fn(),
+            find: vi.fn(),
+            save: vi.fn(),
+            delete: vi.fn(),
+            count: vi.fn(),
           },
         },
         {
           provide: TaxAssignmentService,
-          useValue: { resolve: jest.fn(async () => ({})) },
+          useValue: { resolve: vi.fn(async () => ({})) },
         },
         {
           provide: AuditService,
           useValue: {
-            createEvent: jest.fn(),
+            createEvent: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(User),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Category),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(TaxRate),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Wallet),
-          useValue: { findOne: jest.fn(async () => null) },
+          useValue: { findOne: vi.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: {
-            findOne: jest.fn(),
+            findOne: vi.fn(),
           },
         },
         {
           provide: FileStorageService,
           useValue: {
-            deleteFile: jest.fn(),
-            getFileUrl: jest.fn(),
-            isOnDisk: jest.fn(),
-            resolveFilePath: jest.fn(),
-            getFileAvailability: jest.fn().mockResolvedValue({
+            deleteFile: vi.fn(),
+            getFileUrl: vi.fn(),
+            isOnDisk: vi.fn(),
+            resolveFilePath: vi.fn(),
+            getFileAvailability: vi.fn().mockResolvedValue({
               onDisk: true,
               inDb: true,
             }),
@@ -186,33 +190,33 @@ describe('StatementsService', () => {
         {
           provide: StatementProcessingService,
           useValue: {
-            processStatement: jest.fn(),
+            processStatement: vi.fn(),
           },
         },
         {
           provide: StatementParsingQueue,
           useValue: {
-            enqueue: jest.fn(),
+            enqueue: vi.fn(),
           },
         },
         {
           provide: ReceiptStatementService,
           useValue: {
-            createFromReceiptScan: jest.fn(),
+            createFromReceiptScan: vi.fn(),
           },
         },
         {
           provide: CACHE_MANAGER,
           useValue: {
-            get: jest.fn(),
-            set: jest.fn(),
-            del: jest.fn(),
+            get: vi.fn(),
+            set: vi.fn(),
+            del: vi.fn(),
           },
         },
         {
           provide: EventEmitter2,
           useValue: {
-            emit: jest.fn(),
+            emit: vi.fn(),
           },
         },
       ],
@@ -238,12 +242,12 @@ describe('StatementsService', () => {
     receiptStatementService = testingModule.get<ReceiptStatementService>(ReceiptStatementService);
 
     // Setup fs.promises mocks
-    jest.spyOn(fs.promises, 'readFile').mockResolvedValue(Buffer.from('test'));
-    jest.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined);
+    vi.spyOn(fs.promises, 'readFile').mockResolvedValue(Buffer.from('test'));
+    vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined);
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -256,22 +260,22 @@ describe('StatementsService', () => {
 
   describe('create', () => {
     beforeEach(() => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.ADMIN,
       } as WorkspaceMember);
-      const { calculateFileHash } = require('@/common/utils/file-hash.util');
+      const { calculateFileHash } = vi.mocked(fileHashUtil);
       calculateFileHash.mockResolvedValue('abc123');
-      const { getFileTypeFromMime } = require('@/common/utils/file-validator.util');
+      const { getFileTypeFromMime } = vi.mocked(fileValidatorUtil);
       getFileTypeFromMime.mockReturnValue(FileType.PDF);
-      const { normalizeFilename } = require('@/common/utils/filename.util');
+      const { normalizeFilename } = vi.mocked(filenameUtil);
       normalizeFilename.mockReturnValue('statement.pdf');
     });
 
     it('should create a new statement', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null); // No duplicate
-      jest.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(null); // No duplicate
+      vi.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
 
       const result = await service.create(
         mockUser as User,
@@ -284,7 +288,7 @@ describe('StatementsService', () => {
     });
 
     it('should detect duplicate files', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
 
       await expect(
         service.create(mockUser as User, mockUser.workspaceId as string, mockFile),
@@ -292,11 +296,11 @@ describe('StatementsService', () => {
     });
 
     it('should set status to UPLOADED initially', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
-      const createSpy = jest
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
+      const createSpy = vi
         .spyOn(statementRepository, 'create')
         .mockReturnValue(mockStatement as Statement);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
 
       await service.create(mockUser as User, mockUser.workspaceId as string, mockFile);
 
@@ -308,10 +312,10 @@ describe('StatementsService', () => {
     });
 
     it('should calculate file hash', async () => {
-      const { calculateFileHash } = require('@/common/utils/file-hash.util');
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
+      const { calculateFileHash } = vi.mocked(fileHashUtil);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
 
       await service.create(mockUser as User, mockUser.workspaceId as string, mockFile);
 
@@ -319,10 +323,10 @@ describe('StatementsService', () => {
     });
 
     it('should normalize filename', async () => {
-      const { normalizeFilename } = require('@/common/utils/filename.util');
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
+      const { normalizeFilename } = vi.mocked(filenameUtil);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
 
       await service.create(mockUser as User, mockUser.workspaceId as string, mockFile);
 
@@ -334,7 +338,7 @@ describe('StatementsService', () => {
         role: WorkspaceRole.MEMBER,
         permissions: { canEditStatements: false },
       } as WorkspaceMember;
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
 
       await expect(
         service.create(mockUser as User, mockUser.workspaceId as string, mockFile),
@@ -342,9 +346,9 @@ describe('StatementsService', () => {
     });
 
     it('should upload file to storage service', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
 
       await service.create(mockUser as User, mockUser.workspaceId as string, mockFile);
 
@@ -352,9 +356,9 @@ describe('StatementsService', () => {
     });
 
     it('should cleanup temp file after upload', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(statementRepository, 'create').mockReturnValue(mockStatement as Statement);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement as Statement);
 
       await service.create(mockUser as User, mockUser.workspaceId as string, mockFile);
 
@@ -366,43 +370,43 @@ describe('StatementsService', () => {
     const createQueryBuilderMock = <TData extends object>(
       data: TData[],
       total: number,
-      qbOverrides?: Partial<Record<string, jest.Mock>>,
+      qbOverrides?: Partial<Record<string, Mock>>,
     ) => {
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        setParameters: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(data[0] ?? null),
-        getManyAndCount: jest.fn().mockResolvedValue([data, total] as const),
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        setParameters: vi.fn().mockReturnThis(),
+        getOne: vi.fn().mockResolvedValue(data[0] ?? null),
+        getManyAndCount: vi.fn().mockResolvedValue([data, total] as const),
         ...qbOverrides,
       };
 
-      (statementRepository as any).createQueryBuilder = jest.fn(() => qb);
+      (statementRepository as any).createQueryBuilder = vi.fn(() => qb);
 
       return qb;
     };
 
     const createTransactionSubQueryBuilderMock = (
       params: Record<string, string> = {},
-      qbOverrides?: Partial<Record<string, jest.Mock>>,
+      qbOverrides?: Partial<Record<string, Mock>>,
     ) => {
       const qb = {
-        select: jest.fn().mockReturnThis(),
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getQuery: jest
+        select: vi.fn().mockReturnThis(),
+        leftJoin: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getQuery: vi
           .fn()
           .mockReturnValue('SELECT DISTINCT transaction.statementId FROM transaction'),
-        getParameters: jest.fn().mockReturnValue(params),
+        getParameters: vi.fn().mockReturnValue(params),
         ...qbOverrides,
       };
 
-      (transactionRepository as any).createQueryBuilder = jest.fn(() => qb);
+      (transactionRepository as any).createQueryBuilder = vi.fn(() => qb);
 
       return qb;
     };
@@ -457,7 +461,7 @@ describe('StatementsService', () => {
         categoryId: 'cat-1',
       });
       // No subcategories: the filter is the category alone.
-      (categoryRepository.find as jest.Mock).mockResolvedValue([]);
+      (categoryRepository.find as Mock).mockResolvedValue([]);
 
       await service.findAll('ws-1', {
         limit: 15,
@@ -590,7 +594,7 @@ describe('StatementsService', () => {
       };
 
       const expectedResult = [{ id: 'stmt-ocr-1' } as Statement];
-      (receiptStatementService.createFromReceiptScan as jest.Mock).mockResolvedValue(
+      (receiptStatementService.createFromReceiptScan as Mock).mockResolvedValue(
         expectedResult,
       );
 
@@ -603,14 +607,14 @@ describe('StatementsService', () => {
 
   describe('findOne', () => {
     it('should return statement by id', async () => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(mockStatement as Statement),
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getOne: vi.fn().mockResolvedValue(mockStatement as Statement),
       };
-      jest.spyOn(statementRepository, 'createQueryBuilder').mockReturnValue(qb as any);
+      vi.spyOn(statementRepository, 'createQueryBuilder').mockReturnValue(qb as any);
 
       const result = await service.findOne('1', '1');
 
@@ -618,30 +622,30 @@ describe('StatementsService', () => {
     });
 
     it('should throw NotFoundException if not found', async () => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(null),
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getOne: vi.fn().mockResolvedValue(null),
       };
-      jest.spyOn(statementRepository, 'createQueryBuilder').mockReturnValue(qb as any);
+      vi.spyOn(statementRepository, 'createQueryBuilder').mockReturnValue(qb as any);
 
       await expect(service.findOne('999', '1')).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ForbiddenException for other workspace', async () => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue({
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getOne: vi.fn().mockResolvedValue({
           ...mockStatement,
           workspaceId: 'other-ws',
         } as unknown as Statement),
       };
-      jest.spyOn(statementRepository, 'createQueryBuilder').mockReturnValue(qb as any);
+      vi.spyOn(statementRepository, 'createQueryBuilder').mockReturnValue(qb as any);
 
       const result = await service.findOne('1', '1');
 
@@ -649,14 +653,14 @@ describe('StatementsService', () => {
     });
 
     it('should include transactions relation', async () => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(mockStatement as Statement),
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getOne: vi.fn().mockResolvedValue(mockStatement as Statement),
       };
-      const qbSpy = jest
+      const qbSpy = vi
         .spyOn(statementRepository, 'createQueryBuilder')
         .mockReturnValue(qb as any);
 
@@ -668,21 +672,21 @@ describe('StatementsService', () => {
 
   describe('remove', () => {
     beforeEach(() => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.ADMIN,
       } as WorkspaceMember);
     });
 
     it('should delete statement and related transactions', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue({
         ...mockStatement,
         filePath: '/tmp/file.pdf',
       } as Statement);
-      const deleteTxSpy = jest
+      const deleteTxSpy = vi
         .spyOn(transactionRepository, 'delete')
         .mockResolvedValue({ affected: 5, raw: [] });
-      const removeSpy = jest
+      const removeSpy = vi
         .spyOn(statementRepository, 'remove')
         .mockResolvedValue(mockStatement as Statement);
 
@@ -696,12 +700,12 @@ describe('StatementsService', () => {
     });
 
     it('should delete file from storage', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue({
         ...mockStatement,
         filePath: '/tmp/file.pdf',
       } as Statement);
-      jest.spyOn(transactionRepository, 'delete').mockResolvedValue({ affected: 0, raw: [] });
-      jest.spyOn(statementRepository, 'remove').mockResolvedValue(mockStatement as Statement);
+      vi.spyOn(transactionRepository, 'delete').mockResolvedValue({ affected: 0, raw: [] });
+      vi.spyOn(statementRepository, 'remove').mockResolvedValue(mockStatement as Statement);
 
       await service.remove('1', '1');
     });
@@ -711,20 +715,20 @@ describe('StatementsService', () => {
         role: WorkspaceRole.MEMBER,
         permissions: { canEditStatements: false },
       } as WorkspaceMember;
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(restrictedMember);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
 
       await expect(service.remove('1', '1', 'ws-1')).rejects.toThrow(ForbiddenException);
     });
 
     it('should create audit event for deletion', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue({
         ...mockStatement,
         filePath: '/tmp/file.pdf',
       } as Statement);
-      jest.spyOn(transactionRepository, 'delete').mockResolvedValue({ affected: 0, raw: [] });
-      jest.spyOn(statementRepository, 'remove').mockResolvedValue(mockStatement as Statement);
-      const auditSpy = jest.spyOn(auditService, 'createEvent');
+      vi.spyOn(transactionRepository, 'delete').mockResolvedValue({ affected: 0, raw: [] });
+      vi.spyOn(statementRepository, 'remove').mockResolvedValue(mockStatement as Statement);
+      const auditSpy = vi.spyOn(auditService, 'createEvent');
 
       await service.remove('1', '1');
 
@@ -738,16 +742,16 @@ describe('StatementsService', () => {
 
   describe('reprocess', () => {
     beforeEach(() => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.ADMIN,
       } as WorkspaceMember);
-      jest.spyOn(transactionRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(transactionRepository, 'find').mockResolvedValue([]);
     });
 
     it('should queue the statement for reprocessing', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
-      const enqueueSpy = jest.spyOn(statementParsingQueue, 'enqueue').mockResolvedValue(undefined);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement as Statement);
+      const enqueueSpy = vi.spyOn(statementParsingQueue, 'enqueue').mockResolvedValue(undefined);
 
       await service.reprocess('1', '1');
 
@@ -756,14 +760,14 @@ describe('StatementsService', () => {
     });
 
     it('should reset status to PROCESSING', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue({
         ...mockStatement,
         status: StatementStatus.ERROR,
       } as Statement);
-      const saveSpy = jest
+      const saveSpy = vi
         .spyOn(statementRepository, 'save')
         .mockResolvedValue(mockStatement as Statement);
-      jest
+      vi
         .spyOn(statementProcessingService, 'processStatement')
         .mockResolvedValue(mockStatement as Statement);
 
@@ -777,7 +781,7 @@ describe('StatementsService', () => {
     });
 
     it('should skip reprocess when already processing', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue({
         ...mockStatement,
         status: StatementStatus.PROCESSING,
       } as Statement);
@@ -789,24 +793,24 @@ describe('StatementsService', () => {
   describe('confirmBalance', () => {
     const mockFoundStatement = (status: StatementStatus) => {
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue({ ...mockStatement, status } as Statement),
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getOne: vi.fn().mockResolvedValue({ ...mockStatement, status } as Statement),
       };
-      jest.spyOn(statementRepository, 'createQueryBuilder').mockReturnValue(qb as any);
+      vi.spyOn(statementRepository, 'createQueryBuilder').mockReturnValue(qb as any);
     };
 
     beforeEach(() => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.ADMIN,
       } as WorkspaceMember);
     });
 
     it('releases a needs-review statement into analytics', async () => {
       mockFoundStatement(StatementStatus.NEEDS_REVIEW);
-      const saveSpy = jest
+      const saveSpy = vi
         .spyOn(statementRepository, 'save')
         .mockImplementation(async entity => entity as Statement);
 
@@ -826,8 +830,8 @@ describe('StatementsService', () => {
 
   describe('convertDroppedSampleToTransaction', () => {
     beforeEach(() => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.ADMIN,
       } as WorkspaceMember);
     });
@@ -871,10 +875,10 @@ describe('StatementsService', () => {
         debit: 1250,
       } as unknown as Transaction;
 
-      jest.spyOn(service, 'findOne').mockResolvedValue(statement);
-      jest.spyOn(transactionRepository, 'create').mockReturnValue(createdTransaction);
-      jest.spyOn(transactionRepository, 'save').mockResolvedValue(createdTransaction);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue({
+      vi.spyOn(service, 'findOne').mockResolvedValue(statement);
+      vi.spyOn(transactionRepository, 'create').mockReturnValue(createdTransaction);
+      vi.spyOn(transactionRepository, 'save').mockResolvedValue(createdTransaction);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue({
         ...statement,
         totalTransactions: 4,
       } as Statement);
@@ -937,7 +941,7 @@ describe('StatementsService', () => {
         },
       } as Statement;
 
-      jest.spyOn(service, 'findOne').mockResolvedValue(statement);
+      vi.spyOn(service, 'findOne').mockResolvedValue(statement);
 
       await expect(
         service.convertDroppedSampleToTransaction('stmt-1', '1', 'ws-1', {
@@ -978,10 +982,10 @@ describe('StatementsService', () => {
         debit: 1250,
       } as unknown as Transaction;
 
-      jest.spyOn(service, 'findOne').mockResolvedValue(statement);
-      jest.spyOn(transactionRepository, 'create').mockReturnValue(createdTransaction);
-      jest.spyOn(transactionRepository, 'save').mockResolvedValue(createdTransaction);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue({
+      vi.spyOn(service, 'findOne').mockResolvedValue(statement);
+      vi.spyOn(transactionRepository, 'create').mockReturnValue(createdTransaction);
+      vi.spyOn(transactionRepository, 'save').mockResolvedValue(createdTransaction);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue({
         ...statement,
         totalTransactions: 4,
       } as Statement);

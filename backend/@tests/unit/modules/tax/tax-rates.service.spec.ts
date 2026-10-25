@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxRatesService } from '@/modules/tax/tax-rates.service';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
@@ -6,7 +7,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 describe('TaxRatesService', () => {
   let service: TaxRatesService;
   let repo: ReturnType<typeof createRepoMock>;
-  let auditService: { createEvent: jest.Mock };
+  let auditService: { createEvent: Mock };
 
   /**
    * Default clearing is period-scoped, so it runs through a query builder
@@ -15,22 +16,22 @@ describe('TaxRatesService', () => {
    */
   const mockUpdateQueryBuilder = () => {
     const qb = {
-      update: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      update: vi.fn().mockReturnThis(),
+      set: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue({ affected: 0 }),
     };
     repo.createQueryBuilder.mockReturnValue(qb);
     return qb;
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     repo = createRepoMock();
     repo.create.mockImplementation((input: unknown) => input);
     repo.save.mockImplementation(async (input: unknown) => input);
-    auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
     service = new TaxRatesService(repo, auditService as never);
   });
 
@@ -125,7 +126,8 @@ describe('TaxRatesService', () => {
       const existing = { id: 'rate-1', workspaceId: 'ws-1', name: 'Old', rate: 10 };
       repo.findOne
         .mockResolvedValueOnce(existing) // findOne in update
-        .mockResolvedValueOnce(null); // duplicate check
+        .mockResolvedValueOnce(null) // duplicate check
+        .mockResolvedValueOnce(existing); // read back after saving
 
       await service.update('rate-1', 'ws-1', { name: 'New Name', rate: 25 });
       expect(repo.save).toHaveBeenCalledWith(
@@ -160,7 +162,8 @@ describe('TaxRatesService', () => {
       const existing = { id: 'rate-1', workspaceId: 'ws-1', name: 'Same' };
       repo.findOne
         .mockResolvedValueOnce(existing) // findOne
-        .mockResolvedValueOnce({ id: 'rate-1', name: 'Same' }); // same record
+        .mockResolvedValueOnce({ id: 'rate-1', name: 'Same' }) // same record
+        .mockResolvedValueOnce(existing); // read back after saving
 
       await expect(service.update('rate-1', 'ws-1', { name: 'Same' })).resolves.toBeDefined();
     });
@@ -230,7 +233,8 @@ describe('TaxRatesService', () => {
     it('records an UPDATE with before and after', async () => {
       repo.findOne
         .mockResolvedValueOnce({ id: 'rate-1', workspaceId: 'ws-1', name: 'Old', rate: 10 })
-        .mockResolvedValueOnce(null);
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'rate-1' });
 
       await service.update('rate-1', 'ws-1', { name: 'New', rate: 25 }, 'user-1');
 
@@ -327,11 +331,11 @@ describe('TaxRatesService', () => {
       saved = [];
       repo.findOne.mockResolvedValue({ ...current });
       const txRepo = {
-        save: jest.fn(async (row: Record<string, unknown>) => {
+        save: vi.fn(async (row: Record<string, unknown>) => {
           saved.push(row);
           return { id: `saved-${saved.length}`, ...row };
         }),
-        create: jest.fn((row: unknown) => row),
+        create: vi.fn((row: unknown) => row),
       };
       (repo as unknown as { manager: unknown }).manager = {
         transaction: async (work: (manager: unknown) => unknown) =>

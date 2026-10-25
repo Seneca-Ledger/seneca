@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { TaxRateKind } from '../../entities/tax-jurisdiction-rate.entity';
 import { TaxRate } from '../../entities/tax-rate.entity';
 import { VatStatus, Workspace, WorkspaceKind } from '../../entities/workspace.entity';
@@ -251,10 +252,10 @@ export class OfficialVatRatesService {
     const check = await this.check(workspaceId);
     const difference = check.differences.find(item => item.key === key);
     if (!difference) {
-      throw new NotFoundException('This difference is no longer there');
+      throw new NotFoundException(appError('TAX_VAT_DIFFERENCE_GONE'));
     }
     if (!(difference.canApply && difference.official !== null)) {
-      throw new BadRequestException('This difference cannot be applied automatically');
+      throw new BadRequestException(appError('TAX_VAT_DIFFERENCE_NOT_AUTO'));
     }
     const workspace = await this.workspaceRepository.findOneOrFail({
       where: { id: workspaceId },
@@ -262,7 +263,7 @@ export class OfficialVatRatesService {
     });
     const jurisdiction = workspace.taxJurisdiction;
     if (!jurisdiction) {
-      throw new BadRequestException('The workspace has no tax country');
+      throw new BadRequestException(appError('TAX_NO_COUNTRY'));
     }
 
     if (difference.kind === 'standard_changed' && difference.from) {
@@ -274,7 +275,7 @@ export class OfficialVatRatesService {
           (!rate.validTo || String(rate.validTo).slice(0, 10) >= from),
       );
       if (standards.length === 0) {
-        throw new BadRequestException('No standard rate is in force on that date');
+        throw new BadRequestException(appError('TAX_NO_STANDARD_RATE'));
       }
       for (const rate of standards) {
         await this.taxRatesService.startNewVersion(

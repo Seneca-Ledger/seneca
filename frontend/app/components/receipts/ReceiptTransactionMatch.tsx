@@ -40,7 +40,6 @@ const formatMoney = (amount: number, currency: string, locale: string): string =
  * and — once attached — the split of that row by line items: a preview where
  * each line's category can be changed before anything is booked, and an undo.
  */
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ReceiptTransactionMatch({
   receipt,
   categories,
@@ -163,7 +162,12 @@ export function ReceiptTransactionMatch({
           <Typography variant="subtitle2">
             {match.kind === 'multi' ? t.matchMulti.value : t.matchTitle.value}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.matchHelp.value}
           </Typography>
           {candidates.map(row => (
@@ -196,7 +200,12 @@ export function ReceiptTransactionMatch({
       {approved &&
         (split ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.splitAlready.value}
             </Typography>
             <Button
@@ -211,7 +220,12 @@ export function ReceiptTransactionMatch({
         ) : suggestion ? (
           <>
             <Typography variant="subtitle2">{t.splitPreview.value}</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.splitReviewHint.value}
             </Typography>
             <Box sx={{ display: 'grid', gap: 0.75 }}>
@@ -280,7 +294,12 @@ export function ReceiptTransactionMatch({
                 {t.splitApply.value}
               </Button>
             ) : (
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.splitOneCategory.value}
               </Typography>
             )}

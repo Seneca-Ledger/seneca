@@ -75,7 +75,12 @@ export function SharedTelegramBotCard({
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             {t.sharedBot.title.value}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.sharedBot.description.value}
           </Typography>
         </Box>

@@ -36,4 +36,4 @@ trap cleanup EXIT INT TERM
 
 echo "Starting frontend on port ${FRONTEND_PORT}"
 cd frontend
-HOSTNAME=0.0.0.0 PORT="${FRONTEND_PORT}" exec node server.js
+HOST=0.0.0.0 PORT="${FRONTEND_PORT}" exec node server.js

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type QueryDeepPartialEntity, type Repository, type SelectQueryBuilder } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
 import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
@@ -228,10 +229,7 @@ export class IncomeTaxDraftService {
   ): Promise<{ jurisdiction: TaxJurisdiction; profile: IncomeTaxProfileView; pack: RulePack }> {
     const jurisdiction = await this.adoptionService.getCurrentJurisdiction(workspaceId);
     if (!jurisdiction) {
-      throw new BadRequestException({
-        code: 'TAX_JURISDICTION_REQUIRED',
-        message: 'This workspace has no tax country. Pick one in the workspace settings first.',
-      });
+      throw new BadRequestException(appError('TAX_JURISDICTION_REQUIRED'));
     }
     const profile = await this.getProfile(workspaceId, taxYear);
     return {
@@ -288,7 +286,9 @@ export class IncomeTaxDraftService {
     const byCategory = new Map(entries.map(entry => [entry.categoryId, entry.lineKey]));
     for (const lineKey of byCategory.values()) {
       if (lineKey !== null && !lineKeys.has(lineKey)) {
-        throw new BadRequestException(`Unknown line '${lineKey}' for form ${pack.formKey}`);
+        throw new BadRequestException(
+          appError('INCOME_TAX_LINE_UNKNOWN', { line: lineKey, form: pack.formKey }),
+        );
       }
     }
 
@@ -298,7 +298,7 @@ export class IncomeTaxDraftService {
         where: { workspaceId, id: In(categoryIds) },
       });
       if (owned !== categoryIds.length) {
-        throw new BadRequestException('One or more categories do not belong to this workspace');
+        throw new BadRequestException(appError('TAX_CATEGORIES_NOT_IN_WORKSPACE'));
       }
     }
 

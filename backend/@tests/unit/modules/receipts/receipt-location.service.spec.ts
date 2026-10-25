@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { Receipt, ReceiptLocationSource } from '@/entities/receipt.entity';
 import type { GeocodingService } from '@/modules/geocoding/geocoding.service';
 import { ReceiptLocationService } from '@/modules/receipts/services/receipt-location.service';
@@ -19,15 +20,15 @@ const buildReceipt = (overrides: Partial<Receipt> = {}): Receipt =>
 
 describe('ReceiptLocationService', () => {
   let repository: ReturnType<typeof createRepoMock<Receipt>>;
-  let geocode: jest.Mock;
+  let geocode: Mock;
   let service: ReceiptLocationService;
-  let auditService: { createEvent: jest.Mock };
+  let auditService: { createEvent: Mock };
 
   beforeEach(() => {
     repository = createRepoMock<Receipt>();
     repository.save.mockImplementation(async (receipt: Receipt) => receipt);
-    geocode = jest.fn().mockResolvedValue(null);
-    auditService = { createEvent: jest.fn().mockResolvedValue({}) };
+    geocode = vi.fn().mockResolvedValue(null);
+    auditService = { createEvent: vi.fn().mockResolvedValue({}) };
     service = new ReceiptLocationService(
       repository as never,
       { geocode } as unknown as GeocodingService,

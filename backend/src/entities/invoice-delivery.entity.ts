@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Invoice } from './invoice.entity';
 import { User } from './user.entity';
@@ -39,14 +40,14 @@ export class InvoiceDelivery {
 
   @ManyToOne(() => Invoice, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'invoice_id' })
-  invoice: Invoice;
+  invoice: Relation<Invoice>;
 
   @Column({ name: 'invoice_id', type: 'uuid' })
   invoiceId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -54,7 +55,7 @@ export class InvoiceDelivery {
   /** Who pressed send; NULL once that account is gone. */
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'sent_by_id' })
-  sentBy: User | null;
+  sentBy: Relation<User | null>;
 
   @Column({ name: 'sent_by_id', type: 'uuid', nullable: true })
   sentById: string | null;

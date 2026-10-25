@@ -116,7 +116,11 @@ export class NotesService {
     if (entityType === NoteEntityType.TRANSACTION) {
       const row = await this.transactionRepository.findOne({
         where: { id: entityId, workspaceId },
-        select: ['id', 'isPrivate', 'ownerMemberId'],
+        select: {
+          id: true,
+          isPrivate: true,
+          ownerMemberId: true,
+        },
       });
       if (!(row && canReadPrivate(row, viewerMemberId))) {
         throw new NotFoundException(appError('NOTE_TARGET_NOT_FOUND'));
@@ -173,7 +177,9 @@ export class NotesService {
     await this.requireTarget(workspaceId, entityType, entityId, viewerMemberId);
     const notes = await this.noteRepository.find({
       where: { workspaceId, [this.targets[entityType].column]: entityId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
       order: { createdAt: 'ASC' },
     });
     return notes.map(note => this.toView(note));
@@ -214,7 +220,9 @@ export class NotesService {
 
     const withAuthor = await this.noteRepository.findOne({
       where: { id: saved.id },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
     const view = this.toView(withAuthor ?? saved);
 
@@ -257,7 +265,9 @@ export class NotesService {
   async setResolved(workspaceId: string, noteId: string, resolved: boolean): Promise<NoteView> {
     const note = await this.noteRepository.findOne({
       where: { id: noteId, workspaceId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
     if (!note) {
       throw new NotFoundException(appError('NOTE_NOT_FOUND'));
@@ -281,7 +291,9 @@ export class NotesService {
   private async isWorkspaceAdmin(workspaceId: string, userId: string): Promise<boolean> {
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['role'],
+      select: {
+        role: true,
+      },
     });
     return Boolean(
       membership && [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role),

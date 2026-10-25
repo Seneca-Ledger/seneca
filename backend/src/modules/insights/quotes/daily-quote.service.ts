@@ -59,7 +59,13 @@ export class DailyQuoteService {
     locale?: string,
   ): Promise<DailyQuote> {
     const [user, situations] = await Promise.all([
-      this.userRepository.findOne({ where: { id: userId }, select: ['id', 'locale'] }),
+      this.userRepository.findOne({
+        where: { id: userId },
+        select: {
+          id: true,
+          locale: true,
+        },
+      }),
       this.insightRepository.find({
         where: [
           {

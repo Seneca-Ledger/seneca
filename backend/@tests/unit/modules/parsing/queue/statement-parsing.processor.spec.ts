@@ -1,4 +1,4 @@
-/// <reference types="jest" />
+/// <reference types="vitest/globals" />
 
 import { UnrecoverableError } from 'bullmq';
 import { StatementStatus } from '@/entities/statement.entity';
@@ -12,14 +12,14 @@ import { StatementRejected } from '@/modules/parsing/services/statement-processi
 
 describe('StatementParsingProcessor', () => {
   const statementRepository = {
-    exists: jest.fn(async () => false),
-    increment: jest.fn(async () => undefined),
-    find: jest.fn(async () => []),
-    update: jest.fn(async () => undefined),
+    exists: vi.fn(async () => false),
+    increment: vi.fn(async () => undefined),
+    find: vi.fn(async () => []),
+    update: vi.fn(async () => undefined),
   };
-  const statementProcessingService = { processStatement: jest.fn(async () => undefined) };
+  const statementProcessingService = { processStatement: vi.fn(async () => undefined) };
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   /** A job on its (attemptsMade + 1)th try out of the 3 the queue allows. */
   const job = (attemptsMade: number) =>
@@ -86,12 +86,12 @@ describe('StatementParsingProcessor', () => {
 
 describe('StaleStatementReaper', () => {
   const statementRepository = {
-    find: jest.fn(),
-    update: jest.fn(async () => ({ affected: 1 })),
+    find: vi.fn(),
+    update: vi.fn(async () => ({ affected: 1 })),
   };
-  const queue = { enqueue: jest.fn(async () => undefined) };
+  const queue = { enqueue: vi.fn(async () => undefined) };
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   const reaper = () => new StaleStatementReaper(statementRepository as never, queue as never);
 

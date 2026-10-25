@@ -1,8 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { enTx as tx } from '@/app/settings/profile/helpers/en-tx';
 import { ProcessingSection } from './ProcessingSection';
-
-const tx = (_path: string[], fallback: string) => fallback;
 
 describe('ProcessingSection', () => {
   it('names the switch after the setting it changes', () => {
@@ -24,6 +23,6 @@ describe('ProcessingSection', () => {
       />,
     );
 
-    expect(screen.getByRole('switch', { name: 'Learn from my corrections' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: tx(['processingCard', 'learningLabel']) })).toBeChecked();
   });
 });

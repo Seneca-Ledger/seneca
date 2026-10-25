@@ -5,6 +5,7 @@ import {
   JoinColumn,
   OneToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Integration } from './integration.entity';
@@ -20,7 +21,7 @@ export class OpenProtocolSettings {
     { onDelete: 'CASCADE' },
   )
   @JoinColumn({ name: 'integration_id' })
-  integration: Integration;
+  integration: Relation<Integration>;
 
   @Column({ name: 'integration_id', type: 'uuid' })
   integrationId: string;

@@ -53,15 +53,15 @@ function recordingQueryBuilder() {
 
 function emptyRepo() {
   return {
-    find: jest.fn(async () => []),
-    findOne: jest.fn(async () => null),
-    count: jest.fn(async () => 0),
+    find: vi.fn(async () => []),
+    findOne: vi.fn(async () => null),
+    count: vi.fn(async () => 0),
   };
 }
 
 function buildService() {
   const { qb, wheres } = recordingQueryBuilder();
-  const transactionRepository = { ...emptyRepo(), createQueryBuilder: jest.fn(() => qb) };
+  const transactionRepository = { ...emptyRepo(), createQueryBuilder: vi.fn(() => qb) };
   const service = new ReportsService(
     transactionRepository as any,
     emptyRepo() as any,
@@ -71,12 +71,12 @@ function buildService() {
     emptyRepo() as any,
     emptyRepo() as any,
     emptyRepo() as any,
-    { get: jest.fn(async () => undefined), set: jest.fn(async () => undefined) } as any,
-    { createEvent: jest.fn() } as unknown as AuditService,
+    { get: vi.fn(async () => undefined), set: vi.fn(async () => undefined) } as any,
+    { createEvent: vi.fn() } as unknown as AuditService,
     emptyRepo() as any,
-    { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-    { getRate: jest.fn(async () => 1), getRateOrNull: jest.fn(async () => 1) } as any,
-    { exportBalanceSheet: jest.fn() } as any,
+    { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+    { getRate: vi.fn(async () => 1), getRateOrNull: vi.fn(async () => 1) } as any,
+    { exportBalanceSheet: vi.fn() } as any,
   );
   const conditionsPerQuery = () => {
     const built = transactionRepository.createQueryBuilder.mock.calls.length;

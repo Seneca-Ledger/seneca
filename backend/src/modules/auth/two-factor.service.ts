@@ -13,6 +13,7 @@ import { generateSecret, generateURI, verifySync } from 'otplib';
 import * as qrCode from 'qrcode';
 import type { Repository } from 'typeorm';
 import { APP_NAME } from '../../common/brand';
+import { appError } from '../../common/errors/app-error';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import { requireSecret } from '../../common/utils/required-secret.util';
 import { User } from '../../entities';
@@ -63,7 +64,7 @@ export class TwoFactorService {
     await this.assertPassword(user, password);
 
     if (user.twoFactorEnabledAt) {
-      throw new BadRequestException('Two-factor authentication is already enabled');
+      throw new BadRequestException(appError('AUTH_2FA_ALREADY_ENABLED'));
     }
 
     const secret = generateSecret();
@@ -79,13 +80,13 @@ export class TwoFactorService {
     const user = await this.loadSecrets(userId);
 
     if (user.twoFactorEnabledAt) {
-      throw new BadRequestException('Two-factor authentication is already enabled');
+      throw new BadRequestException(appError('AUTH_2FA_ALREADY_ENABLED'));
     }
     if (!user.twoFactorSecret) {
-      throw new BadRequestException('Start the setup before confirming a code');
+      throw new BadRequestException(appError('AUTH_2FA_SETUP_NOT_STARTED'));
     }
     if (!this.verifyTotp(user.twoFactorSecret, code)) {
-      throw new UnauthorizedException('Invalid verification code');
+      throw new UnauthorizedException(appError('AUTH_2FA_VERIFICATION_CODE_INVALID'));
     }
 
     const { codes, hashes } = this.generateRecoveryCodes();
@@ -118,7 +119,7 @@ export class TwoFactorService {
     await this.assertPassword(user, password);
 
     if (!user.twoFactorEnabledAt) {
-      throw new BadRequestException('Two-factor authentication is not enabled');
+      throw new BadRequestException(appError('AUTH_2FA_NOT_ENABLED'));
     }
 
     const { codes, hashes } = this.generateRecoveryCodes();
@@ -153,7 +154,7 @@ export class TwoFactorService {
 
     const remaining = this.consumeRecoveryCode(user.twoFactorRecoveryCodes ?? [], code);
     if (!remaining) {
-      throw new UnauthorizedException('Invalid two-factor code');
+      throw new UnauthorizedException(appError('AUTH_2FA_CODE_INVALID'));
     }
 
     await this.userRepository.update(userId, { twoFactorRecoveryCodes: remaining });
@@ -195,7 +196,7 @@ export class TwoFactorService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException(appError('USER_NOT_FOUND'));
     }
 
     return user;
@@ -207,7 +208,7 @@ export class TwoFactorService {
       : false;
 
     if (!isValid) {
-      throw new ForbiddenException('Current password is incorrect');
+      throw new ForbiddenException(appError('AUTH_CURRENT_PASSWORD_INCORRECT'));
     }
   }
 

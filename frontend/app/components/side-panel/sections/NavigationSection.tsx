@@ -9,7 +9,6 @@ import type { NavigationItem, NavigationSection } from '../types';
 import { RenderIcon } from './components/RenderIcon';
 import { SectionWrapper } from './components/SectionWrapper';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, max-lines-per-function, complexity
 function NavigationItemComponent({ item, depth = 0 }: { item: NavigationItem; depth?: number }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const hasChildren = item.children && item.children.length > 0;
@@ -98,7 +97,6 @@ function NavigationItemComponent({ item, depth = 0 }: { item: NavigationItem; de
     ...(depth > 0 ? { marginLeft: 24 } : {}),
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleClick = () => {
     if (hasChildren) {
       setIsExpanded(!isExpanded);
@@ -130,7 +128,6 @@ function NavigationItemComponent({ item, depth = 0 }: { item: NavigationItem; de
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function NavigationSectionRenderer({ section }: { section: NavigationSection }) {
   return (
     <SectionWrapper section={section}>

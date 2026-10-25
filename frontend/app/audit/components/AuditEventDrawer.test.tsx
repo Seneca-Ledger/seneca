@@ -41,7 +41,7 @@ describe('AuditEventDrawer', () => {
 
     const scrollContainer = container.querySelector('[data-testid="audit-event-drawer-scroll"]');
     expect(scrollContainer).toBeTruthy();
-    expect(scrollContainer?.className).toContain('overflow-y-auto');
+    expect(getComputedStyle(scrollContainer as Element).overflowY).toBe('auto');
   });
 
   it('shows human-readable description and hides technical diff rows by default', async () => {

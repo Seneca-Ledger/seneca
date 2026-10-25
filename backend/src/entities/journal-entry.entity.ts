@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { JournalLine } from './journal-line.entity';
@@ -44,7 +45,7 @@ export class JournalEntry {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -89,7 +90,7 @@ export class JournalEntry {
     () => JournalLine,
     line => line.entry,
   )
-  lines: JournalLine[];
+  lines: Relation<JournalLine[]>;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

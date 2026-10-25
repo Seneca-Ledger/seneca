@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { PublicHolidaysService } from '@/modules/reference-data/public-holidays.service';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 
@@ -26,14 +27,14 @@ const IT_2027 = [
 ];
 
 describe('PublicHolidaysService', () => {
-  let repo: ReturnType<typeof createRepoMock> & { upsert: jest.Mock };
-  let fetchImpl: jest.Mock;
+  let repo: ReturnType<typeof createRepoMock> & { upsert: Mock };
+  let fetchImpl: Mock;
   let service: PublicHolidaysService;
 
   beforeEach(() => {
-    repo = Object.assign(createRepoMock(), { upsert: jest.fn() });
+    repo = Object.assign(createRepoMock(), { upsert: vi.fn() });
     repo.find.mockResolvedValue([]);
-    fetchImpl = jest.fn(async () => new Response(JSON.stringify(IT_2027), { status: 200 }));
+    fetchImpl = vi.fn(async () => new Response(JSON.stringify(IT_2027), { status: 200 }));
     service = new PublicHolidaysService(repo as never, createRepoMock() as never, fetchImpl as never);
   });
 

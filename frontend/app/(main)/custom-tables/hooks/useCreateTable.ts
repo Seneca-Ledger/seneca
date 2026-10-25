@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
@@ -61,6 +62,7 @@ interface UseCreateTableParams {
 export function useCreateTable({ columnTitles, messages }: UseCreateTableParams) {
   const router = useRouter();
   const { currentWorkspace } = useWorkspace();
+  const templateOptions = useIntlayer('customTableTemplateOptions');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CreateTableForm>(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
@@ -114,6 +116,9 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
           tableId: created.id,
           payloads: buildTemplateColumnPayloads(template, {
             titles: columnTitles,
+            options: Object.fromEntries(
+              Object.entries(templateOptions).map(([key, node]) => [key, node.value]),
+            ),
             currency: resolveCurrencyCode(currentWorkspace?.currency),
           }),
           post: async (url, body) => {
@@ -141,7 +146,16 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
       .finally(async () => {
         setCreating(false);
       });
-  }, [form, creating, columnTitles, currentWorkspace?.currency, messages, router, close]);
+  }, [
+    form,
+    creating,
+    columnTitles,
+    templateOptions,
+    currentWorkspace?.currency,
+    messages,
+    router,
+    close,
+  ]);
 
   return { open, setOpen, form, setForm, creating, close, submit };
 }

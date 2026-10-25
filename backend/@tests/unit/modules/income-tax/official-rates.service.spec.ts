@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { EffectRuntime } from '@/common/effect/effect-runtime';
 import { BdiRatesService } from '@/modules/income-tax/bdi-rates.service';
 import { NbpRatesService } from '@/modules/income-tax/nbp-rates.service';
@@ -10,16 +11,16 @@ const json = (body: unknown) =>
 const status = (code: number) => new Response('', { status: code });
 
 function createCache() {
-  return { get: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+  return { get: vi.fn().mockResolvedValue(undefined), set: vi.fn() };
 }
 
 describe('official tax rates over the network', () => {
   const originalFetch = global.fetch;
-  let fetchMock: jest.Mock;
+  let fetchMock: Mock;
   let cache: ReturnType<typeof createCache>;
 
   beforeEach(() => {
-    fetchMock = jest.fn();
+    fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
     cache = createCache();
   });

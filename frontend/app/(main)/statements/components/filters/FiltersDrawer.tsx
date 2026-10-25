@@ -476,7 +476,13 @@ function KeywordsFilterScreen({
 }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      <Typography variant="body2" fontWeight={500} color="text.secondary">
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 500,
+          color: 'text.secondary',
+        }}
+      >
         {labels.keywords}
       </Typography>
       <input
@@ -514,7 +520,13 @@ function AmountFilterScreen({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box>
-        <Typography variant="body2" fontWeight={500} color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 500,
+            color: 'text.secondary',
+          }}
+        >
           {t.min}
         </Typography>
         <input
@@ -526,7 +538,13 @@ function AmountFilterScreen({
         />
       </Box>
       <Box>
-        <Typography variant="body2" fontWeight={500} color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 500,
+            color: 'text.secondary',
+          }}
+        >
           {t.max}
         </Typography>
         <input
@@ -555,7 +573,13 @@ function LimitFilterScreen({
   const limitValue = filters.limit !== null ? String(filters.limit) : '';
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      <Typography variant="body2" fontWeight={500} color="text.secondary">
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 500,
+          color: 'text.secondary',
+        }}
+      >
         {labels.limit}
       </Typography>
       <input
@@ -945,7 +969,13 @@ export function FiltersDrawer({
             >
               <ChevronLeft size={20} />
             </IconButton>
-            <Typography variant="subtitle1" fontWeight={600} color="text.primary">
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 600,
+                color: 'text.primary',
+              }}
+            >
               {screenTitle}
             </Typography>
           </Box>

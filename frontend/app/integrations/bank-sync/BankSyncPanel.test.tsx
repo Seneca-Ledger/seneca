@@ -3,6 +3,7 @@ import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { walletItem } from '@/app/test/fixtures/contracts';
 
 const apiGet = vi.hoisted(() => vi.fn());
 const apiPost = vi.hoisted(() => vi.fn());
@@ -13,12 +14,15 @@ vi.mock('@/app/lib/api', () => ({
   default: { get: apiGet, post: apiPost, delete: apiDelete },
 }));
 
+import { BankSyncPanel } from './BankSyncPanel';
+
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
 const connectedStatus = {
   connected: true,
   status: 'connected',
   settings: {
+    provider: 'simplefin',
     autoSync: true,
     accounts: [
       {
@@ -49,18 +53,24 @@ describe('BankSyncPanel', () => {
   it('takes a setup token, lists the accounts and pulls them', async () => {
     apiGet.mockImplementation((url: string) =>
       url === '/wallets'
-        ? Promise.resolve({ data: [{ id: 'w1', name: 'Main', currency: 'USD' }] })
+        ? Promise.resolve({ data: [walletItem({ id: 'w1', name: 'Main', currency: 'USD' })] })
         : Promise.resolve({ data: { connected: false, status: 'disconnected', settings: null } }),
     );
     apiPost.mockImplementation((url: string) => {
       if (url === '/integrations/simplefin/connect') return Promise.resolve({ data: connectedStatus });
       if (url === '/integrations/simplefin/sync') {
-        return Promise.resolve({ data: { imported: 2, statements: 1, accounts: [{ id: 'ACT-1', imported: 2 }] } });
+        return Promise.resolve({
+          data: {
+            ok: true,
+            imported: 2,
+            statements: 1,
+            accounts: [{ id: 'ACT-1', imported: 2, statementId: 'st-1' }],
+          },
+        });
       }
       return Promise.resolve({ data: connectedStatus });
     });
 
-    const { BankSyncPanel } = await import('./BankSyncPanel');
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);

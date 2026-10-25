@@ -1,16 +1,22 @@
-import { BadRequestException, Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { BadRequestException, Controller, Get } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import {
   AccountLedger as AccountLedgerContract,
   AccountLedgerQuery,
   LedgerDateQuery,
   LedgerPeriodQuery,
+  LedgerRecordParams,
   TrialBalance as TrialBalanceContract,
 } from '../../contracts';
+import {
+  LedgerBalanceSheet,
+  ProfitAndLoss as ProfitAndLossContract,
+} from '../../contracts/ledger/ledger-reports';
 import {
   type AccountLedger,
   type BalanceSheet,
@@ -21,7 +27,7 @@ import {
 
 function assertPeriod(query: LedgerPeriodQuery): void {
   if (query.dateFrom && query.dateTo && query.dateFrom > query.dateTo) {
-    throw new BadRequestException('dateFrom must not be after dateTo');
+    throw new BadRequestException(appError('LEDGER_REPORT_RANGE_INVALID'));
   }
 }
 
@@ -46,6 +52,7 @@ export class LedgerReportsController {
 
   @Get('profit-and-loss')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(ProfitAndLossContract)
   async profitAndLoss(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(LedgerPeriodQuery) query: LedgerPeriodQuery,
@@ -56,6 +63,7 @@ export class LedgerReportsController {
 
   @Get('balance-sheet')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(LedgerBalanceSheet)
   async balanceSheet(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(LedgerDateQuery) query: LedgerDateQuery,
@@ -69,7 +77,7 @@ export class LedgerReportsController {
   @SchemaResponse(AccountLedgerContract)
   async accountLedger(
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
     @SchemaQuery(AccountLedgerQuery) query: AccountLedgerQuery,
   ): Promise<AccountLedger> {
     assertPeriod(query);

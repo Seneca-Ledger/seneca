@@ -1,13 +1,13 @@
 import { AuditAction, EntityType, Severity } from '../../../../src/entities/audit-event.entity';
 import { BackupImportService } from '../../../../src/modules/backups/backup-import.service';
 
-const audit = () => ({ createEvent: jest.fn().mockResolvedValue({}) });
+const audit = () => ({ createEvent: vi.fn().mockResolvedValue({}) });
 
 describe('BackupImportService', () => {
   it('requires a verified preview by the same user before restoring its exact archive', async () => {
     const restore = {
-      preview: jest.fn().mockResolvedValue({ workspaceName: 'Finance', fileCount: 2 }),
-      restore: jest.fn().mockResolvedValue({ id: 'new-workspace' }),
+      preview: vi.fn().mockResolvedValue({ workspaceName: 'Finance', fileCount: 2 }),
+      restore: vi.fn().mockResolvedValue({ id: 'new-workspace' }),
     };
     const service = new BackupImportService(restore as never, audit() as never);
     const user = { id: 'user-1' } as never;
@@ -20,7 +20,7 @@ describe('BackupImportService', () => {
   });
 
   it('rejects a restore with an archive different from the previewed one', async () => {
-    const restore = { preview: jest.fn().mockResolvedValue({ workspaceName: 'Finance', fileCount: 2 }), restore: jest.fn() };
+    const restore = { preview: vi.fn().mockResolvedValue({ workspaceName: 'Finance', fileCount: 2 }), restore: vi.fn() };
     const service = new BackupImportService(restore as never, audit() as never);
     const user = { id: 'user-1' } as never;
     const preview = await service.preview(user, Buffer.from('archive-a'), 'password');
@@ -30,8 +30,8 @@ describe('BackupImportService', () => {
 
   it('logs a completed restore as a CRITICAL import into the restored workspace', async () => {
     const restore = {
-      preview: jest.fn().mockResolvedValue({ workspaceName: 'Finance', fileCount: 2 }),
-      restore: jest.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance (restored)' }),
+      preview: vi.fn().mockResolvedValue({ workspaceName: 'Finance', fileCount: 2 }),
+      restore: vi.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance (restored)' }),
     };
     const auditService = audit();
     const service = new BackupImportService(restore as never, auditService as never);
@@ -57,10 +57,10 @@ describe('BackupImportService', () => {
 
   it('returns the restored workspace when the audit write fails', async () => {
     const restore = {
-      preview: jest.fn().mockResolvedValue({ workspaceName: 'Finance', fileCount: 2 }),
-      restore: jest.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
+      preview: vi.fn().mockResolvedValue({ workspaceName: 'Finance', fileCount: 2 }),
+      restore: vi.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
     };
-    const auditService = { createEvent: jest.fn().mockRejectedValue(new Error('audit down')) };
+    const auditService = { createEvent: vi.fn().mockRejectedValue(new Error('audit down')) };
     const service = new BackupImportService(restore as never, auditService as never);
     const user = { id: 'user-1' } as never;
     const archive = Buffer.from('encrypted archive');

@@ -1,13 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import { Controller, HttpCode, HttpStatus, NotFoundException, Param, Post } from '@nestjs/common';
+import { Controller, HttpCode, HttpStatus, NotFoundException, Post } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { redactPrivate } from '../../common/utils/transaction-privacy.util';
-import { ClassifyBulkBody } from '../../contracts';
+import { ClassifyBulkBody, ClassifyTransactionParams } from '../../contracts';
+import {
+  ClassifiedTransaction,
+  ClassifyBulkResult,
+} from '../../contracts/classification/categorization-rules';
 import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -25,8 +32,9 @@ export class ClassificationController {
   @Post('transaction/:id')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(ClassifiedTransaction)
   async classifyTransaction(
-    @Param('id') id: string,
+    @SchemaParams(ClassifyTransactionParams) { id }: ClassifyTransactionParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
@@ -36,12 +44,12 @@ export class ClassificationController {
     });
 
     if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('CLASSIFICATION_TRANSACTION_NOT_FOUND'));
     }
 
     // A category picked by hand outranks the rules, as in the bulk re-run.
     if (transaction.categorySource === TransactionCategorySource.MANUAL) {
-      return transaction;
+      return redactPrivate(transaction, selfMemberId);
     }
 
     const classification = await this.classificationService.classifyTransaction(
@@ -58,6 +66,7 @@ export class ClassificationController {
   @Post('bulk')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(ClassifyBulkResult)
   async classifyBulk(
     @SchemaBody(ClassifyBulkBody) body: ClassifyBulkBody,
     @CurrentUser() user: User,

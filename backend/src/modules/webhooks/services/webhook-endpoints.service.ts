@@ -3,6 +3,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { withoutNullsOnRequired } from '../../../common/effect/without-nulls';
+import { appError } from '../../../common/errors/app-error';
 import { assertWorkspaceRefs } from '../../../common/utils/workspace-refs.util';
 import type { CreateWebhookEndpointBody, UpdateWebhookEndpointBody } from '../../../contracts';
 import { AuditAction, EntityType, Severity } from '../../../entities/audit-event.entity';
@@ -43,7 +44,7 @@ export class WebhookEndpointsService {
 
   async findOne(id: string, workspaceId: string): Promise<WebhookEndpoint> {
     const endpoint = await this.repo.findOne({ where: { id, workspaceId } });
-    if (!endpoint) throw new NotFoundException('Webhook endpoint not found');
+    if (!endpoint) throw new NotFoundException(appError('WEBHOOK_ENDPOINT_NOT_FOUND'));
     return endpoint;
   }
 

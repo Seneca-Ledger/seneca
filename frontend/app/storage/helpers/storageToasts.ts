@@ -23,7 +23,7 @@ export function buildFileToasts(t: StoragePageT): Record<string, string> {
 
 export function buildFolderToasts(
   t: StoragePageT,
-  tx: (p: string[], fb: string) => string,
+  tx: (p: string[]) => string,
 ): Record<string, string> {
   return {
     loadFoldersFailed: t.toasts.loadFoldersFailed.value,
@@ -39,7 +39,7 @@ export function buildFolderToasts(
     folderDeleteFailed: t.toasts.folderDeleteFailed.value,
     folderUpdated: t.toasts.folderUpdated.value,
     folderUpdateFailed: t.toasts.folderUpdateFailed.value,
-    fileMovedTo: tx(['toasts', 'fileMovedTo'], 'File moved to folder'),
+    fileMovedTo: tx(['toasts', 'fileMovedTo']),
   };
 }
 

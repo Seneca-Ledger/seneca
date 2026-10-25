@@ -9,22 +9,12 @@ import * as path from 'path';
 import { Repository } from 'typeorm';
 import { runExecutable } from '../../../common/utils/thumbnail-command.util';
 import { resolveInUploadsDir, resolveUploadsDir } from '../../../common/utils/uploads.util';
-import { Category, Receipt, ReceiptSource, ReceiptStatus, StatementStage } from '../../../entities';
+import type { ReceiptDocumentsQuery } from '../../../contracts';
+import { Category, Receipt, ReceiptSource, ReceiptStatus } from '../../../entities';
 import { attachReceiptCategories } from '../helpers/attach-receipt-categories';
 
 const AMOUNT_PRESENT_SQL = "NULLIF(TRIM(receipt.parsed_data->>'amount'), '') IS NOT NULL";
 const AMOUNT_MISSING_SQL = "NULLIF(TRIM(receipt.parsed_data->>'amount'), '') IS NULL";
-
-export interface ReceiptDocumentsFilter {
-  status?: string;
-  limit?: string;
-  offset?: string;
-  includeInvalid?: string;
-  hasAmount?: string;
-  categoryId?: string;
-  includeLinkedScans?: string;
-  stage?: string;
-}
 
 export type ReceiptThumbnail =
   | { kind: 'image'; mimeType: string; data: Buffer }
@@ -53,25 +43,6 @@ const inferMimeTypeFromPath = (filePath: string): string => {
   }
 };
 
-const parseBooleanQuery = (value: string | undefined, fallback: boolean): boolean => {
-  if (value === undefined || value === null || value === '') {
-    return fallback;
-  }
-  const normalized = value.toLowerCase();
-  if (normalized === 'true' || normalized === '1') {
-    return true;
-  }
-  if (normalized === 'false' || normalized === '0') {
-    return false;
-  }
-  return fallback;
-};
-
-const parseOptionalBooleanQuery = (value: string | undefined): boolean | undefined =>
-  value === undefined || value === null || value === ''
-    ? undefined
-    : parseBooleanQuery(value, false);
-
 /** The receipts the Documents list, analytics and the receipt previews read. */
 @Injectable()
 export class ReceiptDocumentsService {
@@ -86,11 +57,17 @@ export class ReceiptDocumentsService {
     private readonly categoryRepository: Repository<Category>,
   ) {}
 
-  async list(workspaceId: string, filter: ReceiptDocumentsFilter) {
-    const includeInvalidReceipts = parseBooleanQuery(filter.includeInvalid, false);
-    const hasAmountFilter = parseOptionalBooleanQuery(filter.hasAmount);
-    const includeLinkedScanReceipts = parseBooleanQuery(filter.includeLinkedScans, false);
-    const { status, stage, categoryId } = filter;
+  async list(workspaceId: string, filter: ReceiptDocumentsQuery) {
+    const {
+      status,
+      stage,
+      categoryId,
+      includeInvalid: includeInvalidReceipts = false,
+      hasAmount: hasAmountFilter,
+      includeLinkedScans: includeLinkedScanReceipts = false,
+      limit = 50,
+      offset: skip = 0,
+    } = filter;
 
     const queryBuilder = this.receiptRepository
       .createQueryBuilder('receipt')
@@ -127,7 +104,7 @@ export class ReceiptDocumentsService {
     }
 
     // The Submit and Approve pages list only receipts in their own stage.
-    if (stage && (Object.values(StatementStage) as string[]).includes(stage)) {
+    if (stage) {
       queryBuilder.andWhere('receipt.stage = :stage', { stage });
     }
 
@@ -146,8 +123,7 @@ export class ReceiptDocumentsService {
       }
     }
 
-    const take = Math.min(Number.parseInt(filter.limit || '50', 10), 100);
-    const skip = Number.parseInt(filter.offset || '0', 10);
+    const take = Math.min(limit, 100);
 
     const [receipts, total] = await queryBuilder.take(take).skip(skip).getManyAndCount();
 
@@ -161,7 +137,11 @@ export class ReceiptDocumentsService {
     };
   }
 
-  async thumbnail(id: string, workspaceId: string, width: string): Promise<ReceiptThumbnail> {
+  async thumbnail(
+    id: string,
+    workspaceId: string,
+    width: number | undefined,
+  ): Promise<ReceiptThumbnail> {
     const receipt = await this.receiptRepository.findOne({ where: { id, workspaceId } });
     if (!receipt) {
       return { kind: 'missing', error: 'Receipt not found' };
