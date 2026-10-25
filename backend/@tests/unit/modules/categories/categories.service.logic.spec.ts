@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
   type Category,
   CategoryType,
@@ -14,11 +15,11 @@ import type { Repository } from 'typeorm';
 
 function createRepoMock<T extends object>() {
   return {
-    findOne: jest.fn(),
-    find: jest.fn(),
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    remove: jest.fn(async () => undefined),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    remove: vi.fn(async () => undefined),
   } as unknown as Repository<T> & Record<string, any>;
 }
 
@@ -28,13 +29,13 @@ describe('CategoriesService', () => {
   const workspaceMemberRepository = createRepoMock<WorkspaceMember>();
   const transactionRepository = createRepoMock<Transaction>();
   const statementRepository = createRepoMock<Statement>();
-  const cacheManager = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
-  const auditService = { createEvent: jest.fn() } as unknown as AuditService;
+  const cacheManager = { get: vi.fn(), set: vi.fn(), del: vi.fn() };
+  const auditService = { createEvent: vi.fn() } as unknown as AuditService;
 
   let service: CategoriesService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new CategoriesService(
       categoryRepository as any,
       userRepository as any,
@@ -47,7 +48,7 @@ describe('CategoriesService', () => {
   });
 
   it('create throws ConflictException for duplicate name in workspace', async () => {
-    categoryRepository.findOne = jest.fn(async () => ({ id: 'c1' }) as any);
+    categoryRepository.findOne = vi.fn(async () => ({ id: 'c1' }) as any);
 
     await expect(
       service.create('w1', 'u1', { name: 'Food', type: CategoryType.EXPENSE } as any),
@@ -55,7 +56,7 @@ describe('CategoriesService', () => {
   });
 
   it('update throws ConflictException when changing name to existing one', async () => {
-    categoryRepository.findOne = jest
+    categoryRepository.findOne = vi
       .fn()
       .mockResolvedValueOnce({
         id: 'c1',
@@ -79,13 +80,13 @@ describe('CategoriesService', () => {
   });
 
   it('remove throws NotFoundException when category does not exist', async () => {
-    categoryRepository.findOne = jest.fn(async () => null);
+    categoryRepository.findOne = vi.fn(async () => null);
 
     await expect(service.remove('missing', 'w1', 'u1')).rejects.toThrow(NotFoundException);
   });
 
   it('createSystemCategories skips existing entries from new defaults', async () => {
-    categoryRepository.findOne = jest.fn(async ({ where }: any) =>
+    categoryRepository.findOne = vi.fn(async ({ where }: any) =>
       where?.name === 'Sales' ? ({ id: 'exists' } as any) : null,
     );
 
@@ -104,7 +105,7 @@ describe('CategoriesService', () => {
   });
 
   it('createSystemCategories seeds English default names that clients localise by slug', async () => {
-    categoryRepository.findOne = jest.fn(async () => null);
+    categoryRepository.findOne = vi.fn(async () => null);
 
     await service.createSystemCategories('w1');
 
@@ -120,7 +121,7 @@ describe('CategoriesService', () => {
   });
 
   it('allows toggling isEnabled for system categories', async () => {
-    categoryRepository.findOne = jest.fn(async () => ({
+    categoryRepository.findOne = vi.fn(async () => ({
       id: 'c1',
       workspaceId: 'w1',
       userId: 'u1',
@@ -129,7 +130,7 @@ describe('CategoriesService', () => {
       isSystem: true,
       isEnabled: true,
     }));
-    categoryRepository.save = jest.fn(async (category: any) => category);
+    categoryRepository.save = vi.fn(async (category: any) => category);
 
     const result = await service.update('c1', 'w1', 'u1', { isEnabled: false } as any);
 
@@ -157,9 +158,9 @@ describe('CategoriesService', () => {
       updatedAt: new Date(),
     };
 
-    categoryRepository.findOne = jest.fn(async () => relationHeavyCategory as any);
-    categoryRepository.save = jest.fn(async (category: any) => ({ ...category, isEnabled: false }));
-    (auditService.createEvent as jest.Mock).mockRejectedValueOnce(new Error('Circular JSON'));
+    categoryRepository.findOne = vi.fn(async () => relationHeavyCategory as any);
+    categoryRepository.save = vi.fn(async (category: any) => ({ ...category, isEnabled: false }));
+    (auditService.createEvent as Mock).mockRejectedValueOnce(new Error('Circular JSON'));
 
     await expect(service.update('c1', 'w1', 'u1', { isEnabled: false } as any)).resolves.toEqual(
       expect.objectContaining({ isEnabled: false }),
@@ -167,13 +168,13 @@ describe('CategoriesService', () => {
   });
 
   it('returns usage count for category in workspace', async () => {
-    (transactionRepository as any).createQueryBuilder = jest.fn(() => ({
-      innerJoin: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getCount: jest.fn().mockResolvedValue(15),
+    (transactionRepository as any).createQueryBuilder = vi.fn(() => ({
+      innerJoin: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getCount: vi.fn().mockResolvedValue(15),
     }));
-    statementRepository.count = jest.fn().mockResolvedValue(3);
+    statementRepository.count = vi.fn().mockResolvedValue(3);
 
     await expect(service.getCategoryUsageCount('c1', 'w1')).resolves.toEqual({
       transactions: 15,
@@ -183,7 +184,7 @@ describe('CategoriesService', () => {
   });
 
   it('denies non-toggle updates for system categories', async () => {
-    categoryRepository.findOne = jest.fn(async () => ({
+    categoryRepository.findOne = vi.fn(async () => ({
       id: 'c1',
       workspaceId: 'w1',
       userId: 'u1',
@@ -199,7 +200,7 @@ describe('CategoriesService', () => {
   });
 
   it('denies create when member has canEditCategories=false', async () => {
-    workspaceMemberRepository.findOne = jest.fn(async () => ({
+    workspaceMemberRepository.findOne = vi.fn(async () => ({
       role: WorkspaceRole.MEMBER,
       permissions: { canEditCategories: false },
     }));

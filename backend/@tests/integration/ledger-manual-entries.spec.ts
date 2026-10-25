@@ -37,15 +37,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -66,12 +66,12 @@ async function httpError(promise: Promise<unknown>): Promise<{ status: number; c
 }
 
 describe('manual journal entries (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let entries: LedgerEntriesService;
   let accounts: LedgerAccountsService;
-  const audit = { createEvent: jest.fn().mockResolvedValue(undefined) };
+  const audit = { createEvent: vi.fn().mockResolvedValue(undefined) };
 
   let workspaceId: string;
   let otherWorkspaceId: string;
@@ -114,7 +114,7 @@ describe('manual journal entries (real Postgres)', () => {
         {
           provide: ExchangeRatesService,
           useValue: {
-            getRateQuote: jest.fn(async (from: string, to: string, date: string) =>
+            getRateQuote: vi.fn(async (from: string, to: string, date: string) =>
               from === 'USD' && to === 'EUR' ? { rate: 0.9137, rateDate: date, stale: false } : null,
             ),
           },

@@ -98,7 +98,7 @@ npm run migration:generate -- src/migrations/<Name>
 - Frontend lint runs **both** Biome and ESLint — fixing one but not the other leaves CI red.
 - `prebuild` and `postinstall` on the frontend run `intlayer build`; deleting the intlayer config or skipping it breaks both install and build.
 - Backend dev uses a manual nodemon command, not `nest start`, and bumps Node heap to 2 GB. Dev scripts (`migration:run:dev`, `seed:demo:dev`, `create-admin:dev`) run ts-node with `--transpile-only`; type-checking is `npm run typecheck`.
-- Backend Jest compiles with SWC (`@swc/jest`, see `jest.base.config.ts`). Every TypeORM relation property is typed `Relation<T>`: its decorator metadata must not name the related class, or SWC's CommonJS getter exports hit a TDZ on circular entity imports. Type new relations the same way.
+- Backend Vitest compiles with SWC (`unplugin-swc`, see `backend/vitest.config.mts`). Every TypeORM relation property is typed `Relation<T>`: its decorator metadata must not name the related class, or SWC's CommonJS getter exports hit a TDZ on circular entity imports. Type new relations the same way.
 - Docker dev: `node_modules` and `.next` are named volumes; `scripts/dev-entrypoint.sh` in each app re-runs `npm ci` only when `package-lock.json` changed. Dev images never compile source (bind mount).
 - TypeORM SQL logging is off unless `DB_QUERY_LOGGING=true`.
 - Always run migrations via the npm scripts, not raw `typeorm` — `migration:run` acquires a lock to prevent concurrent runs in deployment.

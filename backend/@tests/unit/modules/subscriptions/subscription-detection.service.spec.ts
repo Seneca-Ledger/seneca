@@ -25,18 +25,18 @@ const charge = (date: string, amount: number) => ({
 describe('SubscriptionDetectionService price changes', () => {
   let service: SubscriptionDetectionService;
   let transactions: ReturnType<typeof queryBuilderMock>;
-  const subscriptionRepository = { findOne: jest.fn(), create: jest.fn(), save: jest.fn() };
-  const notificationsService = { createForWorkspaceMembers: jest.fn() };
+  const subscriptionRepository = { findOne: vi.fn(), create: vi.fn(), save: vi.fn() };
+  const notificationsService = { createForWorkspaceMembers: vi.fn() };
 
   function queryBuilderMock(rows: unknown[]) {
     const qb = {
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue(rows),
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue(rows),
     };
-    return { createQueryBuilder: jest.fn(() => qb) };
+    return { createQueryBuilder: vi.fn(() => qb) };
   }
 
   async function build(rows: unknown[]) {
@@ -53,7 +53,7 @@ describe('SubscriptionDetectionService price changes', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     subscriptionRepository.save.mockImplementation(async (row: Subscription) => row);
   });
 

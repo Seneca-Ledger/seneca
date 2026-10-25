@@ -1,3 +1,4 @@
+import type { Mocked } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -27,15 +28,15 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('ImportSessionService', () => {
   let service: ImportSessionService;
-  let importSessionRepository: jest.Mocked<Repository<ImportSession>>;
-  let transactionRepository: jest.Mocked<Repository<Transaction>>;
-  let statementRepository: jest.Mocked<Repository<Statement>>;
-  let workspaceRepository: jest.Mocked<Repository<Workspace>>;
-  let userRepository: jest.Mocked<Repository<User>>;
-  let dataSource: jest.Mocked<DataSource>;
-  let fingerprintService: jest.Mocked<TransactionFingerprintService>;
-  let deduplicationService: jest.Mocked<IntelligentDeduplicationService>;
-  let queryRunner: jest.Mocked<QueryRunner>;
+  let importSessionRepository: Mocked<Repository<ImportSession>>;
+  let transactionRepository: Mocked<Repository<Transaction>>;
+  let statementRepository: Mocked<Repository<Statement>>;
+  let workspaceRepository: Mocked<Repository<Workspace>>;
+  let userRepository: Mocked<Repository<User>>;
+  let dataSource: Mocked<DataSource>;
+  let fingerprintService: Mocked<TransactionFingerprintService>;
+  let deduplicationService: Mocked<IntelligentDeduplicationService>;
+  let queryRunner: Mocked<QueryRunner>;
 
   const mockWorkspace: Workspace = {
     id: 'workspace-1',
@@ -73,24 +74,24 @@ describe('ImportSessionService', () => {
     // override this when they need to simulate a no-op update (e.g. a lost
     // conditional-update race).
     const createMockRepository = () => ({
-      findOne: jest.fn(),
-      find: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-      update: jest.fn().mockResolvedValue({ affected: 1 }),
+      findOne: vi.fn(),
+      find: vi.fn(),
+      create: vi.fn(),
+      save: vi.fn(),
+      update: vi.fn().mockResolvedValue({ affected: 1 }),
     });
 
     // Create mock query runner
     queryRunner = {
-      connect: jest.fn(),
-      startTransaction: jest.fn(),
-      commitTransaction: jest.fn(),
-      rollbackTransaction: jest.fn(),
-      release: jest.fn(),
+      connect: vi.fn(),
+      startTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      rollbackTransaction: vi.fn(),
+      release: vi.fn(),
       manager: {
-        create: jest.fn(),
-        save: jest.fn(),
-        findOne: jest.fn(),
+        create: vi.fn(),
+        save: vi.fn(),
+        findOne: vi.fn(),
       },
     } as any;
 
@@ -120,34 +121,34 @@ describe('ImportSessionService', () => {
         {
           provide: DataSource,
           useValue: {
-            createQueryRunner: jest.fn().mockReturnValue(queryRunner),
+            createQueryRunner: vi.fn().mockReturnValue(queryRunner),
           },
         },
         {
           provide: TransactionFingerprintService,
           useValue: {
-            generateFingerprint: jest.fn(),
-            findByFingerprints: jest.fn(),
-            findCandidatesByWindow: jest.fn().mockResolvedValue([]),
+            generateFingerprint: vi.fn(),
+            findByFingerprints: vi.fn(),
+            findCandidatesByWindow: vi.fn().mockResolvedValue([]),
           },
         },
         {
           provide: IntelligentDeduplicationService,
           useValue: {
-            detectConflicts: jest.fn(),
+            detectConflicts: vi.fn(),
           },
         },
         {
           provide: ImportConfigService,
           useValue: {
-            getDedupDateToleranceDays: jest.fn().mockReturnValue(2),
-            getDedupAmountTolerancePercent: jest.fn().mockReturnValue(5),
+            getDedupDateToleranceDays: vi.fn().mockReturnValue(2),
+            getDedupAmountTolerancePercent: vi.fn().mockReturnValue(5),
           },
         },
         {
           provide: EventEmitter2,
           useValue: {
-            emit: jest.fn(),
+            emit: vi.fn(),
           },
         },
       ],
@@ -165,7 +166,7 @@ describe('ImportSessionService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('createSession', () => {

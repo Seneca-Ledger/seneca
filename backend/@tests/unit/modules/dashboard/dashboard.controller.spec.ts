@@ -3,8 +3,8 @@ import { DashboardController } from '@/modules/dashboard/dashboard.controller';
 describe('DashboardController', () => {
   it('uses active workspace id from guard for dashboard data', async () => {
     const dashboardService = {
-      getDashboard: jest.fn(async () => ({ ok: true })),
-      getTrends: jest.fn(async () => ({ ok: true })),
+      getDashboard: vi.fn(async () => ({ ok: true })),
+      getTrends: vi.fn(async () => ({ ok: true })),
     };
     const controller = new DashboardController(dashboardService as any);
     const user = { id: 'user-1', workspaceId: 'default-workspace' } as any;
@@ -24,8 +24,8 @@ describe('DashboardController', () => {
 
   it('accepts range=month and passes it through unchanged', async () => {
     const dashboardService = {
-      getDashboard: jest.fn(async () => ({ ok: true })),
-      getTrends: jest.fn(async () => ({ ok: true })),
+      getDashboard: vi.fn(async () => ({ ok: true })),
+      getTrends: vi.fn(async () => ({ ok: true })),
     };
     const controller = new DashboardController(dashboardService as any);
     const user = { id: 'user-1', workspaceId: 'default-workspace' } as any;
@@ -44,8 +44,8 @@ describe('DashboardController', () => {
 
   it('falls back to 30d for an unrecognized range value', async () => {
     const dashboardService = {
-      getDashboard: jest.fn(async () => ({ ok: true })),
-      getTrends: jest.fn(async () => ({ ok: true })),
+      getDashboard: vi.fn(async () => ({ ok: true })),
+      getTrends: vi.fn(async () => ({ ok: true })),
     };
     const controller = new DashboardController(dashboardService as any);
     const user = { id: 'user-1', workspaceId: 'default-workspace' } as any;
@@ -64,8 +64,8 @@ describe('DashboardController', () => {
 
   it('uses active workspace id from guard for dashboard trends', async () => {
     const dashboardService = {
-      getDashboard: jest.fn(async () => ({ ok: true })),
-      getTrends: jest.fn(async () => ({ ok: true })),
+      getDashboard: vi.fn(async () => ({ ok: true })),
+      getTrends: vi.fn(async () => ({ ok: true })),
     };
     const controller = new DashboardController(dashboardService as any);
     const user = { id: 'user-1', workspaceId: 'default-workspace' } as any;
@@ -78,7 +78,7 @@ describe('DashboardController', () => {
   });
 
   it('passes a picked month to trends and rejects a malformed one', async () => {
-    const dashboardService = { getTrends: jest.fn(async () => ({ ok: true })) };
+    const dashboardService = { getTrends: vi.fn(async () => ({ ok: true })) };
     const controller = new DashboardController(dashboardService as any);
     const user = { id: 'user-1' } as any;
 
@@ -91,7 +91,7 @@ describe('DashboardController', () => {
   });
 
   it('defaults the monthly cash flow to 12 months for the active workspace', async () => {
-    const dashboardService = { getMonthlyCashFlow: jest.fn(async () => ({ ok: true })) };
+    const dashboardService = { getMonthlyCashFlow: vi.fn(async () => ({ ok: true })) };
     const controller = new DashboardController(dashboardService as any);
 
     await controller.getCashFlow('active-workspace', {});
@@ -104,7 +104,7 @@ describe('DashboardController', () => {
   });
 
   it('passes an explicit cash flow range and picked month through', async () => {
-    const dashboardService = { getMonthlyCashFlow: jest.fn(async () => ({ ok: true })) };
+    const dashboardService = { getMonthlyCashFlow: vi.fn(async () => ({ ok: true })) };
     const controller = new DashboardController(dashboardService as any);
 
     await controller.getCashFlow('active-workspace', { range: 'all', month: '2025-07' });

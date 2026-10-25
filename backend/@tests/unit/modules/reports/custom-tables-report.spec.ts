@@ -7,12 +7,12 @@ import { ReportsService } from '../../../../src/modules/reports/reports.service'
 
 function createRepoMock() {
   return {
-    find: jest.fn().mockResolvedValue([]),
-    count: jest.fn().mockResolvedValue(0),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
+    find: vi.fn().mockResolvedValue([]),
+    count: vi.fn().mockResolvedValue(0),
+    createQueryBuilder: vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue([]),
     })),
   } as any;
 }
@@ -30,12 +30,12 @@ describe('ReportsService custom tables report', () => {
       createRepoMock(),
       createRepoMock(),
       createRepoMock(),
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as unknown as AuditService,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as unknown as AuditService,
       createRepoMock(),
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
   });
 
@@ -54,7 +54,7 @@ describe('ReportsService custom tables report', () => {
 
   it('groups rows by counterparty, source, and currency', async () => {
     const customTableRepository = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         {
           id: 'table-1',
           workspaceId: 'workspace-1',
@@ -73,7 +73,7 @@ describe('ReportsService custom tables report', () => {
     } as any;
 
     const customTableColumnRepository = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         {
           tableId: 'table-1',
           key: 'date',
@@ -173,19 +173,19 @@ describe('ReportsService custom tables report', () => {
     ];
 
     const qbCurrent = {
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue(currentRows),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue(currentRows),
     };
 
     const qbPrevious = {
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue(previousRows),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue(previousRows),
     };
 
     const customTableRowRepository = {
-      createQueryBuilder: jest
+      createQueryBuilder: vi
         .fn()
         .mockReturnValueOnce(qbCurrent)
         .mockReturnValueOnce(qbPrevious),
@@ -200,12 +200,12 @@ describe('ReportsService custom tables report', () => {
       customTableColumnRepository,
       customTableRowRepository,
       createRepoMock(),
-      { get: jest.fn().mockResolvedValue(null), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as unknown as AuditService,
+      { get: vi.fn().mockResolvedValue(null), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as unknown as AuditService,
       createRepoMock(),
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
 
     const result = await localService.getCustomTablesReport('workspace-1', {
@@ -249,7 +249,7 @@ describe('ReportsService custom tables report', () => {
 
   it('returns drill-down items for a specific counterparty', async () => {
     const customTableRepository = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         {
           id: 'table-1',
           workspaceId: 'workspace-1',
@@ -261,7 +261,7 @@ describe('ReportsService custom tables report', () => {
     } as any;
 
     const customTableColumnRepository = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         {
           tableId: 'table-1',
           key: 'date',
@@ -294,9 +294,9 @@ describe('ReportsService custom tables report', () => {
     } as any;
 
     const qb = {
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue([
         {
           id: 'row-1',
           tableId: 'table-1',
@@ -327,7 +327,7 @@ describe('ReportsService custom tables report', () => {
     };
 
     const customTableRowRepository = {
-      createQueryBuilder: jest.fn().mockReturnValue(qb),
+      createQueryBuilder: vi.fn().mockReturnValue(qb),
     } as any;
 
     const localService = new ReportsService(
@@ -339,12 +339,12 @@ describe('ReportsService custom tables report', () => {
       customTableColumnRepository,
       customTableRowRepository,
       createRepoMock(),
-      { get: jest.fn().mockResolvedValue(null), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as unknown as AuditService,
+      { get: vi.fn().mockResolvedValue(null), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as unknown as AuditService,
       createRepoMock(),
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
 
     const result = await localService.getCustomTablesReportDrillDown('workspace-1', {
@@ -370,7 +370,7 @@ describe('ReportsService custom tables report', () => {
 
   it('returns available tables with row counts', async () => {
     const customTableRepository = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         { id: 'table-1', workspaceId: 'workspace-1', name: 'Manual Table', source: 'manual' },
         {
           id: 'table-2',
@@ -382,7 +382,7 @@ describe('ReportsService custom tables report', () => {
     } as any;
 
     const customTableRowRepository = {
-      count: jest
+      count: vi
         .fn()
         .mockResolvedValueOnce(3)
         .mockResolvedValueOnce(7),
@@ -397,12 +397,12 @@ describe('ReportsService custom tables report', () => {
       createRepoMock(),
       customTableRowRepository,
       createRepoMock(),
-      { get: jest.fn(), set: jest.fn() } as any,
-      { createEvent: jest.fn() } as unknown as AuditService,
+      { get: vi.fn(), set: vi.fn() } as any,
+      { createEvent: vi.fn() } as unknown as AuditService,
       createRepoMock(),
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
     );
 
     const result = await localService.getAvailableCustomTables('workspace-1');

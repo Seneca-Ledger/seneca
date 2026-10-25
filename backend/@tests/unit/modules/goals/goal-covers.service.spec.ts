@@ -1,3 +1,4 @@
+import type { MockInstance, Mocked } from 'vitest';
 import * as fs from 'node:fs/promises';
 import {
   BadGatewayException,
@@ -8,15 +9,15 @@ import type { Goal } from '@/entities';
 import { GoalCoversService } from '@/modules/goals/goal-covers.service';
 import { EffectRuntime } from '@/common/effect/effect-runtime';
 
-// Replaced wholesale: jest.spyOn does not reach the bindings the service holds
+// Replaced wholesale: vi.spyOn does not reach the bindings the service holds
 // for a node: builtin, which silently left the real filesystem in play.
-jest.mock('node:fs/promises', () => ({
-  mkdir: jest.fn(async () => undefined),
-  writeFile: jest.fn(async () => undefined),
-  unlink: jest.fn(async () => undefined),
+vi.mock('node:fs/promises', () => ({
+  mkdir: vi.fn(async () => undefined),
+  writeFile: vi.fn(async () => undefined),
+  unlink: vi.fn(async () => undefined),
 }));
 
-const mocked = fs as jest.Mocked<typeof fs>;
+const mocked = fs as Mocked<typeof fs>;
 
 const WORKSPACE_ID = 'workspace-1';
 const USER_ID = 'user-1';
@@ -52,17 +53,17 @@ function imageResponse(bytes: Buffer, contentType = 'image/jpeg', status = 200):
 
 function createService(stored: Goal = goal()) {
   const goalRepository = {
-    findOne: jest.fn(async () => stored),
-    save: jest.fn(async (data: Goal) => data),
+    findOne: vi.fn(async () => stored),
+    save: vi.fn(async (data: Goal) => data),
   } as any;
 
   // A cache that always misses, so every test exercises the upstream path.
   const cacheManager = {
-    get: jest.fn(async () => undefined),
-    set: jest.fn(async () => undefined),
+    get: vi.fn(async () => undefined),
+    set: vi.fn(async () => undefined),
   } as any;
 
-  const auditService = { createEvent: jest.fn(async () => undefined) } as any;
+  const auditService = { createEvent: vi.fn(async () => undefined) } as any;
 
   return {
     service: new GoalCoversService(goalRepository, cacheManager, auditService, new EffectRuntime()),
@@ -73,11 +74,11 @@ function createService(stored: Goal = goal()) {
 }
 
 describe('GoalCoversService', () => {
-  let fetchSpy: jest.SpyInstance;
+  let fetchSpy: MockInstance;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    fetchSpy = jest.spyOn(global, 'fetch');
+    vi.clearAllMocks();
+    fetchSpy = vi.spyOn(global, 'fetch');
     mocked.mkdir.mockResolvedValue(undefined);
     mocked.writeFile.mockResolvedValue(undefined);
     mocked.unlink.mockResolvedValue(undefined);

@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '../../../../src/common/guards/jwt-auth.guard';
@@ -15,34 +16,34 @@ import { ReceiptDuplicateService } from '../../../../src/modules/receipts/servic
 
 describe('ReceiptsController', () => {
   let controller: ReceiptsController;
-  let locationService: { setManual: jest.Mock; resetToAuto: jest.Mock };
-  let placeSuggestionService: { suggest: jest.Mock };
+  let locationService: { setManual: Mock; resetToAuto: Mock };
+  let placeSuggestionService: { suggest: Mock };
   let service: {
-    createFromUpload: jest.Mock;
-    createFromScan: jest.Mock;
-    findAll: jest.Mock;
-    findOne: jest.Mock;
-    update: jest.Mock;
-    approve: jest.Mock;
-    bulkApprove: jest.Mock;
-    delete: jest.Mock;
-    getFilePayload: jest.Mock;
+    createFromUpload: Mock;
+    createFromScan: Mock;
+    findAll: Mock;
+    findOne: Mock;
+    update: Mock;
+    approve: Mock;
+    bulkApprove: Mock;
+    delete: Mock;
+    getFilePayload: Mock;
   };
 
   beforeEach(async () => {
     service = {
-      createFromUpload: jest.fn().mockResolvedValue({ id: 'receipt-1' }),
-      createFromScan: jest.fn().mockResolvedValue({ id: 'receipt-2' }),
-      findAll: jest.fn().mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
-      findOne: jest.fn().mockResolvedValue({ id: 'receipt-1' }),
-      update: jest.fn().mockResolvedValue({ id: 'receipt-1', status: 'draft' }),
-      approve: jest.fn().mockResolvedValue({
+      createFromUpload: vi.fn().mockResolvedValue({ id: 'receipt-1' }),
+      createFromScan: vi.fn().mockResolvedValue({ id: 'receipt-2' }),
+      findAll: vi.fn().mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
+      findOne: vi.fn().mockResolvedValue({ id: 'receipt-1' }),
+      update: vi.fn().mockResolvedValue({ id: 'receipt-1', status: 'draft' }),
+      approve: vi.fn().mockResolvedValue({
         receipt: { id: 'receipt-1', status: 'approved' },
         transaction: { id: 'tx-1' },
       }),
-      bulkApprove: jest.fn().mockResolvedValue({ approved: 2, failed: 0, errors: [] }),
-      delete: jest.fn().mockResolvedValue({ success: true }),
-      getFilePayload: jest.fn().mockResolvedValue({
+      bulkApprove: vi.fn().mockResolvedValue({ approved: 2, failed: 0, errors: [] }),
+      delete: vi.fn().mockResolvedValue({ success: true }),
+      getFilePayload: vi.fn().mockResolvedValue({
         buffer: Buffer.from('file-data'),
         fileName: 'receipt.jpg',
         mimeType: 'image/jpeg',
@@ -50,11 +51,11 @@ describe('ReceiptsController', () => {
     };
 
     locationService = {
-      setManual: jest.fn().mockResolvedValue({ id: 'receipt-1', locationSource: 'manual' }),
-      resetToAuto: jest.fn().mockResolvedValue({ id: 'receipt-1', locationSource: 'device' }),
+      setManual: vi.fn().mockResolvedValue({ id: 'receipt-1', locationSource: 'manual' }),
+      resetToAuto: vi.fn().mockResolvedValue({ id: 'receipt-1', locationSource: 'device' }),
     };
 
-    placeSuggestionService = { suggest: jest.fn().mockResolvedValue({ needed: false }) };
+    placeSuggestionService = { suggest: vi.fn().mockResolvedValue({ needed: false }) };
 
     const moduleBuilder = Test.createTestingModule({
       controllers: [ReceiptsController],
@@ -62,21 +63,21 @@ describe('ReceiptsController', () => {
         { provide: ReceiptsService, useValue: service },
         { provide: ReceiptLocationService, useValue: locationService },
         { provide: ReceiptStageService, useValue: {} },
-        { provide: ReceiptMatchService, useValue: { refresh: jest.fn(), candidates: jest.fn() } },
-        { provide: ReceiptSplitService, useValue: { suggest: jest.fn(), apply: jest.fn() } },
+        { provide: ReceiptMatchService, useValue: { refresh: vi.fn(), candidates: vi.fn() } },
+        { provide: ReceiptSplitService, useValue: { suggest: vi.fn(), apply: vi.fn() } },
         { provide: ReceiptPlaceSuggestionService, useValue: placeSuggestionService },
         { provide: ReceiptDocumentsService, useValue: {} },
         { provide: ReceiptDuplicateService, useValue: {} },
       ],
     });
 
-    moduleBuilder.overrideGuard(JwtAuthGuard).useValue({ canActivate: jest.fn().mockReturnValue(true) });
+    moduleBuilder.overrideGuard(JwtAuthGuard).useValue({ canActivate: vi.fn().mockReturnValue(true) });
     moduleBuilder
       .overrideGuard(WorkspaceContextGuard)
-      .useValue({ canActivate: jest.fn().mockReturnValue(true) });
+      .useValue({ canActivate: vi.fn().mockReturnValue(true) });
     moduleBuilder
       .overrideGuard(PermissionsGuard)
-      .useValue({ canActivate: jest.fn().mockReturnValue(true) });
+      .useValue({ canActivate: vi.fn().mockReturnValue(true) });
 
     const module: TestingModule = await moduleBuilder.compile();
 
@@ -171,9 +172,9 @@ describe('ReceiptsController', () => {
 
   it('returns receipt file content', async () => {
     const response = {
-      setHeader: jest.fn(),
-      status: jest.fn().mockReturnThis(),
-      send: jest.fn(),
+      setHeader: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
     } as any;
 
     await controller.getFile('receipt-1', 'workspace-1', response);
@@ -187,10 +188,10 @@ describe('ReceiptsController', () => {
     service.getFilePayload.mockResolvedValue(null);
 
     const response = {
-      setHeader: jest.fn(),
-      status: jest.fn().mockReturnThis(),
-      send: jest.fn(),
-      json: jest.fn(),
+      setHeader: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+      json: vi.fn(),
     } as any;
 
     await controller.getFile('receipt-1', 'workspace-1', response);

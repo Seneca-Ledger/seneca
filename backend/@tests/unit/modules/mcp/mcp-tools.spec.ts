@@ -12,10 +12,15 @@ import { transactionTools } from '@/modules/mcp/tools/transactions.tools';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 
 // The uploads directory is read when the file helpers load, so it is fixed before any import.
-jest.mock('@/common/utils/uploads.util', () => {
-  const dir = require('node:path').join(require('node:os').tmpdir(), 'mcp-tools-spec');
-  require('node:fs').mkdirSync(dir, { recursive: true });
-  const actual = jest.requireActual('@/common/utils/uploads.util');
+vi.mock('@/common/utils/uploads.util', async () => {
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const { mkdirSync } = await import('node:fs');
+  const dir = join(tmpdir(), 'mcp-tools-spec');
+  mkdirSync(dir, { recursive: true });
+  const actual = await vi.importActual<typeof import('@/common/utils/uploads.util')>(
+    '@/common/utils/uploads.util',
+  );
   return {
     resolveUploadsDir: () => dir,
     resolveInUploadsDir: (candidate: string, root: string = dir) =>
@@ -41,10 +46,10 @@ const tool = (tools: McpTool[], name: string): McpTool => {
 afterAll(() => fs.rmSync(uploadsDir, { recursive: true, force: true }));
 
 describe('transaction tools', () => {
-  const transactions = { update: jest.fn(), bulkUpdate: jest.fn(), findAll: jest.fn() };
+  const transactions = { update: vi.fn(), bulkUpdate: vi.fn(), findAll: vi.fn() };
   const tools = transactionTools(transactions as never);
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('updates one transaction as the caller, seeing it as their member', async () => {
     transactions.update.mockResolvedValue({
@@ -109,7 +114,7 @@ describe('transaction tools', () => {
 });
 
 describe('review tools', () => {
-  const review = { counts: jest.fn(), list: jest.fn(), approveTransactions: jest.fn() };
+  const review = { counts: vi.fn(), list: vi.fn(), approveTransactions: vi.fn() };
   const tools = reviewTools(review as never);
 
   it('counts the caller’s own queue when asked for “me”', async () => {
@@ -129,7 +134,7 @@ describe('review tools', () => {
 });
 
 describe('receipt tools', () => {
-  const receipts = { approve: jest.fn(), findOne: jest.fn() };
+  const receipts = { approve: vi.fn(), findOne: vi.fn() };
   const tools = receiptTools(receipts as never);
 
   it('attaches a receipt to the bank row it names', async () => {
@@ -156,7 +161,7 @@ describe('receipt tools', () => {
 
 describe('tax tools', () => {
   const rows = Array.from({ length: 250 }, (_, i) => ({ id: `row-${i}` }));
-  const taxPack = { yearReport: jest.fn(async () => ({ year: 2025, rows, categories: [] })) };
+  const taxPack = { yearReport: vi.fn(async () => ({ year: 2025, rows, categories: [] })) };
   const tools = taxTools({ deadlines: {} as never, taxPack: taxPack as never });
 
   it('leaves the rows out of the year report unless asked, and caps them', async () => {
@@ -176,7 +181,7 @@ describe('tax tools', () => {
 
 describe('planning and money tools', () => {
   it('reads budgets for the periods around a given day', async () => {
-    const budgets = { findAll: jest.fn() };
+    const budgets = { findAll: vi.fn() };
     const tools = planningTools({
       budgets: budgets as never,
       stoicLedger: {} as never,
@@ -192,7 +197,7 @@ describe('planning and money tools', () => {
   });
 
   it('sums receivables when asked for money owed to the workspace', async () => {
-    const payables = { getSummary: jest.fn() };
+    const payables = { getSummary: vi.fn() };
     const tools = moneyTools({
       netWorth: {} as never,
       wallets: {} as never,
@@ -208,11 +213,11 @@ describe('planning and money tools', () => {
 });
 
 describe('upload tools', () => {
-  const statements = { create: jest.fn() };
+  const statements = { create: vi.fn() };
   const tools = statementTools(statements as never, {} as never);
   const csv = Buffer.from('date,amount,description\n2026-01-02,-5.00,Coffee\n').toString('base64');
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('writes the file, validates it and creates the statement as the caller', async () => {
     statements.create.mockResolvedValue({ id: 's1', status: 'uploaded', fileName: 'bank.csv' });

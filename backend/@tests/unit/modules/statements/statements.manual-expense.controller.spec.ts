@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -7,11 +7,11 @@ import { StatementsController } from '@/modules/statements/statements.controller
 describe('StatementsController manual expense', () => {
   it('delegates manual expense creation to the service', async () => {
     const statementsService = {
-      createManualExpense: jest.fn().mockResolvedValue({ id: 'manual-statement-1' }),
+      createManualExpense: vi.fn().mockResolvedValue({ id: 'manual-statement-1' }),
     };
     const idempotencyService = {
-      checkKey: jest.fn(),
-      storeKey: jest.fn(),
+      checkKey: vi.fn(),
+      storeKey: vi.fn(),
     };
 
     const controller = new StatementsController(
@@ -44,12 +44,12 @@ describe('StatementsController manual expense', () => {
 
   it('delegates statement file attach to the service', async () => {
     const statementsService = {
-      createManualExpense: jest.fn(),
-      attachFile: jest.fn().mockResolvedValue({ id: 'statement-1' }),
+      createManualExpense: vi.fn(),
+      attachFile: vi.fn().mockResolvedValue({ id: 'statement-1' }),
     };
     const idempotencyService = {
-      checkKey: jest.fn(),
-      storeKey: jest.fn(),
+      checkKey: vi.fn(),
+      storeKey: vi.fn(),
     };
 
     const controller = new StatementsController(

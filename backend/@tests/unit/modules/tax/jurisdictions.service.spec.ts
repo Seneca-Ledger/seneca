@@ -9,7 +9,7 @@ describe('JurisdictionsService', () => {
   let rateRepo: ReturnType<typeof createRepoMock>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     jurisdictionRepo = createRepoMock();
     rateRepo = createRepoMock();
     service = new JurisdictionsService(jurisdictionRepo, rateRepo);

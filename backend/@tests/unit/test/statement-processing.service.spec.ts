@@ -1,4 +1,5 @@
-jest.mock('franc', () => ({
+import type { Mock } from 'vitest';
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -48,41 +49,41 @@ describe('StatementProcessingService', () => {
   const savedTransactions: Transaction[] = [];
 
   const statementRepository = {
-    findOne: jest.fn(async ({ where: { id } }) => (id === statement.id ? statement : null)),
-    save: jest.fn(async (entity: Partial<Statement>) => {
+    findOne: vi.fn(async ({ where: { id } }) => (id === statement.id ? statement : null)),
+    save: vi.fn(async (entity: Partial<Statement>) => {
       Object.assign(statement, entity);
       return statement;
     }),
     // Mid-pipeline heartbeats use update(), not save() — same merge
     // semantics here so assertions against the final `statement` object
     // still see whatever the heartbeat wrote.
-    update: jest.fn(async (_id: string, entity: Partial<Statement>) => {
+    update: vi.fn(async (_id: string, entity: Partial<Statement>) => {
       Object.assign(statement, entity);
       return { affected: 1 };
     }),
   };
 
   const transactionRepository = {
-    create: jest.fn((data: Partial<Transaction>) => data as Transaction),
-    save: jest.fn(async (data: Partial<Transaction>) => {
+    create: vi.fn((data: Partial<Transaction>) => data as Transaction),
+    save: vi.fn(async (data: Partial<Transaction>) => {
       const saved = { id: `tx-${savedTransactions.length + 1}`, ...data } as Transaction;
       savedTransactions.push(saved);
       return saved;
     }),
-    count: jest.fn(async () => 0),
+    count: vi.fn(async () => 0),
   };
 
   const classificationService = {
-    classifyTransaction: jest.fn(async () => ({ categoryId: 'cat-1' })),
-    determineMajorityCategory: jest.fn(async () => ({
+    classifyTransaction: vi.fn(async () => ({ categoryId: 'cat-1' })),
+    determineMajorityCategory: vi.fn(async () => ({
       categoryId: 'cat-1',
       type: 'expense' as any,
     })),
   };
 
   const metadataExtractionService = {
-    extractMetadata: jest.fn(async () => null),
-    createDisplayInfo: jest.fn(() => ({
+    extractMetadata: vi.fn(async () => null),
+    createDisplayInfo: vi.fn(() => ({
       title: 'Statement',
       subtitle: '',
       periodDisplay: '',
@@ -90,29 +91,29 @@ describe('StatementProcessingService', () => {
       institutionDisplay: '',
       currencyDisplay: '',
     })),
-    convertToParsedStatementMetadata: jest.fn(() => ({})),
+    convertToParsedStatementMetadata: vi.fn(() => ({})),
   };
 
   const importSessionService = {
-    createSession: jest.fn(async () => ({ id: 'session-1' })),
-    processImport: jest.fn(async () => ({ summary: {} })),
-    getSession: jest.fn(async () => ({ id: 'session-1', sessionMetadata: {} })),
+    createSession: vi.fn(async () => ({ id: 'session-1' })),
+    processImport: vi.fn(async () => ({ summary: {} })),
+    getSession: vi.fn(async () => ({ id: 'session-1', sessionMetadata: {} })),
   };
 
   const transactionFingerprintService = {
-    bulkGenerateFingerprints: jest.fn(() => new Map()),
-    generateFingerprint: jest.fn(
+    bulkGenerateFingerprints: vi.fn(() => new Map()),
+    generateFingerprint: vi.fn(
       (tx: Partial<Transaction>) => `fp-${tx.documentNumber ?? 'none'}`,
     ),
-    findByFingerprints: jest.fn(async () => [] as Transaction[]),
+    findByFingerprints: vi.fn(async () => [] as Transaction[]),
   };
 
   // Runs the callback against a manager whose save() feeds the same
   // savedTransactions array the repository mock uses.
   const dataSource = {
-    transaction: jest.fn(async (run: (manager: unknown) => Promise<unknown>) =>
+    transaction: vi.fn(async (run: (manager: unknown) => Promise<unknown>) =>
       run({
-        save: jest.fn(async (_entity: unknown, rows: Partial<Transaction>[]) =>
+        save: vi.fn(async (_entity: unknown, rows: Partial<Transaction>[]) =>
           rows.map(row => {
             const saved = { id: `tx-${savedTransactions.length + 1}`, ...row } as Transaction;
             savedTransactions.push(saved);
@@ -165,15 +166,15 @@ describe('StatementProcessingService', () => {
   };
 
   const parserFactory = {
-    detectBankAndFormat: jest.fn(async () => ({
+    detectBankAndFormat: vi.fn(async () => ({
       bankName: BankName.BEREKE_NEW,
       formatVersion: 'v1',
       detectedBy: 'header-name',
       detectedEvidence: ['name:bereke'],
       otherBankMentions: ['Kaspi Bank'],
     })),
-    getParser: jest.fn(async () => ({
-      parse: jest.fn().mockResolvedValue(parsedStatement),
+    getParser: vi.fn(async () => ({
+      parse: vi.fn().mockResolvedValue(parsedStatement),
       constructor: { name: 'FakeParser' },
     })),
   };
@@ -181,7 +182,7 @@ describe('StatementProcessingService', () => {
   let service: StatementProcessingService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     savedTransactions.length = 0;
 
     fs.writeFileSync(tempFilePath, Buffer.from('%PDF-1.4\n%stub\n'));
@@ -189,7 +190,7 @@ describe('StatementProcessingService', () => {
     service = new StatementProcessingService(
       statementRepository as any,
       transactionRepository as any,
-      { findOne: jest.fn().mockResolvedValue({ name: 'User' }) } as any,
+      { findOne: vi.fn().mockResolvedValue({ name: 'User' }) } as any,
       parserFactory as any,
       classificationService as any,
       metadataExtractionService as any,
@@ -197,7 +198,7 @@ describe('StatementProcessingService', () => {
       transactionFingerprintService as any,
       dataSource as any,
       {
-        resolve: jest.fn(async () => ({
+        resolve: vi.fn(async () => ({
           taxRateId: null,
           taxRuleId: null,
           taxSource: null,
@@ -311,7 +312,7 @@ describe('StatementProcessingService', () => {
 
   it('flags a row repeating one booked by hand, before anything is saved', async () => {
     const manualRowDuplicates = {
-      flagRepeats: jest.fn(async (drafts: Transaction[]) => {
+      flagRepeats: vi.fn(async (drafts: Transaction[]) => {
         drafts[0].isDuplicate = true;
         drafts[0].duplicateOfId = 'tx-receipt';
         return 1;
@@ -320,14 +321,14 @@ describe('StatementProcessingService', () => {
     const withManualCheck = new StatementProcessingService(
       statementRepository as any,
       transactionRepository as any,
-      { findOne: jest.fn().mockResolvedValue({ name: 'User' }) } as any,
+      { findOne: vi.fn().mockResolvedValue({ name: 'User' }) } as any,
       parserFactory as any,
       classificationService as any,
       metadataExtractionService as any,
       importSessionService as any,
       transactionFingerprintService as any,
       dataSource as any,
-      { resolve: jest.fn(async () => ({ taxRateId: null, taxReverseCharge: false })) } as any,
+      { resolve: vi.fn(async () => ({ taxRateId: null, taxReverseCharge: false })) } as any,
       undefined,
       undefined,
       undefined,
@@ -359,9 +360,9 @@ describe('StatementProcessingService', () => {
   });
 
   describe('failure notifications', () => {
-    let emit: jest.Mock;
+    let emit: Mock;
     beforeEach(() => {
-      emit = jest.fn();
+      emit = vi.fn();
       (service as any).eventEmitter = { emit };
     });
     const parsingErrors = () => emit.mock.calls.filter(([name]) => name === 'parsing.error');
@@ -413,7 +414,7 @@ describe('StatementProcessingService', () => {
 
   it('holds the statement for review when the balance does not reconcile', async () => {
     parserFactory.getParser.mockResolvedValueOnce({
-      parse: jest.fn().mockResolvedValue({
+      parse: vi.fn().mockResolvedValue({
         ...parsedStatement,
         // 1000 + 200 credit - 100 debit = 1100, but the bank reports 1500.
         metadata: { ...parsedStatement.metadata, balanceStart: 1000, balanceEnd: 1500 },
@@ -436,7 +437,7 @@ describe('StatementProcessingService', () => {
 
   it('completes the statement when the balance reconciles', async () => {
     parserFactory.getParser.mockResolvedValueOnce({
-      parse: jest.fn().mockResolvedValue({
+      parse: vi.fn().mockResolvedValue({
         ...parsedStatement,
         metadata: { ...parsedStatement.metadata, balanceStart: 1000, balanceEnd: 1100 },
       }),
@@ -535,7 +536,7 @@ describe('StatementProcessingService', () => {
     }));
 
     parserFactory.getParser.mockResolvedValueOnce({
-      parse: jest.fn().mockResolvedValue({
+      parse: vi.fn().mockResolvedValue({
         metadata: parsedStatement.metadata,
         transactions: manyInvalidTransactions,
       }),
@@ -563,7 +564,7 @@ describe('StatementProcessingService', () => {
     }));
 
     parserFactory.getParser.mockResolvedValueOnce({
-      parse: jest.fn().mockResolvedValue({
+      parse: vi.fn().mockResolvedValue({
         metadata: parsedStatement.metadata,
         transactions: allInvalidTransactions,
       }),
@@ -594,7 +595,7 @@ describe('StatementProcessingService', () => {
     ];
 
     parserFactory.getParser.mockResolvedValueOnce({
-      parse: jest.fn().mockResolvedValue({
+      parse: vi.fn().mockResolvedValue({
         metadata: parsedStatement.metadata,
         transactions: mostlyInvalidTransactions,
       }),
@@ -612,7 +613,7 @@ describe('StatementProcessingService', () => {
 
   it('does not flag a legitimately empty statement that has no transactions but reconciled balances', async () => {
     parserFactory.getParser.mockResolvedValueOnce({
-      parse: jest.fn().mockResolvedValue({
+      parse: vi.fn().mockResolvedValue({
         metadata: { ...parsedStatement.metadata, balanceStart: 500, balanceEnd: 500 },
         transactions: [],
       }),
@@ -627,7 +628,7 @@ describe('StatementProcessingService', () => {
 
   it('holds a statement for review instead of comparing mixed-currency totals against a single balance', async () => {
     parserFactory.getParser.mockResolvedValueOnce({
-      parse: jest.fn().mockResolvedValue({
+      parse: vi.fn().mockResolvedValue({
         metadata: { ...parsedStatement.metadata, balanceStart: 1000, balanceEnd: 1100 },
         transactions: [
           { ...parsedStatement.transactions[0], currency: 'USD', debit: 100, credit: undefined },
@@ -650,7 +651,7 @@ describe('StatementProcessingService', () => {
 
   it('holds a statement for review when it has no transactions and only one balance was extracted', async () => {
     parserFactory.getParser.mockResolvedValueOnce({
-      parse: jest.fn().mockResolvedValue({
+      parse: vi.fn().mockResolvedValue({
         metadata: { ...parsedStatement.metadata, balanceStart: 1000, balanceEnd: undefined },
         transactions: [],
       }),
@@ -667,7 +668,7 @@ describe('StatementProcessingService', () => {
 
   it('keeps parser metadata when enrichment only has fallback values', async () => {
     parserFactory.getParser.mockResolvedValueOnce({
-      parse: jest.fn().mockResolvedValue({
+      parse: vi.fn().mockResolvedValue({
         ...parsedStatement,
         metadata: {
           ...parsedStatement.metadata,

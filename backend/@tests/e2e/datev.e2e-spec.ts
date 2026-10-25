@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 import { type INestApplication, ValidationPipe } from '@nestjs/common';

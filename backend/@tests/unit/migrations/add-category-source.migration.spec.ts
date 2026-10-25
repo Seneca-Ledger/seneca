@@ -4,7 +4,7 @@ import type { QueryRunner } from 'typeorm';
 describe('AddCategorySource1763500000000', () => {
   it('uses literal values for category source migration SQL', async () => {
     const migration = new AddCategorySource1763500000000();
-    const query = jest.fn().mockResolvedValue(undefined);
+    const query = vi.fn().mockResolvedValue(undefined);
     const queryRunner = { query } as unknown as QueryRunner;
 
     await migration.up(queryRunner);

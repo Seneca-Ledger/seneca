@@ -1,9 +1,13 @@
-jest.mock('nodemailer', () => {
-  const sendMail = jest.fn(async () => ({ messageId: 'test' }));
-  return { createTransport: jest.fn(() => ({ sendMail })), sendMail };
+import type { Mock } from 'vitest';
+import * as nodemailerMock from 'nodemailer';
+vi.mock('nodemailer', () => {
+  const sendMail = vi.fn(async () => ({ messageId: 'test' }));
+  const mock = { createTransport: vi.fn(() => ({ sendMail })), sendMail };
+  // The service imports nodemailer's default export.
+  return { ...mock, default: mock };
 });
-jest.mock('../../../../src/common/utils/egress-url.util', () => ({
-  pinPublicEgressHost: jest.fn(async (host: string) => ({
+vi.mock('../../../../src/common/utils/egress-url.util', () => ({
+  pinPublicEgressHost: vi.fn(async (host: string) => ({
     host: '198.51.100.7',
     servername: host,
   })),
@@ -14,10 +18,11 @@ import type {
 } from '@/modules/application-settings/application-settings.service';
 import { MailerService } from '@/modules/mailer/mailer.service';
 
-const { createTransport, sendMail } = jest.requireMock<{
-  createTransport: jest.Mock;
-  sendMail: jest.Mock;
-}>('nodemailer');
+// vi.mock above replaces the module, so this import is the mock.
+const { createTransport, sendMail } = nodemailerMock as unknown as {
+  createTransport: Mock;
+  sendMail: Mock;
+};
 
 const smtp = (over: Partial<SmtpRuntimeSettings>): SmtpRuntimeSettings => ({
   host: 'smtp.b.example',
@@ -35,8 +40,8 @@ const smtp = (over: Partial<SmtpRuntimeSettings>): SmtpRuntimeSettings => ({
 describe('MailerService', () => {
   const originalEnv = process.env;
   const settings = {
-    getSmtpSettings: jest.fn(async () => smtp({})),
-    getAccountSmtpSettings: jest.fn(async () => smtp({ host: 'smtp.home.example' })),
+    getSmtpSettings: vi.fn(async () => smtp({})),
+    getAccountSmtpSettings: vi.fn(async () => smtp({ host: 'smtp.home.example' })),
   };
   const mailer = new MailerService(settings as never);
   const content = { to: 'client@example.com', subject: 'Hi', text: 'Body' };
@@ -44,7 +49,7 @@ describe('MailerService', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     delete process.env.SMTP_HOST;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(() => {

@@ -34,11 +34,11 @@ function recordingManager() {
   };
   const nameOf = (target: unknown) => (target as { name: string }).name;
   const manager = {
-    create: jest.fn((target: unknown, row: Record<string, unknown>) => ({
+    create: vi.fn((target: unknown, row: Record<string, unknown>) => ({
       __entity: nameOf(target),
       ...row,
     })),
-    save: jest.fn(async (first: unknown, second?: unknown) => {
+    save: vi.fn(async (first: unknown, second?: unknown) => {
       const rows = (second ?? first) as Record<string, unknown> | Record<string, unknown>[];
       const one = (row: Record<string, unknown>) => {
         const { __entity, ...rest } = row;
@@ -46,7 +46,7 @@ function recordingManager() {
       };
       return Array.isArray(rows) ? rows.map(one) : one(rows);
     }),
-    find: jest.fn(async (target: unknown) =>
+    find: vi.fn(async (target: unknown) =>
       target === Category
         ? SYSTEM_CATEGORIES.map(name => ({
             id: `cat-${name}`,
@@ -56,10 +56,10 @@ function recordingManager() {
           }))
         : [],
     ),
-    findOne: jest.fn(async (target: unknown) =>
+    findOne: vi.fn(async (target: unknown) =>
       target === BalanceAccount ? { id: 'asset-fixed', code: 'ASSET_FIXED' } : null,
     ),
-    update: jest.fn(async () => ({ affected: 1 })),
+    update: vi.fn(async () => ({ affected: 1 })),
   };
   return { manager: manager as unknown as EntityManager, mock: manager, saved };
 }

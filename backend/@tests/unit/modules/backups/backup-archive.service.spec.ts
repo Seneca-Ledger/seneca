@@ -1,6 +1,6 @@
 import * as crypto from 'node:crypto';
 import { BackupArchiveService } from '../../../../src/modules/backups/backup-archive.service';
-import AdmZip = require('adm-zip');
+import AdmZip from 'adm-zip';
 
 /** A zip whose one entry says it unpacks to `size` bytes: what a zip bomb claims. */
 const declaringSize = (zip: Buffer, size: number): Buffer => {

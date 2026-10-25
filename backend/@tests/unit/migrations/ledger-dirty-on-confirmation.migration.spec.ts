@@ -3,7 +3,7 @@ import { LedgerDirtyOnConfirmation1786910000000 } from '../../../src/migrations/
 
 const run = async (direction: 'up' | 'down'): Promise<string> => {
   const sql: string[] = [];
-  const queryRunner = { query: jest.fn(async (statement: string) => sql.push(statement)) };
+  const queryRunner = { query: vi.fn(async (statement: string) => sql.push(statement)) };
   await new LedgerDirtyOnConfirmation1786910000000()[direction](
     queryRunner as unknown as QueryRunner,
   );

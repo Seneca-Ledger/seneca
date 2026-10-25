@@ -1,3 +1,4 @@
+import type { MockInstance } from 'vitest';
 import { HttpException } from '@nestjs/common';
 import { EffectRuntime } from '@/common/effect/effect-runtime';
 import { RECOMMAND_API_URL, RecommandClient } from '@/modules/peppol/recommand.client';
@@ -9,10 +10,10 @@ const json = (body: unknown, status = 200) =>
 describe('RecommandClient', () => {
   const runtime = new EffectRuntime();
   const client = new RecommandClient(runtime);
-  let fetchMock: jest.SpyInstance;
+  let fetchMock: MockInstance;
 
   beforeEach(() => {
-    fetchMock = jest.spyOn(globalThis, 'fetch');
+    fetchMock = vi.spyOn(globalThis, 'fetch');
   });
   afterEach(() => fetchMock.mockRestore());
   afterAll(() => runtime.onModuleDestroy());

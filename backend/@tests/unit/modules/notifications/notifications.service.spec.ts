@@ -13,30 +13,30 @@ import { NotificationsService } from '../../../../src/modules/notifications/noti
 
 function createRepoMock<T>() {
   return {
-    findOne: jest.fn(),
-    find: jest.fn(),
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    update: jest.fn(async () => ({ affected: 1 })),
-    delete: jest.fn(async () => ({ affected: 1 })),
-    createQueryBuilder: jest.fn(),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    update: vi.fn(async () => ({ affected: 1 })),
+    delete: vi.fn(async () => ({ affected: 1 })),
+    createQueryBuilder: vi.fn(),
     // Asked whether the workspace is a past version; an ordinary one by default.
-    manager: { exists: jest.fn(async () => false) },
+    manager: { exists: vi.fn(async () => false) },
   } as any;
 }
 
 function createQueryBuilderMock() {
   const qb: any = {
-    where: jest.fn(() => qb),
-    andWhere: jest.fn(() => qb),
-    orderBy: jest.fn(() => qb),
-    take: jest.fn(() => qb),
-    skip: jest.fn(() => qb),
-    getManyAndCount: jest.fn(async () => [[], 0]),
-    getCount: jest.fn(async () => 0),
-    update: jest.fn(() => qb),
-    set: jest.fn(() => qb),
-    execute: jest.fn(async () => ({ affected: 0 })),
+    where: vi.fn(() => qb),
+    andWhere: vi.fn(() => qb),
+    orderBy: vi.fn(() => qb),
+    take: vi.fn(() => qb),
+    skip: vi.fn(() => qb),
+    getManyAndCount: vi.fn(async () => [[], 0]),
+    getCount: vi.fn(async () => 0),
+    update: vi.fn(() => qb),
+    set: vi.fn(() => qb),
+    execute: vi.fn(async () => ({ affected: 0 })),
   };
   return qb;
 }
@@ -46,12 +46,12 @@ describe('NotificationsService', () => {
   const preferenceRepository = createRepoMock<NotificationPreference>();
   const userRepository = createRepoMock<User>();
   const workspaceMemberRepository = createRepoMock<WorkspaceMember>();
-  const eventEmitter = { emit: jest.fn() };
+  const eventEmitter = { emit: vi.fn() };
 
   let service: NotificationsService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     userRepository.findOne.mockResolvedValue({ id: 'user-1', locale: 'en' } as User);
     service = new NotificationsService(
       notificationRepository,
@@ -201,7 +201,7 @@ describe('NotificationsService', () => {
       { userId: 'user-3' },
     ] as WorkspaceMember[]);
 
-    const createSpy = jest.spyOn(service, 'create').mockResolvedValue({ id: 'n' } as Notification);
+    const createSpy = vi.spyOn(service, 'create').mockResolvedValue({ id: 'n' } as Notification);
 
     const count = await service.createForWorkspaceMembers({
       workspaceId: 'workspace-1',
@@ -436,11 +436,11 @@ describe('NotificationsService', () => {
 
   it('removes stale reminders only inside the given workspace and types', async () => {
     const qb: any = {
-      delete: jest.fn(() => qb),
-      from: jest.fn(() => qb),
-      where: jest.fn(() => qb),
-      andWhere: jest.fn(() => qb),
-      execute: jest.fn(async () => ({ affected: 2 })),
+      delete: vi.fn(() => qb),
+      from: vi.fn(() => qb),
+      where: vi.fn(() => qb),
+      andWhere: vi.fn(() => qb),
+      execute: vi.fn(async () => ({ affected: 2 })),
     };
     notificationRepository.createQueryBuilder.mockReturnValueOnce(qb);
 

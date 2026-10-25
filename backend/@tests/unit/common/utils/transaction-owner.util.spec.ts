@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
   applyOwnerFilter,
   assertOwnerMemberInWorkspace,
@@ -104,8 +105,8 @@ describe('parseReviewerFilter', () => {
 
 describe('assertOwnerMemberInWorkspace', () => {
   const repo = (exists: boolean) =>
-    ({ exists: jest.fn(async () => exists) }) as unknown as Repository<WorkspaceMember> & {
-      exists: jest.Mock;
+    ({ exists: vi.fn(async () => exists) }) as unknown as Repository<WorkspaceMember> & {
+      exists: Mock;
     };
 
   it.each([null, undefined])('accepts %p as clearing the owner', async value => {

@@ -1,17 +1,18 @@
+import type { Mock } from 'vitest';
 import { BadGatewayException, BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Response } from 'express';
 import { VendorIconsController } from '@/modules/vendor-icons/vendor-icons.controller';
 import type { VendorIconsService } from '@/modules/vendor-icons/vendor-icons.service';
 
 describe('VendorIconsController', () => {
-  let service: { fetchIcon: jest.Mock };
+  let service: { fetchIcon: Mock };
   let controller: VendorIconsController;
-  let res: { setHeader: jest.Mock; send: jest.Mock };
+  let res: { setHeader: Mock; send: Mock };
 
   beforeEach(() => {
-    service = { fetchIcon: jest.fn() };
+    service = { fetchIcon: vi.fn() };
     controller = new VendorIconsController(service as unknown as VendorIconsService);
-    res = { setHeader: jest.fn(), send: jest.fn() };
+    res = { setHeader: vi.fn(), send: vi.fn() };
   });
 
   it('sends the icon with a private cache header', async () => {

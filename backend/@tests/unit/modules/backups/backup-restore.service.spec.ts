@@ -8,14 +8,14 @@ import * as path from 'node:path';
 
 describe('BackupRestoreService', () => {
   it('restores a backup into a new workspace and remaps workspace and user references', async () => {
-    const categoryInsert = jest.fn().mockResolvedValue(undefined);
+    const categoryInsert = vi.fn().mockResolvedValue(undefined);
     const workspaceRepository = {
-      create: jest.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
-      save: jest.fn().mockResolvedValue({ id: 'new-workspace', name: 'Restored finance' }),
-      delete: jest.fn(),
+      create: vi.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
+      save: vi.fn().mockResolvedValue({ id: 'new-workspace', name: 'Restored finance' }),
+      delete: vi.fn(),
     };
-    const memberRepository = { create: jest.fn().mockImplementation(value => value), save: jest.fn().mockResolvedValue(undefined) };
-    const manager = { getRepository: jest.fn().mockReturnValue({ insert: categoryInsert }), query: jest.fn().mockResolvedValue([]) };
+    const memberRepository = { create: vi.fn().mockImplementation(value => value), save: vi.fn().mockResolvedValue(undefined) };
+    const manager = { getRepository: vi.fn().mockReturnValue({ insert: categoryInsert }), query: vi.fn().mockResolvedValue([]) };
     const dataSource = {
       entityMetadatas: [
         {
@@ -24,11 +24,11 @@ describe('BackupRestoreService', () => {
           columns: [{ propertyName: 'id' }, { propertyName: 'workspaceId' }, { propertyName: 'userId' }, { propertyName: 'name' }],
         },
       ],
-      transaction: jest.fn().mockImplementation(callback => callback(manager)),
-      query: jest.fn().mockResolvedValue([]),
+      transaction: vi.fn().mockImplementation(callback => callback(manager)),
+      query: vi.fn().mockResolvedValue([]),
     };
     const archive = {
-      open: jest.fn().mockResolvedValue({
+      open: vi.fn().mockResolvedValue({
         manifest: { workspace: { id: 'old-workspace', name: 'Finance' }, collections: { workspace: 1, categories: 1 }, files: [] },
         collections: {
           workspace: [{ id: 'old-workspace', name: 'Finance', currency: 'KZT' }],
@@ -62,16 +62,16 @@ describe('BackupRestoreService', () => {
     const uploads = await fs.mkdtemp(path.join(os.tmpdir(), 'seneca-restore-'));
     const previousUploads = process.env.UPLOADS_DIR;
     process.env.UPLOADS_DIR = uploads;
-    const statementInsert = jest.fn().mockResolvedValue(undefined);
+    const statementInsert = vi.fn().mockResolvedValue(undefined);
     const workspaceRepository = {
-      create: jest.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
-      save: jest.fn().mockResolvedValue({ id: 'new-workspace', name: 'Restored finance' }),
-      delete: jest.fn(),
+      create: vi.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
+      save: vi.fn().mockResolvedValue({ id: 'new-workspace', name: 'Restored finance' }),
+      delete: vi.fn(),
     };
-    const memberRepository = { create: jest.fn().mockImplementation(value => value), save: jest.fn().mockResolvedValue(undefined) };
-    const manager = { getRepository: jest.fn().mockReturnValue({ insert: statementInsert }), query: jest.fn().mockResolvedValue([]) };
+    const memberRepository = { create: vi.fn().mockImplementation(value => value), save: vi.fn().mockResolvedValue(undefined) };
+    const manager = { getRepository: vi.fn().mockReturnValue({ insert: statementInsert }), query: vi.fn().mockResolvedValue([]) };
     const archive = {
-      open: jest.fn().mockResolvedValue({
+      open: vi.fn().mockResolvedValue({
         manifest: { workspace: { id: 'old-workspace', name: 'Finance' }, collections: { workspace: 1, statements: 1 }, files: [] },
         collections: {
           workspace: [{ id: 'old-workspace', name: 'Finance' }],
@@ -89,8 +89,8 @@ describe('BackupRestoreService', () => {
             columns: [{ propertyName: 'id' }, { propertyName: 'workspaceId' }, { propertyName: 'userId' }, { propertyName: 'fileName' }, { propertyName: 'filePath' }],
           },
         ],
-        transaction: jest.fn().mockImplementation(callback => callback(manager)),
-        query: jest.fn().mockResolvedValue([]),
+        transaction: vi.fn().mockImplementation(callback => callback(manager)),
+        query: vi.fn().mockResolvedValue([]),
       } as never,
       workspaceRepository as never,
       memberRepository as never,
@@ -106,16 +106,16 @@ describe('BackupRestoreService', () => {
   });
 
   it('skips custom_table_import_jobs from backups made before the Google Sheets removal', async () => {
-    const categoryInsert = jest.fn().mockResolvedValue(undefined);
+    const categoryInsert = vi.fn().mockResolvedValue(undefined);
     const workspaceRepository = {
-      create: jest.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
-      save: jest.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
-      delete: jest.fn(),
+      create: vi.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
+      save: vi.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
+      delete: vi.fn(),
     };
-    const memberRepository = { create: jest.fn().mockImplementation(value => value), save: jest.fn().mockResolvedValue(undefined) };
-    const manager = { getRepository: jest.fn().mockReturnValue({ insert: categoryInsert }), query: jest.fn().mockResolvedValue([]) };
+    const memberRepository = { create: vi.fn().mockImplementation(value => value), save: vi.fn().mockResolvedValue(undefined) };
+    const manager = { getRepository: vi.fn().mockReturnValue({ insert: categoryInsert }), query: vi.fn().mockResolvedValue([]) };
     const archive = {
-      open: jest.fn().mockResolvedValue({
+      open: vi.fn().mockResolvedValue({
         manifest: { workspace: { id: 'old-workspace', name: 'Finance' }, collections: {}, files: [] },
         collections: {
           workspace: [{ id: 'old-workspace', name: 'Finance' }],
@@ -130,8 +130,8 @@ describe('BackupRestoreService', () => {
         entityMetadatas: [
           { tableName: 'categories', target: 'Category', columns: [{ propertyName: 'id' }, { propertyName: 'workspaceId' }, { propertyName: 'name' }] },
         ],
-        transaction: jest.fn().mockImplementation(callback => callback(manager)),
-        query: jest.fn().mockResolvedValue([]),
+        transaction: vi.fn().mockImplementation(callback => callback(manager)),
+        query: vi.fn().mockResolvedValue([]),
       } as never,
       workspaceRepository as never,
       memberRepository as never,
@@ -148,25 +148,25 @@ describe('BackupRestoreService', () => {
   it('inserts a table after the tables its foreign keys point at, even keys only migrations declare', async () => {
     const inserted: string[] = [];
     const workspaceRepository = {
-      create: jest.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
-      save: jest.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
-      delete: jest.fn(),
+      create: vi.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
+      save: vi.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
+      delete: vi.fn(),
     };
-    const memberRepository = { create: jest.fn().mockImplementation(value => value), save: jest.fn().mockResolvedValue(undefined) };
+    const memberRepository = { create: vi.fn().mockImplementation(value => value), save: vi.fn().mockResolvedValue(undefined) };
     const manager = {
-      getRepository: jest.fn().mockImplementation((target: string) => ({
-        insert: jest.fn().mockImplementation(async () => {
+      getRepository: vi.fn().mockImplementation((target: string) => ({
+        insert: vi.fn().mockImplementation(async () => {
           inserted.push(target);
         }),
       })),
       // categories.ledger_account_id -> ledger_accounts, and categories.parent_id -> categories.
-      query: jest.fn().mockResolvedValue([
+      query: vi.fn().mockResolvedValue([
         { source: 'categories', target: 'ledger_accounts' },
         { source: 'categories', target: 'categories' },
       ]),
     };
     const archive = {
-      open: jest.fn().mockResolvedValue({
+      open: vi.fn().mockResolvedValue({
         manifest: { workspace: { id: 'old-workspace', name: 'Finance' }, collections: {}, files: [] },
         collections: {
           workspace: [{ id: 'old-workspace', name: 'Finance' }],
@@ -183,8 +183,8 @@ describe('BackupRestoreService', () => {
           { tableName: 'categories', target: 'Category', columns: columns('id', 'workspaceId', 'ledgerAccountId', 'name') },
           { tableName: 'ledger_accounts', target: 'LedgerAccount', columns: columns('id', 'workspaceId', 'name') },
         ],
-        transaction: jest.fn().mockImplementation(callback => callback(manager)),
-        query: jest.fn().mockResolvedValue([]),
+        transaction: vi.fn().mockImplementation(callback => callback(manager)),
+        query: vi.fn().mockResolvedValue([]),
       } as never,
       workspaceRepository as never,
       memberRepository as never,
@@ -216,28 +216,28 @@ describe('BackupRestoreService', () => {
     ) => {
       const inserted: Record<string, Record<string, unknown>[]> = {};
       const workspaceRepository = {
-        create: jest.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
-        save: jest.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
-        delete: jest.fn(),
+        create: vi.fn().mockImplementation(value => ({ id: 'new-workspace', ...value })),
+        save: vi.fn().mockResolvedValue({ id: 'new-workspace', name: 'Finance' }),
+        delete: vi.fn(),
       };
       const manager = {
-        getRepository: jest.fn().mockImplementation((target: string) => ({
-          insert: jest.fn().mockImplementation(async (values: Record<string, unknown>[]) => {
+        getRepository: vi.fn().mockImplementation((target: string) => ({
+          insert: vi.fn().mockImplementation(async (values: Record<string, unknown>[]) => {
             inserted[target] = values;
           }),
         })),
-        query: jest.fn().mockResolvedValue([]),
+        query: vi.fn().mockResolvedValue([]),
       };
       const service = new BackupRestoreService(
         {
           entityMetadatas: metadatas,
-          transaction: jest.fn().mockImplementation(callback => callback(manager)),
-          query: jest.fn().mockResolvedValue(foreignKeys),
+          transaction: vi.fn().mockImplementation(callback => callback(manager)),
+          query: vi.fn().mockResolvedValue(foreignKeys),
         } as never,
         workspaceRepository as never,
-        { create: jest.fn().mockImplementation(value => value), save: jest.fn() } as never,
+        { create: vi.fn().mockImplementation(value => value), save: vi.fn() } as never,
         {
-          open: jest.fn().mockResolvedValue({
+          open: vi.fn().mockResolvedValue({
             manifest: { collections: {}, files: [] },
             collections: { workspace: [{ id: 'old-workspace', name: 'Finance' }], ...collections },
             files: new Map(),

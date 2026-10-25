@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
   CryptoPriceService,
   PriceUnavailableError,
@@ -14,15 +15,15 @@ const createRepoMock = () => {
   const inserted: InsertedRow[] = [];
   const repo = {
     inserted,
-    findOne: jest.fn().mockResolvedValue(null),
-    createQueryBuilder: jest.fn(() => ({
-      insert: jest.fn().mockReturnThis(),
-      into: jest.fn().mockReturnThis(),
-      values: jest.fn((rows: InsertedRow | InsertedRow[]) => {
+    findOne: vi.fn().mockResolvedValue(null),
+    createQueryBuilder: vi.fn(() => ({
+      insert: vi.fn().mockReturnThis(),
+      into: vi.fn().mockReturnThis(),
+      values: vi.fn((rows: InsertedRow | InsertedRow[]) => {
         inserted.push(...(Array.isArray(rows) ? rows : [rows]));
         return {
-          orIgnore: jest.fn().mockReturnThis(),
-          execute: jest.fn().mockResolvedValue({ raw: [] }),
+          orIgnore: vi.fn().mockReturnThis(),
+          execute: vi.fn().mockResolvedValue({ raw: [] }),
         };
       }),
     })),
@@ -53,17 +54,17 @@ const DAY_MS = 86_400_000;
 describe('CryptoPriceService', () => {
   let repo: ReturnType<typeof createRepoMock>;
   let service: CryptoPriceService;
-  let fetchMock: jest.Mock;
+  let fetchMock: Mock;
 
   beforeEach(() => {
     repo = createRepoMock();
     service = new CryptoPriceService(repo as never);
-    fetchMock = jest.fn();
+    fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe('primeHistoricalPrices', () => {
@@ -145,25 +146,25 @@ describe('CryptoPriceService', () => {
     });
 
     it('retries a short refusal and keeps the price it eventually gets', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       fetchMock
         .mockResolvedValueOnce(errorResponse(429, { 'retry-after': '1' }))
         .mockResolvedValueOnce(jsonResponse({ market_data: { current_price: { usd: 3999.5 } } }));
 
       const price = service.getUsdPrice('ETH', new Date('2026-01-01'));
-      await jest.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(1_000);
 
       await expect(price).resolves.toBe(3999.5);
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('retries a server error with backoff before giving up', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       fetchMock.mockResolvedValue(errorResponse(503));
 
       const price = service.getUsdPrice('ETH', new Date('2026-01-01'));
       const assertion = expect(price).rejects.toBeInstanceOf(PriceUnavailableError);
-      await jest.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(10_000);
 
       await assertion;
       expect(fetchMock).toHaveBeenCalledTimes(3);

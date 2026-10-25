@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
   type Integration,
   type User,
@@ -14,15 +15,15 @@ import type { Repository } from 'typeorm';
 
 function createRepoMock<T>() {
   return {
-    findOne: jest.fn(),
-    find: jest.fn(),
-    count: jest.fn(),
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    update: jest.fn(async () => ({ affected: 1 })),
-    delete: jest.fn(async () => ({ affected: 1 })),
-    remove: jest.fn(async (data: T) => data),
-  } as unknown as Repository<T> & Record<string, jest.Mock>;
+    findOne: vi.fn(),
+    find: vi.fn(),
+    count: vi.fn(),
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    update: vi.fn(async () => ({ affected: 1 })),
+    delete: vi.fn(async () => ({ affected: 1 })),
+    remove: vi.fn(async (data: T) => data),
+  } as unknown as Repository<T> & Record<string, Mock>;
 }
 
 describe('WorkspacesService — member management', () => {
@@ -31,10 +32,10 @@ describe('WorkspacesService — member management', () => {
   const invitationRepository = createRepoMock<WorkspaceInvitation>();
   const userRepository = createRepoMock<User>();
   const integrationRepository = createRepoMock<Integration>();
-  const auditService = { createEvent: jest.fn() };
-  const balanceService = { seedDefaultAccounts: jest.fn(async () => undefined) };
-  const categoriesService = { createSystemCategories: jest.fn(async () => undefined) };
-  const taxRatesService = { createDefaultTaxRates: jest.fn(async () => undefined) };
+  const auditService = { createEvent: vi.fn() };
+  const balanceService = { seedDefaultAccounts: vi.fn(async () => undefined) };
+  const categoriesService = { createSystemCategories: vi.fn(async () => undefined) };
+  const taxRatesService = { createDefaultTaxRates: vi.fn(async () => undefined) };
 
   let service: WorkspacesService;
 
@@ -51,11 +52,11 @@ describe('WorkspacesService — member management', () => {
 
   /** Stubs requireAdminMembership to return given membership */
   function stubAdminCheck(membership: WorkspaceMember) {
-    (service as any).requireAdminMembership = jest.fn().mockResolvedValue(membership);
+    (service as any).requireAdminMembership = vi.fn().mockResolvedValue(membership);
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new WorkspacesService(
       workspaceRepository as any,
       workspaceMemberRepository as any,
@@ -67,7 +68,7 @@ describe('WorkspacesService — member management', () => {
       categoriesService as any,
       taxRatesService as any,
     );
-    (service as any).sendInvitationEmail = jest.fn(async () => undefined);
+    (service as any).sendInvitationEmail = vi.fn(async () => undefined);
   });
 
   // ─────────────────────────────────────────────────────────────────────────
