@@ -24,7 +24,6 @@ import {
 import { useDashboardRedirect } from './useDashboardRedirect';
 
 /** The month lives in the URL so a reload or shared link restores the view. */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function useDashboardUrlState() {
   const router = useRouter();
   const pathname = usePathname();
@@ -50,7 +49,6 @@ function useDashboardUrlState() {
   return { pickedMonth, changeMonth };
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function useDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();

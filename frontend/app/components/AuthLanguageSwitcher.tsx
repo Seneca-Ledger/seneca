@@ -15,7 +15,6 @@ import {
 import { tokens } from '@/lib/theme-tokens';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function AuthLanguageSwitcher() {
   const { locale, setLocale, availableLocales } = useLocale();
   const { languageModal } = useIntlayer('navigation');
@@ -51,7 +50,6 @@ export function AuthLanguageSwitcher() {
     return languages.filter(lang => lang.label.toLowerCase().includes(query));
   }, [languageSearch, languages]);
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleLanguageSelect = (code: AppLanguage) => {
     setLocale(code);
     setLanguageModalOpen(false);

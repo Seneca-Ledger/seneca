@@ -14,7 +14,7 @@ class TestController {
 describe('AuditInterceptor', () => {
   it('creates audit event for decorated handler', async () => {
     const auditService = {
-      createEvent: jest.fn().mockResolvedValue({}),
+      createEvent: vi.fn().mockResolvedValue({}),
     };
     const interceptor = new AuditInterceptor(new Reflector(), auditService as any);
 

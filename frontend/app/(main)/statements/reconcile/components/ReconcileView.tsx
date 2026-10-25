@@ -59,7 +59,12 @@ export function ReconcileView(): React.JSX.Element {
       }}
     >
       <Box>
-        <Typography variant="h5" fontWeight={700}>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 700,
+          }}
+        >
           {t.title}
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -81,11 +86,22 @@ export function ReconcileView(): React.JSX.Element {
           }}
         >
           <Box sx={card}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 600,
+                mb: 1.5,
+              }}
+            >
               {t.matches}
             </Typography>
             {data.matches.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.noMatches}
               </Typography>
             ) : (
@@ -108,10 +124,20 @@ export function ReconcileView(): React.JSX.Element {
                     }}
                   >
                     <Box>
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 600,
+                        }}
+                      >
                         {match.item.vendor}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {match.item.direction === 'receivable' ? t.receivables : t.payables} ·{' '}
                         <PrivateAmount>
                           {money(match.item.amount, match.item.currency)}
@@ -126,7 +152,12 @@ export function ReconcileView(): React.JSX.Element {
                       <Typography variant="body2">
                         {match.transaction.counterpartyName ?? match.transaction.paymentPurpose}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {formatDate(match.transaction.date)} ·{' '}
                         <PrivateAmount>
                           {money(match.transaction.amount, match.transaction.currency)}
@@ -156,7 +187,13 @@ export function ReconcileView(): React.JSX.Element {
             }}
           >
             <Box sx={card}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.5,
+                }}
+              >
                 {t.ageing}
               </Typography>
               <Box sx={{ overflowX: 'auto' }}>
@@ -201,10 +238,23 @@ export function ReconcileView(): React.JSX.Element {
             </Box>
 
             <Box sx={card}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.5,
+                }}
+              >
                 {t.unmatched}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  display: 'block',
+                  mb: 1,
+                }}
+              >
                 {fill(t.unmatchedRows.value, { count: String(data.unmatchedRowCount) })}
               </Typography>
               <Box sx={{ display: 'grid', gap: 0.5 }}>
@@ -221,7 +271,13 @@ export function ReconcileView(): React.JSX.Element {
 
           {data.duplicates.length > 0 && (
             <Box sx={card}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.5,
+                }}
+              >
                 {t.duplicates}
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>

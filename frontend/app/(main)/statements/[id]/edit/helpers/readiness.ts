@@ -1,6 +1,6 @@
-import { formatLabel, labelValue } from '../editHelpers';
+import { formatLabel } from '../editHelpers';
 
-type Labels = Record<string, { value?: string } | undefined>;
+type Labels = Record<string, { value: string }>;
 
 export type ReadinessMessageParams = {
   hasStatementCategory: boolean;
@@ -17,38 +17,27 @@ export function buildReadinessTitle(
   labels: Labels,
 ): string {
   if (severity === 'error') {
-    return labelValue(labels.alertNeedsFixTitle, 'Fix required before submit');
+    return labels.alertNeedsFixTitle.value;
   }
   if (severity === 'warning') {
-    return labelValue(labels.alertReviewTitle, 'Review statement before submit');
+    return labels.alertReviewTitle.value;
   }
-  return labelValue(labels.alertReadyTitle, 'Statement is ready to submit');
+  return labels.alertReadyTitle.value;
 }
 
 function buildCategoryMsgs(p: ReadinessMessageParams): string[] {
   const msgs: string[] = [];
   if (!p.hasStatementCategory) {
-    msgs.push(
-      labelValue(p.labels.alertStatementCategoryMissing, 'Statement category is not selected.'),
-    );
+    msgs.push(p.labels.alertStatementCategoryMissing.value);
   }
   if (p.hasDisabledStatementCategory) {
-    msgs.push(
-      labelValue(
-        p.labels.alertStatementCategoryDisabled,
-        'Selected statement category is disabled. Choose an active category.',
-      ),
-    );
+    msgs.push(p.labels.alertStatementCategoryDisabled.value);
   }
   if (p.missingCategoryCount > 0) {
     msgs.push(
-      formatLabel(
-        labelValue(
-          p.labels.alertTransactionsCategoryMissing,
-          '{count} transactions require a category.',
-        ),
-        { count: p.missingCategoryCount },
-      ),
+      formatLabel(p.labels.alertTransactionsCategoryMissing.value, {
+        count: p.missingCategoryCount,
+      }),
     );
   }
   return msgs;
@@ -58,29 +47,26 @@ function buildParsingMsgs(p: ReadinessMessageParams): string[] {
   const msgs: string[] = [];
   if (p.parsingErrorCount > 0) {
     msgs.push(
-      formatLabel(labelValue(p.labels.alertParsingErrors, '{count} parsing errors found.'), {
+      formatLabel(p.labels.alertParsingErrors.value, {
         count: p.parsingErrorCount,
       }),
     );
   }
   if (p.parsingWarningCount > 0) {
     msgs.push(
-      formatLabel(labelValue(p.labels.alertParsingWarnings, '{count} parsing warnings found.'), {
+      formatLabel(p.labels.alertParsingWarnings.value, {
         count: p.parsingWarningCount,
       }),
     );
   }
   if (!p.transactionsCount) {
-    msgs.push(labelValue(p.labels.alertNoTransactions, 'No transactions found in this statement.'));
+    msgs.push(p.labels.alertNoTransactions.value);
   }
   return msgs;
 }
 
 export function buildReadinessMessage(params: ReadinessMessageParams): string {
   const details = [...buildCategoryMsgs(params), ...buildParsingMsgs(params)];
-  const fallback = labelValue(
-    params.labels.alertReadyBody,
-    'All required categories are assigned. The data looks good and ready to submit.',
-  );
+  const fallback = params.labels.alertReadyBody.value;
   return details.length > 0 ? details.join(' · ') : fallback;
 }

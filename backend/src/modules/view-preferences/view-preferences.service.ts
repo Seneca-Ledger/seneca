@@ -18,7 +18,9 @@ export class ViewPreferencesService {
   ): Promise<Record<string, unknown> | null> {
     const saved = await this.repository.findOne({
       where: { userId, workspaceId, scope },
-      select: ['state'],
+      select: {
+        state: true,
+      },
     });
     return saved?.state ?? null;
   }

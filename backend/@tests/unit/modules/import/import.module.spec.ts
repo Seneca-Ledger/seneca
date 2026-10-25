@@ -11,9 +11,9 @@ describe('ImportModule', () => {
   let repository: Repository<ImportSession>;
 
   const mockRepository = {
-    findOne: jest.fn(),
-    update: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    findOne: vi.fn(),
+    update: vi.fn(),
+    createQueryBuilder: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -34,7 +34,7 @@ describe('ImportModule', () => {
 
   afterEach(async () => {
     await module.close();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Module Registration', () => {

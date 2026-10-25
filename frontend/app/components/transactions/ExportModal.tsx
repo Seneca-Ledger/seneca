@@ -11,12 +11,10 @@ interface ExportModalProps {
   onExport: (type: 'table' | 'excel' | 'csv') => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export default function ExportModal({ open, onClose, onExport }: ExportModalProps) {
   const [selectedType, setSelectedType] = useState<'table' | 'excel' | 'csv'>('table');
   const t = useIntlayer('exportModal');
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleConfirm = () => {
     onExport(selectedType);
     onClose();

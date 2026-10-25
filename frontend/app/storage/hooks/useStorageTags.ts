@@ -53,7 +53,6 @@ export interface UseStorageTagsReturn {
   canEditTag: (tag: TagOption) => boolean;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function useStorageTags(
   messages: UseStorageTagsMessages,
   setFiles: React.Dispatch<React.SetStateAction<StorageFile[]>>,
@@ -111,7 +110,6 @@ export function useStorageTags(
     setEditingTagPickerId(null);
   };
 
-  // eslint-disable-next-line max-lines-per-function
   const handleRenameTag = async (tagId: string): Promise<void> => {
     const name = editingTagName.trim();
     if (!name) {

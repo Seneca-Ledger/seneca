@@ -3,12 +3,12 @@ import { WebhookTokenGuard } from '../../../../src/modules/webhooks/guards/webho
 
 describe('WebhookTokenGuard', () => {
   let guard: WebhookTokenGuard;
-  const mockEndpointsService = { findByToken: jest.fn() };
-  const mockPlugins = { assertEnabled: jest.fn() };
+  const mockEndpointsService = { findByToken: vi.fn() };
+  const mockPlugins = { assertEnabled: vi.fn() };
 
   beforeEach(() => {
     guard = new WebhookTokenGuard(mockEndpointsService as any, mockPlugins as any);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockPlugins.assertEnabled.mockResolvedValue(undefined);
   });
 

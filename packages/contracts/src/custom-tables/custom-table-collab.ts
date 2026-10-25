@@ -1,0 +1,71 @@
+import * as Schema from 'effect/Schema';
+import { Timestamp, type Wire } from '../common/wire';
+
+/** A comment on a row; the author is gone (null) once their account is deleted. */
+export const RowCommentItem = Schema.Struct({
+  id: Schema.String,
+  body: Schema.String,
+  resolvedAt: Schema.NullOr(Timestamp),
+  createdAt: Timestamp,
+  author: Schema.NullOr(Schema.Struct({ id: Schema.String, name: Schema.String })),
+});
+export type RowCommentItem = Wire<typeof RowCommentItem>;
+
+/** `GET /custom-tables/:id/rows/:rowId/comments`, oldest first. */
+export const RowCommentList = Schema.Struct({ items: Schema.Array(RowCommentItem) });
+export type RowCommentList = Wire<typeof RowCommentList>;
+
+/** `GET /custom-tables/:id/comment-counts`: row id → open comments on it. */
+export const RowCommentCounts = Schema.Struct({
+  counts: Schema.Record(Schema.String, Schema.Number),
+});
+export type RowCommentCounts = Wire<typeof RowCommentCounts>;
+
+const ShareStatus = Schema.Literals(['active', 'expired', 'revoked']);
+
+/** `POST /custom-tables/:id/shares`: the new public link. */
+export const CustomTableShareCreated = Schema.Struct({
+  id: Schema.String,
+  token: Schema.String,
+  expiresAt: Schema.NullOr(Timestamp),
+  status: ShareStatus,
+});
+export type CustomTableShareCreated = Wire<typeof CustomTableShareCreated>;
+
+/** `GET /custom-tables/:id/shares`, newest first. */
+export const CustomTableShareList = Schema.Struct({
+  items: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      token: Schema.String,
+      status: ShareStatus,
+      expiresAt: Schema.NullOr(Timestamp),
+      accessCount: Schema.Number,
+      lastAccessedAt: Schema.NullOr(Timestamp),
+      createdAt: Timestamp,
+    }),
+  ),
+});
+export type CustomTableShareList = Wire<typeof CustomTableShareList>;
+
+/** A scheduled export of a table; the last file is downloaded by its schedule id. */
+export const ExportScheduleItem = Schema.Struct({
+  id: Schema.String,
+  tableId: Schema.String,
+  format: Schema.Literals(['csv', 'xlsx']),
+  delivery: Schema.Literal('storage'),
+  /** `{ filters, sort, columnKeys }`, as the manual export takes them. */
+  viewConfig: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
+  intervalHours: Schema.Number,
+  enabled: Schema.Boolean,
+  lastRunAt: Schema.NullOr(Timestamp),
+  lastError: Schema.NullOr(Schema.String),
+  lastFileName: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type ExportScheduleItem = Wire<typeof ExportScheduleItem>;
+
+/** `GET /custom-tables/:id/export-schedules`, newest first. */
+export const ExportScheduleList = Schema.Struct({ items: Schema.Array(ExportScheduleItem) });
+export type ExportScheduleList = Wire<typeof ExportScheduleList>;

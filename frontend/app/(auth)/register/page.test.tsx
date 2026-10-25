@@ -44,6 +44,10 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
+// Imported once at collection: a dynamic import inside a test spends its
+// timeout on the module graph and, timing out, renders into the next test.
+import RegisterPage from './page';
+
 describe('RegisterPage validation', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
@@ -64,8 +68,6 @@ describe('RegisterPage validation', () => {
   });
 
   it('does not submit when password is shorter than 8 characters', async () => {
-    const { default: RegisterPage } = await import('./page');
-
     await act(async () => {
       root.render(<RegisterPage />);
       await Promise.resolve();

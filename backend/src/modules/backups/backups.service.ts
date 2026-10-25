@@ -10,6 +10,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { APP_SLUG } from '../../common/brand';
+import { appError } from '../../common/errors/app-error';
 import type { UpdateBackupConfigurationBody } from '../../contracts';
 import {
   BackupConfiguration,
@@ -65,7 +66,7 @@ export class BackupsService {
       where: { workspaceId: workspace.id },
     });
     if (!(existing || input.password)) {
-      throw new BadRequestException('A backup password is required for the first configuration');
+      throw new BadRequestException(appError('BACKUP_PASSWORD_REQUIRED'));
     }
 
     const configuration =
@@ -129,7 +130,7 @@ export class BackupsService {
       where: { workspaceId: workspace.id },
     });
     if (!configuration) {
-      throw new BadRequestException('Backup is not configured');
+      throw new BadRequestException(appError('BACKUP_NOT_CONFIGURED'));
     }
     const run = await this.runConfiguration(workspace, configuration, trigger);
     await recordSecurityEvent(this.auditService, this.logger, {
@@ -154,12 +155,12 @@ export class BackupsService {
       where: { id: runId, workspaceId: workspace.id },
     });
     if (!run?.destinationFile || run.status !== BackupRunStatus.SUCCEEDED) {
-      throw new NotFoundException('Backup run was not found');
+      throw new NotFoundException(appError('BACKUP_RUN_NOT_FOUND'));
     }
     const configuration = await this.configurationRepository.findOne({
       where: { id: run.configurationId, workspaceId: workspace.id },
     });
-    if (!configuration) throw new NotFoundException('Backup configuration was not found');
+    if (!configuration) throw new NotFoundException(appError('BACKUP_CONFIG_NOT_FOUND'));
 
     return {
       fileName: run.destinationFile.split('/').pop() || `backup${BACKUP_FILE_EXTENSION}`,
@@ -237,35 +238,35 @@ export class BackupsService {
   /** Backups are the open workspace's, and only its owner manages them. */
   private async requireOwner(user: User, workspaceId: string): Promise<Workspace> {
     const workspace = await this.workspaceRepository.findOne({ where: { id: workspaceId } });
-    if (!workspace) throw new NotFoundException('Workspace not found');
+    if (!workspace) throw new NotFoundException(appError('WORKSPACE_NOT_FOUND'));
     if (workspace.ownerId !== user.id) {
-      throw new ForbiddenException('Only the workspace owner can manage backups');
+      throw new ForbiddenException(appError('BACKUP_OWNER_ONLY'));
     }
     return workspace;
   }
 
   private validateConfiguration(input: UpdateBackupConfiguration): void {
     if (!Object.values(BackupDestinationKind).includes(input.destinationKind)) {
-      throw new BadRequestException('Unsupported backup destination');
+      throw new BadRequestException(appError('BACKUP_DESTINATION_UNSUPPORTED'));
     }
     if (input.dailyTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.dailyTime)) {
-      throw new BadRequestException('Daily backup time must be HH:mm');
+      throw new BadRequestException(appError('BACKUP_TIME_INVALID'));
     }
     if (input.timeZone) {
       try {
         Intl.DateTimeFormat(undefined, { timeZone: input.timeZone });
       } catch {
-        throw new BadRequestException('Invalid backup time zone');
+        throw new BadRequestException(appError('BACKUP_TIME_ZONE_INVALID'));
       }
     }
     if (
       input.retentionCount != null &&
       (!Number.isInteger(input.retentionCount) || input.retentionCount < 1)
     ) {
-      throw new BadRequestException('Retention count must be at least one');
+      throw new BadRequestException(appError('BACKUP_RETENTION_INVALID'));
     }
     if (input.destinationPath && !/^[a-zA-Z0-9_-]+$/.test(input.destinationPath)) {
-      throw new BadRequestException('Invalid backup destination path');
+      throw new BadRequestException(appError('BACKUP_DESTINATION_PATH_INVALID'));
     }
   }
 

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import Alert from '@mui/material/Alert';
@@ -133,12 +132,10 @@ const textButtonStyle: React.CSSProperties = {
   borderRadius: tokens.radius.md,
 };
 
-// eslint-disable-next-line max-lines-per-function, complexity
 function BalanceSheet(): React.JSX.Element {
   const t = useIntlayer('reportsPage');
   const { locale } = useLocale();
   const labels = t.labels as Record<string, { value?: string } | undefined>;
-  // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
 
   const workspaceId = useWorkspaceId();
@@ -212,14 +209,12 @@ function BalanceSheet(): React.JSX.Element {
 
   // Whole units on group and total lines, cents on the lines under them.
   const formatCurrency = useCallback(
-    // eslint-disable-next-line max-params
     (value: number, fractionDigits = 2) =>
       formatMoney(value, currencyCode, locale, { fractionDigits }),
     [locale, currencyCode],
   );
   // A zero is a dash: most lines of a fresh workspace are empty.
   const formatAmount = useCallback(
-    // eslint-disable-next-line max-params
     (value: number, fractionDigits = 2) =>
       value === 0 ? '—' : formatCurrency(value, fractionDigits),
     [formatCurrency],
@@ -265,7 +260,6 @@ function BalanceSheet(): React.JSX.Element {
   );
 
   const downloadExport = useCallback(
-    // eslint-disable-next-line max-lines-per-function
     async (format: BalanceExportFormat): Promise<void> => {
       setExportingFormat(format);
       setExportMenuOpen(false);
@@ -326,7 +320,6 @@ function BalanceSheet(): React.JSX.Element {
 
   // A hoisted function rather than a self-referencing useCallback: React
   // Compiler cannot compile a callback that calls itself before declaration.
-  // eslint-disable-next-line max-lines-per-function, max-params, complexity
   function renderAccount(account: BalanceAccountNode, level = 0): React.JSX.Element {
     const hasChildren = account.children.length > 0;
     const isExpanded = expanded[account.id] ?? true;
@@ -467,7 +460,6 @@ function BalanceSheet(): React.JSX.Element {
         {hasChildren && isExpanded && (
           <Box>
             {account.children
-              // eslint-disable-next-line max-params
               .sort((a, b) => a.position - b.position)
               .map(child => renderAccount(child, level + 1))}
           </Box>
@@ -662,7 +654,6 @@ function BalanceSheet(): React.JSX.Element {
               </Typography>
               <Box sx={{ flexGrow: 1 }}>
                 {side.sections
-                  // eslint-disable-next-line max-params
                   .sort((a, b) => a.position - b.position)
                   .map(section => renderAccount(section))}
               </Box>

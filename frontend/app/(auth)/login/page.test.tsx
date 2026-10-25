@@ -41,6 +41,10 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
+// Imported once at collection: a dynamic import inside a test spends its
+// timeout on the module graph and, timing out, renders into the next test.
+import LoginPage from './page';
+
 describe('LoginPage locale persistence', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
@@ -99,8 +103,6 @@ describe('LoginPage locale persistence', () => {
         }),
       },
     });
-
-    const { default: LoginPage } = await import('./page');
 
     await act(async () => {
       root.render(<LoginPage />);
@@ -163,8 +165,6 @@ describe('LoginPage locale persistence', () => {
       },
     });
 
-    const { default: LoginPage } = await import('./page');
-
     await act(async () => {
       root.render(<LoginPage />);
       await Promise.resolve();
@@ -210,8 +210,6 @@ describe('LoginPage locale persistence', () => {
 
   it('shows and hides the password, and puts a failed login under the field', async () => {
     apiPost.mockRejectedValue(new Error('Incorrect email or password'));
-    const { default: LoginPage } = await import('./page');
-
     await act(async () => {
       root.render(<LoginPage />);
       await Promise.resolve();

@@ -8,8 +8,8 @@ import { seedDemoWorkspace } from '@/modules/workspaces/demo-workspace/demo-work
 import type { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 
 // The seeder is covered on its own; here only what is handed to it matters.
-jest.mock('@/modules/workspaces/demo-workspace/demo-workspace.seeder', () => ({
-  seedDemoWorkspace: jest.fn(async () => undefined),
+vi.mock('@/modules/workspaces/demo-workspace/demo-workspace.seeder', () => ({
+  seedDemoWorkspace: vi.fn(async () => undefined),
 }));
 
 const uniqueViolation = Object.assign(new Error('duplicate key'), {
@@ -19,21 +19,21 @@ const uniqueViolation = Object.assign(new Error('duplicate key'), {
 
 function setup(options: { existing?: string | null; fail?: Error } = {}) {
   const workspaceRepository = {
-    findOne: jest.fn(async () => (options.existing ? { id: options.existing } : null)),
-    delete: jest.fn(async () => ({ affected: 1 })),
+    findOne: vi.fn(async () => (options.existing ? { id: options.existing } : null)),
+    delete: vi.fn(async () => ({ affected: 1 })),
   };
   const manager = {
-    update: jest.fn(async () => ({ affected: 1 })),
+    update: vi.fn(async () => ({ affected: 1 })),
   };
   const dataSource = {
-    transaction: jest.fn(async (work: (m: unknown) => Promise<void>) => {
+    transaction: vi.fn(async (work: (m: unknown) => Promise<void>) => {
       await work(manager);
       if (options.fail) throw options.fail;
     }),
   };
   const workspacesService = {
-    createWorkspace: jest.fn(async () => ({ id: 'ws-new', name: 'Demo' })),
-    getWorkspaceById: jest.fn(async (id: string) => ({ id, name: 'Demo' })),
+    createWorkspace: vi.fn(async () => ({ id: 'ws-new', name: 'Demo' })),
+    getWorkspaceById: vi.fn(async (id: string) => ({ id, name: 'Demo' })),
   };
   const service = new DemoWorkspaceService(
     workspaceRepository as unknown as Repository<Workspace>,

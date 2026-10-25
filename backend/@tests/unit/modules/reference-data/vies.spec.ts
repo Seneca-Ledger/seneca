@@ -15,7 +15,7 @@ describe('normalizeVatNumber', () => {
 
 describe('ViesService', () => {
   it('reads a valid number with its registered name', async () => {
-    const fetchImpl = jest.fn(
+    const fetchImpl = vi.fn(
       answer({ isValid: true, userError: 'VALID', name: 'GOOGLE IRELAND LIMITED' }),
     );
     const result = await new ViesService(fetchImpl as never).check('IE', 'IE 6388047V');
@@ -24,13 +24,13 @@ describe('ViesService', () => {
   });
 
   it('reads an invalid number', async () => {
-    const service = new ViesService(jest.fn(answer({ isValid: false, userError: 'INVALID' })) as never);
+    const service = new ViesService(vi.fn(answer({ isValid: false, userError: 'INVALID' })) as never);
     expect((await service.check('NL', '000000000B01')).status).toBe('invalid');
   });
 
   it('knows nothing when the member state register is down', async () => {
     const service = new ViesService(
-      jest.fn(answer({ isValid: false, userError: 'MS_UNAVAILABLE', name: '---' })) as never,
+      vi.fn(answer({ isValid: false, userError: 'MS_UNAVAILABLE', name: '---' })) as never,
     );
     expect(await service.check('DE', '811115368')).toMatchObject({
       status: 'unavailable',
@@ -39,12 +39,12 @@ describe('ViesService', () => {
   });
 
   it('knows nothing when VIES cannot be reached', async () => {
-    const service = new ViesService(jest.fn().mockRejectedValue(new Error('timeout')) as never);
+    const service = new ViesService(vi.fn().mockRejectedValue(new Error('timeout')) as never);
     expect((await service.check('DE', '811115368')).status).toBe('unavailable');
   });
 
   it('asks Greece as EL, and never asks about a country outside the EU', async () => {
-    const fetchImpl = jest.fn(answer({ isValid: true, userError: 'VALID', name: '---' }));
+    const fetchImpl = vi.fn(answer({ isValid: true, userError: 'VALID', name: '---' }));
     const service = new ViesService(fetchImpl as never);
     expect((await service.check('GR', '094014201')).name).toBeNull();
     expect(String(fetchImpl.mock.calls[0][0])).toContain('/ms/EL/vat/');

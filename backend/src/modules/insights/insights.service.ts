@@ -295,7 +295,10 @@ export class InsightsService {
   private async resolveLocale(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'locale'],
+      select: {
+        id: true,
+        locale: true,
+      },
     });
     return user?.locale ?? 'en';
   }

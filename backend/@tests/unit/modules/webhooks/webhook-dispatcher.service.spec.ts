@@ -2,9 +2,9 @@ import { WebhookEvent } from '../../../../src/entities/webhook-subscription.enti
 import { WebhookDispatcherService } from '../../../../src/modules/webhooks/services/webhook-dispatcher.service';
 
 describe('WebhookDispatcherService', () => {
-  const subscriptions = { findActiveByWorkspaceAndEvent: jest.fn() };
-  const deliveries = { enqueue: jest.fn() };
-  const plugins = { isEnabled: jest.fn() };
+  const subscriptions = { findActiveByWorkspaceAndEvent: vi.fn() };
+  const deliveries = { enqueue: vi.fn() };
+  const plugins = { isEnabled: vi.fn() };
   const service = new WebhookDispatcherService(
     subscriptions as any,
     deliveries as any,
@@ -12,7 +12,7 @@ describe('WebhookDispatcherService', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     subscriptions.findActiveByWorkspaceAndEvent.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
   });
 

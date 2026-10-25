@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, MenuItem, Select, TextField } from '@mui/material';
+import { useIntlayer } from '@/app/i18n';
 import type { ReceiptsFilterState } from './hooks/useReceipts';
 
 export interface ReceiptFiltersProps {
@@ -9,6 +10,7 @@ export interface ReceiptFiltersProps {
 }
 
 export function ReceiptFilters({ filters, onChange }: ReceiptFiltersProps) {
+  const t = useIntlayer('receiptReview');
   return (
     <Box
       sx={{
@@ -20,7 +22,7 @@ export function ReceiptFilters({ filters, onChange }: ReceiptFiltersProps) {
       <TextField
         size="small"
         value={filters.search}
-        placeholder="Search receipts"
+        placeholder={t.searchPlaceholder.value}
         onChange={event => onChange({ ...filters, page: 1, search: event.target.value })}
       />
       <Select
@@ -28,21 +30,21 @@ export function ReceiptFilters({ filters, onChange }: ReceiptFiltersProps) {
         value={filters.status}
         onChange={event => onChange({ ...filters, page: 1, status: event.target.value })}
       >
-        <MenuItem value="all">All statuses</MenuItem>
-        <MenuItem value="new">New</MenuItem>
-        <MenuItem value="draft">Draft</MenuItem>
-        <MenuItem value="parsed">Parsed</MenuItem>
-        <MenuItem value="needs_review">Needs review</MenuItem>
-        <MenuItem value="approved">Approved</MenuItem>
+        <MenuItem value="all">{t.allStatuses}</MenuItem>
+        <MenuItem value="new">{t.statusNew}</MenuItem>
+        <MenuItem value="draft">{t.statusDraft}</MenuItem>
+        <MenuItem value="parsed">{t.statusParsed}</MenuItem>
+        <MenuItem value="needs_review">{t.statusNeedsReview}</MenuItem>
+        <MenuItem value="approved">{t.statusApproved}</MenuItem>
       </Select>
       <Select
         size="small"
         value={filters.source}
         onChange={event => onChange({ ...filters, page: 1, source: event.target.value })}
       >
-        <MenuItem value="all">All sources</MenuItem>
-        <MenuItem value="upload">Upload</MenuItem>
-        <MenuItem value="scan">Scan</MenuItem>
+        <MenuItem value="all">{t.allSources}</MenuItem>
+        <MenuItem value="upload">{t.sourceUpload}</MenuItem>
+        <MenuItem value="scan">{t.sourceScan}</MenuItem>
       </Select>
     </Box>
   );

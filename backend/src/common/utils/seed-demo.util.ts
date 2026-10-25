@@ -68,7 +68,14 @@ export async function seedDemoData({
 }: SeedDemoDataParams): Promise<User> {
   let user = await userRepository.findOne({
     where: { email: DEMO_EMAIL },
-    select: ['id', 'email', 'name', 'role', 'workspaceId', 'isActive'],
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      workspaceId: true,
+      isActive: true,
+    },
   });
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
@@ -112,7 +119,9 @@ export async function seedDemoData({
 
     const membership = await workspaceMemberRepository.findOne({
       where: { workspaceId: workspace.id, userId: user.id },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
     if (!membership) {
@@ -137,7 +146,9 @@ export async function seedDemoData({
   for (const categoryData of DEFAULT_SYSTEM_CATEGORIES) {
     const existingCategory = await categoryRepository.findOne({
       where: { workspaceId: workspace.id, name: categoryData.name },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
     if (!existingCategory) {

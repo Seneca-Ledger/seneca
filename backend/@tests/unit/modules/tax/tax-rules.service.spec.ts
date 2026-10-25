@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { TaxRuleDirection } from '@/entities/tax-rule.entity';
@@ -9,7 +10,7 @@ describe('TaxRulesService audit', () => {
   let ruleRepo: ReturnType<typeof createRepoMock>;
   let rateRepo: ReturnType<typeof createRepoMock>;
   let categoryRepo: ReturnType<typeof createRepoMock>;
-  let auditService: { createEvent: jest.Mock };
+  let auditService: { createEvent: Mock };
 
   const rule = {
     id: 'rule-1',
@@ -29,7 +30,7 @@ describe('TaxRulesService audit', () => {
     ruleRepo.create.mockImplementation((input: unknown) => input);
     ruleRepo.save.mockImplementation(async (input: object) => ({ id: 'rule-9', ...input }));
     rateRepo.findOne.mockResolvedValue({ id: 'rate-1', code: 'KZ_STANDARD' });
-    auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
     service = new TaxRulesService(
       ruleRepo as never,
       rateRepo as never,

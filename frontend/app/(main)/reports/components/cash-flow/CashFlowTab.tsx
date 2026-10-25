@@ -24,8 +24,7 @@ export function CashFlowTab({ focusId }: Props): React.JSX.Element {
   const { user } = useAuth();
   const { currentWorkspace, workspaces } = useWorkspace();
   const t = useIntlayer('statementsPage');
-  const text = (path: string[], fallback: string): string =>
-    resolveLabel(getNestedValue(t, path), fallback);
+  const text = (path: string[]): string => resolveLabel(getNestedValue(t, path));
 
   return (
     <AnalyticsDataProvider
@@ -33,9 +32,9 @@ export function CashFlowTab({ focusId }: Props): React.JSX.Element {
       currentWorkspace={currentWorkspace}
       workspaces={workspaces}
       workspaceFilter="current"
-      currentWorkspaceLabel={text(['topSpenders', 'currentWorkspace'], 'Current workspace')}
+      currentWorkspaceLabel={text(['topSpenders', 'currentWorkspace'])}
       includeTransactions
-      errorToastMessage={text(['topSpenders', 'loadError'], 'Failed to load spending data')}
+      errorToastMessage={text(['topSpenders', 'loadError'])}
     >
       <div className="seneca-cash-flow">
         <TopSpendersSection />

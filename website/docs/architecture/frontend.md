@@ -44,6 +44,6 @@ describe; `intlayer build` runs on `postinstall` and `prebuild`.
 
 - MUI 7 with Emotion, plus SCSS under `app/styles` (checked by stylelint via `npm run lint:css`)
 - Charts use Recharts and ECharts
-- `npm run lint:check` runs both Biome and ESLint; `npm test` runs Vitest
+- `npm run lint:check` runs Biome; `npm test` runs Vitest
 
 Next: [Database Architecture](database)

@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { GoalItemStatus } from '@/entities/goal-item.entity';
@@ -16,19 +17,19 @@ function createService(options: {
   const items = options.items ?? [];
 
   const itemRepository = {
-    find: jest.fn(async () => items),
-    findOne: jest.fn(async () => items[0] ?? null),
-    create: jest.fn((data: Record<string, unknown>) => data),
-    save: jest.fn(async (data: unknown) => data),
-    remove: jest.fn(async () => undefined),
+    find: vi.fn(async () => items),
+    findOne: vi.fn(async () => items[0] ?? null),
+    create: vi.fn((data: Record<string, unknown>) => data),
+    save: vi.fn(async (data: unknown) => data),
+    remove: vi.fn(async () => undefined),
   } as never;
 
   const goalRepository = {
-    findOne: jest.fn(async () => options.goal ?? null),
+    findOne: vi.fn(async () => options.goal ?? null),
   } as never;
 
-  const exchangeRatesService = { getRateOrNull: jest.fn(async () => options.rate ?? 1) } as never;
-  const auditService = { createEvent: jest.fn(async () => ({})) };
+  const exchangeRatesService = { getRateOrNull: vi.fn(async () => options.rate ?? 1) } as never;
+  const auditService = { createEvent: vi.fn(async () => ({})) };
 
   return {
     service: new GoalItemsService(
@@ -39,10 +40,10 @@ function createService(options: {
     ),
     auditService,
     itemRepository: itemRepository as unknown as {
-      create: jest.Mock;
-      save: jest.Mock;
-      remove: jest.Mock;
-      findOne: jest.Mock;
+      create: Mock;
+      save: Mock;
+      remove: Mock;
+      findOne: Mock;
     },
   };
 }
@@ -204,7 +205,7 @@ describe('GoalItemsService', () => {
   });
 
   describe('audit trail', () => {
-    const expectGoalEvent = (auditService: { createEvent: jest.Mock }, itemId: string) =>
+    const expectGoalEvent = (auditService: { createEvent: Mock }, itemId: string) =>
       expect(auditService.createEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           workspaceId: WORKSPACE_ID,

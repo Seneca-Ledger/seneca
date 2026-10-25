@@ -72,7 +72,6 @@ export const readCreatedStatementIds = (responseData: unknown): string[] => {
   });
 };
 
-// eslint-disable-next-line complexity
 export const extractUploadErrorMessage = (error: unknown, fallback: string): string => {
   // HttpExceptionFilter wraps failures as { error: { message } }; older/plain
   // Nest responses still use a top-level { message }.
@@ -126,7 +125,7 @@ export const uploadStatementFiles = async ({
     await refreshAfterCreate();
   } catch (error) {
     console.error('Failed to upload statements:', error);
-    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed));
+    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed), { cause: error });
   }
 };
 
@@ -186,7 +185,7 @@ export const uploadReceiptScanFiles = async ({
     await refreshAfterCreate();
   } catch (error) {
     console.error('Failed to upload receipt scans:', error);
-    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed));
+    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed), { cause: error });
   }
 };
 

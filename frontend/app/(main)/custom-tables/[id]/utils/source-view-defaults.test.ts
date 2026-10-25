@@ -13,7 +13,11 @@ const columns = [
   column('c_statement', 'statement'),
 ];
 const row = (currency: string): CustomTableGridRow =>
-  ({ id: currency, rowNumber: 1, data: { c_currency: currency } }) as CustomTableGridRow;
+  (({
+    id: currency,
+    rowNumber: 1,
+    data: { c_currency: currency }
+  }) as CustomTableGridRow);
 
 describe('sourceViewDefaults', () => {
   it('opens newest first without the columns that repeat the row', () => {

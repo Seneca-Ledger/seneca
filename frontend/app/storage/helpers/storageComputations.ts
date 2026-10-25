@@ -64,7 +64,6 @@ export function buildFilteredFiles({
   searchQuery,
   filters,
 }: FilterParams): StorageFile[] {
-  // eslint-disable-next-line complexity
   return files.filter(file => {
     const isDeleted = !!file.deletedAt;
     if (isTrashView ? !isDeleted : isDeleted) {
@@ -157,7 +156,6 @@ export function buildFolderModalFiles({
   activeFolderId,
 }: FolderModalFilesParams): StorageFile[] {
   const query = folderFileQuery.trim().toLowerCase();
-  // eslint-disable-next-line complexity
   return files.filter(file => {
     const matchesFolder =
       activeFolderId === ''
@@ -241,7 +239,6 @@ function buildRenderTrashExpiryBadge({
 }: Pick<RenderFunctionParams, 'locale' | 'trashTtlDays' | 't'>): (
   deletedAt?: string | null,
 ) => React.ReactNode {
-  // eslint-disable-next-line complexity
   return function renderTrashExpiryBadge(deletedAt?: string | null): React.ReactNode {
     if (!deletedAt) {
       return null;

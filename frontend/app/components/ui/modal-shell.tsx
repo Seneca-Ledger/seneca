@@ -110,9 +110,7 @@ function FooterBar(props: { children: React.ReactNode }): React.JSX.Element {
   );
 }
 
-// eslint-disable-next-line max-params
 function makeCloseHandler(onClose: () => void, backdrop: boolean, escape: boolean) {
-  // eslint-disable-next-line max-params
   return (_e: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
     if (reason === 'backdropClick' && !backdrop) return;
     if (reason === 'escapeKeyDown' && !escape) return;
@@ -120,13 +118,11 @@ function makeCloseHandler(onClose: () => void, backdrop: boolean, escape: boolea
   };
 }
 
-// eslint-disable-next-line max-params
 function renderPaperProps(className?: string, paperSx?: SxProps<Theme>): object {
   return { className, ...(paperSx ? { sx: paperSx } : {}) };
 }
 
 /** Unified modal wrapper with backdrop, keyboard (ESC) support, and focus management. */
-// eslint-disable-next-line complexity
 export function ModalShell({
   isOpen,
   onClose,
@@ -150,8 +146,10 @@ export function ModalShell({
       maxWidth={sizeToMaxWidth[size]}
       fullWidth
       fullScreen={size === 'full'}
-      PaperProps={renderPaperProps(className, paperSx)}
-      slotProps={{ backdrop: { sx: { backgroundColor: 'var(--modal-backdrop)' } } }}
+      slotProps={{
+        backdrop: { sx: { backgroundColor: 'var(--modal-backdrop)' } },
+        paper: renderPaperProps(className, paperSx),
+      }}
       aria-labelledby={title ? 'modal-title' : undefined}
     >
       {(title || showCloseButton) && (
@@ -177,12 +175,6 @@ export function ModalHeader(props: {
   );
 }
 
-const FOOTER_DEFAULTS = {
-  cancelText: 'Cancel',
-  confirmText: 'Confirm',
-  confirmVariant: 'primary' as const,
-};
-
 function ConfirmBtn(props: {
   onConfirm: () => void;
   text: string;
@@ -205,17 +197,17 @@ function ConfirmBtn(props: {
 }
 
 /** Pre-styled footer with cancel/confirm buttons pattern. */
-// eslint-disable-next-line complexity
 export function ModalFooter({
   onCancel,
   onConfirm,
-  cancelText = FOOTER_DEFAULTS.cancelText,
-  confirmText = FOOTER_DEFAULTS.confirmText,
-  confirmVariant = FOOTER_DEFAULTS.confirmVariant,
+  cancelText,
+  confirmText,
+  confirmVariant = 'primary',
   isConfirmLoading = false,
   isConfirmDisabled = false,
   children,
 }: ModalFooterProps): React.JSX.Element {
+  const { buttons } = useIntlayer('confirmModal');
   if (children) return <>{children}</>;
   return (
     <>
@@ -227,13 +219,13 @@ export function ModalFooter({
           variant="text"
           sx={{ color: 'var(--text-muted)', fontWeight: 500 }}
         >
-          {cancelText}
+          {cancelText ?? buttons.cancel.value}
         </MuiButton>
       )}
       {onConfirm && (
         <ConfirmBtn
           onConfirm={onConfirm}
-          text={confirmText}
+          text={confirmText ?? buttons.confirm.value}
           variant={confirmVariant}
           loading={isConfirmLoading}
           disabled={isConfirmDisabled}

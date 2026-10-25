@@ -20,7 +20,6 @@ interface WelcomeTutorialDialogProps {
  * The guide: one page per sidebar page, over the whole screen. Opened on a single
  * page, it shows that page alone until the person asks for the whole guide.
  */
-// eslint-disable-next-line max-lines-per-function -- the dialog and its slots in one place
 export default function WelcomeTutorialDialog({
   open,
   page = null,
@@ -31,7 +30,6 @@ export default function WelcomeTutorialDialog({
   const [single, setSingle] = useState(pageIndex >= 0);
   const pager = useTutorialPager(steps.length, Math.max(pageIndex, 0));
   // Closing by a stray click beside the guide would lose the page it was on.
-  // eslint-disable-next-line max-params -- MUI's onClose signature
   const handleClose = (_event: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
     if (reason !== 'backdropClick') {
       onClose();

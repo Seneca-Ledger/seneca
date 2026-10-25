@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { TaxJurisdiction } from '../../entities/tax-jurisdiction.entity';
 import { TaxJurisdictionRate } from '../../entities/tax-jurisdiction-rate.entity';
 
@@ -44,7 +45,7 @@ export class JurisdictionsService {
     });
 
     if (!jurisdiction) {
-      throw new NotFoundException(`Tax jurisdiction '${code}' not found`);
+      throw new NotFoundException(appError('TAX_JURISDICTION_CODE_NOT_FOUND', { code }));
     }
 
     return jurisdiction;
@@ -54,7 +55,7 @@ export class JurisdictionsService {
     const jurisdiction = await this.jurisdictionRepository.findOne({ where: { id } });
 
     if (!jurisdiction) {
-      throw new NotFoundException('Tax jurisdiction not found');
+      throw new NotFoundException(appError('TAX_JURISDICTION_NOT_FOUND'));
     }
 
     return jurisdiction;

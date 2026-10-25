@@ -9,6 +9,7 @@ import {
   REFRESH_TOKEN_COOKIE,
 } from '../../modules/auth/auth-cookies';
 import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
+import { appError } from '../errors/app-error';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -70,7 +71,7 @@ export class CsrfGuard implements CanActivate {
     const headerToken = Array.isArray(headerValue) ? headerValue[0] : headerValue;
 
     if (!(cookieToken && headerToken && safeEquals(cookieToken, headerToken))) {
-      throw new ForbiddenException('Invalid CSRF token');
+      throw new ForbiddenException(appError('AUTH_CSRF_TOKEN_INVALID'));
     }
 
     return true;

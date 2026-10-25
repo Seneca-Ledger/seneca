@@ -1,5 +1,4 @@
 import * as path from 'node:path';
-import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { BullModule } from '@nestjs/bullmq';
 import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
@@ -20,6 +19,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AuditActorInterceptor } from './common/interceptors/audit-actor.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { StripKeysInterceptor } from './common/interceptors/strip-keys.interceptor';
+import { RedisThrottlerStorage } from './common/services/redis-throttler-storage.service';
 import { SERVER_ONLY_KEYS } from './common/utils/sensitive-keys.util';
 import { getDatabaseConfig } from './config/database.config';
 import { validateEnv } from './config/env.schema';
@@ -152,7 +152,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
               limit: 500, // 500 requests per minute for authenticated users
             },
           ],
-          ...(redisUrl ? { storage: new ThrottlerStorageRedisService(redisUrl) } : {}),
+          ...(redisUrl ? { storage: new RedisThrottlerStorage(redisUrl) } : {}),
         };
       },
     }),

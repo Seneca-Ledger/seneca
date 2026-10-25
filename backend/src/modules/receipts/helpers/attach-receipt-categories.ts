@@ -26,7 +26,12 @@ export async function attachReceiptCategories(
   const categories = categoryIds.length
     ? await categoryRepository.find({
         where: { id: In(categoryIds), workspaceId },
-        select: ['id', 'name', 'color', 'icon'],
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          icon: true,
+        },
       })
     : [];
   const byId = new Map(categories.map(category => [category.id, category]));

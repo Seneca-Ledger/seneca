@@ -1,4 +1,5 @@
-import { WEBHOOK_EVENT_GROUPS, type WebhookEventName } from '@/app/lib/contracts';
+import type { WebhookEventName } from '@/app/lib/contracts';
+import { WEBHOOK_EVENT_GROUPS } from '@/app/lib/contracts/webhooks/event-groups';
 
 export { WEBHOOK_EVENT_GROUPS };
 export type WebhookEventGroup = keyof typeof WEBHOOK_EVENT_GROUPS;

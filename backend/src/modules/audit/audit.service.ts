@@ -4,6 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, type Repository } from 'typeorm';
 import { getAuditActor } from '../../common/audit-actor.context';
+import { appError } from '../../common/errors/app-error';
 import { normalizePagination } from '../../common/utils/pagination.util';
 import { ACCOUNT_KEYS, recordWithoutKeys } from '../../common/utils/sensitive-keys.util';
 import {
@@ -66,16 +67,18 @@ export class AuditService {
 
   async createEvent(dto: CreateAuditEventDto): Promise<AuditEvent> {
     if (!dto.entityId) {
-      throw new BadRequestException('Audit event requires entityId');
+      throw new BadRequestException(appError('AUDIT_ENTITY_ID_REQUIRED'));
     }
 
     if (dto.workspaceId) {
       const workspace = await this.workspaceRepository.findOne({
         where: { id: dto.workspaceId },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
       if (!workspace) {
-        throw new BadRequestException('Workspace not found for audit event');
+        throw new BadRequestException(appError('AUDIT_WORKSPACE_NOT_FOUND'));
       }
     }
 
@@ -244,7 +247,7 @@ export class AuditService {
     const event = await qb.getOne();
 
     if (workspaceId && event && event.workspaceId !== workspaceId) {
-      throw new BadRequestException('Audit event is outside workspace scope');
+      throw new BadRequestException(appError('AUDIT_EVENT_OUT_OF_SCOPE'));
     }
 
     return event;
@@ -282,20 +285,18 @@ export class AuditService {
   }
 
   async rollback(eventId: string, userId: string, workspaceId?: string): Promise<RollbackResult> {
-    const event = await this.auditEventRepository.findOne({
-      where: { id: eventId },
-    });
+    const event = await this.auditEventRepository.findOne({ where: { id: eventId } });
 
     if (!event) {
-      throw new NotFoundException('Audit event not found');
+      throw new NotFoundException(appError('AUDIT_EVENT_NOT_FOUND'));
     }
 
     if (workspaceId && event.workspaceId && event.workspaceId !== workspaceId) {
-      throw new BadRequestException('Audit event is outside workspace scope');
+      throw new BadRequestException(appError('AUDIT_EVENT_OUT_OF_SCOPE'));
     }
 
     if (!event.isUndoable) {
-      throw new BadRequestException('Audit event is not undoable');
+      throw new BadRequestException(appError('AUDIT_EVENT_NOT_UNDOABLE'));
     }
 
     const rollbackResult = await this.rollbackService.rollback(event);
@@ -338,7 +339,11 @@ export class AuditService {
     if (dto.actorType === ActorType.USER && dto.actorId) {
       const user = await this.userRepository.findOne({
         where: { id: dto.actorId },
-        select: ['id', 'email', 'name'],
+        select: {
+          id: true,
+          email: true,
+          name: true,
+        },
       });
       if (user?.email) {
         return user.email;

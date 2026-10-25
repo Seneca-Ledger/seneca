@@ -51,7 +51,12 @@ export class StatementStageService {
     const ids = [...new Set(statementIds)];
     const statements = await this.statementRepository.find({
       where: { id: In(ids), workspaceId },
-      select: ['id', 'userId', 'stage', 'deletedAt'],
+      select: {
+        id: true,
+        userId: true,
+        stage: true,
+        deletedAt: true,
+      },
     });
     const byId = new Map(
       statements
@@ -114,7 +119,9 @@ export class StatementStageService {
   private async isWorkspaceAdmin(userId: string, workspaceId: string): Promise<boolean> {
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['role'],
+      select: {
+        role: true,
+      },
     });
     return Boolean(
       membership && [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role),
@@ -184,7 +191,11 @@ export class StatementStageService {
     }
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'name', 'email'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
     });
     const actorLabel = user?.email || user?.name || 'User';
     await this.auditService.createBatchEvents(

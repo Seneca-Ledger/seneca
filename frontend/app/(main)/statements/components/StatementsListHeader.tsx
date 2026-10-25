@@ -245,7 +245,7 @@ export function StatementsListHeader({
     groupByOptions,
     hasOptions,
     labels: {
-      search: resolveLabel(getNestedValue(titleText, ['search']), 'Search'),
+      search: resolveLabel(getNestedValue(titleText, ['search'])),
       type: filterLabels.type,
       status: filterLabels.status,
       from: filterLabels.from,

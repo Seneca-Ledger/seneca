@@ -16,7 +16,7 @@ describe('JwtRefreshGuard', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -30,7 +30,7 @@ describe('JwtRefreshGuard', () => {
   describe('canActivate', () => {
     it('should use jwt-refresh strategy', async () => {
       const context = createMockExecutionContext();
-      jest.spyOn(AuthGuard('jwt-refresh').prototype, 'canActivate').mockResolvedValue(true);
+      vi.spyOn(AuthGuard('jwt-refresh').prototype, 'canActivate').mockResolvedValue(true);
 
       const result = await guard.canActivate(context);
 
@@ -41,7 +41,7 @@ describe('JwtRefreshGuard', () => {
       const context = createMockExecutionContext({
         headers: {},
       });
-      jest
+      vi
         .spyOn(AuthGuard('jwt-refresh').prototype, 'canActivate')
         .mockRejectedValue(new UnauthorizedException());
 
@@ -54,7 +54,7 @@ describe('JwtRefreshGuard', () => {
           authorization: 'Bearer valid.refresh.token',
         },
       });
-      jest.spyOn(AuthGuard('jwt-refresh').prototype, 'canActivate').mockResolvedValue(true);
+      vi.spyOn(AuthGuard('jwt-refresh').prototype, 'canActivate').mockResolvedValue(true);
 
       const result = await guard.canActivate(context);
 
@@ -67,7 +67,7 @@ describe('JwtRefreshGuard', () => {
           authorization: 'Bearer expired.refresh.token',
         },
       });
-      jest
+      vi
         .spyOn(AuthGuard('jwt-refresh').prototype, 'canActivate')
         .mockRejectedValue(new UnauthorizedException('Token expired'));
 

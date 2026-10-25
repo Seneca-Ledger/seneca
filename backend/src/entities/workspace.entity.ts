@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { TaxJurisdiction } from './tax-jurisdiction.entity';
@@ -76,7 +77,7 @@ export class Workspace {
    */
   @ManyToOne(() => TaxJurisdiction, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'tax_jurisdiction_id' })
-  taxJurisdiction: TaxJurisdiction | null;
+  taxJurisdiction: Relation<TaxJurisdiction | null>;
 
   @Column({ name: 'tax_jurisdiction_id', type: 'uuid', nullable: true })
   taxJurisdictionId: string | null;
@@ -129,13 +130,13 @@ export class Workspace {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'owner_id' })
-  owner: User | null;
+  owner: Relation<User | null>;
 
   @OneToMany(
     () => WorkspaceMember,
     member => member.workspace,
   )
-  members: WorkspaceMember[];
+  members: Relation<WorkspaceMember[]>;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

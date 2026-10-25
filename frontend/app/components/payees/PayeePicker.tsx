@@ -88,14 +88,20 @@ export function PayeePicker({
             : option.name
       }
       isOptionEqualToValue={(option, value) =>
-        option.kind === value.kind && option.name === value.name
+        // freeSolo: the value can be the typed text itself.
+        typeof value === 'string'
+          ? option.name === value
+          : option.kind === value.kind && option.name === value.name
       }
       renderInput={params => (
         <TextField
           {...params}
           inputRef={inputRef}
           placeholder={current?.name ?? t.searchPlaceholder.value}
-          inputProps={{ ...params.inputProps, 'aria-label': t.payee.value }}
+          slotProps={{
+            ...params.slotProps,
+            htmlInput: { ...params.slotProps.htmlInput, 'aria-label': t.payee.value },
+          }}
         />
       )}
       sx={{ minWidth: 260 }}

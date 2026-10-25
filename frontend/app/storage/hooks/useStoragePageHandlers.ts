@@ -54,7 +54,6 @@ function buildDragEndMoveLogic({ foldersHook, file, folderId, isNoFolder }: Drag
   }
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function useStoragePageHandlers({
   setActiveModal,
   foldersHook,

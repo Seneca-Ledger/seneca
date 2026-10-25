@@ -24,3 +24,11 @@ export const BackupImportBody = Schema.Struct({
   workspaceName: optionalNullable(Schema.String),
 });
 export type BackupImportBody = Wire<typeof BackupImportBody>;
+
+/** `GET /backups/runs/:id/download`: a backup run's uuid. */
+export const BackupRunParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type BackupRunParams = Wire<typeof BackupRunParams>;
+
+/** `POST /backups/imports/:id/restore`: the import id a preview handed out (a token, not a row). */
+export const BackupImportParams = Schema.Struct({ id: Schema.String });
+export type BackupImportParams = Wire<typeof BackupImportParams>;

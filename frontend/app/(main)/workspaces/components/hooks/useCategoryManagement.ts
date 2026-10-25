@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import type { CategoryItem } from '@/app/lib/contracts';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { useCategoryBulkActions } from './useCategoryBulkActions';
 
 /** A row of `GET /categories`. */
 export type Category = CategoryItem;
@@ -298,42 +299,13 @@ function useCategoryToggle({
     await performToggle(category, nextEnabled);
   };
 
-  const handleBulkEnable = async (enable: boolean): Promise<void> => {
-    await (async () => {
-      await Promise.all(
-        Array.from(selectedIds).map(id =>
-          apiClient.put(`/categories/${id}`, {
-            isEnabled: enable,
-          } satisfies ContractInput<'UpdateCategoryBody'>),
-        ),
-      );
-      toast.success(enable ? 'Categories enabled' : 'Categories disabled');
-      await loadCategories();
-      setSelectedIds(new Set());
-    })().catch(async err => {
-      console.error('Bulk toggle failed:', err);
-      toast.error(toastMessages.saveFailed);
-    });
-  };
-
-  const handleBulkDelete = async (): Promise<void> => {
-    if (!window.confirm('Are you sure you want to delete selected custom categories?')) {
-      return;
-    }
-
-    await (async () => {
-      const ids = Array.from(selectedIds).filter(
-        id => !categories.find(c => c.id === id)?.isSystem,
-      );
-      await Promise.all(ids.map(id => apiClient.delete(`/categories/${id}`)));
-      toast.success('Categories deleted');
-      await loadCategories();
-      setSelectedIds(new Set());
-    })().catch(async err => {
-      console.error('Bulk delete failed:', err);
-      toast.error('Failed to delete some categories');
-    });
-  };
+  const { handleBulkEnable, handleBulkDelete } = useCategoryBulkActions({
+    categories,
+    selectedIds,
+    setSelectedIds,
+    loadCategories,
+    saveFailed: toastMessages.saveFailed,
+  });
 
   return {
     togglingIds,

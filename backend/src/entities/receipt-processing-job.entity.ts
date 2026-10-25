@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Receipt } from './receipt.entity';
@@ -30,7 +31,7 @@ export class ReceiptProcessingJob {
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
@@ -38,7 +39,7 @@ export class ReceiptProcessingJob {
   // Nullable: старые записи созданы до появления скоупинга; новые всегда пишут его.
   @ManyToOne(() => Workspace, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace | null;
+  workspace: Relation<Workspace | null>;
 
   @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
   @Index()
@@ -46,7 +47,7 @@ export class ReceiptProcessingJob {
 
   @ManyToOne(() => Receipt, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'receipt_id' })
-  receipt: Receipt | null;
+  receipt: Relation<Receipt | null>;
 
   @Column({ name: 'receipt_id', type: 'uuid', nullable: true })
   receiptId: string | null;

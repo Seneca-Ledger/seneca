@@ -1,12 +1,23 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Res } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { CreateCreditNoteBody, InvoicesQuery } from '../../contracts';
+import {
+  CreateCreditNoteBody,
+  CreditNoteParams,
+  InvoicesQuery,
+  XRechnungCheck,
+} from '../../contracts';
+import {
+  CreditNoteDetail,
+  CreditNoteListPage,
+  CreditNoteWritten,
+} from '../../contracts/invoices/invoice-writes';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
@@ -25,6 +36,7 @@ export class CreditNotesController {
   @Post()
   @WorkspaceAuth(Permission.INVOICE_CREATE)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: false })
+  @SchemaResponse(CreditNoteWritten)
   async create(
     @SchemaBody(CreateCreditNoteBody) dto: CreateCreditNoteBody,
     @CurrentUser() user: User,
@@ -35,6 +47,7 @@ export class CreditNotesController {
 
   @Get()
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(CreditNoteListPage)
   async findAll(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(InvoicesQuery) query: InvoicesQuery,
@@ -44,14 +57,18 @@ export class CreditNotesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(CreditNoteDetail)
+  async findOne(
+    @SchemaParams(CreditNoteParams) { id }: CreditNoteParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.creditNotesService.findOne(id, workspaceId);
   }
 
   @Get(':id/pdf')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   async downloadPdf(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CreditNoteParams) { id }: CreditNoteParams,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
   ) {
@@ -65,7 +82,7 @@ export class CreditNotesController {
   @Get(':id/xrechnung')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   async downloadXRechnung(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CreditNoteParams) { id }: CreditNoteParams,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
   ) {
@@ -77,8 +94,9 @@ export class CreditNotesController {
 
   @Get(':id/xrechnung/check')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(XRechnungCheck)
   async checkXRechnung(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CreditNoteParams) { id }: CreditNoteParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.xrechnungService.checkCreditNote(id, workspaceId);
@@ -88,8 +106,9 @@ export class CreditNotesController {
   @Delete(':id')
   @WorkspaceAuth(Permission.INVOICE_DELETE)
   @Audit({ entityType: EntityType.INVOICE, includeDiff: true, isUndoable: false })
+  @SchemaResponse(CreditNoteWritten)
   async void(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CreditNoteParams) { id }: CreditNoteParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

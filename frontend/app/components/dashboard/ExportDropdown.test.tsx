@@ -21,6 +21,19 @@ vi.mock('react-hot-toast', () => ({
   },
 }));
 
+// English values of dashboardPage.exportMenu.
+const EXPORT_T = {
+  button: { value: 'Export' },
+  title: { value: 'Export data' },
+  excel: { value: 'Excel (.xlsx)' },
+  pdf: { value: 'PDF' },
+  csv: { value: 'CSV' },
+  docx: { value: 'Word (.docx)' },
+  downloading: { value: 'Downloading...' },
+  success: { value: 'File downloaded successfully' },
+  error: { value: 'Download failed' },
+};
+
 describe('ExportDropdown', () => {
   const createObjectUrl = vi.fn(() => 'blob:url');
   const revokeObjectUrl = vi.fn();
@@ -77,7 +90,8 @@ describe('ExportDropdown', () => {
 
   it('exports the workspace in the selected format', async () => {
     apiPost.mockResolvedValue({
-      data: new Uint8Array([1, 2, 3]),
+      // A file, as axios returns for responseType: 'blob'.
+      data: new Blob([new Uint8Array([1, 2, 3])]),
       headers: {
         'content-disposition': 'attachment; filename="workspace-transactions-2026-04-01.pdf"',
       },
@@ -87,17 +101,7 @@ describe('ExportDropdown', () => {
 
     render(
       <ExportDropdown
-        t={{
-          button: { value: 'Export' },
-          title: { value: 'Export data' },
-          excel: { value: 'Excel (.xlsx)' },
-          pdf: { value: 'PDF' },
-          csv: { value: 'CSV' },
-          docx: { value: 'Word (.docx)' },
-          downloading: { value: 'Downloading...' },
-          success: { value: 'File downloaded successfully' },
-          error: { value: 'Download failed' },
-        }}
+        t={EXPORT_T}
       />,
     );
 
@@ -132,17 +136,7 @@ describe('ExportDropdown', () => {
 
     render(
       <ExportDropdown
-        t={{
-          button: { value: 'Export' },
-          title: { value: 'Export data' },
-          excel: { value: 'Excel (.xlsx)' },
-          pdf: { value: 'PDF' },
-          csv: { value: 'CSV' },
-          docx: { value: 'Word (.docx)' },
-          downloading: { value: 'Downloading...' },
-          success: { value: 'File downloaded successfully' },
-          error: { value: 'Download failed' },
-        }}
+        t={EXPORT_T}
       />,
     );
 
@@ -157,38 +151,12 @@ describe('ExportDropdown', () => {
     });
   });
 
-  it('falls back to built-in labels when i18n tokens are missing', async () => {
-    const { ExportDropdown } = await import('./ExportDropdown');
-
-    render(
-      <ExportDropdown
-        t={
-          {
-            title: { value: 'Export data' },
-            excel: { value: 'Excel (.xlsx)' },
-            pdf: { value: 'PDF' },
-            csv: { value: 'CSV' },
-            docx: { value: 'Word (.docx)' },
-            downloading: { value: 'Downloading...' },
-            success: { value: 'File downloaded successfully' },
-            error: { value: 'Download failed' },
-          } as Partial<Parameters<typeof ExportDropdown>[0]['t']>
-        }
-      />,
-    );
-
-    expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument();
-  });
-
   it('renders the trigger button with rounded corners', async () => {
     const { ExportDropdown } = await import('./ExportDropdown');
 
     render(
       <ExportDropdown
-        t={{
-          button: { value: 'Export' },
-          title: { value: 'Export data' },
-        }}
+        t={EXPORT_T}
       />,
     );
 

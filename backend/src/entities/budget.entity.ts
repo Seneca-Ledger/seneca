@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Category } from './category.entity';
@@ -68,14 +69,14 @@ export class Budget {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Category, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'category_id' })
-  category: Category;
+  category: Relation<Category>;
 
   @Column({ name: 'category_id', type: 'uuid' })
   categoryId: string;
@@ -140,14 +141,14 @@ export class Budget {
    */
   @ManyToOne(() => Goal, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'goal_id' })
-  goal: Goal | null;
+  goal: Relation<Goal | null>;
 
   @Column({ name: 'goal_id', type: 'uuid', nullable: true })
   goalId: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;

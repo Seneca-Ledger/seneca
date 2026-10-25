@@ -8,9 +8,11 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { ChevronDown, MoreHorizontal } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
 import { tokens } from '@/lib/theme-tokens';
 import type { WorkspaceMember, WorkspaceRole } from './hooks/useMemberManagement';
+import { useMemberRoleText } from './hooks/useMemberRoleText';
 
 const ROLE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   owner: {
@@ -26,19 +28,6 @@ const ROLE_COLORS: Record<string, { bg: string; color: string; border: string }>
   member: { bg: 'var(--muted)', color: 'var(--foreground)', border: 'var(--border-color)' },
   viewer: { bg: 'var(--muted)', color: 'var(--foreground)', border: 'var(--border-color)' },
 };
-const ROLE_LABELS: Record<string, string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  member: 'Member',
-  viewer: 'Viewer',
-};
-const ROLE_TOOLTIPS: Record<string, string> = {
-  owner: 'Full workspace control, including ownership transfer and member management.',
-  admin: 'Can invite and manage non-owner members.',
-  member: 'Can work with workspace data based on assigned permissions.',
-  viewer: 'Read-only access to workspace content.',
-};
-const getRoleLabel = (role: string): string => ROLE_LABELS[role] || role;
 const getInitials = (value?: string): string =>
   (value || '?')
     .split(' ')
@@ -66,7 +55,8 @@ type MemberAvatarProps = {
 };
 
 function MemberAvatar({ avatarUrl, name, email }: MemberAvatarProps): React.ReactElement {
-  const label = name || email || 'Member avatar';
+  const t = useIntlayer('workspaceMembers');
+  const label = name || email || t.avatarAlt.value;
   return (
     <Box
       sx={{
@@ -110,6 +100,8 @@ function RoleBadge({
   roleUpdating,
   onChangeMemberRole,
 }: RoleBadgeProps): React.ReactElement {
+  const t = useIntlayer('workspaceMembers');
+  const { roleLabel: getRoleLabel, roleTooltip } = useMemberRoleText();
   const [roleMenuAnchor, setRoleMenuAnchor] = useState<HTMLElement | null>(null);
   const canManageRole = roleTargets.length > 0;
   const roleStyle = ROLE_COLORS[member.role] || ROLE_COLORS.member;
@@ -123,7 +115,7 @@ function RoleBadge({
     fontWeight: 500,
   };
   return (
-    <Tooltip title={ROLE_TOOLTIPS[member.role] || 'Workspace role'} placement="top">
+    <Tooltip title={roleTooltip(member.role)} placement="top">
       <span>
         {canManageRole ? (
           <>
@@ -140,7 +132,7 @@ function RoleBadge({
                 opacity: roleUpdating ? 0.6 : 1,
               }}
             >
-              {roleUpdating ? 'Updating...' : getRoleLabel(member.role)}
+              {roleUpdating ? t.updating : getRoleLabel(member.role)}
               <ChevronDown size={12} />
             </button>
             <Menu
@@ -179,13 +171,15 @@ export function MemberRow({
   onChangeMemberRole,
   onRemoveMember,
 }: MemberRowProps): React.ReactElement {
+  const t = useIntlayer('workspaceMembers');
+  const { roleLabel: getRoleLabel } = useMemberRoleText();
   const [memberMenuAnchor, setMemberMenuAnchor] = useState<HTMLElement | null>(null);
   const avatarUrl = normalizeAvatarUrl(member.avatarUrl);
   const roleUpdating = updatingRoleMemberId === member.id;
   const isRemoving = removingMemberId === member.id;
 
   const handleRemove = async (): Promise<void> => {
-    if (!window.confirm('Remove this member from workspace?')) {
+    if (!window.confirm(t.confirms.removeMember.value)) {
       return;
     }
     await onRemoveMember(member.id);
@@ -211,8 +205,8 @@ export function MemberRow({
         <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="body2"
-            fontWeight={500}
             sx={{
+              fontWeight: 500,
               color: 'var(--foreground)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -234,7 +228,7 @@ export function MemberRow({
             {member.email}
           </Typography>
           <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', display: 'block' }}>
-            Timezone: {member.timeZone || 'Auto'}
+            {t.timezoneLabel.value.replace('{zone}', member.timeZone || t.timezoneAuto.value)}
           </Typography>
         </Box>
       </Box>
@@ -247,7 +241,7 @@ export function MemberRow({
         />
         <IconButton
           size="small"
-          aria-label={`Actions for ${member.email || member.id}`}
+          aria-label={t.actionsAria.value.replace('{name}', member.email || member.id)}
           onClick={e => setMemberMenuAnchor(e.currentTarget)}
         >
           <MoreHorizontal size={16} />
@@ -267,7 +261,7 @@ export function MemberRow({
                   void onChangeMemberRole({ member, role });
                 }}
               >
-                Set as {getRoleLabel(role)}
+                {t.setAs.value.replace('{role}', getRoleLabel(role))}
               </MenuItem>
             ))}
           <MenuItem
@@ -278,7 +272,7 @@ export function MemberRow({
             }}
             sx={{ color: 'error.main' }}
           >
-            {isRemoving ? 'Removing...' : 'Remove from workspace'}
+            {isRemoving ? t.removing : t.removeFromWorkspace}
           </MenuItem>
         </Menu>
       </Box>

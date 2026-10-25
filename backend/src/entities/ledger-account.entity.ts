@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Workspace } from './workspace.entity';
@@ -55,7 +56,7 @@ export class LedgerAccount {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -66,7 +67,7 @@ export class LedgerAccount {
     { nullable: true },
   )
   @JoinColumn({ name: 'parent_id' })
-  parent: LedgerAccount | null;
+  parent: Relation<LedgerAccount | null>;
 
   @Column({ name: 'parent_id', type: 'uuid', nullable: true })
   parentId: string | null;
@@ -75,7 +76,7 @@ export class LedgerAccount {
     () => LedgerAccount,
     account => account.parent,
   )
-  children: LedgerAccount[];
+  children: Relation<LedgerAccount[]>;
 
   @Column({ length: 40 })
   code: string;

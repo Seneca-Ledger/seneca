@@ -108,7 +108,13 @@ export function CreditNoteDialog({
             )
           }
           onChange={event => setAmount(event.target.value)}
-          inputProps={{ min: 0, step: 0.01, 'aria-label': String(t.detail.creditNoteAmount.value) }}
+          slotProps={{
+            htmlInput: {
+              min: 0,
+              step: 0.01,
+              'aria-label': String(t.detail.creditNoteAmount.value),
+            },
+          }}
         />
         <TextField
           size="small"

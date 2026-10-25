@@ -78,7 +78,10 @@ export class CryptoHoldingsService {
   async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['id', 'currency'],
+      select: {
+        id: true,
+        currency: true,
+      },
     });
     return currencyCodeOrDefault(workspace?.currency);
   }
@@ -94,7 +97,12 @@ export class CryptoHoldingsService {
   async getHoldings(workspaceId: string, currency: string): Promise<CryptoHoldingsResult> {
     const wallets = await this.walletRepo.find({
       where: { workspaceId },
-      select: ['id', 'balances', 'kind', 'createdAt'],
+      select: {
+        id: true,
+        balances: true,
+        kind: true,
+        createdAt: true,
+      },
     });
 
     const amountByAsset = new Map<string, string>();
@@ -284,7 +292,12 @@ export class CryptoHoldingsService {
     const currency = await this.getWorkspaceCurrency(workspaceId);
     const wallets = await this.walletRepo.find({
       where: { workspaceId },
-      select: ['id', 'balances', 'kind', 'createdAt'],
+      select: {
+        id: true,
+        balances: true,
+        kind: true,
+        createdAt: true,
+      },
     });
     const { disposals } = computeBasisWithDisposals(await this.lotEvents(workspaceId, wallets));
 
@@ -320,7 +333,13 @@ export class CryptoHoldingsService {
     const currency = await this.getWorkspaceCurrency(workspaceId);
     const wallets = await this.walletRepo.find({
       where: { workspaceId },
-      select: ['id', 'balances', 'kind', 'createdAt', 'connectedByUserId'],
+      select: {
+        id: true,
+        balances: true,
+        kind: true,
+        createdAt: true,
+        connectedByUserId: true,
+      },
     });
     const ownerByWallet = new Map<string, string | null>(
       wallets.map(wallet => [wallet.id, wallet.connectedByUserId ?? null]),

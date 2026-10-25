@@ -4,16 +4,16 @@ import { ApiKeysService } from '../../../../src/modules/api-keys/api-keys.servic
 
 describe('ApiKeysService audit events', () => {
   const repo = {
-    create: jest.fn((e: any) => ({ ...e })),
-    save: jest.fn(async (e: any) => ({ id: 'key-1', createdAt: new Date(), ...e })),
-    findOne: jest.fn(),
-    update: jest.fn(),
+    create: vi.fn((e: any) => ({ ...e })),
+    save: vi.fn(async (e: any) => ({ id: 'key-1', createdAt: new Date(), ...e })),
+    findOne: vi.fn(),
+    update: vi.fn(),
   };
-  const auditService = { createEvent: jest.fn() };
+  const auditService = { createEvent: vi.fn() };
   let service: ApiKeysService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     auditService.createEvent.mockResolvedValue({});
     service = new ApiKeysService(repo as any, auditService as any);
   });

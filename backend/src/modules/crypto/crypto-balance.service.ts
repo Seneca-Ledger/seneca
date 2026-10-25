@@ -145,7 +145,10 @@ export class CryptoBalanceService {
     const member = await this.memberRepo.findOne({
       where: { workspaceId },
       order: { createdAt: 'ASC' },
-      select: ['id', 'userId'],
+      select: {
+        id: true,
+        userId: true,
+      },
     });
     return member?.userId ?? null;
   }

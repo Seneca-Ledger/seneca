@@ -6,12 +6,12 @@ const USER_ID = '22222222-2222-4222-8222-222222222222';
 const BATCH_ID = '33333333-3333-4333-8333-333333333333';
 
 const repoMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn().mockResolvedValue([]),
-  save: jest.fn(async (value: unknown) => ({ ...(value as object), id: BATCH_ID })),
-  create: jest.fn((value: unknown) => value),
-  update: jest.fn().mockResolvedValue({ affected: 1 }),
-  delete: jest.fn().mockResolvedValue({ affected: 1 }),
+  findOne: vi.fn(),
+  find: vi.fn().mockResolvedValue([]),
+  save: vi.fn(async (value: unknown) => ({ ...(value as object), id: BATCH_ID })),
+  create: vi.fn((value: unknown) => value),
+  update: vi.fn().mockResolvedValue({ affected: 1 }),
+  delete: vi.fn().mockResolvedValue({ affected: 1 }),
 });
 
 const build = () => {
@@ -26,12 +26,12 @@ const build = () => {
   };
   const dataSource = {
     manager,
-    transaction: jest.fn(async (fn: (m: typeof manager) => unknown) => fn(manager)),
+    transaction: vi.fn(async (fn: (m: typeof manager) => unknown) => fn(manager)),
     getRepository: manager.getRepository,
   };
   const batches = repoMock();
   const members = repoMock();
-  const audit = { createEvent: jest.fn() };
+  const audit = { createEvent: vi.fn() };
   const service = new EntityImportService(
     dataSource as never,
     batches as never,
@@ -141,7 +141,7 @@ describe('EntityImportService categorising imported transactions', () => {
   const setup = (classified: Array<Record<string, unknown>>) => {
     const { dataSource } = build();
     const classification = {
-      classifyTransaction: jest.fn(),
+      classifyTransaction: vi.fn(),
     };
     for (const result of classified) {
       classification.classifyTransaction.mockResolvedValueOnce(result);
@@ -150,7 +150,7 @@ describe('EntityImportService categorising imported transactions', () => {
       dataSource as never,
       repoMock() as never,
       repoMock() as never,
-      { createEvent: jest.fn() } as never,
+      { createEvent: vi.fn() } as never,
       classification as never,
     );
     const transactions = dataSource.getRepository({ name: 'Transaction' }) as ReturnType<typeof repoMock>;

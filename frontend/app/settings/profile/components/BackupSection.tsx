@@ -228,10 +228,22 @@ export function BackupSection() {
               }}
             >
               <Box>
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 600,
+                  }}
+                >
                   {t.title.value}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 680 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                    mt: 0.5,
+                    maxWidth: 680,
+                  }}
+                >
                   {t.intro.value}
                 </Typography>
               </Box>
@@ -282,10 +294,12 @@ export function BackupSection() {
                     type="time"
                     label={t.dailyTime.value}
                     value={config.dailyTime}
-                    InputLabelProps={{ shrink: true }}
                     onChange={event =>
                       setConfig(current => ({ ...current, dailyTime: event.target.value }))
                     }
+                    slotProps={{
+                      inputLabel: { shrink: true },
+                    }}
                   />
                   <TextField
                     fullWidth
@@ -298,7 +312,6 @@ export function BackupSection() {
                   <TextField
                     fullWidth
                     type="number"
-                    inputProps={{ min: 1, max: 365 }}
                     label={t.versionsToKeep.value}
                     value={config.retentionCount}
                     onChange={event =>
@@ -307,6 +320,9 @@ export function BackupSection() {
                         retentionCount: Number(event.target.value) || 1,
                       }))
                     }
+                    slotProps={{
+                      htmlInput: { min: 1, max: 365 },
+                    }}
                   />
                 </Stack>
                 <TextField
@@ -341,7 +357,12 @@ export function BackupSection() {
                     {t.createNow.value}
                   </Button>
                   {config.lastSuccessfulAt ? (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       {t.lastSuccessful.value.replace(
                         '{date}',
                         formatStoredDateTime(config.lastSuccessfulAt),
@@ -357,12 +378,22 @@ export function BackupSection() {
 
       <Card variant="outlined">
         <CardContent>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {t.recentBackups.value}
           </Typography>
           <Stack spacing={1} sx={{ mt: 1.5 }}>
             {runs.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.noBackups.value}
               </Typography>
             ) : (
@@ -389,7 +420,13 @@ export function BackupSection() {
                       </Typography>
                     ) : null}
                   </Box>
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      alignItems: 'center',
+                    }}
+                  >
                     <Chip
                       size="small"
                       label={t.status[run.status].value}
@@ -422,10 +459,21 @@ export function BackupSection() {
         <CardContent>
           <Stack spacing={1.5}>
             <Box>
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {t.importTitle.value}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                  mt: 0.5,
+                }}
+              >
                 {t.importIntro.value}
               </Typography>
             </Box>
@@ -477,7 +525,12 @@ export function BackupSection() {
               ) : null}
             </Box>
             {preview ? (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.verified.value
                   .replace('{name}', preview.workspaceName ?? '—')
                   .replace('{count}', String(preview.fileCount))}

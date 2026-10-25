@@ -16,13 +16,6 @@ const PATHS: Record<TransactionsPage, string> = {
   income: '/statements/receive',
 };
 
-const SUBJECT_FALLBACKS: Record<TransactionsPage, [string, string]> = {
-  all: ['All transactions', 'Transactions'],
-  statements: ['All documents', 'Documents'],
-  expenses: ['All expenses', 'Expenses'],
-  income: ['All income', 'Income'],
-};
-
 /**
  * The heading of each page in the sidebar's Transactions group, with the
  * group's icon. Beside it a line says what the list shows right now: the
@@ -39,11 +32,10 @@ export function TransactionsPageTitle({
 }): React.JSX.Element {
   const t = useIntlayer('transactionsPageTitle');
   const summarize = useFilterSummary();
-  const [allFallback, someFallback] = SUBJECT_FALLBACKS[page];
   const summary = summarize(
     {
-      all: resolveLabel(getNestedValue(t, [`${page}All`]), allFallback),
-      some: resolveLabel(getNestedValue(t, [`${page}Some`]), someFallback),
+      all: resolveLabel(getNestedValue(t, [`${page}All`])),
+      some: resolveLabel(getNestedValue(t, [`${page}Some`])),
     },
     span,
     extras,

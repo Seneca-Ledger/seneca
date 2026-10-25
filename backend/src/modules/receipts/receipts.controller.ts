@@ -5,11 +5,9 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Patch,
   Post,
   Put,
-  Query,
   Res,
   UploadedFile,
   UploadedFiles,
@@ -21,47 +19,47 @@ import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
 import { assertReceiptFileSupported, validateFile } from '../../common/utils/file-validator.util';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { multerConfig } from '../../config/multer.config';
 import {
   ApplyReceiptSplitBody,
-  ApproveReceiptBody,
-  BulkApproveBody,
   PlaceSuggestions,
   PlaceSuggestionsBody,
+  ReceiptDocumentsQuery,
   ReceiptListPage,
+  ReceiptParams,
   ReceiptRecord,
   ReceiptRecordUpdate,
+  ReceiptSplitResult,
   ReceiptSplitSuggestion,
   ReceiptsQuery,
   ReceiptTax,
+  ReceiptThumbnailQuery,
   ReceiptTransactionMatches,
   ReceiptUploadResult,
   SetReceiptTaxBody,
   UpdateReceiptBody,
   UpdateReceiptLocationBody,
-  UpdateReceiptStageBody,
   UploadReceiptBody,
 } from '../../contracts';
+import { ReceiptDocumentsPage } from '../../contracts/receipts/receipt-documents';
 import type { User } from '../../entities';
 import { ReceiptStatus } from '../../entities/receipt.entity';
-import { StatementStage } from '../../entities/statement.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UpdateReceiptStageResultDto } from './dto/update-receipt-stage.dto';
 import { ReceiptsService } from './receipts.service';
 import { ReceiptDocumentsService } from './services/receipt-documents.service';
 import { ReceiptLocationService } from './services/receipt-location.service';
 import { ReceiptMatchService } from './services/receipt-match.service';
 import { ReceiptPlaceSuggestionService } from './services/receipt-place-suggestion.service';
 import { ReceiptSplitService } from './services/receipt-split.service';
-import { ReceiptStageService } from './services/receipt-stage.service';
 
 type MulterFile = Express.Multer.File;
 
@@ -70,7 +68,6 @@ export class ReceiptsController {
   constructor(
     private readonly receiptsService: ReceiptsService,
     private readonly locationService: ReceiptLocationService,
-    private readonly receiptStageService: ReceiptStageService,
     private readonly receiptMatchService: ReceiptMatchService,
     private readonly receiptSplitService: ReceiptSplitService,
     private readonly placeSuggestionService: ReceiptPlaceSuggestionService,
@@ -89,7 +86,7 @@ export class ReceiptsController {
     @WorkspaceId() workspaceId: string,
   ) {
     if (!files?.length) {
-      throw new BadRequestException('No files provided');
+      throw new BadRequestException(appError('UPLOAD_NO_FILES'));
     }
 
     files.forEach(file => {
@@ -116,6 +113,7 @@ export class ReceiptsController {
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
   @UseInterceptors(FileInterceptor('file', multerConfig))
+  @SchemaResponse(ReceiptRecordUpdate)
   async scan(
     @UploadedFile() file: MulterFile,
     @SchemaBody(UploadReceiptBody) dto: UploadReceiptBody,
@@ -123,7 +121,7 @@ export class ReceiptsController {
     @WorkspaceId() workspaceId: string,
   ) {
     if (!file) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException(appError('UPLOAD_NO_FILE'));
     }
 
     validateFile(file, { allowEInvoiceXml: true });
@@ -160,7 +158,7 @@ export class ReceiptsController {
       withoutNulls(dto),
     );
     if (!suggestions) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return suggestions;
   }
@@ -179,36 +177,24 @@ export class ReceiptsController {
   @Get('documents')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @ApiOperation({ summary: 'List receipts for the documents list' })
+  @SchemaResponse(ReceiptDocumentsPage)
   async listDocuments(
     @WorkspaceId() workspaceId: string,
-    @Query('status') status?: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-    @Query('includeInvalid') includeInvalid?: string,
-    @Query('hasAmount') hasAmount?: string,
-    @Query('categoryId') categoryId?: string,
-    @Query('includeLinkedScans') includeLinkedScans?: string,
-    @Query('stage') stage?: string,
+    @SchemaQuery(ReceiptDocumentsQuery) query: ReceiptDocumentsQuery,
   ) {
-    return this.documentsService.list(workspaceId, {
-      status,
-      limit,
-      offset,
-      includeInvalid,
-      hasAmount,
-      categoryId,
-      includeLinkedScans,
-      stage,
-    });
+    return this.documentsService.list(workspaceId, query);
   }
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @SchemaResponse(ReceiptRecord)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async findOne(
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const receipt = await this.receiptsService.findOne(id, workspaceId);
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return receipt;
   }
@@ -223,7 +209,7 @@ export class ReceiptsController {
   @ApiResponse({ status: 400, description: 'Receipt not found or coordinates out of range' })
   @SchemaResponse(ReceiptRecordUpdate)
   async setLocation(
-    @Param('id') id: string,
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
     @WorkspaceId() workspaceId: string,
     @SchemaBody(UpdateReceiptLocationBody) dto: UpdateReceiptLocationBody,
     @CurrentUser() user: User,
@@ -235,7 +221,7 @@ export class ReceiptsController {
       user.id,
     );
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return receipt;
   }
@@ -249,13 +235,13 @@ export class ReceiptsController {
   @ApiResponse({ status: 400, description: 'Receipt not found' })
   @SchemaResponse(ReceiptRecordUpdate)
   async resetLocation(
-    @Param('id') id: string,
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
     const receipt = await this.locationService.resetToAuto(id, workspaceId, user.id);
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return receipt;
   }
@@ -264,7 +250,7 @@ export class ReceiptsController {
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   @SchemaResponse(ReceiptRecordUpdate)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
     @WorkspaceId() workspaceId: string,
     @SchemaBody(UpdateReceiptBody) dto: UpdateReceiptBody,
     @CurrentUser() user: User,
@@ -276,7 +262,7 @@ export class ReceiptsController {
       user.id,
     );
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return receipt;
   }
@@ -285,10 +271,13 @@ export class ReceiptsController {
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @ApiOperation({ summary: "The tax rate and amount on the receipt's transaction" })
   @SchemaResponse(ReceiptTax)
-  async getTax(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async getTax(
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const tax = await this.receiptsService.getTax(id, workspaceId);
     if (!tax) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return tax;
   }
@@ -302,51 +291,16 @@ export class ReceiptsController {
   @ApiResponse({ status: 409, description: 'No transaction yet, or it is on a filed return' })
   @SchemaResponse(ReceiptTax)
   async setTax(
-    @Param('id') id: string,
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
     @WorkspaceId() workspaceId: string,
     @SchemaBody(SetReceiptTaxBody) dto: SetReceiptTaxBody,
     @CurrentUser() user: User,
   ) {
     const tax = await this.receiptsService.setTax(id, workspaceId, dto.taxRateId, user.id);
     if (!tax) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return tax;
-  }
-
-  @Post('stage')
-  @HttpCode(HttpStatus.OK)
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
-  @ApiOperation({ summary: 'Move one or more receipts between Submit and Approve' })
-  @ApiResponse({ status: 200, type: UpdateReceiptStageResultDto })
-  async updateStage(
-    @SchemaBody(UpdateReceiptStageBody) dto: UpdateReceiptStageBody,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-  ): Promise<UpdateReceiptStageResultDto> {
-    return this.receiptStageService.updateStage(
-      dto.receiptIds,
-      toEnum(StatementStage, dto.stage),
-      user.id,
-      workspaceId,
-    );
-  }
-
-  @Post(':id/approve')
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
-  async approve(
-    @Param('id') id: string,
-    @WorkspaceId() workspaceId: string,
-    @CurrentUser() user: User,
-    @SchemaBody(ApproveReceiptBody) dto: ApproveReceiptBody,
-  ) {
-    const result = await this.receiptsService.approve(id, workspaceId, user.id, {
-      attachTo: dto?.transactionId,
-    });
-    if (!result) {
-      throw new BadRequestException('Receipt not found');
-    }
-    return result;
   }
 
   /** Bank rows this receipt may document, best first; recomputes the stored suggestion too. */
@@ -354,13 +308,13 @@ export class ReceiptsController {
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @SchemaResponse(ReceiptTransactionMatches)
   async transactionMatches(
-    @Param('id') id: string,
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     const receipt = await this.receiptMatchService.refresh(id, workspaceId);
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     const candidates = await this.receiptMatchService.candidates(receipt, selfMemberId);
     return {
@@ -380,14 +334,18 @@ export class ReceiptsController {
   @Get(':id/split-suggestion')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @SchemaResponse(ReceiptSplitSuggestion)
-  async splitSuggestion(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async splitSuggestion(
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.receiptSplitService.suggest(id, workspaceId);
   }
 
   @Post(':id/split')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(ReceiptSplitResult)
   async split(
-    @Param('id') id: string,
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
     @SchemaBody(ApplyReceiptSplitBody) dto: ApplyReceiptSplitBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
@@ -395,26 +353,11 @@ export class ReceiptsController {
     return this.receiptSplitService.apply(id, workspaceId, user.id, dto.items ?? undefined);
   }
 
-  @Post('bulk-approve')
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
-  async bulkApprove(
-    @SchemaBody(BulkApproveBody) dto: BulkApproveBody,
-    @WorkspaceId() workspaceId: string,
-    @CurrentUser() user: User,
-  ) {
-    return this.receiptsService.bulkApprove(
-      dto.receiptIds,
-      workspaceId,
-      user.id,
-      dto.categoryId ?? undefined,
-    );
-  }
-
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async delete(
-    @Param('id') id: string,
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -426,8 +369,8 @@ export class ReceiptsController {
   @ApiOperation({ summary: 'Get receipt thumbnail' })
   async getThumbnail(
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
-    @Query('width') width: string,
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
+    @SchemaQuery(ReceiptThumbnailQuery) { width }: ReceiptThumbnailQuery,
     @Res() res: Response,
   ) {
     const thumbnail = await this.documentsService.thumbnail(id, workspaceId, width);
@@ -448,7 +391,11 @@ export class ReceiptsController {
 
   @Get(':id/file')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
-  async getFile(@Param('id') id: string, @WorkspaceId() workspaceId: string, @Res() res: Response) {
+  async getFile(
+    @SchemaParams(ReceiptParams) { id }: ReceiptParams,
+    @WorkspaceId() workspaceId: string,
+    @Res() res: Response,
+  ) {
     const filePayload = await this.receiptsService.getFilePayload(id, workspaceId);
 
     if (!filePayload) {

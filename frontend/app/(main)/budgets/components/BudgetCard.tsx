@@ -70,11 +70,21 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
         sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}
       >
         <Box>
-          <Typography variant="subtitle1" fontWeight={500}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 500,
+            }}
+          >
             {/* A budget named after a system category (the demo's are) reads in the user's language. */}
             {localizeStatementCategoryName(budget.name, locale)}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {budget.category
               ? localizeStatementCategoryName(budget.category.name, locale)
               : t.unknownCategory}{' '}
@@ -127,7 +137,12 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
       </Box>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           <PrivateAmount>{formatAmount(budget.spentAmount, budget.currency)}</PrivateAmount> /{' '}
           <PrivateAmount>{formatAmount(availableAmount, budget.currency)}</PrivateAmount>
         </Typography>

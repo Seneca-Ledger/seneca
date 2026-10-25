@@ -53,17 +53,33 @@ export function SyncSection({
       {/* Description */}
       <Card variant="outlined">
         <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {t.title.value}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mt: 0.5,
+            }}
+          >
             {t.intro.value}
           </Typography>
         </Box>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
             <Cloud size={18} style={{ color: c.ink400 }} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.foldersIntro.value}
             </Typography>
           </Box>
@@ -123,7 +139,12 @@ export function SyncSection({
                   : t.exportZip.value}
             </Button>
             {totalCount === 0 && !statsLoading && (
-              <Typography variant="body2" color="text.disabled">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.disabled',
+                }}
+              >
                 {t.noFilesToExport.value}
               </Typography>
             )}

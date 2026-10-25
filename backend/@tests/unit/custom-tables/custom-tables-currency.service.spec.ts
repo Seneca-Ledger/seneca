@@ -1,15 +1,16 @@
+import type { Mock } from 'vitest';
 import * as xlsx from 'xlsx';
 import { CustomTableColumnType } from '../../../src/entities/custom-table-column.entity';
 import { CustomTablesService } from '../../../src/modules/custom-tables/custom-tables.service';
 
 const createRepositoryMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  save: jest.fn(),
-  create: jest.fn((value?: unknown) => value),
-  delete: jest.fn(),
-  update: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  findOne: vi.fn(),
+  find: vi.fn(),
+  save: vi.fn(),
+  create: vi.fn((value?: unknown) => value),
+  delete: vi.fn(),
+  update: vi.fn(),
+  createQueryBuilder: vi.fn(),
 });
 
 const TABLE_ID = '11111111-1111-4111-8111-111111111111';
@@ -33,12 +34,12 @@ const ROWS = [
 interface Harness {
   service: CustomTablesService;
   rowQueryBuilder: {
-    orderBy: jest.Mock;
-    andWhere: jest.Mock;
-    select: jest.Mock;
-    getRawOne: jest.Mock;
-    getCount: jest.Mock;
-    clone: jest.Mock;
+    orderBy: Mock;
+    andWhere: Mock;
+    select: Mock;
+    getRawOne: Mock;
+    getCount: Mock;
+    clone: Mock;
   };
 }
 
@@ -48,26 +49,26 @@ function buildService(raw: Record<string, unknown> = {}): Harness {
   const customTableRowRepository = createRepositoryMock();
 
   customTableRepository.createQueryBuilder.mockReturnValue({
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getOne: jest.fn().mockResolvedValue({ id: TABLE_ID, name: 'Бюджет' }),
+    leftJoinAndSelect: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getOne: vi.fn().mockResolvedValue({ id: TABLE_ID, name: 'Бюджет' }),
   });
   customTableColumnRepository.find.mockResolvedValue(COLUMNS);
 
   const rowQueryBuilder = {
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    addOrderBy: jest.fn().mockReturnThis(),
-    setParameter: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    skip: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    getCount: jest.fn().mockResolvedValue(ROWS.length),
-    getMany: jest.fn().mockResolvedValue(ROWS),
-    getRawOne: jest.fn().mockResolvedValue(raw),
-    clone: jest.fn(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    addOrderBy: vi.fn().mockReturnThis(),
+    setParameter: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    skip: vi.fn().mockReturnThis(),
+    take: vi.fn().mockReturnThis(),
+    getCount: vi.fn().mockResolvedValue(ROWS.length),
+    getMany: vi.fn().mockResolvedValue(ROWS),
+    getRawOne: vi.fn().mockResolvedValue(raw),
+    clone: vi.fn(),
   };
   rowQueryBuilder.clone.mockReturnValue(rowQueryBuilder);
   customTableRowRepository.createQueryBuilder.mockReturnValue(rowQueryBuilder);
@@ -85,7 +86,7 @@ function buildService(raw: Record<string, unknown> = {}): Harness {
     createRepositoryMock() as never,
     createRepositoryMock() as never,
     createRepositoryMock() as never,
-    { createEvent: jest.fn(), createBatchEvents: jest.fn() } as never,
+    { createEvent: vi.fn(), createBatchEvents: vi.fn() } as never,
   );
 
   return { service, rowQueryBuilder };

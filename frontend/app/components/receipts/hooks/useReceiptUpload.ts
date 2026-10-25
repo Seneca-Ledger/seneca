@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 
 export function useReceiptUpload() {
+  const t = useIntlayer('receiptCapture');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export function useReceiptUpload() {
       });
     })()
       .catch(async uploadError => {
-        const message = getApiErrorMessage(uploadError, 'Upload failed');
+        const message = getApiErrorMessage(uploadError, t.uploadFailed.value);
         setError(message);
         throw uploadError;
       })

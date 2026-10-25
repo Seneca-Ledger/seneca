@@ -15,19 +15,19 @@ function analyzerWith(
   ledgerBalance: StoicBalance,
   options: { goalsFail?: boolean; shortfallDate?: string | null } = {},
 ) {
-  const ledger = { monthlyBalance: jest.fn(async () => ledgerBalance) };
-  const behaviorService = { load: jest.fn(async () => behavior()) };
+  const ledger = { monthlyBalance: vi.fn(async () => ledgerBalance) };
+  const behaviorService = { load: vi.fn(async () => behavior()) };
   const goalsService = {
-    findAll: jest.fn(async () => {
+    findAll: vi.fn(async () => {
       if (options.goalsFail) {
         throw new Error('goals down');
       }
       return [];
     }),
   };
-  const goalPlanService = { getPlan: jest.fn() };
+  const goalPlanService = { getPlan: vi.fn() };
   const dashboardService = {
-    getCommitments: jest.fn(async () => ({
+    getCommitments: vi.fn(async () => ({
       openingBalance: 100000,
       shortfallDate: options.shortfallDate ?? null,
       lowestBalance: -250,

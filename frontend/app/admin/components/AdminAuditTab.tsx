@@ -85,7 +85,9 @@ function AuditSelectFilters({ filters, labels, onFilterChange }: FilterProps): R
         size="small"
         value={filters.entityType || ''}
         onChange={e => onFilterChange({ key: 'entityType', value: e.target.value })}
-        SelectProps={{ native: true }}
+        slotProps={{
+          select: { native: true },
+        }}
       >
         <option value="">{labels.filterAll}</option>
         {ENTITY_TYPES.map(type => (
@@ -100,7 +102,9 @@ function AuditSelectFilters({ filters, labels, onFilterChange }: FilterProps): R
         size="small"
         value={filters.action || ''}
         onChange={e => onFilterChange({ key: 'action', value: e.target.value })}
-        SelectProps={{ native: true }}
+        slotProps={{
+          select: { native: true },
+        }}
       >
         <option value="">{labels.filterAll}</option>
         {ACTIONS.map(action => (
@@ -115,7 +119,9 @@ function AuditSelectFilters({ filters, labels, onFilterChange }: FilterProps): R
         size="small"
         value={filters.severity || ''}
         onChange={e => onFilterChange({ key: 'severity', value: e.target.value })}
-        SelectProps={{ native: true }}
+        slotProps={{
+          select: { native: true },
+        }}
       >
         <option value="">{labels.filterAll}</option>
         {SEVERITIES.map(s => (
@@ -198,7 +204,12 @@ function AuditResults({
   if (auditLoading) {
     return (
       <Paper variant="outlined" sx={{ p: 3 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {labels.loading}
         </Typography>
       </Paper>
@@ -207,7 +218,12 @@ function AuditResults({
   if (auditLogs.length === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 3 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {labels.empty}
         </Typography>
       </Paper>
@@ -247,7 +263,12 @@ export function AdminAuditTab({
         <Typography variant="h6" component="h2">
           {labels.title}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {labels.helper}
         </Typography>
       </Box>

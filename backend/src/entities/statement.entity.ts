@@ -9,6 +9,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -81,21 +82,21 @@ export class Statement {
     user => user.statements,
   )
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Folder, { nullable: true })
   @JoinColumn({ name: 'folder_id' })
-  folder: Folder | null;
+  folder: Relation<Folder | null>;
 
   @Column({ name: 'folder_id', type: 'uuid', nullable: true })
   folderId: string | null;
@@ -201,7 +202,7 @@ export class Statement {
 
   @ManyToOne(() => Category, { nullable: true })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
@@ -294,7 +295,7 @@ export class Statement {
     () => Transaction,
     transaction => transaction.statement,
   )
-  transactions: Transaction[];
+  transactions: Relation<Transaction[]>;
 
   @ManyToMany(
     () => Tag,
@@ -306,7 +307,7 @@ export class Statement {
     joinColumn: { name: 'statement_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
   })
-  tags: Tag[];
+  tags: Relation<Tag[]>;
 
   @AfterLoad()
   normalizeFileNameAfterLoad() {

@@ -13,6 +13,7 @@ import {
   TaxReturnPeriodQuery,
   TaxReturnPreview,
   TaxReturnRecord,
+  TaxReturnRecordList,
   UstvaResult,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
@@ -29,6 +30,7 @@ export class TaxReturnsController {
 
   @Get()
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(TaxReturnRecordList)
   async findAll(@WorkspaceId() workspaceId: string) {
     return this.taxReturnsService.findAll(workspaceId);
   }
@@ -73,6 +75,7 @@ export class TaxReturnsController {
   // settings management rather than the view permission.
   @Post('file')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(TaxReturnRecord)
   async file(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(TaxReturnPeriodBody) dto: TaxReturnPeriodBody,
@@ -83,6 +86,7 @@ export class TaxReturnsController {
 
   @Post('reopen')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(TaxReturnRecord)
   async reopen(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(TaxReturnPeriodBody) dto: TaxReturnPeriodBody,

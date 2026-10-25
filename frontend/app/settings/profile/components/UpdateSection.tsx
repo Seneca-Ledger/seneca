@@ -50,7 +50,15 @@ function AvailableRelease({
 }) {
   return (
     <Stack spacing={1.25}>
-      <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack
+        direction="row"
+        spacing={1.5}
+        useFlexGap
+        sx={{
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
         <Typography variant="body2">{fill(t.available.value, { tag })}</Typography>
         {status.releaseUrl ? (
           <Link
@@ -73,12 +81,22 @@ function AvailableRelease({
               {fill(t.updateTo.value, { tag })}
             </Button>
           </Box>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.updateHint.value}
           </Typography>
         </>
       ) : (
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {t.updaterOff.value}
         </Typography>
       )}
@@ -107,7 +125,12 @@ function FailedRun({ t, run }: { t: Text; run: SystemUpdateStatus['run'] }) {
 
 function Muted({ children }: { children: string }) {
   return (
-    <Typography variant="body2" color="text.secondary">
+    <Typography
+      variant="body2"
+      sx={{
+        color: 'text.secondary',
+      }}
+    >
       {children}
     </Typography>
   );
@@ -136,7 +159,13 @@ export function UpdateSection({ isAdmin }: { isAdmin: boolean }) {
     }
     if (installing) {
       return (
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
           <Spinner size={16} />
           <Muted>{stepText(t, run)}</Muted>
         </Stack>
@@ -160,7 +189,12 @@ export function UpdateSection({ isAdmin }: { isAdmin: boolean }) {
     <Card variant="outlined">
       <CardContent>
         <Stack spacing={1.5}>
-          <Typography variant="body2" fontWeight={500}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 500,
+            }}
+          >
             {currentVersion
               ? fill(t.running.value, { version: currentVersion })
               : t.localBuild.value}

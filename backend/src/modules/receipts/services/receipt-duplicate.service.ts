@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { calculateStringSimilarity } from '../../../common/utils/string-similarity.util';
 import { Receipt } from '../../../entities';
 
@@ -82,14 +83,14 @@ export class ReceiptDuplicateService {
   async markAsDuplicate(receiptId: string, originalId: string, workspaceId: string): Promise<void> {
     const receipt = await this.receiptRepository.findOne({ where: { id: receiptId, workspaceId } });
     if (!receipt) {
-      throw new Error('Receipt not found');
+      throw new NotFoundException(appError('RECEIPT_NOT_FOUND'));
     }
 
     const original = await this.receiptRepository.findOne({
       where: { id: originalId, workspaceId },
     });
     if (!original) {
-      throw new Error('Original receipt not found');
+      throw new NotFoundException(appError('RECEIPT_ORIGINAL_NOT_FOUND'));
     }
 
     receipt.duplicateOfId = originalId;
@@ -100,7 +101,7 @@ export class ReceiptDuplicateService {
   async unmarkDuplicate(receiptId: string, workspaceId: string): Promise<void> {
     const receipt = await this.receiptRepository.findOne({ where: { id: receiptId, workspaceId } });
     if (!receipt) {
-      throw new Error('Receipt not found');
+      throw new NotFoundException(appError('RECEIPT_NOT_FOUND'));
     }
 
     receipt.duplicateOfId = null;

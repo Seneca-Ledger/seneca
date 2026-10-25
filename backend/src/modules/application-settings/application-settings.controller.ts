@@ -18,7 +18,10 @@ import { Permission } from '../../common/enums/permissions.enum';
 import { InstanceAdminGuard } from '../../common/guards/instance-admin.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import {
+  IntegrationConnection,
+  IntegrationDisconnected,
   LocalCategorizationStatus,
+  LocalCategorizationTestResult,
   SaveAppSettingsBody,
   SaveLocalCategorizationBody,
   SaveSmtpSettingsBody,
@@ -48,6 +51,7 @@ export class ApplicationSettingsController {
 
   @Put('local-categorization')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(LocalCategorizationStatus)
   saveLocalCategorization(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -58,6 +62,7 @@ export class ApplicationSettingsController {
 
   @Post('local-categorization/test')
   @UseGuards(WorkspaceContextGuard)
+  @SchemaResponse(LocalCategorizationTestResult)
   testLocalCategorization(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -71,6 +76,7 @@ export class ApplicationSettingsController {
   // The model root is shared by the whole server: replacing a model there
   // changes it for every workspace, so it is an instance admin's call.
   @UseGuards(InstanceAdminGuard)
+  @SchemaResponse(LocalCategorizationStatus)
   @UseInterceptors(
     FileInterceptor('model', {
       storage: memoryStorage(),
@@ -87,12 +93,14 @@ export class ApplicationSettingsController {
 
   @Get('email/smtp')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IntegrationConnection)
   getSmtp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.getSmtpStatus(user, workspaceId);
   }
 
   @Put('email/smtp')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IntegrationConnection)
   saveSmtp(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -103,6 +111,7 @@ export class ApplicationSettingsController {
 
   @Delete('email/smtp')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IntegrationDisconnected)
   disconnectSmtp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.disconnect(
       user,
@@ -120,6 +129,7 @@ export class ApplicationSettingsController {
 
   @Put('notifications/telegram')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(TelegramBotStatus)
   saveTelegram(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -130,6 +140,7 @@ export class ApplicationSettingsController {
 
   @Delete('notifications/telegram')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IntegrationDisconnected)
   disconnectTelegram(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.disconnect(
       user,
@@ -140,12 +151,14 @@ export class ApplicationSettingsController {
 
   @Get('app')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IntegrationConnection)
   getApp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.getAppStatus(user, workspaceId);
   }
 
   @Put('app')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IntegrationConnection)
   saveApp(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -156,6 +169,7 @@ export class ApplicationSettingsController {
 
   @Delete('app')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IntegrationDisconnected)
   disconnectApp(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     return this.applicationSettingsService.disconnect(
       user,
