@@ -15,12 +15,12 @@ describe('BranchesController', () => {
 
     expect(await controller.create({ name: 'A' } as any, user, workspaceId)).toEqual({ id: 'b1' });
     expect(await controller.findAll(user, workspaceId)).toEqual([{ id: 'b1' }]);
-    expect(await controller.findOne('b1', user, workspaceId)).toEqual({ id: 'b1' });
-    expect(await controller.update('b1', { name: 'X' } as any, user, workspaceId)).toEqual({
+    expect(await controller.findOne({ id: 'b1' }, user, workspaceId)).toEqual({ id: 'b1' });
+    expect(await controller.update({ id: 'b1' }, { name: 'X' } as any, user, workspaceId)).toEqual({
       id: 'b1',
       name: 'X',
     });
-    expect(await controller.remove('b1', user, workspaceId)).toEqual({
+    expect(await controller.remove({ id: 'b1' }, user, workspaceId)).toEqual({
       message: 'Branch deleted successfully',
     });
 

@@ -1,18 +1,15 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { CreateRowCommentBody, SetCommentResolvedBody } from '../../contracts';
+import {
+  CustomTableCommentParams,
+  CustomTableParams,
+  CustomTableRowParams,
+} from '../../contracts/requests/custom-table-queries';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CustomTableCommentsService } from './custom-table-comments.service';
@@ -27,8 +24,7 @@ export class CustomTableCommentsController {
   async listComments(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('rowId', new ParseUUIDPipe()) rowId: string,
+    @SchemaParams(CustomTableRowParams) { id: tableId, rowId }: CustomTableRowParams,
   ) {
     const items = await this.commentsService.listComments(workspaceId, tableId, rowId);
     return { items };
@@ -39,8 +35,7 @@ export class CustomTableCommentsController {
   async addComment(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('rowId', new ParseUUIDPipe()) rowId: string,
+    @SchemaParams(CustomTableRowParams) { id: tableId, rowId }: CustomTableRowParams,
     @SchemaBody(CreateRowCommentBody) dto: CreateRowCommentBody,
   ) {
     return this.commentsService.addComment(user.id, workspaceId, tableId, rowId, dto.body);
@@ -51,7 +46,7 @@ export class CustomTableCommentsController {
   async countComments(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
   ) {
     const counts = await this.commentsService.countOpenByRow(workspaceId, tableId);
     return { counts };
@@ -62,8 +57,7 @@ export class CustomTableCommentsController {
   async setResolved(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) _tableId: string,
-    @Param('commentId', new ParseUUIDPipe()) commentId: string,
+    @SchemaParams(CustomTableCommentParams) { commentId }: CustomTableCommentParams,
     @SchemaBody(SetCommentResolvedBody) dto: SetCommentResolvedBody,
   ) {
     return this.commentsService.setResolved(user.id, workspaceId, commentId, dto.resolved);
@@ -74,8 +68,7 @@ export class CustomTableCommentsController {
   async deleteComment(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) _tableId: string,
-    @Param('commentId', new ParseUUIDPipe()) commentId: string,
+    @SchemaParams(CustomTableCommentParams) { commentId }: CustomTableCommentParams,
   ) {
     await this.commentsService.deleteComment(user.id, workspaceId, commentId);
     return { message: 'Comment deleted' };

@@ -5,11 +5,9 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Patch,
   Post,
   Put,
-  Query,
   Res,
   UploadedFile,
   UseGuards,
@@ -25,6 +23,7 @@ import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -33,7 +32,6 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TimezonesService } from '../../common/services/timezones.service';
 import {
   isAllowedAvatarMime,
-  resolveAvatarContentType,
   sanitizeAvatarFilename,
 } from '../../common/utils/avatar-filename.util';
 import { removeUploadedFile, validateImageSignature } from '../../common/utils/file-validator.util';
@@ -42,6 +40,7 @@ import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   AddPermissionBody,
   AdminUserList,
+  AvatarFileParams,
   ChangeEmailBody,
   ChangePasswordBody,
   CompleteOnboardingBody,
@@ -55,7 +54,9 @@ import {
   UpdateMyPreferencesBody,
   UpdatePermissionsBody,
   UpdateUserBody,
+  UserIdParams,
   UserPermissions,
+  UsersQuery,
   UserUpdateResponse,
   WelcomeTutorialSeen,
 } from '../../contracts';
@@ -63,6 +64,7 @@ import { type User, UserRole } from '../../entities/user.entity';
 import { toCurrentUser } from '../auth/current-user.view';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { sendAvatarFile } from './avatar-file.util';
 import { CURRENT_DISCLAIMER_VERSION } from './disclaimer.constant';
 import { AccountDataService } from './services/account-data.service';
 import { EmailChangeService } from './services/email-change.service';
@@ -88,8 +90,8 @@ export class UsersController {
   @Get()
   @WorkspaceAuth(Permission.USER_VIEW_ALL)
   @SchemaResponse(AdminUserList)
-  async findAll(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
-    return this.usersService.findAll(workspaceId, limit ? Number.parseInt(limit) : 20);
+  async findAll(@WorkspaceId() workspaceId: string, @SchemaQuery(UsersQuery) query: UsersQuery) {
+    return this.usersService.findAll(workspaceId, query.limit ?? 20);
   }
 
   @Get('me')
@@ -194,33 +196,15 @@ export class UsersController {
 
   @Public()
   @Get('avatars/:fileName')
-  getAvatar(@Param('fileName') fileName: string, @Res() res: Response) {
-    const uploadsDir = resolveUploadsDir();
-    const safeFileName = path.basename(fileName);
-    const filePath = path.join(uploadsDir, 'user-avatars', safeFileName);
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).send('Avatar not found');
-    }
-
-    // Pin the Content-Type to the image type the extension maps to instead of
-    // letting sendFile infer it: an inferred text/html here would execute on
-    // this origin. Unknown extensions predate the allowlist above — serve them
-    // as an opaque download rather than guessing a type for them.
-    const contentType = resolveAvatarContentType(safeFileName);
-
-    return res.sendFile(filePath, {
-      headers: {
-        'Cache-Control': 'public, max-age=86400',
-        'X-Content-Type-Options': 'nosniff',
-        'Content-Type': contentType ?? 'application/octet-stream',
-        ...(contentType ? {} : { 'Content-Disposition': 'attachment' }),
-      },
-    });
+  getAvatar(@SchemaParams(AvatarFileParams) { fileName }: AvatarFileParams, @Res() res: Response) {
+    return sendAvatarFile(res, fileName);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string, @CurrentUser() currentUser: User): Promise<User> {
+  async findOne(
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @CurrentUser() currentUser: User,
+  ): Promise<User> {
     // Users can only view their own profile unless they're admin
     if (currentUser.role !== UserRole.ADMIN && currentUser.id !== id) {
       return this.usersService.getProfile(currentUser.id);
@@ -231,7 +215,7 @@ export class UsersController {
 
   @Put(':id')
   async update(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(UpdateUserBody) updateUserDto: UpdateUserBody,
     @CurrentUser() currentUser: User,
   ): Promise<User> {
@@ -241,7 +225,7 @@ export class UsersController {
   @Delete(':id')
   @WorkspaceAuth(Permission.USER_MANAGE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @CurrentUser() currentUser: User,
   ): Promise<{ message: string }> {
     await this.usersService.remove(id, currentUser);
@@ -251,7 +235,10 @@ export class UsersController {
   @Get(':id/permissions')
   @WorkspaceAuth(Permission.USER_MANAGE)
   @SchemaResponse(UserPermissions)
-  async getUserPermissions(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async getUserPermissions(
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const user = await this.permissionsService.findUserInWorkspace(id, workspaceId);
     const permissions = this.permissionsService.getUserPermissions(user);
     return {
@@ -265,7 +252,7 @@ export class UsersController {
   @Put(':id/permissions')
   @WorkspaceAuth(Permission.USER_MANAGE)
   async updatePermissions(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(UpdatePermissionsBody) dto: UpdatePermissionsBody,
     @CurrentUser() currentUser: User,
     @WorkspaceId() workspaceId: string,
@@ -286,7 +273,7 @@ export class UsersController {
   @Post(':id/permissions/add')
   @WorkspaceAuth(Permission.USER_MANAGE)
   async addPermission(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(AddPermissionBody) dto: AddPermissionBody,
     @CurrentUser() currentUser: User,
     @WorkspaceId() workspaceId: string,
@@ -307,7 +294,7 @@ export class UsersController {
   @Post(':id/permissions/remove')
   @WorkspaceAuth(Permission.USER_MANAGE)
   async removePermission(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(RemovePermissionBody) dto: RemovePermissionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() currentUser: User,
@@ -328,7 +315,7 @@ export class UsersController {
   @Post(':id/permissions/reset')
   @WorkspaceAuth(Permission.USER_MANAGE)
   async resetPermissions(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() currentUser: User,
   ) {

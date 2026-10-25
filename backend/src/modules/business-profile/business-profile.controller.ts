@@ -6,7 +6,6 @@ import {
   Controller,
   Delete,
   Get,
-  Param,
   Post,
   Put,
   Res,
@@ -19,6 +18,7 @@ import { diskStorage } from 'multer';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
@@ -29,6 +29,7 @@ import {
 import { removeUploadedFile, validateImageSignature } from '../../common/utils/file-validator.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
+  BusinessLogoFileParams,
   BusinessProfileLogo,
   BusinessProfileResponse,
   UpdateBusinessProfileBody,
@@ -151,7 +152,10 @@ export class BusinessProfileController {
    */
   @Public()
   @Get('logo/:fileName')
-  getLogo(@Param('fileName') fileName: string, @Res() res: Response) {
+  getLogo(
+    @SchemaParams(BusinessLogoFileParams) { fileName }: BusinessLogoFileParams,
+    @Res() res: Response,
+  ) {
     const safeFileName = path.basename(fileName);
     const filePath = this.businessProfileService.logoPath(safeFileName);
     if (!fs.existsSync(filePath)) {

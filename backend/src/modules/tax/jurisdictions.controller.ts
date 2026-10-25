@@ -1,7 +1,13 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { JurisdictionRateList, TaxJurisdictionList } from '../../contracts';
+import {
+  JurisdictionParams,
+  JurisdictionRateList,
+  TaxJurisdictionList,
+  TaxRatesOnDateQuery,
+} from '../../contracts';
 import { JurisdictionsService } from './jurisdictions.service';
 
 /**
@@ -21,7 +27,7 @@ export class JurisdictionsController {
   }
 
   @Get(':code')
-  async findOne(@Param('code') code: string) {
+  async findOne(@SchemaParams(JurisdictionParams) { code }: JurisdictionParams) {
     return this.jurisdictionsService.findByCode(code);
   }
 
@@ -31,11 +37,14 @@ export class JurisdictionsController {
    */
   @Get(':code/rates')
   @SchemaResponse(JurisdictionRateList)
-  async findRates(@Param('code') code: string, @Query('date') date?: string) {
+  async findRates(
+    @SchemaParams(JurisdictionParams) { code }: JurisdictionParams,
+    @SchemaQuery(TaxRatesOnDateQuery) query: TaxRatesOnDateQuery,
+  ) {
     const jurisdiction = await this.jurisdictionsService.findByCode(code);
 
-    return date
-      ? this.jurisdictionsService.findRatesForDate(jurisdiction.id, date)
+    return query.date
+      ? this.jurisdictionsService.findRatesForDate(jurisdiction.id, query.date)
       : this.jurisdictionsService.findAllRates(jurisdiction.id);
   }
 }

@@ -17,17 +17,15 @@ describe('TransactionsController', () => {
       { id: 'u1' } as any,
       'ws-1',
       'member-self',
-      's1',
-      undefined,
-      '2025-01-01',
-      undefined,
-      '2025-01-31',
-      undefined,
-      'income',
-      'cat1',
-      undefined,
-      '2',
-      '10',
+      {
+        statement_id: 's1',
+        date_from: '2025-01-01',
+        date_to: '2025-01-31',
+        type: 'income',
+        category_id: 'cat1',
+        page: 2,
+        limit: 10,
+      },
     );
 
     expect(res).toEqual({ data: [], items: [], total: 0, page: 2, limit: 10 });
@@ -66,10 +64,7 @@ describe('TransactionsController', () => {
       { id: 'u1' } as any,
       'ws-1',
       'member-self',
-      // statementId ×2, dateFrom ×2, dateTo ×2, type, categoryId ×2, page,
-      // limit, currency, convert_to — then owner.
-      ...(Array.from({ length: 13 }) as undefined[]),
-      owner as string | undefined,
+      { owner: owner as 'me' | 'shared' | undefined },
     );
 
     expect(transactionsService.findAll).toHaveBeenCalledWith(
@@ -109,7 +104,7 @@ describe('TransactionsController', () => {
       const transactionsService = { getSplitParts: vi.fn(async () => parts) };
       const controller = new TransactionsController(transactionsService as any, {} as any);
 
-      const result = await controller.getSplitParts('t1', 'ws-1');
+      const result = await controller.getSplitParts({ id: 't1' }, 'ws-1');
 
       expect(result).toBe(parts);
       expect(transactionsService.getSplitParts).toHaveBeenCalledWith('t1', 'ws-1');
@@ -121,7 +116,7 @@ describe('TransactionsController', () => {
       const controller = new TransactionsController(transactionsService as any, {} as any);
       const dto = { parts: [{ amount: 60 }, { amount: 40 }] } as any;
 
-      const result = await controller.split('t1', dto, { id: 'u1' } as any, 'ws-1');
+      const result = await controller.split({ id: 't1' }, dto, { id: 'u1' } as any, 'ws-1');
 
       expect(result).toBe(created);
       expect(transactionsService.split).toHaveBeenCalledWith('t1', 'ws-1', 'u1', dto);
@@ -132,7 +127,7 @@ describe('TransactionsController', () => {
       const transactionsService = { unsplit: vi.fn(async () => survivor) };
       const controller = new TransactionsController(transactionsService as any, {} as any);
 
-      const result = await controller.unsplit('t1', { id: 'u1' } as any, 'ws-1');
+      const result = await controller.unsplit({ id: 't1' }, { id: 'u1' } as any, 'ws-1');
 
       expect(result).toBe(survivor);
       expect(transactionsService.unsplit).toHaveBeenCalledWith('t1', 'ws-1', 'u1');

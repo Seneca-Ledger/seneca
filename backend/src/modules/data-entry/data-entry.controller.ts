@@ -1,16 +1,11 @@
 import {
   BadRequestException,
   Controller,
-  DefaultValuePipe,
   Delete,
   Get,
   Headers,
-  Param,
-  ParseEnumPipe,
-  ParseIntPipe,
   Patch,
   Post,
-  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -21,7 +16,9 @@ import { diskStorage } from 'multer';
 import * as path from 'path';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
+import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
@@ -33,6 +30,9 @@ import {
 import {
   CreateDataEntryBody,
   CreateDataEntryCustomFieldBody,
+  DataEntryBaseTabParams,
+  DataEntryListQuery,
+  DataEntryParams,
   UpdateDataEntryCustomFieldBody,
   UploadedIcon,
 } from '../../contracts';
@@ -76,22 +76,24 @@ export class DataEntryController {
   async list(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('type') type?: DataEntryType,
-    @Query('customTabId') customTabId?: string,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
-    @Query('q') query?: string,
-    @Query('date') date?: string,
+    @SchemaQuery(DataEntryListQuery) {
+      type,
+      customTabId,
+      limit,
+      page,
+      q,
+      date,
+    }: DataEntryListQuery,
   ) {
     const safeLimit = Math.min(Math.max(limit || 50, 1), 200);
     const safePage = Math.max(page || 1, 1);
     const { items, total } = await this.dataEntryService.list({
       workspaceId,
-      type,
+      type: toEnum(DataEntryType, type),
       customTabId,
       limit: safeLimit,
       page: safePage,
-      query,
+      query: q,
       date,
     });
     return { items, total, page: safePage, limit: safeLimit };
@@ -101,7 +103,7 @@ export class DataEntryController {
   async remove(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(DataEntryParams) { id }: DataEntryParams,
   ) {
     await this.dataEntryService.remove(workspaceId, user.id, id);
     return { ok: true };
@@ -120,9 +122,9 @@ export class DataEntryController {
   async removeBaseTab(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('type', new ParseEnumPipe(DataEntryType)) type: DataEntryType,
+    @SchemaParams(DataEntryBaseTabParams) { type }: DataEntryBaseTabParams,
   ) {
-    await this.dataEntryService.removeBaseTab(workspaceId, user.id, type);
+    await this.dataEntryService.removeBaseTab(workspaceId, user.id, toEnum(DataEntryType, type));
     return { ok: true };
   }
 
@@ -177,7 +179,7 @@ export class DataEntryController {
   async updateCustomField(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(DataEntryParams) { id }: DataEntryParams,
     @SchemaBody(UpdateDataEntryCustomFieldBody) dto: UpdateDataEntryCustomFieldBody,
   ) {
     return this.dataEntryService.updateCustomField(workspaceId, user.id, id, dto);
@@ -187,7 +189,7 @@ export class DataEntryController {
   async removeCustomField(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(DataEntryParams) { id }: DataEntryParams,
   ) {
     await this.dataEntryService.removeCustomField(workspaceId, user.id, id);
     return { ok: true };

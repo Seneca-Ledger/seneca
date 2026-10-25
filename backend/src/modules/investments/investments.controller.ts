@@ -1,12 +1,15 @@
-import { Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   CreateInvestmentAccountBody,
   InvestmentAccountList,
+  InvestmentContributionParams,
+  InvestmentParams,
   LinkContributionBody,
   UpsertHoldingBody,
 } from '../../contracts';
@@ -45,7 +48,7 @@ export class InvestmentsController {
   async deleteAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
   ) {
     await this.investmentsService.deleteAccount(user.id, workspaceId, id);
   }
@@ -55,7 +58,7 @@ export class InvestmentsController {
   async addHolding(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
     @SchemaBody(UpsertHoldingBody) dto: UpsertHoldingBody,
   ) {
     return this.investmentsService.addHolding(user.id, workspaceId, id, dto);
@@ -66,7 +69,7 @@ export class InvestmentsController {
   async updateHolding(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
     @SchemaBody(UpsertHoldingBody) dto: UpsertHoldingBody,
   ) {
     return this.investmentsService.updateHolding(user.id, workspaceId, id, dto);
@@ -78,7 +81,7 @@ export class InvestmentsController {
   async deleteHolding(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
   ) {
     await this.investmentsService.deleteHolding(user.id, workspaceId, id);
   }
@@ -106,7 +109,7 @@ export class InvestmentsController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async unlinkContribution(
     @WorkspaceId() workspaceId: string,
-    @Param('transactionId') transactionId: string,
+    @SchemaParams(InvestmentContributionParams) { transactionId }: InvestmentContributionParams,
   ) {
     return this.investmentsService.unlinkContribution(workspaceId, transactionId);
   }

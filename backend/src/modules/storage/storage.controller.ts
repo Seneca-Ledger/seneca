@@ -4,11 +4,9 @@ import {
   Get,
   Headers,
   HttpStatus,
-  Param,
   Patch,
   Post,
   Put,
-  Query,
   Res,
   UseGuards,
   UseInterceptors,
@@ -18,6 +16,7 @@ import type { Response } from 'express';
 import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
@@ -31,14 +30,18 @@ import {
   CreateFolderBody,
   CreateSharedLinkBody,
   CreateTagBody,
+  DeleteFolderQuery,
   FileCategoryUpdate,
   GrantPermissionBody,
   MoveFileBody,
   SharedFileAccess,
+  SharedLinkTokenParams,
   StorageFileDetails,
   StorageFileList,
+  StorageFilesQuery,
   StorageFolder,
   StorageFolderList,
+  StorageIdParams,
   StorageTag,
   StorageTagList,
   StorageViewBody,
@@ -62,6 +65,9 @@ import { StorageService } from './storage.service';
 /** Lowercase: Nest matches @Headers() names case-insensitively, but this is the wire name. */
 export const SHARED_LINK_PASSWORD_HEADER = 'x-share-password';
 
+/** The record's uuid in `:id`, for every route below that has one. */
+const StorageId = () => SchemaParams(StorageIdParams);
+
 @Controller('storage')
 @UseGuards(JwtAuthGuard)
 @UseInterceptors(HideInternalColumnsInterceptor)
@@ -78,30 +84,13 @@ export class StorageController {
   async getStorageFiles(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('search') search?: string,
-    @Query('bank') bankName?: string,
-    @Query('availability') availability?: 'disk' | 'db' | 'both' | 'missing',
-    @Query('scope') scope?: 'mine' | 'shared' | 'all',
-    @Query('folderId') folderId?: string,
-    @Query('tagIds') tagIds?: string | string[],
-    @Query('deleted') deleted?: 'only' | 'include',
+    @SchemaQuery(StorageFilesQuery) query: StorageFilesQuery,
   ) {
-    const parsedTagIds = Array.isArray(tagIds)
-      ? tagIds
-      : tagIds
-        ? tagIds
-            .split(',')
-            .map(value => value.trim())
-            .filter(Boolean)
-        : undefined;
+    const { bank, tagIds, ...filters } = query;
     return await this.storageService.getStorageFiles(user.id, workspaceId, {
-      search,
-      bankName,
-      availability,
-      scope,
-      folderId,
-      tagIds: parsedTagIds,
-      deleted,
+      ...filters,
+      bankName: bank,
+      tagIds: tagIds ? [...tagIds] : undefined,
     });
   }
 
@@ -111,8 +100,8 @@ export class StorageController {
    */
   @Get('files/:id')
   @SchemaResponse(StorageFileDetails)
-  async getFileDetails(@Param('id') statementId: string, @CurrentUser() user: User) {
-    return await this.storageService.getFileDetails(statementId, user.id);
+  async getFileDetails(@StorageId() { id }: StorageIdParams, @CurrentUser() user: User) {
+    return await this.storageService.getFileDetails(id, user.id);
   }
 
   /**
@@ -122,7 +111,7 @@ export class StorageController {
   @Patch('files/:id/category')
   @SchemaResponse(FileCategoryUpdate)
   async updateFileCategory(
-    @Param('id') statementId: string,
+    @StorageId() { id: statementId }: StorageIdParams,
     @CurrentUser() user: User,
     @SchemaBody(UpdateFileCategoryBody) dto: UpdateFileCategoryBody,
   ) {
@@ -139,7 +128,7 @@ export class StorageController {
    */
   @Patch('files/:id/tags')
   async updateFileTags(
-    @Param('id') statementId: string,
+    @StorageId() { id: statementId }: StorageIdParams,
     @CurrentUser() user: User,
     @SchemaBody(UpdateFileTagsBody) dto: UpdateFileTagsBody,
   ) {
@@ -152,7 +141,7 @@ export class StorageController {
    */
   @Patch('files/:id/folder')
   async moveFile(
-    @Param('id') statementId: string,
+    @StorageId() { id: statementId }: StorageIdParams,
     @CurrentUser() user: User,
     @SchemaBody(MoveFileBody) dto: MoveFileBody,
   ) {
@@ -164,8 +153,8 @@ export class StorageController {
    * POST /api/v1/storage/files/:id/trash
    */
   @Post('files/:id/trash')
-  async moveFileToTrash(@Param('id') statementId: string, @CurrentUser() user: User) {
-    return await this.storageService.moveFileToTrash(statementId, user.id);
+  async moveFileToTrash(@StorageId() { id }: StorageIdParams, @CurrentUser() user: User) {
+    return await this.storageService.moveFileToTrash(id, user.id);
   }
 
   /**
@@ -173,8 +162,8 @@ export class StorageController {
    * POST /api/v1/storage/files/:id/trash/restore
    */
   @Post('files/:id/trash/restore')
-  async restoreFileFromTrash(@Param('id') statementId: string, @CurrentUser() user: User) {
-    return await this.storageService.restoreFileFromTrash(statementId, user.id);
+  async restoreFileFromTrash(@StorageId() { id }: StorageIdParams, @CurrentUser() user: User) {
+    return await this.storageService.restoreFileFromTrash(id, user.id);
   }
 
   /**
@@ -182,8 +171,8 @@ export class StorageController {
    * DELETE /api/v1/storage/files/:id/trash
    */
   @Delete('files/:id/trash')
-  async deleteFilePermanently(@Param('id') statementId: string, @CurrentUser() user: User) {
-    return await this.storageService.deleteFilePermanently(statementId, user.id);
+  async deleteFilePermanently(@StorageId() { id }: StorageIdParams, @CurrentUser() user: User) {
+    return await this.storageService.deleteFilePermanently(id, user.id);
   }
 
   /**
@@ -220,7 +209,7 @@ export class StorageController {
   @UseGuards(WorkspaceContextGuard)
   @SchemaResponse(StorageTag)
   async updateTag(
-    @Param('id') tagId: string,
+    @StorageId() { id: tagId }: StorageIdParams,
     @SchemaBody(UpdateTagBody) dto: UpdateTagBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -235,7 +224,7 @@ export class StorageController {
   @Delete('tags/:id')
   @UseGuards(WorkspaceContextGuard)
   async deleteTag(
-    @Param('id') tagId: string,
+    @StorageId() { id: tagId }: StorageIdParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -277,7 +266,7 @@ export class StorageController {
   @UseGuards(WorkspaceContextGuard)
   @SchemaResponse(StorageFolder)
   async updateFolder(
-    @Param('id') folderId: string,
+    @StorageId() { id: folderId }: StorageIdParams,
     @SchemaBody(UpdateFolderBody) dto: UpdateFolderBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -292,8 +281,8 @@ export class StorageController {
   @Delete('folders/:id')
   @UseGuards(WorkspaceContextGuard)
   async deleteFolder(
-    @Param('id') folderId: string,
-    @Query('deleteFiles') deleteFiles: string,
+    @StorageId() { id: folderId }: StorageIdParams,
+    @SchemaQuery(DeleteFolderQuery) query: DeleteFolderQuery,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -301,7 +290,7 @@ export class StorageController {
       folderId,
       user.id,
       workspaceId,
-      deleteFiles === 'true',
+      query.deleteFiles === true,
     );
   }
 
@@ -311,7 +300,7 @@ export class StorageController {
    */
   @Post('files/:id/versions')
   async createFileVersion(
-    @Param('id') statementId: string,
+    @StorageId() { id: statementId }: StorageIdParams,
     @CurrentUser() user: User,
     @SchemaBody(CreateFileVersionBody) _dto: CreateFileVersionBody,
   ) {
@@ -323,8 +312,8 @@ export class StorageController {
    * GET /api/v1/storage/files/:id/versions
    */
   @Get('files/:id/versions')
-  async listFileVersions(@Param('id') statementId: string, @CurrentUser() user: User) {
-    return await this.storageService.listFileVersions(statementId, user.id);
+  async listFileVersions(@StorageId() { id }: StorageIdParams, @CurrentUser() user: User) {
+    return await this.storageService.listFileVersions(id, user.id);
   }
 
   /**
@@ -360,7 +349,7 @@ export class StorageController {
   @Delete('views/:id')
   @UseGuards(WorkspaceContextGuard)
   async deleteView(
-    @Param('id') id: string,
+    @StorageId() { id }: StorageIdParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -373,7 +362,7 @@ export class StorageController {
    */
   @Get('files/:id/view')
   async viewFile(
-    @Param('id') statementId: string,
+    @StorageId() { id: statementId }: StorageIdParams,
     @CurrentUser() user: User,
     @Res() res: Response,
   ) {
@@ -396,7 +385,7 @@ export class StorageController {
    */
   @Get('files/:id/download')
   async downloadFile(
-    @Param('id') statementId: string,
+    @StorageId() { id: statementId }: StorageIdParams,
     @CurrentUser() user: User,
     @Res() res: Response,
   ) {
@@ -419,7 +408,7 @@ export class StorageController {
    */
   @Post('files/:id/share')
   async createSharedLink(
-    @Param('id') statementId: string,
+    @StorageId() { id: statementId }: StorageIdParams,
     @CurrentUser() user: User,
     @SchemaBody(CreateSharedLinkBody) dto: CreateSharedLinkBody,
   ) {
@@ -441,8 +430,8 @@ export class StorageController {
    * GET /api/v1/storage/files/:id/shares
    */
   @Get('files/:id/shares')
-  async getSharedLinks(@Param('id') statementId: string, @CurrentUser() user: User) {
-    return await this.storageService.getSharedLinks(statementId, user.id);
+  async getSharedLinks(@StorageId() { id }: StorageIdParams, @CurrentUser() user: User) {
+    return await this.storageService.getSharedLinks(id, user.id);
   }
 
   /**
@@ -451,7 +440,7 @@ export class StorageController {
    */
   @Put('shares/:id')
   async updateSharedLink(
-    @Param('id') linkId: string,
+    @StorageId() { id: linkId }: StorageIdParams,
     @CurrentUser() user: User,
     @SchemaBody(UpdateSharedLinkBody) dto: UpdateSharedLinkBody,
   ) {
@@ -463,7 +452,7 @@ export class StorageController {
    * DELETE /api/v1/storage/shares/:id
    */
   @Delete('shares/:id')
-  async deleteSharedLink(@Param('id') linkId: string, @CurrentUser() user: User) {
+  async deleteSharedLink(@StorageId() { id: linkId }: StorageIdParams, @CurrentUser() user: User) {
     await this.storageService.deleteSharedLink(linkId, user.id);
     return deletedResponse('Shared link');
   }
@@ -473,7 +462,7 @@ export class StorageController {
    * POST /api/v1/storage/files/:id/restore
    */
   @Post('files/:id/restore')
-  async restoreFile(@Param('id') statementId: string, @CurrentUser() user: User) {
+  async restoreFile(@StorageId() { id: statementId }: StorageIdParams, @CurrentUser() user: User) {
     return await this.storageService.restoreFile(statementId, user.id);
   }
 
@@ -483,7 +472,7 @@ export class StorageController {
    */
   @Get('files/:id/transactions/export')
   async exportTransactions(
-    @Param('id') statementId: string,
+    @StorageId() { id: statementId }: StorageIdParams,
     @CurrentUser() user: User,
     @Res() res: Response,
   ) {
@@ -556,7 +545,7 @@ export class StorageController {
   @Get('shared/:token')
   @SchemaResponse(SharedFileAccess)
   async accessSharedLink(
-    @Param('token') token: string,
+    @SchemaParams(SharedLinkTokenParams) { token }: SharedLinkTokenParams,
     @Headers(SHARED_LINK_PASSWORD_HEADER) password?: string,
   ) {
     const access = await this.storageService.accessSharedLink(token, password);
@@ -573,7 +562,7 @@ export class StorageController {
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get('shared/:token/download')
   async downloadSharedFile(
-    @Param('token') token: string,
+    @SchemaParams(SharedLinkTokenParams) { token }: SharedLinkTokenParams,
     @Res() res: Response,
     @Headers(SHARED_LINK_PASSWORD_HEADER) password?: string,
   ) {
@@ -607,7 +596,7 @@ export class StorageController {
    */
   @Post('files/:id/permissions')
   async grantPermission(
-    @Param('id') statementId: string,
+    @StorageId() { id: statementId }: StorageIdParams,
     @CurrentUser() user: User,
     @SchemaBody(GrantPermissionBody) dto: GrantPermissionBody,
   ) {
@@ -619,8 +608,8 @@ export class StorageController {
    * GET /api/v1/storage/files/:id/permissions
    */
   @Get('files/:id/permissions')
-  async getFilePermissions(@Param('id') statementId: string, @CurrentUser() user: User) {
-    return await this.storageService.getFilePermissions(statementId, user.id);
+  async getFilePermissions(@StorageId() { id }: StorageIdParams, @CurrentUser() user: User) {
+    return await this.storageService.getFilePermissions(id, user.id);
   }
 
   /**
@@ -629,7 +618,7 @@ export class StorageController {
    */
   @Put('permissions/:id')
   async updatePermission(
-    @Param('id') permissionId: string,
+    @StorageId() { id: permissionId }: StorageIdParams,
     @CurrentUser() user: User,
     @SchemaBody(UpdatePermissionBody) dto: UpdatePermissionBody,
   ) {
@@ -641,8 +630,8 @@ export class StorageController {
    * DELETE /api/v1/storage/permissions/:id
    */
   @Delete('permissions/:id')
-  async revokePermission(@Param('id') permissionId: string, @CurrentUser() user: User) {
-    await this.storageService.revokePermission(permissionId, user.id);
+  async revokePermission(@StorageId() { id }: StorageIdParams, @CurrentUser() user: User) {
+    await this.storageService.revokePermission(id, user.id);
     return { message: 'Permission revoked successfully' };
   }
 }

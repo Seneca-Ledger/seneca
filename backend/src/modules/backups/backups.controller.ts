@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Controller,
   Get,
-  Param,
   Post,
   Put,
   Res,
@@ -15,6 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
@@ -24,9 +24,11 @@ import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
   BackupConfiguration,
   BackupImportBody,
+  BackupImportParams,
   BackupImportPreview,
   BackupRestoreResult,
   BackupRunList,
+  BackupRunParams,
   UpdateBackupConfigurationBody,
 } from '../../contracts';
 import { BackupDestinationKind, BackupRunTrigger } from '../../entities';
@@ -90,7 +92,7 @@ export class BackupsController {
   @Get('runs/:id/download')
   @UseGuards(WorkspaceContextGuard)
   async downloadRun(
-    @Param('id') id: string,
+    @SchemaParams(BackupRunParams) { id }: BackupRunParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @Res() response: Response,
@@ -118,7 +120,7 @@ export class BackupsController {
   @UseInterceptors(FileInterceptor('file', BACKUP_UPLOAD_OPTIONS))
   @SchemaResponse(BackupRestoreResult)
   async restoreImport(
-    @Param('id') importId: string,
+    @SchemaParams(BackupImportParams) { id: importId }: BackupImportParams,
     @CurrentUser() user: User,
     @UploadedFile() file: MulterFile | undefined,
     @SchemaBody(BackupImportBody) body: BackupImportBody,

@@ -14,7 +14,7 @@ describe('NotificationsController', () => {
     const user = { id: 'u1' } as any;
     const workspaceId = 'ws-1';
 
-    expect(await controller.list(user, workspaceId, '10', '20')).toEqual({
+    expect(await controller.list(user, workspaceId, { limit: 10, offset: 20, workspaceId: 'ws-other' })).toEqual({
       items: [],
       total: 0,
       limit: 30,

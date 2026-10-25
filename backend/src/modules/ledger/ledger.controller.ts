@@ -1,7 +1,8 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
@@ -9,6 +10,7 @@ import {
   CreateLedgerAccountBody,
   LedgerAccount,
   LedgerAccountList,
+  LedgerRecordParams,
   UpdateLedgerAccountBody,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
@@ -45,7 +47,7 @@ export class LedgerController {
   @Audit({ entityType: EntityType.LEDGER_ACCOUNT, includeDiff: true, includeBody: true })
   async update(
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
     @SchemaBody(UpdateLedgerAccountBody) dto: UpdateLedgerAccountBody,
   ): Promise<LedgerAccountResponseDto> {
     return this.accountsService.update(workspaceId, id, dto);
@@ -54,7 +56,10 @@ export class LedgerController {
   @Delete(':id')
   @WorkspaceAuth(Permission.LEDGER_MANAGE_ACCOUNTS)
   @Audit({ entityType: EntityType.LEDGER_ACCOUNT })
-  async remove(@WorkspaceId() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
+  ) {
     await this.accountsService.remove(workspaceId, id);
     return deletedResponse('Ledger account');
   }

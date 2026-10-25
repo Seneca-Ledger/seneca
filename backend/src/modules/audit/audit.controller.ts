@@ -1,16 +1,9 @@
-import {
-  Controller,
-  ForbiddenException,
-  Get,
-  Param,
-  ParseEnumPipe,
-  Post,
-  Query,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Post, UseInterceptors } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
@@ -22,6 +15,13 @@ import {
   AuditRollbackResult,
   WorkspaceActivity,
 } from '../../contracts';
+import {
+  AuditBatchParams,
+  AuditEntityParams,
+  AuditEventParams,
+  AuditEventsQuery,
+  WorkspaceActivityQuery,
+} from '../../contracts/requests/audit';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { type User, UserRole } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -39,35 +39,15 @@ export class AuditController {
   @SchemaResponse(AuditEventPage)
   async list(
     @WorkspaceId() workspaceIdFromContext: string,
-    @Query('entityType') entityType?: EntityType,
-    @Query('entityId') entityId?: string,
-    @Query('actorType') actorType?: ActorType,
-    @Query('actorId') actorId?: string,
-    @Query('action') action?: AuditAction,
-    @Query('actorLabel') actorLabel?: string,
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
-    @Query('batchId') batchId?: string,
-    @Query('severity') severity?: Severity,
-    @Query('page') pageRaw?: string,
-    @Query('limit') limitRaw?: string,
+    @SchemaQuery(AuditEventsQuery) query: AuditEventsQuery,
   ) {
-    const page = pageRaw ? Number(pageRaw) : undefined;
-    const limit = limitRaw ? Number(limitRaw) : undefined;
     return this.auditService.findEvents({
+      ...query,
       workspaceId: workspaceIdFromContext,
-      entityType,
-      entityId,
-      actorType,
-      actorId,
-      action,
-      actorLabel,
-      dateFrom,
-      dateTo,
-      batchId,
-      severity,
-      page,
-      limit,
+      entityType: toEnum(EntityType, query.entityType),
+      actorType: toEnum(ActorType, query.actorType),
+      action: toEnum(AuditAction, query.action),
+      severity: toEnum(Severity, query.severity),
     });
   }
 
@@ -81,8 +61,10 @@ export class AuditController {
   @Get('activity')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(WorkspaceActivity)
-  async activity(@WorkspaceId() workspaceId: string, @Query('limit') limitRaw?: string) {
-    const limit = limitRaw ? Number(limitRaw) : undefined;
+  async activity(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(WorkspaceActivityQuery) { limit }: WorkspaceActivityQuery,
+  ) {
     return { items: await this.auditService.findWorkspaceActivity(workspaceId, limit) };
   }
 
@@ -90,22 +72,31 @@ export class AuditController {
   @WorkspaceAuth(Permission.AUDIT_VIEW)
   @SchemaResponse(AuditEventList)
   async getByEntity(
-    @Param('entityType', new ParseEnumPipe(EntityType)) entityType: EntityType,
-    @Param('entityId') entityId: string,
+    @SchemaParams(AuditEntityParams) { entityType, entityId }: AuditEntityParams,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.auditService.findEventsByEntity(entityType, entityId, workspaceId);
+    return this.auditService.findEventsByEntity(
+      toEnum(EntityType, entityType),
+      entityId,
+      workspaceId,
+    );
   }
 
   @Get('batch/:batchId')
   @WorkspaceAuth(Permission.AUDIT_VIEW)
-  async getByBatch(@Param('batchId') batchId: string, @WorkspaceId() workspaceId: string) {
+  async getByBatch(
+    @SchemaParams(AuditBatchParams) { batchId }: AuditBatchParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.auditService.findEventsByBatch(batchId, workspaceId);
   }
 
   @Get(':id')
   @WorkspaceAuth(Permission.AUDIT_VIEW)
-  async getOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async getOne(
+    @SchemaParams(AuditEventParams) { id }: AuditEventParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.auditService.findEventById(id, workspaceId);
   }
 
@@ -113,7 +104,7 @@ export class AuditController {
   @WorkspaceAuth(Permission.AUDIT_VIEW)
   @SchemaResponse(AuditRollbackResult)
   async rollback(
-    @Param('id') id: string,
+    @SchemaParams(AuditEventParams) { id }: AuditEventParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

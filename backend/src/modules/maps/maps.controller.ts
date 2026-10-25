@@ -1,17 +1,12 @@
-import {
-  BadGatewayException,
-  BadRequestException,
-  Controller,
-  Get,
-  Param,
-  Res,
-} from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Controller, Get, Res } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { appError } from '../../common/errors/app-error';
 import { MapStyles } from '../../contracts';
+import { MapTileParams } from '../../contracts/requests/maps';
 import { MapsService } from './maps.service';
 
 // No workspace scope: tiles carry no tenant data. The global JwtAuthGuard still
@@ -49,10 +44,7 @@ export class MapsController {
   @ApiResponse({ status: 400, description: 'Unknown style or tile outside the zoom grid' })
   @ApiResponse({ status: 502, description: 'Tile server unavailable' })
   async getTile(
-    @Param('styleId') styleId: string,
-    @Param('z') z: string,
-    @Param('x') x: string,
-    @Param('y') y: string,
+    @SchemaParams(MapTileParams) { styleId, z, x, y }: MapTileParams,
     @Res() res: Response,
   ) {
     const tile = await this.mapsService.fetchTile(styleId, z, x, y);

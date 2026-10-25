@@ -15,12 +15,12 @@ describe('WalletsController', () => {
 
     expect(await controller.create({ name: 'A' } as any, user, workspaceId)).toEqual({ id: 'w1' });
     expect(await controller.findAll(user, workspaceId)).toEqual([{ id: 'w1' }]);
-    expect(await controller.findOne('w1', user, workspaceId)).toEqual({ id: 'w1' });
-    expect(await controller.update('w1', { name: 'X' } as any, user, workspaceId)).toEqual({
+    expect(await controller.findOne({ id: 'w1' }, user, workspaceId)).toEqual({ id: 'w1' });
+    expect(await controller.update({ id: 'w1' }, { name: 'X' } as any, user, workspaceId)).toEqual({
       id: 'w1',
       name: 'X',
     });
-    expect(await controller.remove('w1', user, workspaceId)).toEqual({
+    expect(await controller.remove({ id: 'w1' }, user, workspaceId)).toEqual({
       message: 'Wallet deleted successfully',
     });
 

@@ -127,7 +127,7 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates approval to service', async () => {
-    await controller.approve('receipt-1', 'workspace-1', { id: 'user-1' } as any, {
+    await controller.approve({ id: 'receipt-1' }, 'workspace-1', { id: 'user-1' } as any, {
       transactionId: null,
     });
 
@@ -152,7 +152,7 @@ describe('ReceiptsController', () => {
   });
 
   it('passes the editing user to update', async () => {
-    await controller.update('receipt-1', 'workspace-1', { status: 'reviewed' } as any, {
+    await controller.update({ id: 'receipt-1' }, 'workspace-1', { status: 'reviewed' } as any, {
       id: 'user-1',
     } as any);
 
@@ -165,7 +165,7 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates delete to service', async () => {
-    await controller.delete('receipt-1', 'workspace-1', { id: 'user-1' } as any);
+    await controller.delete({ id: 'receipt-1' }, 'workspace-1', { id: 'user-1' } as any);
 
     expect(service.delete).toHaveBeenCalledWith('receipt-1', 'workspace-1', 'user-1');
   });
@@ -177,7 +177,7 @@ describe('ReceiptsController', () => {
       send: vi.fn(),
     } as any;
 
-    await controller.getFile('receipt-1', 'workspace-1', response);
+    await controller.getFile({ id: 'receipt-1' }, 'workspace-1', response);
 
     expect(service.getFilePayload).toHaveBeenCalledWith('receipt-1', 'workspace-1');
     expect(response.setHeader).toHaveBeenCalledWith('Content-Type', 'image/jpeg');
@@ -194,7 +194,7 @@ describe('ReceiptsController', () => {
       json: vi.fn(),
     } as any;
 
-    await controller.getFile('receipt-1', 'workspace-1', response);
+    await controller.getFile({ id: 'receipt-1' }, 'workspace-1', response);
 
     expect(response.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
   });
@@ -222,7 +222,7 @@ describe('ReceiptsController', () => {
 
   it('pins a manual location inside the workspace', async () => {
     await expect(
-      controller.setLocation('receipt-1', 'workspace-1', { latitude: 1, longitude: 2 }, {
+      controller.setLocation({ id: 'receipt-1' }, 'workspace-1', { latitude: 1, longitude: 2 }, {
         id: 'user-1',
       } as any),
     ).resolves.toMatchObject({ locationSource: 'manual' });
@@ -239,7 +239,7 @@ describe('ReceiptsController', () => {
     locationService.setManual.mockResolvedValue(null);
 
     await expect(
-      controller.setLocation('receipt-1', 'workspace-2', { latitude: 1, longitude: 2 }, {
+      controller.setLocation({ id: 'receipt-1' }, 'workspace-2', { latitude: 1, longitude: 2 }, {
         id: 'user-1',
       } as any),
     ).rejects.toThrow('Receipt not found');
@@ -247,13 +247,13 @@ describe('ReceiptsController', () => {
 
   it('resets the location to automatic', async () => {
     const user = { id: 'user-1' } as any;
-    await expect(controller.resetLocation('receipt-1', 'workspace-1', user)).resolves.toMatchObject({
+    await expect(controller.resetLocation({ id: 'receipt-1' }, 'workspace-1', user)).resolves.toMatchObject({
       locationSource: 'device',
     });
     expect(locationService.resetToAuto).toHaveBeenCalledWith('receipt-1', 'workspace-1', 'user-1');
 
     locationService.resetToAuto.mockResolvedValue(null);
-    await expect(controller.resetLocation('receipt-1', 'workspace-2', user)).rejects.toThrow(
+    await expect(controller.resetLocation({ id: 'receipt-1' }, 'workspace-2', user)).rejects.toThrow(
       'Receipt not found',
     );
   });
@@ -263,7 +263,7 @@ describe('ReceiptsController', () => {
     locationService.setManual.mockResolvedValue({ id: 'receipt-1', locationSource: 'place' });
 
     await expect(
-      controller.setLocation('receipt-1', 'workspace-1', { latitude: 1, longitude: 2, place }, {
+      controller.setLocation({ id: 'receipt-1' }, 'workspace-1', { latitude: 1, longitude: 2, place }, {
         id: 'user-1',
       } as any),
     ).resolves.toMatchObject({ locationSource: 'place' });

@@ -1,4 +1,5 @@
 import type { Mock } from 'vitest';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 import {
   CryptoPriceService,
   PriceUnavailableError,
@@ -58,7 +59,7 @@ describe('CryptoPriceService', () => {
 
   beforeEach(() => {
     repo = createRepoMock();
-    service = new CryptoPriceService(repo as never);
+    service = new CryptoPriceService(repo as never, new EffectRuntime());
     fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
@@ -185,12 +186,50 @@ describe('CryptoPriceService', () => {
   });
 
   describe('getCurrentUsdPrices', () => {
+    const ETH_PRICE = 2486.72;
+    const LAST_KNOWN = '2400.5';
+
+    it('prices from the answer and stores today\'s price', async () => {
+      fetchMock.mockImplementation(
+        async () => new Response(JSON.stringify({ ethereum: { usd: ETH_PRICE } }), { status: 200 }),
+      );
+
+      await expect(service.getCurrentUsdPrices(['eth'])).resolves.toEqual({ ETH: ETH_PRICE });
+      expect(String(fetchMock.mock.calls[0][0])).toContain('simple/price?ids=ethereum');
+      expect(repo.inserted).toEqual([expect.objectContaining({ baseCurrency: 'ETH', rate: ETH_PRICE })]);
+    });
+
     it('falls back to the last known price instead of failing the dashboard', async () => {
       // The summary endpoint runs on page load; a stale value beats an error page.
-      fetchMock.mockResolvedValue(errorResponse(429, { 'retry-after': '60' }));
-      repo.findOne.mockResolvedValue({ rate: '2486.72' });
+      fetchMock.mockImplementation(
+        async () => new Response('{}', { status: 429, headers: { 'retry-after': '60' } }),
+      );
+      repo.findOne.mockResolvedValue({ rate: LAST_KNOWN });
 
-      await expect(service.getCurrentUsdPrices(['ETH'])).resolves.toEqual({ ETH: 2486.72 });
+      await expect(service.getCurrentUsdPrices(['ETH'])).resolves.toEqual({
+        ETH: Number(LAST_KNOWN),
+      });
+      // The free tier is asked once: no retry on a rate limit.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to the last known price when CoinGecko cannot be reached', async () => {
+      fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+      repo.findOne.mockResolvedValue({ rate: LAST_KNOWN });
+
+      await expect(service.getCurrentUsdPrices(['ETH'])).resolves.toEqual({
+        ETH: Number(LAST_KNOWN),
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the last known price for a coin the answer leaves out', async () => {
+      fetchMock.mockImplementation(async () => new Response('{}', { status: 200 }));
+      repo.findOne.mockResolvedValue({ rate: LAST_KNOWN });
+
+      await expect(service.getCurrentUsdPrices(['ETH'])).resolves.toEqual({
+        ETH: Number(LAST_KNOWN),
+      });
     });
   });
 

@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Patch,
   Post,
   Req,
@@ -14,6 +13,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
@@ -23,15 +23,20 @@ import {
   AcceptInvitationBody,
   CreateDemoWorkspaceBody,
   CreateWorkspaceBody,
+  CurrentWorkspaceMemberParams,
   InvitationAccepted,
   InvitationPreview,
+  InvitationTokenParams,
   InviteMemberBody,
   UpdateMemberPermissionsBody,
   UpdateMemberRoleBody,
   UpdateWorkspaceBody,
   WorkspaceDetail,
   WorkspaceFavorite,
+  WorkspaceIdParams,
+  WorkspaceInvitationParams,
   WorkspaceList,
+  WorkspaceMemberParams,
   WorkspaceOverview,
   WorkspaceSummary,
 } from '../../contracts';
@@ -94,7 +99,10 @@ export class WorkspacesController {
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @SchemaResponse(WorkspaceDetail)
-  async getWorkspaceById(@CurrentUser() user: User, @Param('id') id: string) {
+  async getWorkspaceById(
+    @CurrentUser() user: User,
+    @SchemaParams(WorkspaceIdParams) { id }: WorkspaceIdParams,
+  ) {
     const workspace = await this.workspacesService.getWorkspaceById(id, user.id);
     const members = await this.workspacesService.getWorkspaceMembers(id, user.id);
     return {
@@ -133,7 +141,7 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   async updateWorkspace(
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @SchemaParams(WorkspaceIdParams) { id }: WorkspaceIdParams,
     @SchemaBody(UpdateWorkspaceBody) dto: UpdateWorkspaceBody,
   ) {
     return this.workspacesService.updateWorkspace(id, user.id, dto);
@@ -142,14 +150,20 @@ export class WorkspacesController {
   @Post(':id/switch')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async switchWorkspace(@CurrentUser() user: User, @Param('id') id: string) {
+  async switchWorkspace(
+    @CurrentUser() user: User,
+    @SchemaParams(WorkspaceIdParams) { id }: WorkspaceIdParams,
+  ) {
     await this.workspacesService.switchWorkspace(id, user.id);
     return { message: 'Workspace switched successfully' };
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  async deleteWorkspace(@CurrentUser() user: User, @Param('id') id: string) {
+  async deleteWorkspace(
+    @CurrentUser() user: User,
+    @SchemaParams(WorkspaceIdParams) { id }: WorkspaceIdParams,
+  ) {
     await this.workspacesService.deleteWorkspace(id, user.id);
     return deletedResponse('Workspace');
   }
@@ -157,13 +171,19 @@ export class WorkspacesController {
   @Patch(':id/favorite')
   @UseGuards(JwtAuthGuard)
   @SchemaResponse(WorkspaceFavorite)
-  async toggleFavorite(@CurrentUser() user: User, @Param('id') id: string) {
+  async toggleFavorite(
+    @CurrentUser() user: User,
+    @SchemaParams(WorkspaceIdParams) { id }: WorkspaceIdParams,
+  ) {
     return this.workspacesService.toggleFavorite(id, user.id);
   }
 
   @Get(':id/invitations')
   @UseGuards(JwtAuthGuard)
-  async getWorkspaceInvitations(@CurrentUser() user: User, @Param('id') workspaceId: string) {
+  async getWorkspaceInvitations(
+    @CurrentUser() user: User,
+    @SchemaParams(WorkspaceIdParams) { id: workspaceId }: WorkspaceIdParams,
+  ) {
     return this.workspacesService.getWorkspaceInvitations(workspaceId, user.id);
   }
 
@@ -171,7 +191,7 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   async inviteMemberToWorkspace(
     @CurrentUser() user: User,
-    @Param('id') workspaceId: string,
+    @SchemaParams(WorkspaceIdParams) { id: workspaceId }: WorkspaceIdParams,
     @SchemaBody(InviteMemberBody) dto: InviteMemberBody,
     @Req() req: Request,
   ) {
@@ -187,8 +207,7 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   async removeWorkspaceMember(
     @CurrentUser() user: User,
-    @Param('id') workspaceId: string,
-    @Param('userId') userId: string,
+    @SchemaParams(WorkspaceMemberParams) { id: workspaceId, userId }: WorkspaceMemberParams,
   ) {
     return this.workspacesService.removeMember(workspaceId, user.id, userId);
   }
@@ -197,8 +216,7 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   async updateWorkspaceMemberRole(
     @CurrentUser() user: User,
-    @Param('id') workspaceId: string,
-    @Param('userId') userId: string,
+    @SchemaParams(WorkspaceMemberParams) { id: workspaceId, userId }: WorkspaceMemberParams,
     @SchemaBody(UpdateMemberRoleBody) dto: UpdateMemberRoleBody,
   ) {
     return this.workspacesService.updateMemberRole(
@@ -213,8 +231,7 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   async updateWorkspaceMemberPermissions(
     @CurrentUser() user: User,
-    @Param('id') workspaceId: string,
-    @Param('userId') userId: string,
+    @SchemaParams(WorkspaceMemberParams) { id: workspaceId, userId }: WorkspaceMemberParams,
     @SchemaBody(UpdateMemberPermissionsBody) dto: UpdateMemberPermissionsBody,
   ) {
     return this.workspacesService.updateMemberPermissions(
@@ -229,8 +246,8 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   async revokeWorkspaceInvitation(
     @CurrentUser() user: User,
-    @Param('id') workspaceId: string,
-    @Param('invitationId') invitationId: string,
+    @SchemaParams(WorkspaceInvitationParams)
+    { id: workspaceId, invitationId }: WorkspaceInvitationParams,
   ) {
     return this.workspacesService.cancelInvitation(workspaceId, user.id, invitationId);
   }
@@ -247,7 +264,10 @@ export class WorkspacesController {
 
   @Delete('members/:userId')
   @UseGuards(JwtAuthGuard)
-  async removeMember(@CurrentUser() user: User, @Param('userId') userId: string) {
+  async removeMember(
+    @CurrentUser() user: User,
+    @SchemaParams(CurrentWorkspaceMemberParams) { userId }: CurrentWorkspaceMemberParams,
+  ) {
     return this.workspacesService.removeMemberLegacy(user, userId);
   }
 
@@ -255,7 +275,7 @@ export class WorkspacesController {
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 per minute
   @Get('invitations/:token')
   @SchemaResponse(InvitationPreview)
-  async getInvitation(@Param('token') token: string) {
+  async getInvitation(@SchemaParams(InvitationTokenParams) { token }: InvitationTokenParams) {
     return this.workspacesService.getInvitationInfo(token);
   }
 
@@ -264,7 +284,10 @@ export class WorkspacesController {
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 per minute
   @HttpCode(HttpStatus.OK)
   @SchemaResponse(InvitationAccepted)
-  async acceptInvitation(@CurrentUser() user: User, @Param('token') token: string) {
+  async acceptInvitation(
+    @CurrentUser() user: User,
+    @SchemaParams(InvitationTokenParams) { token }: InvitationTokenParams,
+  ) {
     return this.workspacesService.acceptInvitation(user, token);
   }
 

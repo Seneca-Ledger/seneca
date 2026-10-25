@@ -1,15 +1,10 @@
 import {
   BadRequestException,
   Controller,
-  DefaultValuePipe,
   Delete,
   Get,
-  Param,
-  ParseIntPipe,
-  ParseUUIDPipe,
   Patch,
   Post,
-  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -18,6 +13,7 @@ import { AllowInVersion } from '../../common/decorators/allow-in-version.decorat
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
@@ -61,6 +57,17 @@ import {
   UpdateCustomTableViewSettingsColumnBody,
   UpdateCustomTableViewsBody,
 } from '../../contracts';
+import {
+  CustomTableAggregatesQuery,
+  CustomTableColumnParams,
+  CustomTableDuplicatesQuery,
+  CustomTableExportQuery,
+  CustomTableGroupsQuery,
+  CustomTableParams,
+  CustomTableRelationOptionsQuery,
+  CustomTableRowParams,
+  CustomTableRowsQuery,
+} from '../../contracts/requests/custom-table-queries';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CustomTableMoneyTotalService } from './custom-table-money-total.service';
@@ -208,7 +215,7 @@ export class CustomTablesController {
   async syncFromDataEntry(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     const table = await this.customTablesService.syncFromDataEntry(user.id, workspaceId, id);
     await this.customTablesCache.bumpTable(workspaceId, id);
@@ -248,7 +255,7 @@ export class CustomTablesController {
   async refreshFromSource(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     const result = await this.customTablesService.refreshFromSource(user.id, workspaceId, id);
     await this.customTablesCache.bumpTable(workspaceId, id);
@@ -263,7 +270,7 @@ export class CustomTablesController {
   async addSourceStatements(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
     @SchemaBody(AddSourceStatementsBody) dto: AddSourceStatementsBody,
   ) {
     const result = await this.customTablesService.addSourceStatements(
@@ -287,7 +294,7 @@ export class CustomTablesController {
   async restoreDefault(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     const result = await this.customTablesService.restoreDefault(user.id, workspaceId, id);
     await this.customTablesCache.bumpTable(workspaceId, id);
@@ -304,7 +311,7 @@ export class CustomTablesController {
   async previewFormula(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
     @SchemaBody(PreviewFormulaBody) dto: PreviewFormulaBody,
   ) {
     return this.customTablesService.previewFormula(user.id, workspaceId, id, dto);
@@ -316,7 +323,7 @@ export class CustomTablesController {
   async getSummaries(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     return this.customTablesService.getSummaries(workspaceId, id);
   }
@@ -326,7 +333,7 @@ export class CustomTablesController {
   async updateViewSettingsSummaries(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
     @SchemaBody(UpdateCustomTableSummariesBody) dto: UpdateCustomTableSummariesBody,
   ) {
     const table = await this.customTablesService.updateViewSettingsSummaries(
@@ -344,7 +351,7 @@ export class CustomTablesController {
   async convertToStatement(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     return this.customTablesService.convertToStatement(user.id, workspaceId, id);
   }
@@ -355,7 +362,7 @@ export class CustomTablesController {
   async getTable(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     const cacheKey = await this.customTablesCache.tableKey(workspaceId, id);
     return this.customTablesCache.getOrSet(cacheKey, async () => {
@@ -371,7 +378,7 @@ export class CustomTablesController {
   async updateTable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
     @SchemaBody(UpdateCustomTableBody) dto: UpdateCustomTableBody,
   ) {
     const table = await this.customTablesService.updateTable(user.id, workspaceId, id, dto);
@@ -385,7 +392,7 @@ export class CustomTablesController {
   async removeTable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     await this.customTablesService.removeTable(user.id, workspaceId, id);
     await this.customTablesCache.bumpList(workspaceId);
@@ -398,7 +405,7 @@ export class CustomTablesController {
   async addColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @SchemaBody(CreateCustomTableColumnBody) dto: CreateCustomTableColumnBody,
   ) {
     const column = await this.customTablesService.addColumn(user.id, workspaceId, tableId, dto);
@@ -412,8 +419,7 @@ export class CustomTablesController {
   async updateColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('columnId', new ParseUUIDPipe()) columnId: string,
+    @SchemaParams(CustomTableColumnParams) { id: tableId, columnId }: CustomTableColumnParams,
     @SchemaBody(UpdateCustomTableColumnBody) dto: UpdateCustomTableColumnBody,
   ) {
     const column = await this.customTablesService.updateColumn(
@@ -433,8 +439,7 @@ export class CustomTablesController {
   async updateColumnStyle(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('columnId', new ParseUUIDPipe()) columnId: string,
+    @SchemaParams(CustomTableColumnParams) { id: tableId, columnId }: CustomTableColumnParams,
     @SchemaBody(UpdateCustomTableColumnStyleBody) dto: UpdateCustomTableColumnStyleBody,
   ) {
     const result = await this.customTablesService.updateColumnStyle(
@@ -453,8 +458,7 @@ export class CustomTablesController {
   async removeColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('columnId', new ParseUUIDPipe()) columnId: string,
+    @SchemaParams(CustomTableColumnParams) { id: tableId, columnId }: CustomTableColumnParams,
   ) {
     await this.customTablesService.removeColumn(user.id, workspaceId, tableId, columnId);
     await this.customTablesCache.bumpTable(workspaceId, tableId);
@@ -467,7 +471,7 @@ export class CustomTablesController {
   async reorderColumns(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @SchemaBody(ReorderCustomTableColumnsBody) dto: ReorderCustomTableColumnsBody,
   ) {
     await this.customTablesService.reorderColumns(user.id, workspaceId, tableId, dto);
@@ -480,9 +484,9 @@ export class CustomTablesController {
   async listRelationOptions(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('column') column?: string,
-    @Query('search') search?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableRelationOptionsQuery)
+    { column, search }: CustomTableRelationOptionsQuery,
   ) {
     if (!column?.trim()) {
       throw new BadRequestException(appError('RELATION_COLUMN_REQUIRED'));
@@ -500,22 +504,16 @@ export class CustomTablesController {
   async findDuplicates(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('keys') keysRaw?: string,
-    @Query('limit') limitRaw?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableDuplicatesQuery) { keys = [], limit }: CustomTableDuplicatesQuery,
   ) {
-    const keys = (keysRaw ?? '')
-      .split(',')
-      .map(key => key.trim())
-      .filter(Boolean);
     if (!keys.length) {
       throw new BadRequestException(appError('DUPLICATE_KEY_COLUMNS_REQUIRED'));
     }
-    const limitNumber = limitRaw ? Number(limitRaw) : undefined;
     const { items, groupCount } = await this.customTablesService.findDuplicateRows(
       workspaceId,
       tableId,
-      { keys, limit: Number.isFinite(limitNumber) ? limitNumber : undefined },
+      { keys, limit },
     );
     return { items, meta: { groupCount } };
   }
@@ -526,24 +524,16 @@ export class CustomTablesController {
   async groupRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('groupBy') groupBy?: string,
-    @Query('aggs') aggsRaw?: string,
-    @Query('filters') filtersRaw?: string,
-    @Query('limit') limitRaw?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableGroupsQuery) query: CustomTableGroupsQuery,
   ) {
-    if (!groupBy?.trim()) {
+    const groupBy = query.groupBy?.trim();
+    if (!groupBy) {
       throw new BadRequestException(appError('GROUP_COLUMN_REQUIRED'));
     }
-    const aggs = parseAggregatesParam(aggsRaw);
-    const filters = parseRowFiltersParam(filtersRaw);
-    const limitNumber = limitRaw ? Number(limitRaw) : undefined;
-    const queryParams = {
-      groupBy: groupBy.trim(),
-      aggs,
-      filters,
-      limit: Number.isFinite(limitNumber) ? limitNumber : undefined,
-    };
+    const aggs = parseAggregatesParam(query.aggs);
+    const filters = parseRowFiltersParam(query.filters);
+    const queryParams = { groupBy, aggs, filters, limit: query.limit };
     const cacheKey = await this.customTablesCache.rowsKey(workspaceId, tableId, queryParams);
     return this.customTablesCache.getOrSet(cacheKey, async () => {
       const { items, groupCount } = await this.customTablesService.groupRows(
@@ -561,7 +551,7 @@ export class CustomTablesController {
   @SchemaResponse(CustomTableMoneyTotal)
   async getMoneyTotal(
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
   ) {
     // Not cached: a rate entered in settings has to show up here at once.
     return this.moneyTotal.getTotal(workspaceId, tableId);
@@ -573,12 +563,11 @@ export class CustomTablesController {
   async aggregateRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('aggs') aggsRaw?: string,
-    @Query('filters') filtersRaw?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableAggregatesQuery) query: CustomTableAggregatesQuery,
   ) {
-    const aggs = parseAggregatesParam(aggsRaw);
-    const filters = parseRowFiltersParam(filtersRaw);
+    const aggs = parseAggregatesParam(query.aggs);
+    const filters = parseRowFiltersParam(query.filters);
     const cacheKey = await this.customTablesCache.rowsKey(workspaceId, tableId, {
       aggs,
       filters,
@@ -597,29 +586,18 @@ export class CustomTablesController {
   async exportRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @Res() res: Response,
-    @Query('format') formatRaw?: string,
-    @Query('filters') filtersRaw?: string,
-    @Query('sort') sortRaw?: string,
-    @Query('columns') columnsRaw?: string,
+    @SchemaQuery(CustomTableExportQuery) query: CustomTableExportQuery,
   ) {
-    const format = formatRaw === 'csv' ? 'csv' : 'xlsx';
-    const columnKeys = columnsRaw
-      ? columnsRaw
-          .split(',')
-          .map(key => key.trim())
-          .filter(Boolean)
-      : undefined;
-
     const { buffer, fileName, contentType } = await this.customTablesService.exportRows(
       workspaceId,
       tableId,
       {
-        format,
-        filters: parseRowFiltersParam(filtersRaw),
-        sort: parseRowSortParam(sortRaw),
-        columnKeys,
+        format: query.format ?? 'xlsx',
+        filters: parseRowFiltersParam(query.filters),
+        sort: parseRowSortParam(query.sort),
+        columnKeys: query.columns,
       },
     );
 
@@ -635,26 +613,15 @@ export class CustomTablesController {
   async listRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('cursor') cursor?: string,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
-    @Query('filters') filtersRaw?: string,
-    // Новые параметры идут в конец: позиционный порядок прежних сохраняется.
-    @Query('sort') sortRaw?: string,
-    @Query('offset') offset?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableRowsQuery) query: CustomTableRowsQuery,
   ) {
-    const safeLimit = Math.min(Math.max(limit ?? 50, 1), 500);
-    const cursorNumber = cursor ? Number(cursor) : undefined;
-    const offsetNumber = offset ? Number(offset) : undefined;
-    const filters = parseRowFiltersParam(filtersRaw);
-    const sort = parseRowSortParam(sortRaw);
     const queryParams = {
-      cursor: Number.isFinite(cursorNumber) ? cursorNumber : undefined,
-      offset:
-        Number.isFinite(offsetNumber) && (offsetNumber as number) >= 0 ? offsetNumber : undefined,
-      limit: safeLimit,
-      filters,
-      sort,
+      cursor: query.cursor,
+      offset: query.offset,
+      limit: Math.min(Math.max(query.limit ?? 50, 1), 500),
+      filters: parseRowFiltersParam(query.filters),
+      sort: parseRowSortParam(query.sort),
     };
     const cacheKey = await this.customTablesCache.rowsKey(workspaceId, tableId, queryParams);
     return this.customTablesCache.getOrSet(cacheKey, async () => {
@@ -672,7 +639,7 @@ export class CustomTablesController {
   async classifyPaidStatus(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @SchemaBody(ClassifyPaidStatusBody) dto: ClassifyPaidStatusBody,
   ) {
     return this.customTablesService.classifyPaidStatus(workspaceId, tableId, dto);
@@ -684,7 +651,7 @@ export class CustomTablesController {
   async createRow(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @SchemaBody(CreateCustomTableRowBody) dto: CreateCustomTableRowBody,
   ) {
     const row = await this.customTablesService.createRow(user.id, workspaceId, tableId, dto);
@@ -698,8 +665,7 @@ export class CustomTablesController {
   async updateRow(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('rowId', new ParseUUIDPipe()) rowId: string,
+    @SchemaParams(CustomTableRowParams) { id: tableId, rowId }: CustomTableRowParams,
     @SchemaBody(UpdateCustomTableRowBody) dto: UpdateCustomTableRowBody,
   ) {
     const row = await this.customTablesService.updateRow(user.id, workspaceId, tableId, rowId, dto);
@@ -712,8 +678,7 @@ export class CustomTablesController {
   async removeRow(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('rowId', new ParseUUIDPipe()) rowId: string,
+    @SchemaParams(CustomTableRowParams) { id: tableId, rowId }: CustomTableRowParams,
   ) {
     await this.customTablesService.removeRow(user.id, workspaceId, tableId, rowId);
     await this.customTablesCache.bumpRows(workspaceId, tableId);
@@ -726,7 +691,7 @@ export class CustomTablesController {
   async batchCreateRows(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @SchemaBody(BatchCreateCustomTableRowsBody) dto: BatchCreateCustomTableRowsBody,
   ) {
     const result = await this.customTablesService.batchCreateRows(
@@ -744,7 +709,7 @@ export class CustomTablesController {
   async updateViewSettingsRules(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @SchemaBody(UpdateCustomTableRulesBody) dto: UpdateCustomTableRulesBody,
   ) {
     const table = await this.customTablesService.updateViewSettingsRules(
@@ -762,7 +727,7 @@ export class CustomTablesController {
   async updateViewSettingsViews(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @SchemaBody(UpdateCustomTableViewsBody) dto: UpdateCustomTableViewsBody,
   ) {
     const table = await this.customTablesService.updateViewSettingsViews(
@@ -780,7 +745,7 @@ export class CustomTablesController {
   async updateViewSettingsColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @SchemaBody(UpdateCustomTableViewSettingsColumnBody)
     dto: UpdateCustomTableViewSettingsColumnBody,
   ) {

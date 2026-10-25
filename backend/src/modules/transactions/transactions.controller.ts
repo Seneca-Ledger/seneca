@@ -6,11 +6,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
-  ParseUUIDPipe,
   Post,
   Put,
-  Query,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -20,7 +17,7 @@ import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
@@ -32,6 +29,7 @@ import type { BulkUpdateItemInput } from '../../contracts';
 import {
   BulkUpdateRequestBody,
   DetectTransfersBody,
+  DuplicateDetectQuery,
   DuplicateGroups,
   DuplicatesMarked,
   LinkReimbursementBody,
@@ -42,8 +40,11 @@ import {
   SplitTransactionBody,
   StorageTagList,
   TransactionAttachmentList,
+  TransactionAttachmentParams,
   TransactionCandidates,
   TransactionListPage,
+  TransactionListQuery,
+  TransactionParams,
   TransactionsOverview,
   TransactionsOverviewQuery,
   UpdateTransactionBody,
@@ -87,48 +88,31 @@ export class TransactionsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
-    // Accept both snake_case and camelCase for backward compatibility
-    @Query('statement_id') statementIdSnake?: string,
-    @Query('statementId') statementIdCamel?: string,
-    @Query('date_from') dateFromSnake?: string,
-    @Query('startDate') startDateCamel?: string,
-    @Query('date_to') dateToSnake?: string,
-    @Query('endDate') endDateCamel?: string,
-    @Query('type') type?: string,
-    @Query('category_id') categoryIdSnake?: string,
-    @Query('categoryId') categoryIdCamel?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('currency') currency?: string,
-    @Query('convert_to') convertTo?: string,
-    @Query('owner') owner?: string,
-    @Query('running_balance') runningBalance?: string,
+    @SchemaQuery(TransactionListQuery) query: TransactionListQuery,
   ) {
     // Prefer snake_case for backward compatibility, fall back to camelCase
-    const statementId = statementIdSnake || statementIdCamel;
-    const dateFrom = dateFromSnake || startDateCamel;
-    const dateTo = dateToSnake || endDateCamel;
-    const categoryId = categoryIdSnake || categoryIdCamel;
+    const dateFrom = query.date_from || query.startDate;
+    const dateTo = query.date_to || query.endDate;
 
     const result = await this.transactionsService.findAll(
       workspaceId,
       {
-        statementId,
+        statementId: query.statement_id || query.statementId,
         dateFrom: dateFrom ? new Date(dateFrom) : undefined,
         dateTo: dateTo ? new Date(dateTo) : undefined,
-        type,
-        categoryId,
-        currency,
-        convertTo,
-        owner: parseOwnerFilter(owner, selfMemberId),
-        page: page ? Number.parseInt(page) : 1,
-        limit: limit ? Number.parseInt(limit) : 50,
+        type: query.type,
+        categoryId: query.category_id || query.categoryId,
+        currency: query.currency,
+        convertTo: query.convert_to,
+        owner: parseOwnerFilter(query.owner, selfMemberId),
+        page: query.page ?? 1,
+        limit: query.limit ?? 50,
       },
       selfMemberId,
     );
 
     const data =
-      runningBalance === '1'
+      query.running_balance === '1'
         ? await this.overviewService.withLedger(workspaceId, result.data)
         : result.data;
 
@@ -163,7 +147,7 @@ export class TransactionsController {
   @Get(':id')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   async findOne(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
@@ -174,7 +158,7 @@ export class TransactionsController {
   @Put(':id')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @SchemaBody(UpdateTransactionBody) updateDto: UpdateTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -198,7 +182,7 @@ export class TransactionsController {
   @Get(':id/split')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   async getSplitParts(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
@@ -214,7 +198,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async split(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @SchemaBody(SplitTransactionBody) splitDto: SplitTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -231,7 +215,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async unsplit(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
@@ -275,7 +259,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @WorkspaceAuth(Permission.TRANSACTION_DELETE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -289,13 +273,12 @@ export class TransactionsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
-    @Query('statement_id') statementId?: string,
-    @Query('threshold') threshold?: string,
+    @SchemaQuery(DuplicateDetectQuery) query: DuplicateDetectQuery,
   ) {
     const duplicateGroups = await this.deduplicationService.findDuplicates(
       workspaceId,
-      statementId,
-      threshold ? Number.parseFloat(threshold) : 0.85,
+      query.statement_id,
+      query.threshold ?? 0.85,
       selfMemberId,
     );
 
@@ -379,7 +362,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async unmarkDuplicate(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -410,7 +393,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(TransactionCandidates)
   async transferCandidates(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
@@ -423,7 +406,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async linkTransfer(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @SchemaBody(LinkTransferBody) body: LinkTransferBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -436,7 +419,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async unlinkTransfer(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -448,7 +431,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(TransactionCandidates)
   async reimbursementCandidates(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
@@ -461,7 +444,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async linkReimbursement(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @SchemaBody(LinkReimbursementBody) body: LinkReimbursementBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -473,7 +456,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async unlinkReimbursement(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -484,7 +467,10 @@ export class TransactionsController {
   @Get(':id/tags')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(StorageTagList)
-  async getTags(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+  async getTags(
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.transactionTagsService.getTags(id, workspaceId);
   }
 
@@ -493,7 +479,7 @@ export class TransactionsController {
   @Audit({ entityType: EntityType.TRANSACTION, includeDiff: true })
   @SchemaResponse(StorageTagList)
   async setTags(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @SchemaBody(SetTransactionTagsBody) dto: SetTransactionTagsBody,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -504,7 +490,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(TransactionAttachmentList)
   async listAttachments(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.transactionAttachmentsService.list(id, workspaceId);
@@ -515,7 +501,7 @@ export class TransactionsController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES } }))
   @Audit({ entityType: EntityType.TRANSACTION })
   async uploadAttachment(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @UploadedFile() file: MulterFile,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -526,7 +512,7 @@ export class TransactionsController {
   @Get('attachments/:attachmentId/download')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   async downloadAttachment(
-    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @SchemaParams(TransactionAttachmentParams) { attachmentId }: TransactionAttachmentParams,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
   ) {
@@ -542,7 +528,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   @Audit({ entityType: EntityType.TRANSACTION })
   async removeAttachment(
-    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @SchemaParams(TransactionAttachmentParams) { attachmentId }: TransactionAttachmentParams,
     @WorkspaceId() workspaceId: string,
   ) {
     await this.transactionAttachmentsService.remove(attachmentId, workspaceId);
