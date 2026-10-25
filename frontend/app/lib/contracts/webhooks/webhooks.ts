@@ -23,15 +23,7 @@ export const WebhookEventName = Schema.Literals([
 ]);
 export type WebhookEventName = Wire<typeof WebhookEventName>;
 
-/** The events grouped as the webhooks settings show them. */
-export const WEBHOOK_EVENT_GROUPS = {
-  transactions: ['transaction.created', 'transactions.imported'],
-  statements: ['statement.uploaded', 'statement.processed', 'statement.failed'],
-  review: ['transactions.uncategorized', 'receipt.needs_review', 'receipt.approved'],
-  payables: ['invoice.paid', 'invoice.overdue', 'bill.paid', 'bill.overdue'],
-  budgets: ['budget.exceeded'],
-  taxes: ['tax.deadline.upcoming', 'tax.threshold.reached'],
-} as const satisfies Record<string, readonly WebhookEventName[]>;
+export { WEBHOOK_EVENT_GROUPS } from './event-groups';
 
 /** `GET /webhook-endpoints`: inbound endpoints, the token shown only as a preview. */
 export const WebhookEndpointList = Schema.Array(
