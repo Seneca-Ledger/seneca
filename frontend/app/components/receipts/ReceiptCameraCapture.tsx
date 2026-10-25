@@ -15,7 +15,6 @@ export interface ReceiptCameraCaptureProps {
   onCaptured?: () => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCameraCaptureProps) {
   const { videoRef, startCamera, capturePhoto, stopCamera, error, isCameraAvailable } = useCamera();
   const [submitting, setSubmitting] = useState(false);
@@ -33,7 +32,6 @@ export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCam
     };
   }, [isOpen, startCamera, stopCamera]);
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleBlobUpload = async (blob: Blob) => {
     setSubmitting(true);
 
@@ -52,7 +50,6 @@ export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCam
       });
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleCapture = async () => {
     const blob = await capturePhoto();
 

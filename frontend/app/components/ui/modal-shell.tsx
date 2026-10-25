@@ -110,9 +110,7 @@ function FooterBar(props: { children: React.ReactNode }): React.JSX.Element {
   );
 }
 
-// eslint-disable-next-line max-params
 function makeCloseHandler(onClose: () => void, backdrop: boolean, escape: boolean) {
-  // eslint-disable-next-line max-params
   return (_e: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
     if (reason === 'backdropClick' && !backdrop) return;
     if (reason === 'escapeKeyDown' && !escape) return;
@@ -120,13 +118,11 @@ function makeCloseHandler(onClose: () => void, backdrop: boolean, escape: boolea
   };
 }
 
-// eslint-disable-next-line max-params
 function renderPaperProps(className?: string, paperSx?: SxProps<Theme>): object {
   return { className, ...(paperSx ? { sx: paperSx } : {}) };
 }
 
 /** Unified modal wrapper with backdrop, keyboard (ESC) support, and focus management. */
-// eslint-disable-next-line complexity
 export function ModalShell({
   isOpen,
   onClose,
@@ -150,9 +146,11 @@ export function ModalShell({
       maxWidth={sizeToMaxWidth[size]}
       fullWidth
       fullScreen={size === 'full'}
-      PaperProps={renderPaperProps(className, paperSx)}
       // A light warm veil, not a heavy grey sheet: no blur, which read as murk.
-      slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(36, 33, 30, 0.2)' } } }}
+      slotProps={{
+        backdrop: { sx: { backgroundColor: 'rgba(36, 33, 30, 0.2)' } },
+        paper: renderPaperProps(className, paperSx),
+      }}
       aria-labelledby={title ? 'modal-title' : undefined}
     >
       {(title || showCloseButton) && (
@@ -206,7 +204,6 @@ function ConfirmBtn(props: {
 }
 
 /** Pre-styled footer with cancel/confirm buttons pattern. */
-// eslint-disable-next-line complexity
 export function ModalFooter({
   onCancel,
   onConfirm,

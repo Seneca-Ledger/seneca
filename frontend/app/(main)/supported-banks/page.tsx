@@ -16,7 +16,6 @@ type SupportedBankCard = {
   notes: string;
 };
 
-// eslint-disable-next-line max-lines-per-function
 export default function SupportedBanksPage(): React.JSX.Element {
   const t = useIntlayer('supportedBanksPage');
 

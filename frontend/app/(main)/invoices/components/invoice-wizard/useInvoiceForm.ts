@@ -81,7 +81,6 @@ export const isLineComplete = (line: InvoiceLineItemInput): boolean =>
  * and the payload they save as. Shared by the wizard (new and draft invoices)
  * and the read-only view of an issued one.
  */
-// eslint-disable-next-line max-lines-per-function
 export function useInvoiceForm(isNew: boolean) {
   const t = useIntlayer('invoicesPage');
   const [clients, setClients] = useState<Client[]>([]);

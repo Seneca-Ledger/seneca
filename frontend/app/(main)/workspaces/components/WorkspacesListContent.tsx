@@ -219,7 +219,6 @@ function useWorkspaceNav({
   return { handleWorkspaceClick };
 }
 
-// eslint-disable-next-line max-lines-per-function
 export default function WorkspacesListContent({
   embedded,
   redirectPathOnSelect = '/workspaces/overview',

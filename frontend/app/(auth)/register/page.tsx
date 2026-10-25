@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import { Box, Button, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
@@ -21,7 +20,6 @@ import AuthLayout from '../AuthLayout';
 
 const MIN_PASSWORD_LENGTH = 8;
 
-// eslint-disable-next-line max-lines-per-function, complexity
 function RegisterPageContent(): React.JSX.Element {
   const searchParams = useSearchParams();
   const nextPath = safeInternalPath(searchParams.get('next'));
@@ -77,7 +75,6 @@ function RegisterPageContent(): React.JSX.Element {
       });
   }, [inviteToken, t.inviteLoadFailed.value]);
 
-  // eslint-disable-next-line max-lines-per-function
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError('');

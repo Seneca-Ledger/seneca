@@ -8,7 +8,6 @@ import { RenderIcon } from './components/RenderIcon';
 import { SectionWrapper } from './components/SectionWrapper';
 import { ACTION_SIZE_STYLES, ACTION_VARIANT_STYLES } from './helpers/section-constants';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, max-lines-per-function, complexity
 function ActionItemComponent({ item }: { item: ActionItem }) {
   const sizeStyle = ACTION_SIZE_STYLES[item.size || 'md'];
   const variantStyle = ACTION_VARIANT_STYLES[item.variant || 'secondary'];
@@ -42,7 +41,6 @@ function ActionItemComponent({ item }: { item: ActionItem }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function ActionsSectionRenderer({ section }: { section: ActionsSection }) {
   const layoutStyle = useMemo((): React.CSSProperties => {
     switch (section.layout) {

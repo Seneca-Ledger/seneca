@@ -35,7 +35,6 @@ import {
 
 import type { SettingsTabProps } from './types';
 
-// eslint-disable-next-line max-lines-per-function
 export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.JSX.Element {
   const { locale, availableLocales, setLocale } = useLocale();
   const { t, tx } = useSettingsText();
@@ -163,8 +162,10 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={2}
-            alignItems="center"
-            sx={{ textAlign: { xs: 'center', sm: 'left' } }}
+            sx={{
+              alignItems: 'center',
+              textAlign: { xs: 'center', sm: 'left' },
+            }}
           >
             <AvatarUploadButton
               avatarUrl={avatarUrl}
@@ -181,7 +182,13 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
                 {displayName}
               </Typography>
               {user?.email ? (
-                <Typography variant="body2" color="text.secondary" noWrap>
+                <Typography
+                  variant="body2"
+                  noWrap
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {user.email}
                 </Typography>
               ) : null}

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 import {
   Accordion,
@@ -143,7 +142,6 @@ function EditStatementSkeleton(): React.JSX.Element {
   );
 }
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export default function EditStatementPage(): React.JSX.Element {
   const params = useParams();
   const router = useRouter();
@@ -259,13 +257,11 @@ export default function EditStatementPage(): React.JSX.Element {
     return noCategory || transaction.category?.isEnabled === false;
   }).length;
 
-  // eslint-disable-next-line max-params
   const totalIncome = transactions.reduce((sum, t) => {
     const credit = Number(t.credit);
     return sum + (Number.isNaN(credit) ? 0 : credit);
   }, 0);
 
-  // eslint-disable-next-line max-params
   const totalExpense = transactions.reduce((sum, t) => {
     const debit = Number(t.debit);
     return sum + (Number.isNaN(debit) ? 0 : debit);
@@ -674,7 +670,6 @@ export default function EditStatementPage(): React.JSX.Element {
             parsingWarningCount > 0 ||
             (statement?.parsingDetails?.droppedSamples?.length ?? 0) > 0)
         }
-        // eslint-disable-next-line max-params
         onChange={(_, expanded) => setParsingDetailsExpanded(expanded)}
         elevation={0}
         disableGutters
@@ -790,8 +785,13 @@ export default function EditStatementPage(): React.JSX.Element {
               <Divider sx={{ mb: 3 }} />
               <Typography
                 variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', mb: 2, fontWeight: 600, textTransform: 'uppercase' }}
+                sx={{
+                  color: 'text.secondary',
+                  display: 'block',
+                  mb: 2,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                }}
               >
                 {labels.extractedMetadata?.value || 'Extracted metadata'}
               </Typography>
@@ -807,7 +807,12 @@ export default function EditStatementPage(): React.JSX.Element {
                 }}
               >
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.bank?.value || 'Bank'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -815,7 +820,12 @@ export default function EditStatementPage(): React.JSX.Element {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.bankDetectedBy?.value || 'Detected by'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -823,7 +833,12 @@ export default function EditStatementPage(): React.JSX.Element {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.format?.value || 'Format'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -831,7 +846,12 @@ export default function EditStatementPage(): React.JSX.Element {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.foundTransactions?.value || 'Transactions found'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -839,7 +859,12 @@ export default function EditStatementPage(): React.JSX.Element {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                    }}
+                  >
                     {labels.createdTransactions?.value || 'Transactions created'}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -859,7 +884,12 @@ export default function EditStatementPage(): React.JSX.Element {
                 {statement.parsingDetails.warnings &&
                   statement.parsingDetails.warnings.length > 0 && (
                     <Box>
-                      <Typography variant="caption" color="warning.main">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'warning.main',
+                        }}
+                      >
                         {labels.warnings?.value || 'Warnings'}
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 500, color: 'warning.main' }}>
@@ -870,7 +900,12 @@ export default function EditStatementPage(): React.JSX.Element {
                 {statement.parsingDetails.otherBankMentions &&
                   statement.parsingDetails.otherBankMentions.length > 0 && (
                     <Box sx={{ gridColumn: { xs: '1 / -1', md: 'span 2' } }}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {labels.otherBankMentions?.value || 'Other bank mentions'}
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>

@@ -57,21 +57,49 @@ export function WorkspaceProfileSection({ tx }: { tx: Tx }) {
         aria-label={tx(['workspaceProfileCard', 'title'], 'Workspace profile')}
       >
         <ToggleButton value="home" sx={{ textTransform: 'none', px: 2.5 }}>
-          <Stack alignItems="flex-start">
-            <Typography variant="body2" fontWeight={600}>
+          <Stack
+            sx={{
+              alignItems: 'flex-start',
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+              }}
+            >
               {tx(['workspaceProfileCard', 'home'], 'Home')}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {tx(['workspaceProfileCard', 'homeHint'], 'Personal or family money')}
             </Typography>
           </Stack>
         </ToggleButton>
         <ToggleButton value="business" sx={{ textTransform: 'none', px: 2.5 }}>
-          <Stack alignItems="flex-start">
-            <Typography variant="body2" fontWeight={600}>
+          <Stack
+            sx={{
+              alignItems: 'flex-start',
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+              }}
+            >
               {tx(['workspaceProfileCard', 'business'], 'Business')}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {tx(['workspaceProfileCard', 'businessHint'], 'Invoices, payables, ledger, tax')}
             </Typography>
           </Stack>

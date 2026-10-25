@@ -9,7 +9,6 @@ export interface SparklineProps {
 }
 
 // Keeps the stroke inside the box so neither edge clips it; a flat series sits mid-height.
-// eslint-disable-next-line max-params
 function linePath(points: number[], w: number, h: number): string {
   const max = Math.max(...points);
   const min = Math.min(...points);
@@ -18,12 +17,7 @@ function linePath(points: number[], w: number, h: number): string {
   const pad = 2;
   const y = (p: number): number =>
     range === 0 ? h / 2 : pad + (1 - (p - min) / range) * (h - pad * 2);
-  return (
-    points
-      // eslint-disable-next-line max-params
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${i * step} ${y(p)}`)
-      .join(' ')
-  );
+  return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${i * step} ${y(p)}`).join(' ');
 }
 
 /**

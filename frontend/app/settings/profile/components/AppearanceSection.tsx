@@ -52,10 +52,20 @@ export function ThemeSection({
 
       <Card variant="outlined">
         <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {t.appearanceCard.themeLabel.value}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.appearanceCard.themeHelp.value}
           </Typography>
         </Box>
@@ -75,7 +85,12 @@ export function ThemeSection({
               <MenuItem value="dark">{t.appearanceCard.dark.value}</MenuItem>
               <MenuItem value="auto">{tx(['appearanceCard', 'auto'], 'Auto')}</MenuItem>
             </TextField>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.appearanceCard.followsSystem.value}
             </Typography>
             {appearanceLoading ? (
@@ -121,10 +136,20 @@ export function AppearanceSection({
   return (
     <Stack spacing={2}>
       <Box>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {tx(['appearanceCard', 'densityLabel'], 'Interface density')}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {tx(
             ['appearanceCard', 'densityHelp'],
             'Compact fits more rows on screen in tables and lists.',
@@ -150,10 +175,20 @@ export function AppearanceSection({
         }
         label={
           <Stack spacing={0.25}>
-            <Typography variant="body2" fontWeight={500}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+              }}
+            >
               {tx(['appearanceCard', 'reduceMotionLabel'], 'Reduce motion')}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {tx(
                 ['appearanceCard', 'reduceMotionHelp'],
                 'Turns off non-essential transitions and animations.',
@@ -169,10 +204,20 @@ export function AppearanceSection({
         }
         label={
           <Stack spacing={0.25}>
-            <Typography variant="body2" fontWeight={500}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+              }}
+            >
               {tx(['appearanceCard', 'dailyQuoteLabel'], 'Daily quote')}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {tx(
                 ['appearanceCard', 'dailyQuoteHelp'],
                 'A short quote above the pages, picked for your current advice. The advice itself stays on the Advice page.',

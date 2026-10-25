@@ -152,7 +152,8 @@
             "useButtonType": "off"
           },
           "correctness": {
-            "useExhaustiveDependencies": "warn"
+            "useExhaustiveDependencies": "warn",
+            "useHookAtTopLevel": "error"
           },
           "complexity": {
             "noExcessiveCognitiveComplexity": {
@@ -162,16 +163,35 @@
               }
             },
             "noForEach": "warn",
-            "noUselessFragments": "error"
+            "noUselessFragments": "error",
+            "noExcessiveLinesPerFunction": {
+              "level": "warn",
+              "options": { "maxLines": 40, "skipBlankLines": true }
+            },
+            "useMaxParams": { "level": "warn", "options": { "max": 3 } }
           },
           "suspicious": {
             "noExplicitAny": "warn",
-            "noImplicitAnyLet": "error"
+            "noImplicitAnyLet": "error",
+            "noConsole": { "level": "error", "options": { "allow": ["warn", "error", "info"] } }
+          },
+          "performance": {
+            "noAwaitInLoops": "warn"
+          },
+          "nursery": {
+            "useAwaitThenable": "error",
+            "noFloatingPromises": "warn",
+            "noMisusedPromises": "warn",
+            "useExplicitType": "warn"
           },
           "style": {
             "noUselessElse": "error",
             "useBlockStatements": "warn",
             "useTemplate": "error",
+            "noExcessiveLinesPerFile": {
+              "level": "warn",
+              "options": { "maxLines": 250, "skipBlankLines": true }
+            },
             "noRestrictedImports": {
               "level": "error",
               "options": {
@@ -185,6 +205,20 @@
       }
     },
 
+    {
+      "includes": ["**/frontend/**/*.tsx", "**/app/**/*.tsx"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveLinesPerFunction": {
+              "level": "warn",
+              "options": { "maxLines": 30, "skipBlankLines": true }
+            },
+            "useMaxParams": { "level": "warn", "options": { "max": 1 } }
+          }
+        }
+      }
+    },
     {
       "includes": [
         "**/@tests/**/*.{ts,tsx}",

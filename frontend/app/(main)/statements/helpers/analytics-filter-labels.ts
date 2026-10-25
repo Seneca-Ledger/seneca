@@ -3,7 +3,6 @@ type TxFn = (path: string[], fallback: string) => string;
 export type AnalyticsFilterOptionLabels = ReturnType<typeof buildAnalyticsFilterLabels>;
 
 /** Builds the filter option labels object shared across all analytics views. */
-// eslint-disable-next-line max-lines-per-function
 export function buildAnalyticsFilterLabels(tx: TxFn): Record<string, string> {
   return {
     apply: tx(['filters', 'apply'], 'Apply'),
@@ -71,7 +70,6 @@ type BuildAnalyticsFilterOptionsResult = {
 };
 
 /** Builds the filter option arrays used by FiltersDrawer and filter dropdowns. */
-// eslint-disable-next-line max-lines-per-function
 export function buildAnalyticsFilterOptions(
   labels: AnalyticsFilterOptionLabels,
 ): BuildAnalyticsFilterOptionsResult {

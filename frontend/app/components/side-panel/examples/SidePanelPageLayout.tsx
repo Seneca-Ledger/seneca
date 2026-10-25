@@ -36,7 +36,6 @@ interface PageWithSidePanelProps {
  * A reusable page layout component that includes a side panel.
  * Wraps content with the side panel and provides proper flex layout.
  */
-// eslint-disable-next-line max-lines-per-function, complexity
 export function PageWithSidePanel({
   children,
   sidePanelConfig,
@@ -185,7 +184,6 @@ export function StoragePageExample(): React.JSX.Element {
 // Example: Settings Page with Side Panel on Left
 // ============================================================================
 
-// eslint-disable-next-line max-lines-per-function
 export function SettingsPageExample(): React.JSX.Element {
   const [activeSection, SetActiveSection] = useState('profile');
   const [Settings, SetSettings] = useState({

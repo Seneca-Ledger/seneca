@@ -18,10 +18,22 @@ export function TourProgress({ current, total, className = '' }: TourProgressPro
   return (
     <Box className={className} sx={{ width: '100%', maxWidth: 300 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            fontWeight: 500,
+          }}
+        >
           Tour progress
         </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            fontWeight: 600,
+          }}
+        >
           {current}/{total}
         </Typography>
       </Box>

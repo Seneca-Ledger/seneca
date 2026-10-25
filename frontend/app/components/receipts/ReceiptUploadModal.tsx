@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import { Box, IconButton, Typography } from '@mui/material';
@@ -39,7 +38,6 @@ export interface ReceiptUploadModalProps {
   onUploaded?: () => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploadModalProps) {
   const { uploadReceipts, uploading, progress, error } = useReceiptUpload();
   const [files, setFiles] = useState<File[]>([]);
@@ -56,14 +54,12 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
     return `Upload ${files.length} receipts`;
   }, [files.length]);
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const resetState = () => {
     setFiles([]);
     setLanguage('auto');
     setLocalError(null);
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const validateAndStoreFiles = (incomingFiles: File[]) => {
     const nextFiles = incomingFiles.slice(0, 5);
 
@@ -81,7 +77,6 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
     setFiles(nextFiles);
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleSubmit = async () => {
     if (files.length === 0) {
       setLocalError('Select at least one receipt to upload.');
@@ -237,7 +232,6 @@ export function ReceiptUploadModal({ isOpen, onClose, onUploaded }: ReceiptUploa
 
         {files.length > 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {/* eslint-disable-next-line max-lines-per-function */}
             {files.map(file => {
               const isPdf = file.type === 'application/pdf';
               return (

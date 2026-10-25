@@ -1,8 +1,12 @@
+# Bun only installs packages (from package-lock.json); Node runs the app.
+FROM oven/bun:1.4.4-alpine AS bun
+
 # --- Deps: node_modules keyed only by the lockfile ---
 FROM node:24-alpine AS deps
 
 WORKDIR /app
 
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
@@ -15,7 +19,9 @@ COPY scripts/build-locale-packs.mjs ./scripts/
 
 # The marker lets scripts/dev-entrypoint.sh detect a lockfile or Node change and
 # refresh the node_modules volume without rebuilding the image.
-RUN npm ci && echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  bun install --frozen-lockfile --network-concurrency=16 && \
+  echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
 
 # --- Dev stage (used by docker-compose.dev.yml) ---
 # Source is bind-mounted at runtime; Turbopack compiles on demand, so no build here.

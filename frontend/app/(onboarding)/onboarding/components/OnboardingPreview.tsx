@@ -65,7 +65,7 @@ function RegionPreview({ data, text }: { data: OnboardingData; text: OnboardingT
     const weekday = (firstDay + offset) % 7;
     return { weekday, label: weekdayFormat.format(new Date(2026, 10, 1 + weekday)) };
   });
-  let time = '';
+  let time: string;
   try {
     time = new Intl.DateTimeFormat(tag, {
       hour: '2-digit',

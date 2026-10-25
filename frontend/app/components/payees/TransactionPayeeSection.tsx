@@ -219,7 +219,14 @@ export function TransactionPayeeSection({
 
       {renaming === null ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <Typography variant="body2" fontWeight={500} noWrap title={current?.name}>
+          <Typography
+            variant="body2"
+            noWrap
+            title={current?.name}
+            sx={{
+              fontWeight: 500,
+            }}
+          >
             {current?.name ?? '—'}
           </Typography>
           <IconButton
@@ -252,8 +259,10 @@ export function TransactionPayeeSection({
             autoFocus
             value={renaming}
             onChange={event => setRenaming(event.target.value)}
-            inputProps={{ 'aria-label': t.rename.value, maxLength: 200 }}
             sx={{ flex: 1 }}
+            slotProps={{
+              htmlInput: { 'aria-label': t.rename.value, maxLength: 200 },
+            }}
           />
           <Button type="submit" size="small" variant="contained" disabled={busy}>
             {t.save.value}
@@ -371,16 +380,20 @@ export function TransactionPayeeSection({
                 onChange={event =>
                   setVatEditing({ ...vatEditing, countryCode: event.target.value })
                 }
-                inputProps={{ maxLength: 2, style: { textTransform: 'uppercase' } }}
                 sx={{ width: 90 }}
+                slotProps={{
+                  htmlInput: { maxLength: 2, style: { textTransform: 'uppercase' } },
+                }}
               />
               <TextField
                 size="small"
                 label={t.vatId.value}
                 value={vatEditing.vatId}
                 onChange={event => setVatEditing({ ...vatEditing, vatId: event.target.value })}
-                inputProps={{ maxLength: 32 }}
                 sx={{ flex: 1, minWidth: 140 }}
+                slotProps={{
+                  htmlInput: { maxLength: 32 },
+                }}
               />
               <Select
                 size="small"

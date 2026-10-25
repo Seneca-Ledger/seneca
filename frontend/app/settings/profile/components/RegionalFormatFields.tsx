@@ -44,7 +44,9 @@ export function RegionalFormatFields({
           component="label"
           htmlFor="profile-date-format"
           variant="body2"
-          fontWeight={600}
+          sx={{
+            fontWeight: 600,
+          }}
         >
           {tx(['profileCard', 'dateFormatLabel'], 'Date format')}
         </Typography>
@@ -67,7 +69,14 @@ export function RegionalFormatFields({
       </Stack>
 
       <Stack spacing={0.5}>
-        <Typography component="label" htmlFor="profile-week-start" variant="body2" fontWeight={600}>
+        <Typography
+          component="label"
+          htmlFor="profile-week-start"
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {tx(['profileCard', 'firstDayOfWeekLabel'], 'First day of the week')}
         </Typography>
         <TextField
@@ -78,10 +87,10 @@ export function RegionalFormatFields({
           onChange={event =>
             setFirstDayOfWeek(event.target.value === '' ? null : Number(event.target.value))
           }
-          // Without this MUI treats '' as "nothing selected" and the auto option
-          // renders as an empty box.
-          SelectProps={{ displayEmpty: true }}
           fullWidth
+          slotProps={{
+            select: { displayEmpty: true },
+          }}
         >
           <MenuItem value="">
             {tx(['profileCard', 'dateFormats', 'auto'], DATE_FORMAT_FALLBACKS.auto)}

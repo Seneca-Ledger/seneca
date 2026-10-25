@@ -112,15 +112,33 @@ export function SubscriptionCard({
                 vendorName={subscription.vendorName}
                 vendorDomain={subscription.vendorDomain}
               />
-              <Typography variant="subtitle1" fontWeight={600} noWrap>
+              <Typography
+                variant="subtitle1"
+                noWrap
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {subscription.vendorName}
               </Typography>
             </Box>
-            <Typography variant="h6" fontWeight={700} color="primary">
+            <Typography
+              variant="h6"
+              color="primary"
+              sx={{
+                fontWeight: 700,
+              }}
+            >
               <PrivateAmount>
                 {formatAmount(subscription.amount, subscription.currency)}
               </PrivateAmount>
-              <Typography component="span" variant="body2" color="text.secondary">
+              <Typography
+                component="span"
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t[FREQUENCY_LABELS[subscription.frequency]]}
               </Typography>
             </Typography>
@@ -138,7 +156,13 @@ export function SubscriptionCard({
           </Box>
         </Box>
         {priceChange && subscription.riskStatus === 'price_changed' && (
-          <Typography variant="body2" color="warning.main" sx={{ mb: 1 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'warning.main',
+              mb: 1,
+            }}
+          >
             {fillTemplateNodes(t.priceChangeDetail.value, {
               previous: formatAmount(priceChange.previous, subscription.currency),
               current: formatAmount(priceChange.current, subscription.currency),
@@ -151,17 +175,32 @@ export function SubscriptionCard({
         {/* Details */}
         <Box sx={{ display: 'flex', gap: 2, mb: 1.5 }}>
           {subscription.nextChargeDate && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.nextCharge.value.replace('{date}', formatDate(subscription.nextChargeDate))}
             </Typography>
           )}
           {subscription.category && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {getCategoryDisplayName(subscription.category, locale)}
             </Typography>
           )}
           {typeof subscription.costPerUse === 'number' && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {fillTemplateNodes(
                 fill(t.costPerUse.value, { count: String(subscription.usageCount ?? 0) }),
                 { amount: formatAmount(subscription.costPerUse, subscription.currency) },

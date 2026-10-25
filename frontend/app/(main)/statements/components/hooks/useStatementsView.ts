@@ -168,7 +168,6 @@ function sortStatements(statements: Statement[], direction: 'asc' | 'desc'): Sta
   });
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function useStatementsView({
   router,
   searchParams,

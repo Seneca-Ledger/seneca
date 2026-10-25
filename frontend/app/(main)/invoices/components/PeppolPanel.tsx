@@ -145,7 +145,15 @@ export function PeppolPanel({
 
   return (
     <Box data-testid="peppol-panel">
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'wrap' }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          mb: 1,
+          flexWrap: 'wrap',
+        }}
+      >
         <Typography sx={{ fontSize: 14, fontWeight: 600 }}>{t.title.value}</Typography>
         {button}
       </Stack>

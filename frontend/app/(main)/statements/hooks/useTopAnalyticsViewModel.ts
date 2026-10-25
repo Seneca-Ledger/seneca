@@ -61,7 +61,6 @@ export type TopAnalyticsViewModelReturn<TState, TData> = TState &
     drillLabels: DrillLabels;
   };
 
-// eslint-disable-next-line max-params
 export function useTopAnalyticsViewModel<TState, TData>(
   config: TopAnalyticsViewModelConfig<TState, TData>,
   month: Date,

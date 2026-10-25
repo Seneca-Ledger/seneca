@@ -51,8 +51,18 @@ export function PushNotificationsCard({ tx }: { tx: Tx }) {
         : null;
 
   return (
-    <Stack spacing={1.5} alignItems="flex-start">
-      <Typography variant="body2" color="text.secondary">
+    <Stack
+      spacing={1.5}
+      sx={{
+        alignItems: 'flex-start',
+      }}
+    >
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {blocker ??
           (status.subscribed ? tx(['pushCard', 'subscribed'], 'This device receives push') : '')}
       </Typography>

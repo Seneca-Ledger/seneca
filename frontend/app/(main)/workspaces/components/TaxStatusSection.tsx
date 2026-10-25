@@ -290,8 +290,10 @@ export function TaxStatusSection(): React.ReactElement {
               onChange={event => setPercent(event.target.value)}
               error={percentInvalid}
               helperText={percentInvalid ? t.percentInvalid.value : t.percentHelp.value}
-              inputProps={{ inputMode: 'decimal', 'aria-label': t.percentLabel.value }}
               sx={{ width: 200 }}
+              slotProps={{
+                htmlInput: { inputMode: 'decimal', 'aria-label': t.percentLabel.value },
+              }}
             />
             <CategoryPickerField
               size="small"
