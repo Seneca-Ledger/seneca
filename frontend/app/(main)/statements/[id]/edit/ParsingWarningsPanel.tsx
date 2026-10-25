@@ -59,6 +59,10 @@ interface ParsingWarningsPanelProps {
 
 export const formatDroppedSample = formatDroppedSampleText;
 
+// One array for every render: a fresh `[]` default re-derives the entries each
+// render, and the draft sync effect then re-renders forever.
+const NO_DROPPED_SAMPLES: Array<string | ParsingDroppedSample> = [];
+
 // ---------------------------------------------------------------------------
 // Editable entry builder
 // ---------------------------------------------------------------------------
@@ -168,7 +172,7 @@ function ConvertDialog({ panel }: ConvertDialogProps): React.JSX.Element {
 
 export function ParsingWarningsPanel({
   warnings,
-  droppedSamples = [],
+  droppedSamples = NO_DROPPED_SAMPLES,
   onConvertDroppedSample,
   onResolveWarning,
   fixTooltipLabel = 'Fix',
