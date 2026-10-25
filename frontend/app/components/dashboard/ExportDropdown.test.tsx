@@ -77,7 +77,8 @@ describe('ExportDropdown', () => {
 
   it('exports the workspace in the selected format', async () => {
     apiPost.mockResolvedValue({
-      data: new Uint8Array([1, 2, 3]),
+      // A file, as axios returns for responseType: 'blob'.
+      data: new Blob([new Uint8Array([1, 2, 3])]),
       headers: {
         'content-disposition': 'attachment; filename="workspace-transactions-2026-04-01.pdf"',
       },

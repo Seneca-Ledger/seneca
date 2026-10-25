@@ -55,9 +55,9 @@ describe('PDFThumbnail', () => {
     ) as SVGElement | null;
 
     expect(fallbackIcon).toBeTruthy();
-    expect(fallbackIcon?.getAttribute('width')).toBe('29');
-    expect(fallbackIcon?.getAttribute('height')).toBe('29');
-    expect(fallbackIcon?.getAttribute('style')).toContain('color: rgb(156, 163, 175)');
+    // MUI icon: the size is a font size (80% of the 36px thumbnail), the colour a theme token.
+    expect(getComputedStyle(fallbackIcon as Element).fontSize).toBe('29px');
+    expect(fallbackIcon?.getAttribute('style')).toContain('color: var(--muted-foreground)');
     expect(fallbackIcon?.className.baseVal).not.toContain('text-red-500');
   });
 

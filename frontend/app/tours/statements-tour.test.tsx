@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createStatementsTour } from './statements-tour';
@@ -9,6 +8,12 @@ type StatementsTourPayload = Parameters<typeof createStatementsTour>[0];
 
 const readSource = (...segments: string[]) =>
   readFileSync(path.join(process.cwd(), ...segments), 'utf8');
+
+/** Every non-test .tsx under `dir`, relative to the frontend root. */
+const tsxSources = (dir: string): string[] =>
+  readdirSync(path.join(process.cwd(), dir), { recursive: true, encoding: 'utf8' })
+    .filter(file => file.endsWith('.tsx') && !file.endsWith('.test.tsx'))
+    .map(file => path.join(dir, file));
 
 describe('createStatementsTour', () => {
   const texts = {
@@ -157,27 +162,16 @@ describe('createStatementsTour', () => {
   });
 
   it('keeps the expected statements page anchors in the current source', () => {
-    const listViewSource = readSource(
-      'app',
-      '(main)',
-      'statements',
-      'components',
-      'StatementsListView.tsx',
-    );
-    const listItemSource = readSource(
-      'app',
-      '(main)',
-      'statements',
-      'components',
-      'StatementsListItem.tsx',
-    );
+    const component = (name: string) =>
+      readSource('app', '(main)', 'statements', 'components', name);
 
-    expect(listViewSource).toContain('data-tour-id="statements-filters"');
-    expect(listViewSource).toContain('data-tour-id="statements-table"');
-    expect(listViewSource).toContain(
+    // The list view composes the header (filters) and the table (rows).
+    expect(component('StatementsListHeader.tsx')).toContain('data-tour-id="statements-filters"');
+    expect(component('StatementsListView.tsx')).toContain('data-tour-id="statements-table"');
+    expect(component('StatementsListTable.tsx')).toContain(
       "dataTourId={index === 0 ? 'statement-row-primary' : undefined}",
     );
-    expect(listItemSource).toContain('data-tour-id={dataTourId}');
+    expect(component('StatementsListItem.tsx')).toContain('data-tour-id={dataTourId}');
   });
 });
 
@@ -195,12 +189,9 @@ describe('StatementsUploadButton', () => {
 
     // One trigger, rendered in the page header of every statements view: no
     // placement variants left to pick an anchor between.
-    const anchors = execSync(
-      'grep -rl \'data-tour-id="statements-upload-trigger"\' app --include=*.tsx',
-      { cwd: process.cwd(), encoding: 'utf8' },
-    )
-      .split('\n')
-      .filter(line => line && !line.endsWith('.test.tsx'));
+    const anchors = tsxSources('app').filter(file =>
+      readSource(file).includes('data-tour-id="statements-upload-trigger"'),
+    );
 
     expect(anchors).toEqual(['app/(main)/statements/components/StatementsUploadButton.tsx']);
   });

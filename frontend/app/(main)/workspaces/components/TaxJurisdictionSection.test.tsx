@@ -112,7 +112,7 @@ function mockApi({ current = null as string | null, rates = KZ_RATES } = {}) {
     }
     if (url === '/tax/settings') {
       const jurisdiction = current ? JURISDICTIONS.find(j => j.code === current) : null;
-      return { data: { jurisdiction: jurisdiction ?? null } };
+      return { data: { jurisdiction: jurisdiction ?? null, vatStatus: 'not_registered' } };
     }
     if (url.startsWith('/tax/jurisdictions/')) {
       return { data: url.includes('/US/') ? [] : rates };

@@ -91,6 +91,8 @@ vi.mock('./contexts/CurrencyDisplayContext', () => ({
 
 vi.mock('./contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  // Read through useAuth by components mounted in the provider tree.
+  useAuthContext: () => ({ user: null, loading: false }),
 }));
 
 vi.mock('./contexts/WorkspaceContext', () => ({

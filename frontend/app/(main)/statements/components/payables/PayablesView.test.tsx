@@ -4,6 +4,9 @@ import React from 'react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { selectOption } from '@/app/test/select';
+// Статический импорт (vi.mock поднимается выше): динамический в первом тесте
+// грузил модуль внутри его 5-секундного таймаута и падал под нагрузкой.
+import { PayablesView } from './PayablesView';
 
 const navigationState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
@@ -345,7 +348,6 @@ describe('PayablesView', () => {
       writable: true,
     });
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     expect(await screen.findByText('ACME LLC')).toBeInTheDocument();
@@ -359,7 +361,6 @@ describe('PayablesView', () => {
   });
 
   it('marks a payable as paid through the payment dialog', async () => {
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     const button = await screen.findByRole('button', { name: 'Mark paid' });
@@ -379,7 +380,6 @@ describe('PayablesView', () => {
   });
 
   it('keeps the dialog open when the payment leaves the bill partly unpaid', async () => {
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Mark paid' }));
@@ -394,7 +394,6 @@ describe('PayablesView', () => {
   });
 
   it('opens currency drawer from the payable form currency field', async () => {
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     await screen.findByText('ACME LLC');
@@ -414,7 +413,6 @@ describe('PayablesView', () => {
   it('uses receivable wording and illustration for the receive direction', async () => {
     apiMocks.list.mockResolvedValueOnce({ data: [], total: 0, page: 1, limit: 20, totalPages: 1 });
 
-    const { PayablesView } = await import('./PayablesView');
     const { container } = renderWithQuery(<PayablesView direction="receivable" />);
 
     expect(await screen.findByText('No receivables found')).toBeInTheDocument();
@@ -429,7 +427,6 @@ describe('PayablesView', () => {
     workspaceState.currentWorkspace = { id: 'workspace-1', currency: 'usd' };
 
     try {
-      const { PayablesView } = await import('./PayablesView');
       renderWithQuery(<PayablesView />);
 
       await screen.findByText('ACME LLC');
@@ -468,7 +465,6 @@ describe('PayablesView', () => {
       totalPages: 1,
     });
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     expect(await screen.findByText('Archived Vendor')).toBeInTheDocument();
@@ -478,7 +474,6 @@ describe('PayablesView', () => {
   it('asks for confirmation before deleting', async () => {
     (window.confirm as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     await screen.findByText('ACME LLC');
@@ -553,7 +548,6 @@ describe('PayablesView', () => {
         totalPages: 1,
       });
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     await screen.findByText('Page Two Vendor');
@@ -570,7 +564,6 @@ describe('PayablesView', () => {
   it('applies status filter from search params on first load', async () => {
     navigationState.searchParams = new URLSearchParams('status=overdue');
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     await screen.findByText('ACME LLC');
