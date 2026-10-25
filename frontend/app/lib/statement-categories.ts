@@ -176,7 +176,7 @@ const getCategoryDictionary = (locale: string): CategoryDictionary | null => {
   if (cached !== undefined) {
     return cached;
   }
-  let dictionary: CategoryDictionary | null = null;
+  let dictionary: CategoryDictionary | null;
   try {
     dictionary = getCachedIntlayer('systemCategories', locale) as CategoryDictionary;
   } catch {

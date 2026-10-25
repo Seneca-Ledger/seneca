@@ -126,7 +126,7 @@ export const uploadStatementFiles = async ({
     await refreshAfterCreate();
   } catch (error) {
     console.error('Failed to upload statements:', error);
-    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed));
+    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed), { cause: error });
   }
 };
 
@@ -186,7 +186,7 @@ export const uploadReceiptScanFiles = async ({
     await refreshAfterCreate();
   } catch (error) {
     console.error('Failed to upload receipt scans:', error);
-    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed));
+    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed), { cause: error });
   }
 };
 
