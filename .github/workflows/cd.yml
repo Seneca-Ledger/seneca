@@ -172,7 +172,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The frontend proxies /api/v1 to the backend through Next rewrites, which
+      # The frontend proxies /api/v1 to the backend through next.config.mjs rewrites, which
       # are resolved at build time, so both the API URL and the target are baked.
       - name: Build and push by digest
         id: build
