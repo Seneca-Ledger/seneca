@@ -96,7 +96,7 @@
     "stylelint": "^16.26.1",
     "stylelint-config-recommended-scss": "^14.1.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.58.0",
+    "typescript-eslint": "^8.72.0",
     "vitest": "^4.1.12"
   },
   "engines": {
