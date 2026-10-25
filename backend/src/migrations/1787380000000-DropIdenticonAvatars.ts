@@ -14,5 +14,7 @@ export class DropIdenticonAvatars1787380000000 implements MigrationInterface {
     );
   }
 
-  public async down(): Promise<void> {}
+  public async down(): Promise<void> {
+    // The identicon URLs are not restored: the app draws the initial instead.
+  }
 }
