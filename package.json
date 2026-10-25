@@ -39,13 +39,13 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@commitlint/cli": "^19.8.1",
+    "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.4",
-    "@types/node": "^25.5.0",
-    "concurrently": "^8.2.2",
+    "@types/node": "^25.9.9",
+    "concurrently": "^10.0.6",
     "husky": "^9.1.7",
     "knip": "^6.42.1",
-    "typescript": "^6.0.2"
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "shell-quote": "^1.11.0"

@@ -24,7 +24,6 @@
   "overrides": {
     "qs": "^6.16.0",
     "uuid": "^11.1.1",
-    "simple-git": "^3.36.0",
     "defu": "^6.1.7",
     "webpack-dev-server": "^5.2.6",
     "@ai-sdk/provider-utils": "^4.0.46",
@@ -41,7 +40,8 @@
     "@mui/x-date-pickers": "^9.0.0",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-table": "^9.2.4",
-    "@tanstack/react-virtual": "^3.13.18",
+    "@tanstack/react-virtual": "^3.14.22",
+    "@vitest/coverage-v8": "^4.1.12",
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
     "country-flag-icons": "^1.6.20",
@@ -52,18 +52,18 @@
     "echarts-for-react": "^3.0.6",
     "effect": "4.0.3",
     "framer-motion": "^12.34.3",
-    "intlayer": "^7.5.11",
+    "intlayer": "^9.7.0",
     "leaflet": "^1.9.4",
     "next": "^16.4.3",
-    "next-intlayer": "^7.5.11",
+    "next-intlayer": "^9.7.0",
     "next-themes": "^0.2.1",
     "pdfjs-dist": "5.4.296",
     "pdfmake": "^0.2.23",
-    "react": "19.2.0",
+    "react": "19.2.9",
     "react-colorful": "^5.6.1",
-    "react-dom": "19.2.0",
+    "react-dom": "19.2.9",
     "react-hot-toast": "^2.6.0",
-    "react-intlayer": "^7.5.11",
+    "react-intlayer": "^9.7.0",
     "react-markdown": "^10.1.0",
     "react-pdf": "^10.3.0",
     "recharts": "3.10.1",
@@ -73,7 +73,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.13",
+    "@biomejs/biome": "^2.6.3",
     "@effect/language-service": "0.87.4",
     "@eslint/js": "^9.39.4",
     "@next/bundle-analyzer": "^16.2.4",
@@ -97,7 +97,7 @@
     "stylelint-config-recommended-scss": "^14.1.0",
     "typescript": "^5",
     "typescript-eslint": "^8.58.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   },
   "engines": {
     "node": ">=22.18"
