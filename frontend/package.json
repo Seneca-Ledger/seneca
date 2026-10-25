@@ -48,7 +48,7 @@
     "driver.js": "^1.4.0",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
-    "effect": "4.0.3",
+    "effect": "4.0.6",
     "framer-motion": "^14.6.0",
     "intlayer": "^9.7.0",
     "leaflet": "^1.9.4",
