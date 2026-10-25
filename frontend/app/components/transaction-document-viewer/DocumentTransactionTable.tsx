@@ -46,7 +46,6 @@ type DocumentTransactionTableProps = {
   totalIncome: number;
 };
 
-// eslint-disable-next-line max-lines-per-function
 export function DocumentTransactionTable({
   transactions,
   formatDate,
@@ -78,10 +77,22 @@ export function DocumentTransactionTable({
           },
         }}
       >
-        <Typography variant="h6" fontWeight="700" color="text.primary">
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: '700',
+            color: 'text.primary',
+          }}
+        >
           {labels.transactionList}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mt: 0.5,
+          }}
+        >
           {labels.transactionListDescription}
         </Typography>
       </Box>
@@ -146,22 +157,52 @@ export function DocumentTransactionTable({
             alignItems: 'center',
           }}
         >
-          <Typography variant="body1" fontWeight="700" color="text.primary">
+          <Typography
+            variant="body1"
+            sx={{
+              fontWeight: '700',
+              color: 'text.primary',
+            }}
+          >
             {labels.total}
           </Typography>
           <Box sx={{ textAlign: 'right' }}>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                display: 'block',
+              }}
+            >
               {labels.totalExpenses}
             </Typography>
-            <Typography variant="h6" fontWeight="700" color="error.main">
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: '700',
+                color: 'error.main',
+              }}
+            >
               {formatNumber(totalExpense)}
             </Typography>
           </Box>
           <Box sx={{ textAlign: 'right' }}>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                display: 'block',
+              }}
+            >
               {labels.totalIncome}
             </Typography>
-            <Typography variant="h6" fontWeight="700" color="success.main">
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: '700',
+                color: 'success.main',
+              }}
+            >
               {formatNumber(totalIncome)}
             </Typography>
           </Box>

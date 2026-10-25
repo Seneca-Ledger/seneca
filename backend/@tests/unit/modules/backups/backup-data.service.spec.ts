@@ -6,9 +6,9 @@ import * as path from 'node:path';
 
 describe('BackupDataService', () => {
   it('exports workspace-scoped business records but strips encrypted secrets and integrations', async () => {
-    const categories = { find: jest.fn().mockResolvedValue([{ id: 'cat-1', workspaceId: 'ws-1', name: 'Travel' }]) };
+    const categories = { find: vi.fn().mockResolvedValue([{ id: 'cat-1', workspaceId: 'ws-1', name: 'Travel' }]) };
     const serviceSettings = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         {
           id: 'setting-1',
           workspaceId: 'ws-1',
@@ -18,7 +18,7 @@ describe('BackupDataService', () => {
         },
       ]),
     };
-    const integrations = { find: jest.fn() };
+    const integrations = { find: vi.fn() };
     const repositories = new Map([
       ['Category', categories],
       ['WorkspaceServiceSettings', serviceSettings],
@@ -52,7 +52,7 @@ describe('BackupDataService', () => {
 
   it('adds original statement files and replaces local paths with portable backup paths', async () => {
     const statements = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         { id: 'statement-1', workspaceId: 'ws-1', fileName: 'bank.csv', filePath: '/uploads/bank.csv' },
       ]),
     };
@@ -62,7 +62,7 @@ describe('BackupDataService', () => {
         getRepository: () => statements,
       } as never,
       {
-        getStatementFileStream: jest.fn().mockResolvedValue({
+        getStatementFileStream: vi.fn().mockResolvedValue({
           stream: Readable.from(Buffer.from('date,amount\n')),
           fileName: 'bank.csv',
         }),
@@ -89,7 +89,7 @@ describe('BackupDataService', () => {
     const attachment = path.join(directory, 'receipt.jpg');
     await fs.writeFile(attachment, 'receipt image');
     const receipts = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         { id: 'receipt-1', workspaceId: 'ws-1', attachmentPaths: [attachment], subject: 'Taxi' },
       ]),
     };
@@ -115,9 +115,9 @@ describe('BackupDataService', () => {
   });
 
   it('includes statement file versions with binary data encoded for JSON', async () => {
-    const statements = { find: jest.fn().mockResolvedValue([{ id: 'statement-1', workspaceId: 'ws-1' }]) };
+    const statements = { find: vi.fn().mockResolvedValue([{ id: 'statement-1', workspaceId: 'ws-1' }]) };
     const versions = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         { id: 'version-1', statementId: 'statement-1', createdBy: 'old-user', fileData: Buffer.from('original') },
       ]),
     };

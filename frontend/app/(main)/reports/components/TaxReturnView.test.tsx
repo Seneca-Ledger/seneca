@@ -18,43 +18,13 @@ vi.mock('@/app/lib/api', () => ({
 
 import { TaxReturnView } from './TaxReturnView';
 import { APP_NAME } from '@/app/lib/brand';
-
-const TOTALS = {
-  outputTax: 1200,
-  inputTax: 500,
-  netPayable: 700,
-  currency: 'KZT',
-  lines: [
-    {
-      transactionId: 'a',
-      date: '2026-02-10',
-      counterparty: 'Magnum',
-      direction: 'input' as const,
-      currency: 'KZT',
-      taxAmount: 500,
-      netAmount: 4500,
-      exchangeRate: 1,
-      taxAmountConverted: 500,
-    },
-    {
-      transactionId: 'b',
-      date: '2026-02-11',
-      counterparty: 'Polish supplier',
-      direction: 'reverse_charge' as const,
-      currency: 'EUR',
-      taxAmount: 190,
-      netAmount: 1000,
-      exchangeRate: 500,
-      taxAmountConverted: 95000,
-    },
-  ],
-};
+import { returnRecord, TOTALS, vatFiling } from './tax-return-view.fixtures';
 
 function mockApi({
-  status = 'draft',
+  status = 'draft' as 'draft' | 'filed',
   totals = TOTALS,
   threshold = null as unknown,
-  filing = null as unknown,
+  filing = vatFiling(null) as unknown,
   deadlines = [] as unknown[],
 } = {}) {
   get.mockImplementation(async (url: string) => {
@@ -65,7 +35,7 @@ function mockApi({
       return { data: deadlines };
     }
     if (url.startsWith('/tax/returns/period')) {
-      return { data: { id: 'ret-1', status, currency: 'KZT' } };
+      return { data: returnRecord(status) };
     }
     if (url.startsWith('/tax/returns/preview')) {
       return { data: totals };
@@ -109,7 +79,7 @@ describe('TaxReturnView', () => {
     mockApi();
     renderWithQuery(<TaxReturnView />);
 
-    expect(await screen.findByText('Magnum')).toBeInTheDocument();
+    expect(await screen.findByText('ACME Store')).toBeInTheDocument();
     // A reverse-charge line is named as such, since it appears on both sides.
     expect(screen.getByText('Reverse charge')).toBeInTheDocument();
   });
@@ -163,6 +133,8 @@ describe('TaxReturnView', () => {
         percentUsed: 80,
         periodStart: '2025-06-16',
         periodEnd: '2026-06-15',
+        window: 'r2026-06-15',
+        missingRateCurrencies: [],
       },
     });
     renderWithQuery(<TaxReturnView />);
@@ -175,7 +147,18 @@ describe('TaxReturnView', () => {
   });
 
   it('omits the gauge when the jurisdiction publishes none', async () => {
-    mockApi({ threshold: { threshold: null, turnover: 0, currency: 'KZT', percentUsed: 0 } });
+    mockApi({
+      threshold: {
+        threshold: null,
+        turnover: 0,
+        currency: 'KZT',
+        percentUsed: 0,
+        periodStart: '2026-01-01',
+        periodEnd: '2026-12-31',
+        window: '2026',
+        missingRateCurrencies: [],
+      },
+    });
     renderWithQuery(<TaxReturnView />);
 
     await screen.findByText('Output tax');
@@ -197,7 +180,7 @@ describe('TaxReturnView', () => {
           { transactionId: 'c', date: '2026-02-12', currency: 'USD' },
           { transactionId: 'd', date: '2026-02-13', currency: 'USD' },
         ],
-      } as typeof TOTALS,
+      },
     });
     renderWithQuery(<TaxReturnView />);
 
@@ -227,7 +210,7 @@ describe('TaxReturnView', () => {
   });
 
   it('offers months to a monthly filer', async () => {
-    mockApi({ filing: { frequency: 'monthly', isDefault: false, extension: false } });
+    mockApi({ filing: vatFiling('monthly') });
     renderWithQuery(<TaxReturnView />);
 
     expect(await screen.findByRole('button', { name: 'Last month' })).toBeInTheDocument();
@@ -258,6 +241,8 @@ describe('TaxReturnView', () => {
           done: false,
           filedElsewhere: false,
           returnName: 'Umsatzsteuer-Voranmeldung',
+          basis: 'statute',
+          checkedAt: '2026-07-01',
         },
       ],
     });
@@ -307,7 +292,7 @@ describe('TaxReturnView', () => {
       get.mockImplementation(async (url: string) => {
         if (url.startsWith('/tax/returns/export')) return { data: new Blob(['x']) };
         if (url.startsWith('/tax/returns/period')) {
-          return { data: { id: 'ret-1', status: 'draft', currency: 'KZT' } };
+          return { data: returnRecord('draft') };
         }
         if (url.startsWith('/tax/returns/preview')) return { data: TOTALS };
         return { data: null };
@@ -329,7 +314,7 @@ describe('TaxReturnView', () => {
       get.mockImplementation(async (url: string) => {
         if (url.startsWith('/tax/returns/export')) throw new Error('boom');
         if (url.startsWith('/tax/returns/period')) {
-          return { data: { id: 'ret-1', status: 'draft', currency: 'KZT' } };
+          return { data: returnRecord('draft') };
         }
         if (url.startsWith('/tax/returns/preview')) return { data: TOTALS };
         return { data: null };
@@ -346,7 +331,7 @@ describe('TaxReturnView', () => {
       get.mockImplementation(async (url: string) => {
         if (url.startsWith('/tax/returns/export')) return { data: new Blob(['x']) };
         if (url.startsWith('/tax/returns/period')) {
-          return { data: { id: 'ret-1', status: 'draft', currency: 'KZT' } };
+          return { data: returnRecord('draft') };
         }
         if (url.startsWith('/tax/returns/preview')) return { data: TOTALS };
         return { data: null };

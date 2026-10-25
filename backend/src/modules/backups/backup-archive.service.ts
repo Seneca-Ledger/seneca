@@ -1,5 +1,7 @@
 import * as crypto from 'node:crypto';
 import { promisify } from 'node:util';
+import { BadRequestException, HttpException, PayloadTooLargeException } from '@nestjs/common';
+import { appError, type ErrorCode } from '../../common/errors/app-error';
 
 import AdmZip = require('adm-zip');
 
@@ -21,7 +23,6 @@ const DATA_KEY_LENGTH = 32;
 const MAX_MANIFEST_BYTES = 300 * 1024 * 1024;
 const MAX_PAYLOAD_BYTES = 1024 * 1024 * 1024;
 const MAX_PAYLOAD_ENTRIES = 100_000;
-const TOO_LARGE = 'backup is too large';
 
 type ArchiveInput = {
   password?: string;
@@ -146,9 +147,13 @@ export class BackupArchiveService {
       const dataKey = this.decrypt(
         manifest.encryption.wrappedDataKey,
         passwordKey,
-        'password is invalid',
+        'BACKUP_ARCHIVE_PASSWORD_INVALID',
       );
-      const payload = this.decrypt(manifest.encryption.payload, dataKey, 'backup is corrupted');
+      const payload = this.decrypt(
+        manifest.encryption.payload,
+        dataKey,
+        'BACKUP_ARCHIVE_CORRUPTED',
+      );
       const inner = new AdmZip(payload);
       this.assertUnpackedSize(inner.getEntries(), MAX_PAYLOAD_BYTES, MAX_PAYLOAD_ENTRIES);
       const collections: Record<string, unknown[]> = {};
@@ -173,13 +178,11 @@ export class BackupArchiveService {
       this.verifyContents(manifest, collections, files);
       return { manifest, collections, files };
     } catch (error) {
-      if (
-        error instanceof Error &&
-        ['password is invalid', 'backup is corrupted', TOO_LARGE].includes(error.message)
-      ) {
+      // The integrity checks above throw plain errors: each one means a corrupted archive.
+      if (error instanceof HttpException) {
         throw error;
       }
-      throw new Error('backup is corrupted');
+      throw new BadRequestException(appError('BACKUP_ARCHIVE_CORRUPTED'));
     }
   }
 
@@ -187,7 +190,7 @@ export class BackupArchiveService {
   private assertUnpackedSize(entries: AdmZip.IZipEntry[], maxBytes: number, maxEntries: number) {
     const declared = entries.reduce((total, entry) => total + entry.header.size, 0);
     if (entries.length > maxEntries || declared > maxBytes) {
-      throw new Error(TOO_LARGE);
+      throw new PayloadTooLargeException(appError('BACKUP_ARCHIVE_TOO_LARGE'));
     }
   }
 
@@ -206,7 +209,7 @@ export class BackupArchiveService {
     };
   }
 
-  private decrypt(envelope: EncryptionEnvelope, key: Buffer, message: string): Buffer {
+  private decrypt(envelope: EncryptionEnvelope, key: Buffer, code: ErrorCode): Buffer {
     try {
       const decipher = crypto.createDecipheriv(
         'aes-256-gcm',
@@ -219,7 +222,7 @@ export class BackupArchiveService {
         decipher.final(),
       ]);
     } catch {
-      throw new Error(message);
+      throw new BadRequestException(appError(code));
     }
   }
 
@@ -283,7 +286,7 @@ export class BackupArchiveService {
 
   private assertPassword(password: string): void {
     if (!password) {
-      throw new Error('backup password is required');
+      throw new BadRequestException(appError('BACKUP_ARCHIVE_PASSWORD_REQUIRED'));
     }
   }
 }

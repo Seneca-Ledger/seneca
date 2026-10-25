@@ -69,7 +69,7 @@ These run inside the running `finflow-backend` container. The production backend
 
 ## Code quality
 
-- `make lint` - Runs each app's `lint` script, which only checks (backend: Biome; frontend: Biome + ESLint).
+- `make lint` - Runs each app's `lint` script, which only checks (Biome in both apps).
   To auto-fix, run `npm --prefix backend run lint:fix` and `npm --prefix frontend run lint:fix`.
 - `make lint-check` - Check linting without fixing
 - `make format` - Format code with Biome

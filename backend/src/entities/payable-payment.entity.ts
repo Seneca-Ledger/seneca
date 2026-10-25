@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Payable } from './payable.entity';
 import { Transaction } from './transaction.entity';
@@ -30,14 +31,14 @@ export class PayablePayment {
 
   @ManyToOne(() => Payable, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'payable_id' })
-  payable: Payable;
+  payable: Relation<Payable>;
 
   @Column({ name: 'payable_id', type: 'uuid' })
   payableId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -60,7 +61,7 @@ export class PayablePayment {
   /** The bank row this came from; NULL for a payment recorded by hand. */
   @ManyToOne(() => Transaction, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'transaction_id' })
-  transaction: Transaction | null;
+  transaction: Relation<Transaction | null>;
 
   @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
   transactionId: string | null;
@@ -70,7 +71,7 @@ export class PayablePayment {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;

@@ -1,0 +1,47 @@
+import * as Schema from 'effect/Schema';
+import { DateOnlyInput, NumericInput } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+/** The backend `InsightCategory` enum. */
+const InsightCategory = Schema.Literals([
+  'pattern',
+  'anomaly',
+  'operational',
+  'trend',
+  'workflow',
+  'stoic',
+  'expert',
+]);
+
+/** The interface language; one without translations falls back to English. */
+const Locale = Schema.String.check(Schema.isMaxLength(16));
+
+/** `GET /insights` (30 from the start when absent). */
+export const InsightsQuery = Schema.Struct({
+  category: Schema.optional(InsightCategory),
+  limit: Schema.optional(NumericInput),
+  offset: Schema.optional(NumericInput),
+  locale: Schema.optional(Locale),
+});
+export type InsightsQuery = Wire<typeof InsightsQuery>;
+
+/** `GET /insights/daily-quote`: `date` is the reader's own calendar day. */
+export const DailyQuoteQuery = Schema.Struct({
+  date: Schema.optional(DateOnlyInput),
+  locale: Schema.optional(Locale),
+});
+export type DailyQuoteQuery = Wire<typeof DailyQuoteQuery>;
+
+/** `POST /insights/refresh`. */
+export const InsightsRefreshQuery = Schema.Struct({ locale: Schema.optional(Locale) });
+export type InsightsRefreshQuery = Wire<typeof InsightsRefreshQuery>;
+
+/** `POST /insights/dismiss-all`: every category when absent. */
+export const InsightsDismissAllQuery = Schema.Struct({
+  category: Schema.optional(InsightCategory),
+});
+export type InsightsDismissAllQuery = Wire<typeof InsightsDismissAllQuery>;
+
+/** `POST /insights/:id/dismiss`. */
+export const InsightIdParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type InsightIdParams = Wire<typeof InsightIdParams>;

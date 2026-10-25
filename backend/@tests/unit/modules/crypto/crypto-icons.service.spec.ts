@@ -1,13 +1,14 @@
+import type { Mock } from 'vitest';
 import { CryptoIconsService } from '../../../../src/modules/crypto/crypto-icons.service';
 import { EffectRuntime } from '@/common/effect/effect-runtime';
 
 const PNG = Buffer.from('89504e470d0a1a0a', 'hex');
 
-function build(fetchImpl: jest.Mock) {
+function build(fetchImpl: Mock) {
   const store = new Map<string, unknown>();
   const cache = {
-    get: jest.fn(async (key: string) => store.get(key)),
-    set: jest.fn(async (key: string, value: unknown) => {
+    get: vi.fn(async (key: string) => store.get(key)),
+    set: vi.fn(async (key: string, value: unknown) => {
       store.set(key, value);
     }),
   };
@@ -29,12 +30,12 @@ const image = (contentType = 'image/png', body: Buffer = PNG) =>
 
 describe('CryptoIconsService', () => {
   it('fetches the logo of a coin we price', async () => {
-    const fetchMock = jest.fn(async (url: string) =>
+    const fetchMock = vi.fn(async (url: string) =>
       url.includes('/coins/markets')
         ? json([{ image: 'https://coin-images.coingecko.com/coins/1/large/bitcoin.png' }])
         : image(),
     );
-    const { service } = build(fetchMock as jest.Mock);
+    const { service } = build(fetchMock as Mock);
 
     const result = await service.fetchIcon('btc');
 
@@ -43,12 +44,12 @@ describe('CryptoIconsService', () => {
   });
 
   it('answers the second call from the cache, without touching the network', async () => {
-    const fetchMock = jest.fn(async (url: string) =>
+    const fetchMock = vi.fn(async (url: string) =>
       url.includes('/coins/markets')
         ? json([{ image: 'https://coin-images.coingecko.com/coins/1/large/bitcoin.png' }])
         : image(),
     );
-    const { service } = build(fetchMock as jest.Mock);
+    const { service } = build(fetchMock as Mock);
 
     await service.fetchIcon('BTC');
     const calls = fetchMock.mock.calls.length;
@@ -59,7 +60,7 @@ describe('CryptoIconsService', () => {
   });
 
   it('searches for a ticker we do not price, and takes only an exact match', async () => {
-    const fetchMock = jest.fn(async (url: string) => {
+    const fetchMock = vi.fn(async (url: string) => {
       if (url.includes('/search')) {
         return json({
           coins: [
@@ -70,7 +71,7 @@ describe('CryptoIconsService', () => {
       }
       return image();
     });
-    const { service } = build(fetchMock as jest.Mock);
+    const { service } = build(fetchMock as Mock);
 
     const result = await service.fetchIcon('ADA');
 
@@ -79,12 +80,12 @@ describe('CryptoIconsService', () => {
   });
 
   it('refuses to fetch an image from anywhere but the price source', async () => {
-    const fetchMock = jest.fn(async (url: string) =>
+    const fetchMock = vi.fn(async (url: string) =>
       url.includes('/coins/markets')
         ? json([{ image: 'https://evil.example.com/logo.png' }])
         : image(),
     );
-    const { service } = build(fetchMock as jest.Mock);
+    const { service } = build(fetchMock as Mock);
 
     const result = await service.fetchIcon('BTC');
 
@@ -95,28 +96,28 @@ describe('CryptoIconsService', () => {
   });
 
   it('rejects anything that is not a raster image', async () => {
-    const fetchMock = jest.fn(async (url: string) =>
+    const fetchMock = vi.fn(async (url: string) =>
       url.includes('/coins/markets')
         ? json([{ image: 'https://coin-images.coingecko.com/coins/1/large/bitcoin.png' }])
         : image('image/svg+xml'),
     );
-    const { service } = build(fetchMock as jest.Mock);
+    const { service } = build(fetchMock as Mock);
 
     // An SVG from another origin can carry script, and we serve this from ours.
     expect((await service.fetchIcon('BTC')).status).toBe('unavailable');
   });
 
   it('does not take a rate limit for "this coin has no logo"', async () => {
-    const fetchMock = jest.fn(async () => new Response('{}', { status: 429 }));
-    const { service, store } = build(fetchMock as jest.Mock);
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 429 }));
+    const { service, store } = build(fetchMock as Mock);
 
     expect((await service.fetchIcon('BTC')).status).toBe('unavailable');
     expect(store.size).toBe(0);
   });
 
   it('turns away anything that is not a ticker before any request', async () => {
-    const fetchMock = jest.fn();
-    const { service } = build(fetchMock as jest.Mock);
+    const fetchMock = vi.fn();
+    const { service } = build(fetchMock as Mock);
 
     expect((await service.fetchIcon('../../etc/passwd')).status).toBe('invalid');
     expect(fetchMock).not.toHaveBeenCalled();

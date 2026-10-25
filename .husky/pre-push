@@ -16,7 +16,7 @@ backend_exit=0
 if [ -z "$changed_files" ]; then
   echo "No backend source changes — skipping backend tests"
 else
-  npm --prefix backend run test:unit --bail > "$backend_log" 2>&1
+  npm --prefix backend run test:unit -- --bail=1 > "$backend_log" 2>&1
   backend_exit=$?
 fi
 

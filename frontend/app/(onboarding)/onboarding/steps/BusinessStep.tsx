@@ -27,13 +27,7 @@ export function BusinessStep({ locale, taxCountry, business, onChange }: Busines
       component="section"
       sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
     >
-      <StepHeading
-        title={text(['business', 'title'], 'Business details')}
-        subtitle={text(
-          ['business', 'subtitle'],
-          'They appear on your invoices. Fill in what you have; the rest can wait.',
-        )}
-      />
+      <StepHeading title={text(['business', 'title'])} subtitle={text(['business', 'subtitle'])} />
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         <OnboardingTextField
@@ -86,10 +80,7 @@ export function BusinessStep({ locale, taxCountry, business, onChange }: Busines
           }}
         >
           <FlagIcon code={taxCountry} size={18} />
-          {text(
-            ['business', 'countryNote'],
-            'Country: {country}, from your tax residence.',
-          ).replace('{country}', countryName(taxCountry, locale))}
+          {text(['business', 'countryNote']).replace('{country}', countryName(taxCountry, locale))}
         </Box>
       ) : null}
     </Box>

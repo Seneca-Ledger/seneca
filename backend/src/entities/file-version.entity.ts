@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Statement } from './statement.entity';
 import { User } from './user.entity';
@@ -19,14 +20,14 @@ export class FileVersion {
 
   @ManyToOne(() => Statement, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'statement_id' })
-  statement: Statement;
+  statement: Relation<Statement>;
 
   @Column({ name: 'created_by' })
   createdBy: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'created_by' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'file_hash' })
   fileHash: string;

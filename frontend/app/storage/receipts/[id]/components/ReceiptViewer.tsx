@@ -2,6 +2,7 @@
 
 import { Box, Typography } from '@mui/material';
 import { useTheme } from 'next-themes';
+import { useIntlayer } from '@/app/i18n';
 import type { ReceiptRecord } from '@/app/lib/api';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -78,14 +79,15 @@ function PreviewContent({
   previewError,
   subject,
 }: PreviewContentProps): React.ReactElement {
+  const t = useIntlayer('receiptDocumentPage');
   if (previewLoading) {
-    return <CenteredMessage>Preparing preview...</CenteredMessage>;
+    return <CenteredMessage>{t.preparingPreview}</CenteredMessage>;
   }
   if (previewError) {
     return <CenteredMessage>{previewError}</CenteredMessage>;
   }
   if (!previewUrl) {
-    return <CenteredMessage>Preview unavailable</CenteredMessage>;
+    return <CenteredMessage>{t.previewUnavailable}</CenteredMessage>;
   }
 
   const isPdf = (previewMimeType || '').includes('pdf');
@@ -111,6 +113,7 @@ export function ReceiptViewer({
   previewMimeType,
   previewError,
 }: ReceiptViewerProps): React.ReactElement {
+  const t = useIntlayer('receiptDocumentPage');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   return (
@@ -131,7 +134,7 @@ export function ReceiptViewer({
       >
         <Box sx={{ borderBottom: `1px solid ${c.ink150}`, px: 2.5, py: 2 }}>
           <Typography style={{ fontSize: 14, fontWeight: 600, color: c.ink900 }}>
-            Original document
+            {t.originalDocument}
           </Typography>
         </Box>
         <Box sx={{ flex: 1, overflow: 'auto', bgcolor: c.ink50, p: 2 }}>

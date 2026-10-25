@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { Category } from '../../../entities/category.entity';
 import { Receipt } from '../../../entities/receipt.entity';
 import { Transaction } from '../../../entities/transaction.entity';
@@ -64,10 +65,10 @@ export class ReceiptSplitService {
   ) {
     const suggestion = await this.build(receiptId, workspaceId, reviewed);
     if (suggestion.alreadySplit) {
-      throw new BadRequestException('The transaction is already split');
+      throw new BadRequestException(appError('RECEIPT_SPLIT_ALREADY_SPLIT'));
     }
     if (!suggestion.splittable) {
-      throw new BadRequestException('All line items fall into one category');
+      throw new BadRequestException(appError('RECEIPT_SPLIT_ONE_CATEGORY'));
     }
     const vendor = (await this.receiptRepository.findOne({ where: { id: receiptId, workspaceId } }))
       ?.parsedData?.vendor;
@@ -100,16 +101,16 @@ export class ReceiptSplitService {
   ): Promise<ReceiptSplitSuggestion> {
     const receipt = await this.receiptRepository.findOne({ where: { id: receiptId, workspaceId } });
     if (!receipt) {
-      throw new NotFoundException('Receipt not found');
+      throw new NotFoundException(appError('RECEIPT_NOT_FOUND'));
     }
     if (!receipt.transactionId) {
-      throw new BadRequestException('Approve the receipt first so there is a transaction to split');
+      throw new BadRequestException(appError('RECEIPT_SPLIT_NOT_APPROVED'));
     }
     const transaction = await this.transactionRepository.findOne({
       where: { id: receipt.transactionId, workspaceId },
     });
     if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('RECEIPT_TRANSACTION_NOT_FOUND'));
     }
     const total = Math.abs(
       Number(transaction.amount) || Number(transaction.debit) || Number(transaction.credit) || 0,
@@ -131,7 +132,7 @@ export class ReceiptSplitService {
       item => item.description?.trim() && Number(item.amount) > 0,
     );
     if (lines.length < 2) {
-      throw new BadRequestException('The receipt needs at least two line items');
+      throw new BadRequestException(appError('RECEIPT_SPLIT_TOO_FEW_LINES'));
     }
 
     const categories = await this.categoryRepository.find({ where: { workspaceId } });
@@ -173,12 +174,12 @@ export class ReceiptSplitService {
           Math.abs(Number(line.amount) - reviewed[index].amount) < 0.005,
       );
     if (!sameLines) {
-      throw new BadRequestException('The receipt lines changed; reload the split preview');
+      throw new BadRequestException(appError('RECEIPT_SPLIT_STALE'));
     }
     return reviewed.map(item => {
       const categoryId = item.categoryId ?? null;
       if (categoryId && !known.has(categoryId)) {
-        throw new BadRequestException('Unknown category');
+        throw new BadRequestException(appError('RECEIPT_SPLIT_CATEGORY_UNKNOWN'));
       }
       return { description: item.description.trim(), amount: item.amount, categoryId };
     });

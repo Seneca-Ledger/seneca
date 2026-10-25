@@ -122,13 +122,21 @@ export function ForecastEvents({
                     checked={included}
                     onChange={() => onToggle(event.sourceId)}
                     disabled={event.kind === 'scenario'}
-                    inputProps={{ 'aria-label': event.label }}
+                    slotProps={{
+                      input: { 'aria-label': event.label },
+                    }}
                   />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant="body2" noWrap>
                       {event.label}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" component="div">
+                    <Typography
+                      variant="caption"
+                      component="div"
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       {formatStoredDateWithOptions(event.date, { day: 'numeric', month: 'short' })}
                       {' · '}
                       {t[KIND_KEYS[event.kind] as 'kindPayable']}

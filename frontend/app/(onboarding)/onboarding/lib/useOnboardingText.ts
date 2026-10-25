@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import { getNestedOnboardingValue, resolveOnboardingText } from './resolveOnboardingText';
 
-export type OnboardingText = (path: string[], fallback?: string) => string;
+export type OnboardingText = (path: string[]) => string;
 
 /**
  * The onboarding dictionary in the language picked on the first step, which the
@@ -13,8 +13,7 @@ export type OnboardingText = (path: string[], fallback?: string) => string;
 export function useOnboardingText(locale: string): OnboardingText {
   const t = useIntlayer('onboardingPage');
   return useCallback(
-    (path: string[], fallback = '') =>
-      resolveOnboardingText(getNestedOnboardingValue(t, path), fallback, locale),
+    (path: string[]) => resolveOnboardingText(getNestedOnboardingValue(t, path), '', locale),
     [t, locale],
   );
 }

@@ -1,11 +1,19 @@
-import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { CreateTaxRateBody, TaxRateItem, TaxRateList, UpdateTaxRateBody } from '../../contracts';
+import {
+  CreateTaxRateBody,
+  MessageResult,
+  TaxRateItem,
+  TaxRateList,
+  TaxRecordParams,
+  UpdateTaxRateBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { TaxRatesService } from './tax-rates.service';
@@ -23,7 +31,11 @@ export class TaxRatesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(TaxRateItem)
+  async findOne(
+    @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.taxRatesService.findOne(id, workspaceId);
   }
 
@@ -40,8 +52,9 @@ export class TaxRatesController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(TaxRateItem)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @SchemaBody(UpdateTaxRateBody) updateDto: UpdateTaxRateBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
@@ -51,8 +64,9 @@ export class TaxRatesController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.CATEGORY_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

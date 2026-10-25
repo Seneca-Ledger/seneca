@@ -1,6 +1,4 @@
-import { labelValue } from '../editHelpers';
-
-type Labels = Record<string, { value?: string } | undefined>;
+type Labels = Record<string, { value: string }>;
 
 type PageContent = {
   labels: Record<string, { value?: string; toString?: () => string } | string | undefined>;
@@ -39,13 +37,13 @@ export function buildMessages(t: PageContent, labels: Labels): Messages {
     updateTransactionsError: t.errors.updateTransactions.value,
     deleteTransactionsError: t.errors.deleteTransactions.value,
     assignCategoryError: t.errors.assignCategory.value,
-    exportLoading: labelValue(tl.exportLoading, 'Exporting...'),
-    exportSuccess: labelValue(tl.exportSuccess, 'Exported successfully'),
-    exportFailure: labelValue(tl.exportFailure, 'Export failed'),
-    exportDescription: labelValue(tl.exportDescription, ''),
-    statementNamePrefix: labelValue(tl.statementNamePrefix, ''),
-    categoryUpdated: labelValue(labels.categoryUpdated, 'Category updated'),
-    categoryUpdateFailed: labelValue(labels.categoryUpdateFailed, 'Failed to update category'),
+    exportLoading: tl.exportLoading.value,
+    exportSuccess: tl.exportSuccess.value,
+    exportFailure: tl.exportFailure.value,
+    exportDescription: tl.exportDescription.value,
+    statementNamePrefix: tl.statementNamePrefix.value,
+    categoryUpdated: labels.categoryUpdated.value,
+    categoryUpdateFailed: labels.categoryUpdateFailed.value,
   };
 }
 
@@ -64,14 +62,14 @@ export function buildHeaderT(t: PageContent): HeaderT {
   const tl = t.labels as Labels;
   return {
     labels: {
-      back: labelValue(tl.back, 'Back'),
-      transactionsCount: { value: labelValue(tl.transactionsCount, 'transactions') },
-      requireCategory: { value: labelValue(tl.requireCategory, '{count} require a category') },
+      back: tl.back.value,
+      transactionsCount: { value: tl.transactionsCount.value },
+      requireCategory: { value: tl.requireCategory.value },
       selectCategoryHint: {
-        value: labelValue(tl.selectCategoryHint, 'Assign categories to continue'),
+        value: tl.selectCategoryHint.value,
       },
-      disabledSuffix: { value: labelValue(tl.disabledSuffix, ' (disabled)') },
-      exportButton: { value: labelValue(tl.exportButton, 'Export to table') },
+      disabledSuffix: { value: tl.disabledSuffix.value },
+      exportButton: { value: tl.exportButton.value },
     },
   };
 }
@@ -86,12 +84,12 @@ type ExportDialogLabels = {
 export function buildExportDialogLabels(t: PageContent): ExportDialogLabels {
   const tl = t.labels as Labels;
   return {
-    exportConfirmTitle: { value: labelValue(tl.exportConfirmTitle, 'Export to table') },
+    exportConfirmTitle: { value: tl.exportConfirmTitle.value },
     exportConfirmBody: {
-      value: labelValue(tl.exportConfirmBody, 'This will create a new custom table.'),
+      value: tl.exportConfirmBody.value,
     },
-    cancel: { value: labelValue(tl.cancel, 'Cancel') },
-    exportConfirmConfirm: { value: labelValue(tl.exportConfirmConfirm, 'Export') },
+    cancel: { value: tl.cancel.value },
+    exportConfirmConfirm: { value: tl.exportConfirmConfirm.value },
   };
 }
 
@@ -102,10 +100,10 @@ export function buildCategoryDrawerLabels(labels: Labels): {
   noResults: string;
 } {
   return {
-    title: labelValue(labels.categoryDrawerTitle, 'Category'),
-    searchPlaceholder: labelValue(labels.categorySearchPlaceholder, 'Search'),
-    allOption: labelValue(labels.categoryAllOption, 'All'),
-    noResults: labelValue(labels.categoryNoResults, 'No categories found'),
+    title: labels.categoryDrawerTitle.value,
+    searchPlaceholder: labels.categorySearchPlaceholder.value,
+    allOption: labels.categoryAllOption.value,
+    noResults: labels.categoryNoResults.value,
   };
 }
 
@@ -122,6 +120,6 @@ export function buildUiLabels(
     headerT: buildHeaderT(t),
     exportDialog: buildExportDialogLabels(t),
     categoryDrawer: buildCategoryDrawerLabels(labels),
-    changesSaved: labelValue(labels.changesSaved, 'Changes saved'),
+    changesSaved: labels.changesSaved.value,
   };
 }

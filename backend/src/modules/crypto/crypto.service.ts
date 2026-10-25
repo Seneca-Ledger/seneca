@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import type {
   ConnectCryptoWalletBody,
@@ -127,7 +128,7 @@ export class CryptoService {
     // An address of one family on another family's chain would sync nothing, or
     // another address's history if the formats ever collided.
     if (!family || chainIds.some(id => id === null || CHAINS[id]?.family !== family)) {
-      throw new BadRequestException('The address does not belong to the selected network');
+      throw new BadRequestException(appError('CRYPTO_ADDRESS_NETWORK_MISMATCH'));
     }
 
     const created: CryptoWallet[] = [];
@@ -150,7 +151,7 @@ export class CryptoService {
       );
     }
     if (created.length === 0) {
-      throw new ConflictException('This address is already connected to the workspace');
+      throw new ConflictException(appError('CRYPTO_ADDRESS_ALREADY_CONNECTED'));
     }
 
     await this.recordAudit(
@@ -189,7 +190,7 @@ export class CryptoService {
   ): Promise<CryptoWalletView> {
     const asset = dto.asset.trim().toUpperCase();
     if (Number(dto.amount) <= 0) {
-      throw new BadRequestException('An amount is a positive number');
+      throw new BadRequestException(appError('CRYPTO_AMOUNT_NOT_POSITIVE'));
     }
 
     const wallet = await this.getOrCreateManualWallet(workspaceId, userId, dto.label ?? undefined);
@@ -219,7 +220,7 @@ export class CryptoService {
 
     const view = (await this.findAll(workspaceId)).find(item => item.id === wallet.id);
     if (!view) {
-      throw new NotFoundException('Crypto wallet not found');
+      throw new NotFoundException(appError('CRYPTO_WALLET_NOT_FOUND'));
     }
     return view;
   }
@@ -232,7 +233,7 @@ export class CryptoService {
     });
     const balance = wallet?.balances?.find(item => item.asset === ticker);
     if (!(wallet && balance)) {
-      throw new NotFoundException('Holding not found');
+      throw new NotFoundException(appError('CRYPTO_HOLDING_NOT_FOUND'));
     }
 
     await this.walletRepo.update(wallet.id, {
@@ -309,7 +310,7 @@ export class CryptoService {
   async sync(workspaceId: string, walletId: string, userId: string): Promise<WalletSyncResult> {
     const wallet = await this.getOwnedWallet(workspaceId, walletId);
     if (wallet.kind === CryptoWalletKind.MANUAL) {
-      throw new BadRequestException('A manual holding has no chain to sync');
+      throw new BadRequestException(appError('CRYPTO_MANUAL_HOLDING_NO_CHAIN'));
     }
     const result = await this.syncService.syncWallet(wallet);
     // A sync that found nothing new changed nothing worth a log entry.
@@ -450,7 +451,12 @@ export class CryptoService {
         .getMany(),
       this.walletRepo.find({
         where: { workspaceId },
-        select: ['id', 'label', 'address', 'chainId'],
+        select: {
+          id: true,
+          label: true,
+          address: true,
+          chainId: true,
+        },
       }),
     ]);
     const walletById = new Map(wallets.map(wallet => [wallet.id, wallet]));
@@ -548,7 +554,7 @@ export class CryptoService {
   private async getOwnedWallet(workspaceId: string, walletId: string): Promise<CryptoWallet> {
     const wallet = await this.walletRepo.findOne({ where: { id: walletId, workspaceId } });
     if (!wallet) {
-      throw new NotFoundException('Crypto wallet not found');
+      throw new NotFoundException(appError('CRYPTO_WALLET_NOT_FOUND'));
     }
     return wallet;
   }

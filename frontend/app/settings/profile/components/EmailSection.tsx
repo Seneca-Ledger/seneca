@@ -49,7 +49,14 @@ export function EmailSection({
       {emailError && <Alert variant="error">{emailError}</Alert>}
 
       <Stack spacing={0.5}>
-        <Typography component="label" htmlFor="email-next" variant="body2" fontWeight={600}>
+        <Typography
+          component="label"
+          htmlFor="email-next"
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.emailCard.newEmailLabel.value}
         </Typography>
         <TextField
@@ -64,7 +71,14 @@ export function EmailSection({
       </Stack>
 
       <Stack spacing={0.5}>
-        <Typography component="label" htmlFor="email-password" variant="body2" fontWeight={600}>
+        <Typography
+          component="label"
+          htmlFor="email-password"
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.emailCard.currentPasswordLabel.value}
         </Typography>
         <TextField
@@ -76,7 +90,12 @@ export function EmailSection({
           required
           fullWidth
         />
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {t.emailCard.currentPasswordHelp.value}
         </Typography>
       </Stack>

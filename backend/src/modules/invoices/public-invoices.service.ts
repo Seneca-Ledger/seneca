@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { Client } from '../../entities/client.entity';
 import { Invoice, InvoiceStatus } from '../../entities/invoice.entity';
 import { Payable, PayableStatus } from '../../entities/payable.entity';
@@ -136,7 +137,7 @@ export class PublicInvoicesService {
       .andWhere('invoice.deletedAt IS NULL')
       .getOne();
     if (!invoice?.fileData || invoice.status === InvoiceStatus.VOID) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
     }
     await this.recordView(invoice);
     return { fileName: `${invoice.invoiceNumber ?? 'invoice'}.pdf`, data: invoice.fileData };
@@ -151,7 +152,7 @@ export class PublicInvoicesService {
     // A void'd invoice is withdrawn: the link stops working rather than
     // showing a document the client should no longer act on.
     if (!invoice || invoice.deletedAt || invoice.status === InvoiceStatus.VOID) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
     }
     return invoice;
   }
@@ -163,7 +164,9 @@ export class PublicInvoicesService {
     }
     const payable = await this.payableRepository.findOne({
       where: { id: invoice.payableId },
-      select: ['status'],
+      select: {
+        status: true,
+      },
     });
     if (payable?.status === PayableStatus.PAID) {
       return 'paid';

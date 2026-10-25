@@ -4,6 +4,7 @@ import { renderWithQuery } from '@/app/test/query-wrapper';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/app/components/dashboard/test-setup';
+import WorkspaceCategoriesView from './WorkspaceCategoriesView';
 
 const apiGet = vi.hoisted(() => vi.fn());
 const authUser = vi.hoisted(() => ({ id: 'user-1' }));
@@ -19,7 +20,11 @@ vi.mock('@/app/hooks/useAuth', () => ({
 }));
 
 vi.mock('@/app/i18n', () => ({
-  useIntlayer: () => ({
+  // The icon picker reads its names from `categoryIcons`: each name is its key.
+  useIntlayer: (key: string) =>
+    key === 'categoryIcons'
+      ? new Proxy({}, { get: (_target, name) => ({ value: String(name) }) })
+      : {
     title: 'Categories',
     subtitle: 'Subtitle',
     add: 'Add',
@@ -85,7 +90,7 @@ vi.mock('@/app/i18n', () => ({
         warning: 'Existing items will show a warning until a new category is selected.',
       },
     },
-  }),
+        },
   useLocale: () => ({ locale: 'en' }),
 }));
 
@@ -136,7 +141,6 @@ describe('WorkspaceCategoriesView', () => {
   });
 
   it('renders parsing categories with parsing badge instead of system', async () => {
-    const { default: WorkspaceCategoriesView } = await import('./WorkspaceCategoriesView');
 
     renderWithQuery(<WorkspaceCategoriesView />);
 
@@ -150,7 +154,6 @@ describe('WorkspaceCategoriesView', () => {
   });
 
   it('localizes system categories but keeps parsing category names raw', async () => {
-    const { default: WorkspaceCategoriesView } = await import('./WorkspaceCategoriesView');
 
     apiGet.mockImplementation((url: string) => {
       if (url === '/categories') {
@@ -197,7 +200,6 @@ describe('WorkspaceCategoriesView', () => {
   });
 
   it('uses dark-safe surfaces instead of white category rows', async () => {
-    const { default: WorkspaceCategoriesView } = await import('./WorkspaceCategoriesView');
 
     const { container } = renderWithQuery(<WorkspaceCategoriesView />);
 
@@ -210,7 +212,6 @@ describe('WorkspaceCategoriesView', () => {
   });
 
   it('renders category enabled controls as switches', async () => {
-    const { default: WorkspaceCategoriesView } = await import('./WorkspaceCategoriesView');
 
     renderWithQuery(<WorkspaceCategoriesView />);
 
@@ -222,7 +223,6 @@ describe('WorkspaceCategoriesView', () => {
   });
 
   it('does not render ripple feedback for category enabled switches', async () => {
-    const { default: WorkspaceCategoriesView } = await import('./WorkspaceCategoriesView');
 
     const { container } = renderWithQuery(<WorkspaceCategoriesView />);
 

@@ -3,11 +3,11 @@ import { CustomTableShareStatus } from '../../../src/entities/custom-table-share
 import { CustomTableSharesService } from '../../../src/modules/custom-tables/custom-table-shares.service';
 
 const createRepositoryMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  save: jest.fn(async (v: unknown) => v),
-  create: jest.fn((value?: unknown) => value),
-  createQueryBuilder: jest.fn(),
+  findOne: vi.fn(),
+  find: vi.fn(),
+  save: vi.fn(async (v: unknown) => v),
+  create: vi.fn((value?: unknown) => value),
+  createQueryBuilder: vi.fn(),
 });
 
 const TABLE_ID = '11111111-1111-4111-8111-111111111111';
@@ -19,13 +19,13 @@ function buildService(share?: Record<string, unknown>) {
   const columnRepository = createRepositoryMock();
   const rowRepository = createRepositoryMock();
   const workspaceMemberRepository = createRepositoryMock();
-  const auditService = { createEvent: jest.fn(), createBatchEvents: jest.fn() };
+  const auditService = { createEvent: vi.fn(), createBatchEvents: vi.fn() };
 
   tableRepository.createQueryBuilder.mockReturnValue({
-    leftJoin: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getOne: jest.fn().mockResolvedValue({ id: TABLE_ID, name: 'Отчёт', description: null }),
+    leftJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getOne: vi.fn().mockResolvedValue({ id: TABLE_ID, name: 'Отчёт', description: null }),
   });
   tableRepository.findOne.mockResolvedValue({ id: TABLE_ID, name: 'Отчёт', description: null });
   columnRepository.find.mockResolvedValue([
@@ -33,12 +33,12 @@ function buildService(share?: Record<string, unknown>) {
   ]);
   shareRepository.findOne.mockResolvedValue(share ?? null);
   rowRepository.createQueryBuilder.mockReturnValue({
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    getCount: jest.fn().mockResolvedValue(2),
-    getMany: jest.fn().mockResolvedValue([
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    take: vi.fn().mockReturnThis(),
+    getCount: vi.fn().mockResolvedValue(2),
+    getMany: vi.fn().mockResolvedValue([
       { id: 'secret-row-id', rowNumber: 1, data: { a: 'x' } },
     ]),
   });

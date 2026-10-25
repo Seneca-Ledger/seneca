@@ -124,7 +124,13 @@ export function GoalItemsCard({
                     font: 'inherit',
                   }}
                 >
-                  <Typography variant="body2" fontWeight={600} noWrap>
+                  <Typography
+                    variant="body2"
+                    noWrap
+                    sx={{
+                      fontWeight: 600,
+                    }}
+                  >
                     {item.name}
                   </Typography>
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -133,7 +139,13 @@ export function GoalItemsCard({
                 </Box>
 
                 <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="body2" fontWeight={600} className={PRIVATE_CLASS}>
+                  <Typography
+                    variant="body2"
+                    className={PRIVATE_CLASS}
+                    sx={{
+                      fontWeight: 600,
+                    }}
+                  >
                     {formatMoney(item.actualAmount ?? item.estimatedAmount, item.currency, locale)}
                   </Typography>
                   {/* Both numbers only when they differ: repeating the estimate

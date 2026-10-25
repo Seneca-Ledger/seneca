@@ -446,7 +446,7 @@ export class PeppolService {
       })
       .getOne();
     if (!row) {
-      throw new NotFoundException('Peppol transmission not found');
+      throw new NotFoundException(appError('PEPPOL_TRANSMISSION_NOT_FOUND'));
     }
     return {
       data: Buffer.from(row.documentXml, 'utf8'),

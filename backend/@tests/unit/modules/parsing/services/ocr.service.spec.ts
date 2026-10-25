@@ -1,6 +1,6 @@
 import { OcrService } from '../../../../../src/modules/parsing/services/ocr.service';
 
-const mockRecognize = jest.fn().mockResolvedValue({
+const mockRecognize = vi.fn().mockResolvedValue({
   data: {
     text: 'Store ABC\nItem 1   $10.00\nItem 2   $20.00\nTotal    $30.00',
     confidence: 85,
@@ -8,25 +8,25 @@ const mockRecognize = jest.fn().mockResolvedValue({
   },
 });
 
-const mockTerminate = jest.fn().mockResolvedValue(undefined);
+const mockTerminate = vi.fn().mockResolvedValue(undefined);
 
-jest.mock('tesseract.js', () => ({
-  createWorker: jest.fn().mockResolvedValue({
+vi.mock('tesseract.js', () => ({
+  createWorker: vi.fn().mockResolvedValue({
     recognize: mockRecognize,
     terminate: mockTerminate,
   }),
 }));
 
 const mockSharpChain = {
-  grayscale: jest.fn().mockReturnThis(),
-  normalize: jest.fn().mockReturnThis(),
-  sharpen: jest.fn().mockReturnThis(),
-  toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-image')), // processed image
+  grayscale: vi.fn().mockReturnThis(),
+  normalize: vi.fn().mockReturnThis(),
+  sharpen: vi.fn().mockReturnThis(),
+  toBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-image')), // processed image
 };
 
-jest.mock('sharp', () => ({
+vi.mock('sharp', () => ({
   __esModule: true,
-  default: jest.fn().mockImplementation(() => mockSharpChain),
+  default: vi.fn().mockImplementation(() => mockSharpChain),
 }));
 
 describe('OcrService', () => {
@@ -34,7 +34,7 @@ describe('OcrService', () => {
 
   beforeEach(() => {
     service = new OcrService();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('isImageFile', () => {

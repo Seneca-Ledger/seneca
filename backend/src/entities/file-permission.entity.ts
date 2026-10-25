@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
@@ -33,14 +34,14 @@ export class FilePermission {
 
   @ManyToOne(() => Statement, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'statement_id' })
-  statement: Statement;
+  statement: Relation<Statement>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   // Granted by user (who shared the file)
   @Column({ name: 'granted_by_id', type: 'uuid' })
@@ -48,7 +49,7 @@ export class FilePermission {
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'granted_by_id' })
-  grantedBy: User;
+  grantedBy: Relation<User>;
 
   // Permission type
   @Column({

@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { NotFoundException } from '@nestjs/common';
 import { BudgetPeriodType } from '@/entities/budget.entity';
@@ -27,26 +28,26 @@ function createTransactionRepo(rows: Rows) {
   /** Every condition each transaction query was given, one list per query. */
   const conditions: string[][] = [];
 
-  const createQueryBuilder = jest.fn(() => {
+  const createQueryBuilder = vi.fn(() => {
     const aliases: string[] = [];
     const clauses: string[] = [];
     calls.push(aliases);
     conditions.push(clauses);
     const builder: Record<string, unknown> = {
-      select: jest.fn(() => builder),
-      addSelect: jest.fn((_expression: string, alias: string) => {
+      select: vi.fn(() => builder),
+      addSelect: vi.fn((_expression: string, alias: string) => {
         aliases.push(alias);
         return builder;
       }),
-      where: jest.fn(() => builder),
-      andWhere: jest.fn((clause: string) => {
+      where: vi.fn(() => builder),
+      andWhere: vi.fn((clause: string) => {
         clauses.push(clause);
         return builder;
       }),
-      groupBy: jest.fn(() => builder),
-      addGroupBy: jest.fn(() => builder),
-      setParameter: jest.fn(() => builder),
-      getRawMany: jest.fn(async () =>
+      groupBy: vi.fn(() => builder),
+      addGroupBy: vi.fn(() => builder),
+      setParameter: vi.fn(() => builder),
+      getRawMany: vi.fn(async () =>
         aliases.includes('merchant') ? (rows.merchants ?? []) : (rows.categories ?? []),
       ),
     };
@@ -74,49 +75,49 @@ function createService(options: {
   );
 
   const goalRepository = {
-    findOne: jest.fn(async () => options.goal ?? null),
+    findOne: vi.fn(async () => options.goal ?? null),
   } as never;
 
   const contributionRepository = {
-    createQueryBuilder: jest.fn(() => {
+    createQueryBuilder: vi.fn(() => {
       const builder: Record<string, unknown> = {
-        select: jest.fn(() => builder),
-        where: jest.fn(() => builder),
-        andWhere: jest.fn(() => builder),
-        getRawOne: jest.fn(async () => ({ total: options.contributed ?? '0' })),
+        select: vi.fn(() => builder),
+        where: vi.fn(() => builder),
+        andWhere: vi.fn(() => builder),
+        getRawOne: vi.fn(async () => ({ total: options.contributed ?? '0' })),
       };
       return builder;
     }),
   } as never;
 
   const budgetRepository = {
-    find: jest.fn(async () => options.budgets ?? []),
+    find: vi.fn(async () => options.budgets ?? []),
   } as never;
 
   const dataEntryRepository = {
-    createQueryBuilder: jest.fn(() => {
+    createQueryBuilder: vi.fn(() => {
       const builder: Record<string, unknown> = {
-        select: jest.fn(() => builder),
-        addSelect: jest.fn(() => builder),
-        where: jest.fn(() => builder),
-        andWhere: jest.fn(() => builder),
-        groupBy: jest.fn(() => builder),
-        getRawMany: jest.fn(async () => options.rows?.cash ?? []),
+        select: vi.fn(() => builder),
+        addSelect: vi.fn(() => builder),
+        where: vi.fn(() => builder),
+        andWhere: vi.fn(() => builder),
+        groupBy: vi.fn(() => builder),
+        getRawMany: vi.fn(async () => options.rows?.cash ?? []),
       };
       return builder;
     }),
   } as never;
 
   const workspaceRepository = {
-    findOne: jest.fn(async () => ({ currency: options.workspaceCurrency ?? 'KZT' })),
+    findOne: vi.fn(async () => ({ currency: options.workspaceCurrency ?? 'KZT' })),
   } as never;
 
   const categoriesService = {
-    findAll: jest.fn(async () => options.categories ?? []),
+    findAll: vi.fn(async () => options.categories ?? []),
   } as never;
 
   const exchangeRatesService = {
-    getRateOrNull: jest.fn(async () => options.rate ?? 1),
+    getRateOrNull: vi.fn(async () => options.rate ?? 1),
   } as never;
 
   return {
@@ -132,7 +133,7 @@ function createService(options: {
     ),
     createQueryBuilder,
     conditions,
-    exchangeRatesService: exchangeRatesService as unknown as { getRateOrNull: jest.Mock },
+    exchangeRatesService: exchangeRatesService as unknown as { getRateOrNull: Mock },
   };
 }
 

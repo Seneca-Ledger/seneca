@@ -3,8 +3,7 @@ title: Coding Standards
 description: TypeScript conventions and formatting
 ---
 
-Seneca uses Biome for linting and formatting in both apps. The frontend also runs ESLint, and its SCSS is checked
-with stylelint. Follow the conventions of the surrounding code.
+Seneca uses Biome for linting and formatting in both apps; frontend SCSS is checked with stylelint. Follow the conventions of the surrounding code.
 
 ## Language and formatting
 
@@ -27,13 +26,11 @@ Biome does not enforce naming (`useNamingConvention` is off), so match the files
 
 ```bash
 npm --prefix backend run lint:check
-npm --prefix frontend run lint:check   # Biome + ESLint
+npm --prefix frontend run lint:check
 npm --prefix backend run lint:fix
 npm --prefix frontend run lint:fix
 make format
 ```
-
-On the frontend, fixing only Biome or only ESLint leaves CI red.
 
 ## Backend rules
 

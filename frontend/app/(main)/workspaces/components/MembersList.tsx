@@ -8,9 +8,11 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { ChevronDown, MoreHorizontal } from '@/app/components/icons';
+import { useIntlayer } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
 import { tokens } from '@/lib/theme-tokens';
 import type { WorkspaceMember, WorkspaceRole } from './hooks/useMemberManagement';
+import { useMemberRoleText } from './hooks/useMemberRoleText';
 
 const ROLE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   owner: {
@@ -27,20 +29,6 @@ const ROLE_COLORS: Record<string, { bg: string; color: string; border: string }>
   viewer: { bg: 'var(--muted)', color: 'var(--foreground)', border: 'var(--border-color)' },
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  member: 'Member',
-  viewer: 'Viewer',
-};
-
-const ROLE_TOOLTIPS: Record<string, string> = {
-  owner: 'Full workspace control, including ownership transfer and member management.',
-  admin: 'Can invite and manage non-owner members.',
-  member: 'Can work with workspace data based on assigned permissions.',
-  viewer: 'Read-only access to workspace content.',
-};
-
 const getInitials = (value?: string): string =>
   (value || '?')
     .split(' ')
@@ -48,8 +36,6 @@ const getInitials = (value?: string): string =>
     .slice(0, 2)
     .map(part => part[0]?.toUpperCase() ?? '')
     .join('');
-
-const getRoleLabel = (role: string): string => ROLE_LABELS[role] || role;
 
 type MembersListProps = {
   members: WorkspaceMember[];
@@ -70,6 +56,8 @@ export function MembersList({
   onChangeMemberRole,
   onRemoveMember,
 }: MembersListProps): React.ReactElement {
+  const t = useIntlayer('workspaceMembers');
+  const { roleLabel: getRoleLabel, roleTooltip } = useMemberRoleText();
   const [memberMenuAnchorMap, setMemberMenuAnchorMap] = useState<
     Record<string, HTMLElement | null>
   >({});
@@ -79,7 +67,7 @@ export function MembersList({
 
   const handleMemberMenuAction = async (member: WorkspaceMember, action: string): Promise<void> => {
     if (action === 'remove') {
-      if (!window.confirm('Remove this member from workspace?')) {
+      if (!window.confirm(t.confirms.removeMember.value)) {
         return;
       }
       await onRemoveMember(member.id);
@@ -95,7 +83,7 @@ export function MembersList({
   if (members.length === 0) {
     return (
       <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-        No members match current filters.
+        {t.noMatches}
       </Typography>
     );
   }
@@ -145,7 +133,7 @@ export function MembersList({
                 {normalizeAvatarUrl(member.avatarUrl) ? (
                   <img
                     src={normalizeAvatarUrl(member.avatarUrl) as string}
-                    alt={member.name || member.email || 'Member avatar'}
+                    alt={member.name || member.email || t.avatarAlt.value}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 ) : (
@@ -155,8 +143,8 @@ export function MembersList({
               <Box sx={{ minWidth: 0 }}>
                 <Typography
                   variant="body2"
-                  fontWeight={500}
                   sx={{
+                    fontWeight: 500,
                     color: 'var(--foreground)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -187,13 +175,13 @@ export function MembersList({
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  Timezone: {member.timeZone || 'Auto'}
+                  {t.timezoneLabel.value.replace('{zone}', member.timeZone || t.timezoneAuto.value)}
                 </Typography>
               </Box>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Tooltip title={ROLE_TOOLTIPS[member.role] || 'Workspace role'} placement="top">
+              <Tooltip title={roleTooltip(member.role)} placement="top">
                 <span>
                   {canManageRole ? (
                     <>
@@ -218,7 +206,7 @@ export function MembersList({
                           opacity: roleUpdating ? 0.6 : 1,
                         }}
                       >
-                        {roleUpdating ? 'Updating...' : getRoleLabel(member.role)}
+                        {roleUpdating ? t.updating : getRoleLabel(member.role)}
                         <ChevronDown size={12} />
                       </button>
                       <Menu
@@ -227,7 +215,10 @@ export function MembersList({
                         onClose={() =>
                           setRoleMenuAnchorMap(prev => ({ ...prev, [member.id]: null }))
                         }
-                        aria-label={`Change role for ${member.email || member.id}`}
+                        aria-label={t.changeRoleAria.value.replace(
+                          '{name}',
+                          member.email || member.id,
+                        )}
                       >
                         {roleTargets.map(role => (
                           <MenuItem
@@ -263,7 +254,7 @@ export function MembersList({
 
               <IconButton
                 size="small"
-                aria-label={`Actions for ${member.email || member.id}`}
+                aria-label={t.actionsAria.value.replace('{name}', member.email || member.id)}
                 onClick={e =>
                   setMemberMenuAnchorMap(prev => ({ ...prev, [member.id]: e.currentTarget }))
                 }
@@ -274,7 +265,7 @@ export function MembersList({
                 anchorEl={memberMenuAnchorMap[member.id]}
                 open={Boolean(memberMenuAnchorMap[member.id])}
                 onClose={() => setMemberMenuAnchorMap(prev => ({ ...prev, [member.id]: null }))}
-                aria-label={`Member actions for ${member.email || member.id}`}
+                aria-label={t.memberActionsAria.value.replace('{name}', member.email || member.id)}
               >
                 {canManageRole &&
                   roleTargets.map(role => (
@@ -286,7 +277,7 @@ export function MembersList({
                         void handleMemberMenuAction(member, `role:${role}`);
                       }}
                     >
-                      Set as {getRoleLabel(role)}
+                      {t.setAs.value.replace('{role}', getRoleLabel(role))}
                     </MenuItem>
                   ))}
                 <MenuItem
@@ -297,7 +288,7 @@ export function MembersList({
                   }}
                   sx={{ color: 'error.main' }}
                 >
-                  {removingMemberId === member.id ? 'Removing...' : 'Remove from workspace'}
+                  {removingMemberId === member.id ? t.removing : t.removeFromWorkspace}
                 </MenuItem>
               </Menu>
             </Box>

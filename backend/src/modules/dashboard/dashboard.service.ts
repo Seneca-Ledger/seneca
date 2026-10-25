@@ -231,7 +231,9 @@ export class DashboardService {
   ): Promise<DashboardFinancialSnapshot> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     const targetCurrency = this.normalizeCurrency(workspace?.currency);
 
@@ -401,7 +403,9 @@ export class DashboardService {
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return this.normalizeCurrency(workspace?.currency);
   }
@@ -418,7 +422,7 @@ export class DashboardService {
         workspaceId,
         status: StatementStatus.UPLOADED,
         deletedAt: IsNull(),
-        createdAt: this.between(window),
+        ...this.inWindow('createdAt', window),
       },
     });
 
@@ -436,7 +440,7 @@ export class DashboardService {
         workspaceId,
         status: In([StatementStatus.PARSED, StatementStatus.VALIDATED]),
         deletedAt: IsNull(),
-        createdAt: this.between(window),
+        ...this.inWindow('createdAt', window),
       },
     });
 
@@ -454,7 +458,7 @@ export class DashboardService {
         workspaceId,
         status: PayableStatus.OVERDUE,
         deletedAt: IsNull(),
-        dueDate: this.between(window),
+        ...this.inWindow('dueDate', window),
       },
     });
 
@@ -483,7 +487,7 @@ export class DashboardService {
       where: {
         workspaceId,
         status: In([ReceiptStatus.NEW, ReceiptStatus.NEEDS_REVIEW]),
-        receivedAt: this.between(window),
+        ...this.inWindow('receivedAt', window),
       },
     });
 
@@ -929,7 +933,9 @@ export class DashboardService {
   ): Promise<'owner' | 'admin' | 'member' | 'viewer'> {
     const member = await this.memberRepo.findOne({
       where: { userId, workspaceId },
-      select: ['role'],
+      select: {
+        role: true,
+      },
     });
 
     return (member?.role as 'owner' | 'admin' | 'member' | 'viewer') || 'member';
@@ -961,7 +967,7 @@ export class DashboardService {
           workspaceId,
           status: StatementStatus.ERROR,
           deletedAt: IsNull(),
-          createdAt: this.between(window),
+          ...this.inWindow('createdAt', window),
         },
       }),
       // What Review still asks about: unconfirmed rows and possible duplicates,
@@ -973,7 +979,7 @@ export class DashboardService {
           workspaceId,
           status: StatementStatus.UPLOADED,
           deletedAt: IsNull(),
-          createdAt: this.between(window),
+          ...this.inWindow('createdAt', window),
         },
       }),
       // receipts Review lists, by its own rule
@@ -992,7 +998,9 @@ export class DashboardService {
       this.statementRepo.findOne({
         where: { workspaceId, deletedAt: IsNull() },
         order: { createdAt: 'DESC' },
-        select: ['createdAt'],
+        select: {
+          createdAt: true,
+        },
       }),
       // money in rows nobody has confirmed yet
       this.getUnconfirmedCash(workspaceId, window),
@@ -1077,9 +1085,17 @@ export class DashboardService {
     ).getCount();
   }
 
-  /** Limits a find-options column to `window`; `undefined` (no condition) without one. */
-  private between(window: DashboardWindow | null): FindOperator<Date> | undefined {
-    return window ? Between(window.since, window.endDate) : undefined;
+  /**
+   * Limits a find-options column to `window`, spread into `where`; no condition
+   * without one (TypeORM 1 refuses an `undefined` value in `where`).
+   */
+  private inWindow<K extends string>(
+    column: K,
+    window: DashboardWindow | null,
+  ): Partial<Record<K, FindOperator<Date>>> {
+    return window
+      ? ({ [column]: Between(window.since, window.endDate) } as Record<K, FindOperator<Date>>)
+      : {};
   }
 
   /** Limits a query to `window` on `column`; a `null` window leaves it untouched (live totals). */

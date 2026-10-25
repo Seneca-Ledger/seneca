@@ -2,18 +2,18 @@ import { StatementsService } from '../../src/modules/statements/statements.servi
 
 const createService = (rows: unknown[] = []) => {
   const queryBuilder = {
-    leftJoin: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    addSelect: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    groupBy: jest.fn().mockReturnThis(),
-    setParameter: jest.fn().mockReturnThis(),
-    getRawMany: jest.fn().mockResolvedValue(rows),
+    leftJoin: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    addSelect: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    groupBy: vi.fn().mockReturnThis(),
+    setParameter: vi.fn().mockReturnThis(),
+    getRawMany: vi.fn().mockResolvedValue(rows),
   };
 
   const transactionRepository = {
-    createQueryBuilder: jest.fn(() => queryBuilder),
+    createQueryBuilder: vi.fn(() => queryBuilder),
   };
 
   const service = new StatementsService(

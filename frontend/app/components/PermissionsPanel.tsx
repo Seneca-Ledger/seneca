@@ -62,7 +62,6 @@ interface GetApiMessageArgs {
   error: unknown;
   fallback: string;
 }
-// eslint-disable-next-line complexity
 function getApiMessage({ error, fallback }: GetApiMessageArgs): string {
   if (!error || typeof error !== 'object') {
     return fallback;

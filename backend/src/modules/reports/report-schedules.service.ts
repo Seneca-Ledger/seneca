@@ -6,6 +6,7 @@ import { LessThanOrEqual, type Repository } from 'typeorm';
 import { workspaceRoleAllows } from '../../common/authz/workspace-permissions';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { CreateReportScheduleBody, GenerateReportBody } from '../../contracts';
 import { ReportSchedule, ReportScheduleCadence } from '../../entities/report-schedule.entity';
@@ -179,7 +180,7 @@ export class ReportSchedulesService {
     dto: CreateReportScheduleBody,
   ): Promise<ReportSchedule> {
     if (dto.recipients.length === 0) {
-      throw new BadRequestException('At least one recipient is required');
+      throw new BadRequestException(appError('REPORT_RECIPIENT_REQUIRED'));
     }
     ReportsService.assertTemplateFormat(dto.templateId, dto.format);
 
@@ -212,7 +213,7 @@ export class ReportSchedulesService {
       where: { id: scheduleId, workspaceId },
     });
     if (!schedule) {
-      throw new NotFoundException('Schedule not found');
+      throw new NotFoundException(appError('SCHEDULE_NOT_FOUND'));
     }
 
     schedule.isActive = isActive;
@@ -230,7 +231,7 @@ export class ReportSchedulesService {
   async remove(workspaceId: string, scheduleId: string): Promise<void> {
     const result = await this.scheduleRepository.delete({ id: scheduleId, workspaceId });
     if (!result.affected) {
-      throw new NotFoundException('Schedule not found');
+      throw new NotFoundException(appError('SCHEDULE_NOT_FOUND'));
     }
   }
 
@@ -281,7 +282,10 @@ export class ReportSchedulesService {
   private async creatorMayStillExport(schedule: ReportSchedule): Promise<boolean> {
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId: schedule.workspaceId, userId: schedule.userId },
-      select: ['role', 'permissions'],
+      select: {
+        role: true,
+        permissions: true,
+      },
     });
     return workspaceRoleAllows(Permission.REPORT_EXPORT, membership?.role, membership?.permissions);
   }
@@ -312,7 +316,10 @@ export class ReportSchedulesService {
   private async timeZoneOf(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'timeZone'],
+      select: {
+        id: true,
+        timeZone: true,
+      },
     });
     return resolveTimeZone(user?.timeZone);
   }

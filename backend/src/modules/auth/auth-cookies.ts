@@ -49,7 +49,7 @@ const UNIT_MS: Record<string, number> = {
  * Parses the same duration strings the JWT options use ("30m", "30d") into
  * milliseconds for the cookie's Max-Age, so a cookie never outlives its token.
  * Hand-rolled rather than pulling in `ms`: that package is CommonJS and its
- * interop shape differs between the app's transform and Jest's, which made the
+ * interop shape differs between the app's transform and the test runner's, which made the
  * call site throw under test while working at runtime.
  */
 const parseDurationMs = (value: string, fallbackMs: number): number => {

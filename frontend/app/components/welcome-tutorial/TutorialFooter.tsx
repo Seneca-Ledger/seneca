@@ -86,7 +86,6 @@ function SingleFooter({
   );
 }
 
-// eslint-disable-next-line max-lines-per-function -- one row of controls, kept together
 export function TutorialFooter({
   single,
   onWholeGuide,

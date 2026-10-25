@@ -3,14 +3,14 @@ import { ExchangeRatesController } from '@/modules/exchange-rates/exchange-rates
 describe('ExchangeRatesController', () => {
   let controller: ExchangeRatesController;
   const exchangeRatesService = {
-    getRate: jest.fn(),
-    getRateQuote: jest.fn(),
-    bulkConvert: jest.fn(),
+    getRate: vi.fn(),
+    getRateQuote: vi.fn(),
+    bulkConvert: vi.fn(),
   } as any;
-  const workspaceRepository = { findOne: jest.fn() } as any;
+  const workspaceRepository = { findOne: vi.fn() } as any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     controller = new ExchangeRatesController(exchangeRatesService, workspaceRepository);
   });
 

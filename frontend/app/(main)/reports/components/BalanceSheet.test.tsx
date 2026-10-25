@@ -42,6 +42,10 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
   useWorkspace: () => ({ currentWorkspace: { id: 'w1' } }),
 }));
 
+// Imported once at collection: a dynamic import inside a test spends its
+// timeout on the module graph and, timing out, renders into the next test.
+import BalanceSheet from './BalanceSheet';
+
 describe('BalanceSheet', () => {
   beforeEach(() => {
     apiGet.mockReset();
@@ -64,7 +68,6 @@ describe('BalanceSheet', () => {
       },
     });
 
-    const { default: BalanceSheet } = await import('./BalanceSheet');
     renderWithQuery(<BalanceSheet />);
 
     await waitFor(() => {
@@ -110,7 +113,6 @@ describe('BalanceSheet', () => {
       return element;
     }) as typeof document.createElement);
 
-    const { default: BalanceSheet } = await import('./BalanceSheet');
     renderWithQuery(<BalanceSheet />);
 
     await waitFor(() => {

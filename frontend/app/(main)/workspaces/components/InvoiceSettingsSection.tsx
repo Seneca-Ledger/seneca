@@ -153,7 +153,13 @@ export function InvoiceSettingsSection(): React.ReactElement {
             sx={{ maxWidth: 320 }}
           />
 
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{
+              alignItems: 'center',
+            }}
+          >
             <Button variant="contained" disabled={saving} onClick={() => void handleSave()}>
               {saving ? shared.saving : shared.save}
             </Button>

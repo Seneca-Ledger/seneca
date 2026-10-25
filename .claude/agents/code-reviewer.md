@@ -43,7 +43,7 @@ docker run --rm --network lumio_finflow-network --env-file "$SCRATCH/backend.env
 - Backend typecheck: `node node_modules/.bin/tsc -p tsconfig.json --noEmit`.
 - Backend lint: mount the whole checkout (`-v <checkout>:/repo -v lumio_backend_node_modules:/repo/backend/node_modules:ro -w /repo/backend`)
   and run `node_modules/.bin/biome check --config-path=.. <files>`.
-- Frontend: tests are Vitest (`vitest run <file>`); lint is **both** Biome and ESLint — check both.
+- Frontend: tests are Vitest (`vitest run <file>`); lint is Biome (`npm --prefix frontend run lint:check`).
   Use the `seneca-frontend:dev` image with the `lumio_frontend_node_modules` volume the same way.
 - Known environment-only failures, not regressions: `@tests/integration/hapoalim-parser-test.spec.ts`
   (fixtures live outside `backend/`), `@tests/unit/electron/external-url-policy.spec.ts`,

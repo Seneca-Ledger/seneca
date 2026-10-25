@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import React from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestQueryClient } from '@/app/test/query-wrapper';
 import StatementsListView from './StatementsListView';
 
 const apiMocks = vi.hoisted(() => ({
@@ -24,6 +26,8 @@ const toastMocks = vi.hoisted(() => ({
 const statementsListItemPropsSpy = vi.hoisted(() => vi.fn());
 const filtersDrawerPropsSpy = vi.hoisted(() => vi.fn());
 const routerPushMock = vi.hoisted(() => vi.fn());
+const authMock = vi.hoisted(() => ({ user: { id: 'user-1' } }));
+const storedFilters = vi.hoisted(() => ({ overrides: {} as Record<string, unknown> }));
 
 vi.mock('@/app/lib/api', () => ({
   default: {
@@ -44,11 +48,14 @@ vi.mock('react-hot-toast', () => ({
 }));
 
 vi.mock('@/app/hooks/useAuth', () => ({
-  useAuth: () => ({ user: null }),
+  // Список грузится только для вошедшего пользователя (enabled: Boolean(user));
+  // объект один на все рендеры, как у настоящего useAuth.
+  useAuth: () => authMock,
 }));
 
 vi.mock('@/app/contexts/WorkspaceContext', () => ({
-  useWorkspace: () => ({ currentWorkspace: { currency: 'KZT' } }),
+  useWorkspace: () => ({ currentWorkspace: { id: 'workspace-1', currency: 'KZT' } }),
+  useReadOnlyWorkspace: () => ({ isReadOnly: false, version: null }),
 }));
 
 vi.mock('next-intlayer', () => ({
@@ -78,7 +85,8 @@ vi.mock('@/app/hooks/usePullToRefresh', () => ({
   }),
 }));
 
-vi.mock('@/app/lib/statement-status', () => ({
+vi.mock('@/app/lib/statement-status', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/lib/statement-status')>()),
   getStatementDisplayMerchant: () => 'Merchant',
   getStatementMerchantLabel: () => 'Merchant',
   hasProcessingStatements: () => false,
@@ -104,6 +112,8 @@ vi.mock('@/app/(main)/statements/components/filters/statement-filters', () => ({
     paid: null,
     limit: null,
   },
+  // Фильтры уходят на сервер (/statements params); клиентский проход — тождество.
+  applyStatementsFilters: (items: unknown[]) => items,
   loadStatementFilters: () => ({
     type: 'pdf',
     statuses: ['processing'],
@@ -121,6 +131,7 @@ vi.mock('@/app/(main)/statements/components/filters/statement-filters', () => ({
     exported: false,
     paid: null,
     limit: 25,
+    ...storedFilters.overrides,
   }),
   resetSingleStatementFilter: (filters: unknown) => filters,
   saveStatementFilters: () => undefined,
@@ -190,6 +201,9 @@ vi.mock('@/app/(main)/statements/components/columns/ColumnsDrawer', () => ({
   ColumnsDrawer: () => null,
 }));
 
+// Настоящая шторка ловит отказ onSubmitScan и показывает его тостом.
+const submitScanFailed = (error: Error) => toastMocks.error(error.message);
+
 vi.mock('@/app/(main)/statements/components/CreateExpenseDrawer', () => ({
   default: (props: any) => (
     <>
@@ -201,7 +215,7 @@ vi.mock('@/app/(main)/statements/components/CreateExpenseDrawer', () => ({
             files: [new File(['receipt'], 'receipt.jpg', { type: 'image/jpeg' })],
             allowDuplicates: true,
             requireManualCategorySelection: false,
-          })
+          }).catch(submitScanFailed)
         }
       >
         trigger-scan
@@ -214,7 +228,7 @@ vi.mock('@/app/(main)/statements/components/CreateExpenseDrawer', () => ({
             files: [new File(['statement'], 'statement.pdf', { type: 'application/pdf' })],
             allowDuplicates: true,
             requireManualCategorySelection: false,
-          })
+          }).catch(submitScanFailed)
         }
       >
         trigger-scan-pdf
@@ -230,7 +244,7 @@ vi.mock('@/app/(main)/statements/components/CreateExpenseDrawer', () => ({
             ],
             allowDuplicates: true,
             requireManualCategorySelection: false,
-          })
+          }).catch(submitScanFailed)
         }
       >
         trigger-scan-mixed
@@ -281,6 +295,34 @@ vi.mock('@/app/components/ui/pagination', () => ({
   AppPagination: () => null,
 }));
 
+// Ответ /statements проверяется контрактом StatementList: строки дополняются
+// до формы, которую шлёт бэкенд (суммы — десятичные строки).
+const statementRows = (rows: Array<Record<string, unknown>>) =>
+  rows.map(row => ({
+    stage: 'submit',
+    errorMessage: null,
+    balanceStart: null,
+    balanceEnd: null,
+    statementDateFrom: null,
+    statementDateTo: null,
+    updatedAt: row.createdAt,
+    processedAt: null,
+    categoryId: null,
+    category: null,
+    tags: [],
+    user: null,
+    parsingDetails: null,
+    transactionSummary: {
+      description: null,
+      exchangeRate: null,
+      exchangeRateMixed: false,
+      cardLabel: null,
+    },
+    ...row,
+    totalDebit: String(row.totalDebit ?? 0),
+    totalCredit: String(row.totalCredit ?? 0),
+  }));
+
 describe('StatementsListView', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
@@ -290,6 +332,7 @@ describe('StatementsListView', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    storedFilters.overrides = {};
     sessionStorage.clear();
     apiMocks.mockApiGet.mockReset();
     apiMocks.mockApiPost.mockReset();
@@ -324,6 +367,18 @@ describe('StatementsListView', () => {
     vi.restoreAllMocks();
   });
 
+  // Список выписок читается через React Query: свой клиент на тест, без кэша между ними.
+  const renderView = () =>
+    root.render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <StatementsListView />
+      </QueryClientProvider>,
+    );
+
+  // queryFn проверяет ответ контрактом через динамический import — пары
+  // микрозадач на это не хватает, нужен макротаск.
+  const flushQueries = () => new Promise(resolve => setTimeout(resolve, 0));
+
   const getLatestRenderedStatementProps = () => {
     const latestById = new Map<string, any>();
     statementsListItemPropsSpy.mock.calls.forEach((call: any[]) => {
@@ -349,7 +404,7 @@ describe('StatementsListView', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'newer',
                 source: 'statement',
@@ -380,7 +435,7 @@ describe('StatementsListView', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -391,12 +446,11 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     act(() => {
-      root.render(<StatementsListView />);
+      renderView();
     });
 
     await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     const initialIds = statementsListItemPropsSpy.mock.calls
@@ -460,9 +514,8 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const lastFiltersDrawerProps = filtersDrawerPropsSpy.mock.calls.at(-1)?.[0];
@@ -499,6 +552,8 @@ describe('StatementsListView', () => {
   });
 
   it('applies the receipt type filter to receipts', async () => {
+    // Черновой скан ещё не одобрен: фильтр Approved: Yes его бы скрыл.
+    storedFilters.overrides = { type: 'receipt', approved: null };
     apiMocks.mockApiGet.mockImplementation(
       (url: string, config?: { params?: Record<string, unknown> }) => {
         if (url === '/categories' || url === '/tax-rates') {
@@ -572,9 +627,8 @@ describe('StatementsListView', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const renderedIds = getLatestRenderedStatementProps()
@@ -584,7 +638,7 @@ describe('StatementsListView', () => {
     expect(renderedIds).toEqual(['scan-1']);
   });
 
-  it('uses dark-safe duplicate selection styles for detected duplicates action', async () => {
+  it('shows the detected duplicates action with its count', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -593,7 +647,7 @@ describe('StatementsListView', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'duplicate-1',
                 source: 'statement',
@@ -624,7 +678,7 @@ describe('StatementsListView', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -635,23 +689,22 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const duplicateButton = Array.from(container.querySelectorAll('button')).find(button =>
       button.textContent?.includes('Select duplicates'),
     );
 
+    // Цвета чипа теперь в _statements.scss на токенах темы, а не dark:-классами.
     expect(duplicateButton).toBeTruthy();
-    expect(duplicateButton?.className).toContain('dark:border-amber-500/30');
-    expect(duplicateButton?.className).toContain('dark:bg-amber-500/10');
-    expect(duplicateButton?.className).toContain('dark:text-amber-100');
+    expect(duplicateButton?.className).toBe('seneca-stmt-list-view__duplicate-chip');
 
-    const duplicateCountBadge = duplicateButton?.querySelector('span');
-    expect(duplicateCountBadge?.className).toContain('dark:bg-slate-950/60');
-    expect(duplicateCountBadge?.className).toContain('dark:text-amber-100');
+    const duplicateCountBadge = duplicateButton?.querySelector(
+      '.seneca-stmt-list-view__duplicate-count',
+    );
+    expect(duplicateCountBadge?.textContent).toBe('(2)');
   });
 
   it('routes scan uploads to the receipt-scan statements endpoint', async () => {
@@ -670,9 +723,8 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -691,8 +743,7 @@ describe('StatementsListView', () => {
 
     await act(async () => {
       trigger?.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
@@ -709,7 +760,7 @@ describe('StatementsListView', () => {
     );
   });
 
-  it('routes PDF scans to the statement upload endpoint', async () => {
+  it('routes PDF scans through the receipt-scan endpoint too', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -725,9 +776,8 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -746,25 +796,24 @@ describe('StatementsListView', () => {
 
     await act(async () => {
       trigger?.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
+    // С cda4ab6d скан не делит файлы по типу: PDF тоже уходит в receipt-scan,
+    // бэкенд (assertReceiptFileSupported) принимает PDF и сам связывает выписку.
+    expect(apiMocks.mockApiPost).toHaveBeenCalledTimes(1);
     expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
-      '/statements/upload',
+      '/statements/upload-receipt',
       expect.any(FormData),
       expect.objectContaining({
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: expect.objectContaining({ 'Content-Type': 'multipart/form-data' }),
       }),
     );
-    expect(apiMocks.mockApiPost).not.toHaveBeenCalledWith(
-      '/statements/upload-receipt',
-      expect.anything(),
-      expect.anything(),
-    );
+    const sentFiles = (apiMocks.mockApiPost.mock.calls[0][1] as FormData).getAll('files');
+    expect(sentFiles.map(file => (file as File).name)).toEqual(['statement.pdf']);
   });
 
-  it('splits mixed scan uploads between statement and receipt endpoints', async () => {
+  it('sends mixed scan uploads to the receipt-scan endpoint in one batch', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -780,9 +829,8 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -801,24 +849,20 @@ describe('StatementsListView', () => {
 
     await act(async () => {
       trigger?.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
-    expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
-      '/statements/upload',
-      expect.any(FormData),
-      expect.objectContaining({
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }),
-    );
+    // Один пакет receipt-scan на оба файла (до RECEIPT_SCAN_UPLOAD_BATCH_SIZE).
+    expect(apiMocks.mockApiPost).toHaveBeenCalledTimes(1);
     expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
       '/statements/upload-receipt',
       expect.any(FormData),
       expect.objectContaining({
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: expect.objectContaining({ 'Content-Type': 'multipart/form-data' }),
       }),
     );
+    const sentFiles = (apiMocks.mockApiPost.mock.calls[0][1] as FormData).getAll('files');
+    expect(sentFiles.map(file => (file as File).name)).toEqual(['statement.pdf', 'receipt.jpg']);
   });
 
   it('surfaces receipt upload validation errors from the backend', async () => {
@@ -843,9 +887,8 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -864,11 +907,11 @@ describe('StatementsListView', () => {
 
     await act(async () => {
       trigger?.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(toastMocks.success).not.toHaveBeenCalledWith('Files uploaded');
+    expect(toastMocks.error).toHaveBeenCalledWith('Receipt amount could not be determined');
     expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
       '/statements/upload-receipt',
       expect.any(FormData),
@@ -887,7 +930,7 @@ describe('StatementsListView', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'statement-receipt-1',
                 source: 'statement',
@@ -910,7 +953,7 @@ describe('StatementsListView', () => {
                   },
                 },
               },
-            ],
+            ]),
             total: 1,
           },
         });
@@ -939,18 +982,40 @@ describe('StatementsListView', () => {
       },
     });
 
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
+      {
+        id: 'receipt-1',
+        source: 'scan',
+        receiptSource: 'scan',
+        fileName: 'Walmart',
+        status: 'draft',
+        totalTransactions: 0,
+        totalDebit: 90.32,
+        totalCredit: null,
+        createdAt: '2026-03-27T00:00:00Z',
+        statementDateFrom: '2026-03-27T00:00:00Z',
+        statementDateTo: null,
+        bankName: 'receipt',
+        fileType: 'receipt',
+        currency: 'KZT',
+        user: null,
+        errorMessage: null,
+      },
+    ]);
+
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const renderedIds = statementsListItemPropsSpy.mock.calls
       .map((call: any[]) => call[0]?.statement?.id)
       .filter(Boolean);
 
-    expect(renderedIds).toContain('statement-receipt-1');
-    expect(renderedIds).not.toContain('receipt-1');
+    // Скан и его выписка — один документ: с 983cdaf1 строку даёт чек, а
+    // выписку, порождённую сканом, список пропускает.
+    expect(renderedIds).toContain('receipt-1');
+    expect(renderedIds).not.toContain('statement-receipt-1');
   });
 
   it('filters derived receipt statements even when api rows omit source', async () => {
@@ -962,7 +1027,7 @@ describe('StatementsListView', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'statement-receipt-nosource-1',
                 fileName: 'receipt.jpg',
@@ -984,7 +1049,7 @@ describe('StatementsListView', () => {
                   },
                 },
               },
-            ],
+            ]),
             total: 1,
           },
         });
@@ -1047,9 +1112,8 @@ describe('StatementsListView', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const renderedIds = getLatestRenderedStatementProps()
@@ -1125,15 +1189,13 @@ describe('StatementsListView', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
       getLatestRenderedStatementProps()[0]?.onView?.();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(routerPushMock).not.toHaveBeenCalledWith('/statements/submit?openExpenseDrawer=scan');
@@ -1149,7 +1211,7 @@ describe('StatementsListView', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'duplicate-1',
                 source: 'statement',
@@ -1180,7 +1242,7 @@ describe('StatementsListView', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -1191,9 +1253,8 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const selectDuplicatesButton = Array.from(container.querySelectorAll('button')).find(button =>
@@ -1232,7 +1293,7 @@ describe('StatementsListView', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'statement-a',
                 source: 'statement',
@@ -1263,7 +1324,7 @@ describe('StatementsListView', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -1274,9 +1335,8 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -1332,7 +1392,7 @@ describe('StatementsListView', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'statement-ok',
                 source: 'statement',
@@ -1363,7 +1423,7 @@ describe('StatementsListView', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -1382,9 +1442,8 @@ describe('StatementsListView', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -1409,8 +1468,7 @@ describe('StatementsListView', () => {
 
     await act(async () => {
       exportButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(apiMocks.mockApiGet).toHaveBeenCalledWith('/statements/statement-ok/file', {
@@ -1424,6 +1482,8 @@ describe('StatementsListView', () => {
   });
 
   it('exports scanned receipts through the receipts file endpoint', async () => {
+    // Черновой скан не одобрен: без этого Approved: Yes из сохранённых фильтров его скрыл бы.
+    storedFilters.overrides = { approved: null };
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -1491,9 +1551,8 @@ describe('StatementsListView', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -1517,8 +1576,7 @@ describe('StatementsListView', () => {
 
     await act(async () => {
       exportButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(apiMocks.mockApiGet).toHaveBeenCalledWith('/receipts/scan-1/file', {
@@ -1530,6 +1588,8 @@ describe('StatementsListView', () => {
   });
 
   it('deletes scanned receipts through the receipts endpoint', async () => {
+    // Черновой скан не одобрен: без этого Approved: Yes из сохранённых фильтров его скрыл бы.
+    storedFilters.overrides = { approved: null };
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -1594,9 +1654,8 @@ describe('StatementsListView', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -1620,8 +1679,7 @@ describe('StatementsListView', () => {
 
     await act(async () => {
       deleteButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(apiMocks.mockApiDelete).toHaveBeenCalledWith('/receipts/scan-1');

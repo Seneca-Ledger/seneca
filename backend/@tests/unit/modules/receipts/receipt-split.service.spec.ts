@@ -16,11 +16,11 @@ const receipt = {
 
 function setup(transaction: Record<string, unknown> = {}) {
   const receiptRepository = {
-    findOne: jest.fn(async () => receipt),
-    update: jest.fn(async () => undefined),
+    findOne: vi.fn(async () => receipt),
+    update: vi.fn(async () => undefined),
   };
   const transactionRepository = {
-    findOne: jest.fn(async () => ({
+    findOne: vi.fn(async () => ({
       id: 't1',
       amount: 11,
       currency: 'EUR',
@@ -30,15 +30,15 @@ function setup(transaction: Record<string, unknown> = {}) {
     })),
   };
   const categoryRepository = {
-    find: jest.fn(async () => [
+    find: vi.fn(async () => [
       { id: 'food', name: 'Food', isEnabled: true },
       { id: 'home', name: 'Household', isEnabled: true },
     ]),
   };
   const categoryService = {
-    matchByKeywords: jest.fn(() => null),
+    matchByKeywords: vi.fn(() => null),
   };
-  const transactionsService = { split: jest.fn(async () => []) };
+  const transactionsService = { split: vi.fn(async () => []) };
   const service = new ReceiptSplitService(
     receiptRepository as any,
     transactionRepository as any,

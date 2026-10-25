@@ -4,26 +4,26 @@ import { ImportSessionController } from '@/modules/import/import-session.control
 
 describe('ImportSessionController', () => {
   const importSessionService = {
-    getSession: jest.fn(),
-    getSessionSummary: jest.fn(),
-    resolveConflicts: jest.fn(),
-    cancelSession: jest.fn(),
+    getSession: vi.fn(),
+    getSessionSummary: vi.fn(),
+    resolveConflicts: vi.fn(),
+    cancelSession: vi.fn(),
   };
   const statementProcessingService = {
-    processStatement: jest.fn(),
-    commitImport: jest.fn(),
+    processStatement: vi.fn(),
+    commitImport: vi.fn(),
   };
   const statementRepository = {
-    findOne: jest.fn(),
+    findOne: vi.fn(),
   };
   const transactionRepository = {
-    count: jest.fn(),
+    count: vi.fn(),
   };
 
   let controller: ImportSessionController;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     controller = new ImportSessionController(
       importSessionService as any,
       statementProcessingService as any,
@@ -40,7 +40,7 @@ describe('ImportSessionController', () => {
         parsingDetails: { importPreview: { sessionId: 'session-1', transactions: [] } },
       });
 
-      const result = await controller.getImportPreview('stmt-1', 'ws-1');
+      const result = await controller.getImportPreview({ id: 'stmt-1' }, 'ws-1');
 
       expect(result.importPreview).toEqual({ sessionId: 'session-1', transactions: [] });
       expect(statementProcessingService.processStatement).not.toHaveBeenCalled();
@@ -53,7 +53,7 @@ describe('ImportSessionController', () => {
         parsingDetails: null,
       });
 
-      const result = await controller.getImportPreview('stmt-1', 'ws-1');
+      const result = await controller.getImportPreview({ id: 'stmt-1' }, 'ws-1');
 
       expect(result).toEqual({
         statementId: 'stmt-1',
@@ -72,7 +72,7 @@ describe('ImportSessionController', () => {
         parsingDetails: null,
       });
 
-      const result = await controller.getImportPreview('stmt-1', 'ws-1');
+      const result = await controller.getImportPreview({ id: 'stmt-1' }, 'ws-1');
 
       expect(result.importPreview).toBeNull();
       expect(statementProcessingService.processStatement).not.toHaveBeenCalled();
@@ -81,7 +81,7 @@ describe('ImportSessionController', () => {
     it('throws NotFoundException when the statement does not exist', async () => {
       statementRepository.findOne.mockResolvedValue(null);
 
-      await expect(controller.getImportPreview('missing', 'ws-1')).rejects.toThrow(
+      await expect(controller.getImportPreview({ id: 'missing' }, 'ws-1')).rejects.toThrow(
         NotFoundException,
       );
     });

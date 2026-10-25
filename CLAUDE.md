@@ -83,7 +83,7 @@ make dev                          # docker compose dev with hot reload
 npm --prefix backend run test:e2e
 npm --prefix backend run test:golden   # parsing golden tests (GOLDEN_ENABLED=1)
 npm --prefix backend run lint:fix      # Biome only
-npm --prefix frontend run lint:fix     # Biome AND ESLint (both run)
+npm --prefix frontend run lint:fix     # Biome
 npm --prefix backend run typecheck
 npm --prefix frontend run type-check
 
@@ -96,11 +96,13 @@ npm run migration:generate -- src/migrations/<Name>
 ## Gotchas
 
 - No source file may exceed 300 lines of code (blank and comment lines excluded): a new file over it is refused, and a file already over it must not grow (`scripts/check-file-size.mjs`, run by the pre-commit hook and CI). Tests, `*.content.ts`, `*-translations.ts`, migrations and generated contracts are exempt. Split into hooks, helpers or lib instead.
-- Frontend lint runs **both** Biome and ESLint — fixing one but not the other leaves CI red.
+- Lint is Biome only (ESLint was removed). In the frontend an `eslint-disable … react-hooks/*` comment is still meaningful: React Compiler skips that function.
+- The frontend builds with vinext (Next.js App Router API on Vite), not `next`: `vite dev`/`vite build`, output in `frontend/dist/standalone` (bind address is `HOST`, not `HOSTNAME`). `next.config.mjs` carries only headers, rewrites and `output`; Vite plugins live in `vite.config.ts`. `next` stays as a dev dependency for types and peers. React Compiler is the oxc port (`oxc-transform-react`); it honours `'use no memo'` and `eslint-disable react-hooks/*` the same way.
 - `prebuild` and `postinstall` on the frontend run `intlayer build`; deleting the intlayer config or skipping it breaks both install and build.
 - Backend dev uses a manual nodemon command, not `nest start`, and bumps Node heap to 2 GB. Dev scripts (`migration:run:dev`, `seed:demo:dev`, `create-admin:dev`) run ts-node with `--transpile-only`; type-checking is `npm run typecheck`.
-- SWC was evaluated for the backend dev loop and rejected: its CommonJS getter exports hit a TDZ on circular entity imports with `emitDecoratorMetadata`. Adopting it needs the TypeORM `Relation<>` wrapper on every relation property first.
-- Docker dev: `node_modules` and `.next` are named volumes; `scripts/dev-entrypoint.sh` in each app re-runs `npm ci` only when `package-lock.json` changed. Dev images never compile source (bind mount).
+- Backend Vitest compiles with SWC (`unplugin-swc`, see `backend/vitest.config.mts`). Every TypeORM relation property is typed `Relation<T>`: its decorator metadata must not name the related class, or SWC's CommonJS getter exports hit a TDZ on circular entity imports. Type new relations the same way.
+- Docker dev: backend and frontend `node_modules` are named volumes; `scripts/dev-entrypoint.sh` in each app re-runs the install only when `package-lock.json` changed. Dev images never compile source (bind mount).
+- Installs in CI and Docker use `bun install --frozen-lockfile --network-concurrency=16`, straight from `package-lock.json`; npm still owns the lockfile (`npm install <pkg>`, Dependabot, `npm audit`), and Node runs everything. Keep `--network-concurrency=16`: Bun's default of 48 stalls on registry downloads (135 s instead of 8 s). A package whose install script must run goes in `trustedDependencies` — the list replaces Bun's built-in one, so keep bcrypt, onnxruntime-node and the rest there. Import only declared packages: Bun hoists differently from npm, so an undeclared transitive dependency can resolve to another version.
 - TypeORM SQL logging is off unless `DB_QUERY_LOGGING=true`.
 - Always run migrations via the npm scripts, not raw `typeorm` — `migration:run` acquires a lock to prevent concurrent runs in deployment.
 - Product name comes from `APP_NAME` (root `.env`): never write the name into UI text, e-mails or bot replies — use `APP_NAME`/`APP_SLUG` from `frontend/app/lib/brand.ts` or `backend/src/common/brand.ts` (in `*.content.ts` as a template literal). Seneca inside the Stoic quotes is the philosopher, not the product.

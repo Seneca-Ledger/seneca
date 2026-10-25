@@ -1,6 +1,14 @@
 import * as Schema from 'effect/Schema';
-import { DateOnlyInput, optionalNullable, TrimmedLowercase } from '../common/requests';
+import {
+  DateOnlyInput,
+  NumericInput,
+  optionalNullable,
+  TrimmedLowercase,
+} from '../common/requests';
 import type { Wire } from '../common/wire';
+import { SubscriptionStatus } from '../subscriptions/subscriptions';
+
+const Uuid = Schema.String.check(Schema.isUUID());
 
 export const CreateSubscriptionBody = Schema.Struct({
   vendorName: Schema.String,
@@ -73,3 +81,25 @@ export const LinkSubscriptionChargeBody = Schema.Struct({
   transactionId: Schema.String.check(Schema.isUUID()),
 });
 export type LinkSubscriptionChargeBody = Wire<typeof LinkSubscriptionChargeBody>;
+
+export const SubscriptionParams = Schema.Struct({ id: Uuid });
+export type SubscriptionParams = Wire<typeof SubscriptionParams>;
+
+export const SubscriptionChargeParams = Schema.Struct({ id: Uuid, chargeId: Uuid });
+export type SubscriptionChargeParams = Wire<typeof SubscriptionChargeParams>;
+
+/** `GET /subscriptions`. */
+export const SubscriptionsQuery = Schema.Struct({ status: Schema.optional(SubscriptionStatus) });
+export type SubscriptionsQuery = Wire<typeof SubscriptionsQuery>;
+
+/** `GET /subscriptions/upcoming`: charges within this many days, default 7. */
+export const UpcomingSubscriptionsQuery = Schema.Struct({
+  days: Schema.optional(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))),
+});
+export type UpcomingSubscriptionsQuery = Wire<typeof UpcomingSubscriptionsQuery>;
+
+/** `GET /subscriptions/business-report`: JSON unless `format=csv`. */
+export const SubscriptionBusinessReportQuery = Schema.Struct({
+  format: Schema.optional(Schema.Literals(['csv', 'json'])),
+});
+export type SubscriptionBusinessReportQuery = Wire<typeof SubscriptionBusinessReportQuery>;

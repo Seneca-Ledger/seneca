@@ -78,10 +78,20 @@ export class CashFlowMapService {
     const includeTransfers = query.includeTransfers === true;
 
     const [workspace, categories] = await Promise.all([
-      this.workspaceRepository.findOne({ where: { id: workspaceId }, select: ['currency'] }),
+      this.workspaceRepository.findOne({
+        where: { id: workspaceId },
+        select: {
+          currency: true,
+        },
+      }),
       this.categoryRepository.find({
         where: { workspaceId },
-        select: ['id', 'name', 'parentId', 'type'],
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+          type: true,
+        },
       }),
     ]);
     const currency = normalizeCurrency(workspace?.currency);

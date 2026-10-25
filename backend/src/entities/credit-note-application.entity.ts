@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
 } from 'typeorm';
 import { CreditNote } from './credit-note.entity';
@@ -32,21 +33,21 @@ export class CreditNoteApplication {
     { onDelete: 'CASCADE' },
   )
   @JoinColumn({ name: 'credit_note_id' })
-  creditNote: CreditNote;
+  creditNote: Relation<CreditNote>;
 
   @Column({ name: 'credit_note_id', type: 'uuid' })
   creditNoteId: string;
 
   @ManyToOne(() => Invoice, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'invoice_id' })
-  invoice: Invoice;
+  invoice: Relation<Invoice>;
 
   @Column({ name: 'invoice_id', type: 'uuid' })
   invoiceId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;

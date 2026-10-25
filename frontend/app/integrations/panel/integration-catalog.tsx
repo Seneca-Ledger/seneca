@@ -211,7 +211,7 @@ function buildIntegrationCatalog(t: CatalogText, peppol: PeppolText): Integratio
           fields: [
             {
               name: 'url',
-              label: 'WebDAV URL',
+              label: f.webdavUrl.value,
               placeholder: 'https://cloud.example.com/remote.php/dav/files/user',
               required: true,
             },

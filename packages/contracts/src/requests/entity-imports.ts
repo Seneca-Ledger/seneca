@@ -39,3 +39,9 @@ export const RunEntityImportBody = Schema.Struct({
   options: optionalNullable(EntityImportOptionsInput),
 });
 export type RunEntityImportBody = Wire<typeof RunEntityImportBody>;
+
+/** `DELETE /entity-imports/:batchId`: an import batch id (uuid). */
+export const EntityImportBatchParams = Schema.Struct({
+  batchId: Schema.String.check(Schema.isUUID()),
+});
+export type EntityImportBatchParams = Wire<typeof EntityImportBatchParams>;

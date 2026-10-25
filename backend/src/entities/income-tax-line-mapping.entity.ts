@@ -1,4 +1,12 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  type Relation,
+} from 'typeorm';
 import { Category } from './category.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -20,7 +28,7 @@ export class IncomeTaxLineMapping {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -30,7 +38,7 @@ export class IncomeTaxLineMapping {
 
   @ManyToOne(() => Category, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'category_id' })
-  category: Category;
+  category: Relation<Category>;
 
   @Column({ name: 'category_id', type: 'uuid' })
   categoryId: string;
@@ -40,7 +48,7 @@ export class IncomeTaxLineMapping {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'confirmed_by' })
-  confirmer: User | null;
+  confirmer: Relation<User | null>;
 
   @Column({ name: 'confirmed_by', type: 'uuid', nullable: true })
   confirmedBy: string | null;

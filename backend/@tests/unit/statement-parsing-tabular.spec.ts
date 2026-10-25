@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import AdmZip = require('adm-zip');
+import AdmZip from 'adm-zip';
 import { normalizeDate, normalizeNumber } from '../../src/common/utils/number-normalizer.util';
 import { BankName, FileType } from '../../src/entities/statement.entity';
 import { DocxParser } from '../../src/modules/parsing/parsers/docx.parser';

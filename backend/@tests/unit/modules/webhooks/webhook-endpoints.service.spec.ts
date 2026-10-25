@@ -5,17 +5,17 @@ import { WebhookEndpointsService } from '../../../../src/modules/webhooks/servic
 describe('WebhookEndpointsService', () => {
   let service: WebhookEndpointsService;
   const mockRepo = {
-    create: jest.fn(),
-    save: jest.fn(),
-    findOne: jest.fn(),
-    find: jest.fn(),
-    delete: jest.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    delete: vi.fn(),
   };
-  const auditService = { createEvent: jest.fn() };
+  const auditService = { createEvent: vi.fn() };
 
   beforeEach(() => {
     service = new WebhookEndpointsService(mockRepo as any, auditService as any);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     auditService.createEvent.mockResolvedValue({});
   });
 

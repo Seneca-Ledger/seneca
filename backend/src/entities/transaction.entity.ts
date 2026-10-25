@@ -10,6 +10,7 @@ import {
   ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { payeeKeyOf } from '../common/utils/payee-key.util';
@@ -108,7 +109,7 @@ export class Transaction {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -119,7 +120,7 @@ export class Transaction {
     { nullable: true },
   )
   @JoinColumn({ name: 'statement_id' })
-  statement: Statement | null;
+  statement: Relation<Statement | null>;
 
   @Column({ name: 'statement_id', type: 'uuid', nullable: true })
   statementId: string | null;
@@ -176,28 +177,28 @@ export class Transaction {
 
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
 
   @ManyToOne(() => TaxRate, { nullable: true })
   @JoinColumn({ name: 'tax_rate_id' })
-  taxRate: TaxRate | null;
+  taxRate: Relation<TaxRate | null>;
 
   @Column({ name: 'tax_rate_id', type: 'uuid', nullable: true })
   taxRateId: string | null;
 
   @ManyToOne(() => Branch, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'branch_id' })
-  branch: Branch | null;
+  branch: Relation<Branch | null>;
 
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;
 
   @ManyToOne(() => Wallet, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'wallet_id' })
-  wallet: Wallet | null;
+  wallet: Relation<Wallet | null>;
 
   @Column({ name: 'wallet_id', type: 'uuid', nullable: true })
   walletId: string | null;
@@ -211,7 +212,7 @@ export class Transaction {
    */
   @ManyToOne(() => WorkspaceMember, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'owner_member_id' })
-  ownerMember: WorkspaceMember | null;
+  ownerMember: Relation<WorkspaceMember | null>;
 
   @Column({ name: 'owner_member_id', type: 'uuid', nullable: true })
   ownerMemberId: string | null;
@@ -233,14 +234,14 @@ export class Transaction {
    */
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'private_category_id' })
-  privateCategory: Category | null;
+  privateCategory: Relation<Category | null>;
 
   @Column({ name: 'private_category_id', type: 'uuid', nullable: true })
   privateCategoryId: string | null;
 
   @ManyToOne(() => CryptoWallet, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'crypto_wallet_id' })
-  cryptoWallet: CryptoWallet | null;
+  cryptoWallet: Relation<CryptoWallet | null>;
 
   @Column({ name: 'crypto_wallet_id', type: 'uuid', nullable: true })
   cryptoWalletId: string | null;
@@ -306,7 +307,7 @@ export class Transaction {
    */
   @ManyToOne(() => Payee, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'payee_id' })
-  payee: Payee | null;
+  payee: Relation<Payee | null>;
 
   @Column({ name: 'payee_id', type: 'uuid', nullable: true })
   payeeId: string | null;
@@ -370,7 +371,7 @@ export class Transaction {
   /** Which rule produced these figures, when one did. */
   @ManyToOne(() => TaxRule, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'tax_rule_id' })
-  taxRule: TaxRule | null;
+  taxRule: Relation<TaxRule | null>;
 
   @Column({ name: 'tax_rule_id', type: 'uuid', nullable: true })
   taxRuleId: string | null;
@@ -454,7 +455,7 @@ export class Transaction {
 
   @ManyToOne(() => Transaction, { nullable: true })
   @JoinColumn({ name: 'duplicate_of_id' })
-  duplicateOf: Transaction | null;
+  duplicateOf: Relation<Transaction | null>;
 
   @Column({ name: 'duplicate_of_id', type: 'uuid', nullable: true })
   duplicateOfId: string | null;
@@ -501,7 +502,7 @@ export class Transaction {
    */
   @ManyToOne(() => Transaction, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'reimbursement_of_id' })
-  reimbursementOf: Transaction | null;
+  reimbursementOf: Relation<Transaction | null>;
 
   @Column({ name: 'reimbursement_of_id', type: 'uuid', nullable: true })
   reimbursementOfId: string | null;
@@ -520,7 +521,7 @@ export class Transaction {
 
   @ManyToOne(() => ImportSession, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'import_session_id' })
-  importSession: ImportSession | null;
+  importSession: Relation<ImportSession | null>;
 
   @Column({ name: 'import_session_id', type: 'uuid', nullable: true })
   importSessionId: string | null;
@@ -538,7 +539,7 @@ export class Transaction {
     joinColumn: { name: 'transaction_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
   })
-  tags: Tag[];
+  tags: Relation<Tag[]>;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -19,7 +19,10 @@ export class WorkspacePluginsService {
   async isEnabled(workspaceId: string, plugin: WorkspacePluginKey): Promise<boolean> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'settings'],
+      select: {
+        id: true,
+        settings: true,
+      },
     });
     return readPluginSettings(workspace)[plugin];
   }

@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
 } from 'typeorm';
 import { Receipt } from './receipt.entity';
@@ -23,7 +24,7 @@ export class PeppolInboundDocument {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -36,7 +37,7 @@ export class PeppolInboundDocument {
 
   @ManyToOne(() => Receipt, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'receipt_id' })
-  receipt: Receipt | null;
+  receipt: Relation<Receipt | null>;
 
   @Column({ name: 'receipt_id', type: 'uuid', nullable: true })
   receiptId: string | null;

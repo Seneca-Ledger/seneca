@@ -50,9 +50,21 @@ export class BudgetVsActualReport {
     const [budgets, categories] = await Promise.all([
       this.budgetRepository.find({
         where: { workspaceId },
-        relations: ['category', 'category.parent', 'goal'],
+        relations: {
+          category: {
+            parent: true,
+          },
+
+          goal: true,
+        },
       }),
-      this.categoryRepository.find({ where: { workspaceId }, select: ['id', 'parentId'] }),
+      this.categoryRepository.find({
+        where: { workspaceId },
+        select: {
+          id: true,
+          parentId: true,
+        },
+      }),
     ]);
     const parentOf = new Map(categories.map(category => [category.id, category.parentId ?? null]));
 

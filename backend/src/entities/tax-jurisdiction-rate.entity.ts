@@ -1,4 +1,12 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  type Relation,
+} from 'typeorm';
 import { TaxJurisdiction } from './tax-jurisdiction.entity';
 
 export enum TaxRateKind {
@@ -27,7 +35,7 @@ export class TaxJurisdictionRate {
     { onDelete: 'CASCADE' },
   )
   @JoinColumn({ name: 'jurisdiction_id' })
-  jurisdiction: TaxJurisdiction;
+  jurisdiction: Relation<TaxJurisdiction>;
 
   @Column({ name: 'jurisdiction_id', type: 'uuid' })
   jurisdictionId: string;

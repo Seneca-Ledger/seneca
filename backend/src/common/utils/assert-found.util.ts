@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { appError } from '../errors/app-error';
 
 /**
  * Asserts that a value is not null/undefined, throwing NotFoundException otherwise.
@@ -14,6 +15,6 @@ export function assertFound<T>(
   entityName: string,
 ): asserts value is T {
   if (value === null || value === undefined) {
-    throw new NotFoundException(`${entityName} not found`);
+    throw new NotFoundException(appError('ENTITY_NOT_FOUND', { entity: entityName }));
   }
 }

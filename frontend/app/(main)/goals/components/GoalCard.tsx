@@ -48,9 +48,11 @@ export function GoalCard({ goal, locale, labels, note, actions }: GoalCardProps)
               underline="hover"
               color="inherit"
               variant="body1"
-              fontWeight={600}
               noWrap
-              sx={{ display: 'block' }}
+              sx={{
+                fontWeight: 600,
+                display: 'block',
+              }}
             >
               {goal.name}
             </Link>
@@ -61,7 +63,12 @@ export function GoalCard({ goal, locale, labels, note, actions }: GoalCardProps)
             )}
           </Box>
         </Box>
-        <Typography variant="body1" fontWeight={600}>
+        <Typography
+          variant="body1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           <PrivateAmount>{money(goal.currentAmount)}</PrivateAmount>{' '}
           <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
             / <PrivateAmount>{money(goal.targetAmount)}</PrivateAmount>

@@ -92,7 +92,12 @@ export class FormulaRecalcService {
     const formulaColumns = formulaColumnsOf(allColumns);
     const rows = await this.rowRepository.find({
       where: { tableId },
-      select: ['id', 'rowNumber', 'data', 'computed'],
+      select: {
+        id: true,
+        rowNumber: true,
+        data: true,
+        computed: true,
+      },
       order: { rowNumber: 'ASC', id: 'ASC' },
     });
     // Formula keys start empty: stale values of a removed or edited formula must not leak in.

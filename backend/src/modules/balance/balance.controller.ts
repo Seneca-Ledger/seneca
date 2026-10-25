@@ -1,15 +1,20 @@
-import { Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Res } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch, Post, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  BalanceAccountClassification,
+  BalanceAccountCreated,
+  BalanceAccountParams,
+  BalanceAccountsTree,
   BalanceQuery,
   BalanceSheetResponse,
+  BalanceSnapshotSaved,
   CreateBalanceAccountBody,
   ExportBalanceQuery,
   UpdateAccountClassificationBody,
@@ -44,6 +49,7 @@ export class BalanceController {
 
   @Get('accounts')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(BalanceAccountsTree)
   async getAccounts(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -58,6 +64,7 @@ export class BalanceController {
 
   @Put('snapshot')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceSnapshotSaved)
   async updateSnapshot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -68,6 +75,7 @@ export class BalanceController {
 
   @Post('accounts')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(BalanceAccountCreated)
   async createAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -82,17 +90,18 @@ export class BalanceController {
   async deleteAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(BalanceAccountParams) { id }: BalanceAccountParams,
   ): Promise<void> {
     await this.balanceService.deleteCustomAccount(user.id, workspaceId, id);
   }
 
   @Patch('accounts/:id/classification')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceAccountClassification)
   async updateClassification(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(BalanceAccountParams) { id }: BalanceAccountParams,
     @SchemaBody(UpdateAccountClassificationBody) dto: UpdateAccountClassificationBody,
   ) {
     return this.balanceService.updateAccountClassification(user.id, workspaceId, id, dto);

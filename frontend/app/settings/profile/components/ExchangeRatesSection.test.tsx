@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { enTx as tx } from '@/app/settings/profile/helpers/en-tx';
 import { ExchangeRatesSection } from './ExchangeRatesSection';
 
 const getMock = vi.hoisted(() => vi.fn());
@@ -8,8 +9,6 @@ const postMock = vi.hoisted(() => vi.fn());
 vi.mock('@/app/lib/api', () => ({ default: { get: getMock, post: postMock } }));
 vi.mock('@/app/i18n', () => ({ useLocale: () => ({ locale: 'en' }) }));
 vi.mock('react-hot-toast', () => ({ default: { success: vi.fn(), error: vi.fn() } }));
-
-const tx = (_path: string[], fallback: string) => fallback;
 
 describe('ExchangeRatesSection', () => {
   beforeEach(() => {
@@ -31,8 +30,8 @@ describe('ExchangeRatesSection', () => {
     render(<ExchangeRatesSection tx={tx} />);
 
     expect(await screen.findByText('1 USD = 0.882434 EUR')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Rate to EUR'), { target: { value: '0,9' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Set' }));
+    fireEvent.change(screen.getByLabelText(tx(['exchangeRatesCard', 'colRate']).replace('{{currency}}', 'EUR')), { target: { value: '0,9' } });
+    fireEvent.click(screen.getByRole('button', { name: tx(['exchangeRatesCard', 'setRate']) }));
 
     await waitFor(() =>
       expect(postMock).toHaveBeenCalledWith('/exchange-rates/manual', { from: 'USD', to: 'EUR', rate: 0.9 }),

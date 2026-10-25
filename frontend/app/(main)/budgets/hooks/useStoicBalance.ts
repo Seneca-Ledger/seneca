@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
@@ -71,6 +72,7 @@ export function useStoicBalance(): {
   classifying: string | null;
 } {
   const workspaceId = useWorkspaceId();
+  const t = useIntlayer('budgetsPage');
   const queryClient = useQueryClient();
 
   const query = useQuery({
@@ -87,7 +89,7 @@ export function useStoicBalance(): {
         changes satisfies ContractInput<'UpdateCategoryBody'>,
       );
     },
-    onError: error => toast.error(getApiErrorMessage(error, 'Failed to save')),
+    onError: error => toast.error(getApiErrorMessage(error, t.toastClassifyFailed.value)),
     onSettled: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.stoicBalance(workspaceId) }),

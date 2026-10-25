@@ -157,3 +157,26 @@ export type CryptoNetwork = Wire<typeof CryptoNetwork>;
 /** `GET /crypto/networks`. */
 export const CryptoNetworkList = Schema.Array(CryptoNetwork);
 export type CryptoNetworkList = Wire<typeof CryptoNetworkList>;
+
+/** `GET /crypto/gains/by-owner`: the sales split by whose wallet they happened in. */
+export const CryptoGainsByOwner = Schema.Struct({
+  currency: Schema.String,
+  byOwner: Schema.Array(
+    Schema.Struct({
+      ownerUserId: Schema.NullOr(Schema.String),
+      disposals: Schema.Array(CryptoDisposal),
+    }),
+  ),
+});
+export type CryptoGainsByOwner = Wire<typeof CryptoGainsByOwner>;
+
+/** `POST /crypto/wallets/:id/sync`: movements booked and already known. */
+export const CryptoSyncResult = Schema.Struct({
+  imported: Schema.Number,
+  skipped: Schema.Number,
+});
+export type CryptoSyncResult = Wire<typeof CryptoSyncResult>;
+
+/** `DELETE /crypto/wallets/:id` and `DELETE /crypto/holdings/:asset`. */
+export const CryptoRemoved = Schema.Struct({ success: Schema.Boolean });
+export type CryptoRemoved = Wire<typeof CryptoRemoved>;

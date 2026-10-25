@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import { TelegramBotsService, webhookSecretOf } from '@/modules/telegram/telegram-bots.service';
 
@@ -12,7 +13,7 @@ type Bot = { botToken: string; publicUrl: string | null };
 function mockBotApi(options: { updates?: unknown[][]; getUpdatesError?: number } = {}) {
   const calls: Array<{ method: string; body: any }> = [];
   const batches = [...(options.updates ?? [])];
-  global.fetch = jest.fn(async (url: unknown, init: any) => {
+  global.fetch = vi.fn(async (url: unknown, init: any) => {
     const method = String(url).split('/').pop() ?? '';
     calls.push({ method, body: JSON.parse(init.body) });
     const answer = (payload: unknown) => new Response(JSON.stringify(payload));
@@ -40,12 +41,12 @@ function mockBotApi(options: { updates?: unknown[][]; getUpdatesError?: number }
 
 function createService(bots: Bot[], workspaceToken: string | null = TOKEN) {
   const applicationSettingsService = {
-    listTelegramBots: jest.fn(async () => bots),
-    getTelegramSettings: jest.fn(async () => ({ botToken: workspaceToken })),
+    listTelegramBots: vi.fn(async () => bots),
+    getTelegramSettings: vi.fn(async () => ({ botToken: workspaceToken })),
   } as any;
-  const telegramService = { handleUpdate: jest.fn(async () => undefined) } as any;
+  const telegramService = { handleUpdate: vi.fn(async () => undefined) } as any;
   const linkCodes = {
-    issue: jest.fn(async () => ({ code: 'c'.repeat(32), expiresAt: new Date('2026-10-18T10:10:00Z') })),
+    issue: vi.fn(async () => ({ code: 'c'.repeat(32), expiresAt: new Date('2026-10-18T10:10:00Z') })),
   } as any;
   const service = new TelegramBotsService(applicationSettingsService, telegramService, linkCodes);
   return { service, applicationSettingsService, telegramService, linkCodes };
@@ -200,7 +201,7 @@ describe('TelegramBotsService', () => {
 
   it('tries setWebhook again on the next sync after it failed', async () => {
     const calls = mockBotApi();
-    (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('network down'));
+    (global.fetch as Mock).mockRejectedValueOnce(new Error('network down'));
     const { service } = make([{ botToken: TOKEN, publicUrl: 'https://seneca.example' }]);
 
     await service.sync();

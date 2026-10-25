@@ -3,11 +3,11 @@ import { WalletsController } from '@/modules/wallets/wallets.controller';
 describe('WalletsController', () => {
   it('proxies calls to WalletsService with workspaceId', async () => {
     const walletsService = {
-      create: jest.fn(async () => ({ id: 'w1' })),
-      findAll: jest.fn(async () => [{ id: 'w1' }]),
-      findOne: jest.fn(async () => ({ id: 'w1' })),
-      update: jest.fn(async () => ({ id: 'w1', name: 'X' })),
-      remove: jest.fn(async () => undefined),
+      create: vi.fn(async () => ({ id: 'w1' })),
+      findAll: vi.fn(async () => [{ id: 'w1' }]),
+      findOne: vi.fn(async () => ({ id: 'w1' })),
+      update: vi.fn(async () => ({ id: 'w1', name: 'X' })),
+      remove: vi.fn(async () => undefined),
     };
     const controller = new WalletsController(walletsService as any);
     const user = { id: 'u1' } as any;
@@ -15,12 +15,11 @@ describe('WalletsController', () => {
 
     expect(await controller.create({ name: 'A' } as any, user, workspaceId)).toEqual({ id: 'w1' });
     expect(await controller.findAll(user, workspaceId)).toEqual([{ id: 'w1' }]);
-    expect(await controller.findOne('w1', user, workspaceId)).toEqual({ id: 'w1' });
-    expect(await controller.update('w1', { name: 'X' } as any, user, workspaceId)).toEqual({
+    expect(await controller.findOne({ id: 'w1' }, user, workspaceId)).toEqual({ id: 'w1' });
+    expect(await controller.update({ id: 'w1' }, { name: 'X' } as any, user, workspaceId)).toEqual({
       id: 'w1',
-      name: 'X',
-    });
-    expect(await controller.remove('w1', user, workspaceId)).toEqual({
+    }); // read back as stored, not the saved entity
+    expect(await controller.remove({ id: 'w1' }, user, workspaceId)).toEqual({
       message: 'Wallet deleted successfully',
     });
 

@@ -201,7 +201,13 @@ export function BusinessProfileSection(): React.ReactElement {
             ))}
           </Box>
 
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{
+              alignItems: 'center',
+            }}
+          >
             {logoSrc ? (
               // Plain <img>: the logo route is public by design, since an img
               // tag sends neither the auth cookie's workspace header nor a body.
@@ -237,7 +243,13 @@ export function BusinessProfileSection(): React.ReactElement {
             />
           </Stack>
 
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{
+              alignItems: 'center',
+            }}
+          >
             <Button variant="contained" disabled={saving} onClick={() => void handleSave()}>
               {saving ? t.saving : t.save}
             </Button>

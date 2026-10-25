@@ -7,6 +7,7 @@ import { NotesPanel } from '@/app/components/notes/NotesPanel';
 import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
 import { Button } from '@/app/components/ui/button';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { useIntlayer } from '@/app/i18n';
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
@@ -73,6 +74,7 @@ export function ReceiptDetailPanel({
   onClose,
   onUpdated,
 }: ReceiptDetailPanelProps) {
+  const t = useIntlayer('receiptReview');
   const [categories, setCategories] = useState<ReceiptCategoryOption[]>([]);
   const [formValue, setFormValue] = useState<EditableReceiptParsedData>(buildInitialForm(receipt));
   const [saving, setSaving] = useState(false);
@@ -174,10 +176,6 @@ export function ReceiptDetailPanel({
 
   const payload = useMemo(() => buildParsedDataPayload(formValue), [formValue]);
 
-  const handleFormChange = (nextValue: EditableReceiptParsedData) => {
-    setFormValue(nextValue);
-  };
-
   const handleCurrencyChange = async (nextValue: EditableReceiptParsedData) => {
     if (!receipt) return;
 
@@ -187,7 +185,7 @@ export function ReceiptDetailPanel({
       } satisfies ContractInput<'UpdateReceiptBody'>);
       onUpdated?.();
     })().catch(async () => {
-      toast.error('Failed to save receipt currency.');
+      toast.error(t.currencySaveFailed.value);
     });
   };
 
@@ -202,11 +200,11 @@ export function ReceiptDetailPanel({
       await apiClient.patch(`/receipts/${receipt.id}`, {
         parsedData: payload,
       } satisfies ContractInput<'UpdateReceiptBody'>);
-      toast.success('Receipt draft saved.');
+      toast.success(t.draftSaved.value);
       onUpdated?.();
     })()
       .catch(async () => {
-        toast.error('Failed to save receipt draft.');
+        toast.error(t.draftSaveFailed.value);
       })
       .finally(async () => {
         setSaving(false);
@@ -220,12 +218,12 @@ export function ReceiptDetailPanel({
       await apiClient.patch(`/receipts/${receipt.id}`, {
         status: 'rejected',
       } satisfies ContractInput<'UpdateReceiptBody'>);
-      toast.success('Receipt rejected.');
+      toast.success(t.rejected.value);
       onUpdated?.();
       onClose();
     })()
       .catch(async () => {
-        toast.error('Failed to reject receipt.');
+        toast.error(t.rejectFailed.value);
       })
       .finally(async () => {
         setSaving(false);
@@ -240,12 +238,12 @@ export function ReceiptDetailPanel({
         parsedData: payload,
       } satisfies ContractInput<'UpdateReceiptBody'>);
       await receiptsApi.approveReceipt(receipt.id);
-      toast.success('Receipt approved.');
+      toast.success(t.approved.value);
       onUpdated?.();
       onClose();
     })()
       .catch(async () => {
-        toast.error('Failed to approve receipt.');
+        toast.error(t.approveFailed.value);
       })
       .finally(async () => {
         setSaving(false);
@@ -253,7 +251,7 @@ export function ReceiptDetailPanel({
   };
 
   return (
-    <DrawerShell isOpen={isOpen} onClose={onClose} title="Receipt details" width="xl">
+    <DrawerShell isOpen={isOpen} onClose={onClose} title={t.detailsTitle.value} width="xl">
       <Box
         sx={{
           display: 'grid',
@@ -319,12 +317,12 @@ export function ReceiptDetailPanel({
             ) : (
               <Box>
                 <Typography style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}>
-                  Original document preview
+                  {t.previewTitle}
                 </Typography>
                 <Typography
                   style={{ marginTop: 8, fontSize: 14, color: 'var(--muted-foreground)' }}
                 >
-                  Preparing image preview...
+                  {t.preparingImage}
                 </Typography>
               </Box>
             )}
@@ -344,7 +342,7 @@ export function ReceiptDetailPanel({
             >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
                 <Typography style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                  Status
+                  {t.status}
                 </Typography>
                 <Typography style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}>
                   {receipt.status}
@@ -352,7 +350,7 @@ export function ReceiptDetailPanel({
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
                 <Typography style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                  Received
+                  {t.received}
                 </Typography>
                 <Typography style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}>
                   {formatStoredDate(receipt.receivedAt)}
@@ -360,10 +358,10 @@ export function ReceiptDetailPanel({
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
                 <Typography style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                  Language
+                  {t.language}
                 </Typography>
                 <Typography style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}>
-                  {receipt.language || 'Auto'}
+                  {receipt.language || t.auto}
                 </Typography>
               </Box>
             </Box>
@@ -375,7 +373,7 @@ export function ReceiptDetailPanel({
             <ReceiptParsedDataForm
               value={formValue}
               categories={categories}
-              onChange={handleFormChange}
+              onChange={setFormValue}
               onCurrencyChange={handleCurrencyChange}
               receiptId={receipt.id}
             />
@@ -397,13 +395,13 @@ export function ReceiptDetailPanel({
             }}
           >
             <Button variant="ghost" onClick={handleReject} disabled={saving}>
-              Reject receipt
+              {t.reject}
             </Button>
             <Button variant="outline" onClick={handleSaveDraft} disabled={saving}>
-              Save draft
+              {t.saveDraft}
             </Button>
             <Button onClick={handleApprove} disabled={saving}>
-              Approve receipt
+              {t.approve}
             </Button>
           </Box>
         </Box>

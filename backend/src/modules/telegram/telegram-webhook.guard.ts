@@ -1,4 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { appError } from '../../common/errors/app-error';
 import { secretsMatch } from '../../common/utils/secret-compare.util';
 
 @Injectable()
@@ -10,7 +11,7 @@ export class TelegramWebhookGuard implements CanActivate {
     const provided = typeof header === 'string' ? header : null;
 
     if (!(secret && secretsMatch(provided, secret))) {
-      throw new UnauthorizedException('Invalid Telegram webhook authentication');
+      throw new UnauthorizedException(appError('TELEGRAM_WEBHOOK_AUTH_INVALID'));
     }
 
     return true;

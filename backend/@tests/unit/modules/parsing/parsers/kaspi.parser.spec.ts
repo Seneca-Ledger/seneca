@@ -1,10 +1,11 @@
+import type { Mock } from 'vitest';
 import { extractTablesFromPdf, extractTextFromPdf } from '@/common/utils/pdf-parser.util';
 import { BankName, FileType } from '@/entities/statement.entity';
 import { KaspiParser } from '@/modules/parsing/parsers/kaspi.parser';
 
-jest.mock('@/common/utils/advanced-language-detector.util', () => ({
+vi.mock('@/common/utils/advanced-language-detector.util', () => ({
   advancedLanguageDetector: {
-    detectLanguage: jest.fn().mockResolvedValue({
+    detectLanguage: vi.fn().mockResolvedValue({
       locale: 'unknown',
       confidence: 0,
       method: 'legacy',
@@ -13,9 +14,9 @@ jest.mock('@/common/utils/advanced-language-detector.util', () => ({
   },
 }));
 
-jest.mock('@/common/utils/pdf-parser.util', () => ({
-  extractTextFromPdf: jest.fn(),
-  extractTablesFromPdf: jest.fn(),
+vi.mock('@/common/utils/pdf-parser.util', () => ({
+  extractTextFromPdf: vi.fn(),
+  extractTablesFromPdf: vi.fn(),
 }));
 
 describe('KaspiParser', () => {
@@ -31,7 +32,7 @@ describe('KaspiParser', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('canParse', () => {
@@ -170,8 +171,8 @@ describe('KaspiParser', () => {
         'Оплата услуг',
       ].join('\n');
 
-      (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
+      (extractTextFromPdf as Mock).mockResolvedValue(text);
+      (extractTablesFromPdf as Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 
@@ -211,8 +212,8 @@ describe('KaspiParser', () => {
         'Зачисление перевода',
       ].join('\n');
 
-      (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
+      (extractTextFromPdf as Mock).mockResolvedValue(text);
+      (extractTablesFromPdf as Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 
@@ -237,8 +238,8 @@ describe('KaspiParser', () => {
         'Пополнение баланса телефона',
       ].join('\n');
 
-      (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rowSets: [] });
+      (extractTextFromPdf as Mock).mockResolvedValue(text);
+      (extractTablesFromPdf as Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 

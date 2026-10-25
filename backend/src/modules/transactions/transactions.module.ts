@@ -18,6 +18,7 @@ import { TransactionFingerprintService } from './services/transaction-fingerprin
 import { TransactionTagsService } from './services/transaction-tags.service';
 import { TransactionsOverviewService } from './services/transactions-overview.service';
 import { TransferPairingService } from './services/transfer-pairing.service';
+import { TransactionPairingController } from './transaction-pairing.controller';
 import { TransactionsController } from './transactions.controller';
 import { TransactionsService } from './transactions.service';
 
@@ -38,7 +39,7 @@ import { TransactionsService } from './transactions.service';
     ExchangeRatesModule,
     TaxModule,
   ],
-  controllers: [TransactionsController],
+  controllers: [TransactionsController, TransactionPairingController],
   providers: [
     TransactionsService,
     CrossStatementDeduplicationService,

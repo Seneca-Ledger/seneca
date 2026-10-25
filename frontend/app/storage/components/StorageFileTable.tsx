@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import { Box, Chip, Typography } from '@mui/material';
@@ -70,7 +69,6 @@ export interface StorageFileTableProps {
   tagChipClass: (isActive: boolean) => string;
   onToggleTrashSelection: (fileId: string) => void;
   onToggleSelectAllTrash: () => void;
-  // eslint-disable-next-line max-params
   onCategoryChange: (fileId: string, categoryId: string) => void | Promise<void>;
   onRestoreFromTrash: (file: StorageFile) => void | Promise<void>;
   onConfirmPermanentDelete: (file: StorageFile) => void | Promise<void>;
@@ -78,11 +76,9 @@ export interface StorageFileTableProps {
   onDownload: (fileId: string, fileName: string) => void | Promise<void>;
   onConfirmDelete: (file: StorageFile) => void | Promise<void>;
   onPageChange: (page: number) => void;
-  // eslint-disable-next-line max-params
   onPreviewOpen: (fileId: string, fileName: string) => void | Promise<void>;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function StorageFileTable({
   loading,
   isTrashView,
@@ -291,14 +287,12 @@ interface TableBodyProps {
   tagChipClass: (isActive: boolean) => string;
   onToggleTrashSelection: (fileId: string) => void;
   onToggleSelectAllTrash: () => void;
-  // eslint-disable-next-line max-params
   onCategoryChange: (fileId: string, categoryId: string) => void | Promise<void>;
   onRestoreFromTrash: (file: StorageFile) => void | Promise<void>;
   onConfirmPermanentDelete: (file: StorageFile) => void | Promise<void>;
   onView: (fileId: string) => void;
   onDownload: (fileId: string, fileName: string) => void | Promise<void>;
   onConfirmDelete: (file: StorageFile) => void | Promise<void>;
-  // eslint-disable-next-line max-params
   onPreviewOpen: (fileId: string, fileName: string) => void | Promise<void>;
 }
 
@@ -312,7 +306,6 @@ const thStyle: React.CSSProperties = {
   letterSpacing: '0.05em',
 };
 
-// eslint-disable-next-line max-lines-per-function
 function TableBody({
   isTrashView,
   paginatedFiles,
@@ -394,7 +387,6 @@ function TableBody({
           </tr>
         </thead>
         <tbody style={{ background: 'var(--card-bg)' }}>
-          {/* eslint-disable-next-line max-lines-per-function, max-params */}
           {paginatedFiles.map((file, index) => (
             <DraggableFileRow
               key={file.id}
