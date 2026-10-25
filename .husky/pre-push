@@ -39,4 +39,11 @@ if [ $backend_exit -ne 0 ]; then
   exit 1
 fi
 
+# Every dependency must be under an allowed license (scripts/check-licenses.mjs).
+if ! npm run --silent licenses:check; then
+  echo ""
+  echo "Push blocked: a dependency is under a license outside the allowlist."
+  exit 1
+fi
+
 echo "All tests passed. Pushing..."
