@@ -1,4 +1,6 @@
-import { promises as dns } from 'node:dns';
+import { lookup as dnsLookup, promises as dns } from 'node:dns';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { BadRequestException } from '@nestjs/common';
 import {
   assertPublicEgressHost,
@@ -8,6 +10,7 @@ import {
   isBlockedEgressAddress,
   pinPublicEgressHost,
 } from '@/common/utils/egress-url.util';
+import { Agent } from 'undici';
 
 describe('egress-url.util', () => {
   it.each(['127.0.0.1', '10.0.0.5', '172.16.1.1', '192.168.1.20', '169.254.169.254', '::1'])(
@@ -258,5 +261,25 @@ describe('pinPublicEgressHost', () => {
   it('passes a public IP literal through and refuses a private one', async () => {
     await expect(pinPublicEgressHost('8.8.8.8')).resolves.toEqual({ host: '8.8.8.8' });
     await expect(pinPublicEgressHost('127.0.0.1')).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('the undici dependency', () => {
+  // fetchPublicUrl hands an undici Agent to Node's own fetch, which only takes
+  // a dispatcher of the undici major Node bundles (undici 8 on Node 24 fails
+  // every request with "invalid onRequestStart method"). The other tests mock
+  // fetch, so this one goes through the real thing.
+  it("is a dispatcher Node's fetch accepts", async () => {
+    const server = createServer((_request, response) => response.end('ok'));
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/`, {
+        dispatcher: new Agent({ connect: { lookup: dnsLookup } }),
+      } as RequestInit);
+      expect(await response.text()).toBe('ok');
+    } finally {
+      server.close();
+    }
   });
 });
