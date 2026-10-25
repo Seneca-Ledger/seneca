@@ -18,9 +18,10 @@ export interface ApiErrorResponse {
  * Backend domain errors carry a machine-readable `code` and an English
  * `message`. We translate by code when the dictionary knows it, and fall back
  * to the backend's English text otherwise — so an untranslated code degrades
- * to readable English rather than to a generic placeholder.
+ * to readable English rather than to a generic placeholder. Without a
+ * `fallback`, an error with no text of its own reads `apiErrors.fallback`.
  */
-export function getApiErrorMessage(error: unknown, fallback = 'An error occurred'): string {
+export function getApiErrorMessage(error: unknown, fallback?: string): string {
   if (isAxiosError(error)) {
     const apiError = error.response?.data?.error;
 
@@ -29,7 +30,8 @@ export function getApiErrorMessage(error: unknown, fallback = 'An error occurred
       apiError?.message ??
       error.response?.data?.message ??
       error.message ??
-      fallback
+      fallback ??
+      genericMessage()
     );
   }
 
@@ -37,8 +39,10 @@ export function getApiErrorMessage(error: unknown, fallback = 'An error occurred
     return error.message;
   }
 
-  return fallback;
+  return fallback ?? genericMessage();
 }
+
+const genericMessage = (): string => translateErrorCode('fallback', undefined) ?? '';
 
 function translateErrorCode(
   code: string | undefined,

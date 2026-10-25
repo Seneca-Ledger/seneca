@@ -426,8 +426,8 @@ function StoragePageContent({
           trashSelectRowLabel={t.trash.selectRow.value}
           dragDropRowHintLabel={t.dragDrop.rowHint.value}
           previewLabel={t.preview.value}
-          sharedLinksShortLabel={resolveLabel(t.sharedLinksShort, 'links')}
-          categoryNoneLabel={resolveLabel(t.categoryCell.none, 'No category')}
+          sharedLinksShortLabel={t.sharedLinksShort.value}
+          categoryNoneLabel={t.categoryCell.none.value}
           ownerLabel={t.permission.owner.value}
           trashRestoreActionLabel={t.trash.restoreAction.value}
           trashDeleteActionLabel={t.trash.deleteAction.value}

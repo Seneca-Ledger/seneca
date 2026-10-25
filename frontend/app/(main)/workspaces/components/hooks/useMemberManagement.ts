@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 
@@ -64,13 +65,8 @@ export const getApiMessage = (err: unknown, fallback: string): string => {
   return response?.data?.message ?? fallback;
 };
 
-const confirmOwnerRoleChange = (currentRole: WorkspaceRole, nextRole: WorkspaceRole): boolean => {
-  const affectsOwnerRole = currentRole === 'owner' || nextRole === 'owner';
-  if (!affectsOwnerRole) {
-    return true;
-  }
-  return window.confirm('This change affects Owner role. Confirm role update before continuing.');
-};
+const affectsOwnerRole = (currentRole: WorkspaceRole, nextRole: WorkspaceRole): boolean =>
+  currentRole === 'owner' || nextRole === 'owner';
 
 type HookParams = {
   overview: WorkspaceOverview | null;
@@ -118,6 +114,7 @@ function useMemberActions({
   | 'handleChangeMemberRole'
   | 'handleRemoveMember'
 > {
+  const t = useIntlayer('workspaceMembers');
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [updatingRoleMemberId, setUpdatingRoleMemberId] = useState<string | null>(null);
   const wid = overview?.workspace.id;
@@ -143,8 +140,8 @@ function useMemberActions({
             permissions: role === 'member' ? permissions : undefined,
           } satisfies ContractInput<'InviteMemberBody'>)
           .then(() => onRefresh()),
-      'Invitation sent',
-      'Failed to send invitation',
+      t.toasts.inviteSent.value,
+      t.errors.sendFailed.value,
     );
   };
 
@@ -152,7 +149,10 @@ function useMemberActions({
     member: WorkspaceMember,
     nextRole: WorkspaceRole,
   ): Promise<void> => {
-    if (!wid || member.role === nextRole || !confirmOwnerRoleChange(member.role, nextRole)) {
+    if (!wid || member.role === nextRole) {
+      return;
+    }
+    if (affectsOwnerRole(member.role, nextRole) && !window.confirm(t.confirms.ownerRole.value)) {
       return;
     }
     setUpdatingRoleMemberId(member.id);
@@ -161,11 +161,11 @@ function useMemberActions({
       await apiClient.patch(`/workspaces/${wid}/members/${member.id}/role`, {
         role: nextRole,
       } satisfies ContractInput<'UpdateMemberRoleBody'>);
-      toast.success('Role updated');
+      toast.success(t.toasts.roleUpdated.value);
       await onRefresh();
     })()
       .catch(async err => {
-        toast.error(getApiMessage(err, 'Failed to update role'));
+        toast.error(getApiMessage(err, t.errors.updateRoleFailed.value));
       })
       .finally(async () => {
         setUpdatingRoleMemberId(null);
@@ -180,11 +180,11 @@ function useMemberActions({
 
     await (async () => {
       await apiClient.delete(`/workspaces/${wid}/members/${memberId}`);
-      toast.success('Member removed');
+      toast.success(t.toasts.memberRemoved.value);
       await onRefresh();
     })()
       .catch(async err => {
-        toast.error(getApiMessage(err, 'Failed to remove member'));
+        toast.error(getApiMessage(err, t.errors.removeFailed.value));
       })
       .finally(async () => {
         setRemovingMemberId(null);
@@ -211,6 +211,7 @@ function useInvitationActions({
   | 'handleRevokeInvitation'
   | 'copyInviteLink'
 > {
+  const t = useIntlayer('workspaceMembers');
   const [resendingInvitationId, setResendingInvitationId] = useState<string | null>(null);
   const [revokingInvitationId, setRevokingInvitationId] = useState<string | null>(null);
   const wid = overview?.workspace.id;
@@ -229,11 +230,11 @@ function useInvitationActions({
         role: invite.role === 'owner' ? 'admin' : invite.role,
         permissions: invite.role === 'member' ? (invite.permissions ?? undefined) : undefined,
       } satisfies ContractInput<'InviteMemberBody'>);
-      toast.success('Invitation resent');
+      toast.success(t.toasts.inviteResent.value);
       await onRefresh();
     })()
       .catch(async err => {
-        toast.error(getApiMessage(err, 'Failed to resend invitation'));
+        toast.error(getApiMessage(err, t.errors.resendFailed.value));
       })
       .finally(async () => {
         setResendingInvitationId(null);
@@ -241,18 +242,18 @@ function useInvitationActions({
   };
 
   const handleRevokeInvitation = async (invitationId: string): Promise<void> => {
-    if (!(wid && window.confirm('Revoke this invitation?'))) {
+    if (!(wid && window.confirm(t.confirms.revokeInvite.value))) {
       return;
     }
     setRevokingInvitationId(invitationId);
 
     await (async () => {
       await apiClient.delete(`/workspaces/${wid}/invitations/${invitationId}`);
-      toast.success('Invitation revoked');
+      toast.success(t.toasts.inviteRevoked.value);
       await onRefresh();
     })()
       .catch(async err => {
-        toast.error(getApiMessage(err, 'Failed to revoke invitation'));
+        toast.error(getApiMessage(err, t.errors.revokeFailed.value));
       })
       .finally(async () => {
         setRevokingInvitationId(null);
@@ -268,9 +269,9 @@ function useInvitationActions({
   }): Promise<void> => {
     await (async () => {
       await navigator.clipboard.writeText(provided || `${window.location.origin}/invite/${token}`);
-      toast.success('Link copied');
+      toast.success(t.toasts.linkCopied.value);
     })().catch(async () => {
-      toast.error('Failed to copy link');
+      toast.error(t.errors.copyFailed.value);
     });
   };
 

@@ -1,5 +1,21 @@
 'use client';
+import { useSyncExternalStore } from 'react';
+import { GLOBAL_ERROR_TEXT } from '@/app/lib/global-error-translations';
+import {
+  type AppLocale,
+  DEFAULT_LOCALE,
+  normalizeLocale,
+  readLocaleFromCookie,
+} from '@/app/lib/locale';
 import { tokens } from '@/lib/theme-tokens';
+
+const subscribe = (): (() => void) => () => {};
+
+/** The saved language, else the browser's; read without any provider. */
+function readBrowserLocale(): AppLocale {
+  const browser = navigator.language?.split('-')[0]?.toLowerCase();
+  return readLocaleFromCookie() ?? normalizeLocale(browser);
+}
 
 export default function GlobalError({
   error,
@@ -8,8 +24,10 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const locale = useSyncExternalStore(subscribe, readBrowserLocale, () => DEFAULT_LOCALE);
+  const text = GLOBAL_ERROR_TEXT[locale];
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body>
         <div
           style={{
@@ -22,8 +40,8 @@ export default function GlobalError({
           }}
         >
           <div style={{ textAlign: 'center', maxWidth: 520 }}>
-            <h1 style={{ fontSize: 22, marginBottom: 12 }}>Something went wrong</h1>
-            <p style={{ marginBottom: 16 }}>{error?.message || 'An unexpected error occurred.'}</p>
+            <h1 style={{ fontSize: 22, marginBottom: 12 }}>{text.headline}</h1>
+            <p style={{ marginBottom: 16 }}>{error?.message || text.fallback}</p>
             <button
               type="button"
               onClick={reset}
@@ -35,7 +53,7 @@ export default function GlobalError({
                 cursor: 'pointer',
               }}
             >
-              Try again
+              {text.retry}
             </button>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Camera, ImageUp } from '@/app/components/icons';
 import { ModalShell } from '@/app/components/ui/modal-shell';
+import { useIntlayer } from '@/app/i18n';
 import { receiptsApi } from '@/app/lib/api';
 import { useCamera } from './hooks/useCamera';
 
@@ -16,6 +17,7 @@ export interface ReceiptCameraCaptureProps {
 }
 
 export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCameraCaptureProps) {
+  const t = useIntlayer('receiptCapture');
   const { videoRef, startCamera, capturePhoto, stopCamera, error, isCameraAvailable } = useCamera();
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,12 +40,12 @@ export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCam
     await (async () => {
       const file = new File([blob], 'receipt-scan.jpg', { type: blob.type || 'image/jpeg' });
       await receiptsApi.scanReceipt(file);
-      toast.success('Receipt scan uploaded.');
+      toast.success(t.scanUploaded.value);
       onCaptured?.();
       onClose();
     })()
       .catch(async () => {
-        toast.error('Failed to upload receipt scan.');
+        toast.error(t.scanFailed.value);
       })
       .finally(async () => {
         setSubmitting(false);
@@ -54,7 +56,7 @@ export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCam
     const blob = await capturePhoto();
 
     if (!blob) {
-      toast.error('Capture failed. Try again.');
+      toast.error(t.captureFailed.value);
       return;
     }
 
@@ -62,7 +64,7 @@ export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCam
   };
 
   return (
-    <ModalShell isOpen={isOpen} onClose={onClose} title="Scan receipt" size="lg">
+    <ModalShell isOpen={isOpen} onClose={onClose} title={t.scanTitle.value} size="lg">
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         <Box
           sx={{ overflow: 'hidden', border: '1px solid var(--border-color)', bgcolor: '#020617' }}
@@ -88,7 +90,7 @@ export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCam
             <Typography
               style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-warning-soft-text)' }}
             >
-              Use your camera or choose a photo instead.
+              {t.cameraFallback}
             </Typography>
             <Typography
               style={{ fontSize: 14, color: 'var(--color-warning-soft-text)', marginTop: 4 }}
@@ -117,13 +119,13 @@ export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCam
             }}
           >
             <ImageUp style={{ width: 16, height: 16 }} />
-            Choose photo
+            {t.choosePhoto}
             <input
               type="file"
               style={{ display: 'none' }}
               accept="image/*"
               capture="environment"
-              aria-label="Upload receipt photo"
+              aria-label={t.uploadPhoto.value}
               onChange={async event => {
                 const file = event.target.files?.[0];
                 if (file) {
@@ -142,10 +144,10 @@ export function ReceiptCameraCapture({ isOpen, onClose, onCaptured }: ReceiptCam
               void handleCapture();
             }}
             disabled={submitting}
-            aria-label="Capture photo"
+            aria-label={t.capturePhoto.value}
             startIcon={<Camera size={16} />}
           >
-            Capture photo
+            {t.capturePhoto}
           </MuiButton>
         </Box>
       </Box>

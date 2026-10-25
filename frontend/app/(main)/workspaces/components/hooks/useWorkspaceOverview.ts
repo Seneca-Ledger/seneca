@@ -1,14 +1,12 @@
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
-import {
-  buildCurrencySearchIndex,
-  type CurrencySearchItem,
-} from '@/app/lib/statement-expense-drawer';
+import type { CurrencySearchItem } from '@/app/lib/statement-expense-drawer';
+import { useCurrencyState } from './useWorkspaceCurrencyState';
 
 export type WorkspaceInfo = {
   id: string;
@@ -55,70 +53,6 @@ export type WorkspaceOverviewState = {
   handleBackgroundChange: (background: string) => Promise<void>;
 };
 
-function useCurrencyState(currency: string): {
-  selectedCurrencyItem: CurrencySearchItem | null | undefined;
-  currencyQuery: string;
-  selectedMatchesSearch: boolean;
-  recentCurrencyItems: CurrencySearchItem[];
-  allCurrencyItems: CurrencySearchItem[];
-  notSelectedMatchesSearch: boolean;
-  currencySearch: string;
-  setCurrencySearch: (v: string) => void;
-  pushRecentCurrency: (code: string) => void;
-} {
-  const [currencySearch, setCurrencySearch] = useState('');
-  const [recentCurrencies, setRecentCurrencies] = useState<string[]>([
-    ...DEFAULT_RECENT_CURRENCIES,
-  ]);
-  const currencyItems = useMemo(() => buildCurrencySearchIndex(), []);
-  const currencyByCode = useMemo(
-    () => new Map(currencyItems.map(item => [item.code, item])),
-    [currencyItems],
-  );
-  const selectedCurrencyItem = currency ? currencyByCode.get(currency) : null;
-  const currencyQuery = currencySearch.trim().toLowerCase();
-
-  const selectedMatchesSearch = useMemo(() => {
-    if (!(selectedCurrencyItem && currencyQuery)) {
-      return Boolean(selectedCurrencyItem);
-    }
-    return selectedCurrencyItem.searchText.includes(currencyQuery);
-  }, [selectedCurrencyItem, currencyQuery]);
-
-  const recentCurrencyItems = useMemo(
-    () =>
-      recentCurrencies
-        .map(code => currencyByCode.get(code))
-        .filter((item): item is CurrencySearchItem => Boolean(item))
-        .filter(item => item.code !== currency),
-    [recentCurrencies, currencyByCode, currency],
-  );
-  const allCurrencyItems = useMemo(() => {
-    const source =
-      currencyQuery.length > 0
-        ? currencyItems.filter(item => item.searchText.includes(currencyQuery))
-        : currencyItems;
-    return source.filter(item => item.code !== currency);
-  }, [currencyItems, currencyQuery, currency]);
-
-  const notSelectedMatchesSearch =
-    currencyQuery.length === 0 || 'Not selected'.toLowerCase().includes(currencyQuery);
-  const pushRecentCurrency = (code: string): void => {
-    setRecentCurrencies(prev => [code, ...prev.filter(c => c !== code)]);
-  };
-  return {
-    selectedCurrencyItem,
-    currencyQuery,
-    selectedMatchesSearch,
-    recentCurrencyItems,
-    allCurrencyItems,
-    notSelectedMatchesSearch,
-    currencySearch,
-    setCurrencySearch,
-    pushRecentCurrency,
-  };
-}
-
 function useWorkspaceActions(
   workspaceId: string | undefined,
   refreshWorkspaces: () => Promise<void>,
@@ -138,6 +72,7 @@ function useWorkspaceActions(
     onSuccess: () => void;
   }) => Promise<void>;
 } {
+  const t = useIntlayer('workspaceOverview');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -176,11 +111,11 @@ function useWorkspaceActions(
         currency: currency || undefined,
       } satisfies ContractInput<'UpdateWorkspaceBody'>);
       await refreshWorkspaces();
-      toast.success('Workspace updated');
+      toast.success(t.toasts.updated.value);
     })()
       .catch(async err => {
         console.error('Failed to update workspace:', err);
-        toast.error('Failed to update workspace');
+        toast.error(t.toasts.updateFailed.value);
       })
       .finally(async () => {
         setSaving(false);
@@ -205,14 +140,14 @@ function useWorkspaceActions(
       await apiClient.delete(`/workspaces/${workspaceId}`);
       clearWorkspace();
       await refreshWorkspaces();
-      toast.success('Workspace deleted');
+      toast.success(t.toasts.deleted.value);
       setDeleteModalOpen(false);
       setDeleteConfirmationName('');
       onSuccess();
     })()
       .catch(async err => {
         console.error('Failed to delete workspace:', err);
-        toast.error('Failed to delete workspace');
+        toast.error(t.toasts.deleteFailed.value);
       })
       .finally(async () => {
         setDeleting(false);
@@ -234,6 +169,8 @@ function useWorkspaceActions(
 
 export function useWorkspaceOverview(): WorkspaceOverviewState | null {
   const router = useRouter();
+  const t = useIntlayer('workspaceOverview');
+  const { notSelected } = useIntlayer('workspaceCurrencySelector');
   const { currentWorkspace, refreshWorkspaces, clearWorkspace, updateWorkspaceBackground } =
     useWorkspace();
   const [name, setName] = useState('');
@@ -252,7 +189,7 @@ export function useWorkspaceOverview(): WorkspaceOverviewState | null {
     setCurrency(currentWorkspace.currency ?? '');
   }, [currentWorkspace]);
 
-  const currencyState = useCurrencyState(currency);
+  const currencyState = useCurrencyState(currency, notSelected.value);
   const actions = useWorkspaceActions(currentWorkspace?.id, refreshWorkspaces, clearWorkspace);
 
   const isDirty =
@@ -283,11 +220,11 @@ export function useWorkspaceOverview(): WorkspaceOverviewState | null {
         workspaceId: currentWorkspace.id,
         backgroundImage: background,
       });
-      toast.success('Background updated');
+      toast.success(t.toasts.backgroundUpdated.value);
       setShowBackgroundPicker(false);
     })()
       .catch(async () => {
-        toast.error('Failed to update background');
+        toast.error(t.toasts.backgroundFailed.value);
       })
       .finally(async () => {
         setSavingBackground(false);
@@ -324,7 +261,7 @@ export function useWorkspaceOverview(): WorkspaceOverviewState | null {
     selectedMatchesSearch: currencyState.selectedMatchesSearch,
     recentCurrencyItems: currencyState.recentCurrencyItems,
     allCurrencyItems: currencyState.allCurrencyItems,
-    notSelectedLabel: 'Not selected',
+    notSelectedLabel: notSelected.value,
     notSelectedMatchesSearch: currencyState.notSelectedMatchesSearch,
     handleSave: () => actions.handleSave({ name, description, currency }),
     handleDelete: () =>

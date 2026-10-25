@@ -176,12 +176,6 @@ export function ModalHeader(props: {
   );
 }
 
-const FOOTER_DEFAULTS = {
-  cancelText: 'Cancel',
-  confirmText: 'Confirm',
-  confirmVariant: 'primary' as const,
-};
-
 function ConfirmBtn(props: {
   onConfirm: () => void;
   text: string;
@@ -207,13 +201,14 @@ function ConfirmBtn(props: {
 export function ModalFooter({
   onCancel,
   onConfirm,
-  cancelText = FOOTER_DEFAULTS.cancelText,
-  confirmText = FOOTER_DEFAULTS.confirmText,
-  confirmVariant = FOOTER_DEFAULTS.confirmVariant,
+  cancelText,
+  confirmText,
+  confirmVariant = 'primary',
   isConfirmLoading = false,
   isConfirmDisabled = false,
   children,
 }: ModalFooterProps): React.JSX.Element {
+  const { buttons } = useIntlayer('confirmModal');
   if (children) return <>{children}</>;
   return (
     <>
@@ -225,13 +220,13 @@ export function ModalFooter({
           variant="text"
           sx={{ color: 'var(--text-muted)', fontWeight: 500 }}
         >
-          {cancelText}
+          {cancelText ?? buttons.cancel.value}
         </MuiButton>
       )}
       {onConfirm && (
         <ConfirmBtn
           onConfirm={onConfirm}
-          text={confirmText}
+          text={confirmText ?? buttons.confirm.value}
           variant={confirmVariant}
           loading={isConfirmLoading}
           disabled={isConfirmDisabled}

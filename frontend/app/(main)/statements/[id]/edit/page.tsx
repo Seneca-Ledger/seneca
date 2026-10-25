@@ -148,7 +148,7 @@ export default function EditStatementPage(): React.JSX.Element {
   const { user } = useAuth();
   const t = useIntlayer('statementEditPage');
   const tablesDictionary = useIntlayer('customTablesPage');
-  const labels = t.labels as Record<string, { value?: string }>;
+  const labels = t.labels as Record<string, { value: string }>;
   const columns = t.columns as Record<string, { value?: string }>;
   const { locale } = useLocale();
   const statementId = params.id as string;
@@ -219,8 +219,8 @@ export default function EditStatementPage(): React.JSX.Element {
       exportFailure: t.labels.exportFailure.value,
       exportDescription: t.labels.exportDescription.value,
       statementNamePrefix: t.labels.statementNamePrefix.value,
-      categoryUpdated: labels.categoryUpdated?.value || 'Category updated',
-      categoryUpdateFailed: labels.categoryUpdateFailed?.value || 'Failed to update category',
+      categoryUpdated: labels.categoryUpdated?.value,
+      categoryUpdateFailed: labels.categoryUpdateFailed?.value,
     },
     sourceColumnTitles: buildSourceColumnTitles(tablesDictionary),
   });
@@ -228,9 +228,9 @@ export default function EditStatementPage(): React.JSX.Element {
   const formatNumber = (num?: number | null): string => formatNumberHelper(num, locale);
 
   const { confirming, confirmAll } = useConfirmStatement(statementId, LoadData, {
-    done: labels.confirmAllDone?.value || 'Confirmed {count} rows',
-    uncategorized: labels.confirmAllUncategorized?.value || '{count} rows still need a category',
-    failed: labels.confirmAllFailed?.value || 'Could not confirm the rows',
+    done: labels.confirmAllDone?.value,
+    uncategorized: labels.confirmAllUncategorized?.value,
+    failed: labels.confirmAllFailed?.value,
   });
 
   const enabledStatementCategories = filterEnabledCategories(categories);
@@ -279,8 +279,7 @@ export default function EditStatementPage(): React.JSX.Element {
         ).trim()
       : '') ||
     flattenedStatementCategories.find(category => category.id === statement?.categoryId)?.name ||
-    labels.categoryButton?.value ||
-    'Category';
+    labels.categoryButton?.value;
   const hasStatementCategory = !(
     isIdEmpty(statement?.categoryId) && isIdEmpty(statement?.category?.id || undefined)
   );
@@ -297,65 +296,48 @@ export default function EditStatementPage(): React.JSX.Element {
 
   const readinessTitle =
     readinessSeverity === 'error'
-      ? labels.alertNeedsFixTitle?.value || 'Fix required before submit'
+      ? labels.alertNeedsFixTitle?.value
       : readinessSeverity === 'warning'
-        ? labels.alertReviewTitle?.value || 'Review statement before submit'
-        : labels.alertReadyTitle?.value || 'Statement is ready to submit';
+        ? labels.alertReviewTitle?.value
+        : labels.alertReadyTitle?.value;
 
   const readinessDetails: string[] = [];
 
   if (!hasStatementCategory) {
-    readinessDetails.push(
-      labels.alertStatementCategoryMissing?.value || 'Statement category is not selected.',
-    );
+    readinessDetails.push(labels.alertStatementCategoryMissing?.value);
   }
 
   if (hasDisabledStatementCategory) {
-    readinessDetails.push(
-      labels.alertStatementCategoryDisabled?.value ||
-        'Selected statement category is disabled. Choose an active category.',
-    );
+    readinessDetails.push(labels.alertStatementCategoryDisabled?.value);
   }
 
   if (missingCategoryCount > 0) {
     readinessDetails.push(
-      (
-        labels.alertTransactionsCategoryMissing?.value ||
-        '{count} transactions require a category. Assign categories for all rows.'
-      ).replace('{count}', String(missingCategoryCount)),
+      labels.alertTransactionsCategoryMissing.value.replace(
+        '{count}',
+        String(missingCategoryCount),
+      ),
     );
   }
 
   if (parsingErrorCount > 0) {
     readinessDetails.push(
-      (
-        labels.alertParsingErrors?.value ||
-        '{count} parsing errors found. Review parsing details and statement data.'
-      ).replace('{count}', String(parsingErrorCount)),
+      labels.alertParsingErrors.value.replace('{count}', String(parsingErrorCount)),
     );
   }
 
   if (parsingWarningCount > 0) {
     readinessDetails.push(
-      (
-        labels.alertParsingWarnings?.value ||
-        '{count} parsing warnings found. It is recommended to review flagged rows.'
-      ).replace('{count}', String(parsingWarningCount)),
+      labels.alertParsingWarnings.value.replace('{count}', String(parsingWarningCount)),
     );
   }
 
   if (!transactions.length) {
-    readinessDetails.push(
-      labels.alertNoTransactions?.value ||
-        'No transactions found in this statement. Check file or import settings.',
-    );
+    readinessDetails.push(labels.alertNoTransactions?.value);
   }
 
   const readinessMessage =
-    readinessDetails.length > 0
-      ? readinessDetails.join(' · ')
-      : labels.alertReadyBody?.value ||
-        'All required categories are assigned. The data looks good and ready to submit.';
+    readinessDetails.length > 0 ? readinessDetails.join(' · ') : labels.alertReadyBody?.value;
 
   const readinessInlineText = `${readinessTitle}: ${readinessMessage}`;
 
@@ -431,7 +413,7 @@ export default function EditStatementPage(): React.JSX.Element {
                 statement?.statementDateFrom && statement?.statementDateTo
                   ? `${formatStoredDate(statement.statementDateFrom)} – ${formatStoredDate(statement.statementDateTo)}`
                   : null,
-                `${statement?.totalTransactions} ${t.labels.transactionsCount.value || 'transactions'}`,
+                `${statement?.totalTransactions} ${t.labels.transactionsCount.value}`,
                 statementCurrency,
               ]
                 .filter(Boolean)
@@ -479,7 +461,7 @@ export default function EditStatementPage(): React.JSX.Element {
               disabled={confirming || !hasUnconfirmedRows}
             >
               {confirming ? <Spinner size={18} /> : <CheckCircle2 size={18} />}
-              {labels.confirmAll?.value || 'Confirm all'}
+              {labels.confirmAll?.value}
             </DetailActionButton>
           </Box>
         </Box>
@@ -538,7 +520,7 @@ export default function EditStatementPage(): React.JSX.Element {
               onClick={() => setStatementCategoryDrawerOpen(true)}
               sx={{ flexShrink: 0, textTransform: 'none', fontWeight: 500 }}
             >
-              {labels.chooseCategory?.value || 'Choose category'}
+              {labels.chooseCategory?.value}
             </Button>
           ) : null}
         </Box>
@@ -552,16 +534,13 @@ export default function EditStatementPage(): React.JSX.Element {
           formatNumber={formatNumber}
           onConfirmed={LoadData}
           labels={{
-            title: labels.balanceReviewTitle?.value || 'Balance does not reconcile',
-            description:
-              labels.balanceReviewDescription?.value ||
-              'This statement stays out of analytics until you confirm the discrepancy.',
-            expected: labels.balanceReviewExpected?.value || 'Expected',
-            actual: labels.balanceReviewActual?.value || 'Reported',
-            difference: labels.balanceReviewDifference?.value || 'Difference',
-            confirm: labels.balanceReviewConfirm?.value || 'Confirm discrepancy',
-            confirmFailed:
-              labels.balanceReviewConfirmFailed?.value || 'Failed to confirm the discrepancy',
+            title: labels.balanceReviewTitle?.value,
+            description: labels.balanceReviewDescription?.value,
+            expected: labels.balanceReviewExpected?.value,
+            actual: labels.balanceReviewActual?.value,
+            difference: labels.balanceReviewDifference?.value,
+            confirm: labels.balanceReviewConfirm?.value,
+            confirmFailed: labels.balanceReviewConfirmFailed?.value,
           }}
         />
       )}
@@ -593,14 +572,14 @@ export default function EditStatementPage(): React.JSX.Element {
         {[
           {
             key: 'start',
-            label: labels.balanceStart?.value || 'Opening balance',
+            label: labels.balanceStart?.value,
             value: openingBalance,
           },
-          { key: 'expense', label: labels.expenses?.value || 'Expenses', value: safeExpense },
-          { key: 'income', label: labels.income?.value || 'Income', value: safeIncome },
+          { key: 'expense', label: labels.expenses?.value, value: safeExpense },
+          { key: 'income', label: labels.income?.value, value: safeIncome },
           {
             key: 'end',
-            label: labels.closingBalance?.value || 'Closing balance',
+            label: labels.closingBalance?.value,
             value: closingBalance,
           },
         ].map(card => (
@@ -614,7 +593,7 @@ export default function EditStatementPage(): React.JSX.Element {
               sx={{ fontSize: 16, fontWeight: 500, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}
             >
               {card.value === null ? (
-                labels.notSpecified?.value || 'Not specified'
+                labels.notSpecified?.value
               ) : (
                 <>
                   <PrivateAmount>{formatNumber(card.value)}</PrivateAmount>
@@ -651,11 +630,10 @@ export default function EditStatementPage(): React.JSX.Element {
                   }}
                 />
                 {closingMatches
-                  ? labels.closingMatches?.value || 'Matches the bank statement'
-                  : fillTemplateNodes(
-                      labels.closingBankSays?.value || 'Bank statement says {amount}',
-                      { amount: formatNumber(bankClosing) },
-                    )}
+                  ? labels.closingMatches?.value
+                  : fillTemplateNodes(labels.closingBankSays?.value, {
+                      amount: formatNumber(bankClosing),
+                    })}
               </Typography>
             ) : null}
           </Paper>
@@ -692,7 +670,7 @@ export default function EditStatementPage(): React.JSX.Element {
           }}
         >
           <Typography sx={{ fontSize: 14, fontWeight: 500, color: 'var(--primary)' }}>
-            {t.labels.parsingDetails?.value || 'Parsing details'}
+            {t.labels.parsingDetails?.value}
           </Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 3 }}>
@@ -710,23 +688,23 @@ export default function EditStatementPage(): React.JSX.Element {
           >
             <CustomDatePicker
               containerTestId="statement-metadata-field-start-date"
-              label={labels.startDate?.value || 'Start date'}
+              label={labels.startDate?.value}
               value={metadataForm.statementDateFrom}
               onChange={value => handleMetadataChange('statementDateFrom', value)}
               helperText={
                 statement?.parsingDetails?.metadataExtracted?.dateFrom
-                  ? `${labels.fromFilePrefix?.value || 'From file: '}${formatStoredDate(statement.parsingDetails.metadataExtracted.dateFrom, resolveLocale(locale))}`
+                  ? `${labels.fromFilePrefix?.value}${formatStoredDate(statement.parsingDetails.metadataExtracted.dateFrom, resolveLocale(locale))}`
                   : undefined
               }
             />
             <CustomDatePicker
               containerTestId="statement-metadata-field-end-date"
-              label={labels.endDate?.value || 'End date'}
+              label={labels.endDate?.value}
               value={metadataForm.statementDateTo}
               onChange={value => handleMetadataChange('statementDateTo', value)}
               helperText={
                 statement?.parsingDetails?.metadataExtracted?.dateTo
-                  ? `${labels.fromFilePrefix?.value || 'From file: '}${formatStoredDate(statement.parsingDetails.metadataExtracted.dateTo, resolveLocale(locale))}`
+                  ? `${labels.fromFilePrefix?.value}${formatStoredDate(statement.parsingDetails.metadataExtracted.dateTo, resolveLocale(locale))}`
                   : undefined
               }
             />
@@ -735,15 +713,15 @@ export default function EditStatementPage(): React.JSX.Element {
                 type="number"
                 fullWidth
                 size="small"
-                label={labels.openingBalance?.value || 'Opening balance'}
+                label={labels.openingBalance?.value}
                 inputRef={balanceStartInputRef}
                 value={metadataForm.balanceStart}
                 onChange={e => handleMetadataChange('balanceStart', e.target.value)}
                 placeholder="0.00"
                 helperText={
                   statement?.parsingDetails?.metadataExtracted?.balanceStart
-                    ? `${labels.fromFilePrefix?.value || 'From file: '}${formatNumber(statement.parsingDetails.metadataExtracted.balanceStart)}`
-                    : labels.enterOpeningBalance?.value || 'Enter opening balance'
+                    ? `${labels.fromFilePrefix?.value}${formatNumber(statement.parsingDetails.metadataExtracted.balanceStart)}`
+                    : labels.enterOpeningBalance?.value
                 }
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -759,15 +737,15 @@ export default function EditStatementPage(): React.JSX.Element {
                 type="number"
                 fullWidth
                 size="small"
-                label={labels.balanceEnd?.value || 'Closing balance'}
+                label={labels.balanceEnd?.value}
                 inputRef={balanceEndInputRef}
                 value={metadataForm.balanceEnd}
                 onChange={e => handleMetadataChange('balanceEnd', e.target.value)}
                 placeholder="0.00"
                 helperText={
                   statement?.parsingDetails?.metadataExtracted?.balanceEnd
-                    ? `${labels.fromFilePrefix?.value || 'From file: '}${formatNumber(statement.parsingDetails.metadataExtracted.balanceEnd)}`
-                    : labels.enterManuallyHint?.value || 'Enter manually if it was not detected'
+                    ? `${labels.fromFilePrefix?.value}${formatNumber(statement.parsingDetails.metadataExtracted.balanceEnd)}`
+                    : labels.enterManuallyHint?.value
                 }
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -793,7 +771,7 @@ export default function EditStatementPage(): React.JSX.Element {
                   textTransform: 'uppercase',
                 }}
               >
-                {labels.extractedMetadata?.value || 'Extracted metadata'}
+                {labels.extractedMetadata?.value}
               </Typography>
               <Box
                 sx={{
@@ -813,7 +791,7 @@ export default function EditStatementPage(): React.JSX.Element {
                       color: 'text.secondary',
                     }}
                   >
-                    {labels.bank?.value || 'Bank'}
+                    {labels.bank?.value}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {statement.parsingDetails.detectedBank || '—'}
@@ -826,7 +804,7 @@ export default function EditStatementPage(): React.JSX.Element {
                       color: 'text.secondary',
                     }}
                   >
-                    {labels.bankDetectedBy?.value || 'Detected by'}
+                    {labels.bankDetectedBy?.value}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {statement.parsingDetails.detectedBy || '—'}
@@ -839,7 +817,7 @@ export default function EditStatementPage(): React.JSX.Element {
                       color: 'text.secondary',
                     }}
                   >
-                    {labels.format?.value || 'Format'}
+                    {labels.format?.value}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {statement.parsingDetails.detectedFormat?.toUpperCase() || '—'}
@@ -852,7 +830,7 @@ export default function EditStatementPage(): React.JSX.Element {
                       color: 'text.secondary',
                     }}
                   >
-                    {labels.foundTransactions?.value || 'Transactions found'}
+                    {labels.foundTransactions?.value}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {statement.parsingDetails.transactionsFound ?? '—'}
@@ -865,7 +843,7 @@ export default function EditStatementPage(): React.JSX.Element {
                       color: 'text.secondary',
                     }}
                   >
-                    {labels.createdTransactions?.value || 'Transactions created'}
+                    {labels.createdTransactions?.value}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {statement.parsingDetails.transactionsCreated ?? '—'}
@@ -874,7 +852,7 @@ export default function EditStatementPage(): React.JSX.Element {
                 {statement.parsingDetails.errors && statement.parsingDetails.errors.length > 0 && (
                   <Box>
                     <Typography variant="caption" color="error">
-                      {labels.errors?.value || 'Errors'}
+                      {labels.errors?.value}
                     </Typography>
                     <Typography variant="body2" sx={{ fontWeight: 500, color: 'error.main' }}>
                       {statement.parsingDetails.errors.length}
@@ -890,7 +868,7 @@ export default function EditStatementPage(): React.JSX.Element {
                           color: 'warning.main',
                         }}
                       >
-                        {labels.warnings?.value || 'Warnings'}
+                        {labels.warnings?.value}
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 500, color: 'warning.main' }}>
                         {statement.parsingDetails.warnings.length}
@@ -906,7 +884,7 @@ export default function EditStatementPage(): React.JSX.Element {
                           color: 'text.secondary',
                         }}
                       >
-                        {labels.otherBankMentions?.value || 'Other bank mentions'}
+                        {labels.otherBankMentions?.value}
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
                         {statement.parsingDetails.otherBankMentions.join(', ')}
@@ -924,15 +902,13 @@ export default function EditStatementPage(): React.JSX.Element {
                     handleConvertDroppedSample(sample, index, warning)
                   }
                   onResolveWarning={({ warning }) => handleResolveParsingWarning(warning)}
-                  fixTooltipLabel={labels.fixDroppedRow?.value || 'Fix'}
-                  resolveBalanceTooltipLabel={labels.balanceEnd?.value || 'Review balances'}
-                  title={labels.warnings?.value || 'Warnings'}
-                  helperText={
-                    labels.alertParsingWarnings?.value?.replace(
-                      '{count}',
-                      String(statement.parsingDetails.warnings?.length || 0),
-                    ) || 'Review the flagged rows before submitting this statement.'
-                  }
+                  fixTooltipLabel={labels.fixDroppedRow?.value}
+                  resolveBalanceTooltipLabel={labels.balanceEnd?.value}
+                  title={labels.warnings?.value}
+                  helperText={labels.alertParsingWarnings?.value?.replace(
+                    '{count}',
+                    String(statement.parsingDetails.warnings?.length || 0),
+                  )}
                 />
               ) : null}
             </>
@@ -1009,7 +985,7 @@ export default function EditStatementPage(): React.JSX.Element {
           setStatementCategoryDrawerOpen(false);
           void handleStatementCategorySelect(category.id);
         }}
-        clearLabel={labels.categoryAllOption?.value || 'All'}
+        clearLabel={labels.categoryAllOption?.value}
       />
 
       {/* Bulk Actions */}
@@ -1060,7 +1036,7 @@ export default function EditStatementPage(): React.JSX.Element {
                   },
                 }}
               >
-                {labels.assignCategory?.value || 'Assign category'}
+                {labels.assignCategory?.value}
               </Button>
               <Button
                 variant="contained"
@@ -1074,7 +1050,7 @@ export default function EditStatementPage(): React.JSX.Element {
                   boxShadow: 'none',
                 }}
               >
-                {labels.save?.value || 'Save'}
+                {labels.save?.value}
               </Button>
               <Button
                 variant="outlined"
@@ -1093,7 +1069,7 @@ export default function EditStatementPage(): React.JSX.Element {
                   fontWeight: 500,
                 }}
               >
-                {labels.delete?.value || 'Delete'}
+                {labels.delete?.value}
               </Button>
             </Box>
           </Box>

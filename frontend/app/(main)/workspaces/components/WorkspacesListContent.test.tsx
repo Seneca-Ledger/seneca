@@ -23,9 +23,9 @@ const workspaceState = {
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
     loading: 'Loading...',
-    noWorkspaces: 'No workspaces',
-    createWorkspace: 'Create Workspace',
-    searchPlaceholder: 'Search workspaces...',
+    noWorkspaces: { value: 'You have no workspaces yet' },
+    createWorkspace: { value: 'Create New Workspace' },
+    searchPlaceholder: { value: 'Search workspaces...' },
     // workspacesListView, read by the grid, list and filter children.
     empty: { subtitle: 'Create your first workspace to get started' },
     noResults: { title: 'No workspaces found', subtitle: 'Try adjusting your search query' },
@@ -82,7 +82,7 @@ describe('WorkspacesListContent', () => {
     });
 
     const createWorkspaceButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('Create Workspace'),
+      button.textContent?.includes('Create New Workspace'),
     ) as HTMLButtonElement | undefined;
 
     expect(createWorkspaceButton).toBeTruthy();
@@ -181,11 +181,11 @@ describe('WorkspacesListContent', () => {
     const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
     const html = renderToStaticMarkup(<WorkspacesListContent />);
 
-    expect(html).toContain('Create Workspace');
+    expect(html).toContain('Create New Workspace');
     // The old tile was a filled card; the dashed outline lives in the sx class now.
     const createTile = html.slice(
-      html.lastIndexOf('<button', html.indexOf('Create Workspace')),
-      html.indexOf('Create Workspace'),
+      html.lastIndexOf('<button', html.indexOf('Create New Workspace')),
+      html.indexOf('Create New Workspace'),
     );
     expect(createTile).not.toContain('background:var(--card-bg)');
   });

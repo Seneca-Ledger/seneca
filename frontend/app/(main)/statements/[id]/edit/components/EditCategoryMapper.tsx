@@ -12,7 +12,7 @@ import { CheckCircle2, Layers, Save, Trash2 } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
 import { tokens } from '@/lib/theme-tokens';
 import type { CategoryOption } from '../editHelpers';
-import { formatLabel, labelValue } from '../editHelpers';
+import { formatLabel } from '../editHelpers';
 
 type EditCategoryMapperProps = {
   open: boolean;
@@ -20,7 +20,7 @@ type EditCategoryMapperProps = {
   selectedCount: number;
   bulkCategoryId: string;
   flattenedEnabledCategories: CategoryOption[];
-  labels: Record<string, { value?: string } | undefined>;
+  labels: Record<string, { value: string }>;
   onClose: () => void;
   onCategoryChange: (id: string) => void;
   onApply: () => void;
@@ -74,13 +74,7 @@ export function EditCategoryMapper({
   onCategoryChange,
   onApply,
 }: EditCategoryMapperProps): React.ReactElement {
-  const title = formatLabel(
-    labelValue(
-      labels.assignCategoryForTransactions,
-      `Assign category for ${selectedCount} transactions`,
-    ),
-    { count: selectedCount },
-  );
+  const title = formatLabel(labels.assignCategoryForTransactions.value, { count: selectedCount });
   const applyDisabled = saving || !bulkCategoryId;
   return (
     <Dialog
@@ -106,12 +100,9 @@ export function EditCategoryMapper({
       <DialogContent sx={{ pt: 3 }}>
         <CategoryPicker
           bulkCategoryId={bulkCategoryId}
-          categoryLabel={labelValue(labels.category, 'Category')}
-          helperText={labelValue(
-            labels.bulkCategoryHelper,
-            'The category will be applied to all selected transactions',
-          )}
-          notSelectedLabel={labelValue(labels.notSelected, 'Not selected')}
+          categoryLabel={labels.category.value}
+          helperText={labels.bulkCategoryHelper.value}
+          notSelectedLabel={labels.notSelected.value}
           flattenedEnabledCategories={flattenedEnabledCategories}
           onCategoryChange={onCategoryChange}
         />
@@ -121,7 +112,7 @@ export function EditCategoryMapper({
           onClick={onClose}
           sx={{ textTransform: 'none', fontWeight: 500, color: 'text.secondary' }}
         >
-          {labelValue(labels.cancel, 'Cancel')}
+          {labels.cancel.value}
         </Button>
         <Button
           variant="contained"
@@ -135,7 +126,7 @@ export function EditCategoryMapper({
             '&:hover': { boxShadow: 'none' },
           }}
         >
-          {labelValue(labels.apply, 'Apply')}
+          {labels.apply.value}
         </Button>
       </DialogActions>
     </Dialog>
@@ -214,7 +205,7 @@ export function ExportConfirmDialog({
 type BulkActionsBarProps = {
   selectedCount: number;
   saving: boolean;
-  labels: Record<string, { value?: string } | undefined>;
+  labels: Record<string, { value: string }>;
   onAssignCategory: () => void;
   onBulkUpdate: () => void;
   onBulkDelete: (confirmMsg: string) => void;
@@ -228,14 +219,8 @@ export function BulkActionsBar({
   onBulkUpdate,
   onBulkDelete,
 }: BulkActionsBarProps): React.ReactElement {
-  const selectedText = formatLabel(
-    labelValue(labels.selectedTransactions, `Selected: ${selectedCount} transactions`),
-    { count: selectedCount },
-  );
-  const deleteMsg = formatLabel(
-    labelValue(labels.confirmDeleteMany, `Delete ${selectedCount} transactions?`),
-    { count: selectedCount },
-  );
+  const selectedText = formatLabel(labels.selectedTransactions.value, { count: selectedCount });
+  const deleteMsg = formatLabel(labels.confirmDeleteMany.value, { count: selectedCount });
   return (
     <Box
       sx={{ mb: 3, p: 3, bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.200' }}
@@ -259,7 +244,7 @@ export function BulkActionsBar({
               '&:hover': { borderColor: 'primary.400', bgcolor: 'primary.100' },
             }}
           >
-            {labelValue(labels.assignCategory, 'Assign category')}
+            {labels.assignCategory.value}
           </Button>
           <Button
             variant="contained"
@@ -269,7 +254,7 @@ export function BulkActionsBar({
             size="small"
             sx={{ textTransform: 'none', fontWeight: 600, boxShadow: 'none' }}
           >
-            {labelValue(labels.save, 'Save')}
+            {labels.save.value}
           </Button>
           <Button
             variant="outlined"
@@ -280,7 +265,7 @@ export function BulkActionsBar({
             size="small"
             sx={{ textTransform: 'none', fontWeight: 500 }}
           >
-            {labelValue(labels.delete, 'Delete')}
+            {labels.delete.value}
           </Button>
         </Box>
       </Box>

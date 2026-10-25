@@ -371,8 +371,8 @@ export function useStatementsView({
     page,
     pageSize: PAGE_SIZE,
     router,
-    loadListErrorLabel: resolveLabel(t.loadListError, 'Failed to load statements'),
-    refreshFailedLabel: resolveLabel(t.refreshFailed, 'Failed to refresh statements'),
+    loadListErrorLabel: t.loadListError.value,
+    refreshFailedLabel: t.refreshFailed.value,
   });
 
   // Effect events: the loaders are re-created by their hooks each render, and

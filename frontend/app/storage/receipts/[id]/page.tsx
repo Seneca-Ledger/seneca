@@ -530,7 +530,7 @@ export default function ReceiptDocumentPage() {
       const tableId = createdTable.id;
 
       if (!tableId) {
-        toast.error('Failed to export to table');
+        toast.error(t.exportFailed.value);
         router.push('/custom-tables');
         return;
       }
@@ -584,7 +584,7 @@ export default function ReceiptDocumentPage() {
       return;
     })()
       .catch(async () => {
-        toast.error('Failed to export to table');
+        toast.error(t.exportFailed.value);
       })
       .finally(async () => {
         setExportingToTable(false);

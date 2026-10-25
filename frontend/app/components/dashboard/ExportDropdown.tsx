@@ -15,7 +15,7 @@ interface Token {
 }
 
 interface ExportDropdownProps {
-  t?: Partial<{
+  t: {
     button: Token;
     title: Token;
     excel: Token;
@@ -25,12 +25,12 @@ interface ExportDropdownProps {
     downloading: Token;
     success: Token;
     error: Token;
-  }>;
+  };
 }
 
 const EXPORT_ITEMS: Array<{
   key: ExportFormat;
-  labelKey: keyof NonNullable<ExportDropdownProps['t']>;
+  labelKey: keyof ExportDropdownProps['t'];
   icon: typeof FileSpreadsheet;
 }> = [
   { key: 'excel', labelKey: 'excel', icon: FileSpreadsheet },
@@ -38,9 +38,6 @@ const EXPORT_ITEMS: Array<{
   { key: 'csv', labelKey: 'csv', icon: FileType2 },
   { key: 'docx', labelKey: 'docx', icon: FileText },
 ];
-
-const resolveText = (token: Token | undefined, fallback: string): string =>
-  token?.value || fallback;
 
 const EXPORT_EXTENSIONS: Record<ExportFormat, string> = {
   excel: 'xlsx',
@@ -55,13 +52,6 @@ const resolveDownloadFileName = (format: ExportFormat, contentDisposition?: stri
   return `workspace-transactions.${EXPORT_EXTENSIONS[format]}`;
 };
 
-const ITEM_FALLBACKS: Record<ExportFormat, string> = {
-  docx: 'Word (.docx)',
-  excel: 'Excel (.xlsx)',
-  pdf: 'PDF',
-  csv: 'CSV',
-};
-
 function triggerDownload(blob: Blob, fileName: string): void {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -74,7 +64,7 @@ function triggerDownload(blob: Blob, fileName: string): void {
 }
 
 async function runExport(format: ExportFormat, t: ExportDropdownProps['t']): Promise<void> {
-  const toastId = toast.loading(resolveText(t?.downloading, 'Downloading...'));
+  const toastId = toast.loading(t.downloading.value);
   try {
     const response = await apiClient.post(
       '/reports/workspace-export',
@@ -83,10 +73,10 @@ async function runExport(format: ExportFormat, t: ExportDropdownProps['t']): Pro
     );
     const fileName = resolveDownloadFileName(format, response.headers?.['content-disposition']);
     triggerDownload(new Blob([blobOf(response)]), fileName);
-    toast.success(resolveText(t?.success, 'File downloaded successfully'), { id: toastId });
+    toast.success(t.success.value, { id: toastId });
   } catch (error) {
     console.error('Failed to export workspace transactions', error);
-    toast.error(resolveText(t?.error, 'Download failed'), { id: toastId });
+    toast.error(t.error.value, { id: toastId });
   }
 }
 
@@ -101,10 +91,7 @@ function ExportMenuItems({
     <>
       {EXPORT_ITEMS.map(item => {
         const Icon = item.icon;
-        const label = resolveText(
-          t?.[item.labelKey] as Token | undefined,
-          ITEM_FALLBACKS[item.key],
-        );
+        const label = t[item.labelKey].value;
         return (
           <MenuItem
             key={item.key}
@@ -134,9 +121,7 @@ export function ExportDropdown({ t }: ExportDropdownProps): React.JSX.Element {
     void runExport(format, t).finally(() => setIsLoading(false));
   };
 
-  const buttonLabel = isLoading
-    ? resolveText(t?.downloading, 'Downloading...')
-    : resolveText(t?.button, 'Export');
+  const buttonLabel = isLoading ? t.downloading.value : t.button.value;
 
   return (
     <>
@@ -158,7 +143,7 @@ export function ExportDropdown({ t }: ExportDropdownProps): React.JSX.Element {
         anchorEl={anchorEl}
         open={open}
         onClose={() => setAnchorEl(null)}
-        aria-label={resolveText(t?.title, 'Export data')}
+        aria-label={t.title.value}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >

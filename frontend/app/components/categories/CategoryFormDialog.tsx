@@ -77,6 +77,7 @@ function CurrentIcon({ icon, withoutIcon }: { icon: string; withoutIcon: boolean
  */
 export function CategoryFormDialog({ open, category, onClose, onSaved }: CategoryFormDialogProps) {
   const t = useIntlayer('categoriesPage');
+  const iconNames = useIntlayer('categoryIcons');
   const tx = (path: string[], fallback: string) => resolveLabel(getNestedValue(t, path), fallback);
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
@@ -248,14 +249,14 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
             >
               <span className="seneca-category-dialog__no-icon" aria-hidden="true" />
             </button>
-            {CATEGORY_ICON_CHOICES.map(({ value, label, Icon }) => (
+            {CATEGORY_ICON_CHOICES.map(({ value, labelKey, Icon }) => (
               <button
                 key={value}
                 type="button"
                 role="radio"
                 aria-checked={!formData.withoutIcon && formData.icon === value}
-                title={label}
-                aria-label={label}
+                title={iconNames[labelKey].value}
+                aria-label={iconNames[labelKey].value}
                 onClick={() => setFormData({ ...formData, icon: value, withoutIcon: false })}
               >
                 <Icon size={20} />

@@ -20,7 +20,11 @@ vi.mock('@/app/hooks/useAuth', () => ({
 }));
 
 vi.mock('@/app/i18n', () => ({
-  useIntlayer: () => ({
+  // The icon picker reads its names from `categoryIcons`: each name is its key.
+  useIntlayer: (key: string) =>
+    key === 'categoryIcons'
+      ? new Proxy({}, { get: (_target, name) => ({ value: String(name) }) })
+      : {
     title: 'Categories',
     subtitle: 'Subtitle',
     add: 'Add',
@@ -86,7 +90,7 @@ vi.mock('@/app/i18n', () => ({
         warning: 'Existing items will show a warning until a new category is selected.',
       },
     },
-  }),
+        },
   useLocale: () => ({ locale: 'en' }),
 }));
 

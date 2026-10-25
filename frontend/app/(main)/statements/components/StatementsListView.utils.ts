@@ -2,7 +2,6 @@ import { resolveBankLogo } from '@bank-logos';
 import { getCachedIntlayer } from '@/app/i18n';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
-import { resolveLabel } from '@/app/lib/side-panel-utils';
 import type { StatementCategoryNode } from '@/app/lib/statement-categories';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import {
@@ -516,22 +515,22 @@ type IntlayerDict = any;
 type TxFn = (path: string[], fallback: string) => string;
 
 export const buildFilterLabels = (t: IntlayerDict): FilterLabels => ({
-  type: resolveLabel(t.filters?.type, 'Type'),
-  status: resolveLabel(t.filters?.status, 'Status'),
-  date: resolveLabel(t.filters?.date, 'Date'),
-  from: resolveLabel(t.filters?.from, 'From'),
-  filters: resolveLabel(t.filters?.filters, 'Filters'),
-  columns: resolveLabel(t.filters?.columns, 'Columns'),
+  type: t.filters.type.value,
+  status: t.filters.status.value,
+  date: t.filters.date.value,
+  from: t.filters.from.value,
+  filters: t.filters.filters.value,
+  columns: t.filters.columns.value,
 });
 
 export const buildListHeaderLabels = (t: IntlayerDict): Record<string, string> => ({
-  receipt: resolveLabel(t.listHeader?.receipt, 'Receipt'),
-  type: resolveLabel(t.listHeader?.type, 'Type'),
-  date: resolveLabel(t.listHeader?.date, 'Date'),
-  merchant: resolveLabel(t.listHeader?.merchant, 'Merchant'),
-  amount: resolveLabel(t.listHeader?.amount, 'Amount'),
-  action: resolveLabel(t.listHeader?.action, 'Action'),
-  scanning: resolveLabel(t.listHeader?.scanning, 'Scanning...'),
+  receipt: t.listHeader.receipt.value,
+  type: t.listHeader.type.value,
+  date: t.listHeader.date.value,
+  merchant: t.listHeader.merchant.value,
+  amount: t.listHeader.amount.value,
+  action: t.listHeader.action.value,
+  scanning: t.listHeader.scanning.value,
 });
 
 export const buildPaginationLabels = (tx: TxFn): Record<string, string> => ({
@@ -542,9 +541,9 @@ export const buildPaginationLabels = (tx: TxFn): Record<string, string> => ({
 });
 
 export const buildUploadLabels = (t: IntlayerDict): StatementUploadLabels => ({
-  pickAtLeastOne: resolveLabel(t.uploadModal?.pickAtLeastOne, 'Select at least one file'),
-  uploadedProcessing: resolveLabel(t.uploadModal?.uploadedProcessing, 'Files uploaded'),
-  uploadFailed: resolveLabel(t.uploadModal?.uploadFailed, 'Failed to upload files'),
+  pickAtLeastOne: t.uploadModal.pickAtLeastOne.value,
+  uploadedProcessing: t.uploadModal.uploadedProcessing.value,
+  uploadFailed: t.uploadModal.uploadFailed.value,
 });
 
 export const buildFilterOptionLabels = (_t: IntlayerDict, tx: TxFn): FilterOptionLabels => ({

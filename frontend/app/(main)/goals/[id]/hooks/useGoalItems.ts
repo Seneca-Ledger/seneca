@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { fetchGoalItems, type GoalItemPayload, type GoalItemsResponse } from '@/app/lib/goals-api';
@@ -27,6 +28,7 @@ type Write =
 
 export function useGoalItems(goalId: string): GoalItemsState {
   const workspaceId = useWorkspaceId();
+  const t = useIntlayer('goalDetailPage');
   const queryClient = useQueryClient();
   const queryKey = queryKeys.goalItems({ workspaceId, goalId });
 
@@ -84,7 +86,7 @@ export function useGoalItems(goalId: string): GoalItemsState {
     data: query.data,
     isPending: query.isPending,
     isSaving: mutation.isPending,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load goal items') : null,
+    error: query.isError ? getApiErrorMessage(query.error, t.itemsLoadFailed.value) : null,
     createItem,
     updateItem,
     removeItem,

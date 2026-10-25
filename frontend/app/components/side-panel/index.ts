@@ -2,11 +2,6 @@
 
 // Page Configuration Factories
 export { createBasicSidePanelConfig } from './configs';
-// Example Components
-export {
-  AppLayoutWithSidePanel,
-  PageWithSidePanel,
-} from './examples/SidePanelPageLayout';
 
 // Hooks
 export { useCurrentSidePanelConfig, useSidePanelConfig } from './hooks/useSidePanelConfig';

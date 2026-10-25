@@ -2,26 +2,19 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import { useIntlayer } from '@/app/i18n';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import type { WorkspaceInvitation } from './hooks/useMemberManagement';
+import { useMemberRoleText } from './hooks/useMemberRoleText';
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  member: 'Member',
-  viewer: 'Viewer',
-};
-
-const getRoleLabel = (role: string): string => ROLE_LABELS[role] || role;
-
-const formatDate = (value?: string): string => {
+const formatDate = (value: string | undefined, notAvailable: string): string => {
   if (!value) {
-    return 'N/A';
+    return notAvailable;
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return 'N/A';
+    return notAvailable;
   }
   return formatStoredDateWithOptions(date, { year: 'numeric', month: 'short', day: 'numeric' });
 };
@@ -58,6 +51,8 @@ function InviteRow({
   onRevoke,
   onCopyLink,
 }: InviteRowProps): React.ReactElement {
+  const t = useIntlayer('workspaceMembers');
+  const { roleLabel } = useMemberRoleText();
   const isActionBusy = isResending || isRevoking;
   return (
     <Box
@@ -84,10 +79,10 @@ function InviteRow({
           {invite.email}
         </Typography>
         <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', display: 'block' }}>
-          Role: {getRoleLabel(invite.role)}
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', display: 'block' }}>
-          Invited {formatDate(invite.createdAt)} · Expires {formatDate(invite.expiresAt)}
+          {t.pending.meta.value
+            .replace('{role}', roleLabel(invite.role))
+            .replace('{invited}', formatDate(invite.createdAt, t.notAvailable.value))
+            .replace('{expires}', formatDate(invite.expiresAt, t.notAvailable.value))}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -97,7 +92,7 @@ function InviteRow({
           disabled={!isOwnerOrAdmin || isActionBusy}
           onClick={() => void onResend(invite)}
         >
-          {isResending ? 'Sending...' : 'Resend'}
+          {isResending ? t.sending : t.pending.resend}
         </Button>
         <Button
           size="small"
@@ -106,7 +101,7 @@ function InviteRow({
           disabled={!isOwnerOrAdmin || isActionBusy}
           onClick={() => void onRevoke(invite.id)}
         >
-          {isRevoking ? 'Revoking...' : 'Revoke'}
+          {isRevoking ? t.pending.revoking : t.pending.revoke}
         </Button>
         <Button
           size="small"
@@ -114,7 +109,7 @@ function InviteRow({
           disabled={isActionBusy}
           onClick={() => void onCopyLink({ token: invite.token, link: invite.link })}
         >
-          Copy link
+          {t.pending.copyLink}
         </Button>
       </Box>
     </Box>
@@ -131,6 +126,7 @@ export function PendingInvitations({
   onRevoke,
   onCopyLink,
 }: PendingInvitationsProps): React.ReactElement {
+  const t = useIntlayer('workspaceMembers');
   return (
     <Box
       sx={{
@@ -152,14 +148,14 @@ export function PendingInvitations({
           color: 'var(--muted-foreground)',
         }}
       >
-        Pending invitations
+        {t.pending.title}
       </Typography>
       <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
-        Invitations expire in {expiryDays} days.
+        {t.pending.expiry.value.replace('{days}', String(expiryDays))}
       </Typography>
       {invitations.length === 0 ? (
         <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-          No active invitations. New invites will appear here with resend and revoke actions.
+          {t.pending.empty}
         </Typography>
       ) : (
         invitations.map(invite => (
