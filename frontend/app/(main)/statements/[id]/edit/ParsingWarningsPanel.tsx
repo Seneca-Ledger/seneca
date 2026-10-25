@@ -74,7 +74,6 @@ const buildFallbackEntries = ({
   sampleKeyByReason,
   sampleKeyByTxKey,
 }: FallbackCtx): EditableWarningEntry[] =>
-  // eslint-disable-next-line max-params, complexity
   warnings.flatMap((warning, warningIndex) => {
     const warningTxKey = extractTxKey(warning);
     const matchedKey =
@@ -100,7 +99,6 @@ const buildEditableEntries = ({
   droppedSamples: Array<string | ParsingDroppedSample>;
   warnings: string[];
 }): EditableWarningEntry[] => {
-  // eslint-disable-next-line max-params
   const sampleEntries: EditableWarningEntry[] = droppedSamples.map((sample, index) => {
     const normalized = toDroppedSample(sample);
     return {
@@ -168,7 +166,6 @@ function ConvertDialog({ panel }: ConvertDialogProps): React.JSX.Element {
 // Main component
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ParsingWarningsPanel({
   warnings,
   droppedSamples = [],
@@ -198,7 +195,13 @@ export function ParsingWarningsPanel({
     <>
       <Alert severity="warning" variant="outlined" sx={{ mt: 3, alignItems: 'flex-start' }}>
         <AlertTitle sx={{ mb: 0.5 }}>{title}</AlertTitle>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 1.5,
+          }}
+        >
           {helperText}
         </Typography>
         <WarningsList

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -105,7 +104,6 @@ export type UseExpenseFormReturn = {
   handleSubmitManual: () => Promise<void>;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function useExpenseForm({
   open,
   initialMode,
@@ -258,7 +256,6 @@ export function useExpenseForm({
     onClose();
   };
 
-  // eslint-disable-next-line complexity
   const handleBackClick = (): void => {
     if (categoryDrawerOpen) {
       setCategoryDrawerOpen(false);

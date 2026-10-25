@@ -66,7 +66,12 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
   if (!Array.isArray(coverage?.currencies)) return null;
   if (coverage.currencies.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary">
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {tx(['exchangeRatesCard', 'empty'], 'Every row is in the workspace currency')}
       </Typography>
     );
@@ -80,10 +85,22 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
           data-testid={`rate-row-${item.currency}`}
           sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}
         >
-          <Typography variant="body2" fontWeight={600} sx={{ width: 56 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 600,
+              width: 56,
+            }}
+          >
             {item.currency}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ width: 90 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              width: 90,
+            }}
+          >
             {item.rows} {tx(['exchangeRatesCard', 'colRows'], 'rows')}
           </Typography>
           <Typography
@@ -112,8 +129,10 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
             onChange={event =>
               setDrafts(current => ({ ...current, [item.currency]: event.target.value }))
             }
-            inputProps={{ inputMode: 'decimal' }}
             sx={{ width: 160 }}
+            slotProps={{
+              htmlInput: { inputMode: 'decimal' },
+            }}
           />
           <Button
             size="small"

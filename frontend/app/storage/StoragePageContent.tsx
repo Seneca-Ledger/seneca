@@ -44,7 +44,6 @@ import { formatFileSize, getStatusTone, NO_FOLDER, tagChipClass } from './storag
 /**
  * Storage page - displays all files with sharing and permissions
  */
-// eslint-disable-next-line max-lines-per-function, complexity
 function StoragePageContent({
   initialList = 'active',
 }: {
@@ -145,7 +144,6 @@ function StoragePageContent({
   const isFolderActive = activeModal === 'folders';
 
   // Effect events: the hook objects below are re-created every render, and an
-  // eslint-disable inside a component makes React Compiler skip it entirely.
   const loadLookups = useEffectEvent(() => {
     void filtersHook.loadCategories();
     void tagsHook.loadTags();

@@ -43,7 +43,6 @@ interface PayableFiltersBarProps {
  * Payable filters as two toolbar buttons, the way the Submit page carries its
  * own: the due-date range behind Date, everything else behind Filters.
  */
-// eslint-disable-next-line max-lines-per-function
 function PayableFiltersBar({
   value,
   onChange,

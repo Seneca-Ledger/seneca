@@ -63,8 +63,11 @@ function ChannelHeader({ tx }: { tx: Tx }) {
         <Typography
           key={channel}
           variant="caption"
-          color="text.secondary"
-          sx={{ textAlign: 'center', fontWeight: 600 }}
+          sx={{
+            color: 'text.secondary',
+            textAlign: 'center',
+            fontWeight: 600,
+          }}
         >
           {tx(['notificationsCard', 'channels', channel], CHANNEL_FALLBACKS[channel])}
         </Typography>
@@ -105,7 +108,12 @@ function NotificationSettingRow({
         <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
           {label}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {description}
         </Typography>
       </Stack>
@@ -117,11 +125,13 @@ function NotificationSettingRow({
             disabled={saving}
             size="small"
             color="primary"
-            inputProps={{
-              'aria-label': `${label} — ${tx(
-                ['notificationsCard', 'channels', channel],
-                CHANNEL_FALLBACKS[channel],
-              )}`,
+            slotProps={{
+              input: {
+                'aria-label': `${label} — ${tx(
+                  ['notificationsCard', 'channels', channel],
+                  CHANNEL_FALLBACKS[channel],
+                )}`,
+              },
             }}
           />
         </Box>
@@ -148,10 +158,20 @@ function NotificationGroup({
   return (
     <Card variant="outlined">
       <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {tx(['notificationsCard', titlePath, 'title'], '')}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {tx(['notificationsCard', titlePath, 'description'], '')}
         </Typography>
       </Box>

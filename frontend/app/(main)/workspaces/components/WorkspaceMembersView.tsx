@@ -610,12 +610,14 @@ export default function WorkspaceMembersView() {
                   '& .MuiOutlinedInput-root': { bgcolor: 'transparent' },
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border)' },
                 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search size={16} style={{ color: 'var(--muted-foreground)' }} />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search size={16} style={{ color: 'var(--muted-foreground)' }} />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
 
@@ -780,7 +782,13 @@ export default function WorkspaceMembersView() {
             {/* Permissions */}
             {inviteRole === 'member' && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Typography variant="body2" fontWeight={500} sx={{ color: 'var(--foreground)' }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    color: 'var(--foreground)',
+                  }}
+                >
                   {t.invite.permissionsTitle}
                 </Typography>
                 <Box
@@ -907,7 +915,15 @@ export default function WorkspaceMembersView() {
                       )}
                     </Box>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={500} sx={TRUNCATE_SX}>
+                      <Typography
+                        variant="body2"
+                        sx={[
+                          {
+                            fontWeight: 500,
+                          },
+                          ...(Array.isArray(TRUNCATE_SX) ? TRUNCATE_SX : [TRUNCATE_SX]),
+                        ]}
+                      >
                         {member.name || member.email}
                       </Typography>
                       <Typography
@@ -1123,7 +1139,15 @@ export default function WorkspaceMembersView() {
                 return (
                   <Box key={invite.id} sx={MEMBER_ROW_SX}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={500} sx={TRUNCATE_SX}>
+                      <Typography
+                        variant="body2"
+                        sx={[
+                          {
+                            fontWeight: 500,
+                          },
+                          ...(Array.isArray(TRUNCATE_SX) ? TRUNCATE_SX : [TRUNCATE_SX]),
+                        ]}
+                      >
                         {invite.email}
                       </Typography>
                       <Typography

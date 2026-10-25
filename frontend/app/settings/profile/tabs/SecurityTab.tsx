@@ -18,7 +18,6 @@ import { useTwoFactor } from '@/app/settings/profile/hooks/useTwoFactor';
 
 import type { SettingsTabProps } from './types';
 
-// eslint-disable-next-line max-lines-per-function
 export function SecurityTab({ section, user }: SettingsTabProps): React.JSX.Element {
   const { t, tx } = useSettingsText();
   const { preferences: formatPreferences } = useUserFormat();

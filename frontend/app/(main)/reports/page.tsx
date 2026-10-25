@@ -43,7 +43,6 @@ const LINKED_TABS: ReportsTab[] = ['tax', 'tax-year', 'cash-flow'];
 const readLinkedTab = (value: string | null): ReportsTab | null =>
   LINKED_TABS.find(tab => tab === value) ?? null;
 
-// eslint-disable-next-line max-lines-per-function
 export default function ReportsPage(): React.JSX.Element {
   const t = useIntlayer('reportsPage');
   const taxYearText = useIntlayer('taxYearView');
@@ -57,7 +56,6 @@ export default function ReportsPage(): React.JSX.Element {
   });
   const chargesVat = taxSettings.data?.vatStatus === 'registered';
   const labels = t.labels as Record<string, { value?: string } | undefined>;
-  // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
 
   const templates: ReportTemplate[] = [
@@ -265,7 +263,6 @@ export default function ReportsPage(): React.JSX.Element {
         <Tabs
           data-tour-id="reports-tabs"
           value={tab}
-          // eslint-disable-next-line max-params
           onChange={(_e, v: ReportsTab) => {
             setTab(v);
             setSelectedTemplate(null);

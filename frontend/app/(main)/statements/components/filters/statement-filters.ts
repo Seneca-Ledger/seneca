@@ -142,7 +142,6 @@ export const saveStatementFilters = (filters: StatementFilters): void => {
   localStorage.setItem(STATEMENT_FILTERS_STORAGE_KEY, JSON.stringify(filters));
 };
 
-/* eslint-disable complexity */
 const applyBasicFilters = <T extends StatementFilterItem>(
   result: T[],
   filters: StatementFilters,
@@ -172,9 +171,7 @@ const applyBasicFilters = <T extends StatementFilterItem>(
   }
   return items;
 };
-/* eslint-enable complexity */
 
-/* eslint-disable complexity */
 const applyAdvancedFilters = <T extends StatementFilterItem>(
   result: T[],
   filters: StatementFilters,
@@ -207,7 +204,6 @@ const applyAdvancedFilters = <T extends StatementFilterItem>(
   }
   return items;
 };
-/* eslint-enable complexity */
 
 export const applyStatementsFilters = <T extends StatementFilterItem>(
   statements: T[],

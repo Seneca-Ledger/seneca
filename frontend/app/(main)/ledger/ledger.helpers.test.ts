@@ -62,7 +62,10 @@ describe('ledger helpers', () => {
   });
 
   it('indents trial balance rows by their parent', () => {
-    const row = (accountId: string, parentId: string | null) => ({ accountId, parentId }) as TrialBalanceRow;
+    const row = (accountId: string, parentId: string | null) => (({
+      accountId,
+      parentId
+    }) as TrialBalanceRow);
     expect(withDepth([row('a', null), row('b', 'a'), row('c', 'b'), row('d', null)]).map(r => r.depth)).toEqual([
       0, 1, 2, 0,
     ]);

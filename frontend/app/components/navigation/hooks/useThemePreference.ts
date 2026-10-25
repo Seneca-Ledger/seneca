@@ -23,7 +23,6 @@ interface UseThemePreferenceParams {
   navTheme: unknown;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function useThemePreference({
   userThemePreference,
   user,
@@ -41,7 +40,6 @@ export function useThemePreference({
   }, [userThemePreference]);
 
   const handleThemePreferenceChange = useCallback(
-    // eslint-disable-next-line max-lines-per-function
     async (nextThemePreference: ThemePreference) => {
       const previousThemePreference = selectedTheme;
       const previousUser = user;

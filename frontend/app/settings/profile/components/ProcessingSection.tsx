@@ -42,10 +42,20 @@ function ThresholdField({
 
   return (
     <Stack spacing={0.5}>
-      <Typography variant="body2" fontWeight={600}>
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 600,
+        }}
+      >
         {tx(['processingCard', 'thresholdLabel'], 'Categorisation confidence')}
       </Typography>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {tx(
           ['processingCard', 'thresholdHelp'],
           'Lower categorises more transactions automatically but guesses more often.',
@@ -102,7 +112,13 @@ function ProcessingSwitch({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <Stack direction="row" spacing={1} alignItems="flex-start">
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{
+        alignItems: 'flex-start',
+      }}
+    >
       <Switch
         checked={checked}
         disabled={saving}
@@ -112,10 +128,20 @@ function ProcessingSwitch({
         }}
       />
       <Stack spacing={0.25} sx={{ pt: 0.75 }}>
-        <Typography variant="body2" fontWeight={600}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {tx(['processingCard', entry.label], entry.labelFallback)}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {tx(['processingCard', entry.help], entry.helpFallback)}
         </Typography>
       </Stack>
@@ -141,10 +167,20 @@ export function ProcessingSection({ tx, processing }: Props) {
 
       <Card variant="outlined">
         <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {tx(['processingCard', 'title'], 'Processing defaults')}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {tx(
               ['processingCard', 'description'],
               'Applies to this workspace when statements and receipts are imported.',
@@ -154,10 +190,20 @@ export function ProcessingSection({ tx, processing }: Props) {
         <CardContent>
           <Stack spacing={3}>
             <Stack spacing={0.5}>
-              <Typography variant="body2" fontWeight={600}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {tx(['processingCard', 'orderLabel'], 'Categorisation order')}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {tx(
                   ['processingCard', 'orderHelp'],
                   'Your pick → rules → keywords → your corrections → payee history → “Uncategorised”. A category you picked by hand is never overwritten.',
@@ -184,10 +230,20 @@ export function ProcessingSection({ tx, processing }: Props) {
             />
 
             <Stack spacing={0.5}>
-              <Typography variant="body2" fontWeight={600}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {tx(['processingCard', 'duplicatesLabel'], 'When a row looks like a duplicate')}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {tx(
                   ['processingCard', 'duplicatesHelp'],
                   'Used when the import is confirmed without choosing per row.',

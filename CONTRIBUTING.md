@@ -203,7 +203,7 @@ export class usrSvc { // bad naming
 npm --prefix backend run lint:check
 npm --prefix frontend run lint:check
 
-# Auto-fix linting errors (the frontend runs both Biome and ESLint)
+# Auto-fix linting errors (Biome)
 npm --prefix backend run lint:fix
 npm --prefix frontend run lint:fix
 
@@ -313,7 +313,7 @@ cd frontend
 npm run dev             # Start dev server
 npm run build           # Build for production
 npm run start           # Start production server
-npm run lint:check      # Biome + ESLint
+npm run lint:check      # Biome
 npm run type-check      # TypeScript type checking
 npm test                # Vitest
 

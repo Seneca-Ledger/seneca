@@ -129,7 +129,6 @@ function fill(template: string, params: Record<string, string | number>): string
 
 type Props = { state: UseReviewInboxResult };
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ReviewInboxView({ state }: Props) {
   const t = useIntlayer('reviewInbox');
   const tOwner = useIntlayer('transactionOwner');
@@ -781,7 +780,13 @@ export function ReviewInboxView({ state }: Props) {
           <Box
             sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, minWidth: 0 }}
           >
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 88 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                minWidth: 88,
+              }}
+            >
               {fill(t.selected.value, { count: selected.size })}
             </Typography>
             {kind === 'transaction' && (
@@ -821,12 +826,22 @@ export function ReviewInboxView({ state }: Props) {
           {/* The keys matter once there is something to act on. */}
           {!isMobile ? (
             selected.size > 0 ? (
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.shortcuts.value}
               </Typography>
             ) : null
           ) : kind === 'transaction' ? (
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.swipeHint.value}
             </Typography>
           ) : null}

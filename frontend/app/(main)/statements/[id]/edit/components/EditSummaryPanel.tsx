@@ -19,7 +19,12 @@ type SummaryCardProps = { label: string; value: string; color?: string };
 function SummaryCard({ label, value, color }: SummaryCardProps): React.ReactElement {
   return (
     <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', p: 2 }}>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {label}
       </Typography>
       <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5, color: color ?? 'inherit' }}>

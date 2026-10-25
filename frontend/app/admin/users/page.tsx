@@ -372,7 +372,13 @@ export default function UsersManagementPage() {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                mb: 2,
+              }}
+            >
               {t.dialog.rolePrefix.value}: <strong>{editingUser?.role}</strong>.{' '}
               {t.dialog.subtitleSuffix}
             </Typography>

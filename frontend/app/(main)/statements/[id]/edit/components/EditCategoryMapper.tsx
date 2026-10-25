@@ -88,7 +88,9 @@ export function EditCategoryMapper({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{ sx: { boxShadow: 'none', border: '1px solid', borderColor: 'grey.200' } }}
+      slotProps={{
+        paper: { sx: { boxShadow: 'none', border: '1px solid', borderColor: 'grey.200' } },
+      }}
     >
       <DialogTitle
         sx={{

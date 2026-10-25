@@ -82,10 +82,22 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
       {error && <Alert variant="error">{error}</Alert>}
 
       <Box>
-        <Typography variant="subtitle2" fontWeight={600}>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {tx(['myDataCard', 'exportTitle'], 'Download your data')}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mt: 0.5,
+            mb: 1.5,
+          }}
+        >
           {tx(
             ['myDataCard', 'exportDescription'],
             'A JSON copy of your profile, sessions, memberships, notifications, and audit trail. Workspace financial records are not included — they belong to the workspace.',
@@ -97,10 +109,23 @@ export function MyDataSection({ tx, onAccountDeleted }: Props) {
       </Box>
 
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2.5 }}>
-        <Typography variant="subtitle2" fontWeight={600} color="error.main">
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 600,
+            color: 'error.main',
+          }}
+        >
           {tx(['myDataCard', 'deleteTitle'], 'Delete your account')}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mt: 0.5,
+            mb: 1.5,
+          }}
+        >
           {tx(
             ['myDataCard', 'deleteDescription'],
             'This cannot be undone. If you are the only owner of a workspace, transfer ownership first.',

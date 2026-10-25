@@ -54,7 +54,13 @@ export function PasswordPrompt({
         required
         fullWidth
       />
-      <Stack direction="row" spacing={1} justifyContent="flex-end">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          justifyContent: 'flex-end',
+        }}
+      >
         {onCancel ? (
           <Button onClick={onCancel} disabled={busy}>
             {tx(['securityCard', 'cancelButton'], 'Cancel')}
@@ -90,7 +96,12 @@ export function RecoveryCodesPanel({
   return (
     <Card variant="outlined">
       <CardContent sx={{ display: 'grid', gap: 1.5 }}>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {tx(['securityCard', 'recoveryTitle'], 'Recovery codes')}
         </Typography>
         <Alert variant="warning">
@@ -108,12 +119,26 @@ export function RecoveryCodesPanel({
           }}
         >
           {codes.map(code => (
-            <Typography key={code} variant="body2" fontFamily="monospace">
+            <Typography
+              key={code}
+              variant="body2"
+              sx={{
+                fontFamily: 'monospace',
+              }}
+            >
               {code}
             </Typography>
           ))}
         </Box>
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" justifyContent="flex-end">
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          sx={{
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+          }}
+        >
           <Button
             onClick={() => navigator.clipboard?.writeText(codes.join('\n'))}
             variant="outlined"
@@ -156,7 +181,12 @@ export function SetupPanel({ tx, setup, busy, onConfirm, onCancel }: SetupPanelP
           onConfirm(code);
         }}
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {tx(
             ['securityCard', 'scanHint'],
             'Scan the QR code with 1Password, Authy or any TOTP app.',
@@ -169,10 +199,21 @@ export function SetupPanel({ tx, setup, busy, onConfirm, onCancel }: SetupPanelP
           sx={{ width: 180, height: 180, alignSelf: 'center', borderRadius: 1 }}
         />
         <Stack spacing={0.25}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {tx(['securityCard', 'manualKeyLabel'], 'Or enter this key manually')}
           </Typography>
-          <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontFamily: 'monospace',
+              wordBreak: 'break-all',
+            }}
+          >
             {setup.secret}
           </Typography>
         </Stack>
@@ -181,11 +222,19 @@ export function SetupPanel({ tx, setup, busy, onConfirm, onCancel }: SetupPanelP
           label={tx(['securityCard', 'codeLabel'], 'Code from the app')}
           value={code}
           onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-          inputProps={{ inputMode: 'numeric', autoComplete: 'one-time-code' }}
           required
           fullWidth
+          slotProps={{
+            htmlInput: { inputMode: 'numeric', autoComplete: 'one-time-code' },
+          }}
         />
-        <Stack direction="row" spacing={1} justifyContent="flex-end">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            justifyContent: 'flex-end',
+          }}
+        >
           <Button onClick={onCancel} disabled={busy}>
             {tx(['securityCard', 'cancelButton'], 'Cancel')}
           </Button>

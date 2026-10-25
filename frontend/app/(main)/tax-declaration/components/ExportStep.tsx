@@ -39,7 +39,14 @@ export function ExportStep({
 
       {draft.filingInfo ? <FilingInfoCard info={draft.filingInfo} /> : null}
 
-      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        sx={{
+          flexWrap: 'wrap',
+        }}
+      >
         <Button
           variant="contained"
           disabled={downloading}
@@ -68,7 +75,12 @@ export function ExportStep({
 
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
         {finalized ? (
-          <Stack spacing={1.5} alignItems="flex-start">
+          <Stack
+            spacing={1.5}
+            sx={{
+              alignItems: 'flex-start',
+            }}
+          >
             <Alert severity="info">
               {t.finalizedOn}{' '}
               {draft.finalizedAt ? new Date(draft.finalizedAt).toLocaleDateString(locale) : ''}
@@ -84,7 +96,12 @@ export function ExportStep({
             </Button>
           </Stack>
         ) : (
-          <Stack spacing={1.5} alignItems="flex-start">
+          <Stack
+            spacing={1.5}
+            sx={{
+              alignItems: 'flex-start',
+            }}
+          >
             <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{t.finalizeHint}</Typography>
             <Button
               variant="contained"

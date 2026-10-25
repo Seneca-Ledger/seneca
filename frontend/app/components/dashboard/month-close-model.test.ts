@@ -4,7 +4,7 @@ import type { DashboardData } from '@/app/hooks/useDashboard';
 import { buildMonthCloseModel } from './month-close-model';
 
 const dashboard = (dataHealth: Partial<DashboardData['dataHealth']> = {}): DashboardData =>
-  ({
+  (({
     dataHealth: {
       uncategorizedTransactions: 0,
       statementsWithErrors: 0,
@@ -15,8 +15,8 @@ const dashboard = (dataHealth: Partial<DashboardData['dataHealth']> = {}): Dashb
       lastUploadDate: null,
       parsingWarnings: 0,
       ...dataHealth,
-    },
-  }) as DashboardData;
+    }
+  }) as DashboardData);
 
 const OCTOBER = new Date(2026, 9, 1);
 

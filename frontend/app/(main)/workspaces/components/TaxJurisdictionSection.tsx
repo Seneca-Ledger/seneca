@@ -195,7 +195,13 @@ export function TaxJurisdictionSection({
           </MenuItem>
           {jurisdictions.map(jurisdiction => (
             <MenuItem key={jurisdiction.code} value={jurisdiction.code}>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                  alignItems: 'center',
+                }}
+              >
                 <FlagIcon code={jurisdiction.code} />
                 <span>{jurisdiction.name}</span>
                 <Typography component="span" sx={{ fontSize: 13, color: 'text.secondary' }}>

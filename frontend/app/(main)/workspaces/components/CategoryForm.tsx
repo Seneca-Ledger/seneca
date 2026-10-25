@@ -195,7 +195,12 @@ function IconUploadRow({
     >
       {!formData.withoutIcon && previewIconUrl && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {uploadedIconLabel}
           </Typography>
           <Box
@@ -368,7 +373,12 @@ function CategoryPreview({ formData, label, placeholder }: PreviewProps): React.
         gap: 2,
       }}
     >
-      <Typography variant="body2" color="text.secondary">
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
         {label}
       </Typography>
       <Box
@@ -385,7 +395,12 @@ function CategoryPreview({ formData, label, placeholder }: PreviewProps): React.
       >
         <PreviewIcon formData={formData} />
       </Box>
-      <Typography variant="subtitle1" fontWeight="bold">
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 'bold',
+        }}
+      >
         {formData.name || placeholder}
       </Typography>
     </Box>

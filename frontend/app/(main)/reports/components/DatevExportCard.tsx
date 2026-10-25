@@ -206,24 +206,30 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
           onChange={event =>
             setForm({ ...form, consultant: event.target.value.replace(/\D/g, '') })
           }
-          inputProps={{ inputMode: 'numeric', maxLength: 7 }}
           sx={{ width: 170 }}
+          slotProps={{
+            htmlInput: { inputMode: 'numeric', maxLength: 7 },
+          }}
         />
         <TextField
           size="small"
           label={t.clientLabel.value}
           value={form.client}
           onChange={event => setForm({ ...form, client: event.target.value.replace(/\D/g, '') })}
-          inputProps={{ inputMode: 'numeric', maxLength: 5 }}
           sx={{ width: 150 }}
+          slotProps={{
+            htmlInput: { inputMode: 'numeric', maxLength: 5 },
+          }}
         />
         <TextField
           size="small"
           label={t.bankLabel.value}
           value={form.bank}
           onChange={event => setForm({ ...form, bank: event.target.value.replace(/\D/g, '') })}
-          inputProps={{ inputMode: 'numeric', maxLength: 9 }}
           sx={{ width: 140 }}
+          slotProps={{
+            htmlInput: { inputMode: 'numeric', maxLength: 9 },
+          }}
         />
         <Button
           variant="outlined"
@@ -278,11 +284,13 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
                     [row.categoryId]: event.target.value.replace(/\D/g, ''),
                   })
                 }
-                inputProps={{
-                  'aria-label': fill(t.accountFor.value, { name: categoryName(row.name) }),
-                  maxLength: 9,
-                }}
                 sx={{ width: 110 }}
+                slotProps={{
+                  htmlInput: {
+                    'aria-label': fill(t.accountFor.value, { name: categoryName(row.name) }),
+                    maxLength: 9,
+                  },
+                }}
               />
               <Typography sx={{ fontSize: 12, color: 'text.secondary', flex: '1 1 200px' }}>
                 {row.suggestion ? fill(t.suggestion.value, row.suggestion) : t.noSuggestion.value}
@@ -323,11 +331,13 @@ export function DatevExportCard({ year }: { year: number }): React.ReactElement 
                       [bank.accountNumber]: event.target.value.replace(/\D/g, ''),
                     })
                   }
-                  inputProps={{
-                    'aria-label': fill(t.accountFor.value, { name: bank.accountNumber }),
-                    maxLength: 9,
-                  }}
                   sx={{ width: 110 }}
+                  slotProps={{
+                    htmlInput: {
+                      'aria-label': fill(t.accountFor.value, { name: bank.accountNumber }),
+                      maxLength: 9,
+                    },
+                  }}
                 />
               </Stack>
             ))}
