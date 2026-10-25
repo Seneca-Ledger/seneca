@@ -33,7 +33,7 @@ npm run dev
 ### Production
 
 ```bash
-npm run build   # next build --webpack
+npm run build   # vite build (vinext), выход в dist/standalone
 npm run start
 ```
 

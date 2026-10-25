@@ -96,10 +96,11 @@ npm run migration:generate -- src/migrations/<Name>
 ## Gotchas
 
 - Lint is Biome only (ESLint was removed). In the frontend an `eslint-disable … react-hooks/*` comment is still meaningful: React Compiler skips that function.
+- The frontend builds with vinext (Next.js App Router API on Vite), not `next`: `vite dev`/`vite build`, output in `frontend/dist/standalone` (bind address is `HOST`, not `HOSTNAME`). `next.config.mjs` carries only headers, rewrites and `output`; Vite plugins live in `vite.config.ts`. `next` stays as a dev dependency for types and peers. React Compiler is the oxc port (`oxc-transform-react`); it honours `'use no memo'` and `eslint-disable react-hooks/*` the same way.
 - `prebuild` and `postinstall` on the frontend run `intlayer build`; deleting the intlayer config or skipping it breaks both install and build.
 - Backend dev uses a manual nodemon command, not `nest start`, and bumps Node heap to 2 GB. Dev scripts (`migration:run:dev`, `seed:demo:dev`, `create-admin:dev`) run ts-node with `--transpile-only`; type-checking is `npm run typecheck`.
 - SWC was evaluated for the backend dev loop and rejected: its CommonJS getter exports hit a TDZ on circular entity imports with `emitDecoratorMetadata`. Adopting it needs the TypeORM `Relation<>` wrapper on every relation property first.
-- Docker dev: `node_modules` and `.next` are named volumes; `scripts/dev-entrypoint.sh` in each app re-runs `npm ci` only when `package-lock.json` changed. Dev images never compile source (bind mount).
+- Docker dev: backend and frontend `node_modules` are named volumes; `scripts/dev-entrypoint.sh` in each app re-runs `npm ci` only when `package-lock.json` changed. Dev images never compile source (bind mount).
 - TypeORM SQL logging is off unless `DB_QUERY_LOGGING=true`.
 - Always run migrations via the npm scripts, not raw `typeorm` — `migration:run` acquires a lock to prevent concurrent runs in deployment.
 - Product name comes from `APP_NAME` (root `.env`): never write the name into UI text, e-mails or bot replies — use `APP_NAME`/`APP_SLUG` from `frontend/app/lib/brand.ts` or `backend/src/common/brand.ts` (in `*.content.ts` as a template literal). Seneca inside the Stoic quotes is the philosopher, not the product.
