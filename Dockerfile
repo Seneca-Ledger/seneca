@@ -41,7 +41,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV API_PORT=4000
-ENV HOSTNAME=0.0.0.0
+ENV HOST=0.0.0.0
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Install Python + pdfplumber for PDF parsing + pdf2image for thumbnails.
@@ -66,11 +66,10 @@ COPY --from=builder /app/backend/node_modules ./backend/node_modules
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/backend/scripts ./backend/scripts
 
-# Frontend standalone output
-COPY --from=builder /app/frontend/.next/standalone ./frontend
-COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
-COPY --from=builder /app/frontend/public ./frontend/public
-COPY --from=builder /app/frontend/package*.json ./frontend/
+# Frontend standalone output (vinext); static files, public/ included, live in dist/client
+COPY --from=builder /app/frontend/dist/standalone/server.js /app/frontend/dist/standalone/package.json ./frontend/
+COPY --from=builder /app/frontend/dist/standalone/dist ./frontend/dist
+COPY --from=builder /app/frontend/dist/standalone/node_modules ./frontend/node_modules
 
 # Startup script to run both servers
 COPY scripts/start.sh ./scripts/start.sh
