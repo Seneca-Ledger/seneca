@@ -18,6 +18,7 @@
     "contracts:sync": "node scripts/sync-contracts.mjs",
     "contracts:check": "node scripts/sync-contracts.mjs --check",
     "test:sync-contracts": "node --test scripts/sync-contracts.test.mjs",
+    "test:file-size": "node --test scripts/check-file-size.test.mjs",
     "graphify:build": "node scripts/graphify-build.mjs",
     "graphify:validate": "node scripts/graphify-validate.mjs",
     "backend:build": "npm --prefix backend run build",

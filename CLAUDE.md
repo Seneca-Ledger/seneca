@@ -95,6 +95,7 @@ npm run migration:generate -- src/migrations/<Name>
 
 ## Gotchas
 
+- No source file may exceed 300 lines of code (blank and comment lines excluded): a new file over it is refused, and a file already over it must not grow (`scripts/check-file-size.mjs`, run by the pre-commit hook and CI). Tests, `*.content.ts`, `*-translations.ts`, migrations and generated contracts are exempt. Split into hooks, helpers or lib instead.
 - Frontend lint runs **both** Biome and ESLint — fixing one but not the other leaves CI red.
 - `prebuild` and `postinstall` on the frontend run `intlayer build`; deleting the intlayer config or skipping it breaks both install and build.
 - Backend dev uses a manual nodemon command, not `nest start`, and bumps Node heap to 2 GB. Dev scripts (`migration:run:dev`, `seed:demo:dev`, `create-admin:dev`) run ts-node with `--transpile-only`; type-checking is `npm run typecheck`.
