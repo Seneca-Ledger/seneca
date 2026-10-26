@@ -42,7 +42,7 @@ describe('TransactionAttachmentsService', () => {
   });
 
   afterEach(() => {
-    process.env.UPLOADS_DIR = undefined;
+    delete process.env.UPLOADS_DIR;
     fs.rmSync(uploadsDir, { recursive: true, force: true });
   });
 

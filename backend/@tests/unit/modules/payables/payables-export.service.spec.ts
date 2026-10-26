@@ -31,7 +31,11 @@ describe('PayablesExportService', () => {
   });
 
   afterAll(() => {
-    process.env.UPLOADS_DIR = previousUploadsDir;
+    if (previousUploadsDir === undefined) {
+      delete process.env.UPLOADS_DIR;
+    } else {
+      process.env.UPLOADS_DIR = previousUploadsDir;
+    }
     fs.rmSync(tmp, { recursive: true, force: true });
   });
 
