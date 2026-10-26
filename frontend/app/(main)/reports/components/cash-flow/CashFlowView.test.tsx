@@ -44,6 +44,8 @@ const data: CashFlowMapData = {
   period: { from: '2026-09-01', to: '2026-09-30' },
   previousPeriod: { from: '2026-08-02', to: '2026-08-31' },
   includeTransfers: false,
+  netRefunds: false,
+  missingRates: [],
   availableCategories: [
     { id: 'food', name: 'Food', parentId: null },
     { id: 'groceries', name: 'Groceries', parentId: 'food' },
@@ -90,7 +92,15 @@ describe('CashFlowView', () => {
       isPending: false,
       isFetching: false,
       error: null,
-      filters: { from: '2026-09-01', to: '2026-09-30', compare: true, includeTransfers: false, categories: [] },
+      filters: {
+        from: '2026-09-01',
+        to: '2026-09-30',
+        compare: true,
+        compareTo: 'previous',
+        includeTransfers: false,
+        netRefunds: false,
+        categories: [],
+      },
       update: hookMock.update,
       exportUrl: '/reports/cash-flow-map?format=csv',
     };
@@ -163,6 +173,44 @@ describe('CashFlowView', () => {
     expect(screen.getByTestId('treemap-tile-rent')).toBeInTheDocument();
   });
 
+  it('shows the savings rate beside the totals, with the period before', () => {
+    render(<CashFlowView />);
+
+    expect(screen.getByText('Savings rate')).toBeInTheDocument();
+    // 3000 in, 1400 out: 53%. The period before, 2800 in and 1300 out: 54%.
+    expect(screen.getByText('53%')).toBeInTheDocument();
+    expect(screen.getByText(/54%/)).toBeInTheDocument();
+  });
+
+  it('names the currencies it could not convert, so the totals are not read as complete', () => {
+    const missing = ['CHF', 'JPY'];
+    hookMock.state = { ...hookMock.state, data: { ...data, missingRates: missing } };
+    render(<CashFlowView />);
+
+    expect(screen.getByText(new RegExp(missing.join(', ')))).toBeInTheDocument();
+  });
+
+  it('says nothing about rates when every amount converted', () => {
+    render(<CashFlowView />);
+
+    expect(screen.queryByText(/exchange rate/i)).toBeNull();
+  });
+
+  it('switches the comparison to last year, off, and refunds to netted, from Options', () => {
+    render(<CashFlowView />);
+    // The menu stays open while its switches are flipped.
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    const pick = (name: RegExp) => fireEvent.click(screen.getByRole('menuitem', { name }));
+
+    pick(/same period last year/);
+    expect(hookMock.update).toHaveBeenCalledWith({ compare: true, compareTo: 'year' });
+    // The period before is the comparison already: ticking it again turns comparing off.
+    pick(/period before/);
+    expect(hookMock.update).toHaveBeenCalledWith({ compare: false });
+    pick(/Refunds reduce their category/);
+    expect(hookMock.update).toHaveBeenCalledWith({ netRefunds: true });
+  });
+
   it('keeps the leaderboards away when nothing moved in the period', () => {
     hookMock.state = {
       ...hookMock.state,
@@ -231,7 +279,15 @@ describe('CashFlowView in the reader\'s language', () => {
       isPending: false,
       isFetching: false,
       error: null,
-      filters: { from: '2026-09-01', to: '2026-09-30', compare: true, includeTransfers: false, categories: [] },
+      filters: {
+        from: '2026-09-01',
+        to: '2026-09-30',
+        compare: true,
+        compareTo: 'previous',
+        includeTransfers: false,
+        netRefunds: false,
+        categories: [],
+      },
       update: hookMock.update,
       exportUrl: '/reports/cash-flow-map?format=csv',
     };

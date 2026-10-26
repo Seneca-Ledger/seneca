@@ -369,7 +369,11 @@ export const CashFlowMapQuery = Schema.Struct({
   dateFrom: Schema.optional(IsoDateString),
   dateTo: Schema.optional(IsoDateString),
   compare: Schema.optional(BooleanInput),
+  /** The earlier window `compare` holds the period against: just before it, or a year back. */
+  compareTo: Schema.optional(Schema.Literals(['previous', 'year'])),
   includeTransfers: Schema.optional(BooleanInput),
+  /** Money back into an expense category lowers that category instead of counting as income. */
+  netRefunds: Schema.optional(BooleanInput),
   categories: Schema.optional(StringListInput),
   format: Schema.optional(Schema.Literals(['json', 'csv'])),
   owner: Schema.optional(Schema.String),
