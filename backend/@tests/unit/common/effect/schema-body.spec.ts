@@ -95,16 +95,14 @@ describe('Effect bridge', () => {
       expect(res.body).toEqual({ name: 'rent', amount: null });
     });
 
-    it('rejects unknown properties and invalid values with the class-validator 400 shape', async () => {
+    it('rejects unknown properties and invalid values with a typed 400 naming each field', async () => {
       const res = await request(app.getHttpServer())
         .post('/probe/body')
         .send({ name: 'too long', amount: '1', extra: true })
         .expect(400);
 
-      expect(res.body.error.code).toBe('BAD_REQUEST');
-      expect(res.body.error.message).toBe('Bad request');
-      expect(res.body.error.details.statusCode).toBe(400);
-      expect(res.body.error.details.message).toEqual([
+      expect(res.body.error.code).toBe('REQUEST_INVALID');
+      expect(res.body.error.details.issues).toEqual([
         expect.stringMatching(/^extra: /),
         expect.stringMatching(/^name: .*between 1 and 5/),
         expect.stringMatching(/^amount: /),
@@ -122,7 +120,7 @@ describe('Effect bridge', () => {
           .set('Content-Type', 'application/json')
           .send(raw)
           .expect(400);
-        expect(res.body.error.details.message).toEqual([
+        expect(res.body.error.details.issues).toEqual([
           expect.stringContaining('without NUL characters or broken Unicode'),
         ]);
       }
@@ -138,7 +136,7 @@ describe('Effect bridge', () => {
 
     it('rejects a missing body when it has required fields', async () => {
       const res = await request(app.getHttpServer()).post('/probe/body').expect(400);
-      expect(res.body.error.code).toBe('BAD_REQUEST');
+      expect(res.body.error.code).toBe('REQUEST_INVALID');
     });
 
     it('takes a missing body as an empty one, as the DTOs did', async () => {

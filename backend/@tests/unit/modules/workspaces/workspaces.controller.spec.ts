@@ -1,3 +1,4 @@
+import { requestAppOrigin } from '@/modules/workspaces/request-app-origin.util';
 import { WorkspacesController } from '@/modules/workspaces/workspaces.controller';
 
 describe('WorkspacesController', () => {
@@ -35,9 +36,9 @@ describe('WorkspacesController', () => {
 
     await controller.acceptInvitation({ id: 'u1' } as any, 't1');
 
-    const origin = (controller as any).getRequestAppOrigin({
+    const origin = requestAppOrigin({
       headers: { 'x-forwarded-host': 'api.example.com', 'x-forwarded-proto': 'http' },
-    });
+    } as any);
     expect(origin).toBe('http://api.example.com');
   });
 });

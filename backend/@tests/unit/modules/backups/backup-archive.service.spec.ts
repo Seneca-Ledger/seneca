@@ -60,7 +60,7 @@ describe('BackupArchiveService', () => {
     container.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     const tampered = container.toBuffer();
 
-    await expect(service.open(tampered, 'correct password')).rejects.toThrow('backup is corrupted');
+    await expect(service.open(tampered, 'correct password')).rejects.toThrow('Backup is corrupted');
   });
 
   it('uses persisted encryption material for automatic backups without retaining the password', async () => {
@@ -101,7 +101,7 @@ describe('BackupArchiveService', () => {
 
     await expect(
       service.open(declaringSize(archive, 1024 * 1024 * 1024), 'correct password'),
-    ).rejects.toThrow('backup is too large');
+    ).rejects.toThrow('Backup is too large');
   });
 
   it('refuses an encrypted payload that would unpack to more than any backup holds', async () => {
@@ -135,7 +135,7 @@ describe('BackupArchiveService', () => {
     );
 
     await expect(service.open(container.toBuffer(), 'correct password')).rejects.toThrow(
-      'backup is too large',
+      'Backup is too large',
     );
   });
 });

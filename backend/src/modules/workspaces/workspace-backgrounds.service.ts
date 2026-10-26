@@ -211,7 +211,7 @@ export class WorkspaceBackgroundsService {
       : await requestOpenverseJson(`${OPENVERSE_API}${photoId}/`, this.openverseOptions());
     const attribution = asText(detail.attribution, 400);
     if (!attribution) {
-      throw new NotFoundException('That picture is no longer available');
+      throw new NotFoundException(appError('WORKSPACE_BACKGROUND_UNAVAILABLE'));
     }
 
     const image = await this.fetchStoredImage(photoId, detail);

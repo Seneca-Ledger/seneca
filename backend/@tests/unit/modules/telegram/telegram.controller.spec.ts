@@ -8,7 +8,7 @@ describe('TelegramController', () => {
     };
     const controller = new TelegramController(telegramService as any, {} as any);
 
-    const reports = await controller.listReports({ id: 'u1' } as any, '2', '10');
+    const reports = await controller.listReports({ id: 'u1' } as any, { page: 2, limit: 10 });
     expect(reports).toEqual({ items: [], total: 0 });
     expect(telegramService.listReports).toHaveBeenCalledWith({ id: 'u1' }, 2, 10);
   });

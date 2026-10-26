@@ -48,3 +48,7 @@ export const UpdateWebhookSubscriptionBody = CreateWebhookSubscriptionBody.mapFi
   Struct.map(optionalNullable),
 );
 export type UpdateWebhookSubscriptionBody = Wire<typeof UpdateWebhookSubscriptionBody>;
+
+/** `/webhook-endpoints/:id`, `/webhook-subscriptions/:id`, `/webhook-deliveries/:id`: uuid rows. */
+export const WebhookIdParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type WebhookIdParams = Wire<typeof WebhookIdParams>;

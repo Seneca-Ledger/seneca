@@ -501,7 +501,7 @@ export class LedgerAccountsService {
     });
     if (!created) {
       // Only reachable if another account already holds the derived code.
-      throw new ConflictException(`Cash account code ${code} is taken by another account`);
+      throw new ConflictException(appError('LEDGER_CASH_ACCOUNT_CODE_TAKEN', { code }));
     }
     return created.id;
   }

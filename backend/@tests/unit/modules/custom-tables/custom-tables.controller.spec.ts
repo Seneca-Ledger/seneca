@@ -12,7 +12,7 @@ describe('CustomTablesController', () => {
     );
 
     await expect(
-      controller.listRows({ id: 'u1' } as any, 'ws-1', 't1', undefined, 10, '{bad'),
+      controller.listRows({ id: 'u1' } as any, 'ws-1', { id: 't1' }, { limit: 10, filters: '{bad' }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -27,7 +27,12 @@ describe('CustomTablesController', () => {
     );
 
     const dto = { header: { backgroundColor: '#ff0000' } } as any;
-    const result = await controller.updateColumnStyle({ id: 'u1' } as any, 'ws-1', 't1', 'c1', dto);
+    const result = await controller.updateColumnStyle(
+      { id: 'u1' } as any,
+      'ws-1',
+      { id: 't1', columnId: 'c1' },
+      dto,
+    );
 
     expect(customTablesService.updateColumnStyle).toHaveBeenCalledWith('u1', 'ws-1', 't1', 'c1', dto);
     expect(customTablesCache.bumpTable).toHaveBeenCalledWith('ws-1', 't1');

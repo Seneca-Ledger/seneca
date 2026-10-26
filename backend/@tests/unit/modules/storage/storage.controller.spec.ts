@@ -20,19 +20,19 @@ describe('StorageController', () => {
     });
     expect(await controller.listTags(user, workspaceId)).toEqual([{ id: 'tag-1' }]);
     expect(
-      await controller.updateTag('tag-1', { name: 'Updated' } as any, user, workspaceId),
+      await controller.updateTag({ id: 'tag-1' }, { name: 'Updated' } as any, user, workspaceId),
     ).toEqual({
       id: 'tag-1',
       name: 'Updated',
     });
-    expect(await controller.deleteTag('tag-1', user, workspaceId)).toEqual({
+    expect(await controller.deleteTag({ id: 'tag-1' }, user, workspaceId)).toEqual({
       message: 'Tag deleted successfully',
     });
     expect(await controller.createView({ name: 'View' } as any, user, workspaceId)).toEqual({
       id: 'view-1',
     });
     expect(await controller.listViews(user, workspaceId)).toEqual([{ id: 'view-1' }]);
-    expect(await controller.deleteView('view-1', user, workspaceId)).toEqual({ deleted: true });
+    expect(await controller.deleteView({ id: 'view-1' }, user, workspaceId)).toEqual({ deleted: true });
 
     expect(storageService.createTag).toHaveBeenCalledWith({ name: 'A' }, workspaceId);
     expect(storageService.listTags).toHaveBeenCalledWith(workspaceId);

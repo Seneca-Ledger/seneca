@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { WebhookDelivery, WebhookDeliveryStatus } from '../../../entities/webhook-delivery.entity';
 import { WebhookEvent } from '../../../entities/webhook-subscription.entity';
 
@@ -41,7 +42,7 @@ export class WebhookDeliveryService {
       .where('d.id = :id', { id })
       .andWhere('sub.workspaceId = :workspaceId', { workspaceId })
       .getOne();
-    if (!delivery) throw new NotFoundException('Delivery not found');
+    if (!delivery) throw new NotFoundException(appError('WEBHOOK_DELIVERY_NOT_FOUND'));
     return delivery;
   }
 

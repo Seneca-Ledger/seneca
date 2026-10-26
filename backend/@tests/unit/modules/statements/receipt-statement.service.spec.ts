@@ -1,4 +1,5 @@
 import type { Mock } from 'vitest';
+import { appError } from '@/common/errors/app-error';
 import * as filenameUtil from '@/common/utils/filename.util';
 import * as fileValidatorUtil from '@/common/utils/file-validator.util';
 import * as fileHashUtil from '@/common/utils/file-hash.util';
@@ -325,6 +326,7 @@ describe('ReceiptStatementService', () => {
   });
 
   it('surfaces receipt processing errors from OCR metadata', async () => {
+    const reason = 'OCR engine timeout';
     const file = {
       path: '/tmp/receipt.jpg',
       originalname: 'receipt.jpg',
@@ -338,7 +340,7 @@ describe('ReceiptStatementService', () => {
       subject: 'receipt.jpg',
       parsedData: {},
       metadata: {
-        processingError: 'OCR engine timeout',
+        processingError: reason,
       },
     } as any);
 
@@ -348,7 +350,7 @@ describe('ReceiptStatementService', () => {
         workspaceId: 'ws-1',
         files: [file],
       }),
-    ).rejects.toThrow(new BadRequestException('OCR engine timeout'));
+    ).rejects.toThrow(new BadRequestException(appError('RECEIPT_SCAN_FAILED', { reason })));
   });
   describe('the same file again', () => {
     const file = {

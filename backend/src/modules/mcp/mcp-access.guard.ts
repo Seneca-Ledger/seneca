@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { appError } from '../../common/errors/app-error';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
 import { WorkspacePluginsService } from '../workspaces/workspace-plugins.service';
 
@@ -21,7 +22,7 @@ export class McpAccessGuard implements CanActivate {
     const request = http.getRequest<AuthenticatedRequest>();
     if (!(request.apiKey && request.apiKeyWorkspaceId)) {
       http.getResponse<Response>().setHeader('WWW-Authenticate', 'ApiKey header="X-Api-Key"');
-      throw new UnauthorizedException('The MCP endpoint takes an API key in the X-Api-Key header');
+      throw new UnauthorizedException(appError('MCP_API_KEY_REQUIRED'));
     }
     await this.plugins.assertEnabled(request.apiKeyWorkspaceId, 'mcp');
     return true;

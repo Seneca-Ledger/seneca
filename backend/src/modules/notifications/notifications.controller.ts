@@ -1,15 +1,7 @@
-import {
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Patch, Post, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
@@ -17,9 +9,11 @@ import {
   MarkReadBody,
   NotificationList,
   NotificationPreferences,
+  NotificationsQuery,
   UnreadCount,
   UpdateNotificationPreferencesBody,
 } from '../../contracts';
+import { UpdatedCount } from '../../contracts/feed/feed-answers';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
@@ -34,14 +28,13 @@ export class NotificationsController {
   async list(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @SchemaQuery(NotificationsQuery) { limit, offset }: NotificationsQuery,
   ) {
     return this.notificationsService.findByRecipient(
       user.id,
       workspaceId,
-      limit ? Number(limit) : 30,
-      offset ? Number(offset) : 0,
+      limit ?? 30,
+      offset ?? 0,
     );
   }
 
@@ -54,6 +47,7 @@ export class NotificationsController {
 
   @Post('mark-read')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(UpdatedCount)
   async markAsRead(@CurrentUser() user: User, @SchemaBody(MarkReadBody) dto: MarkReadBody) {
     const updated = await this.notificationsService.markAsRead(user.id, dto.ids);
     return { updated };
@@ -61,6 +55,7 @@ export class NotificationsController {
 
   @Post('mark-all-read')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(UpdatedCount)
   async markAllAsRead(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const updated = await this.notificationsService.markAllAsRead(user.id, workspaceId);
     return { updated };
@@ -73,6 +68,7 @@ export class NotificationsController {
   }
 
   @Patch('preferences')
+  @SchemaResponse(NotificationPreferences)
   async updatePreferences(
     @CurrentUser() user: User,
     @SchemaBody(UpdateNotificationPreferencesBody) dto: UpdateNotificationPreferencesBody,

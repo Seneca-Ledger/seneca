@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { AuditService } from '../audit/audit.service';
 import { recordSecurityEvent } from '../auth/security-audit.util';
@@ -40,7 +41,7 @@ export class ApiKeysService {
     const scopes = options.scopes ? [...new Set(options.scopes)] : null;
     const expiresAt = options.expiresAt ? new Date(options.expiresAt) : null;
     if (expiresAt && Number.isNaN(expiresAt.getTime())) {
-      throw new BadRequestException('expiresAt is not a date');
+      throw new BadRequestException(appError('API_KEY_EXPIRES_AT_INVALID'));
     }
 
     const apiKey = this.apiKeyRepository.create({
@@ -113,7 +114,7 @@ export class ApiKeysService {
     });
 
     if (!apiKey) {
-      throw new NotFoundException('API key not found');
+      throw new NotFoundException(appError('API_KEY_NOT_FOUND'));
     }
 
     await this.apiKeyRepository.update(id, { revokedAt: new Date() });

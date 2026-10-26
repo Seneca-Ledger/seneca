@@ -3,8 +3,14 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { multerConfig } from '../../config/multer.config';
-import { WebhookReceiptUploadBody, WebhookStatementUploadBody } from '../../contracts';
+import {
+  WebhookReceiptAccepted,
+  WebhookReceiptUploadBody,
+  WebhookStatementAccepted,
+  WebhookStatementUploadBody,
+} from '../../contracts';
 import type { WebhookEndpoint } from '../../entities/webhook-endpoint.entity';
 import { Public } from '../auth/decorators/public.decorator';
 import { WebhookTokenGuard } from './guards/webhook-token.guard';
@@ -22,6 +28,7 @@ export class WebhookInboundController {
   @Post('statements')
   @UseInterceptors(FileInterceptor('file', multerConfig))
   @ApiOperation({ summary: 'Upload statement via webhook token' })
+  @SchemaResponse(WebhookStatementAccepted)
   async uploadStatement(
     @Req() req: Request & { webhookEndpoint: WebhookEndpoint },
     @UploadedFile() file: MulterFile | undefined,
@@ -38,6 +45,7 @@ export class WebhookInboundController {
   @Post('receipts')
   @UseInterceptors(FileInterceptor('file', multerConfig))
   @ApiOperation({ summary: 'Upload receipt via webhook token' })
+  @SchemaResponse(WebhookReceiptAccepted)
   async uploadReceipt(
     @Req() req: Request & { webhookEndpoint: WebhookEndpoint },
     @UploadedFile() file: MulterFile | undefined,

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { countedSql } from '../../common/utils/counted-transactions.util';
 import type {
   CreateInvestmentAccountBody,
@@ -105,7 +106,7 @@ export class InvestmentsService {
     const section = await this.accountRepository.findOne({
       where: { workspaceId, code: INVESTMENTS_SECTION_CODE },
     });
-    if (!section) throw new NotFoundException('Investments section not found');
+    if (!section) throw new NotFoundException(appError('INVESTMENTS_SECTION_NOT_FOUND'));
     const created = await this.balanceService.createCustomAccount(userId, workspaceId, {
       name: dto.name,
       parentId: section.id,
@@ -115,7 +116,7 @@ export class InvestmentsService {
       { accountKind: toEnum(BalanceAccountKind, dto.kind) ?? BalanceAccountKind.INVESTMENT },
     );
     const view = (await this.listAccounts(workspaceId)).find(account => account.id === created.id);
-    if (!view) throw new NotFoundException('Investment account not found');
+    if (!view) throw new NotFoundException(appError('INVESTMENTS_ACCOUNT_NOT_FOUND'));
     return view;
   }
 
@@ -142,7 +143,7 @@ export class InvestmentsService {
   ): Promise<HoldingView> {
     await this.requireAccount(workspaceId, accountId);
     if (!(dto.name || dto.symbol)) {
-      throw new BadRequestException('A holding needs a name or a symbol');
+      throw new BadRequestException(appError('INVESTMENTS_HOLDING_NAME_REQUIRED'));
     }
     const symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     const holding = this.holdingRepository.create({
@@ -247,15 +248,15 @@ export class InvestmentsService {
     const transaction = await this.transactionRepository.findOne({
       where: { id: transactionId, workspaceId },
     });
-    if (!transaction) throw new NotFoundException('Transaction not found');
+    if (!transaction) throw new NotFoundException(appError('INVESTMENTS_TRANSACTION_NOT_FOUND'));
     if (transaction.transactionType !== TransactionType.EXPENSE) {
-      throw new BadRequestException('Only an expense can be a contribution');
+      throw new BadRequestException(appError('INVESTMENTS_CONTRIBUTION_NOT_EXPENSE'));
     }
     if (
       transaction.transferPairId &&
       transaction.transferPairKind !== TransferPairKind.INVESTMENT
     ) {
-      throw new BadRequestException('This row is already linked as a transfer');
+      throw new BadRequestException(appError('INVESTMENTS_ROW_ALREADY_TRANSFER'));
     }
     transaction.investmentAccountId = accountId;
     transaction.transferPairId = transaction.id;
@@ -268,9 +269,9 @@ export class InvestmentsService {
     const transaction = await this.transactionRepository.findOne({
       where: { id: transactionId, workspaceId },
     });
-    if (!transaction) throw new NotFoundException('Transaction not found');
+    if (!transaction) throw new NotFoundException(appError('INVESTMENTS_TRANSACTION_NOT_FOUND'));
     if (transaction.transferPairKind !== TransferPairKind.INVESTMENT) {
-      throw new BadRequestException('This row is not a contribution');
+      throw new BadRequestException(appError('INVESTMENTS_ROW_NOT_CONTRIBUTION'));
     }
     transaction.investmentAccountId = null;
     transaction.transferPairId = null;
@@ -370,14 +371,14 @@ export class InvestmentsService {
   private async requireAccount(workspaceId: string, accountId: string): Promise<BalanceAccount> {
     const account = await this.accountRepository.findOne({ where: { id: accountId, workspaceId } });
     if (!account?.accountKind) {
-      throw new NotFoundException('Investment account not found');
+      throw new NotFoundException(appError('INVESTMENTS_ACCOUNT_NOT_FOUND'));
     }
     return account;
   }
 
   private async requireHolding(workspaceId: string, holdingId: string): Promise<InvestmentHolding> {
     const holding = await this.holdingRepository.findOne({ where: { id: holdingId, workspaceId } });
-    if (!holding) throw new NotFoundException('Holding not found');
+    if (!holding) throw new NotFoundException(appError('INVESTMENTS_HOLDING_NOT_FOUND'));
     return holding;
   }
 

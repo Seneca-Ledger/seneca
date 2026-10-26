@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, type Repository } from 'typeorm';
 import { APP_NAME } from '../../../common/brand';
+import { appError } from '../../../common/errors/app-error';
 import { requireSecret } from '../../../common/utils/required-secret.util';
 import {
   createVerificationToken,
@@ -42,7 +43,7 @@ export class EmailChangeService {
     const normalized = newEmail.trim().toLowerCase();
 
     if (normalized === user.email.toLowerCase()) {
-      throw new BadRequestException('That is already your email address');
+      throw new BadRequestException(appError('USER_EMAIL_UNCHANGED'));
     }
 
     const taken = await this.userRepository.findOne({
@@ -52,7 +53,7 @@ export class EmailChangeService {
       },
     });
     if (taken) {
-      throw new ConflictException('Email already in use');
+      throw new ConflictException(appError('USER_EMAIL_IN_USE'));
     }
 
     // One pending change at a time.
@@ -115,7 +116,7 @@ export class EmailChangeService {
     });
 
     if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Confirmation link is invalid or has expired');
+      throw new BadRequestException(appError('USER_EMAIL_CONFIRM_LINK_INVALID'));
     }
 
     // Re-check at confirmation time: the address may have been claimed by
@@ -127,12 +128,12 @@ export class EmailChangeService {
       },
     });
     if (taken) {
-      throw new ConflictException('Email already in use');
+      throw new ConflictException(appError('USER_EMAIL_IN_USE'));
     }
 
     const user = await this.userRepository.findOne({ where: { id: record.userId } });
     if (!user) {
-      throw new BadRequestException('Confirmation link is invalid or has expired');
+      throw new BadRequestException(appError('USER_EMAIL_CONFIRM_LINK_INVALID'));
     }
 
     const oldEmail = user.email;

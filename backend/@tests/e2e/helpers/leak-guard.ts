@@ -17,6 +17,7 @@ const OWN_ACCOUNT_HANDLERS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ['UsersController.updateMyPreferences', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   ['UsersController.acceptDisclaimer', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   ['UsersController.completeOnboarding', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
+  ['UsersController.uploadMyAvatar', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],
   ['UsersController.findAll', new Set(['lastLogin'])],
   // A user's own profile, or anyone's to the instance admin.
   ['UsersController.findOne', new Set(['lastLogin', 'telegramId', 'telegramChatId'])],

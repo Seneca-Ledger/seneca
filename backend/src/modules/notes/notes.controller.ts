@@ -1,15 +1,17 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post } from '@nestjs/common';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   CreateNoteBody,
   ListNoteCountsBody,
+  MessageResult,
   NoteCounts,
+  NoteIdParams,
   NoteItem,
   NoteList,
   NotesQuery,
@@ -85,7 +87,7 @@ export class NotesController {
   @SchemaResponse(NoteItem)
   async setResolved(
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) noteId: string,
+    @SchemaParams(NoteIdParams) { id: noteId }: NoteIdParams,
     @SchemaBody(SetNoteResolvedBody) dto: SetNoteResolvedBody,
   ) {
     return this.notesService.setResolved(workspaceId, noteId, dto.resolved);
@@ -93,10 +95,11 @@ export class NotesController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(MessageResult)
   async deleteNote(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) noteId: string,
+    @SchemaParams(NoteIdParams) { id: noteId }: NoteIdParams,
   ) {
     await this.notesService.deleteNote(user.id, workspaceId, noteId);
     return { message: 'Note deleted' };

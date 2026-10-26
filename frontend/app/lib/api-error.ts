@@ -44,6 +44,20 @@ export function getApiErrorMessage(error: unknown, fallback?: string): string {
 
 const genericMessage = (): string => translateErrorCode('fallback', undefined) ?? '';
 
+/**
+ * Dictionaries of backend error codes: apiErrors, then one per catalogue file in
+ * backend/src/common/errors/codes (app/lib/api-errors/*.content.ts).
+ */
+const ERROR_DICTIONARIES = [
+  'apiErrors',
+  'apiErrorsCore',
+  'apiErrorsAccounts',
+  'apiErrorsDocuments',
+  'apiErrorsAccounting',
+  'apiErrorsIntegrations',
+  'apiErrorsCustomTables',
+] as const;
+
 function translateErrorCode(
   code: string | undefined,
   params: Record<string, string | number> | undefined,
@@ -53,12 +67,15 @@ function translateErrorCode(
   }
 
   try {
-    const dictionary = getCachedIntlayer(
-      'apiErrors',
-      readLocaleFromCookie() ?? DEFAULT_LOCALE,
-    ) as Record<string, { value?: unknown } | string | undefined>;
-    const entry = dictionary[code];
-    const raw = typeof entry === 'string' ? entry : entry?.value;
+    const locale = readLocaleFromCookie() ?? DEFAULT_LOCALE;
+    const raw = ERROR_DICTIONARIES.map(key => {
+      const dictionary = getCachedIntlayer(key as never, locale as never) as Record<
+        string,
+        { value?: unknown } | string | undefined
+      >;
+      const entry = dictionary[code];
+      return typeof entry === 'string' ? entry : entry?.value;
+    }).find(value => typeof value === 'string');
     // A missing dictionary yields a path-stringifying Proxy, not undefined —
     // only a genuine string may win over the backend's English message.
     const template = typeof raw === 'string' ? raw : undefined;

@@ -10,10 +10,20 @@
  * нарастающий итог — берётся из TableContext, который даёт пересчёт таблицы.
  */
 
+import { appError, type ErrorCode } from '../../../common/errors/app-error';
+
 export class FormulaError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(
+    readonly code: ErrorCode,
+    readonly params?: Record<string, string>,
+  ) {
+    super(appError(code, params).message);
     this.name = 'FormulaError';
+  }
+
+  /** `appError` arguments for a caught error: its own code, or plain "Invalid formula". */
+  static argsOf(error: unknown): [ErrorCode, Record<string, string>?] {
+    return error instanceof FormulaError ? [error.code, error.params] : ['FORMULA_INVALID'];
   }
 }
 
@@ -92,12 +102,12 @@ function readString(rest: string): { value: string; length: number } {
     value += char;
     index += 1;
   }
-  throw new FormulaError('Unterminated string in formula');
+  throw new FormulaError('FORMULA_UNTERMINATED_STRING');
 }
 
 export function tokenizeFormula(expression: string): Token[] {
   if (expression.length > MAX_EXPRESSION_LENGTH) {
-    throw new FormulaError('Formula is too long');
+    throw new FormulaError('FORMULA_TOO_LONG');
   }
   const tokens: Token[] = [];
   let rest = expression;
@@ -132,7 +142,7 @@ export function tokenizeFormula(expression: string): Token[] {
         previous &&
         (previous.kind === 'number' || (previous.kind === 'paren' && previous.value === ')'));
       if (!afterValue) {
-        throw new FormulaError(`Invalid character in formula: ${char}`);
+        throw new FormulaError('FORMULA_INVALID_CHARACTER', { char });
       }
       tokens.push({ kind: 'op', value: '%' });
       rest = rest.slice(1);
@@ -162,7 +172,7 @@ export function tokenizeFormula(expression: string): Token[] {
       rest = rest.slice(ident[0].length);
       continue;
     }
-    throw new FormulaError(`Invalid character in formula: ${char}`);
+    throw new FormulaError('FORMULA_INVALID_CHARACTER', { char });
   }
 
   return tokens;
@@ -180,11 +190,11 @@ class Parser {
 
   parse(): Node {
     if (!this.tokens.length) {
-      throw new FormulaError('Formula is empty');
+      throw new FormulaError('FORMULA_EMPTY');
     }
     const node = this.parseComparison();
     if (this.index < this.tokens.length) {
-      throw new FormulaError('Unexpected token in formula');
+      throw new FormulaError('FORMULA_UNEXPECTED_TOKEN');
     }
     return node;
   }
@@ -196,7 +206,7 @@ class Parser {
   private take(): Token {
     const token = this.tokens[this.index];
     if (!token) {
-      throw new FormulaError('Unexpected end of formula');
+      throw new FormulaError('FORMULA_UNEXPECTED_END');
     }
     this.index += 1;
     return token;
@@ -290,18 +300,18 @@ class Parser {
         return this.parseIdent(token.name);
       case 'paren': {
         if (token.value !== '(') {
-          throw new FormulaError('Unbalanced parenthesis in formula');
+          throw new FormulaError('FORMULA_UNBALANCED_PARENTHESIS');
         }
         const inner = this.parseComparison();
         const close = this.peek();
         if (!(close && close.kind === 'paren' && close.value === ')')) {
-          throw new FormulaError('Unbalanced parenthesis in formula');
+          throw new FormulaError('FORMULA_UNBALANCED_PARENTHESIS');
         }
         this.take();
         return inner;
       }
       default:
-        throw new FormulaError('Invalid formula');
+        throw new FormulaError('FORMULA_INVALID');
     }
   }
 
@@ -311,7 +321,7 @@ class Parser {
     }
     const open = this.peek();
     if (!(open && open.kind === 'paren' && open.value === '(')) {
-      throw new FormulaError(`Unknown name in formula: ${name}`);
+      throw new FormulaError('FORMULA_UNKNOWN_NAME', { name });
     }
     this.take();
     const args: Node[] = [];
@@ -329,7 +339,7 @@ class Parser {
       if (next.kind === 'paren' && next.value === ')') {
         return { kind: 'call', name, args };
       }
-      throw new FormulaError('Unbalanced parenthesis in formula');
+      throw new FormulaError('FORMULA_UNBALANCED_PARENTHESIS');
     }
   }
 }
@@ -367,7 +377,7 @@ function toNumber(raw: unknown): number {
   }
   const num = Number(String(raw).replace(',', '.').trim());
   if (!Number.isFinite(num)) {
-    throw new FormulaError('Non-numeric value in formula');
+    throw new FormulaError('FORMULA_NOT_NUMERIC');
   }
   return num;
 }
@@ -406,7 +416,7 @@ function toBoolean(raw: unknown): boolean {
   if (Number.isFinite(num)) {
     return num !== 0;
   }
-  throw new FormulaError('Value is not a condition');
+  throw new FormulaError('FORMULA_NOT_CONDITION');
 }
 
 function toDate(raw: unknown): Date {
@@ -414,7 +424,7 @@ function toDate(raw: unknown): Date {
     return raw;
   }
   if (typeof raw !== 'string' || !raw.trim()) {
-    throw new FormulaError('Value is not a date');
+    throw new FormulaError('FORMULA_NOT_DATE');
   }
   const text = raw.trim();
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
@@ -422,7 +432,7 @@ function toDate(raw: unknown): Date {
     ? new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])))
     : new Date(text);
   if (Number.isNaN(date.getTime())) {
-    throw new FormulaError('Value is not a date');
+    throw new FormulaError('FORMULA_NOT_DATE');
   }
   return date;
 }
@@ -722,13 +732,13 @@ function evaluateBinary(op: string, left: FormulaValue, right: FormulaValue): Fo
     case '/':
       if (b === 0) {
         // Деление на ноль — пустая ячейка, а не Infinity в отчёте.
-        throw new FormulaError('Division by zero');
+        throw new FormulaError('FORMULA_DIVISION_BY_ZERO');
       }
       return a / b;
     case '^':
       return a ** b;
     default:
-      throw new FormulaError('Invalid formula');
+      throw new FormulaError('FORMULA_INVALID');
   }
 }
 
@@ -752,7 +762,7 @@ function evaluateContextual(
     if (conditionalFn === 'countif') {
       const criteriaKey = fieldKeyOf(first);
       if (!criteriaKey) {
-        throw new FormulaError('COUNTIF expects a column as its first argument');
+        throw new FormulaError('FORMULA_COUNTIF_EXPECTS_COLUMN');
       }
       return context.conditional(
         'countif',
@@ -764,7 +774,7 @@ function evaluateContextual(
     const key = fieldKeyOf(first);
     const criteriaKey = fieldKeyOf(second);
     if (!(key && criteriaKey)) {
-      throw new FormulaError(`${node.name} expects columns as its first two arguments`);
+      throw new FormulaError('FORMULA_EXPECTS_TWO_COLUMNS', { fn: node.name });
     }
     return context.conditional(
       conditionalFn,
@@ -776,7 +786,7 @@ function evaluateContextual(
   if (node.name === 'PREV') {
     const key = fieldKeyOf(node.args[0]);
     if (!key) {
-      throw new FormulaError('PREV expects a column');
+      throw new FormulaError('FORMULA_PREV_EXPECTS_COLUMN');
     }
     const raw = context?.prev?.[key];
     return raw === undefined || raw === null ? null : (raw as FormulaValue);
@@ -784,7 +794,7 @@ function evaluateContextual(
   if (node.name === 'RUNNING_SUM') {
     const key = fieldKeyOf(node.args[0]);
     if (!key) {
-      throw new FormulaError('RUNNING_SUM expects a column');
+      throw new FormulaError('FORMULA_RUNNING_SUM_EXPECTS_COLUMN');
     }
     return context ? context.runningSum(key) : toNumber(rowData?.[key]);
   }
@@ -833,7 +843,7 @@ function evaluateNode(
       }
       const def = FUNCTIONS[node.name];
       if (!def) {
-        throw new FormulaError(`Unknown function: ${node.name}`);
+        throw new FormulaError('FORMULA_UNKNOWN_FUNCTION', { fn: node.name });
       }
       const thunks = node.args.map(arg => () => evaluateNode(arg, rowData, context));
       if (def.lazy) {
@@ -845,7 +855,7 @@ function evaluateNode(
       );
     }
     default:
-      throw new FormulaError('Invalid formula');
+      throw new FormulaError('FORMULA_INVALID');
   }
 }
 
@@ -1020,7 +1030,7 @@ export function inferFormulaResultType(
 
 const checkArity = (name: string, count: number, min: number, max: number): void => {
   if (count < min || count > max) {
-    throw new FormulaError(`Wrong number of arguments for ${name}`);
+    throw new FormulaError('FORMULA_WRONG_ARITY', { fn: name });
   }
 };
 
@@ -1034,7 +1044,7 @@ export function assertValidFormula(
   options: { selfKey?: string | null } = {},
 ): void {
   if (!expression.trim()) {
-    throw new FormulaError('Formula is empty');
+    throw new FormulaError('FORMULA_EMPTY');
   }
   const ast = parseFormula(expression);
   const known = new Set(knownKeys);
@@ -1043,7 +1053,7 @@ export function assertValidFormula(
       if (known.has(node.key) || (insidePrev && node.key === options.selfKey)) {
         return;
       }
-      throw new FormulaError(`Column not found: ${node.key}`);
+      throw new FormulaError('COLUMN_NOT_FOUND_NAMED', { column: node.key });
     }
     if (node.kind === 'call') {
       const order = ORDER_FUNCTIONS[node.name];
@@ -1056,7 +1066,7 @@ export function assertValidFormula(
       } else if (def) {
         checkArity(node.name, node.args.length, def.min, def.max);
       } else {
-        throw new FormulaError(`Unknown function: ${node.name}`);
+        throw new FormulaError('FORMULA_UNKNOWN_FUNCTION', { fn: node.name });
       }
       for (const arg of node.args) {
         check(arg, insidePrev || node.name === 'PREV');

@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, type QueryRunner, Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { currencyCodeOrDefault } from '../../../common/utils/currency.util';
 import { readProcessingSettings } from '../../../common/utils/workspace-processing.util';
 import {
@@ -931,7 +932,7 @@ export class ImportSessionService {
     });
 
     if (!session) {
-      throw new NotFoundException('Import session not found');
+      throw new NotFoundException(appError('IMPORT_SESSION_NOT_FOUND'));
     }
 
     return session;

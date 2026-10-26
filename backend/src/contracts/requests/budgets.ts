@@ -4,6 +4,8 @@ import * as Schema from 'effect/Schema';
 import { IsoDateString, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
+const Uuid = Schema.String.check(Schema.isUUID());
+
 export const CreateBudgetBody = Schema.Struct({
   name: Schema.String,
   categoryId: Schema.String.check(Schema.isUUID()),
@@ -35,3 +37,6 @@ export const UpdateBudgetBody = Schema.Struct({
   endsOn: optionalNullable(IsoDateString),
 });
 export type UpdateBudgetBody = Wire<typeof UpdateBudgetBody>;
+
+export const BudgetParams = Schema.Struct({ id: Uuid });
+export type BudgetParams = Wire<typeof BudgetParams>;

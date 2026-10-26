@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Category } from '../../entities/category.entity';
 import { TaxFilingPeriod } from '../../entities/tax-jurisdiction.entity';
@@ -62,7 +63,7 @@ export class WorkspaceTaxSettingsService {
       select: { id: true, vatStatus: true },
     });
     if (!workspace) {
-      throw new NotFoundException('Workspace not found');
+      throw new NotFoundException(appError('WORKSPACE_NOT_FOUND'));
     }
     return workspace.vatStatus;
   }
@@ -164,16 +165,14 @@ export class WorkspaceTaxSettingsService {
     userId?: string,
   ): Promise<TaxReserveSettings> {
     if (settings.percent !== null && !(settings.percent >= 0 && settings.percent <= 100)) {
-      throw new BadRequestException('The share to set aside must be between 0 and 100');
+      throw new BadRequestException(appError('TAX_SET_ASIDE_SHARE_INVALID'));
     }
     if (settings.paymentsCategoryId) {
       const owned = await this.categoryRepository.count({
         where: { id: settings.paymentsCategoryId, workspaceId },
       });
       if (!owned) {
-        throw new BadRequestException(
-          'The tax payments category does not belong to this workspace',
-        );
+        throw new BadRequestException(appError('TAX_PAYMENTS_CATEGORY_NOT_IN_WORKSPACE'));
       }
     }
 

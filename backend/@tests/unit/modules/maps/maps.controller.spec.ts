@@ -26,7 +26,7 @@ describe('MapsController', () => {
     const body = Buffer.from('png');
     service.fetchTile.mockResolvedValue({ status: 'ok', body, contentType: 'image/png' });
 
-    await controller.getTile('osm-bright', '3', '1', '2.png', res as unknown as Response);
+    await controller.getTile({ styleId: 'osm-bright', z: '3', x: '1', y: '2.png' }, res as unknown as Response);
 
     expect(service.fetchTile).toHaveBeenCalledWith('osm-bright', '3', '1', '2.png');
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
@@ -38,7 +38,7 @@ describe('MapsController', () => {
     service.fetchTile.mockResolvedValue({ status: 'invalid' });
 
     await expect(
-      controller.getTile('nope', '0', '0', '0.png', res as unknown as Response),
+      controller.getTile({ styleId: 'nope', z: '0', x: '0', y: '0.png' }, res as unknown as Response),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(res.send).not.toHaveBeenCalled();
   });
@@ -47,7 +47,7 @@ describe('MapsController', () => {
     service.fetchTile.mockResolvedValue({ status: 'unavailable' });
 
     await expect(
-      controller.getTile('osm-bright', '0', '0', '0.png', res as unknown as Response),
+      controller.getTile({ styleId: 'osm-bright', z: '0', x: '0', y: '0.png' }, res as unknown as Response),
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 });

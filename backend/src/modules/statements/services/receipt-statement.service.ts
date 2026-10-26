@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import { IsNull, type Repository } from 'typeorm';
 import { workspaceMemberCanEdit } from '../../../common/authz/workspace-permissions';
-import { appError } from '../../../common/errors/app-error';
+import { appError, type ErrorCode } from '../../../common/errors/app-error';
 import type { CaptureLocation } from '../../../common/utils/capture-location.util';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { calculateFileHash } from '../../../common/utils/file-hash.util';
@@ -62,7 +62,7 @@ export class ReceiptStatementService {
     await this.ensureCanEditStatements(user.id, workspaceId);
 
     if (!files?.length) {
-      throw new BadRequestException('No receipt files provided');
+      throw new BadRequestException(appError('RECEIPT_SCAN_NO_FILES'));
     }
 
     const results: Statement[] = [];
@@ -157,24 +157,24 @@ export class ReceiptStatementService {
     return BankName.OTHER;
   }
 
-  private resolveReceiptFailureMessage(receipt: {
+  private resolveReceiptFailure(receipt: {
     metadata?: Record<string, unknown> | null;
     parsedData?: Record<string, unknown> | null;
-  }) {
+  }): [ErrorCode, { reason: string }?] {
     const metadataError = receipt.metadata?.processingError;
     if (typeof metadataError === 'string' && metadataError.trim()) {
-      return metadataError;
+      return ['RECEIPT_SCAN_FAILED', { reason: metadataError }];
     }
 
     const parsedIssues = receipt.parsedData?.validationIssues;
     if (Array.isArray(parsedIssues)) {
       const [firstIssue] = parsedIssues;
       if (typeof firstIssue === 'string' && firstIssue.trim()) {
-        return firstIssue;
+        return ['RECEIPT_SCAN_FAILED', { reason: firstIssue }];
       }
     }
 
-    return 'Receipt scan could not be processed';
+    return ['RECEIPT_SCAN_UNPROCESSABLE'];
   }
 
   /**
@@ -243,7 +243,7 @@ export class ReceiptStatementService {
     });
 
     if (receipt.status === ReceiptStatus.FAILED) {
-      throw new BadRequestException(this.resolveReceiptFailureMessage(receipt));
+      throw new BadRequestException(appError(...this.resolveReceiptFailure(receipt)));
     }
 
     const parsed = receipt.parsedData ?? {};
