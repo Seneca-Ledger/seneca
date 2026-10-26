@@ -1,5 +1,4 @@
-import { Controller, Get, Post, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Controller, Get, Post, StreamableFile } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
@@ -105,8 +104,7 @@ export class TaxReturnsController {
   async export(
     @WorkspaceId() workspaceId: string,
     @SchemaQuery(TaxReturnExportQuery) { periodStart, periodEnd, format }: TaxReturnExportQuery,
-    @Res() res: Response,
-  ): Promise<void> {
+  ): Promise<StreamableFile> {
     const { buffer, fileName, contentType } = await this.taxReturnsService.export(
       workspaceId,
       periodStart,
@@ -114,8 +112,9 @@ export class TaxReturnsController {
       format,
     );
 
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', buildContentDisposition('attachment', fileName));
-    res.send(buffer);
+    return new StreamableFile(buffer, {
+      type: contentType,
+      disposition: buildContentDisposition('attachment', fileName),
+    });
   }
 }

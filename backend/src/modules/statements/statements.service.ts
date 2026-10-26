@@ -31,7 +31,7 @@ import {
   PRIVACY_VIEWER_PARAM,
   readablePrivateSql,
 } from '../../common/utils/transaction-privacy.util';
-import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { readUploadedFile, resolveUploadsDir } from '../../common/utils/uploads.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import type {
   ConvertDroppedSampleBody,
@@ -442,7 +442,7 @@ export class StatementsService {
       fileType = resolveFileType(primaryFile) as FileType;
       fileHash = await calculateFileHash(primaryFile.path);
       fileSize = primaryFile.size;
-      fileData = await fs.promises.readFile(primaryFile.path);
+      fileData = await readUploadedFile(primaryFile.path);
     } else {
       fileName = `manual-expense-${Date.now()}.csv`;
       filePath = path.join(resolveUploadsDir(), `${randomUUID()}.csv`);
@@ -795,7 +795,7 @@ export class StatementsService {
 
     let fileData: Buffer | null = null;
     try {
-      fileData = await fs.promises.readFile(file.path);
+      fileData = await readUploadedFile(file.path);
     } catch (error) {
       this.logger.warn(
         `[Statements] Failed to read uploaded file for DB storage: ${(error as Error)?.message}`,
@@ -1358,7 +1358,7 @@ export class StatementsService {
     const updatedStatement = await this.statementRepository.save(statement);
 
     try {
-      const fileData = await fs.promises.readFile(file.path);
+      const fileData = await readUploadedFile(file.path);
       await this.statementRepository.update(updatedStatement.id, { fileData });
     } catch (error) {
       this.logger.warn(
