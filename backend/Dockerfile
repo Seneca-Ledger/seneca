@@ -10,6 +10,10 @@ FROM node:24-bookworm-slim AS base
 # timezone-dependent day shift.
 ENV TZ=UTC
 
+# onnxruntime-node fetches its CUDA providers (~260 MB) at install on linux/x64.
+# The categorizer runs on the CPU, so the image never loads them.
+ENV ONNXRUNTIME_NODE_INSTALL=skip
+
 WORKDIR /app
 
 # Python + pdfplumber for PDF parsing + pdf2image for thumbnails. Lives in the
@@ -49,8 +53,11 @@ COPY . .
 
 RUN npm run build && npm run build:scripts
 # A fresh production-only install rather than pruning the dev tree.
+# onnxruntime-node ships binaries for every OS; keep only this one (~245 MB less).
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-  rm -rf node_modules && bun install --frozen-lockfile --network-concurrency=16 --production
+  rm -rf node_modules && bun install --frozen-lockfile --network-concurrency=16 --production && \
+  find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 2 -maxdepth 2 \
+    ! -path "*/linux/$(node -p process.arch)" -exec rm -rf {} +
 
 # --- Production stage ---
 FROM base
