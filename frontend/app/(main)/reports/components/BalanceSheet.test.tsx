@@ -16,6 +16,7 @@ vi.mock('../../../lib/api', () => ({
 
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
+    loading: { value: 'Loading' },
     labels: {
       assets: { value: 'Actifs' },
       liabilities: { value: 'Passifs' },

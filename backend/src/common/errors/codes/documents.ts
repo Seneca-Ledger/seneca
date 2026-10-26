@@ -120,6 +120,8 @@ export const DOCUMENTS_ERRORS = {
   IMPORT_PREVIEW_SESSION_NOT_FOUND: 'Import preview session not found',
   // ── classification & review ─────────────────────────────────────────────
   CATEGORIZATION_RULE_NOT_FOUND: 'Categorization rule not found',
+  CATEGORIZATION_RULE_PATTERN_INVALID: 'Invalid pattern: {{pattern}}',
+  CATEGORIZATION_RULE_NO_CATEGORY: 'The rule sets no category to apply',
   CLASSIFICATION_TRANSACTION_NOT_FOUND: 'Transaction not found',
   REVIEW_DUPLICATE_NOT_FOUND: 'Suspected duplicate not found',
   // ── dashboard, budgets, goals ───────────────────────────────────────────

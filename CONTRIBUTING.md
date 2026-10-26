@@ -323,7 +323,7 @@ docker compose down               # Stop all services
 docker compose logs -f            # View logs
 docker compose logs -f backend    # View backend logs
 docker compose restart backend    # Restart backend
-docker exec -it finflow-backend sh  # Shell into backend
+docker exec -it seneca-backend sh  # Shell into backend
 ```
 
 ## Testing

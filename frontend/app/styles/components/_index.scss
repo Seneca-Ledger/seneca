@@ -1,6 +1,7 @@
 // app/styles/components/_index.scss
 @forward 'empty-state';
 @forward 'load-error';
+@forward 'snapshot-skeleton';
 @forward 'notification-panel';
 @forward 'audit-panel';
 @forward 'pdf-preview-modal';
@@ -24,3 +25,4 @@
 @forward 'charge-calendar';
 @forward 'category-dialog';
 @forward 'classification';
+@forward 'rules';

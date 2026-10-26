@@ -40,30 +40,6 @@ export type NotificationPreferences = Wire<typeof NotificationPreferences>;
 
 const SettingsSource = Schema.Literals(['workspace', 'instance', 'env', 'disabled']);
 
-/** `GET /settings/local-categorization`. */
-export const LocalCategorizationStatus = Schema.Struct({
-  connected: Schema.Boolean,
-  status: Schema.String,
-  source: SettingsSource,
-  settings: Schema.Struct({
-    enabled: Schema.Boolean,
-    modelId: Schema.String,
-    threshold: Schema.Number,
-    localModelPath: Schema.NullOr(Schema.String),
-    modelInstalled: Schema.Boolean,
-  }),
-});
-export type LocalCategorizationStatus = Wire<typeof LocalCategorizationStatus>;
-
-/** `POST /settings/local-categorization/test`: what the local model makes of one merchant. */
-export const LocalCategorizationTestResult = Schema.Struct({
-  ready: Schema.Boolean,
-  merchantName: Schema.String,
-  category: Schema.NullOr(Schema.String),
-  modelLoadError: Schema.NullOr(Schema.String),
-});
-export type LocalCategorizationTestResult = Wire<typeof LocalCategorizationTestResult>;
-
 /** `GET /settings/notifications/telegram`: never the token itself. */
 export const TelegramBotStatus = Schema.Struct({
   connected: Schema.Boolean,

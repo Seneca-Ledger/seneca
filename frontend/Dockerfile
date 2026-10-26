@@ -75,15 +75,17 @@ ENV PORT=3000
 # vinext binds to HOST (HOSTNAME is the container name on Linux)
 ENV HOST="0.0.0.0"
 
+# Non-root runtime user. Files are copied in already owned by it: a `chown -R`
+# after the copies would store every file a second time in its own layer.
+RUN addgroup -S app && adduser -S app -G app && chown app:app /app
+
 # vinext standalone output: server.js, the build (static files are served from
 # dist/client, public/ included) and the minimal runtime node_modules. Its own
 # public/ copy is never read, so it stays out of the image.
-COPY --from=builder /build/dist/standalone/server.js /build/dist/standalone/package.json ./
-COPY --from=builder /build/dist/standalone/dist ./dist
-COPY --from=builder /build/dist/standalone/node_modules ./node_modules
+COPY --chown=app:app --from=builder /build/dist/standalone/server.js /build/dist/standalone/package.json ./
+COPY --chown=app:app --from=builder /build/dist/standalone/dist ./dist
+COPY --chown=app:app --from=builder /build/dist/standalone/node_modules ./node_modules
 
-# Use non-root user for runtime
-RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
 USER app
 
 # Expose port

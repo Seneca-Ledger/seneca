@@ -77,7 +77,7 @@ the schema, also restore the backup into an empty database:
 
 ```bash
 docker compose stop backend frontend
-docker exec finflow-postgres sh -c 'dropdb -U "$POSTGRES_USER" "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
+docker exec seneca-postgres sh -c 'dropdb -U "$POSTGRES_USER" "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
 make db-restore file=backup_<timestamp>.sql
 make upgrade VERSION=<old tag>
 ```

@@ -8,11 +8,9 @@ Configured in `backend/audit-ci.json` and used by `dependency-scan` job:
 
 - `GHSA-vwc7-r8mq-g2x9` (adm-zip) — expires 2026-12-10. Extraction follows
   destination symlinks; no patched release exists upstream. Not reachable here:
-  the affected APIs (`extractAllTo`/`extractEntryTo`) are never called. The three
-  consumers are `backups/backup-archive.service.ts`, `parsing/parsers/docx.parser.ts`
-  and `application-settings/application-settings.service.ts`, the last of which
-  validates entry paths itself and writes via `fs.writeFile`. Also reached
-  transitively through `onnxruntime-node`.
+  the affected APIs (`extractAllTo`/`extractEntryTo`) are never called. The two
+  consumers are `backups/backup-archive.service.ts` and
+  `parsing/parsers/docx.parser.ts`.
 
 The previous entries (`GHSA-cf4h-3jhx-xvhq` underscore, `GHSA-h6q6-9hqw-rwfv` /
 `GHSA-crh6-fp67-6883` / `GHSA-5fg8-2547-mr8q` xmldom, both via `pdf2json`; and

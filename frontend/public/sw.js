@@ -5,7 +5,7 @@
  * the network is gone. Data requests are never cached here: the page keeps its
  * own offline queue for manual entries and receipt photos.
  */
-const VERSION = 'seneca-sw-v2';
+const VERSION = 'seneca-sw-v3';
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 const OFFLINE_URL = '/offline';

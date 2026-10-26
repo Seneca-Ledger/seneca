@@ -104,7 +104,6 @@ import {
   LedgerAccountList,
   LedgerIntegrity,
   LedgerSettings,
-  LocalCategorizationStatus,
   LoginResponse,
   MapStyles,
   MetalReceiptList,
@@ -124,6 +123,10 @@ import {
   Payee,
   PayeePendingReview,
   PayeesPage,
+  CategorizationRule as CategorizationRuleContract,
+  CategorizationRuleApplyResult,
+  CategorizationRuleList,
+  CategorizationRuleTestResult,
   PaymentCandidateList,
   PeppolLookup,
   PeppolTransmissionList,
@@ -913,6 +916,57 @@ describe('API contracts (e2e)', () => {
     });
   });
 
+  describe('categorization rules', () => {
+    const send = (method: 'post' | 'put' | 'delete', url: string, body?: object) => {
+      const req = request(app.getHttpServer())
+        [method](url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId);
+      return body ? req.send(body) : req;
+    };
+
+    it('POST, GET, PUT /categorization-rules, /test and /:id/apply', async () => {
+      const categories = await get('/categories?type=expense');
+      const conditions = [
+        { field: 'counterparty_name', operator: 'contains', value: 'contract coffee' },
+      ];
+      const created = await send('post', '/categorization-rules', {
+        name: 'Coffee rule',
+        conditions,
+        result: { categoryId: categories.body[1].id },
+      });
+      try {
+        expect(created.status).toBe(201);
+        matches(CategorizationRuleContract, created.body);
+
+        const list = await get('/categorization-rules');
+        matches(CategorizationRuleList, list.body);
+        expect(list.body.data).toHaveLength(1);
+        matches(CategorizationRuleContract, (await get(`/categorization-rules/${created.body.id}`)).body);
+
+        const preview = await send('post', '/categorization-rules/test', { conditions }).expect(200);
+        matches(CategorizationRuleTestResult, preview.body);
+        expect(preview.body.matches.length).toBeGreaterThan(0);
+
+        const renamed = await send('put', `/categorization-rules/${created.body.id}`, {
+          name: 'Coffee is a treat',
+        }).expect(200);
+        matches(CategorizationRuleContract, renamed.body);
+
+        const applied = await send('post', `/categorization-rules/${created.body.id}/apply`).expect(200);
+        matches(CategorizationRuleApplyResult, applied.body);
+        expect(applied.body.applied + applied.body.skippedManual).toBe(
+          preview.body.matchedTransactions,
+        );
+      } finally {
+        // Later tests import rows a live rule would file.
+        if (created.body.id) {
+          await send('delete', `/categorization-rules/${created.body.id}`).expect(204);
+        }
+      }
+    });
+  });
+
   describe('forecast', () => {
     it('GET /forecast, with the subscriptions above as events', async () => {
       const res = await get('/forecast?days=90');
@@ -1137,7 +1191,6 @@ describe('API contracts (e2e)', () => {
       const preferences = await get('/notifications/preferences');
       matches(NotificationPreferences, preferences.body);
       expect(Object.keys(preferences.body.channels).length).toBeGreaterThan(0);
-      matches(LocalCategorizationStatus, (await get('/settings/local-categorization')).body);
       matches(TelegramBotStatus, (await get('/settings/notifications/telegram')).body);
       matches(TelegramReportPage, (await get('/telegram/reports')).body);
       matches(PushPublicKey, (await get('/push/public-key')).body);

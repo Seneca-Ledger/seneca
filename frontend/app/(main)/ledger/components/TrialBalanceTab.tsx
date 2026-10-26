@@ -3,7 +3,6 @@
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
@@ -14,6 +13,7 @@ import TableRow from '@mui/material/TableRow';
 import type React from 'react';
 import { useState } from 'react';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage, getApiErrorStatus } from '@/app/lib/api-error';
 import { useTrialBalance } from '../hooks/useLedger';
@@ -66,90 +66,94 @@ export function TrialBalanceTab({
       {report.isError && !stale ? (
         <Alert severity="error">{getApiErrorMessage(report.error)}</Alert>
       ) : null}
-      {report.isPending && !report.isError ? <CircularProgress size={24} /> : null}
+      {report.isPending && !report.isError ? (
+        <SnapshotSkeleton id="ledger-trial-balance-report" loading fallback="list" />
+      ) : null}
 
       {report.data ? (
-        <>
-          <Stack direction="row" spacing={1}>
-            <Chip
-              size="small"
-              color={report.data.balanced ? 'success' : 'error'}
-              label={report.data.balanced ? t.balancedBadge : t.unbalancedBadge}
-            />
-            {report.data.freshness.upToDate ? null : (
-              <Chip size="small" color="warning" label={t.staleShown} />
-            )}
-          </Stack>
-          <Paper variant="outlined" sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell rowSpan={2}>{t.accountLabel}</TableCell>
-                  <TableCell colSpan={2} align="center">
-                    {t.colOpening}
-                  </TableCell>
-                  <TableCell colSpan={2} align="center">
-                    {t.colTurnover}
-                  </TableCell>
-                  <TableCell colSpan={2} align="center">
-                    {t.colClosing}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  {[0, 1, 2].flatMap(group => [
-                    <TableCell key={`d${group}`} align="right">
-                      {t.sideDebit}
-                    </TableCell>,
-                    <TableCell key={`c${group}`} align="right">
-                      {t.sideCredit}
-                    </TableCell>,
-                  ])}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {withDepth(report.data.rows).map(row => (
-                  <TableRow key={row.accountId} hover>
-                    <TableCell
-                      sx={{
-                        pl: 2 + row.depth * 2.5,
-                        fontWeight: row.isPostable ? 400 : 600,
-                        cursor: row.isPostable ? 'pointer' : 'default',
-                      }}
-                      onClick={row.isPostable ? () => onOpenAccount(row.accountId) : undefined}
-                    >
-                      {row.code} · {accountDisplayName({ ...row, isSystem: true }, systemNames)}
+        <SnapshotSkeleton id="ledger-trial-balance-report" loading={false}>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1}>
+              <Chip
+                size="small"
+                color={report.data.balanced ? 'success' : 'error'}
+                label={report.data.balanced ? t.balancedBadge : t.unbalancedBadge}
+              />
+              {report.data.freshness.upToDate ? null : (
+                <Chip size="small" color="warning" label={t.staleShown} />
+              )}
+            </Stack>
+            <Paper variant="outlined" sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell rowSpan={2}>{t.accountLabel}</TableCell>
+                    <TableCell colSpan={2} align="center">
+                      {t.colOpening}
+                    </TableCell>
+                    <TableCell colSpan={2} align="center">
+                      {t.colTurnover}
+                    </TableCell>
+                    <TableCell colSpan={2} align="center">
+                      {t.colClosing}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    {[0, 1, 2].flatMap(group => [
+                      <TableCell key={`d${group}`} align="right">
+                        {t.sideDebit}
+                      </TableCell>,
+                      <TableCell key={`c${group}`} align="right">
+                        {t.sideCredit}
+                      </TableCell>,
+                    ])}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {withDepth(report.data.rows).map(row => (
+                    <TableRow key={row.accountId} hover>
+                      <TableCell
+                        sx={{
+                          pl: 2 + row.depth * 2.5,
+                          fontWeight: row.isPostable ? 400 : 600,
+                          cursor: row.isPostable ? 'pointer' : 'default',
+                        }}
+                        onClick={row.isPostable ? () => onOpenAccount(row.accountId) : undefined}
+                      >
+                        {row.code} · {accountDisplayName({ ...row, isSystem: true }, systemNames)}
+                      </TableCell>
+                      {AMOUNT_COLUMNS.map(column => (
+                        <TableCell
+                          key={column}
+                          align="right"
+                          className={PRIVATE_CLASS}
+                          sx={{ fontWeight: row.isPostable ? 400 : 600 }}
+                        >
+                          {row[column] === '0.00' ? '' : row[column]}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>
+                      {t.totalRow} ({report.data.baseCurrency})
                     </TableCell>
                     {AMOUNT_COLUMNS.map(column => (
                       <TableCell
                         key={column}
                         align="right"
                         className={PRIVATE_CLASS}
-                        sx={{ fontWeight: row.isPostable ? 400 : 600 }}
+                        sx={{ fontWeight: 700 }}
                       >
-                        {row[column] === '0.00' ? '' : row[column]}
+                        {report.data.totals[column]}
                       </TableCell>
                     ))}
                   </TableRow>
-                ))}
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>
-                    {t.totalRow} ({report.data.baseCurrency})
-                  </TableCell>
-                  {AMOUNT_COLUMNS.map(column => (
-                    <TableCell
-                      key={column}
-                      align="right"
-                      className={PRIVATE_CLASS}
-                      sx={{ fontWeight: 700 }}
-                    >
-                      {report.data.totals[column]}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableBody>
-            </Table>
-          </Paper>
-        </>
+                </TableBody>
+              </Table>
+            </Paper>
+          </Stack>
+        </SnapshotSkeleton>
       ) : null}
     </Stack>
   );

@@ -27,6 +27,8 @@ export const FINANCIAL_QUERY_ROOTS = [
   'categories',
   'tags',
   'payees',
+  // Match counts and the preview of what a rule would file.
+  'categorization-rules',
   'search',
   'tax-return',
   'tax-settings',
