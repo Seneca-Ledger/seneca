@@ -92,7 +92,7 @@
     "sass": "^1.99.0",
     "stylelint": "^17.16.0",
     "stylelint-config-recommended-scss": "^17.0.1",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vite-intlayer": "^9.7.0",
     "vitest": "^5.0.5"
