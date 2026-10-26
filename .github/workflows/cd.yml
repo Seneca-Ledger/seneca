@@ -37,7 +37,7 @@ jobs:
             -v "$GITHUB_WORKSPACE":/project \
             -w /project \
             openpolicyagent/conftest:v0.56.0 \
-            test -p policy/docker-compose \
+            test -p infra/policy/docker-compose \
             docker-compose.yml docker-compose.dev.yml
 
       - name: Conftest (GitHub workflows)
@@ -46,7 +46,7 @@ jobs:
             -v "$GITHUB_WORKSPACE":/project \
             -w /project \
             openpolicyagent/conftest:v0.56.0 \
-            test -p policy/github-actions \
+            test -p infra/policy/github-actions \
             .github/workflows/*.yml
 
   # Tags and the CI gate, once for every image and architecture below.

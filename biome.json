@@ -23,7 +23,6 @@
       "!**/backend/uploads/**",
       "!**/docs/**",
       "!**/.claude/**",
-      "!**/.agent/**",
       "!**/*.spec.{ts,tsx}",
       "!**/*.test.{ts,tsx}",
       "!**/@tests/**",
