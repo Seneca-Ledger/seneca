@@ -1,0 +1,95 @@
+{
+  "holder": "Member One",
+  "accountNumber": "12-600-1234567",
+  "cardEnding": "4321",
+  "billingDate": "10/01/26",
+  "pages": {
+    "hapoalim-2.jpg": {
+      "page": 1,
+      "foreign": [
+        {
+          "date": "28/12/25",
+          "merchant": "ACME HOSTING",
+          "city": "AMSTERDAM",
+          "original": "20.00 $",
+          "rateDate": "29/12/25",
+          "rate": "3.6500",
+          "charge": "73.00"
+        },
+        {
+          "date": "29/12/25",
+          "merchant": "EXAMPLE CAFE",
+          "city": "LISBON",
+          "original": "12.00 €",
+          "rateDate": "30/12/25",
+          "rate": "4.2500",
+          "charge": "51.00"
+        },
+        {
+          "date": "02/01/26",
+          "merchant": "SAMPLE BOOKS",
+          "city": "LONDON",
+          "original": "10.00 $",
+          "rateDate": "03/01/26",
+          "rate": "3.6200",
+          "charge": "36.20"
+        }
+      ],
+      "domestic": []
+    },
+    "hapoalim-1.jpg": {
+      "page": 2,
+      "foreign": [
+        {
+          "date": "05/01/26",
+          "merchant": "DEMO CLOUD",
+          "city": "DUBLIN",
+          "original": "5.00 $",
+          "rateDate": "06/01/26",
+          "rate": "3.6100",
+          "charge": "18.05"
+        },
+        {
+          "date": "06/01/26",
+          "merchant": "SAMPLE BOOKS",
+          "city": "LONDON",
+          "original": "8.00 €",
+          "rateDate": "07/01/26",
+          "rate": "4.2000",
+          "charge": "33.60"
+        }
+      ],
+      "domestic": [
+        {
+          "date": "15/12/25",
+          "merchant": "ACME Store",
+          "category": "מכולת",
+          "amount": "120.50",
+          "charge": "120.50"
+        },
+        {
+          "date": "18/12/25",
+          "merchant": "Example Cafe",
+          "category": "מסעדות",
+          "amount": "42.00",
+          "charge": "42.00"
+        },
+        {
+          "date": "20/12/25",
+          "merchant": "Sample Mobile",
+          "category": "תקשורת",
+          "amount": "59.90",
+          "charge": "59.90"
+        },
+        {
+          "date": "22/12/25",
+          "merchant": "Demo Electronics",
+          "category": "מחשבים",
+          "amount": "1,200.00",
+          "charge": "300.00",
+          "note": "תשלום 2 מתוך 4"
+        }
+      ]
+    }
+  }
+}
