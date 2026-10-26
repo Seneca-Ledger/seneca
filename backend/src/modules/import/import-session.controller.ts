@@ -47,11 +47,7 @@ export class ImportSessionController {
     @SchemaParams(ImportSessionParams) { id }: ImportSessionParams,
     @WorkspaceId() workspaceId: string,
   ) {
-    const session = await this.importSessionService.getSession(id);
-    if (session.workspaceId !== workspaceId) {
-      throw new NotFoundException(appError('IMPORT_SESSION_NOT_FOUND'));
-    }
-    return this.importSessionService.getSessionSummary(id);
+    return this.importSessionService.getSessionSummary(id, workspaceId);
   }
 
   @Get('statements/:id/import-preview')
@@ -122,7 +118,11 @@ export class ImportSessionController {
     }
 
     if (body?.resolutions) {
-      await this.importSessionService.resolveConflicts(importPreview.sessionId, body.resolutions);
+      await this.importSessionService.resolveConflicts(
+        importPreview.sessionId,
+        workspaceId,
+        body.resolutions,
+      );
     }
 
     const committed = await this.statementProcessingService.commitImport(statement.id, workspaceId);
@@ -141,11 +141,7 @@ export class ImportSessionController {
     @SchemaParams(ImportSessionParams) { id }: ImportSessionParams,
     @WorkspaceId() workspaceId: string,
   ) {
-    const session = await this.importSessionService.getSession(id);
-    if (session.workspaceId !== workspaceId) {
-      throw new NotFoundException(appError('IMPORT_SESSION_NOT_FOUND'));
-    }
-    await this.importSessionService.cancelSession(id);
+    await this.importSessionService.cancelSession(id, workspaceId);
     return { cancelled: true };
   }
 }

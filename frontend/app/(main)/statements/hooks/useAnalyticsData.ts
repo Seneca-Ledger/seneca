@@ -182,10 +182,12 @@ export function useAnalyticsDataFetch(
             params: { limit: 100, offset },
             headers,
           });
-          // Unchecked: the receipt documents list has no response contract.
-          const list = response.data as { receipts?: ReceiptDocument[]; total?: number } | null;
-          const items = Array.isArray(list?.receipts) ? list.receipts : [];
-          return { items, total: Number(list?.total ?? items.length) };
+          const list = await checkContract(
+            'ReceiptDocumentsPage',
+            response.data,
+            '/receipts/documents',
+          );
+          return { items: list.receipts, total: list.total };
         });
         allReceipts.push(...workspaceReceipts.map(receipt => ({ ...receipt, ...tag })));
       }
