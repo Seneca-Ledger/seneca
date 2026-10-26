@@ -107,17 +107,6 @@ export type BalanceQuery = Wire<typeof BalanceQuery>;
 export const BudgetListQuery = Schema.Struct({ date: Schema.optional(IsoDateString) });
 export type BudgetListQuery = Wire<typeof BudgetListQuery>;
 
-/** `GET /budgets/impact`: what an expense would do to its budget. */
-export const BudgetImpactQuery = Schema.Struct({
-  categoryId: Uuid,
-  amount: AtLeastZero,
-  currency: Schema.optional(Schema.String),
-  date: Schema.optional(IsoDateString),
-  /** The account the expense would leave; without one no account is affected. */
-  walletId: Schema.optional(Uuid),
-});
-export type BudgetImpactQuery = Wire<typeof BudgetImpactQuery>;
-
 /** `GET /balance/export`. */
 export const ExportBalanceQuery = Schema.Struct({
   date: Schema.optional(IsoDateString),
