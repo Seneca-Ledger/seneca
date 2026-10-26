@@ -97,7 +97,7 @@ run_upgrade() {
     i=$((i + 1))
     sleep 1
   done
-  write_status failed "$tag" health "Backend not ready after 5 minutes: docker logs finflow-backend" "$(now)"
+  write_status failed "$tag" health "Backend not ready after 5 minutes: docker logs seneca-backend" "$(now)"
 }
 
 mkdir -p "$UPDATE_DIR"

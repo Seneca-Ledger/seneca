@@ -34,8 +34,8 @@ if [ "$#" -gt 0 ]; then
   cp "$@" "$WORK/in/"
 else
   # The writer's scenarios, generated inside the dev backend container.
-  docker exec finflow-backend sh -c 'cd /app && rm -rf /tmp/xrechnung-out && XRECHNUNG_OUT=/tmp/xrechnung-out npx jest --config jest.unit.config.ts @tests/unit/modules/e-invoices/xrechnung-writer >/dev/null'
-  docker cp finflow-backend:/tmp/xrechnung-out/. "$WORK/in/"
+  docker exec seneca-backend sh -c 'cd /app && rm -rf /tmp/xrechnung-out && XRECHNUNG_OUT=/tmp/xrechnung-out npx jest --config jest.unit.config.ts @tests/unit/modules/e-invoices/xrechnung-writer >/dev/null'
+  docker cp seneca-backend:/tmp/xrechnung-out/. "$WORK/in/"
 fi
 
 cp "$CACHE/validator.jar" "$WORK/"

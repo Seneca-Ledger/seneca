@@ -45,8 +45,8 @@ rm -rf "$WORK" && mkdir -p "$WORK/in"
 if [ "$#" -gt 0 ]; then
   cp "$@" "$WORK/in/"
 else
-  docker exec finflow-backend sh -c 'cd /app && rm -rf /tmp/peppol-out && PEPPOL_OUT=/tmp/peppol-out npx jest --config jest.unit.config.ts @tests/unit/modules/e-invoices/peppol-ubl-writer >/dev/null 2>&1'
-  docker cp finflow-backend:/tmp/peppol-out/. "$WORK/in/"
+  docker exec seneca-backend sh -c 'cd /app && rm -rf /tmp/peppol-out && PEPPOL_OUT=/tmp/peppol-out npx jest --config jest.unit.config.ts @tests/unit/modules/e-invoices/peppol-ubl-writer >/dev/null 2>&1'
+  docker cp seneca-backend:/tmp/peppol-out/. "$WORK/in/"
 fi
 
 status=0

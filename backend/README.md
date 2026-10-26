@@ -68,7 +68,7 @@ npm run migration:run:dev
 npm run migration:run
 
 # в dev-контейнере backend
-docker exec -it finflow-backend npm run migration:run:dev
+docker exec -it seneca-backend npm run migration:run:dev
 ```
 
 ## Запуск приложения
