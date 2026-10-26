@@ -79,7 +79,6 @@ describe('ClassificationService', () => {
     ]);
 
     vi.spyOn<any, any>(service as any, 'autoClassifyCategory').mockResolvedValue('cat-auto');
-    vi.spyOn<any, any>(service as any, 'autoDetermineWallet').mockResolvedValue('wallet-auto');
     vi.spyOn<any, any>(service as any, 'autoDetermineBranch').mockResolvedValue('branch-auto');
 
     const result = await service.classifyTransaction(transaction, 'user-1');
@@ -134,7 +133,6 @@ describe('ClassificationService', () => {
     ]);
 
     vi.spyOn<any, any>(service as any, 'autoClassifyCategory').mockResolvedValue('fallback');
-    vi.spyOn<any, any>(service as any, 'autoDetermineWallet').mockResolvedValue(undefined);
     vi.spyOn<any, any>(service as any, 'autoDetermineBranch').mockResolvedValue(undefined);
 
     const result = await service.classifyTransaction(transaction, 'user-2');

@@ -1047,10 +1047,161 @@
     border-bottom: 1px solid var(--border);
     padding-bottom: 6px;
   }
+}
 
-  &__empty {
+// The History tab: a quiet line on the left with a dot per change, each change
+// as "field  was → now", the oldest dot hollow where the row came from.
+.seneca-tx-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  &__loading {
     margin: 0;
     font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  // Icon on the left, text beside it; the line runs from icon to icon.
+  &__entry {
+    position: relative;
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    column-gap: 12px;
+    padding-bottom: 20px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 13.5px;
+      top: 32px;
+      bottom: 4px;
+      width: 1px;
+      background: var(--border);
+    }
+
+    &:last-child {
+      padding-bottom: 0;
+
+      &::before {
+        display: none;
+      }
+    }
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--icon-badge-bg);
+    color: var(--text-muted);
+
+    &--good {
+      background: var(--primary-50);
+      color: var(--primary);
+    }
+
+    &--attention {
+      color: var(--attention);
+    }
+
+    // Where the row came from: hollow, like the start of the line.
+    .seneca-tx-history__entry--origin & {
+      background: var(--card-bg);
+      box-shadow: inset 0 0 0 1px var(--border);
+    }
+  }
+
+  &__body {
+    min-width: 0;
+    padding-top: 4px;
+  }
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+
+  &__undo {
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--primary);
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
+  }
+
+  &__note,
+  &__value {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+
+  &__note {
+    color: var(--text-muted);
+  }
+
+  &__meta {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__changes {
+    margin: 6px 0 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  &__change {
+    display: grid;
+    grid-template-columns: minmax(88px, 35%) 1fr;
+    gap: 12px;
+    font-size: 13px;
+
+    dt {
+      color: var(--text-muted);
+    }
+
+    dd {
+      margin: 0;
+      color: var(--foreground);
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__was {
+    color: var(--text-muted);
+  }
+
+  &__arrow {
+    margin: 0 6px;
     color: var(--text-muted);
   }
 }

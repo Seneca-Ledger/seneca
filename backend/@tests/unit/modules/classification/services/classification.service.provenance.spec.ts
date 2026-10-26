@@ -42,7 +42,8 @@ describe('ClassificationService provenance and switches', () => {
         orderBy: () => builder,
         addOrderBy: () => builder,
         take: () => builder,
-        getMany: async () => payeeHistory.rows,
+        // Every row here is the one payee's.
+        getMany: async () => payeeHistory.rows.map(row => ({ payeeId: 'payee-1', ...row })),
       };
       return builder;
     }),
@@ -51,6 +52,7 @@ describe('ClassificationService provenance and switches', () => {
   const aliasRepository = { findOne: vi.fn(async () => ({ payeeId: 'payee-1' })) };
   const payeeRepository = {
     findOne: vi.fn(async () => ({ id: 'payee-1', name: 'Magnum', mode: 'auto', categoryId: null })),
+    find: vi.fn(async () => [{ id: 'payee-1', name: 'Magnum', mode: 'auto', categoryId: null }]),
   };
   const workspaceRepository = { findOne: vi.fn() };
   const ruleRepository = { find: vi.fn(async () => []), update: vi.fn() };

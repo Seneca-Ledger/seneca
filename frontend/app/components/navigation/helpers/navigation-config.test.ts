@@ -31,6 +31,8 @@ const nav = {
   ledger: 'Ledger',
   invoices: 'Invoices',
   review: 'Review',
+  accounts: 'Accounts',
+  payees: 'Payees',
   categories: 'Categories',
   tags: 'Tags',
   rules: 'Rules',
@@ -152,8 +154,9 @@ describe('groupNavItems', () => {
   it('keeps standalone pages as rows and puts each group where its first page was', () => {
     expect(rows(buildNavItems(nav))).toEqual([
       '/dashboard',
-      'transactions: /statements /statements/pay /statements/receive /statements/transactions /rules',
+      'transactions: /statements /statements/pay /statements/receive /statements/transactions /statements/payees /rules',
       '/review',
+      '/accounts',
       'classification: /categories /tags',
       '/budgets',
       '/goals',

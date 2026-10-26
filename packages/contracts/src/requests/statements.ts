@@ -21,6 +21,8 @@ export const CreateManualExpenseBody = Schema.Struct({
   taxRateId: optionalNullable(Schema.String),
   date: IsoDateString,
   allowDuplicates: optionalNullable(BooleanInput),
+  /** The account the money left; empty keeps the expense off every account. */
+  walletId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type CreateManualExpenseBody = Wire<typeof CreateManualExpenseBody>;
 

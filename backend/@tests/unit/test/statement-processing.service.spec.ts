@@ -110,7 +110,13 @@ describe('StatementProcessingService', () => {
 
   // Runs the callback against a manager whose save() feeds the same
   // savedTransactions array the repository mock uses.
+  const walletRepository = {
+    find: vi.fn(async () => [] as unknown[]),
+    findOne: vi.fn(async () => null as unknown),
+  };
+
   const dataSource = {
+    getRepository: vi.fn(() => walletRepository),
     transaction: vi.fn(async (run: (manager: unknown) => Promise<unknown>) =>
       run({
         save: vi.fn(async (_entity: unknown, rows: Partial<Transaction>[]) =>
@@ -261,6 +267,54 @@ describe('StatementProcessingService', () => {
     expect(statement.totalDebit).toBe(100);
     expect(statement.totalCredit).toBe(200);
     expect(statement.totalTransactions).toBe(2);
+  });
+
+  describe('the account of a statement', () => {
+    afterEach(() => {
+      statement.walletId = null;
+      statement.accountNumber = null;
+    });
+
+    it('puts every row in the account the statement was uploaded to', async () => {
+      statement.walletId = 'wallet-everyday';
+      walletRepository.findOne.mockResolvedValueOnce({
+        id: 'wallet-everyday',
+        ownerMemberId: 'member-1',
+      });
+      // A rule pointing elsewhere does not move a row out of its statement's account.
+      classificationService.classifyTransaction.mockResolvedValue({
+        categoryId: 'cat-1',
+        walletId: 'wallet-other',
+      } as never);
+
+      await service.processStatement(statement.id);
+
+      expect(savedTransactions).toHaveLength(2);
+      for (const row of savedTransactions) {
+        expect(row).toMatchObject({ walletId: 'wallet-everyday', ownerMemberId: 'member-1' });
+      }
+      classificationService.classifyTransaction.mockResolvedValue({ categoryId: 'cat-1' });
+    });
+
+    it('finds the account by the statement number and keeps the match', async () => {
+      parsedStatement.metadata.accountNumber = 'DE00 0000 0000 0001';
+      walletRepository.find.mockResolvedValueOnce([
+        { id: 'wallet-everyday', accountNumber: '0001', currency: 'USD', isActive: true, ownerMemberId: null },
+      ]);
+
+      await service.processStatement(statement.id);
+
+      expect(statement.walletId).toBe('wallet-everyday');
+      expect(savedTransactions.every(row => row.walletId === 'wallet-everyday')).toBe(true);
+      parsedStatement.metadata.accountNumber = '';
+    });
+
+    it('leaves rows without an account when nothing matches', async () => {
+      await service.processStatement(statement.id);
+
+      expect(statement.walletId).toBeNull();
+      expect(savedTransactions.every(row => row.walletId === undefined)).toBe(true);
+    });
   });
 
   it('writes every transaction in one database transaction', async () => {

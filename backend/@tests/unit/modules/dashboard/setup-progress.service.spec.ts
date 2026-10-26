@@ -9,7 +9,7 @@ function repo(found: boolean) {
 const user = { id: 'user-1', workspaceId: 'ws-home', telegramChatId: null, telegramWorkspaceId: null } as any;
 
 function build(
-  found: Partial<Record<'statement' | 'receipt' | 'category' | 'rule' | 'budget' | 'goal', boolean>>,
+  found: Partial<Record<'statement' | 'receipt' | 'category' | 'rule' | 'budget' | 'goal' | 'wallet', boolean>>,
   botToken: string | null = null,
 ) {
   const repos = {
@@ -19,6 +19,7 @@ function build(
     rule: repo(found.rule ?? false),
     budget: repo(found.budget ?? false),
     goal: repo(found.goal ?? false),
+    wallet: repo(found.wallet ?? false),
   };
   const service = new SetupProgressService(
     repos.statement as any,
@@ -27,6 +28,7 @@ function build(
     repos.rule as any,
     repos.budget as any,
     repos.goal as any,
+    repos.wallet as any,
     { getTelegramSettings: vi.fn(async () => ({ botToken })) } as any,
   );
   return { service, repos };
@@ -37,6 +39,7 @@ describe('SetupProgressService', () => {
     const { service } = build({});
     await expect(service.getSetupProgress('ws-1', user)).resolves.toEqual({
       hasUpload: false,
+      hasWallet: false,
       hasCustomCategories: false,
       hasBudget: false,
       hasGoal: false,
@@ -61,6 +64,14 @@ describe('SetupProgressService', () => {
     );
     await expect(build({ rule: true }).service.getSetupProgress('ws-1', user)).resolves.toMatchObject({
       hasCustomCategories: true,
+    });
+  });
+
+  it('counts an active account', async () => {
+    const { service, repos } = build({ wallet: true });
+    await expect(service.getSetupProgress('ws-1', user)).resolves.toMatchObject({ hasWallet: true });
+    expect(repos.wallet.exists).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws-1', isActive: true },
     });
   });
 

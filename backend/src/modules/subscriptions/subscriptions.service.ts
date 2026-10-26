@@ -78,6 +78,8 @@ import {
   TaxAssignmentService,
 } from '../tax/tax-assignment.service';
 import { projectMonthlyCharges, splitMonthCharges } from './charge-calendar.util';
+import { CurrencyTotals } from './currency-totals';
+import { payeeMatchesVendor } from './payee-match.util';
 import {
   costPerUse,
   describePriceChange,
@@ -720,6 +722,8 @@ export class SubscriptionsService {
     const today = new Date();
     const recordedThisMonth = await this.chargesInMonth(workspaceId, today);
     const status = { paidAmount: 0, paidCount: 0, unpaidAmount: 0, unpaidCount: 0 };
+    const paidByCurrency = new CurrencyTotals();
+    const unpaidByCurrency = new CurrencyTotals();
     const items: SubscriptionMonthStatus['items'][number][] = [];
 
     for (const sub of active) {
@@ -733,6 +737,8 @@ export class SubscriptionsService {
       // A payment recorded this month is paid whatever the date says.
       const paid = Math.min(total, Math.max(byDate.paid, recordedThisMonth.get(sub.id) ?? 0));
       const unpaid = total - paid;
+      paidByCurrency.add(sub.currency, Number(sub.amount) * paid);
+      unpaidByCurrency.add(sub.currency, Number(sub.amount) * unpaid);
 
       let amount = Number(sub.amount);
       if (workspaceCurrency && sub.currency.toUpperCase() !== workspaceCurrency) {
@@ -771,6 +777,8 @@ export class SubscriptionsService {
       ...status,
       paidAmount: Math.round(status.paidAmount * 100) / 100,
       unpaidAmount: Math.round(status.unpaidAmount * 100) / 100,
+      paidByCurrency: paidByCurrency.list(),
+      unpaidByCurrency: unpaidByCurrency.list(),
       items,
     };
   }
@@ -1735,21 +1743,6 @@ async function forgetPayeeRule(
         )`,
     [subscription.workspaceId, subscription.id, transactionId],
   );
-}
-
-/** Lower-case letters and digits only, so "ACME-Music Inc." reads as "acmemusicinc". */
-function normalizeName(value: string | null | undefined): string {
-  return (value ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-}
-
-/** The bank's payee looks like this vendor: one contains the other, or it has the vendor's first word. */
-function payeeMatchesVendor(vendorName: string, payee: string | null | undefined): boolean {
-  const name = normalizeName(payee);
-  const vendor = normalizeName(vendorName);
-  if (name.length < 3) return false;
-  if (vendor.length >= 3 && (name.includes(vendor) || vendor.includes(name))) return true;
-  const firstWord = normalizeName(vendorName.trim().split(/\s+/)[0]);
-  return firstWord.length >= 3 && name.includes(firstWord);
 }
 
 /** A charge as `SubscriptionChargeRow`: decimals as strings, days as YYYY-MM-DD. */

@@ -255,6 +255,8 @@ describe('OverviewTab', () => {
               paidCount: 1,
               unpaidAmount: 300,
               unpaidCount: 2,
+              paidByCurrency: [{ currency: 'KZT', amount: 200 }],
+              unpaidByCurrency: [{ currency: 'KZT', amount: 300 }],
               items: [
                 {
                   subscriptionId: 'sub-1',
@@ -378,6 +380,7 @@ describe('OverviewTab spent tile', () => {
 describe('OverviewTab getting started checklist', () => {
   const progress = {
     hasUpload: false,
+    hasWallet: false,
     hasCustomCategories: false,
     hasBudget: false,
     hasGoal: false,

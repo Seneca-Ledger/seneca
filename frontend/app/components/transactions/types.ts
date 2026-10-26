@@ -28,6 +28,8 @@ export interface Transaction {
   };
   branch?: { name: string };
   wallet?: { name: string };
+  /** The user's account the row is in; null when it is in none. */
+  walletId?: string | null;
   /** Membership id of whoever this belongs to; null means the household shares it. */
   ownerMemberId?: string | null;
   /** Hidden from the rest of the household: merchant and purpose read as "—". */

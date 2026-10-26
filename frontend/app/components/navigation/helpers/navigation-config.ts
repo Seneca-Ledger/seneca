@@ -5,11 +5,8 @@ import {
   Banknote,
   BarChart2,
   BookmarkOutline,
-  BriefcaseBusiness,
   Building2,
   Calculator,
-  ChartPie,
-  CircleDollarSign,
   Compass,
   CreditCard,
   FileText,
@@ -21,19 +18,22 @@ import {
   PiggyBank,
   ReceiptText,
   Scale,
-  Shuffle,
+  Store,
   Table,
   Tag,
   TrendingUp,
   Wallet,
   Workflow,
 } from '@/app/components/icons';
+import { WalletCards } from '@/app/components/icons/wallet-cards';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
+import type { NavGroupId } from './nav-groups';
 export const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
 
 export type { AppLocale as AppLanguage } from '@/app/lib/locale';
 export { groupNavItems, type NavEntry } from './group-nav-items';
 export { activeNavPath, isNavItemActive } from './nav-active';
+export { buildNavGroups, type NavGroup, type NavGroupId } from './nav-groups';
 export { buildUserMenuNavItems } from './user-menu-nav-items';
 
 export interface NavItem {
@@ -47,49 +47,6 @@ export interface NavItem {
   businessOnly?: boolean;
   /** The sidebar folds the item under this group; without one it stays a row of its own. */
   group?: NavGroupId;
-}
-
-export type NavGroupId =
-  | 'transactions'
-  | 'classification'
-  | 'analytics'
-  | 'investments'
-  | 'business';
-
-export interface NavGroup {
-  id: NavGroupId;
-  label: ReactNode;
-  icon: React.ReactElement;
-}
-
-export function buildNavGroups(labels: Record<NavGroupId, unknown>): NavGroup[] {
-  return [
-    {
-      id: 'transactions',
-      label: labels.transactions as ReactNode,
-      icon: React.createElement(Shuffle, { size: 18 }),
-    },
-    {
-      id: 'classification',
-      label: labels.classification as ReactNode,
-      icon: React.createElement(Tag, { size: 18 }),
-    },
-    {
-      id: 'analytics',
-      label: labels.analytics as ReactNode,
-      icon: React.createElement(ChartPie, { size: 18 }),
-    },
-    {
-      id: 'investments',
-      label: labels.investments as ReactNode,
-      icon: React.createElement(CircleDollarSign, { size: 18 }),
-    },
-    {
-      id: 'business',
-      label: labels.business as ReactNode,
-      icon: React.createElement(BriefcaseBusiness, { size: 18 }),
-    },
-  ];
 }
 
 export type WorkspaceProfile = 'home' | 'business';
@@ -137,6 +94,8 @@ export function buildNavItems(nav: {
   ledger: unknown;
   invoices: unknown;
   review: unknown;
+  accounts: unknown;
+  payees: unknown;
   categories: unknown;
   tags: unknown;
   rules: unknown;
@@ -177,6 +136,13 @@ export function buildNavItems(nav: {
       permission: 'transaction.view',
     },
     {
+      label: nav.payees as ReactNode,
+      path: '/statements/payees',
+      group: 'transactions',
+      icon: React.createElement(Store, { size: 18 }),
+      permission: 'transaction.view',
+    },
+    {
       label: nav.rules as ReactNode,
       path: '/rules',
       group: 'transactions',
@@ -188,6 +154,12 @@ export function buildNavItems(nav: {
       path: '/review',
       icon: React.createElement(Inbox, { size: 18 }),
       permission: 'transaction.view',
+    },
+    {
+      label: nav.accounts as ReactNode,
+      path: '/accounts',
+      icon: React.createElement(WalletCards, { size: 18 }),
+      permission: 'wallet.view',
     },
     {
       label: nav.categories as ReactNode,

@@ -55,6 +55,13 @@ export type TransfersDetected = Wire<typeof TransfersDetected>;
 export const TransferLinked = Schema.Struct({ transferPairId: Schema.String });
 export type TransferLinked = Wire<typeof TransferLinked>;
 
+/** `POST /transactions/:id/transfer-to-account`: the pair, and the other leg when it was booked now. */
+export const TransferToAccountResult = Schema.Struct({
+  transferPairId: Schema.String,
+  createdId: Schema.NullOr(Schema.String),
+});
+export type TransferToAccountResult = Wire<typeof TransferToAccountResult>;
+
 /** `POST /transactions/:id/link-reimbursement`: `full` when the income covers the whole expense. */
 export const ReimbursementLinked = Schema.Struct({
   full: Schema.Boolean,

@@ -1,3 +1,4 @@
+import { In, Not } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { BalanceAccountSubType, BalanceAccountType, type BalanceSnapshot } from '@/entities';
 import { BalanceService } from '@/modules/balance/balance.service';
@@ -68,6 +69,8 @@ describe('BalanceService', () => {
     vi.clearAllMocks();
     // getWorkspaceCurrency() reads the workspace on every balance sheet build.
     workspaceRepository.findOne.mockResolvedValue({ currency: 'KZT' });
+    // No credit card or loan unless a test says so.
+    walletRepository.find.mockResolvedValue([]);
 
     service = new BalanceService(
       balanceAccountRepository,
@@ -398,6 +401,7 @@ describe('BalanceService', () => {
       transactionRepository.createQueryBuilder
         .mockReturnValueOnce(builder)
         .mockReturnValue(queryBuilderReturning([]));
+      statementRepository.createQueryBuilder.mockReturnValue(queryBuilderReturning([]));
 
       const series = await service.getCashSeries('ws-1', ['2026-01-31', '2026-02-28']);
 
@@ -408,6 +412,41 @@ describe('BalanceService', () => {
       );
       // Unconfirmed rows wait in Review and move no balance.
       expect(builder.andWhere).toHaveBeenCalledWith('transaction.isVerified = true');
+    });
+
+    it('adds the banks no account holds to the accounts, and leaves debts out', async () => {
+      // Creating the first account must not drop every other bank from cash.
+      walletRepository.find.mockResolvedValue([{ id: 'w-eur', initialBalance: '40', currency: 'EUR' }]);
+      transactionRepository.createQueryBuilder
+        .mockReturnValueOnce(
+          queryBuilderReturning([{ date: '2026-01-05', currency: 'EUR', credit: '10', debit: '0' }]),
+        )
+        .mockReturnValue(queryBuilderReturning([]));
+      const statements = queryBuilderReturning([
+        { bankName: 'bank', accountNumber: 'B', currency: 'EUR', balanceEnd: '200', date: '2026-01-20' },
+      ]);
+      statementRepository.createQueryBuilder.mockReturnValue(statements);
+
+      const series = await service.getCashSeries('ws-1', ['2026-01-31']);
+
+      expect(series.get('2026-01-31')).toEqual(new Map([['EUR', 250]]));
+      expect(statements.andWhere).toHaveBeenCalledWith('statement.walletId IS NULL');
+      const where = walletRepository.find.mock.calls[0][0].where;
+      expect(where.type).toEqual(Not(In(['credit_card', 'loan'])));
+    });
+
+    it('reads what a credit card owes as a positive debt', async () => {
+      walletRepository.find.mockResolvedValue([{ id: 'w-card', initialBalance: '-50', currency: 'EUR' }]);
+      transactionRepository.createQueryBuilder
+        .mockReturnValueOnce(
+          queryBuilderReturning([{ date: '2026-01-05', currency: 'EUR', credit: '0', debit: '30' }]),
+        )
+        .mockReturnValue(queryBuilderReturning([]));
+
+      const series = await service.getDebtSeries('ws-1', ['2026-01-31']);
+
+      expect(series.get('2026-01-31')).toEqual(new Map([['EUR', 80]]));
+      expect(walletRepository.find.mock.calls[0][0].where.type).toEqual(In(['credit_card', 'loan']));
     });
 
     it('holds a transfer whose legs post on different days at one date', async () => {
@@ -431,6 +470,7 @@ describe('BalanceService', () => {
           ]),
         );
 
+      statementRepository.createQueryBuilder.mockReturnValue(queryBuilderReturning([]));
       const series = await service.getCashSeries('ws-1', [
         '2026-01-09',
         '2026-01-10',
@@ -458,6 +498,7 @@ describe('BalanceService', () => {
         )
         .mockReturnValueOnce(legs);
 
+      statementRepository.createQueryBuilder.mockReturnValue(queryBuilderReturning([]));
       const series = await service.getCashSeries('ws-1', ['2026-01-11', '2026-01-12']);
 
       expect(series.get('2026-01-11')).toEqual(new Map([['KZT', 700]]));

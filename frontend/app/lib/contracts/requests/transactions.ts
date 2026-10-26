@@ -116,6 +116,16 @@ export const LinkTransferBody = Schema.Struct({
 });
 export type LinkTransferBody = Wire<typeof LinkTransferBody>;
 
+/**
+ * `POST /transactions/:id/transfer-to-account`: the row moved money to (or
+ * from) another of the user's accounts. Its other leg there is linked, or
+ * booked when the account has none (cash taken out at an ATM).
+ */
+export const TransferToAccountBody = Schema.Struct({
+  walletId: Schema.String.check(Schema.isUUID()),
+});
+export type TransferToAccountBody = Wire<typeof TransferToAccountBody>;
+
 export const LinkReimbursementBody = Schema.Struct({
   /** The expense this incoming transaction pays back. */
   expenseId: Schema.String.check(Schema.isUUID()),
@@ -137,6 +147,10 @@ export type TransactionParams = Wire<typeof TransactionParams>;
 /** `/transactions/attachments/:attachmentId…`. */
 export const TransactionAttachmentParams = Schema.Struct({ attachmentId: Uuid });
 export type TransactionAttachmentParams = Wire<typeof TransactionAttachmentParams>;
+
+/** `/transactions/:id/history/:eventId/undo`. */
+export const TransactionHistoryEventParams = Schema.Struct({ id: Uuid, eventId: Uuid });
+export type TransactionHistoryEventParams = Wire<typeof TransactionHistoryEventParams>;
 
 /**
  * `GET /transactions`. Snake and camel spellings of the same filter both stay
@@ -160,6 +174,10 @@ export const TransactionListQuery = Schema.Struct({
   owner: Schema.optional(Schema.Union([Schema.Literals(['me', 'shared']), Uuid])),
   /** `1` adds each row's running wallet balance. */
   running_balance: Schema.optional(Schema.Literals(['0', '1'])),
+  /** Only the rows of this account. */
+  walletId: Schema.optional(Uuid),
+  /** Only the rows of this payee. */
+  payeeId: Schema.optional(Uuid),
 });
 export type TransactionListQuery = Wire<typeof TransactionListQuery>;
 

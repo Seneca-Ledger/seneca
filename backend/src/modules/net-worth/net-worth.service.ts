@@ -39,6 +39,7 @@ import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/curr
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { InvestmentFlowsService } from '../investments/investment-flows.service';
 import { InvestmentsService } from '../investments/investments.service';
+import { computedCurrencyCodes, computedValue, loadComputedLines } from './computed-lines';
 import type { NetWorthRange } from './dto/net-worth-query.dto';
 import { buildAttribution, buildSavings } from './net-worth-attribution';
 import { round2, round4, toNumber } from './net-worth-math';
@@ -133,10 +134,10 @@ export class NetWorthService {
       to,
     );
 
-    const [accounts, snapshots, cashByDate, currency] = await Promise.all([
+    const [accounts, snapshots, computedByCode, currency] = await Promise.all([
       this.balanceAccountRepository.find({ where: { workspaceId } }),
       this.loadSnapshots(workspaceId, to),
-      this.balanceService.getCashSeries(workspaceId, dates),
+      loadComputedLines(this.balanceService, workspaceId, dates),
       this.resolveCurrency(workspaceId),
     ]);
 
@@ -150,7 +151,7 @@ export class NetWorthService {
     // currency — a lookup per day would be thousands of round trips.
     const currencies = [
       ...snapshots.map(snapshot => normalizeCurrencyCode(snapshot.currency || currency)),
-      ...[...cashByDate.values()].flatMap(amounts => [...amounts.keys()]),
+      ...computedCurrencyCodes(computedByCode),
     ];
     const converter = await CurrencyConverter.loadRange(
       this.exchangeRatesService,
@@ -161,9 +162,8 @@ export class NetWorthService {
     );
 
     const valueAt = (accountId: string, code: string, date: string): number => {
-      if (code === CASH_ACCOUNT_CODE) {
-        return converter.convertAll(cashByDate.get(date) ?? new Map(), date);
-      }
+      const computed = computedValue(computedByCode, converter, code, date);
+      if (computed !== null) return computed;
       const snapshot = latestOnOrBefore(snapshotsByAccount.get(accountId), date);
       return snapshot
         ? converter.convert(
@@ -176,9 +176,8 @@ export class NetWorthService {
 
     /** What the line holds on a day, in the currency it is held in. */
     const nativeAt = (leaf: BalanceAccount, date: string): Map<string, number> => {
-      if (leaf.code === CASH_ACCOUNT_CODE) {
-        return cashByDate.get(date) ?? new Map();
-      }
+      const computed = computedByCode.get(leaf.code);
+      if (computed) return computed.get(date) ?? new Map();
       const snapshot = latestOnOrBefore(snapshotsByAccount.get(leaf.id), date);
       return snapshot
         ? new Map([

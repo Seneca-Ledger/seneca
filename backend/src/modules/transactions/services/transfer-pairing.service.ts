@@ -27,11 +27,11 @@ import {
 } from './transfer-pairing.matcher';
 
 /** The manual picker looks further than the matcher: a fee or a slow bank is exactly what it is for. */
-const CANDIDATE_WINDOW_DAYS = 7;
+export const CANDIDATE_WINDOW_DAYS = 7;
 /** Expense reports get paid back weeks later. */
 const REIMBURSEMENT_WINDOW_DAYS = 45;
 const CANDIDATE_LIMIT = 10;
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface TransferPairingResult {
   /** Pairs the matcher proposed. */
@@ -59,11 +59,11 @@ export class TransferPairingService {
    * came from. Rows the user unlinked stay out of automatic runs but remain
    * available to the manual picker: that is the one place they belong.
    */
-  private unpairedQuery(workspaceId: string, options: { includeRejected?: boolean } = {}) {
+  unpairedQuery(workspaceId: string, options: { includeRejected?: boolean } = {}) {
     const query = this.transactionRepository
       .createQueryBuilder('t')
       .leftJoin('t.statement', 's')
-      .addSelect(['s.id', 's.accountNumber'])
+      .addSelect(['s.id', 's.accountNumber', 's.walletId'])
       .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.isDuplicate = false')
       .andWhere('t.splitGroupId IS NULL')
@@ -358,7 +358,7 @@ export class TransferPairingService {
     );
   }
 
-  private async findOwned(workspaceId: string, id: string): Promise<Transaction> {
+  async findOwned(workspaceId: string, id: string): Promise<Transaction> {
     const row = await this.transactionRepository.findOne({
       where: { id, workspaceId },
       relations: {

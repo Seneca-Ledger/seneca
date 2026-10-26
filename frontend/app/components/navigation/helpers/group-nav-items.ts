@@ -1,4 +1,5 @@
-import type { NavGroup, NavGroupId, NavItem } from './navigation-config';
+import type { NavGroup, NavGroupId } from './nav-groups';
+import type { NavItem } from './navigation-config';
 
 export type NavEntry =
   | { kind: 'item'; item: NavItem }

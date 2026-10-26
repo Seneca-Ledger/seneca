@@ -11,7 +11,11 @@ vi.mock('@/app/lib/api', () => ({ default: { get: apiGet }, apiBaseUrl: '/api/v1
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/components/charts/lazy-charts', () => ({
   LazyCategoryDonut: ({ slices }: { slices: DonutSlice[] }) => (
-    <div data-testid="donut">{slices.map(slice => `${slice.key}:${slice.value}`).join(',')}</div>
+    <div data-testid="donut">
+      {slices
+        .map(slice => `${slice.key}:${slice.value}${slice.details ? `[${slice.details.join('|')}]` : ''}`)
+        .join(',')}
+    </div>
   ),
 }));
 vi.mock('@/app/i18n', async () => {
@@ -45,6 +49,8 @@ const status = (overrides = {}) => ({
   paidCount: 1,
   unpaidAmount: UNPAID,
   unpaidCount: 1,
+  paidByCurrency: [{ currency: 'EUR', amount: PAID }],
+  unpaidByCurrency: [{ currency: 'EUR', amount: UNPAID }],
   items: [
     item({
       subscriptionId: 'sub-2',
@@ -65,10 +71,28 @@ describe('SubscriptionsMonthWidget', () => {
     apiGet.mockReset();
   });
 
+  it('says on hover what each part is in the subscriptions’ own currencies', async () => {
+    apiGet.mockResolvedValue({
+      data: status({
+        paidByCurrency: [{ currency: 'USD', amount: 10 }],
+        unpaidByCurrency: [
+          { currency: 'USD', amount: 100 },
+          { currency: 'EUR', amount: 25 },
+        ],
+      }),
+    });
+    renderWithQuery(<SubscriptionsMonthWidget formatAmount={money} />);
+
+    expect(await screen.findByTestId('donut')).toHaveTextContent(
+      `paid:${PAID}[$10.00],unpaid:${UNPAID}[$100.00|€25.00]`,
+    );
+  });
+
   it('lists each subscription with its icon, its date or Paid, and its amount', async () => {
     apiGet.mockResolvedValue({ data: status() });
     renderWithQuery(<SubscriptionsMonthWidget formatAmount={money} />);
 
+    // All in the workspace currency: the amount already says it, no extra lines.
     expect(await screen.findByTestId('donut')).toHaveTextContent(`paid:${PAID},unpaid:${UNPAID}`);
     const [unpaid, paid] = screen.getAllByRole('link', { name: /ACME Music|Example Cloud/ });
     expect(unpaid).toHaveTextContent('Example Cloud');

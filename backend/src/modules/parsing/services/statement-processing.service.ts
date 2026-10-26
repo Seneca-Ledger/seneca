@@ -33,6 +33,8 @@ import { CrossStatementDeduplicationService } from '../../transactions/services/
 import { ManualRowDuplicateService } from '../../transactions/services/manual-row-duplicate.service';
 import { TransactionFingerprintService } from '../../transactions/services/transaction-fingerprint.service';
 import { TransferPairingService } from '../../transactions/services/transfer-pairing.service';
+import { accountFields, accountOfStatement } from '../helpers/statement-account.helper';
+import { fileExtensionOf } from '../helpers/statement-file.helper';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { MetadataExtractionService } from './metadata-extraction.service';
 import { OcrService } from './ocr.service';
@@ -164,23 +166,6 @@ export class StatementProcessingService {
     return user?.name || user?.email || 'User';
   }
 
-  private getFileExtension(statement: Statement): string {
-    switch (statement.fileType) {
-      case 'pdf':
-        return 'pdf';
-      case 'xlsx':
-        return 'xlsx';
-      case 'csv':
-        return 'csv';
-      case 'image':
-        return 'jpg';
-      case 'docx':
-        return 'docx';
-      default:
-        return 'bin';
-    }
-  }
-
   private async ensureFileAvailable(statement: Statement): Promise<{
     filePath: string;
     tempFilePath?: string;
@@ -215,7 +200,7 @@ export class StatementProcessingService {
       throw new StatementRejected({ message: `File not found: ${statement.filePath}` });
     }
 
-    const ext = this.getFileExtension(statement);
+    const ext = fileExtensionOf(statement);
     const tempFilePath = path.join(
       os.tmpdir(),
       `seneca-statement-${statement.id}-${Date.now()}.${ext}`,
@@ -1010,6 +995,8 @@ export class StatementProcessingService {
       addLog ||
       ((level: string, msg: string) => this.logger[level === 'error' ? 'error' : 'log'](msg));
 
+    const account = await accountOfStatement(this.dataSource, statement, log);
+
     // In-file duplicates are not dropped here: flagFingerprintDuplicates below
     // already detects same-batch fingerprint collisions (and cross-statement
     // ones) and marks them isDuplicate=true instead — still persisted, still
@@ -1104,6 +1091,7 @@ export class StatementProcessingService {
         paymentPurpose,
         transactionType,
         ...classification,
+        ...accountFields(account, classification.ownerMemberId),
         vendorNormalized: null,
         categoryHint: null,
         transactionNature: null,

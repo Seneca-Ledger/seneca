@@ -40,6 +40,8 @@ const RESPONSES: Record<string, unknown> = {
     paidCount: 1,
     unpaidAmount: 50,
     unpaidCount: 1,
+    paidByCurrency: [{ currency: 'EUR', amount: 14 }],
+    unpaidByCurrency: [{ currency: 'EUR', amount: 50 }],
     items: [
       {
         subscriptionId: 'sub-1',

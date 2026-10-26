@@ -9,6 +9,7 @@ import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Subscription } from '../../entities/subscription.entity';
 import { Transaction } from '../../entities/transaction.entity';
+import { Wallet } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ApplicationSettingsModule } from '../application-settings/application-settings.module';
@@ -34,6 +35,7 @@ import { SetupProgressService } from './setup-progress.service';
       CategorizationRule,
       Budget,
       Goal,
+      Wallet,
     ]),
     ExchangeRatesModule,
     ApplicationSettingsModule,

@@ -100,6 +100,8 @@ export class TransactionsController {
       workspaceId,
       {
         statementId: query.statement_id || query.statementId,
+        walletId: query.walletId,
+        payeeId: query.payeeId,
         dateFrom: dateFrom ? new Date(dateFrom) : undefined,
         dateTo: dateTo ? new Date(dateTo) : undefined,
         type: query.type,
@@ -119,11 +121,7 @@ export class TransactionsController {
         : result.data;
 
     // Include 'items' field for backward compatibility
-    return {
-      ...result,
-      data,
-      items: data,
-    };
+    return { ...result, data, items: data };
   }
 
   @Get('overview')

@@ -33,6 +33,7 @@ vi.mock('@/app/i18n', async () => {
         next: value('Next'),
         exploreOnMyOwn: value("I'll explore on my own"),
         uploadTitle: value('Upload a statement or receipt'),
+        accountTitle: value('Add your accounts'),
         categoriesTitle: value('Customize categories'),
         budgetTitle: value('Create a budget'),
         goalTitle: value('Create a goal'),
@@ -43,6 +44,7 @@ vi.mock('@/app/i18n', async () => {
 
 const NOTHING: SetupProgress = {
   hasUpload: false,
+  hasWallet: false,
   hasCustomCategories: false,
   hasBudget: false,
   hasGoal: false,
@@ -83,11 +85,21 @@ describe('GettingStartedCard', () => {
     expect(
       await screen.findByText("Symon, let's finish setting up your account"),
     ).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: '2 of 4 steps done' })).toHaveTextContent('2/4');
+    expect(screen.getByRole('img', { name: '2 of 5 steps done' })).toHaveTextContent('2/5');
+  });
+
+  it('asks for the accounts right after the first upload', async () => {
+    serve({ ...NOTHING, hasUpload: true });
+
+    renderWithQuery(<GettingStartedCard />);
+
+    const accounts = await screen.findByRole('link', { name: /Add your accounts/ });
+    expect(accounts).toHaveTextContent('Next');
+    expect(accounts).toHaveAttribute('href', '/accounts');
   });
 
   it('marks the first open step as next and links each step to its page', async () => {
-    serve({ ...NOTHING, hasUpload: true });
+    serve({ ...NOTHING, hasUpload: true, hasWallet: true });
 
     renderWithQuery(<GettingStartedCard />);
 
@@ -125,7 +137,14 @@ describe('GettingStartedCard', () => {
   });
 
   it('remembers that everything is done and draws nothing', async () => {
-    serve({ ...NOTHING, hasUpload: true, hasCustomCategories: true, hasBudget: true, hasGoal: true });
+    serve({
+      ...NOTHING,
+      hasUpload: true,
+      hasWallet: true,
+      hasCustomCategories: true,
+      hasBudget: true,
+      hasGoal: true,
+    });
 
     const { container } = renderWithQuery(<GettingStartedCard />);
 
@@ -154,15 +173,15 @@ describe('GettingStartedCard', () => {
 
     const telegram = await screen.findByRole('link', { name: /Connect Telegram/ });
     expect(telegram).toHaveAttribute('href', '/settings/profile?tab=notifications&section=telegram');
-    expect(screen.getByRole('img', { name: '1 of 5 steps done' })).toHaveTextContent('1/5');
+    expect(screen.getByRole('img', { name: '1 of 6 steps done' })).toHaveTextContent('1/6');
   });
 
-  it('leaves the Telegram step out without a bot, so four steps finish the list', async () => {
+  it('leaves the Telegram step out without a bot, so five steps finish the list', async () => {
     serve({ ...NOTHING, hasUpload: true });
 
     renderWithQuery(<GettingStartedCard />);
 
-    expect(await screen.findByRole('img', { name: '1 of 4 steps done' })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: '1 of 5 steps done' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Connect Telegram/ })).not.toBeInTheDocument();
   });
 
@@ -170,6 +189,7 @@ describe('GettingStartedCard', () => {
     serve({
       ...NOTHING,
       hasUpload: true,
+      hasWallet: true,
       hasCustomCategories: true,
       hasBudget: true,
       hasGoal: true,

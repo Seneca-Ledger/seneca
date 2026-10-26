@@ -32,6 +32,7 @@ import { hasDecidedCategory } from '../classification/engine/category-decision';
 import { ClassificationService } from '../classification/services/classification.service';
 import { ViesService } from '../reference-data/vies.service';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
+import { UNDECIDED_CATEGORY_SOURCES } from './payee-undecided';
 
 type CategoryRef = { id: string; name: string };
 
@@ -181,9 +182,9 @@ export class PayeesService {
         }>(),
     ]);
 
-    const defaults = await Promise.all(
-      rows.map(row => this.classificationService.categoryForPayee(workspaceId, row.id)),
-    );
+    const ids = rows.map(row => row.id);
+    const defaultsById = await this.classificationService.categoriesForPayees(workspaceId, ids);
+    const defaults = rows.map(row => defaultsById.get(row.id));
     const categoryIds = [
       ...new Set(
         [...rows.map(row => row.categoryId), ...defaults.map(match => match?.categoryId)].filter(
@@ -419,6 +420,15 @@ export class PayeesService {
         'UPDATE payee_aliases SET payee_id = $1 WHERE workspace_id = $2 AND payee_id = ANY($3::uuid[])',
         [target.id, workspaceId, sourceIds],
       );
+      // A subscription that recognised a source keeps recognising its rows,
+      // now under the target; deleting the source would drop the rule with it.
+      await manager.query(
+        `INSERT INTO subscription_payees (workspace_id, subscription_id, payee_id)
+         SELECT workspace_id, subscription_id, $1 FROM subscription_payees
+          WHERE workspace_id = $2 AND payee_id = ANY($3::uuid[])
+         ON CONFLICT (subscription_id, payee_id) DO NOTHING`,
+        [target.id, workspaceId, sourceIds],
+      );
       await manager.delete(Payee, { id: In(sourceIds), workspaceId });
 
       await this.auditService.createEvent({
@@ -529,15 +539,7 @@ export class PayeesService {
       .andWhere('transaction.splitGroupId IS NULL')
       .andWhere(
         '(transaction.categoryId IS NULL OR transaction.categorySource IN (:...undecided))',
-        {
-          undecided: [
-            TransactionCategorySource.DEFAULT,
-            TransactionCategorySource.AI,
-            TransactionCategorySource.HISTORY,
-            TransactionCategorySource.LEARNED,
-            TransactionCategorySource.KEYWORD,
-          ],
-        },
+        { undecided: UNDECIDED_CATEGORY_SOURCES },
       )
       .andWhere(
         'NOT EXISTS (SELECT 1 FROM statements trashed WHERE trashed.id = transaction.statementId AND trashed.deleted_at IS NOT NULL)',

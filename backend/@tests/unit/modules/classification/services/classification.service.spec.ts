@@ -404,26 +404,29 @@ describe('ClassificationService', () => {
       expect(someonesOwn.categoryId).not.toBe('cat-household');
     });
 
-    it('starts a new row on whoever owns the wallet it landed in', async () => {
-      // Classification is the one place that decides the wallet, so it is also
-      // where the person comes from — otherwise every import path would need
-      // its own copy of the rule.
-      vi.spyOn(walletRepository, 'find').mockResolvedValue([]);
+    const walletRule = (walletId: string) =>
+      vi.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([
+        {
+          id: 'rule-wallet',
+          name: 'Into the everyday account',
+          conditions: [
+            { field: 'counterparty_name', operator: 'contains', value: 'Supermarket' },
+          ],
+          result: { walletId },
+          priority: 10,
+          isActive: true,
+        },
+      ] as never);
+
+    it('starts a new row on whoever owns the wallet a rule put it in', async () => {
+      walletRule('wallet-1');
       vi
         .spyOn(walletRepository, 'findOne')
-        .mockImplementation(async (options: Record<string, any>) =>
-          options?.select?.ownerMemberId
-            ? ({ ownerMemberId: 'member-partner' } as Wallet)
-            : ({ id: 'wallet-1' } as Wallet),
-        );
+        .mockResolvedValue({ ownerMemberId: 'member-partner' } as Wallet);
       vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
 
       const result = await service.classifyTransaction(
-        {
-          ...mockTransaction,
-          workspaceId: 'ws-1',
-          counterpartyAccount: 'KZ00',
-        } as Transaction,
+        { ...mockTransaction, id: undefined, workspaceId: 'ws-1' } as unknown as Transaction,
         '1',
       );
 
@@ -432,45 +435,52 @@ describe('ClassificationService', () => {
     });
 
     it('leaves the row shared when the wallet is shared', async () => {
-      vi.spyOn(walletRepository, 'find').mockResolvedValue([]);
-      vi
-        .spyOn(walletRepository, 'findOne')
-        .mockImplementation(async (options: Record<string, any>) =>
-          options?.select?.ownerMemberId
-            ? ({ ownerMemberId: null } as Wallet)
-            : ({ id: 'wallet-1' } as Wallet),
-        );
+      walletRule('wallet-1');
+      vi.spyOn(walletRepository, 'findOne').mockResolvedValue({ ownerMemberId: null } as Wallet);
       vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
 
       const result = await service.classifyTransaction(
-        {
-          ...mockTransaction,
-          workspaceId: 'ws-1',
-          counterpartyAccount: 'KZ00',
-        } as Transaction,
+        { ...mockTransaction, id: undefined, workspaceId: 'ws-1' } as unknown as Transaction,
         '1',
       );
 
       expect(result.ownerMemberId).toBeNull();
     });
 
-    it('picks wallets and branches of the transaction’s workspace', async () => {
-      const walletFind = vi.spyOn(walletRepository, 'find').mockResolvedValue([]);
-      const walletFindOne = vi.spyOn(walletRepository, 'findOne').mockResolvedValue(null);
-      const branchFind = vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
-      const transaction = {
-        ...mockTransaction,
-        workspaceId: 'ws-1',
-        counterpartyAccount: 'KZ00',
-      } as Transaction;
+    it('never guesses an account: without a rule the row has none', async () => {
+      // The old fallback put every row into the oldest wallet, and a wallet
+      // whose name appeared in the purpose ("Cash") caught unrelated rows.
+      vi.spyOn(categorizationRuleRepository, 'find').mockResolvedValue([]);
+      const walletFind = vi
+        .spyOn(walletRepository, 'find')
+        .mockResolvedValue([{ id: 'wallet-cash', name: 'Cash' } as Wallet]);
+      const walletFindOne = vi
+        .spyOn(walletRepository, 'findOne')
+        .mockResolvedValue({ id: 'wallet-oldest' } as Wallet);
+      vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
 
-      await (service as any).autoDetermineWallet(transaction, '1', 'ws-1');
+      const result = await service.classifyTransaction(
+        {
+          ...mockTransaction,
+          id: undefined,
+          workspaceId: 'ws-1',
+          counterpartyAccount: 'DE00 0000 0000 0001',
+          paymentPurpose: 'Cash withdrawal',
+        } as unknown as Transaction,
+        '1',
+      );
+
+      expect(result.walletId).toBeUndefined();
+      expect(walletFind).not.toHaveBeenCalled();
+      expect(walletFindOne).not.toHaveBeenCalled();
+    });
+
+    it('picks branches of the transaction’s workspace', async () => {
+      const branchFind = vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
+      const transaction = { ...mockTransaction, workspaceId: 'ws-1' } as Transaction;
+
       await (service as any).autoDetermineBranch(transaction, '1', 'ws-1');
 
-      expect(walletFindOne).toHaveBeenCalledWith({
-        where: { workspaceId: 'ws-1', accountNumber: 'KZ00' },
-      });
-      expect(walletFind).toHaveBeenCalledWith({ where: { workspaceId: 'ws-1' } });
       expect(branchFind).toHaveBeenCalledWith(
         expect.objectContaining({ where: { workspaceId: 'ws-1' } }),
       );

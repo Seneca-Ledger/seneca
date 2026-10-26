@@ -12,6 +12,8 @@ export const DOCUMENTS_ERRORS = {
   PAYEE_NAME_TAKEN: 'Another payee already has this name',
   PAYEE_CATEGORY_REQUIRED: 'Pick the category this payee always gets',
   PAYEE_CATEGORY_NOT_FOUND: 'Category not found in this workspace',
+  PAYEE_CATEGORY_NOT_PINNED: 'Pin a category on the payee first',
+  PAYEE_ALIAS_NOT_FOUND: 'Alias not found',
   // ── storage ─────────────────────────────────────────────────────────────
   STORAGE_FILE_NOT_FOUND: 'File not found',
   STORAGE_TAG_NOT_FOUND: 'Tag not found',
@@ -38,6 +40,7 @@ export const DOCUMENTS_ERRORS = {
   // ── transactions ────────────────────────────────────────────────────────
   TRANSACTION_NOT_FOUND: 'Transaction not found',
   TRANSACTION_NOT_FOUND_ID: 'Transaction not found: {{id}}',
+  TRANSACTION_CHANGE_NOT_UNDOABLE: 'This change can no longer be put back',
   TRANSACTION_SOME_NOT_FOUND: 'One or more transactions not found',
   TRANSACTION_MERGE_TOO_FEW: 'At least 2 transactions required for merge',
   TRANSACTION_ATTACHMENT_FILE_MISSING: 'Attachment file is missing from storage',

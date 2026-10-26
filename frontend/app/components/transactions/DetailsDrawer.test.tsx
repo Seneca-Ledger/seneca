@@ -6,7 +6,6 @@ import DetailsDrawer from './DetailsDrawer';
 import type { Transaction } from './types';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), delete: vi.fn() }));
-const history = vi.hoisted(() => ({ events: [] as unknown[] }));
 
 vi.mock('@/app/lib/api', () => ({ default: api, apiBaseUrl: '/api/v1' }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
@@ -24,21 +23,15 @@ vi.mock('next/link', () => ({
   ),
 }));
 vi.mock('@/app/components/notes/NotesPanel', () => ({ NotesPanel: () => <div>notes panel</div> }));
-vi.mock('@/app/audit/components/AuditEventDrawer', () => ({ AuditEventDrawer: () => null }));
 vi.mock('@/app/components/payees/useOfferPayeeQueue', () => ({ useOfferPayeeQueue: () => vi.fn() }));
 vi.mock('./hooks/useWorkspaceMembers', () => ({ useWorkspaceMembers: () => [] }));
 vi.mock('@/app/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true }),
 }));
-vi.mock('./hooks/useTransactionHistory', () => ({
-  useTransactionHistory: () => ({
-    historyEvents: history.events,
-    historyLoading: false,
-    historyDrawerOpen: false,
-    selectedHistoryEvent: null,
-    openEventDrawer: vi.fn(),
-    closeEventDrawer: vi.fn(),
-  }),
+vi.mock('./TransactionHistoryTab', () => ({
+  TransactionHistoryTab: ({ transactionId }: { transactionId: string }) => (
+    <div>history of {transactionId}</div>
+  ),
 }));
 
 function transaction(overrides: Partial<Transaction> = {}): Transaction {
@@ -80,7 +73,6 @@ describe('DetailsDrawer', () => {
     api.get.mockReset().mockResolvedValue({ data: [] });
     api.post.mockReset().mockResolvedValue({ data: { approved: 1 } });
     api.delete.mockReset().mockResolvedValue({ data: {} });
-    history.events = [];
   });
 
   it('says which transaction it is before any action', () => {
@@ -169,11 +161,11 @@ describe('DetailsDrawer', () => {
     );
   });
 
-  it('says what history will hold when there is none yet', () => {
+  it('shows the history of this row on its tab', () => {
     renderDrawer(transaction());
 
     fireEvent.click(screen.getByRole('tab', { name: 'tabHistory' }));
 
-    expect(screen.getByText('sheet.historyEmpty')).toBeInTheDocument();
+    expect(screen.getByText('history of tx-1')).toBeInTheDocument();
   });
 });

@@ -57,8 +57,15 @@ A new or changed token goes into all of these, in both themes.
 | Attention (warning, unconfirmed) | `#C79A3B` | `#D4A94F` | `--attention` |
 | Chart tones (sage, terracotta, sand, dusty blue, clay) | `#6F8F7B #B8665A #D2B48C #7C93A8 #A98B76` | `#8FB39F #D9806F #DCC39E #93A9BD #BFA18B` | `--cat-tone-1…5` |
 | Chart "Other", uncategorised, totals | `#A7ADA3` | `#7D8279` | `--cat-tone-other` |
+| Merchant tones, in this order (sage, terracotta, dusty blue, sand, pine, dusty rose, slate, soft ochre, eucalyptus, clay, lavender grey, moss) | `#6F8F7B #B8665A #7C93A8 #C4A57A #3F6F60 #B48886 #5F7486 #B39555 #8FAE9E #A98B76 #8B84A3 #7F8A52` | `#8FB39F #D9806F #93A9BD #DCC39E #6FA392 #CFA3A1 #8AA0B3 #D1B576 #A9C7B8 #BFA18B #A9A2C1 #A3AD74` | `--merchant-tone-1…12` |
 
 ## How colour is used
+- **Merchants and categories have separate palettes.** A chart whose series are
+  merchants (payees, vendors) takes `merchantTones(names)`: twelve calm tones
+  in four hue families. The first name keeps its own tone (held by the name);
+  the others keep theirs while their family is free on the chart, so up to four
+  lines never share a family and up to twelve never share a tone. Categories
+  keep `categoryTones` (five earth tones).
 - **Colour only for real signals.** Amounts and figures stay ink. Spending is
   not an alarm and is not red. A zero is neutral: no sign, no arrow, no colour.
   Terracotta is for real overruns, ochre for attention, sage for good news.

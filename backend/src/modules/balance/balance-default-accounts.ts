@@ -177,6 +177,20 @@ export const DEFAULT_BALANCE_ACCOUNTS: DefaultBalanceAccountDefinition[] = [
     isEditable: false,
     isExpandable: true,
   },
+  {
+    // What the credit cards and loans on the Accounts page owe, kept up by their rows.
+    code: 'LIABILITY_ACCOUNT_DEBTS',
+    name: 'Кредитные карты и кредиты',
+    nameEn: 'Cards and loans',
+    nameKk: 'Несие карталары мен несиелер',
+    accountType: BalanceAccountType.LIABILITY,
+    subType: BalanceAccountSubType.BORROWED_CAPITAL,
+    parentCode: 'LIABILITY_BORROWED',
+    position: 0,
+    isEditable: false,
+    isAutoComputed: true,
+    autoSource: BalanceAutoSource.WALLETS,
+  },
 ];
 
 /** The chart a workspace starts from, by what kind of money it keeps. */

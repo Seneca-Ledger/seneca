@@ -2,7 +2,7 @@ import type { Repository } from 'typeorm';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import type { NetWorthAttribution, NetWorthAttributionRow, NetWorthSavings } from '../../contracts';
 import { type BalanceAccount, BalanceAccountType, type Transaction } from '../../entities';
-import { CASH_ACCOUNT_CODE } from '../balance/balance.service';
+import { CASH_ACCOUNT_CODE, DEBTS_ACCOUNT_CODE } from '../balance/balance.service';
 import { balanceAccountName } from '../balance/balance-account-name';
 import { isoDate } from '../balance/snapshot-series';
 import {
@@ -82,7 +82,9 @@ export function buildAttribution(input: {
       contributed += (paidIn.get(code) ?? 0) * (opened > 0 ? opened : closed);
     }
 
-    const moved = leaf.code === CASH_ACCOUNT_CODE ? own : contributed;
+    // Cash and card or loan debts move with the user's own rows: all of it is money moved.
+    const booked = leaf.code === CASH_ACCOUNT_CODE || leaf.code === DEBTS_ACCOUNT_CODE;
+    const moved = booked ? own : contributed;
     money += sign * moved;
     revaluation += sign * (own - moved);
 

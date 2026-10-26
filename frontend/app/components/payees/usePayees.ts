@@ -4,13 +4,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import type { PayeeChoice, PayeeMode } from './types';
 
 /** One page of the workspace's payees, newest-seen first, filtered by name. */
-export function usePayeesList(search: string, limit: number, page = 1) {
+export function usePayeesList(search: string, limit: number, page = 1, enabled = true) {
   const workspaceId = useWorkspaceId();
   const params = {
     search: search.trim() || undefined,
@@ -24,7 +25,7 @@ export function usePayeesList(search: string, limit: number, page = 1) {
       apiClient
         .get('/payees', { params, signal })
         .then(response => checkContract('PayeesPage', response.data, '/payees')),
-    enabled: Boolean(workspaceId),
+    enabled: enabled && Boolean(workspaceId),
     // Keeps the list on screen while the search changes, but never shows one
     // workspace's payees under another's name.
     placeholderData: (previous, previousQuery) =>
@@ -130,5 +131,105 @@ export function fetchPendingReview(
     url: `/payees/${payeeId}/pending-review`,
     params: excludeTransactionId ? { excludeTransactionId } : undefined,
     contract: 'PayeePendingReview',
+  });
+}
+
+/** The Payees page: who was paid (or paid us) in a month, or ever, biggest first. */
+export function usePayeesOverview(params: {
+  month?: string;
+  direction: 'expense' | 'income';
+  search: string;
+  page: number;
+  limit: number;
+}) {
+  const workspaceId = useWorkspaceId();
+  const query = {
+    month: params.month,
+    direction: params.direction,
+    search: params.search.trim() || undefined,
+    page: params.page,
+    limit: params.limit,
+  } satisfies ContractInput<'PayeesOverviewQuery'>;
+  return useQuery({
+    queryKey: queryKeys.payees({ workspaceId, params: { view: 'overview', ...query } }),
+    queryFn: ({ signal }) =>
+      apiClient
+        .get('/payees/overview', { params: query, signal })
+        .then(response => checkContract('PayeesOverview', response.data, '/payees/overview')),
+    enabled: Boolean(workspaceId),
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+  });
+}
+
+/** The payee card: its months, names, subscriptions and what a pinned category would change. */
+export function usePayeeSummary(id: string) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.payees({ workspaceId, params: { view: 'summary', id } }),
+    queryFn: ({ signal }) =>
+      apiClient
+        .get(`/payees/${id}/summary`, { signal })
+        .then(response => checkContract('PayeeSummary', response.data, '/payees/:id/summary')),
+    enabled: Boolean(workspaceId && id),
+  });
+}
+
+/** Payees whose names look like one business, to offer merging. */
+export function usePayeeDuplicates() {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.payees({ workspaceId, params: { view: 'duplicates' } }),
+    queryFn: ({ signal }) =>
+      apiClient
+        .get('/payees/duplicates', { signal })
+        .then(response =>
+          checkContract('PayeeDuplicateGroups', response.data, '/payees/duplicates'),
+        ),
+    enabled: Boolean(workspaceId),
+  });
+}
+
+/** Files the payee's past rows nobody categorised under its pinned category. */
+export function useApplyPayeeCategory() {
+  const invalidate = useInvalidatePayees();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiClient
+        .post(`/payees/${id}/apply-category`, {})
+        .then(response =>
+          checkContract('PayeeChangeResult', response.data, '/payees/:id/apply-category'),
+        ),
+    onSuccess: () => {
+      invalidateFinancialData();
+      return invalidate();
+    },
+  });
+}
+
+/** "This name is somebody else": the alias and its rows become a payee of their own. */
+export function useSplitPayeeAlias() {
+  const invalidate = useInvalidatePayees();
+  return useMutation({
+    mutationFn: ({ id, key }: { id: string; key: string }) =>
+      apiClient
+        .delete(`/payees/${id}/aliases/${encodeURIComponent(key)}`)
+        .then(response =>
+          checkContract('PayeeChangeResult', response.data, '/payees/:id/aliases/:key'),
+        ),
+    onSuccess: invalidate,
+  });
+}
+
+/** The payee month by month against the biggest others of its category. */
+export function usePayeePeers(id: string) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.payees({ workspaceId, params: { view: 'peers', id } }),
+    queryFn: ({ signal }) =>
+      apiClient
+        .get(`/payees/${id}/peers`, { signal })
+        .then(response => checkContract('PayeePeers', response.data, '/payees/:id/peers')),
+    enabled: Boolean(workspaceId && id),
   });
 }

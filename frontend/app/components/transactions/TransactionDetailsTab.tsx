@@ -26,6 +26,7 @@ import {
   isInvestmentIncome as linkedAsIncome,
 } from './InvestmentLinkActions';
 import { OWNER_SHARED, ownerValueToMemberId } from './OwnerFilterDropdown';
+import { OwnTransferActions } from './OwnTransferActions';
 import { SplitTransactionDialog } from './SplitTransactionDialog';
 import { ActionRow } from './TransactionActionRow';
 import type { Category, Transaction } from './types';
@@ -312,9 +313,7 @@ export function TransactionDetailsTab({
                 <ActionRow
                   label={t.reimbursement.link.value}
                   hint={t.sheet.reimbursementHint}
-                  onClick={() => {
-                    void loadTransferCandidates(transaction.id, 'reimbursement');
-                  }}
+                  onClick={() => void loadTransferCandidates(transaction.id, 'reimbursement')}
                   disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
                 />
               )
@@ -338,13 +337,11 @@ export function TransactionDetailsTab({
                 disabled={transferSaving}
               />
             ) : (
-              <ActionRow
-                label={t.transfer.link.value}
-                hint={t.sheet.transferHint}
-                onClick={() => {
-                  void loadTransferCandidates(transaction.id);
-                }}
-                disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
+              <OwnTransferActions
+                transaction={transaction}
+                onLink={() => void loadTransferCandidates(transaction.id)}
+                linkDisabled={transferSaving || transferLoading}
+                onDone={handleSplitDone}
               />
             ))}
 

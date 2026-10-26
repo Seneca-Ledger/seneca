@@ -13,7 +13,7 @@ export type TransferLeg = Pick<
   | 'statementId'
   | 'walletId'
   | 'cryptoWalletId'
-> & { statement?: { accountNumber?: string | null } | null };
+> & { statement?: { accountNumber?: string | null; walletId?: string | null } | null };
 
 export interface TransferPair<T extends TransferLeg = TransferLeg> {
   outgoing: T;
@@ -36,13 +36,16 @@ export function absAmount(leg: TransferLeg): number {
 
 /**
  * Which account a row belongs to. Null means "unknown": a manual entry with
- * no statement cannot be told apart from any other, so it never pairs
- * automatically. `walletId` is deliberately not a signal: classification
- * assigns the workspace's default wallet to every row that has no rule, so
- * it would make two different bank accounts look like one.
+ * no statement and no account cannot be told apart from any other, so it
+ * never pairs automatically. The account of a statement comes first: the user
+ * put it there (or its number did). A row's own `walletId` counts only off a
+ * statement, where nothing else says where it is; on a statement row it may
+ * still be the default wallet the classifier used to hand every row.
  */
 export function accountKey(leg: TransferLeg): string | null {
   if (leg.cryptoWalletId) return `crypto:${leg.cryptoWalletId}`;
+  if (leg.statement?.walletId) return `wallet:${leg.statement.walletId}`;
+  if (!leg.statementId && leg.walletId) return `wallet:${leg.walletId}`;
   const accountNumber = leg.statement?.accountNumber?.trim();
   if (accountNumber) return `account:${accountNumber}`;
   if (leg.statementId) return `statement:${leg.statementId}`;

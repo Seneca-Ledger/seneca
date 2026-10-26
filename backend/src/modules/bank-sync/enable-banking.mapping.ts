@@ -136,7 +136,7 @@ export function normalizeTransaction(raw: EnableBankingTransaction): BankSyncTra
   const rawAmount = (raw.transaction_amount?.amount ?? '').trim();
   // A row with no date or a non-numeric amount cannot be imported, and must not
   // take the rest of the account down with it.
-  if (!id || !posted || !ISO_DATE_RE.test(posted) || rawAmount === '') return null;
+  if (!(id && posted && ISO_DATE_RE.test(posted)) || rawAmount === '') return null;
   const magnitude = Number(rawAmount.replace(/^[+-]/, ''));
   if (!Number.isFinite(magnitude)) return null;
 

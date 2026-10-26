@@ -56,6 +56,7 @@ import {
   getWindowBounds,
   parseMonthWindow,
 } from './dashboard-window.util';
+import { spendableBalance, sumConverted } from './opening-balance';
 
 /** How many individual categories the donut shows before folding the rest into "Other". */
 const TOP_CATEGORIES_LIMIT = 8;
@@ -357,16 +358,9 @@ export class DashboardService {
       .groupBy('t.currency')
       .getRawMany<{ currency: string; balance: string }>();
 
-    let totalBalance = 0;
-    for (const row of balanceRows) {
-      totalBalance += await this.convertDashboardAmount(
-        row.balance,
-        row.currency,
-        targetCurrency,
-        workspaceId,
-      );
-    }
-    return totalBalance;
+    return sumConverted(balanceRows, (amount, from) =>
+      this.convertDashboardAmount(amount, from, targetCurrency, workspaceId),
+    );
   }
 
   private normalizeCurrency(currency: string | null | undefined): string {
@@ -1230,7 +1224,10 @@ export class DashboardService {
     horizonEnd.setDate(horizonEnd.getDate() + horizonDays - 1);
 
     const [openingBalance, payables, subscriptions] = await Promise.all([
-      this.getAllTimeBalance(workspaceId, currency),
+      spendableBalance(this.transactionRepo, workspaceId, {
+        convert: (amount, from) => this.convertDashboardAmount(amount, from, currency, workspaceId),
+        allTime: () => this.getAllTimeBalance(workspaceId, currency),
+      }),
       this.payableRepo.find({
         where: {
           workspaceId,

@@ -17,12 +17,13 @@ vi.mock('@/app/contexts/CurrencyDisplayContext', () => ({
 }));
 vi.mock('./hooks/useWorkspaceMembers', () => ({ useWorkspaceMembers: () => [] }));
 vi.mock('./hooks/useBulkUpdateOwner', () => ({ useBulkUpdateOwner: () => vi.fn() }));
-// The payee and rule sections fetch on their own; this file is about the investment actions.
+// The payee, rule and own-transfer sections fetch on their own; this file is about the investment actions.
 vi.mock('@/app/components/payees/TransactionPayeeSection', () => ({
   TransactionPayeeSection: () => null,
 }));
 vi.mock('@/app/components/payees/useOfferPayeeQueue', () => ({ useOfferPayeeQueue: () => vi.fn() }));
 vi.mock('@/app/components/rules/RuleFromRowAction', () => ({ RuleFromRowAction: () => null }));
+vi.mock('./OwnTransferActions', () => ({ OwnTransferActions: () => null }));
 
 function income(overrides: Partial<Transaction> = {}): Transaction {
   return {

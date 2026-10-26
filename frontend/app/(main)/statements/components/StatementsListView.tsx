@@ -62,11 +62,10 @@ function buildManualExpenseFormData(
   formData.append('description', payload.draft.description.trim());
   formData.append('categoryId', payload.draft.categoryId);
   if (resolvedTaxRateId) formData.append('taxRateId', resolvedTaxRateId);
+  if (payload.draft.walletId) formData.append('walletId', payload.draft.walletId);
   formData.append('date', payload.date);
   formData.append('allowDuplicates', payload.allowDuplicates ? 'true' : 'false');
-  payload.files.forEach(file => {
-    formData.append('files', file);
-  });
+  for (const file of payload.files) formData.append('files', file);
   return formData;
 }
 

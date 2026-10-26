@@ -62,6 +62,7 @@ import { reviewHoldsStatementRows } from '../review-inbox/review-queue.queries';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
+import { getDatePresetRange } from './statement-date-presets.util';
 import { buildStatementSearchClause } from './statement-search.util';
 
 type StatementFileAvailability = Awaited<ReturnType<FileStorageService['getFileAvailability']>>;
@@ -93,36 +94,6 @@ const APPROVED_STATUSES = [
   StatementStatus.COMPLETED,
   StatementStatus.PARSED,
 ];
-
-const toDateOnlyString = (value: Date) => {
-  const year = value.getFullYear();
-  const month = `${value.getMonth() + 1}`.padStart(2, '0');
-  const day = `${value.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getDatePresetRange = (preset: 'thisMonth' | 'lastMonth' | 'yearToDate', now: Date) => {
-  const current = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  if (preset === 'thisMonth') {
-    return {
-      dateFrom: toDateOnlyString(new Date(current.getFullYear(), current.getMonth(), 1)),
-      dateTo: toDateOnlyString(new Date(current.getFullYear(), current.getMonth() + 1, 0)),
-    };
-  }
-
-  if (preset === 'lastMonth') {
-    return {
-      dateFrom: toDateOnlyString(new Date(current.getFullYear(), current.getMonth() - 1, 1)),
-      dateTo: toDateOnlyString(new Date(current.getFullYear(), current.getMonth(), 0)),
-    };
-  }
-
-  return {
-    dateFrom: toDateOnlyString(new Date(current.getFullYear(), 0, 1)),
-    dateTo: toDateOnlyString(current),
-  };
-};
 
 const splitReferenceTokens = (tokens?: string[]) => {
   const normalizedTokens = tokens || [];
@@ -299,6 +270,27 @@ export class StatementsService {
       return `"${value.replaceAll('"', '""')}"`;
     }
     return value;
+  }
+
+  /**
+   * The account an upload was sent to (SimpleFIN mapping, a webhook default, the
+   * upload form), kept only when it is one of this workspace's: a mapping left
+   * pointing at a deleted account must not fail the upload.
+   */
+  private async accountOfUpload(
+    walletId: string | undefined,
+    workspaceId: string,
+  ): Promise<string | null> {
+    if (!walletId) {
+      return null;
+    }
+    const exists = await this.walletRepository.exists({ where: { id: walletId, workspaceId } });
+    if (!exists) {
+      this.logger.warn(
+        `[Statements] Upload named wallet ${walletId}, not in workspace ${workspaceId}`,
+      );
+    }
+    return exists ? walletId : null;
   }
 
   /** Who owns the wallet, or null when it is shared. */
@@ -487,6 +479,9 @@ export class StatementsService {
     // Проверка дубликата и обе вставки — в одной транзакции под advisory-lock:
     // иначе double-submit формы проходил check-then-act дважды и создавал два
     // одинаковых расхода (тот же паттерн, что в create() для выписок).
+    const accountId = await this.accountOfUpload(payload.walletId ?? undefined, workspaceId);
+    const accountOwner = accountId ? await this.walletOwnerMemberId(accountId, workspaceId) : null;
+
     let createdTransaction: Transaction | null = null;
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
@@ -529,6 +524,7 @@ export class StatementsService {
         totalCredit: 0,
         currency,
         categoryId: category.id,
+        walletId: accountId,
         parsingDetails: {
           detectedBy: 'manual-expense',
           parserUsed: 'manual-expense',
@@ -577,6 +573,8 @@ export class StatementsService {
         taxNetAmount: taxAssignment.taxNetAmount,
         taxReverseCharge: taxAssignment.taxReverseCharge,
         taxNotionalAmount: taxAssignment.taxNotionalAmount,
+        walletId: accountId,
+        ownerMemberId: accountOwner,
         isVerified: true,
       });
 
@@ -811,6 +809,7 @@ export class StatementsService {
     // Parsing replaces it with the currency the file states; until then the
     // statement carries the workspace's own (the column has no default).
     const currency = await this.workspaceCurrency.resolve(workspaceId);
+    const accountId = await this.accountOfUpload(walletId, workspaceId);
 
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       const statements = manager.getRepository(Statement);
@@ -856,6 +855,7 @@ export class StatementsService {
         fileHash,
         bankName: BankName.OTHER, // Will be determined during parsing
         currency,
+        walletId: accountId,
         status: StatementStatus.UPLOADED,
         parsingDetails: requireManualCategorySelection
           ? {

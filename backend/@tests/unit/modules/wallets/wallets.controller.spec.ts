@@ -4,8 +4,8 @@ describe('WalletsController', () => {
   it('proxies calls to WalletsService with workspaceId', async () => {
     const walletsService = {
       create: vi.fn(async () => ({ id: 'w1' })),
-      findAll: vi.fn(async () => [{ id: 'w1' }]),
-      findOne: vi.fn(async () => ({ id: 'w1' })),
+      list: vi.fn(async () => [{ id: 'w1' }]),
+      findOneWithBalance: vi.fn(async () => ({ id: 'w1' })),
       update: vi.fn(async () => ({ id: 'w1', name: 'X' })),
       remove: vi.fn(async () => undefined),
     };
@@ -24,8 +24,8 @@ describe('WalletsController', () => {
     });
 
     expect(walletsService.create).toHaveBeenCalledWith(workspaceId, 'u1', { name: 'A' });
-    expect(walletsService.findAll).toHaveBeenCalledWith(workspaceId);
-    expect(walletsService.findOne).toHaveBeenCalledWith('w1', workspaceId);
+    expect(walletsService.list).toHaveBeenCalledWith(workspaceId);
+    expect(walletsService.findOneWithBalance).toHaveBeenCalledWith('w1', workspaceId);
     expect(walletsService.update).toHaveBeenCalledWith('w1', workspaceId, { name: 'X' });
     expect(walletsService.remove).toHaveBeenCalledWith('w1', workspaceId);
   });

@@ -12,21 +12,27 @@ import {
   LinkTransferBody,
   TransactionCandidates,
   TransactionParams,
+  TransferToAccountBody,
 } from '../../contracts';
 import {
   PairUnlinked,
   ReimbursementLinked,
   TransferLinked,
   TransfersDetected,
+  TransferToAccountResult,
 } from '../../contracts/transactions/transaction-record';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { TransferPairingService } from './services/transfer-pairing.service';
+import { TransferToAccountService } from './services/transfer-to-account.service';
 
 /** Transfers between the user's own accounts and reimbursements: the rows paired with each other. */
 @Controller('transactions')
 export class TransactionPairingController {
-  constructor(private readonly transferPairingService: TransferPairingService) {}
+  constructor(
+    private readonly transferPairingService: TransferPairingService,
+    private readonly transferToAccountService: TransferToAccountService,
+  ) {}
 
   /** Pairs the legs of transfers between the user's own accounts and writes them. */
   @Post('transfers/detect')
@@ -66,6 +72,18 @@ export class TransactionPairingController {
   ) {
     const transferPairId = await this.transferPairingService.link(workspaceId, id, body.otherId);
     return { transferPairId };
+  }
+
+  @Post(':id/transfer-to-account')
+  @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(TransferToAccountResult)
+  async transferToAccount(
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
+    @SchemaBody(TransferToAccountBody) body: TransferToAccountBody,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.transferToAccountService.transferToAccount(workspaceId, id, body.walletId);
   }
 
   @Post(':id/unlink-transfer')
