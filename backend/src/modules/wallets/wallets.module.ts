@@ -6,6 +6,7 @@ import { Wallet } from '../../entities/wallet.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
+import { WalletStatementsService } from './wallet-statements.service';
 import { WalletsController } from './wallets.controller';
 import { WalletsService } from './wallets.service';
 
@@ -16,7 +17,7 @@ import { WalletsService } from './wallets.service';
     ExchangeRatesModule,
   ],
   controllers: [WalletsController],
-  providers: [WalletsService],
+  providers: [WalletsService, WalletStatementsService],
   exports: [WalletsService],
 })
 export class WalletsModule {}

@@ -12,6 +12,8 @@ import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { ReferenceDataModule } from '../reference-data/reference-data.module';
 import { TaxModule } from '../tax/tax.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
+import { PayeeEditsService } from './payee-edits.service';
+import { PayeePeersService } from './payee-peers.service';
 import { PayeesController } from './payees.controller';
 import { PayeesService } from './payees.service';
 import { PayeesOverviewService } from './payees-overview.service';
@@ -28,7 +30,13 @@ import { TransactionPayeeSubscriber } from './transaction-payee.subscriber';
     WorkspaceCurrencyModule,
   ],
   controllers: [PayeesController],
-  providers: [PayeesService, PayeesOverviewService, TransactionPayeeSubscriber],
+  providers: [
+    PayeesService,
+    PayeeEditsService,
+    PayeesOverviewService,
+    PayeePeersService,
+    TransactionPayeeSubscriber,
+  ],
   exports: [PayeesService],
 })
 export class PayeesModule {}

@@ -10,102 +10,32 @@ import { LazyNetWorthArea } from '@/app/components/charts/lazy-charts';
 import { ArrowLeft } from '@/app/components/icons';
 import { LoadError } from '@/app/components/ui/load-error';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
-import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
+import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { tokens } from '@/lib/theme-tokens';
 import { accountSubtitle } from '../account-types';
 import { AccountFormDrawer } from '../components/AccountFormDrawer';
+import { AccountReconciliation } from '../components/AccountReconciliation';
 import { AccountBadge, AccountBalance } from '../components/AccountRow';
+import { AccountTransactionsCard } from '../components/AccountTransactionsCard';
+import {
+  cardStyle,
+  listRowStyle,
+  mutedStyle,
+  titleStyle,
+} from '../components/account-detail-styles';
 import { statementPeriod } from '../components/LinkStatementsDrawer';
 import { useAccountLabels } from '../components/use-account-labels';
 import {
-  type Account,
   type AccountForm,
   accountToForm,
   useAccount,
   useAccountMutations,
 } from '../hooks/useAccounts';
 
-const cardStyle = {
-  border: '1px solid var(--border)',
-  borderRadius: tokens.radius.md,
-  background: 'var(--card)',
-  padding: 20,
-  display: 'grid',
-  gap: 12,
-} as const;
-
 /** A year of monthly statements is a wall; the latest few say enough until asked. */
 const STATEMENTS_SHOWN = 5;
-
-const titleStyle = { margin: 0, fontSize: 15, fontWeight: 500, color: 'var(--foreground)' };
-const mutedStyle = { fontSize: 13, color: 'var(--text-muted)' } as const;
-const figureStyle = {
-  fontSize: 14,
-  fontWeight: 500,
-  fontVariantNumeric: 'tabular-nums',
-  color: 'var(--foreground)',
-} as const;
-const listRowStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 12,
-  padding: '10px 0',
-  borderTop: '1px solid var(--border)',
-} as const;
-
-const formatDay = (date: string, locale: string) =>
-  new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(
-    new Date(date),
-  );
-
-/** Whether the books agree with the bank, said once, under the balance. */
-function Reconciliation({ account }: { account: Account }): React.JSX.Element | null {
-  const t = useIntlayer('accountsPage');
-  const { locale } = useLocale();
-  const reconciliation = account.reconciliation;
-  if (account.pendingReviewCount > 0) {
-    return (
-      <span style={mutedStyle}>
-        {t.pendingReview.value.replace('{{count}}', String(account.pendingReviewCount))}
-      </span>
-    );
-  }
-  if (!reconciliation) {
-    return null;
-  }
-  const dot = (
-    <span
-      aria-hidden
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: '50%',
-        flexShrink: 0,
-        background: reconciliation.matches ? 'var(--money-up)' : 'var(--attention)',
-      }}
-    />
-  );
-  return (
-    <span style={{ ...mutedStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      {dot}
-      <span>
-        {reconciliation.matches
-          ? t.matches.value.replace('{{date}}', formatDay(reconciliation.date, locale))
-          : fillTemplateNodes(t.mismatch.value, {
-              amount: formatMoney(
-                Math.abs(reconciliation.statementBalance - reconciliation.computedBalance),
-                account.currency,
-                locale,
-              ),
-            })}
-      </span>
-    </span>
-  );
-}
 
 export default function AccountPage(): React.JSX.Element {
   const params = useParams<{ id: string }>();
@@ -192,7 +122,7 @@ export default function AccountPage(): React.JSX.Element {
 
           <div style={{ display: 'grid', gap: 6 }}>
             <AccountBalance account={account} size={32} />
-            <Reconciliation account={account} />
+            <AccountReconciliation account={account} />
             {!account.isActive && (
               <ReadOnlyHint>
                 <Button
@@ -265,49 +195,7 @@ export default function AccountPage(): React.JSX.Element {
             )}
           </section>
 
-          <section style={cardStyle}>
-            <h2 style={titleStyle}>{t.transactionsTitle}</h2>
-            {transactions.length === 0 ? (
-              <span style={mutedStyle}>{t.noTransactions}</span>
-            ) : (
-              <div>
-                {transactions.map(row => {
-                  const amount = Number(row.credit ?? 0) - Number(row.debit ?? 0);
-                  const other = row.transferPairWallet?.name;
-                  return (
-                    <div key={row.id} style={listRowStyle}>
-                      <span style={{ display: 'grid', gap: 2, minWidth: 0 }}>
-                        <span
-                          style={{
-                            fontSize: 14,
-                            color: 'var(--foreground)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {other
-                            ? t.transferWith.value.replace('{{account}}', other)
-                            : row.counterpartyName}
-                        </span>
-                        <span style={mutedStyle}>{formatDay(row.transactionDate, locale)}</span>
-                      </span>
-                      <span style={{ display: 'grid', gap: 2, justifyItems: 'end' }}>
-                        <span style={figureStyle}>
-                          <PrivateAmount>{formatMoney(amount, row.currency, locale)}</PrivateAmount>
-                        </span>
-                        {row.runningBalance && (
-                          <span style={{ ...mutedStyle, fontVariantNumeric: 'tabular-nums' }}>
-                            <PrivateAmount>{money(Number(row.runningBalance))}</PrivateAmount>
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <AccountTransactionsCard transactions={transactions} money={money} />
 
           {initialForm && (
             <AccountFormDrawer

@@ -14,6 +14,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { isPrivateCategory, pickableCategories } from '@/app/lib/private-category';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
+import { AccountPickSection } from './AccountPickSection';
 import { formatAmount, formatDate } from './helpers/transactionFormatters';
 import { useBulkUpdateOwner } from './hooks/useBulkUpdateOwner';
 import { useContributionLink } from './hooks/useContributionLink';
@@ -299,9 +300,7 @@ export function TransactionDetailsTab({
                 <ActionRow
                   label={t.reimbursement.link.value}
                   hint={t.sheet.reimbursementHint}
-                  onClick={() => {
-                    void loadTransferCandidates(transaction.id, 'reimbursement');
-                  }}
+                  onClick={() => void loadTransferCandidates(transaction.id, 'reimbursement')}
                   disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
                 />
               )
@@ -322,9 +321,7 @@ export function TransactionDetailsTab({
                 <ActionRow
                   label={t.investment.link.value}
                   hint={t.sheet.contributionHint}
-                  onClick={() => {
-                    void contribution.loadAccounts();
-                  }}
+                  onClick={() => void contribution.loadAccounts()}
                   disabled={
                     contribution.saving || contribution.loading || Boolean(transaction.splitGroupId)
                   }
@@ -348,9 +345,7 @@ export function TransactionDetailsTab({
                 <ActionRow
                   label={t.transfer.link.value}
                   hint={t.sheet.transferHint}
-                  onClick={() => {
-                    void loadTransferCandidates(transaction.id);
-                  }}
+                  onClick={() => void loadTransferCandidates(transaction.id)}
                   disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
                 />
                 <ActionRow
@@ -373,65 +368,29 @@ export function TransactionDetailsTab({
       </div>
 
       {toAccount.open && !toAccount.loading && (
-        <div className="seneca-tx-detail__section" data-testid="transfer-accounts">
-          <div className="seneca-tx-detail__label">{t.transfer.pickAccount.value}</div>
-          {toAccount.options.length === 0 ? (
-            <div className="seneca-tx-detail__label">
-              {t.transfer.noAccounts.value.replace('{{currency}}', transaction.currency ?? '')}
-            </div>
-          ) : (
-            <div className="seneca-tx-detail__actions">
-              {toAccount.options.map(account => (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => void toAccount.move(account.id)}
-                  disabled={toAccount.saving}
-                  className="seneca-tx-detail__ignore-btn"
-                >
-                  {account.name}
-                </button>
-              ))}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => toAccount.setOpen(false)}
-            className="seneca-tx-detail__ignore-btn"
-          >
-            {t.transfer.cancel.value}
-          </button>
-        </div>
+        <AccountPickSection
+          testId="transfer-accounts"
+          title={t.transfer.pickAccount.value}
+          empty={t.transfer.noAccounts.value.replace('{{currency}}', transaction.currency ?? '')}
+          accounts={toAccount.options}
+          saving={toAccount.saving}
+          onPick={id => void toAccount.move(id)}
+          onCancel={() => toAccount.setOpen(false)}
+          cancelLabel={t.transfer.cancel.value}
+        />
       )}
 
       {contribution.accounts && (
-        <div className="seneca-tx-detail__section" data-testid="contribution-accounts">
-          <div className="seneca-tx-detail__label">{t.investment.pick.value}</div>
-          {contribution.accounts.length === 0 ? (
-            <div className="seneca-tx-detail__label">{t.investment.none.value}</div>
-          ) : (
-            <div className="seneca-tx-detail__actions">
-              {contribution.accounts.map(account => (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => contribution.link(transaction.id, account.id)}
-                  disabled={contribution.saving}
-                  className="seneca-tx-detail__ignore-btn"
-                >
-                  {account.name}
-                </button>
-              ))}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={contribution.clearAccounts}
-            className="seneca-tx-detail__ignore-btn"
-          >
-            {t.transfer.cancel.value}
-          </button>
-        </div>
+        <AccountPickSection
+          testId="contribution-accounts"
+          title={t.investment.pick.value}
+          empty={t.investment.none.value}
+          accounts={contribution.accounts}
+          saving={contribution.saving}
+          onPick={id => contribution.link(transaction.id, id)}
+          onCancel={contribution.clearAccounts}
+          cancelLabel={t.transfer.cancel.value}
+        />
       )}
 
       {transferCandidates && (

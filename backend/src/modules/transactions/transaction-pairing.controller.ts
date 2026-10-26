@@ -24,11 +24,15 @@ import {
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { TransferPairingService } from './services/transfer-pairing.service';
+import { TransferToAccountService } from './services/transfer-to-account.service';
 
 /** Transfers between the user's own accounts and reimbursements: the rows paired with each other. */
 @Controller('transactions')
 export class TransactionPairingController {
-  constructor(private readonly transferPairingService: TransferPairingService) {}
+  constructor(
+    private readonly transferPairingService: TransferPairingService,
+    private readonly transferToAccountService: TransferToAccountService,
+  ) {}
 
   /** Pairs the legs of transfers between the user's own accounts and writes them. */
   @Post('transfers/detect')
@@ -79,7 +83,7 @@ export class TransactionPairingController {
     @SchemaBody(TransferToAccountBody) body: TransferToAccountBody,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.transferPairingService.transferToAccount(workspaceId, id, body.walletId);
+    return this.transferToAccountService.transferToAccount(workspaceId, id, body.walletId);
   }
 
   @Post(':id/unlink-transfer')

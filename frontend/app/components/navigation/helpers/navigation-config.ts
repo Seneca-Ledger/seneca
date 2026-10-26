@@ -23,17 +23,17 @@ import {
   Tag,
   TrendingUp,
   Wallet,
-  WalletCards,
   Workflow,
 } from '@/app/components/icons';
+import { WalletCards } from '@/app/components/icons/wallet-cards';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 import type { NavGroupId } from './nav-groups';
 export const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
 
 export type { AppLocale as AppLanguage } from '@/app/lib/locale';
 export { groupNavItems, type NavEntry } from './group-nav-items';
-export { buildNavGroups, type NavGroup, type NavGroupId } from './nav-groups';
 export { activeNavPath, isNavItemActive } from './nav-active';
+export { buildNavGroups, type NavGroup, type NavGroupId } from './nav-groups';
 export { buildUserMenuNavItems } from './user-menu-nav-items';
 
 export interface NavItem {

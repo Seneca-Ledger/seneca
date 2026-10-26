@@ -21,6 +21,7 @@ import { TransactionHistoryService } from './services/transaction-history.servic
 import { TransactionTagsService } from './services/transaction-tags.service';
 import { TransactionsOverviewService } from './services/transactions-overview.service';
 import { TransferPairingService } from './services/transfer-pairing.service';
+import { TransferToAccountService } from './services/transfer-to-account.service';
 import { TransactionHistoryController } from './transaction-history.controller';
 import { TransactionPairingController } from './transaction-pairing.controller';
 import { TransactionsController } from './transactions.controller';
@@ -54,6 +55,7 @@ import { TransactionsService } from './transactions.service';
     TransactionTagsService,
     TransactionAttachmentsService,
     TransferPairingService,
+    TransferToAccountService,
     TransactionsOverviewService,
     TransactionHistoryService,
   ],

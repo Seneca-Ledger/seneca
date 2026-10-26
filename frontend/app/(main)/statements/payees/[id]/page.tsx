@@ -10,7 +10,6 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { merchantTones } from '@/app/components/charts/chart-theme';
-import { LazyPayeeLines } from '@/app/components/charts/lazy-charts';
 import { ArrowLeft } from '@/app/components/icons';
 import { offerAction } from '@/app/components/payees/offer-action-toast';
 import { PayeeDrawer } from '@/app/components/payees/PayeeDrawer';
@@ -20,104 +19,24 @@ import {
   useApplyPayeeCategory,
   useMergePayees,
   usePayee,
-  usePayeePeers,
   usePayeeSummary,
-  useSplitPayeeAlias,
   useUpdatePayee,
 } from '@/app/components/payees/usePayees';
-import { EmptyState } from '@/app/components/ui/EmptyState';
-import { ChartLineIcon } from '@/app/components/ui/empty-state-icons';
 import { LoadError } from '@/app/components/ui/load-error';
-import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import type { PayeeSummary } from '@/app/lib/contracts';
 import { formatMoney } from '@/app/lib/format-money';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
+import { PayeeAliasesSection } from '../components/PayeeAliasesSection';
+import { PayeeFigures } from '../components/PayeeFigures';
+import { PayeeMonthBars } from '../components/PayeeMonthBars';
+import { PayeePeersSection } from '../components/PayeePeersSection';
 import { PayeeTransactions } from '../components/PayeeTransactions';
-
-const formatDay = (date: string, locale: string) =>
-  new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(
-    new Date(date),
-  );
-
-/** Twelve quiet bars: what went to the payee each month, or came from it when nothing went. */
-function MonthBars({ summary, tone }: { summary: PayeeSummary; tone: string }): React.JSX.Element {
-  const { locale } = useLocale();
-  const spends = summary.spentLastYear > 0;
-  const values = summary.months.map(month => (spends ? month.spent : month.received));
-  const highest = Math.max(...values, 0);
-  const monthName = new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' });
-  return (
-    <div className="seneca-payees__bars">
-      {summary.months.map((month, index) => {
-        const value = values[index];
-        return (
-          <div
-            key={month.month}
-            className="seneca-payees__bar"
-            title={`${month.month}: ${formatMoney(value, summary.currency, locale)}`}
-          >
-            <span
-              className="seneca-payees__bar-fill"
-              style={{ height: highest > 0 ? `${(value / highest) * 90}%` : 0, background: tone }}
-            />
-            <span className="seneca-payees__bar-label">
-              {monthName.format(new Date(`${month.month}-01T00:00:00Z`))}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** The payee against the biggest others of its category, a smooth line each. */
-function PeersSection({ payeeId }: { payeeId: string }): React.JSX.Element | null {
-  const t = useIntlayer('payeesPage');
-  const { locale } = useLocale();
-  const peers = usePayeePeers(payeeId);
-  const data = peers.data;
-  if (!data) {
-    return null;
-  }
-  const category = data.category ? localizeStatementCategoryName(data.category.name, locale) : null;
-  const empty = data.series.length < 2;
-  return (
-    // The card takes the rest of the column, as tall as the cards beside it.
-    <section
-      className="seneca-all-tx__card seneca-payees__section"
-      style={{ flex: 1, gridTemplateRows: 'auto 1fr' }}
-    >
-      <h2 className="seneca-all-tx__card-title">
-        {category
-          ? t.comparisonTitle.value.replace('{{category}}', category)
-          : t.comparisonTitlePlain}
-      </h2>
-      {empty ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <EmptyState compact icon={<ChartLineIcon />} description={t.comparisonEmpty} />
-        </div>
-      ) : (
-        <div className="seneca-payees__lines">
-          <LazyPayeeLines
-            months={data.months}
-            lines={data.series}
-            locale={locale}
-            formatValue={value => formatMoney(value, data.currency, locale)}
-            formatTick={value => formatMoney(value, data.currency, locale, { notation: 'compact' })}
-          />
-        </div>
-      )}
-    </section>
-  );
-}
 
 export default function PayeePage(): React.JSX.Element {
   const params = useParams<{ id: string }>();
@@ -141,7 +60,6 @@ export default function PayeePage(): React.JSX.Element {
   const update = useUpdatePayee();
   const merge = useMergePayees();
   const applyCategory = useApplyPayeeCategory();
-  const splitAlias = useSplitPayeeAlias();
 
   const [renaming, setRenaming] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
@@ -257,56 +175,17 @@ export default function PayeePage(): React.JSX.Element {
             )}
           </header>
 
-          {info && (
-            <div className="seneca-payees__figures">
-              {info.spentLastYear > 0 && (
-                <div>
-                  <span className="seneca-payees__figure-label">{t.spentYear}</span>
-                  <span className="seneca-payees__figure-value">
-                    <PrivateAmount>{money(info.spentLastYear)}</PrivateAmount>
-                  </span>
-                </div>
-              )}
-              {info.receivedLastYear > 0 && (
-                <div>
-                  <span className="seneca-payees__figure-label">{t.receivedYear}</span>
-                  <span className="seneca-payees__figure-value">
-                    <PrivateAmount>{money(info.receivedLastYear)}</PrivateAmount>
-                  </span>
-                </div>
-              )}
-              {info.averageSpent !== null && (
-                <div>
-                  <span className="seneca-payees__figure-label">{t.average}</span>
-                  <span className="seneca-payees__figure-value">
-                    <PrivateAmount>{money(info.averageSpent)}</PrivateAmount>
-                  </span>
-                </div>
-              )}
-              <div>
-                <span className="seneca-payees__figure-label">{t.countLabel}</span>
-                <span className="seneca-payees__figure-value">{info.count}</span>
-              </div>
-              {info.lastSeen && (
-                <div>
-                  <span className="seneca-payees__figure-label">{t.lastSeen}</span>
-                  <span className="seneca-payees__figure-value">
-                    {formatDay(info.lastSeen, locale)}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+          {info && <PayeeFigures summary={info} money={money} />}
 
           <div className="seneca-all-tx__body" style={{ alignItems: 'stretch' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
               {info && (
                 <section className="seneca-all-tx__card seneca-payees__section">
                   <h2 className="seneca-all-tx__card-title">{t.monthsTitle}</h2>
-                  <MonthBars summary={info} tone={merchantTones([data.name])[0]} />
+                  <PayeeMonthBars summary={info} tone={merchantTones([data.name])[0]} />
                 </section>
               )}
-              <PeersSection payeeId={id} />
+              <PayeePeersSection payeeId={id} />
             </div>
 
             <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
@@ -368,47 +247,7 @@ export default function PayeePage(): React.JSX.Element {
                 </span>
               </section>
 
-              {info && info.aliases.length > 0 && (
-                <section className="seneca-all-tx__card seneca-payees__section">
-                  <h2 className="seneca-all-tx__card-title">{t.aliasesTitle}</h2>
-                  <span className="seneca-all-tx__muted" style={{ fontSize: 13 }}>
-                    {t.aliasesHint}
-                  </span>
-                  <div>
-                    {info.aliases.map(alias => (
-                      <div key={alias.key} className="seneca-payees__row">
-                        <span style={{ fontSize: 14, minWidth: 0, overflowWrap: 'anywhere' }}>
-                          {alias.example ?? alias.key}
-                        </span>
-                        {info.aliases.length > 1 && (
-                          <ReadOnlyHint>
-                            <Button
-                              size="small"
-                              variant="text"
-                              disabled={splitAlias.isPending}
-                              onClick={() =>
-                                void splitAlias
-                                  .mutateAsync({ id, key: alias.key })
-                                  .then(result =>
-                                    toast.success(
-                                      t.splitDone.value.replace(
-                                        '{{count}}',
-                                        String(result.updated),
-                                      ),
-                                    ),
-                                  )
-                                  .catch(fail)
-                              }
-                            >
-                              {t.splitAlias}
-                            </Button>
-                          </ReadOnlyHint>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
+              {info && <PayeeAliasesSection payeeId={id} aliases={info.aliases} />}
 
               {info && info.subscriptions.length > 0 && (
                 <section className="seneca-all-tx__card seneca-payees__section">

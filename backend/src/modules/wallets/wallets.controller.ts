@@ -22,11 +22,15 @@ import {
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { WalletStatementsService } from './wallet-statements.service';
 import { WalletsService } from './wallets.service';
 
 @Controller('wallets')
 export class WalletsController {
-  constructor(private readonly walletsService: WalletsService) {}
+  constructor(
+    private readonly walletsService: WalletsService,
+    private readonly walletStatements: WalletStatementsService,
+  ) {}
 
   @Post()
   @WorkspaceAuth(Permission.WALLET_CREATE)
@@ -36,7 +40,11 @@ export class WalletsController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    const created = await this.walletsService.create(workspaceId, user.id, createDto);
+    const { statementIds, ...dto } = createDto;
+    const created = await this.walletsService.create(workspaceId, user.id, dto);
+    if (statementIds?.length) {
+      await this.walletStatements.attach(created.id, workspaceId, statementIds);
+    }
     // The stored form, as the list reads it: defaults filled, decimals as strings.
     return this.walletsService.findOneWithBalance(created.id, workspaceId);
   }
@@ -59,7 +67,7 @@ export class WalletsController {
   @WorkspaceAuth(Permission.WALLET_VIEW)
   @SchemaResponse(AccountStatementList)
   async unlinkedStatements(@WorkspaceId() workspaceId: string) {
-    return this.walletsService.unlinkedStatements(workspaceId);
+    return this.walletStatements.unlinked(workspaceId);
   }
 
   @Get(':id')
@@ -76,15 +84,21 @@ export class WalletsController {
   @Get(':id/series')
   @WorkspaceAuth(Permission.WALLET_VIEW)
   @SchemaResponse(WalletSeries)
-  async series(@SchemaParams(WalletParams) { id }: WalletParams, @WorkspaceId() workspaceId: string) {
+  async series(
+    @SchemaParams(WalletParams) { id }: WalletParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.walletsService.series(id, workspaceId);
   }
 
   @Get(':id/statements')
   @WorkspaceAuth(Permission.WALLET_VIEW)
   @SchemaResponse(AccountStatementList)
-  async statementsOf(@SchemaParams(WalletParams) { id }: WalletParams, @WorkspaceId() workspaceId: string) {
-    return this.walletsService.statementsOf(id, workspaceId);
+  async statementsOf(
+    @SchemaParams(WalletParams) { id }: WalletParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.walletStatements.of(id, workspaceId);
   }
 
   @Post(':id/statements')
@@ -95,7 +109,7 @@ export class WalletsController {
     @SchemaBody(AttachStatementsBody) body: AttachStatementsBody,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.walletsService.attachStatements(id, workspaceId, body.statementIds);
+    return this.walletStatements.attach(id, workspaceId, body.statementIds);
   }
 
   @Delete(':id/statements/:statementId')
@@ -105,7 +119,7 @@ export class WalletsController {
     @SchemaParams(WalletStatementParams) { id, statementId }: WalletStatementParams,
     @WorkspaceId() workspaceId: string,
   ) {
-    await this.walletsService.detachStatement(id, workspaceId, statementId);
+    await this.walletStatements.detach(id, workspaceId, statementId);
     return deletedResponse('Statement link');
   }
 

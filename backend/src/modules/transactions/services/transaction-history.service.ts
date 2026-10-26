@@ -1,6 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { canReadPrivate } from '../../../common/utils/transaction-privacy.util';
 import type {
   TransactionHistory,
@@ -22,84 +23,15 @@ import { WorkspaceMember } from '../../../entities/workspace-member.entity';
 import { AuditService } from '../../audit/audit.service';
 import { PayeesService } from '../../payees/payees.service';
 import { TransactionsService } from '../transactions.service';
+import {
+  asSnapshot,
+  changesOf,
+  FIELDS,
+  normalize,
+  type RawChange,
+} from './transaction-history-changes';
 
 type Entry = TransactionHistory['entries'][number];
-type Snapshot = Record<string, unknown>;
-
-/**
- * The fields a person cares about, keyed by where the audit snapshot keeps
- * them. Everything else in a snapshot (ledger stamps, tax figures, updatedAt)
- * is bookkeeping and never shown. `undo` names the update field that puts the
- * old value back; a field without one cannot be undone from the history.
- */
-const FIELDS: ReadonlyArray<{
-  field: TransactionHistoryField;
-  key: keyof Transaction & string;
-  undo?: keyof UpdateTransactionBody;
-}> = [
-  { field: 'category', key: 'categoryId', undo: 'categoryId' },
-  { field: 'payee', key: 'payeeId' },
-  { field: 'amount', key: 'amount' },
-  { field: 'currency', key: 'currency' },
-  { field: 'type', key: 'transactionType' },
-  { field: 'date', key: 'transactionDate', undo: 'transactionDate' },
-  { field: 'name', key: 'counterpartyName', undo: 'counterpartyName' },
-  { field: 'purpose', key: 'paymentPurpose', undo: 'paymentPurpose' },
-  { field: 'account', key: 'walletId', undo: 'walletId' },
-  { field: 'owner', key: 'ownerMemberId', undo: 'ownerMemberId' },
-  { field: 'private', key: 'isPrivate', undo: 'isPrivate' },
-  { field: 'confirmed', key: 'isVerified', undo: 'isVerified' },
-  { field: 'comment', key: 'comments', undo: 'comments' },
-];
-
-/** One value as the history compares and shows it: "289.00" and 289 are the same amount. */
-function normalize(field: TransactionHistoryField, value: unknown): string | null {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-  if (field === 'amount') {
-    const amount = Number(value);
-    return Number.isFinite(amount) ? amount.toFixed(2) : null;
-  }
-  if (field === 'date') {
-    const text = value instanceof Date ? value.toISOString() : String(value);
-    return text.slice(0, 10);
-  }
-  return String(value).trim() || null;
-}
-
-const asSnapshot = (value: unknown): Snapshot | null =>
-  value && typeof value === 'object' && !Array.isArray(value) ? (value as Snapshot) : null;
-
-interface RawChange {
-  field: TransactionHistoryField;
-  before: string | null;
-  after: string | null;
-}
-
-/** The fields an event really changed: present on both sides and different. */
-function changesOf(event: AuditEvent): RawChange[] {
-  const diff = asSnapshot(event.diff);
-  const before = asSnapshot(diff?.before);
-  const after = asSnapshot(diff?.after);
-  if (!(before && after)) {
-    return [];
-  }
-  const changes: RawChange[] = [];
-  for (const { field, key } of FIELDS) {
-    if (!(key in before && key in after)) {
-      continue;
-    }
-    const was = normalize(field, before[key]);
-    const now = normalize(field, after[key]);
-    // An amount never becomes empty; a null there is a redacted snapshot.
-    if (was === now || (field === 'amount' && (was === null || now === null))) {
-      continue;
-    }
-    changes.push({ field, before: was, after: now });
-  }
-  return changes;
-}
 
 /**
  * A transaction's history in words: which fields changed, from what to what,
@@ -130,7 +62,7 @@ export class TransactionHistoryService {
     const statement = transaction.statementId
       ? await this.statementRepository.findOne({
           where: { id: transaction.statementId, workspaceId },
-          select: ['id', 'fileName'],
+          select: { id: true, fileName: true },
         })
       : null;
     // Someone else's private row: what it was, and so how it changed, is theirs.
@@ -199,7 +131,7 @@ export class TransactionHistoryService {
     }));
     const target = raw.find(item => item.event.id === eventId);
     if (!(target && this.undoable(raw, transaction).has(eventId))) {
-      throw new ConflictException('This change can no longer be put back');
+      throw new ConflictException(appError('TRANSACTION_CHANGE_NOT_UNDOABLE'));
     }
     const { changes } = target;
 
@@ -334,13 +266,13 @@ export class TransactionHistoryService {
       memberIds.length
         ? this.memberRepository.find({
             where: { id: In(memberIds), workspaceId },
-            relations: ['user'],
+            relations: { user: true },
           })
         : [],
       actorIds.length
         ? this.memberRepository.find({
             where: { userId: In(actorIds), workspaceId },
-            relations: ['user'],
+            relations: { user: true },
           })
         : [],
     ]);

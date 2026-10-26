@@ -15,7 +15,6 @@ import {
   TransferPairKind,
   TransferPairSource,
 } from '../../../entities/transaction.entity';
-import { Wallet } from '../../../entities/wallet.entity';
 import { ExchangeRatesService } from '../../exchange-rates/exchange-rates.service';
 import {
   absAmount,
@@ -28,11 +27,11 @@ import {
 } from './transfer-pairing.matcher';
 
 /** The manual picker looks further than the matcher: a fee or a slow bank is exactly what it is for. */
-const CANDIDATE_WINDOW_DAYS = 7;
+export const CANDIDATE_WINDOW_DAYS = 7;
 /** Expense reports get paid back weeks later. */
 const REIMBURSEMENT_WINDOW_DAYS = 45;
 const CANDIDATE_LIMIT = 10;
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface TransferPairingResult {
   /** Pairs the matcher proposed. */
@@ -60,7 +59,7 @@ export class TransferPairingService {
    * came from. Rows the user unlinked stay out of automatic runs but remain
    * available to the manual picker: that is the one place they belong.
    */
-  private unpairedQuery(workspaceId: string, options: { includeRejected?: boolean } = {}) {
+  unpairedQuery(workspaceId: string, options: { includeRejected?: boolean } = {}) {
     const query = this.transactionRepository
       .createQueryBuilder('t')
       .leftJoin('t.statement', 's')
@@ -215,77 +214,6 @@ export class TransferPairingService {
     return transferPairId;
   }
 
-  /**
-   * Marks a row as money moved to (or from) another of the user's accounts.
-   * The other leg already in that account (same amount and currency, opposite
-   * direction, within a week) is linked; when there is none, as for cash out
-   * of an ATM into the Cash account, it is booked there, confirmed, and linked.
-   */
-  async transferToAccount(
-    workspaceId: string,
-    transactionId: string,
-    walletId: string,
-  ): Promise<{ transferPairId: string; createdId: string | null }> {
-    const row = await this.findOwned(workspaceId, transactionId);
-    const wallet = await this.transactionRepository.manager
-      .getRepository(Wallet)
-      .findOne({ where: { id: walletId, workspaceId } });
-    if (!wallet) {
-      throw new NotFoundException(appError('WALLET_NOT_FOUND'));
-    }
-    if (row.walletId === wallet.id) {
-      throw new BadRequestException(appError('TRANSFER_SAME_ACCOUNT'));
-    }
-
-    const opposite =
-      row.transactionType === TransactionType.EXPENSE
-        ? TransactionType.INCOME
-        : TransactionType.EXPENSE;
-    const at = new Date(row.transactionDate).getTime();
-    const amount = absAmount(row);
-    const existing = (
-      await this.unpairedQuery(workspaceId)
-        .andWhere('t.walletId = :walletId', { walletId: wallet.id })
-        .andWhere('t.transactionType = :opposite', { opposite })
-        .andWhere('UPPER(t.currency) = UPPER(:currency)', { currency: row.currency })
-        .andWhere('t.transactionDate BETWEEN :since AND :until', {
-          since: new Date(at - CANDIDATE_WINDOW_DAYS * DAY_MS),
-          until: new Date(at + CANDIDATE_WINDOW_DAYS * DAY_MS),
-        })
-        .getMany()
-    )
-      .filter(candidate => Math.abs(absAmount(candidate) - amount) < 0.005)
-      .sort(
-        (a, b) =>
-          daysBetween(a.transactionDate, row.transactionDate) -
-          daysBetween(b.transactionDate, row.transactionDate),
-      )[0];
-    if (existing) {
-      return { transferPairId: await this.link(workspaceId, row.id, existing.id), createdId: null };
-    }
-
-    const mirror = await this.transactionRepository.save(
-      this.transactionRepository.create({
-        workspaceId,
-        walletId: wallet.id,
-        ownerMemberId: wallet.ownerMemberId,
-        transactionDate: row.transactionDate,
-        transactionType: opposite,
-        amount,
-        debit: opposite === TransactionType.EXPENSE ? amount : null,
-        credit: opposite === TransactionType.INCOME ? amount : null,
-        currency: row.currency,
-        counterpartyName: row.counterpartyName,
-        paymentPurpose: row.paymentPurpose,
-        isVerified: true,
-      }),
-    );
-    return {
-      transferPairId: await this.link(workspaceId, row.id, mirror.id),
-      createdId: mirror.id,
-    };
-  }
-
   /** Separates both legs and remembers the choice so auto-pairing does not redo it. */
   async unlink(workspaceId: string, id: string): Promise<void> {
     const row = await this.findOwned(workspaceId, id);
@@ -428,7 +356,7 @@ export class TransferPairingService {
     );
   }
 
-  private async findOwned(workspaceId: string, id: string): Promise<Transaction> {
+  async findOwned(workspaceId: string, id: string): Promise<Transaction> {
     const row = await this.transactionRepository.findOne({
       where: { id, workspaceId },
       relations: {

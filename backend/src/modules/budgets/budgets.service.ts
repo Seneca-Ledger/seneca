@@ -730,20 +730,18 @@ export class BudgetsService {
     }
     return {
       budgets: affected,
-      account: dto.walletId
-        ? await this.accountImpact(workspaceId, dto.walletId, dto.amount, currency)
-        : null,
+      account: await this.accountImpact(workspaceId, dto.walletId, dto.amount, currency),
     };
   }
 
   /** The account a manual entry would leave, as the person picked it. */
   private async accountImpact(
     workspaceId: string,
-    walletId: string,
+    walletId: string | null | undefined,
     amount: number,
     currency: string,
   ): Promise<BudgetImpact['account']> {
-    if (!this.walletRepository) return null;
+    if (!(this.walletRepository && walletId)) return null;
     const wallet = await this.walletRepository.findOne({
       where: { id: walletId, workspaceId, isActive: true },
     });

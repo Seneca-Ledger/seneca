@@ -28,6 +28,8 @@ import {
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PayeeEditsService } from './payee-edits.service';
+import { PayeePeersService } from './payee-peers.service';
 import { PayeesService } from './payees.service';
 import { PayeesOverviewService } from './payees-overview.service';
 
@@ -36,6 +38,8 @@ export class PayeesController {
   constructor(
     private readonly payeesService: PayeesService,
     private readonly overviewService: PayeesOverviewService,
+    private readonly editsService: PayeeEditsService,
+    private readonly peersService: PayeePeersService,
   ) {}
 
   @Get('payees')
@@ -89,7 +93,7 @@ export class PayeesController {
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.overviewService.peers(workspaceId, id, selfMemberId);
+    return this.peersService.peers(workspaceId, id, selfMemberId);
   }
 
   @Post('payees/:id/apply-category')
@@ -100,7 +104,7 @@ export class PayeesController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.payeesService.applyCategory(workspaceId, user.id, id);
+    return this.editsService.applyCategory(workspaceId, user.id, id);
   }
 
   @Delete('payees/:id/aliases/:key')
@@ -111,7 +115,7 @@ export class PayeesController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.payeesService.splitAlias(workspaceId, user.id, id, key);
+    return this.editsService.splitAlias(workspaceId, user.id, id, key);
   }
 
   @Get('payees/:id')

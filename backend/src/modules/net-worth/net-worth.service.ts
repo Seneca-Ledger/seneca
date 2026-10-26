@@ -21,11 +21,12 @@ import {
   Workspace,
 } from '../../entities';
 import type { InvestmentMetal } from '../../entities/investment-holding.entity';
-import { BalanceService, CASH_ACCOUNT_CODE, DEBTS_ACCOUNT_CODE } from '../balance/balance.service';
+import { BalanceService, CASH_ACCOUNT_CODE } from '../balance/balance.service';
 import { balanceAccountName } from '../balance/balance-account-name';
 import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { InvestmentsService } from '../investments/investments.service';
+import { computedValue, currencyDates, loadComputedLines } from './computed-lines';
 import type { NetWorthRange } from './dto/net-worth-query.dto';
 
 export type {
@@ -102,17 +103,11 @@ export class NetWorthService {
     const from = await this.resolveFrom(workspaceId, range, to);
     const dates = samplePoints(from, to, SERIES_POINTS);
 
-    const [accounts, snapshots, cashByDate, debtsByDate, currency] = await Promise.all([
+    const [accounts, snapshots, computedByCode, currency] = await Promise.all([
       this.balanceAccountRepository.find({ where: { workspaceId } }),
       this.loadSnapshots(workspaceId, to),
-      this.balanceService.getCashSeries(workspaceId, dates),
-      this.balanceService.getDebtSeries(workspaceId, dates),
+      loadComputedLines(this.balanceService, workspaceId, dates),
       this.resolveCurrency(workspaceId),
-    ]);
-    // Lines kept up from the books rather than from snapshots.
-    const computedByCode = new Map([
-      [CASH_ACCOUNT_CODE, cashByDate],
-      [DEBTS_ACCOUNT_CODE, debtsByDate],
     ]);
 
     const leaves = findLeaves(accounts);
@@ -125,24 +120,13 @@ export class NetWorthService {
     const converter = await CurrencyConverter.load(
       this.exchangeRatesService,
       currency,
-      dates.flatMap(date =>
-        [
-          ...(cashByDate.get(date)?.keys() ?? []),
-          ...(debtsByDate.get(date)?.keys() ?? []),
-          ...snapshotCurrencies,
-        ].map(code => ({
-          currency: code,
-          date,
-        })),
-      ),
+      currencyDates(computedByCode, dates, snapshotCurrencies),
       workspaceId,
     );
 
     const valueAt = (accountId: string, code: string, date: string): number => {
-      const computed = computedByCode.get(code);
-      if (computed) {
-        return converter.convertAll(computed.get(date) ?? new Map(), date);
-      }
+      const computed = computedValue(computedByCode, converter, code, date);
+      if (computed !== null) return computed;
       const snapshot = latestOnOrBefore(snapshotsByAccount.get(accountId), date);
       return snapshot
         ? converter.convert(
@@ -261,14 +245,7 @@ export class NetWorthService {
     if (!series) {
       const from = await this.resolveFrom(workspaceId, 'all', to);
       const dates = samplePoints(from, to, ALL_TIME_HIGH_POINTS);
-      const [cashByDate, debtsByDate] = await Promise.all([
-        this.balanceService.getCashSeries(workspaceId, dates),
-        this.balanceService.getDebtSeries(workspaceId, dates),
-      ]);
-      const computedByCode = new Map([
-        [CASH_ACCOUNT_CODE, cashByDate],
-        [DEBTS_ACCOUNT_CODE, debtsByDate],
-      ]);
+      const computedByCode = await loadComputedLines(this.balanceService, workspaceId, dates);
       const snapshotCurrencies = [
         ...new Set(
           [...snapshotsByAccount.values()]
@@ -279,16 +256,7 @@ export class NetWorthService {
       const converter = await CurrencyConverter.load(
         this.exchangeRatesService,
         currency,
-        dates.flatMap(date =>
-          [
-            ...(cashByDate.get(date)?.keys() ?? []),
-            ...(debtsByDate.get(date)?.keys() ?? []),
-            ...snapshotCurrencies,
-          ].map(code => ({
-            currency: code,
-            date,
-          })),
-        ),
+        currencyDates(computedByCode, dates, snapshotCurrencies),
         workspaceId,
       );
       series = dates.map(date => {
@@ -301,9 +269,9 @@ export class NetWorthService {
                 ? -1
                 : 0;
           if (sign === 0) continue;
-          const computed = computedByCode.get(leaf.code);
-          if (computed) {
-            value += sign * converter.convertAll(computed.get(date) ?? new Map(), date);
+          const computed = computedValue(computedByCode, converter, leaf.code, date);
+          if (computed !== null) {
+            value += sign * computed;
             continue;
           }
           const snapshot = latestOnOrBefore(snapshotsByAccount.get(leaf.id), date);

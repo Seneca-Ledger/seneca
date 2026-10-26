@@ -214,7 +214,7 @@ export class Statement {
    */
   @ManyToOne(() => Wallet, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'wallet_id' })
-  wallet: Wallet | null;
+  wallet: Relation<Wallet | null>;
 
   @Column({ name: 'wallet_id', type: 'uuid', nullable: true })
   walletId: string | null;

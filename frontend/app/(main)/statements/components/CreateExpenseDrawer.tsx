@@ -1,7 +1,5 @@
 'use client';
 
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { format, isValid, parseISO } from 'date-fns';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import StatementCategoryDrawer from '@/app/(main)/statements/[id]/edit/StatementCategoryDrawer';
 import { useExpenseForm } from '@/app/(main)/statements/components/hooks/useExpenseForm';
@@ -36,6 +34,7 @@ import {
 import { tokens } from '@/lib/theme-tokens';
 import { BudgetImpactNotice } from './BudgetImpactNotice';
 import { ExpenseAccountField } from './ExpenseAccountField';
+import { ExpenseDatePicker } from './ExpenseDatePicker';
 
 type Props = {
   open: boolean;
@@ -745,27 +744,11 @@ export default function CreateExpenseDrawer({
 
                   <DetailField id="expense-manual-date" label={t.date.value}>
                     <div className={controlClass(false)}>
-                      <DatePicker
-                        value={manualDate ? parseISO(manualDate) : null}
-                        onChange={(d: Date | null) =>
-                          setManualDate(d && isValid(d) ? format(d, 'yyyy-MM-dd') : '')
-                        }
-                        slotProps={{
-                          textField: {
-                            id: 'expense-manual-date',
-                            fullWidth: true,
-                            variant: 'standard',
-                            InputProps: { disableUnderline: true },
-                            inputProps: { 'aria-label': t.date.value },
-                            sx: {
-                              '& .MuiInputBase-input': {
-                                p: 0,
-                                fontSize: 16,
-                                color: 'var(--foreground)',
-                              },
-                            },
-                          } as never,
-                        }}
+                      <ExpenseDatePicker
+                        id="expense-manual-date"
+                        value={manualDate}
+                        onChange={setManualDate}
+                        ariaLabel={t.date.value}
                       />
                     </div>
                   </DetailField>

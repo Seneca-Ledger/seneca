@@ -62,6 +62,7 @@ import { reviewHoldsStatementRows } from '../review-inbox/review-queue.queries';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
+import { getDatePresetRange } from './statement-date-presets.util';
 import { buildStatementSearchClause } from './statement-search.util';
 
 type StatementFileAvailability = Awaited<ReturnType<FileStorageService['getFileAvailability']>>;
@@ -93,36 +94,6 @@ const APPROVED_STATUSES = [
   StatementStatus.COMPLETED,
   StatementStatus.PARSED,
 ];
-
-const toDateOnlyString = (value: Date) => {
-  const year = value.getFullYear();
-  const month = `${value.getMonth() + 1}`.padStart(2, '0');
-  const day = `${value.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getDatePresetRange = (preset: 'thisMonth' | 'lastMonth' | 'yearToDate', now: Date) => {
-  const current = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  if (preset === 'thisMonth') {
-    return {
-      dateFrom: toDateOnlyString(new Date(current.getFullYear(), current.getMonth(), 1)),
-      dateTo: toDateOnlyString(new Date(current.getFullYear(), current.getMonth() + 1, 0)),
-    };
-  }
-
-  if (preset === 'lastMonth') {
-    return {
-      dateFrom: toDateOnlyString(new Date(current.getFullYear(), current.getMonth() - 1, 1)),
-      dateTo: toDateOnlyString(new Date(current.getFullYear(), current.getMonth(), 0)),
-    };
-  }
-
-  return {
-    dateFrom: toDateOnlyString(new Date(current.getFullYear(), 0, 1)),
-    dateTo: toDateOnlyString(current),
-  };
-};
 
 const splitReferenceTokens = (tokens?: string[]) => {
   const normalizedTokens = tokens || [];

@@ -25,7 +25,6 @@ import {
   EntityType,
   RiskLevel,
   Statement,
-  StatementStatus,
   Transaction,
   Wallet,
   Workspace,
@@ -42,6 +41,12 @@ import {
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { loadPdfMake } from '../reports/report-document.util';
 import { balanceAccountName } from './balance-account-name';
+import {
+  negateSeries,
+  statementCashSeries,
+  sumSeries,
+  walletCashSeries,
+} from './balance-cash-series';
 import { DEFAULT_BALANCE_ACCOUNTS } from './balance-default-accounts';
 import { BalanceExportFormat } from './dto/export-balance.dto';
 
@@ -50,12 +55,6 @@ export const CASH_ACCOUNT_CODE = 'ASSET_CASH';
 
 /** The liability line the credit cards and loans on the Accounts page fill. */
 export const DEBTS_ACCOUNT_CODE = 'LIABILITY_ACCOUNT_DEBTS';
-
-const LIVE_STATEMENT_STATUSES = [
-  StatementStatus.PARSED,
-  StatementStatus.VALIDATED,
-  StatementStatus.COMPLETED,
-];
 
 @Injectable()
 export class BalanceService {
@@ -311,21 +310,12 @@ export class BalanceService {
         : [];
 
     const [walletSeries, statementSeries] = await Promise.all([
-      wallets.length > 0 ? this.getWalletCashSeries(workspaceId, wallets, dates) : null,
-      this.getStatementCashSeries(workspaceId, dates),
+      wallets.length > 0
+        ? walletCashSeries(this.transactionRepository, workspaceId, wallets, dates)
+        : null,
+      statementCashSeries(this.statementRepository, workspaceId, dates),
     ]);
-    if (!walletSeries) {
-      return statementSeries;
-    }
-    const series = new Map<string, CurrencyAmounts>();
-    for (const date of dates) {
-      const amounts: CurrencyAmounts = new Map(walletSeries.get(date));
-      for (const [currency, amount] of statementSeries.get(date) ?? []) {
-        addAmount(amounts, currency, amount);
-      }
-      series.set(date, amounts);
-    }
-    return series;
+    return walletSeries ? sumSeries(dates, walletSeries, statementSeries) : statementSeries;
   }
 
   /**
@@ -335,130 +325,14 @@ export class BalanceService {
   async getDebtSeries(workspaceId: string, dates: string[]): Promise<Map<string, CurrencyAmounts>> {
     const debts = await this.walletRepository.find({
       where: { workspaceId, isActive: true, type: In([...DEBT_WALLET_TYPES]) },
-      select: ['id', 'initialBalance', 'currency'],
+      select: { id: true, initialBalance: true, currency: true },
     });
     if (debts.length === 0) {
       return new Map(dates.map(date => [date, new Map()]));
     }
-    const balances = await this.getWalletCashSeries(workspaceId, debts, dates);
-    return new Map(
-      [...balances].map(([date, amounts]) => [
-        date,
-        new Map([...amounts].map(([currency, amount]) => [currency, -amount])),
-      ]),
+    return negateSeries(
+      await walletCashSeries(this.transactionRepository, workspaceId, debts, dates),
     );
-  }
-
-  private async getWalletCashSeries(
-    workspaceId: string,
-    wallets: Array<Pick<Wallet, 'id' | 'initialBalance' | 'currency'>>,
-    dates: string[],
-  ): Promise<Map<string, CurrencyAmounts>> {
-    const walletIds = wallets.map(wallet => wallet.id);
-    const to = dates[dates.length - 1];
-
-    const rows = await onlyCounted(
-      this.transactionRepository
-        .createQueryBuilder('transaction')
-        .leftJoin('transaction.statement', 'statement')
-        .select('transaction.transactionDate', 'date')
-        .addSelect('transaction.currency', 'currency')
-        .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
-        .addSelect('COALESCE(SUM(transaction.debit), 0)', 'debit')
-        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
-      'transaction',
-    )
-      .andWhere('transaction.walletId IN (:...walletIds)', { walletIds })
-      .andWhere('transaction.transactionDate <= :to', { to })
-      .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
-      .groupBy('transaction.transactionDate')
-      .addGroupBy('transaction.currency')
-      .orderBy('transaction.transactionDate', 'ASC')
-      .getRawMany<{ date: string; currency: string; credit: string; debit: string }>();
-
-    const running: CurrencyAmounts = new Map();
-    for (const wallet of wallets) {
-      addAmount(
-        running,
-        normalizeCurrencyCode(wallet.currency),
-        this.toNumber(wallet.initialBalance),
-      );
-    }
-
-    const series = new Map<string, CurrencyAmounts>();
-    let index = 0;
-    for (const date of dates) {
-      while (index < rows.length && this.toDateOnly(rows[index].date) <= date) {
-        const row = rows[index];
-        addAmount(
-          running,
-          normalizeCurrencyCode(row.currency),
-          this.toNumber(row.credit) - this.toNumber(row.debit),
-        );
-        index += 1;
-      }
-      series.set(date, new Map(running));
-    }
-    return series;
-  }
-
-  private async getStatementCashSeries(
-    workspaceId: string,
-    dates: string[],
-  ): Promise<Map<string, CurrencyAmounts>> {
-    // A statement without a closing date counts from the day it was uploaded.
-    const rows = await this.statementRepository
-      .createQueryBuilder('statement')
-      .select('statement.bankName', 'bankName')
-      .addSelect('statement.accountNumber', 'accountNumber')
-      .addSelect('statement.currency', 'currency')
-      .addSelect('statement.balanceEnd', 'balanceEnd')
-      .addSelect('COALESCE(statement.statementDateTo, DATE(statement.createdAt))', 'date')
-      .where('statement.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('statement.balanceEnd IS NOT NULL')
-      .andWhere('statement.deletedAt IS NULL')
-      .andWhere('statement.status IN (:...statuses)', { statuses: LIVE_STATEMENT_STATUSES })
-      // Held by an account: its money is in the account's balance already.
-      // Rows booked to an account by the old default-wallet guess count too.
-      .andWhere('statement.walletId IS NULL')
-      .andWhere(
-        'NOT EXISTS (SELECT 1 FROM transactions held WHERE held.statement_id = statement.id AND held.wallet_id IS NOT NULL)',
-      )
-      .orderBy('date', 'ASC')
-      .addOrderBy('statement.createdAt', 'ASC')
-      .getRawMany<{
-        bankName: string | null;
-        accountNumber: string | null;
-        currency: string | null;
-        balanceEnd: string;
-        date: string;
-      }>();
-
-    // The latest closing balance per bank account, then summed per currency.
-    const latestByAccount = new Map<string, { currency: string; balance: number }>();
-    const series = new Map<string, CurrencyAmounts>();
-    let index = 0;
-    for (const date of dates) {
-      while (index < rows.length && this.toDateOnly(rows[index].date) <= date) {
-        const row = rows[index];
-        const currency = normalizeCurrencyCode(row.currency);
-        latestByAccount.set(`${row.bankName ?? ''}|${row.accountNumber ?? ''}|${currency}`, {
-          currency,
-          balance: this.toNumber(row.balanceEnd),
-        });
-        index += 1;
-      }
-      const amounts: CurrencyAmounts = new Map();
-      for (const { currency, balance } of latestByAccount.values()) {
-        addAmount(amounts, currency, balance);
-      }
-      series.set(date, amounts);
-    }
-    return series;
-  }
-
-  private toDateOnly(value: string | Date): string {
-    return new Date(value).toISOString().split('T')[0];
   }
 
   /**
