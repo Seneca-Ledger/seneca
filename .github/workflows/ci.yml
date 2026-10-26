@@ -221,6 +221,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # The file-size check compares the branch with its merge base.
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -258,6 +260,18 @@ jobs:
         run: |
           node scripts/sync-contracts.mjs --check
           node --test scripts/sync-contracts.test.mjs
+
+      # Same rule as the pre-commit hook, which --no-verify skips: no source file over
+      # 300 lines of code is added, and none already over it grows.
+      - name: File size
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          node --test scripts/check-file-size.test.mjs
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            node scripts/check-file-size.mjs --base "origin/$BASE_REF"
+          fi
 
   # Deliberately not behind `lint`. Everything downstream used to wait on it, so a
   # single misformatted line skipped typecheck, tests and build and reported one
