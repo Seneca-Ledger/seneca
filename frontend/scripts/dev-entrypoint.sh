@@ -6,7 +6,7 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-# Native modules (bcrypt, sharp, onnxruntime) are built for one Node ABI, so a
+# Native modules (bcrypt, sharp) are built for one Node ABI, so a
 # Node upgrade in the image must refresh the volume just like a lockfile change.
 want="$(md5sum package-lock.json) $(node -v)"
 have=$(cat node_modules/.lockfile-hash 2>/dev/null || true)

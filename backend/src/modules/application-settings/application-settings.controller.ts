@@ -1,95 +1,25 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Post,
-  Put,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
+import { Controller, Delete, Get, Put, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { InstanceAdminGuard } from '../../common/guards/instance-admin.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import {
   IntegrationConnection,
   IntegrationDisconnected,
-  LocalCategorizationStatus,
-  LocalCategorizationTestResult,
   SaveAppSettingsBody,
-  SaveLocalCategorizationBody,
   SaveSmtpSettingsBody,
   SaveTelegramSettingsBody,
   TelegramBotStatus,
-  TestLocalCategorizationBody,
 } from '../../contracts';
 import { User, WorkspaceServiceSettingsKey } from '../../entities';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApplicationSettingsService } from './application-settings.service';
 
-type UploadedModelArchive = {
-  originalname?: string;
-  buffer?: Buffer;
-};
-
 @Controller('settings')
 export class ApplicationSettingsController {
   constructor(private readonly applicationSettingsService: ApplicationSettingsService) {}
-
-  @Get('local-categorization')
-  @UseGuards(WorkspaceContextGuard)
-  @SchemaResponse(LocalCategorizationStatus)
-  getLocalCategorization(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
-    return this.applicationSettingsService.getLocalCategorizationStatus(user, workspaceId);
-  }
-
-  @Put('local-categorization')
-  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  @SchemaResponse(LocalCategorizationStatus)
-  saveLocalCategorization(
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-    @SchemaBody(SaveLocalCategorizationBody) body: SaveLocalCategorizationBody,
-  ) {
-    return this.applicationSettingsService.saveLocalCategorizationSettings(user, body, workspaceId);
-  }
-
-  @Post('local-categorization/test')
-  @UseGuards(WorkspaceContextGuard)
-  @SchemaResponse(LocalCategorizationTestResult)
-  testLocalCategorization(
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-    @SchemaBody(TestLocalCategorizationBody) body: TestLocalCategorizationBody,
-  ) {
-    return this.applicationSettingsService.testLocalCategorization(user, body, workspaceId);
-  }
-
-  @Post('local-categorization/model')
-  @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
-  // The model root is shared by the whole server: replacing a model there
-  // changes it for every workspace, so it is an instance admin's call.
-  @UseGuards(InstanceAdminGuard)
-  @SchemaResponse(LocalCategorizationStatus)
-  @UseInterceptors(
-    FileInterceptor('model', {
-      storage: memoryStorage(),
-      limits: { fileSize: 500 * 1024 * 1024 },
-    }),
-  )
-  uploadLocalCategorizationModel(
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-    @UploadedFile() file: UploadedModelArchive | undefined,
-  ) {
-    return this.applicationSettingsService.installLocalCategorizationModel(user, file, workspaceId);
-  }
 
   @Get('email/smtp')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)

@@ -1,5 +1,4 @@
 import type { Mock } from 'vitest';
-import AdmZip from 'adm-zip';
 import * as nodemailerModule from 'nodemailer';
 vi.mock('nodemailer', () => {
   const mock = {
@@ -20,27 +19,9 @@ vi.mock('../../../../src/common/utils/egress-url.util', () => ({
   })),
 }));
 
-const mockCategorize = vi.fn();
-const mockGetModelLoadError = vi.fn();
-const mockTransactionCategorizerConstructor = vi.fn();
-
-vi.mock('../../../../src/modules/classification/helpers/transaction-categorizer', () => ({
-  // Built with `new`: a mock constructor must be a function, not an arrow.
-  TransactionCategorizer: vi.fn().mockImplementation(function (options) {
-    mockTransactionCategorizerConstructor(options);
-    return {
-      categorize: mockCategorize,
-      getModelLoadError: mockGetModelLoadError,
-    };
-  }),
-}));
-
 import { ApplicationSettingsService } from '../../../../src/modules/application-settings/application-settings.service';
 import { WorkspaceServiceSettingsKey } from '../../../../src/entities';
 import { assertPublicEgressHost } from '../../../../src/common/utils/egress-url.util';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { EffectRuntime } from '@/common/effect/effect-runtime';
 import { encryptText } from '@/common/utils/encryption.util';
 import { APP_NAME } from '../../../../src/common/brand';
@@ -87,9 +68,6 @@ describe('ApplicationSettingsService', () => {
     repository.create.mockImplementation(input => input);
     repository.save.mockClear();
     repository.delete.mockClear();
-    mockCategorize.mockReset();
-    mockGetModelLoadError.mockReset();
-    mockTransactionCategorizerConstructor.mockClear();
     (assertPublicEgressHost as Mock).mockResolvedValue(undefined);
     (assertPublicEgressHost as Mock).mockClear();
     Object.keys(saved).forEach(key => delete saved[key]);
@@ -411,82 +389,5 @@ describe('ApplicationSettingsService', () => {
       workspaceId: 'workspace-1',
       key: WorkspaceServiceSettingsKey.TELEGRAM,
     });
-  });
-
-  it('saves local categorization settings without requiring a manual model path', async () => {
-    const result = await createService().saveLocalCategorizationSettings(user, {
-      enabled: true,
-      modelId: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-      threshold: 0.42,
-    });
-
-    expect(result.connected).toBe(false);
-    expect(result.settings).toMatchObject({
-      enabled: true,
-      modelId: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
-      threshold: 0.42,
-      modelInstalled: false,
-    });
-    expect(saved[WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION]).toMatchObject({
-      workspaceId: 'workspace-1',
-      key: WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
-    });
-  });
-
-  // A path saved through the API (before it was refused) must not steer the
-  // loader or the installed-model probe anywhere outside the model root.
-  it('loads the model from the model root, never from a stored path', async () => {
-    process.env.LOCAL_CATEGORIZATION_MODEL_ROOT = '/srv/seneca-models';
-    saved[WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION] = {
-      workspaceId: 'workspace-1',
-      key: WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
-      config: { enabled: true, threshold: 0.35, localModelPath: '/etc' },
-      encryptedSecrets: {},
-    };
-    mockCategorize.mockResolvedValue('Продукты');
-    mockGetModelLoadError.mockReturnValue(null);
-
-    const result = await createService().testLocalCategorization(user, {
-      merchantName: 'Fresh Market',
-      categories: ['Продукты', 'Транспорт'],
-    });
-
-    expect(result).toEqual({
-      ready: true,
-      merchantName: 'Fresh Market',
-      category: 'Продукты',
-      modelLoadError: null,
-    });
-    expect(mockTransactionCategorizerConstructor).toHaveBeenCalledWith(
-      expect.objectContaining({
-        categories: ['Продукты', 'Транспорт'],
-        threshold: 0.35,
-        allowRemoteModels: false,
-        localModelPath: '/srv/seneca-models',
-      }),
-    );
-    const status = await createService().getLocalCategorizationStatus(user);
-    expect(status.settings.localModelPath).toBe('/srv/seneca-models');
-  });
-
-  it('installs a local categorization model archive into workspace storage', async () => {
-    const tempRoot = mkdtempSync(path.join(tmpdir(), 'seneca-model-test-'));
-    process.env.LOCAL_CATEGORIZATION_MODEL_ROOT = tempRoot;
-
-    const zip = new AdmZip();
-    zip.addFile('model/config.json', Buffer.from('{}'));
-    zip.addFile('model/tokenizer.json', Buffer.from('{}'));
-    zip.addFile('model/onnx/model_quantized.onnx', Buffer.from('fake-onnx'));
-
-    const result = await createService().installLocalCategorizationModel(user, {
-      originalname: 'model.zip',
-      buffer: zip.toBuffer(),
-    } as never);
-
-    expect(result.connected).toBe(true);
-    expect(result.settings.modelInstalled).toBe(true);
-    expect(result.settings.localModelPath).toBe(tempRoot);
-
-    rmSync(tempRoot, { recursive: true, force: true });
   });
 });

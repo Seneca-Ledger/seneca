@@ -605,7 +605,7 @@ Endpoints and hosts saved in the UI must resolve to public addresses: the egress
 <details>
 <summary><b>Categorization & Generic PDF Parsing</b></summary>
 
-Seneca never contacts an external AI model. Categories come from your rules first, then from payee history (a payee's default moves only when two of its three most recent confirmed rows agree); anything left stays uncategorised in Review. **Integrations → Local categorization** can install a Transformers.js embedding model on the server from an uploaded ZIP; remote model loading stays disabled. PDFs from banks without a native parser go through `GenericPdfParser`, which reads the transaction tables from the PDF text layer.
+Seneca never contacts an external AI model. Categories come from your rules first, then from payee history (a payee's default moves only when two of its three most recent confirmed rows agree); anything left stays uncategorised in Review. PDFs from banks without a native parser go through `GenericPdfParser`, which reads the transaction tables from the PDF text layer.
 </details>
 
 <details>
