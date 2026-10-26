@@ -6,10 +6,7 @@ import {
   Delete,
   Get,
   NotFoundException,
-  Param,
-  ParseUUIDPipe,
   Post,
-  Query,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -20,6 +17,7 @@ import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
@@ -28,11 +26,18 @@ import { multerConfig } from '../../config/multer.config';
 import {
   ConnectCryptoWalletBody,
   CryptoGains,
+  CryptoGainsQuery,
   CryptoHistory,
+  CryptoHistoryQuery,
+  CryptoHoldingParams,
+  CryptoIconParams,
   CryptoNetworkList,
   CryptoSummary,
+  CryptoSummaryQuery,
   CryptoTransactionList,
+  CryptoTransactionsQuery,
   CryptoWalletList,
+  CryptoWalletParams,
   ManualHoldingBody,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
@@ -57,7 +62,7 @@ export class CryptoController {
    */
   @Get('icon/:asset')
   @SkipThrottle()
-  async getIcon(@Param('asset') asset: string, @Res() res: Response) {
+  async getIcon(@SchemaParams(CryptoIconParams) { asset }: CryptoIconParams, @Res() res: Response) {
     const icon = await this.iconsService.fetchIcon(asset);
     if (icon.status === 'invalid') {
       throw new BadRequestException(appError('CRYPTO_TICKER_INVALID'));
@@ -96,38 +101,29 @@ export class CryptoController {
   @SchemaResponse(CryptoSummary)
   async getSummary(
     @WorkspaceId() workspaceId: string,
-    @Query('days') days?: string,
-    @Query('month') month?: string,
+    @SchemaQuery(CryptoSummaryQuery) query: CryptoSummaryQuery,
   ) {
-    const parsed = Number.parseInt(days ?? '', 10);
-    return this.cryptoService.getSummary(
-      workspaceId,
-      Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 365) : 30,
-      // Anything but a real YYYY-MM falls back to the rolling window.
-      month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : undefined,
-    );
+    return this.cryptoService.getSummary(workspaceId, Math.min(query.days ?? 30, 365), query.month);
   }
 
   @Get('transactions')
   @WorkspaceAuth(Permission.WALLET_VIEW)
   @SchemaResponse(CryptoTransactionList)
-  async getRecentTransactions(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
-    const parsed = Number.parseInt(limit ?? '', 10);
-    return this.cryptoService.getRecentTransactions(
-      workspaceId,
-      Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : 20,
-    );
+  async getRecentTransactions(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CryptoTransactionsQuery) query: CryptoTransactionsQuery,
+  ) {
+    return this.cryptoService.getRecentTransactions(workspaceId, Math.min(query.limit ?? 20, 100));
   }
 
   @Get('history')
   @WorkspaceAuth(Permission.WALLET_VIEW)
   @SchemaResponse(CryptoHistory)
-  async getHistory(@WorkspaceId() workspaceId: string, @Query('days') days?: string) {
-    const parsed = Number.parseInt(days ?? '', 10);
-    return this.cryptoService.getHistory(
-      workspaceId,
-      Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 1825) : 90,
-    );
+  async getHistory(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CryptoHistoryQuery) query: CryptoHistoryQuery,
+  ) {
+    return this.cryptoService.getHistory(workspaceId, Math.min(query.days ?? 90, 1825));
   }
 
   /**
@@ -137,13 +133,11 @@ export class CryptoController {
   @Get('gains')
   @WorkspaceAuth(Permission.WALLET_VIEW)
   @SchemaResponse(CryptoGains)
-  async getGains(@WorkspaceId() workspaceId: string, @Query('year') year?: string) {
-    const parsed = Number.parseInt(year ?? '', 10);
-    const valid = Number.isFinite(parsed) && parsed >= 2009 && parsed <= 2100;
-    return this.cryptoService.getGains(
-      workspaceId,
-      valid ? { from: `${parsed}-01-01`, to: `${parsed}-12-31` } : {},
-    );
+  async getGains(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CryptoGainsQuery) query: CryptoGainsQuery,
+  ) {
+    return this.cryptoService.getGains(workspaceId, yearRange(query.year));
   }
 
   /**
@@ -152,13 +146,11 @@ export class CryptoController {
    */
   @Get('gains/by-owner')
   @WorkspaceAuth(Permission.WALLET_VIEW)
-  async getGainsByOwner(@WorkspaceId() workspaceId: string, @Query('year') year?: string) {
-    const parsed = Number.parseInt(year ?? '', 10);
-    const valid = Number.isFinite(parsed) && parsed >= 2009 && parsed <= 2100;
-    return this.cryptoService.getGainsByOwner(
-      workspaceId,
-      valid ? { from: `${parsed}-01-01`, to: `${parsed}-12-31` } : {},
-    );
+  async getGainsByOwner(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CryptoGainsQuery) query: CryptoGainsQuery,
+  ) {
+    return this.cryptoService.getGainsByOwner(workspaceId, yearRange(query.year));
   }
 
   @Post('holdings')
@@ -174,7 +166,7 @@ export class CryptoController {
   @Delete('holdings/:asset')
   @WorkspaceAuth(Permission.WALLET_DELETE)
   async removeHolding(
-    @Param('asset') asset: string,
+    @SchemaParams(CryptoHoldingParams) { asset }: CryptoHoldingParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -225,7 +217,7 @@ export class CryptoController {
   @Throttle({ default: { limit: 6, ttl: 60000 } })
   @WorkspaceAuth(Permission.WALLET_EDIT)
   async sync(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(CryptoWalletParams) { id }: CryptoWalletParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -235,7 +227,7 @@ export class CryptoController {
   @Delete('wallets/:id')
   @WorkspaceAuth(Permission.WALLET_DELETE)
   async remove(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(CryptoWalletParams) { id }: CryptoWalletParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -248,4 +240,9 @@ export class CryptoController {
 function uploadedPath(file: unknown): string | null {
   const path = (file as { path?: unknown } | null)?.path;
   return typeof path === 'string' && path.length > 0 ? resolveInUploadsDir(path) : null;
+}
+
+/** One calendar year, or no bounds (the whole history). */
+function yearRange(year: number | undefined): { from?: string; to?: string } {
+  return year === undefined ? {} : { from: `${year}-01-01`, to: `${year}-12-31` };
 }

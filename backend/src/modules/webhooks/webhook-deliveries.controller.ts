@@ -1,8 +1,10 @@
-import { Controller, Param, Post } from '@nestjs/common';
+import { Controller, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
+import { WebhookIdParams } from '../../contracts';
 import { WebhookDeliveryService } from './services/webhook-delivery.service';
 
 @ApiTags('Webhook Deliveries')
@@ -12,7 +14,10 @@ export class WebhookDeliveriesController {
 
   @Post(':id/retry')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
-  async retry(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async retry(
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     await this.deliveryService.findOneScoped(id, workspaceId);
     await this.deliveryService.resetForRetry(id);
     return { success: true };

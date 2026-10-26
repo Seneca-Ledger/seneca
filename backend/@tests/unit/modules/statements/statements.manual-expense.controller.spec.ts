@@ -66,7 +66,7 @@ describe('StatementsController manual expense', () => {
       path: '/tmp/receipt.pdf',
     } as Express.Multer.File;
 
-    const result = await controller.attachFile('statement-1', file, user, workspaceId);
+    const result = await controller.attachFile({ id: 'statement-1' }, file, user, workspaceId);
 
     expect(statementsService.attachFile).toHaveBeenCalledWith(
       'statement-1',

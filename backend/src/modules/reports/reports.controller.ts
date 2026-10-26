@@ -1,23 +1,11 @@
-import {
-  Controller,
-  DefaultValuePipe,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Post,
-  Query,
-  Res,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post, Res, UseInterceptors } from '@nestjs/common';
 import type { Response } from 'express';
 import * as fs from 'fs';
 import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -34,14 +22,19 @@ import {
   CustomTablesReportDrillDown,
   CustomTablesReportDrillDownBody,
   CustomTablesSummaryBody,
+  DailyReportQuery,
   ExportReportBody,
   GenerateReportBody,
+  MonthlyReportQuery,
   ReportHistoryList,
+  ReportHistoryParams,
   ReportPreview,
   ReportScheduleList,
+  ReportScheduleParams,
   SpendFlow,
   SpendFlowQuery,
   SpendOverTimeQuery,
+  StatementsSummaryQuery,
   TopCategoriesQuery,
   UpdateReportScheduleActiveBody,
   WorkspaceExportBody,
@@ -87,9 +80,10 @@ export class ReportsController {
   async getStatementsSummary(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('days', new DefaultValuePipe(30), ParseIntPipe) days?: number,
+    @SchemaQuery(StatementsSummaryQuery) query: StatementsSummaryQuery,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
+    const days = query.days ?? 30;
     return this.reportsService.getStatementsSummary(workspaceId, days, selfMemberId ?? null);
   }
 
@@ -204,7 +198,7 @@ export class ReportsController {
   async getDailyReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('date') date?: string,
+    @SchemaQuery(DailyReportQuery) { date }: DailyReportQuery,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     const reportDate =
@@ -225,16 +219,13 @@ export class ReportsController {
   async getMonthlyReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('year') year?: string,
-    @Query('month') month?: string,
+    @SchemaQuery(MonthlyReportQuery) { year, month }: MonthlyReportQuery,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
     const latest = await this.reportsService.getLatestTransactionPeriod(workspaceId);
     const currentDate = new Date();
-    const reportYear = year ? Number.parseInt(year, 10) : latest.year || currentDate.getFullYear();
-    const reportMonth = month
-      ? Number.parseInt(month, 10)
-      : latest.month || currentDate.getMonth() + 1;
+    const reportYear = year ?? (latest.year || currentDate.getFullYear());
+    const reportMonth = month ?? (latest.month || currentDate.getMonth() + 1);
     return this.reportsService.generateMonthlyReport(
       workspaceId,
       reportYear,
@@ -385,7 +376,7 @@ export class ReportsController {
   async downloadHistoryReport(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('reportId') reportId: string,
+    @SchemaParams(ReportHistoryParams) { reportId }: ReportHistoryParams,
     @Res() res: Response,
   ) {
     const { filePath, fileName, contentType } = await this.reportsService.downloadHistoryReport(
@@ -420,7 +411,7 @@ export class ReportsController {
   async updateScheduleActive(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('scheduleId') scheduleId: string,
+    @SchemaParams(ReportScheduleParams) { scheduleId }: ReportScheduleParams,
     @SchemaBody(UpdateReportScheduleActiveBody) dto: UpdateReportScheduleActiveBody,
   ) {
     return this.reportSchedules.setActive(workspaceId, scheduleId, dto.isActive);
@@ -431,7 +422,7 @@ export class ReportsController {
   async deleteSchedule(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('scheduleId') scheduleId: string,
+    @SchemaParams(ReportScheduleParams) { scheduleId }: ReportScheduleParams,
   ) {
     await this.reportSchedules.remove(workspaceId, scheduleId);
     return { success: true };

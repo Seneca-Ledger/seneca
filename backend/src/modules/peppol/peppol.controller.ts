@@ -1,11 +1,18 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Res } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { PeppolLookupBody, SavePeppolSettingsBody } from '../../contracts';
+import {
+  CreditNoteParams,
+  InvoiceParams,
+  PeppolLookupBody,
+  PeppolTransmissionParams,
+  SavePeppolSettingsBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
@@ -61,7 +68,7 @@ export class PeppolController {
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, isUndoable: false })
   sendInvoice(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -71,7 +78,7 @@ export class PeppolController {
   @Get('invoices/:id/peppol')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   invoiceTransmissions(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.peppol.transmissionsFor(workspaceId, 'invoice', id);
@@ -81,7 +88,7 @@ export class PeppolController {
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, isUndoable: false })
   sendCreditNote(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CreditNoteParams) { id }: CreditNoteParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -91,7 +98,7 @@ export class PeppolController {
   @Get('credit-notes/:id/peppol')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   creditNoteTransmissions(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CreditNoteParams) { id }: CreditNoteParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.peppol.transmissionsFor(workspaceId, 'credit_note', id);
@@ -101,7 +108,7 @@ export class PeppolController {
   @Get('peppol/transmissions/:id/document')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
   async sentDocument(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PeppolTransmissionParams) { id }: PeppolTransmissionParams,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
   ) {

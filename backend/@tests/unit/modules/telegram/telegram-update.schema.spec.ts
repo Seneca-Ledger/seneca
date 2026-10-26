@@ -1,4 +1,6 @@
 import { Exit } from 'effect';
+import { EffectSchemaQueryPipe } from '@/common/effect/schema-query';
+import { TelegramBotWebhookParams } from '@/contracts';
 import { decodeTelegramUpdate } from '@/modules/telegram/telegram-update.schema';
 import { TelegramWebhookController } from '@/modules/telegram/telegram-webhook.controller';
 
@@ -77,11 +79,17 @@ describe('TelegramWebhookController', () => {
     const bots = { tokenOf: vi.fn(() => '123:secret') };
     const perBot = new TelegramWebhookController({ handleUpdate } as never, bots as never);
 
-    await expect(perBot.handleBotUpdate('123', { update_id: 3, message: { text: '/help' } })).resolves.toEqual({
+    await expect(perBot.handleBotUpdate({ botId: '123' }, { update_id: 3, message: { text: '/help' } })).resolves.toEqual({
       ok: true,
     });
     expect(bots.tokenOf).toHaveBeenCalledWith('123');
     expect(handleUpdate).toHaveBeenCalledWith({ update_id: 3, message: { text: '/help' } }, '123:secret');
+  });
+
+  it('takes the bot id from the path exactly as the webhook was set', () => {
+    // The path TelegramBotsService registers is the token's numeric bot id; nothing narrower is assumed.
+    const params = new EffectSchemaQueryPipe(TelegramBotWebhookParams, 'route parameters');
+    expect(params.transform({ botId: '123456789' })).toEqual({ botId: '123456789' });
   });
 
   it('answers 200 to a malformed update and drops it, so Telegram does not retry', async () => {

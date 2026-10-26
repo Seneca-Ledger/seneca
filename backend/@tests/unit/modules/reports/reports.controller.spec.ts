@@ -30,7 +30,9 @@ describe('ReportsController', () => {
     const controller = new ReportsController(reportsService as any);
     const workspaceId = 'ws-1';
 
-    const result = await controller.getDailyReport({ id: 'u1' } as any, workspaceId, 'latest');
+    const result = await controller.getDailyReport({ id: 'u1' } as any, workspaceId, {
+      date: 'latest',
+    });
 
     expect(result).toEqual({ day: 'ok' });
     expect(reportsService.generateDailyReport).toHaveBeenCalledWith(workspaceId, '2025-01-02', null);
@@ -146,7 +148,7 @@ describe('ReportsController', () => {
     await (controller as any).downloadHistoryReport(
       { id: 'u1' } as any,
       workspaceId,
-      'report-1',
+      { reportId: 'report-1' },
       res,
     );
 

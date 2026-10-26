@@ -1,8 +1,8 @@
-import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
@@ -11,6 +11,7 @@ import {
   BudgetImpactQuery,
   BudgetList,
   BudgetListQuery,
+  BudgetParams,
   CreateBudgetBody,
   StoicBalance,
   UpdateBudgetBody,
@@ -72,14 +73,17 @@ export class BudgetsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.BUDGET_VIEW)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async findOne(
+    @SchemaParams(BudgetParams) { id }: BudgetParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.budgetsService.findOne(id, workspaceId);
   }
 
   @Put(':id')
   @WorkspaceAuth(Permission.BUDGET_EDIT)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(BudgetParams) { id }: BudgetParams,
     @SchemaBody(UpdateBudgetBody) updateDto: UpdateBudgetBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -90,7 +94,7 @@ export class BudgetsController {
   @Delete(':id')
   @WorkspaceAuth(Permission.BUDGET_DELETE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(BudgetParams) { id }: BudgetParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

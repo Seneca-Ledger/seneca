@@ -49,19 +49,19 @@ describe('PayablesController', () => {
       limit: 20,
     });
     expect(await controller.getSummary(workspaceId, {})).toEqual({ toPay: 100 });
-    expect(await controller.findOne('p1', workspaceId)).toEqual({ id: 'p1' });
-    expect(await controller.update('p1', { vendor: 'New' } as any, user, workspaceId)).toEqual({
+    expect(await controller.findOne({ id: 'p1' }, workspaceId)).toEqual({ id: 'p1' });
+    expect(await controller.update({ id: 'p1' }, { vendor: 'New' } as any, user, workspaceId)).toEqual({
       id: 'p1',
       vendor: 'New',
     });
     expect(
-      await controller.markAsPaid('p1', { linkedTransactionId: 'tx-1' } as any, user, workspaceId),
+      await controller.markAsPaid({ id: 'p1' }, { linkedTransactionId: 'tx-1' } as any, user, workspaceId),
     ).toEqual({ id: 'p1', status: PayableStatus.PAID });
-    expect(await controller.archive('p1', user, workspaceId)).toEqual({
+    expect(await controller.archive({ id: 'p1' }, user, workspaceId)).toEqual({
       id: 'p1',
       status: PayableStatus.ARCHIVED,
     });
-    expect(await controller.remove('p1', user, workspaceId)).toEqual({
+    expect(await controller.remove({ id: 'p1' }, user, workspaceId)).toEqual({
       message: 'Payable deleted successfully',
     });
     await controller.export({ format: ExportFormat.CSV } as any, workspaceId, res);

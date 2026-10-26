@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Put, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -15,6 +16,7 @@ import {
   SetVatFilingBody,
   SetVatStatusBody,
   TaxRateList,
+  TaxRatesOnDateQuery,
   TaxReassessment,
   TaxReserve,
   TaxReserveSettings,
@@ -152,8 +154,11 @@ export class WorkspaceTaxController {
   @Get('rates')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
   @SchemaResponse(TaxRateList)
-  async getRatesInForce(@WorkspaceId() workspaceId: string, @Query('date') date?: string) {
-    return this.taxRatesService.findEnabledForDate(workspaceId, date ?? new Date());
+  async getRatesInForce(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(TaxRatesOnDateQuery) query: TaxRatesOnDateQuery,
+  ) {
+    return this.taxRatesService.findEnabledForDate(workspaceId, query.date ?? new Date());
   }
 
   /**

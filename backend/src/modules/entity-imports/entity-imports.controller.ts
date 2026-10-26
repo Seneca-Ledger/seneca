@@ -1,12 +1,14 @@
-import { Controller, Delete, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiKeyAllowed } from '../../common/decorators/api-key-allowed.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
 import {
+  EntityImportBatchParams,
   EntityImportResult,
   ImportSuggestion,
   RunEntityImportBody,
@@ -51,7 +53,7 @@ export class EntityImportsController {
   undo(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('batchId', new ParseUUIDPipe()) batchId: string,
+    @SchemaParams(EntityImportBatchParams) { batchId }: EntityImportBatchParams,
     @Req() req: AuthenticatedRequest,
   ) {
     return this.entityImport.undo(user.id, workspaceId, batchId, req.apiKey);

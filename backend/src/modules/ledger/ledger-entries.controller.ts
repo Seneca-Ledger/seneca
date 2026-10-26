@@ -1,18 +1,8 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Headers,
-  HttpCode,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Headers, HttpCode, Patch, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { IdempotencyService } from '../../common/services/idempotency.service';
@@ -22,6 +12,7 @@ import {
   JournalEntriesQuery,
   JournalEntryDetail,
   JournalEntryPage,
+  LedgerRecordParams,
   ReverseJournalEntryBody,
   UpdateJournalEntryBody,
 } from '../../contracts';
@@ -61,7 +52,7 @@ export class LedgerEntriesController {
   @SchemaResponse(JournalEntryDetail)
   async findOne(
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.findOne(workspaceId, id);
   }
@@ -98,7 +89,7 @@ export class LedgerEntriesController {
   @SchemaResponse(JournalEntryDetail)
   async update(
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
     @SchemaBody(UpdateJournalEntryBody) dto: UpdateJournalEntryBody,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.updateDraft(workspaceId, id, dto);
@@ -107,7 +98,10 @@ export class LedgerEntriesController {
   @Delete(':id')
   @WorkspaceAuth(Permission.LEDGER_POST)
   @Audit({ entityType: EntityType.JOURNAL_ENTRY })
-  async remove(@WorkspaceId() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
+  ) {
     await this.entriesService.removeDraft(workspaceId, id);
     return deletedResponse('Journal entry');
   }
@@ -120,7 +114,7 @@ export class LedgerEntriesController {
   async post(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.post(workspaceId, id, user.id);
   }
@@ -133,7 +127,7 @@ export class LedgerEntriesController {
   async reverse(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
     @SchemaBody(ReverseJournalEntryBody) dto: ReverseJournalEntryBody,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.reverse(workspaceId, id, user.id, dto);

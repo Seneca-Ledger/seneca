@@ -1,10 +1,11 @@
-import { Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { ConfirmReconciliationBody, ReconciliationResponse } from '../../contracts';
+import { ConfirmReconciliationBody, InvoiceParams, ReconciliationResponse } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SmbService } from './smb.service';
@@ -57,7 +58,7 @@ export class InvoiceRemindersController {
   async remind(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Param('id') id: string,
+    @SchemaParams(InvoiceParams) { id }: InvoiceParams,
   ) {
     return this.smbService.sendInvoiceReminder(workspaceId, user, id);
   }

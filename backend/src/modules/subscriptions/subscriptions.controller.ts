@@ -4,19 +4,18 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Patch,
   Post,
   Put,
-  Query,
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import {
@@ -26,15 +25,20 @@ import {
   LinkSubscriptionChargeBody,
   RecordSubscriptionChargeBody,
   RecordSubscriptionDecisionBody,
+  SubscriptionBusinessReportQuery,
   SubscriptionChargeCalendar,
   SubscriptionChargeCandidates,
   SubscriptionChargeCandidatesQuery,
+  SubscriptionChargeParams,
   SubscriptionChargeRow,
   SubscriptionDetail,
   SubscriptionDuplicateGroups,
   SubscriptionList,
   SubscriptionMonthStatus,
+  SubscriptionParams,
   SubscriptionSummary,
+  SubscriptionsQuery,
+  UpcomingSubscriptionsQuery,
   UpdateSubscriptionBody,
 } from '../../contracts';
 import { SubscriptionStatus } from '../../entities/subscription.entity';
@@ -49,8 +53,11 @@ export class SubscriptionsController {
   @Get()
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
   @SchemaResponse(SubscriptionList)
-  async findAll(@WorkspaceId() workspaceId: string, @Query('status') status?: SubscriptionStatus) {
-    return this.subscriptionsService.findAll(workspaceId, status);
+  async findAll(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(SubscriptionsQuery) query: SubscriptionsQuery,
+  ) {
+    return this.subscriptionsService.findAll(workspaceId, toEnum(SubscriptionStatus, query.status));
   }
 
   @Get('summary')
@@ -90,8 +97,11 @@ export class SubscriptionsController {
 
   @Get('upcoming')
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
-  async getUpcoming(@WorkspaceId() workspaceId: string, @Query('days') days?: string) {
-    return this.subscriptionsService.getUpcoming(workspaceId, days ? Number.parseInt(days, 10) : 7);
+  async getUpcoming(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(UpcomingSubscriptionsQuery) query: UpcomingSubscriptionsQuery,
+  ) {
+    return this.subscriptionsService.getUpcoming(workspaceId, query.days ?? 7);
   }
 
   /** Active subscriptions with owner and monthly cost; `format=csv` for a spreadsheet. */
@@ -99,11 +109,11 @@ export class SubscriptionsController {
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
   async businessReport(
     @WorkspaceId() workspaceId: string,
-    @Query('format') format: string,
+    @SchemaQuery(SubscriptionBusinessReportQuery) query: SubscriptionBusinessReportQuery,
     @Res({ passthrough: true }) res: Response,
   ) {
     const report = await this.subscriptionsService.getBusinessReport(workspaceId);
-    if (format !== 'csv') {
+    if (query.format !== 'csv') {
       return report;
     }
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -154,7 +164,10 @@ export class SubscriptionsController {
   @Post(':id/usage')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
-  async recordUsage(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async recordUsage(
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.subscriptionsService.recordUsage(id, workspaceId);
   }
 
@@ -162,7 +175,7 @@ export class SubscriptionsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async createSinkingFund(
-    @Param('id') id: string,
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -173,7 +186,7 @@ export class SubscriptionsController {
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   @SchemaResponse(SubscriptionChargeRow)
   async recordCharge(
-    @Param('id') id: string,
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @SchemaBody(RecordSubscriptionChargeBody) dto: RecordSubscriptionChargeBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
@@ -185,8 +198,7 @@ export class SubscriptionsController {
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   @SchemaResponse(SubscriptionChargeRow)
   async linkCharge(
-    @Param('id') id: string,
-    @Param('chargeId') chargeId: string,
+    @SchemaParams(SubscriptionChargeParams) { id, chargeId }: SubscriptionChargeParams,
     @SchemaBody(LinkSubscriptionChargeBody) dto: LinkSubscriptionChargeBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
@@ -197,8 +209,7 @@ export class SubscriptionsController {
   @Delete(':id/charges/:chargeId')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async removeCharge(
-    @Param('id') id: string,
-    @Param('chargeId') chargeId: string,
+    @SchemaParams(SubscriptionChargeParams) { id, chargeId }: SubscriptionChargeParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -208,7 +219,10 @@ export class SubscriptionsController {
   @Get(':id')
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
   @SchemaResponse(SubscriptionDetail)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async findOne(
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.subscriptionsService.getDetails(id, workspaceId);
   }
 
@@ -225,7 +239,7 @@ export class SubscriptionsController {
   @Put(':id')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @SchemaBody(UpdateSubscriptionBody) dto: UpdateSubscriptionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
@@ -236,7 +250,7 @@ export class SubscriptionsController {
   @Patch(':id/owner')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async assignOwner(
-    @Param('id') id: string,
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @SchemaBody(AssignSubscriptionOwnerBody) dto: AssignSubscriptionOwnerBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
@@ -247,7 +261,7 @@ export class SubscriptionsController {
   @Post(':id/decisions')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async recordDecision(
-    @Param('id') id: string,
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @SchemaBody(RecordSubscriptionDecisionBody) dto: RecordSubscriptionDecisionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
@@ -258,7 +272,7 @@ export class SubscriptionsController {
   @Post(':id/confirm')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async confirm(
-    @Param('id') id: string,
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -268,7 +282,7 @@ export class SubscriptionsController {
   @Post(':id/dismiss')
   @WorkspaceAuth(Permission.SUBSCRIPTION_EDIT)
   async dismiss(
-    @Param('id') id: string,
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -278,7 +292,7 @@ export class SubscriptionsController {
   @Delete(':id')
   @WorkspaceAuth(Permission.SUBSCRIPTION_DELETE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(SubscriptionParams) { id }: SubscriptionParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

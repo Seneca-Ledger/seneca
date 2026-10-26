@@ -7,10 +7,8 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
-  Param,
   Patch,
   Post,
-  Query,
   Res,
   UploadedFile,
   UploadedFiles,
@@ -23,7 +21,7 @@ import { APP_SLUG } from '../../common/brand';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
@@ -44,9 +42,13 @@ import { multerConfig } from '../../config/multer.config';
 import {
   ConvertDroppedSampleBody,
   CreateManualExpenseBody,
+  DeleteStatementQuery,
+  ReprocessStatementQuery,
   StatementDetail,
   StatementListPage,
+  StatementParams,
   StatementsQuery,
+  StatementThumbnailQuery,
   UpdateStatementBody,
   UpdateStatementStageBody,
   UploadReceiptScanBody,
@@ -203,7 +205,7 @@ export class StatementsController {
   @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
   @UseInterceptors(FileInterceptor('file', multerConfig))
   async attachFile(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @UploadedFile() file: unknown,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -323,7 +325,7 @@ export class StatementsController {
   @Get(':id/file')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async getFile(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
@@ -344,7 +346,7 @@ export class StatementsController {
   @Get(':id/view')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async viewFile(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
@@ -365,15 +367,14 @@ export class StatementsController {
   @Get(':id/thumbnail')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async getThumbnail(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('width') width: string,
+    @SchemaQuery(StatementThumbnailQuery) { width }: StatementThumbnailQuery,
     @Res() res: Response,
   ) {
     try {
-      const parsedWidth = width ? Number(width) : undefined;
-      const thumbnail = await this.statementsService.getThumbnail(id, workspaceId, parsedWidth);
+      const thumbnail = await this.statementsService.getThumbnail(id, workspaceId, width);
       res.setHeader('Content-Type', 'image/png');
       // Cache successful thumbnails for one week
       res.setHeader('Cache-Control', 'public, max-age=604800');
@@ -454,7 +455,7 @@ export class StatementsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.STATEMENT_DELETE)
   async moveToTrash(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -464,7 +465,7 @@ export class StatementsController {
   @Post(':id/restore')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async restoreFile(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -475,7 +476,7 @@ export class StatementsController {
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @SchemaResponse(StatementDetail)
   async findOne(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
@@ -490,7 +491,7 @@ export class StatementsController {
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
   async update(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @SchemaBody(UpdateStatementBody) updateDto: UpdateStatementBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -501,7 +502,7 @@ export class StatementsController {
   @Post(':id/convert-dropped-sample')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async convertDroppedSample(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @SchemaBody(ConvertDroppedSampleBody) payload: ConvertDroppedSampleBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -518,13 +519,12 @@ export class StatementsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @WorkspaceAuth(Permission.STATEMENT_DELETE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('permanent') permanent?: string,
+    @SchemaQuery(DeleteStatementQuery) { permanent }: DeleteStatementQuery,
   ) {
-    const isPermanent = permanent === 'true';
-    if (isPermanent) {
+    if (permanent) {
       await this.statementsService.permanentDelete(id, user.id, workspaceId);
     } else {
       await this.statementsService.moveToTrash(id, user.id, workspaceId);
@@ -534,10 +534,10 @@ export class StatementsController {
   @Post(':id/reprocess')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async reprocess(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('mode') mode?: 'merge' | 'replace',
+    @SchemaQuery(ReprocessStatementQuery) { mode }: ReprocessStatementQuery,
   ) {
     // Default to 'merge' mode to preserve user edits
     const reprocessMode = mode || 'merge';
@@ -547,7 +547,7 @@ export class StatementsController {
   @Post(':id/commit-import')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async commitImport(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -557,7 +557,7 @@ export class StatementsController {
   @Post(':id/confirm-balance')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async confirmBalance(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

@@ -18,3 +18,13 @@ export const ResolveDuplicateBody = Schema.Struct({
   decision: Schema.Literals(['confirm', 'keep']),
 });
 export type ResolveDuplicateBody = Wire<typeof ResolveDuplicateBody>;
+
+/** `POST /review-inbox/duplicates/:id/resolve`: the duplicate transaction. */
+export const ReviewDuplicateParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type ReviewDuplicateParams = Wire<typeof ReviewDuplicateParams>;
+
+/** `GET /review-inbox/counts`: `me` as in the list; `anyone` or absent is the whole workspace. */
+export const ReviewInboxCountsQuery = Schema.Struct({
+  reviewer: Schema.optional(Schema.Literals(['me', 'anyone'])),
+});
+export type ReviewInboxCountsQuery = Wire<typeof ReviewInboxCountsQuery>;

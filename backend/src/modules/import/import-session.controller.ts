@@ -5,7 +5,6 @@ import {
   Get,
   Inject,
   NotFoundException,
-  Param,
   Post,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -13,9 +12,10 @@ import type { Repository } from 'typeorm';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
-import { CommitImportBody } from '../../contracts';
+import { CommitImportBody, ImportSessionParams, StatementParams } from '../../contracts';
 import { Statement, StatementStatus } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
@@ -35,7 +35,10 @@ export class ImportSessionController {
 
   @Get('import-sessions/:id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
-  async getSessionSummary(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async getSessionSummary(
+    @SchemaParams(ImportSessionParams) { id }: ImportSessionParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const session = await this.importSessionService.getSession(id);
     if (session.workspaceId !== workspaceId) {
       throw new NotFoundException(appError('IMPORT_SESSION_NOT_FOUND'));
@@ -45,7 +48,10 @@ export class ImportSessionController {
 
   @Get('statements/:id/import-preview')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
-  async getImportPreview(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async getImportPreview(
+    @SchemaParams(StatementParams) { id }: StatementParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const statement = await this.statementRepository.findOne({
       where: { id, workspaceId },
     });
@@ -67,7 +73,7 @@ export class ImportSessionController {
   @Post('statements/:id/import-commit')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   async commitImport(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @SchemaBody(CommitImportBody) body: CommitImportBody,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -120,7 +126,10 @@ export class ImportSessionController {
 
   @Post('import-sessions/:id/cancel')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
-  async cancelSession(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async cancelSession(
+    @SchemaParams(ImportSessionParams) { id }: ImportSessionParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const session = await this.importSessionService.getSession(id);
     if (session.workspaceId !== workspaceId) {
       throw new NotFoundException(appError('IMPORT_SESSION_NOT_FOUND'));

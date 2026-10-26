@@ -1,6 +1,8 @@
-import { Body, Controller, HttpCode, Logger, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, Logger, Post, UseGuards } from '@nestjs/common';
 import { Exit } from 'effect';
 import { describeSchemaFailure } from '../../common/effect/schema-issues';
+import { SchemaParams } from '../../common/effect/schema-query';
+import { TelegramBotWebhookParams } from '../../contracts';
 import { Public } from '../auth/decorators/public.decorator';
 import { TelegramService } from './telegram.service';
 import { TelegramBotWebhookGuard } from './telegram-bot-webhook.guard';
@@ -32,7 +34,10 @@ export class TelegramWebhookController {
   @Public()
   @UseGuards(TelegramBotWebhookGuard)
   @HttpCode(200)
-  async handleBotUpdate(@Param('botId') botId: string, @Body() body: unknown) {
+  async handleBotUpdate(
+    @SchemaParams(TelegramBotWebhookParams) { botId }: TelegramBotWebhookParams,
+    @Body() body: unknown,
+  ) {
     await this.handle(body, this.telegramBots.tokenOf(botId) ?? undefined);
     return { ok: true };
   }

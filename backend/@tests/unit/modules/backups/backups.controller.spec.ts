@@ -34,7 +34,7 @@ describe('BackupsController', () => {
     const response = { setHeader: vi.fn(), send: vi.fn() };
     const user = { id: 'user-1', workspaceId: 'workspace-1' } as never;
 
-    await controller.downloadRun('run-1', user, 'workspace-1', response as never);
+    await controller.downloadRun({ id: 'run-1' }, user, 'workspace-1', response as never);
 
     expect(service.downloadRun).toHaveBeenCalledWith(user, 'workspace-1', 'run-1');
     expect(response.setHeader).toHaveBeenCalledWith('Content-Type', 'application/octet-stream');

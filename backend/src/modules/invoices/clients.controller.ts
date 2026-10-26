@@ -1,11 +1,18 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { Client, ClientList, CreateClientBody, UpdateClientBody } from '../../contracts';
+import {
+  Client,
+  ClientList,
+  ClientParams,
+  CreateClientBody,
+  UpdateClientBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { ClientsService } from './clients.service';
@@ -35,7 +42,10 @@ export class ClientsController {
   @Get(':id')
   @WorkspaceAuth(Permission.CLIENT_VIEW)
   @SchemaResponse(Client)
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+  async findOne(
+    @SchemaParams(ClientParams) { id }: ClientParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.clientsService.findOne(id, workspaceId);
   }
 
@@ -44,7 +54,7 @@ export class ClientsController {
   @Audit({ entityType: EntityType.CLIENT, includeDiff: true, isUndoable: true })
   @SchemaResponse(Client)
   async update(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(ClientParams) { id }: ClientParams,
     @SchemaBody(UpdateClientBody) dto: UpdateClientBody,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -54,7 +64,10 @@ export class ClientsController {
   @Delete(':id')
   @WorkspaceAuth(Permission.CLIENT_DELETE)
   @Audit({ entityType: EntityType.CLIENT, includeDiff: true, isUndoable: true })
-  async remove(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+  async remove(
+    @SchemaParams(ClientParams) { id }: ClientParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     await this.clientsService.remove(id, workspaceId);
     return deletedResponse('Client');
   }

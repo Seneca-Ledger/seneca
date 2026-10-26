@@ -1,8 +1,9 @@
-import { Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
@@ -10,6 +11,7 @@ import {
   CreateWebhookEndpointBody,
   UpdateWebhookEndpointBody,
   WebhookEndpointList,
+  WebhookIdParams,
 } from '../../contracts';
 import { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -49,7 +51,10 @@ export class WebhookEndpointsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async findOne(
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const { token, ...rest } = await this.service.findOne(id, workspaceId);
     return { ...rest, tokenPreview: `${token.slice(0, 8)}...` };
   }
@@ -57,7 +62,7 @@ export class WebhookEndpointsController {
   @Patch(':id')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
     @SchemaBody(UpdateWebhookEndpointBody) dto: UpdateWebhookEndpointBody,
     @CurrentUser() user: User,
@@ -69,7 +74,7 @@ export class WebhookEndpointsController {
   @Delete(':id')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   async delete(
-    @Param('id') id: string,
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

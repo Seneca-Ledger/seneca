@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { optionalNullable } from '../common/requests';
+import { NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const MarkReadBody = Schema.Struct({
@@ -42,3 +42,12 @@ export const UpdateNotificationPreferencesBody = Schema.Struct({
   subscriptionPrompts: optionalNullable(Schema.Boolean),
 });
 export type UpdateNotificationPreferencesBody = Wire<typeof UpdateNotificationPreferencesBody>;
+
+/** `GET /notifications`: a page of the bell (30 from the start when absent). */
+export const NotificationsQuery = Schema.Struct({
+  limit: Schema.optional(NumericInput),
+  offset: Schema.optional(NumericInput),
+  /** Sent by the bell and ignored: the workspace is the one the guard resolved. */
+  workspaceId: Schema.optional(Schema.String),
+});
+export type NotificationsQuery = Wire<typeof NotificationsQuery>;

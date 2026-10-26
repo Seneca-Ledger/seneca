@@ -1,10 +1,11 @@
-import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
-import { CreateApiKeyBody } from '../../contracts';
+import { ApiKeyIdParams, CreateApiKeyBody } from '../../contracts';
 import { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { GRANTABLE_SCOPES, groupScopes, SCOPE_PRESETS } from './api-key-scopes';
@@ -50,7 +51,7 @@ export class ApiKeysController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke API key' })
   async revoke(
-    @Param('id') id: string,
+    @SchemaParams(ApiKeyIdParams) { id }: ApiKeyIdParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

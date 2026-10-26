@@ -1,18 +1,17 @@
-import {
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { DailyQuote, InsightList } from '../../contracts';
+import {
+  DailyQuoteQuery,
+  InsightIdParams,
+  InsightsDismissAllQuery,
+  InsightsQuery,
+  InsightsRefreshQuery,
+} from '../../contracts/requests/insights';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { InsightsService } from './insights.service';
@@ -31,17 +30,14 @@ export class InsightsController {
   async list(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('category') category?: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-    @Query('locale') locale?: string,
+    @SchemaQuery(InsightsQuery) { category, limit, offset, locale }: InsightsQuery,
   ) {
     return this.insightsService.list({
       userId: user.id,
       workspaceId,
       category,
-      limit: limit ? Number(limit) : 30,
-      offset: offset ? Number(offset) : 0,
+      limit: limit ?? 30,
+      offset: offset ?? 0,
       locale,
     });
   }
@@ -61,8 +57,7 @@ export class InsightsController {
   async dailyQuote(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('date') date?: string,
-    @Query('locale') locale?: string,
+    @SchemaQuery(DailyQuoteQuery) { date, locale }: DailyQuoteQuery,
   ) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date ?? '');
     const day = match
@@ -76,7 +71,7 @@ export class InsightsController {
   async refresh(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('locale') locale?: string,
+    @SchemaQuery(InsightsRefreshQuery) { locale }: InsightsRefreshQuery,
   ) {
     return this.insightsService.refresh(user.id, workspaceId, { locale });
   }
@@ -86,7 +81,7 @@ export class InsightsController {
   async dismissAll(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('category') category?: string,
+    @SchemaQuery(InsightsDismissAllQuery) { category }: InsightsDismissAllQuery,
   ) {
     return this.insightsService.dismissAll(user.id, workspaceId, category);
   }
@@ -96,7 +91,7 @@ export class InsightsController {
   async dismiss(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InsightIdParams) { id }: InsightIdParams,
   ) {
     return this.insightsService.dismiss(user.id, workspaceId, id);
   }

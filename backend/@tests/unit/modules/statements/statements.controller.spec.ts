@@ -162,7 +162,7 @@ describe('StatementsController', () => {
 
     statementsService.convertDroppedSampleToTransaction.mockResolvedValue(response);
 
-    const result = await controller.convertDroppedSample('stmt-1', payload, currentUser, 'ws-1');
+    const result = await controller.convertDroppedSample({ id: 'stmt-1' }, payload, currentUser, 'ws-1');
 
     expect(statementsService.convertDroppedSampleToTransaction).toHaveBeenCalledWith(
       'stmt-1',
@@ -257,7 +257,7 @@ describe('StatementsController', () => {
       mimeType: 'application/pdf',
     });
 
-    await controller.getFile('stmt-1', currentUser, 'ws-1', response as unknown as Response);
+    await controller.getFile({ id: 'stmt-1' }, currentUser, 'ws-1', response as unknown as Response);
 
     expect(statementsService.getFileStream).toHaveBeenCalledWith('stmt-1', 'ws-1');
     expect(response.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');

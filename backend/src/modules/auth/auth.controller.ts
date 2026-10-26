@@ -1,24 +1,16 @@
-import {
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Req,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
 import type { CurrentUser as CurrentUserView } from '../../contracts';
 import {
+  AuthSessionParams,
   CurrentUser as CurrentUserContract,
   ForgotPasswordBody,
   LoginBody,
@@ -264,7 +256,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logoutSession(
     @CurrentUser() user: User,
-    @Param('sessionId') sessionId: string,
+    @SchemaParams(AuthSessionParams) { sessionId }: AuthSessionParams,
     @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {

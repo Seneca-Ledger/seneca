@@ -4,13 +4,14 @@ import {
   Controller,
   Get,
   NotFoundException,
-  Param,
   Res,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { appError } from '../../common/errors/app-error';
+import { VendorIconParams } from '../../contracts/requests/vendor-icons';
 import { VendorIconsService } from './vendor-icons.service';
 
 // No workspace scope: an icon carries no tenant data. The global JwtAuthGuard
@@ -28,7 +29,10 @@ export class VendorIconsController {
   @ApiResponse({ status: 400, description: 'Not a domain name' })
   @ApiResponse({ status: 404, description: 'No icon published for this domain' })
   @ApiResponse({ status: 502, description: 'Icon provider unavailable' })
-  async getIcon(@Param('domain') domain: string, @Res() res: Response) {
+  async getIcon(
+    @SchemaParams(VendorIconParams) { domain }: VendorIconParams,
+    @Res() res: Response,
+  ) {
     const icon = await this.vendorIconsService.fetchIcon(domain);
     if (icon.status === 'invalid') {
       throw new BadRequestException(appError('VENDOR_ICON_DOMAIN_INVALID'));

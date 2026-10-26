@@ -1,11 +1,12 @@
-import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { BranchList, CreateBranchBody, UpdateBranchBody } from '../../contracts';
+import { BranchList, BranchParams, CreateBranchBody, UpdateBranchBody } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BranchesService } from './branches.service';
@@ -34,7 +35,7 @@ export class BranchesController {
   @Get(':id')
   @WorkspaceAuth(Permission.BRANCH_VIEW)
   async findOne(
-    @Param('id') id: string,
+    @SchemaParams(BranchParams) { id }: BranchParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -44,7 +45,7 @@ export class BranchesController {
   @Put(':id')
   @WorkspaceAuth(Permission.BRANCH_EDIT)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(BranchParams) { id }: BranchParams,
     @SchemaBody(UpdateBranchBody) updateDto: UpdateBranchBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -55,7 +56,7 @@ export class BranchesController {
   @Delete(':id')
   @WorkspaceAuth(Permission.BRANCH_DELETE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(BranchParams) { id }: BranchParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {

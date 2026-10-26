@@ -1,7 +1,8 @@
-import { Controller, Delete, Get, HttpCode, Post, Query } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
@@ -9,6 +10,7 @@ import {
   TelegramConnection,
   TelegramLink,
   TelegramReportPage,
+  TelegramReportsQuery,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -49,12 +51,9 @@ export class TelegramController {
   @SchemaResponse(TelegramReportPage)
   async listReports(
     @CurrentUser() user: User,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @SchemaQuery(TelegramReportsQuery) { page, limit }: TelegramReportsQuery,
   ) {
-    const currentPage = page ? Number.parseInt(page, 10) : 1;
-    const pageSize = limit ? Number.parseInt(limit, 10) : 20;
-    return this.telegramService.listReports(user, currentPage, pageSize);
+    return this.telegramService.listReports(user, page ?? 1, limit ?? 20);
   }
 
   @Post('send-report')

@@ -1,17 +1,8 @@
-import {
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
@@ -20,11 +11,14 @@ import {
   ApproveTransactionsBody,
   ResolveDuplicateBody,
   ReviewApproved,
+  ReviewDuplicateParams,
   ReviewInboxByStatement,
   ReviewInboxCounts,
+  ReviewInboxCountsQuery,
   ReviewInboxPage,
   ReviewInboxQuery,
   StatementApproved,
+  StatementParams,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -53,7 +47,7 @@ export class ReviewInboxController {
   async counts(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('reviewer') reviewer: string,
+    @SchemaQuery(ReviewInboxCountsQuery) { reviewer }: ReviewInboxCountsQuery,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     return this.reviewInboxService.counts(workspaceId, parseReviewerFilter(reviewer, selfMemberId));
@@ -73,7 +67,7 @@ export class ReviewInboxController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   @SchemaResponse(StatementApproved)
   async approveStatement(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -101,7 +95,7 @@ export class ReviewInboxController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async resolveDuplicate(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(ReviewDuplicateParams) { id }: ReviewDuplicateParams,
     @SchemaBody(ResolveDuplicateBody) body: ResolveDuplicateBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,

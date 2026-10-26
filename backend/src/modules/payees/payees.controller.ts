@@ -1,14 +1,16 @@
-import { Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Put } from '@nestjs/common';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   MergePayeesBody,
   Payee,
+  PayeeParams,
   PayeePendingReview,
+  PayeePendingReviewQuery,
   PayeeRecord,
   PayeesPage,
   PayeesQuery,
@@ -39,7 +41,7 @@ export class PayeesController {
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(Payee)
   async get(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayeeParams) { id }: PayeeParams,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
@@ -50,7 +52,7 @@ export class PayeesController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   @SchemaResponse(PayeeRecord)
   async update(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayeeParams) { id }: PayeeParams,
     @SchemaBody(UpdatePayeeBody) body: UpdatePayeeBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -62,7 +64,7 @@ export class PayeesController {
   @Post('payees/:id/vat-check')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async recheckVatId(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayeeParams) { id }: PayeeParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.payeesService.recheckVatId(workspaceId, id);
@@ -72,7 +74,7 @@ export class PayeesController {
   @Post('payees/:id/merge')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   async merge(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayeeParams) { id }: PayeeParams,
     @SchemaBody(MergePayeesBody) body: MergePayeesBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -85,19 +87,18 @@ export class PayeesController {
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(PayeePendingReview)
   async pendingReview(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Query('excludeTransactionId', new ParseUUIDPipe({ optional: true }))
-    excludeTransactionId: string | undefined,
+    @SchemaParams(PayeeParams) { id }: PayeeParams,
+    @SchemaQuery(PayeePendingReviewQuery) query: PayeePendingReviewQuery,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.payeesService.pendingReview(workspaceId, id, excludeTransactionId);
+    return this.payeesService.pendingReview(workspaceId, id, query.excludeTransactionId);
   }
 
   @Put('transactions/:id/payee')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   @SchemaResponse(TransactionPayeeResult)
   async setTransactionPayee(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(PayeeParams) { id }: PayeeParams,
     @SchemaBody(SetTransactionPayeeBody) body: SetTransactionPayeeBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

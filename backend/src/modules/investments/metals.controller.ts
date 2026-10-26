@@ -7,10 +7,8 @@ import {
   Delete,
   Get,
   HttpCode,
-  Param,
   Patch,
   Post,
-  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -19,12 +17,15 @@ import { diskStorage } from 'multer';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
+  InvestmentParams,
   MetalReceiptList,
+  MetalReceiptOptionsQuery,
   MetalSettingsBody,
   MetalsSummary,
   SellMetalLotBody,
@@ -80,7 +81,7 @@ export class MetalsController {
   async updateLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
     @SchemaBody(UpsertMetalLotBody) dto: UpsertMetalLotBody,
   ) {
     return this.metalsService.updateLot(user.id, workspaceId, id, dto);
@@ -92,7 +93,7 @@ export class MetalsController {
   async deleteLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
   ) {
     await this.metalsService.deleteLot(user.id, workspaceId, id);
   }
@@ -101,8 +102,11 @@ export class MetalsController {
   @Get('receipt-options')
   @WorkspaceAuth(Permission.REPORT_VIEW)
   @SchemaResponse(MetalReceiptList)
-  async receiptOptions(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
-    return this.metalsService.listReceiptOptions(workspaceId, Number(limit) || 50);
+  async receiptOptions(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(MetalReceiptOptionsQuery) query: MetalReceiptOptionsQuery,
+  ) {
+    return this.metalsService.listReceiptOptions(workspaceId, query.limit ?? 50);
   }
 
   /** Sells a lot, whole or in part; proceeds of zero record a gift. */
@@ -111,7 +115,7 @@ export class MetalsController {
   async sellLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
     @SchemaBody(SellMetalLotBody) dto: SellMetalLotBody,
   ) {
     return this.metalsService.sellLot(user.id, workspaceId, id, dto);
@@ -162,7 +166,7 @@ export class MetalsController {
   )
   async uploadPhoto(
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
     @UploadedFile() file: UploadedPhoto | undefined,
   ) {
     if (!file) throw new BadRequestException(appError('METALS_PHOTO_NOT_UPLOADED'));
@@ -171,7 +175,10 @@ export class MetalsController {
 
   @Delete('lots/:id/photo')
   @WorkspaceAuth(Permission.WALLET_EDIT)
-  async removePhoto(@WorkspaceId() workspaceId: string, @Param('id') id: string) {
+  async removePhoto(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
+  ) {
     return this.metalsService.removePhoto(workspaceId, id);
   }
 

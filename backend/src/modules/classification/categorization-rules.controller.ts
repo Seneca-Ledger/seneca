@@ -5,7 +5,6 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
-  Param,
   Post,
   Put,
 } from '@nestjs/common';
@@ -15,12 +14,14 @@ import { AllowInVersion } from '../../common/decorators/allow-in-version.decorat
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
 import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import {
+  CategorizationRuleParams,
   CreateCategorizationRuleBody,
   TestCategorizationRuleBody,
   UpdateCategorizationRuleBody,
@@ -87,16 +88,12 @@ export class CategorizationRulesController {
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
   async findOne(
-    @Param('id') id: string,
+    @SchemaParams(CategorizationRuleParams) { id }: CategorizationRuleParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
     const rule = await this.categorizationRuleRepository.findOne({
-      where: {
-        id,
-        userId: user.id,
-        workspaceId,
-      },
+      where: { id, userId: user.id, workspaceId },
     });
 
     if (!rule) {
@@ -155,7 +152,7 @@ export class CategorizationRulesController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(CategorizationRuleParams) { id }: CategorizationRuleParams,
     @SchemaBody(UpdateCategorizationRuleBody) dto: UpdateCategorizationRuleBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -219,7 +216,7 @@ export class CategorizationRulesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @WorkspaceAuth(Permission.CATEGORY_DELETE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(CategorizationRuleParams) { id }: CategorizationRuleParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

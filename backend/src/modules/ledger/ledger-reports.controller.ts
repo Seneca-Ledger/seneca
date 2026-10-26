@@ -1,7 +1,7 @@
-import { BadRequestException, Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { BadRequestException, Controller, Get } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
@@ -10,6 +10,7 @@ import {
   AccountLedgerQuery,
   LedgerDateQuery,
   LedgerPeriodQuery,
+  LedgerRecordParams,
   TrialBalance as TrialBalanceContract,
 } from '../../contracts';
 import {
@@ -70,7 +71,7 @@ export class LedgerReportsController {
   @SchemaResponse(AccountLedgerContract)
   async accountLedger(
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
     @SchemaQuery(AccountLedgerQuery) query: AccountLedgerQuery,
   ): Promise<AccountLedger> {
     assertPeriod(query);

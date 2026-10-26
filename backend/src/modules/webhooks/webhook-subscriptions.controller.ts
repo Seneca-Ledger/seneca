@@ -1,14 +1,16 @@
-import { Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   CreateWebhookSubscriptionBody,
   UpdateWebhookSubscriptionBody,
   WebhookDeliveryList,
+  WebhookIdParams,
   WebhookSubscriptionList,
 } from '../../contracts';
 import { User } from '../../entities/user.entity';
@@ -53,7 +55,10 @@ export class WebhookSubscriptionsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async findOne(
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const { secret, ...rest } = await this.service.findOne(id, workspaceId);
     return rest;
   }
@@ -61,7 +66,7 @@ export class WebhookSubscriptionsController {
   @Patch(':id')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
     @SchemaBody(UpdateWebhookSubscriptionBody) dto: UpdateWebhookSubscriptionBody,
     @CurrentUser() user: User,
@@ -73,7 +78,7 @@ export class WebhookSubscriptionsController {
   @Delete(':id')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   async delete(
-    @Param('id') id: string,
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -84,7 +89,10 @@ export class WebhookSubscriptionsController {
   @Get(':id/deliveries')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   @SchemaResponse(WebhookDeliveryList)
-  async deliveries(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async deliveries(
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     await this.service.findOne(id, workspaceId); // scope check
     return this.deliveryService.findForSubscription(id);
   }
@@ -92,7 +100,10 @@ export class WebhookSubscriptionsController {
   @Post(':id/test')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   @ApiOperation({ summary: 'Send a test ping to the subscription URL' })
-  async testPing(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async testPing(
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const sub = await this.service.findOne(id, workspaceId);
     await this.plugins.assertEnabled(workspaceId, 'webhooks');
     await this.deliveryService.enqueue(sub.id, WebhookEvent.STATEMENT_PROCESSED, {

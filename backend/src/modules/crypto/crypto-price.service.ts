@@ -1,13 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
+import { HttpClientResponse } from 'effect/http';
 import type { Repository } from 'typeorm';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { describeHttpFailure, getWith } from '../../common/effect/http-json';
 import { ExchangeRate } from '../../entities/exchange-rate.entity';
 import { COINGECKO_IDS } from './crypto.constants';
 import { ATTEMPT_TIMEOUT_MS, requestWithRetry } from './retry.util';
 
 const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
 const PRICE_SOURCE = 'coingecko';
+
+/** `simple/price`: `{ ethereum: { usd: 2486.72 } }`; a coin it does not know is absent. */
+const SimplePriceAnswer = Schema.Record(
+  Schema.String,
+  Schema.Struct({ usd: Schema.optional(Schema.Number) }),
+);
 
 /**
  * CoinGecko's free tier answers five calls a minute and then returns 429 with
@@ -37,6 +46,7 @@ export class CryptoPriceService {
   constructor(
     @InjectRepository(ExchangeRate)
     private readonly exchangeRateRepo: Repository<ExchangeRate>,
+    private readonly effects: EffectRuntime,
   ) {}
 
   /**
@@ -99,13 +109,11 @@ export class CryptoPriceService {
     const url = `${COINGECKO_BASE_URL}/simple/price?ids=${[...idsByTicker.keys()].join(',')}&vs_currencies=usd`;
 
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) });
-      if (!response.ok) {
-        this.logger.warn(`CoinGecko simple/price returned ${response.status}`);
+      const data = await this.fetchSimplePrice(url);
+      if (data === null) {
         return this.getLastKnownPrices(tickers);
       }
 
-      const data = (await response.json()) as Record<string, { usd?: number }>;
       const prices: Record<string, number> = {};
       const today = toDateOnly(new Date());
 
@@ -123,6 +131,35 @@ export class CryptoPriceService {
       this.logger.warn(`CoinGecko simple/price failed: ${String(error)}`);
       return this.getLastKnownPrices(tickers);
     }
+  }
+
+  /**
+   * The `simple/price` answer, or null (logged) when CoinGecko refused or could not be
+   * reached. Asked once: the free tier allows five calls a minute, and the caller
+   * falls back to the last known prices.
+   */
+  private fetchSimplePrice(url: string): Promise<typeof SimplePriceAnswer.Type | null> {
+    const logger = this.logger;
+    return this.effects.run(
+      getWith(
+        url,
+        { timeout: ATTEMPT_TIMEOUT_MS, headers: { accept: 'application/json' } },
+        response =>
+          response.status >= 200 && response.status < 300
+            ? HttpClientResponse.schemaBodyJson(SimplePriceAnswer)(response)
+            : Effect.sync(() => {
+                logger.warn(`CoinGecko simple/price returned ${response.status}`);
+                return null;
+              }),
+      ).pipe(
+        Effect.catch(error =>
+          Effect.sync(() => {
+            logger.warn(`CoinGecko simple/price failed: ${describeHttpFailure(error)}`);
+            return null;
+          }),
+        ),
+      ),
+    );
   }
 
   private async fetchHistoricalPrice(
