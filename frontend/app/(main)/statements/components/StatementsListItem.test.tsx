@@ -1,6 +1,6 @@
 import React from 'react';
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -61,6 +61,14 @@ type Statement = {
 
 describe('StatementsListItem', () => {
   let container: HTMLDivElement;
+  // Every root is unmounted after its test: a root left mounted let React run
+  // scheduled work after the environment was torn down ("window is not defined").
+  let roots: Root[] = [];
+  const mount = (): Root => {
+    const created = createRoot(container);
+    roots.push(created);
+    return created;
+  };
 
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -72,12 +80,18 @@ describe('StatementsListItem', () => {
   });
 
   afterEach(() => {
+    act(() => {
+      for (const root of roots) {
+        root.unmount();
+      }
+    });
+    roots = [];
     container.remove();
     container = null as unknown as HTMLDivElement;
   });
 
   it('renders an emailed receipt using document layout', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
     const onIconClick = vi.fn();
 
@@ -131,7 +145,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders a stacked phone layout next to the column layout', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-1',
@@ -181,7 +195,7 @@ describe('StatementsListItem', () => {
   });
 
   it('uses receipt thumbnail source for local receipts', async () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'receipt-local-1',
@@ -250,7 +264,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders hover preview in portal without clipping', async () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-hover-preview',
@@ -299,7 +313,7 @@ describe('StatementsListItem', () => {
   });
 
   it('dismisses hover preview when the list scrolls', async () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-hover-scroll',
@@ -355,7 +369,7 @@ describe('StatementsListItem', () => {
   });
 
   it('opens from the unified column row overlay', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement: Statement = {
@@ -418,7 +432,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders payments icon for manual expense type', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'manual-1',
@@ -463,7 +477,7 @@ describe('StatementsListItem', () => {
   });
 
   it('names a receipt-scan statement by type beside the date, with no extra icon', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'receipt-scan-1',
@@ -518,7 +532,7 @@ describe('StatementsListItem', () => {
   });
 
   it('badges a needs_review statement distinctly from a completed one', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-needs-review',
@@ -560,7 +574,7 @@ describe('StatementsListItem', () => {
   });
 
   it('does not call onView when view is disabled', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement: Statement = {
@@ -619,7 +633,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders amount loader instead of zero while statement parsing is in progress', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-loading-amount',
@@ -661,7 +675,7 @@ describe('StatementsListItem', () => {
   });
 
   it('sets the currency apart from the figure', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-dark-amount',
@@ -707,7 +721,7 @@ describe('StatementsListItem', () => {
   });
 
   it('marks the amount for privacy mode on desktop and on the phone', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-private-amount',
@@ -753,7 +767,7 @@ describe('StatementsListItem', () => {
   });
 
   it('marks a duplicate with a caption, a line on the left and a Review link', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'duplicate-1',
@@ -810,7 +824,7 @@ describe('StatementsListItem', () => {
   });
 
   it('runs the duplicate line through the middle of a group', () => {
-    const root = createRoot(container);
+    const root = mount();
     const statement: Statement = {
       id: 'duplicate-2',
       source: 'statement',
@@ -853,7 +867,7 @@ describe('StatementsListItem', () => {
   });
 
   it('honors desktop column visibility and keeps hidden action rows clickable', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement: Statement = {
@@ -913,7 +927,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders optional summary columns with fallbacks from statement data', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-optional-values',
@@ -975,7 +989,7 @@ describe('StatementsListItem', () => {
   });
 
   it('uses the current USD exchange rate for non-USD statement rows', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-usd-rate',
@@ -1019,7 +1033,7 @@ describe('StatementsListItem', () => {
   });
 
   it('falls back to the default target currency when workspace currency is missing', () => {
-    const root = createRoot(container);
+    const root = mount();
     // Цель без валюты воркспейса — FALLBACK_CURRENCY (USD или NEXT_PUBLIC_DEFAULT_CURRENCY).
     const fallbackRateLabel = `1 KZT = 0.002 ${FALLBACK_CURRENCY}`;
 
@@ -1063,7 +1077,7 @@ describe('StatementsListItem', () => {
   });
 
   it('normalizes NIS workspace currency to ILS for current exchange rates', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-usd-rate-nis-currency',
@@ -1109,7 +1123,7 @@ describe('StatementsListItem', () => {
       statement: Partial<StatementsListItemProps['statement']>,
       props: Partial<StatementsListItemProps> = {},
     ): HTMLElement | null => {
-      const root = createRoot(container);
+      const root = mount();
       act(() => {
         root.render(
           <StatementsListItem
@@ -1163,7 +1177,7 @@ describe('StatementsListItem', () => {
   });
 
   it('opens the category drawer from "Add category" without opening the document', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
     const onAddCategory = vi.fn();
     act(() => {
@@ -1203,7 +1217,7 @@ describe('StatementsListItem', () => {
   });
 
   it('links the category chip to that category on the Top categories leaderboard', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-category-link',
@@ -1247,7 +1261,7 @@ describe('StatementsListItem', () => {
   });
 
   it('treats a category chip click as a row click until the chip lights up', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement = {
@@ -1307,7 +1321,7 @@ describe('StatementsListItem', () => {
   });
 
   it('opens a multi-row statement under its line instead of opening the statement', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
     const onToggleExpand = vi.fn();
     const statement: Statement = {
@@ -1366,7 +1380,7 @@ describe('StatementsListItem', () => {
   });
 
   const renderApprovedCell = (status: string, isReceipt: boolean, pendingReview: number) => {
-    const root = createRoot(container);
+    const root = mount();
     act(() => {
       root.render(
         <StatementsListItem
@@ -1411,7 +1425,7 @@ describe('StatementsListItem', () => {
 
   it("shows a system category in the reader's language and links it by its stored name", () => {
     appLocale.current = 'ru';
-    const root = createRoot(container);
+    const root = mount();
     act(() => {
       root.render(
         <StatementsListItem
