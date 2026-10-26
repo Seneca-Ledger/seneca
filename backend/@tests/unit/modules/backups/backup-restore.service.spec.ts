@@ -101,7 +101,11 @@ describe('BackupRestoreService', () => {
 
     const inserted = statementInsert.mock.calls[0][0][0];
     await expect(fs.readFile(inserted.filePath, 'utf8')).resolves.toBe('date,amount\n');
-    process.env.UPLOADS_DIR = previousUploads;
+    if (previousUploads === undefined) {
+      delete process.env.UPLOADS_DIR;
+    } else {
+      process.env.UPLOADS_DIR = previousUploads;
+    }
     await fs.rm(uploads, { recursive: true, force: true });
   });
 

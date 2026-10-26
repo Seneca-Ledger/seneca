@@ -32,12 +32,6 @@ const apiOrigin = (() => {
 // users without an uploaded avatar (jwt.strategy.ts).
 const REMOTE_IMAGE_HOSTS = 'https://logo.clearbit.com https://api.dicebear.com';
 
-// react-scan (components/ReactScan.tsx) is mounted only when NODE_ENV is
-// development and checks its own version over the network. Allowing it keeps
-// the dev console free of a violation that says nothing about the app — and it
-// stays out of the production policy, where the profiler is never mounted.
-const DEV_PROFILER_HOST = 'https://www.react-grab.com';
-
 const buildCsp = isDev =>
   [
     "default-src 'self'",
@@ -58,9 +52,7 @@ const buildCsp = isDev =>
     // ws:/wss: are listed in every environment: Socket.IO powers notifications and
     // import progress, and browsers have not been consistent about whether 'self'
     // covers the WebSocket schemes for the same origin.
-    `connect-src 'self' blob: ws: wss:${apiOrigin ? ` ${apiOrigin}` : ''}${
-      isDev ? ` ${DEV_PROFILER_HOST}` : ''
-    }`,
+    `connect-src 'self' blob: ws: wss:${apiOrigin ? ` ${apiOrigin}` : ''}`,
     // Declaring frame-src at all removes the default-src fallback, so the app's
     // own embeds have to be listed explicitly: statement and receipt previews are
     // iframed from a blob: URL.

@@ -96,6 +96,7 @@ npm run migration:generate -- src/migrations/<Name>
 ## Gotchas
 
 - No source file may exceed 300 lines of code (blank and comment lines excluded): a new file over it is refused, and a file already over it must not grow (`scripts/check-file-size.mjs`, run by the pre-commit hook and CI). Tests, `*.content.ts`, `*-translations.ts`, migrations and generated contracts are exempt. Split into hooks, helpers or lib instead.
+- Dependency licenses: `npm run licenses:check` (CI, `npm test`, pre-push) checks root, backend, frontend and website against `ALLOWED` in `scripts/check-licenses.mjs`; a new dependency outside it blocks the push. Replace it, or extend `ALLOWED` with a comment saying which package needs it.
 - Lint is Biome only (ESLint was removed). In the frontend an `eslint-disable … react-hooks/*` comment is still meaningful: React Compiler skips that function.
 - The frontend builds with vinext (Next.js App Router API on Vite), not `next`: `vite dev`/`vite build`, output in `frontend/dist/standalone` (bind address is `HOST`, not `HOSTNAME`). `next.config.mjs` carries only headers, rewrites and `output`; Vite plugins live in `vite.config.ts`. `next` stays as a dev dependency for types and peers. React Compiler is the oxc port (`oxc-transform-react`); it honours `'use no memo'` and `eslint-disable react-hooks/*` the same way.
 - `prebuild` and `postinstall` on the frontend run `intlayer build`; deleting the intlayer config or skipping it breaks both install and build.

@@ -19,6 +19,8 @@
     "contracts:check": "node scripts/sync-contracts.mjs --check",
     "test:sync-contracts": "node --test scripts/sync-contracts.test.mjs",
     "test:file-size": "node --test scripts/check-file-size.test.mjs",
+    "licenses:check": "node scripts/check-licenses.mjs",
+    "test:licenses": "node --test scripts/check-licenses.test.mjs",
     "graphify:build": "node scripts/graphify-build.mjs",
     "graphify:validate": "node scripts/graphify-validate.mjs",
     "backend:build": "npm --prefix backend run build",
@@ -32,7 +34,7 @@
     "migration:generate": "npm --prefix backend run migration:generate",
     "create-admin": "npm --prefix backend run create-admin",
     "knip": "knip",
-    "test": "npm --prefix backend run test:unit && npm --prefix frontend run test",
+    "test": "npm run licenses:check && npm --prefix backend run test:unit && npm --prefix frontend run test",
     "test:backend": "npm --prefix backend run test:unit",
     "test:frontend": "npm --prefix frontend run test"
   },
@@ -46,6 +48,7 @@
     "concurrently": "^10.0.6",
     "husky": "^9.1.7",
     "knip": "^6.42.1",
+    "license-checker-rseidelsohn": "^4.4.2",
     "typescript": "^7.0.2"
   },
   "overrides": {

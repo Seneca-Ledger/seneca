@@ -269,13 +269,7 @@ vi.mock('@/app/(main)/statements/components/filters/FromFilterDropdown', () => (
   FromFilterDropdown: () => null,
 }));
 
-vi.mock('@/app/(main)/statements/components/filters/StatusFilterDropdown', () => ({
-  StatusFilterDropdown: () => null,
-}));
 
-vi.mock('@/app/(main)/statements/components/filters/TypeFilterDropdown', () => ({
-  TypeFilterDropdown: () => null,
-}));
 
 vi.mock('@/app/(main)/statements/components/StatementsListItem', () => ({
   StatementsListItem: (props: any) => {
