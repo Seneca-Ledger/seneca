@@ -3,7 +3,6 @@
 import {
   Alert,
   Box,
-  CircularProgress,
   LinearProgress,
   MenuItem,
   Stack,
@@ -17,6 +16,7 @@ import type React from 'react';
 import { Suspense } from 'react';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import { AccuracyBanner } from './components/AccuracyBanner';
 import { DataCheckStep } from './components/DataCheckStep';
@@ -34,12 +34,8 @@ import {
   taxYearOptions,
 } from './tax-declaration.helpers';
 
-function Loading(): React.ReactElement {
-  return (
-    <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-      <CircularProgress size={28} />
-    </Box>
-  );
+function Loading({ id }: { id: string }): React.ReactElement {
+  return <SnapshotSkeleton id={id} loading fallback="panel" />;
 }
 
 function TaxDeclarationContent(): React.ReactElement {
@@ -79,9 +75,10 @@ function TaxDeclarationContent(): React.ReactElement {
     export: t.stepExport.value,
   };
 
+  const stepSkeletonId = `tax-declaration-${step}`;
   const renderStep = (): React.ReactNode => {
     if (profile.isError) return <Alert severity="error">{t.loadError}</Alert>;
-    if (!profile.data) return <Loading />;
+    if (!profile.data) return <Loading id={stepSkeletonId} />;
 
     if (step === 'profile' || !profile.data.country) {
       return (
@@ -97,7 +94,7 @@ function TaxDeclarationContent(): React.ReactElement {
 
     if (step === 'mapping') {
       if (mappings.isError) return <Alert severity="error">{t.loadError}</Alert>;
-      if (!mappings.data) return <Loading />;
+      if (!mappings.data) return <Loading id={stepSkeletonId} />;
       return (
         <MappingStep
           mappings={mappings.data}
@@ -108,7 +105,7 @@ function TaxDeclarationContent(): React.ReactElement {
     }
 
     if (draft.isError) return <Alert severity="error">{t.loadError}</Alert>;
-    if (!draft.data) return <Loading />;
+    if (!draft.data) return <Loading id={stepSkeletonId} />;
 
     if (step === 'data') {
       return (
@@ -135,7 +132,7 @@ function TaxDeclarationContent(): React.ReactElement {
 
   const renderBody = (): React.ReactNode => {
     if (disclaimer.isError) return <Alert severity="error">{t.loadError}</Alert>;
-    if (!disclaimer.data) return <Loading />;
+    if (!disclaimer.data) return <Loading id="tax-declaration-body" />;
     if (!accepted) {
       return (
         <TaxDisclaimerGate
@@ -254,7 +251,13 @@ function TaxDeclarationContent(): React.ReactElement {
             step folds it into one notice with its warnings. */}
         <Stack spacing={2.5}>
           {step === 'draft' ? null : <AccuracyBanner />}
-          <Box>{renderStep()}</Box>
+          <SnapshotSkeleton
+            id={stepSkeletonId}
+            loading={false}
+            capture={!(profile.isError || mappings.isError || draft.isError)}
+          >
+            {renderStep()}
+          </SnapshotSkeleton>
         </Stack>
       </Stack>
     );
@@ -278,7 +281,9 @@ function TaxDeclarationContent(): React.ReactElement {
             }
           />
         </Box>
-        {renderBody()}
+        <SnapshotSkeleton id="tax-declaration-body" loading={false} capture={!disclaimer.isError}>
+          {renderBody()}
+        </SnapshotSkeleton>
       </Box>
     </Box>
   );
@@ -287,7 +292,7 @@ function TaxDeclarationContent(): React.ReactElement {
 export default function TaxDeclarationPage(): React.ReactElement {
   // useSearchParams needs a Suspense boundary for the static render of the route.
   return (
-    <Suspense fallback={<Loading />}>
+    <Suspense fallback={<Loading id="tax-declaration" />}>
       <TaxDeclarationContent />
     </Suspense>
   );

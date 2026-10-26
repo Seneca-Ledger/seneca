@@ -14,6 +14,7 @@ import { buildSourceColumnTitles } from '@/app/(main)/custom-tables/labels';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { Select } from '@/app/components/ui/select';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -373,11 +374,7 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
   return (
     <ModalShell isOpen={isOpen} onClose={onClose} title={t.title} size="lg" footer={footer}>
       <div className="seneca-iw" data-testid="import-wizard">
-        {step === 'reading' && (
-          <div className="seneca-iw__loading">
-            <Spinner size={20} />
-          </div>
-        )}
+        {step === 'reading' && <SnapshotSkeleton id="import-wizard" loading fallback="panel" />}
 
         {step === 'mapping' && sheet && (
           <>

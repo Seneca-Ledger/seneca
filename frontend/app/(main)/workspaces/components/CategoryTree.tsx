@@ -1,11 +1,11 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { ChevronRight, Lock, Search as SearchIcon, Tag } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import { resolveCategoryIconUrl } from '@/app/lib/category-icon-url';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
@@ -126,9 +126,7 @@ export function CategoryTree({
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-          <CircularProgress size={32} />
-        </Box>
+        <SnapshotSkeleton id="workspace-categories" loading fallback="list" />
       ) : categories.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8, px: 2 }}>
           <Box
@@ -178,186 +176,188 @@ export function CategoryTree({
           </button>
         </Box>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, px: 1, pb: 2 }}>
-          {categories.map((category, index) => {
-            const categoryColor = category.color || '#2196F3';
-            const hasIcon = Boolean(category.icon?.trim());
-            const iconUrl = resolveCategoryIconUrl(category.icon);
-            const isEnabled = category.isEnabled !== false;
-            const isToggling = togglingIds.has(category.id);
-            const usage = usageCounts[category.id]?.total;
-            const iconTint = alpha(categoryColor, isEnabled ? 0.16 : 0.12);
-            const badgeSource = getBadgeSource(category);
-            const badgeLabel = getBadgeLabel(category, {
-              parsing: labels.parsing,
-              system: labels.system,
-            });
-            const badgeColors = badgeSource ? SOURCE_BADGE_COLORS[badgeSource] : null;
+        <SnapshotSkeleton id="workspace-categories" loading={false}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, px: 1, pb: 2 }}>
+            {categories.map((category, index) => {
+              const categoryColor = category.color || '#2196F3';
+              const hasIcon = Boolean(category.icon?.trim());
+              const iconUrl = resolveCategoryIconUrl(category.icon);
+              const isEnabled = category.isEnabled !== false;
+              const isToggling = togglingIds.has(category.id);
+              const usage = usageCounts[category.id]?.total;
+              const iconTint = alpha(categoryColor, isEnabled ? 0.16 : 0.12);
+              const badgeSource = getBadgeSource(category);
+              const badgeLabel = getBadgeLabel(category, {
+                parsing: labels.parsing,
+                system: labels.system,
+              });
+              const badgeColors = badgeSource ? SOURCE_BADGE_COLORS[badgeSource] : null;
 
-            return (
-              <Box
-                key={category.id}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  border: '1px solid var(--border)',
-                  borderLeft: `3px solid ${categoryColor}`,
-                  borderRadius: tokens.radius.md,
-                  px: 2,
-                  py: 2,
-                  bgcolor:
-                    index % 2 === 0 ? 'var(--card)' : 'rgba(var(--muted-rgb,243,244,246),0.4)',
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Checkbox
-                    aria-label={category.name}
-                    checked={selectedIds.has(category.id)}
-                    onCheckedChange={() => onToggleSelect(category.id)}
-                  />
-                  {!category.isSystem && hasIcon ? (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 32,
-                        height: 32,
-                        borderRadius: tokens.radius.sm,
-                        bgcolor: iconTint,
-                        color: categoryColor,
-                      }}
-                    >
-                      {iconUrl ? (
-                        <Box
-                          component="img"
-                          src={iconUrl}
-                          alt=""
-                          sx={{ width: 16, height: 16, objectFit: 'contain' }}
-                        />
-                      ) : (
-                        <Tag size={16} />
-                      )}
-                    </Box>
-                  ) : null}
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography
-                        variant="body1"
+              return (
+                <Box
+                  key={category.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    border: '1px solid var(--border)',
+                    borderLeft: `3px solid ${categoryColor}`,
+                    borderRadius: tokens.radius.md,
+                    px: 2,
+                    py: 2,
+                    bgcolor:
+                      index % 2 === 0 ? 'var(--card)' : 'rgba(var(--muted-rgb,243,244,246),0.4)',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Checkbox
+                      aria-label={category.name}
+                      checked={selectedIds.has(category.id)}
+                      onCheckedChange={() => onToggleSelect(category.id)}
+                    />
+                    {!category.isSystem && hasIcon ? (
+                      <Box
                         sx={{
-                          fontWeight: 600,
-                          color: 'var(--foreground)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 32,
+                          height: 32,
+                          borderRadius: tokens.radius.sm,
+                          bgcolor: iconTint,
+                          color: categoryColor,
                         }}
                       >
-                        {getCategoryDisplayName(category, locale)}
-                      </Typography>
-                      {badgeLabel && badgeColors && (
-                        <Box
-                          component="span"
+                        {iconUrl ? (
+                          <Box
+                            component="img"
+                            src={iconUrl}
+                            alt=""
+                            sx={{ width: 16, height: 16, objectFit: 'contain' }}
+                          />
+                        ) : (
+                          <Tag size={16} />
+                        )}
+                      </Box>
+                    ) : null}
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography
+                          variant="body1"
                           sx={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            px: 1,
-                            py: 0.25,
-                            fontSize: 12,
-                            fontWeight: 500,
-                            bgcolor: badgeColors.bg,
-                            color: badgeColors.color,
-                            border: `1px solid ${badgeColors.border}`,
-                            borderRadius: tokens.radius.sm,
+                            fontWeight: 600,
+                            color: 'var(--foreground)',
                           }}
                         >
-                          {badgeLabel}
-                        </Box>
-                      )}
+                          {getCategoryDisplayName(category, locale)}
+                        </Typography>
+                        {badgeLabel && badgeColors && (
+                          <Box
+                            component="span"
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              px: 1,
+                              py: 0.25,
+                              fontSize: 12,
+                              fontWeight: 500,
+                              bgcolor: badgeColors.bg,
+                              color: badgeColors.color,
+                              border: `1px solid ${badgeColors.border}`,
+                              borderRadius: tokens.radius.sm,
+                            }}
+                          >
+                            {badgeLabel}
+                          </Box>
+                        )}
+                      </Box>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: 'var(--muted-foreground)', display: 'block', mt: 0.25 }}
+                      >
+                        {usage ? usedIn(usage) : manage.notUsed}
+                      </Typography>
                     </Box>
-                    <Typography
-                      variant="caption"
-                      sx={{ color: 'var(--muted-foreground)', display: 'block', mt: 0.25 }}
-                    >
-                      {usage ? usedIn(usage) : manage.notUsed}
-                    </Typography>
                   </Box>
-                </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <button
-                    type="button"
-                    onClick={event => {
-                      event.stopPropagation();
-                      void onToggleEnabled(category);
-                    }}
-                    disabled={isToggling}
-                    style={{
-                      position: 'relative',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      width: 54,
-                      height: 32,
-                      borderRadius: tokens.radius.full,
-                      border: 'none',
-                      background: isEnabled ? 'var(--primary)' : 'rgba(107,114,128,0.4)',
-                      cursor: isToggling ? 'default' : 'pointer',
-                      opacity: isToggling ? 0.6 : 1,
-                      transition: 'background 0.2s',
-                      padding: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: 'absolute',
-                        display: 'inline-block',
-                        width: 24,
-                        height: 24,
-                        borderRadius: tokens.radius.full,
-                        background: 'var(--card)',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                        transition: 'transform 0.2s',
-                        transform: isEnabled ? 'translateX(28px)' : 'translateX(4px)',
-                      }}
-                    />
-                  </button>
-
-                  {category.isSystem ? (
-                    <Box
-                      sx={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 32,
-                        height: 32,
-                        borderRadius: tokens.radius.full,
-                        color: 'rgba(107,114,128,0.6)',
-                      }}
-                    >
-                      <Lock size={16} />
-                    </Box>
-                  ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <button
                       type="button"
-                      onClick={() => onOpenDialog(category)}
+                      onClick={event => {
+                        event.stopPropagation();
+                        void onToggleEnabled(category);
+                      }}
+                      disabled={isToggling}
                       style={{
+                        position: 'relative',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 32,
+                        width: 54,
                         height: 32,
                         borderRadius: tokens.radius.full,
-                        color: 'var(--muted-foreground)',
-                        background: 'none',
                         border: 'none',
-                        cursor: 'pointer',
+                        background: isEnabled ? 'var(--primary)' : 'rgba(107,114,128,0.4)',
+                        cursor: isToggling ? 'default' : 'pointer',
+                        opacity: isToggling ? 0.6 : 1,
+                        transition: 'background 0.2s',
+                        padding: 0,
                       }}
                     >
-                      <ChevronRight size={16} />
+                      <span
+                        style={{
+                          position: 'absolute',
+                          display: 'inline-block',
+                          width: 24,
+                          height: 24,
+                          borderRadius: tokens.radius.full,
+                          background: 'var(--card)',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          transition: 'transform 0.2s',
+                          transform: isEnabled ? 'translateX(28px)' : 'translateX(4px)',
+                        }}
+                      />
                     </button>
-                  )}
+
+                    {category.isSystem ? (
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 32,
+                          height: 32,
+                          borderRadius: tokens.radius.full,
+                          color: 'rgba(107,114,128,0.6)',
+                        }}
+                      >
+                        <Lock size={16} />
+                      </Box>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onOpenDialog(category)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 32,
+                          height: 32,
+                          borderRadius: tokens.radius.full,
+                          color: 'var(--muted-foreground)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    )}
+                  </Box>
                 </Box>
-              </Box>
-            );
-          })}
-        </Box>
+              );
+            })}
+          </Box>
+        </SnapshotSkeleton>
       )}
     </Box>
   );

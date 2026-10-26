@@ -1,9 +1,10 @@
 'use client';
 
-import { Alert, Box, CircularProgress } from '@mui/material';
+import { Alert, Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import type { WorkspaceProfile } from '@/app/components/navigation/helpers/navigation-config';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { enterSx } from '@/app/components/welcome-tutorial/welcome-tutorial.styles';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
@@ -38,16 +39,6 @@ import {
 } from './useOnboardingWizard';
 
 const DEFAULT_CURRENCY = 'USD';
-
-function FullScreenSpinner() {
-  return (
-    <Box
-      sx={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}
-    >
-      <CircularProgress size={32} color="primary" />
-    </Box>
-  );
-}
 
 interface StepViewProps {
   stepKey: OnboardingStepKey;
@@ -282,7 +273,7 @@ export default function OnboardingPage() {
     !user ||
     (user.onboardingCompletedAt && flow.shouldRedirectCompletedUser)
   ) {
-    return <FullScreenSpinner />;
+    return <SnapshotSkeleton id="onboarding" loading fallback="panel" />;
   }
 
   // Stands in front of the wizard rather than inside it: the wizard can be skipped
@@ -316,57 +307,59 @@ export default function OnboardingPage() {
   };
 
   return (
-    <OnboardingLayout
-      header={
-        <OnboardingProgress
-          currentStep={currentStep}
-          stepLabels={stepKeys.map(key => stepLabels[key])}
-          progressLabel={text(['progressLabel'])
-            .replace('{current}', String(currentStep + 1))
-            .replace('{total}', String(stepKeys.length))}
-        />
-      }
-      aside={<OnboardingPreview stepKey={stepKey} data={data} />}
-      footer={
-        <OnboardingNavigation
-          canGoBack={currentStep > 0 || isCreateWorkspaceFlow}
-          isSubmitting={isSubmitting}
-          nextDisabled={!canLeaveStep(stepKey, data.profile)}
-          onBack={handleBack}
-          onNext={handleNext}
-          // The tax step has its own "not listed / decide later" in place of a bare Skip.
-          onSkip={stepKey === 'business' ? handleSkip : undefined}
-          labels={{
-            back: text(['navigation', 'back']),
-            next: isLastStep ? text(['navigation', 'finish']) : text(['navigation', 'next']),
-            skip: text(['navigation', 'skip']),
-            saving: text(['navigation', 'saving']),
-          }}
-        />
-      }
-    >
-      {error || workspaceLoadFailed ? (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error || text(['errors', 'workspaceLoadFailed'])}
-        </Alert>
-      ) : null}
+    <SnapshotSkeleton id="onboarding" loading={false}>
+      <OnboardingLayout
+        header={
+          <OnboardingProgress
+            currentStep={currentStep}
+            stepLabels={stepKeys.map(key => stepLabels[key])}
+            progressLabel={text(['progressLabel'])
+              .replace('{current}', String(currentStep + 1))
+              .replace('{total}', String(stepKeys.length))}
+          />
+        }
+        aside={<OnboardingPreview stepKey={stepKey} data={data} />}
+        footer={
+          <OnboardingNavigation
+            canGoBack={currentStep > 0 || isCreateWorkspaceFlow}
+            isSubmitting={isSubmitting}
+            nextDisabled={!canLeaveStep(stepKey, data.profile)}
+            onBack={handleBack}
+            onNext={handleNext}
+            // The tax step has its own "not listed / decide later" in place of a bare Skip.
+            onSkip={stepKey === 'business' ? handleSkip : undefined}
+            labels={{
+              back: text(['navigation', 'back']),
+              next: isLastStep ? text(['navigation', 'finish']) : text(['navigation', 'next']),
+              skip: text(['navigation', 'skip']),
+              saving: text(['navigation', 'saving']),
+            }}
+          />
+        }
+      >
+        {error || workspaceLoadFailed ? (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error || text(['errors', 'workspaceLoadFailed'])}
+          </Alert>
+        ) : null}
 
-      {/* Keyed by step: each one mounts fresh, so it fades in and its heading takes focus. */}
-      <Box key={stepKey} sx={enterSx}>
-        <StepView
-          stepKey={stepKey}
-          data={data}
-          mode={flow.mode}
-          userName={user.name}
-          updateData={updateData}
-          onLocaleChange={nextLocale => {
-            updateData({ locale: nextLocale });
-            setLocale(nextLocale);
-          }}
-          onProfileChange={handleProfileChange}
-          onDeferTax={handleDeferTax}
-        />
-      </Box>
-    </OnboardingLayout>
+        {/* Keyed by step: each one mounts fresh, so it fades in and its heading takes focus. */}
+        <Box key={stepKey} sx={enterSx}>
+          <StepView
+            stepKey={stepKey}
+            data={data}
+            mode={flow.mode}
+            userName={user.name}
+            updateData={updateData}
+            onLocaleChange={nextLocale => {
+              updateData({ locale: nextLocale });
+              setLocale(nextLocale);
+            }}
+            onProfileChange={handleProfileChange}
+            onDeferTax={handleDeferTax}
+          />
+        </Box>
+      </OnboardingLayout>
+    </SnapshotSkeleton>
   );
 }

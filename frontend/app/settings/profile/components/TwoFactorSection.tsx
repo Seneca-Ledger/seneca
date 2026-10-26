@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Alert } from '@/app/components/ui/alert';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import type { UserFormatPreferences } from '@/app/lib/user-format';
 import {
   PasswordPrompt,
@@ -138,31 +138,31 @@ export function TwoFactorSection({ tx, twoFactor, email, formatPreferences }: Pr
         />
       ) : null}
 
-      {loading && !status ? <Spinner size={20} /> : null}
+      <SnapshotSkeleton id="settings-two-factor" loading={loading && !status} fallback="lines">
+        {setup ? (
+          <SetupPanel
+            tx={tx}
+            setup={setup}
+            busy={busy}
+            onConfirm={twoFactor.confirmSetup}
+            onCancel={twoFactor.cancelSetup}
+          />
+        ) : null}
 
-      {setup ? (
-        <SetupPanel
-          tx={tx}
-          setup={setup}
-          busy={busy}
-          onConfirm={twoFactor.confirmSetup}
-          onCancel={twoFactor.cancelSetup}
-        />
-      ) : null}
+        {!setup && status?.enabled ? (
+          <EnabledPanel
+            tx={tx}
+            remaining={status.recoveryCodesRemaining}
+            busy={busy}
+            onDisable={twoFactor.disable}
+            onRegenerate={twoFactor.regenerateRecoveryCodes}
+          />
+        ) : null}
 
-      {!setup && status?.enabled ? (
-        <EnabledPanel
-          tx={tx}
-          remaining={status.recoveryCodesRemaining}
-          busy={busy}
-          onDisable={twoFactor.disable}
-          onRegenerate={twoFactor.regenerateRecoveryCodes}
-        />
-      ) : null}
-
-      {!setup && status && !status.enabled ? (
-        <DisabledPanel tx={tx} busy={busy} onStart={twoFactor.startSetup} />
-      ) : null}
+        {!setup && status && !status.enabled ? (
+          <DisabledPanel tx={tx} busy={busy} onStart={twoFactor.startSetup} />
+        ) : null}
+      </SnapshotSkeleton>
     </Stack>
   );
 }

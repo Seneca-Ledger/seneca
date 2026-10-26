@@ -4,7 +4,7 @@ import { Box, Chip, Typography } from '@mui/material';
 import React from 'react';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Checkbox } from '../../components/ui/checkbox';
 import { formatPaginationLabel } from '../helpers/storageFormatters';
 import { getAvailabilityChipStyle, getStatusChipStyle } from '../helpers/storageStyling';
@@ -150,7 +150,7 @@ export function StorageFileTable({
         }}
       >
         {loading ? (
-          <LoadingState />
+          <SnapshotSkeleton id="storage-files" loading fallback="list" />
         ) : filteredFiles.length === 0 ? (
           <EmptyState
             isTrashView={isTrashView}
@@ -158,53 +158,55 @@ export function StorageFileTable({
             subtitle={emptyStateSubtitle}
           />
         ) : (
-          <TableBody
-            isTrashView={isTrashView}
-            paginatedFiles={paginatedFiles}
-            categories={categories}
-            categoriesLoading={categoriesLoading}
-            selectedTrashIds={selectedTrashIds}
-            selectableTrashIds={selectableTrashIds}
-            selectedTrashIdsInView={selectedTrashIdsInView}
-            allTrashSelected={allTrashSelected}
-            tableFileNameLabel={tableFileNameLabel}
-            tableBankLabel={tableBankLabel}
-            tableAccountLabel={tableAccountLabel}
-            tableSizeLabel={tableSizeLabel}
-            tableStatusLabel={tableStatusLabel}
-            tableCategoryLabel={tableCategoryLabel}
-            tableAccessLabel={tableAccessLabel}
-            tableCreatedAtLabel={tableCreatedAtLabel}
-            tableDeletedAtLabel={tableDeletedAtLabel}
-            tableActionsLabel={tableActionsLabel}
-            trashSelectAllLabel={trashSelectAllLabel}
-            trashSelectRowLabel={trashSelectRowLabel}
-            dragDropRowHintLabel={dragDropRowHintLabel}
-            previewLabel={previewLabel}
-            sharedLinksShortLabel={sharedLinksShortLabel}
-            categoryNoneLabel={categoryNoneLabel}
-            ownerLabel={ownerLabel}
-            trashRestoreActionLabel={trashRestoreActionLabel}
-            trashDeleteActionLabel={trashDeleteActionLabel}
-            viewTooltipLabel={viewTooltipLabel}
-            downloadTooltipLabel={downloadTooltipLabel}
-            deleteActionLabel={deleteActionLabel}
-            getPermissionLabel={getPermissionLabel}
-            formatDate={formatDate}
-            renderTrashExpiryBadge={renderTrashExpiryBadge}
-            renderAvailabilityChip={renderAvailabilityChip}
-            renderStatusBadge={renderStatusBadge}
-            tagChipClass={tagChipClass}
-            onToggleTrashSelection={onToggleTrashSelection}
-            onToggleSelectAllTrash={onToggleSelectAllTrash}
-            onCategoryChange={onCategoryChange}
-            onRestoreFromTrash={onRestoreFromTrash}
-            onConfirmPermanentDelete={onConfirmPermanentDelete}
-            onView={onView}
-            onDownload={onDownload}
-            onConfirmDelete={onConfirmDelete}
-            onPreviewOpen={onPreviewOpen}
-          />
+          <SnapshotSkeleton id="storage-files" loading={false}>
+            <TableBody
+              isTrashView={isTrashView}
+              paginatedFiles={paginatedFiles}
+              categories={categories}
+              categoriesLoading={categoriesLoading}
+              selectedTrashIds={selectedTrashIds}
+              selectableTrashIds={selectableTrashIds}
+              selectedTrashIdsInView={selectedTrashIdsInView}
+              allTrashSelected={allTrashSelected}
+              tableFileNameLabel={tableFileNameLabel}
+              tableBankLabel={tableBankLabel}
+              tableAccountLabel={tableAccountLabel}
+              tableSizeLabel={tableSizeLabel}
+              tableStatusLabel={tableStatusLabel}
+              tableCategoryLabel={tableCategoryLabel}
+              tableAccessLabel={tableAccessLabel}
+              tableCreatedAtLabel={tableCreatedAtLabel}
+              tableDeletedAtLabel={tableDeletedAtLabel}
+              tableActionsLabel={tableActionsLabel}
+              trashSelectAllLabel={trashSelectAllLabel}
+              trashSelectRowLabel={trashSelectRowLabel}
+              dragDropRowHintLabel={dragDropRowHintLabel}
+              previewLabel={previewLabel}
+              sharedLinksShortLabel={sharedLinksShortLabel}
+              categoryNoneLabel={categoryNoneLabel}
+              ownerLabel={ownerLabel}
+              trashRestoreActionLabel={trashRestoreActionLabel}
+              trashDeleteActionLabel={trashDeleteActionLabel}
+              viewTooltipLabel={viewTooltipLabel}
+              downloadTooltipLabel={downloadTooltipLabel}
+              deleteActionLabel={deleteActionLabel}
+              getPermissionLabel={getPermissionLabel}
+              formatDate={formatDate}
+              renderTrashExpiryBadge={renderTrashExpiryBadge}
+              renderAvailabilityChip={renderAvailabilityChip}
+              renderStatusBadge={renderStatusBadge}
+              tagChipClass={tagChipClass}
+              onToggleTrashSelection={onToggleTrashSelection}
+              onToggleSelectAllTrash={onToggleSelectAllTrash}
+              onCategoryChange={onCategoryChange}
+              onRestoreFromTrash={onRestoreFromTrash}
+              onConfirmPermanentDelete={onConfirmPermanentDelete}
+              onView={onView}
+              onDownload={onDownload}
+              onConfirmDelete={onConfirmDelete}
+              onPreviewOpen={onPreviewOpen}
+            />
+          </SnapshotSkeleton>
         )}
         <PaginationFooter
           currentPage={currentPage}
@@ -218,14 +220,6 @@ export function StorageFileTable({
           onPageChange={onPageChange}
         />
       </Box>
-    </Box>
-  );
-}
-
-function LoadingState(): React.JSX.Element {
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
-      <Spinner className="h-8 w-8 text-primary" />
     </Box>
   );
 }

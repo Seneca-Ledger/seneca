@@ -4,7 +4,7 @@ import { Box, IconButton, Modal, TextField, Typography } from '@mui/material';
 import React from 'react';
 import { Bookmark, Save, X } from '@/app/components/icons';
 import { Select } from '@/app/components/ui/select';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { tokens } from '@/lib/theme-tokens';
 import type {
   CategoryOption,
@@ -555,11 +555,7 @@ function ViewsList({
   onApplyView,
 }: ViewsListProps): React.JSX.Element {
   if (viewsLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-        <Spinner className="h-5 w-5 text-gray-400" />
-      </Box>
-    );
+    return <SnapshotSkeleton id="storage-saved-views" loading fallback="lines" />;
   }
   if (views.length === 0) {
     return (
@@ -577,18 +573,20 @@ function ViewsList({
     );
   }
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      {views.map(view => (
-        <ViewItem
-          key={view.id}
-          view={view}
-          activeViewId={activeViewId}
-          viewDeleteLabel={viewDeleteLabel}
-          onDeleteView={onDeleteView}
-          onApplyView={onApplyView}
-        />
-      ))}
-    </Box>
+    <SnapshotSkeleton id="storage-saved-views" loading={false}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {views.map(view => (
+          <ViewItem
+            key={view.id}
+            view={view}
+            activeViewId={activeViewId}
+            viewDeleteLabel={viewDeleteLabel}
+            onDeleteView={onDeleteView}
+            onApplyView={onApplyView}
+          />
+        ))}
+      </Box>
+    </SnapshotSkeleton>
   );
 }
 
