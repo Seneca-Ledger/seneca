@@ -20,12 +20,16 @@ import {
 } from '../../contracts/requests/dashboard';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CashFlowEntriesService } from './cash-flow-entries.service';
 import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly cashFlowEntries: CashFlowEntriesService,
+  ) {}
 
   @Get()
   @SchemaResponse(DashboardResponse)
@@ -60,7 +64,7 @@ export class DashboardController {
     @WorkspaceMemberId() viewerMemberId: string | null,
     @SchemaQuery(CashFlowEntriesQuery) query: CashFlowEntriesQuery,
   ) {
-    return this.dashboardService.getCashFlowEntries(workspaceId, query.month, viewerMemberId);
+    return this.cashFlowEntries.getCashFlowEntries(workspaceId, query.month, viewerMemberId);
   }
 
   @Get('trends')

@@ -39,6 +39,7 @@ import {
 } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { BalanceService } from '../../src/modules/balance/balance.service';
+import { BudgetWithinLimitService } from '../../src/modules/budgets/budget-within-limit.service';
 import { BudgetsService } from '../../src/modules/budgets/budgets.service';
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
@@ -192,6 +193,7 @@ describe('one rule for income and spending (real Postgres)', () => {
         SpendFlowService,
         ForecastService,
         BudgetsService,
+        BudgetWithinLimitService,
         WorkspaceCurrencyService,
         { provide: ExchangeRatesService, useValue: rates },
         { provide: GoalsService, useValue: { findAll: vi.fn(async () => []) } },
