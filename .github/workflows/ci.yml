@@ -481,14 +481,6 @@ jobs:
   dependency-scan:
     runs-on: ubuntu-latest
     needs: [typecheck]
-    env:
-      ALLOWED_LICENSES: >-
-        MIT;MIT*;MIT-0;Apache-2.0;ISC;BSD;BSD*;BSD-2-Clause;BSD-3-Clause;0BSD;Unlicense;
-        Python-2.0;PSF-2.0;BlueOak-1.0.0;LGPL;LGPL-2.1;LGPL-3.0;LGPL-3.0-or-later;MPL-2.0;CC0-1.0;CC-BY-4.0;WTFPL;
-        (MIT OR Apache-2.0);(MIT OR CC0-1.0);(MIT OR EUPL-1.1+);(WTFPL OR MIT);(WTFPL OR ISC);
-        (BSD-2-Clause OR MIT OR Apache-2.0);(MIT AND Zlib);(MIT AND BSD-3-Clause);(MIT OR GPL-3.0-or-later);
-        (BSD-3-Clause OR GPL-2.0);(AFL-2.1 OR BSD-3-Clause);(Apache-2.0 AND LGPL-3.0-or-later);
-        (Apache-2.0 AND LGPL-3.0-or-later AND MIT)
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -547,17 +539,9 @@ jobs:
         continue-on-error: true
         run: npm audit --audit-level=high --prefix website
 
-      - name: Root license compliance
-        run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start .
-
-      - name: Backend license compliance
-        run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start backend
-
-      - name: Frontend license compliance
-        run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start frontend
-
-      - name: Website license compliance
-        run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start website
+      # Every tree's dependencies against the allowlist in scripts/check-licenses.mjs.
+      - name: License compliance
+        run: npm run test:licenses && npm run licenses:check
 
   secrets-scan:
     runs-on: ubuntu-latest
