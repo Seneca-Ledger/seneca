@@ -10,6 +10,7 @@ import { InvoiceDelivery } from '../../entities/invoice-delivery.entity';
 import { InvoiceLineItem } from '../../entities/invoice-line-item.entity';
 import { InvoiceSettings } from '../../entities/invoice-settings.entity';
 import { Payable } from '../../entities/payable.entity';
+import { Workspace } from '../../entities/workspace.entity';
 import { BusinessProfileModule } from '../business-profile/business-profile.module';
 import { LedgerModule } from '../ledger/ledger.module';
 import { MailerModule } from '../mailer/mailer.module';
@@ -23,6 +24,7 @@ import { InvoiceAgeingService } from './invoice-ageing.service';
 import { InvoiceDeliveryService } from './invoice-delivery.service';
 import { InvoiceRemindersService } from './invoice-reminders.service';
 import { InvoiceSettingsService } from './invoice-settings.service';
+import { InvoiceXRechnungService } from './invoice-xrechnung.service';
 import { InvoicesController } from './invoices.controller';
 import { InvoicesScheduler } from './invoices.scheduler';
 import { InvoicesService } from './invoices.service';
@@ -42,6 +44,7 @@ import { PublicInvoicesService } from './public-invoices.service';
       CreditNoteApplication,
       Client,
       Payable,
+      Workspace,
     ]),
     LedgerModule,
     BusinessProfileModule,
@@ -62,6 +65,7 @@ import { PublicInvoicesService } from './public-invoices.service';
     InvoiceDeliveryService,
     InvoiceRemindersService,
     InvoiceSettingsService,
+    InvoiceXRechnungService,
     PublicInvoicesService,
     ClientsService,
     InvoicesScheduler,
@@ -73,6 +77,7 @@ import { PublicInvoicesService } from './public-invoices.service';
     InvoiceDeliveryService,
     InvoiceRemindersService,
     InvoiceSettingsService,
+    InvoiceXRechnungService,
     ClientsService,
   ],
 })

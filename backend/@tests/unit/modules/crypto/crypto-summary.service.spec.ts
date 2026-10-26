@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { countedSql } from '@/common/utils/counted-transactions.util';
 import { TransactionType } from '../../../../src/entities/transaction.entity';
 import { CryptoService } from '../../../../src/modules/crypto/crypto.service';
@@ -8,7 +9,7 @@ const WORKSPACE = 'ws-1';
 type Prices = Record<string, number | null>;
 
 function queryBuilder(result: { rows?: unknown[]; many?: unknown[] }) {
-  const qb: Record<string, jest.Mock> = {};
+  const qb: Record<string, Mock> = {};
   for (const method of [
     'select',
     'addSelect',
@@ -19,10 +20,10 @@ function queryBuilder(result: { rows?: unknown[]; many?: unknown[] }) {
     'addOrderBy',
     'take',
   ]) {
-    qb[method] = jest.fn(() => qb);
+    qb[method] = vi.fn(() => qb);
   }
-  qb.getRawMany = jest.fn(async () => result.rows ?? []);
-  qb.getMany = jest.fn(async () => result.many ?? []);
+  qb.getRawMany = vi.fn(async () => result.rows ?? []);
+  qb.getMany = vi.fn(async () => result.many ?? []);
   return qb;
 }
 
@@ -31,10 +32,12 @@ function build(options: {
   current?: Record<string, number>;
   yesterday?: Prices;
   transactions?: unknown[];
+  /** The portfolio value the last sync before a day wrote. */
+  valueBefore?: number;
 }) {
   const walletRepo = {
-    count: jest.fn(async () => 1),
-    find: jest.fn(async () => [
+    count: vi.fn(async () => 1),
+    find: vi.fn(async () => [
       {
         id: 'w-1',
         label: 'Ledger',
@@ -45,14 +48,14 @@ function build(options: {
     ]),
   };
   const transactionRepo = {
-    createQueryBuilder: jest.fn(() =>
+    createQueryBuilder: vi.fn(() =>
       queryBuilder({ rows: [], many: options.transactions ?? [] }),
     ),
   };
-  const workspaceRepo = { findOne: jest.fn(async () => ({ id: WORKSPACE, currency: 'EUR' })) };
+  const workspaceRepo = { findOne: vi.fn(async () => ({ id: WORKSPACE, currency: 'EUR' })) };
   const priceService = {
-    getCurrentUsdPrices: jest.fn(async () => options.current ?? {}),
-    getUsdPrice: jest.fn(async (asset: string) => {
+    getCurrentUsdPrices: vi.fn(async () => options.current ?? {}),
+    getUsdPrice: vi.fn(async (asset: string) => {
       const price = options.yesterday?.[asset];
       if (price === undefined) {
         throw new Error('rate limited');
@@ -60,7 +63,11 @@ function build(options: {
       return price;
     }),
   };
-  const exchangeRatesService = { getRate: jest.fn(async () => 0.5) };
+  const exchangeRatesService = { getRate: vi.fn(async () => 0.5) };
+  const balanceService = {
+    writePortfolioSnapshot: vi.fn(),
+    valueBefore: vi.fn(async () => options.valueBefore ?? 0),
+  };
 
   // The portfolio side of the summary is the holdings service's answer; it is the
   // real one here, so the two stay in step.
@@ -78,14 +85,47 @@ function build(options: {
     {} as never,
     priceService as never,
     exchangeRatesService as never,
-    { createEvent: jest.fn(), createBatchEvents: jest.fn() } as never,
+    { createEvent: vi.fn(), createBatchEvents: vi.fn() } as never,
     holdingsService,
-    { writePortfolioSnapshot: jest.fn() } as never,
+    balanceService as never,
   );
-  return { service, transactionRepo };
+  return { service, transactionRepo, balanceService };
 }
 
 describe('CryptoService.getSummary', () => {
+  it('values a past month by the last snapshot before its end, not by today', async () => {
+    const { service, balanceService } = build({
+      balances: [{ asset: 'ETH', amount: '2' }],
+      current: { ETH: 3000 },
+      yesterday: { ETH: 3000 },
+      valueBefore: 1234.567,
+    });
+
+    const summary = await service.getSummary(WORKSPACE, 30, '2024-02');
+
+    expect(balanceService.valueBefore).toHaveBeenCalledWith(WORKSPACE, '2024-03-01');
+    expect(summary).toMatchObject({
+      portfolioValue: 1234.57,
+      holdings: [],
+      portfolioChangeSinceYesterday: null,
+      cost: null,
+      unrealized: null,
+    });
+  });
+
+  it('values the month we are in by today', async () => {
+    const { service, balanceService } = build({
+      balances: [{ asset: 'ETH', amount: '2' }],
+      current: { ETH: 3000 },
+      yesterday: { ETH: 3000 },
+    });
+
+    const summary = await service.getSummary(WORKSPACE, 30, new Date().toISOString().slice(0, 7));
+
+    expect(balanceService.valueBefore).not.toHaveBeenCalled();
+    expect(summary.portfolioValue).toBe(3000);
+  });
+
   it('prices one unit of each holding in the workspace currency', async () => {
     const { service } = build({
       balances: [{ asset: 'ETH', amount: '2' }],
@@ -100,6 +140,41 @@ describe('CryptoService.getSummary', () => {
       expect.objectContaining({ asset: 'ETH', amount: '2', price: 1500, value: 3000 }),
     ]);
     expect(summary.holdings[0]).toMatchObject({ avgCost: null, cost: null, realized: 0 });
+  });
+
+  it('keeps a unit price below a cent and the gain percent from unrounded figures', async () => {
+    const { service } = build({
+      balances: [
+        { asset: 'USDT', amount: '1000' },
+        { asset: 'ETH', amount: '0.001308' },
+      ],
+      // Workspace currency at 0.5 per USD: USDT is worth 0.49955, ETH 1 183.20.
+      current: { USDT: 0.9991, ETH: 2366.4 },
+      yesterday: { USDT: 0.9991, ETH: 2366.4 },
+      transactions: [
+        {
+          id: 'buy-eth',
+          transactionDate: new Date('2026-01-01T00:00:00Z'),
+          cryptoWalletId: 'w-1',
+          transactionType: TransactionType.INCOME,
+          cryptoAsset: 'ETH',
+          cryptoAmount: '0.001308',
+          // 954.25 a coin in the workspace currency.
+          amount: '1.248159',
+          currency: 'EUR',
+        },
+      ],
+    });
+
+    const summary = await service.getSummary(WORKSPACE);
+    const usdt = summary.holdings.find(holding => holding.asset === 'USDT');
+    const eth = summary.holdings.find(holding => holding.asset === 'ETH');
+
+    expect(usdt?.price).toBe(0.49955);
+    expect(eth?.avgCost).toBeCloseTo(954.25, 4);
+    // Value 1.55 against a cost of 1.248159: +24.18%, not the +24.0% that
+    // dividing the cent-rounded gain (0.30) by the cent-rounded cost (1.25) gives.
+    expect(eth?.unrealizedPercent).toBe(24.18);
   });
 
   it('reports the price move since yesterday, weighted by value', async () => {
@@ -142,8 +217,8 @@ describe('CryptoService.getSummary', () => {
 });
 
 describe('CryptoService.getSummary for a calendar month', () => {
-  const flowQuery = (transactionRepo: { createQueryBuilder: jest.Mock }) =>
-    transactionRepo.createQueryBuilder.mock.results[0].value as Record<string, jest.Mock>;
+  const flowQuery = (transactionRepo: { createQueryBuilder: Mock }) =>
+    transactionRepo.createQueryBuilder.mock.results[0].value as Record<string, Mock>;
 
   it('limits the flows to that month instead of the rolling window', async () => {
     const { service, transactionRepo } = build({});
@@ -234,26 +309,26 @@ describe('CryptoService.connect', () => {
   function connectService() {
     const saved: Record<string, unknown>[] = [];
     const walletRepo = {
-      findOne: jest.fn(async () => null),
-      create: jest.fn((row: Record<string, unknown>) => row),
-      save: jest.fn(async (row: Record<string, unknown>) => {
+      findOne: vi.fn(async () => null),
+      create: vi.fn((row: Record<string, unknown>) => row),
+      save: vi.fn(async (row: Record<string, unknown>) => {
         const stored = { id: 'w-new', ...row };
         saved.push(stored);
         return stored;
       }),
-      find: jest.fn(async () => saved),
+      find: vi.fn(async () => saved),
     };
-    const transactionRepo = { createQueryBuilder: jest.fn(() => queryBuilder({})) };
-    const syncService = { syncWallet: jest.fn(async () => ({ imported: 0, skipped: 0 })) };
+    const transactionRepo = { createQueryBuilder: vi.fn(() => queryBuilder({})) };
+    const syncService = { syncWallet: vi.fn(async () => ({ imported: 0, skipped: 0 })) };
     const service = new CryptoService(
       walletRepo as never,
       transactionRepo as never,
       syncService as never,
       {} as never,
       {} as never,
-      { createEvent: jest.fn(), createBatchEvents: jest.fn() } as never,
+      { createEvent: vi.fn(), createBatchEvents: vi.fn() } as never,
       {} as never,
-      { writePortfolioSnapshot: jest.fn() } as never,
+      { writePortfolioSnapshot: vi.fn() } as never,
     );
     return { service, saved };
   }

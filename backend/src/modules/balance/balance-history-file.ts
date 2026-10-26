@@ -1,7 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import * as xlsx from 'xlsx';
+import { appError } from '../../common/errors/app-error';
 import { normalizeDate, normalizeNumber } from '../../common/utils/number-normalizer.util';
-import type { BalanceHistoryPoint } from './balance.service';
+import type { BalanceHistoryRow } from './balance-history.service';
 
 /**
  * Header spellings we accept, lower-cased. People bring these files out of
@@ -19,14 +20,14 @@ const CURRENCY_HEADERS = ['currency', 'валюта'];
  * export usually carries a total row or a note at the bottom, and throwing the
  * whole file away over it would send the user back to editing by hand.
  */
-export function readBalanceHistoryFile(buffer: Buffer): BalanceHistoryPoint[] {
+export function readBalanceHistoryFile(buffer: Buffer): BalanceHistoryRow[] {
   // cellDates, or a spreadsheet hands back its own serial numbers for days;
   // codepage, or a CSV is read as Windows-1252 and non-Latin headers arrive
   // as mojibake that matches nothing.
   const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true, codepage: 65001 });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!sheet) {
-    throw new BadRequestException('The file has no sheet to read');
+    throw new BadRequestException(appError('BALANCE_HISTORY_EMPTY'));
   }
 
   const rows = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null });
@@ -34,13 +35,11 @@ export function readBalanceHistoryFile(buffer: Buffer): BalanceHistoryPoint[] {
   const dateKey = matchHeader(headers, DATE_HEADERS);
   const amountKey = matchHeader(headers, AMOUNT_HEADERS);
   if (!(dateKey && amountKey)) {
-    throw new BadRequestException(
-      'The file needs a date column and an amount column (date, amount)',
-    );
+    throw new BadRequestException(appError('BALANCE_HISTORY_COLUMNS_MISSING'));
   }
   const currencyKey = matchHeader(headers, CURRENCY_HEADERS);
 
-  const points: BalanceHistoryPoint[] = [];
+  const points: BalanceHistoryRow[] = [];
   for (const row of rows) {
     const date = toDate(row[dateKey]);
     const amount = normalizeNumber(String(row[amountKey] ?? ''));
@@ -56,7 +55,7 @@ export function readBalanceHistoryFile(buffer: Buffer): BalanceHistoryPoint[] {
   }
 
   if (points.length === 0) {
-    throw new BadRequestException('No dated amounts were found in the file');
+    throw new BadRequestException(appError('BALANCE_HISTORY_EMPTY'));
   }
   return points;
 }

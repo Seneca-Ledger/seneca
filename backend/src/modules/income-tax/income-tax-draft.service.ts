@@ -1,8 +1,10 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository, type SelectQueryBuilder } from 'typeorm';
+import { In, type QueryDeepPartialEntity, type Repository, type SelectQueryBuilder } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import {
   ActorType,
   AuditAction,
@@ -15,10 +17,13 @@ import { IncomeTaxProfile } from '../../entities/income-tax-profile.entity';
 import { StatementStatus } from '../../entities/statement.entity';
 import type { TaxJurisdiction } from '../../entities/tax-jurisdiction.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
+import { VatStatus } from '../../entities/workspace.entity';
 import { AuditService } from '../audit/audit.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { PublicHolidaysService } from '../reference-data/public-holidays.service';
 import { JurisdictionAdoptionService } from '../tax/jurisdiction-adoption.service';
 import { toDateOnly } from '../tax/jurisdictions.service';
+import { WorkspaceTaxSettingsService } from '../tax/workspace-tax-settings.service';
 import { type BdiRates, BdiRatesService, referenceRateFor } from './bdi-rates.service';
 import { filingInfoFor } from './filing-info';
 import type { DraftContribution, DraftSignals, IncomeTaxDraft } from './income-tax.types';
@@ -116,7 +121,24 @@ export class IncomeTaxDraftService {
     private readonly nbpRatesService: NbpRatesService,
     private readonly bdiRatesService: BdiRatesService,
     private readonly auditService: AuditService,
+    @Optional()
+    private readonly taxSettingsService?: WorkspaceTaxSettingsService,
+    @Optional()
+    private readonly publicHolidaysService?: PublicHolidaysService,
   ) {}
+
+  /** The filing calendar, with deadlines moved off the country's public holidays. */
+  private async filingInfo(
+    countryCode: string,
+    taxYear: number,
+    profile: { taxpayerType: TaxpayerType; details: Record<string, unknown> },
+  ) {
+    const holidays = await this.publicHolidaysService?.holidaysFor(countryCode, [
+      taxYear + 1,
+      taxYear + 2,
+    ]);
+    return filingInfoFor(countryCode, taxYear, profile.taxpayerType, profile.details, holidays);
+  }
 
   /**
    * Profile and mapping edits change how a year is declared but live on their
@@ -169,9 +191,7 @@ export class IncomeTaxDraftService {
       pack: jurisdiction
         ? packMeta(resolvePack(jurisdiction.code, taxYear, profile.taxpayerType, profile.details))
         : null,
-      filingInfo: jurisdiction
-        ? filingInfoFor(jurisdiction.code, taxYear, profile.taxpayerType, profile.details)
-        : null,
+      filingInfo: jurisdiction ? await this.filingInfo(jurisdiction.code, taxYear, profile) : null,
     };
   }
 
@@ -183,10 +203,16 @@ export class IncomeTaxDraftService {
     userId?: string,
   ) {
     const before = await this.getProfile(workspaceId, taxYear);
-    await this.profileRepository.upsert({ workspaceId, taxYear, taxpayerType, details }, [
-      'workspaceId',
-      'taxYear',
-    ]);
+    await this.profileRepository.upsert(
+      {
+        workspaceId,
+        taxYear,
+        taxpayerType,
+        // jsonb: TypeORM's deep-partial type cannot express `unknown` values.
+        details: details as QueryDeepPartialEntity<IncomeTaxProfile>['details'],
+      },
+      ['workspaceId', 'taxYear'],
+    );
     await this.recordDeclarationChange(
       workspaceId,
       userId,
@@ -203,10 +229,7 @@ export class IncomeTaxDraftService {
   ): Promise<{ jurisdiction: TaxJurisdiction; profile: IncomeTaxProfileView; pack: RulePack }> {
     const jurisdiction = await this.adoptionService.getCurrentJurisdiction(workspaceId);
     if (!jurisdiction) {
-      throw new BadRequestException({
-        code: 'TAX_JURISDICTION_REQUIRED',
-        message: 'This workspace has no tax country. Pick one in the workspace settings first.',
-      });
+      throw new BadRequestException(appError('TAX_JURISDICTION_REQUIRED'));
     }
     const profile = await this.getProfile(workspaceId, taxYear);
     return {
@@ -263,7 +286,9 @@ export class IncomeTaxDraftService {
     const byCategory = new Map(entries.map(entry => [entry.categoryId, entry.lineKey]));
     for (const lineKey of byCategory.values()) {
       if (lineKey !== null && !lineKeys.has(lineKey)) {
-        throw new BadRequestException(`Unknown line '${lineKey}' for form ${pack.formKey}`);
+        throw new BadRequestException(
+          appError('INCOME_TAX_LINE_UNKNOWN', { line: lineKey, form: pack.formKey }),
+        );
       }
     }
 
@@ -273,7 +298,7 @@ export class IncomeTaxDraftService {
         where: { workspaceId, id: In(categoryIds) },
       });
       if (owned !== categoryIds.length) {
-        throw new BadRequestException('One or more categories do not belong to this workspace');
+        throw new BadRequestException(appError('TAX_CATEGORIES_NOT_IN_WORKSPACE'));
       }
     }
 
@@ -338,6 +363,16 @@ export class IncomeTaxDraftService {
   async compute(workspaceId: string, taxYear: number): Promise<IncomeTaxDraft> {
     const { jurisdiction, profile, pack } = await this.getContext(workspaceId, taxYear);
     const currency = jurisdiction.currency.toUpperCase();
+    const vatStatus = this.taxSettingsService
+      ? await this.taxSettingsService.getVatStatus(workspaceId)
+      : null;
+    const vatRegistered = vatStatus === VatStatus.REGISTERED;
+    // The workspace's VAT status answers the small-business question unless
+    // the profile answered it for this year.
+    const details =
+      profile.details.smallBusiness === undefined && vatStatus === VatStatus.SMALL_BUSINESS
+        ? { ...profile.details, smallBusiness: true }
+        : profile.details;
 
     const [transactions, mappings] = await Promise.all([
       this.yearTransactions(workspaceId, taxYear)
@@ -347,6 +382,9 @@ export class IncomeTaxDraftService {
         .getMany(),
       this.mappingRepository.find({ where: { workspaceId, formKey: pack.formKey } }),
     ]);
+    // The declaration is the workspace's (and is frozen on finalising): a
+    // private row's amount counts, its counterparty is nobody's to read there.
+    redactPrivateRows(transactions, null);
 
     const lineByKey = new Map(pack.lines.map(line => [line.key, line]));
     const lineByCategory = new Map<string, FormLine>();
@@ -413,32 +451,56 @@ export class IncomeTaxDraftService {
         continue;
       }
 
-      const rate = quote.rate;
-      const sign = directionSign(line.section, transaction.transactionType);
-      const convertedMinor = sign * roundHalfAwayFromZero(toMinor(amount) * rate);
+      const addItem = (target: FormLine, value: number) => {
+        const sign = directionSign(target.section, transaction.transactionType);
+        const convertedMinor = sign * roundHalfAwayFromZero(toMinor(value) * quote.rate);
+        if (!items[target.key]) {
+          items[target.key] = [];
+          contributions[target.key] = [];
+        }
+        items[target.key].push({
+          counterparty: transaction.counterpartyName ?? '',
+          amountMinor: convertedMinor,
+        });
+        contributions[target.key].push({
+          transactionId: transaction.id,
+          date,
+          counterparty: transaction.counterpartyName,
+          categoryName: transaction.category?.name ?? null,
+          currency: from,
+          amount: sign * value,
+          exchangeRate: quote.rate,
+          rateDate: quote.rateDate,
+          amountConverted: fromMinor(convertedMinor),
+        });
+      };
 
-      if (!items[line.key]) {
-        items[line.key] = [];
-        contributions[line.key] = [];
+      // A VAT-registered business's revenue and costs are declared net: the
+      // VAT it collected or paid is not its income or cost but the tax
+      // office's, and goes to the pack's VAT lines where the form has them.
+      // Reverse-charged rows carry no tax that changed hands.
+      const splitsVat =
+        vatRegistered &&
+        transaction.taxAmount !== null &&
+        transaction.taxNetAmount !== null &&
+        !transaction.taxReverseCharge;
+      if (splitsVat) {
+        addItem(line, Math.abs(Number(transaction.taxNetAmount)));
+        const vat = Math.abs(Number(transaction.taxAmount));
+        const vatLineKey =
+          transaction.transactionType === TransactionType.INCOME
+            ? pack.vatLines?.output
+            : pack.vatLines?.input;
+        const vatLine = vatLineKey ? lineByKey.get(vatLineKey) : undefined;
+        if (vatLine && vat > 0) {
+          addItem(vatLine, vat);
+        }
+      } else {
+        addItem(line, amount);
       }
-      items[line.key].push({
-        counterparty: transaction.counterpartyName ?? '',
-        amountMinor: convertedMinor,
-      });
-      contributions[line.key].push({
-        transactionId: transaction.id,
-        date,
-        counterparty: transaction.counterpartyName,
-        categoryName: transaction.category?.name ?? null,
-        currency: from,
-        amount: sign * amount,
-        exchangeRate: rate,
-        rateDate: quote.rateDate,
-        amountConverted: fromMinor(convertedMinor),
-      });
     }
 
-    const result = pack.compute({ taxYear, items, details: profile.details });
+    const result = pack.compute({ taxYear, items, details });
 
     const warnings = [...result.warnings];
     if (pack.formEditionYear !== null && taxYear > pack.formEditionYear) {
@@ -490,7 +552,7 @@ export class IncomeTaxDraftService {
       completeness,
       disclaimerVersion: CURRENT_TAX_DISCLAIMER_VERSION,
       fxRule,
-      filingInfo: filingInfoFor(jurisdiction.code, taxYear, profile.taxpayerType, profile.details),
+      filingInfo: await this.filingInfo(jurisdiction.code, taxYear, profile),
       contributions,
     };
   }

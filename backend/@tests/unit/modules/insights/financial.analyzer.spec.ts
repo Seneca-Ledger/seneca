@@ -1,4 +1,4 @@
-import { countedSql } from '@/common/utils/counted-transactions.util';
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { InsightSeverity, InsightType } from '@/entities/insight.entity';
 import { FinancialAnalyzer } from '@/modules/insights/analyzers/financial.analyzer';
 
@@ -15,8 +15,9 @@ function categoryRow(
   categoryName: string,
   monthsAgo: number,
   total: number,
+  currency = 'USD',
 ) {
-  return { categoryId, categoryName, month: monthStart(monthsAgo), total: String(total) };
+  return { categoryId, categoryName, month: monthStart(monthsAgo), currency, total: String(total) };
 }
 
 /**
@@ -30,30 +31,55 @@ function createTransactionRepository(options: {
 }) {
   const monthlyTotals = [...(options.monthlyTotals ?? [])];
 
-  const builder: any = {
-    innerJoin: jest.fn(() => builder),
-    select: jest.fn(() => builder),
-    addSelect: jest.fn(() => builder),
-    where: jest.fn(() => builder),
-    andWhere: jest.fn(() => builder),
-    groupBy: jest.fn(() => builder),
-    addGroupBy: jest.fn(() => builder),
-    setParameters: jest.fn(() => builder),
-    getRawMany: jest.fn(async () => options.categoryRows ?? []),
-    getRawOne: jest.fn(async () => monthlyTotals.shift() ?? { income: '0', spent: '0' }),
-  };
+  // One builder per query: the category query joins the category, the monthly
+  // ones do not; both answer per currency.
+  const builders: any[] = [];
+  const createQueryBuilder = vi.fn(() => {
+    let joinsCategory = false;
+    const builder: any = {
+      innerJoin: vi.fn(() => {
+        joinsCategory = true;
+        return builder;
+      }),
+      select: vi.fn(() => builder),
+      addSelect: vi.fn(() => builder),
+      where: vi.fn(() => builder),
+      andWhere: vi.fn(() => builder),
+      groupBy: vi.fn(() => builder),
+      addGroupBy: vi.fn(() => builder),
+      setParameters: vi.fn(() => builder),
+      getRawMany: vi.fn(async () =>
+        joinsCategory
+          ? (options.categoryRows ?? [])
+          : [{ currency: 'USD', ...(monthlyTotals.shift() ?? { income: '0', spent: '0' }) }],
+      ),
+    };
+    builders.push(builder);
+    return builder;
+  });
 
-  return { createQueryBuilder: jest.fn(() => builder) } as any;
+  return { createQueryBuilder, builders } as any;
+}
+
+/** UAH converts at 0.024 to the workspace's USD; XYZ has no rate at all. */
+function createRates() {
+  return {
+    getRateOrNull: vi.fn(async (from: string) => (from === 'UAH' ? 0.024 : null)),
+  } as any;
+}
+
+function createWorkspaceRepository() {
+  return { findOne: vi.fn(async () => ({ id: 'workspace-1', currency: 'USD' })) } as any;
 }
 
 function createBudgetRepository(categoryIds: string[]) {
-  return { find: jest.fn(async () => categoryIds.map(categoryId => ({ categoryId }))) } as any;
+  return { find: vi.fn(async () => categoryIds.map(categoryId => ({ categoryId }))) } as any;
 }
 
 /** The analyzer only reads riskyPercent and the totals shown alongside it. */
 function createNetWorthService(riskyPercent = 0) {
   return {
-    getNetWorth: jest.fn(async () => ({ riskyPercent, assetsTotal: 1000 })),
+    getNetWorth: vi.fn(async () => ({ riskyPercent, assetsTotal: 1000 })),
   } as any;
 }
 
@@ -63,6 +89,8 @@ describe('FinancialAnalyzer', () => {
       createTransactionRepository({}),
       createBudgetRepository([]),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze({ userId: 'user-1', workspaceId: null });
@@ -88,6 +116,8 @@ describe('FinancialAnalyzer', () => {
       }),
       createBudgetRepository(['cat-1', 'cat-2']),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -106,6 +136,41 @@ describe('FinancialAnalyzer', () => {
     expect(rising?.data).toMatchObject({ month, categoryName: 'Такси' });
   });
 
+  it('reads 500 UAH at its rate, not as 500 of the workspace currency', async () => {
+    const analyzer = new FinancialAnalyzer(
+      createTransactionRepository({
+        categoryRows: [
+          // 500 UAH = 12 USD now, against 100 USD a month before: no rise at all.
+          categoryRow('cat-1', 'Donate', 0, 500, 'UAH'),
+          categoryRow('cat-1', 'Donate', 1, 100),
+          categoryRow('cat-1', 'Donate', 2, 100),
+          categoryRow('cat-1', 'Donate', 3, 100),
+          // 400 USD + 1000 UAH (24 USD) now: one category, both currencies, 424 vs 100.
+          categoryRow('cat-2', 'Travel', 0, 400),
+          categoryRow('cat-2', 'Travel', 0, 1000, 'UAH'),
+          categoryRow('cat-2', 'Travel', 1, 100),
+          categoryRow('cat-2', 'Travel', 2, 100),
+          categoryRow('cat-2', 'Travel', 3, 100),
+          // No rate for XYZ: left out, not counted as 900 USD.
+          categoryRow('cat-3', 'Gifts', 0, 900, 'XYZ'),
+          categoryRow('cat-3', 'Gifts', 1, 100),
+          categoryRow('cat-3', 'Gifts', 2, 100),
+          categoryRow('cat-3', 'Gifts', 3, 100),
+        ],
+      }),
+      createBudgetRepository(['cat-1', 'cat-2', 'cat-3']),
+      createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
+    );
+
+    const results = await analyzer.analyze(CONTEXT);
+    const rising = results.filter(item => item.type === InsightType.SPENDING_TREND_UP);
+
+    expect(rising).toHaveLength(1);
+    expect(rising[0].messageParams).toMatchObject({ category: 'Travel', percent: 324 });
+  });
+
   it('ignores a category whose spending is below the rising threshold', async () => {
     const analyzer = new FinancialAnalyzer(
       createTransactionRepository({
@@ -118,11 +183,67 @@ describe('FinancialAnalyzer', () => {
       }),
       createBudgetRepository(['cat-2']),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
 
     expect(results.some(item => item.type === InsightType.SPENDING_TREND_UP)).toBe(false);
+  });
+
+  it('ignores a big percent rise that is small in money', async () => {
+    const analyzer = new FinancialAnalyzer(
+      createTransactionRepository({
+        categoryRows: [
+          // The real case: 6.61 now against an average of 2.88 is +129%, but 3.73 USD.
+          categoryRow('cat-ads', 'Advertising', 0, 6.61),
+          categoryRow('cat-ads', 'Advertising', 1, 2.88),
+          categoryRow('cat-ads', 'Advertising', 2, 2.88),
+          categoryRow('cat-ads', 'Advertising', 3, 2.88),
+        ],
+      }),
+      createBudgetRepository(['cat-ads']),
+      createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
+    );
+
+    const results = await analyzer.analyze(CONTEXT);
+
+    expect(results.some(item => item.type === InsightType.SPENDING_TREND_UP)).toBe(false);
+  });
+
+  it('sets the money floor in the workspace currency', async () => {
+    // 1 USD = 500 KZT, so the floor is 25 000 KZT.
+    const rates = { getRateOrNull: vi.fn(async (from: string) => (from === 'USD' ? 500 : null)) };
+    const workspaces = { findOne: vi.fn(async () => ({ id: 'workspace-1', currency: 'KZT' })) };
+    const analyzer = new FinancialAnalyzer(
+      createTransactionRepository({
+        categoryRows: [
+          // +20 000 KZT (+100%): about 40 USD, under the floor.
+          categoryRow('cat-1', 'Кафе', 0, 40_000, 'KZT'),
+          categoryRow('cat-1', 'Кафе', 1, 20_000, 'KZT'),
+          categoryRow('cat-1', 'Кафе', 2, 20_000, 'KZT'),
+          categoryRow('cat-1', 'Кафе', 3, 20_000, 'KZT'),
+          // +30 000 KZT (+50%): about 60 USD, over it.
+          categoryRow('cat-2', 'Такси', 0, 90_000, 'KZT'),
+          categoryRow('cat-2', 'Такси', 1, 60_000, 'KZT'),
+          categoryRow('cat-2', 'Такси', 2, 60_000, 'KZT'),
+          categoryRow('cat-2', 'Такси', 3, 60_000, 'KZT'),
+        ],
+      }),
+      createBudgetRepository(['cat-1', 'cat-2']),
+      createNetWorthService(),
+      rates as any,
+      workspaces as any,
+    );
+
+    const results = await analyzer.analyze(CONTEXT);
+    const rising = results.filter(item => item.type === InsightType.SPENDING_TREND_UP);
+
+    expect(rising).toHaveLength(1);
+    expect(rising[0].messageParams).toMatchObject({ category: 'Такси', percent: 50 });
   });
 
   it('ignores a category with no history instead of reporting an infinite jump', async () => {
@@ -132,6 +253,8 @@ describe('FinancialAnalyzer', () => {
       }),
       createBudgetRepository(['cat-new']),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -150,6 +273,8 @@ describe('FinancialAnalyzer', () => {
       }),
       createBudgetRepository(['cat-1']),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -168,6 +293,8 @@ describe('FinancialAnalyzer', () => {
       }),
       createBudgetRepository(['cat-1']),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -185,6 +312,8 @@ describe('FinancialAnalyzer', () => {
       }),
       createBudgetRepository([]),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -203,17 +332,17 @@ describe('FinancialAnalyzer', () => {
       transactions,
       createBudgetRepository([]),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     await analyzer.analyze(CONTEXT);
 
-    const builder = transactions.createQueryBuilder.mock.results[0].value;
-    const confirmedClauses = builder.andWhere.mock.calls.filter(
-      ([clause]: [string]) => clause === countedSql('t'),
-    );
-    // One per query: the category totals and each monthly total.
-    expect(transactions.createQueryBuilder.mock.calls.length).toBeGreaterThan(1);
-    expect(confirmedClauses).toHaveLength(transactions.createQueryBuilder.mock.calls.length);
+    // Every query: the category totals and each monthly total.
+    expect(transactions.builders.length).toBeGreaterThan(1);
+    for (const builder of transactions.builders) {
+      expect(builder.andWhere).toHaveBeenCalledWith(flowsSql('t'));
+    }
   });
 
   it('reports a rising savings rate as information, not a warning', async () => {
@@ -226,6 +355,8 @@ describe('FinancialAnalyzer', () => {
       }),
       createBudgetRepository([]),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -252,6 +383,8 @@ describe('FinancialAnalyzer', () => {
       }),
       createBudgetRepository([]),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -264,6 +397,8 @@ describe('FinancialAnalyzer', () => {
       createTransactionRepository({}),
       createBudgetRepository([]),
       createNetWorthService(35),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -281,6 +416,8 @@ describe('FinancialAnalyzer', () => {
       createTransactionRepository({}),
       createBudgetRepository([]),
       createNetWorthService(20),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -293,6 +430,8 @@ describe('FinancialAnalyzer', () => {
       createTransactionRepository({}),
       createBudgetRepository([]),
       createNetWorthService(0),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);
@@ -310,6 +449,8 @@ describe('FinancialAnalyzer', () => {
       }),
       createBudgetRepository([]),
       createNetWorthService(),
+      createRates(),
+      createWorkspaceRepository(),
     );
 
     const results = await analyzer.analyze(CONTEXT);

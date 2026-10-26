@@ -3,11 +3,16 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
-import Typography from '@mui/material/Typography';
 import NextLink from 'next/link';
 import { useEffect } from 'react';
+import { Plus } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { PiggyLineIcon } from '@/app/components/ui/empty-state-icons';
+import { LoadError } from '@/app/components/ui/load-error';
+import { PageTitle } from '@/app/components/ui/page-title';
+import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
@@ -86,10 +91,14 @@ export function BudgetsContent({
   const t = useIntlayer('budgetsPage');
   const { hasPermission } = usePermissions();
   const { balance } = useStoicBalance();
+  useQuickActions([
+    { id: 'new-budget', label: t.newBudget.value, icon: Plus, run: () => openCreate() },
+  ]);
   const classOf = new Map(
     (balance?.categories ?? []).map(category => [category.id, category.stoicClass]),
   );
   const listReady = !(isPending || error) && budgets.length > 0;
+  const noBudgets = !(isPending || error) && budgets.length === 0;
   // The browser's own jump to the anchor fires before the list has loaded,
   // so the scroll waits for the cards to render.
   useEffect(() => {
@@ -100,12 +109,16 @@ export function BudgetsContent({
     }
   }, [listReady]);
   return (
-    <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+    <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, mb: 3 }}
+      >
+        <PageTitle path="/budgets" />
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 1.5 }}>
           {/* Budgets can fund a goal, so the goals page is reached from here. */}
+          {/* Secondary ways in are links; the page keeps one filled button. */}
           {hasPermission('goal.view') && (
-            <Button variant="outlined" component={NextLink} href="/goals">
+            <Button variant="text" component={NextLink} href="/goals">
               {t.savingsGoals}
             </Button>
           )}
@@ -113,18 +126,28 @@ export function BudgetsContent({
             target="budgets"
             onImported={refresh}
             renderTrigger={(open, label) => (
-              <Button variant="outlined" onClick={open}>
+              <Button variant="text" onClick={open}>
                 {label}
               </Button>
             )}
           />
-          <Button variant="contained" onClick={() => openCreate()}>
-            {t.newBudget}
-          </Button>
+          {/* With no budgets the empty state's button leads; this one steps back. */}
+          <ReadOnlyHint>
+            <Button
+              variant={noBudgets ? 'text' : 'contained'}
+              className="seneca-bottom-bar-source"
+              onClick={() => openCreate()}
+            >
+              <Plus size={18} aria-hidden />
+              {t.newBudget}
+            </Button>
+          </ReadOnlyHint>
         </Box>
       </Box>
 
-      <StoicBalance />
+      {/* Without a budget there is no plan to weigh: the invitation to make one
+          comes first, the Stoic balance after it. */}
+      {noBudgets ? null : <StoicBalance />}
 
       {isPending && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -135,22 +158,24 @@ export function BudgetsContent({
         </Box>
       )}
 
-      {error && !isPending && (
-        <Typography color="error" sx={{ py: 4, textAlign: 'center' }}>
-          {error}
-        </Typography>
-      )}
+      {error && !isPending && <LoadError spacing={4}>{error}</LoadError>}
 
-      {!(isPending || error) && budgets.length === 0 && (
-        <EmptyState
-          illustration="top-categories"
-          description={t.emptyDescription}
-          action={
-            <Button variant="outlined" onClick={() => openCreate()}>
-              {t.createFirst}
-            </Button>
-          }
-        />
+      {noBudgets && (
+        <>
+          <EmptyState
+            icon={<PiggyLineIcon />}
+            title={t.emptyTitle}
+            description={t.emptyDescription}
+            action={
+              <ReadOnlyHint>
+                <Button variant="contained" onClick={() => openCreate()}>
+                  {t.createFirst}
+                </Button>
+              </ReadOnlyHint>
+            }
+          />
+          <StoicBalance />
+        </>
       )}
 
       {listReady && (

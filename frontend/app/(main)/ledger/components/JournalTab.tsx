@@ -4,7 +4,6 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -16,8 +15,12 @@ import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import type React from 'react';
 import { useState } from 'react';
+import { Plus } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import { useJournalEntries, useJournalEntry, useLedgerMutations } from '../hooks/useLedger';
 import type { EntrySource, EntryStatus, LedgerAccount } from '../ledger.types';
@@ -35,6 +38,22 @@ interface JournalTabProps {
 /** `null` = drawer closed, `'new'` = a new entry, otherwise the id of the entry shown. */
 type Open = null | 'new' | string;
 
+const ENTRY_STATUSES: readonly EntryStatus[] = ['draft', 'posted', 'reversed'];
+const ENTRY_SOURCES: readonly EntrySource[] = [
+  'transaction',
+  'manual',
+  'opening_balance',
+  'fx_revaluation',
+  'invoice',
+  'credit_note',
+];
+
+/** A select's value as a filter; anything else (the "all" item) is no filter. */
+const asEntryStatus = (value: string): EntryStatus | '' =>
+  ENTRY_STATUSES.find(status => status === value) ?? '';
+const asEntrySource = (value: string): EntrySource | '' =>
+  ENTRY_SOURCES.find(source => source === value) ?? '';
+
 export function JournalTab({
   baseCurrency,
   accounts,
@@ -42,10 +61,15 @@ export function JournalTab({
   canPost,
 }: JournalTabProps): React.ReactElement {
   const t = useIntlayer('ledgerPage');
-  const [status, setStatus] = useState('');
-  const [source, setSource] = useState('');
+  const [status, setStatus] = useState<EntryStatus | ''>('');
+  const [source, setSource] = useState<EntrySource | ''>('');
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<Open>(null);
+  useQuickActions(
+    canPost
+      ? [{ id: 'new-entry', label: t.newEntry.value, icon: Plus, run: () => setOpen('new') }]
+      : null,
+  );
 
   const list = useJournalEntries({ status, source, page });
   const detail = useJournalEntry(open && open !== 'new' ? open : null);
@@ -66,6 +90,8 @@ export function JournalTab({
     manual: t.sourceManual,
     opening_balance: t.sourceOpening,
     fx_revaluation: t.sourceFx,
+    invoice: t.sourceInvoice,
+    credit_note: t.sourceCreditNote,
   };
 
   const renderDrawer = (): React.ReactNode => {
@@ -88,7 +114,7 @@ export function JournalTab({
       return <Alert severity="error">{t.loadError}</Alert>;
     }
     if (!detail.data) {
-      return <CircularProgress size={24} />;
+      return <SnapshotSkeleton id="ledger-entry" loading fallback="panel" />;
     }
     if (detail.data.status === 'draft' && canPost) {
       return (
@@ -130,14 +156,20 @@ export function JournalTab({
 
   return (
     <Stack spacing={2}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        sx={{
+          alignItems: { sm: 'center' },
+        }}
+      >
         <TextField
           select
           size="small"
           label={t.filterStatus.value}
           value={status}
           onChange={event => {
-            setStatus(event.target.value);
+            setStatus(asEntryStatus(event.target.value));
             setPage(1);
           }}
           sx={{ minWidth: 160 }}
@@ -155,7 +187,7 @@ export function JournalTab({
           label={t.filterSource.value}
           value={source}
           onChange={event => {
-            setSource(event.target.value);
+            setSource(asEntrySource(event.target.value));
             setPage(1);
           }}
           sx={{ minWidth: 180 }}
@@ -170,7 +202,12 @@ export function JournalTab({
         <Box sx={{ flex: 1 }} />
         {canPost ? <RevaluationButton /> : null}
         {canPost ? (
-          <Button variant="contained" onClick={() => setOpen('new')}>
+          <Button
+            variant="contained"
+            className="seneca-bottom-bar-source"
+            onClick={() => setOpen('new')}
+          >
+            <Plus size={18} aria-hidden />
             {t.newEntry}
           </Button>
         ) : null}
@@ -223,7 +260,9 @@ export function JournalTab({
                       label={entry.reversalOfId ? t.reversal : statusLabel[entry.status]}
                     />
                   </TableCell>
-                  <TableCell align="right">{entry.baseTotal}</TableCell>
+                  <TableCell align="right" className={PRIVATE_CLASS}>
+                    {entry.baseTotal}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

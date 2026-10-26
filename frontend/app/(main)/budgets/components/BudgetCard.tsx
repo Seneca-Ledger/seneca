@@ -2,10 +2,14 @@
 
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
-import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
+import { budgetTone } from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
 import { Pencil, Trash2 } from '@/app/components/icons';
-import { useIntlayer } from '@/app/i18n';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { formatMoney } from '@/app/lib/format-money';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import type { BudgetItem } from '../hooks/useBudgetsPage';
 import type { StoicClass } from '../hooks/useStoicBalance';
@@ -18,20 +22,16 @@ const PERIOD_LABEL_KEYS = {
   annual: 'periodAnnual',
 } as const;
 
-function getProgressColor(percent: number): 'success' | 'warning' | 'error' {
-  if (percent >= 100) return 'error';
-  if (percent >= 80) return 'warning';
-  return 'success';
-}
-
-function formatAmount(amount: number, currency: string): string {
-  const formatted = new Intl.NumberFormat('en-US', {
-    style: 'decimal',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-  return `${formatted} ${currency}`;
-}
+/**
+ * As on the dashboard's budgets widget: sage while there is room, ochre close
+ * to the limit, terracotta only past it — on a neutral track, so an empty
+ * budget is a quiet grey line, not a band of mint.
+ */
+const TONE_FILL: Record<ReturnType<typeof budgetTone>, string> = {
+  calm: 'var(--primary)',
+  near: 'var(--attention)',
+  over: 'var(--money-down)',
+};
 
 interface BudgetCardProps {
   budget: BudgetItem;
@@ -43,14 +43,20 @@ interface BudgetCardProps {
 
 export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: BudgetCardProps) {
   const t = useIntlayer('budgetsPage');
-  const color = getProgressColor(budget.percentUsed);
+  const { locale } = useLocale();
+  const formatAmount = (amount: number, currency: string) =>
+    formatMoney(amount, currency, locale, { fractionDigits: 0 });
+  const tone = budgetTone(budget.percentUsed);
   const progressValue = Math.min(budget.percentUsed, 100);
   const availableAmount = budget.availableAmount ?? budget.limitAmount;
   const carriedAmount = budget.carriedAmount ?? 0;
+  const formatDay = (date: string): string =>
+    formatStoredDateWithOptions(`${date}T00:00:00`, { day: 'numeric', month: 'short' }, locale);
 
   return (
     <Box
       data-attention={`budget:${budget.categoryId}`}
+      data-tour-shot={`budgets-${tone}`}
       sx={{
         p: 2.5,
         borderRadius: tokens.radius.lg,
@@ -64,11 +70,30 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
         sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}
       >
         <Box>
-          <Typography variant="subtitle1" fontWeight={600}>
-            {budget.name}
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 500,
+            }}
+          >
+            {/* A budget named after a system category (the demo's are) reads in the user's language. */}
+            {localizeStatementCategoryName(budget.name, locale)}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {budget.category?.name ?? t.unknownCategory} · {t[PERIOD_LABEL_KEYS[budget.periodType]]}
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {budget.category
+              ? localizeStatementCategoryName(budget.category.name, locale)
+              : t.unknownCategory}{' '}
+            · {t[PERIOD_LABEL_KEYS[budget.periodType]]}
+            {/* A window cuts the period short, so the card has to say where it does. */}
+            {budget.startsOn &&
+              ` · ${t.windowFrom.value.replace('{{date}}', formatDay(budget.startsOn))}`}
+            {budget.endsOn &&
+              ` · ${t.windowUntil.value.replace('{{date}}', formatDay(budget.endsOn))}`}
             {stoicClass && (
               <>
                 {' · '}
@@ -87,34 +112,102 @@ export function BudgetCard({ budget, stoicClass = null, onEdit, onDelete }: Budg
         </Box>
       </Box>
 
-      <LinearProgress
-        variant="determinate"
-        value={progressValue}
-        color={color}
-        sx={{ height: 8, borderRadius: 4, mb: 1 }}
-      />
+      <Box
+        role="progressbar"
+        aria-valuenow={Math.round(budget.percentUsed)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        sx={{
+          height: 6,
+          mb: 1,
+          borderRadius: 3,
+          overflow: 'hidden',
+          bgcolor: 'var(--icon-badge-bg)',
+        }}
+      >
+        <Box
+          sx={{
+            width: `${progressValue}%`,
+            height: '100%',
+            borderRadius: 3,
+            bgcolor: TONE_FILL[tone],
+            transition: 'width 300ms ease',
+          }}
+        />
+      </Box>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          {formatAmount(budget.spentAmount, budget.currency)} /{' '}
-          {formatAmount(availableAmount, budget.currency)}
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
+          <PrivateAmount>{formatAmount(budget.spentAmount, budget.currency)}</PrivateAmount> /{' '}
+          <PrivateAmount>{formatAmount(availableAmount, budget.currency)}</PrivateAmount>
         </Typography>
-        <Typography variant="body2" fontWeight={600} color={`${color}.main`}>
+        {/* The share stays neutral; only an overspent budget says so in colour. */}
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 500,
+            fontVariantNumeric: 'tabular-nums',
+            color: tone === 'over' ? 'var(--money-down)' : 'text.primary',
+          }}
+        >
           {Math.round(budget.percentUsed)}%
         </Typography>
       </Box>
       {carriedAmount !== 0 && (
         <Typography
           variant="caption"
-          color={carriedAmount > 0 ? 'text.secondary' : 'error.main'}
-          sx={{ display: 'block', mt: 0.5 }}
+          sx={{
+            display: 'block',
+            mt: 0.5,
+            color: carriedAmount > 0 ? 'text.secondary' : 'var(--money-down)',
+          }}
         >
-          {(carriedAmount > 0 ? t.carriedIn : t.overspendCarriedIn).value.replace(
-            '{{amount}}',
-            formatAmount(Math.abs(carriedAmount), budget.currency),
-          )}
+          {fillTemplateNodes((carriedAmount > 0 ? t.carriedIn : t.overspendCarriedIn).value, {
+            amount: formatAmount(Math.abs(carriedAmount), budget.currency),
+          })}
         </Typography>
       )}
+      {/* Spending in a currency with no rate is left out of the figure, not counted one to one. */}
+      {(budget.unconvertedSpending ?? []).map(entry => (
+        <Typography
+          key={entry.currency}
+          variant="caption"
+          sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}
+        >
+          {fillTemplateNodes(t.unconvertedSpending.value.replace('{{currency}}', budget.currency), {
+            amount: formatMoney(entry.amount, entry.currency, locale),
+          })}
+        </Typography>
+      ))}
+      {/* Subscriptions paid from this budget, still to come this period. */}
+      {(budget.subscriptionReserve?.amount ?? 0) > 0 && budget.subscriptionReserve && (
+        <Typography
+          variant="caption"
+          title={budget.subscriptionReserve.items.map(item => item.vendorName).join(', ')}
+          sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}
+        >
+          {fillTemplateNodes(t.subscriptionReserve.value, {
+            amount: formatAmount(budget.subscriptionReserve.amount, budget.currency),
+          })}
+        </Typography>
+      )}
+      {/* Spending earlier in the period than the start: without this, 0 reads as broken. */}
+      {(budget.beforeStartSpending ?? []).map(entry => (
+        <Typography
+          key={`before-${entry.currency}`}
+          variant="caption"
+          sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}
+        >
+          {fillTemplateNodes(t.beforeStartSpending.value, {
+            amount: formatMoney(entry.amount, entry.currency, locale),
+          })}
+        </Typography>
+      ))}
     </Box>
   );
 }

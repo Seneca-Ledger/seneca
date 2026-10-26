@@ -1,5 +1,6 @@
 'use client';
 
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import type { TableGroup } from '../hooks/useTableGroups';
 import { formatCellNumber } from '../utils/numberFormat';
 import type { CustomTableColumn } from '../utils/types';
@@ -37,25 +38,34 @@ export function GroupSummary({
       column && fn !== 'count' ? numberFormatFor(column, fallbackCurrency) : {},
     );
   };
+  // A total of a currency column is money; a count is not.
+  const isMoneyAggregate = (col: string, value: number | string | null, fn: string) =>
+    typeof value === 'number' &&
+    fn !== 'count' &&
+    columns.find(c => c.key === col)?.type === 'currency';
   return (
-    <section className="lumio-ct__groups" aria-label={labels.title}>
-      <h3 className="lumio-ct__groups-title">
+    <section className="seneca-ct__groups" aria-label={labels.title}>
+      <h3 className="seneca-ct__groups-title">
         {labels.title}: {groupColumn.title}
       </h3>
-      {loading ? <p className="lumio-ct__groups-hint">{labels.loading}</p> : null}
+      {loading ? <p className="seneca-ct__groups-hint">{labels.loading}</p> : null}
       {!loading && groups.length === 0 ? (
-        <p className="lumio-ct__groups-hint">{labels.empty}</p>
+        <p className="seneca-ct__groups-hint">{labels.empty}</p>
       ) : null}
-      <ul className="lumio-ct__groups-list">
+      <ul className="seneca-ct__groups-list">
         {groups.map(group => (
           <li key={group.key ?? '__null'}>
-            <button type="button" className="lumio-ct__group" onClick={() => onPick(group.key)}>
-              <span className="lumio-ct__group-key">{group.key ?? labels.empty}</span>
-              <span className="lumio-ct__group-count">{fill(labels.rows, group.count)}</span>
+            <button type="button" className="seneca-ct__group" onClick={() => onPick(group.key)}>
+              <span className="seneca-ct__group-key">{group.key ?? labels.empty}</span>
+              <span className="seneca-ct__group-count">{fill(labels.rows, group.count)}</span>
               {group.aggregates.map(item => (
-                <span key={`${item.col}:${item.fn}`} className="lumio-ct__group-agg">
+                <span key={`${item.col}:${item.fn}`} className="seneca-ct__group-agg">
                   {columns.find(c => c.key === item.col)?.title ?? item.col}:{' '}
-                  {formatAggregate(item.col, item.value, item.fn)}
+                  {isMoneyAggregate(item.col, item.value, item.fn) ? (
+                    <PrivateAmount>{formatAggregate(item.col, item.value, item.fn)}</PrivateAmount>
+                  ) : (
+                    formatAggregate(item.col, item.value, item.fn)
+                  )}
                 </span>
               ))}
             </button>

@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import type { MetalLot, SellLotInput } from '../hooks/useMetals';
@@ -89,7 +90,6 @@ export function SellLotDialog({
             label={t.quantity.value}
             value={pieces}
             onChange={event => setPieces(event.target.value)}
-            inputProps={{ inputMode: 'decimal' }}
             error={pieces !== '' && !piecesValid}
             helperText={
               share === null
@@ -97,15 +97,20 @@ export function SellLotDialog({
                 : `${t.fineWeight.value}: ${formatOunces(lot.fineOunces * share, locale)}`
             }
             sx={{ width: 140 }}
+            slotProps={{
+              htmlInput: { inputMode: 'decimal' },
+            }}
           />
           <TextField
             size="small"
             label={`${t.proceeds.value} (${currency})`}
             value={proceeds}
             onChange={event => setProceeds(event.target.value)}
-            inputProps={{ inputMode: 'decimal' }}
             helperText={Number(proceeds) === 0 ? t.gift.value : ' '}
             sx={{ width: 160 }}
+            slotProps={{
+              htmlInput: { inputMode: 'decimal' },
+            }}
           />
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -121,11 +126,17 @@ export function SellLotDialog({
           />
         </Box>
         {realized !== null && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.realized}:{' '}
             <Typography
               component="span"
               variant="body2"
+              className={PRIVATE_CLASS}
               sx={{ color: realized >= 0 ? 'success.main' : 'error.main', fontWeight: 600 }}
             >
               {realized >= 0 ? '+' : '−'}

@@ -8,7 +8,7 @@ set -e
 (
   until curl -sf http://localhost:8080/status >/dev/null; do sleep 10; done
   cd /nominatim && sudo -E -u nominatim nominatim special-phrases \
-    --import-from-csv /lumio/special-phrases.csv
+    --import-from-csv /seneca/special-phrases.csv
 ) &
 
 exec /app/start.sh

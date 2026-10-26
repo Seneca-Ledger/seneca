@@ -1,0 +1,44 @@
+// app/styles/base/_privacy.scss
+// Privacy mode (account menu → Privacy mode; app/lib/privacy-mode.ts): every
+// amount is drawn as a pencil scribble and shows under the pointer, or while a
+// finger holds it. Redacted Script (OFL, Fontsource 5.3.0, public/fonts) draws
+// each digit, separator, $, € and minus as a wavy stroke; a symbol it lacks
+// (₪, ₸, ₽) falls through to the app font, which is harmless.
+
+@font-face {
+  font-family: 'Seneca Redacted';
+  src: url('/fonts/redacted-script-latin-400-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  // Never the real figures while the font loads: the root layout preloads it.
+  font-display: block;
+}
+
+html[data-privacy='on'] {
+  // Colour and weight stay: a green total is a green scribble.
+  .seneca-private {
+    // A fallback in every var(): one undefined variable drops the whole declaration.
+    font-family: 'Seneca Redacted', var(--font-geist, sans-serif);
+
+    &:hover,
+    &:active {
+      font-family: inherit;
+    }
+  }
+
+  // A container that shows its amounts as a whole (a treemap tile, whose
+  // text takes no pointer): hovered or focused from the keyboard.
+  .seneca-private-reveal:is(:hover, :focus-visible) .seneca-private {
+    font-family: inherit;
+  }
+
+  // The money scale of SVG charts (Recharts); month names on the X axis stay.
+  // --font-dashboard-sans is set on :root from --font-geist, which only <body>
+  // defines, so it is unusable here: the app font comes from --font-geist.
+  .recharts-yAxis .recharts-cartesian-axis-tick-value {
+    font-family: 'Seneca Redacted', var(--font-geist, sans-serif);
+
+    &:hover {
+      font-family: var(--font-geist, sans-serif);
+    }
+  }
+}

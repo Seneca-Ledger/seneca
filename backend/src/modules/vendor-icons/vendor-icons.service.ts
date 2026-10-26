@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
+import { Effect } from 'effect';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { contentTypeOf, getWith } from '../../common/effect/http-json';
 import { isValidVendorDomain } from './vendor-domain.util';
 
 export type VendorIconResult =
@@ -45,6 +48,7 @@ export class VendorIconsService {
   constructor(
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
+    private readonly effects: EffectRuntime,
   ) {}
 
   async fetchIcon(rawDomain: string): Promise<VendorIconResult> {
@@ -82,44 +86,45 @@ export class VendorIconsService {
     return result;
   }
 
-  private async fetchUpstream(domain: string): Promise<VendorIconResult> {
-    try {
-      // Plain fetch rather than fetchPublicUrl: the host is a fixed constant,
-      // not user input, so there is no SSRF surface to guard.
-      const response = await fetch(`https://icons.duckduckgo.com/ip3/${domain}.ico`, {
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-
-      // A real 404 is what makes negative caching honest; providers that answer
-      // 200 with a placeholder globe would poison the cache instead.
-      if (response.status === 404) {
-        return { status: 'missing' };
-      }
-      if (!response.ok) {
-        this.logger.warn(`Vendor icon request failed: http_${response.status}`);
-        return { status: 'unavailable' };
-      }
-
-      const contentType = (response.headers.get('content-type') || '').split(';')[0].trim();
-      if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
-        this.logger.warn(`Vendor icon rejected: content_type_${contentType || 'none'}`);
-        return { status: 'unavailable' };
-      }
-
-      const body = Buffer.from(await response.arrayBuffer());
-      if (body.byteLength === 0 || body.byteLength > MAX_BYTES) {
-        this.logger.warn(`Vendor icon rejected: size_${body.byteLength}`);
-        return { status: 'unavailable' };
-      }
-
-      return { status: 'ok', body, contentType };
-    } catch (error) {
-      const name = error instanceof Error ? error.name : '';
-      this.logger.warn(
-        `Vendor icon request failed: ${name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'network'}`,
-      );
-      return { status: 'unavailable' };
-    }
+  private fetchUpstream(domain: string): Promise<VendorIconResult> {
+    // A fixed host, not user input: no SSRF surface, so no egress guard.
+    const url = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+    const logger = this.logger;
+    return this.effects.run<VendorIconResult, never>(
+      getWith(url, { timeout: TIMEOUT_MS }, response =>
+        Effect.gen(function* () {
+          // A real 404 is what makes negative caching honest; providers that answer
+          // 200 with a placeholder globe would poison the cache instead.
+          if (response.status === 404) {
+            return { status: 'missing' } as const;
+          }
+          if (response.status < 200 || response.status >= 300) {
+            logger.warn(`Vendor icon request failed: http_${response.status}`);
+            return { status: 'unavailable' } as const;
+          }
+          const contentType = contentTypeOf(response);
+          if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+            logger.warn(`Vendor icon rejected: content_type_${contentType || 'none'}`);
+            return { status: 'unavailable' } as const;
+          }
+          const body = Buffer.from(yield* response.arrayBuffer);
+          if (body.byteLength === 0 || body.byteLength > MAX_BYTES) {
+            logger.warn(`Vendor icon rejected: size_${body.byteLength}`);
+            return { status: 'unavailable' } as const;
+          }
+          return { status: 'ok', body, contentType } as const;
+        }),
+      ).pipe(
+        Effect.catch(error =>
+          Effect.sync((): VendorIconResult => {
+            logger.warn(
+              `Vendor icon request failed: ${error._tag === 'TimeoutError' ? 'timeout' : 'network'}`,
+            );
+            return { status: 'unavailable' };
+          }),
+        ),
+      ),
+    );
   }
 
   private async readCache(key: string): Promise<CachedIcon | null> {

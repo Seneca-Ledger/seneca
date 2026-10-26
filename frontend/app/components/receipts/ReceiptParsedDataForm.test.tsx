@@ -64,7 +64,8 @@ describe('ReceiptParsedDataForm', () => {
     });
   });
 
-  it('localizes the category option name in the selected locale', () => {
+  it('picks the category in the side drawer, named in the selected locale', () => {
+    const onChange = vi.fn();
     render(
       <ReceiptParsedDataForm
         value={baseValue}
@@ -76,16 +77,32 @@ describe('ReceiptParsedDataForm', () => {
             isSystem: true,
           },
         ]}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Category' }));
+    expect(screen.getByRole('button', { name: 'Create category' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Meals and entertainment' }));
+
+    expect(onChange).toHaveBeenCalledWith({ ...baseValue, categoryId: 'meals' });
+  });
+
+  it('shows the chosen category on the field', () => {
+    render(
+      <ReceiptParsedDataForm
+        value={{ ...baseValue, categoryId: 'meals' }}
+        categories={[{ id: 'meals', name: 'Meals and entertainment', isEnabled: true }]}
         onChange={vi.fn()}
       />,
     );
 
-    const option = screen.getByRole('option', { name: 'Meals and entertainment' });
-    expect(option).toBeTruthy();
-    expect((option as HTMLOptionElement).value).toBe('meals');
+    expect(screen.getByRole('button', { name: 'Category' }).textContent).toContain(
+      'Meals and entertainment',
+    );
   });
 
-  it('renders line items and adds a new empty line on request', () => {
+  it('keeps line items collapsed until asked, then lists them and adds a line', () => {
     const onChange = vi.fn();
 
     render(
@@ -99,6 +116,10 @@ describe('ReceiptParsedDataForm', () => {
       />,
     );
 
+    expect(screen.queryByDisplayValue('Milk')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Line items (1)' }));
+
     expect(screen.getByDisplayValue('Milk')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
@@ -108,5 +129,59 @@ describe('ReceiptParsedDataForm', () => {
         lineItems: expect.arrayContaining([expect.objectContaining({ description: '' })]),
       }),
     );
+  });
+
+  it('offers to itemize a receipt that has no items, without inventing one', () => {
+    const onChange = vi.fn();
+
+    render(<ReceiptParsedDataForm value={baseValue} categories={[]} onChange={onChange} />);
+
+    expect(screen.queryByRole('button', { name: /Line items/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Itemize' }));
+
+    expect(onChange).toHaveBeenCalledWith({
+      ...baseValue,
+      lineItems: [expect.objectContaining({ description: '', amount: 0 })],
+    });
+  });
+
+  it('says how far the items are from the amount', () => {
+    const { rerender } = render(
+      <ReceiptParsedDataForm
+        value={{
+          ...baseValue,
+          amount: 30,
+          currency: 'EUR',
+          lineItems: [
+            { id: 'line-1', description: 'Milk', amount: 10 },
+            { id: 'line-2', description: 'Bread', amount: 15 },
+          ],
+        }}
+        categories={[]}
+        onChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Line items (2)' }));
+
+    expect(screen.getByRole('status').textContent).toBe('Differs from the amount by €5.00');
+
+    rerender(
+      <ReceiptParsedDataForm
+        value={{
+          ...baseValue,
+          amount: 25,
+          currency: 'EUR',
+          lineItems: [
+            { id: 'line-1', description: 'Milk', amount: 10 },
+            { id: 'line-2', description: 'Bread', amount: 15 },
+          ],
+        }}
+        categories={[]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('status').textContent).toBe('Items add up to the amount');
   });
 });

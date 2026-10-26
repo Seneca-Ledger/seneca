@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import type { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { ViewPreference } from '../../entities/view-preference.entity';
 
 @Injectable()
@@ -18,7 +18,9 @@ export class ViewPreferencesService {
   ): Promise<Record<string, unknown> | null> {
     const saved = await this.repository.findOne({
       where: { userId, workspaceId, scope },
-      select: ['state'],
+      select: {
+        state: true,
+      },
     });
     return saved?.state ?? null;
   }
@@ -36,7 +38,13 @@ export class ViewPreferencesService {
     state: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     await this.repository.upsert(
-      { userId, workspaceId, scope, state },
+      {
+        userId,
+        workspaceId,
+        scope,
+        // jsonb: TypeORM's deep-partial type cannot express `unknown` values.
+        state: state as QueryDeepPartialEntity<ViewPreference>['state'],
+      },
       { conflictPaths: ['userId', 'workspaceId', 'scope'], skipUpdateIfNoValuesChanged: true },
     );
     return state;

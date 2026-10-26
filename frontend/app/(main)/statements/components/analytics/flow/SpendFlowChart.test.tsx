@@ -3,15 +3,38 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpendFlowChart } from './SpendFlowChart';
 
 const useSpendFlow = vi.fn();
-vi.mock('./useSpendFlow', () => ({ useSpendFlow: (...args: unknown[]) => useSpendFlow(...args) }));
-vi.mock('@/app/i18n', () => ({ useLocale: () => ({ locale: 'en' }) }));
+vi.mock('./useSpendFlow', () => ({
+  useSpendFlow: (...args: unknown[]) => useSpendFlow(...args),
+  useSpendFlowRange: () => ({ dateFrom: '2026-09-01', dateTo: '2026-09-30' }),
+}));
+const router = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
+const resolveDocumentsHref = vi.hoisted(() => vi.fn());
+vi.mock('@/app/(main)/statements/components/documents-for-rows', () => ({ resolveDocumentsHref }));
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+vi.mock('@/app/i18n', () => ({ useLocale: () => ({ locale: appLocale.current }) }));
 vi.mock('@/app/components/ui/EmptyStateIllustration', () => ({ EmptyStateIllustration: () => null }));
 // The stub stands in for the echarts instance: the card only ever reaches it
 // through `onChartReady`.
 const dispatchAction = vi.fn();
+const setOption = vi.fn();
+const drawn = vi.hoisted(() => ({
+  option: null as Record<string, unknown> | null,
+  events: {} as Record<string, (params: Record<string, unknown>) => void>,
+}));
 vi.mock('@/app/components/ui/lazy-echarts', () => ({
-  LazyECharts: ({ onChartReady }: { onChartReady?: (instance: unknown) => void }) => {
-    onChartReady?.({ dispatchAction });
+  LazyECharts: ({
+    option,
+    onChartReady,
+    onEvents,
+  }: {
+    option: Record<string, unknown>;
+    onChartReady?: (instance: unknown) => void;
+    onEvents?: typeof drawn.events;
+  }) => {
+    drawn.option = option;
+    drawn.events = onEvents ?? {};
+    onChartReady?.({ dispatchAction, setOption });
     return <div data-testid="sankey" />;
   },
 }));
@@ -53,7 +76,10 @@ const flow = {
 
 describe('SpendFlowChart', () => {
   beforeEach(() => {
+    appLocale.current = 'en';
     useSpendFlow.mockReset();
+    router.push.mockReset();
+    resolveDocumentsHref.mockReset();
     // jsdom has no ResizeObserver; the card only needs it to exist.
     vi.stubGlobal(
       'ResizeObserver',
@@ -68,23 +94,54 @@ describe('SpendFlowChart', () => {
     vi.useRealTimers();
   });
 
-  it('blinks the band a deep link names twice, then leaves it alone', () => {
+  it('opens the documents behind a band, in the chart period', async () => {
+    useSpendFlow.mockReturnValue({ data: flow, isError: false });
+    resolveDocumentsHref.mockResolvedValue('/statements/statement-1/edit');
+    render(<SpendFlowChart {...props} />);
+
+    drawn.events.click({ dataType: 'node', name: 'total' });
+    drawn.events.click({
+      dataType: 'edge',
+      data: { source: 'cat:a', target: 'm:a:acme store - mop' },
+    });
+
+    await vi.waitFor(() => expect(router.push).toHaveBeenCalledWith('/statements/statement-1/edit'));
+    expect(resolveDocumentsHref).toHaveBeenCalledTimes(1);
+    expect(resolveDocumentsHref).toHaveBeenCalledWith(
+      { categoryId: 'a', merchant: 'acme store - mop' },
+      '2026-09-01',
+      '2026-09-30',
+    );
+  });
+
+  it('blinks only the band a deep link names, never dimming the others', () => {
     vi.useFakeTimers();
     useSpendFlow.mockReturnValue({ data: flow, isError: false });
     dispatchAction.mockReset();
+    setOption.mockReset();
 
     render(<SpendFlowChart {...props} flashNodeName="a" />);
+    // Dimming the rest made the largest band flicker, which read as the pick.
+    expect(setOption).toHaveBeenLastCalledWith({ series: [{ emphasis: { focus: 'none' } }] });
     act(() => {
       vi.advanceTimersByTime(5000);
     });
 
-    expect(dispatchAction.mock.calls.map(([payload]) => payload.type)).toEqual([
-      'highlight',
-      'downplay',
-      'highlight',
-      'downplay',
+    const calls = dispatchAction.mock.calls.map(([payload]) => payload);
+    expect(calls.map(payload => `${payload.type}:${payload.dataType}:${payload.dataIndex}`)).toEqual([
+      'highlight:node:1',
+      'highlight:edge:0',
+      'showTip:node:1',
+      'downplay:node:1',
+      'downplay:edge:0',
+      'highlight:node:1',
+      'highlight:edge:0',
+      'downplay:node:1',
+      'downplay:edge:0',
+      'hideTip:node:1',
     ]);
-    expect(dispatchAction.mock.calls[0][0]).toMatchObject({ seriesIndex: 0, name: 'cat:a' });
+    // Hovering dims the rest again once the blinks are over.
+    expect(setOption).toHaveBeenLastCalledWith({ series: [{ emphasis: { focus: 'adjacency' } }] });
   });
 
   it('does not blink for a category this month has no band for', () => {
@@ -105,6 +162,21 @@ describe('SpendFlowChart', () => {
     render(<SpendFlowChart {...props} />);
     expect(screen.getByTestId('sankey')).toBeInTheDocument();
     expect(screen.getByText('From categorized transactions')).toBeInTheDocument();
+  });
+
+  it('names a system category in the reader\'s language', () => {
+    appLocale.current = 'ru';
+    useSpendFlow.mockReturnValue({
+      data: {
+        ...flow,
+        nodes: [flow.nodes[0], { ...flow.nodes[1], name: 'Advertising' }],
+      },
+      isError: false,
+    });
+    render(<SpendFlowChart {...props} />);
+
+    const series = (drawn.option?.series as Array<{ label: { formatter: (p: { name: string }) => string } }>)[0];
+    expect(series.label.formatter({ name: 'cat:a' })).toMatch(/^\{n\|Реклама\}/);
   });
 
   it('says so when nothing matches the filters', () => {

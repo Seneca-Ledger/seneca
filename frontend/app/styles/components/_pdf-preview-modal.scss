@@ -1,14 +1,14 @@
 @use '../abstracts' as *;
 
-/* BEM block: lumio-pdf-preview-modal */
+/* BEM block: seneca-pdf-preview-modal */
 
-.lumio-pdf-preview-modal {
+.seneca-pdf-preview-modal {
   &__shell {
     height: calc(100vh - 32px);
     width: calc(100vw - 32px);
     max-width: none;
     overflow: hidden;
-    border-radius: $lumio-radius-lg;
+    border-radius: $seneca-radius-lg;
     border: 1px solid #d4e3d6;
     box-shadow: 0 24px 80px rgba(16, 24, 40, 0.16);
   }
@@ -18,10 +18,10 @@
     height: 100%;
     min-height: 0;
     flex-direction: column;
-    background-color: $lumio-color-surface;
+    background-color: $seneca-color-surface;
 
     @include dark {
-      background-color: $lumio-color-surface-dk;
+      background-color: $seneca-color-surface-dk;
     }
   }
 
@@ -32,10 +32,10 @@
     justify-content: space-between;
     border-bottom: 1px solid #e4e6e3;
     padding: 16px 20px;
-    background-color: $lumio-color-surface;
+    background-color: $seneca-color-surface;
 
     @include dark {
-      background-color: $lumio-color-surface-dk;
+      background-color: $seneca-color-surface-dk;
       border-bottom-color: rgba(255, 255, 255, 0.1);
     }
   }
@@ -68,7 +68,7 @@
     height: 40px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     color: var(--primary);
     background: none;
     border: none;
@@ -96,7 +96,7 @@
     height: 40px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     color: #9aa39e;
     background: none;
     border: none;
@@ -127,9 +127,9 @@
     z-index: 40;
     width: 360px;
     max-width: calc(100vw - 90px);
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #d8ddd8;
-    background-color: $lumio-color-surface;
+    background-color: $seneca-color-surface;
     padding: 8px;
     box-shadow: 0 14px 28px rgba(17, 24, 39, 0.14);
 
@@ -144,7 +144,7 @@
     width: 100%;
     align-items: center;
     gap: 16px;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     padding: 16px 20px;
     text-align: left;
     background: none;
@@ -213,6 +213,13 @@
     text-align: center;
   }
 
+  // Sits at the top of the page area like the document it stands in for.
+  &__loading-overlay > .seneca-snapshot-skeleton {
+    align-self: flex-start;
+    max-width: calc(100% - 48px);
+    margin: 24px;
+  }
+
   &__loading-text {
     font-size: 14px;
     font-weight: 500;
@@ -231,10 +238,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: $lumio-color-surface;
+    background-color: $seneca-color-surface;
 
     @include dark {
-      background-color: $lumio-color-surface-dk;
+      background-color: $seneca-color-surface-dk;
     }
   }
 
@@ -251,7 +258,7 @@
     height: 56px;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     border: 1px solid #fee2e2;
     background-color: #fef2f2;
 
@@ -290,7 +297,7 @@
   }
 
   &__btn-primary {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background-color: #111827;
     padding: 8px 20px;
     font-size: 14px;
@@ -312,9 +319,9 @@
   }
 
   &__btn-secondary {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     border: 1px solid #e5e7eb;
-    background-color: $lumio-color-surface;
+    background-color: $seneca-color-surface;
     padding: 8px 20px;
     font-size: 14px;
     font-weight: 500;
@@ -344,7 +351,7 @@
   }
 
   &__btn-accent {
-    border-radius: $lumio-radius-md;
+    border-radius: $seneca-radius-md;
     background-color: var(--primary-fill);
     padding: 8px 16px;
     font-size: 14px;
@@ -355,14 +362,14 @@
     transition: background-color 200ms;
 
     @include dark {
-      background-color: $lumio-color-primary-fill-dk;
+      background-color: $seneca-color-primary-fill-dk;
     }
 
     &:hover {
       background-color: var(--primary-fill-hover);
 
       @include dark {
-        background-color: $lumio-color-primary-fill-hover-dk;
+        background-color: $seneca-color-primary-fill-hover-dk;
       }
     }
 
@@ -385,8 +392,8 @@
   &__parse-prompt-card {
     width: 100%;
     max-width: 448px;
-    border-radius: $lumio-radius-lg;
-    background-color: $lumio-color-surface;
+    border-radius: $seneca-radius-lg;
+    background-color: $seneca-color-surface;
     padding: 20px;
     box-shadow: 0 20px 36px rgba(15, 23, 42, 0.2);
 
@@ -452,7 +459,7 @@
   &__image-preview {
     max-height: 78vh;
     max-width: 100%;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     background-color: #fff;
     object-fit: contain;
     box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
@@ -476,7 +483,7 @@
 
   &__pdf-page {
     overflow: hidden;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     background-color: #fff;
     box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
 

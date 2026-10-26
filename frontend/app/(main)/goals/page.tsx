@@ -3,9 +3,14 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
-import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { Plus } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { FlagLineIcon } from '@/app/components/ui/empty-state-icons';
+import { LoadError } from '@/app/components/ui/load-error';
+import { PageTitle } from '@/app/components/ui/page-title';
+import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import { ContributionDrawer } from './components/ContributionDrawer';
@@ -72,6 +77,7 @@ export default function GoalsPage() {
     setForm(EMPTY_GOAL_FORM);
     setFormOpen(true);
   };
+  useQuickActions([{ id: 'new-goal', label: t.newGoal.value, icon: Plus, run: openCreate }]);
 
   const openEdit = (goal: Goal) => {
     setEditing(goal);
@@ -106,24 +112,33 @@ export default function GoalsPage() {
     }
   };
 
+  const noGoals = !(isPending || error) && goals.length === 0;
+
   return (
     <Box
       component="main"
-      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
     >
       <Box
         sx={{
           display: 'flex',
           justifyContent: 'flex-end',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           gap: 2,
           mb: 3,
           flexWrap: 'wrap',
         }}
       >
-        <Button variant="contained" onClick={openCreate}>
-          {t.newGoal}
-        </Button>
+        <PageTitle path="/goals" />
+        {/* With no goals the empty state's own button is the one action on the page. */}
+        {noGoals ? null : (
+          <ReadOnlyHint>
+            <Button variant="contained" className="seneca-bottom-bar-source" onClick={openCreate}>
+              <Plus size={18} aria-hidden />
+              {t.newGoal}
+            </Button>
+          </ReadOnlyHint>
+        )}
       </Box>
 
       {isPending && (
@@ -135,23 +150,34 @@ export default function GoalsPage() {
         </Box>
       )}
 
-      {error && !isPending && (
-        <Typography color="error" sx={{ py: 6, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && !isPending && <LoadError spacing={6}>{t.error}</LoadError>}
 
-      {!(isPending || error) && goals.length === 0 && (
-        <EmptyState illustration="goals" description={t.empty} />
+      {noGoals && (
+        <EmptyState
+          fill
+          icon={<FlagLineIcon />}
+          title={t.emptyTitle}
+          description={t.emptyHint}
+          action={
+            <ReadOnlyHint>
+              <Button variant="contained" onClick={openCreate}>
+                {t.createGoal}
+              </Button>
+            </ReadOnlyHint>
+          }
+          hint={t.emptyExamples}
+        />
       )}
 
       <Box
+        data-tour-shot="goals-list"
         sx={{
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
           // Список остаётся на экране, пока мутация перезагружает цели.
-          opacity: isFetching ? 0.6 : 1,
+          // Только при рефетче: первый запрос клиент уже шлёт при гидрации, а сервер — нет.
+          opacity: isFetching && !isPending ? 0.6 : 1,
           transition: 'opacity 150ms ease',
         }}
       >

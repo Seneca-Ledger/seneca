@@ -1,6 +1,8 @@
+import type { Mock } from 'vitest';
 import { countedSql } from '@/common/utils/counted-transactions.util';
 import { BalanceAccountKind } from '@/entities/balance-account.entity';
-import { InvestmentsService } from '../../../../src/modules/investments/investments.service';
+import { InvestmentFlowsService } from '@/modules/investments/investment-flows.service';
+import { InvestmentsService } from '@/modules/investments/investments.service';
 
 type Row = {
   accountId: string;
@@ -13,7 +15,7 @@ type Row = {
 };
 
 function queryBuilder(rows: Row[] = []) {
-  const qb: Record<string, jest.Mock> = {};
+  const qb: Record<string, Mock> = {};
   for (const method of [
     'select',
     'addSelect',
@@ -23,9 +25,9 @@ function queryBuilder(rows: Row[] = []) {
     'addGroupBy',
     'orderBy',
   ]) {
-    qb[method] = jest.fn(() => qb);
+    qb[method] = vi.fn(() => qb);
   }
-  qb.getRawMany = jest.fn(async () => rows);
+  qb.getRawMany = vi.fn(async () => rows);
   return qb;
 }
 
@@ -38,28 +40,34 @@ function createService(
   } = {},
 ) {
   const qb = queryBuilder(options.rows);
-  const transactionRepository = { createQueryBuilder: jest.fn(() => qb) };
+  const transactionRepository = { createQueryBuilder: vi.fn(() => qb) };
   const exchangeRates = {
-    getRateCurve: jest.fn(async (from: string) => options.rates?.[from] ?? []),
+    getRateCurve: vi.fn(async (from: string) => options.rates?.[from] ?? []),
   };
   const accountRepository = {
-    find: jest.fn(async () =>
+    find: vi.fn(async () =>
       (options.accounts ?? []).map(account => ({
         ...account,
         accountKind: BalanceAccountKind.INVESTMENT,
       })),
     ),
   };
+  const flows = new InvestmentFlowsService(
+    accountRepository as never,
+    transactionRepository as never,
+    exchangeRates as never,
+  );
   const service = new InvestmentsService(
     accountRepository as never,
-    { find: jest.fn(async () => []) } as never,
+    { find: vi.fn(async () => []) } as never,
     transactionRepository as never,
-    { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as never,
-    { seedDefaultAccounts: jest.fn(async () => undefined) } as never,
+    { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as never,
+    { seedDefaultAccounts: vi.fn(async () => undefined) } as never,
     exchangeRates as never,
     {} as never,
+    flows,
   );
-  return { service, qb };
+  return { service, flows, qb };
 }
 
 const row = (overrides: Partial<Row>): Row => ({
@@ -75,15 +83,15 @@ const row = (overrides: Partial<Row>): Row => ({
 
 describe('InvestmentsService flows', () => {
   it('counts only confirmed rows', async () => {
-    const { service, qb } = createService();
+    const { flows, qb } = createService();
 
-    await service.loadFlows('ws-1', ['account-1']);
+    await flows.loadFlows('ws-1', ['account-1']);
 
     expect(qb.andWhere).toHaveBeenCalledWith(countedSql('t'));
   });
 
   it('tells a contribution, a withdrawal and a dividend apart', async () => {
-    const { service } = createService({
+    const { flows: createFlows } = createService({
       rows: [
         row({ type: 'expense', pairKind: 'investment', debit: '1000' }),
         row({ type: 'income', pairKind: 'investment', credit: '300', date: '2026-04-01' }),
@@ -91,9 +99,9 @@ describe('InvestmentsService flows', () => {
       ],
     });
 
-    const flows = await service.loadFlows('ws-1', ['account-1']);
+    const loaded = await createFlows.loadFlows('ws-1', ['account-1']);
 
-    expect(flows.map(flow => [flow.kind, flow.amount, flow.date])).toEqual([
+    expect(loaded.map(flow => [flow.kind, flow.amount, flow.date])).toEqual([
       ['contribution', 1000, '2026-03-01'],
       ['withdrawal', 300, '2026-04-01'],
       ['income', 25, '2026-05-01'],
@@ -101,7 +109,7 @@ describe('InvestmentsService flows', () => {
   });
 
   it('values each flow at the rate of its own day, and names a currency it cannot value', async () => {
-    const { service } = createService({
+    const { flows: flowsService } = createService({
       rates: {
         USD: [
           { date: '2024-01-10', rate: 0.9 },
@@ -110,7 +118,7 @@ describe('InvestmentsService flows', () => {
       },
     });
 
-    const { flows, missing } = await service.valueFlows(
+    const { flows, missing } = await flowsService.valueFlows(
       'ws-1',
       [
         { accountId: 'a', date: '2024-01-10', amount: 100, currency: 'USD', kind: 'contribution' },
@@ -150,9 +158,9 @@ describe('InvestmentsService flows', () => {
 
 describe('InvestmentsService contributionsBetween', () => {
   it('nets withdrawals against contributions and leaves dividends out', async () => {
-    const { service, qb } = createService();
+    const { flows, qb } = createService();
 
-    await service.contributionsBetween('ws-1', '2026-01-01', '2026-02-01');
+    await flows.contributionsBetween('ws-1', '2026-01-01', '2026-02-01');
 
     expect(qb.andWhere).toHaveBeenCalledWith('t.transfer_pair_kind = :kind', {
       kind: 'investment',
@@ -165,22 +173,18 @@ describe('InvestmentsService contributionsBetween', () => {
   });
 });
 
-describe('InvestmentsService links', () => {
+describe('InvestmentFlowsService links', () => {
   function linkService(transaction: Record<string, unknown>) {
     const transactionRepository = {
-      findOne: jest.fn(async () => transaction),
-      save: jest.fn(async (saved: unknown) => saved),
+      findOne: vi.fn(async () => transaction),
+      save: vi.fn(async (saved: unknown) => saved),
     };
     const accountRepository = {
-      findOne: jest.fn(async () => ({ id: 'account-1', accountKind: 'investment' })),
+      findOne: vi.fn(async () => ({ id: 'account-1', accountKind: 'investment' })),
     };
-    const service = new InvestmentsService(
+    const service = new InvestmentFlowsService(
       accountRepository as never,
-      {} as never,
       transactionRepository as never,
-      {} as never,
-      {} as never,
-      {} as never,
       {} as never,
     );
     return service;
@@ -274,6 +278,6 @@ describe('InvestmentsService links', () => {
       transferPairKind: 'transfer',
     });
 
-    await expect(service.unlinkContribution('ws', 'tx-1')).rejects.toThrow('not linked');
+    await expect(service.unlinkContribution('ws', 'tx-1')).rejects.toThrow('not a contribution');
   });
 });

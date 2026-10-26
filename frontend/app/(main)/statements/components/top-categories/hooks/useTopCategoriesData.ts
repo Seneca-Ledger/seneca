@@ -38,7 +38,8 @@ export type TopCategoriesDataReturn = TopCategoriesAggregationReturn & {
   drillDownRecords: TopCategoryRecord[];
 };
 
-const filterDrillDownRecords = (
+/** The records behind one leaderboard row, newest first. */
+export const filterDrillDownRecords = (
   selectedRow: TopCategoryAggregateRow,
   records: TopCategoryRecord[],
 ): TopCategoryRecord[] => {
@@ -65,7 +66,7 @@ export const useTopCategoriesData = ({
   const {
     statements: rawStatements,
     transactions: rawTransactions,
-    gmailReceipts,
+    receipts,
     loading,
   } = useAnalyticsData({
     user,
@@ -83,7 +84,7 @@ export const useTopCategoriesData = ({
     useTopCategoriesRecords({
       statements: statements as Parameters<typeof useTopCategoriesRecords>[0]['statements'],
       transactions: transactions as Parameters<typeof useTopCategoriesRecords>[0]['transactions'],
-      gmailReceipts,
+      receipts,
       workspaceCurrency,
       appliedFilters: monthFilters,
       searchInput: state.searchInput,
@@ -98,7 +99,7 @@ export const useTopCategoriesData = ({
       workspaceCurrency,
       resolvedTheme,
       sourceStatementLabel: labels.sourceStatement,
-      sourceGmailLabel: labels.sourceGmail,
+      sourceReceiptLabel: labels.sourceReceipt,
       totalIncomeLabel: labels.totalIncome,
       totalSpendLabel: labels.totalSpend,
     });

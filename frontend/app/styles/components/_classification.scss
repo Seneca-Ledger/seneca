@@ -1,0 +1,244 @@
+@use '../abstracts' as *;
+
+/*
+ * The classification pages: Categories (app/(main)/categories/page.tsx) and
+ * Tags (app/(main)/tags/page.tsx). One quiet card holding a header row and a
+ * grid; colour only for the accent and muted secondary text.
+ */
+.seneca-categories,
+.seneca-tags {
+  display: flex;
+  flex-direction: column;
+  gap: $seneca-space-4;
+  // The app's page gutter, as on the other list pages.
+  padding: var(--seneca-page-top, #{$seneca-space-4}) var(--seneca-page-x, #{$seneca-space-4})
+    $seneca-space-6;
+  width: 100%;
+
+  // The grid sits inside the page scroll: let the wheel reach the page.
+  .seneca-grid__scroll {
+    overscroll-behavior: auto;
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: $seneca-radius-md;
+    overflow: hidden;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: $seneca-font-size-md;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--foreground);
+  }
+
+  &__search {
+    width: 180px;
+    max-width: 100%;
+    height: 30px;
+    padding: 0 10px;
+    font-size: $seneca-font-size-sm;
+    color: var(--foreground);
+    background: var(--surface-soft);
+    border: 1px solid transparent;
+    border-radius: $seneca-radius-sm;
+    outline: none;
+    transition: border-color 120ms ease;
+
+    &::placeholder {
+      color: var(--text-muted);
+    }
+
+    &:focus-visible {
+      border-color: var(--primary);
+    }
+  }
+
+  &__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    font-size: $seneca-font-size-base;
+    color: var(--foreground);
+
+    &--disabled {
+      color: var(--text-muted);
+    }
+  }
+
+  &__name-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__lock {
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  &__mark,
+  &__uses,
+  &__description {
+    font-size: $seneca-font-size-sm;
+    color: var(--text-muted);
+  }
+
+  &__description {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__activity {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: $seneca-font-size-base;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  &__menu {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    color: var(--text-muted);
+    background: transparent;
+    border: 0;
+    border-radius: $seneca-radius-sm;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover,
+    &[aria-expanded='true'] {
+      color: var(--foreground);
+      background: var(--surface-soft);
+    }
+  }
+
+  &__none {
+    margin: 0;
+    padding: 24px 20px;
+    font-size: $seneca-font-size-base;
+    color: var(--text-muted);
+  }
+
+  &__confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+/* Create / edit tag (TagFormDialog.tsx). */
+.seneca-tag-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 4px;
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  &__label {
+    font-size: $seneca-font-size-sm;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--text-muted);
+  }
+
+  &__optional {
+    font-weight: $seneca-font-weight-regular;
+  }
+}
+
+/* The tag chips and the add menu (TagPicker.tsx). */
+.seneca-tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 4px 0 10px;
+    font-size: $seneca-font-size-sm;
+    color: var(--foreground);
+    background: var(--surface-soft);
+    border-radius: $seneca-radius-full;
+  }
+
+  &__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    color: var(--text-muted);
+    background: transparent;
+    border: 0;
+    border-radius: $seneca-radius-full;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--foreground);
+      background: var(--icon-badge-bg);
+    }
+  }
+
+  &__add {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 8px;
+    font-size: $seneca-font-size-sm;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: $seneca-radius-full;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
+  }
+
+  &__empty {
+    padding: 6px 12px;
+    font-size: $seneca-font-size-sm;
+    color: var(--text-muted);
+  }
+}

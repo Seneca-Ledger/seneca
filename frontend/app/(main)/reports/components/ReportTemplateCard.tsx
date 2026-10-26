@@ -14,6 +14,16 @@ export interface ReportTemplate {
   icon: LucideIcon;
   category: 'financial' | 'operational' | 'tax';
   formats: Array<'pdf' | 'excel' | 'csv'>;
+  /** 'none' for a snapshot of today, where a date range means nothing. Defaults to 'range'. */
+  period?: 'range' | 'none';
+  /** Wallet and category filters; off for documents that are not a transaction query. */
+  scopeFilters?: boolean;
+  /** The day / week / month bucket picker. */
+  groupBy?: boolean;
+  /** Whether the on-screen preview is offered. Defaults to true. */
+  preview?: boolean;
+  /** A line under the description, e.g. a limit on the period. */
+  hint?: string;
 }
 
 interface ReportTemplateCardProps {
@@ -22,7 +32,6 @@ interface ReportTemplateCardProps {
   isSelected?: boolean;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function ReportTemplateCard({
   template,
   onSelect,
@@ -67,8 +76,11 @@ export function ReportTemplateCard({
         <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="body2"
-            fontWeight={600}
-            sx={{ color: 'var(--foreground)', lineHeight: 1.3 }}
+            sx={{
+              fontWeight: 600,
+              color: 'var(--foreground)',
+              lineHeight: 1.3,
+            }}
           >
             {template.name}
           </Typography>

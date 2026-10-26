@@ -1,3 +1,4 @@
+import type { MockInstance, Mocked } from 'vitest';
 import * as fs from 'node:fs/promises';
 import {
   BadGatewayException,
@@ -6,16 +7,17 @@ import {
 } from '@nestjs/common';
 import type { Goal } from '@/entities';
 import { GoalCoversService } from '@/modules/goals/goal-covers.service';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 
-// Replaced wholesale: jest.spyOn does not reach the bindings the service holds
+// Replaced wholesale: vi.spyOn does not reach the bindings the service holds
 // for a node: builtin, which silently left the real filesystem in play.
-jest.mock('node:fs/promises', () => ({
-  mkdir: jest.fn(async () => undefined),
-  writeFile: jest.fn(async () => undefined),
-  unlink: jest.fn(async () => undefined),
+vi.mock('node:fs/promises', () => ({
+  mkdir: vi.fn(async () => undefined),
+  writeFile: vi.fn(async () => undefined),
+  unlink: vi.fn(async () => undefined),
 }));
 
-const mocked = fs as jest.Mocked<typeof fs>;
+const mocked = fs as Mocked<typeof fs>;
 
 const WORKSPACE_ID = 'workspace-1';
 const USER_ID = 'user-1';
@@ -37,40 +39,34 @@ function goal(overrides: Partial<Goal> = {}): Goal {
   } as Goal;
 }
 
+// Real Responses: the HTTP client reads headers and body the standard way.
 function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
+  return new Response(JSON.stringify(body), {
     status,
-    headers: new Headers({ 'content-type': 'application/json' }),
-    json: async () => body,
-  } as unknown as Response;
+    headers: { 'content-type': 'application/json' },
+  });
 }
 
 function imageResponse(bytes: Buffer, contentType = 'image/jpeg', status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: new Headers({ 'content-type': contentType }),
-    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length),
-  } as unknown as Response;
+  return new Response(new Uint8Array(bytes), { status, headers: { 'content-type': contentType } });
 }
 
 function createService(stored: Goal = goal()) {
   const goalRepository = {
-    findOne: jest.fn(async () => stored),
-    save: jest.fn(async (data: Goal) => data),
+    findOne: vi.fn(async () => stored),
+    save: vi.fn(async (data: Goal) => data),
   } as any;
 
   // A cache that always misses, so every test exercises the upstream path.
   const cacheManager = {
-    get: jest.fn(async () => undefined),
-    set: jest.fn(async () => undefined),
+    get: vi.fn(async () => undefined),
+    set: vi.fn(async () => undefined),
   } as any;
 
-  const auditService = { createEvent: jest.fn(async () => undefined) } as any;
+  const auditService = { createEvent: vi.fn(async () => undefined) } as any;
 
   return {
-    service: new GoalCoversService(goalRepository, cacheManager, auditService),
+    service: new GoalCoversService(goalRepository, cacheManager, auditService, new EffectRuntime()),
     goalRepository,
     cacheManager,
     auditService,
@@ -78,11 +74,11 @@ function createService(stored: Goal = goal()) {
 }
 
 describe('GoalCoversService', () => {
-  let fetchSpy: jest.SpyInstance;
+  let fetchSpy: MockInstance;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    fetchSpy = jest.spyOn(global, 'fetch');
+    vi.clearAllMocks();
+    fetchSpy = vi.spyOn(global, 'fetch');
     mocked.mkdir.mockResolvedValue(undefined);
     mocked.writeFile.mockResolvedValue(undefined);
     mocked.unlink.mockResolvedValue(undefined);
@@ -95,7 +91,7 @@ describe('GoalCoversService', () => {
   describe('search', () => {
     it('asks only for photos it would be allowed to store and show', async () => {
       const { service } = createService();
-      fetchSpy.mockResolvedValue(jsonResponse({ results: [], page_count: 1 }));
+      fetchSpy.mockImplementation(async () =>jsonResponse({ results: [], page_count: 1 }));
 
       await service.search('beach');
 
@@ -109,7 +105,7 @@ describe('GoalCoversService', () => {
 
     it('drops a result with no credit line, because showing it would be unlawful', async () => {
       const { service } = createService();
-      fetchSpy.mockResolvedValue(
+      fetchSpy.mockImplementation(async () =>
         jsonResponse({
           page_count: 1,
           results: [
@@ -127,7 +123,7 @@ describe('GoalCoversService', () => {
 
     it('refuses a non-https source link rather than handing the client a javascript: URL', async () => {
       const { service } = createService();
-      fetchSpy.mockResolvedValue(
+      fetchSpy.mockImplementation(async () =>
         jsonResponse({
           page_count: 1,
           results: [
@@ -152,21 +148,21 @@ describe('GoalCoversService', () => {
 
     it('says the allowance is used up rather than that the search is broken', async () => {
       const { service } = createService();
-      fetchSpy.mockResolvedValue(jsonResponse({}, 429));
+      fetchSpy.mockImplementation(async () =>jsonResponse({}, 429));
 
       await expect(service.search('beach')).rejects.toBeInstanceOf(ServiceUnavailableException);
     });
 
     it('reports a dead upstream as a gateway failure', async () => {
       const { service } = createService();
-      fetchSpy.mockResolvedValue(jsonResponse({}, 500));
+      fetchSpy.mockImplementation(async () =>jsonResponse({}, 500));
 
       await expect(service.search('beach')).rejects.toBeInstanceOf(BadGatewayException);
     });
 
     it('reports a hasMore page only while pages remain', async () => {
       const { service } = createService();
-      fetchSpy.mockResolvedValue(jsonResponse({ results: [], page_count: 3 }));
+      fetchSpy.mockImplementation(async () =>jsonResponse({ results: [], page_count: 3 }));
 
       await expect(service.search('beach', 3)).resolves.toMatchObject({ hasMore: false });
       await expect(service.search('beach', 2)).resolves.toMatchObject({ hasMore: true });
@@ -219,8 +215,8 @@ describe('GoalCoversService', () => {
 
     it('stores a photo with the credit line read back from upstream', async () => {
       const { service } = createService();
-      fetchSpy.mockImplementation(async (input: string) =>
-        input.endsWith('/thumb/')
+      fetchSpy.mockImplementation(async (input: string | URL) =>
+        String(input).endsWith('/thumb/')
           ? imageResponse(Buffer.from([0xff, 0xd8, 0xff]))
           : jsonResponse({
               attribution: '"Beach" by Ann is licensed under CC BY 2.0.',
@@ -239,8 +235,8 @@ describe('GoalCoversService', () => {
 
     it('names the stored file itself, so upstream cannot choose the extension', async () => {
       const { service } = createService();
-      fetchSpy.mockImplementation(async (input: string) =>
-        input.endsWith('/thumb/')
+      fetchSpy.mockImplementation(async (input: string | URL) =>
+        String(input).endsWith('/thumb/')
           ? imageResponse(Buffer.from([0x89, 0x50]), 'image/png')
           : jsonResponse({ attribution: 'credit' }),
       );
@@ -255,8 +251,8 @@ describe('GoalCoversService', () => {
 
     it('refuses an SVG, which would run as script on our own origin', async () => {
       const { service } = createService();
-      fetchSpy.mockImplementation(async (input: string) =>
-        input.endsWith('/thumb/')
+      fetchSpy.mockImplementation(async (input: string | URL) =>
+        String(input).endsWith('/thumb/')
           ? imageResponse(Buffer.from('<svg onload="alert(1)"/>'), 'image/svg+xml')
           : jsonResponse({ attribution: 'credit' }),
       );
@@ -269,8 +265,8 @@ describe('GoalCoversService', () => {
 
     it('keeps the picture when only the credit line fails to load', async () => {
       const { service } = createService();
-      fetchSpy.mockImplementation(async (input: string) =>
-        input.endsWith('/thumb/')
+      fetchSpy.mockImplementation(async (input: string | URL) =>
+        String(input).endsWith('/thumb/')
           ? imageResponse(Buffer.from([0xff, 0xd8]))
           : jsonResponse({}, 500),
       );
@@ -283,17 +279,21 @@ describe('GoalCoversService', () => {
 
     it('builds the thumbnail URL from the id as a path segment on the fixed host', async () => {
       const { service } = createService();
-      fetchSpy.mockImplementation(async (input: string) =>
-        input.endsWith('/thumb/')
+      fetchSpy.mockImplementation(async (input: string | URL) =>
+        String(input).endsWith('/thumb/')
           ? imageResponse(Buffer.from([0xff]))
           : jsonResponse({ attribution: 'credit' }),
       );
 
       await service.setCover('goal-1', WORKSPACE_ID, USER_ID, { photoId: PHOTO_ID });
 
-      expect(fetchSpy).toHaveBeenCalledWith(
+      expect(fetchSpy.mock.calls.map(([input]) => String(input))).toContain(
         `https://api.openverse.org/v1/images/${PHOTO_ID}/thumb/`,
-        expect.anything(),
+      );
+      // No trace headers go to the third party.
+      const [, init] = fetchSpy.mock.calls[0] as [URL, RequestInit];
+      expect(Object.keys(init.headers ?? {})).not.toEqual(
+        expect.arrayContaining(['traceparent']),
       );
     });
   });

@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { BadRequestException } from "@nestjs/common";
 import { CustomTableSource } from "../../../src/entities/custom-table.entity";
 import { CustomTableColumnType } from "../../../src/entities/custom-table-column.entity";
@@ -11,13 +12,14 @@ const TABLE_ID = "11111111-1111-4111-8111-111111111111";
 const COLUMN_ID = "22222222-2222-4222-8222-222222222222";
 
 const createRepositoryMock = () => ({
-	findOne: jest.fn(),
-	find: jest.fn(),
-	save: jest.fn(),
-	create: jest.fn((value?: unknown) => value),
-	delete: jest.fn(),
-	update: jest.fn(),
-	createQueryBuilder: jest.fn(),
+	findOne: vi.fn(),
+	find: vi.fn(),
+	save: vi.fn(),
+	create: vi.fn((value?: unknown) => value),
+	delete: vi.fn(),
+	update: vi.fn(),
+	count: vi.fn(),
+	createQueryBuilder: vi.fn(),
 });
 
 /** One chainable builder for every query the service issues. */
@@ -26,7 +28,7 @@ const createQueryBuilderMock = (result: {
 	getMany?: unknown;
 	getRawOne?: unknown;
 }) => {
-	const qb: Record<string, jest.Mock> = {};
+	const qb: Record<string, Mock> = {};
 	for (const method of [
 		"leftJoinAndSelect",
 		"leftJoin",
@@ -39,12 +41,12 @@ const createQueryBuilderMock = (result: {
 		"set",
 		"setParameter",
 	]) {
-		qb[method] = jest.fn().mockReturnValue(qb);
+		qb[method] = vi.fn().mockReturnValue(qb);
 	}
-	qb.getOne = jest.fn().mockResolvedValue(result.getOne ?? null);
-	qb.getMany = jest.fn().mockResolvedValue(result.getMany ?? []);
-	qb.getRawOne = jest.fn().mockResolvedValue(result.getRawOne ?? { max: null });
-	qb.execute = jest.fn().mockResolvedValue({ affected: 1 });
+	qb.getOne = vi.fn().mockResolvedValue(result.getOne ?? null);
+	qb.getMany = vi.fn().mockResolvedValue(result.getMany ?? []);
+	qb.getRawOne = vi.fn().mockResolvedValue(result.getRawOne ?? { max: null });
+	qb.execute = vi.fn().mockResolvedValue({ affected: 1 });
 	return qb;
 };
 
@@ -60,7 +62,7 @@ const adapterMock = (rows: SourceRow[]): SourceAdapter => ({
 		},
 		{ field: "currency", title: "Currency", type: CustomTableColumnType.TEXT },
 	],
-	fetchRows: jest.fn().mockResolvedValue(rows),
+	fetchRows: vi.fn().mockResolvedValue(rows),
 });
 
 function build(adapter: SourceAdapter) {
@@ -79,18 +81,18 @@ function build(adapter: SourceAdapter) {
 		workspaceMember: createRepositoryMock(),
 	};
 	const auditService = {
-		createEvent: jest.fn().mockResolvedValue(undefined),
-		createBatchEvents: jest.fn().mockResolvedValue(undefined),
+		createEvent: vi.fn().mockResolvedValue(undefined),
+		createBatchEvents: vi.fn().mockResolvedValue(undefined),
 	};
 	const manager = {
-		save: jest.fn().mockImplementation(async (_entity, rows) => rows),
-		update: jest.fn().mockResolvedValue(undefined),
-		createQueryBuilder: jest.fn(),
+		save: vi.fn().mockImplementation(async (_entity, rows) => rows),
+		update: vi.fn().mockResolvedValue(undefined),
+		createQueryBuilder: vi.fn(),
 	};
 	const updateQb = createQueryBuilderMock({});
 	manager.createQueryBuilder.mockReturnValue(updateQb);
 	(repos.customTable as Record<string, unknown>).manager = {
-		transaction: jest.fn(async (cb: (m: typeof manager) => Promise<void>) =>
+		transaction: vi.fn(async (cb: (m: typeof manager) => Promise<void>) =>
 			cb(manager),
 		),
 	};
@@ -124,7 +126,7 @@ function build(adapter: SourceAdapter) {
 		repos.workspaceMember as never,
 		auditService as never,
 		undefined as never,
-		{ get: jest.fn().mockReturnValue(adapter) } as never,
+		{ get: vi.fn().mockReturnValue(adapter) } as never,
 	);
 	return { service, repos, auditService, manager, updateQb };
 }
@@ -169,6 +171,7 @@ describe("CustomTablesService.createFromSource", () => {
 					kind: "transactions",
 					filters: { dateFrom: "2026-09-01" },
 					syncedAt: null,
+					fields: ["date", "amount", "currency"],
 				},
 			}),
 		);
@@ -234,6 +237,8 @@ describe("CustomTablesService.refreshFromSource", () => {
 			kind: "transactions",
 			filters: { dateFrom: "2026-09-01" },
 			syncedAt: null,
+			// Currency was a source column once; the user deleted it.
+			fields: ["date", "amount", "currency"],
 		},
 		columns: [
 			{
@@ -305,6 +310,8 @@ describe("CustomTablesService.refreshFromSource", () => {
 			}),
 		]);
 		expect(repos.row.delete).not.toHaveBeenCalled();
+		// A source column the user deleted is not brought back.
+		expect(repos.column.save).not.toHaveBeenCalled();
 		expect(manager.update).toHaveBeenCalledWith(
 			expect.anything(),
 			{ id: TABLE_ID },
@@ -315,6 +322,88 @@ describe("CustomTablesService.refreshFromSource", () => {
 				}),
 			},
 		);
+	});
+
+	it("adds a column for a field the source gained since the table was made", async () => {
+		const adapter = adapterMock(sourceRows);
+		const { service, repos, manager, updateQb } = build(adapter);
+		repos.customTable.createQueryBuilder.mockReturnValue(
+			createQueryBuilderMock({
+				getOne: {
+					...boundTable,
+					sourceBinding: {
+						...boundTable.sourceBinding,
+						fields: ["date", "amount"],
+					},
+					columns: boundTable.columns.map((column, position) => ({
+						...column,
+						position,
+					})),
+				},
+			}),
+		);
+		repos.row.find.mockResolvedValue([
+			{
+				id: "row-1",
+				sourceKey: "tx-1",
+				data: { col_date: "2026-09-01", col_amount: -500, col_note: "mine" },
+			},
+		]);
+
+		await service.refreshFromSource("user-1", "workspace-1", TABLE_ID);
+
+		expect(repos.column.save).toHaveBeenCalledTimes(1);
+		const created = repos.column.save.mock.calls[0][0] as Array<
+			Record<string, unknown>
+		>;
+		expect(created).toEqual([
+			expect.objectContaining({
+				tableId: TABLE_ID,
+				title: "Currency",
+				type: CustomTableColumnType.TEXT,
+				position: 3,
+				config: { source: { kind: "app_field", field: "currency" } },
+			}),
+		]);
+		// The new column is filled on the same refresh, for old rows and new.
+		expect(updateQb.setParameter).toHaveBeenCalledWith(
+			"patch",
+			JSON.stringify({ col_date: "2026-09-01", col_amount: -500, col_0: "EUR" }),
+		);
+		const inserted = manager.save.mock.calls[0][1] as Array<
+			Record<string, unknown>
+		>;
+		expect(inserted[0].data).toEqual({
+			col_date: "2026-09-02",
+			col_amount: 1200,
+			col_0: "EUR",
+		});
+		expect(manager.update).toHaveBeenCalledWith(
+			expect.anything(),
+			{ id: TABLE_ID },
+			{
+				sourceBinding: expect.objectContaining({
+					fields: ["date", "amount", "currency"],
+				}),
+			},
+		);
+	});
+
+	it("treats a table made before fields were recorded by the columns it has", async () => {
+		const { service, repos } = build(adapterMock([sourceRows[0]]));
+		const { fields: _fields, ...legacyBinding } = boundTable.sourceBinding;
+		repos.customTable.createQueryBuilder.mockReturnValue(
+			createQueryBuilderMock({
+				getOne: { ...boundTable, sourceBinding: legacyBinding },
+			}),
+		);
+
+		await service.refreshFromSource("user-1", "workspace-1", TABLE_ID);
+
+		const created = repos.column.save.mock.calls[0][0] as Array<
+			Record<string, unknown>
+		>;
+		expect(created.map((column) => column.title)).toEqual(["Currency"]);
 	});
 
 	it("counts identical rows as unchanged without issuing an update", async () => {
@@ -374,6 +463,107 @@ describe("CustomTablesService.refreshFromSource", () => {
 		await expect(
 			service.refreshFromSource("user-1", "workspace-1", TABLE_ID),
 		).rejects.toBeInstanceOf(BadRequestException);
+	});
+});
+
+describe("CustomTablesService.addSourceStatements", () => {
+	const DOC_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+	const DOC_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+	const DOC_C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+	const documentsTable = {
+		id: TABLE_ID,
+		workspaceId: "workspace-1",
+		sourceBinding: {
+			kind: "transactions",
+			filters: { statementIds: [DOC_A] },
+			syncedAt: null,
+		},
+	};
+
+	function setup(table: unknown, foundStatements: number) {
+		const built = build(adapterMock(sourceRows));
+		built.repos.customTable.findOne.mockResolvedValue(table);
+		built.repos.statement.count.mockResolvedValue(foundStatements);
+		vi
+			.spyOn(built.service, "refreshFromSource")
+			.mockResolvedValue({
+				tableId: TABLE_ID,
+				inserted: 2,
+				updated: 0,
+				unchanged: 1,
+				total: 3,
+				syncedAt: "2026-10-20T00:00:00.000Z",
+			});
+		return built;
+	}
+
+	it("adds the new documents to the binding once and refreshes the table", async () => {
+		const { service, repos } = setup(documentsTable, 3);
+
+		const result = await service.addSourceStatements(
+			"user-1",
+			"workspace-1",
+			TABLE_ID,
+			[DOC_A, DOC_B, DOC_C, DOC_B],
+		);
+
+		expect(repos.customTable.findOne).toHaveBeenCalledWith({
+			where: { id: TABLE_ID, workspaceId: "workspace-1" },
+		});
+		expect(repos.statement.count).toHaveBeenCalledWith({
+			where: expect.objectContaining({ workspaceId: "workspace-1" }),
+		});
+		expect(repos.customTable.update).toHaveBeenCalledWith(
+			{ id: TABLE_ID, workspaceId: "workspace-1" },
+			{
+				sourceBinding: expect.objectContaining({
+					kind: "transactions",
+					filters: { statementIds: [DOC_A, DOC_B, DOC_C] },
+				}),
+			},
+		);
+		expect(service.refreshFromSource).toHaveBeenCalledWith(
+			"user-1",
+			"workspace-1",
+			TABLE_ID,
+		);
+		expect(result).toEqual(expect.objectContaining({ inserted: 2 }));
+	});
+
+	it.each([
+		["a date range", { dateFrom: "2026-09-01" }],
+		["picked records", { statementIds: [DOC_A], ids: [DOC_B] }],
+	])("refuses a table bound to %s, which a document filter would narrow", async (_name, filters) => {
+		const { service, repos } = setup(
+			{ ...documentsTable, sourceBinding: { kind: "transactions", filters, syncedAt: null } },
+			1,
+		);
+		await expect(
+			service.addSourceStatements("user-1", "workspace-1", TABLE_ID, [DOC_B]),
+		).rejects.toMatchObject({
+			response: expect.objectContaining({ code: "SOURCE_NOT_DOCUMENTS" }),
+		});
+		expect(repos.customTable.update).not.toHaveBeenCalled();
+	});
+
+	it("treats a document of another workspace as not found", async () => {
+		const { service, repos } = setup(documentsTable, 0);
+		await expect(
+			service.addSourceStatements("user-1", "workspace-1", TABLE_ID, [DOC_B]),
+		).rejects.toMatchObject({
+			response: expect.objectContaining({ code: "STATEMENT_NOT_FOUND" }),
+		});
+		expect(repos.customTable.update).not.toHaveBeenCalled();
+	});
+
+	it("treats a table of another workspace as not found", async () => {
+		const { service, repos } = setup(null, 1);
+		await expect(
+			service.addSourceStatements("user-1", "workspace-1", TABLE_ID, [DOC_B]),
+		).rejects.toMatchObject({
+			response: expect.objectContaining({ code: "TABLE_NOT_FOUND" }),
+		});
+		expect(repos.customTable.update).not.toHaveBeenCalled();
 	});
 });
 

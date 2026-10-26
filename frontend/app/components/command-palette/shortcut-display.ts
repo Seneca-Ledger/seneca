@@ -2,12 +2,12 @@
  * Turns a tinykeys binding into the chips we draw next to a command, so the
  * binding string stays the single source of truth for both the handler and the
  * hint. A space separates presses of a sequence ('KeyG KeyA' → G then A); a plus
- * separates keys of one combination ('Alt+Shift+KeyT' → ALT ⇧ T).
+ * separates keys of one combination ('Alt+Shift+KeyT' → ALT + ⇧ + T).
  *
  * Bindings name physical keys, so the chips show what is printed on a US
  * keyboard — which is also what the `KeyA` style spec means.
  */
-export type HintToken = { kind: 'key'; text: string } | { kind: 'sep' };
+export type HintToken = { kind: 'key'; text: string } | { kind: 'sep' } | { kind: 'plus' };
 
 /** Physical keys whose printed label is not simply the suffix of the code. */
 const CODE_LABELS: Record<string, string> = {
@@ -69,9 +69,12 @@ export function bindingToTokens(binding: string, isMac: boolean): HintToken[] {
     if (index > 0) {
       tokens.push({ kind: 'sep' });
     }
-    for (const key of press.split('+')) {
+    press.split('+').forEach((key, keyIndex) => {
+      if (keyIndex > 0) {
+        tokens.push({ kind: 'plus' });
+      }
       tokens.push({ kind: 'key', text: keyLabel(key, isMac) });
-    }
+    });
   });
   return tokens;
 }

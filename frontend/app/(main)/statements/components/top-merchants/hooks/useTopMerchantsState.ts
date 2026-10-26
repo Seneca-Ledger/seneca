@@ -14,7 +14,7 @@ export type TopMerchantsStateReturn = TopAnalyticsStateReturn<
 
 export const useTopMerchantsState = (): TopMerchantsStateReturn =>
   useTopAnalyticsState<TopMerchantFlowType, AggregateSortKey>(
-    'lumio-top-merchants-filters',
+    'seneca-top-merchants-filters',
     'spend',
     'amount',
   );

@@ -2,9 +2,15 @@
 import { Box, Button, Card, CardContent, Chip, IconButton, Typography } from '@mui/material';
 
 import { Pencil, Trash2 } from '@/app/components/icons';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { VendorIcon } from '@/app/components/VendorIcon';
-import { useIntlayer } from '@/app/i18n';
-import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { getCategoryDisplayName } from '@/app/lib/statement-categories';
+import { resolveLocaleTag } from '@/app/lib/user-format';
+import {
+  formatStoredDateWithOptions,
+  readStoredFormatPreferences,
+} from '@/app/lib/user-format-store';
 import { priceChangeOf, type SubscriptionItem } from '../hooks/useSubscriptionsPage';
 
 interface SubscriptionCardProps {
@@ -52,6 +58,13 @@ export const RISK_LABELS = {
   missing_charge: 'riskMissingCharge',
 } as const;
 
+/**
+ * The `?focus=` groups a subscription answers (see useAttentionFocus):
+ * `price-changed` is the dashboard's "Price changed" chip.
+ */
+export const attentionGroups = (subscription: SubscriptionItem): string | undefined =>
+  subscription.riskStatus === 'price_changed' ? 'price-changed' : undefined;
+
 export function SubscriptionCard({
   subscription,
   onEdit,
@@ -63,8 +76,11 @@ export function SubscriptionCard({
   duplicate = false,
 }: SubscriptionCardProps) {
   const t = useIntlayer('subscriptionsPage');
+  const { locale } = useLocale();
   const formatAmount = (amount: number, currency: string) =>
-    `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(amount)} ${currency}`;
+    `${new Intl.NumberFormat(resolveLocaleTag(readStoredFormatPreferences().locale), {
+      maximumFractionDigits: 0,
+    }).format(amount)} ${currency}`;
   const priceChange = priceChangeOf(subscription);
   const setAside = monthlySetAsideOf(subscription);
   const fill = (template: string, values: Record<string, string>) =>
@@ -75,13 +91,14 @@ export function SubscriptionCard({
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—';
-    return formatStoredDateWithOptions(dateStr, { day: 'numeric', month: 'short' }, 'ru-RU');
+    return formatStoredDateWithOptions(dateStr, { day: 'numeric', month: 'short' });
   };
 
   return (
     <Card
       variant="outlined"
       data-attention={`subscription:${subscription.id}`}
+      data-attention-group={attentionGroups(subscription)}
       sx={{ position: 'relative' }}
     >
       <CardContent sx={{ pb: 1.5, '&:last-child': { pb: 1.5 } }}>
@@ -95,13 +112,33 @@ export function SubscriptionCard({
                 vendorName={subscription.vendorName}
                 vendorDomain={subscription.vendorDomain}
               />
-              <Typography variant="subtitle1" fontWeight={600} noWrap>
+              <Typography
+                variant="subtitle1"
+                noWrap
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {subscription.vendorName}
               </Typography>
             </Box>
-            <Typography variant="h6" fontWeight={700} color="primary">
-              {formatAmount(subscription.amount, subscription.currency)}
-              <Typography component="span" variant="body2" color="text.secondary">
+            <Typography
+              variant="h6"
+              color="primary"
+              sx={{
+                fontWeight: 700,
+              }}
+            >
+              <PrivateAmount>
+                {formatAmount(subscription.amount, subscription.currency)}
+              </PrivateAmount>
+              <Typography
+                component="span"
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t[FREQUENCY_LABELS[subscription.frequency]]}
               </Typography>
             </Typography>
@@ -119,8 +156,14 @@ export function SubscriptionCard({
           </Box>
         </Box>
         {priceChange && subscription.riskStatus === 'price_changed' && (
-          <Typography variant="body2" color="warning.main" sx={{ mb: 1 }}>
-            {fill(t.priceChangeDetail.value, {
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'warning.main',
+              mb: 1,
+            }}
+          >
+            {fillTemplateNodes(t.priceChangeDetail.value, {
               previous: formatAmount(priceChange.previous, subscription.currency),
               current: formatAmount(priceChange.current, subscription.currency),
               delta: formatAmount(priceChange.delta, subscription.currency),
@@ -132,21 +175,36 @@ export function SubscriptionCard({
         {/* Details */}
         <Box sx={{ display: 'flex', gap: 2, mb: 1.5 }}>
           {subscription.nextChargeDate && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.nextCharge.value.replace('{date}', formatDate(subscription.nextChargeDate))}
             </Typography>
           )}
           {subscription.category && (
-            <Typography variant="body2" color="text.secondary">
-              {subscription.category.name}
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
+              {getCategoryDisplayName(subscription.category, locale)}
             </Typography>
           )}
           {typeof subscription.costPerUse === 'number' && (
-            <Typography variant="body2" color="text.secondary">
-              {fill(t.costPerUse.value, {
-                amount: formatAmount(subscription.costPerUse, subscription.currency),
-                count: String(subscription.usageCount ?? 0),
-              })}
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
+              {fillTemplateNodes(
+                fill(t.costPerUse.value, { count: String(subscription.usageCount ?? 0) }),
+                { amount: formatAmount(subscription.costPerUse, subscription.currency) },
+              )}
             </Typography>
           )}
         </Box>
@@ -175,7 +233,7 @@ export function SubscriptionCard({
                 ) : (
                   onSinkingFund && (
                     <Button size="small" variant="outlined" color="inherit" onClick={onSinkingFund}>
-                      {fill(t.setAside.value, {
+                      {fillTemplateNodes(t.setAside.value, {
                         amount: formatAmount(setAside, subscription.currency),
                       })}
                     </Button>

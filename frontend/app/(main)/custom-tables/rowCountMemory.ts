@@ -4,7 +4,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-const storageKey = (tableId: string) => `lumio:ct-row-count:${tableId}`;
+const storageKey = (tableId: string) => `seneca:ct-row-count:${tableId}`;
 
 /** Skeleton rows past this fill the scroll area anyway. */
 export const MAX_SKELETON_ROWS = 20;

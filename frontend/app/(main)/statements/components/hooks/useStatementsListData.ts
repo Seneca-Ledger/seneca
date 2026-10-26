@@ -4,10 +4,10 @@ import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.
 import { useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import type { StatementFilters } from '../filters/statement-filters';
-import type { GmailReceipt } from '../gmail-receipt-mapping';
+import type { ReceiptDocument } from '../receipt-document-mapping';
+import type { RowsFilter } from '../StatementsListView.utils';
 import { useAutoOpenParsedStatement } from './useAutoOpenParsedStatement';
-import { useGmailReceiptsQuery } from './useGmailReceiptsQuery';
-import { useGmailSyncSkeletons } from './useGmailSyncSkeletons';
+import { useReceiptDocumentsQuery } from './useReceiptDocumentsQuery';
 import { type StatementRecord, useStatementsQuery } from './useStatementsQuery';
 
 export type { StatementRecord } from './useStatementsQuery';
@@ -15,11 +15,12 @@ export type { StatementRecord } from './useStatementsQuery';
 // Stable fallbacks: `data ?? []` would mint a new array on every render while a
 // query has no data, re-running every memo and effect keyed on the list.
 const NO_STATEMENTS: never[] = [];
-const NO_GMAIL_RECEIPTS: GmailReceipt[] = [];
+const NO_RECEIPTS: ReceiptDocument[] = [];
 
 interface UseStatementsListDataParams {
   appliedFilters: StatementFilters;
   categoryId?: string | null;
+  rowsFilter?: RowsFilter | null;
   receiptStatus?: string | null;
   search: string;
   user: unknown;
@@ -32,22 +33,21 @@ interface UseStatementsListDataParams {
   refreshFailedLabel: string;
 }
 
-export interface UseStatementsListDataResult<T extends StatementRecord = StatementRecord> {
-  statements: T[];
-  gmailReceipts: GmailReceipt[];
+export interface UseStatementsListDataResult {
+  statements: StatementRecord[];
+  receipts: ReceiptDocument[];
   isPending: boolean;
   isFetching: boolean;
-  gmailIsPending: boolean;
-  gmailSyncSkeletonKeys: string[];
-  setGmailSyncSkeletonKeys: React.Dispatch<React.SetStateAction<string[]>>;
+  receiptsIsPending: boolean;
   refetchStatements: () => void;
-  refetchGmailReceipts: () => void;
+  refetchReceipts: () => void;
   refreshActiveStatements: () => Promise<void>;
 }
 
-export function useStatementsListData<T extends StatementRecord = StatementRecord>({
+export function useStatementsListData({
   appliedFilters,
   categoryId,
+  rowsFilter,
   receiptStatus,
   search,
   user,
@@ -56,15 +56,16 @@ export function useStatementsListData<T extends StatementRecord = StatementRecor
   router,
   loadListErrorLabel,
   refreshFailedLabel,
-}: UseStatementsListDataParams): UseStatementsListDataResult<T> {
-  const statementsQuery = useStatementsQuery<T>({
+}: UseStatementsListDataParams): UseStatementsListDataResult {
+  const statementsQuery = useStatementsQuery({
     appliedFilters,
     categoryId,
+    rowsFilter,
     search,
     enabled: Boolean(user),
   });
 
-  const gmailQuery = useGmailReceiptsQuery({
+  const receiptsQuery = useReceiptDocumentsQuery({
     categoryId,
     receiptStatus,
     page,
@@ -72,49 +73,43 @@ export function useStatementsListData<T extends StatementRecord = StatementRecor
     enabled: Boolean(user),
   });
 
-  const { gmailSyncSkeletonKeys, setGmailSyncSkeletonKeys } = useGmailSyncSkeletons({
-    pageSize,
-  });
-
-  const statements: T[] = statementsQuery.data ?? NO_STATEMENTS;
+  const statements: StatementRecord[] = statementsQuery.data ?? NO_STATEMENTS;
 
   useAutoOpenParsedStatement({ statements, enabled: Boolean(user), router });
 
   // Тост об ошибке загрузки: раньше его печатал каждый вызов загрузчика,
   // теперь — одна реакция на состояние запроса.
   const statementsIsError = statementsQuery.isError;
-  const gmailIsError = gmailQuery.isError;
+  const receiptsIsError = receiptsQuery.isError;
   useEffect(() => {
-    if (statementsIsError || gmailIsError) {
+    if (statementsIsError || receiptsIsError) {
       toast.error(loadListErrorLabel);
     }
-  }, [statementsIsError, gmailIsError, loadListErrorLabel]);
+  }, [statementsIsError, receiptsIsError, loadListErrorLabel]);
 
   const refetchStatements = useCallback((): void => {
     void statementsQuery.refetch();
   }, [statementsQuery.refetch]);
 
-  const refetchGmailReceipts = useCallback((): void => {
-    void gmailQuery.refetch();
-  }, [gmailQuery.refetch]);
+  const refetchReceipts = useCallback((): void => {
+    void receiptsQuery.refetch();
+  }, [receiptsQuery.refetch]);
 
   const refreshActiveStatements = useCallback(async (): Promise<void> => {
-    const results = await Promise.all([statementsQuery.refetch(), gmailQuery.refetch()]);
+    const results = await Promise.all([statementsQuery.refetch(), receiptsQuery.refetch()]);
     if (results[0]?.isError) {
       toast.error(refreshFailedLabel);
     }
-  }, [statementsQuery.refetch, gmailQuery.refetch, refreshFailedLabel]);
+  }, [statementsQuery.refetch, receiptsQuery.refetch, refreshFailedLabel]);
 
   return {
     statements,
-    gmailReceipts: gmailQuery.data ?? NO_GMAIL_RECEIPTS,
+    receipts: receiptsQuery.data ?? NO_RECEIPTS,
     isPending: statementsQuery.isPending,
     isFetching: statementsQuery.isFetching,
-    gmailIsPending: gmailQuery.isPending,
-    gmailSyncSkeletonKeys,
-    setGmailSyncSkeletonKeys,
+    receiptsIsPending: receiptsQuery.isPending,
     refetchStatements,
-    refetchGmailReceipts,
+    refetchReceipts,
     refreshActiveStatements,
   };
 }

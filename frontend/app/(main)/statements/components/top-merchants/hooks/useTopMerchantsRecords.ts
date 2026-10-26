@@ -7,7 +7,7 @@ import {
 import type { AnalyticsFromOption } from '@/app/(main)/statements/components/shared-analytics.utils';
 import {
   getBankDisplayName,
-  mapGmailReceiptToMerchantRecord,
+  mapReceiptToMerchantRecord,
   mapTransactionToRecord,
 } from '@/app/(main)/statements/components/top-merchants/helpers/top-merchants-mappers';
 import type {
@@ -15,7 +15,7 @@ import type {
   TopMerchantRecord,
 } from '@/app/(main)/statements/components/top-merchants/top-merchants.types';
 import type {
-  GmailReceipt,
+  ReceiptDocument,
   StatementMeta,
   Transaction,
 } from '@/app/(main)/statements/types/statement-types';
@@ -26,7 +26,7 @@ type StatementWithWorkspace = StatementMeta & StatementFilterItem;
 type Params = {
   statements: StatementWithWorkspace[];
   transactions: Transaction[];
-  gmailReceipts: GmailReceipt[];
+  receipts: ReceiptDocument[];
   workspaceCurrency: string;
   appliedFilters: StatementFilters;
   searchInput: string;
@@ -83,7 +83,7 @@ const buildUserOption = (record: TopMerchantRecord, userFallback: string): FromO
 
 const buildBankOption = (bank: string): FromOption => ({
   id: `bank:${bank}`,
-  label: bank === 'gmail' ? 'Gmail' : getBankDisplayName(bank),
+  label: getBankDisplayName(bank),
   description: null,
   bankName: bank,
 });
@@ -106,7 +106,7 @@ const buildFromOptions = (allRecords: TopMerchantRecord[], userFallback: string)
 export const useTopMerchantsRecords = ({
   statements,
   transactions,
-  gmailReceipts,
+  receipts,
   workspaceCurrency,
   appliedFilters,
   searchInput,
@@ -121,11 +121,11 @@ export const useTopMerchantsRecords = ({
     const txStatementIds = new Set(
       transactions.map(t => t.statementId).filter((id): id is string => Boolean(id)),
     );
-    const mappedReceipts = gmailReceipts
+    const mappedReceipts = receipts
       .filter(r => !txStatementIds.has(r.id))
-      .map(r => mapGmailReceiptToMerchantRecord(r, workspaceCurrency));
+      .map(r => mapReceiptToMerchantRecord(r, workspaceCurrency));
     return [...mappedTransactions, ...mappedReceipts];
-  }, [statements, transactions, gmailReceipts, workspaceCurrency]);
+  }, [statements, transactions, receipts, workspaceCurrency]);
 
   const filteredRecords = useMemo(
     () =>

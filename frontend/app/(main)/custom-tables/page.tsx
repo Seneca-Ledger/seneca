@@ -3,15 +3,19 @@
 import { Skeleton } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { StatementsSearchPopover } from '@/app/(main)/statements/components/filters/StatementsSearchPopover';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import { DataGrid, type GridColumnDef, useDataGrid } from '@/app/components/data-grid';
-import { ExternalLink, Search, Trash2 } from '@/app/components/icons';
+import { ExternalLink, Plus, Trash2 } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { Button } from '@/app/components/ui/button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Select } from '@/app/components/ui/select';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { CreateTableDialog } from './components/CreateTableDialog';
 import { useCreateTable } from './hooks/useCreateTable';
@@ -21,6 +25,7 @@ import type { SourceKind } from './sources';
 
 function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => void) {
   const router = useRouter();
+  const categoryName = useCategoryName();
   return useMemo<GridColumnDef<TableListItem, unknown>[]>(
     () => [
       {
@@ -29,11 +34,11 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         header: labels.columns.name,
         size: 320,
         cell: ({ row }) => (
-          <span className="lumio-ct__cell">
-            <span className="lumio-ct__cell-text">
-              <span className="lumio-ct__list-name">{row.original.name}</span>
+          <span className="seneca-ct__cell">
+            <span className="seneca-ct__cell-text">
+              <span className="seneca-ct__list-name">{row.original.name}</span>
               {row.original.description ? (
-                <span className="lumio-ct__list-sub">{row.original.description}</span>
+                <span className="seneca-ct__list-sub">{row.original.description}</span>
               ) : null}
             </span>
           </span>
@@ -52,7 +57,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
           } else if (row.original.source === 'manual') {
             label = labels.actions.sourceManual;
           }
-          return <span className="lumio-ct__badge lumio-ct__badge--neutral">{label}</span>;
+          return <span className="seneca-ct__badge seneca-ct__badge--neutral">{label}</span>;
         },
       },
       {
@@ -60,7 +65,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         accessorFn: row => row.category?.name ?? '',
         header: labels.columns.category,
         size: 160,
-        cell: ({ row }) => row.original.category?.name ?? '—',
+        cell: ({ row }) => (row.original.category ? categoryName(row.original.category.name) : '—'),
       },
       {
         id: 'rows',
@@ -68,7 +73,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         header: labels.columns.rows,
         size: 90,
         sortFn: 'basic',
-        meta: { align: 'end', className: 'lumio-grid__cell--numeric' },
+        meta: { align: 'end', className: 'seneca-grid__cell--numeric' },
         cell: ({ row }) => (row.original.rowsCount === undefined ? '…' : row.original.rowsCount),
       },
       {
@@ -87,7 +92,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         enableHiding: false,
         meta: { align: 'end', label: labels.actions.rowActions },
         cell: ({ row }) => (
-          <span className="lumio-ct__list-actions">
+          <span className="seneca-ct__list-actions">
             <Button
               variant="ghost"
               size="icon"
@@ -116,7 +121,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         ),
       },
     ],
-    [labels, router, onDelete],
+    [labels, router, onDelete, categoryName],
   );
 }
 
@@ -143,6 +148,14 @@ export default function CustomTablesPage() {
       partialFailed: labels.create.partialFailed,
     },
   });
+  useQuickActions([
+    {
+      id: 'new-table',
+      label: labels.actions.newTable,
+      icon: Plus,
+      run: () => create.setOpen(true),
+    },
+  ]);
   const [deleteTarget, setDeleteTarget] = useState<TableListItem | null>(null);
   const columns = useListColumns(labels, setDeleteTarget);
   const table = useDataGrid<TableListItem>({
@@ -154,7 +167,7 @@ export default function CustomTablesPage() {
 
   if (authLoading || (list.loading && !list.items.length)) {
     return (
-      <div className="lumio-ct" aria-busy>
+      <div className="seneca-ct" aria-busy>
         <Skeleton variant="text" width={200} height={36} />
         <Skeleton variant="rounded" height={40} />
         <Skeleton variant="rounded" height={320} />
@@ -163,22 +176,25 @@ export default function CustomTablesPage() {
   }
 
   return (
-    <div className="lumio-ct">
-      <div className="lumio-ct__toolbar">
-        <label className="lumio-ct__search" data-tour-id="search-bar">
-          <Search size={16} aria-hidden className="lumio-ct__search-icon" />
-          <input
-            type="search"
-            className="lumio-ct__search-input"
-            placeholder={labels.actions.search}
-            aria-label={labels.actions.search}
+    <div className="seneca-ct">
+      <PageTitle
+        path="/custom-tables"
+        summary={joinSummary([
+          list.searchQuery.trim() && `“${list.searchQuery.trim()}”`,
+          list.sourceFilter === 'manual' && labels.actions.sourceManual,
+        ])}
+      />
+      <div className="seneca-ct__toolbar">
+        <span data-tour-id="search-bar">
+          <StatementsSearchPopover
             value={list.searchQuery}
-            onChange={event => list.setSearchQuery(event.target.value)}
+            onApply={list.setSearchQuery}
+            applyLabel={labels.actions.apply}
+            hint={labels.actions.searchHint}
           />
-        </label>
-        <div className="lumio-ct__actions">
+        </span>
+        <div className="seneca-ct__actions">
           <Select
-            size="small"
             data-tour-id="custom-tables-source-filter"
             inputProps={{ 'aria-label': labels.columns.source }}
             value={list.sourceFilter}
@@ -191,9 +207,11 @@ export default function CustomTablesPage() {
           <Button
             size="sm"
             type="button"
+            className="seneca-bottom-bar-source"
             data-tour-id="custom-tables-create-export"
             onClick={() => create.setOpen(true)}
           >
+            <Plus size={18} aria-hidden />
             {labels.actions.newTable}
           </Button>
         </div>
@@ -212,6 +230,7 @@ export default function CustomTablesPage() {
               description={labels.empty.description}
               action={
                 <Button size="sm" type="button" onClick={() => create.setOpen(true)}>
+                  <Plus size={18} aria-hidden />
                   {labels.actions.newTable}
                 </Button>
               }
@@ -231,6 +250,7 @@ export default function CustomTablesPage() {
         setForm={create.setForm}
         creating={create.creating}
         categories={list.categories}
+        existingTables={list.allTables}
         onSubmit={() => void create.submit()}
         onClose={create.close}
         labels={labels.create}

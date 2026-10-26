@@ -1,19 +1,18 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useState } from 'react';
 import { Trash2 } from '@/app/components/icons';
-import type { CryptoWallet, ManualHoldingInput } from '../hooks/useCrypto';
+import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import type { ManualHoldingInput } from '../hooks/useCrypto';
 
-type ManualHoldingsCardProps = {
-  /** The workspace's manual wallet, when it has one. */
-  wallet: CryptoWallet | null;
+type ManualHoldingsDialogProps = {
+  open: boolean;
+  onClose: () => void;
   balances: { asset: string; amount: string }[];
   saving: boolean;
   labels: {
@@ -30,22 +29,31 @@ type ManualHoldingsCardProps = {
   onRemove: (asset: string) => void;
 };
 
+/** Labels stay above the fields, so a filled-in form still says what each value is. */
+const LABEL_ON_TOP = { inputLabel: { shrink: true } } as const;
+
 /**
- * Coins the user keeps themselves — on an exchange, or in cold storage. They sit
- * next to the synced wallets because they are the same thing to every number on
- * the page: part of the portfolio, part of net worth.
+ * Coins the user keeps themselves — on an exchange, or in cold storage. They
+ * count like the synced wallets in every number on the page, so they show in
+ * Holdings; this dialog, opened from there, is where they are added and removed
+ * — a whole card for one link left a hole beside the wallets.
  */
-export function ManualHoldingsCard({
+export function ManualHoldingsDialog({
+  open,
+  onClose,
   balances,
   saving,
   labels,
   onSave,
   onRemove,
-}: ManualHoldingsCardProps): React.JSX.Element {
-  const [open, setOpen] = useState(false);
+}: ManualHoldingsDialogProps): React.JSX.Element | null {
   const [asset, setAsset] = useState('');
   const [amount, setAmount] = useState('');
   const [cost, setCost] = useState('');
+
+  if (!open) {
+    return null;
+  }
 
   const submit = async (): Promise<void> => {
     const saved = await onSave({
@@ -57,26 +65,44 @@ export function ManualHoldingsCard({
       setAsset('');
       setAmount('');
       setCost('');
-      setOpen(false);
+      onClose();
     }
   };
 
   const valid = /^[A-Za-z0-9.$]{2,20}$/.test(asset.trim()) && Number(amount) > 0;
 
   return (
-    <Paper variant="outlined" sx={{ p: 3 }}>
-      <Typography variant="subtitle1" fontWeight={600}>
-        {labels.title}
-      </Typography>
-
+    <ModalShell
+      isOpen
+      onClose={onClose}
+      title={labels.title}
+      size="sm"
+      footer={
+        <ModalFooter
+          onCancel={onClose}
+          cancelText={labels.cancel}
+          onConfirm={() => void submit()}
+          confirmText={labels.save}
+          isConfirmLoading={saving}
+          isConfirmDisabled={!valid || saving}
+        />
+      }
+    >
       {balances.length > 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
           {balances.map(balance => (
             <Box
               key={balance.asset}
-              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                py: 0.5,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+              }}
             >
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                 {balance.amount} {balance.asset}
               </Typography>
               <IconButton
@@ -91,43 +117,29 @@ export function ManualHoldingsCard({
         </Box>
       )}
 
-      {open ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2 }}>
-          <TextField
-            size="small"
-            label={labels.ticker}
-            value={asset}
-            onChange={event => setAsset(event.target.value)}
-            slotProps={{ htmlInput: { maxLength: 20 } }}
-          />
-          <TextField
-            size="small"
-            label={labels.amount}
-            value={amount}
-            onChange={event => setAmount(event.target.value)}
-            inputMode="decimal"
-          />
-          <TextField
-            size="small"
-            label={labels.costPerUnit}
-            value={cost}
-            onChange={event => setCost(event.target.value)}
-            inputMode="decimal"
-          />
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button variant="contained" size="small" disabled={!valid || saving} onClick={submit}>
-              {labels.save}
-            </Button>
-            <Button size="small" onClick={() => setOpen(false)}>
-              {labels.cancel}
-            </Button>
-          </Box>
-        </Box>
-      ) : (
-        <Button size="small" sx={{ mt: 1 }} onClick={() => setOpen(true)}>
-          {labels.add}
-        </Button>
-      )}
-    </Paper>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1.5, pt: 1 }}>
+        <TextField
+          size="small"
+          label={labels.ticker}
+          value={asset}
+          onChange={event => setAsset(event.target.value)}
+          slotProps={{ ...LABEL_ON_TOP, htmlInput: { maxLength: 20 } }}
+        />
+        <TextField
+          size="small"
+          label={labels.amount}
+          value={amount}
+          onChange={event => setAmount(event.target.value)}
+          slotProps={{ ...LABEL_ON_TOP, htmlInput: { inputMode: 'decimal' } }}
+        />
+        <TextField
+          size="small"
+          label={labels.costPerUnit}
+          value={cost}
+          onChange={event => setCost(event.target.value)}
+          slotProps={{ ...LABEL_ON_TOP, htmlInput: { inputMode: 'decimal' } }}
+        />
+      </Box>
+    </ModalShell>
   );
 }

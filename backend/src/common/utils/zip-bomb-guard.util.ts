@@ -1,3 +1,6 @@
+import { BadRequestException } from '@nestjs/common';
+import { appError } from '../errors/app-error';
+
 const EOCD_SIGNATURE = 0x06054b50; // 'PK\x05\x06' little-endian
 const CENTRAL_DIR_SIGNATURE = 0x02014b50; // 'PK\x01\x02' little-endian
 const LOCAL_FILE_SIGNATURE = 0x04034b50; // 'PK\x03\x04' little-endian
@@ -42,10 +45,10 @@ function assertRatioWithinBounds(
   context: string,
 ): void {
   if (compressedSize === ZIP64_SENTINEL_32 || uncompressedSize === ZIP64_SENTINEL_32) {
-    throw new Error(`Unsupported ZIP entry: ZIP64 size format (${context})`);
+    throw new BadRequestException(appError('ZIP_ENTRY_ZIP64_SIZE_UNSUPPORTED', { context }));
   }
   if (compressedSize > 0 && uncompressedSize / compressedSize > maxRatio) {
-    throw new Error(`ZIP entry compression ratio exceeds ${maxRatio}:1 (${context})`);
+    throw new BadRequestException(appError('ZIP_ENTRY_RATIO_EXCEEDED', { maxRatio, context }));
   }
 }
 
@@ -70,7 +73,7 @@ function hasZip64ExtraField(
     return false;
   }
   if (extraFieldOffset + extraFieldLength > buffer.length) {
-    throw new Error('Malformed ZIP extra field');
+    throw new BadRequestException(appError('ZIP_EXTRA_FIELD_MALFORMED'));
   }
 
   let cursor = extraFieldOffset;
@@ -107,7 +110,7 @@ function readCentralDirRecord(buffer: Buffer, offset: number, maxRatio: number):
     // Once a valid EOCD commits us to reading exactly `entryCount` records,
     // anything that doesn't match that expectation (truncated buffer, wrong
     // signature) is adversarial, not "end of data reached" — fail closed.
-    throw new Error('Malformed ZIP central directory');
+    throw new BadRequestException(appError('ZIP_CENTRAL_DIRECTORY_MALFORMED'));
   }
 
   const compressedSize = buffer.readUInt32LE(offset + 20);
@@ -124,7 +127,9 @@ function readCentralDirRecord(buffer: Buffer, offset: number, maxRatio: number):
       extraFieldLength,
     )
   ) {
-    throw new Error('Unsupported ZIP entry: ZIP64 extra field (central directory)');
+    throw new BadRequestException(
+      appError('ZIP_ENTRY_ZIP64_EXTRA_UNSUPPORTED', { context: 'central directory' }),
+    );
   }
   assertRatioWithinBounds(compressedSize, uncompressedSize, maxRatio, 'central directory');
 
@@ -152,7 +157,7 @@ function readLocalFileHeaderUncompressedSize(
     offset + LOCAL_FILE_HEADER_FIXED_SIZE > buffer.length ||
     buffer.readUInt32LE(offset) !== LOCAL_FILE_SIGNATURE
   ) {
-    throw new Error('Malformed ZIP local file header');
+    throw new BadRequestException(appError('ZIP_LOCAL_HEADER_MALFORMED'));
   }
 
   const flags = buffer.readUInt16LE(offset + 6);
@@ -166,7 +171,7 @@ function readLocalFileHeaderUncompressedSize(
     // `flags & 8` branch that re-reads the real sizes). There is no
     // pre-declared, trustworthy size field for such an entry — reject
     // rather than silently letting it through unchecked.
-    throw new Error('Unsupported ZIP entry: streaming (data-descriptor) entries are not supported');
+    throw new BadRequestException(appError('ZIP_ENTRY_STREAMING_UNSUPPORTED'));
   }
 
   const compressedSize = buffer.readUInt32LE(offset + 18);
@@ -181,7 +186,9 @@ function readLocalFileHeaderUncompressedSize(
       extraFieldLength,
     )
   ) {
-    throw new Error('Unsupported ZIP entry: ZIP64 extra field (local file header)');
+    throw new BadRequestException(
+      appError('ZIP_ENTRY_ZIP64_EXTRA_UNSUPPORTED', { context: 'local file header' }),
+    );
   }
   assertRatioWithinBounds(compressedSize, uncompressedSize, maxRatio, 'local file header');
   return uncompressedSize;
@@ -290,10 +297,10 @@ export function assertSafeZipDecompressionRatio(
   const centralDirOffset = buffer.readUInt32LE(eocdOffset + 16);
 
   if (entryCountThisDisk === ZIP64_SENTINEL_16 || centralDirOffset === ZIP64_SENTINEL_32) {
-    throw new Error('Unsupported ZIP: ZIP64 central directory');
+    throw new BadRequestException(appError('ZIP_ZIP64_DIRECTORY_UNSUPPORTED'));
   }
   if (entryCountThisDisk !== entryCountTotal) {
-    throw new Error('Unsupported ZIP: multi-disk archive (entry count fields disagree)');
+    throw new BadRequestException(appError('ZIP_MULTI_DISK_UNSUPPORTED'));
   }
 
   let offset = centralDirOffset;
@@ -309,7 +316,9 @@ export function assertSafeZipDecompressionRatio(
 
     totalUncompressed += Math.max(record.uncompressedSize, localUncompressedSize);
     if (totalUncompressed > maxUncompressedBytes) {
-      throw new Error(`ZIP contents would decompress to more than ${maxUncompressedBytes} bytes`);
+      throw new BadRequestException(
+        appError('ZIP_UNCOMPRESSED_TOO_LARGE', { limit: maxUncompressedBytes }),
+      );
     }
 
     offset += record.recordLength;

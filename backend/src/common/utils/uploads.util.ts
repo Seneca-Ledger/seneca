@@ -7,7 +7,7 @@ export function resolveUploadsDir(): string {
     process.env.UPLOADS_DIR,
     path.join(process.cwd(), 'uploads'),
     path.join(process.cwd(), '..', 'uploads'),
-    path.join(os.tmpdir(), 'lumio-uploads'),
+    path.join(os.tmpdir(), 'seneca-uploads'),
   ].filter(Boolean) as string[];
 
   for (const dir of candidates) {
@@ -21,4 +21,20 @@ export function resolveUploadsDir(): string {
   }
 
   throw new Error('No writable uploads directory available');
+}
+
+/**
+ * The path resolved, or NULL when it falls outside the uploads directory. Every
+ * file the server reads back was written there (multer, restore), so a
+ * path elsewhere means a tampered row or a broken invariant. Callers repeat the
+ * prefix check next to the filesystem call so the bound is visible there.
+ */
+export function resolveInUploadsDir(
+  candidatePath: string,
+  uploadsRoot: string = path.resolve(resolveUploadsDir()),
+): string | null {
+  const resolved = path.resolve(candidatePath);
+  return resolved === uploadsRoot || resolved.startsWith(`${uploadsRoot}${path.sep}`)
+    ? resolved
+    : null;
 }

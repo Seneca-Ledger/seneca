@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import type { StatementCategoryNode } from '@/app/lib/statement-categories';
 import type { TaxRateOption } from '@/app/lib/statement-expense-drawer';
 import {
@@ -24,13 +25,13 @@ async function fetchManualExpenseOptions(): Promise<{
     apiClient.get('/tax-rates'),
   ]);
 
-  const rawCategories = (categoriesResponse.data?.data ??
-    categoriesResponse.data ??
-    []) as StatementCategoryWithEnabled[];
+  const rawCategories: StatementCategoryWithEnabled[] = await checkContract(
+    'CategoryList',
+    categoriesResponse.data,
+    '/categories',
+  );
 
-  const rawTaxRates = (taxRatesResponse.data?.data ?? taxRatesResponse.data ?? []) as Array<
-    TaxRateOption & { rate: number | string }
-  >;
+  const rawTaxRates = await checkContract('TaxRateList', taxRatesResponse.data, '/tax-rates');
 
   return {
     categories: filterEnabledCategories(rawCategories),

@@ -45,7 +45,7 @@ const createRecord = (overrides: Partial<SpendOverTimeRecord> = {}): SpendOverTi
 });
 
 describe('spend over time helpers', () => {
-  it('resolves statement and gmail flow values', () => {
+  it('resolves statement and receipt flow values', () => {
     expect(
       resolveSpendOverTimeFlow({
         sourceType: 'statement',
@@ -68,34 +68,34 @@ describe('spend over time helpers', () => {
 
     expect(
       resolveSpendOverTimeFlow({
-        sourceType: 'gmail',
+        sourceType: 'receipt',
         amount: 95,
         transactionType: 'income',
       }),
     ).toEqual({ flowType: 'income', amount: 95 });
   });
 
-  it('deduplicates gmail receipts already linked to imported transactions', () => {
+  it('deduplicates receipts already linked to imported transactions', () => {
     const receipts = [
       createRecord({
         id: 'receipt-1',
-        source: 'gmail',
-        sourceType: 'gmail',
-        sourceChannel: 'gmail',
+        source: 'scan',
+        sourceType: 'receipt',
+        sourceChannel: 'receipt',
         transactionId: 'tx-1',
       }),
       createRecord({
         id: 'receipt-2',
-        source: 'gmail',
-        sourceType: 'gmail',
-        sourceChannel: 'gmail',
+        source: 'scan',
+        sourceType: 'receipt',
+        sourceChannel: 'receipt',
         transactionId: null,
       }),
       createRecord({
         id: 'receipt-3',
-        source: 'gmail',
-        sourceType: 'gmail',
-        sourceChannel: 'gmail',
+        source: 'scan',
+        sourceType: 'receipt',
+        sourceChannel: 'receipt',
         transactionId: 'tx-3',
       }),
     ];
@@ -119,10 +119,10 @@ describe('spend over time helpers', () => {
           transactionId: 'tx-1',
         }),
         createRecord({
-          id: 'gmail-expense-jan',
-          source: 'gmail',
-          sourceType: 'gmail',
-          sourceChannel: 'gmail',
+          id: 'receipt-expense-jan',
+          source: 'scan',
+          sourceType: 'receipt',
+          sourceChannel: 'receipt',
           flowType: 'expense',
           amount: 45,
           dateValue: '2026-01-12T00:00:00Z',
@@ -153,7 +153,7 @@ describe('spend over time helpers', () => {
         net: -165,
         count: 2,
         statementAmount: 120,
-        gmailAmount: 45,
+        receiptAmount: 45,
       },
       {
         period: '2026-02',
@@ -163,7 +163,7 @@ describe('spend over time helpers', () => {
         net: 310,
         count: 1,
         statementAmount: 310,
-        gmailAmount: 0,
+        receiptAmount: 0,
       },
     ]);
 
@@ -174,7 +174,7 @@ describe('spend over time helpers', () => {
       count: 3,
       avgPerPeriod: 237.5,
       statementAmount: 430,
-      gmailAmount: 45,
+      receiptAmount: 45,
     });
   });
 

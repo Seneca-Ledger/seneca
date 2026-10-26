@@ -24,7 +24,7 @@
 
 **Rule for white replacement:** Every `'white'`, `'#fff'`, `'#ffffff'` background in components must become:
 - In MUI sx: `bgcolor: 'background.paper'` or `bgcolor: 'background.default'`
-- In CSS: `var(--lumio-color-surface)` or `var(--card-bg)`
+- In CSS: `var(--seneca-color-surface)` or `var(--card-bg)`
 
 ---
 
@@ -53,8 +53,8 @@ In `app/globals.css` `:root`:
 **Step 3: Update tokens.css light primary**
 
 In `app/styles/tokens.css` `:root`:
-- `--lumio-color-primary: #0284c7` → `--lumio-color-primary: #0a66c2`
-- `--lumio-color-primary-hover: #0369a1` → `--lumio-color-primary-hover: #084e96`
+- `--seneca-color-primary: #0284c7` → `--seneca-color-primary: #0a66c2`
+- `--seneca-color-primary-hover: #0369a1` → `--seneca-color-primary-hover: #084e96`
 
 **Step 4: Commit**
 
@@ -204,18 +204,18 @@ refactor(frontend): replace hardcoded white in shared components, audit, admin, 
 ## Task 7: Fix hardcoded white backgrounds in CSS block files
 
 **Files:**
-- Modify: `app/styles/blocks/lumio-statements.css` (64+ instances of `#fff`)
-- Modify: `app/styles/blocks/lumio-transaction-table.css` (2 instances of `white`)
-- Modify: `app/styles/blocks/lumio-audit-panel.css` (check for `#fff`/`white`)
+- Modify: `app/styles/blocks/seneca-statements.css` (64+ instances of `#fff`)
+- Modify: `app/styles/blocks/seneca-transaction-table.css` (2 instances of `white`)
+- Modify: `app/styles/blocks/seneca-audit-panel.css` (check for `#fff`/`white`)
 
-**Step 1: In lumio-statements.css — replace all `background: #fff` with `background: var(--lumio-color-surface)`**
+**Step 1: In seneca-statements.css — replace all `background: #fff` with `background: var(--seneca-color-surface)`**
 
-Use find-and-replace: `#fff` → `var(--lumio-color-surface)` for backgrounds.
-For light tinted backgrounds like `#fffbeb` (amber tint) → `var(--lumio-color-surface-muted)`.
+Use find-and-replace: `#fff` → `var(--seneca-color-surface)` for backgrounds.
+For light tinted backgrounds like `#fffbeb` (amber tint) → `var(--seneca-color-surface-muted)`.
 
-**Step 2: In lumio-transaction-table.css:**
-- `background-color: white` → `background-color: var(--lumio-color-surface)`
-- `background: white` → `background: var(--lumio-color-surface)`
+**Step 2: In seneca-transaction-table.css:**
+- `background-color: white` → `background-color: var(--seneca-color-surface)`
+- `background: white` → `background: var(--seneca-color-surface)`
 
 **Step 3: Commit**
 
@@ -228,12 +228,12 @@ refactor(frontend): replace hardcoded white in CSS block files with design token
 ## Task 8: Remove all remaining border-radius
 
 **Files:**
-- Modify: `app/styles/blocks/lumio-statements.css` (132 instances: 2px, 4px, 6px, 8px, 12px, 16px, 9999px)
-- Modify: `app/styles/blocks/lumio-navigation.css` (12 instances: 6px, 10px, 12px, 16px, 9999px, 0.375rem)
-- Modify: `app/styles/blocks/lumio-pdf-preview-modal.css` (13 instances: 8px, 9px, 18px, 22px, 24px, 9999px)
-- Modify: `app/styles/blocks/lumio-notification-dropdown.css` (3 instances: 9999px)
-- Modify: `app/styles/blocks/lumio-transaction-table.css` (5 instances: 50%)
-- Modify: `app/styles/blocks/lumio-language-switcher.css` (1 instance: 50%)
+- Modify: `app/styles/blocks/seneca-statements.css` (132 instances: 2px, 4px, 6px, 8px, 12px, 16px, 9999px)
+- Modify: `app/styles/blocks/seneca-navigation.css` (12 instances: 6px, 10px, 12px, 16px, 9999px, 0.375rem)
+- Modify: `app/styles/blocks/seneca-pdf-preview-modal.css` (13 instances: 8px, 9px, 18px, 22px, 24px, 9999px)
+- Modify: `app/styles/blocks/seneca-notification-dropdown.css` (3 instances: 9999px)
+- Modify: `app/styles/blocks/seneca-transaction-table.css` (5 instances: 50%)
+- Modify: `app/styles/blocks/seneca-language-switcher.css` (1 instance: 50%)
 - Modify: `app/tours/tour-theme.css` (border-radius: 12px, 6px)
 
 **Step 1: In every CSS block file, set all `border-radius` values to `0`**
@@ -295,10 +295,10 @@ refactor(frontend): remove all non-circular border-radius from inline styles
 ## Task 10: Fix navigation hardcoded colors
 
 **Files:**
-- Modify: `app/styles/blocks/lumio-navigation.css`
+- Modify: `app/styles/blocks/seneca-navigation.css`
 
 **Step 1: Update logo icon color**
-- `.lumio-navigation__logo-icon` background: `#0a66c2` → `var(--lumio-color-primary)` (already `#0a66c2` in light, `#5B9BD5` in dark)
+- `.seneca-navigation__logo-icon` background: `#0a66c2` → `var(--seneca-color-primary)` (already `#0a66c2` in light, `#5B9BD5` in dark)
 - Or keep hardcoded `#0a66c2` if brand logo should stay LinkedIn blue regardless of theme
 
 **Step 2: Commit**

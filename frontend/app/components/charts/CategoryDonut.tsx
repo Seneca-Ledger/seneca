@@ -1,11 +1,21 @@
 /*
  * Chart design adapted from Aurum by ZProger (https://github.com/ZProger/Aurum).
- * Reimplemented for Lumio; no Aurum source code was copied.
+ * Reimplemented for Seneca; no Aurum source code was copied.
  */
 'use client';
 
+import { useRouter } from 'next/navigation';
 import type React from 'react';
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { useRef, useState } from 'react';
+import {
+  Cell,
+  Pie,
+  PieChart,
+  type PieSectorDataItem,
+  ResponsiveContainer,
+  Sector,
+  Tooltip,
+} from 'recharts';
 import { ChartTooltipCard } from './ChartParts';
 
 export interface DonutSlice {
@@ -13,6 +23,8 @@ export interface DonutSlice {
   name: string;
   value: number;
   color: string;
+  /** Where a click on the slice goes; a slice without one is not clickable. */
+  href?: string;
 }
 
 export interface CategoryDonutProps {
@@ -25,47 +37,111 @@ export function slicePercent(value: number, total: number): number {
   return total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
 }
 
+/** How far the hovered slice grows outwards, in px. */
+const ACTIVE_GROW_PX = 6;
+/**
+ * Every slice gets at least this many degrees: a 3% share would otherwise be a
+ * hairline the pointer can hardly land on. The exact shares are in the list
+ * beside the chart and in the tooltip.
+ */
+const MIN_SLICE_ANGLE = 6;
+/** Gap between the pointer and the tooltip's corner, so the card never sits under it. */
+const TOOLTIP_OFFSET_PX = 12;
+
+/** The slice under the pointer, pushed outwards so it is clear which one it is. */
+function ActiveSlice(props: PieSectorDataItem): React.JSX.Element {
+  // recharts passes the slice's `key` among the props; React wants it set
+  // directly, never spread, so it is pulled out here.
+  const { key, ...sector } = props as PieSectorDataItem & { key?: React.Key };
+  return <Sector key={key} {...sector} outerRadius={(sector.outerRadius ?? 0) + ACTIVE_GROW_PX} />;
+}
+
 /** Donut without labels or legend; the card renders its own list beside it. */
 export function CategoryDonut({ slices, formatAmount }: CategoryDonutProps): React.JSX.Element {
   const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+  // recharts pins a pie tooltip to the middle of the slice's arc, which for a
+  // large slice is one far-off spot wherever it is hovered. It follows the
+  // pointer instead.
+  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
+  const router = useRouter();
+  // The slice under the pointer, read on the wrapper rather than on the slice.
+  // Moving the pointer re-renders the chart, and recharts then replaces the
+  // hovered slice's element; when that lands between press and release, Chrome
+  // fires no `click` anywhere. Press and release still reach the wrapper, so a
+  // press and release over the same slice is the click.
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const hoveredHref = hoveredIndex === null ? undefined : slices[hoveredIndex]?.href;
+  const pressedHrefRef = useRef<string | undefined>(undefined);
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <PieChart>
-        <Tooltip
-          content={({ active, payload }) => {
-            const slice = payload?.[0]?.payload as DonutSlice | undefined;
-            if (!(active && slice)) {
-              return null;
+    // biome-ignore lint/a11y/noStaticElementInteractions: a pointer shortcut; every slice's link is also in the list beside the chart, reachable by keyboard
+    <div
+      style={{ width: '100%', height: '100%', cursor: hoveredHref ? 'pointer' : undefined }}
+      onPointerDown={event => {
+        pressedHrefRef.current = event.button === 0 ? hoveredHref : undefined;
+      }}
+      onPointerUp={() => {
+        const pressed = pressedHrefRef.current;
+        pressedHrefRef.current = undefined;
+        if (pressed && pressed === hoveredHref) {
+          router.push(pressed);
+        }
+      }}
+      onMouseMove={event => {
+        const box = event.currentTarget.getBoundingClientRect();
+        setPointer({ x: event.clientX - box.left, y: event.clientY - box.top });
+      }}
+      onMouseLeave={() => setPointer(null)}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Tooltip
+            position={
+              pointer
+                ? { x: pointer.x + TOOLTIP_OFFSET_PX, y: pointer.y + TOOLTIP_OFFSET_PX }
+                : undefined
             }
-            return (
-              <ChartTooltipCard
-                title={slice.name}
-                rows={[
-                  {
-                    value: `${formatAmount(slice.value)} · ${slicePercent(slice.value, total)}%`,
-                    tone: 'strong',
-                  },
-                ]}
-              />
-            );
-          }}
-        />
-        <Pie
-          data={slices}
-          dataKey="value"
-          nameKey="name"
-          innerRadius="62%"
-          outerRadius="100%"
-          paddingAngle={slices.length > 1 ? 2 : 0}
-          stroke="var(--card)"
-          strokeWidth={2}
-          isAnimationActive={false}
-        >
-          {slices.map(slice => (
-            <Cell key={slice.key} fill={slice.color} />
-          ))}
-        </Pie>
-      </PieChart>
-    </ResponsiveContainer>
+            // The chart is small; the card may hang over its edges like any tooltip.
+            allowEscapeViewBox={{ x: true, y: true }}
+            content={({ active, payload }) => {
+              const slice = payload?.[0]?.payload as DonutSlice | undefined;
+              if (!(active && slice)) {
+                return null;
+              }
+              return (
+                <ChartTooltipCard
+                  title={slice.name}
+                  rows={[
+                    {
+                      value: `${formatAmount(slice.value)} · ${slicePercent(slice.value, total)}%`,
+                      tone: 'strong',
+                    },
+                  ]}
+                />
+              );
+            }}
+          />
+          <Pie
+            data={slices}
+            dataKey="value"
+            nameKey="name"
+            // Not 100%: the hovered slice needs room to grow without being clipped.
+            innerRadius="56%"
+            outerRadius="90%"
+            paddingAngle={slices.length > 1 ? 2 : 0}
+            minAngle={slices.length > 1 ? MIN_SLICE_ANGLE : 0}
+            activeShape={ActiveSlice}
+            stroke="var(--card)"
+            strokeWidth={2}
+            isAnimationActive={false}
+            onMouseEnter={(_sector, index) => setHoveredIndex(index)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          >
+            {slices.map(slice => (
+              <Cell key={slice.key} fill={slice.color} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

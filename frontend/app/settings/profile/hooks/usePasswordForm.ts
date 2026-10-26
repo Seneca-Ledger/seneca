@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import apiClient from '@/app/lib/api';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
 
 export type UsePasswordFormMessages = {
@@ -42,12 +43,12 @@ export function usePasswordForm(messages: UsePasswordFormMessages): UsePasswordF
 
     await (async () => {
       setPasswordLoading(true);
-      const response = await apiClient.patch('/users/me/password', {
+      await apiClient.patch('/users/me/password', {
         currentPassword: passwords.current,
         newPassword: passwords.next,
-      });
+      } satisfies ContractInput<'ChangePasswordBody'>);
 
-      setPasswordMessage(response.data?.message || messages.successFallback);
+      setPasswordMessage(messages.successFallback);
       setPasswords({ current: '', next: '', confirm: '' });
     })()
       .catch(async (error: unknown) => {

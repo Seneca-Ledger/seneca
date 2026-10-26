@@ -1,3 +1,11 @@
+/** A signed figure's tone: zero says nothing, so it stays neutral. */
+export function signTone(value: number | null): 'positive' | 'negative' | 'neutral' {
+  if (!value) {
+    return 'neutral';
+  }
+  return value > 0 ? 'positive' : 'negative';
+}
+
 /** Income minus expense for the period. */
 export function computeNet(income: number, expense: number): number {
   return income - expense;

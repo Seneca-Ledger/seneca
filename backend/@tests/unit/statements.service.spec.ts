@@ -2,17 +2,18 @@ import { StatementsService } from '../../src/modules/statements/statements.servi
 
 const createService = (rows: unknown[] = []) => {
   const queryBuilder = {
-    leftJoin: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    addSelect: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    groupBy: jest.fn().mockReturnThis(),
-    getRawMany: jest.fn().mockResolvedValue(rows),
+    leftJoin: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    addSelect: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    groupBy: vi.fn().mockReturnThis(),
+    setParameter: vi.fn().mockReturnThis(),
+    getRawMany: vi.fn().mockResolvedValue(rows),
   };
 
   const transactionRepository = {
-    createQueryBuilder: jest.fn(() => queryBuilder),
+    createQueryBuilder: vi.fn(() => queryBuilder),
   };
 
   const service = new StatementsService(
@@ -42,9 +43,10 @@ describe('StatementsService transaction summaries', () => {
         loadTransactionSummaries: (
           workspaceId: string,
           statementIds: string[],
+          viewerMemberId: string | null,
         ) => Promise<Map<string, unknown>>;
       }
-    ).loadTransactionSummaries('workspace-1', []);
+    ).loadTransactionSummaries('workspace-1', [], null);
 
     expect(result.size).toBe(0);
     expect(transactionRepository.createQueryBuilder).not.toHaveBeenCalled();
@@ -73,6 +75,7 @@ describe('StatementsService transaction summaries', () => {
         loadTransactionSummaries: (
           workspaceId: string,
           statementIds: string[],
+          viewerMemberId: string | null,
         ) => Promise<
           Map<
             string,
@@ -85,7 +88,7 @@ describe('StatementsService transaction summaries', () => {
           >
         >;
       }
-    ).loadTransactionSummaries('workspace-1', ['statement-1', 'statement-2']);
+    ).loadTransactionSummaries('workspace-1', ['statement-1', 'statement-2'], null);
 
     expect(result.get('statement-1')).toEqual({
       description: 'Cloud subscription',

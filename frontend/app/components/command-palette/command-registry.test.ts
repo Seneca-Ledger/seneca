@@ -23,12 +23,15 @@ function deps(overrides: Partial<CommandDeps> = {}): CommandDeps {
       toggleExperimental: 'Toggle experimental features',
       keyboardShortcuts: 'Keyboard shortcuts',
       notifications: 'Notifications',
+      previousMonth: 'Previous month',
+      nextMonth: 'Next month',
       settings: 'Settings',
       whatsNew: "What's new",
       reportBug: 'Report a bug',
     },
     navItems: [navItem('/dashboard'), navItem('/ledger', { experimental: true })],
     push: vi.fn(),
+    pathname: '/dashboard',
     toggleTheme: vi.fn(),
     toggleExperimental: vi.fn(),
     openHelp: vi.fn(),
@@ -73,5 +76,57 @@ describe('buildCommands', () => {
     const openHelp = vi.fn();
     buildCommands(deps({ openHelp })).find(command => command.id === 'help.shortcuts')?.run();
     expect(openHelp).toHaveBeenCalled();
+  });
+
+  it('offers the month steps only on the dashboard, where the month strip listens', () => {
+    const dashboard = buildCommands(deps({ pathname: '/dashboard' }));
+    const elsewhere = buildCommands(deps({ pathname: '/statements' }));
+    expect(elsewhere.find(command => command.id === 'action.previousMonth')).toBeUndefined();
+    expect(dashboard.find(command => command.id === 'action.previousMonth')?.binding).toBe(
+      'ArrowLeft',
+    );
+
+    const heard = vi.fn();
+    window.addEventListener('shortcuts:next-month', heard);
+    dashboard.find(command => command.id === 'action.nextMonth')?.run();
+    window.removeEventListener('shortcuts:next-month', heard);
+    expect(heard).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers Open filters only on the Documents list, the one page that has them', () => {
+    const elsewhere = buildCommands(deps({ pathname: '/dashboard' }));
+    const documents = buildCommands(deps({ pathname: '/statements/submit' }));
+    expect(elsewhere.find(command => command.id === 'action.filters')).toBeUndefined();
+    expect(documents.find(command => command.id === 'action.filters')?.binding).toBe('Shift+KeyF');
+  });
+
+  it('takes the upload to the Documents list from any other page', () => {
+    const push = vi.fn();
+    window.history.pushState({}, '', '/dashboard');
+    buildCommands(deps({ push }))
+      .find(command => command.id === 'action.upload')
+      ?.run();
+    expect(push).toHaveBeenCalledWith('/statements/submit?openExpenseDrawer=scan');
+  });
+
+  it('opens the scan drawer in place when already on the Documents list', () => {
+    const push = vi.fn();
+    const heard = vi.fn();
+    window.addEventListener('statements:open-expense-drawer', heard);
+    window.history.pushState({}, '', '/statements/submit');
+    buildCommands(deps({ push }))
+      .find(command => command.id === 'action.upload')
+      ?.run();
+    window.removeEventListener('statements:open-expense-drawer', heard);
+    expect(push).not.toHaveBeenCalled();
+    expect(heard).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives notifications and settings a shortcut', () => {
+    const commands = buildCommands(deps());
+    expect(commands.find(command => command.id === 'action.notifications')?.binding).toBe(
+      'Shift+KeyN',
+    );
+    expect(commands.find(command => command.id === 'settings.open')?.binding).toBe('$mod+Comma');
   });
 });

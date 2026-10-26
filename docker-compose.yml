@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:14-alpine
-    container_name: finflow-postgres
+    container_name: seneca-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -20,7 +20,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: finflow-redis
+    container_name: seneca-redis
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
@@ -35,13 +35,13 @@ services:
 
   backend:
     # Prebuilt images are published by CD for every release (`latest` tracks
-    # the newest v* tag; set LUMIO_IMAGE_TAG to pin one). `docker compose pull`
+    # the newest v* tag; set IMAGE_TAG to pin one). `docker compose pull`
     # then starts the stack without building anything locally.
-    image: ghcr.io/symonbaikov/lumio-backend:${LUMIO_IMAGE_TAG:-latest}
+    image: ghcr.io/seneca-ledger/seneca-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: finflow-backend
+    container_name: seneca-backend
     ports:
       - "${BACKEND_PORT:-3001}:3001"
     env_file:
@@ -53,6 +53,7 @@ services:
       - PORT=3001
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - APP_URL=${APP_URL:-http://localhost:3000}
+      - APP_NAME=${APP_NAME:-Seneca}
       - DATABASE_URL=postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-finflow}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -68,6 +69,7 @@ services:
       - LOG_LEVEL=info
     volumes:
       - backend_uploads:/app/uploads
+      - update_requests:/app/update
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,24 +80,45 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/symonbaikov/lumio-frontend:${LUMIO_IMAGE_TAG:-latest}
+    image: ghcr.io/seneca-ledger/seneca-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-    container_name: finflow-frontend
+        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-Seneca}
+        API_PROXY_TARGET: http://backend:3001
+    container_name: seneca-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - NEXT_PUBLIC_APP_NAME=${APP_NAME:-Seneca}
       - NEXT_PUBLIC_ENV=production
       - API_PROXY_TARGET=http://backend:3001
     depends_on:
       - backend
+    networks:
+      - finflow-network
+    restart: unless-stopped
+
+  # --- In-app updates (optional, off by default) -------------------------------
+  # Lets an instance admin run the equivalent of `make upgrade` from
+  # Settings -> Advanced. It drives Docker through the socket, which amounts to
+  # root on the host, so it is opt-in: add COMPOSE_PROFILES=updater to .env.
+  updater:
+    image: docker:28-cli
+    container_name: seneca-updater
+    profiles: ["updater"]
+    entrypoint: ["sh", "/updater.sh"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/project
+      - ./infra/updater/updater.sh:/updater.sh:ro
+      - update_requests:/update
     networks:
       - finflow-network
     restart: unless-stopped
@@ -135,7 +158,7 @@ services:
 
   tileserver:
     image: maptiler/tileserver-gl:v5.6.0
-    container_name: finflow-tileserver
+    container_name: seneca-tileserver
     profiles: ["maps"]
     command: ["--config", "/data/config.json", "--port", "8080"]
     # No published port: the backend proxies tiles to signed-in users.
@@ -153,17 +176,17 @@ services:
 
   nominatim:
     image: mediagis/nominatim:5.3
-    container_name: finflow-nominatim
+    container_name: seneca-nominatim
     profiles: ["geocoder"]
     environment:
       PBF_URL: ${MAP_PBF_URL:-https://download.geofabrik.de/asia/kazakhstan-latest.osm.pbf}
       NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-nominatim}
     shm_size: 1gb
     # Imports the special phrases that let the backend search by kind of place.
-    command: ["/lumio/start.sh"]
+    command: ["/seneca/start.sh"]
     volumes:
       - nominatim_data:/var/lib/postgresql/16/main
-      - ./infra/nominatim:/lumio:ro
+      - ./infra/nominatim:/seneca:ro
     networks:
       finflow-network:
         aliases: [nominatim]
@@ -173,6 +196,7 @@ volumes:
   postgres_data:
   redis_data:
   backend_uploads:
+  update_requests:
   map_data:
   nominatim_data:
 

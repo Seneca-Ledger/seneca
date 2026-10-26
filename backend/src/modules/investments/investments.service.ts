@@ -1,86 +1,32 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
-import { countedSql } from '../../common/utils/counted-transactions.util';
+import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
+import { notInVersionWorkspace } from '../../common/workspaces/version-workspaces';
+import type {
+  CreateInvestmentAccountBody,
+  InvestmentHolding as HoldingView,
+  InvestmentAccount as InvestmentAccountView,
+  UpsertHoldingBody,
+} from '../../contracts';
 import { BalanceAccount, BalanceAccountKind } from '../../entities/balance-account.entity';
 import {
   InvestmentAssetClass,
   InvestmentHolding,
   InvestmentPriceSource,
 } from '../../entities/investment-holding.entity';
-import {
-  Transaction,
-  TransactionType,
-  TransferPairKind,
-  TransferPairSource,
-} from '../../entities/transaction.entity';
+import { Transaction } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { BalanceService } from '../balance/balance.service';
-import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import type { CreateInvestmentAccountDto } from './dto/create-investment-account.dto';
-import type { InvestmentLinkRole } from './dto/link-contribution.dto';
-import type { UpsertHoldingDto } from './dto/upsert-holding.dto';
+import { InvestmentFlowsService } from './investment-flows.service';
 import { pricedUnits } from './metal-weight.util';
 import { normalizeStockSymbol, StockPriceService } from './stock-price.service';
 
 const INVESTMENTS_SECTION_CODE = 'ASSET_INVESTMENTS';
 
-export interface HoldingView {
-  id: string;
-  symbol: string | null;
-  name: string;
-  assetClass: InvestmentAssetClass;
-  quantity: number;
-  price: number;
-  priceCurrency: string;
-  priceSource: InvestmentPriceSource;
-  pricedAt: Date | null;
-  /** quantity × price in the workspace currency. */
-  value: number;
-}
-
-export interface InvestmentAccountView {
-  id: string;
-  name: string;
-  kind: BalanceAccountKind;
-  currency: string;
-  value: number;
-  /** Sum of the expenses linked to this account as contributions. */
-  contributed: number;
-  /** Money taken back out of the account to the user's own cash. */
-  withdrawn: number;
-  /** Dividends and interest the account paid out. */
-  income: number;
-  /** Contributed less withdrawn: what the user still has in it. */
-  netInvested: number;
-  /** Value less net invested, plus what it paid out. */
-  gain: number;
-  holdings: HoldingView[];
-}
-
-/**
- * How a transaction linked to an investment account moved money:
- * - `contribution`: an expense paid into the account (a one-leg transfer);
- * - `withdrawal`: income taken out of it (also a one-leg transfer);
- * - `income`: a dividend or interest it paid out — real income, so it is
- *   not paired and stays in every income figure.
- */
-export type InvestmentFlowKind = 'contribution' | 'withdrawal' | 'income';
-
-export interface InvestmentFlow {
-  accountId: string;
-  date: string;
-  /** Always positive, in `currency`; the kind says which way it went. */
-  amount: number;
-  currency: string;
-  kind: InvestmentFlowKind;
-}
-
-/** A flow with its amount in the workspace currency, at the rate of its own day. */
-export interface ValuedInvestmentFlow extends InvestmentFlow {
-  value: number;
-}
+export type { HoldingView, InvestmentAccountView };
 
 /**
  * Investment and retirement accounts: sub-accounts of the balance sheet's
@@ -102,6 +48,7 @@ export class InvestmentsService {
     private readonly balanceService: BalanceService,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly stockPriceService: StockPriceService,
+    private readonly flowsService: InvestmentFlowsService,
   ) {}
 
   async listAccounts(workspaceId: string): Promise<InvestmentAccountView[]> {
@@ -119,9 +66,9 @@ export class InvestmentsService {
       where: { workspaceId, accountId: In(accounts.map(account => account.id)) },
       order: { createdAt: 'ASC' },
     });
-    const { flows } = await this.valueFlows(
+    const { flows } = await this.flowsService.valueFlows(
       workspaceId,
-      await this.loadFlows(
+      await this.flowsService.loadFlows(
         workspaceId,
         accounts.map(account => account.id),
       ),
@@ -136,13 +83,16 @@ export class InvestmentsService {
       const value = round2(rows.reduce((sum, row) => sum + row.value, 0));
       const totals = { contribution: 0, withdrawal: 0, income: 0 };
       for (const flow of flows) {
-        if (flow.accountId === account.id) totals[flow.kind] += flow.value;
+        if (flow.accountId === account.id) {
+          totals[flow.kind] += flow.value;
+        }
       }
       const netInvested = totals.contribution - totals.withdrawal;
       views.push({
         id: account.id,
         name: account.name,
-        kind: account.accountKind as BalanceAccountKind,
+        // The query above reads only these two kinds.
+        kind: account.accountKind as BalanceAccountKind.INVESTMENT | BalanceAccountKind.RETIREMENT,
         currency,
         value,
         contributed: round2(totals.contribution),
@@ -159,23 +109,23 @@ export class InvestmentsService {
   async createAccount(
     userId: string,
     workspaceId: string,
-    dto: CreateInvestmentAccountDto,
+    dto: CreateInvestmentAccountBody,
   ): Promise<InvestmentAccountView> {
     await this.balanceService.seedDefaultAccounts(workspaceId);
     const section = await this.accountRepository.findOne({
       where: { workspaceId, code: INVESTMENTS_SECTION_CODE },
     });
-    if (!section) throw new NotFoundException('Investments section not found');
+    if (!section) throw new NotFoundException(appError('INVESTMENTS_SECTION_NOT_FOUND'));
     const created = await this.balanceService.createCustomAccount(userId, workspaceId, {
       name: dto.name,
       parentId: section.id,
     });
     await this.accountRepository.update(
       { id: created.id, workspaceId },
-      { accountKind: dto.kind ?? BalanceAccountKind.INVESTMENT },
+      { accountKind: toEnum(BalanceAccountKind, dto.kind) ?? BalanceAccountKind.INVESTMENT },
     );
     const view = (await this.listAccounts(workspaceId)).find(account => account.id === created.id);
-    if (!view) throw new NotFoundException('Investment account not found');
+    if (!view) throw new NotFoundException(appError('INVESTMENTS_ACCOUNT_NOT_FOUND'));
     return view;
   }
 
@@ -198,11 +148,11 @@ export class InvestmentsService {
     userId: string,
     workspaceId: string,
     accountId: string,
-    dto: UpsertHoldingDto,
+    dto: UpsertHoldingBody,
   ): Promise<HoldingView> {
     await this.requireAccount(workspaceId, accountId);
     if (!(dto.name || dto.symbol)) {
-      throw new BadRequestException('A holding needs a name or a symbol');
+      throw new BadRequestException(appError('INVESTMENTS_HOLDING_NAME_REQUIRED'));
     }
     const symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     const holding = this.holdingRepository.create({
@@ -210,7 +160,7 @@ export class InvestmentsService {
       accountId,
       symbol,
       name: dto.name ?? symbol ?? '',
-      assetClass: dto.assetClass ?? InvestmentAssetClass.OTHER,
+      assetClass: toEnum(InvestmentAssetClass, dto.assetClass) ?? InvestmentAssetClass.OTHER,
       quantity: dto.quantity ?? 0,
       price: dto.price ?? 0,
       priceCurrency: (dto.priceCurrency ?? 'USD').toUpperCase(),
@@ -232,21 +182,21 @@ export class InvestmentsService {
     userId: string,
     workspaceId: string,
     holdingId: string,
-    dto: UpsertHoldingDto,
+    dto: UpsertHoldingBody,
   ): Promise<HoldingView> {
     const holding = await this.requireHolding(workspaceId, holdingId);
     if (dto.symbol !== undefined) {
       holding.symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     }
-    if (dto.name !== undefined) holding.name = dto.name;
-    if (dto.assetClass !== undefined) holding.assetClass = dto.assetClass;
-    if (dto.quantity !== undefined) holding.quantity = dto.quantity;
-    if (dto.price !== undefined) {
+    if (dto.name != null) holding.name = dto.name;
+    if (dto.assetClass != null) holding.assetClass = toEnum(InvestmentAssetClass, dto.assetClass);
+    if (dto.quantity != null) holding.quantity = dto.quantity;
+    if (dto.price != null) {
       holding.price = dto.price;
       holding.priceSource = InvestmentPriceSource.MANUAL;
       holding.pricedAt = new Date();
     }
-    if (dto.priceCurrency !== undefined) holding.priceCurrency = dto.priceCurrency.toUpperCase();
+    if (dto.priceCurrency != null) holding.priceCurrency = dto.priceCurrency.toUpperCase();
     await this.holdingRepository.save(holding);
     await this.writeSnapshot(userId, workspaceId, holding.accountId);
     return this.holdingView(holding, await this.workspaceCurrency(workspaceId));
@@ -264,6 +214,8 @@ export class InvestmentsService {
       .createQueryBuilder('holding')
       .select('DISTINCT holding.workspaceId', 'workspaceId')
       .where('holding.symbol IS NOT NULL')
+      // A past version is a frozen copy: repricing it would rewrite its history.
+      .andWhere(notInVersionWorkspace('holding.workspaceId'))
       .getRawMany<{ workspaceId: string }>();
     return rows.map(row => row.workspaceId);
   }
@@ -305,66 +257,6 @@ export class InvestmentsService {
       await this.writeSnapshot(userId, workspaceId, accountId);
     }
     return updated;
-  }
-
-  /**
-   * Links a transaction to an investment account as what it is to it:
-   * - an expense is a contribution, money moved in;
-   * - an income row is either a withdrawal, money taken back out, or the
-   *   dividend or interest the account paid.
-   * Moving money is a one-leg transfer of kind `investment`, so it leaves
-   * every spending and income aggregate. A dividend is earned money: it stays
-   * unpaired and keeps counting as income, the link only says where from.
-   */
-  async linkContribution(
-    workspaceId: string,
-    transactionId: string,
-    accountId: string,
-    role?: InvestmentLinkRole,
-  ): Promise<Transaction> {
-    await this.requireAccount(workspaceId, accountId);
-    const transaction = await this.transactionRepository.findOne({
-      where: { id: transactionId, workspaceId },
-    });
-    if (!transaction) throw new NotFoundException('Transaction not found');
-    const isExpense = transaction.transactionType === TransactionType.EXPENSE;
-    const resolved = role ?? (isExpense ? 'contribution' : null);
-    if (isExpense && resolved !== 'contribution') {
-      throw new BadRequestException('An expense can only be a contribution');
-    }
-    if (!isExpense && (resolved === null || resolved === 'contribution')) {
-      throw new BadRequestException('Say whether this income is a withdrawal or a dividend');
-    }
-    if (
-      transaction.transferPairId &&
-      transaction.transferPairKind !== TransferPairKind.INVESTMENT
-    ) {
-      throw new BadRequestException('This row is already linked as a transfer');
-    }
-    transaction.investmentAccountId = accountId;
-    const moved = resolved !== 'income';
-    transaction.transferPairId = moved ? transaction.id : null;
-    transaction.transferPairSource = moved ? TransferPairSource.MANUAL : null;
-    transaction.transferPairKind = moved ? TransferPairKind.INVESTMENT : null;
-    return this.transactionRepository.save(transaction);
-  }
-
-  async unlinkContribution(workspaceId: string, transactionId: string): Promise<Transaction> {
-    const transaction = await this.transactionRepository.findOne({
-      where: { id: transactionId, workspaceId },
-    });
-    if (!transaction) throw new NotFoundException('Transaction not found');
-    if (!transaction.investmentAccountId) {
-      throw new BadRequestException('This row is not linked to an investment account');
-    }
-    transaction.investmentAccountId = null;
-    // A dividend was never paired; only an investment pair is this link's to undo.
-    if (transaction.transferPairKind === TransferPairKind.INVESTMENT) {
-      transaction.transferPairId = null;
-      transaction.transferPairSource = null;
-      transaction.transferPairKind = null;
-    }
-    return this.transactionRepository.save(transaction);
   }
 
   /** Holdings grouped by asset class, valued in the workspace currency; for net worth. */
@@ -409,7 +301,7 @@ export class InvestmentsService {
       price,
       priceCurrency: holding.priceCurrency,
       priceSource: holding.priceSource,
-      pricedAt: holding.pricedAt,
+      pricedAt: holding.pricedAt?.toISOString() ?? null,
       value: round2(value),
     };
   }
@@ -436,136 +328,17 @@ export class InvestmentsService {
     });
   }
 
-  /**
-   * What was paid into each investment account between two days, less what
-   * was taken out, left in the currency it moved in: the caller decides which
-   * day's rate to value it at, and for an attribution that is the first day
-   * of the window. Dividends are not here: they never went into the account.
-   */
-  async contributionsBetween(
-    workspaceId: string,
-    from: string,
-    to: string,
-  ): Promise<Map<string, Map<string, number>>> {
-    const rows = await this.transactionRepository
-      .createQueryBuilder('t')
-      .select('t.investment_account_id', 'accountId')
-      .addSelect('t.currency', 'currency')
-      .addSelect('COALESCE(SUM(COALESCE(t.debit, 0) - COALESCE(t.credit, 0)), 0)', 'total')
-      .where('t.workspace_id = :workspaceId', { workspaceId })
-      .andWhere('t.investment_account_id IS NOT NULL')
-      .andWhere('t.transfer_pair_kind = :kind', { kind: TransferPairKind.INVESTMENT })
-      .andWhere(countedSql('t'))
-      .andWhere('t.transaction_date > :from', { from })
-      .andWhere('t.transaction_date <= :to', { to })
-      .groupBy('t.investment_account_id')
-      .addGroupBy('t.currency')
-      .getRawMany<{ accountId: string; currency: string; total: string }>();
-
-    const byAccount = new Map<string, Map<string, number>>();
-    for (const row of rows) {
-      const amount = Number.parseFloat(row.total);
-      if (!Number.isFinite(amount) || amount === 0) {
-        continue;
-      }
-      const perCurrency = byAccount.get(row.accountId) ?? new Map<string, number>();
-      const code = String(row.currency || '')
-        .trim()
-        .toUpperCase();
-      perCurrency.set(code, (perCurrency.get(code) ?? 0) + amount);
-      byAccount.set(row.accountId, perCurrency);
-    }
-    return byAccount;
-  }
-
-  /**
-   * Every counted transaction linked to these accounts, one row each, in the
-   * currency and on the day it happened. The returns page needs the dates;
-   * the account cards only need the totals, which `valueFlows` gives them.
-   */
-  async loadFlows(workspaceId: string, accountIds: string[]): Promise<InvestmentFlow[]> {
-    if (accountIds.length === 0) return [];
-    const rows = await this.transactionRepository
-      .createQueryBuilder('t')
-      .select('t.investment_account_id', 'accountId')
-      .addSelect('t.transaction_date', 'date')
-      .addSelect('t.currency', 'currency')
-      .addSelect('t.transaction_type', 'type')
-      .addSelect('t.transfer_pair_kind', 'pairKind')
-      .addSelect('COALESCE(t.debit, 0)', 'debit')
-      .addSelect('COALESCE(t.credit, 0)', 'credit')
-      .where('t.workspace_id = :workspaceId', { workspaceId })
-      .andWhere('t.investment_account_id IN (:...accountIds)', { accountIds })
-      .andWhere(countedSql('t'))
-      .orderBy('t.transaction_date', 'ASC')
-      .getRawMany<{
-        accountId: string;
-        date: string | Date;
-        currency: string;
-        type: TransactionType;
-        pairKind: TransferPairKind | null;
-        debit: string;
-        credit: string;
-      }>();
-
-    const flows: InvestmentFlow[] = [];
-    for (const row of rows) {
-      const kind = flowKind(row.type, row.pairKind);
-      if (!kind) continue;
-      const amount = Math.abs(
-        Number.parseFloat(kind === 'contribution' ? row.debit : row.credit) || 0,
-      );
-      if (amount === 0) continue;
-      flows.push({
-        accountId: row.accountId,
-        date: toDateOnly(row.date),
-        amount,
-        currency: normalizeCurrencyCode(row.currency) || 'USD',
-        kind,
-      });
-    }
-    return flows;
-  }
-
-  /**
-   * Flows in the workspace currency, each at the rate of the day it happened:
-   * money paid in three years ago cost what it cost then. A currency with no
-   * rate is left out and named in `missing`, never read as 1:1.
-   */
-  async valueFlows(
-    workspaceId: string,
-    flows: InvestmentFlow[],
-    currency: string,
-  ): Promise<{ flows: ValuedInvestmentFlow[]; missing: string[] }> {
-    if (flows.length === 0) return { flows: [], missing: [] };
-    const dates = [...new Set(flows.map(flow => flow.date))].sort();
-    const converter = await CurrencyConverter.loadRange(
-      this.exchangeRatesService,
-      currency,
-      flows.map(flow => flow.currency),
-      dates,
-      workspaceId,
-    );
-    return {
-      flows: flows.map(flow => ({
-        ...flow,
-        value: converter.convert(flow.amount, flow.currency, flow.date),
-      })),
-      missing: converter.missing,
-    };
-  }
-
   private async requireAccount(workspaceId: string, accountId: string): Promise<BalanceAccount> {
     const account = await this.accountRepository.findOne({ where: { id: accountId, workspaceId } });
     if (!account?.accountKind) {
-      throw new NotFoundException('Investment account not found');
+      throw new NotFoundException(appError('INVESTMENTS_ACCOUNT_NOT_FOUND'));
     }
     return account;
   }
 
   private async requireHolding(workspaceId: string, holdingId: string): Promise<InvestmentHolding> {
     const holding = await this.holdingRepository.findOne({ where: { id: holdingId, workspaceId } });
-    if (!holding) throw new NotFoundException('Holding not found');
+    if (!holding) throw new NotFoundException(appError('INVESTMENTS_HOLDING_NOT_FOUND'));
     return holding;
   }
 
@@ -573,7 +346,9 @@ export class InvestmentsService {
   async workspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     const normalized = String(workspace?.currency || '')
       .trim()
@@ -597,20 +372,4 @@ export class InvestmentsService {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-function flowKind(
-  type: TransactionType,
-  pairKind: TransferPairKind | null,
-): InvestmentFlowKind | null {
-  if (pairKind === TransferPairKind.INVESTMENT) {
-    return type === TransactionType.EXPENSE ? 'contribution' : 'withdrawal';
-  }
-  // Unpaired and linked: only income can be that — a dividend or interest.
-  if (!pairKind && type === TransactionType.INCOME) return 'income';
-  return null;
-}
-
-function toDateOnly(value: string | Date): string {
-  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 }

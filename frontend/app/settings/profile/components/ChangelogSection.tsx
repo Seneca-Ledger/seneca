@@ -10,7 +10,7 @@ import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 
 type Props = {
-  tx: (path: string[], fallback: string) => string;
+  tx: (path: string[]) => string;
   locale: string | undefined;
   changelogEntries: ChangelogEntry[];
   changelogLoading: boolean;
@@ -28,11 +28,11 @@ export function ChangelogSection({
 }: Props) {
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
-  const releaseLabelText = tx(['changelogCard', 'releaseLabel'], 'Release');
-  const closeLabelText = tx(['changelogCard', 'closeLabel'], 'Close changelog');
-  const emptyText = tx(['changelogCard', 'empty'], 'No published updates yet.');
-  const loadingText = tx(['changelogCard', 'loading'], 'Loading changelog...');
-  const openDetailsText = tx(['changelogCard', 'openDetails'], 'Open details');
+  const releaseLabelText = tx(['changelogCard', 'releaseLabel']);
+  const closeLabelText = tx(['changelogCard', 'closeLabel']);
+  const emptyText = tx(['changelogCard', 'empty']);
+  const loadingText = tx(['changelogCard', 'loading']);
+  const openDetailsText = tx(['changelogCard', 'openDetails']);
 
   const formattedEntries = changelogEntries.map(entry => {
     const date = new Date(entry.date);
@@ -136,8 +136,8 @@ export function ChangelogSection({
                   </Typography>
                   <Typography
                     variant="body2"
-                    color="text.secondary"
                     sx={{
+                      color: 'text.secondary',
                       mt: 1,
                       lineHeight: 1.75,
                       display: '-webkit-box',

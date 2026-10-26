@@ -1,16 +1,17 @@
 /**
  * The analytics sankey as a pure function over already-converted rows, in
- * one of three shapes:
+ * one of four shapes:
  * - `category-merchant` (top spenders): total → root categories → merchants;
  * - `category-subcategory` (top categories): total → root categories → their
  *   direct subcategories;
- * - `merchant` (top merchants): total → merchants.
+ * - `merchant` (top merchants): total → merchants;
+ * - `tag` (top tags): total → tags, built by `buildTagFlow`.
  * Deeper categories roll into their root (or first-level subcategory), and
  * each level keeps only its largest nodes so the sankey stays readable; the
  * tail becomes one "other" node.
  */
 
-export type SpendFlowGroupBy = 'category-merchant' | 'category-subcategory' | 'merchant';
+export type SpendFlowGroupBy = 'category-merchant' | 'category-subcategory' | 'merchant' | 'tag';
 
 export interface SpendFlowRow {
   categoryId: string | null;
@@ -28,7 +29,7 @@ export interface SpendFlowCategory {
   color: string | null;
 }
 
-export type SpendFlowNodeKind = 'total' | 'category' | 'subcategory' | 'merchant' | 'other';
+export type SpendFlowNodeKind = 'total' | 'category' | 'subcategory' | 'merchant' | 'tag' | 'other';
 
 export interface SpendFlowNode {
   /** Unique: sankey links address nodes by name. */
@@ -190,8 +191,41 @@ function buildMerchantFlow(rows: SpendFlowRow[], options: SpendFlowOptions): Spe
     entry.amount += row.amount;
     byKey.set(key, entry);
   }
-  const merchants = sortByAmount([...byKey.values()]);
-  const total = round2(merchants.reduce((sum, merchant) => sum + merchant.amount, 0));
+  return buildFlatFlow([...byKey.values()], { kind: 'merchant', prefix: 'm' }, options);
+}
+
+export interface SpendFlowTagRow {
+  tagId: string;
+  name: string;
+  /** Positive, already in the workspace currency. */
+  amount: number;
+}
+
+/**
+ * Total → tags. A transaction with two tags flows into both, so the total is
+ * the sum of the tags, not the money spent.
+ */
+export function buildTagFlow(rows: SpendFlowTagRow[], options: SpendFlowOptions): SpendFlow {
+  const byTag = new Map<string, Child>();
+  for (const row of rows) {
+    if (!(row.amount > 0)) {
+      continue;
+    }
+    const entry = byTag.get(row.tagId) ?? { key: row.tagId, name: row.name, amount: 0 };
+    entry.amount += row.amount;
+    byTag.set(row.tagId, entry);
+  }
+  return buildFlatFlow([...byTag.values()], { kind: 'tag', prefix: 'tag' }, options);
+}
+
+/** Total → one column of nodes, the largest kept and the tail rolled into "other". */
+function buildFlatFlow(
+  items: Child[],
+  shape: { kind: 'merchant' | 'tag'; prefix: string },
+  options: SpendFlowOptions,
+): SpendFlow {
+  const sorted = sortByAmount(items);
+  const total = round2(sorted.reduce((sum, item) => sum + item.amount, 0));
   if (total <= 0) {
     return emptyFlow();
   }
@@ -200,14 +234,14 @@ function buildMerchantFlow(rows: SpendFlowRow[], options: SpendFlowOptions): Spe
     { id: 'total', kind: 'total', name: null, amount: total, share: 1, color: null },
   ];
   const links: SpendFlow['links'] = [];
-  const { top, rest } = splitTop(merchants, options.maxMerchants, total * options.minMerchantShare);
-  for (const merchant of top) {
-    const id = `m:${merchant.key}`;
-    const amount = round2(merchant.amount);
+  const { top, rest } = splitTop(sorted, options.maxMerchants, total * options.minMerchantShare);
+  for (const item of top) {
+    const id = `${shape.prefix}:${item.key}`;
+    const amount = round2(item.amount);
     nodes.push({
       id,
-      kind: 'merchant',
-      name: merchant.name,
+      kind: shape.kind,
+      name: item.name,
       amount,
       share: share(amount),
       color: null,
@@ -215,9 +249,10 @@ function buildMerchantFlow(rows: SpendFlowRow[], options: SpendFlowOptions): Spe
     links.push({ source: 'total', target: id, value: amount });
   }
   if (rest.length > 0) {
-    const amount = round2(rest.reduce((sum, merchant) => sum + merchant.amount, 0));
+    const otherId = `other:${shape.kind}s`;
+    const amount = round2(rest.reduce((sum, item) => sum + item.amount, 0));
     nodes.push({
-      id: 'other:merchants',
+      id: otherId,
       kind: 'other',
       name: null,
       amount,
@@ -225,7 +260,7 @@ function buildMerchantFlow(rows: SpendFlowRow[], options: SpendFlowOptions): Spe
       color: null,
       mergedCount: rest.length,
     });
-    links.push({ source: 'total', target: 'other:merchants', value: amount });
+    links.push({ source: 'total', target: otherId, value: amount });
   }
   return { total, nodes, links };
 }

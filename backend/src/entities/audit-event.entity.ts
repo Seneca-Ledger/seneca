@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -52,6 +53,8 @@ export enum EntityType {
   WEBHOOK = 'webhook',
   BACKUP = 'backup',
   USER = 'user',
+  PAYEE = 'payee',
+  TAG = 'tag',
 }
 
 export enum AuditAction {
@@ -124,7 +127,7 @@ export class AuditEvent {
   // SET NULL, не CASCADE: аудит обязан переживать воркспейс, который описывает.
   @ManyToOne(() => Workspace, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace | null;
+  workspace: Relation<Workspace | null>;
 
   @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
   workspaceId: string | null;
@@ -137,7 +140,7 @@ export class AuditEvent {
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'actor_id' })
-  actor: User | null;
+  actor: Relation<User | null>;
 
   @Column({ name: 'actor_id', type: 'uuid', nullable: true })
   actorId: string | null;

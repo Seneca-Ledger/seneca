@@ -42,7 +42,7 @@ describe('receipt place follow-up queue', () => {
     enqueuePlaceFollowups([entry('b', now - 1000), entry('c', now - 2000)]);
 
     expect(listPlaceFollowups().map(item => item.statementId)).toEqual(['b', 'c', 'a']);
-    expect(localStorage.getItem('lumio-receipt-place-pending')).not.toMatch(/lat|lng|longitude/);
+    expect(localStorage.getItem('seneca-receipt-place-pending')).not.toMatch(/lat|lng|longitude/);
   });
 
   it('forgets entries older than two hours', () => {
@@ -86,10 +86,10 @@ describe('receipt place follow-up queue', () => {
   });
 
   it('ignores malformed storage and storage that throws', () => {
-    localStorage.setItem('lumio-receipt-place-pending', '[{"statementId":1},"x",null]');
+    localStorage.setItem('seneca-receipt-place-pending', '[{"statementId":1},"x",null]');
     expect(listPlaceFollowups()).toEqual([]);
 
-    localStorage.setItem('lumio-receipt-place-pending', '{not json');
+    localStorage.setItem('seneca-receipt-place-pending', '{not json');
     expect(listPlaceFollowups()).toEqual([]);
 
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {

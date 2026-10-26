@@ -1,4 +1,14 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { type Cause, Data, Effect, Option, Schedule, Schema } from 'effect';
+import {
+  FetchHttpClient,
+  HttpClient,
+  type HttpClientError,
+  HttpClientRequest,
+  HttpClientResponse,
+} from 'effect/http';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { appError } from '../../common/errors/app-error';
 import {
   BANK_SYNC_FETCH,
   type BankSyncAccount,
@@ -11,32 +21,48 @@ import {
 
 /** SimpleFIN answers a claim with an access URL that carries the credentials: `https://user:pass@host/simplefin`. */
 const REQUEST_TIMEOUT_MS = 20_000;
+/** The account listing with its retries; the bridge can be slow while it polls the banks. */
+const LISTING_TIMEOUT_MS = 60_000;
 
-type SimpleFinTransaction = {
-  id?: string;
-  posted?: number | string;
-  transacted_at?: number | string;
-  amount?: number | string;
-  description?: string;
-  payee?: string;
-  memo?: string;
-  pending?: boolean;
-};
+// Every field is optional and nullable: aggregator data is uneven, and the
+// mappers below decide what a usable row is.
+const NumberOrString = Schema.optional(Schema.NullOr(Schema.Union([Schema.Number, Schema.String])));
+const Text = Schema.optional(Schema.NullOr(Schema.String));
 
-type SimpleFinAccount = {
-  id?: string;
-  name?: string;
-  currency?: string;
-  balance?: number | string;
-  'balance-date'?: number | string;
-  org?: { name?: string; domain?: string; id?: string } | string;
-  transactions?: SimpleFinTransaction[];
-};
+const SimpleFinTransaction = Schema.Struct({
+  id: Text,
+  posted: NumberOrString,
+  transacted_at: NumberOrString,
+  amount: NumberOrString,
+  description: Text,
+  payee: Text,
+  memo: Text,
+  pending: Schema.optional(Schema.NullOr(Schema.Boolean)),
+});
 
-type SimpleFinResponse = {
-  errors?: string[];
-  accounts?: SimpleFinAccount[];
-};
+const SimpleFinAccount = Schema.Struct({
+  id: Text,
+  name: Text,
+  currency: Text,
+  balance: NumberOrString,
+  'balance-date': NumberOrString,
+  org: Schema.optional(
+    Schema.NullOr(Schema.Union([Schema.String, Schema.Struct({ name: Text, domain: Text })])),
+  ),
+  transactions: Schema.optional(Schema.NullOr(Schema.Array(Schema.Unknown))),
+});
+
+/** Accounts and rows are decoded one by one, so one malformed row does not sink a whole sync. */
+const SimpleFinResponse = Schema.Struct({
+  errors: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
+  accounts: Schema.optional(Schema.NullOr(Schema.Array(Schema.Unknown))),
+});
+
+/** SimpleFIN answered, but not with the accounts. */
+class SimpleFinRefused extends Data.TaggedError('SimpleFinRefused')<{ readonly status: number }> {}
+
+const decodeAccount = Schema.decodeUnknownOption(SimpleFinAccount);
+const decodeTransaction = Schema.decodeUnknownOption(SimpleFinTransaction);
 
 /**
  * The SimpleFIN protocol (https://www.simplefin.org/protocol.html): a setup
@@ -49,7 +75,10 @@ type SimpleFinResponse = {
 export class SimpleFinProvider implements BankSyncProvider {
   readonly key = 'simplefin';
 
-  constructor(@Inject(BANK_SYNC_FETCH) private readonly fetchUrl: BankSyncFetch) {}
+  constructor(
+    @Inject(BANK_SYNC_FETCH) private readonly fetchUrl: BankSyncFetch,
+    private readonly effects: EffectRuntime,
+  ) {}
 
   async claim(setupToken: string): Promise<string> {
     const claimUrl = decodeSetupToken(setupToken);
@@ -58,12 +87,12 @@ export class SimpleFinProvider implements BankSyncProvider {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (response.status === 403 || response.status === 404) {
-      throw new BadRequestException(
-        'SimpleFIN did not accept the setup token: it may have been used already (a token works once)',
-      );
+      throw new BadRequestException(appError('BANK_SYNC_SIMPLEFIN_TOKEN_REJECTED'));
     }
     if (!response.ok) {
-      throw new BadRequestException(`SimpleFIN claim failed with HTTP ${response.status}`);
+      throw new BadRequestException(
+        appError('BANK_SYNC_SIMPLEFIN_CLAIM_FAILED', { status: response.status }),
+      );
     }
     const accessUrl = (await response.text()).trim();
     parseAccessUrl(accessUrl);
@@ -84,39 +113,83 @@ export class SimpleFinProvider implements BankSyncProvider {
     } else {
       target.searchParams.set('pending', '1');
     }
-    const response = await this.fetchUrl(target.toString(), {
-      method: 'GET',
-      headers: { authorization, accept: 'application/json' },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (response.status === 401 || response.status === 403) {
-      throw new BankSyncAuthError();
-    }
-    if (!response.ok) {
-      throw new BadRequestException(`SimpleFIN answered HTTP ${response.status}`);
-    }
-    const body = (await response.json()) as SimpleFinResponse;
-    const accounts = Array.isArray(body.accounts) ? body.accounts : [];
-    if (accounts.length === 0 && Array.isArray(body.errors) && body.errors.length > 0) {
-      throw new BadRequestException(`SimpleFIN: ${body.errors.join('; ')}`);
+    const request = HttpClientRequest.get(target).pipe(
+      HttpClientRequest.setHeaders({ authorization, accept: 'application/json' }),
+    );
+    // The listing is a read: a network error, 429 or 5xx is retried. The
+    // one-time claim above never is — a retry could burn the token.
+    const listing = Effect.gen(function* () {
+      const client = (yield* HttpClient.HttpClient).pipe(
+        HttpClient.retryTransient({
+          schedule: Schedule.exponential('500 millis').pipe(Schedule.jittered),
+          times: 2,
+        }),
+      );
+      const response = yield* client.execute(request).pipe(Effect.timeout(LISTING_TIMEOUT_MS));
+      if (response.status < 200 || response.status >= 300) {
+        return yield* Effect.fail(new SimpleFinRefused({ status: response.status }));
+      }
+      return yield* HttpClientResponse.schemaBodyJson(SimpleFinResponse)(response);
+    }).pipe(
+      Effect.mapError(toListingException),
+      // Through the egress-guarded fetch from DI, never the global one.
+      Effect.provideService(FetchHttpClient.Fetch, (input, init) =>
+        this.fetchUrl(String(input), init),
+      ),
+    );
+
+    const body = await this.effects.run(listing);
+    const accounts = body.accounts ?? [];
+    if (accounts.length === 0 && body.errors?.length) {
+      throw new BadRequestException(
+        appError('BANK_SYNC_SIMPLEFIN_ERRORS', { errors: body.errors.join('; ') }),
+      );
     }
     return accounts.map(mapAccount).filter((account): account is BankSyncAccount => !!account);
+  }
+}
+
+/** What the bank-sync service expects from a provider: auth errors flip the connection to re-auth. */
+function toListingException(
+  error:
+    | SimpleFinRefused
+    | HttpClientError.HttpClientError
+    | Schema.SchemaError
+    | Cause.TimeoutError,
+): Error {
+  switch (error._tag) {
+    case 'SimpleFinRefused':
+      return error.status === 401 || error.status === 403
+        ? new BankSyncAuthError()
+        : new BadRequestException(
+            appError('BANK_SYNC_SIMPLEFIN_HTTP_ERROR', { status: error.status }),
+          );
+    case 'TimeoutError':
+      return new BadGatewayException(appError('BANK_SYNC_SIMPLEFIN_TIMEOUT'));
+    case 'SchemaError':
+      return new BadGatewayException(appError('BANK_SYNC_SIMPLEFIN_UNREADABLE'));
+    case 'HttpClientError':
+      return new BadGatewayException(
+        error.reason._tag === 'DecodeError'
+          ? appError('BANK_SYNC_SIMPLEFIN_UNREADABLE')
+          : appError('BANK_SYNC_SIMPLEFIN_UNREACHABLE'),
+      );
   }
 }
 
 /** A setup token is the base64 of the claim URL; anything else is a paste error, not a bug. */
 export function decodeSetupToken(setupToken: string): string {
   const compact = setupToken.replace(/\s+/g, '');
-  if (!compact) throw new BadRequestException('Setup token is empty');
+  if (!compact) throw new BadRequestException(appError('BANK_SYNC_SETUP_TOKEN_EMPTY'));
   const decoded = Buffer.from(compact, 'base64').toString('utf8');
   let url: URL;
   try {
     url = new URL(decoded);
   } catch {
-    throw new BadRequestException('Setup token is not a SimpleFIN token');
+    throw new BadRequestException(appError('BANK_SYNC_SETUP_TOKEN_INVALID'));
   }
   if (url.protocol !== 'https:') {
-    throw new BadRequestException('SimpleFIN claim URL must use https');
+    throw new BadRequestException(appError('BANK_SYNC_SIMPLEFIN_CLAIM_URL_INSECURE'));
   }
   return url.toString();
 }
@@ -127,10 +200,10 @@ export function parseAccessUrl(accessUrl: string): { url: URL; authorization: st
   try {
     url = new URL(accessUrl);
   } catch {
-    throw new BadRequestException('SimpleFIN returned an access URL that is not a URL');
+    throw new BadRequestException(appError('BANK_SYNC_SIMPLEFIN_ACCESS_URL_INVALID'));
   }
   if (url.protocol !== 'https:' || !url.username) {
-    throw new BadRequestException('SimpleFIN access URL must be https with credentials');
+    throw new BadRequestException(appError('BANK_SYNC_SIMPLEFIN_ACCESS_URL_INSECURE'));
   }
   const user = decodeURIComponent(url.username);
   const pass = decodeURIComponent(url.password);
@@ -143,23 +216,24 @@ export function parseAccessUrl(accessUrl: string): { url: URL; authorization: st
   };
 }
 
-function epochToDate(value: number | string | undefined): Date | null {
+function epochToDate(value: number | string | null | undefined): Date | null {
   if (value === undefined || value === null || value === '') return null;
   const seconds = Number(value);
   if (!Number.isFinite(seconds)) return null;
   return new Date(seconds * 1000);
 }
 
-function toNumber(value: number | string | undefined): number | null {
+function toNumber(value: number | string | null | undefined): number | null {
   if (value === undefined || value === null || value === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function mapAccount(raw: SimpleFinAccount): BankSyncAccount | null {
-  if (!raw.id) return null;
+function mapAccount(input: unknown): BankSyncAccount | null {
+  const raw = Option.getOrUndefined(decodeAccount(input));
+  if (!raw?.id) return null;
   const org = typeof raw.org === 'string' ? raw.org : raw.org?.name || raw.org?.domain || '';
-  const transactions = (Array.isArray(raw.transactions) ? raw.transactions : [])
+  const transactions = (raw.transactions ?? [])
     .map(mapTransaction)
     .filter((item): item is BankSyncTransaction => !!item);
   return {
@@ -173,7 +247,9 @@ function mapAccount(raw: SimpleFinAccount): BankSyncAccount | null {
   };
 }
 
-function mapTransaction(raw: SimpleFinTransaction): BankSyncTransaction | null {
+function mapTransaction(input: unknown): BankSyncTransaction | null {
+  const raw = Option.getOrUndefined(decodeTransaction(input));
+  if (!raw) return null;
   const posted = epochToDate(raw.posted) ?? epochToDate(raw.transacted_at);
   const amount = toNumber(raw.amount);
   if (!(raw.id && posted) || amount === null) return null;

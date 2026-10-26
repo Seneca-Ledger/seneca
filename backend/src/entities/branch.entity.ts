@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Transaction } from './transaction.entity';
@@ -22,14 +23,14 @@ export class Branch {
     user => user.branches,
   )
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -37,10 +38,10 @@ export class Branch {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   code: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   address: string | null;
 
   @Column({ name: 'is_active', default: true })
@@ -57,5 +58,5 @@ export class Branch {
     () => Transaction,
     transaction => transaction.branch,
   )
-  transactions: Transaction[];
+  transactions: Relation<Transaction[]>;
 }

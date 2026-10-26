@@ -148,6 +148,18 @@ describe('normalizeDate', () => {
     expect(result!.getMinutes()).toBe(30);
   });
 
+  it('parses a one-digit hour and a time without seconds', () => {
+    // Kaspi prints "08.12.2025 0:20:11", Bereke "27.11.2025 09:22".
+    expect(normalizeDate('08.12.2025 0:20:11')).toEqual(new Date(2025, 11, 8, 0, 20, 11));
+    expect(normalizeDate('27.11.2025 09:22')).toEqual(new Date(2025, 10, 27, 9, 22, 0));
+  });
+
+  it('does not read a bare number as a date', () => {
+    // V8 parses "2" as 2001-02-01 — a column-numbering cell became a row.
+    expect(normalizeDate('2')).toBeNull();
+    expect(normalizeDate('2026')).toBeNull();
+  });
+
   it('parses YYYY-MM-DD format', () => {
     const result = normalizeDate('2026-04-25');
     expect(result).not.toBeNull();

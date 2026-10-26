@@ -17,6 +17,7 @@ import type {
 } from '@/app/(main)/statements/components/spend-over-time.utils';
 import { buildSpendOverTimeReport } from '@/app/(main)/statements/components/spend-over-time.utils';
 import { getRecordDate } from '@/app/lib/analytics-common';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 
 type SortKey = 'amount' | 'average' | 'operations';
 
@@ -107,7 +108,7 @@ const buildComparison = (
     activeFlowType === 'income' ? prevTotals.income : prevTotals.expense,
   ),
   statementsAmount: getComparisonDelta(totals.statementAmount, prevTotals.statementAmount),
-  receiptsAmount: getComparisonDelta(totals.gmailAmount, prevTotals.gmailAmount),
+  receiptsAmount: getComparisonDelta(totals.receiptAmount, prevTotals.receiptAmount),
   operations: getComparisonDelta(totals.count, prevTotals.count),
   avgPerPeriod: getComparisonDelta(totals.avgPerPeriod, prevTotals.avgPerPeriod),
 });
@@ -125,6 +126,7 @@ export const useSpendOverTimeAggregation = ({
   statementsAmountLabel,
   receiptsAmountLabel,
 }: Params): SpendOverTimeAggregationReturn => {
+  const privacy = usePrivacyMode();
   const report = useMemo(
     () => buildSpendOverTimeReport(flowFilteredRecords, groupBy),
     [flowFilteredRecords, groupBy],
@@ -154,6 +156,7 @@ export const useSpendOverTimeAggregation = ({
         activeFlowType,
         { totalIncome: totalIncomeLabel, totalSpend: totalSpendLabel },
         resolvedTheme,
+        privacy,
       ),
     [
       report.points,
@@ -162,6 +165,7 @@ export const useSpendOverTimeAggregation = ({
       totalIncomeLabel,
       totalSpendLabel,
       resolvedTheme,
+      privacy,
     ],
   );
   const sourceChart = useMemo(
@@ -173,8 +177,8 @@ export const useSpendOverTimeAggregation = ({
     [report.totals, statementsAmountLabel, receiptsAmountLabel],
   );
   const periodsChart = useMemo(
-    () => buildSpendOverTimePeriodsChart(rows, activeFlowType, resolvedTheme),
-    [rows, activeFlowType, resolvedTheme],
+    () => buildSpendOverTimePeriodsChart(rows, activeFlowType, resolvedTheme, privacy),
+    [rows, activeFlowType, resolvedTheme, privacy],
   );
   return { report, rows, comparison, trendChart, sourceChart, periodsChart };
 };

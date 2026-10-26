@@ -2,24 +2,27 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import {
-  BadGatewayException,
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { appError } from '../../common/errors/app-error';
 import { assertFound } from '../../common/utils/assert-found.util';
+import {
+  asHttpsUrl,
+  asText,
+  downloadOpenverseThumbnail,
+  type OpenverseJson,
+  type OpenverseResult,
+  requestOpenverseJson,
+} from '../../common/utils/openverse.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type { SetGoalCoverBody } from '../../contracts';
 import { Goal } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { AuditService } from '../audit/audit.service';
-import type { SetGoalCoverDto } from './dto/set-goal-cover.dto';
 import {
   COVER_CONTENT_TYPES,
   COVER_DIRECTORY,
@@ -61,42 +64,7 @@ const THUMBNAIL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  * A reader's User-Agent is a courtesy Openverse asks for, and it is what lets
  * them tell this traffic apart if it ever misbehaves.
  */
-const USER_AGENT = 'Lumio/1.0 (self-hosted personal finance; goal covers)';
-
-/** The shape Openverse returns, narrowed to the fields that are used. */
-interface OpenverseResult {
-  id?: unknown;
-  title?: unknown;
-  creator?: unknown;
-  license?: unknown;
-  license_url?: unknown;
-  attribution?: unknown;
-  foreign_landing_url?: unknown;
-}
-
-function asText(value: unknown, max: number): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed ? trimmed.slice(0, max) : null;
-}
-
-/**
- * Only https, and only what fits the column. The URL goes to the client as a
- * link, so a `javascript:` value from upstream would be a stored XSS on click.
- */
-function asHttpsUrl(value: unknown, max: number): string | null {
-  const text = asText(value, max);
-  if (!text) {
-    return null;
-  }
-  try {
-    return new URL(text).protocol === 'https:' ? text : null;
-  } catch {
-    return null;
-  }
-}
+const USER_AGENT = `${APP_NAME}/1.0 (self-hosted personal finance; goal covers)`;
 
 /**
  * Pictures for savings goals, searched on Openverse.
@@ -118,6 +86,7 @@ export class GoalCoversService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly auditService: AuditService,
+    private readonly effects: EffectRuntime,
   ) {}
 
   async search(query: string, page = 1): Promise<CoverSearchPage> {
@@ -126,7 +95,7 @@ export class GoalCoversService {
       page: String(page),
       page_size: String(COVER_SEARCH_PAGE_SIZE),
       // Commercially licensed only. It is the stricter pool, and it keeps a
-      // self-hoster who bills clients through Lumio out of a licence question
+      // self-hoster who bills clients through Seneca out of a licence question
       // they never asked to be in.
       license_type: 'commercial',
       // The picker is a plain search box pointed at the open web; this is what
@@ -176,12 +145,12 @@ export class GoalCoversService {
     goalId: string,
     workspaceId: string,
     userId: string,
-    dto: SetGoalCoverDto,
+    dto: SetGoalCoverBody,
   ): Promise<Goal> {
     const hasPreset = Boolean(dto.preset);
     const hasPhoto = Boolean(dto.photoId);
     if (hasPreset === hasPhoto) {
-      throw new BadRequestException('Send exactly one of preset or photoId');
+      throw new BadRequestException(appError('GOAL_COVER_ONE_SOURCE'));
     }
 
     const goal = await this.goalRepository.findOne({ where: { id: goalId, workspaceId } });
@@ -276,82 +245,28 @@ export class GoalCoversService {
     }
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: upstream JSON, narrowed by the callers
-  private async requestJson(url: string): Promise<Record<string, any>> {
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
-        signal: AbortSignal.timeout(COVER_SEARCH_TIMEOUT_MS),
-      });
-    } catch (error) {
-      const name = error instanceof Error ? error.name : '';
-      this.logger.warn(
-        `Openverse request failed: ${name === 'TimeoutError' ? 'timeout' : 'network'}`,
-      );
-      throw new BadGatewayException('Image search is unavailable right now');
-    }
-
-    // Worth its own message: the allowance resets, and the person should be
-    // told to wait rather than that the search is broken.
-    if (response.status === 429) {
-      throw new ServiceUnavailableException(
-        'The image search allowance is used up for now — the bundled covers still work',
-      );
-    }
-    if (!response.ok) {
-      this.logger.warn(`Openverse request failed: http_${response.status}`);
-      throw new BadGatewayException('Image search is unavailable right now');
-    }
-
-    try {
-      return (await response.json()) as Record<string, unknown>;
-    } catch {
-      throw new BadGatewayException('Image search returned something unreadable');
-    }
+  private requestJson(url: string): Promise<OpenverseJson> {
+    return requestOpenverseJson(url, this.openverseOptions());
   }
 
-  private async downloadThumbnail(photoId: string): Promise<StoredCoverFile> {
-    let response: Response;
-    try {
-      response = await fetch(`${OPENVERSE_API}${photoId}/thumb/`, {
-        headers: { 'User-Agent': USER_AGENT },
-        signal: AbortSignal.timeout(COVER_DOWNLOAD_TIMEOUT_MS),
-      });
-    } catch (error) {
-      const name = error instanceof Error ? error.name : '';
-      this.logger.warn(
-        `Goal cover download failed: ${name === 'TimeoutError' ? 'timeout' : 'network'}`,
-      );
-      throw new BadGatewayException('Could not fetch that picture');
-    }
+  private downloadThumbnail(photoId: string): Promise<StoredCoverFile> {
+    return downloadOpenverseThumbnail(photoId, {
+      ...this.openverseOptions(),
+      timeoutMs: COVER_DOWNLOAD_TIMEOUT_MS,
+      maxBytes: COVER_MAX_BYTES,
+    });
+  }
 
-    if (response.status === 404) {
-      throw new NotFoundException('That picture is no longer available');
-    }
-    if (response.status === 429) {
-      throw new ServiceUnavailableException(
-        'The image allowance is used up for now — the bundled covers still work',
-      );
-    }
-    if (!response.ok) {
-      this.logger.warn(`Goal cover download failed: http_${response.status}`);
-      throw new BadGatewayException('Could not fetch that picture');
-    }
-
-    const contentType = (response.headers.get('content-type') || '').split(';')[0].trim();
-    if (!COVER_CONTENT_TYPES[contentType]) {
-      this.logger.warn(`Goal cover rejected: content_type_${contentType || 'none'}`);
-      throw new BadGatewayException('That picture is in a format Lumio does not store');
-    }
-
-    const body = Buffer.from(await response.arrayBuffer());
-    if (body.byteLength === 0 || body.byteLength > COVER_MAX_BYTES) {
-      this.logger.warn(`Goal cover rejected: size_${body.byteLength}`);
-      throw new BadGatewayException('That picture is too large to store');
-    }
-
-    return { body, contentType };
+  private openverseOptions() {
+    return {
+      userAgent: USER_AGENT,
+      timeoutMs: COVER_SEARCH_TIMEOUT_MS,
+      logger: this.logger,
+      label: 'Goal cover',
+      allowanceMessage:
+        'The image search allowance is used up for now — the bundled covers still work',
+      effects: this.effects,
+    };
   }
 
   private async writeCoverFile(image: StoredCoverFile): Promise<string> {

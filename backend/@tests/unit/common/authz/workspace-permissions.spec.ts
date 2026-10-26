@@ -1,4 +1,5 @@
 import {
+  ACCOUNTANT_PERMISSIONS,
   GLOBAL_ONLY_PERMISSIONS,
   MEMBER_PERMISSION_GATES,
   MEMBER_PERMISSIONS,
@@ -104,6 +105,18 @@ describe('workspaceRoleAllows', () => {
     }
   });
 
+  it('lets an accountant export, and write nothing, even with all toggles switched on', () => {
+    for (const permission of WRITE_PERMISSIONS) {
+      expect(workspaceRoleAllows(permission, WorkspaceRole.ACCOUNTANT, ALL_TOGGLES)).toBe(
+        ACCOUNTANT_PERMISSIONS.has(permission),
+      );
+    }
+    expect(workspaceRoleAllows(Permission.REPORT_EXPORT, WorkspaceRole.ACCOUNTANT, null)).toBe(true);
+    expect(workspaceRoleAllows(Permission.TRANSACTION_EDIT, WorkspaceRole.ACCOUNTANT, ALL_TOGGLES)).toBe(
+      false,
+    );
+  });
+
   it('denies a viewer every write, even with all toggles switched on', () => {
     for (const permission of WRITE_PERMISSIONS) {
       expect(workspaceRoleAllows(permission, WorkspaceRole.VIEWER, ALL_TOGGLES)).toBe(false);
@@ -154,6 +167,16 @@ describe('workspaceRoleAllows', () => {
     expect(workspaceRoleAllows(Permission.STATEMENT_EDIT, WorkspaceRole.MEMBER, denied)).toBe(true);
   });
 
+  it('gates tag writes on the categories toggle and lets every role read tags', () => {
+    const denied: WorkspaceMemberPermissions = { ...ALL_TOGGLES, canEditCategories: false };
+    for (const write of [Permission.TAG_CREATE, Permission.TAG_EDIT, Permission.TAG_DELETE]) {
+      expect(workspaceRoleAllows(write, WorkspaceRole.MEMBER, ALL_TOGGLES)).toBe(true);
+      expect(workspaceRoleAllows(write, WorkspaceRole.MEMBER, denied)).toBe(false);
+      expect(workspaceRoleAllows(write, WorkspaceRole.VIEWER, ALL_TOGGLES)).toBe(false);
+    }
+    expect(workspaceRoleAllows(Permission.TAG_VIEW, WorkspaceRole.VIEWER, null)).toBe(true);
+  });
+
   it('refuses everything without a workspace role', () => {
     expect(workspaceRoleAllows(Permission.TRANSACTION_VIEW, undefined, ALL_TOGGLES)).toBe(false);
     expect(workspaceRoleAllows(Permission.TRANSACTION_EDIT, null, ALL_TOGGLES)).toBe(false);
@@ -174,6 +197,12 @@ describe('workspaceRoleAllows', () => {
 describe('workspaceMemberCanEdit', () => {
   it.each([WorkspaceRole.OWNER, WorkspaceRole.ADMIN])('lets %s edit without a column', role => {
     expect(workspaceMemberCanEdit(role, 'canEditDataEntry', null)).toBe(true);
+  });
+
+  it('never lets an accountant edit', () => {
+    expect(workspaceMemberCanEdit(WorkspaceRole.ACCOUNTANT, 'canEditDataEntry', ALL_TOGGLES)).toBe(
+      false,
+    );
   });
 
   it('never lets a viewer edit', () => {

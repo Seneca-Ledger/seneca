@@ -1,21 +1,31 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Req,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface';
+import type { CurrentUser as CurrentUserView } from '../../contracts';
+import {
+  AuthSessionParams,
+  CurrentUser as CurrentUserContract,
+  ForgotPasswordBody,
+  LoginBody,
+  LoginResponse,
+  MessageResult,
+  RecoveryCodes,
+  RegisterBody,
+  RegisterResponse,
+  ResetPasswordBody,
+  TwoFactorCodeBody,
+  TwoFactorPasswordBody,
+  TwoFactorSetup,
+  TwoFactorStatus,
+  UserSessionList,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { AuthService, type SessionContext } from './auth.service';
 import {
@@ -24,13 +34,10 @@ import {
   setAuthCookies,
   setCsrfCookie,
 } from './auth-cookies';
+import { toCurrentUser } from './current-user.view';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import type { AuthResponseDto, TwoFactorChallengeDto } from './dto/auth-response.dto';
-import { LoginDto } from './dto/login.dto';
-import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
-import { RegisterDto } from './dto/register.dto';
-import { TwoFactorCodeDto, TwoFactorPasswordDto } from './dto/two-factor.dto';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { PasswordResetService } from './password-reset.service';
 import type { TwoFactorSetupDto, TwoFactorStatusDto } from './two-factor.service';
@@ -74,8 +81,9 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @SchemaResponse(RegisterResponse)
   async register(
-    @Body() registerDto: RegisterDto,
+    @SchemaBody(RegisterBody) registerDto: RegisterBody,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ user: AuthResponseDto['user'] }> {
@@ -89,8 +97,9 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(LoginResponse)
   async login(
-    @Body() loginDto: LoginDto,
+    @SchemaBody(LoginBody) loginDto: LoginBody,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ user: AuthResponseDto['user'] } | TwoFactorChallengeDto> {
@@ -107,6 +116,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('2fa')
+  @SchemaResponse(TwoFactorStatus)
   async getTwoFactorStatus(@CurrentUser() user: User): Promise<TwoFactorStatusDto> {
     return this.twoFactorService.getStatus(user.id);
   }
@@ -114,9 +124,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('2fa/setup')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(TwoFactorSetup)
   async setupTwoFactor(
     @CurrentUser() user: User,
-    @Body() dto: TwoFactorPasswordDto,
+    @SchemaBody(TwoFactorPasswordBody) dto: TwoFactorPasswordBody,
   ): Promise<TwoFactorSetupDto> {
     return this.twoFactorService.setup(user.id, dto.password);
   }
@@ -125,9 +136,10 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('2fa/enable')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(RecoveryCodes)
   async enableTwoFactor(
     @CurrentUser() user: User,
-    @Body() dto: TwoFactorCodeDto,
+    @SchemaBody(TwoFactorCodeBody) dto: TwoFactorCodeBody,
   ): Promise<{ recoveryCodes: string[] }> {
     return this.twoFactorService.enable(user.id, dto.code);
   }
@@ -135,9 +147,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('2fa/disable')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async disableTwoFactor(
     @CurrentUser() user: User,
-    @Body() dto: TwoFactorPasswordDto,
+    @SchemaBody(TwoFactorPasswordBody) dto: TwoFactorPasswordBody,
   ): Promise<{ message: string }> {
     await this.twoFactorService.disable(user.id, dto.password);
     return { message: 'Two-factor authentication disabled' };
@@ -146,9 +159,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('2fa/recovery-codes')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(RecoveryCodes)
   async regenerateRecoveryCodes(
     @CurrentUser() user: User,
-    @Body() dto: TwoFactorPasswordDto,
+    @SchemaBody(TwoFactorPasswordBody) dto: TwoFactorPasswordBody,
   ): Promise<{ recoveryCodes: string[] }> {
     return this.twoFactorService.regenerateRecoveryCodes(user.id, dto.password);
   }
@@ -163,7 +177,10 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
+  @SchemaResponse(MessageResult)
+  async forgotPassword(
+    @SchemaBody(ForgotPasswordBody) dto: ForgotPasswordBody,
+  ): Promise<{ message: string }> {
     await this.passwordResetService.requestReset(dto.email);
     return { message: 'If that address has an account, a reset link is on its way.' };
   }
@@ -173,8 +190,9 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async resetPassword(
-    @Body() dto: ResetPasswordDto,
+    @SchemaBody(ResetPasswordBody) dto: ResetPasswordBody,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
     await this.passwordResetService.resetPassword(dto.token, dto.newPassword);
@@ -188,6 +206,7 @@ export class AuthController {
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -206,6 +225,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async logout(
     @CurrentUser() user: User,
     @Req() req: AuthenticatedRequest,
@@ -220,6 +240,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async logoutAll(
     @CurrentUser() user: User,
     @Res({ passthrough: true }) res: Response,
@@ -231,6 +252,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('sessions')
+  @SchemaResponse(UserSessionList)
   async getSessions(@CurrentUser() user: User, @Req() req: AuthenticatedRequest) {
     const currentSessionId = req?.user?.currentSessionId || null;
     return this.authService.getSessions(user.id, currentSessionId);
@@ -239,9 +261,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('sessions/:sessionId/logout')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(MessageResult)
   async logoutSession(
     @CurrentUser() user: User,
-    @Param('sessionId') sessionId: string,
+    @SchemaParams(AuthSessionParams) { sessionId }: AuthSessionParams,
     @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
@@ -258,7 +281,8 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getProfile(@CurrentUser() user: User): Promise<User> {
-    return user;
+  @SchemaResponse(CurrentUserContract)
+  async getProfile(@CurrentUser() user: User): Promise<CurrentUserView> {
+    return toCurrentUser(user);
   }
 }

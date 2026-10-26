@@ -1,6 +1,6 @@
 export type ComparisonTrend = 'up' | 'down' | 'flat';
-export type SourceType = 'statement' | 'gmail';
-export type SourceChannel = 'bank' | 'receipt' | 'gmail' | 'crypto';
+export type SourceType = 'statement' | 'receipt';
+export type SourceChannel = 'bank' | 'receipt' | 'crypto';
 export type AggregateSortKey = 'amount' | 'average' | 'operations';
 export type AnalyticsFromOption = {
   id: string;
@@ -29,7 +29,7 @@ type ResolveAmountFlowInput<TExpenseFlowType extends string> = {
   amount?: number | string | null;
   transactionType?: 'income' | 'expense' | 'transfer' | 'unknown' | null;
   expenseFlowType: TExpenseFlowType;
-  gmailUsesTransactionType?: boolean;
+  receiptUsesTransactionType?: boolean;
 };
 
 const RECEIPT_FILE_TYPES = new Set(['pdf', 'image', 'jpg', 'jpeg', 'png', 'csv', 'xlsx']);
@@ -49,8 +49,8 @@ export const resolveSourceChannel = (input: ResolveSourceChannelInput): SourceCh
   if (input.isCrypto) {
     return 'crypto';
   }
-  if (input.sourceType === 'gmail') {
-    return 'gmail';
+  if (input.sourceType === 'receipt') {
+    return 'receipt';
   }
   const normalizedType = String(input.fileType || '').toLowerCase();
   if (RECEIPT_FILE_TYPES.has(normalizedType)) {
@@ -120,20 +120,19 @@ export const getComparisonDelta = (
   };
 };
 
-/* eslint-disable complexity */
 export const resolveAmountFlow = <TExpenseFlowType extends string>(
   input: ResolveAmountFlowInput<TExpenseFlowType>,
 ): { flowType: 'income' | TExpenseFlowType; amount: number } => {
-  if (input.sourceType === 'gmail') {
-    const gmailFlowType =
-      input.gmailUsesTransactionType === false
+  if (input.sourceType === 'receipt') {
+    const receiptFlowType =
+      input.receiptUsesTransactionType === false
         ? input.expenseFlowType
         : input.transactionType === 'income'
           ? 'income'
           : input.expenseFlowType;
 
     return {
-      flowType: gmailFlowType,
+      flowType: receiptFlowType,
       amount: parseAmount(input.amount),
     };
   }
@@ -159,7 +158,6 @@ export const resolveAmountFlow = <TExpenseFlowType extends string>(
     amount: parseAmount(input.amount),
   };
 };
-/* eslint-enable complexity */
 
 export const formatDateISO = (date: Date): string => {
   const year = date.getFullYear();

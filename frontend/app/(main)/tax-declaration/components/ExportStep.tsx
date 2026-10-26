@@ -10,7 +10,7 @@ interface ExportStepProps {
   draft: IncomeTaxDraft;
   downloading: boolean;
   busy: boolean;
-  onDownload: (format: 'pdf' | 'xlsx') => void;
+  onDownload: (format: 'pdf' | 'xlsx' | 'csv') => void;
   onFinalize: () => void;
   onReopen: () => void;
 }
@@ -39,7 +39,14 @@ export function ExportStep({
 
       {draft.filingInfo ? <FilingInfoCard info={draft.filingInfo} /> : null}
 
-      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        sx={{
+          flexWrap: 'wrap',
+        }}
+      >
         <Button
           variant="contained"
           disabled={downloading}
@@ -56,11 +63,24 @@ export function ExportStep({
         >
           {t.downloadXlsx}
         </Button>
+        <Button
+          variant="outlined"
+          disabled={downloading}
+          onClick={() => onDownload('csv')}
+          sx={{ textTransform: 'none', fontWeight: 600 }}
+        >
+          {t.downloadCsv}
+        </Button>
       </Stack>
 
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
         {finalized ? (
-          <Stack spacing={1.5} alignItems="flex-start">
+          <Stack
+            spacing={1.5}
+            sx={{
+              alignItems: 'flex-start',
+            }}
+          >
             <Alert severity="info">
               {t.finalizedOn}{' '}
               {draft.finalizedAt ? new Date(draft.finalizedAt).toLocaleDateString(locale) : ''}
@@ -76,7 +96,12 @@ export function ExportStep({
             </Button>
           </Stack>
         ) : (
-          <Stack spacing={1.5} alignItems="flex-start">
+          <Stack
+            spacing={1.5}
+            sx={{
+              alignItems: 'flex-start',
+            }}
+          >
             <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{t.finalizeHint}</Typography>
             <Button
               variant="contained"

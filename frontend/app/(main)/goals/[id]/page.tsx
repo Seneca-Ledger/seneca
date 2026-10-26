@@ -9,6 +9,8 @@ import { useParams } from 'next/navigation';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { ArrowLeft } from '@/app/components/icons';
+import { LoadError } from '@/app/components/ui/load-error';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
@@ -60,6 +62,7 @@ export default function GoalDetailPage(): React.JSX.Element {
   );
 
   const currency = data?.currency ?? FALLBACK_CURRENCY;
+  const hasBudgets = (data?.budgets.length ?? 0) > 0;
   const money = useCallback(
     (value: number) => formatMoney(value, currency, locale),
     [currency, locale],
@@ -79,7 +82,7 @@ export default function GoalDetailPage(): React.JSX.Element {
   return (
     <Box
       component="main"
-      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
     >
       <Button
         component={Link}
@@ -91,11 +94,7 @@ export default function GoalDetailPage(): React.JSX.Element {
         {t.back}
       </Button>
 
-      {error && !isPending && (
-        <Typography color="error" sx={{ py: 6, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && !isPending && <LoadError spacing={6}>{t.error}</LoadError>}
 
       {showSkeleton && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -117,26 +116,49 @@ export default function GoalDetailPage(): React.JSX.Element {
               reached: goalsT.reached.value,
               remaining: goalsT.remaining.value,
             }}
+            locale={locale}
             formatAmount={money}
           />
 
+          {/* With no budget attached every month is the same zero, so the totals
+              and the month strip only appear once there is something to show. */}
           <GoalFlowSankey
             data={data}
             title={t.flowTitle}
-            subtitle={`${t.planned.value} ${money(data.plannedTotal)} · ${t.actual.value} ${money(data.actualTotal)}`}
+            subtitle={
+              hasBudgets ? (
+                <>
+                  {t.planned.value} <PrivateAmount>{money(data.plannedTotal)}</PrivateAmount> ·{' '}
+                  {t.actual.value} <PrivateAmount>{money(data.actualTotal)}</PrivateAmount>
+                </>
+              ) : undefined
+            }
             action={
-              <MonthStrip
-                displayMonth={month}
-                onChange={changeMonth}
-                locale={locale}
-                labels={{
-                  group: headerT.monthStripLabel.value,
-                  previousYear: headerT.previousYear.value,
-                  nextYear: headerT.nextYear.value,
-                }}
-              />
+              hasBudgets && (
+                <MonthStrip
+                  displayMonth={month}
+                  onChange={changeMonth}
+                  locale={locale}
+                  labels={{
+                    group: headerT.monthStripLabel.value,
+                    previousYear: headerT.previousYear.value,
+                    nextYear: headerT.nextYear.value,
+                  }}
+                />
+              )
             }
             emptyLabel={t.noBudgets.value}
+            emptyAction={
+              <Button
+                component={Link}
+                href={`/budgets?newBudgetGoal=${encodeURIComponent(goalId)}`}
+                variant="outlined"
+                size="small"
+                sx={{ flexShrink: 0 }}
+              >
+                {t.createBudget}
+              </Button>
+            }
             labels={chartLabels}
             formatAmount={money}
           />
@@ -145,11 +167,11 @@ export default function GoalDetailPage(): React.JSX.Element {
               total would otherwise read low with nothing to explain it. */}
           {data.excluded.cashAmount > 0 && (
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1 }}>
-              {t.cashNote.value.replace('{{amount}}', money(data.excluded.cashAmount))}
+              {fillTemplateNodes(t.cashNote.value, { amount: money(data.excluded.cashAmount) })}
             </Typography>
           )}
 
-          {data.budgets.length > 0 && (
+          {hasBudgets && (
             <GoalBudgetList
               budgets={data.budgets}
               title={t.budgetsTitle}

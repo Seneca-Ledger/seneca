@@ -1,94 +1,48 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, type Repository, type SelectQueryBuilder } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import {
   applyOwnerFilter,
   type OwnerFilter,
   parseReviewerFilter,
 } from '../../common/utils/transaction-owner.util';
-import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
-import { Receipt, ReceiptSource, ReceiptStatus } from '../../entities/receipt.entity';
+import { canReadPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
+import type {
+  ReviewInboxByStatement,
+  ReviewInboxCounts,
+  ReviewInboxDocument,
+  ReviewInboxItem,
+  ReviewInboxPage,
+  ReviewInboxQuery,
+} from '../../contracts';
+import { Receipt, ReceiptStatus } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Subscription, SubscriptionStatus } from '../../entities/subscription.entity';
 import { Transaction } from '../../entities/transaction.entity';
+import { isUncategorizedName } from '../categories/uncategorized-category';
+import type { ReceiptApprovedEvent } from '../notifications/events/notification-events';
 import { CrossStatementDeduplicationService } from '../transactions/services/cross-statement-deduplication.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { DuplicateDecision, ReviewInboxKind } from './dto/review-inbox.dto';
+
 import {
-  DuplicateDecision,
-  ReviewInboxKind,
-  type ReviewInboxQueryDto,
-} from './dto/review-inbox.dto';
+  pendingReceiptsQuery,
+  QUEUE_DATE_COLUMN,
+  reviewDuplicatesQuery,
+  uncategorizedRowsQuery,
+  unconfirmedRowsQuery,
+} from './review-queue.queries';
 
 /** No reviewer asked for: the whole workspace's backlog. */
 const ALL_OWNERS: OwnerFilter = { kind: 'all' };
 
-export interface ReviewInboxCounts {
-  transaction: number;
-  receipt: number;
-  duplicate: number;
-  subscription: number;
-  total: number;
-}
-
-export type ReviewInboxItem =
-  | {
-      kind: 'transaction';
-      id: string;
-      date: string;
-      counterpartyName: string;
-      paymentPurpose: string;
-      amount: number;
-      currency: string;
-      transactionType: string;
-      categoryId: string | null;
-      categoryName: string | null;
-      categorySource: string | null;
-      categoryReason: string | null;
-      statementId: string | null;
-      /** The receipt behind the row (a scan, or one attached to it); the page to open. */
-      receiptId: string | null;
-    }
-  | {
-      kind: 'receipt';
-      id: string;
-      date: string | null;
-      vendor: string | null;
-      amount: number | null;
-      currency: string | null;
-      issues: string[];
-    }
-  | {
-      kind: 'duplicate';
-      id: string;
-      date: string;
-      counterpartyName: string;
-      amount: number;
-      currency: string;
-      duplicateOfId: string | null;
-      confidence: number | null;
-      matchType: string | null;
-    }
-  | {
-      kind: 'subscription';
-      id: string;
-      vendorName: string;
-      amount: number;
-      currency: string;
-      frequency: string;
-      confidence: number | null;
-      nextChargeDate: string | null;
-    };
-
-export interface ReviewInboxPage {
-  kind: ReviewInboxKind;
-  counts: ReviewInboxCounts;
-  items: ReviewInboxItem[];
-  total: number;
-  page: number;
-  limit: number;
-}
+export type { ReviewInboxCounts, ReviewInboxItem, ReviewInboxPage };
 
 const DEFAULT_LIMIT = 50;
+
+type DateRange = Pick<ReviewInboxQuery, 'from' | 'to'>;
 
 /**
  * One queue of everything that needs a human decision, read from the rows
@@ -109,84 +63,62 @@ export class ReviewInboxService {
     private readonly statementRepository: Repository<Statement>,
     private readonly transactionsService: TransactionsService,
     private readonly deduplicationService: CrossStatementDeduplicationService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /**
    * Every row nobody confirmed yet. Only confirmed rows count anywhere in the
    * numbers, so a row a rule, the history or the model categorised still waits
-   * here; transfers too. Suspected duplicates have their own list.
+   * here; transfers too. Suspected duplicates have their own list. With
+   * `uncategorized`, the rows with no category instead, confirmed or not.
    */
-  private transactionsQuery(workspaceId: string, reviewer: OwnerFilter = ALL_OWNERS) {
-    const query = this.transactionRepository
-      .createQueryBuilder('t')
-      .leftJoin('t.statement', 's')
+  private transactionsQuery(
+    workspaceId: string,
+    reviewer: OwnerFilter = ALL_OWNERS,
+    uncategorized = false,
+  ) {
+    const rows = uncategorized ? uncategorizedRowsQuery : unconfirmedRowsQuery;
+    const query = rows(this.transactionRepository, workspaceId)
+      .addSelect(['s.id', 's.fileName', 's.fileType'])
       .leftJoinAndSelect('t.category', 'category')
-      .where('t.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('t.isDuplicate = false')
-      .andWhere('t.isVerified = false')
-      .andWhere('(t.statementId IS NULL OR s.deletedAt IS NULL)');
+      .leftJoinAndSelect('t.payee', 'payee');
     return applyOwnerFilter(query, 't', reviewer);
   }
 
   private duplicatesQuery(workspaceId: string, reviewer: OwnerFilter = ALL_OWNERS) {
-    const query = this.transactionRepository
-      .createQueryBuilder('t')
-      .leftJoin('t.statement', 's')
-      .where('t.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('t.isDuplicate = true')
-      .andWhere('t.isVerified = false')
-      .andWhere("(t.duplicateMatchType IS NULL OR t.duplicateMatchType != 'manual')")
-      .andWhere('(t.statementId IS NULL OR s.deletedAt IS NULL)');
+    const query = reviewDuplicatesQuery(this.transactionRepository, workspaceId).addSelect([
+      's.id',
+      's.fileName',
+      's.fileType',
+    ]);
     return applyOwnerFilter(query, 't', reviewer);
   }
 
+  /** Limits a queue to `from`..`to` (inclusive days) on the column it is dated by. */
   private applyDateRange<T extends { andWhere: (sql: string, params?: object) => T }>(
     query: T,
-    filters: Pick<ReviewInboxQueryDto, 'from' | 'to'>,
+    filters: DateRange,
+    column: string = QUEUE_DATE_COLUMN.row,
   ): T {
     let result = query;
     if (filters.from) {
-      result = result.andWhere('t.transactionDate >= :from', { from: filters.from });
+      result = result.andWhere(`${column} >= :from`, { from: localDay(filters.from) });
     }
     if (filters.to) {
-      result = result.andWhere('t.transactionDate <= :to', { to: filters.to });
+      result = result.andWhere(`${column} <= :to`, { to: localDay(filters.to, true) });
     }
     return result;
   }
 
-  /**
-   * Receipts not yet turned into a transaction. A flagged one is always listed;
-   * the rest once something was parsed from them (an email with no amount is
-   * not a receipt yet), or when it is a scan the user uploaded.
-   */
   private pendingReceiptsQuery(workspaceId: string): SelectQueryBuilder<Receipt> {
-    return this.receiptRepository
-      .createQueryBuilder('receipt')
-      .where('receipt.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('receipt.isDuplicate = false')
-      .andWhere('receipt.transactionId IS NULL')
-      .andWhere(
-        `(receipt.status = :flagged OR (receipt.status IN (:...ready) AND (
-            NULLIF(TRIM(receipt.parsed_data->>'amount'), '') IS NOT NULL
-            OR (receipt.source = :scan AND receipt.statement_id IS NOT NULL))))`,
-        {
-          flagged: ReceiptStatus.NEEDS_REVIEW,
-          ready: [
-            ReceiptStatus.NEW,
-            ReceiptStatus.PARSED,
-            ReceiptStatus.DRAFT,
-            ReceiptStatus.REVIEWED,
-          ],
-          scan: ReceiptSource.SCAN,
-        },
-      );
+    return pendingReceiptsQuery(this.receiptRepository, workspaceId);
   }
 
   /**
    * How many rows of each statement still wait here (undecided rows and
    * suspected duplicates), so the documents list can say what is left.
    */
-  async pendingByStatement(workspaceId: string): Promise<Record<string, number>> {
+  async pendingByStatement(workspaceId: string): Promise<ReviewInboxByStatement> {
     const groups = await Promise.all(
       [this.transactionsQuery(workspaceId), this.duplicatesQuery(workspaceId)].map(query =>
         query
@@ -213,11 +145,16 @@ export class ReviewInboxService {
   async counts(
     workspaceId: string,
     reviewer: OwnerFilter = ALL_OWNERS,
+    range: DateRange = {},
   ): Promise<ReviewInboxCounts> {
     const [transaction, duplicate, receipt, subscription] = await Promise.all([
-      this.transactionsQuery(workspaceId, reviewer).getCount(),
-      this.duplicatesQuery(workspaceId, reviewer).getCount(),
-      this.pendingReceiptsQuery(workspaceId).getCount(),
+      this.applyDateRange(this.transactionsQuery(workspaceId, reviewer), range).getCount(),
+      this.applyDateRange(this.duplicatesQuery(workspaceId, reviewer), range).getCount(),
+      this.applyDateRange(
+        this.pendingReceiptsQuery(workspaceId),
+        range,
+        QUEUE_DATE_COLUMN.receipt,
+      ).getCount(),
       this.subscriptionRepository.count({
         where: { workspaceId, status: SubscriptionStatus.DETECTED },
       }),
@@ -258,7 +195,7 @@ export class ReviewInboxService {
 
   async list(
     workspaceId: string,
-    filters: ReviewInboxQueryDto,
+    filters: ReviewInboxQuery,
     selfMemberId: string | null = null,
   ): Promise<ReviewInboxPage> {
     const kind = filters.kind ?? ReviewInboxKind.TRANSACTION;
@@ -266,14 +203,14 @@ export class ReviewInboxService {
     const limit = filters.limit ?? DEFAULT_LIMIT;
     const skip = (page - 1) * limit;
     const reviewer = parseReviewerFilter(filters.reviewer, selfMemberId);
-    const counts = await this.counts(workspaceId, reviewer);
+    const counts = await this.counts(workspaceId, reviewer, filters);
 
     let items: ReviewInboxItem[] = [];
     let total = 0;
 
     if (kind === ReviewInboxKind.TRANSACTION) {
       const [rows, count] = await this.applyDateRange(
-        this.transactionsQuery(workspaceId, reviewer),
+        this.transactionsQuery(workspaceId, reviewer, filters.uncategorized),
         filters,
       )
         .orderBy('t.transactionDate', 'DESC')
@@ -283,25 +220,30 @@ export class ReviewInboxService {
         .getManyAndCount();
       total = count;
       const receiptIds = await this.receiptIdsFor(workspaceId, rows);
-      items = redactPrivateRows(rows, selfMemberId).map(row => ({
-        kind: 'transaction',
-        id: row.id,
-        date: toDateString(row.transactionDate),
-        counterpartyName: row.counterpartyName,
-        paymentPurpose: row.paymentPurpose,
-        amount: absAmount(row),
-        currency: row.currency,
-        transactionType: row.transactionType,
-        categoryId: row.categoryId,
-        categoryName: row.category?.name ?? null,
-        categorySource: row.categorySource,
-        categoryReason: row.categoryReason,
-        statementId: row.statementId,
-        receiptId:
+      items = redactPrivateRows(rows, selfMemberId).map(row => {
+        const receiptId =
           receiptIds.byTransaction.get(row.id) ??
           (row.statementId ? receiptIds.byStatement.get(row.statementId) : undefined) ??
-          null,
-      }));
+          null;
+        return {
+          kind: 'transaction',
+          id: row.id,
+          date: toDateString(row.transactionDate),
+          counterpartyName: row.counterpartyName,
+          paymentPurpose: row.paymentPurpose,
+          payee: row.payee ? { id: row.payee.id, name: row.payee.name } : null,
+          amount: absAmount(row),
+          currency: row.currency,
+          transactionType: row.transactionType,
+          categoryId: row.categoryId,
+          categoryName: row.category?.name ?? null,
+          categorySource: row.categorySource,
+          categoryReason: row.categoryReason,
+          statementId: row.statementId,
+          receiptId,
+          document: documentOf(row, receiptId, selfMemberId),
+        };
+      });
     } else if (kind === ReviewInboxKind.DUPLICATE) {
       const [rows, count] = await this.applyDateRange(
         this.duplicatesQuery(workspaceId, reviewer),
@@ -323,15 +265,14 @@ export class ReviewInboxService {
         duplicateOfId: row.duplicateOfId,
         confidence: row.duplicateConfidence === null ? null : Number(row.duplicateConfidence),
         matchType: row.duplicateMatchType,
+        document: documentOf(row, null, selfMemberId),
       }));
     } else if (kind === ReviewInboxKind.RECEIPT) {
-      const query = this.pendingReceiptsQuery(workspaceId);
-      if (filters.from) {
-        query.andWhere('receipt.createdAt >= :from', { from: new Date(filters.from) });
-      }
-      if (filters.to) {
-        query.andWhere('receipt.createdAt <= :to', { to: endOfDay(filters.to) });
-      }
+      const query = this.applyDateRange(
+        this.pendingReceiptsQuery(workspaceId),
+        filters,
+        QUEUE_DATE_COLUMN.receipt,
+      );
       const [rows, count] = await query
         .orderBy('receipt.createdAt', 'DESC')
         .skip(skip)
@@ -387,12 +328,46 @@ export class ReviewInboxService {
       userId,
       ids.map(id => ({ id, updates })),
     );
+    await this.closeScanReceipts(workspaceId, updated);
     return { approved: updated.length };
   }
 
   /**
-   * Confirms every row of one statement that has a category; rows without one
-   * stay in the inbox, since confirming them would book spending nowhere.
+   * A confirmed scan row settles its receipt too, the way approving the
+   * receipt settles the row; otherwise the receipt would still read as waiting.
+   */
+  private async closeScanReceipts(workspaceId: string, rows: Transaction[]): Promise<void> {
+    const rowByStatement = new Map(
+      rows.filter(row => row.statementId).map(row => [row.statementId as string, row.id]),
+    );
+    if (rowByStatement.size === 0) {
+      return;
+    }
+    const receipts = await this.receiptRepository.find({
+      select: { id: true, statementId: true },
+      where: { workspaceId, statementId: In([...rowByStatement.keys()]), transactionId: IsNull() },
+    });
+    for (const receipt of receipts) {
+      await this.receiptRepository.update(
+        { id: receipt.id, workspaceId },
+        {
+          status: ReceiptStatus.APPROVED,
+          transactionId: rowByStatement.get(receipt.statementId as string),
+        },
+      );
+      this.eventEmitter?.emit('receipt.approved', {
+        workspaceId,
+        receiptId: receipt.id,
+        transactionId: rowByStatement.get(receipt.statementId as string) as string,
+        mode: 'confirmed_scan',
+      } satisfies ReceiptApprovedEvent);
+    }
+  }
+
+  /**
+   * Confirms every row of one statement that has a real category; rows without
+   * one, or still in the Uncategorized fallback, stay in the inbox, since
+   * confirming them would book spending nowhere.
    */
   async approveStatement(
     workspaceId: string,
@@ -401,16 +376,21 @@ export class ReviewInboxService {
   ): Promise<{ approved: number; uncategorized: number }> {
     const statement = await this.statementRepository.findOne({
       where: { id: statementId, workspaceId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
     const rows = await this.transactionRepository.find({
       where: { workspaceId, statementId, isVerified: false, isDuplicate: false },
-      select: ['id', 'categoryId'],
+      relations: { category: true },
+      select: { id: true, categoryId: true, category: { id: true, name: true } },
     });
-    const ready = rows.filter(row => row.categoryId).map(row => row.id);
+    const ready = rows
+      .filter(row => row.categoryId && !isUncategorizedName(row.category?.name))
+      .map(row => row.id);
     const { approved } =
       ready.length > 0
         ? await this.approveTransactions(workspaceId, userId, ready)
@@ -427,7 +407,7 @@ export class ReviewInboxService {
       where: { id, workspaceId, isDuplicate: true, duplicateOfId: Not(IsNull()) },
     });
     if (!row) {
-      throw new NotFoundException('Suspected duplicate not found');
+      throw new NotFoundException(appError('REVIEW_DUPLICATE_NOT_FOUND'));
     }
     if (decision === DuplicateDecision.KEEP) {
       await this.deduplicationService.unmarkDuplicate(id, workspaceId);
@@ -439,6 +419,31 @@ export class ReviewInboxService {
   }
 }
 
+function documentOf(
+  row: Transaction,
+  receiptId: string | null,
+  viewerMemberId: string | null,
+): ReviewInboxDocument | null {
+  // The file shows what the row was as plainly as its redacted descriptor.
+  if (!canReadPrivate(row, viewerMemberId)) return null;
+  const statement = row.statement;
+  if (receiptId) {
+    return {
+      source: 'receipt',
+      id: receiptId,
+      fileName: statement?.fileName ?? null,
+      fileType: statement?.fileType ?? null,
+    };
+  }
+  if (!statement) return null;
+  return {
+    source: 'statement',
+    id: statement.id,
+    fileName: statement.fileName,
+    fileType: statement.fileType,
+  };
+}
+
 function absAmount(row: Transaction): number {
   return Math.abs(Number(row.amount) || Number(row.debit) || Number(row.credit) || 0);
 }
@@ -447,10 +452,15 @@ function toDateString(value: Date | string): string {
   return typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10);
 }
 
-function endOfDay(date: string): Date {
-  const end = new Date(date);
-  end.setUTCHours(23, 59, 59, 999);
-  return end;
+/**
+ * The start (or end) of a `YYYY-MM-DD` day in server time, the way the
+ * dashboard bounds its month, so a month here is the same month there.
+ */
+function localDay(date: string, end = false): Date {
+  const [year, month, day] = date.slice(0, 10).split('-').map(Number);
+  return end
+    ? new Date(year, month - 1, day, 23, 59, 59, 999)
+    : new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
 function receiptIssues(receipt: Receipt): string[] {

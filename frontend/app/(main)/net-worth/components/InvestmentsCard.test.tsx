@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InvestmentAccount } from '../hooks/useInvestments';
 import { InvestmentsCard } from './InvestmentsCard';
@@ -63,12 +63,15 @@ describe('InvestmentsCard', () => {
     hookMock.refreshPrices.mockClear();
   });
 
-  it('creates an account from the form', () => {
+  it('creates an account from a dialog, not a form on the page', () => {
     render(<InvestmentsCard currency="USD" locale="en" />);
 
     expect(screen.getByText('No investment or retirement accounts yet')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Account name'), { target: { value: 'Broker' } });
+    expect(screen.queryByLabelText('Account name')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
+    const dialog = within(screen.getByRole('dialog'));
+    fireEvent.change(dialog.getByLabelText('Account name'), { target: { value: 'Broker' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Add account' }));
     expect(hookMock.createAccount).toHaveBeenCalledWith('Broker', 'investment');
   });
 
@@ -77,7 +80,8 @@ describe('InvestmentsCard', () => {
     render(<InvestmentsCard currency="USD" locale="en" />);
 
     expect(screen.getByText('World ETF')).toBeInTheDocument();
-    expect(screen.getByText(/Gain: \+/)).toBeInTheDocument();
+    // The amount is an element of its own (privacy mode); the line is around it.
+    expect(screen.getByText(/Gain:/).textContent).toMatch(/Gain: \+/);
     fireEvent.click(screen.getByRole('button', { name: 'Refresh prices' }));
     expect(hookMock.refreshPrices).toHaveBeenCalledTimes(1);
 

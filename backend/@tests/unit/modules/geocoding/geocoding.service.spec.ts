@@ -1,7 +1,9 @@
+import type { MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Cache } from 'cache-manager';
 import { GeocodingService } from '@/modules/geocoding/geocoding.service';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -9,36 +11,39 @@ const makeCache = () => {
   const store = new Map<string, unknown>();
   return {
     store,
-    get: jest.fn(async (key: string) => store.get(key)),
-    set: jest.fn(async (key: string, value: unknown) => {
+    get: vi.fn(async (key: string) => store.get(key)),
+    set: vi.fn(async (key: string, value: unknown) => {
       store.set(key, value);
     }),
   };
 };
 
 const makeConfig = (values: Record<string, string | undefined>) =>
-  ({ get: jest.fn((key: string) => values[key]) }) as unknown as ConfigService;
+  ({ get: vi.fn((key: string) => values[key]) }) as unknown as ConfigService;
 
+// A real Response: the HTTP client reads headers and body the standard way.
 const jsonResponse = (body: unknown, status = 200) =>
-  ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 describe('GeocodingService', () => {
   const originalFetch = global.fetch;
-  const fetchMock = jest.fn();
-  let warnSpy: jest.SpyInstance;
+  const fetchMock = vi.fn();
+  let warnSpy: MockInstance;
 
   const create = (
     values: Record<string, string | undefined> = { GEOCODER_URL: 'http://nominatim:8080/' },
     cache = makeCache(),
   ) => ({
-    service: new GeocodingService(cache as unknown as Cache, makeConfig(values)),
+    service: new GeocodingService(cache as unknown as Cache, makeConfig(values), new EffectRuntime()),
     cache,
   });
 
   beforeEach(() => {
     fetchMock.mockReset();
-    global.fetch = fetchMock as unknown as typeof fetch;
-    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    // The HTTP client passes a URL object; the assertions read the string.
+    global.fetch = ((input: string | URL, init?: RequestInit) =>
+      fetchMock(String(input), init)) as unknown as typeof fetch;
+    warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -134,7 +139,13 @@ describe('GeocodingService', () => {
   });
 
   it('reports a timeout without the address', async () => {
-    fetchMock.mockRejectedValue(Object.assign(new Error('aborted'), { name: 'TimeoutError' }));
+    // A geocoder that never answers: the request is cut off at the timeout.
+    fetchMock.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) =>
+          init.signal?.addEventListener('abort', () => reject(new Error('aborted'))),
+        ),
+    );
     const { service } = create({ GEOCODER_URL: 'http://nominatim:8080', GEOCODER_TIMEOUT_MS: '50' });
 
     await expect(service.geocode('г. Алматы, ул. Абая 10')).resolves.toBeNull();
@@ -263,7 +274,7 @@ describe('GeocodingService', () => {
     it('returns nothing on failure, caches nothing and logs no coordinates', async () => {
       fetchMock
         .mockResolvedValueOnce(jsonResponse({ error: 'busy' }, 503))
-        .mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'TimeoutError' }));
+        .mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
       const { service, cache } = create();
 
       await expect(service.searchNearby({ ...near, placeType: 'cafe' })).resolves.toEqual([]);
@@ -271,7 +282,7 @@ describe('GeocodingService', () => {
 
       expect(cache.set).not.toHaveBeenCalled();
       expect(warnSpy).toHaveBeenCalledWith('Geocoding request failed: http_503');
-      expect(warnSpy).toHaveBeenCalledWith('Geocoding request failed: timeout');
+      expect(warnSpy).toHaveBeenCalledWith('Geocoding request failed: network');
       expect(JSON.stringify(warnSpy.mock.calls)).not.toMatch(/43\.7|7\.41/);
     });
   });

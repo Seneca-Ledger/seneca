@@ -1,4 +1,5 @@
-import type { DeepPartial, FindOptionsOrder, ObjectLiteral, Repository } from 'typeorm';
+import type { FindOptionsOrder, ObjectLiteral, Repository } from 'typeorm';
+import { withoutNullsOnRequired } from '../effect/without-nulls';
 import { assertFound } from '../utils/assert-found.util';
 
 /**
@@ -33,9 +34,15 @@ export abstract class WorkspaceCrudBaseService<T extends ObjectLiteral> {
     return entity;
   }
 
-  async update(id: string, workspaceId: string, dto: DeepPartial<T>): Promise<T> {
+  // Keyed by the entity's fields but loose in their values: request bodies carry
+  // contract literals ('income') where the entity has an enum with that value.
+  async update(
+    id: string,
+    workspaceId: string,
+    dto: Partial<Record<keyof T, unknown>>,
+  ): Promise<T> {
     const entity = await this.findOne(id, workspaceId);
-    Object.assign(entity, dto);
+    Object.assign(entity, withoutNullsOnRequired(this.repository.metadata, dto));
     return this.repository.save(entity);
   }
 

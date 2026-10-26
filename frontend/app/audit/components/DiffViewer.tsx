@@ -40,7 +40,13 @@ function DiffPatchView({ diff }: { diff: Extract<AuditEventDiff, unknown[]> }): 
               fontSize: 14,
             }}
           >
-            <Typography variant="body2" fontWeight={600} style={{ color: 'var(--foreground)' }}>
+            <Typography
+              variant="body2"
+              style={{ color: 'var(--foreground)' }}
+              sx={{
+                fontWeight: 600,
+              }}
+            >
               {op.op.toUpperCase()} {op.path}
             </Typography>
             {op.value !== undefined && (

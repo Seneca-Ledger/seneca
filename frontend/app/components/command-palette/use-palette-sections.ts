@@ -6,9 +6,10 @@ import { ArrowLeftRight, FileText, Tag, Wallet } from '@/app/components/icons';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useExperimentalMode } from '@/app/lib/experimental-mode';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import type { Command, CommandGroup } from './command-registry';
+import type { PageCommands } from './page-commands-store';
 
 export type SearchResultKind = 'transaction' | 'statement' | 'payable' | 'receivable' | 'category';
 
@@ -18,29 +19,35 @@ export interface SearchResult {
   title: string;
   subtitle: string | null;
   href: string;
+  /** What holding Space over the result previews. */
+  document: SearchResultDocument | null;
 }
 
-interface SearchResponse {
-  query: string;
-  results: SearchResult[];
+export interface SearchResultDocument {
+  source: 'statement' | 'receipt';
+  id: string;
+  fileName: string;
 }
 
 export type PaletteRow =
   | { kind: 'command'; id: string; command: Command }
   | { kind: 'result'; id: string; result: SearchResult };
 
-export type SectionGroup = CommandGroup | 'results' | 'recent';
+/** `picker` is the headless single section of a picker (see PickerBody). */
+export type SectionGroup = CommandGroup | 'results' | 'recent' | 'picker';
 
 export interface PaletteSection {
   group: SectionGroup;
   rows: PaletteRow[];
+  /** Overrides the group's own heading; the page section names itself. */
+  title?: string;
 }
 
 /** Matches the backend's MIN_QUERY_LENGTH — no point sending shorter needles. */
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 250;
 
-const GROUP_ORDER: CommandGroup[] = ['actions', 'navigation', 'settings', 'help'];
+const GROUP_ORDER: CommandGroup[] = ['page', 'actions', 'navigation', 'settings', 'help'];
 
 export const KIND_ICONS: Record<SearchResultKind, React.ReactNode> = {
   transaction: React.createElement(ArrowLeftRight, { size: 18 }),
@@ -61,6 +68,7 @@ function matches(command: Command, needle: string): boolean {
 export function usePaletteSections(
   input: string,
   commands: Command[],
+  page: PageCommands | null = null,
 ): {
   sections: PaletteSection[];
   rows: PaletteRow[];
@@ -83,21 +91,22 @@ export function usePaletteSections(
   const searchQuery = useQuery({
     queryKey: queryKeys.search({ workspaceId, q: query }),
     queryFn: ({ signal }) =>
-      apiQuery<SearchResponse>({ url: '/search', params: { q: query }, signal }),
+      apiQueryDecoded({ url: '/search', params: { q: query }, signal, contract: 'SearchResponse' }),
     enabled: searching,
     placeholderData: keepPreviousData,
   });
 
   const recentQuery = useQuery({
     queryKey: queryKeys.searchRecent(workspaceId),
-    queryFn: ({ signal }) => apiQuery<SearchResponse>({ url: '/search/recent', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/search/recent', signal, contract: 'SearchResponse' }),
     enabled: input.trim().length === 0,
   });
 
   const needle = input.trim().toLowerCase();
 
   const sections = useMemo(() => {
-    const visible = commands.filter(
+    const visible = [...(page?.commands ?? []), ...commands].filter(
       command =>
         (!command.permission || hasPermission(command.permission)) &&
         (!command.experimental || experimentalMode) &&
@@ -106,6 +115,7 @@ export function usePaletteSections(
 
     const grouped: PaletteSection[] = GROUP_ORDER.map(group => ({
       group,
+      title: group === 'page' ? page?.title : undefined,
       rows: visible
         .filter(command => command.group === group)
         .map(command => ({ kind: 'command' as const, id: command.id, command })),
@@ -121,6 +131,7 @@ export function usePaletteSections(
     return [...grouped, ...tail].filter(section => section.rows.length > 0);
   }, [
     commands,
+    page,
     hasPermission,
     experimentalMode,
     needle,

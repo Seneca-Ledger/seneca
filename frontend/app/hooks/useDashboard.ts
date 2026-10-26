@@ -2,45 +2,26 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
+import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type {
-  DashboardCashFlowRange,
-  DashboardData,
-  DashboardHealthHistory,
-  DashboardMonthlyCashFlow,
-  DashboardRange,
-  DashboardTrends,
-} from './useDashboard.types';
+import type { DashboardCashFlowEntry, DashboardData, DashboardRange } from './useDashboard.types';
 import { useWorkspaceId } from './useWorkspaceId';
 
 export type {
   DashboardActionItem,
+  DashboardCashFlowEntry,
   DashboardCashFlowPoint,
-  DashboardCashFlowRange,
   DashboardData,
   DashboardDataHealth,
   DashboardFinancialSnapshot,
-  DashboardHealthHistory,
-  DashboardHealthMonth,
-  DashboardMonthlyCashFlow,
-  DashboardMonthlyCashFlowPoint,
   DashboardNotification,
   DashboardRange,
   DashboardRecentTransaction,
   DashboardTopCategory,
   DashboardTopMerchant,
-  DashboardTrends,
 } from './useDashboard.types';
-
-interface TrendsState {
-  data: DashboardTrends | undefined;
-  isPending: boolean;
-  isFetching: boolean;
-  error: string | null;
-  refetch: () => void;
-}
 
 interface DashboardState {
   data: DashboardData | undefined;
@@ -63,100 +44,12 @@ interface DashboardState {
  * воркспейса A под названием воркспейса B (workspaceId — второй сегмент ключа).
  */
 
-/** `month` (YYYY-MM) wins over `days`: the dashboard asks for a calendar month. */
-export function useDashboardTrends({
-  days = 30,
-  month,
-}: {
-  days?: number;
-  month?: string;
-} = {}): TrendsState {
-  const workspaceId = useWorkspaceId();
-  const query = useQuery({
-    queryKey: queryKeys.dashboardTrends({ workspaceId, days, month: month ?? null }),
-    queryFn: ({ signal }) =>
-      apiQuery<DashboardTrends>({
-        url: '/dashboard/trends',
-        params: month ? { month } : { days },
-        signal,
-      }),
-    placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
-  });
-
-  const refetch = useCallback((): void => {
-    void query.refetch();
-  }, [query.refetch]);
-
-  return {
-    data: query.data,
-    isPending: query.isPending,
-    isFetching: query.isFetching,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load trends') : null,
-    refetch,
-  };
-}
-
-interface HealthHistoryState {
-  data: DashboardHealthHistory | undefined;
-  isPending: boolean;
-  error: string | null;
-}
-
-export function useDashboardHealthHistory(year: number): HealthHistoryState {
-  const workspaceId = useWorkspaceId();
-  const query = useQuery({
-    queryKey: queryKeys.dashboardHealthHistory({ workspaceId, year }),
-    queryFn: ({ signal }) =>
-      apiQuery<DashboardHealthHistory>({
-        url: '/dashboard/health-history',
-        params: { year },
-        signal,
-      }),
-    placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
-  });
-
-  return {
-    data: query.data,
-    isPending: query.isPending,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load history') : null,
-  };
-}
-
-interface CashFlowState {
-  data: DashboardMonthlyCashFlow | undefined;
-  isPending: boolean;
-  error: string | null;
-}
-
-/** `month` (YYYY-MM) is where every range ends; without it the backend uses the current month. */
-export function useDashboardCashFlow(range: DashboardCashFlowRange, month?: string): CashFlowState {
-  const workspaceId = useWorkspaceId();
-  const query = useQuery({
-    queryKey: queryKeys.dashboardCashFlow({ workspaceId, range, month: month ?? null }),
-    queryFn: ({ signal }) =>
-      apiQuery<DashboardMonthlyCashFlow>({
-        url: '/dashboard/cash-flow',
-        params: month ? { range, month } : { range },
-        signal,
-      }),
-    placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
-  });
-
-  return {
-    data: query.data,
-    isPending: query.isPending,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load cash flow') : null,
-  };
-}
-
 export function useDashboard(
   controlledRange: DashboardRange = '30d',
   controlledDate?: string,
 ): DashboardState {
   const workspaceId = useWorkspaceId();
+  const t = useIntlayer('dashboardPage');
   const [range, setRange] = useState<DashboardRange>(controlledRange);
   const [targetDate, setTargetDate] = useState<string | null>(controlledDate ?? null);
 
@@ -177,10 +70,11 @@ export function useDashboard(
     queryFn: ({ signal }) => {
       const params: Record<string, string> = { range };
       if (targetDate) params.date = targetDate;
-      return apiQuery<DashboardData>({ url: '/dashboard', params, signal });
+      return apiQueryDecoded({ url: '/dashboard', params, signal, contract: 'DashboardResponse' });
     },
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const changeRange = useCallback((newRange: DashboardRange): void => {
@@ -197,11 +91,31 @@ export function useDashboard(
     data: query.data,
     isPending: query.isPending,
     isFetching: query.isFetching,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load dashboard') : null,
+    error: query.isError ? getApiErrorMessage(query.error, t.error.load.value) : null,
     refetch,
     range,
     changeRange,
     targetDate,
     changeTargetDate,
   };
+}
+
+/**
+ * The named rows behind a month's daily cash flow (YYYY-MM), for the card's day tooltip.
+ * `undefined` until they arrive.
+ */
+export function useCashFlowEntries(month: string): DashboardCashFlowEntry[] | undefined {
+  const workspaceId = useWorkspaceId();
+  const query = useQuery({
+    queryKey: queryKeys.dashboardCashFlowEntries({ workspaceId, month }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        contract: 'DashboardCashFlowEntriesResponse',
+        url: '/dashboard/cash-flow/entries',
+        params: { month } satisfies ContractInput<'CashFlowEntriesQuery'>,
+        signal,
+      }),
+    enabled: Boolean(workspaceId),
+  });
+  return query.data?.entries;
 }

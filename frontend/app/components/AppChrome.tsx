@@ -12,12 +12,15 @@ function shouldHideChrome(pathname: string | null) {
     pathname.startsWith('/onboarding') ||
     AUTH_ROUTE_PREFIXES.some(prefix => pathname.startsWith(prefix)) ||
     pathname.startsWith('/shared') ||
-    pathname.startsWith('/invite') ||
-    pathname.startsWith('/chat')
+    pathname.startsWith('/invite')
   );
 }
 
-export default function AppChrome() {
+export default function AppChrome({
+  initialSidebarCollapsed = false,
+}: {
+  initialSidebarCollapsed?: boolean;
+}) {
   const pathname = usePathname();
 
   if (shouldHideChrome(pathname)) {
@@ -25,5 +28,5 @@ export default function AppChrome() {
   }
 
   // Desktop sidebar (hidden on mobile via CSS; the bottom bar menu replaces it there)
-  return <Sidebar />;
+  return <Sidebar initialCollapsed={initialSidebarCollapsed} />;
 }

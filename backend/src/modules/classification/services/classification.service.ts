@@ -1,21 +1,21 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
-import { onlyCounted } from '../../../common/utils/counted-transactions.util';
 import { payeeKeyOf } from '../../../common/utils/payee-key.util';
-import { OWNER_SHARED } from '../../../common/utils/transaction-owner.util';
 import {
   DEFAULT_PROCESSING_SETTINGS,
   readProcessingSettings,
   type WorkspaceProcessingSettings,
 } from '../../../common/utils/workspace-processing.util';
+import { workspaceOwnsRefs } from '../../../common/utils/workspace-refs.util';
 import { ActorType, AuditAction, EntityType } from '../../../entities/audit-event.entity';
 import { Branch } from '../../../entities/branch.entity';
 import { CategorizationRule } from '../../../entities/categorization-rule.entity';
 import { Category, CategorySource, CategoryType } from '../../../entities/category.entity';
-import { PayeeOverride } from '../../../entities/payee-override.entity';
+import { Payee } from '../../../entities/payee.entity';
+import { PayeeAlias } from '../../../entities/payee-alias.entity';
 import {
   Transaction,
   TransactionCategorySource,
@@ -23,33 +23,18 @@ import {
 } from '../../../entities/transaction.entity';
 import { Wallet } from '../../../entities/wallet.entity';
 import { Workspace } from '../../../entities/workspace.entity';
-import { ApplicationSettingsService } from '../../application-settings/application-settings.service';
 import { AuditService } from '../../audit/audit.service';
-import { CategoriesService } from '../../categories/categories.service';
-import {
-  isUncategorizedName,
-  UNCATEGORIZED_CATEGORY_NAME,
-} from '../../categories/uncategorized-category';
+import { UNCATEGORIZED_CATEGORY_NAME } from '../../categories/uncategorized-category';
 import { decidePayeeCategory } from '../engine/payee-category.matcher';
-import {
-  AiCategoryClassifier,
-  type AiCategoryMatch,
-} from '../helpers/ai-category-classifier.helper';
+import { onlyPayeeEvidence } from '../engine/payee-evidence';
+import { matchesConditions } from '../engine/rule-conditions';
 import {
   type ClassificationCondition,
   type ClassificationRule,
 } from '../interfaces/classification-rule.interface';
-import type { TransactionEnrichment } from '../interfaces/transaction-enrichment.interface';
-
-type BatchTransactionClassificationInput = {
-  index: number;
-  counterpartyName: string;
-  paymentPurpose: string;
-  transactionType: TransactionType;
-};
 
 /** A category plus the step that found it and the payload the UI shows as "why". */
-type AutoCategoryMatch = {
+export type AutoCategoryMatch = {
   categoryId: string;
   source: TransactionCategorySource;
   reason: string | null;
@@ -65,15 +50,15 @@ const PROCESSING_SETTINGS_TTL_MS = 60_000;
 
 @Injectable()
 export class ClassificationService {
-  private readonly aiCategoryClassifier = new AiCategoryClassifier();
-
   constructor(
     @InjectRepository(Category)
     private categoryRepository: Repository<Category>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
-    @InjectRepository(PayeeOverride)
-    private payeeOverrideRepository: Repository<PayeeOverride>,
+    @InjectRepository(Payee)
+    private payeeRepository: Repository<Payee>,
+    @InjectRepository(PayeeAlias)
+    private payeeAliasRepository: Repository<PayeeAlias>,
     @InjectRepository(Branch)
     private branchRepository: Repository<Branch>,
     @InjectRepository(Wallet)
@@ -84,9 +69,6 @@ export class ClassificationService {
     private workspaceRepository: Repository<Workspace>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
-    private readonly categoriesService: CategoriesService,
-    @Optional()
-    private readonly applicationSettingsService?: ApplicationSettingsService,
   ) {}
 
   async classifyTransaction(
@@ -123,39 +105,34 @@ export class ClassificationService {
     // default, so it must not overwrite one.
     let ruleSetOwner = false;
 
-    // Get classification rules for user
-    const rules = (await this.getClassificationRules(userId, workspaceId)) ?? [];
-
-    // Apply rules in priority order
-    for (const rule of rules.sort((a, b) => b.priority - a.priority)) {
-      if (this.matchesRule(transaction, rule.conditions)) {
-        matchedRule = rule;
-        // Apply rule result
-        if (rule.result.categoryId) {
-          classification.categoryId = rule.result.categoryId;
-          classification.categorySource = TransactionCategorySource.RULE;
-          classification.categoryReason = rule.name;
-        }
-        if (rule.result.branchId) {
-          classification.branchId = rule.result.branchId;
-        }
-        if (rule.result.walletId) {
-          classification.walletId = rule.result.walletId;
-        }
-        if (rule.result.ownerMemberId !== undefined) {
-          classification.ownerMemberId = rule.result.ownerMemberId;
-          ruleSetOwner = true;
-        }
-        if (rule.result.article) {
-          classification.article = rule.result.article;
-        }
-        if (rule.result.activityType) {
-          classification.activityType = rule.result.activityType;
-        }
-
-        // Stop at first matching rule (highest priority)
-        break;
+    // The workspace's rules, whoever wrote them: a rule is a decision about the
+    // workspace's money, so it applies to every member's imports.
+    const rules = await this.getClassificationRules(workspaceId);
+    const rule = await this.firstApplicableRule(rules, transaction, workspaceId);
+    if (rule) {
+      matchedRule = rule;
+      if (rule.result.categoryId) {
+        classification.categoryId = rule.result.categoryId;
+        classification.categorySource = TransactionCategorySource.RULE;
+        classification.categoryReason = rule.name;
       }
+      if (rule.result.branchId) {
+        classification.branchId = rule.result.branchId;
+      }
+      if (rule.result.walletId) {
+        classification.walletId = rule.result.walletId;
+      }
+      if (rule.result.ownerMemberId !== undefined) {
+        classification.ownerMemberId = rule.result.ownerMemberId;
+        ruleSetOwner = true;
+      }
+      if (rule.result.article) {
+        classification.article = rule.result.article;
+      }
+      if (rule.result.activityType) {
+        classification.activityType = rule.result.activityType;
+      }
+      await this.recordRuleMatch(rule.id, workspaceId);
     }
 
     // Auto-classify category if not set
@@ -189,7 +166,10 @@ export class ClassificationService {
     // One primary-key lookup per transaction, and the whole classification is
     // cached below, so it does not add a query per row of a re-imported file.
     if (classification.walletId && !ruleSetOwner) {
-      classification.ownerMemberId = await this.walletOwnerMemberId(classification.walletId);
+      classification.ownerMemberId = await this.walletOwnerMemberId(
+        classification.walletId,
+        workspaceId,
+      );
     }
 
     // Cache result for 5 minutes
@@ -207,7 +187,7 @@ export class ClassificationService {
         entityId: transaction.id,
         action: AuditAction.APPLY_RULE,
         meta: {
-          ruleId: matchedRule.id ?? null,
+          ruleId: matchedRule.id,
           ruleName: matchedRule.name,
           confidence: 1,
         },
@@ -218,69 +198,82 @@ export class ClassificationService {
     return classification;
   }
 
+  /**
+   * The category for one payee outside a statement import: a scanned receipt,
+   * an emailed invoice. The same steps a bank row goes through: a rule the user
+   * wrote, then what this payee was filed as before. `null` means "leave it for
+   * the user", never the Uncategorized fallback.
+   */
+  async suggestForPayee(input: {
+    workspaceId: string;
+    userId: string;
+    counterpartyName: string;
+    paymentPurpose?: string | null;
+    transactionType: TransactionType;
+    amount?: number | null;
+  }): Promise<AutoCategoryMatch | null> {
+    const transaction = {
+      workspaceId: input.workspaceId,
+      counterpartyName: input.counterpartyName,
+      paymentPurpose: input.paymentPurpose ?? input.counterpartyName,
+      transactionType: input.transactionType,
+      amount: input.amount ?? null,
+      debit: input.transactionType === TransactionType.EXPENSE ? (input.amount ?? null) : null,
+      credit: input.transactionType === TransactionType.INCOME ? (input.amount ?? null) : null,
+    } as Transaction;
+
+    const rules = await this.getClassificationRules(input.workspaceId);
+    const rule = await this.firstApplicableRule(rules, transaction, input.workspaceId);
+    if (rule?.result.categoryId) {
+      await this.recordRuleMatch(rule.id, input.workspaceId);
+      return {
+        categoryId: rule.result.categoryId,
+        source: TransactionCategorySource.RULE,
+        reason: rule.name,
+      };
+    }
+
+    return (await this.matchByPayeeHistory(transaction, input.workspaceId)) ?? null;
+  }
+
   matchesRule(transaction: Transaction, conditions: ClassificationCondition[]): boolean {
-    return conditions.every(condition => {
-      const fieldValue = this.getFieldValue(transaction, condition.field);
-      return this.evaluateCondition(fieldValue, condition);
-    });
+    return matchesConditions(transaction, conditions);
   }
 
-  private getFieldValue(transaction: Transaction, field: string): string | number | null {
-    switch (field) {
-      case 'counterparty_name':
-        return transaction.counterpartyName;
-      case 'payment_purpose':
-        return transaction.paymentPurpose;
-      case 'amount':
-        return transaction.amount || transaction.debit || transaction.credit || 0;
-      case 'counterparty_bin':
-        return transaction.counterpartyBin || null;
-      case 'document_number':
-        return transaction.documentNumber || null;
-      // `shared` rather than null: the condition evaluator treats null as "no
-      // value" and refuses to match, so a rule about shared rows needs a word.
-      case 'owner':
-        return transaction.ownerMemberId ?? OWNER_SHARED;
-      default:
-        return null;
+  /**
+   * The highest-priority rule that matches and names only this workspace's
+   * category, branch and wallet. A rule saved before its targets were checked
+   * may still name another workspace's: it is passed over, not applied.
+   */
+  private async firstApplicableRule(
+    rules: ClassificationRule[],
+    transaction: Transaction,
+    workspaceId: string | null,
+  ): Promise<ClassificationRule | null> {
+    for (const rule of [...rules].sort((a, b) => b.priority - a.priority)) {
+      if (!this.matchesRule(transaction, rule.conditions)) {
+        continue;
+      }
+      if (
+        workspaceId &&
+        !(await workspaceOwnsRefs(this.walletRepository.manager, workspaceId, rule.result))
+      ) {
+        continue;
+      }
+      return rule;
     }
+    return null;
   }
 
-  private evaluateCondition(
-    fieldValue: string | number | null,
-    condition: ClassificationCondition,
-  ): boolean {
-    if (fieldValue === null || fieldValue === undefined) {
-      return false;
+  /** Keeps the "matched N times, last on …" line on the rules page true. */
+  async recordRuleMatch(ruleId: string | undefined, workspaceId: string | null, count = 1) {
+    if (!ruleId || !workspaceId || count < 1) {
+      return;
     }
-
-    const conditionValue = condition.value;
-    const fieldStr = String(fieldValue).toLowerCase();
-    const conditionStr = String(conditionValue).toLowerCase();
-
-    switch (condition.operator) {
-      case 'contains':
-        return fieldStr.includes(conditionStr);
-      case 'equals':
-        return fieldStr === conditionStr;
-      case 'starts_with':
-        return fieldStr.startsWith(conditionStr);
-      case 'ends_with':
-        return fieldStr.endsWith(conditionStr);
-      case 'regex':
-        try {
-          const regex = new RegExp(conditionValue as string, 'i');
-          return regex.test(fieldStr);
-        } catch {
-          return false;
-        }
-      case 'greater_than':
-        return Number(fieldValue) > Number(conditionValue);
-      case 'less_than':
-        return Number(fieldValue) < Number(conditionValue);
-      default:
-        return false;
-    }
+    await this.categorizationRuleRepository.update(
+      { id: ruleId, workspaceId },
+      { matchCount: () => `match_count + ${Math.trunc(count)}`, lastMatchedAt: new Date() },
+    );
   }
 
   private async autoClassifyCategory(
@@ -316,33 +309,50 @@ export class ClassificationService {
   }
 
   /**
-   * What this payee was filed as before. Only rows a person confirmed are read:
-   * an auto-assigned category must never become the evidence for the next
-   * auto-assignment, or one wrong guess reinforces itself forever.
+   * What this row's payee was filed as before. The payee is the one the row
+   * already has, or, for a row not booked yet, the one its descriptor is an
+   * alias of. A descriptor never seen before has no payee and no history.
    */
   private async matchByPayeeHistory(
     transaction: Transaction,
     workspaceId: string,
+  ): Promise<AutoCategoryMatch | undefined> {
+    let payeeId = transaction.payeeId ?? null;
+    if (!payeeId) {
+      const payeeKey = payeeKeyOf(transaction);
+      const alias = payeeKey
+        ? await this.payeeAliasRepository.findOne({ where: { workspaceId, payeeKey } })
+        : null;
+      payeeId = alias?.payeeId ?? null;
+    }
+    return payeeId ? this.categoryForPayee(workspaceId, payeeId) : undefined;
+  }
+
+  /**
+   * The category a payee defaults to: its pin when the user said "always",
+   * nothing when they said "never", otherwise its history by the YNAB rule.
+   * Only rows a person decided are read (`onlyPayeeEvidence`), so an
+   * auto-assigned category never becomes the evidence for the next one.
+   */
+  async categoryForPayee(
+    workspaceId: string,
+    payeeId: string,
   ): Promise<AutoCategoryMatch | undefined> {
     const settings = await this.getProcessingSettings(workspaceId);
     if (!settings.merchantLearning) {
       return undefined;
     }
 
-    const payeeKey = payeeKeyOf(transaction);
-    if (!payeeKey) {
+    const payee = await this.payeeRepository.findOne({ where: { id: payeeId, workspaceId } });
+    if (!payee) {
       return undefined;
     }
 
-    const override = await this.payeeOverrideRepository.findOne({
-      where: { workspaceId, payeeKey },
-    });
-
-    const newestFirst = await this.payeeHistoryQuery(workspaceId, payeeKey).getMany();
+    const newestFirst = await this.payeeHistoryQuery(workspaceId, payeeId).getMany();
     const decision = decidePayeeCategory({
       // The matcher replays history forward; the query hands back the newest first.
       history: [...newestFirst].reverse().map(row => ({ categoryId: row.categoryId as string })),
-      override: override ? { mode: override.mode, categoryId: override.categoryId } : undefined,
+      override: { mode: payee.mode, categoryId: payee.categoryId },
     });
 
     if (!decision) {
@@ -355,18 +365,17 @@ export class ClassificationService {
         decision.basis === 'payee-pinned'
           ? TransactionCategorySource.LEARNED
           : TransactionCategorySource.HISTORY,
-      reason: override?.displayName ?? transaction.counterpartyName ?? payeeKey,
+      reason: payee.name,
     };
   }
 
-  private payeeHistoryQuery(workspaceId: string, payeeKey: string) {
+  private payeeHistoryQuery(workspaceId: string, payeeId: string) {
     const query = this.transactionRepository
       .createQueryBuilder('transaction')
       .select(['transaction.id', 'transaction.categoryId'])
       .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.payeeKey = :payeeKey', { payeeKey })
-      .andWhere('transaction.categoryId IS NOT NULL');
-    return onlyCounted(query, 'transaction')
+      .andWhere('transaction.payeeId = :payeeId', { payeeId });
+    return onlyPayeeEvidence(query, 'transaction')
       .orderBy('transaction.transactionDate', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC')
       .take(PAYEE_HISTORY_DEPTH);
@@ -376,11 +385,22 @@ export class ClassificationService {
     return workspaceId ? { workspaceId } : { userId };
   }
 
-  /** Who owns the wallet, or null when it is shared. */
-  private async walletOwnerMemberId(walletId: string): Promise<string | null> {
+  /**
+   * Who owns the wallet, or null when it is shared. Looked up in the row's own
+   * workspace: a member of another one is never copied onto it.
+   */
+  private async walletOwnerMemberId(
+    walletId: string,
+    workspaceId: string | null,
+  ): Promise<string | null> {
+    if (!workspaceId) {
+      return null;
+    }
     const wallet = await this.walletRepository.findOne({
-      where: { id: walletId },
-      select: ['ownerMemberId'],
+      where: { id: walletId, workspaceId },
+      select: {
+        ownerMemberId: true,
+      },
     });
     return wallet?.ownerMemberId ?? null;
   }
@@ -439,17 +459,14 @@ export class ClassificationService {
     return (matched || branches[0])?.id;
   }
 
-  private async getClassificationRules(
-    userId: string,
-    workspaceId: string | null = null,
-  ): Promise<ClassificationRule[]> {
-    // Load user-defined categorization rules from database
+  async getClassificationRules(workspaceId: string | null): Promise<ClassificationRule[]> {
+    // Without a workspace there is nothing to scope by, and an empty `where`
+    // would read every workspace's rules.
+    if (!workspaceId) {
+      return [];
+    }
     const userRules = await this.categorizationRuleRepository.find({
-      where: {
-        userId,
-        ...(workspaceId ? { workspaceId } : {}),
-        isActive: true,
-      },
+      where: { workspaceId, isActive: true },
       order: {
         priority: 'DESC',
       },
@@ -472,98 +489,6 @@ export class ClassificationService {
     // or Spanish workspace with Russian categories. Bank-specific wording
     // belongs to the bank profile, not to every workspace in the product.
     return dbRules.sort((a, b) => b.priority - a.priority);
-  }
-
-  async classifyTransactionsBatch(
-    transactions: BatchTransactionClassificationInput[],
-    workspaceId: string,
-  ): Promise<Map<number, { categoryId: string; enrichment?: TransactionEnrichment }>> {
-    const resultByIndex = new Map<
-      number,
-      { categoryId: string; enrichment?: TransactionEnrichment }
-    >();
-
-    if (!(transactions.length && workspaceId)) {
-      return resultByIndex;
-    }
-
-    const processing = await this.getProcessingSettings(workspaceId);
-    if (!processing.aiCategorization) {
-      return resultByIndex;
-    }
-
-    const aiSettings =
-      await this.applicationSettingsService?.getAiSettingsForWorkspaceId(workspaceId);
-    if (aiSettings) {
-      this.aiCategoryClassifier.configureAiClient(aiSettings);
-    }
-    if (!this.aiCategoryClassifier.isAvailable()) {
-      return resultByIndex;
-    }
-
-    const incomeTransactions = transactions.filter(
-      tx => tx.transactionType === TransactionType.INCOME,
-    );
-    const expenseTransactions = transactions.filter(
-      tx => tx.transactionType === TransactionType.EXPENSE,
-    );
-
-    const [incomeCategories, expenseCategories] = await Promise.all([
-      this.getAiCategoryOptions(workspaceId, CategoryType.INCOME),
-      this.getAiCategoryOptions(workspaceId, CategoryType.EXPENSE),
-    ]);
-
-    const [incomeResult, expenseResult] = await Promise.all([
-      this.classifyTransactionGroupWithAi(incomeTransactions, incomeCategories),
-      this.classifyTransactionGroupWithAi(expenseTransactions, expenseCategories),
-    ]);
-
-    const matches = [...incomeResult, ...expenseResult];
-
-    for (const match of matches) {
-      const enrichment: TransactionEnrichment = {
-        vendorNormalized: processing.aiMerchantNormalization ? match.vendorNormalized : undefined,
-        categoryHint: match.categoryHint,
-        taxMentioned: match.taxMentioned,
-        taxRate: match.taxRate,
-        transactionNature: match.transactionNature,
-        confidence: match.confidence,
-      };
-      resultByIndex.set(match.index, { categoryId: match.categoryId, enrichment });
-    }
-
-    return resultByIndex;
-  }
-
-  private async classifyTransactionGroupWithAi(
-    transactions: BatchTransactionClassificationInput[],
-    categories: Array<{ id: string; name: string }>,
-  ): Promise<AiCategoryMatch[]> {
-    if (!(transactions.length && categories.length)) {
-      return [];
-    }
-
-    const result = await this.aiCategoryClassifier.classifyBatch(
-      transactions.map(tx => ({
-        index: tx.index,
-        counterpartyName: tx.counterpartyName,
-        paymentPurpose: tx.paymentPurpose,
-      })),
-      categories,
-    );
-
-    return result.matches;
-  }
-
-  private async getAiCategoryOptions(
-    workspaceId: string,
-    type: CategoryType,
-  ): Promise<Array<{ id: string; name: string }>> {
-    const categories = await this.categoriesService.findAll(workspaceId, type);
-    return categories
-      .filter(category => category.isEnabled !== false)
-      .filter(category => !isUncategorizedName(category.name))
-      .map(category => ({ id: category.id, name: category.name }));
   }
 
   async ensureCategory(
@@ -599,7 +524,7 @@ export class ClassificationService {
     if (!category) {
       category = this.categoryRepository.create({
         userId,
-        workspaceId,
+        workspaceId: workspaceId ?? undefined,
         name: categoryName,
         type,
         isSystem: false,
@@ -771,7 +696,10 @@ export class ClassificationService {
 
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'settings'],
+      select: {
+        id: true,
+        settings: true,
+      },
     });
     const settings = readProcessingSettings(workspace);
 

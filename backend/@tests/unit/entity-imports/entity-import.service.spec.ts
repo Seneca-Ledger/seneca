@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EntityImportService } from '../../../src/modules/entity-imports/entity-import.service';
 
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111';
@@ -6,12 +6,12 @@ const USER_ID = '22222222-2222-4222-8222-222222222222';
 const BATCH_ID = '33333333-3333-4333-8333-333333333333';
 
 const repoMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn().mockResolvedValue([]),
-  save: jest.fn(async (value: unknown) => ({ ...(value as object), id: BATCH_ID })),
-  create: jest.fn((value: unknown) => value),
-  update: jest.fn().mockResolvedValue({ affected: 1 }),
-  delete: jest.fn().mockResolvedValue({ affected: 1 }),
+  findOne: vi.fn(),
+  find: vi.fn().mockResolvedValue([]),
+  save: vi.fn(async (value: unknown) => ({ ...(value as object), id: BATCH_ID })),
+  create: vi.fn((value: unknown) => value),
+  update: vi.fn().mockResolvedValue({ affected: 1 }),
+  delete: vi.fn().mockResolvedValue({ affected: 1 }),
 });
 
 const build = () => {
@@ -26,12 +26,12 @@ const build = () => {
   };
   const dataSource = {
     manager,
-    transaction: jest.fn(async (fn: (m: typeof manager) => unknown) => fn(manager)),
+    transaction: vi.fn(async (fn: (m: typeof manager) => unknown) => fn(manager)),
     getRepository: manager.getRepository,
   };
   const batches = repoMock();
   const members = repoMock();
-  const audit = { createEvent: jest.fn() };
+  const audit = { createEvent: vi.fn() };
   const service = new EntityImportService(
     dataSource as never,
     batches as never,
@@ -42,6 +42,20 @@ const build = () => {
 };
 
 describe('EntityImportService', () => {
+  it("refuses an API key without the target's create scope, before reading a row", async () => {
+    const { service, dataSource } = build();
+    const readOnlyKey = { scopes: ['payable.view', 'statement.view'] };
+    const dto = { target: 'payables' as const, mapping: { vendor: 0, amount: 1 }, rows: [['A', '1']] };
+
+    await expect(service.run(USER_ID, WORKSPACE_ID, dto, readOnlyKey)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    await expect(
+      service.run(USER_ID, WORKSPACE_ID, dto, { scopes: ['payable.create'] }),
+    ).resolves.toMatchObject({ target: 'payables' });
+  });
+
   it('rejects a mapping without the required fields', async () => {
     const { service } = build();
     await expect(
@@ -118,5 +132,56 @@ describe('EntityImportService', () => {
     await expect(service.undo(USER_ID, WORKSPACE_ID, BATCH_ID)).rejects.toBeInstanceOf(NotFoundException);
     batches.findOne.mockResolvedValueOnce({ id: BATCH_ID, workspaceId: WORKSPACE_ID, target: 'payables', undoneAt: new Date(), createdRefs: [], updatedRefs: [] });
     await expect(service.undo(USER_ID, WORKSPACE_ID, BATCH_ID)).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('EntityImportService categorising imported transactions', () => {
+  const STATEMENT_ID = '44444444-4444-4444-8444-444444444444';
+
+  const setup = (classified: Array<Record<string, unknown>>) => {
+    const { dataSource } = build();
+    const classification = {
+      classifyTransaction: vi.fn(),
+    };
+    for (const result of classified) {
+      classification.classifyTransaction.mockResolvedValueOnce(result);
+    }
+    const service = new EntityImportService(
+      dataSource as never,
+      repoMock() as never,
+      repoMock() as never,
+      { createEvent: vi.fn() } as never,
+      classification as never,
+    );
+    const transactions = dataSource.getRepository({ name: 'Transaction' }) as ReturnType<typeof repoMock>;
+    transactions.find.mockResolvedValue([
+      { id: 't-1', counterpartyName: 'REWE', paymentPurpose: '', transactionType: 'expense' },
+      { id: 't-2', counterpartyName: 'New Shop', paymentPurpose: '', transactionType: 'expense' },
+    ]);
+    const run = () =>
+      (service as unknown as { categorize: (...args: unknown[]) => Promise<void> }).categorize(
+        USER_ID,
+        WORKSPACE_ID,
+        [{ kind: 'statement', id: STATEMENT_ID }],
+      );
+    return { run, classification, transactions };
+  };
+
+  it('stores what the rules and payee history decided for each row', async () => {
+    const { run, transactions } = setup([
+      { categoryId: 'groceries', categorySource: 'history', categoryReason: 'REWE' },
+      { categoryId: 'uncategorized', categorySource: 'default', categoryReason: null },
+    ]);
+
+    await run();
+
+    expect(transactions.update).toHaveBeenCalledWith(
+      { id: 't-1', workspaceId: WORKSPACE_ID },
+      { categoryId: 'groceries', categorySource: 'history', categoryReason: 'REWE' },
+    );
+    expect(transactions.update).toHaveBeenCalledWith(
+      { id: 't-2', workspaceId: WORKSPACE_ID },
+      { categoryId: 'uncategorized', categorySource: 'default', categoryReason: null },
+    );
   });
 });

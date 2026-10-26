@@ -1,12 +1,14 @@
 'use client';
 
+import { Fragment, useState } from 'react';
 import { ArrowDown } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
-import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
+import { resolveReceiptMerchantLabel } from '@/app/lib/receipt-merchant';
 import {
   getStatementDisplayMerchant,
   getStatementMerchantLabel,
@@ -18,19 +20,20 @@ import {
   type StatementColumnId,
   statementColumnWidthStyle,
 } from './columns/statement-columns';
+import { type CategoryTarget, DocumentCategoryDrawer } from './DocumentCategoryDrawer';
 import type { DuplicateMeta } from './hooks/useStatementSelection';
-import { StatementsGmailSync } from './StatementsGmailSync';
 import { StatementsListItem } from './StatementsListItem';
 import {
   formatPaginationLabel,
   formatStatementAmount,
   formatStatementDate,
   getBankDisplayName,
-  isGmailStatement,
   isReceiptProcessing,
   isStatementParsingInProgress,
   resolvePendingReview,
 } from './StatementsListView.utils';
+import { StatementsUploadSkeletons } from './StatementsUploadSkeletons';
+import { StatementTransactionsPanel } from './StatementTransactionsPanel';
 
 interface StatementForTable {
   id: string;
@@ -43,7 +46,7 @@ interface StatementForTable {
   sender?: string;
   exported?: boolean | null;
   paid?: boolean | null;
-  processedAt?: string;
+  processedAt?: string | null;
   receivedAt?: string;
   createdAt: string;
   parsedData?: {
@@ -62,6 +65,7 @@ interface StatementForTable {
     icon?: string | null;
   } | null;
   tags?: Array<{ id?: string; name?: string; color?: string | null }>;
+  totalTransactions?: number | string | null;
   transactionSummary?: {
     description?: string | null;
     exchangeRate?: string | number | null;
@@ -74,14 +78,7 @@ interface StatementForTable {
     email?: string | null;
     avatarUrl?: string | null;
   } | null;
-  parsingDetails?: {
-    importPreview?: {
-      attachments?: number;
-      description?: string;
-      merchant?: string;
-      categoryId?: string;
-    };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 interface TableLabels {
@@ -103,7 +100,7 @@ interface Props {
   loading: boolean;
   displayStatements: StatementForTable[];
   paginatedStatements: StatementForTable[];
-  gmailSyncSkeletonKeys: string[];
+  skeletonKeys: string[];
   allVisibleSelected: boolean;
   selectedCount: number;
   selectedStatementIds: string[];
@@ -154,6 +151,27 @@ const getRenderedColumns = (
 
 const NO_REVIEW_COUNTS: Record<string, number> = {};
 
+/** What the From column shows for a row; mirrors the cell in StatementsListItem. */
+const fromValue = (statement: StatementForTable): string =>
+  (statement.user?.name || statement.user?.email || statement.sender || '').trim();
+
+/**
+ * From says nothing when every row on the page has the same value there (all
+ * "camera-scan", say), so the column steps aside until the rows differ.
+ */
+const withoutUniformFrom = (
+  columns: StatementColumn[] | undefined,
+  statements: StatementForTable[],
+): StatementColumn[] | undefined => {
+  if (!columns?.some(column => column.id === 'from' && column.visible)) {
+    return columns;
+  }
+  if (new Set(statements.map(fromValue)).size > 1) {
+    return columns;
+  }
+  return columns.map(column => (column.id === 'from' ? { ...column, visible: false } : column));
+};
+
 interface StatementRowData {
   isReceipt: boolean;
   merchantLabel: string;
@@ -169,11 +187,10 @@ function resolveStatementRowData(
   statement: StatementForTable,
   scanningLabel: string,
 ): StatementRowData {
-  const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
+  const isReceipt = statement.source === 'scan';
   const resolvedName = isReceipt
-    ? resolveGmailMerchantLabel({
+    ? resolveReceiptMerchantLabel({
         vendor: statement.parsedData?.vendor,
-        sender: isGmailStatement(statement) ? statement.sender : undefined,
         subject: statement.subject,
         fallback: statement.fileName,
       })
@@ -205,6 +222,7 @@ function TableDesktopHeader({
   dateSortDirection,
   columns = DEFAULT_STATEMENT_COLUMNS,
   labels,
+  reviewLabel,
   onToggleSelectAll,
   onToggleSortDirection,
 }: {
@@ -213,6 +231,7 @@ function TableDesktopHeader({
   dateSortDirection: 'asc' | 'desc';
   columns?: StatementColumn[];
   labels: TableLabels;
+  reviewLabel: string;
   onToggleSelectAll: (checked: boolean) => void;
   onToggleSortDirection: () => void;
 }): React.JSX.Element {
@@ -220,7 +239,7 @@ function TableDesktopHeader({
   const listText = useIntlayer('statementsListUi');
 
   return (
-    <div className="lumio-stmt-list-view__desktop-header">
+    <div className="seneca-stmt-list-view__desktop-header">
       <div
         style={{
           width: 16,
@@ -279,7 +298,18 @@ function TableDesktopHeader({
               </span>
             ) : column.id === 'receipt' || column.id === 'action' ? (
               // The arrow column needs no visible title; screen readers keep it.
-              <span className="u-visually-hidden">{column.label || labels.receipt}</span>
+              <>
+                <span className="u-visually-hidden">{column.label || labels.receipt}</span>
+                {column.id === 'action' ? (
+                  // Gives the column the width the rows' Review label takes.
+                  <span
+                    aria-hidden
+                    className="seneca-stmt-list-item__view-btn seneca-stmt-list-item__action-sizer"
+                  >
+                    {reviewLabel}
+                  </span>
+                ) : null}
+              </>
             ) : (
               column.label
             )}
@@ -295,7 +325,7 @@ export function StatementsListTable({
   loading,
   displayStatements,
   paginatedStatements,
-  gmailSyncSkeletonKeys,
+  skeletonKeys,
   allVisibleSelected,
   selectedCount,
   selectedStatementIds,
@@ -321,22 +351,31 @@ export function StatementsListTable({
   onPageChange,
 }: Props): React.JSX.Element {
   const listText = useIntlayer('statementsListUi');
-  if (loading && gmailSyncSkeletonKeys.length === 0) {
+  // Statements whose rows are open under their line; each loads its rows on opening.
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
+  // The document whose "Add category" opened the category drawer.
+  const [categoryTarget, setCategoryTarget] = useState<CategoryTarget | null>(null);
+  const toggleExpanded = (id: string): void =>
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const shownColumns = withoutUniformFrom(columns, paginatedStatements);
+  if (loading && skeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__table">
+      <div className="seneca-stmt-list-view__table">
         {toolbar}
-        <div className="lumio-stmt-list-view__loading">
-          <Spinner style={{ height: 80, width: 80, color: 'var(--primary)' }} />
-        </div>
+        <SnapshotSkeleton id="statements-list" loading fallback="list" />
       </div>
     );
   }
 
-  if (displayStatements.length === 0 && gmailSyncSkeletonKeys.length === 0) {
+  if (displayStatements.length === 0 && skeletonKeys.length === 0) {
     return (
-      <div className="lumio-stmt-list-view__table">
+      <div className="seneca-stmt-list-view__table">
         {toolbar}
-        <div className="lumio-stmt-list-view__empty">
+        <div className="seneca-stmt-list-view__empty">
           <EmptyStateIllustration name="statements" size="lg" />
           <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--foreground)' }}>
             {labels.emptyTitle}
@@ -351,62 +390,85 @@ export function StatementsListTable({
 
   return (
     <>
-      <div className="lumio-stmt-list-view__table-scroll">
-        <div className="lumio-stmt-list-view__table">
+      <div className="seneca-stmt-list-view__table-scroll">
+        <div className="seneca-stmt-list-view__table">
           {toolbar}
-          <TableDesktopHeader
-            allVisibleSelected={allVisibleSelected}
-            selectedCount={selectedCount}
-            dateSortDirection={dateSortDirection}
-            columns={columns}
-            labels={labels}
-            onToggleSelectAll={onToggleSelectAll}
-            onToggleSortDirection={onToggleSortDirection}
-          />
-          <StatementsGmailSync skeletonKeys={gmailSyncSkeletonKeys} />
-          {paginatedStatements.map((statement, index) => {
-            const rowData = resolveStatementRowData(statement, labels.scanning);
-            const duplicateMeta = duplicateMetaById.get(statement.id);
-            return (
-              <StatementsListItem
-                key={statement.id}
-                dataTourId={index === 0 ? 'statement-row-primary' : undefined}
-                statement={statement as Parameters<typeof StatementsListItem>[0]['statement']}
-                viewLabel={viewLabel}
-                isReceipt={rowData.isReceipt}
-                isProcessing={rowData.isProcessingReceipt}
-                merchantLabel={rowData.merchantLabel}
-                amountLabel={rowData.amountLabel}
-                dateLabel={rowData.dateLabel}
-                isPossibleDuplicate={Boolean(duplicateMeta)}
-                duplicatePosition={duplicateMeta?.position}
-                duplicateGroupSize={duplicateMeta?.total}
-                duplicateRole={duplicateMeta?.role}
-                duplicateGroupLabel={duplicateMeta?.groupLabel}
-                duplicateGroupTone={duplicateMeta?.groupTone}
-                duplicateReason={duplicateMeta?.reason}
-                duplicateActionLabel={reviewDuplicateLabel}
-                pendingReview={resolvePendingReview(
-                  statement,
-                  rowData.isReceipt,
-                  statementReviewCounts,
-                )}
-                typeLabel={rowData.isReceipt ? listText.typeReceipt.value : statement.fileType}
-                isManualExpense={rowData.isManualExpense}
-                viewDisabled={rowData.isProcessingStatement}
-                onView={() => onView(statement)}
-                onIconClick={() => onIconClick(statement)}
-                onToggleSelect={() => onToggleStatement(statement.id)}
-                selected={selectedStatementIds.includes(statement.id)}
-                columns={columns}
-                currentExchangeRateLabels={currentExchangeRateLabels}
-                workspaceCurrency={workspaceCurrency}
-              />
-            );
-          })}
+          <SnapshotSkeleton id="statements-list" loading={false}>
+            <TableDesktopHeader
+              allVisibleSelected={allVisibleSelected}
+              selectedCount={selectedCount}
+              dateSortDirection={dateSortDirection}
+              columns={shownColumns}
+              labels={labels}
+              reviewLabel={reviewDuplicateLabel}
+              onToggleSelectAll={onToggleSelectAll}
+              onToggleSortDirection={onToggleSortDirection}
+            />
+            <StatementsUploadSkeletons skeletonKeys={skeletonKeys} />
+            {paginatedStatements.map((statement, index) => {
+              const rowData = resolveStatementRowData(statement, labels.scanning);
+              const duplicateMeta = duplicateMetaById.get(statement.id);
+              // Neighbours in the same group share one unbroken line on the left.
+              const sameGroup = (other: StatementForTable | undefined): boolean =>
+                Boolean(
+                  duplicateMeta &&
+                    other &&
+                    duplicateMetaById.get(other.id)?.groupKey === duplicateMeta.groupKey,
+                );
+              const transactionCount = rowData.isReceipt
+                ? 0
+                : Number(statement.totalTransactions ?? 0);
+              const expanded = transactionCount > 1 && expandedIds.has(statement.id);
+              return (
+                <Fragment key={statement.id}>
+                  <StatementsListItem
+                    key={statement.id}
+                    dataTourId={index === 0 ? 'statement-row-primary' : undefined}
+                    statement={statement as Parameters<typeof StatementsListItem>[0]['statement']}
+                    viewLabel={viewLabel}
+                    isReceipt={rowData.isReceipt}
+                    isProcessing={rowData.isProcessingReceipt}
+                    merchantLabel={rowData.merchantLabel}
+                    amountLabel={rowData.amountLabel}
+                    dateLabel={rowData.dateLabel}
+                    isPossibleDuplicate={Boolean(duplicateMeta)}
+                    duplicatePosition={duplicateMeta?.position}
+                    duplicateGroupSize={duplicateMeta?.total}
+                    duplicateRole={duplicateMeta?.role}
+                    duplicateGroupLabel={duplicateMeta?.groupLabel}
+                    duplicateGroupStart={!sameGroup(paginatedStatements[index - 1])}
+                    duplicateGroupEnd={!sameGroup(paginatedStatements[index + 1])}
+                    duplicateReason={duplicateMeta?.reason}
+                    duplicateActionLabel={reviewDuplicateLabel}
+                    pendingReview={resolvePendingReview(
+                      statement,
+                      rowData.isReceipt,
+                      statementReviewCounts,
+                    )}
+                    typeLabel={rowData.isReceipt ? listText.typeReceipt.value : statement.fileType}
+                    isManualExpense={rowData.isManualExpense}
+                    viewDisabled={rowData.isProcessingStatement}
+                    onView={() => onView(statement)}
+                    onIconClick={() => onIconClick(statement)}
+                    onToggleSelect={() => onToggleStatement(statement.id)}
+                    selected={selectedStatementIds.includes(statement.id)}
+                    columns={shownColumns}
+                    currentExchangeRateLabels={currentExchangeRateLabels}
+                    workspaceCurrency={workspaceCurrency}
+                    transactionCount={transactionCount}
+                    expanded={expanded}
+                    onToggleExpand={() => toggleExpanded(statement.id)}
+                    onAddCategory={() => setCategoryTarget(statement)}
+                  />
+                  {expanded ? <StatementTransactionsPanel statementId={statement.id} /> : null}
+                </Fragment>
+              );
+            })}
+          </SnapshotSkeleton>
         </div>
       </div>
-      <div className="lumio-stmt-list-view__pagination" style={{ marginTop: 24 }}>
+      <DocumentCategoryDrawer target={categoryTarget} onClose={() => setCategoryTarget(null)} />
+      <div className="seneca-stmt-list-view__pagination" style={{ marginTop: 24 }}>
         <div style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
           {formatPaginationLabel(labels.paginationShown, {
             from: rangeStart,

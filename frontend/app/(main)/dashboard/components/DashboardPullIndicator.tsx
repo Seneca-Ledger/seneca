@@ -19,7 +19,6 @@ const CONTAINER_STYLE: React.CSSProperties = {
   paddingTop: 16,
 };
 
-// eslint-disable-next-line complexity
 export function DashboardPullIndicator({
   isMobile,
   pullDistance,

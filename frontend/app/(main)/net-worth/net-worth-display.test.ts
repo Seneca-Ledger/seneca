@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { setNetWorthDisplay, useNetWorthDisplay } from './net-worth-display';
 
-const KEY = 'lumio:net-worth-display';
+const KEY = 'seneca:net-worth-display';
 
 describe('net worth display preferences', () => {
   beforeEach(() => {

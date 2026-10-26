@@ -3,13 +3,21 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import type { DataSource, EntityMetadata, Repository } from 'typeorm';
+import type { DataSource, EntityManager, EntityMetadata, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
+import { appDefaultCurrency } from '../../common/utils/currency.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import { WorkspaceRole } from '../../entities';
 import type { User } from '../../entities/user.entity';
-import { Workspace } from '../../entities/workspace.entity';
+import { Workspace, WorkspaceKind } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { BackupArchiveService, type OpenedBackup } from './backup-archive.service';
+import {
+  EXCLUDED_TABLES,
+  isWorkspaceScoped,
+  RELATED_COLLECTIONS,
+  SENSITIVE_PROPERTIES,
+} from './backup-data.service';
 
 const RESTORE_ORDER = [
   'categories',
@@ -33,20 +41,159 @@ const RESTORE_ORDER = [
 
 /**
  * Collections that older backups may carry but whose tables no longer exist
- * (the Google Sheets import jobs went with the integration). Skipped on
- * restore so those archives still restore instead of failing as unsupported.
+ * (the Google Sheets import jobs went with the integration, the AI chat and
+ * its embeddings with the external models). Skipped on restore so those
+ * archives still restore instead of failing as unsupported.
  */
-const REMOVED_COLLECTIONS = new Set(['custom_table_import_jobs']);
+const REMOVED_COLLECTIONS = new Set([
+  'custom_table_import_jobs',
+  'ai_chats',
+  'ai_chat_messages',
+  'transaction_embeddings',
+  'user_ai_settings',
+]);
+
+/**
+ * Collections that backups made before they were excluded still carry, and
+ * that cannot come back: people and per-member rows rather than workspace
+ * data (the restore makes its own owner membership, and every member's row
+ * would land on the restorer), and share links whose required token the
+ * backup stripped.
+ */
+const UNRESTORABLE_COLLECTIONS = new Set([
+  'custom_table_shares',
+  // Derived and regenerated; its dedup key is unique per user, so a copy of
+  // the same user's live insights would collide.
+  'insights',
+  'users',
+  'workspace_invitations',
+  'workspace_members',
+]);
+
+/**
+ * Public links of the source workspace, unique across all workspaces. The
+ * restored copy starts without one; sending the document again makes a new link.
+ */
+const PUBLIC_TOKEN_PROPERTIES = new Set(['shareToken']);
 
 const USER_REFERENCE_PROPERTIES = new Set([
   'userId',
   'ownerId',
+  'ownerUserId',
   'createdById',
   'createdBy',
   'updatedByUserId',
   'connectedByUserId',
   'invitedById',
+  'actorId',
+  'confirmedBy',
+  'finalizedBy',
+  'postedBy',
+  'recipientId',
+  'sentById',
+  'uploadedById',
 ]);
+
+/**
+ * Tables every workspace shares that a restored row may still point at: the
+ * reference data itself, never a copy of it from the archive.
+ */
+const GLOBAL_REFERENCE_TABLES = new Set(['tax_jurisdictions']);
+
+/** Keys inside JSON values that name such reference data. */
+const GLOBAL_REFERENCE_KEYS = new Set(['jurisdictionId', 'taxJurisdictionId']);
+
+/**
+ * uuid columns that are not a reference to one row: a key the rows of a group
+ * share, or the subject an audit event names (a member, an import, a row since
+ * deleted). Mapped when they name a restored row and kept otherwise.
+ */
+const GROUP_KEY_COLUMNS = new Set([
+  'transactions.splitGroupId',
+  'transactions.transferPairId',
+  'audit_events.batchId',
+  'audit_events.entityId',
+]);
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type Row = Record<string, unknown>;
+
+/**
+ * A column that points at a row. `target` is the table of that row, or null
+ * when only its type says it is a reference; `global` when it is reference data.
+ */
+type Reference = { property: string; target: string | null; required: boolean; global: boolean };
+
+type Collection = {
+  metadata: EntityMetadata;
+  rows: Row[];
+  references: Reference[];
+  userReferences: Set<string>;
+};
+
+/** A journal entry as first inserted: a draft has no number and no booking time. */
+const asDraftEntry = (entry: Record<string, unknown>): Record<string, unknown> => ({
+  ...entry,
+  status: 'draft',
+  entryNo: null,
+  postedAt: null,
+});
+
+/**
+ * Rows of sources that are gone, in a backup made while they existed:
+ * receipts imported from Gmail are left out the way RemoveGoogleAndDropbox
+ * deleted the live ones (their notes go, other links to them are cleared),
+ * a Gmail message id that an IMAP receipt kept moves to `messageId`, and a
+ * Google Sheets table comes back as a manual one.
+ */
+export function withoutRemovedSources(
+  collections: Record<string, unknown[]>,
+): Record<string, unknown[]> {
+  const rowsOf = (table: string) => (collections[table] ?? []) as Record<string, unknown>[];
+  const gmailReceiptIds = new Set(
+    rowsOf('receipts')
+      .filter(row => row.source === 'gmail')
+      .map(row => String(row.id)),
+  );
+  const linked = (id: unknown) => gmailReceiptIds.has(String(id));
+  return Object.fromEntries(
+    Object.entries(collections).map(([table, rows]) => {
+      const records = rows as Record<string, unknown>[];
+      if (table === 'receipts') {
+        return [
+          table,
+          records
+            .filter(row => row.source !== 'gmail')
+            .map(({ gmailMessageId, gmailThreadId: _thread, ...row }) => ({
+              ...row,
+              ...(row.messageId === undefined && gmailMessageId !== undefined
+                ? { messageId: gmailMessageId }
+                : {}),
+              ...(linked(row.duplicateOfId) ? { duplicateOfId: null } : {}),
+            })),
+        ];
+      }
+      if (table === 'custom_tables') {
+        return [
+          table,
+          records.map(row =>
+            row.source === 'google_sheets_import' ? { ...row, source: 'manual' } : row,
+          ),
+        ];
+      }
+      if (gmailReceiptIds.size === 0) {
+        return [table, records];
+      }
+      return [
+        table,
+        table === 'notes'
+          ? records.filter(row => !linked(row.receiptId))
+          : records.map(row => (linked(row.receiptId) ? { ...row, receiptId: null } : row)),
+      ];
+    }),
+  );
+}
 
 @Injectable()
 export class BackupRestoreService {
@@ -61,7 +208,7 @@ export class BackupRestoreService {
   async preview(archive: Buffer, password: string) {
     const opened = await this.archiveService.open(archive, password);
     return {
-      workspaceName: this.sourceWorkspace(opened).name,
+      workspaceName: this.sourceWorkspaceName(opened),
       createdAt: opened.manifest.createdAt,
       collections: opened.manifest.collections,
       fileCount: opened.manifest.files.length,
@@ -75,15 +222,45 @@ export class BackupRestoreService {
     workspaceName?: string,
   ): Promise<Workspace> {
     const opened = await this.archiveService.open(archive, password);
+    return this.restoreOpened(opened, user, {
+      name: workspaceName?.trim() || `Restored ${this.sourceWorkspaceName(opened) ?? 'workspace'}`,
+    });
+  }
+
+  /**
+   * Rebuilds a snapshot that is already open, as a new workspace: a backup
+   * just read from its archive, or a workspace version read from the version
+   * store (`kind: version`, read only).
+   */
+  async restoreOpened(
+    opened: Pick<OpenedBackup, 'collections' | 'files'>,
+    user: User,
+    options: { name: string; kind?: WorkspaceKind; versionId?: string },
+  ): Promise<Workspace> {
     const sourceWorkspace = this.sourceWorkspace(opened);
+    const collections = this.keepResolvableRows(await this.restorableCollections(opened));
     const workspace = await this.workspaceRepository.save(
       this.workspaceRepository.create({
-        name: workspaceName?.trim() || `Restored ${sourceWorkspace.name}`,
+        name: options.name,
+        kind: options.kind ?? WorkspaceKind.STANDARD,
+        versionId: options.versionId ?? null,
+        // Older snapshots carry none of these; the defaults then apply.
+        ...(typeof sourceWorkspace.ledgerBaseCurrency === 'string'
+          ? { ledgerBaseCurrency: sourceWorkspace.ledgerBaseCurrency }
+          : {}),
+        ...(typeof sourceWorkspace.taxJurisdictionId === 'string'
+          ? { taxJurisdictionId: sourceWorkspace.taxJurisdictionId }
+          : {}),
+        ...(typeof sourceWorkspace.vatStatus === 'string'
+          ? { vatStatus: sourceWorkspace.vatStatus as Workspace['vatStatus'] }
+          : {}),
         description: this.stringOrNull(sourceWorkspace.description),
         icon: this.stringOrNull(sourceWorkspace.icon),
         color: this.stringOrNull(sourceWorkspace.color),
         backgroundImage: this.stringOrNull(sourceWorkspace.backgroundImage),
-        currency: this.stringOrNull(sourceWorkspace.currency),
+        // The column is required; a backup taken before that falls back the same
+        // way the RequireWorkspaceCurrency migration backfilled missing ones.
+        currency: this.stringOrNull(sourceWorkspace.currency) ?? appDefaultCurrency(),
         settings: this.objectOrNull(sourceWorkspace.settings),
         ownerId: user.id,
         isFavorite: false,
@@ -102,9 +279,10 @@ export class BackupRestoreService {
           invitedById: user.id,
         }),
       );
-      const idMap = this.buildIdMap(opened, sourceWorkspace.id, workspace.id);
+      const idMap = this.buildIdMap(collections, sourceWorkspace.id, workspace.id);
       const prepared = await this.prepareCollections(
-        opened,
+        collections,
+        opened.files,
         idMap,
         workspace.id,
         user.id,
@@ -112,11 +290,14 @@ export class BackupRestoreService {
         stagedFiles,
       );
       await this.dataSource.transaction(async manager => {
-        for (const { metadata, values } of prepared) {
+        for (const { metadata, values } of await this.inForeignKeyOrder(manager, prepared)) {
           if (values.length > 0) {
-            await manager.getRepository(metadata.target).insert(values);
+            await manager
+              .getRepository(metadata.target)
+              .insert(metadata.tableName === 'journal_entries' ? values.map(asDraftEntry) : values);
           }
         }
+        await this.bookJournalEntries(manager, prepared);
       });
       await Promise.all(
         stagedFiles.map(async file => {
@@ -136,34 +317,232 @@ export class BackupRestoreService {
     }
   }
 
-  private sourceWorkspace(opened: OpenedBackup): Record<string, unknown> {
-    const workspace = opened.collections.workspace?.[0];
-    if (workspace && typeof workspace === 'object') return workspace as Record<string, unknown>;
-    throw new BadRequestException('Backup does not contain workspace data');
+  /**
+   * The prepared tables in an order that inserts every row after the rows it
+   * points at. Read from the database, not the entities: some foreign keys
+   * exist only in migrations (categories.ledger_account_id). Ties keep
+   * RESTORE_ORDER; a table's references to itself are checked at the end of
+   * its one insert.
+   */
+  private async inForeignKeyOrder<T extends { metadata: EntityMetadata }>(
+    manager: EntityManager,
+    prepared: T[],
+  ): Promise<T[]> {
+    const tables = prepared.map(item => item.metadata.tableName);
+    const references: Array<{ source: string; target: string }> = await manager.query(
+      `SELECT DISTINCT src.relname AS source, tgt.relname AS target
+           FROM pg_constraint fk
+           JOIN pg_class src ON src.oid = fk.conrelid
+           JOIN pg_class tgt ON tgt.oid = fk.confrelid
+           JOIN pg_namespace ns ON ns.oid = src.relnamespace
+          WHERE fk.contype = 'f' AND ns.nspname = current_schema() AND src.relname = ANY($1::text[])`,
+      [tables],
+    );
+    const waitsOn = new Map(tables.map(table => [table, new Set<string>()]));
+    for (const { source, target } of references) {
+      if (source !== target && waitsOn.has(target)) waitsOn.get(source)?.add(target);
+    }
+    const remaining = [...prepared];
+    const ordered: T[] = [];
+    while (remaining.length > 0) {
+      const pending = new Set(remaining.map(item => item.metadata.tableName));
+      const ready = remaining.findIndex(item =>
+        [...(waitsOn.get(item.metadata.tableName) ?? [])].every(target => !pending.has(target)),
+      );
+      // A cycle between tables: keep the old order and let the database name the key.
+      ordered.push(...remaining.splice(ready === -1 ? 0 : ready, 1));
+    }
+    return ordered;
   }
 
+  /**
+   * Books the journal entries inserted as drafts, now that their lines are in.
+   * The ledger's triggers allow no other way: lines cannot be added to a
+   * booked entry, and only a posted entry can become reversed.
+   */
+  private async bookJournalEntries(
+    manager: EntityManager,
+    prepared: Array<{ metadata: EntityMetadata; values: Record<string, unknown>[] }>,
+  ): Promise<void> {
+    const entries = prepared.find(item => item.metadata.tableName === 'journal_entries');
+    if (!entries) return;
+    const repository = manager.getRepository(entries.metadata.target);
+    for (const entry of entries.values) {
+      if (entry.status !== 'posted' && entry.status !== 'reversed') continue;
+      await repository.update(String(entry.id), {
+        status: 'posted',
+        entryNo: entry.entryNo,
+        postedAt: entry.postedAt,
+      });
+      if (entry.status === 'reversed') {
+        await repository.update(String(entry.id), { status: 'reversed' });
+      }
+    }
+  }
+
+  /** The archived workspace's name, when it has one that reads as a name. */
+  private sourceWorkspaceName(opened: Pick<OpenedBackup, 'collections'>): string | null {
+    const name = this.sourceWorkspace(opened).name;
+    return typeof name === 'string' && name.trim() ? name : null;
+  }
+
+  private sourceWorkspace(opened: Pick<OpenedBackup, 'collections'>): Record<string, unknown> {
+    const workspace = opened.collections.workspace?.[0];
+    if (workspace && typeof workspace === 'object') return workspace as Record<string, unknown>;
+    throw new BadRequestException(appError('BACKUP_NO_WORKSPACE_DATA'));
+  }
+
+  /** A new id for every row that is restored, and the new workspace for the old one. */
   private buildIdMap(
-    opened: OpenedBackup,
+    collections: Collection[],
     sourceWorkspaceId: unknown,
     workspaceId: string,
   ): Map<string, string> {
     const map = new Map<string, string>();
     if (typeof sourceWorkspaceId === 'string') map.set(sourceWorkspaceId, workspaceId);
-    for (const [tableName, rows] of Object.entries(opened.collections)) {
-      if (tableName === 'workspace') continue;
+    for (const { rows } of collections) {
       for (const row of rows) {
-        const id = (row as Record<string, unknown>).id;
-        if (typeof id === 'string') map.set(id, randomUUID());
+        if (typeof row.id === 'string') map.set(row.id, randomUUID());
       }
     }
     return map;
   }
 
+  /**
+   * The archive's tables that a restore writes: exactly those a backup is
+   * made of. Tables a backup leaves out are skipped (older backups still carry
+   * some); any other table, such as one every workspace shares, refuses the
+   * archive, since no backup ever held it.
+   */
+  private async restorableCollections(
+    opened: Pick<OpenedBackup, 'collections'>,
+  ): Promise<Collection[]> {
+    const tables: Array<{ metadata: EntityMetadata; rows: Row[] }> = [];
+    for (const [tableName, rows] of this.sortedCollections(opened.collections)) {
+      const metadata = this.dataSource.entityMetadatas.find(item => item.tableName === tableName);
+      const backedUp =
+        metadata &&
+        (isWorkspaceScoped(metadata) || RELATED_COLLECTIONS.some(item => item.table === tableName));
+      if (!metadata || !backedUp)
+        throw new BadRequestException(appError('BACKUP_UNKNOWN_COLLECTION', { table: tableName }));
+      if (EXCLUDED_TABLES.has(tableName)) continue;
+      tables.push({
+        metadata,
+        rows: rows.filter((row): row is Row => !!row && typeof row === 'object'),
+      });
+    }
+    const foreignKeys = await this.foreignKeysOf(tables.map(({ metadata }) => metadata.tableName));
+    return tables.map(table => ({ ...table, ...this.referencesOf(table.metadata, foreignKeys) }));
+  }
+
+  /** Each table's foreign key columns, by database column name, with the table they point at. */
+  private async foreignKeysOf(tables: string[]): Promise<Map<string, Map<string, string>>> {
+    const keys: Array<{ source: string; column: string; target: string }> =
+      await this.dataSource.query(
+        `SELECT src.relname AS source, col.attname AS column, tgt.relname AS target
+           FROM pg_constraint fk
+           JOIN pg_class src ON src.oid = fk.conrelid
+           JOIN pg_class tgt ON tgt.oid = fk.confrelid
+           JOIN pg_namespace ns ON ns.oid = src.relnamespace
+           JOIN pg_attribute col ON col.attrelid = fk.conrelid AND col.attnum = ANY(fk.conkey)
+          WHERE fk.contype = 'f' AND ns.nspname = current_schema() AND src.relname = ANY($1::text[])`,
+        [tables],
+      );
+    const byTable = new Map<string, Map<string, string>>();
+    for (const { source, column, target } of keys) {
+      if (!byTable.has(source)) byTable.set(source, new Map());
+      byTable.get(source)?.set(column, target);
+    }
+    return byTable;
+  }
+
+  /**
+   * How a table's columns point at other rows: through a foreign key, as the
+   * parent of a related collection, or as a uuid column of its own. A column
+   * that names a person is a user reference; the restore gives it the restorer.
+   */
+  private referencesOf(
+    metadata: EntityMetadata,
+    foreignKeys: Map<string, Map<string, string>>,
+  ): Pick<Collection, 'references' | 'userReferences'> {
+    const references: Reference[] = [];
+    const userReferences = new Set<string>();
+    const parents = RELATED_COLLECTIONS.filter(item => item.table === metadata.tableName);
+    for (const column of metadata.columns) {
+      const property = column.propertyName;
+      if (property === 'id' || property === 'workspaceId') continue;
+      const target =
+        parents.find(item => item.column === property)?.parent ??
+        foreignKeys.get(metadata.tableName)?.get(column.databaseName);
+      if (USER_REFERENCE_PROPERTIES.has(property) || target === 'users') {
+        userReferences.add(property);
+      } else if (target) {
+        references.push({
+          property,
+          target,
+          required: !column.isNullable,
+          global: GLOBAL_REFERENCE_TABLES.has(target),
+        });
+      } else if (
+        column.type === 'uuid' &&
+        !GROUP_KEY_COLUMNS.has(`${metadata.tableName}.${property}`)
+      ) {
+        references.push({ property, target: null, required: !column.isNullable, global: false });
+      }
+    }
+    return { references, userReferences };
+  }
+
+  /**
+   * The rows whose required references all lead to rows restored with them,
+   * or to reference data. A row that needs one leading anywhere else (another
+   * workspace's invoice, a member, a row the backup left out) is dropped, and
+   * so, in turn, are the rows that need it.
+   */
+  private keepResolvableRows(collections: Collection[]): Collection[] {
+    const kept = new Map(
+      collections.map(({ metadata, rows }) => [
+        metadata.tableName,
+        new Set(rows.map(row => row.id)),
+      ]),
+    );
+    let changed = true;
+    while (changed) {
+      changed = false;
+      const anyRow = new Set([...kept.values()].flatMap(ids => [...ids]));
+      for (const collection of collections) {
+        const required = collection.references.filter(
+          reference => reference.required && !reference.global,
+        );
+        const rows = collection.rows.filter(row =>
+          required.every(({ property, target }) => {
+            const value = row[property];
+            return (
+              value === null ||
+              value === undefined ||
+              (target ? kept.get(target) : anyRow)?.has(value)
+            );
+          }),
+        );
+        if (rows.length === collection.rows.length) continue;
+        collection.rows = rows;
+        kept.set(collection.metadata.tableName, new Set(rows.map(row => row.id)));
+        changed = true;
+      }
+    }
+    return collections;
+  }
+
   private sortedCollections(
     collections: Record<string, unknown[]>,
   ): Array<[string, Record<string, unknown>[]]> {
-    const entries = Object.entries(collections)
-      .filter(([tableName]) => tableName !== 'workspace' && !REMOVED_COLLECTIONS.has(tableName))
+    const entries = Object.entries(withoutRemovedSources(collections))
+      .filter(
+        ([tableName]) =>
+          tableName !== 'workspace' &&
+          !REMOVED_COLLECTIONS.has(tableName) &&
+          !UNRESTORABLE_COLLECTIONS.has(tableName),
+      )
       .map(
         ([tableName, rows]) =>
           [tableName, rows as Record<string, unknown>[]] as [string, Record<string, unknown>[]],
@@ -177,36 +556,46 @@ export class BackupRestoreService {
   }
 
   private mapRecord(
-    metadata: EntityMetadata,
-    source: Record<string, unknown>,
+    collection: Collection,
+    source: Row,
     idMap: Map<string, string>,
     workspaceId: string,
     userId: string,
-  ): Record<string, unknown> {
-    const mapped = metadata.columns.reduce<Record<string, unknown>>((record, column) => {
+  ): Row {
+    const references = new Map(collection.references.map(item => [item.property, item]));
+    return collection.metadata.columns.reduce<Row>((record, column) => {
       const property = column.propertyName;
-      if (source[property] === undefined) return record;
+      const value = source[property];
+      const reference = references.get(property);
+      // Secrets a backup never carries, whatever an archive says.
+      if (value === undefined || SENSITIVE_PROPERTIES.has(property)) return record;
       if (property === 'workspaceId') {
         record[property] = workspaceId;
       } else if (property === 'id') {
         record[property] = idMap.get(String(source[property])) || randomUUID();
-      } else if (USER_REFERENCE_PROPERTIES.has(property)) {
-        record[property] = source[property] === null ? null : userId;
-      } else if (property.endsWith('Id') && typeof source[property] === 'string') {
-        record[property] = idMap.get(source[property] as string) || source[property];
+      } else if (this.isBase64FileData(value)) {
+        record[property] = Buffer.from(value.value, 'base64');
+      } else if (PUBLIC_TOKEN_PROPERTIES.has(property)) {
+        record[property] = null;
+      } else if (collection.userReferences.has(property)) {
+        record[property] = value === null ? null : userId;
+      } else if (reference?.global) {
+        record[property] = value;
+      } else if (reference) {
+        // Only a row restored with this one; a reference anywhere else is cut.
+        record[property] = (typeof value === 'string' && idMap.get(value)) || null;
+      } else if (typeof value === 'string') {
+        record[property] = idMap.get(value) || value;
       } else {
-        record[property] = this.mapNestedIds(source[property], idMap);
+        record[property] = this.mapNestedIds(value, idMap, property);
       }
       return record;
     }, {});
-    if (metadata.tableName === 'file_versions' && this.isBase64FileData(source.fileData)) {
-      mapped.fileData = Buffer.from(source.fileData.value, 'base64');
-    }
-    return mapped;
   }
 
   private async prepareCollections(
-    opened: OpenedBackup,
+    collections: Collection[],
+    files: Map<string, Buffer>,
     idMap: Map<string, string>,
     workspaceId: string,
     userId: string,
@@ -214,18 +603,21 @@ export class BackupRestoreService {
     stagedFiles: Array<{ stagedPath: string; targetPath: string }>,
   ): Promise<Array<{ metadata: EntityMetadata; values: Record<string, unknown>[] }>> {
     const prepared: Array<{ metadata: EntityMetadata; values: Record<string, unknown>[] }> = [];
-    for (const [tableName, rows] of this.sortedCollections(opened.collections)) {
-      const metadata = this.dataSource.entityMetadatas.find(item => item.tableName === tableName);
-      if (!metadata)
-        throw new BadRequestException(`Backup contains unsupported collection: ${tableName}`);
+    for (const collection of collections) {
+      const { metadata, rows } = collection;
+      const tableName = metadata.tableName;
       const values: Record<string, unknown>[] = [];
       for (const row of rows) {
-        const mapped = this.mapRecord(metadata, row, idMap, workspaceId, userId);
+        const mapped = this.mapRecord(collection, row, idMap, workspaceId, userId);
+        // An event whose subject did not come along cannot be undone against it.
+        if (tableName === 'audit_events' && !idMap.has(String(row.entityId))) {
+          mapped.isUndoable = false;
+        }
         await this.prepareDocumentPaths(
           tableName,
           row,
           mapped,
-          opened.files,
+          files,
           restoreDirectory,
           stagedFiles,
         );
@@ -244,7 +636,7 @@ export class BackupRestoreService {
     restoreDirectory: string,
     stagedFiles: Array<{ stagedPath: string; targetPath: string }>,
   ): Promise<void> {
-    if (tableName === 'statements' || tableName === 'report_history') {
+    if (tableName === 'statements') {
       if (typeof source.filePath === 'string') {
         mapped.filePath = await this.stageDocument(
           source.filePath,
@@ -281,7 +673,8 @@ export class BackupRestoreService {
     stagedFiles: Array<{ stagedPath: string; targetPath: string }>,
   ): Promise<string> {
     const contents = files.get(portablePath);
-    if (!contents) throw new BadRequestException(`Backup document is missing: ${portablePath}`);
+    if (!contents)
+      throw new BadRequestException(appError('BACKUP_DOCUMENT_MISSING', { path: portablePath }));
     const safeName = path.basename(portablePath);
     const targetPath = path.join(resolveUploadsDir(), `restored-${restoredId}-${safeName}`);
     const stagedPath = path.join(restoreDirectory, `${randomUUID()}-${safeName}`);
@@ -290,18 +683,36 @@ export class BackupRestoreService {
     return targetPath;
   }
 
-  private mapNestedIds(value: unknown, idMap: Map<string, string>): unknown {
-    if (typeof value === 'string') return idMap.get(value) || value;
-    if (Array.isArray(value)) return value.map(item => this.mapNestedIds(item, idMap));
+  /**
+   * Ids inside a JSON value follow their rows. Under a key that names a row
+   * (`id`, `…Id`, `…Ids`) an id of a row that did not come along is cut: null,
+   * or left out of a list.
+   */
+  private mapNestedIds(value: unknown, idMap: Map<string, string>, key: string): unknown {
+    const names = this.isReferenceKey(key);
+    const unresolved = (item: unknown) =>
+      typeof item === 'string' && UUID_PATTERN.test(item) && !idMap.has(item);
+    if (typeof value === 'string') {
+      return idMap.get(value) || (names && unresolved(value) ? null : value);
+    }
+    if (Array.isArray(value)) {
+      return (names ? value.filter(item => !unresolved(item)) : value).map(item =>
+        this.mapNestedIds(item, idMap, key),
+      );
+    }
     if (value && typeof value === 'object' && !(value instanceof Date)) {
       return Object.fromEntries(
-        Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
-          key,
-          this.mapNestedIds(nested, idMap),
+        Object.entries(value as Record<string, unknown>).map(([nestedKey, nested]) => [
+          nestedKey,
+          this.mapNestedIds(nested, idMap, nestedKey),
         ]),
       );
     }
     return value;
+  }
+
+  private isReferenceKey(key: string): boolean {
+    return (key === 'id' || /Ids?$/.test(key)) && !GLOBAL_REFERENCE_KEYS.has(key);
   }
 
   private isBase64FileData(value: unknown): value is { encoding: 'base64'; value: string } {

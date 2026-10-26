@@ -36,6 +36,7 @@ export function useAuditLoader(): AuditLoaderResult {
     // прихода новых событий, но только в пределах одного воркспейса.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const reload = useCallback((): void => {

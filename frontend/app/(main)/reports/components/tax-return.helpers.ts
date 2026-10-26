@@ -1,43 +1,17 @@
-export interface TaxReturnTotals {
-  outputTax: number;
-  inputTax: number;
-  netPayable: number;
-  currency: string;
-  lines: TaxReturnLine[];
-}
+import type {
+  TaxDeadline,
+  TaxReturnLine,
+  TaxReturnPreview,
+  TaxReturnRecord,
+  TaxThresholdStatus,
+  VatFilingSettings,
+} from '@/app/lib/contracts';
 
-export interface TaxReturnLine {
-  transactionId: string;
-  date: string;
-  counterparty: string;
-  direction: 'output' | 'input' | 'reverse_charge';
-  currency: string;
-  taxAmount: number;
-  netAmount: number;
-  exchangeRate: number;
-  taxAmountConverted: number;
-}
-
-export interface TaxReturnRecord {
-  id: string;
-  status: 'draft' | 'filed';
-  periodStart: string;
-  periodEnd: string;
-  outputTax: string | number;
-  inputTax: string | number;
-  netPayable: string | number;
-  currency: string;
-  filedAt: string | null;
-}
-
-export interface ThresholdStatus {
-  threshold: number | null;
-  turnover: number;
-  currency: string;
-  percentUsed: number;
-  periodStart: string;
-  periodEnd: string;
-}
+export type { TaxDeadline, TaxReturnLine, TaxReturnRecord };
+/** `GET /tax/returns/preview`: the period computed live. */
+export type TaxReturnTotals = TaxReturnPreview;
+export type ThresholdStatus = NonNullable<TaxThresholdStatus>;
+export type VatFiling = VatFilingSettings;
 
 const pad = (value: number) => `${value}`.padStart(2, '0');
 
@@ -46,7 +20,7 @@ export function toDateInput(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-export type PeriodPreset = 'thisQuarter' | 'lastQuarter' | 'thisYear';
+export type PeriodPreset = 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'thisYear';
 
 /**
  * Quarters are built from month arithmetic rather than day counts, so the
@@ -63,6 +37,12 @@ export function periodFor(
 
   if (preset === 'thisYear') {
     return { periodStart: `${year}-01-01`, periodEnd: `${year}-12-31` };
+  }
+
+  if (preset === 'thisMonth' || preset === 'lastMonth') {
+    const start = new Date(year, now.getMonth() + (preset === 'lastMonth' ? -1 : 0), 1);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    return { periodStart: toDateInput(start), periodEnd: toDateInput(end) };
   }
 
   const quarter = Math.floor(now.getMonth() / 3);
@@ -120,7 +100,7 @@ export function saveBlob(blob: Blob, fileName: string): void {
 export function exportFileName(
   periodStart: string,
   periodEnd: string,
-  format: 'pdf' | 'xlsx',
+  format: 'pdf' | 'xlsx' | 'csv',
 ): string {
   return `tax-return-${periodStart}_${periodEnd}.${format}`;
 }

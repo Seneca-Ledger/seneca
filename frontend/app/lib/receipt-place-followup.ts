@@ -9,10 +9,10 @@
  */
 import { useEffect, useState } from 'react';
 
-const PROMPT_KEY = 'lumio-receipt-place-prompt';
-const QUEUE_KEY = 'lumio-receipt-place-pending';
+const PROMPT_KEY = 'seneca-receipt-place-prompt';
+const QUEUE_KEY = 'seneca-receipt-place-pending';
 
-export const RECEIPT_PLACE_FOLLOWUP_EVENT = 'lumio-receipt-place-followup-change';
+export const RECEIPT_PLACE_FOLLOWUP_EVENT = 'seneca-receipt-place-followup-change';
 
 /** Past this the phone has moved on, and places around it say nothing about the shop. */
 export const FOLLOWUP_TTL_MS = 2 * 60 * 60 * 1000;

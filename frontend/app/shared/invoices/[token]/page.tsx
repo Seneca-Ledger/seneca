@@ -3,8 +3,10 @@
 import { Alert, Box, Chip, Container, Divider, Paper, Typography } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import api from '@/app/lib/api';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
 interface PublicInvoice {
   number: string;
@@ -38,8 +40,7 @@ interface PublicInvoice {
   lines: Array<{ description: string; quantity: string; unitPrice: string; amount: string }>;
 }
 
-const money = (amount: string, currency: string): string =>
-  `${Number(amount).toFixed(2)} ${currency}`;
+const money = (amount: string, currency: string) => `${Number(amount).toFixed(2)} ${currency}`;
 
 /** Multi-line text as lines, with the empty ones dropped. */
 function Lines({ text }: { text: string | null | undefined }) {
@@ -76,12 +77,13 @@ function Field({ label, value }: { label: string; value: string | null | undefin
  *
  * Outside authentication: the token in the url is the only credential, and the
  * server sends a read-only view. The labels come from the server too, already
- * in the client's language — the page deliberately has no dictionary of its
- * own, so the page and the PDF cannot word the same thing differently.
+ * in the client's language — the page deliberately keeps no invoice wording of
+ * its own, so the page and the PDF cannot word the same thing differently. Its
+ * dictionary holds only the not-found message, shown when there are no labels.
  */
 export default function SharedInvoicePage() {
-  const params = useParams();
-  const token = params.token as string;
+  const { token } = useParams<{ token: string }>();
+  const { notFound } = useIntlayer('sharedInvoicePage');
 
   const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,16 +91,15 @@ export default function SharedInvoicePage() {
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .get<PublicInvoice>(`/public/invoices/${token}`)
-      .then(response => {
+    apiQueryDecoded({ url: `/public/invoices/${token}`, contract: 'PublicInvoiceView' })
+      .then(view => {
         if (!cancelled) {
-          setInvoice(response.data);
+          setInvoice(view);
         }
       })
       .catch(reason => {
         if (!cancelled) {
-          setError(getApiErrorMessage(reason, 'Invoice not found'));
+          setError(getApiErrorMessage(reason, notFound.value));
         }
       })
       .finally(() => {
@@ -109,7 +110,7 @@ export default function SharedInvoicePage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, notFound]);
 
   if (loading) {
     return (
@@ -122,7 +123,7 @@ export default function SharedInvoicePage() {
   if (error || !invoice) {
     return (
       <Container maxWidth="md" sx={{ py: 6 }}>
-        <Alert severity="error">{error ?? 'Invoice not found'}</Alert>
+        <Alert severity="error">{error ?? notFound}</Alert>
       </Container>
     );
   }
@@ -241,10 +242,18 @@ export default function SharedInvoicePage() {
                 <Box component="td" sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}>
                   {Number(line.quantity)}
                 </Box>
-                <Box component="td" sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}>
+                <Box
+                  component="td"
+                  className={PRIVATE_CLASS}
+                  sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}
+                >
                   {money(line.unitPrice, invoice.currency)}
                 </Box>
-                <Box component="td" sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}>
+                <Box
+                  component="td"
+                  className={PRIVATE_CLASS}
+                  sx={{ fontSize: 14, py: 0.75, textAlign: 'right' }}
+                >
                   {money(line.amount, invoice.currency)}
                 </Box>
               </Box>
@@ -256,11 +265,11 @@ export default function SharedInvoicePage() {
           <Box sx={{ minWidth: 240 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span>{t.subtotal}</span>
-              <span>{money(invoice.subtotal, invoice.currency)}</span>
+              <span className={PRIVATE_CLASS}>{money(invoice.subtotal, invoice.currency)}</span>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, mt: 0.5 }}>
               <span>{t.tax}</span>
-              <span>{money(invoice.taxTotal, invoice.currency)}</span>
+              <span className={PRIVATE_CLASS}>{money(invoice.taxTotal, invoice.currency)}</span>
             </Box>
             <Box
               sx={{
@@ -272,7 +281,7 @@ export default function SharedInvoicePage() {
               }}
             >
               <span>{t.total}</span>
-              <span>{money(invoice.total, invoice.currency)}</span>
+              <span className={PRIVATE_CLASS}>{money(invoice.total, invoice.currency)}</span>
             </Box>
             {invoice.pricesIncludeTax ? (
               <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5 }}>

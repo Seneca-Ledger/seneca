@@ -16,7 +16,7 @@ backend_exit=0
 if [ -z "$changed_files" ]; then
   echo "No backend source changes — skipping backend tests"
 else
-  npm --prefix backend run test:unit --bail > "$backend_log" 2>&1
+  npm --prefix backend run test:unit -- --bail=1 > "$backend_log" 2>&1
   backend_exit=$?
 fi
 
@@ -36,6 +36,13 @@ rm -f "$backend_log"
 if [ $backend_exit -ne 0 ]; then
   echo ""
   echo "Push blocked. Fix failing tests or use 'git push --no-verify' to skip."
+  exit 1
+fi
+
+# Every dependency must be under an allowed license (scripts/check-licenses.mjs).
+if ! npm run --silent licenses:check; then
+  echo ""
+  echo "Push blocked: a dependency is under a license outside the allowlist."
   exit 1
 fi
 

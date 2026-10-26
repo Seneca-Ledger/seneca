@@ -10,6 +10,19 @@ export type OpenExpenseDrawerEventDetail = {
   mode?: StatementExpenseMode | string | null;
 };
 
+/**
+ * The scan drawer lives on the Documents list, so only that page hears the
+ * event. From anywhere else, go there and let `?openExpenseDrawer` open it.
+ */
+export function openScanUpload(push: (href: string) => void): void {
+  if (window.location.pathname.startsWith('/statements/submit')) {
+    const detail: OpenExpenseDrawerEventDetail = { mode: 'scan' };
+    window.dispatchEvent(new CustomEvent(STATEMENTS_OPEN_EXPENSE_DRAWER_EVENT, { detail }));
+    return;
+  }
+  push('/statements/submit?openExpenseDrawer=scan');
+}
+
 export type ManualExpenseDraft = {
   amount: string;
   currency: string;

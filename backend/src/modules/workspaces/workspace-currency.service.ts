@@ -21,7 +21,9 @@ export class WorkspaceCurrencyService {
   async resolve(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return currencyCodeOrDefault(workspace?.currency);
   }

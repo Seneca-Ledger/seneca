@@ -9,7 +9,8 @@ import { IdempotencyKey } from '@/entities/idempotency-key.entity';
 import { Insight } from '@/entities/insight.entity';
 import { Integration } from '@/entities/integration.entity';
 import { Notification } from '@/entities/notification.entity';
-import { PayeeOverride } from '@/entities/payee-override.entity';
+import { Payee } from '@/entities/payee.entity';
+import { PayeeAlias } from '@/entities/payee-alias.entity';
 import { Statement } from '@/entities/statement.entity';
 import { StorageView } from '@/entities/storage-view.entity';
 import { TaxRate } from '@/entities/tax-rate.entity';
@@ -106,7 +107,8 @@ describe('Batch 2 workspace entity scoping', () => {
     [TaxRate, 'tax rate'],
     [Integration, 'integration'],
     [CategorizationRule, 'categorization rule'],
-    [PayeeOverride, 'payee override'],
+    [Payee, 'payee'],
+    [PayeeAlias, 'payee alias'],
     [IdempotencyKey, 'idempotency key'],
   ])('makes workspaceId non-nullable for %s', (entity, label) => {
     const column = metadata.columns.find(
@@ -128,19 +130,18 @@ describe('Batch 2 workspace entity scoping', () => {
     expect(column?.options.nullable).toBe(true);
   });
 
-  it('maps PayeeOverride columns to explicit snake_case names and workspace relation', () => {
-    const column = (propertyName: string) =>
-      metadata.columns.find(
-        entry => entry.target === PayeeOverride && entry.propertyName === propertyName,
-      );
+  it('maps Payee columns to explicit snake_case names and workspace relation', () => {
+    const column = (target: unknown, propertyName: string) =>
+      metadata.columns.find(entry => entry.target === target && entry.propertyName === propertyName);
     const workspaceRelation = metadata.relations.find(
-      entry => entry.target === PayeeOverride && entry.propertyName === 'workspace',
+      entry => entry.target === Payee && entry.propertyName === 'workspace',
     );
 
-    expect(column('workspaceId')?.options.name).toBe('workspace_id');
-    expect(column('payeeKey')?.options.name).toBe('payee_key');
-    expect(column('displayName')?.options.name).toBe('display_name');
-    expect(column('categoryId')?.options.name).toBe('category_id');
+    expect(column(Payee, 'workspaceId')?.options.name).toBe('workspace_id');
+    expect(column(Payee, 'categoryId')?.options.name).toBe('category_id');
+    expect(column(PayeeAlias, 'workspaceId')?.options.name).toBe('workspace_id');
+    expect(column(PayeeAlias, 'payeeKey')?.options.name).toBe('payee_key');
+    expect(column(PayeeAlias, 'payeeId')?.options.name).toBe('payee_id');
     expect(workspaceRelation).toBeDefined();
     expect(resolveRelationType(workspaceRelation?.type as RelationTypeResolver)).toBe(Workspace);
   });

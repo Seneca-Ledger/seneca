@@ -10,10 +10,13 @@ const apiPut = vi.hoisted(() => vi.fn());
 vi.mock('@/app/lib/api', () => ({ default: { get: apiGet, put: apiPut } }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 
-let saved: ((next: Record<string, unknown>) => void) | null = null;
+let saved: ((next: { owner?: string | null }) => void) | null = null;
+
+const readOwner = (state: Readonly<Record<string, unknown>>): { owner?: string | null } =>
+  typeof state.owner === 'string' || state.owner === null ? { owner: state.owner } : {};
 
 function Probe(): React.JSX.Element {
-  const { state, save } = useViewPreference<{ owner?: string | null }>('transactions');
+  const { state, save } = useViewPreference('transactions', readOwner);
   saved = save;
   return <output data-testid="state">{state === undefined ? 'loading' : JSON.stringify(state)}</output>;
 }

@@ -26,6 +26,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import BookIcon from '@mui/icons-material/Book';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -36,10 +37,10 @@ import CallMergeIcon from '@mui/icons-material/CallMerge';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CardGiftcardOutlinedIcon from '@mui/icons-material/CardGiftcardOutlined';
-import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CircleIcon from '@mui/icons-material/Circle';
@@ -61,7 +62,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import EditIcon from '@mui/icons-material/Edit';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import EmailIcon from '@mui/icons-material/Email';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import ExploreIcon from '@mui/icons-material/Explore';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -77,10 +78,13 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import GridViewIcon from '@mui/icons-material/GridView';
 import GroupIcon from '@mui/icons-material/Group';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
+import HistoryIcon from '@mui/icons-material/History';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
 import MuiImageIcon from '@mui/icons-material/Image';
@@ -88,6 +92,7 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import InfoIcon from '@mui/icons-material/Info';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import LaptopOutlinedIcon from '@mui/icons-material/LaptopOutlined';
@@ -139,10 +144,12 @@ import ScienceIcon from '@mui/icons-material/Science';
 import SearchIcon from '@mui/icons-material/Search';
 import SecurityIcon from '@mui/icons-material/Security';
 import SendIcon from '@mui/icons-material/Send';
+import SentimentDissatisfiedOutlinedIcon from '@mui/icons-material/SentimentDissatisfiedOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ShareIcon from '@mui/icons-material/Share';
 import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
 import SmartphoneIcon from '@mui/icons-material/Smartphone';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import SortIcon from '@mui/icons-material/Sort';
@@ -166,54 +173,16 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import ViewSidebarIcon from '@mui/icons-material/ViewSidebar';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
-import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
+import WestIcon from '@mui/icons-material/West';
+import WorkOutlineIcon from '@mui/icons-material/WorkOutlineOutlined';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import type { SvgIconProps } from '@mui/material';
-import React from 'react';
+import { wrap } from './wrap';
 
-// ---------------------------------------------------------------------------
-// Compat prop types (mirror Lucide's API)
-// ---------------------------------------------------------------------------
-
-export interface LucideProps extends Omit<SvgIconProps, 'color' | 'fontSize'> {
-  /** Lucide size → MUI sx.fontSize */
-  size?: number | string;
-  /** Supports hex colors in addition to MUI theme tokens */
-  color?: string;
-  /** Lucide stroke weight – no-op for MUI filled icons */
-  strokeWidth?: number;
-}
-
-export type LucideIcon = React.FC<LucideProps>;
-
-// ---------------------------------------------------------------------------
-// Wrapper factory
-// ---------------------------------------------------------------------------
-
-function wrap(MuiIcon: React.ComponentType<SvgIconProps>): LucideIcon {
-  return function LucideCompatIcon({
-    size,
-    color,
-    strokeWidth: StrokeWidth,
-    sx,
-    ...rest
-  }: LucideProps) {
-    const combinedSx = {
-      ...(size != null ? { fontSize: size } : {}),
-      ...(color != null ? { color } : {}),
-      ...(sx as object | undefined),
-    };
-    return (
-      <MuiIcon
-        {...(rest as SvgIconProps)}
-        sx={Object.keys(combinedSx).length > 0 ? combinedSx : undefined}
-      />
-    );
-  };
-}
+export type { LucideIcon, LucideProps } from './wrap';
 
 // ---------------------------------------------------------------------------
 // Lucide name → MUI icon mapping
@@ -233,6 +202,7 @@ export const BarChart2 = wrap(BarChartIcon);
 export const BarChart3 = wrap(BarChartIcon);
 export const Bell = wrap(NotificationsNoneIcon);
 export const Bookmark = wrap(BookmarkIcon);
+export const BookmarkOutline = wrap(BookmarkBorderIcon);
 export const BookOpen = wrap(BookIcon);
 export const Bot = wrap(SmartToyIcon);
 export const Bug = wrap(BugReportOutlinedIcon);
@@ -270,6 +240,9 @@ export const Edit3 = wrap(EditNoteIcon);
 export const Ellipsis = wrap(MoreHorizIcon);
 export const ExternalLink = wrap(OpenInNewIcon);
 export const Eye = wrap(VisibilityIcon);
+export const EyeOff = wrap(VisibilityOffIcon);
+/** Something failed to load: the face of a page that could not show its data. */
+export const Frown = wrap(SentimentDissatisfiedOutlinedIcon);
 export const File = wrap(InsertDriveFileIcon);
 export const FileImage = wrap(MuiImageIcon);
 export const FileSpreadsheet = wrap(TableChartIcon);
@@ -286,11 +259,15 @@ export const Globe = wrap(PublicIcon);
 export const Grid = wrap(GridViewIcon);
 export const GripVertical = wrap(DragIndicatorIcon);
 export const HelpCircle = wrap(HelpOutlineIcon);
+export const History = wrap(HistoryIcon);
 export const ImageUp = wrap(FileUploadIcon);
 export const Info = wrap(InfoIcon);
+export const Keyboard = wrap(KeyboardIcon);
 export const Landmark = wrap(AccountBalanceIcon);
 export const Layers = wrap(LayersIcon);
 export const LayoutDashboard = wrap(DashboardIcon);
+export const Maximize = wrap(FullscreenIcon);
+export const Minimize = wrap(FullscreenExitIcon);
 export const LayoutGrid = wrap(GridViewIcon);
 export const Lightbulb = wrap(LightbulbIcon);
 export const Quote = wrap(FormatQuoteIcon);
@@ -307,6 +284,7 @@ export const MessageCircle = wrap(ChatBubbleOutlineIcon);
 export const Minus = wrap(HorizontalRuleIcon);
 export const Monitor = wrap(MonitorIcon);
 export const Moon = wrap(DarkModeIcon);
+export const MoveLeft = wrap(WestIcon);
 export const MoonStar = wrap(NightlightRoundIcon);
 export const MoreHorizontal = wrap(MoreHorizIcon);
 export const MoreVertical = wrap(MoreVertIcon);
@@ -336,6 +314,7 @@ export const Send = wrap(SendIcon);
 export const Settings = wrap(SettingsIcon);
 export const Share2 = wrap(ShareIcon);
 export const ShieldCheck = wrap(VerifiedUserIcon);
+export const Shuffle = wrap(ShuffleIcon);
 export const ShoppingCart = wrap(ShoppingCartIcon);
 export const Smartphone = wrap(SmartphoneIcon);
 export const SlidersHorizontal = wrap(TuneIcon);

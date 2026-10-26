@@ -3,6 +3,13 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
+
 const get = vi.fn();
 const post = vi.fn();
 const del = vi.fn();
@@ -15,18 +22,34 @@ vi.mock('@/app/lib/api', () => ({
   },
 }));
 
+import type { TaxRateItem } from '@/app/lib/contracts';
+import { categoryItem } from '@/app/test/fixtures/contracts';
 import { TaxRulesSection } from './TaxRulesSection';
 
 const CATEGORIES = [
-  { id: 'cat-rent', name: 'Аренда', type: 'expense' },
-  { id: 'cat-food', name: 'Материалы', type: 'expense' },
+  categoryItem({ id: 'cat-rent', name: 'Аренда' }),
+  categoryItem({ id: 'cat-food', name: 'Материалы' }),
+  categoryItem({ id: 'cat-ads', name: 'Advertising', isSystem: true, source: 'system' }),
 ];
 
+// The wire format (packages/contracts TaxRateItem).
+const taxRate = (fields: Pick<TaxRateItem, 'id' | 'code' | 'name' | 'rate'>): TaxRateItem => ({
+  isDefault: false,
+  isEnabled: true,
+  jurisdictionId: null,
+  kind: 'standard',
+  validFrom: '1900-01-01',
+  validTo: null,
+  isInclusive: false,
+  isReverseCharge: false,
+  ...fields,
+});
+
 const RATES = [
-  { id: 'r1', code: 'KZ_STANDARD', name: 'НДС 16%', rate: '16.00' },
-  { id: 'r2', code: 'KZ_ZERO', name: 'НДС 0%', rate: '0.00' },
+  taxRate({ id: 'r1', code: 'KZ_STANDARD', name: 'НДС 16%', rate: '16.00' }),
+  taxRate({ id: 'r2', code: 'KZ_ZERO', name: 'НДС 0%', rate: '0.00' }),
   // Hand-made rates have no code, so a rule cannot name one.
-  { id: 'r3', code: null, name: 'Custom 7%', rate: '7.00' },
+  taxRate({ id: 'r3', code: null, name: 'Custom 7%', rate: '7.00' }),
 ];
 
 function mockApi({ rules = [] as unknown[], rates = RATES } = {}) {
@@ -41,6 +64,7 @@ function mockApi({ rules = [] as unknown[], rates = RATES } = {}) {
 describe('TaxRulesSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    appLocale.current = 'en';
     post.mockResolvedValue({ data: {} });
     del.mockResolvedValue({ data: {} });
   });
@@ -78,6 +102,7 @@ describe('TaxRulesSection', () => {
           id: 'rule-1',
           categoryId: 'cat-rent',
           taxRateCode: 'KZ_ZERO',
+          priority: 0,
           direction: 'expense',
           isEnabled: true,
         },
@@ -85,8 +110,46 @@ describe('TaxRulesSection', () => {
     });
     render(<TaxRulesSection />);
 
-    expect(await screen.findByText('Аренда')).toBeInTheDocument();
+    // A system category stored under its Russian name reads in the reader's language.
+    expect(await screen.findByText('Rent')).toBeInTheDocument();
     expect(screen.getByText('KZ_ZERO')).toBeInTheDocument();
+  });
+
+  it("names categories in the reader's language and saves the chosen one by id", async () => {
+    appLocale.current = 'ru';
+    mockApi({
+      rules: [
+        {
+          id: 'rule-1',
+          categoryId: 'cat-ads',
+          taxRateCode: 'KZ_ZERO',
+          priority: 0,
+          direction: 'expense',
+          isEnabled: true,
+        },
+      ],
+    });
+    render(<TaxRulesSection />);
+
+    const list = within(await screen.findByRole('list', { name: 'Tax rules' }));
+    expect(list.getByText('Реклама')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delete rule for Реклама/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText('Category'));
+    // The category drawer lists the system category in the reader's language.
+    expect(screen.queryByRole('button', { name: 'Advertising' })).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Реклама' }));
+    await userEvent.click(screen.getByLabelText('Rate'));
+    await userEvent.click(within(await screen.findByRole('listbox')).getByText('НДС 0%'));
+    await userEvent.click(screen.getByRole('button', { name: 'Add rule' }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith('/tax/rules', {
+        categoryId: 'cat-ads',
+        taxRateCode: 'KZ_ZERO',
+        direction: 'both',
+      }),
+    );
   });
 
   it('describes a catch-all rule as covering any category', async () => {
@@ -96,6 +159,7 @@ describe('TaxRulesSection', () => {
           id: 'rule-1',
           categoryId: null,
           taxRateCode: 'KZ_STANDARD',
+          priority: 0,
           direction: 'both',
           isEnabled: true,
         },
@@ -155,6 +219,7 @@ describe('TaxRulesSection', () => {
           id: 'rule-1',
           categoryId: 'cat-rent',
           taxRateCode: 'KZ_ZERO',
+          priority: 0,
           direction: 'expense',
           isEnabled: true,
         },
@@ -162,7 +227,7 @@ describe('TaxRulesSection', () => {
     });
     render(<TaxRulesSection />);
 
-    await userEvent.click(await screen.findByRole('button', { name: /Delete rule for Аренда/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Delete rule for Rent/ }));
 
     await waitFor(() => expect(del).toHaveBeenCalledWith('/tax/rules/rule-1'));
   });

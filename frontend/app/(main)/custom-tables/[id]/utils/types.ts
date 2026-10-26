@@ -8,6 +8,7 @@ export type ColumnType =
   | 'currency'
   | 'formula'
   | 'relation'
+  // No longer offered for new columns; tables made earlier can still hold one.
   | 'ai';
 
 export type CustomTableCellValue = string | number | boolean | string[] | null;
@@ -33,8 +34,6 @@ export interface CustomTableColumnConfig {
   resultType?: 'number' | 'text' | 'boolean' | 'date';
   targetTableId?: string;
   displayColumnKey?: string;
-  /** Model instruction for ai columns. */
-  prompt?: string;
   [key: string]: unknown;
 }
 
@@ -58,6 +57,8 @@ export interface CustomTableGridRow {
   styles?: Record<string, { importIssue?: boolean } & Record<string, unknown>>;
   /** Labels of linked rows, resolved by the server for relation columns. */
   relationLabels?: Record<string, string>;
+  /** Id of the app record the row shows, in a table filled from app data; null for rows added by hand. */
+  sourceKey?: string | null;
 }
 
 export type RowFilterOp =

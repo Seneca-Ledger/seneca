@@ -5,10 +5,31 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type {
+  CapitalRole,
+  NetWorthResponse as NetWorthData,
+  NetWorthRange,
+  RiskLevel,
+} from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
-export type NetWorthRange = '1d' | '30d' | '90d' | '180d' | 'ytd' | '1y' | '3y' | '5y' | 'all';
+export type {
+  CapitalRole,
+  NetWorthAssetLine,
+  NetWorthAttribution,
+  NetWorthAttributionRow,
+  NetWorthBreakdownItem,
+  NetWorthChangeKind,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthRange,
+  NetWorthResponse as NetWorthData,
+  NetWorthSavings,
+  RiskLevel,
+} from '@/app/lib/contracts';
 
 export const NET_WORTH_RANGES: NetWorthRange[] = [
   '1d',
@@ -31,102 +52,11 @@ export interface NetWorthCustomRange {
   to: string;
 }
 
-export interface NetWorthPoint {
-  date: string;
-  value: number;
-  assets: number;
-  liabilities: number;
-}
-
-export interface NetWorthBreakdownItem {
-  code: string;
-  name: string;
-  amount: number;
-  percent: number;
-}
-
-export type CapitalRole = 'income' | 'neutral' | 'drain';
-export type RiskLevel = 'low' | 'medium' | 'high';
-
 export const CAPITAL_ROLES: CapitalRole[] = ['income', 'neutral', 'drain'];
 export const RISK_LEVELS: RiskLevel[] = ['low', 'medium', 'high'];
 
 /** The share of assets above which the 80/20 rule is considered broken. */
 export const RISKY_ALLOCATION_THRESHOLD = 20;
-
-/** What one line, or the rates, did to the number over the window. */
-export interface NetWorthAttributionRow {
-  id: string;
-  code: string;
-  name: string;
-  amount: number;
-}
-
-export type NetWorthChangeKind = 'money' | 'revaluation' | 'fx';
-
-export interface NetWorthAttribution {
-  byAccount: NetWorthAttributionRow[];
-  byKind: Array<{ kind: NetWorthChangeKind; amount: number }>;
-}
-
-export interface NetWorthClassificationItem {
-  key: string | null;
-  amount: number;
-  percent: number;
-}
-
-export interface NetWorthAssetLine {
-  id: string;
-  code: string;
-  name: string;
-  amount: number;
-  capitalRole: CapitalRole | null;
-  riskLevel: RiskLevel | null;
-  isClassifiable: boolean;
-}
-
-export interface NetWorthData {
-  range: NetWorthRange;
-  /** The window actually charted, whichever way it was chosen. */
-  from: string;
-  to: string;
-  currency: string;
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  assetsTotal: number;
-  liabilitiesTotal: number;
-  series: NetWorthPoint[];
-  breakdown: NetWorthBreakdownItem[];
-  byRisk: NetWorthClassificationItem[];
-  byRole: NetWorthClassificationItem[];
-  riskyPercent: number;
-  assetLines: NetWorthAssetLine[];
-  /** Currencies left out of the figures because no exchange rate was found. */
-  missingRates?: string[];
-  /** The highest sampled net worth over the whole history, and when. */
-  allTimeHigh?: { value: number; date: string } | null;
-  /** Investment holdings by asset class, plus cash and the other sheet lines. */
-  byAssetClass?: NetWorthClassificationItem[];
-  /** What made the change over the window. */
-  attribution?: NetWorthAttribution;
-  /** What came in over the window and the share of it kept. */
-  savings?: { income: number; kept: number; rate: number | null };
-  /** The same figures in troy ounces of a metal; only when asked for. */
-  denominated?: NetWorthDenominated | null;
-}
-
-/** Net worth measured in metal: what the money figures buy in ounces. */
-export interface NetWorthDenominated {
-  metal: 'XAU' | 'XAG' | 'XPT' | 'XPD';
-  unit: 'ozt';
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  series: NetWorthPoint[];
-}
 
 export type ClassificationPatch = {
   capitalRole?: CapitalRole | null;
@@ -221,7 +151,7 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
     ...window,
     ...(excluded.length > 0 ? { exclude: excluded.join(',') } : {}),
     ...(denominate ? { denominate } : {}),
-  };
+  } satisfies ContractInput<'NetWorthQuery'>;
   const queryKey = queryKeys.netWorth({
     workspaceId,
     range: [custom ? `${custom.from}:${custom.to}` : range, ...excluded].join('|'),
@@ -230,19 +160,22 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
 
   const query = useQuery({
     queryKey,
-    queryFn: ({ signal }) => apiQuery<NetWorthData>({ url: '/reports/net-worth', params, signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/reports/net-worth', params, signal, contract: 'NetWorthResponse' }),
     // Смена периода не должна гасить карточки: данные прошлого запроса живут
     // на экране до прихода новых, но только внутри того же воркспейса.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const classifyMutation = useMutation({
-    mutationFn: (variables: { accountId: string; patch: ClassificationPatch }) =>
-      apiClient.patch(
+    mutationFn: async (variables: { accountId: string; patch: ClassificationPatch }) => {
+      await apiClient.patch(
         `/reports/balance/accounts/${variables.accountId}/classification`,
-        variables.patch,
-      ),
+        variables.patch satisfies ContractInput<'UpdateAccountClassificationBody'>,
+      );
+    },
     // Выбор в селекте применяется сразу, иначе он «откатывается» на время
     // запроса; проценты и сводки пересчитывает сервер — их ждём.
     onMutate: (variables: { accountId: string; patch: ClassificationPatch }) => {
@@ -287,9 +220,13 @@ export function useNetWorth(initialRange: NetWorthRange = '90d'): NetWorthState 
 /**
  * A preset window held in the component, for a card on another page: the
  * page's own hook keeps its window in the address, which there would leak
- * `?range=` into a page that has its own parameters.
+ * `?range=` into a page that has its own parameters. `to` (`YYYY-MM-DD`) ends
+ * the window on that day instead of today, for a past version of the books.
  */
-export function useNetWorthPreset(initialRange: NetWorthRange): {
+export function useNetWorthPreset(
+  initialRange: NetWorthRange,
+  to: string | null = null,
+): {
   data: NetWorthData | undefined;
   isFetching: boolean;
   range: NetWorthRange;
@@ -299,11 +236,17 @@ export function useNetWorthPreset(initialRange: NetWorthRange): {
   const [range, setRange] = useState<NetWorthRange>(initialRange);
 
   const query = useQuery({
-    queryKey: queryKeys.netWorth({ workspaceId, range, denominate: null }),
+    queryKey: queryKeys.netWorth({ workspaceId, range, denominate: null, to }),
     queryFn: ({ signal }) =>
-      apiQuery<NetWorthData>({ url: '/reports/net-worth', params: { range }, signal }),
+      apiQueryDecoded({
+        url: '/reports/net-worth',
+        params: { range, ...(to ? { to } : {}) } satisfies ContractInput<'NetWorthQuery'>,
+        signal,
+        contract: 'NetWorthResponse',
+      }),
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   return { data: query.data, isFetching: query.isFetching, range, setRange };

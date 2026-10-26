@@ -1,8 +1,10 @@
-import { renderWithQuery } from '@/app/test/query-wrapper';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient, renderWithQuery } from '@/app/test/query-wrapper';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { todayKey } from '@/app/hooks/useDailyQuote';
 import { DailyQuoteBanner } from './DailyQuoteBanner';
+import { insightPage } from '@/app/test/fixtures/contracts';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn() }));
 const auth = vi.hoisted(() => ({ user: { showDailyQuote: true } as { showDailyQuote?: boolean } }));
@@ -34,7 +36,10 @@ const quote = {
 describe('DailyQuoteBanner', () => {
   beforeEach(() => {
     localStorage.clear();
-    apiMocks.get.mockReset().mockResolvedValue({ data: quote });
+    // Every other URL answers the quote; the insight feed answers an empty page.
+    apiMocks.get.mockReset().mockImplementation((url: string) =>
+      Promise.resolve({ data: url === '/insights' ? insightPage([]) : quote }),
+    );
   });
 
   it('shows the quote, its source and the advice it answers', async () => {
@@ -82,15 +87,50 @@ describe('DailyQuoteBanner', () => {
     renderWithQuery(<DailyQuoteBanner />);
     await Promise.resolve();
     expect(screen.queryByText(quote.quote.text)).toBeNull();
-    expect(localStorage.getItem('lumio:daily-quote-dismissed:ws-1')).toBe(quote.date);
+    expect(localStorage.getItem('seneca:daily-quote-dismissed:ws-1')).toBe(quote.date);
   });
 
-  it('waits while an urgent insight banner is showing', async () => {
+  it('greets only the first page of the day: leaving it closes the quote until tomorrow', async () => {
+    const client = createTestQueryClient();
+    const view = render(
+      <QueryClientProvider client={client}>
+        <DailyQuoteBanner />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText(quote.quote.text)).toBeTruthy();
+
+    // The layout keeps the banner mounted while the page under it changes.
+    route.pathname = '/budgets';
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <DailyQuoteBanner />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.queryByText(quote.quote.text)).toBeNull());
+    expect(localStorage.getItem('seneca:daily-quote-dismissed:ws-1')).toBe(quote.date);
+    route.pathname = '/dashboard';
+  });
+
+  it('waits while the strip of things to do is showing', async () => {
     apiMocks.get.mockImplementation((url: string) =>
       Promise.resolve({
         data:
           url === '/insights'
-            ? { items: [{ id: 'i2', severity: 'warn', title: 'Category is rising' }] }
+            ? insightPage([
+                {
+                  id: 'i2',
+                  type: 'operational.uncategorized_count',
+                  category: 'operational',
+                  severity: 'warn',
+                  title: 'Uncategorized',
+                  message: '12 transactions have no category.',
+                  messageKey: null,
+                  messageParams: null,
+                  data: { count: 12 },
+                  createdAt: '2026-08-01T00:00:00.000Z',
+                },
+              ])
             : quote,
       }),
     );
@@ -101,7 +141,7 @@ describe('DailyQuoteBanner', () => {
   });
 
   it('comes back when the day changes', async () => {
-    localStorage.setItem('lumio:daily-quote-dismissed:ws-1', '2000-01-01');
+    localStorage.setItem('seneca:daily-quote-dismissed:ws-1', '2000-01-01');
     renderWithQuery(<DailyQuoteBanner />);
     expect(await screen.findByText(quote.quote.text)).toBeTruthy();
   });

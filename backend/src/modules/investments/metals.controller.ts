@@ -3,15 +3,12 @@ import { existsSync, mkdirSync } from 'node:fs';
 import * as path from 'node:path';
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
   HttpCode,
-  Param,
   Patch,
   Post,
-  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -19,13 +16,27 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import {
+  InvestmentParams,
+  MetalLot,
+  MetalReceiptList,
+  MetalReceiptOptionsQuery,
+  MetalSaleResult,
+  MetalSettings,
+  MetalSettingsBody,
+  MetalsSummary,
+  PriceRefreshResult,
+  SellMetalLotBody,
+  UpsertMetalLotBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { MetalSettingsDto } from './dto/metal-settings.dto';
-import { SellMetalLotDto } from './dto/sell-metal-lot.dto';
-import { UpsertMetalLotDto } from './dto/upsert-metal-lot.dto';
 import { MetalsService, PHOTO_DIRECTORY } from './metals.service';
 
 /**
@@ -44,44 +55,51 @@ interface UploadedPhoto {
   filename: string;
 }
 
+/**
+ * Reading the metals book is a report; changing it changes what the workspace owns, so the
+ * writes take the wallet permissions, like crypto holdings (owner and admins).
+ */
 @Controller('metals')
 export class MetalsController {
   constructor(private readonly metalsService: MetalsService) {}
 
   @Get()
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(MetalsSummary)
   async summary(@WorkspaceId() workspaceId: string) {
     return this.metalsService.getSummary(workspaceId);
   }
 
   @Post('lots')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(MetalLot)
   async addLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpsertMetalLotDto,
+    @SchemaBody(UpsertMetalLotBody) dto: UpsertMetalLotBody,
   ) {
     return this.metalsService.addLot(user.id, workspaceId, dto);
   }
 
   @Patch('lots/:id')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(MetalLot)
   async updateLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
-    @Body() dto: UpsertMetalLotDto,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
+    @SchemaBody(UpsertMetalLotBody) dto: UpsertMetalLotBody,
   ) {
     return this.metalsService.updateLot(user.id, workspaceId, id, dto);
   }
 
   @Delete('lots/:id')
   @HttpCode(204)
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_DELETE)
   async deleteLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
   ) {
     await this.metalsService.deleteLot(user.id, workspaceId, id);
   }
@@ -89,36 +107,42 @@ export class MetalsController {
   /** Receipts the workspace could attach to a lot, newest first. */
   @Get('receipt-options')
   @WorkspaceAuth(Permission.REPORT_VIEW)
-  async receiptOptions(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
-    return this.metalsService.listReceiptOptions(workspaceId, Number(limit) || 50);
+  @SchemaResponse(MetalReceiptList)
+  async receiptOptions(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(MetalReceiptOptionsQuery) query: MetalReceiptOptionsQuery,
+  ) {
+    return this.metalsService.listReceiptOptions(workspaceId, query.limit ?? 50);
   }
 
   /** Sells a lot, whole or in part; proceeds of zero record a gift. */
   @Post('lots/:id/sell')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(MetalSaleResult)
   async sellLot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
-    @Body() dto: SellMetalLotDto,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
+    @SchemaBody(SellMetalLotBody) dto: SellMetalLotBody,
   ) {
     return this.metalsService.sellLot(user.id, workspaceId, id, dto);
   }
 
   /** What a dealer pays below spot, per metal. */
   @Patch('settings')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(MetalSettings)
   async saveSettings(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: MetalSettingsDto,
+    @SchemaBody(MetalSettingsBody) dto: MetalSettingsBody,
   ) {
     const dealerDiscount = await this.metalsService.saveSettings(user.id, workspaceId, dto);
     return { dealerDiscount };
   }
 
   @Post('lots/:id/photo')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
   @UseInterceptors(
     FileInterceptor('photo', {
       storage: diskStorage({
@@ -148,25 +172,31 @@ export class MetalsController {
       limits: { fileSize: PHOTO_MAX_BYTES },
     }),
   )
+  @SchemaResponse(MetalLot)
   async uploadPhoto(
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
     @UploadedFile() file: UploadedPhoto | undefined,
   ) {
-    if (!file) throw new BadRequestException('No photo uploaded');
+    if (!file) throw new BadRequestException(appError('METALS_PHOTO_NOT_UPLOADED'));
     return this.metalsService.setPhoto(workspaceId, id, file.filename);
   }
 
   @Delete('lots/:id/photo')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
-  async removePhoto(@WorkspaceId() workspaceId: string, @Param('id') id: string) {
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(MetalLot)
+  async removePhoto(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(InvestmentParams) { id }: InvestmentParams,
+  ) {
     return this.metalsService.removePhoto(workspaceId, id);
   }
 
   /** Re-quotes every lot whose price was not hand-entered. */
   @Post('refresh-prices')
   @HttpCode(200)
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(PriceRefreshResult)
   async refreshPrices(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const updated = await this.metalsService.refreshPrices(user.id, workspaceId);
     return { updated };

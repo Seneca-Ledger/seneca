@@ -1,7 +1,5 @@
-import { Injectable, Optional } from '@nestjs/common';
-import { ApplicationSettingsService } from '../application-settings/application-settings.service';
-import type { SuggestImportDto } from './dto/suggest-import.dto';
-import { AiImportMapperHelper } from './helpers/ai-import-mapper.helper';
+import { Injectable } from '@nestjs/common';
+import type { SuggestImportBody } from '../../contracts';
 import { parseImportDate, parseImportNumber } from './helpers/import-values';
 import {
   headerMatchScore,
@@ -17,13 +15,10 @@ export interface ImportSuggestion {
   confidence: number;
   columns: Array<{ index: number; role: string | null }>;
   alternatives: Array<{ target: ImportTargetKind; confidence: number }>;
-  source: 'heuristic' | 'ai';
 }
 
 /** Below this the sheet is offered as a plain table, above it as an entity import. */
 const TABLE_THRESHOLD = 0.35;
-/** Below this the model is asked for a second opinion, when one is configured. */
-const AI_THRESHOLD = 0.7;
 
 type ColumnProfile = {
   index: number;
@@ -68,10 +63,6 @@ const typeFits = (profile: ColumnProfile, type: string): boolean => {
 
 @Injectable()
 export class ImportSuggestService {
-  private readonly aiMapper = new AiImportMapperHelper();
-
-  constructor(@Optional() private readonly applicationSettings?: ApplicationSettingsService) {}
-
   /** Greedy header → field assignment for one target; returns score and mapping. */
   private scoreTarget(
     kind: ImportTargetKind,
@@ -113,7 +104,7 @@ export class ImportSuggestService {
     return { score: Math.min(score, 0.99), columns };
   }
 
-  async suggest(workspaceId: string, dto: SuggestImportDto): Promise<ImportSuggestion> {
+  suggest(dto: SuggestImportBody): ImportSuggestion {
     const headers = dto.headers.map(header => String(header ?? ''));
     const samples = dto.samples ?? [];
     const profiles = profileColumns(headers, samples);
@@ -122,7 +113,7 @@ export class ImportSuggestService {
       ...this.scoreTarget(kind, profiles),
     })).sort((a, b) => b.score - a.score);
     const best = scored[0];
-    let suggestion: ImportSuggestion = {
+    return {
       target: best.score >= TABLE_THRESHOLD ? best.kind : 'table',
       confidence: Number(best.score.toFixed(2)),
       columns: profiles.map(profile => ({
@@ -133,31 +124,6 @@ export class ImportSuggestService {
         target: item.kind,
         confidence: Number(item.score.toFixed(2)),
       })),
-      source: 'heuristic',
     };
-
-    if (best.score < AI_THRESHOLD && this.applicationSettings) {
-      try {
-        const settings = await this.applicationSettings.getAiSettingsForWorkspaceId(workspaceId);
-        this.aiMapper.configureAiClient(settings);
-        const ai = await this.aiMapper.suggest(headers, samples);
-        if (ai) {
-          const roles = new Map(ai.columns.map(column => [column.index, column.role]));
-          suggestion = {
-            ...suggestion,
-            target: ai.target,
-            confidence: Math.max(suggestion.confidence, 0.75),
-            columns: profiles.map(profile => ({
-              index: profile.index,
-              role: roles.get(profile.index) ?? null,
-            })),
-            source: 'ai',
-          };
-        }
-      } catch {
-        // The model is a second opinion; the heuristic answer stands on its own.
-      }
-    }
-    return suggestion;
   }
 }

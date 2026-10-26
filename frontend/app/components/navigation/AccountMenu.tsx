@@ -12,20 +12,21 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   ChevronUp,
+  Eye,
   LogOut,
   Moon,
   Plug,
   Puzzle,
   Settings,
   Sparkles,
-  User,
 } from '@/app/components/icons';
 import { openAppPanel } from '@/app/components/panels/app-panels-store';
 import { useAuth } from '@/app/hooks/useAuth';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
-import { resolveLabel } from '@/app/lib/side-panel-utils';
+import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
+import { setPrivacyMode, usePrivacyMode } from '@/app/lib/privacy-mode';
 import { useThemePreference } from './hooks/useThemePreference';
 
 /**
@@ -34,7 +35,6 @@ import { useThemePreference } from './hooks/useThemePreference';
  * own (notifications, plugins, integrations, what's new) open the right-hand
  * panel the rest of the app already uses, so nothing escapes the sidebar.
  */
-// eslint-disable-next-line max-lines-per-function
 export function AccountMenu({
   variant = 'sidebar',
   onAction,
@@ -58,9 +58,9 @@ export function AccountMenu({
     user,
     setUser,
     setTheme,
-    resolveLabel,
-    navTheme: undefined,
   });
+
+  const privacy = usePrivacyMode();
 
   if (!user) {
     return null;
@@ -85,13 +85,13 @@ export function AccountMenu({
   /** The sidebar's open width, so the menu covers it exactly and reaches no further. */
   const measure = (trigger: HTMLElement): { top: number; left: number; width: number } => {
     const rect = trigger.getBoundingClientRect();
-    const sidebar = trigger.closest('.lumio-shell__sidebar');
+    const sidebar = trigger.closest('.seneca-shell__sidebar');
     if (variant === 'mobile' || !sidebar) {
       return { top: rect.top, left: rect.left, width: rect.width };
     }
-    const shell = sidebar.closest('.lumio-shell');
+    const shell = sidebar.closest('.seneca-shell');
     const full = shell
-      ? Number.parseFloat(getComputedStyle(shell).getPropertyValue('--lumio-sidebar-width-full'))
+      ? Number.parseFloat(getComputedStyle(shell).getPropertyValue('--seneca-sidebar-width-full'))
       : Number.NaN;
     return {
       top: rect.top,
@@ -109,7 +109,7 @@ export function AccountMenu({
     <>
       <button
         type="button"
-        className={`lumio-account__trigger lumio-account__trigger--${variant}`}
+        className={`seneca-account__trigger seneca-account__trigger--${variant}`}
         onClick={event => {
           setAnchor(measure(event.currentTarget));
         }}
@@ -117,7 +117,7 @@ export function AccountMenu({
         aria-expanded={Boolean(anchor)}
         data-tour-id={variant === 'sidebar' ? 'user-menu-trigger' : undefined}
       >
-        <span className="lumio-account__avatar">
+        <span className="seneca-account__avatar" style={{ background: avatarTone(user.email) }}>
           {avatarUrl && !avatarError ? (
             <img
               src={avatarUrl}
@@ -127,11 +127,11 @@ export function AccountMenu({
               }}
             />
           ) : (
-            <User size={14} />
+            avatarInitial(user.name || user.email)
           )}
         </span>
-        <span className="lumio-account__name">{user.name}</span>
-        <ChevronUp size={14} className="lumio-account__caret" />
+        <span className="seneca-account__name">{user.name}</span>
+        <ChevronUp size={14} className="seneca-account__caret" />
       </button>
 
       <MuiMenu
@@ -168,6 +168,18 @@ export function AccountMenu({
           <ListItemText>{userMenu.darkMode}</ListItemText>
           <Switch checked={isDark} size="small" tabIndex={-1} sx={{ mr: -1 }} />
         </MenuItem>
+
+        {/* Amounts as scribbles until hovered, on this device; stays open like the theme row.
+            The sidebar has its own icon in the header; only the mobile drawer needs the row. */}
+        {variant === 'mobile' ? (
+          <MenuItem onClick={() => setPrivacyMode(!privacy)}>
+            <ListItemIcon>
+              <Eye size={18} />
+            </ListItemIcon>
+            <ListItemText>{userMenu.privacyMode}</ListItemText>
+            <Switch checked={privacy} size="small" tabIndex={-1} sx={{ mr: -1 }} />
+          </MenuItem>
+        ) : null}
 
         {canOpenApps ? (
           <MenuItem

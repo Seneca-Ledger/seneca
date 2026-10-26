@@ -3,7 +3,7 @@
 // folds to the same 40px square as the icons above it.
 @use '../abstracts' as *;
 
-.lumio-account__trigger {
+.seneca-account__trigger {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -13,9 +13,9 @@
   max-height: 40px;
   padding: 0 10px;
   border: none;
-  border-radius: $lumio-radius-md;
+  border-radius: $seneca-radius-md;
   background: transparent;
-  color: $lumio-color-text-secondary;
+  color: $seneca-color-text-secondary;
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 500;
@@ -23,15 +23,15 @@
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
 
-  @include dark { color: $lumio-color-text-secondary-dk; }
+  @include dark { color: $seneca-color-text-secondary-dk; }
 
   &:hover {
-    background: $lumio-color-ink-50;
-    color: $lumio-color-text-primary;
+    background: $seneca-color-ink-50;
+    color: $seneca-color-text-primary;
 
     @include dark {
-      background: $lumio-color-ink-100-dk;
-      color: $lumio-color-text-primary-dk;
+      background: $seneca-color-ink-100-dk;
+      color: $seneca-color-text-primary-dk;
     }
   }
 
@@ -43,21 +43,24 @@
   }
 }
 
-.lumio-account__avatar {
+.seneca-account__avatar {
   position: relative;
   display: grid;
   place-items: center;
   flex-shrink: 0;
   width: 24px;
   height: 24px;
-  border-radius: $lumio-radius-full;
-  background: $lumio-color-ink-100;
-  color: $lumio-color-ink-500;
+  border-radius: $seneca-radius-full;
+  background: $seneca-color-ink-100;
+  // The first letter of the name; its sage tint is set inline per person.
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
   overflow: hidden;
 
   @include dark {
-    background: $lumio-color-ink-200-dk;
-    color: $lumio-color-ink-500-dk;
+    background: $seneca-color-ink-200-dk;
   }
 
   img {
@@ -70,10 +73,11 @@
   &--tab {
     width: 28px;
     height: 28px;
+    font-size: 13px;
   }
 }
 
-.lumio-account__name {
+.seneca-account__name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -81,7 +85,7 @@
   text-overflow: ellipsis;
 }
 
-.lumio-account__caret {
+.seneca-account__caret {
   flex-shrink: 0;
   opacity: 0.6;
 }

@@ -6,13 +6,14 @@ import TextField from '@mui/material/TextField';
 import { useMemo } from 'react';
 import { FORM_CONTROL_SX } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
+import { useIntlayer } from '@/app/i18n';
+import { makeTx } from '@/app/lib/intlayer-resolve';
 import { formatTimeZoneLabel } from '@/app/lib/timezone';
 import {
   type DateFormatPreference,
   dateFormatPreferences,
   formatDate,
 } from '@/app/lib/user-format';
-import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
 import { LocaleField } from '../components/LocaleField';
 import { FieldLabel } from '../components/OnboardingField';
 import { StepHeading } from '../components/StepHeading';
@@ -51,14 +52,8 @@ const resolveTimeZoneOptions = (): string[] => {
 };
 
 // Same wording and sample date as the profile settings, so the two screens agree.
-const DATE_FORMAT_FALLBACKS: Record<DateFormatPreference, string> = {
-  auto: 'Follow the language',
-  dmy: 'Day.Month.Year',
-  mdy: 'Month/Day/Year',
-  ymd: 'Year-Month-Day',
-};
 const SAMPLE_DATE = new Date(2026, 10, 5);
-const WEEKDAY_FALLBACKS = ['Sunday', 'Monday'];
+const WEEKDAY_KEYS = ['sunday', 'monday'];
 
 type TimeZoneOption = { value: string; label: string };
 
@@ -87,7 +82,7 @@ export function LanguageStep({
   onFirstDayOfWeekChange,
 }: LanguageStepProps) {
   const text = useOnboardingText(locale);
-  const { tx: settingsText } = useSettingsText();
+  const settingsText = makeTx(useIntlayer('settingsProfilePage'));
 
   const timeZoneOptions = useMemo<TimeZoneOption[]>(
     () =>
@@ -112,44 +107,44 @@ export function LanguageStep({
 
   const dateFormatOptions = dateFormatPreferences.map(option => ({
     value: option,
-    label: `${settingsText(['profileCard', 'dateFormats', option], DATE_FORMAT_FALLBACKS[option])} — ${formatDate(SAMPLE_DATE, { locale, dateFormat: option })}`,
+    label: `${settingsText(['profileCard', 'dateFormats', option])} — ${formatDate(SAMPLE_DATE, { locale, dateFormat: option })}`,
   }));
 
   const weekStartOptions = [
     {
       value: '',
-      label: settingsText(['profileCard', 'dateFormats', 'auto'], DATE_FORMAT_FALLBACKS.auto),
+      label: settingsText(['profileCard', 'dateFormats', 'auto']),
     },
-    ...WEEKDAY_FALLBACKS.map((fallback, day) => ({
+    ...WEEKDAY_KEYS.map((key, day) => ({
       value: String(day),
-      label: settingsText(['profileCard', 'weekdays', fallback.toLowerCase()], fallback),
+      label: settingsText(['profileCard', 'weekdays', key]),
     })),
   ];
 
   const greeting = name?.trim()
-    ? text(['language', 'greeting'], 'Welcome, {name}').replace('{name}', name.trim())
+    ? text(['language', 'greeting']).replace('{name}', name.trim())
     : undefined;
 
   return (
-    <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <Box
+      component="section"
+      sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
+    >
       <StepHeading
         eyebrow={greeting}
-        title={text(['language', 'title'], 'Language and timezone')}
-        subtitle={text(
-          ['language', 'subtitle'],
-          'Choose your preferred interface language and timezone for accurate report timestamps.',
-        )}
+        title={text(['language', 'title'])}
+        subtitle={text(['language', 'subtitle'])}
       />
 
       <LocaleField
-        label={text(['language', 'localeLabel'], 'Language')}
+        label={text(['language', 'localeLabel'])}
         value={locale}
         onChange={onLocaleChange}
       />
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <FieldLabel htmlFor="onboarding-timezone-select">
-          {text(['language', 'timeZoneLabel'], 'Timezone')}
+          {text(['language', 'timeZoneLabel'])}
         </FieldLabel>
         <Autocomplete<TimeZoneOption, false>
           options={timeZoneOptions}
@@ -157,13 +152,16 @@ export function LanguageStep({
           onChange={(_event, option) => onTimeZoneChange(option?.value ?? null)}
           getOptionLabel={option => option.label}
           isOptionEqualToValue={(a, b) => a.value === b.value}
-          noOptionsText={text(['language', 'timeZoneNoOptions'], 'No matching timezones found')}
+          noOptionsText={text(['language', 'timeZoneNoOptions'])}
           renderInput={params => (
             <TextField
               {...params}
-              inputProps={{ ...params.inputProps, id: 'onboarding-timezone-select' }}
-              placeholder={text(['language', 'timeZonePlaceholder'], 'Select timezone')}
+              placeholder={text(['language', 'timeZonePlaceholder'])}
               sx={{ '& .MuiInputBase-root': { minHeight: 48, fontSize: 16 } }}
+              slotProps={{
+                ...params.slotProps,
+                htmlInput: { ...params.slotProps.htmlInput, id: 'onboarding-timezone-select' },
+              }}
             />
           )}
         />
@@ -172,7 +170,7 @@ export function LanguageStep({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
           <FieldLabel htmlFor="onboarding-date-format" id="onboarding-date-format-label">
-            {settingsText(['profileCard', 'dateFormatLabel'], 'Date format')}
+            {settingsText(['profileCard', 'dateFormatLabel'])}
           </FieldLabel>
           <Select
             fullWidth
@@ -186,7 +184,7 @@ export function LanguageStep({
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
           <FieldLabel htmlFor="onboarding-week-start" id="onboarding-week-start-label">
-            {settingsText(['profileCard', 'firstDayOfWeekLabel'], 'First day of the week')}
+            {settingsText(['profileCard', 'firstDayOfWeekLabel'])}
           </FieldLabel>
           <Select
             fullWidth
@@ -201,10 +199,7 @@ export function LanguageStep({
       </Box>
 
       <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-        {text(
-          ['language', 'timeZoneHint'],
-          'You can always change this later in profile settings.',
-        )}
+        {text(['language', 'timeZoneHint'])}
       </Box>
     </Box>
   );

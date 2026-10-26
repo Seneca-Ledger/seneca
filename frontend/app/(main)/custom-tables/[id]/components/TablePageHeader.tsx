@@ -1,13 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Pencil } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
+import type { TableMoneyTotal } from '../hooks/useTableMoneyTotal';
+import { formatCellNumber } from '../utils/numberFormat';
 import type { CustomTable } from '../utils/tableTypes';
 
 export interface TablePageHeaderLabels {
   back: string;
+  /** Under the balance when some rows have no exchange rate; `{{currencies}}` lists them. */
+  balanceMissingRates: string;
   rename: string;
   rows: string;
   sources: Record<string, string>;
@@ -20,13 +26,56 @@ export interface TablePageHeaderLabels {
 interface TablePageHeaderProps {
   table: CustomTable;
   total: number | null;
+  /** The table's balance, drawn under the title; null until loaded or without a money column. */
+  moneyTotal?: TableMoneyTotal | null;
   onBack: () => void;
   onRename: (name: string) => Promise<void>;
+  /** The toolbar, drawn on the title's line so the grid starts higher. */
+  actions?: ReactNode;
   labels: TablePageHeaderLabels;
 }
 
-/** Back link, editable title, description and a short meta line. */
-export function TablePageHeader({ table, total, onBack, onRename, labels }: TablePageHeaderProps) {
+const balanceTone = (total: number): string =>
+  total > 0 ? ' seneca-ct__balance-value--up' : total < 0 ? ' seneca-ct__balance-value--down' : '';
+
+/** The balance under the title: sage when positive, soft terracotta when negative, ink at zero. */
+function TableBalance({
+  total,
+  currency,
+  missing,
+  missingLabel,
+}: {
+  total: number;
+  currency: string;
+  missing: readonly string[];
+  missingLabel: string;
+}) {
+  return (
+    <p className="seneca-ct__balance">
+      <span className={`${PRIVATE_CLASS}${balanceTone(total)}`}>
+        {/* A typographic minus, as in the grid's cells. */}
+        {formatCellNumber(total, { currency, precision: 2 }).replace('-', '−')}
+      </span>
+      {missing.length ? (
+        <span className="seneca-ct__balance-note">
+          {missingLabel.replace('{{currencies}}', missing.join(', '))}
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
+/** Back arrow and editable title with a short meta line under it; the toolbar sits to the right. */
+export function TablePageHeader({
+  table,
+  total,
+  moneyTotal,
+  onBack,
+  onRename,
+  actions,
+  labels,
+}: TablePageHeaderProps) {
+  const categoryName = useCategoryName();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(table.name);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -52,15 +101,22 @@ export function TablePageHeader({ table, total, onBack, onRename, labels }: Tabl
   };
 
   return (
-    <header className="lumio-ct__header">
-      <Button variant="ghost" size="sm" type="button" onClick={onBack} className="lumio-ct__back">
-        <ArrowLeft size={16} aria-hidden />
-        {labels.back}
+    <header className="seneca-ct__header">
+      <Button
+        variant="ghost"
+        size="icon"
+        type="button"
+        onClick={onBack}
+        className="seneca-ct__back"
+        aria-label={labels.back}
+        title={labels.back}
+      >
+        <ArrowLeft size={18} aria-hidden />
       </Button>
-      <div className="lumio-ct__title-row">
+      <div className="seneca-ct__title-row">
         {editing ? (
           <input
-            className="lumio-ct__title-input"
+            className="seneca-ct__title-input"
             value={name}
             aria-label={labels.rename}
             ref={inputRef}
@@ -76,11 +132,11 @@ export function TablePageHeader({ table, total, onBack, onRename, labels }: Tabl
             }}
           />
         ) : (
-          <h1 className="lumio-ct__title">
+          <h1 className="seneca-ct__title">
             {table.name || labels.untitled}
             <button
               type="button"
-              className="lumio-ct__title-edit"
+              className="seneca-ct__title-edit"
               aria-label={labels.rename}
               onClick={() => {
                 setName(table.name);
@@ -91,16 +147,26 @@ export function TablePageHeader({ table, total, onBack, onRename, labels }: Tabl
             </button>
           </h1>
         )}
-        <p className="lumio-ct__meta">
-          <span className="lumio-ct__badge lumio-ct__badge--neutral">{source}</span>
+        {moneyTotal && moneyTotal.total !== null ? (
+          <TableBalance
+            total={moneyTotal.total}
+            currency={moneyTotal.currency}
+            missing={moneyTotal.missing}
+            missingLabel={labels.balanceMissingRates}
+          />
+        ) : null}
+        <p className="seneca-ct__meta">
+          {/* "Transactions · 860 rows" under a table named Transactions says it twice. */}
+          {source && source !== table.name ? <span>{source}</span> : null}
           {total !== null ? <span>{labels.rows.replace('{{count}}', String(total))}</span> : null}
-          {table.category ? <span>{table.category.name}</span> : null}
+          {table.category ? <span>{categoryName(table.category.name)}</span> : null}
           {syncedAt ? (
             <span>{labels.syncedAt.replace('{{date}}', formatStoredDate(new Date(syncedAt)))}</span>
           ) : null}
         </p>
-        {table.description ? <p className="lumio-ct__description">{table.description}</p> : null}
+        {table.description ? <p className="seneca-ct__description">{table.description}</p> : null}
       </div>
+      {actions}
     </header>
   );
 }

@@ -60,7 +60,7 @@ export function deriveAddresses(
   const account = HDKey.fromExtendedKey(extendedKey.trim(), {
     public: VERSIONS[kind],
     // Only the public half is ever accepted here: an extended private key would
-    // let this process spend, and Lumio never holds anything that can.
+    // let this process spend, and Seneca never holds anything that can.
     private: 0x7fffffff,
   });
   const branch = account.deriveChild(options.chain);

@@ -1,9 +1,16 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
-import type { Repository } from 'typeorm';
+import { IsNull, type Repository } from 'typeorm';
 import { workspaceMemberCanEdit } from '../../../common/authz/workspace-permissions';
-import { appError } from '../../../common/errors/app-error';
+import { appError, type ErrorCode } from '../../../common/errors/app-error';
 import type { CaptureLocation } from '../../../common/utils/capture-location.util';
 import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import { calculateFileHash } from '../../../common/utils/file-hash.util';
@@ -18,6 +25,8 @@ import { TaxRate } from '../../../entities/tax-rate.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 import { User } from '../../../entities/user.entity';
 import { AuditService } from '../../audit/audit.service';
+import type { EInvoiceSummary } from '../../e-invoices/einvoice-summary';
+import { transactionCreatedEvent } from '../../notifications/events/notification-events';
 import { ReceiptsService } from '../../receipts/receipts.service';
 import { TaxAssignmentService } from '../../tax/tax-assignment.service';
 
@@ -39,6 +48,7 @@ export class ReceiptStatementService {
     private readonly receiptsService: ReceiptsService,
     private readonly auditService: AuditService,
     private readonly taxAssignmentService: TaxAssignmentService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async createFromReceiptScan(params: {
@@ -52,7 +62,7 @@ export class ReceiptStatementService {
     await this.ensureCanEditStatements(user.id, workspaceId);
 
     if (!files?.length) {
-      throw new BadRequestException('No receipt files provided');
+      throw new BadRequestException(appError('RECEIPT_SCAN_NO_FILES'));
     }
 
     const results: Statement[] = [];
@@ -78,7 +88,10 @@ export class ReceiptStatementService {
 
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['role', 'permissions'],
+      select: {
+        role: true,
+        permissions: true,
+      },
     });
 
     if (!membership) {
@@ -88,6 +101,34 @@ export class ReceiptStatementService {
     if (!workspaceMemberCanEdit(membership.role, 'canEditStatements', membership.permissions)) {
       throw new ForbiddenException(appError('STATEMENTS_EDIT_FORBIDDEN'));
     }
+  }
+
+  /** A live document already made from this exact file; trashed ones may be uploaded again. */
+  private findFiledStatement(
+    statements: Repository<Statement>,
+    workspaceId: string,
+    fileHash: string,
+  ): Promise<Statement | null> {
+    return statements.findOne({ where: { workspaceId, fileHash, deletedAt: IsNull() } });
+  }
+
+  /**
+   * Checked again under the lock bank uploads take for the same file: two
+   * uploads of it at once both pass the first check while the scan is read.
+   */
+  private saveUnlessFiled(
+    statement: Statement,
+    workspaceId: string,
+    fileHash: string,
+  ): Promise<{ filed: Statement } | { created: Statement }> {
+    return this.statementRepository.manager.transaction(async manager => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+        `statement-upload:${workspaceId}:${fileHash}`,
+      ]);
+      const statements = manager.getRepository(Statement);
+      const filed = await this.findFiledStatement(statements, workspaceId, fileHash);
+      return filed ? { filed } : { created: (await statements.save(statement)) as Statement };
+    });
   }
 
   private normalizePositiveAmount(value: number | string | null | undefined): number | null {
@@ -116,24 +157,58 @@ export class ReceiptStatementService {
     return BankName.OTHER;
   }
 
-  private resolveReceiptFailureMessage(receipt: {
+  private resolveReceiptFailure(receipt: {
     metadata?: Record<string, unknown> | null;
     parsedData?: Record<string, unknown> | null;
-  }) {
+  }): [ErrorCode, { reason: string }?] {
     const metadataError = receipt.metadata?.processingError;
     if (typeof metadataError === 'string' && metadataError.trim()) {
-      return metadataError;
+      return ['RECEIPT_SCAN_FAILED', { reason: metadataError }];
     }
 
     const parsedIssues = receipt.parsedData?.validationIssues;
     if (Array.isArray(parsedIssues)) {
       const [firstIssue] = parsedIssues;
       if (typeof firstIssue === 'string' && firstIssue.trim()) {
-        return firstIssue;
+        return ['RECEIPT_SCAN_FAILED', { reason: firstIssue }];
       }
     }
 
-    return 'Receipt scan could not be processed';
+    return ['RECEIPT_SCAN_UNPROCESSABLE'];
+  }
+
+  /**
+   * An e-invoice names its seller's country and VAT id. A payee that has
+   * neither takes them, and the row is assessed again with them — which is
+   * what makes a purchase from another EU state reverse-charged. A payee the
+   * user already described is left alone. The number is checked in VIES by
+   * the daily re-check of unchecked numbers.
+   */
+  private async adoptSupplierDetails(
+    workspaceId: string,
+    transaction: Transaction,
+    einvoice: EInvoiceSummary | undefined,
+  ): Promise<void> {
+    const seller = einvoice?.seller;
+    if (!(transaction.payeeId && seller?.countryCode && seller.vatId)) {
+      return;
+    }
+    const updated: unknown[] = await this.transactionRepository.manager.query(
+      `UPDATE payees SET country_code = $3, vat_id = $4
+        WHERE id = $1 AND workspace_id = $2 AND country_code IS NULL AND vat_id IS NULL
+        RETURNING id`,
+      [
+        transaction.payeeId,
+        workspaceId,
+        seller.countryCode.toUpperCase().slice(0, 2),
+        seller.vatId.replace(/\s+/g, '').slice(0, 32),
+      ],
+    );
+    // node-postgres hands back [rows, count] for an UPDATE … RETURNING through TypeORM.
+    const rows = Array.isArray(updated[0]) ? (updated[0] as unknown[]) : updated;
+    if (rows.length > 0) {
+      await this.taxAssignmentService.reassess(workspaceId, { ids: [transaction.id] });
+    }
   }
 
   private async createStatementFromReceiptFile(params: {
@@ -145,8 +220,19 @@ export class ReceiptStatementService {
   }): Promise<Statement> {
     const { user, workspaceId, file, language, captureLocation } = params;
     const fileName = normalizeFilename(file.originalname);
-    const fileType = getFileTypeFromMime(file.mimetype) as FileType;
+    const fileType = (
+      file.mimetype === 'application/xml' || file.mimetype === 'text/xml'
+        ? FileType.XML
+        : getFileTypeFromMime(file.mimetype)
+    ) as FileType;
     const fileHash = await calculateFileHash(file.path);
+    // The same file again is the same document: hand back the one already
+    // filed instead of booking its expense a second time.
+    const filed = await this.findFiledStatement(this.statementRepository, workspaceId, fileHash);
+    if (filed) {
+      await fs.promises.unlink(file.path).catch(() => undefined);
+      return filed;
+    }
     const fileData = await fs.promises.readFile(file.path);
     const receipt = await this.receiptsService.createFromScan({
       userId: user.id,
@@ -157,7 +243,7 @@ export class ReceiptStatementService {
     });
 
     if (receipt.status === ReceiptStatus.FAILED) {
-      throw new BadRequestException(this.resolveReceiptFailureMessage(receipt));
+      throw new BadRequestException(appError(...this.resolveReceiptFailure(receipt)));
     }
 
     const parsed = receipt.parsedData ?? {};
@@ -249,7 +335,12 @@ export class ReceiptStatementService {
       },
     });
 
-    const savedStatement = (await this.statementRepository.save(statement)) as Statement;
+    const saved = await this.saveUnlessFiled(statement, workspaceId, fileHash);
+    if ('filed' in saved) {
+      await this.receiptsService.delete(receipt.id, workspaceId, user.id);
+      return saved.filed;
+    }
+    const savedStatement = saved.created;
 
     await this.receiptsService.update(receipt.id, workspaceId, {
       statementId: savedStatement.id,
@@ -291,6 +382,8 @@ export class ReceiptStatementService {
         currency,
         transactionType,
         categoryId,
+        categorySource: category ? (parsed.categorySource ?? null) : null,
+        categoryReason: category ? (parsed.categoryReason ?? null) : null,
         taxRateId: taxAssignment.taxRateId ?? taxRate?.id ?? null,
         taxRuleId: taxAssignment.taxRuleId,
         taxSource: taxAssignment.taxSource,
@@ -302,7 +395,12 @@ export class ReceiptStatementService {
         isVerified: false,
       });
 
-      await this.transactionRepository.save(transaction);
+      const saved = await this.transactionRepository.save(transaction);
+      await this.adoptSupplierDetails(workspaceId, transaction, parsed.einvoice);
+      this.eventEmitter?.emit(
+        'transaction.created',
+        transactionCreatedEvent(saved, 'receipt_scan'),
+      );
     }
 
     await this.auditService.createEvent({

@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -35,6 +36,9 @@ export enum NotificationType {
   SUBSCRIPTION_PRICE_CHANGED = 'subscription.price_changed',
   TAX_THRESHOLD_WARNING = 'tax.threshold.warning',
   TAX_THRESHOLD_REACHED = 'tax.threshold.reached',
+  TAX_DEADLINE_UPCOMING = 'tax.deadline.upcoming',
+  TAX_DEADLINE_OVERDUE = 'tax.deadline.overdue',
+  TAX_RATES_OFFICIAL_CHANGED = 'tax.rates.official_changed',
 }
 
 export enum NotificationCategory {
@@ -57,14 +61,14 @@ export class Notification {
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'recipient_id' })
-  recipient: User;
+  recipient: Relation<User>;
 
   @Column({ name: 'recipient_id', type: 'uuid' })
   recipientId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;

@@ -1,13 +1,22 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
+import {
+  BranchItem,
+  BranchList,
+  BranchParams,
+  CreateBranchBody,
+  MessageResult,
+  UpdateBranchBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BranchesService } from './branches.service';
-import { CreateBranchDto } from './dto/create-branch.dto';
-import { UpdateBranchDto } from './dto/update-branch.dto';
 
 @Controller('branches')
 export class BranchesController {
@@ -15,24 +24,29 @@ export class BranchesController {
 
   @Post()
   @WorkspaceAuth(Permission.BRANCH_CREATE)
+  @SchemaResponse(BranchItem)
   async create(
-    @Body() createDto: CreateBranchDto,
-    @CurrentUser() _user: User,
+    @SchemaBody(CreateBranchBody) createDto: CreateBranchBody,
+    @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.branchesService.create(workspaceId, createDto);
+    const created = await this.branchesService.create(workspaceId, user.id, createDto);
+    // The stored form, as the list reads it: defaults filled, decimals as strings.
+    return this.branchesService.findOne(created.id, workspaceId);
   }
 
   @Get()
   @WorkspaceAuth(Permission.BRANCH_VIEW)
+  @SchemaResponse(BranchList)
   async findAll(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     return this.branchesService.findAll(workspaceId);
   }
 
   @Get(':id')
   @WorkspaceAuth(Permission.BRANCH_VIEW)
+  @SchemaResponse(BranchItem)
   async findOne(
-    @Param('id') id: string,
+    @SchemaParams(BranchParams) { id }: BranchParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -41,19 +55,22 @@ export class BranchesController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.BRANCH_EDIT)
+  @SchemaResponse(BranchItem)
   async update(
-    @Param('id') id: string,
-    @Body() updateDto: UpdateBranchDto,
+    @SchemaParams(BranchParams) { id }: BranchParams,
+    @SchemaBody(UpdateBranchBody) updateDto: UpdateBranchBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.branchesService.update(id, workspaceId, updateDto);
+    await this.branchesService.update(id, workspaceId, updateDto);
+    return this.branchesService.findOne(id, workspaceId);
   }
 
   @Delete(':id')
   @WorkspaceAuth(Permission.BRANCH_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(BranchParams) { id }: BranchParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {

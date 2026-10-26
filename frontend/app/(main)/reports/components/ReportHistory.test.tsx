@@ -41,20 +41,23 @@ vi.mock('@/app/components/ui/badge', () => ({
   ),
 }));
 
+// Imported once at collection: a dynamic import inside a test spends its
+// timeout on the module graph under a loaded run.
+import { ReportHistory } from './ReportHistory';
+
 describe('ReportHistory', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     apiGet.mockReset();
     clickSpy.mockReset();
     createObjectUrl.mockReset();
     createObjectUrl.mockReturnValue('blob:report');
     revokeObjectUrl.mockReset();
 
-    Object.defineProperty(window, 'URL', {
-      value: {
-        createObjectURL: createObjectUrl,
-        revokeObjectURL: revokeObjectUrl,
-      },
-      writable: true,
+    // Stub only the blob helpers: replacing window.URL wholesale breaks `new URL()`.
+    Object.assign(window.URL, {
+      createObjectURL: createObjectUrl,
+      revokeObjectURL: revokeObjectUrl,
     });
 
     const originalCreateElement = document.createElement.bind(document);
@@ -89,15 +92,16 @@ describe('ReportHistory', () => {
       })
       .mockResolvedValueOnce({ data: new Blob(['report']) });
 
-    const { ReportHistory } = await import('./ReportHistory');
     render(<ReportHistory />);
 
+    // Each row renders twice: the xs card list and the sm+ table.
     await waitFor(() => {
-      expect(screen.getByText('Profit & Loss (P&L)')).toBeInTheDocument();
+      expect(screen.getAllByText('Profit & Loss (P&L)')).toHaveLength(2);
     });
 
-    const button = screen.getByRole('button', { name: 'Re-download Profit & Loss (P&L)' });
-    fireEvent.click(button);
+    const buttons = screen.getAllByRole('button', { name: 'Re-download Profit & Loss (P&L)' });
+    expect(buttons).toHaveLength(2);
+    fireEvent.click(buttons[0]);
 
     await waitFor(() => {
       expect(apiGet).toHaveBeenNthCalledWith(2, '/reports/history/report-1/download', {
@@ -110,7 +114,6 @@ describe('ReportHistory', () => {
   it('renders localized headers and empty state copy from i18n', async () => {
     apiGet.mockResolvedValueOnce({ data: { data: [] } });
 
-    const { ReportHistory } = await import('./ReportHistory');
     render(<ReportHistory />);
 
     await waitFor(() => {
@@ -142,11 +145,10 @@ describe('ReportHistory', () => {
       },
     });
 
-    const { ReportHistory } = await import('./ReportHistory');
     render(<ReportHistory />);
 
     await waitFor(() => {
-      expect(screen.getByText('Balance locale')).toBeInTheDocument();
+      expect(screen.getAllByText('Balance locale')).toHaveLength(2);
     });
 
     expect(screen.getByText('Rapport')).toBeInTheDocument();

@@ -1,0 +1,76 @@
+/**
+ * Which cells of a table filled from Seneca data write back to the app record
+ * (`write`) and which only show it (`read`): file names, derived totals and
+ * values the app maintains itself. One map for both sides — the backend
+ * refuses a write to a `read` field, the grid draws it as plain text.
+ *
+ * Plain data on purpose: no effect import, so the frontend may import this
+ * module as a value without pulling the schema runtime into its bundle.
+ */
+export type SourceFieldAccess = 'write' | 'read';
+
+export const SOURCE_FIELD_ACCESS = {
+  transactions: {
+    date: 'write',
+    counterparty: 'write',
+    purpose: 'write',
+    amount: 'write',
+    type: 'write',
+    category: 'write',
+    tags: 'read',
+    currency: 'write',
+    statement: 'read',
+  },
+  subscriptions: {
+    vendor: 'write',
+    amount: 'write',
+    currency: 'write',
+    frequency: 'write',
+    status: 'write',
+    nextChargeDate: 'write',
+    lastChargeDate: 'read',
+    category: 'write',
+  },
+  payables: {
+    direction: 'write',
+    vendor: 'write',
+    amount: 'write',
+    currency: 'write',
+    dueDate: 'write',
+    status: 'write',
+    source: 'read',
+    isRecurring: 'write',
+    paidAt: 'read',
+    comment: 'write',
+  },
+  invoices: {
+    invoiceNumber: 'read',
+    client: 'write',
+    status: 'read',
+    issueDate: 'write',
+    dueDate: 'write',
+    subtotal: 'read',
+    taxTotal: 'read',
+    total: 'read',
+    currency: 'write',
+    notes: 'write',
+  },
+  budgets: {
+    name: 'write',
+    category: 'read',
+    limit: 'write',
+    spent: 'read',
+    remaining: 'read',
+    percentUsed: 'read',
+    periodType: 'read',
+    periodStart: 'read',
+    currency: 'write',
+  },
+} as const satisfies Record<string, Record<string, SourceFieldAccess>>;
+
+export type SourceFieldKind = keyof typeof SOURCE_FIELD_ACCESS;
+
+/** A field this source writes back; unknown kinds and fields are never writable. */
+export const isSourceFieldWritable = (kind: string, field: string): boolean =>
+  (SOURCE_FIELD_ACCESS as Record<string, Record<string, SourceFieldAccess>>)[kind]?.[field] ===
+  'write';

@@ -44,8 +44,8 @@ describe('BackupsService', () => {
     };
     const configurationRepository = repository(configuration);
     const runRepository = repository();
-    const destination = { store: jest.fn().mockResolvedValue('nightly-workspace-1/backup.lumio-backup') };
-    const archive = { create: jest.fn().mockResolvedValue(Buffer.from('encrypted archive')) };
+    const destination = { store: vi.fn().mockResolvedValue('nightly-workspace-1/backup.seneca-backup') };
+    const archive = { create: vi.fn().mockResolvedValue(Buffer.from('encrypted archive')) };
     const service = createService({ configurationRepository, runRepository, destination, archive });
 
     const run = await service.createRun(user, 'workspace-1', BackupRunTrigger.MANUAL);
@@ -61,7 +61,7 @@ describe('BackupsService', () => {
     );
     expect(destination.store).toHaveBeenCalledWith(
       configuration,
-      expect.stringMatching(/\.lumio-backup$/),
+      expect.stringMatching(/\.seneca-backup$/),
       Buffer.from('encrypted archive'),
     );
     expect(run.status).toBe(BackupRunStatus.SUCCEEDED);
@@ -76,7 +76,7 @@ describe('BackupsService', () => {
     };
 
     it('logs configure as BACKUP UPDATE without the password or wrapped keys', async () => {
-      const auditService = { createEvent: jest.fn().mockResolvedValue({}) };
+      const auditService = { createEvent: vi.fn().mockResolvedValue({}) };
       const service = createService({ auditService });
 
       await service.configure(user, 'workspace-1', configInput);
@@ -100,7 +100,7 @@ describe('BackupsService', () => {
     });
 
     it('logs a manual run as BACKUP CREATE', async () => {
-      const auditService = { createEvent: jest.fn().mockResolvedValue({}) };
+      const auditService = { createEvent: vi.fn().mockResolvedValue({}) };
       const configurationRepository = repository({
         id: 'config-1',
         workspaceId: 'workspace-1',
@@ -109,8 +109,8 @@ describe('BackupsService', () => {
         encryptedDataKey: 'server-wrapped-data-key',
         passwordEnvelope: { kdf: {}, wrappedDataKey: {} },
       });
-      const destination = { store: jest.fn().mockResolvedValue('nightly/backup.lumio-backup') };
-      const archive = { create: jest.fn().mockResolvedValue(Buffer.from('encrypted archive')) };
+      const destination = { store: vi.fn().mockResolvedValue('nightly/backup.seneca-backup') };
+      const archive = { create: vi.fn().mockResolvedValue(Buffer.from('encrypted archive')) };
       const service = createService({ configurationRepository, destination, archive, auditService });
 
       const run = await service.createRun(user, 'workspace-1', BackupRunTrigger.MANUAL);
@@ -129,7 +129,7 @@ describe('BackupsService', () => {
     });
 
     it('still saves the configuration when the audit write fails', async () => {
-      const auditService = { createEvent: jest.fn().mockRejectedValue(new Error('audit down')) };
+      const auditService = { createEvent: vi.fn().mockRejectedValue(new Error('audit down')) };
       const configurationRepository = repository();
       const service = createService({ configurationRepository, auditService });
 
@@ -150,29 +150,29 @@ describe('BackupsService', () => {
       id: 'run-1',
       workspaceId: 'workspace-1',
       status: BackupRunStatus.SUCCEEDED,
-      destinationFile: 'nightly-workspace-1/backup.lumio-backup',
+      destinationFile: 'nightly-workspace-1/backup.seneca-backup',
     });
-    const destination = { load: jest.fn().mockResolvedValue(Buffer.from('archive')) };
+    const destination = { load: vi.fn().mockResolvedValue(Buffer.from('archive')) };
     const service = createService({ configurationRepository, runRepository, destination });
 
     const result = await service.downloadRun(user, 'workspace-1', 'run-1');
 
-    expect(destination.load).toHaveBeenCalledWith(configuration, 'nightly-workspace-1/backup.lumio-backup');
-    expect(result).toEqual({ fileName: 'backup.lumio-backup', contents: Buffer.from('archive') });
+    expect(destination.load).toHaveBeenCalledWith(configuration, 'nightly-workspace-1/backup.seneca-backup');
+    expect(result).toEqual({ fileName: 'backup.seneca-backup', contents: Buffer.from('archive') });
   });
 
   it('limits configuration and backup runs to the workspace owner', async () => {
     const workspaceRepository = {
-      findOne: jest.fn().mockResolvedValue({ id: 'workspace-1', ownerId: 'another-user', name: 'Finance' }),
+      findOne: vi.fn().mockResolvedValue({ id: 'workspace-1', ownerId: 'another-user', name: 'Finance' }),
     };
     const service = new BackupsService(
       repository() as never,
       repository() as never,
       workspaceRepository as never,
-      { initializeEncryption: jest.fn(), create: jest.fn() } as never,
-      { encryptDataKey: jest.fn(), decryptDataKey: jest.fn() } as never,
-      { collect: jest.fn() } as never,
-      { store: jest.fn(), load: jest.fn() } as never,
+      { initializeEncryption: vi.fn(), create: vi.fn() } as never,
+      { encryptDataKey: vi.fn(), decryptDataKey: vi.fn() } as never,
+      { collect: vi.fn() } as never,
+      { store: vi.fn(), load: vi.fn() } as never,
     );
 
     await expect(service.getConfiguration(user, 'workspace-1')).rejects.toThrow(
@@ -182,16 +182,16 @@ describe('BackupsService', () => {
 
   it('manages the backups of the workspace of the request', async () => {
     const workspaceRepository = {
-      findOne: jest.fn().mockResolvedValue({ id: 'workspace-2', ownerId: 'user-1', name: 'Second' }),
+      findOne: vi.fn().mockResolvedValue({ id: 'workspace-2', ownerId: 'user-1', name: 'Second' }),
     };
     const service = new BackupsService(
       repository() as never,
       repository() as never,
       workspaceRepository as never,
-      { initializeEncryption: jest.fn(), create: jest.fn() } as never,
-      { encryptDataKey: jest.fn(), decryptDataKey: jest.fn() } as never,
-      { collect: jest.fn() } as never,
-      { store: jest.fn(), load: jest.fn() } as never,
+      { initializeEncryption: vi.fn(), create: vi.fn() } as never,
+      { encryptDataKey: vi.fn(), decryptDataKey: vi.fn() } as never,
+      { collect: vi.fn() } as never,
+      { store: vi.fn(), load: vi.fn() } as never,
     );
 
     await service.getConfiguration(user, 'workspace-2');
@@ -201,12 +201,12 @@ describe('BackupsService', () => {
 });
 
 function repository(existing?: Record<string, unknown>) {
-  const save = jest.fn().mockImplementation(value => Promise.resolve({ id: value.id || 'saved-1', ...value }));
+  const save = vi.fn().mockImplementation(value => Promise.resolve({ id: value.id || 'saved-1', ...value }));
   return {
-    findOne: jest.fn().mockResolvedValue(existing ?? null),
-    create: jest.fn().mockImplementation(value => value),
+    findOne: vi.fn().mockResolvedValue(existing ?? null),
+    create: vi.fn().mockImplementation(value => value),
     save,
-    update: jest.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -214,24 +214,24 @@ function createService(overrides: Record<string, unknown> = {}) {
   const configurationRepository = overrides.configurationRepository ?? repository();
   const runRepository = overrides.runRepository ?? repository();
   const workspaceRepository = {
-    findOne: jest.fn().mockResolvedValue({ id: 'workspace-1', ownerId: 'user-1', name: 'Finance' }),
+    findOne: vi.fn().mockResolvedValue({ id: 'workspace-1', ownerId: 'user-1', name: 'Finance' }),
   };
   const archive =
     overrides.archive ??
     ({
-      initializeEncryption: jest.fn().mockResolvedValue({
+      initializeEncryption: vi.fn().mockResolvedValue({
         dataKey: Buffer.alloc(32, 1),
         passwordEnvelope: { kdf: { salt: 'salt' }, wrappedDataKey: { ciphertext: 'wrapped' } },
       }),
-      create: jest.fn(),
+      create: vi.fn(),
     } as never);
   const keyService = {
-    encryptDataKey: jest.fn().mockReturnValue('server-wrapped-data-key'),
-    decryptDataKey: jest.fn().mockReturnValue(Buffer.alloc(32, 1)),
+    encryptDataKey: vi.fn().mockReturnValue('server-wrapped-data-key'),
+    decryptDataKey: vi.fn().mockReturnValue(Buffer.alloc(32, 1)),
   };
-  const dataService = { collect: jest.fn().mockResolvedValue({ collections: { categories: [{ id: 'category-1' }] }, files: [] }) };
-  const destination = overrides.destination ?? { store: jest.fn() };
-  const auditService = overrides.auditService ?? { createEvent: jest.fn().mockResolvedValue({}) };
+  const dataService = { collect: vi.fn().mockResolvedValue({ collections: { categories: [{ id: 'category-1' }] }, files: [] }) };
+  const destination = overrides.destination ?? { store: vi.fn() };
+  const auditService = overrides.auditService ?? { createEvent: vi.fn().mockResolvedValue({}) };
 
   return new BackupsService(
     configurationRepository as never,

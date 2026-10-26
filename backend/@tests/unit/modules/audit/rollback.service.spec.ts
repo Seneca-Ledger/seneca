@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { AuditAction, type AuditEvent, EntityType } from '@/entities/audit-event.entity';
 import { Category } from '@/entities/category.entity';
 import { CustomTableColumn } from '@/entities/custom-table-column.entity';
@@ -11,11 +12,11 @@ import type { Repository } from 'typeorm';
 
 function createRepoMock<T extends Record<string, any>>() {
   return {
-    update: jest.fn(async () => ({ affected: 1 })),
-    delete: jest.fn(async () => ({ affected: 1 })),
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    findOne: jest.fn(async () => null),
+    update: vi.fn(async () => ({ affected: 1 })),
+    delete: vi.fn(async () => ({ affected: 1 })),
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    findOne: vi.fn(async () => null),
   } as unknown as Repository<T> & Record<string, any>;
 }
 
@@ -31,7 +32,7 @@ describe('RollbackService', () => {
   let service: RollbackService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new RollbackService(
       transactionRepository as any,
       statementRepository as any,
@@ -99,7 +100,7 @@ describe('RollbackService', () => {
       meta: { cell: { column: 'amount' } },
     } as AuditEvent;
 
-    (customTableRowRepository.findOne as jest.Mock).mockResolvedValue({
+    (customTableRowRepository.findOne as Mock).mockResolvedValue({
       id: 'row-1',
       data: { amount: 'new', other: 1 },
     });
@@ -110,6 +111,73 @@ describe('RollbackService', () => {
       data: { amount: 'old', other: 1 },
     });
     expect(result.success).toBe(true);
+  });
+
+  describe('cells that show an app record', () => {
+    const cellEvent = {
+      id: 'evt-cell',
+      entityId: 'row-1',
+      entityType: EntityType.TABLE_CELL,
+      action: AuditAction.UPDATE,
+      diff: { before: { value: 'Rent' }, after: { value: 'Travel' } },
+      meta: { cell: { column: 'c_category' } },
+    } as AuditEvent;
+
+    it('refuses to rewrite a source column of a row that came from a record', async () => {
+      (customTableRowRepository.findOne as Mock).mockResolvedValue({
+        id: 'row-1',
+        tableId: 'table-1',
+        sourceKey: 'tx-1',
+        data: { c_category: 'Travel' },
+      });
+      (customTableColumnRepository.findOne as Mock).mockResolvedValue({
+        key: 'c_category',
+        config: { source: { kind: 'app_field', field: 'category' } },
+      });
+
+      const result = await service.rollback(cellEvent);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/app record/);
+      expect(customTableRowRepository.update).not.toHaveBeenCalled();
+      expect(customTableColumnRepository.findOne).toHaveBeenCalledWith({
+        where: { tableId: 'table-1', key: 'c_category' },
+      });
+    });
+
+    it('still rolls back a plain column of the same row', async () => {
+      (customTableRowRepository.findOne as Mock).mockResolvedValue({
+        id: 'row-1',
+        tableId: 'table-1',
+        sourceKey: 'tx-1',
+        data: { c_category: 'Travel' },
+      });
+      (customTableColumnRepository.findOne as Mock).mockResolvedValue({
+        key: 'c_category',
+        config: null,
+      });
+
+      const result = await service.rollback(cellEvent);
+
+      expect(result.success).toBe(true);
+      expect(customTableRowRepository.update).toHaveBeenCalledWith('row-1', {
+        data: { c_category: 'Rent' },
+      });
+    });
+
+    it('still rolls back a hand-added row of a source table', async () => {
+      (customTableRowRepository.findOne as Mock).mockResolvedValue({
+        id: 'row-1',
+        tableId: 'table-1',
+        sourceKey: null,
+        data: { c_category: 'Travel' },
+      });
+
+      const result = await service.rollback(cellEvent);
+
+      expect(result.success).toBe(true);
+      expect(customTableColumnRepository.findOne).not.toHaveBeenCalled();
+    });
   });
 
   it('rolls back custom table delete by recreating entity', async () => {

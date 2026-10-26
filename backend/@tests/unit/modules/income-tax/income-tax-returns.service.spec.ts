@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { IncomeTaxReturnStatus } from '@/entities/income-tax-return.entity';
@@ -7,9 +8,9 @@ import { BadRequestException, ConflictException, ForbiddenException } from '@nes
 describe('IncomeTaxReturnsService', () => {
   let service: IncomeTaxReturnsService;
   let returnRepo: ReturnType<typeof createRepoMock>;
-  let draftService: { getContext: jest.Mock; compute: jest.Mock };
-  let disclaimer: { assertAccepted: jest.Mock };
-  let auditService: { createEvent: jest.Mock };
+  let draftService: { getContext: Mock; compute: Mock };
+  let disclaimer: { assertAccepted: Mock };
+  let auditService: { createEvent: Mock };
 
   const draft = { taxYear: 2025, status: 'draft', completeness: { score: 90 } };
 
@@ -18,14 +19,14 @@ describe('IncomeTaxReturnsService', () => {
     returnRepo.findOne.mockResolvedValue(null);
     returnRepo.save.mockImplementation(async (row: unknown) => row);
     draftService = {
-      getContext: jest.fn().mockResolvedValue({
+      getContext: vi.fn().mockResolvedValue({
         jurisdiction: { id: 'j-de' },
         pack: { formKey: 'de-euer' },
       }),
-      compute: jest.fn().mockResolvedValue(draft),
+      compute: vi.fn().mockResolvedValue(draft),
     };
-    disclaimer = { assertAccepted: jest.fn().mockResolvedValue(undefined) };
-    auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    disclaimer = { assertAccepted: vi.fn().mockResolvedValue(undefined) };
+    auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
 
     service = new IncomeTaxReturnsService(
       returnRepo as never,

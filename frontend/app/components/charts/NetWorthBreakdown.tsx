@@ -87,16 +87,11 @@ export function NetWorthBreakdown({
             );
           }}
         />
-        <Bar
-          dataKey="assets"
-          stackId="net"
-          fill="var(--ff-dash-success)"
-          isAnimationActive={false}
-        />
+        <Bar dataKey="assets" stackId="net" fill="var(--money-up)" isAnimationActive={false} />
         <Bar
           dataKey="liabilities"
           stackId="net"
-          fill="var(--ff-dash-critical)"
+          fill="var(--money-down)"
           isAnimationActive={false}
         />
       </BarChart>

@@ -3,14 +3,14 @@ import { InvestmentsScheduler } from '@/modules/investments/investments.schedule
 describe('InvestmentsScheduler', () => {
   function createScheduler(overrides: Partial<Record<string, unknown>> = {}) {
     const investments = {
-      workspacesWithPricedHoldings: jest.fn(async () => ['ws-1', 'ws-2']),
-      refreshPrices: jest.fn(async () => 2),
+      workspacesWithPricedHoldings: vi.fn(async () => ['ws-1', 'ws-2']),
+      refreshPrices: vi.fn(async () => 2),
       ...overrides,
     } as any;
     const scheduler = new InvestmentsScheduler(investments);
     // The logger would print the caught error into the test output.
-    jest.spyOn((scheduler as any).logger, 'error').mockImplementation(() => undefined);
-    jest.spyOn((scheduler as any).logger, 'log').mockImplementation(() => undefined);
+    vi.spyOn((scheduler as any).logger, 'error').mockImplementation(() => undefined);
+    vi.spyOn((scheduler as any).logger, 'log').mockImplementation(() => undefined);
     return { scheduler, investments };
   }
 
@@ -25,7 +25,7 @@ describe('InvestmentsScheduler', () => {
   });
 
   it('keeps going when one workspace cannot be priced', async () => {
-    const refreshPrices = jest
+    const refreshPrices = vi
       .fn()
       .mockRejectedValueOnce(new Error('Stooq is down'))
       .mockResolvedValueOnce(1);
@@ -37,7 +37,7 @@ describe('InvestmentsScheduler', () => {
 
   it('does nothing when no workspace holds a priced position', async () => {
     const { scheduler, investments } = createScheduler({
-      workspacesWithPricedHoldings: jest.fn(async () => []),
+      workspacesWithPricedHoldings: vi.fn(async () => []),
     });
 
     await scheduler.refreshAllPrices();

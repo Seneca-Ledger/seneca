@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { CustomTableColumnItem } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { findHeaderRow } from '../utils/importRows';
 import {
   buildPastePreview,
@@ -14,7 +16,7 @@ import {
   type PasteTotals,
   parseClipboardRows,
 } from '../utils/pasteUtils';
-import { getResponseItems } from '../utils/tableHelpers';
+import { toGridRow } from '../utils/tableHelpers';
 import type { CustomTablePageColumn } from '../utils/tableTypes';
 import {
   pickDefaultSheet,
@@ -68,21 +70,6 @@ function orderNewColumns(columns: NewColumn[]): NewColumn[] {
     visit(col, new Set());
   }
   return [...plain, ...ordered];
-}
-
-function extractBatchInsertResult(
-  response: { data?: Record<string, unknown> },
-  fallbackCount: number,
-): { normalizedRows: CustomTableGridRow[]; createdCount: number } {
-  const payload = (response.data || {}) as Record<string, unknown>;
-  const dataPayload = (payload.data || {}) as Record<string, unknown>;
-  const createdRows = payload.rows || dataPayload.rows || payload.items || dataPayload.items || [];
-  const normalizedRows = getResponseItems(createdRows);
-  const createdCount = (payload.created ??
-    dataPayload.created ??
-    normalizedRows.length ??
-    fallbackCount) as number;
-  return { normalizedRows, createdCount };
 }
 
 function isTabularText(text: string): boolean {
@@ -488,29 +475,25 @@ export function usePasteImport({
     }
     // One by one: the server numbers positions by creation order, and the
     // table should read in the same order as the file.
-    const created: Array<{ data?: { data?: Record<string, unknown> } & Record<string, unknown> }> =
-      [];
+    const created: CustomTableColumnItem[] = [];
     const ordered = orderNewColumns(newColumns);
     for (const col of ordered) {
+      const response = await apiClient.post(`/custom-tables/${tableId}/columns`, {
+        title: (col.newTitle ?? '').trim(),
+        type: col.newType ?? 'text',
+        ...(col.newConfig ? { config: col.newConfig } : {}),
+      } satisfies ContractInput<'CreateCustomTableColumnBody'>);
       created.push(
-        await apiClient.post(`/custom-tables/${tableId}/columns`, {
-          title: col.newTitle?.trim(),
-          type: col.newType ?? 'text',
-          ...(col.newConfig ? { config: col.newConfig } : {}),
-        }),
+        await checkContract('CustomTableColumnItem', response.data, '/custom-tables/:id/columns'),
       );
     }
     for (let i = 0; i < created.length; i++) {
-      const payload = (created[i].data?.data || created[i].data) as
-        | { key?: string; id?: string }
-        | undefined;
+      const column = created[i];
       const placeholderKey = ordered[i]?.columnKey || '';
-      if (payload?.key && placeholderKey) {
-        keyMap.set(placeholderKey, payload.key);
+      if (placeholderKey) {
+        keyMap.set(placeholderKey, column.key);
       }
-      if (payload?.id) {
-        columnIds.push(payload.id);
-      }
+      columnIds.push(column.id);
     }
     await loadTable();
     return { keyMap, columnIds };
@@ -542,18 +525,18 @@ export function usePasteImport({
     if (!summaries.length) {
       return;
     }
-    const response = await apiClient.get(`/custom-tables/${tableId}/summaries`);
-    const payload = (response.data?.data ?? response.data) as {
-      items?: Array<{ id: string; title: string; expression: string }>;
-    };
-    const existing = (payload?.items ?? []).map(({ id, title, expression }) => ({
+    const { items } = await apiQueryDecoded({
+      url: `/custom-tables/${tableId}/summaries`,
+      contract: 'CustomTableSummaries',
+    });
+    const existing = items.map(({ id, title, expression }) => ({
       id,
       title,
       expression,
     }));
     await apiClient.patch(`/custom-tables/${tableId}/view-settings/summaries`, {
       summaries: [...existing, ...summaries].slice(0, 20),
-    });
+    } satisfies ContractInput<'UpdateCustomTableSummariesBody'>);
   };
 
   const applyTotals = async (totals: PasteTotals, keyMap: Map<string, string>): Promise<void> => {
@@ -565,7 +548,7 @@ export function usePasteImport({
       await apiClient.patch(`/custom-tables/${tableId}/view-settings/columns`, {
         columnKey: keyMap.get(key) || key,
         aggregate,
-      });
+      } satisfies ContractInput<'UpdateCustomTableViewSettingsColumnBody'>);
     }
     await loadTable();
   };
@@ -599,8 +582,13 @@ export function usePasteImport({
         const chunk = payloadRows.slice(index, index + CHUNK_SIZE);
         const response = await apiClient.post(`/custom-tables/${tableId}/rows/batch`, {
           rows: chunk,
-        });
-        created.push(...extractBatchInsertResult(response, chunk.length).normalizedRows);
+        } satisfies ContractInput<'BatchCreateCustomTableRowsBody'>);
+        const batch = await checkContract(
+          'CustomTableRowBatch',
+          response.data,
+          '/custom-tables/:id/rows/batch',
+        );
+        created.push(...batch.rows.map(toGridRow));
         setPasteProgress({ done: Math.min(index + CHUNK_SIZE, total), total });
       }
       if (pasteApplyTotals) {

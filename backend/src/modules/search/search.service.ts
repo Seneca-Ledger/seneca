@@ -1,10 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../common/utils/transaction-privacy.util';
 import { Category } from '../../entities/category.entity';
 import { Payable, PayableDirection } from '../../entities/payable.entity';
+import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
+import { type DocumentFile, documentFile, documentHref, findScanReceipts } from './document-href';
 
 export type SearchResultKind = 'transaction' | 'statement' | 'payable' | 'receivable' | 'category';
 
@@ -14,6 +20,8 @@ export interface SearchResult {
   title: string;
   subtitle: string | null;
   href: string;
+  /** What holding Space over the result previews; null when there is no file to show. */
+  document: DocumentFile | null;
 }
 
 export interface SearchResponse {
@@ -37,9 +45,15 @@ export class SearchService {
     private readonly payableRepo: Repository<Payable>,
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
+    @InjectRepository(Receipt)
+    private readonly receiptRepo: Repository<Receipt>,
   ) {}
 
-  async search(workspaceId: string, rawQuery: string): Promise<SearchResponse> {
+  async search(
+    workspaceId: string,
+    rawQuery: string,
+    viewerMemberId: string | null = null,
+  ): Promise<SearchResponse> {
     const query = (rawQuery ?? '').trim();
     if (query.length < MIN_QUERY_LENGTH) {
       return { query, results: [] };
@@ -48,7 +62,7 @@ export class SearchService {
     const needle = `%${query.toLowerCase()}%`;
 
     const [transactions, statements, payables, categories] = await Promise.all([
-      this.searchTransactions(workspaceId, needle),
+      this.searchTransactions(workspaceId, needle, viewerMemberId),
       this.searchStatements(workspaceId, needle),
       this.searchPayables(workspaceId, needle),
       this.searchCategories(workspaceId, needle),
@@ -57,26 +71,42 @@ export class SearchService {
     return { query, results: [...transactions, ...statements, ...payables, ...categories] };
   }
 
-  private async searchTransactions(workspaceId: string, needle: string): Promise<SearchResult[]> {
+  private async searchTransactions(
+    workspaceId: string,
+    needle: string,
+    viewerMemberId: string | null,
+  ): Promise<SearchResult[]> {
     const rows = await this.transactionRepo
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
+      .innerJoinAndSelect('t.statement', 's')
       .where('s.workspaceId = :workspaceId', { workspaceId })
       .andWhere('s.deletedAt IS NULL')
       .andWhere(
         '(LOWER(t.counterpartyName) LIKE :needle OR LOWER(t.paymentPurpose) LIKE :needle)',
         { needle },
       )
+      // Matching on what another member's private row was would give it away
+      // even with the text blanked: the hit itself is the answer.
+      .andWhere(readablePrivateSql('t'), { [PRIVACY_VIEWER_PARAM]: viewerMemberId })
       .orderBy('t.transactionDate', 'DESC')
       .take(PER_KIND_LIMIT)
       .getMany();
 
-    return rows.map(row => ({
+    // The inner join drops rows without a statement; this only tells the compiler.
+    const hits = rows.flatMap(row => (row.statement ? [{ row, statement: row.statement }] : []));
+    const receipts = await findScanReceipts(
+      this.receiptRepo,
+      workspaceId,
+      hits.map(hit => hit.statement),
+    );
+    return hits.map(({ row, statement }) => ({
       kind: 'transaction' as const,
       id: row.id,
       title: row.counterpartyName,
       subtitle: row.paymentPurpose || null,
-      href: `/statements/transactions?highlight=${row.id}`,
+      // A row lives in its document; there is no separate transactions list.
+      href: documentHref(statement, receipts),
+      document: documentFile(statement, receipts),
     }));
   }
 
@@ -90,7 +120,7 @@ export class SearchService {
       .take(PER_KIND_LIMIT)
       .getMany();
 
-    return rows.map(row => this.toStatementResult(row));
+    return this.toStatementResults(workspaceId, rows);
   }
 
   /** Latest uploads, newest first — what the search panel shows before anything is typed. */
@@ -103,17 +133,22 @@ export class SearchService {
       .take(PER_KIND_LIMIT)
       .getMany();
 
-    return { query: '', results: rows.map(row => this.toStatementResult(row)) };
+    return { query: '', results: await this.toStatementResults(workspaceId, rows) };
   }
 
-  private toStatementResult(row: Statement): SearchResult {
-    return {
-      kind: 'statement',
+  private async toStatementResults(
+    workspaceId: string,
+    rows: Statement[],
+  ): Promise<SearchResult[]> {
+    const receipts = await findScanReceipts(this.receiptRepo, workspaceId, rows);
+    return rows.map(row => ({
+      kind: 'statement' as const,
       id: row.id,
       title: row.fileName,
       subtitle: row.bankName ?? null,
-      href: `/statements/${row.id}/view`,
-    };
+      href: documentHref(row, receipts),
+      document: documentFile(row, receipts),
+    }));
   }
 
   private async searchPayables(workspaceId: string, needle: string): Promise<SearchResult[]> {
@@ -136,6 +171,7 @@ export class SearchService {
         title: row.vendor,
         subtitle: row.comment ?? null,
         href: isReceivable ? '/statements/receive' : '/statements/pay',
+        document: null,
       };
     });
   }
@@ -155,6 +191,7 @@ export class SearchService {
       title: row.name,
       subtitle: null,
       href: '/categories',
+      document: null,
     }));
   }
 }

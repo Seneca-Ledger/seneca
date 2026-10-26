@@ -9,8 +9,8 @@ function recordingQuery(result: unknown) {
   const conditions: string[] = [];
   const query: any = {
     conditions,
-    getRawMany: jest.fn(async () => result),
-    getRawOne: jest.fn(async () => result),
+    getRawMany: vi.fn(async () => result),
+    getRawOne: vi.fn(async () => result),
   };
   for (const method of [
     'innerJoin',
@@ -21,13 +21,13 @@ function recordingQuery(result: unknown) {
     'addGroupBy',
     'orderBy',
   ]) {
-    query[method] = jest.fn(() => query);
+    query[method] = vi.fn(() => query);
   }
-  query.where = jest.fn((sql: string) => {
+  query.where = vi.fn((sql: string) => {
     conditions.splice(0, conditions.length, sql);
     return query;
   });
-  query.andWhere = jest.fn((sql: string) => {
+  query.andWhere = vi.fn((sql: string) => {
     conditions.push(sql);
     return query;
   });
@@ -38,7 +38,7 @@ describe('ForecastService history', () => {
   const build = () => {
     const queries: any[] = [];
     const transactionRepository = {
-      createQueryBuilder: jest.fn(() => {
+      createQueryBuilder: vi.fn(() => {
         const query = recordingQuery(queries.length === 1 ? { first: null } : []);
         queries.push(query);
         return query;
@@ -52,7 +52,7 @@ describe('ForecastService history', () => {
       {} as any,
       {} as any,
       {} as any,
-      { getRateOrNull: jest.fn(async () => 1) } as any,
+      { getRateOrNull: vi.fn(async () => 1) } as any,
     );
     return { service, queries };
   };
@@ -64,7 +64,7 @@ describe('ForecastService history', () => {
 
     const [history, earliest] = queries;
     expect(history.conditions).toContain('t.isVerified = true');
-    expect(history.conditions).toContain('s.workspaceId = :workspaceId');
+    expect(history.conditions).toContain('t.workspaceId = :workspaceId');
     expect(earliest.conditions).toContain('t.isVerified = true');
   });
 
@@ -74,6 +74,6 @@ describe('ForecastService history', () => {
     await (service as any).incomeHistory('ws-1', new Date('2026-10-04'));
 
     expect(queries[0].conditions).toContain('t.isVerified = true');
-    expect(queries[0].conditions).toContain('s.workspaceId = :workspaceId');
+    expect(queries[0].conditions).toContain('t.workspaceId = :workspaceId');
   });
 });

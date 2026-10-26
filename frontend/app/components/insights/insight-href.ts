@@ -22,7 +22,7 @@ const STATIC_ROUTES: Record<string, string> = {
   'operational.uncategorized_count': '/statements/submit?missingCategory=true',
   'operational.duplicate_detected': '/review',
   'pattern.risky_allocation': '/net-worth?focus=card:risk',
-  'forecast.monthly': '/dashboard?tab=overview',
+  'forecast.monthly': '/dashboard',
   'pattern.detected': '/subscriptions',
   'stoic.unclassified': '/budgets?focus=stoic:unclassified',
   'stoic.subscriptions': '/subscriptions',
@@ -61,7 +61,7 @@ const stoicClassRoute = (data: InsightData): string => {
 const EXPERT_TARGETS: Record<string, string> = {
   budgets: '/budgets',
   goals: '/goals',
-  dashboard: '/dashboard?tab=overview',
+  dashboard: '/dashboard',
   merchants: CASH_FLOW,
 };
 
@@ -130,23 +130,17 @@ const DATA_ROUTES: Record<string, (data: InsightData) => string | null> = {
   // A principle points at where its numbers live.
   'expert.principle': data => EXPERT_TARGETS[readString(data, 'target') ?? ''] ?? '/advice',
   'stoic.habit': habitRoute,
-  // The savings-rate KPI lives on Overview; the Trends tab has no such widget.
+  // The savings-rate KPI lives on the dashboard Overview.
   'trend.savings_rate': data =>
-    withQuery('/dashboard?tab=overview', {
+    withQuery('/dashboard', {
       month: readMonth(data),
       focus: 'kpi:savings-rate',
     }),
   // Income and the cash runway both live on the dashboard overview. Without a
   // month it shows the latest one with data, which need not be the judged one.
-  'stoic.fortune': data => withQuery('/dashboard?tab=overview', { month: readMonth(data) }),
-  'stoic.commitments': data => withQuery('/dashboard?tab=overview', { month: readMonth(data) }),
+  'stoic.fortune': data => withQuery('/dashboard', { month: readMonth(data) }),
+  'stoic.commitments': data => withQuery('/dashboard', { month: readMonth(data) }),
   'stoic.goal': data => goalRoute(data) ?? '/goals',
-  // Free-form text from the local model; `periodKey` is the only handle it
-  // carries, and it is already the YYYY-MM the dashboard expects.
-  'ai.summary': data => {
-    const periodKey = readString(data, 'periodKey');
-    return periodKey === null ? null : `/dashboard?tab=overview&month=${periodKey}`;
-  },
 };
 
 /**

@@ -1,13 +1,18 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { toEnum } from '../../../common/effect/to-enum';
+import { withoutNulls, withoutNullsOnRequired } from '../../../common/effect/without-nulls';
+import { appError } from '../../../common/errors/app-error';
 import { assertPublicEgressUrl } from '../../../common/utils/egress-url.util';
+import type {
+  CreateWebhookSubscriptionBody,
+  UpdateWebhookSubscriptionBody,
+} from '../../../contracts';
 import { AuditAction, EntityType, Severity } from '../../../entities/audit-event.entity';
 import { WebhookEvent, WebhookSubscription } from '../../../entities/webhook-subscription.entity';
 import { AuditService } from '../../audit/audit.service';
 import { recordSecurityEvent } from '../../auth/security-audit.util';
-import type { CreateWebhookSubscriptionDto } from '../dto/create-webhook-subscription.dto';
-import type { UpdateWebhookSubscriptionDto } from '../dto/update-webhook-subscription.dto';
 
 @Injectable()
 export class WebhookSubscriptionsService {
@@ -21,11 +26,15 @@ export class WebhookSubscriptionsService {
 
   async create(
     workspaceId: string,
-    dto: CreateWebhookSubscriptionDto,
+    dto: CreateWebhookSubscriptionBody,
     actorId: string,
   ): Promise<WebhookSubscription> {
     await assertPublicEgressUrl(dto.url);
-    const entity = this.repo.create({ ...dto, workspaceId });
+    const entity = this.repo.create({
+      ...withoutNulls(dto),
+      events: dto.events.map(event => toEnum(WebhookEvent, event)),
+      workspaceId,
+    });
     const saved = await this.repo.save(entity);
     await this.recordEvent(workspaceId, actorId, saved.id, AuditAction.CREATE, Severity.WARN, {
       before: null,
@@ -41,7 +50,7 @@ export class WebhookSubscriptionsService {
   async findOne(id: string, workspaceId: string): Promise<WebhookSubscription> {
     const sub = await this.repo.findOne({ where: { id, workspaceId } });
     if (!sub) {
-      throw new NotFoundException('Webhook subscription not found');
+      throw new NotFoundException(appError('WEBHOOK_SUBSCRIPTION_NOT_FOUND'));
     }
     return sub;
   }
@@ -49,7 +58,7 @@ export class WebhookSubscriptionsService {
   async update(
     id: string,
     workspaceId: string,
-    dto: UpdateWebhookSubscriptionDto,
+    dto: UpdateWebhookSubscriptionBody,
     actorId: string,
   ): Promise<WebhookSubscription> {
     const sub = await this.findOne(id, workspaceId);
@@ -57,7 +66,7 @@ export class WebhookSubscriptionsService {
       await assertPublicEgressUrl(dto.url);
     }
     const before = this.snapshot(sub);
-    Object.assign(sub, dto);
+    Object.assign(sub, withoutNullsOnRequired(this.repo.metadata, dto));
     const saved = await this.repo.save(sub);
     // Where the data goes (URL, events) or how it is signed matters more than a rename.
     const redirected = Boolean(dto.url || dto.events || dto.secret);

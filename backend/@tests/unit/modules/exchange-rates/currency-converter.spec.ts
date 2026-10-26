@@ -3,7 +3,7 @@ import { CurrencyConverter } from '@/modules/exchange-rates/currency-converter';
 /** Answers `getRateCurve` from a fixed curve per currency. */
 function ratesWithCurves(curves: Record<string, Array<{ date: string; rate: number }>>) {
   return {
-    getRateCurve: jest.fn(async (from: string) => curves[from] ?? []),
+    getRateCurve: vi.fn(async (from: string) => curves[from] ?? []),
   } as any;
 }
 

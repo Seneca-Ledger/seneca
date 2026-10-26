@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
@@ -20,14 +21,14 @@ export class BalanceSnapshot {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => BalanceAccount, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'account_id' })
-  account: BalanceAccount;
+  account: Relation<BalanceAccount>;
 
   @Column({ name: 'account_id', type: 'uuid' })
   accountId: string;
@@ -43,9 +44,9 @@ export class BalanceSnapshot {
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'created_by' })
-  createdByUser: User | null;
+  createdByUser: Relation<User | null>;
 
-  @Column({ name: 'created_by', nullable: true })
+  @Column({ type: 'varchar', name: 'created_by', nullable: true })
   createdBy: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

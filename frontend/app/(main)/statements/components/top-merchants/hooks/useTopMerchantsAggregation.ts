@@ -16,6 +16,7 @@ import {
   sortAggregateRows,
 } from '@/app/(main)/statements/components/top-merchants.utils';
 import { getRecordDate, resolveCurrencyCode } from '@/app/lib/analytics-common';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { useCurrencyConversion } from '@/app/lib/useCurrencyConversion';
 
 type Params = {
@@ -26,7 +27,7 @@ type Params = {
   workspaceCurrency: string;
   resolvedTheme: string | undefined;
   sourceStatementLabel: string;
-  sourceGmailLabel: string;
+  sourceReceiptLabel: string;
   totalIncomeLabel: string;
   totalSpendLabel: string;
 };
@@ -51,11 +52,11 @@ export type TopMerchantsAggregationReturn = {
 const buildTotals = (records: TopMerchantRecord[]): Totals => ({
   total:
     records.filter(r => r.sourceType === 'statement').reduce((s, r) => s + r.amount, 0) +
-    records.filter(r => r.sourceType === 'gmail').reduce((s, r) => s + r.amount, 0),
+    records.filter(r => r.sourceType === 'receipt').reduce((s, r) => s + r.amount, 0),
   statementTotal: records
     .filter(r => r.sourceType === 'statement')
     .reduce((s, r) => s + r.amount, 0),
-  receiptTotal: records.filter(r => r.sourceType === 'gmail').reduce((s, r) => s + r.amount, 0),
+  receiptTotal: records.filter(r => r.sourceType === 'receipt').reduce((s, r) => s + r.amount, 0),
   operations: records.length,
 });
 
@@ -138,10 +139,11 @@ export const useTopMerchantsAggregation = ({
   workspaceCurrency,
   resolvedTheme,
   sourceStatementLabel,
-  sourceGmailLabel,
+  sourceReceiptLabel,
   totalIncomeLabel,
   totalSpendLabel,
 }: Params): TopMerchantsAggregationReturn => {
+  const privacy = usePrivacyMode();
   const aggregatedRows = useMemo(
     () => computeAggregatedRows(flowFilteredRecords, workspaceCurrency),
     [flowFilteredRecords, workspaceCurrency],
@@ -184,16 +186,16 @@ export const useTopMerchantsAggregation = ({
     };
   }, [totals, previousPeriodTotals]);
   const topMerchantsChart = useMemo(
-    () => buildTopMerchantsBarChart(sortedAggregatedRows, resolvedTheme),
-    [sortedAggregatedRows, resolvedTheme],
+    () => buildTopMerchantsBarChart(sortedAggregatedRows, resolvedTheme, privacy),
+    [sortedAggregatedRows, resolvedTheme, privacy],
   );
   const sourceChart = useMemo(
     () =>
       buildTopMerchantsSourceChart(totals, {
         sourceStatement: sourceStatementLabel,
-        sourceGmail: sourceGmailLabel,
+        sourceReceipt: sourceReceiptLabel,
       }),
-    [totals, sourceStatementLabel, sourceGmailLabel],
+    [totals, sourceStatementLabel, sourceReceiptLabel],
   );
   const trendChart = useMemo(
     () =>
@@ -202,8 +204,16 @@ export const useTopMerchantsAggregation = ({
         activeFlowType,
         { totalIncome: totalIncomeLabel, totalSpend: totalSpendLabel },
         resolvedTheme,
+        privacy,
       ),
-    [convertedFlowRecords, activeFlowType, totalIncomeLabel, totalSpendLabel, resolvedTheme],
+    [
+      convertedFlowRecords,
+      activeFlowType,
+      totalIncomeLabel,
+      totalSpendLabel,
+      resolvedTheme,
+      privacy,
+    ],
   );
   return { sortedAggregatedRows, totals, comparison, topMerchantsChart, sourceChart, trendChart };
 };

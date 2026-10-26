@@ -1,6 +1,6 @@
 /*
  * Chart design adapted from Aurum by ZProger (https://github.com/ZProger/Aurum).
- * Reimplemented for Lumio; no Aurum source code was copied.
+ * Reimplemented for Seneca; no Aurum source code was copied.
  */
 import clsx from 'clsx';
 import type React from 'react';
@@ -9,7 +9,7 @@ export interface ChartTooltipRow {
   /** Omitted for single-value charts, where the title already names the point. */
   label?: string;
   value: string;
-  tone?: 'positive' | 'negative' | 'strong';
+  tone?: 'positive' | 'negative' | 'budgeted' | 'strong';
 }
 
 export function ChartTooltipCard({
@@ -20,14 +20,16 @@ export function ChartTooltipCard({
   rows: ChartTooltipRow[];
 }): React.JSX.Element {
   return (
-    <div className="lumio-chart__tooltip">
-      <div className="lumio-chart__tooltip-title">{title}</div>
-      {rows.map(row => (
+    <div className="seneca-chart__tooltip">
+      <div className="seneca-chart__tooltip-title">{title}</div>
+      {rows.map((row, index) => (
         <div
-          key={`${row.label ?? ''}:${row.value}`}
+          // Two rows can read the same (two coffees at one price on one day).
+          // biome-ignore lint/suspicious/noArrayIndexKey: the rows are a fixed list per render
+          key={index}
           className={clsx(
-            'lumio-chart__tooltip-row',
-            row.tone && `lumio-chart__tooltip-row--${row.tone}`,
+            'seneca-chart__tooltip-row',
+            row.tone && `seneca-chart__tooltip-row--${row.tone}`,
           )}
         >
           {row.label ? `${row.label}: ${row.value}` : row.value}
@@ -46,7 +48,7 @@ export function ChartRangeFooter({
   end: string;
 }): React.JSX.Element {
   return (
-    <div className="lumio-chart__footer">
+    <div className="seneca-chart__footer">
       <span>{start}</span>
       <span>{end}</span>
     </div>

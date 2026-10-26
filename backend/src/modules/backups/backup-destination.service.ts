@@ -3,6 +3,8 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import type { WebDAVClient } from 'webdav';
+import { APP_SLUG } from '../../common/brand';
+import { appError } from '../../common/errors/app-error';
 import { decryptText } from '../../common/utils/encryption.util';
 import {
   BackupConfiguration,
@@ -11,6 +13,7 @@ import {
   IntegrationProvider,
   IntegrationStatus,
 } from '../../entities';
+import { isBackupFileName } from './backup-archive.service';
 import { LocalBackupDestinationService } from './local-backup-destination.service';
 
 @Injectable()
@@ -44,11 +47,11 @@ export class BackupDestinationService {
       const local = this.localDestination();
       const [directory, fileName] = destinationFile.split('/');
       if (!(directory && fileName) || destinationFile.split('/').length !== 2) {
-        throw new BadRequestException('Invalid local backup reference');
+        throw new BadRequestException(appError('BACKUP_LOCAL_REFERENCE_INVALID'));
       }
       const paths = await local.list(directory);
       if (!paths.includes(destinationFile)) {
-        throw new BadRequestException('Backup file was not found');
+        throw new BadRequestException(appError('BACKUP_FILE_NOT_FOUND'));
       }
       const root = this.localRoot;
       return (await import('node:fs/promises')).readFile(
@@ -87,7 +90,7 @@ export class BackupDestinationService {
   ): Promise<void> {
     const entries = await client.getDirectoryContents(directory);
     const snapshots = entries
-      .filter(entry => entry.type === 'file' && entry.filename.endsWith('.lumio-backup'))
+      .filter(entry => entry.type === 'file' && isBackupFileName(entry.filename))
       .sort((a, b) => a.filename.localeCompare(b.filename));
     const stale = snapshots.slice(0, Math.max(0, snapshots.length - keep));
     await Promise.all(stale.map(entry => client.deleteFile(entry.filename)));
@@ -95,7 +98,7 @@ export class BackupDestinationService {
 
   private localDestination(): LocalBackupDestinationService {
     if (!this.localRoot) {
-      throw new BadRequestException('BACKUP_LOCAL_ROOT is not configured');
+      throw new BadRequestException(appError('BACKUP_LOCAL_ROOT_NOT_CONFIGURED'));
     }
     return new LocalBackupDestinationService(this.localRoot);
   }
@@ -103,9 +106,9 @@ export class BackupDestinationService {
   private localDirectory(
     configuration: Pick<BackupConfiguration, 'destinationPath' | 'workspaceId'>,
   ): string {
-    const prefix = configuration.destinationPath || 'lumio-backups';
+    const prefix = configuration.destinationPath || `${APP_SLUG}-backups`;
     if (!/^[a-zA-Z0-9_-]+$/.test(prefix)) {
-      throw new BadRequestException('Invalid local backup destination');
+      throw new BadRequestException(appError('BACKUP_LOCAL_DESTINATION_INVALID'));
     }
     return `${prefix}-${configuration.workspaceId}`;
   }
@@ -115,14 +118,16 @@ export class BackupDestinationService {
   ): Promise<{ client: WebDAVClient; rootPath: string }> {
     const integration = await this.integrationRepository.findOne({
       where: { workspaceId, provider: IntegrationProvider.WEBDAV },
-      relations: ['openProtocolSettings'],
+      relations: {
+        openProtocolSettings: true,
+      },
     });
     const settings = integration?.openProtocolSettings;
     if (!integration || integration.status !== IntegrationStatus.CONNECTED || !settings) {
-      throw new BadRequestException('Nextcloud WebDAV is not connected');
+      throw new BadRequestException(appError('BACKUP_NEXTCLOUD_NOT_CONNECTED'));
     }
     const url = this.stringSetting(settings.config.url);
-    if (!url) throw new BadRequestException('Nextcloud WebDAV URL is not configured');
+    if (!url) throw new BadRequestException(appError('BACKUP_NEXTCLOUD_URL_NOT_CONFIGURED'));
 
     const loadWebdav = new Function('modulePath', 'return import(modulePath)') as (
       modulePath: string,
@@ -143,9 +148,9 @@ export class BackupDestinationService {
 
   private remoteDirectory(rootPath: string, destinationPath: string, workspaceId: string): string {
     const cleanRoot = rootPath.replace(/\/+$/g, '') || '/';
-    const cleanDestination = destinationPath || 'lumio-backups';
+    const cleanDestination = destinationPath || `${APP_SLUG}-backups`;
     if (!/^[a-zA-Z0-9_-]+$/.test(cleanDestination)) {
-      throw new BadRequestException('Invalid Nextcloud backup destination');
+      throw new BadRequestException(appError('BACKUP_NEXTCLOUD_DESTINATION_INVALID'));
     }
     return path.posix.join(cleanRoot, cleanDestination, workspaceId);
   }

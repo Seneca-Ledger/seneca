@@ -5,10 +5,14 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, type Repository } from 'typeorm';
+import { assertApiKeyScopes, type PermissionSubject } from '../../common/authz/request-permissions';
+import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
+import type { RunEntityImportBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Budget } from '../../entities/budget.entity';
 import { Category, CategorySource, CategoryType } from '../../entities/category.entity';
@@ -28,7 +32,7 @@ import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { ClassificationService } from '../classification/services/classification.service';
 import { MetalsService } from '../investments/metals.service';
-import type { RunEntityImportDto } from './dto/run-entity-import.dto';
+import type { TransactionsImportedEvent } from '../notifications/events/notification-events';
 import { nameKey } from './helpers/import-values';
 import { type ImportTargetKind, TARGET_FIELDS } from './target-aliases';
 import { BudgetsTarget } from './targets/budgets.target';
@@ -38,6 +42,19 @@ import { PayablesTarget } from './targets/payables.target';
 import { SubscriptionsTarget } from './targets/subscriptions.target';
 import type { ImportContext, ImportTarget, RowResult } from './targets/target.types';
 import { TransactionsTarget } from './targets/transactions.target';
+
+/**
+ * The scope an API key needs to import (or undo) each target: the permission
+ * the matching create route asks for. Roles are checked by the toggles below.
+ */
+const IMPORT_SCOPES: Record<ImportTargetKind, Permission> = {
+  transactions: Permission.STATEMENT_UPLOAD,
+  payables: Permission.PAYABLE_CREATE,
+  subscriptions: Permission.SUBSCRIPTION_CREATE,
+  invoices: Permission.INVOICE_CREATE,
+  budgets: Permission.BUDGET_CREATE,
+  metals: Permission.WALLET_CREATE,
+};
 
 export interface EntityImportResult {
   batchId: string | null;
@@ -69,9 +86,40 @@ export class EntityImportService {
     private readonly auditService: AuditService,
     @Optional() private readonly classificationService?: ClassificationService,
     @Optional() private readonly metalsService?: MetalsService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
-  private async ensurePermission(userId: string, workspaceId: string, target: ImportTargetKind) {
+  /** One `transactions.imported` per statement the import created, after the commit. */
+  private async announceImportedTransactions(
+    workspaceId: string,
+    created: ImportCreatedRef[],
+  ): Promise<void> {
+    if (!this.eventEmitter) {
+      return;
+    }
+    for (const ref of created.filter(item => item.kind === 'statement')) {
+      const rows = await this.dataSource.getRepository(Transaction).find({
+        select: { id: true },
+        where: { workspaceId, statementId: ref.id },
+      });
+      if (rows.length > 0) {
+        this.eventEmitter.emit('transactions.imported', {
+          workspaceId,
+          source: 'entity_import',
+          statementId: ref.id,
+          transactionIds: rows.map(row => row.id),
+        } satisfies TransactionsImportedEvent);
+      }
+    }
+  }
+
+  private async ensurePermission(
+    userId: string,
+    workspaceId: string,
+    target: ImportTargetKind,
+    apiKey: PermissionSubject['apiKey'],
+  ) {
+    assertApiKeyScopes([IMPORT_SCOPES[target]], apiKey);
     // Transactions land in statements; everything else is plain data entry.
     if (target === 'transactions') {
       await ensureCanEdit(
@@ -112,13 +160,14 @@ export class EntityImportService {
   async run(
     userId: string,
     workspaceId: string,
-    dto: RunEntityImportDto,
+    dto: RunEntityImportBody,
+    apiKey?: PermissionSubject['apiKey'],
   ): Promise<EntityImportResult> {
     const target = this.targets[dto.target];
     if (!target) {
       throw new BadRequestException(appError('IMPORT_TARGET_UNKNOWN'));
     }
-    await this.ensurePermission(userId, workspaceId, dto.target);
+    await this.ensurePermission(userId, workspaceId, dto.target, apiKey);
     const rows = dto.rows.map(row =>
       Array.isArray(row) ? row.map(cell => String(cell ?? '')) : [],
     );
@@ -152,7 +201,11 @@ export class EntityImportService {
           }
           const all = await categoryRepo.find({
             where: { workspaceId },
-            select: ['id', 'name', 'type'],
+            select: {
+              id: true,
+              name: true,
+              type: true,
+            },
           });
           const found =
             all.find(item => item.type === type && nameKey(item.name) === nameKey(name)) ??
@@ -227,6 +280,9 @@ export class EntityImportService {
       if (dto.target === 'transactions' && ctx.categorize) {
         await this.categorize(userId, workspaceId, ctx.created);
       }
+      if (dto.target === 'transactions') {
+        await this.announceImportedTransactions(workspaceId, ctx.created);
+      }
       // Imported lots land without a price; one pass quotes them all.
       if (dto.target === 'metals' && this.metalsService) {
         await this.metalsService.refreshPrices(userId, workspaceId);
@@ -256,7 +312,10 @@ export class EntityImportService {
               : 'statement';
   }
 
-  /** Rows without a category get one from rules, learned patterns and the model. */
+  /**
+   * Rows without a category get one the same way an imported statement does:
+   * rules first, then what the user taught about the payee.
+   */
   private async categorize(userId: string, workspaceId: string, created: ImportCreatedRef[]) {
     const statementIds = created.filter(ref => ref.kind === 'statement').map(ref => ref.id);
     if (!(this.classificationService && statementIds.length)) {
@@ -269,21 +328,17 @@ export class EntityImportService {
       if (!uncategorized.length) {
         return;
       }
-      const results = await this.classificationService.classifyTransactionsBatch(
-        uncategorized.map((tx, index) => ({
-          index,
-          counterpartyName: tx.counterpartyName ?? '',
-          paymentPurpose: tx.paymentPurpose ?? '',
-          transactionType: tx.transactionType,
-        })),
-        workspaceId,
-      );
-      for (const [index, tx] of uncategorized.entries()) {
-        const categoryId =
-          results.get(index)?.categoryId ??
-          (await this.classificationService.classifyTransaction(tx, userId)).categoryId;
-        if (categoryId) {
-          await repo.update({ id: tx.id }, { categoryId });
+      for (const tx of uncategorized) {
+        const result = await this.classificationService.classifyTransaction(tx, userId);
+        if (result.categoryId) {
+          await repo.update(
+            { id: tx.id, workspaceId },
+            {
+              categoryId: result.categoryId,
+              categorySource: result.categorySource ?? null,
+              categoryReason: result.categoryReason ?? null,
+            },
+          );
         }
       }
     } catch (error) {
@@ -297,6 +352,7 @@ export class EntityImportService {
     userId: string,
     workspaceId: string,
     batchId: string,
+    apiKey?: PermissionSubject['apiKey'],
   ): Promise<{ undone: true; removed: number; restored: number }> {
     const batch = await this.batchRepository.findOne({ where: { id: batchId, workspaceId } });
     if (!batch) {
@@ -305,7 +361,7 @@ export class EntityImportService {
     if (batch.undoneAt) {
       throw new BadRequestException(appError('IMPORT_BATCH_ALREADY_UNDONE'));
     }
-    await this.ensurePermission(userId, workspaceId, batch.target as ImportTargetKind);
+    await this.ensurePermission(userId, workspaceId, batch.target as ImportTargetKind, apiKey);
     const removed = await this.dataSource.transaction(async manager => {
       let count = 0;
       const byKind = (kind: ImportCreatedRef['kind']) =>
@@ -356,14 +412,17 @@ export class EntityImportService {
     return { undone: true, removed, restored: batch.updatedRefs.length };
   }
 
-  private entityTypeOf(target: ImportTargetKind): EntityType {
-    return {
+  private entityTypeOf(target: ImportTargetKind): EntityType | null {
+    const types: Record<ImportTargetKind, EntityType | null> = {
       transactions: EntityType.STATEMENT,
       payables: EntityType.PAYABLE,
       subscriptions: EntityType.SUBSCRIPTION,
       invoices: EntityType.INVOICE,
       budgets: EntityType.BUDGET,
-    }[target];
+      // No audit entity type for metal lots yet.
+      metals: null,
+    };
+    return types[target];
   }
 
   private async audit(
@@ -374,12 +433,16 @@ export class EntityImportService {
     action: AuditAction,
     meta: Record<string, unknown>,
   ) {
+    const entityType = this.entityTypeOf(target);
+    if (!entityType) {
+      return;
+    }
     try {
       await this.auditService.createEvent({
         workspaceId,
         actorType: ActorType.USER,
         actorId: userId,
-        entityType: this.entityTypeOf(target),
+        entityType,
         entityId: batchId,
         action,
         diff: null,

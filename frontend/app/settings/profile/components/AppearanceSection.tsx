@@ -13,9 +13,8 @@ import { Alert } from '@/app/components/ui/alert';
 import { Spinner } from '@/app/components/ui/spinner';
 import type { ThemePreference } from '@/app/lib/theme-preference';
 import type { UiDensity } from '@/app/theme';
-import { ModeToggle } from '@/components/mode-toggle';
 
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 
 type ThemeProps = {
   t: {
@@ -53,28 +52,45 @@ export function ThemeSection({
 
       <Card variant="outlined">
         <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {t.appearanceCard.themeLabel.value}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.appearanceCard.themeHelp.value}
           </Typography>
         </Box>
         <CardContent>
           <Stack spacing={2}>
-            <ModeToggle
+            <TextField
+              select
+              size="small"
               value={themePreference}
-              onThemeChange={handleThemePreferenceChange}
-              showPreview={false}
-              labels={{
-                light: t.appearanceCard.light.value,
-                dark: t.appearanceCard.dark.value,
-                auto: tx(['appearanceCard', 'auto'], 'Auto'),
-                active: t.appearanceCard.active.value,
-                followsSystem: t.appearanceCard.followsSystem.value,
+              onChange={event =>
+                void handleThemePreferenceChange(event.target.value as ThemePreference)
+              }
+              slotProps={{ htmlInput: { 'aria-label': t.appearanceCard.themeLabel.value } }}
+              sx={{ maxWidth: 320 }}
+            >
+              <MenuItem value="light">{t.appearanceCard.light.value}</MenuItem>
+              <MenuItem value="dark">{t.appearanceCard.dark.value}</MenuItem>
+              <MenuItem value="auto">{tx(['appearanceCard', 'auto'])}</MenuItem>
+            </TextField>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
               }}
-            />
-            <Typography variant="caption" color="text.secondary">
+            >
               {t.appearanceCard.followsSystem.value}
             </Typography>
             {appearanceLoading ? (
@@ -120,14 +136,21 @@ export function AppearanceSection({
   return (
     <Stack spacing={2}>
       <Box>
-        <Typography variant="subtitle1" fontWeight={600}>
-          {tx(['appearanceCard', 'densityLabel'], 'Interface density')}
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
+          {tx(['appearanceCard', 'densityLabel'])}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {tx(
-            ['appearanceCard', 'densityHelp'],
-            'Compact fits more rows on screen in tables and lists.',
-          )}
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
+          {tx(['appearanceCard', 'densityHelp'])}
         </Typography>
       </Box>
       <TextField
@@ -137,10 +160,8 @@ export function AppearanceSection({
         onChange={event => setDensity(event.target.value as UiDensity)}
         sx={{ maxWidth: 320 }}
       >
-        <MenuItem value="comfortable">
-          {tx(['appearanceCard', 'densityComfortable'], 'Comfortable')}
-        </MenuItem>
-        <MenuItem value="compact">{tx(['appearanceCard', 'densityCompact'], 'Compact')}</MenuItem>
+        <MenuItem value="comfortable">{tx(['appearanceCard', 'densityComfortable'])}</MenuItem>
+        <MenuItem value="compact">{tx(['appearanceCard', 'densityCompact'])}</MenuItem>
       </TextField>
 
       <FormControlLabel
@@ -149,14 +170,21 @@ export function AppearanceSection({
         }
         label={
           <Stack spacing={0.25}>
-            <Typography variant="body2" fontWeight={500}>
-              {tx(['appearanceCard', 'reduceMotionLabel'], 'Reduce motion')}
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+              }}
+            >
+              {tx(['appearanceCard', 'reduceMotionLabel'])}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {tx(
-                ['appearanceCard', 'reduceMotionHelp'],
-                'Turns off non-essential transitions and animations.',
-              )}
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
+              {tx(['appearanceCard', 'reduceMotionHelp'])}
             </Typography>
           </Stack>
         }
@@ -168,14 +196,21 @@ export function AppearanceSection({
         }
         label={
           <Stack spacing={0.25}>
-            <Typography variant="body2" fontWeight={500}>
-              {tx(['appearanceCard', 'dailyQuoteLabel'], 'Daily quote')}
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+              }}
+            >
+              {tx(['appearanceCard', 'dailyQuoteLabel'])}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {tx(
-                ['appearanceCard', 'dailyQuoteHelp'],
-                'A short quote above the pages, picked for your current advice. The advice itself stays on the Advice page.',
-              )}
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
+              {tx(['appearanceCard', 'dailyQuoteHelp'])}
             </Typography>
           </Stack>
         }

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import { Box, IconButton, Typography } from '@mui/material';
@@ -6,18 +5,21 @@ import MuiButton from '@mui/material/Button';
 import { useTheme } from 'next-themes';
 import { useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronDown, Trash2 } from '@/app/components/icons';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
+import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
-import { getCategoryDisplayName } from '@/app/lib/statement-categories';
+import { formatMoney } from '@/app/lib/format-money';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
 } from '@/app/lib/statement-expense-drawer';
 import { tokens } from '@/lib/theme-tokens';
 import { CurrencyDrawer } from './components/CurrencyDrawer';
+import { ReceiptTaxField } from './ReceiptTaxField';
 import type { EditableReceiptParsedData, ReceiptCategoryOption } from './receipt-types';
 
 /** Fields are stacked one per row so the form reads as a single column. */
@@ -100,22 +102,23 @@ export interface ReceiptParsedDataFormProps {
   onCurrencyChange?: (value: EditableReceiptParsedData) => void | Promise<void>;
   /** Two fields per row and shorter controls, for the full-page receipt view. */
   compact?: boolean;
+  /** The receipt being edited: its transaction's tax rate is picked in the form. */
+  receiptId?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function ReceiptParsedDataForm({
   value,
   categories,
   onChange,
   onCurrencyChange,
   compact = false,
+  receiptId,
 }: ReceiptParsedDataFormProps) {
   const { locale } = useLocale();
   const t = useIntlayer('receiptParsedDataForm');
   const tCurrency = useIntlayer('receiptCurrencyDrawer');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
-  const enabledCategories = categories.filter(category => category.isEnabled !== false);
   const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
   const [recentCurrencies, setRecentCurrencies] = useState<string[]>([
@@ -158,12 +161,10 @@ export function ReceiptParsedDataForm({
     return source.filter(item => item.code !== value.currency);
   }, [currencyItems, currencyQuery, value.currency]);
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const pushRecentCurrency = (currencyCode: string) => {
     setRecentCurrencies(prev => [currencyCode, ...prev.filter(item => item !== currencyCode)]);
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleSelectCurrency = (currencyCode: string) => {
     const nextValue = { ...value, currency: currencyCode };
 
@@ -173,6 +174,21 @@ export function ReceiptParsedDataForm({
     setCurrencySearch('');
     setCurrencyDrawerOpen(false);
   };
+
+  // Collapsed: most receipts are read for their total, and the items only matter
+  // when a purchase is split across categories.
+  const [itemsOpen, setItemsOpen] = useState(false);
+  const addLineItem = () =>
+    onChange({
+      ...value,
+      lineItems: [...value.lineItems, { id: `line-${Date.now()}`, description: '', amount: 0 }],
+    });
+  // How far the items are from the amount, like the remainder in an itemization.
+  const itemsDifference =
+    value.lineItems.length > 0 && value.amount !== '' && Number(value.amount) > 0
+      ? Number(value.amount) -
+        value.lineItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+      : null;
 
   const controlStyle = compact ? COMPACT_CONTROL_STYLE : undefined;
   const selectSx = compact ? COMPACT_CONTROL_STYLE : FORM_CONTROL_SX;
@@ -277,21 +293,17 @@ export function ReceiptParsedDataForm({
             </Box>
           </Field>
 
-          <Field compact={compact} htmlFor="receipt-tax" label={t.tax.value}>
-            <Input
-              id="receipt-tax"
-              style={controlStyle}
-              aria-label={t.tax.value}
-              type="number"
-              value={value.tax}
-              onChange={event =>
-                onChange({
-                  ...value,
-                  tax: event.target.value === '' ? '' : Number(event.target.value),
-                })
-              }
-            />
-          </Field>
+          {receiptId ? (
+            <Field compact={compact} htmlFor="receipt-tax" label={t.tax.value}>
+              <ReceiptTaxField
+                id="receipt-tax"
+                receiptId={receiptId}
+                date={value.date}
+                currency={value.currency}
+                sx={selectSx}
+              />
+            </Field>
+          ) : null}
 
           <Field compact={compact} htmlFor="receipt-payment-method" label={t.paymentMethod.value}>
             <Select
@@ -312,20 +324,14 @@ export function ReceiptParsedDataForm({
           </Field>
 
           <Field compact={compact} htmlFor="receipt-category" label={t.category.value}>
-            <Select
-              fullWidth
+            <CategoryPickerField
               id="receipt-category"
-              inputProps={{ 'aria-label': t.category.value }}
+              ariaLabel={t.category.value}
               value={value.categoryId}
+              categories={categories}
               onChange={categoryId => onChange({ ...value, categoryId })}
-              options={[
-                { value: '', label: t.selectCategory.value },
-                ...enabledCategories.map(category => ({
-                  value: category.id,
-                  label: getCategoryDisplayName(category, locale),
-                })),
-              ]}
-              sx={selectSx}
+              placeholder={t.selectCategory.value}
+              size={compact ? 'compact' : 'medium'}
             />
           </Field>
 
@@ -365,31 +371,43 @@ export function ReceiptParsedDataForm({
               mb: compact ? 0.75 : 1.5,
             }}
           >
-            <Typography style={{ fontSize: 14, fontWeight: 600, color: c.ink900 }}>
-              {t.lineItems}
-            </Typography>
-            <MuiButton
-              variant="text"
-              size="small"
-              onClick={() =>
-                onChange({
-                  ...value,
-                  lineItems: [
-                    ...value.lineItems,
-                    {
-                      id: `line-${Date.now()}`,
-                      description: '',
-                      amount: 0,
-                    },
-                  ],
-                })
-              }
-            >
-              {t.addItem}
-            </MuiButton>
+            {value.lineItems.length > 0 ? (
+              <MuiButton
+                variant="text"
+                size="small"
+                aria-expanded={itemsOpen}
+                onClick={() => setItemsOpen(open => !open)}
+                endIcon={
+                  <ChevronDown
+                    size={16}
+                    style={{ transform: itemsOpen ? 'rotate(180deg)' : undefined }}
+                  />
+                }
+                sx={{ px: 0, minWidth: 0, fontSize: 14, fontWeight: 600, color: c.ink900 }}
+              >
+                {`${t.lineItems.value} (${value.lineItems.length})`}
+              </MuiButton>
+            ) : (
+              <MuiButton
+                variant="text"
+                size="small"
+                onClick={() => {
+                  setItemsOpen(true);
+                  addLineItem();
+                }}
+                sx={{ px: 0, minWidth: 0 }}
+              >
+                {t.itemize}
+              </MuiButton>
+            )}
+            {itemsOpen && value.lineItems.length > 0 ? (
+              <MuiButton variant="text" size="small" onClick={addLineItem}>
+                {t.addItem}
+              </MuiButton>
+            ) : null}
           </Box>
 
-          {compact && value.lineItems.length > 0 ? (
+          {itemsOpen && compact && value.lineItems.length > 0 ? (
             <Box
               aria-hidden
               sx={{
@@ -409,76 +427,93 @@ export function ReceiptParsedDataForm({
               <span />
             </Box>
           ) : null}
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: compact ? 0.25 : 1.5,
-            }}
-          >
-            {/* eslint-disable-next-line max-lines-per-function, max-params */}
-            {value.lineItems.map((lineItem, index) => (
-              <Box
-                key={lineItem.id}
-                sx={{
-                  display: 'grid',
-                  gap: compact ? 1 : 1.5,
-                  gridTemplateColumns: compact
-                    ? 'minmax(0,1fr) 110px 32px'
-                    : { xs: '1fr', sm: 'minmax(0,1fr) 140px 48px' },
-                  alignItems: 'center',
-                }}
-              >
-                <LineInput
-                  aria-label={index === 0 ? t.lineItemDescriptionLabel.value : undefined}
-                  value={lineItem.description}
-                  onChange={event =>
-                    onChange({
-                      ...value,
-                      lineItems: value.lineItems.map(currentItem =>
-                        currentItem.id === lineItem.id
-                          ? { ...currentItem, description: event.target.value }
-                          : currentItem,
-                      ),
-                    })
-                  }
-                />
-                <LineInput
-                  aria-label={index === 0 ? t.lineItemAmountLabel.value : undefined}
-                  {...(compact ? { align: 'right' as const } : {})}
-                  type="number"
-                  value={lineItem.amount}
-                  onChange={event =>
-                    onChange({
-                      ...value,
-                      lineItems: value.lineItems.map(currentItem =>
-                        currentItem.id === lineItem.id
-                          ? { ...currentItem, amount: Number(event.target.value) }
-                          : currentItem,
-                      ),
-                    })
-                  }
-                />
-                <IconButton
-                  aria-label={t.removeLineItem.value.replace(
-                    '{name}',
-                    lineItem.description || String(index + 1),
-                  )}
-                  size="small"
-                  onClick={() =>
-                    onChange({
-                      ...value,
-                      lineItems: value.lineItems.filter(
-                        currentItem => currentItem.id !== lineItem.id,
-                      ),
-                    })
-                  }
+          {itemsOpen ? (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: compact ? 0.25 : 1.5,
+              }}
+            >
+              {value.lineItems.map((lineItem, index) => (
+                <Box
+                  key={lineItem.id}
+                  sx={{
+                    display: 'grid',
+                    gap: compact ? 1 : 1.5,
+                    gridTemplateColumns: compact
+                      ? 'minmax(0,1fr) 110px 32px'
+                      : { xs: '1fr', sm: 'minmax(0,1fr) 140px 48px' },
+                    alignItems: 'center',
+                  }}
                 >
-                  <Trash2 size={16} />
-                </IconButton>
-              </Box>
-            ))}
-          </Box>
+                  <LineInput
+                    aria-label={index === 0 ? t.lineItemDescriptionLabel.value : undefined}
+                    value={lineItem.description}
+                    onChange={event =>
+                      onChange({
+                        ...value,
+                        lineItems: value.lineItems.map(currentItem =>
+                          currentItem.id === lineItem.id
+                            ? { ...currentItem, description: event.target.value }
+                            : currentItem,
+                        ),
+                      })
+                    }
+                  />
+                  <LineInput
+                    aria-label={index === 0 ? t.lineItemAmountLabel.value : undefined}
+                    {...(compact ? { align: 'right' as const } : {})}
+                    type="number"
+                    value={lineItem.amount}
+                    onChange={event =>
+                      onChange({
+                        ...value,
+                        lineItems: value.lineItems.map(currentItem =>
+                          currentItem.id === lineItem.id
+                            ? { ...currentItem, amount: Number(event.target.value) }
+                            : currentItem,
+                        ),
+                      })
+                    }
+                  />
+                  <IconButton
+                    aria-label={t.removeLineItem.value.replace(
+                      '{name}',
+                      lineItem.description || String(index + 1),
+                    )}
+                    size="small"
+                    onClick={() =>
+                      onChange({
+                        ...value,
+                        lineItems: value.lineItems.filter(
+                          currentItem => currentItem.id !== lineItem.id,
+                        ),
+                      })
+                    }
+                  >
+                    <Trash2 size={16} />
+                  </IconButton>
+                </Box>
+              ))}
+            </Box>
+          ) : null}
+          {itemsOpen && itemsDifference !== null ? (
+            <Typography
+              role="status"
+              style={{
+                marginTop: 8,
+                fontSize: 13,
+                color: Math.abs(itemsDifference) < 0.005 ? c.ink500 : c.warning,
+              }}
+            >
+              {Math.abs(itemsDifference) < 0.005
+                ? t.itemsMatchTotal
+                : fillTemplateNodes(t.itemsDifference.value, {
+                    amount: formatMoney(Math.abs(itemsDifference), value.currency, locale),
+                  })}
+            </Typography>
+          ) : null}
         </Box>
       </Box>
 

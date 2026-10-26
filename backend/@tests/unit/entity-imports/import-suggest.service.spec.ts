@@ -6,13 +6,11 @@ import {
 } from '../../../src/modules/entity-imports/helpers/import-values';
 import { headerMatchScore, resolveEnumAlias } from '../../../src/modules/entity-imports/target-aliases';
 
-const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111';
-
 describe('ImportSuggestService (heuristics only)', () => {
   const service = new ImportSuggestService();
 
   it('recognises a payables sheet and maps vendor, amount and due date', async () => {
-    const result = await service.suggest(WORKSPACE_ID, {
+    const result = await service.suggest({
       headers: ['Vendor', 'Amount', 'Due date', 'Status', 'Comment'],
       samples: [
         ['Electric Co', '120.50', '2026-10-15', 'unpaid', 'october'],
@@ -20,14 +18,13 @@ describe('ImportSuggestService (heuristics only)', () => {
       ],
     });
     expect(result.target).toBe('payables');
-    expect(result.source).toBe('heuristic');
     const roles = Object.fromEntries(result.columns.map(c => [c.index, c.role]));
     expect(roles).toMatchObject({ 0: 'vendor', 1: 'amount', 2: 'dueDate', 3: 'status', 4: 'comment' });
     expect(result.confidence).toBeGreaterThanOrEqual(0.7);
   });
 
   it('recognises a Russian subscriptions sheet', async () => {
-    const result = await service.suggest(WORKSPACE_ID, {
+    const result = await service.suggest({
       headers: ['Подписка', 'Сумма, ₸', 'Периодичность', 'Следующее списание'],
       samples: [
         ['Netflix', '4 990 ₸', 'ежемесячно', '05.10.2026'],
@@ -40,7 +37,7 @@ describe('ImportSuggestService (heuristics only)', () => {
   });
 
   it('recognises bank-like rows as transactions', async () => {
-    const result = await service.suggest(WORKSPACE_ID, {
+    const result = await service.suggest({
       headers: ['Date', 'Merchant', 'Amount', 'Category'],
       samples: [
         ['2026-09-01', 'Coffee shop', '-4.50', 'Food'],
@@ -51,7 +48,7 @@ describe('ImportSuggestService (heuristics only)', () => {
   });
 
   it('falls back to a plain table when required fields are missing', async () => {
-    const result = await service.suggest(WORKSPACE_ID, {
+    const result = await service.suggest({
       headers: ['Project', 'Owner', 'Notes'],
       samples: [['Site redesign', 'Anna', 'started']],
     });
@@ -60,7 +57,7 @@ describe('ImportSuggestService (heuristics only)', () => {
   });
 
   it('does not map a text column onto a number field', async () => {
-    const result = await service.suggest(WORKSPACE_ID, {
+    const result = await service.suggest({
       headers: ['Category', 'Limit', 'Period'],
       samples: [
         ['Food', 'a lot', 'monthly'],

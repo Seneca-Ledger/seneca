@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { CustomTable } from './custom-table.entity';
@@ -38,7 +39,7 @@ export class CustomTableColumn {
 
   @ManyToOne(() => CustomTable, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'table_id' })
-  table: CustomTable;
+  table: Relation<CustomTable>;
 
   @Column({ name: 'table_id', type: 'uuid' })
   tableId: string;

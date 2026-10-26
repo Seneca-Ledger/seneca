@@ -1,6 +1,8 @@
 import React from 'react';
 import {
   Bell,
+  ChevronLeft,
+  ChevronRight,
   FlaskConical,
   HelpCircle,
   Info,
@@ -14,10 +16,21 @@ import {
 import type { NavItem } from '@/app/components/navigation/helpers/navigation-config';
 import { toggleSidebarCollapsed } from '@/app/components/navigation/sidebar-collapsed-store';
 import { openAppPanel } from '@/app/components/panels/app-panels-store';
-import { NAV_BINDINGS, SHORTCUT_OPEN_FILTERS } from '@/app/lib/keyboard-shortcuts';
-import { STATEMENTS_OPEN_EXPENSE_DRAWER_EVENT } from '@/app/lib/statement-expense-drawer';
+import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
+import {
+  NAV_BINDINGS,
+  NEXT_MONTH_BINDING,
+  NOTIFICATIONS_BINDING,
+  PREVIOUS_MONTH_BINDING,
+  SETTINGS_BINDING,
+  SHORTCUT_NEXT_MONTH,
+  SHORTCUT_OPEN_FILTERS,
+  SHORTCUT_PREVIOUS_MONTH,
+} from '@/app/lib/keyboard-shortcuts';
+import { openScanUpload } from '@/app/lib/statement-expense-drawer';
 
-export type CommandGroup = 'actions' | 'navigation' | 'settings' | 'help';
+/** `page` holds the commands the current page lends the palette (see page-commands-store). */
+export type CommandGroup = 'page' | 'actions' | 'navigation' | 'settings' | 'help';
 
 export interface Command {
   /** Stable: React key, `aria-activedescendant` target and test hook. */
@@ -30,6 +43,8 @@ export interface Command {
   keywords?: string[];
   /** tinykeys syntax; the same string drives the handler and the hint chips. */
   binding?: string;
+  /** Plain trailing note shown where a binding would be, e.g. a count in a picker. */
+  hint?: string;
   permission?: string;
   experimental?: boolean;
   run: () => void;
@@ -44,6 +59,8 @@ export interface CommandLabels {
   toggleExperimental: string;
   keyboardShortcuts: string;
   notifications: string;
+  previousMonth: string;
+  nextMonth: string;
   settings: string;
   whatsNew: string;
   reportBug: string;
@@ -54,14 +71,16 @@ export interface CommandDeps {
   /** Sidebar and account-menu entries, already carrying their own translated names. */
   navItems: NavItem[];
   push: (href: string) => void;
+  /** The filters drawer exists only on the Documents list, the month strip only on the dashboard. */
+  pathname: string;
   toggleTheme: () => void;
   toggleExperimental: () => void;
   openHelp: () => void;
   reportBugUrl: string;
 }
 
-function dispatch(event: string, detail?: unknown): void {
-  window.dispatchEvent(new CustomEvent(event, detail ? { detail } : undefined));
+function dispatch(event: string): void {
+  window.dispatchEvent(new CustomEvent(event));
 }
 
 function actionCommands(deps: CommandDeps): Command[] {
@@ -74,21 +93,46 @@ function actionCommands(deps: CommandDeps): Command[] {
       icon: React.createElement(Upload, { size: 18 }),
       binding: 'Shift+KeyA',
       permission: 'statement.upload',
-      run: () => dispatch(STATEMENTS_OPEN_EXPENSE_DRAWER_EVENT, { mode: 'scan' }),
+      run: () => openScanUpload(deps.push),
     },
-    {
-      id: 'action.filters',
-      group: 'actions',
-      label: labels.openFilters,
-      icon: React.createElement(Search, { size: 18 }),
-      binding: 'Shift+KeyF',
-      run: () => dispatch(SHORTCUT_OPEN_FILTERS),
-    },
+    ...(deps.pathname.startsWith('/statements/submit')
+      ? [
+          {
+            id: 'action.filters',
+            group: 'actions' as const,
+            label: labels.openFilters,
+            icon: React.createElement(Search, { size: 18 }),
+            binding: 'Shift+KeyF',
+            run: () => dispatch(SHORTCUT_OPEN_FILTERS),
+          },
+        ]
+      : []),
+    ...(deps.pathname === DEFAULT_APP_ROUTE
+      ? [
+          {
+            id: 'action.previousMonth',
+            group: 'actions' as const,
+            label: labels.previousMonth,
+            icon: React.createElement(ChevronLeft, { size: 18 }),
+            binding: PREVIOUS_MONTH_BINDING,
+            run: () => dispatch(SHORTCUT_PREVIOUS_MONTH),
+          },
+          {
+            id: 'action.nextMonth',
+            group: 'actions' as const,
+            label: labels.nextMonth,
+            icon: React.createElement(ChevronRight, { size: 18 }),
+            binding: NEXT_MONTH_BINDING,
+            run: () => dispatch(SHORTCUT_NEXT_MONTH),
+          },
+        ]
+      : []),
     {
       id: 'action.notifications',
       group: 'actions',
       label: labels.notifications,
       icon: React.createElement(Bell, { size: 18 }),
+      binding: NOTIFICATIONS_BINDING,
       run: () => openAppPanel('notifications'),
     },
   ];
@@ -102,6 +146,7 @@ function settingsCommands(deps: CommandDeps): Command[] {
       group: 'settings',
       label: labels.settings,
       icon: React.createElement(Settings, { size: 18 }),
+      binding: SETTINGS_BINDING,
       run: () => deps.push('/settings/profile'),
     },
     {

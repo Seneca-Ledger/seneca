@@ -3,10 +3,17 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
+import { Effect, type Schema } from 'effect';
 import { LessThanOrEqual, Repository } from 'typeorm';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { describeHttpFailure, getJson } from '../../common/effect/http-json';
 import { ExchangeRate } from '../../entities/exchange-rate.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { WorkspaceExchangeRate } from '../../entities/workspace-exchange-rate.entity';
+import { type CurrencyCoverage, currencyCoverage } from './exchange-rate-coverage';
+import { collectRateQuotes, foldRateCurve, type RatePoint } from './exchange-rate-curve';
+import { LatestRatesResponse, PublicRatesResponse } from './exchange-rates.http';
+
 
 /**
  * A rate and the day it was quoted for. `stale` marks a rate borrowed from an
@@ -16,19 +23,6 @@ export interface RateQuote {
   rate: number;
   rateDate: string;
   stale: boolean;
-}
-
-/** One point of a rate curve: the rate that applies from `date` onwards. */
-export interface RatePoint {
-  date: string;
-  rate: number;
-}
-
-/** A quote on its way to becoming a curve point; `manual` decides precedence. */
-interface RateCurveQuote {
-  date: string;
-  rate: number;
-  manual: boolean;
 }
 
 export interface RateQuoteOptions {
@@ -59,6 +53,7 @@ export class ExchangeRatesService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly configService: ConfigService,
+    private readonly effects: EffectRuntime,
     @Optional()
     @InjectRepository(Transaction)
     private readonly transactionRepository?: Repository<Transaction>,
@@ -202,94 +197,20 @@ export class ExchangeRatesService {
       return [{ date: fromDate, rate: 1 }];
     }
 
-    const quotes = await this.collectRateQuotes(normalizedFrom, normalizedTo, toDate, workspaceId);
-
-    const curve: RatePoint[] = [];
-    for (const quote of quotes) {
-      const last = curve[curve.length - 1];
-      if (last && last.date === quote.date) {
-        last.rate = quote.rate;
-      } else if (quote.date < fromDate) {
-        // Everything before the window collapses into one opening point.
-        curve.length = 0;
-        curve.push({ date: fromDate, rate: quote.rate });
-      } else {
-        curve.push({ date: quote.date, rate: quote.rate });
-      }
-    }
-
-    // The last day may only exist behind the network or the cache; everything
-    // else is already on the curve, so a quote equal to the running one adds
-    // nothing but a point.
-    const fresh = await this.getRateQuote(normalizedFrom, normalizedTo, toDate, { workspaceId });
-    const last = curve[curve.length - 1];
-    if (fresh && fresh.rate !== last?.rate) {
-      if (last && last.date === toDate) {
-        last.rate = fresh.rate;
-      } else {
-        curve.push({ date: toDate, rate: fresh.rate });
-      }
-    }
-
-    return curve;
-  }
-
-  /**
-   * Every quote for the pair up to `toDate`, ascending, with the manual one
-   * last inside a day so that it overwrites the provider's — the precedence
-   * `getRateQuote` applies, expressed once for a whole window.
-   */
-  private async collectRateQuotes(
-    normalizedFrom: string,
-    normalizedTo: string,
-    toDate: string,
-    workspaceId?: string,
-  ): Promise<RateCurveQuote[]> {
-    const onOrBefore = LessThanOrEqual(new Date(toDate));
-    const order = { rateDate: 'ASC' as const };
-    const pair = (base: string, target: string) => ({
-      baseCurrency: base,
-      targetCurrency: target,
-      rateDate: onOrBefore,
-    });
-
-    const [direct, reverse] = await Promise.all([
-      this.exchangeRateRepository.find({ where: pair(normalizedFrom, normalizedTo), order }),
-      this.exchangeRateRepository.find({ where: pair(normalizedTo, normalizedFrom), order }),
-    ]);
-    // Reverse first: a direct quote for the same day is the one worth keeping.
-    const quotes = [
-      ...this.toCurveQuotes(reverse, false, true),
-      ...this.toCurveQuotes(direct, false, false),
-    ];
-
-    if (this.workspaceRateRepository && workspaceId && (await this.hasManualRates(workspaceId))) {
-      const repository = this.workspaceRateRepository;
-      const [manualDirect, manualReverse] = await Promise.all([
-        repository.find({ where: { workspaceId, ...pair(normalizedFrom, normalizedTo) }, order }),
-        repository.find({ where: { workspaceId, ...pair(normalizedTo, normalizedFrom) }, order }),
-      ]);
-      quotes.push(
-        ...this.toCurveQuotes(manualReverse, true, true),
-        ...this.toCurveQuotes(manualDirect, true, false),
-      );
-    }
-
-    return quotes.sort(
-      (a, b) => a.date.localeCompare(b.date) || Number(a.manual) - Number(b.manual),
+    const manual =
+      workspaceId && (await this.hasManualRates(workspaceId))
+        ? { repository: this.workspaceRateRepository, workspaceId }
+        : undefined;
+    const quotes = await collectRateQuotes(
+      this.exchangeRateRepository,
+      manual,
+      normalizedFrom,
+      normalizedTo,
+      toDate,
     );
-  }
-
-  /** Rows as curve quotes, dropping anything that is not a usable rate. */
-  private toCurveQuotes(
-    rows: Array<{ rateDate: Date; rate: number }>,
-    manual: boolean,
-    invert: boolean,
-  ): RateCurveQuote[] {
-    return rows
-      .map(row => ({ date: this.toDateOnly(row.rateDate), rate: Number(row.rate), manual }))
-      .filter(quote => Number.isFinite(quote.rate) && quote.rate > 0)
-      .map(quote => (invert ? { ...quote, rate: 1 / quote.rate } : quote));
+    // The last day may only exist behind the network or the cache.
+    const fresh = await this.getRateQuote(normalizedFrom, normalizedTo, toDate, { workspaceId });
+    return foldRateCurve(quotes, fromDate, toDate, fresh?.rate ?? null);
   }
 
   private async lookupStoredRate(
@@ -592,44 +513,14 @@ export class ExchangeRatesService {
     workspaceId: string,
     workspaceCurrency: string,
     sinceDays = 365,
-  ): Promise<
-    Array<{
-      currency: string;
-      rate: number | null;
-      rateDate: string | null;
-      stale: boolean;
-      rows: number;
-    }>
-  > {
+  ): Promise<CurrencyCoverage[]> {
     if (!this.transactionRepository) return [];
-    const since = new Date();
-    since.setDate(since.getDate() - sinceDays);
-    const rows = await this.transactionRepository
-      .createQueryBuilder('t')
-      .select('UPPER(t.currency)', 'currency')
-      .addSelect('COUNT(*)', 'rows')
-      .where('t.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('t.transactionDate >= :since', { since })
-      .andWhere('t.currency IS NOT NULL')
-      .groupBy('UPPER(t.currency)')
-      .getRawMany<{ currency: string; rows: string }>();
-    const target = this.normalizeCurrencyCode(workspaceCurrency);
-    const result = [];
-    for (const row of rows) {
-      const currency = this.normalizeCurrencyCode(row.currency);
-      if (currency === target) continue;
-      const quote = await this.getRateQuote(currency, target, new Date(), { workspaceId });
-      result.push({
-        currency,
-        rate: quote?.rate ?? null,
-        rateDate: quote?.rateDate ?? null,
-        stale: quote?.stale ?? false,
-        rows: Number(row.rows),
-      });
-    }
-    return result.sort(
-      (a, b) => Number(a.rate !== null) - Number(b.rate !== null) || b.rows - a.rows,
-    );
+    return currencyCoverage(this.transactionRepository, this, {
+      workspaceId,
+      target: this.normalizeCurrencyCode(workspaceCurrency),
+      sinceDays,
+      normalize: code => this.normalizeCurrencyCode(code),
+    });
   }
 
   async convert(
@@ -662,17 +553,11 @@ export class ExchangeRatesService {
     }
 
     try {
-      const url = `${this.apiBaseUrl}/${this.apiKey}/latest/${baseCurrency.toUpperCase()}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        this.logger.warn(`Exchange rate API returned ${response.status}`);
+      const base = baseCurrency.toUpperCase();
+      const data = await this.fetchJson(this.latestRatesUrl(base), LatestRatesResponse);
+      if (!data) {
         return;
       }
-
-      const data = (await response.json()) as {
-        result: string;
-        conversion_rates: Record<string, number>;
-      };
 
       if (data.result !== 'success') {
         this.logger.warn('Exchange rate API response was not successful');
@@ -680,7 +565,6 @@ export class ExchangeRatesService {
       }
 
       const today = this.toDateOnly(new Date());
-      const base = baseCurrency.toUpperCase();
 
       for (const [target, rate] of Object.entries(data.conversion_rates)) {
         await this.saveRate(base, target, rate, today, 'exchangerate-api');
@@ -703,18 +587,8 @@ export class ExchangeRatesService {
     }
 
     try {
-      const url = `${this.apiBaseUrl}/${this.apiKey}/latest/${from}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        return null;
-      }
-
-      const data = (await response.json()) as {
-        result: string;
-        conversion_rates: Record<string, number>;
-      };
-
-      if (data.result !== 'success' || !data.conversion_rates[to]) {
+      const data = await this.fetchJson(this.latestRatesUrl(from), LatestRatesResponse);
+      if (data?.result !== 'success' || !data.conversion_rates[to]) {
         return null;
       }
 
@@ -756,12 +630,11 @@ export class ExchangeRatesService {
 
   private async fetchPublicCurrencyRate(url: string, to: string): Promise<number | null> {
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
+      const data = await this.fetchJson(url, PublicRatesResponse);
+      if (!data) {
         return null;
       }
       const targetKey = to.toLowerCase();
-      const data = (await response.json()) as Record<string, unknown>;
       const baseKey = this.extractBaseCurrencyFromPublicCurrencyUrl(url);
       const rates = baseKey ? data[baseKey] : undefined;
       const rate =
@@ -772,6 +645,30 @@ export class ExchangeRatesService {
     } catch {
       return null;
     }
+  }
+
+  private latestRatesUrl(base: string): string {
+    return `${this.apiBaseUrl}/${this.apiKey}/latest/${base}`;
+  }
+
+  /**
+   * A provider's decoded answer, or null when there is none worth using. The
+   * reason is logged without the URL, which carries the API key.
+   */
+  private fetchJson<A>(url: string, schema: Schema.Codec<A, unknown>): Promise<A | null> {
+    const host = new URL(url).host;
+    return this.effects.run(
+      getJson(url, schema, { timeout: '5 seconds' }).pipe(
+        Effect.catch(error =>
+          Effect.sync(() => {
+            this.logger.warn(
+              `Exchange rate request to ${host} failed: ${describeHttpFailure(error)}`,
+            );
+            return null;
+          }),
+        ),
+      ),
+    );
   }
 
   private extractBaseCurrencyFromPublicCurrencyUrl(url: string): string | null {

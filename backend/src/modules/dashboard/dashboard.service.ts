@@ -1,16 +1,31 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
   type FindOperator,
   In,
   IsNull,
-  type ObjectLiteral,
   type Repository,
   type SelectQueryBuilder,
 } from 'typeorm';
-import { countedSql, onlyCounted } from '../../common/utils/counted-transactions.util';
+import { flowsSql, onlyFlows } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
+import type {
+  DashboardActionItem,
+  DashboardCashFlowPoint,
+  DashboardCommitmentDay,
+  DashboardCommitmentItem,
+  DashboardCommitmentsResponse,
+  DashboardDataHealth,
+  DashboardFinancialSnapshot,
+  DashboardMonthlyCashFlowResponse,
+  DashboardRecentTransaction,
+  DashboardResponse,
+  DashboardTopCategory,
+  DashboardTopMerchant,
+  DashboardTrendsResponse,
+} from '../../contracts';
 import { Payable, PayableDirection, PayableStatus } from '../../entities/payable.entity';
 import { Receipt, ReceiptStatus } from '../../entities/receipt.entity';
 import { BankName, Statement, StatementStatus } from '../../entities/statement.entity';
@@ -22,7 +37,16 @@ import {
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
+import { BudgetWithinLimitService } from '../budgets/budget-within-limit.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import {
+  pendingReceiptsQuery,
+  QUEUE_DATE_COLUMN,
+  reviewDuplicatesQuery,
+  uncategorizedRowsQuery,
+  unconfirmedRowsQuery,
+} from '../review-inbox/review-queue.queries';
+import { documentHref, findScanReceipts } from '../search/document-href';
 import {
   type CashFlowRange,
   type DashboardWindow,
@@ -30,28 +54,8 @@ import {
   getCashFlowRangeBounds,
   getMonthWindowBounds,
   getWindowBounds,
-  getYearWindowBounds,
   parseMonthWindow,
 } from './dashboard-window.util';
-import type {
-  DashboardCommitmentDay,
-  DashboardCommitmentItem,
-  DashboardCommitmentsResponse,
-} from './interfaces/dashboard-commitments.interface';
-import type {
-  DashboardActionItem,
-  DashboardCashFlowPoint,
-  DashboardDataHealth,
-  DashboardFinancialSnapshot,
-  DashboardHealthHistoryResponse,
-  DashboardHealthMonth,
-  DashboardMonthlyCashFlowResponse,
-  DashboardRecentTransaction,
-  DashboardResponse,
-  DashboardTopCategory,
-  DashboardTopMerchant,
-} from './interfaces/dashboard-response.interface';
-import type { DashboardTrendsResponse } from './interfaces/dashboard-trends.interface';
 
 /** How many individual categories the donut shows before folding the rest into "Other". */
 const TOP_CATEGORIES_LIMIT = 8;
@@ -59,25 +63,29 @@ const TOP_CATEGORIES_LIMIT = 8;
 const OTHER_CATEGORY_COLOR = '#898781';
 /** Internal grouping key for transactions with no category — never sent to the client. */
 const UNCATEGORIZED_KEY = '__uncategorized__';
-/** Which history counter a statement in each queue status feeds. */
-const STATEMENT_STATUS_METRIC: Partial<
-  Record<string, 'statementErrors' | 'statementsPendingReview' | 'statementsPendingSubmit'>
-> = {
-  [StatementStatus.ERROR]: 'statementErrors',
-  [StatementStatus.PARSED]: 'statementsPendingReview',
-  [StatementStatus.VALIDATED]: 'statementsPendingReview',
-  [StatementStatus.UPLOADED]: 'statementsPendingSubmit',
-};
-
+/**
+ * Which history counter a statement in each status feeds. What waits for review
+ * is counted from the Review queue itself (its rows), not from statement statuses.
+ */
+/** A period's trends, every amount already in the workspace currency. */
 interface TrendRows {
-  dailyRows: Array<{ date: string; income: string; expense: string }>;
-  categoryRows: Array<{ name: string; amount: string; count: string }>;
-  counterpartyRows: Array<{ name: string; amount: string; count: string }>;
-  sourceRows: { income: string; expense: string; rows: string } | undefined;
+  daily: Map<string, DashboardCashFlowPoint>;
+  categories: Array<{
+    name: string;
+    color: string | null;
+    icon: string | null;
+    amount: number;
+    count: number;
+  }>;
+  counterparties: Array<{ name: string; amount: number; count: number }>;
+  totals: { income: number; expense: number; rows: number };
 }
 
-/** How many rows the dashboard's recent-transactions card shows. */
-const RECENT_TRANSACTIONS_LIMIT = 6;
+/** The categories and payers a period's trends list. */
+const TREND_LIST_LIMIT = 10;
+
+/** Rows for the recent-transactions card with the row to itself; a half-width card shows six. */
+const RECENT_TRANSACTIONS_LIMIT = 12;
 /** Upper bound on the commitments projection so a client can't request a decade of days. */
 const MAX_COMMITMENT_HORIZON_DAYS = 365;
 /** Bank names are proper nouns and aren't translated per locale. */
@@ -89,7 +97,7 @@ const BANK_DISPLAY_NAMES: Record<BankName, string> = {
   [BankName.OTHER]: 'Bank',
 };
 
-function round2(value: number): number {
+export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
@@ -120,6 +128,8 @@ export class DashboardService {
     @InjectRepository(Subscription)
     private readonly subscriptionRepo: Repository<Subscription>,
     private readonly exchangeRatesService: ExchangeRatesService,
+    @Inject(forwardRef(() => BudgetWithinLimitService))
+    private readonly withinLimit: BudgetWithinLimitService,
   ) {}
 
   async getDashboard(
@@ -127,6 +137,7 @@ export class DashboardService {
     workspaceId: string,
     range: '7d' | '30d' | '90d' | 'month' = '30d',
     endDateParam?: string,
+    viewerMemberId: string | null = null,
   ): Promise<DashboardResponse> {
     const isMonth = range === 'month';
     const days = range === '7d' ? 7 : range === '90d' ? 90 : 30;
@@ -165,16 +176,26 @@ export class DashboardService {
     // cash-flow buckets daily (see getTransactionGroupFormat) for month mode.
     const bucketDays = isMonth ? daysInMonth(effectiveWindow.since) : days;
 
-    // The month dashboard counts its queues (Finance Ops, Data Health) for that month too;
+    // The month dashboard counts its queues (the month close) for that month too;
     // the rolling 7d/30d/90d ranges keep the live, all-time queue totals.
     const queueWindow = isMonth ? effectiveWindow : null;
 
     const [cashFlow, topMerchants, topCategories, recentTransactions, actions, dataHealth] =
       await Promise.all([
         this.getCashFlow(workspaceId, effectiveWindow.since, effectiveWindow.endDate, bucketDays),
-        this.getTopMerchants(workspaceId, effectiveWindow.since, effectiveWindow.endDate),
+        this.getTopMerchants(
+          workspaceId,
+          effectiveWindow.since,
+          effectiveWindow.endDate,
+          viewerMemberId,
+        ),
         this.getTopCategories(workspaceId, effectiveWindow.since, effectiveWindow.endDate),
-        this.getRecentTransactions(workspaceId, effectiveWindow.since, effectiveWindow.endDate),
+        this.getRecentTransactions(
+          workspaceId,
+          effectiveWindow.since,
+          effectiveWindow.endDate,
+          viewerMemberId,
+        ),
         this.getActions(userId, workspaceId, queueWindow),
         this.getDataHealth(workspaceId, queueWindow),
       ]);
@@ -206,30 +227,35 @@ export class DashboardService {
   ): Promise<DashboardFinancialSnapshot> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     const targetCurrency = this.normalizeCurrency(workspace?.currency);
 
     // Group income/expense by currency so we can convert each group
     const txRows = await this.transactionRepo
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
+      // Rows without a statement (a cash payment, an approved receipt) count too.
+      .leftJoin('t.statement', 's')
       .select([
         't.currency AS currency',
         // Income and expense count confirmed rows only; unapproved cash below is
         // what still waits, so it keeps the unconfirmed ones on purpose.
-        `COALESCE(SUM(CASE WHEN t.transactionType = :income AND ${countedSql('t')} THEN t.credit ELSE 0 END), 0) AS income`,
-        `COALESCE(SUM(CASE WHEN t.transactionType = :expense AND ${countedSql('t')} THEN t.debit ELSE 0 END), 0) AS expense`,
+        `COALESCE(SUM(CASE WHEN t.transactionType = :income AND ${flowsSql('t')} THEN t.credit ELSE 0 END), 0) AS income`,
+        `COALESCE(SUM(CASE WHEN t.transactionType = :expense AND ${flowsSql('t')} THEN t.debit ELSE 0 END), 0) AS expense`,
         'COALESCE(SUM(CASE WHEN s.status IN (:...unapprovedStatuses) THEN (CASE WHEN t.transactionType = :income THEN t.credit ELSE -t.debit END) ELSE 0 END), 0) AS "unapprovedCash"',
       ])
-      .where('s.workspaceId = :workspaceId', { workspaceId })
+      .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.transactionDate BETWEEN :since AND :endDate', { since, endDate })
-      .andWhere('s.deletedAt IS NULL')
       .andWhere('t.isDuplicate = false')
       .andWhere('t.transferPairId IS NULL')
-      .andWhere('s.status NOT IN (:...excludedStatuses)', {
-        excludedStatuses: [StatementStatus.ERROR, StatementStatus.PROCESSING],
-      })
+      .andWhere(
+        '(s.id IS NULL OR (s.deletedAt IS NULL AND s.status NOT IN (:...excludedStatuses)))',
+        {
+          excludedStatuses: [StatementStatus.ERROR, StatementStatus.PROCESSING],
+        },
+      )
       .setParameter('income', TransactionType.INCOME)
       .setParameter('expense', TransactionType.EXPENSE)
       .setParameter('unapprovedStatuses', [
@@ -318,7 +344,7 @@ export class DashboardService {
 
   /** All-time net of every approved transaction, converted into `targetCurrency`. */
   private async getAllTimeBalance(workspaceId: string, targetCurrency: string): Promise<number> {
-    const balanceQuery = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
+    const balanceQuery = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
     this.applyWorkspaceStatementFilters(balanceQuery, workspaceId, true);
 
     const balanceRows = await balanceQuery
@@ -347,7 +373,7 @@ export class DashboardService {
     return currencyCodeOrDefault(currency);
   }
 
-  private async convertDashboardAmount(
+  async convertDashboardAmount(
     amount: string | number | null | undefined,
     sourceCurrency: string | null | undefined,
     targetCurrency: string,
@@ -370,10 +396,12 @@ export class DashboardService {
     return value * rate;
   }
 
-  private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
+  async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return this.normalizeCurrency(workspace?.currency);
   }
@@ -390,7 +418,7 @@ export class DashboardService {
         workspaceId,
         status: StatementStatus.UPLOADED,
         deletedAt: IsNull(),
-        createdAt: this.between(window),
+        ...this.inWindow('createdAt', window),
       },
     });
 
@@ -408,7 +436,7 @@ export class DashboardService {
         workspaceId,
         status: In([StatementStatus.PARSED, StatementStatus.VALIDATED]),
         deletedAt: IsNull(),
-        createdAt: this.between(window),
+        ...this.inWindow('createdAt', window),
       },
     });
 
@@ -426,7 +454,7 @@ export class DashboardService {
         workspaceId,
         status: PayableStatus.OVERDUE,
         deletedAt: IsNull(),
-        dueDate: this.between(window),
+        ...this.inWindow('dueDate', window),
       },
     });
 
@@ -455,7 +483,7 @@ export class DashboardService {
       where: {
         workspaceId,
         status: In([ReceiptStatus.NEW, ReceiptStatus.NEEDS_REVIEW]),
-        receivedAt: this.between(window),
+        ...this.inWindow('receivedAt', window),
       },
     });
 
@@ -485,7 +513,43 @@ export class DashboardService {
       this.getTransactionGroupFormat(days),
       targetCurrency,
     );
-    return this.fillCashFlowWindow(points, since, endDate, days);
+    // Weekly buckets (90 days) keep no budgeted share: budgets are judged day by day.
+    if (days < 90 && points.size > 0) {
+      await this.addBudgeted(points, workspaceId, since, endDate, targetCurrency);
+    }
+    return this.fillCashFlowWindow(points, since, endDate, days, date => ({
+      date,
+      income: 0,
+      expense: 0,
+      budgeted: 0,
+    }));
+  }
+
+  /**
+   * Each day's spending a budget still had room for, converted like the expense bar and never
+   * more than it (the budgets and the cash flow filter documents slightly differently).
+   */
+  private async addBudgeted(
+    points: Map<string, DashboardCashFlowPoint>,
+    workspaceId: string,
+    since: Date,
+    endDate: Date,
+    targetCurrency: string,
+  ): Promise<void> {
+    const rows = await this.withinLimit.withinLimitSpending(workspaceId, since, endDate);
+    for (const row of rows) {
+      const point = points.get(row.date);
+      if (!point) {
+        continue;
+      }
+      const amount = await this.convertDashboardAmount(
+        row.amount,
+        row.currency,
+        targetCurrency,
+        workspaceId,
+      );
+      point.budgeted = Math.min(point.expense, point.budgeted + amount);
+    }
   }
 
   /**
@@ -550,7 +614,7 @@ export class DashboardService {
     groupFormat: string,
     targetCurrency: string,
   ): Promise<Map<string, DashboardCashFlowPoint>> {
-    const query = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
+    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
 
     this.applyActiveStatementTransactionFilters(query, workspaceId, since, endDate);
 
@@ -574,7 +638,7 @@ export class DashboardService {
 
     const points = new Map<string, DashboardCashFlowPoint>();
     for (const row of result) {
-      const point = points.get(row.date) ?? { date: row.date, income: 0, expense: 0 };
+      const point = points.get(row.date) ?? { date: row.date, income: 0, expense: 0, budgeted: 0 };
       point.income += await this.convertDashboardAmount(
         row.income,
         row.currency,
@@ -597,23 +661,27 @@ export class DashboardService {
     workspaceId: string,
     since: Date,
     endDate: Date,
+    viewerMemberId: string | null,
   ): Promise<DashboardTopMerchant[]> {
     const targetCurrency = await this.getWorkspaceCurrency(workspaceId);
-    const query = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
+    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
 
     this.applyActiveStatementTransactionFilters(query, workspaceId, since, endDate);
 
+    // Another member's private rows count under the placeholder, not their merchant.
+    const name = redactedSql('t', 't.counterparty_name');
     const result = await query
-      .select('t.counterpartyName', 'name')
+      .select(name, 'name')
       .addSelect('t.currency', 'currency')
       .addSelect('COALESCE(SUM(t.debit), 0)', 'amount')
       .addSelect('COUNT(t.id)', 'count')
       .andWhere('t.transactionType = :expense', { expense: TransactionType.EXPENSE })
       .andWhere('t.counterpartyName IS NOT NULL')
       .andWhere("t.counterpartyName != ''")
-      .groupBy('t.counterpartyName')
+      .groupBy(name)
       .addGroupBy('t.currency')
       .orderBy('amount', 'DESC')
+      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
       .getRawMany<{ name: string; currency: string; amount: string; count: string }>();
 
     const rows = new Map<string, DashboardTopMerchant>();
@@ -643,7 +711,7 @@ export class DashboardService {
     const targetCurrency = await this.getWorkspaceCurrency(workspaceId);
     const query = this.transactionRepo
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
+      .leftJoin('t.statement', 's')
       .leftJoin('t.category', 'c');
 
     this.applyActiveStatementTransactionFilters(query, workspaceId, since, endDate);
@@ -735,18 +803,19 @@ export class DashboardService {
     workspaceId: string,
     since: Date,
     endDate: Date,
+    viewerMemberId: string | null,
   ): Promise<DashboardRecentTransaction[]> {
     const targetCurrency = await this.getWorkspaceCurrency(workspaceId);
     const query = this.transactionRepo
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
+      .leftJoin('t.statement', 's')
       .leftJoin('t.category', 'c');
 
     this.applyActiveStatementTransactionFilters(query, workspaceId, since, endDate);
 
     const rows = await query
       .select('t.id', 'id')
-      .addSelect('t.counterpartyName', 'description')
+      .addSelect(redactedSql('t', 't.counterparty_name'), 'description')
       .addSelect('t.debit', 'debit')
       .addSelect('t.credit', 'credit')
       .addSelect('t.transactionType', 'transactionType')
@@ -758,9 +827,13 @@ export class DashboardService {
       .addSelect('c.icon', 'categoryIcon')
       .addSelect('s.bankName', 'bankName')
       .addSelect('s.accountNumber', 'accountNumber')
+      .addSelect('s.id', 'statementId')
+      .addSelect('s.status', 'statementStatus')
+      .addSelect('s.parsingDetails', 'parsingDetails')
       .orderBy('t.transactionDate', 'DESC')
       .addOrderBy('t.createdAt', 'DESC')
       .limit(RECENT_TRANSACTIONS_LIMIT)
+      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
       .getRawMany<{
         id: string;
         description: string;
@@ -775,10 +848,26 @@ export class DashboardService {
         categoryIcon: string | null;
         bankName: BankName;
         accountNumber: string | null;
+        statementId: string | null;
+        statementStatus: Statement['status'];
+        parsingDetails: Statement['parsingDetails'];
       }>();
 
+    // A transaction has no page of its own: a click opens its document. One
+    // entered by hand has none, so it gets no link rather than a dead one.
+    const documents = rows.map(row =>
+      row.statementId
+        ? { id: row.statementId, status: row.statementStatus, parsingDetails: row.parsingDetails }
+        : null,
+    );
+    const scanReceipts = await findScanReceipts(
+      this.receiptRepo,
+      workspaceId,
+      documents.filter(document => document !== null),
+    );
+
     return Promise.all(
-      rows.map(async row => {
+      rows.map(async (row, index) => {
         const magnitude = row.transactionType === TransactionType.INCOME ? row.credit : row.debit;
         const converted = await this.convertDashboardAmount(
           magnitude,
@@ -803,6 +892,7 @@ export class DashboardService {
           categoryName: row.categoryName,
           categoryColor: row.categoryColor || OTHER_CATEGORY_COLOR,
           categoryIcon: row.categoryIcon,
+          href: documents[index] ? documentHref(documents[index], scanReceipts) : null,
         };
       }),
     );
@@ -814,7 +904,9 @@ export class DashboardService {
   ): Promise<'owner' | 'admin' | 'member' | 'viewer'> {
     const member = await this.memberRepo.findOne({
       where: { userId, workspaceId },
-      select: ['role'],
+      select: {
+        role: true,
+      },
     });
 
     return (member?.role as 'owner' | 'admin' | 'member' | 'viewer') || 'member';
@@ -837,7 +929,7 @@ export class DashboardService {
       receiptsPendingReview,
       parsingWarnings,
       latestStatement,
-      unapprovedCashResult,
+      unapprovedCash,
     ] = await Promise.all([
       this.getUncategorizedCount(workspaceId, window),
       // statements with errors
@@ -846,35 +938,27 @@ export class DashboardService {
           workspaceId,
           status: StatementStatus.ERROR,
           deletedAt: IsNull(),
-          createdAt: this.between(window),
+          ...this.inWindow('createdAt', window),
         },
       }),
-      // statements pending review: parsed or validated
-      this.statementRepo.count({
-        where: {
-          workspaceId,
-          status: In([StatementStatus.PARSED, StatementStatus.VALIDATED]),
-          deletedAt: IsNull(),
-          createdAt: this.between(window),
-        },
-      }),
+      // What Review still asks about: unconfirmed rows and possible duplicates,
+      // by the queue's own rules, so the number is the one Review shows.
+      this.getReviewRowsCount(workspaceId, window),
       // statements pending submit: uploaded but not submitted yet
       this.statementRepo.count({
         where: {
           workspaceId,
           status: StatementStatus.UPLOADED,
           deletedAt: IsNull(),
-          createdAt: this.between(window),
+          ...this.inWindow('createdAt', window),
         },
       }),
-      // receipts pending review
-      this.receiptRepo.count({
-        where: {
-          workspaceId,
-          status: In([ReceiptStatus.NEW, ReceiptStatus.NEEDS_REVIEW]),
-          receivedAt: this.between(window),
-        },
-      }),
+      // receipts Review lists, by its own rule
+      this.withinWindow(
+        pendingReceiptsQuery(this.receiptRepo, workspaceId),
+        QUEUE_DATE_COLUMN.receipt,
+        window,
+      ).getCount(),
       // parsing warnings: actual warnings captured in parsing details
       this.withinWindow(
         this.createParsingWarningsQuery(workspaceId),
@@ -885,31 +969,12 @@ export class DashboardService {
       this.statementRepo.findOne({
         where: { workspaceId, deletedAt: IsNull() },
         order: { createdAt: 'DESC' },
-        select: ['createdAt'],
+        select: {
+          createdAt: true,
+        },
       }),
-      // unapproved cash
-      this.withinWindow(
-        this.transactionRepo
-          .createQueryBuilder('t')
-          .innerJoin('t.statement', 's')
-          .select(
-            'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE -t.debit END), 0)',
-            'unapprovedCash',
-          )
-          .where('s.workspaceId = :workspaceId', { workspaceId })
-          .andWhere('s.status IN (:...unapprovedStatuses)', {
-            unapprovedStatuses: [
-              StatementStatus.UPLOADED,
-              StatementStatus.PARSED,
-              StatementStatus.VALIDATED,
-            ],
-          })
-          .andWhere('s.deletedAt IS NULL'),
-        't.transactionDate',
-        window,
-      )
-        .setParameter('income', TransactionType.INCOME)
-        .getRawOne<{ unapprovedCash: string }>(),
+      // money in rows nobody has confirmed yet
+      this.getUnconfirmedCash(workspaceId, window),
     ]);
 
     return {
@@ -918,44 +983,90 @@ export class DashboardService {
       statementsPendingReview,
       statementsPendingSubmit,
       receiptsPendingReview,
-      unapprovedCash: Number.parseFloat(unapprovedCashResult?.unapprovedCash ?? '') || 0,
+      unapprovedCash,
       lastUploadDate: latestStatement?.createdAt?.toISOString() ?? null,
       parsingWarnings,
     };
   }
 
-  private async getUncategorizedCount(
-    workspaceId: string,
-    window: DashboardWindow | null = null,
-  ): Promise<number> {
-    const [transactionCount, receiptCount] = await Promise.all([
-      this.getUncategorizedTransactionCount(workspaceId, window),
-      this.withinWindow(
-        this.createUncategorizedReceiptQuery(workspaceId),
-        'r.receivedAt',
-        window,
-      ).getCount(),
-    ]);
-
-    return transactionCount + receiptCount;
-  }
-
-  private async getUncategorizedTransactionCount(
+  /** Rows waiting in Review (unconfirmed plus possible duplicates), dated within `window`. */
+  private async getReviewRowsCount(
     workspaceId: string,
     window: DashboardWindow | null,
   ): Promise<number> {
-    const query = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
-
-    // A "needs attention" count: unconfirmed rows are exactly the ones to fix.
-    this.applyWorkspaceStatementFilters(query, workspaceId, true, { confirmedOnly: false });
-    query.andWhere('t.categoryId IS NULL');
-
-    return this.withinWindow(query, 't.transactionDate', window).getCount();
+    const [rows, duplicates] = await Promise.all(
+      [unconfirmedRowsQuery, reviewDuplicatesQuery].map(query =>
+        this.withinWindow(
+          query(this.transactionRepo, workspaceId),
+          QUEUE_DATE_COLUMN.row,
+          window,
+        ).getCount(),
+      ),
+    );
+    return rows + duplicates;
   }
 
-  /** Limits a find-options column to `window`; `undefined` (no condition) without one. */
-  private between(window: DashboardWindow | null): FindOperator<Date> | undefined {
-    return window ? Between(window.since, window.endDate) : undefined;
+  /**
+   * Income minus spending in the rows Review still asks about, in the workspace
+   * currency: the money the numbers elsewhere leave out until someone confirms it.
+   */
+  private async getUnconfirmedCash(
+    workspaceId: string,
+    window: DashboardWindow | null,
+  ): Promise<number> {
+    const rows = await this.withinWindow(
+      unconfirmedRowsQuery(this.transactionRepo, workspaceId),
+      't.transactionDate',
+      window,
+    )
+      .select('t.currency', 'currency')
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE -t.debit END), 0)',
+        'amount',
+      )
+      .setParameter('income', TransactionType.INCOME)
+      .groupBy('t.currency')
+      .getRawMany<{ currency: string; amount: string }>();
+    const targetCurrency = await this.getWorkspaceCurrency(workspaceId);
+    let total = 0;
+    for (const row of rows) {
+      total += await this.convertDashboardAmount(
+        row.amount,
+        row.currency,
+        targetCurrency,
+        workspaceId,
+      );
+    }
+    return total;
+  }
+
+  /**
+   * Rows with no category, by the rule Review lists them with. A receipt is not
+   * counted on its own: one that booked a row is that row, one that has not is
+   * still a receipt to review.
+   */
+  private getUncategorizedCount(
+    workspaceId: string,
+    window: DashboardWindow | null = null,
+  ): Promise<number> {
+    return this.withinWindow(
+      uncategorizedRowsQuery(this.transactionRepo, workspaceId),
+      QUEUE_DATE_COLUMN.row,
+      window,
+    ).getCount();
+  }
+
+  /**
+   * Limits a find-options column to `window`, spread into `where`; no condition
+   * without one (TypeORM 1 refuses an `undefined` value in `where`).
+   */
+  private inWindow<K extends string>(
+    column: K,
+    window: DashboardWindow | null,
+  ): Partial<Record<K, FindOperator<Date>>> {
+    return window
+      ? ({ [column]: Between(window.since, window.endDate) } as Record<K, FindOperator<Date>>)
+      : {};
   }
 
   /** Limits a query to `window` on `column`; a `null` window leaves it untouched (live totals). */
@@ -981,178 +1092,15 @@ export class DashboardService {
       .andWhere("jsonb_array_length(COALESCE(s.parsing_details->'warnings', '[]'::jsonb)) > 0");
   }
 
-  private createUncategorizedReceiptQuery(workspaceId: string): SelectQueryBuilder<Receipt> {
-    return this.receiptRepo
-      .createQueryBuilder('r')
-      .leftJoin('r.transaction', 'rt')
-      .where('r.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('r.isDuplicate = false')
-      .andWhere('r.status != :failedStatus', { failedStatus: ReceiptStatus.FAILED })
-      .andWhere("NULLIF(TRIM(r.parsed_data->>'amount'), '') IS NOT NULL")
-      .andWhere("NULLIF(r.parsed_data ->> 'categoryId', '') IS NULL")
-      .andWhere('rt.category_id IS NULL');
-  }
-
-  /**
-   * Per-month history of the queues shown on Data Health and Finance Ops, for one calendar year.
-   * Nothing is stored: each item is counted in the month it is dated by, so fixing old data
-   * changes old months too.
-   */
-  async getHealthHistory(
-    workspaceId: string,
-    year: number,
-  ): Promise<DashboardHealthHistoryResponse> {
-    const now = new Date();
-    if (year > now.getFullYear()) {
-      return { year, months: [] };
-    }
-    const window = getYearWindowBounds(year);
-    const lastMonthIndex = year === now.getFullYear() ? now.getMonth() : 11;
-    const months = new Map<string, DashboardHealthMonth>();
-    for (let index = 0; index <= lastMonthIndex; index++) {
-      const month = `${year}-${String(index + 1).padStart(2, '0')}`;
-      months.set(month, {
-        month,
-        transactions: 0,
-        uncategorized: 0,
-        statementsUploaded: 0,
-        statementErrors: 0,
-        statementsPendingReview: 0,
-        statementsPendingSubmit: 0,
-        parsingWarnings: 0,
-        receiptsPendingReview: 0,
-        overduePayments: 0,
-      });
-    }
-
-    const [
-      transactionRows,
-      uncategorizedReceiptRows,
-      statementRows,
-      warningRows,
-      pendingReceiptRows,
-      overdueRows,
-    ] = await Promise.all([
-      this.getTransactionHistoryRows(workspaceId, window),
-      this.countByMonth(this.createUncategorizedReceiptQuery(workspaceId), 'r.receivedAt', window),
-      this.getStatementStatusHistoryRows(workspaceId, window),
-      this.countByMonth(this.createParsingWarningsQuery(workspaceId), 's.createdAt', window),
-      this.countByMonth(
-        this.receiptRepo
-          .createQueryBuilder('r')
-          .where('r.workspaceId = :workspaceId', { workspaceId })
-          .andWhere('r.status IN (:...pendingStatuses)', {
-            pendingStatuses: [ReceiptStatus.NEW, ReceiptStatus.NEEDS_REVIEW],
-          }),
-        'r.receivedAt',
-        window,
-      ),
-      this.countByMonth(
-        this.payableRepo
-          .createQueryBuilder('p')
-          .where('p.workspaceId = :workspaceId', { workspaceId })
-          .andWhere('p.status = :overdue', { overdue: PayableStatus.OVERDUE })
-          .andWhere('p.deletedAt IS NULL'),
-        'p.dueDate',
-        window,
-      ),
-    ]);
-
-    const add = (
-      month: string,
-      key: Exclude<keyof DashboardHealthMonth, 'month'>,
-      count: string,
-    ): void => {
-      const entry = months.get(month);
-      if (entry) {
-        entry[key] += Number.parseInt(count, 10) || 0;
-      }
-    };
-    for (const row of transactionRows) {
-      add(row.month, 'transactions', row.total);
-      add(row.month, 'uncategorized', row.uncategorized);
-    }
-    for (const row of uncategorizedReceiptRows) {
-      add(row.month, 'uncategorized', row.count);
-    }
-    for (const row of statementRows) {
-      add(row.month, 'statementsUploaded', row.count);
-      const metric = STATEMENT_STATUS_METRIC[row.status];
-      if (metric) {
-        add(row.month, metric, row.count);
-      }
-    }
-    for (const row of warningRows) {
-      add(row.month, 'parsingWarnings', row.count);
-    }
-    for (const row of pendingReceiptRows) {
-      add(row.month, 'receiptsPendingReview', row.count);
-    }
-    for (const row of overdueRows) {
-      add(row.month, 'overduePayments', row.count);
-    }
-
-    return { year, months: Array.from(months.values()) };
-  }
-
-  private getTransactionHistoryRows(
-    workspaceId: string,
-    window: DashboardWindow,
-  ): Promise<Array<{ month: string; total: string; uncategorized: string }>> {
-    const query = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
-    // Data health counts every row, confirmed or not: it shows what needs work.
-    this.applyActiveStatementTransactionFilters(query, workspaceId, window.since, window.endDate, {
-      confirmedOnly: false,
-    });
-    return query
-      .select("TO_CHAR(t.transactionDate, 'YYYY-MM')", 'month')
-      .addSelect('COUNT(t.id)', 'total')
-      .addSelect('SUM(CASE WHEN t.categoryId IS NULL THEN 1 ELSE 0 END)', 'uncategorized')
-      .groupBy("TO_CHAR(t.transactionDate, 'YYYY-MM')")
-      .getRawMany<{ month: string; total: string; uncategorized: string }>();
-  }
-
-  private getStatementStatusHistoryRows(
-    workspaceId: string,
-    window: DashboardWindow,
-  ): Promise<Array<{ month: string; status: string; count: string }>> {
-    return this.withinWindow(
-      this.statementRepo
-        .createQueryBuilder('s')
-        .where('s.workspaceId = :workspaceId', { workspaceId })
-        .andWhere('s.deletedAt IS NULL'),
-      's.createdAt',
-      window,
-    )
-      .select("TO_CHAR(s.createdAt, 'YYYY-MM')", 'month')
-      .addSelect('s.status', 'status')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy("TO_CHAR(s.createdAt, 'YYYY-MM')")
-      .addGroupBy('s.status')
-      .getRawMany<{ month: string; status: string; count: string }>();
-  }
-
-  /** Row count per `YYYY-MM` of `dateColumn`, inside `window`. */
-  private countByMonth<T extends ObjectLiteral>(
-    query: SelectQueryBuilder<T>,
-    dateColumn: string,
-    window: DashboardWindow,
-  ): Promise<Array<{ month: string; count: string }>> {
-    return this.withinWindow(query, dateColumn, window)
-      .select(`TO_CHAR(${dateColumn}, 'YYYY-MM')`, 'month')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy(`TO_CHAR(${dateColumn}, 'YYYY-MM')`)
-      .getRawMany<{ month: string; count: string }>();
-  }
-
   async getTrends(
     workspaceId: string,
     days = 30,
     month?: string,
+    viewerMemberId: string | null = null,
   ): Promise<DashboardTrendsResponse> {
     const monthWindow = parseMonthWindow(month);
     if (monthWindow) {
-      return this.getMonthTrends(workspaceId, monthWindow);
+      return this.getMonthTrends(workspaceId, monthWindow, viewerMemberId);
     }
 
     const requestedWindow = getWindowBounds(days, new Date());
@@ -1162,10 +1110,11 @@ export class DashboardService {
       requestedWindow.since,
       requestedWindow.endDate,
       days,
+      viewerMemberId,
     );
     let autoShifted = false;
 
-    if (trendData.dailyRows.length === 0) {
+    if (trendData.daily.size === 0) {
       const latestTransactionDate = await this.getLatestTransactionDate(workspaceId);
 
       if (latestTransactionDate) {
@@ -1175,6 +1124,7 @@ export class DashboardService {
           effectiveWindow.since,
           effectiveWindow.endDate,
           days,
+          viewerMemberId,
         );
         autoShifted = true;
       }
@@ -1199,6 +1149,7 @@ export class DashboardService {
   private async getMonthTrends(
     workspaceId: string,
     month: DashboardWindow,
+    viewerMemberId: string | null,
   ): Promise<DashboardTrendsResponse> {
     const now = new Date();
     const isCurrentMonth = month.since <= now && now <= month.endDate;
@@ -1207,7 +1158,13 @@ export class DashboardService {
     const window = isCurrentMonth ? { since: month.since, endDate: endOfToday } : month;
     const days = daysInMonth(month.since);
 
-    const trendData = await this.getTrendData(workspaceId, window.since, window.endDate, days);
+    const trendData = await this.getTrendData(
+      workspaceId,
+      window.since,
+      window.endDate,
+      days,
+      viewerMemberId,
+    );
     const dailyTrend = this.toDailyTrend(trendData, window, days);
     const forecast = isCurrentMonth
       ? await this.computeForecast(workspaceId, dailyTrend, window, days)
@@ -1222,18 +1179,15 @@ export class DashboardService {
   ): DashboardTrendsResponse['dailyTrend'] {
     return this.fillCashFlowWindow(
       new Map(
-        trendData.dailyRows.map(row => [
-          row.date,
-          {
-            date: row.date,
-            income: Number.parseFloat(row.income) || 0,
-            expense: Number.parseFloat(row.expense) || 0,
-          },
+        [...trendData.daily.values()].map(point => [
+          point.date,
+          { date: point.date, income: round2(point.income), expense: round2(point.expense) },
         ]),
       ),
       window.since,
       window.endDate,
       days,
+      date => ({ date, income: 0, expense: 0 }),
     );
   }
 
@@ -1245,21 +1199,16 @@ export class DashboardService {
     return {
       dailyTrend,
       forecast,
-      categories: trendData.categoryRows.map(row => ({
-        name: row.name,
-        amount: Number.parseFloat(row.amount) || 0,
-        count: Number.parseInt(row.count, 10) || 0,
-      })),
-      counterparties: trendData.counterpartyRows.map(row => ({
-        name: row.name,
-        amount: Number.parseFloat(row.amount) || 0,
-        count: Number.parseInt(row.count, 10) || 0,
+      categories: trendData.categories.map(row => ({ ...row, amount: round2(row.amount) })),
+      counterparties: trendData.counterparties.map(row => ({
+        ...row,
+        amount: round2(row.amount),
       })),
       sources: {
         statements: {
-          income: Number.parseFloat(trendData.sourceRows?.income ?? '') || 0,
-          expense: Number.parseFloat(trendData.sourceRows?.expense ?? '') || 0,
-          rows: Number.parseInt(trendData.sourceRows?.rows ?? '0', 10) || 0,
+          income: round2(trendData.totals.income),
+          expense: round2(trendData.totals.expense),
+          rows: trendData.totals.rows,
         },
       },
     };
@@ -1513,7 +1462,7 @@ export class DashboardService {
   }
 
   private async getLatestTransactionDate(workspaceId: string): Promise<Date | null> {
-    const query = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
+    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
     this.applyWorkspaceStatementFilters(query, workspaceId, true);
 
     const result = await query
@@ -1524,7 +1473,7 @@ export class DashboardService {
   }
 
   private async getEarliestTransactionDate(workspaceId: string): Promise<Date | null> {
-    const query = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
+    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
     this.applyWorkspaceStatementFilters(query, workspaceId, true);
 
     const result = await query
@@ -1541,66 +1490,111 @@ export class DashboardService {
     return `${year}-${month}-${day}`;
   }
 
-  private async getTrendData(workspaceId: string, since: Date, endDate: Date, days: number) {
-    const groupFormat = this.getTransactionGroupFormat(days);
+  /**
+   * A period's trends (MCP `get_trends`, the assistant). Rows are summed per currency and
+   * converted into the workspace currency before they are added up, as the cash
+   * flow chart does: a sale in shekels must not count as that many dollars.
+   */
+  private async getTrendData(
+    workspaceId: string,
+    since: Date,
+    endDate: Date,
+    days: number,
+    viewerMemberId: string | null,
+  ): Promise<TrendRows> {
+    const currency = await this.getWorkspaceCurrency(workspaceId);
+    const convert = (amount: string, from: string) =>
+      this.convertDashboardAmount(amount, from, currency, workspaceId);
+    // Another member's private income counts under the placeholder, not its payer.
+    const incomeSource = redactedSql('t', 't.counterparty_name');
 
-    const [dailyRows, categoryRows, counterpartyRows, sourceRows] = await Promise.all([
-      this.createTrendBaseQuery(workspaceId, since, endDate)
-        .select(`TO_CHAR(t.transactionDate, ${groupFormat})`, 'date')
-        .addSelect(
-          'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE 0 END), 0)',
-          'income',
-        )
-        .addSelect(
-          'COALESCE(SUM(CASE WHEN t.transactionType = :expense THEN t.debit ELSE 0 END), 0)',
-          'expense',
-        )
-        .groupBy(`TO_CHAR(t.transactionDate, ${groupFormat})`)
-        .orderBy(`TO_CHAR(t.transactionDate, ${groupFormat})`, 'ASC')
-        .setParameter('income', TransactionType.INCOME)
-        .setParameter('expense', TransactionType.EXPENSE)
-        .getRawMany<{ date: string; income: string; expense: string }>(),
+    const [daily, categoryRows, counterpartyRows, countRow] = await Promise.all([
+      this.sumCashFlowByBucket(
+        workspaceId,
+        since,
+        endDate,
+        this.getTransactionGroupFormat(days),
+        currency,
+      ),
       this.createTrendBaseQuery(workspaceId, since, endDate)
         .leftJoin('t.category', 'c')
         .select("COALESCE(c.name, 'Uncategorized')", 'name')
+        // Grouped by name: same-named categories share one row, and one of their looks.
+        .addSelect('MAX(c.color)', 'color')
+        .addSelect('MAX(c.icon)', 'icon')
+        .addSelect('t.currency', 'currency')
         .addSelect('COALESCE(SUM(t.debit), 0)', 'amount')
         .addSelect('COUNT(t.id)', 'count')
         .andWhere('t.transactionType = :expense', { expense: TransactionType.EXPENSE })
         .groupBy('c.name')
-        .orderBy('amount', 'DESC')
-        .limit(10)
-        .getRawMany<{ name: string; amount: string; count: string }>(),
+        .addGroupBy('t.currency')
+        .getRawMany<{
+          name: string;
+          color: string | null;
+          icon: string | null;
+          currency: string;
+          amount: string;
+          count: string;
+        }>(),
       this.createTrendBaseQuery(workspaceId, since, endDate)
-        .select('t.counterpartyName', 'name')
+        .select(incomeSource, 'name')
+        .addSelect('t.currency', 'currency')
         .addSelect('COALESCE(SUM(t.credit), 0)', 'amount')
         .addSelect('COUNT(t.id)', 'count')
         .andWhere('t.transactionType = :income', { income: TransactionType.INCOME })
         .andWhere('t.counterpartyName IS NOT NULL')
         .andWhere("t.counterpartyName != ''")
-        .groupBy('t.counterpartyName')
-        .orderBy('amount', 'DESC')
-        .limit(10)
-        .getRawMany<{ name: string; amount: string; count: string }>(),
+        .groupBy(incomeSource)
+        .addGroupBy('t.currency')
+        .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
+        .getRawMany<{ name: string; currency: string; amount: string; count: string }>(),
       this.createTrendBaseQuery(workspaceId, since, endDate)
-        .select(
-          'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE 0 END), 0)',
-          'income',
-        )
-        .addSelect(
-          'COALESCE(SUM(CASE WHEN t.transactionType = :expense THEN t.debit ELSE 0 END), 0)',
-          'expense',
-        )
-        .addSelect('COUNT(DISTINCT t.id)', 'rows')
-        .setParameter('income', TransactionType.INCOME)
-        .setParameter('expense', TransactionType.EXPENSE)
-        .getRawOne<{ income: string; expense: string; rows: string }>(),
+        .select('COUNT(DISTINCT t.id)', 'rows')
+        .getRawOne<{ rows: string }>(),
     ]);
 
-    return { dailyRows, categoryRows, counterpartyRows, sourceRows };
+    /** Adds each name's rows across currencies, largest first. */
+    const mergeByName = async <
+      Row extends { name: string; currency: string; amount: string; count: string },
+    >(
+      rows: Row[],
+    ) => {
+      const merged = new Map<
+        string,
+        Omit<Row, 'currency' | 'amount' | 'count'> & { amount: number; count: number }
+      >();
+      for (const { currency: from, amount, count, ...rest } of rows) {
+        const entry = merged.get(rest.name) ?? { ...rest, amount: 0, count: 0 };
+        entry.amount += await convert(amount, from);
+        entry.count += Number.parseInt(count, 10) || 0;
+        merged.set(rest.name, entry);
+      }
+      return [...merged.values()]
+        .sort((left, right) => right.amount - left.amount)
+        .slice(0, TREND_LIST_LIMIT);
+    };
+
+    const points = [...daily.values()];
+    return {
+      daily,
+      categories: (await mergeByName(categoryRows)).map(row => ({
+        name: row.name,
+        color: row.color ?? null,
+        icon: row.icon ?? null,
+        amount: row.amount,
+        count: row.count,
+      })),
+      counterparties: await mergeByName(counterpartyRows),
+      totals: {
+        income: points.reduce((sum, point) => sum + point.income, 0),
+        expense: points.reduce((sum, point) => sum + point.expense, 0),
+        rows: Number.parseInt(countRow?.rows ?? '0', 10) || 0,
+      },
+    };
   }
 
   private createTrendBaseQuery(workspaceId: string, since: Date, endDate: Date) {
-    const query = this.transactionRepo.createQueryBuilder('t').innerJoin('t.statement', 's');
+    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
     this.applyActiveStatementTransactionFilters(query, workspaceId, since, endDate);
     return query;
   }
@@ -1609,19 +1603,20 @@ export class DashboardService {
     return days >= 90 ? "'IYYY-IW'" : "'YYYY-MM-DD'";
   }
 
-  private fillCashFlowWindow(
-    points: Map<string, DashboardCashFlowPoint>,
+  private fillCashFlowWindow<T extends { date: string }>(
+    points: Map<string, T>,
     since: Date,
     endDate: Date,
     days: number,
-  ): DashboardCashFlowPoint[] {
+    empty: (date: string) => T,
+  ): T[] {
     if (points.size === 0) {
       return [];
     }
 
     const buckets =
       days >= 90 ? this.buildWeeklyBuckets(since, endDate) : this.buildDailyBuckets(since, endDate);
-    return buckets.map(date => points.get(date) ?? { date, income: 0, expense: 0 });
+    return buckets.map(date => points.get(date) ?? empty(date));
   }
 
   private buildDailyBuckets(since: Date, endDate: Date): string[] {
@@ -1672,7 +1667,7 @@ export class DashboardService {
     return cursor;
   }
 
-  private applyActiveStatementTransactionFilters(
+  applyActiveStatementTransactionFilters(
     query: SelectQueryBuilder<Transaction>,
     workspaceId: string,
     since: Date,
@@ -1689,19 +1684,14 @@ export class DashboardService {
     excludeDuplicates: boolean,
     { confirmedOnly = true }: { confirmedOnly?: boolean } = {},
   ) {
-    query.where('s.workspaceId = :workspaceId', { workspaceId });
-    query.andWhere('s.deletedAt IS NULL');
+    // On the row itself: a row without a statement has no statement to carry the workspace.
+    query.where('t.workspaceId = :workspaceId', { workspaceId });
     // Only what the user confirmed counts in any figure; data-health counts opt out.
-    if (confirmedOnly) {
-      onlyCounted(query, 't');
-    }
+    onlyFlows(query, 't', { includeUnconfirmed: !confirmedOnly });
     if (excludeDuplicates) {
       query.andWhere('t.isDuplicate = false');
       query.andWhere('t.transferPairId IS NULL');
     }
-    query.andWhere('s.status NOT IN (:...excludedStatuses)', {
-      excludedStatuses: [StatementStatus.ERROR, StatementStatus.PROCESSING],
-    });
   }
 
   // --- Forecast ---
@@ -1719,31 +1709,18 @@ export class DashboardService {
     const extendedSince = new Date(currentWindow.since);
     extendedSince.setDate(extendedSince.getDate() - days * historyMultiplier);
 
-    const extendedRows = await this.createTrendBaseQuery(
-      workspaceId,
-      extendedSince,
-      currentWindow.endDate,
-    )
-      .select("TO_CHAR(t.transactionDate, 'YYYY-MM-DD')", 'date')
-      .addSelect(
-        'COALESCE(SUM(CASE WHEN t.transactionType = :income THEN t.credit ELSE 0 END), 0)',
-        'income',
-      )
-      .addSelect(
-        'COALESCE(SUM(CASE WHEN t.transactionType = :expense THEN t.debit ELSE 0 END), 0)',
-        'expense',
-      )
-      .groupBy("TO_CHAR(t.transactionDate, 'YYYY-MM-DD')")
-      .orderBy("TO_CHAR(t.transactionDate, 'YYYY-MM-DD')", 'ASC')
-      .setParameter('income', TransactionType.INCOME)
-      .setParameter('expense', TransactionType.EXPENSE)
-      .getRawMany<{ date: string; income: string; expense: string }>();
-
-    const history = extendedRows.map(r => ({
-      date: r.date,
-      income: Number.parseFloat(r.income) || 0,
-      expense: Number.parseFloat(r.expense) || 0,
-    }));
+    // In the workspace currency, as the days it continues.
+    const history = [
+      ...(
+        await this.sumCashFlowByBucket(
+          workspaceId,
+          extendedSince,
+          currentWindow.endDate,
+          "'YYYY-MM-DD'",
+          await this.getWorkspaceCurrency(workspaceId),
+        )
+      ).values(),
+    ];
 
     if (history.length < 3) {
       return [];

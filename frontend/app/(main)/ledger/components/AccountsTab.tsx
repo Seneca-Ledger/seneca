@@ -120,7 +120,13 @@ export function AccountsTab(props: AccountsTabProps): React.ReactElement {
                       {accountDisplayName(account, systemNames)}
                     </Box>
                   ) : (
-                    <Typography component="span" fontWeight={600} variant="body2">
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      sx={{
+                        fontWeight: 600,
+                      }}
+                    >
                       {accountDisplayName(account, systemNames)}
                     </Typography>
                   )}
@@ -154,7 +160,13 @@ export function AccountsTab(props: AccountsTabProps): React.ReactElement {
 
       {integrity && integrity.cashAccounts.length > 0 ? (
         <Box>
-          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+              mb: 1,
+            }}
+          >
             {t.reconTitle}
           </Typography>
           <Paper variant="outlined" sx={{ overflowX: 'auto' }}>
@@ -186,7 +198,12 @@ export function AccountsTab(props: AccountsTabProps): React.ReactElement {
                     >
                       {cash.difference ?? ''}
                       {cash.difference && cash.difference !== '0.00' && !cash.hasOpeningBalance ? (
-                        <Typography variant="caption" display="block">
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            display: 'block',
+                          }}
+                        >
                           {t.noOpeningBalance}
                         </Typography>
                       ) : null}
@@ -270,7 +287,13 @@ function NewAccountForm({
             ))}
           </TextField>
         </Stack>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{
+            alignItems: { sm: 'center' },
+          }}
+        >
           <TextField
             select
             size="small"

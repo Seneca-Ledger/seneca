@@ -1,9 +1,10 @@
-import { STATEMENTS_GMAIL_SYNC_EVENT } from '@/app/lib/statement-upload-actions';
 // @vitest-environment jsdom
 import React from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestQueryClient } from '@/app/test/query-wrapper';
 import StatementsListView from './StatementsListView';
 
 const apiMocks = vi.hoisted(() => ({
@@ -13,8 +14,8 @@ const apiMocks = vi.hoisted(() => ({
   mockListReceipts: vi.fn(),
 }));
 
-const gmailMappingMocks = vi.hoisted(() => ({
-  mockMapGmailReceiptsToStatements: vi.fn(),
+const receiptMappingMocks = vi.hoisted(() => ({
+  mockMapReceiptsToStatements: vi.fn(),
 }));
 
 const toastMocks = vi.hoisted(() => ({
@@ -25,6 +26,8 @@ const toastMocks = vi.hoisted(() => ({
 const statementsListItemPropsSpy = vi.hoisted(() => vi.fn());
 const filtersDrawerPropsSpy = vi.hoisted(() => vi.fn());
 const routerPushMock = vi.hoisted(() => vi.fn());
+const authMock = vi.hoisted(() => ({ user: { id: 'user-1' } }));
+const storedFilters = vi.hoisted(() => ({ overrides: {} as Record<string, unknown> }));
 
 vi.mock('@/app/lib/api', () => ({
   default: {
@@ -32,7 +35,7 @@ vi.mock('@/app/lib/api', () => ({
     post: apiMocks.mockApiPost,
     delete: apiMocks.mockApiDelete,
   },
-  gmailReceiptsApi: {
+  receiptDocumentsApi: {
     listReceipts: apiMocks.mockListReceipts,
   },
 }));
@@ -45,11 +48,14 @@ vi.mock('react-hot-toast', () => ({
 }));
 
 vi.mock('@/app/hooks/useAuth', () => ({
-  useAuth: () => ({ user: null }),
+  // Список грузится только для вошедшего пользователя (enabled: Boolean(user));
+  // объект один на все рендеры, как у настоящего useAuth.
+  useAuth: () => authMock,
 }));
 
 vi.mock('@/app/contexts/WorkspaceContext', () => ({
-  useWorkspace: () => ({ currentWorkspace: { currency: 'KZT' } }),
+  useWorkspace: () => ({ currentWorkspace: { id: 'workspace-1', currency: 'KZT' } }),
+  useReadOnlyWorkspace: () => ({ isReadOnly: false, version: null }),
 }));
 
 vi.mock('next-intlayer', () => ({
@@ -79,7 +85,8 @@ vi.mock('@/app/hooks/usePullToRefresh', () => ({
   }),
 }));
 
-vi.mock('@/app/lib/statement-status', () => ({
+vi.mock('@/app/lib/statement-status', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/lib/statement-status')>()),
   getStatementDisplayMerchant: () => 'Merchant',
   getStatementMerchantLabel: () => 'Merchant',
   hasProcessingStatements: () => false,
@@ -105,6 +112,8 @@ vi.mock('@/app/(main)/statements/components/filters/statement-filters', () => ({
     paid: null,
     limit: null,
   },
+  // Фильтры уходят на сервер (/statements params); клиентский проход — тождество.
+  applyStatementsFilters: (items: unknown[]) => items,
   loadStatementFilters: () => ({
     type: 'pdf',
     statuses: ['processing'],
@@ -122,13 +131,14 @@ vi.mock('@/app/(main)/statements/components/filters/statement-filters', () => ({
     exported: false,
     paid: null,
     limit: 25,
+    ...storedFilters.overrides,
   }),
   resetSingleStatementFilter: (filters: unknown) => filters,
   saveStatementFilters: () => undefined,
 }));
 
 vi.mock('@/app/(main)/statements/components/columns/statement-columns', () => ({
-  STATEMENT_COLUMNS_STORAGE_KEY: 'lumio-statement-columns',
+  STATEMENT_COLUMNS_STORAGE_KEY: 'seneca-statement-columns',
   DEFAULT_STATEMENT_COLUMNS: [
     { id: 'receipt', label: 'Receipt', visible: true, order: 0 },
     { id: 'merchant', label: 'Merchant', visible: true, order: 1 },
@@ -172,8 +182,9 @@ vi.mock('@/app/(main)/statements/components/columns/statement-columns', () => ({
   statementColumnWidthStyle: () => ({ flex: '1 1 0', minWidth: 0 }),
 }));
 
-vi.mock('@/app/components/ui/spinner', () => ({
-  Spinner: () => null,
+vi.mock('@/app/components/ui/snapshot-skeleton/SnapshotSkeleton', () => ({
+  SnapshotSkeleton: ({ loading, children }: { loading: boolean; children?: React.ReactNode }) =>
+    loading ? <div role="status" /> : children,
 }));
 
 vi.mock('@/app/components/PDFPreviewModal', () => ({
@@ -191,6 +202,9 @@ vi.mock('@/app/(main)/statements/components/columns/ColumnsDrawer', () => ({
   ColumnsDrawer: () => null,
 }));
 
+// Настоящая шторка ловит отказ onSubmitScan и показывает его тостом.
+const submitScanFailed = (error: Error) => toastMocks.error(error.message);
+
 vi.mock('@/app/(main)/statements/components/CreateExpenseDrawer', () => ({
   default: (props: any) => (
     <>
@@ -202,7 +216,7 @@ vi.mock('@/app/(main)/statements/components/CreateExpenseDrawer', () => ({
             files: [new File(['receipt'], 'receipt.jpg', { type: 'image/jpeg' })],
             allowDuplicates: true,
             requireManualCategorySelection: false,
-          })
+          }).catch(submitScanFailed)
         }
       >
         trigger-scan
@@ -215,7 +229,7 @@ vi.mock('@/app/(main)/statements/components/CreateExpenseDrawer', () => ({
             files: [new File(['statement'], 'statement.pdf', { type: 'application/pdf' })],
             allowDuplicates: true,
             requireManualCategorySelection: false,
-          })
+          }).catch(submitScanFailed)
         }
       >
         trigger-scan-pdf
@@ -231,7 +245,7 @@ vi.mock('@/app/(main)/statements/components/CreateExpenseDrawer', () => ({
             ],
             allowDuplicates: true,
             requireManualCategorySelection: false,
-          })
+          }).catch(submitScanFailed)
         }
       >
         trigger-scan-mixed
@@ -256,13 +270,7 @@ vi.mock('@/app/(main)/statements/components/filters/FromFilterDropdown', () => (
   FromFilterDropdown: () => null,
 }));
 
-vi.mock('@/app/(main)/statements/components/filters/StatusFilterDropdown', () => ({
-  StatusFilterDropdown: () => null,
-}));
 
-vi.mock('@/app/(main)/statements/components/filters/TypeFilterDropdown', () => ({
-  TypeFilterDropdown: () => null,
-}));
 
 vi.mock('@/app/(main)/statements/components/StatementsListItem', () => ({
   StatementsListItem: (props: any) => {
@@ -271,18 +279,46 @@ vi.mock('@/app/(main)/statements/components/StatementsListItem', () => ({
   },
 }));
 
-vi.mock('@/app/(main)/statements/components/gmail-receipt-mapping', () => ({
-  hasGmailReceiptAmount: () => true,
-  mapGmailReceiptsToStatements: (...args: any[]) =>
-    gmailMappingMocks.mockMapGmailReceiptsToStatements(...args),
-  resolveGmailMerchantLabel: () => 'Merchant',
+vi.mock('@/app/(main)/statements/components/receipt-document-mapping', () => ({
+  hasReceiptAmount: () => true,
+  mapReceiptsToStatements: (...args: any[]) =>
+    receiptMappingMocks.mockMapReceiptsToStatements(...args),
+  resolveReceiptMerchantLabel: () => 'Merchant',
 }));
 
 vi.mock('@/app/components/ui/pagination', () => ({
   AppPagination: () => null,
 }));
 
-describe('StatementsListView Gmail sync skeleton', () => {
+// Ответ /statements проверяется контрактом StatementList: строки дополняются
+// до формы, которую шлёт бэкенд (суммы — десятичные строки).
+const statementRows = (rows: Array<Record<string, unknown>>) =>
+  rows.map(row => ({
+    stage: 'submit',
+    errorMessage: null,
+    balanceStart: null,
+    balanceEnd: null,
+    statementDateFrom: null,
+    statementDateTo: null,
+    updatedAt: row.createdAt,
+    processedAt: null,
+    categoryId: null,
+    category: null,
+    tags: [],
+    user: null,
+    parsingDetails: null,
+    transactionSummary: {
+      description: null,
+      exchangeRate: null,
+      exchangeRateMixed: false,
+      cardLabel: null,
+    },
+    ...row,
+    totalDebit: String(row.totalDebit ?? 0),
+    totalCredit: String(row.totalCredit ?? 0),
+  }));
+
+describe('StatementsListView', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
 
@@ -291,13 +327,14 @@ describe('StatementsListView Gmail sync skeleton', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    storedFilters.overrides = {};
     sessionStorage.clear();
     apiMocks.mockApiGet.mockReset();
     apiMocks.mockApiPost.mockReset();
     apiMocks.mockApiDelete.mockReset();
     apiMocks.mockListReceipts.mockReset();
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReset();
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([]);
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReset();
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([]);
     statementsListItemPropsSpy.mockReset();
     filtersDrawerPropsSpy.mockReset();
     routerPushMock.mockReset();
@@ -325,6 +362,18 @@ describe('StatementsListView Gmail sync skeleton', () => {
     vi.restoreAllMocks();
   });
 
+  // Список выписок читается через React Query: свой клиент на тест, без кэша между ними.
+  const renderView = () =>
+    root.render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <StatementsListView />
+      </QueryClientProvider>,
+    );
+
+  // queryFn проверяет ответ контрактом через динамический import — пары
+  // микрозадач на это не хватает, нужен макротаск.
+  const flushQueries = () => new Promise(resolve => setTimeout(resolve, 0));
+
   const getLatestRenderedStatementProps = () => {
     const latestById = new Map<string, any>();
     statementsListItemPropsSpy.mock.calls.forEach((call: any[]) => {
@@ -336,23 +385,6 @@ describe('StatementsListView Gmail sync skeleton', () => {
     });
     return Array.from(latestById.values());
   };
-
-  it('renders Gmail sync skeleton rows from storage count', () => {
-    act(() => {
-      root.render(<StatementsListView />);
-    });
-
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent(STATEMENTS_GMAIL_SYNC_EVENT, {
-          detail: { count: 3, timestamp: Date.now() },
-        }),
-      );
-    });
-
-    const skeletonRows = container.querySelectorAll('[data-testid="gmail-sync-skeleton-row"]');
-    expect(skeletonRows).toHaveLength(3);
-  });
 
   it('sorts statements by date when date header clicked', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
@@ -367,7 +399,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'newer',
                 source: 'statement',
@@ -398,7 +430,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -409,12 +441,11 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     act(() => {
-      root.render(<StatementsListView />);
+      renderView();
     });
 
     await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     const initialIds = statementsListItemPropsSpy.mock.calls
@@ -478,9 +509,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const lastFiltersDrawerProps = filtersDrawerPropsSpy.mock.calls.at(-1)?.[0];
@@ -509,7 +539,6 @@ describe('StatementsListView Gmail sync skeleton', () => {
       { value: 'chat', label: 'Chat' },
       { value: 'trip', label: 'Trip' },
       { value: 'task', label: 'Task' },
-      { value: 'gmail', label: 'Gmail' },
       { value: 'pdf', label: 'PDF' },
       { value: 'xlsx', label: 'Excel' },
       { value: 'csv', label: 'CSV' },
@@ -517,7 +546,9 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
   });
 
-  it('applies the receipt type filter to local receipts without including gmail receipts', async () => {
+  it('applies the receipt type filter to receipts', async () => {
+    // Черновой скан ещё не одобрен: фильтр Approved: Yes его бы скрыл.
+    storedFilters.overrides = { type: 'receipt', approved: null };
     apiMocks.mockApiGet.mockImplementation(
       (url: string, config?: { params?: Record<string, unknown> }) => {
         if (url === '/categories' || url === '/tax-rates') {
@@ -554,24 +585,11 @@ describe('StatementsListView Gmail sync skeleton', () => {
               vendor: 'Walmart',
             },
           },
-          {
-            id: 'gmail-1',
-            source: 'gmail',
-            subject: 'Receipt email',
-            sender: 'billing@example.com',
-            receivedAt: '2026-03-27T00:00:00.000Z',
-            status: 'draft',
-            parsedData: {
-              amount: 44.1,
-              currency: 'KZT',
-              vendor: 'Amazon',
-            },
-          },
         ],
       },
     });
 
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'scan-1',
         source: 'scan',
@@ -601,41 +619,11 @@ describe('StatementsListView Gmail sync skeleton', () => {
           vendor: 'Walmart',
         },
       },
-      {
-        id: 'gmail-1',
-        source: 'gmail',
-        receiptSource: 'gmail',
-        fileName: 'Amazon',
-        subject: 'Receipt email',
-        sender: 'billing@example.com',
-        status: 'draft',
-        totalTransactions: 0,
-        totalDebit: 44.1,
-        totalCredit: null,
-        exported: null,
-        paid: null,
-        createdAt: '2026-03-27T00:00:00.000Z',
-        processedAt: undefined,
-        statementDateFrom: '2026-03-27T00:00:00.000Z',
-        statementDateTo: null,
-        bankName: 'gmail',
-        fileType: 'gmail',
-        currency: 'KZT',
-        user: null,
-        errorMessage: null,
-        receivedAt: '2026-03-27T00:00:00.000Z',
-        parsedData: {
-          amount: 44.1,
-          currency: 'KZT',
-          vendor: 'Amazon',
-        },
-      },
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const renderedIds = getLatestRenderedStatementProps()
@@ -645,7 +633,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     expect(renderedIds).toEqual(['scan-1']);
   });
 
-  it('uses dark-safe duplicate selection styles for detected duplicates action', async () => {
+  it('shows the detected duplicates action with its count', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -654,7 +642,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'duplicate-1',
                 source: 'statement',
@@ -685,7 +673,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -696,23 +684,22 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const duplicateButton = Array.from(container.querySelectorAll('button')).find(button =>
       button.textContent?.includes('Select duplicates'),
     );
 
+    // Цвета чипа теперь в _statements.scss на токенах темы, а не dark:-классами.
     expect(duplicateButton).toBeTruthy();
-    expect(duplicateButton?.className).toContain('dark:border-amber-500/30');
-    expect(duplicateButton?.className).toContain('dark:bg-amber-500/10');
-    expect(duplicateButton?.className).toContain('dark:text-amber-100');
+    expect(duplicateButton?.className).toBe('seneca-stmt-list-view__duplicate-chip');
 
-    const duplicateCountBadge = duplicateButton?.querySelector('span');
-    expect(duplicateCountBadge?.className).toContain('dark:bg-slate-950/60');
-    expect(duplicateCountBadge?.className).toContain('dark:text-amber-100');
+    const duplicateCountBadge = duplicateButton?.querySelector(
+      '.seneca-stmt-list-view__duplicate-count',
+    );
+    expect(duplicateCountBadge?.textContent).toBe('(2)');
   });
 
   it('routes scan uploads to the receipt-scan statements endpoint', async () => {
@@ -731,9 +718,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -752,8 +738,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
 
     await act(async () => {
       trigger?.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
@@ -770,7 +755,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     );
   });
 
-  it('routes PDF scans to the statement upload endpoint', async () => {
+  it('routes PDF scans through the receipt-scan endpoint too', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -786,9 +771,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -807,25 +791,24 @@ describe('StatementsListView Gmail sync skeleton', () => {
 
     await act(async () => {
       trigger?.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
+    // С cda4ab6d скан не делит файлы по типу: PDF тоже уходит в receipt-scan,
+    // бэкенд (assertReceiptFileSupported) принимает PDF и сам связывает выписку.
+    expect(apiMocks.mockApiPost).toHaveBeenCalledTimes(1);
     expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
-      '/statements/upload',
+      '/statements/upload-receipt',
       expect.any(FormData),
       expect.objectContaining({
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: expect.objectContaining({ 'Content-Type': 'multipart/form-data' }),
       }),
     );
-    expect(apiMocks.mockApiPost).not.toHaveBeenCalledWith(
-      '/statements/upload-receipt',
-      expect.anything(),
-      expect.anything(),
-    );
+    const sentFiles = (apiMocks.mockApiPost.mock.calls[0][1] as FormData).getAll('files');
+    expect(sentFiles.map(file => (file as File).name)).toEqual(['statement.pdf']);
   });
 
-  it('splits mixed scan uploads between statement and receipt endpoints', async () => {
+  it('sends mixed scan uploads to the receipt-scan endpoint in one batch', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -841,9 +824,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -862,24 +844,20 @@ describe('StatementsListView Gmail sync skeleton', () => {
 
     await act(async () => {
       trigger?.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
-    expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
-      '/statements/upload',
-      expect.any(FormData),
-      expect.objectContaining({
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }),
-    );
+    // Один пакет receipt-scan на оба файла (до RECEIPT_SCAN_UPLOAD_BATCH_SIZE).
+    expect(apiMocks.mockApiPost).toHaveBeenCalledTimes(1);
     expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
       '/statements/upload-receipt',
       expect.any(FormData),
       expect.objectContaining({
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: expect.objectContaining({ 'Content-Type': 'multipart/form-data' }),
       }),
     );
+    const sentFiles = (apiMocks.mockApiPost.mock.calls[0][1] as FormData).getAll('files');
+    expect(sentFiles.map(file => (file as File).name)).toEqual(['statement.pdf', 'receipt.jpg']);
   });
 
   it('surfaces receipt upload validation errors from the backend', async () => {
@@ -904,9 +882,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -925,11 +902,11 @@ describe('StatementsListView Gmail sync skeleton', () => {
 
     await act(async () => {
       trigger?.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(toastMocks.success).not.toHaveBeenCalledWith('Files uploaded');
+    expect(toastMocks.error).toHaveBeenCalledWith('Receipt amount could not be determined');
     expect(apiMocks.mockApiPost).toHaveBeenCalledWith(
       '/statements/upload-receipt',
       expect.any(FormData),
@@ -939,7 +916,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
     );
   });
 
-  it('does not render scanned receipts from gmail receipts feed as duplicate gmail items', async () => {
+  it('does not render scanned receipts from the receipts feed as duplicate items', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -948,7 +925,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'statement-receipt-1',
                 source: 'statement',
@@ -971,7 +948,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
                   },
                 },
               },
-            ],
+            ]),
             total: 1,
           },
         });
@@ -1000,18 +977,40 @@ describe('StatementsListView Gmail sync skeleton', () => {
       },
     });
 
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
+      {
+        id: 'receipt-1',
+        source: 'scan',
+        receiptSource: 'scan',
+        fileName: 'Walmart',
+        status: 'draft',
+        totalTransactions: 0,
+        totalDebit: 90.32,
+        totalCredit: null,
+        createdAt: '2026-03-27T00:00:00Z',
+        statementDateFrom: '2026-03-27T00:00:00Z',
+        statementDateTo: null,
+        bankName: 'receipt',
+        fileType: 'receipt',
+        currency: 'KZT',
+        user: null,
+        errorMessage: null,
+      },
+    ]);
+
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const renderedIds = statementsListItemPropsSpy.mock.calls
       .map((call: any[]) => call[0]?.statement?.id)
       .filter(Boolean);
 
-    expect(renderedIds).toContain('statement-receipt-1');
-    expect(renderedIds).not.toContain('receipt-1');
+    // Скан и его выписка — один документ: с 983cdaf1 строку даёт чек, а
+    // выписку, порождённую сканом, список пропускает.
+    expect(renderedIds).toContain('receipt-1');
+    expect(renderedIds).not.toContain('statement-receipt-1');
   });
 
   it('filters derived receipt statements even when api rows omit source', async () => {
@@ -1023,7 +1022,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'statement-receipt-nosource-1',
                 fileName: 'receipt.jpg',
@@ -1045,7 +1044,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
                   },
                 },
               },
-            ],
+            ]),
             total: 1,
           },
         });
@@ -1074,7 +1073,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
       },
     });
 
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'receipt-nosource-1',
         source: 'scan',
@@ -1108,9 +1107,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const renderedIds = getLatestRenderedStatementProps()
@@ -1152,7 +1150,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
         ],
       },
     });
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'scan-1',
         source: 'scan',
@@ -1186,15 +1184,13 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
       getLatestRenderedStatementProps()[0]?.onView?.();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(routerPushMock).not.toHaveBeenCalledWith('/statements/submit?openExpenseDrawer=scan');
@@ -1210,7 +1206,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'duplicate-1',
                 source: 'statement',
@@ -1241,7 +1237,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -1252,9 +1248,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     const selectDuplicatesButton = Array.from(container.querySelectorAll('button')).find(button =>
@@ -1293,7 +1288,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'statement-a',
                 source: 'statement',
@@ -1324,7 +1319,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -1335,9 +1330,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -1393,7 +1387,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
       if (url === '/statements') {
         return Promise.resolve({
           data: {
-            data: [
+            data: statementRows([
               {
                 id: 'statement-ok',
                 source: 'statement',
@@ -1424,7 +1418,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
                 fileType: 'pdf',
                 currency: 'KZT',
               },
-            ],
+            ]),
             total: 2,
           },
         });
@@ -1443,9 +1437,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     apiMocks.mockListReceipts.mockResolvedValue({ data: { receipts: [] } });
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -1470,8 +1463,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
 
     await act(async () => {
       exportButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(apiMocks.mockApiGet).toHaveBeenCalledWith('/statements/statement-ok/file', {
@@ -1485,6 +1477,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
   });
 
   it('exports scanned receipts through the receipts file endpoint', async () => {
+    // Черновой скан не одобрен: без этого Approved: Yes из сохранённых фильтров его скрыл бы.
+    storedFilters.overrides = { approved: null };
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -1519,7 +1513,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
         ],
       },
     });
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'scan-1',
         source: 'scan',
@@ -1537,8 +1531,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
         processedAt: undefined,
         statementDateFrom: '2026-03-27T00:00:00.000Z',
         statementDateTo: null,
-        bankName: 'gmail',
-        fileType: 'gmail',
+        bankName: 'receipt',
+        fileType: 'receipt',
         currency: 'KZT',
         user: null,
         errorMessage: null,
@@ -1552,9 +1546,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -1578,8 +1571,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
 
     await act(async () => {
       exportButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(apiMocks.mockApiGet).toHaveBeenCalledWith('/receipts/scan-1/file', {
@@ -1591,6 +1583,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
   });
 
   it('deletes scanned receipts through the receipts endpoint', async () => {
+    // Черновой скан не одобрен: без этого Approved: Yes из сохранённых фильтров его скрыл бы.
+    storedFilters.overrides = { approved: null };
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/categories' || url === '/tax-rates') {
         return Promise.resolve({ data: [] });
@@ -1622,7 +1616,7 @@ describe('StatementsListView Gmail sync skeleton', () => {
         ],
       },
     });
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
+    receiptMappingMocks.mockMapReceiptsToStatements.mockReturnValue([
       {
         id: 'scan-1',
         source: 'scan',
@@ -1640,8 +1634,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
         processedAt: undefined,
         statementDateFrom: '2026-03-27T00:00:00.000Z',
         statementDateTo: null,
-        bankName: 'gmail',
-        fileType: 'gmail',
+        bankName: 'receipt',
+        fileType: 'receipt',
         currency: 'KZT',
         user: null,
         errorMessage: null,
@@ -1655,9 +1649,8 @@ describe('StatementsListView Gmail sync skeleton', () => {
     ]);
 
     await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
+      renderView();
+      await flushQueries();
     });
 
     await act(async () => {
@@ -1681,113 +1674,10 @@ describe('StatementsListView Gmail sync skeleton', () => {
 
     await act(async () => {
       deleteButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushQueries();
     });
 
     expect(apiMocks.mockApiDelete).toHaveBeenCalledWith('/receipts/scan-1');
     expect(apiMocks.mockApiDelete).not.toHaveBeenCalledWith('/statements/scan-1');
-  });
-
-  it('shows one gmail-only bulk-action error and closes the menu', async () => {
-    apiMocks.mockApiGet.mockImplementation((url: string) => {
-      if (url === '/categories' || url === '/tax-rates') {
-        return Promise.resolve({ data: [] });
-      }
-
-      if (url === '/statements') {
-        return Promise.resolve({ data: { data: [], total: 0 } });
-      }
-
-      return Promise.resolve({ data: [] });
-    });
-    apiMocks.mockListReceipts.mockResolvedValue({
-      data: {
-        receipts: [
-          {
-            id: 'gmail-1',
-            source: 'gmail',
-            subject: 'Receipt email',
-            sender: 'billing@example.com',
-            receivedAt: '2026-03-27T00:00:00.000Z',
-            status: 'draft',
-            parsedData: {
-              amount: 90.32,
-              currency: 'KZT',
-              vendor: 'Walmart',
-            },
-          },
-        ],
-      },
-    });
-    gmailMappingMocks.mockMapGmailReceiptsToStatements.mockReturnValue([
-      {
-        id: 'gmail-1',
-        source: 'gmail',
-        receiptSource: 'gmail',
-        fileName: 'Walmart',
-        subject: 'Receipt email',
-        sender: 'billing@example.com',
-        status: 'draft',
-        totalTransactions: 0,
-        totalDebit: 90.32,
-        totalCredit: null,
-        exported: null,
-        paid: null,
-        createdAt: '2026-03-27T00:00:00.000Z',
-        processedAt: undefined,
-        statementDateFrom: '2026-03-27T00:00:00.000Z',
-        statementDateTo: null,
-        bankName: 'gmail',
-        fileType: 'gmail',
-        currency: 'KZT',
-        user: null,
-        errorMessage: null,
-        receivedAt: '2026-03-27T00:00:00.000Z',
-        parsedData: {
-          amount: 90.32,
-          currency: 'KZT',
-          vendor: 'Walmart',
-        },
-      },
-    ]);
-
-    await act(async () => {
-      root.render(<StatementsListView />);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    await act(async () => {
-      const currentProps = getLatestRenderedStatementProps();
-      currentProps[0]?.onToggleSelect?.();
-      await Promise.resolve();
-    });
-
-    const selectedActionsButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('selected'),
-    ) as HTMLButtonElement | undefined;
-
-    await act(async () => {
-      selectedActionsButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    expect(container.textContent).toContain('Export');
-
-    const exportButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('Export'),
-    ) as HTMLButtonElement | undefined;
-
-    await act(async () => {
-      exportButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    expect(toastMocks.error).toHaveBeenCalledTimes(1);
-    expect(toastMocks.error).toHaveBeenCalledWith(
-      'Selected receipts cannot be exported from this menu',
-    );
-    expect(container.textContent).not.toContain('Delete');
   });
 });

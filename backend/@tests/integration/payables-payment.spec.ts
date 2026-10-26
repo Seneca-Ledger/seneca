@@ -42,7 +42,7 @@ import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_payables_payment_${process.pid}`;
+const SCRATCH_DB = `seneca_payables_payment_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -54,15 +54,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -75,7 +75,7 @@ const daysAgo = (days: number): string => {
 };
 
 describe('settling payables (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let payables: PayablesService;
@@ -156,8 +156,8 @@ describe('settling payables (real Postgres)', () => {
         WorkspaceCurrencyService,
         LedgerPostingService,
         LedgerAccountsService,
-        { provide: ExchangeRatesService, useValue: { getRateQuote: jest.fn(), getRate: jest.fn() } },
-        { provide: NotificationsService, useValue: { createForWorkspaceMembers: jest.fn() } },
+        { provide: ExchangeRatesService, useValue: { getRateQuote: vi.fn(), getRate: vi.fn() } },
+        { provide: NotificationsService, useValue: { createForWorkspaceMembers: vi.fn() } },
         { provide: PayablesExportService, useValue: {} },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
@@ -388,5 +388,53 @@ describe('settling payables (real Postgres)', () => {
         linkedTransactionId: paid.linkedTransactionId as string,
       }),
     ).resolves.toMatchObject({ status: PayableStatus.PAID });
+  });
+
+  // "Paid" is what the payment log says. Setting it by hand left a bill paid
+  // with no payment and no transaction: received money that no figure shows.
+  it('does not let a bill be created or edited into paid without a payment', async () => {
+    expect(
+      await errorOf(
+        payables.create(workspaceId, userId, {
+          vendor: 'Sold a laptop',
+          amount: 900,
+          currency: 'EUR',
+          direction: 'receivable',
+          status: 'paid',
+        } as never),
+      ),
+    ).toEqual({ status: 400, code: 'PAYABLE_PAID_THROUGH_PAYMENT' });
+    expect(await payableRepo.existsBy({ vendor: 'Sold a laptop' })).toBe(false);
+
+    const open = await bill();
+    expect(
+      await errorOf(payables.update(open.id, workspaceId, userId, { status: PayableStatus.PAID })),
+    ).toEqual({ status: 400, code: 'PAYABLE_PAID_THROUGH_PAYMENT' });
+    expect((await payableRepo.findOneByOrFail({ id: open.id })).status).toBe(PayableStatus.TO_PAY);
+  });
+
+  it('still saves an edit of a bill that was paid through its payment', async () => {
+    const payable = await bill();
+    await payables.markAsPaid(payable.id, workspaceId, userId, { payFromWalletId: walletId });
+
+    // The edit form sends the status back as it is.
+    await expect(
+      payables.update(payable.id, workspaceId, userId, {
+        status: PayableStatus.PAID,
+        comment: 'Invoice 7',
+      }),
+    ).resolves.toMatchObject({ status: PayableStatus.PAID, comment: 'Invoice 7' });
+  });
+
+  it('does not settle a bill in full with a smaller transaction', async () => {
+    const payable = await bill({ amount: 300 });
+    const small = await transaction({ statementId, amount: 120, debit: 120 });
+
+    expect(
+      await errorOf(
+        payables.markAsPaid(payable.id, workspaceId, userId, { linkedTransactionId: small.id }),
+      ),
+    ).toEqual({ status: 400, code: 'PAYABLE_PAYMENT_SHORT' });
+    expect((await payableRepo.findOneByOrFail({ id: payable.id })).status).toBe(PayableStatus.TO_PAY);
   });
 });

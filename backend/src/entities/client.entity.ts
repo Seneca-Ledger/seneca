@@ -7,6 +7,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Workspace } from './workspace.entity';
@@ -20,7 +21,7 @@ export class Client {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -36,6 +37,34 @@ export class Client {
 
   @Column({ name: 'tax_id', type: 'varchar', length: 64, nullable: true })
   taxId: string | null;
+
+  /** The billing address in parts, for e-invoices (EN 16931); `billingAddress` stays for print. */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  street: string | null;
+
+  @Column({ name: 'postal_code', type: 'varchar', length: 16, nullable: true })
+  postalCode: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  city: string | null;
+
+  @Column({ name: 'country_code', type: 'varchar', length: 2, nullable: true })
+  countryCode: string | null;
+
+  /**
+   * What the client wants quoted on every invoice (XRechnung BT-10): a
+   * purchase order, a cost centre, or a public body's Leitweg-ID.
+   */
+  @Column({ name: 'buyer_reference', type: 'varchar', length: 255, nullable: true })
+  buyerReference: string | null;
+
+  /** Goods or services: which kind of tax-free EU supply a reverse-charged line is. */
+  @Column({ name: 'supply_type', type: 'varchar', length: 16, nullable: true })
+  supplyType: 'goods' | 'services' | null;
+
+  /** The client's Peppol participant id (`scheme:value`), where Peppol invoices go. */
+  @Column({ name: 'peppol_id', type: 'varchar', length: 100, nullable: true })
+  peppolId: string | null;
 
   /** Currency invoices to this client are denominated in by default. */
   @Column({ type: 'varchar', length: 3 })

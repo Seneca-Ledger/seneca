@@ -1,59 +1,53 @@
 import {
-  BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
-  Headers,
   HttpCode,
   HttpStatus,
   Logger,
-  Param,
   Patch,
   Post,
-  Query,
   Res,
-  UploadedFile,
-  UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { APP_SLUG } from '../../common/brand';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
-import { IdempotencyService } from '../../common/services/idempotency.service';
-import { toCaptureLocation } from '../../common/utils/capture-location.util';
-import { unlinkAll, validateFile, validateFiles } from '../../common/utils/file-validator.util';
+import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { pipeFileStreamResponse } from '../../common/utils/stream-response.util';
-import { multerConfig } from '../../config/multer.config';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
+import {
+  ConvertDroppedSampleBody,
+  DeleteStatementQuery,
+  ReprocessStatementQuery,
+  StatementDetail,
+  StatementListPage,
+  StatementParams,
+  StatementsQuery,
+  StatementThumbnailQuery,
+  UpdateStatementBody,
+  UpdateStatementStageBody,
+} from '../../contracts';
+import {
+  DroppedSampleConverted,
+  StatementRestored,
+  StatementStageResult,
+  StatementWritten,
+} from '../../contracts/statements/statement-writes';
 import { EntityType } from '../../entities/audit-event.entity';
+import { StatementStage } from '../../entities/statement.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ConvertDroppedSampleDto } from './dto/convert-dropped-sample.dto';
-import { CreateManualExpenseDto } from './dto/create-manual-expense.dto';
-import { FilterStatementsDto } from './dto/filter-statements.dto';
-import { UpdateStatementDto } from './dto/update-statement.dto';
-import {
-  UpdateStatementStageDto,
-  UpdateStatementStageResultDto,
-} from './dto/update-statement-stage.dto';
-import { UploadReceiptScanDto } from './dto/upload-receipt-scan.dto';
-import { UploadStatementDto } from './dto/upload-statement.dto';
-import { ReceiptStatementService } from './services/receipt-statement.service';
 import { StatementStageService } from './services/statement-stage.service';
 import { StatementsService } from './statements.service';
-
-const SUPPORTED_RECEIPT_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/bmp',
-  'image/tiff',
-  'application/pdf',
-]);
 
 interface ThumbnailErrorLike {
   getStatus?: () => number;
@@ -62,245 +56,37 @@ interface ThumbnailErrorLike {
 }
 
 @Controller('statements')
+@UseInterceptors(HideInternalColumnsInterceptor)
 export class StatementsController {
   private readonly logger = new Logger(StatementsController.name);
 
   constructor(
     private readonly statementsService: StatementsService,
-    private readonly receiptStatementService: ReceiptStatementService,
-    private readonly idempotencyService: IdempotencyService,
     private readonly statementStageService: StatementStageService,
   ) {}
 
-  private toObjectRecord(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
-  }
-
   private getThumbnailError(error: unknown): ThumbnailErrorLike {
     return typeof error === 'object' && error !== null ? (error as ThumbnailErrorLike) : {};
-  }
-
-  private isUploadedFile(file: unknown): file is Express.Multer.File {
-    return (
-      typeof file === 'object' &&
-      file !== null &&
-      'originalname' in file &&
-      'mimetype' in file &&
-      'size' in file
-    );
-  }
-
-  // Legacy POST /statements endpoint (backward compatibility for single 'file' field)
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
-  @UseInterceptors(FilesInterceptor('file', 1, multerConfig))
-  async uploadLegacy(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body() uploadDto: UploadStatementDto,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-    @Headers('idempotency-key') idempotencyKey?: string,
-  ) {
-    return this.handleUpload(files, uploadDto, user, workspaceId, idempotencyKey, true);
-  }
-
-  @Post('upload')
-  @HttpCode(HttpStatus.CREATED)
-  @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
-  @UseInterceptors(FilesInterceptor('files', 2, multerConfig))
-  async upload(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body() uploadDto: UploadStatementDto,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-    @Headers('idempotency-key') idempotencyKey?: string,
-  ) {
-    return this.handleUpload(files, uploadDto, user, workspaceId, idempotencyKey, false);
-  }
-
-  @Post('manual-expense')
-  @HttpCode(HttpStatus.CREATED)
-  @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
-  @UseInterceptors(FilesInterceptor('files', 5, multerConfig))
-  async createManualExpense(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body() payload: CreateManualExpenseDto,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-    @Headers('idempotency-key') idempotencyKey?: string,
-  ) {
-    if (idempotencyKey) {
-      const cached = await this.idempotencyService.checkKey(idempotencyKey, user.id, workspaceId);
-      if (cached) {
-        return {
-          ...this.toObjectRecord(cached.data),
-          cached: true,
-        };
-      }
-    }
-
-    const result = await this.statementsService.createManualExpense({
-      user,
-      workspaceId,
-      files: files || [],
-      payload,
-    });
-
-    if (idempotencyKey) {
-      await this.idempotencyService.storeKey(idempotencyKey, user.id, workspaceId, result);
-    }
-
-    return result;
-  }
-
-  @Post('upload-receipt')
-  @HttpCode(HttpStatus.CREATED)
-  @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
-  @UseInterceptors(FilesInterceptor('files', 5, multerConfig))
-  async uploadReceipt(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body() body: UploadReceiptScanDto,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    if (!files?.length) {
-      throw new BadRequestException('No files provided');
-    }
-
-    try {
-      for (const file of files) {
-        validateFile(file);
-        this.assertReceiptFileSupported(file);
-      }
-    } catch (error) {
-      await unlinkAll(files);
-      throw error;
-    }
-
-    const data = await this.receiptStatementService.createFromReceiptScan({
-      user,
-      workspaceId,
-      files,
-      language: body?.language,
-      captureLocation: toCaptureLocation(body),
-    });
-
-    return { data };
-  }
-
-  @Post(':id/attach-file')
-  @HttpCode(HttpStatus.OK)
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
-  @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
-  @UseInterceptors(FileInterceptor('file', multerConfig))
-  async attachFile(
-    @Param('id') id: string,
-    @UploadedFile() file: unknown,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    if (!this.isUploadedFile(file)) {
-      throw new BadRequestException('No file provided');
-    }
-
-    await validateFiles([file]);
-    return this.statementsService.attachFile(id, user.id, workspaceId, file);
-  }
-
-  private async handleUpload(
-    files: Express.Multer.File[],
-    uploadDto: UploadStatementDto,
-    user: User,
-    workspaceId: string,
-    idempotencyKey: string | undefined,
-    returnUnwrappedSingle: boolean,
-  ) {
-    if (!files || files.length === 0) {
-      throw new BadRequestException('No files provided');
-    }
-
-    if (files.length > 2) {
-      throw new BadRequestException('Maximum 2 files allowed');
-    }
-
-    // Check idempotency key if provided
-    if (idempotencyKey) {
-      const cached = await this.idempotencyService.checkKey(idempotencyKey, user.id, workspaceId);
-      if (cached) {
-        return {
-          ...this.toObjectRecord(cached.data),
-          cached: true,
-        };
-      }
-    }
-
-    // Validate each file
-    await validateFiles(files);
-
-    // Process each file
-    const results = await Promise.all(
-      files.map(file =>
-        this.statementsService.create(
-          user,
-          workspaceId,
-          file,
-          uploadDto.walletId || undefined,
-          uploadDto.branchId || undefined,
-          uploadDto.allowDuplicates ?? false,
-          uploadDto.requireManualCategorySelection ?? false,
-        ),
-      ),
-    );
-
-    const responseData = results.map(statement => ({
-      ...statement,
-      importPreview: statement.parsingDetails?.importPreview ?? null,
-    }));
-
-    // Return unwrapped statement for single file (backward compatibility)
-    if (returnUnwrappedSingle && responseData.length === 1) {
-      const response = {
-        ...responseData[0],
-        idempotencyKey,
-        cached: false,
-      };
-      if (idempotencyKey) {
-        await this.idempotencyService.storeKey(idempotencyKey, user.id, workspaceId, response);
-      }
-      return response;
-    }
-
-    const response = {
-      data: responseData,
-      idempotencyKey,
-      cached: false,
-    };
-
-    // Store idempotency key if provided
-    if (idempotencyKey) {
-      await this.idempotencyService.storeKey(idempotencyKey, user.id, workspaceId, response);
-    }
-
-    return response;
   }
 
   @Get('export-zip')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async exportZip(@WorkspaceId() workspaceId: string, @Res() res: Response) {
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename="lumio-export.zip"');
+    res.setHeader('Content-Disposition', `attachment; filename="${APP_SLUG}-export.zip"`);
     await this.statementsService.exportZip(workspaceId, res);
   }
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(StatementListPage)
   async findAll(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() filters: FilterStatementsDto,
+    @SchemaQuery(StatementsQuery) filters: StatementsQuery,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
-    const result = await this.statementsService.findAll(workspaceId, filters);
+    const result = await this.statementsService.findAll(workspaceId, filters, selfMemberId ?? null);
 
     // Include 'items' field for backward compatibility
     return {
@@ -313,7 +99,7 @@ export class StatementsController {
   @Get(':id/file')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async getFile(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
@@ -331,16 +117,10 @@ export class StatementsController {
     });
   }
 
-  private assertReceiptFileSupported(file: Express.Multer.File): void {
-    if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException('Only image and PDF receipt files are supported');
-    }
-  }
-
   @Get(':id/view')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async viewFile(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
@@ -361,15 +141,14 @@ export class StatementsController {
   @Get(':id/thumbnail')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
   async getThumbnail(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('width') width: string | undefined,
+    @SchemaQuery(StatementThumbnailQuery) { width }: StatementThumbnailQuery,
     @Res() res: Response,
   ) {
     try {
-      const parsedWidth = width ? Number(width) : undefined;
-      const thumbnail = await this.statementsService.getThumbnail(id, workspaceId, parsedWidth);
+      const thumbnail = await this.statementsService.getThumbnail(id, workspaceId, width);
       res.setHeader('Content-Type', 'image/png');
       // Cache successful thumbnails for one week
       res.setHeader('Cache-Control', 'public, max-age=604800');
@@ -432,15 +211,15 @@ export class StatementsController {
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   @ApiOperation({ summary: 'Move one or more statements to a review-workflow stage' })
-  @ApiResponse({ status: 200, type: UpdateStatementStageResultDto })
+  @SchemaResponse(StatementStageResult)
   async updateStage(
-    @Body() dto: UpdateStatementStageDto,
+    @SchemaBody(UpdateStatementStageBody) dto: UpdateStatementStageBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-  ): Promise<UpdateStatementStageResultDto> {
+  ) {
     return this.statementStageService.updateStage(
       dto.statementIds,
-      dto.stage,
+      toEnum(StatementStage, dto.stage),
       user.id,
       workspaceId,
     );
@@ -449,8 +228,9 @@ export class StatementsController {
   @Post(':id/trash')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.STATEMENT_DELETE)
+  @SchemaResponse(StatementWritten)
   async moveToTrash(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -459,8 +239,9 @@ export class StatementsController {
 
   @Post(':id/restore')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(StatementRestored)
   async restoreFile(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -469,20 +250,26 @@ export class StatementsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(StatementDetail)
   async findOne(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return this.statementsService.findOne(id, workspaceId);
+    const statement = await this.statementsService.findOne(id, workspaceId);
+    // A private row reads as a placeholder to all but its owner, here as in the list.
+    redactPrivateRows(statement.transactions ?? [], selfMemberId);
+    return statement;
   }
 
   @Patch(':id')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
   @Audit({ entityType: EntityType.STATEMENT, includeDiff: true, isUndoable: true })
+  @SchemaResponse(StatementWritten)
   async update(
-    @Param('id') id: string,
-    @Body() updateDto: UpdateStatementDto,
+    @SchemaParams(StatementParams) { id }: StatementParams,
+    @SchemaBody(UpdateStatementBody) updateDto: UpdateStatementBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -491,9 +278,10 @@ export class StatementsController {
 
   @Post(':id/convert-dropped-sample')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(DroppedSampleConverted)
   async convertDroppedSample(
-    @Param('id') id: string,
-    @Body() payload: ConvertDroppedSampleDto,
+    @SchemaParams(StatementParams) { id }: StatementParams,
+    @SchemaBody(ConvertDroppedSampleBody) payload: ConvertDroppedSampleBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -509,13 +297,12 @@ export class StatementsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @WorkspaceAuth(Permission.STATEMENT_DELETE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('permanent') permanent?: string,
+    @SchemaQuery(DeleteStatementQuery) { permanent }: DeleteStatementQuery,
   ) {
-    const isPermanent = permanent === 'true';
-    if (isPermanent) {
+    if (permanent) {
       await this.statementsService.permanentDelete(id, user.id, workspaceId);
     } else {
       await this.statementsService.moveToTrash(id, user.id, workspaceId);
@@ -524,11 +311,12 @@ export class StatementsController {
 
   @Post(':id/reprocess')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(StatementWritten)
   async reprocess(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('mode') mode?: 'merge' | 'replace',
+    @SchemaQuery(ReprocessStatementQuery) { mode }: ReprocessStatementQuery,
   ) {
     // Default to 'merge' mode to preserve user edits
     const reprocessMode = mode || 'merge';
@@ -537,8 +325,9 @@ export class StatementsController {
 
   @Post(':id/commit-import')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(StatementWritten)
   async commitImport(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -547,8 +336,9 @@ export class StatementsController {
 
   @Post(':id/confirm-balance')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(StatementWritten)
   async confirmBalance(
-    @Param('id') id: string,
+    @SchemaParams(StatementParams) { id }: StatementParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

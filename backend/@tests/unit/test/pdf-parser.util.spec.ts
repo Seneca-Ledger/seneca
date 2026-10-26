@@ -34,7 +34,8 @@ suite('pdfplumber parser util', () => {
   });
 
   it('extracts table data with coordinates', async () => {
-    const { rows, structured } = await extractTablesFromPdf(pdfPath);
+    const { rowSets, structured } = await extractTablesFromPdf(pdfPath);
+    const rows = rowSets[0];
 
     expect(rows.length).toBeGreaterThanOrEqual(3);
     expect(rows[0].join(' ')).toContain('Date');

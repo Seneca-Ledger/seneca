@@ -3,18 +3,27 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import type {
+  NetWorthAssetLine,
+  NetWorthAttribution,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthResponse,
+} from '../../contracts';
 import {
   BalanceAccount,
   BalanceAccountKind,
   BalanceAccountType,
   BalanceSnapshot,
-  CapitalRole,
   RiskLevel,
   Transaction,
   Workspace,
 } from '../../entities';
 import type { InvestmentMetal } from '../../entities/investment-holding.entity';
 import { BalanceService, CASH_ACCOUNT_CODE } from '../balance/balance.service';
+import { balanceAccountName } from '../balance/balance-account-name';
 import {
   decimate,
   everyDay,
@@ -28,123 +37,29 @@ import {
 } from '../balance/snapshot-series';
 import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { InvestmentFlowsService } from '../investments/investment-flows.service';
 import { InvestmentsService } from '../investments/investments.service';
 import type { NetWorthRange } from './dto/net-worth-query.dto';
+import { buildAttribution, buildSavings } from './net-worth-attribution';
+import { round2, round4, toNumber } from './net-worth-math';
+
+export type {
+  NetWorthAssetLine,
+  NetWorthAttribution,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthResponse,
+};
 
 /** The window to chart: a preset, or dates the user picked. */
-export interface NetWorthQuery {
+export interface NetWorthWindow {
   range?: NetWorthRange;
   from?: string;
   to?: string;
   /** Account ids to leave out of every figure on the page. */
-  exclude?: string[];
-}
-
-export interface NetWorthPoint {
-  date: string;
-  value: number;
-  /** The two sides of the day, so the chart can show what the net hides. */
-  assets: number;
-  liabilities: number;
-}
-
-export interface NetWorthBreakdownItem {
-  code: string;
-  name: string;
-  amount: number;
-  percent: number;
-}
-
-/** One bucket of a classification split. `key` is null for what is unlabelled. */
-export interface NetWorthClassificationItem {
-  key: string | null;
-  amount: number;
-  percent: number;
-}
-
-/** An asset line the user can classify, with what it is currently worth. */
-export interface NetWorthAssetLine {
-  id: string;
-  code: string;
-  name: string;
-  amount: number;
-  capitalRole: CapitalRole | null;
-  riskLevel: RiskLevel | null;
-  /** False for cash, whose risk is fixed rather than chosen. */
-  isClassifiable: boolean;
-}
-
-/** What one line, or the rates, did to the number over the window. */
-export interface NetWorthAttributionRow {
-  id: string;
-  code: string;
-  name: string;
-  amount: number;
-}
-
-/**
- * Where the change over the window came from. Both lists add up to `change`
- * exactly: one answers "which of my things moved", the other "was it me or
- * was it the market".
- */
-export interface NetWorthAttribution {
-  byAccount: NetWorthAttributionRow[];
-  byKind: Array<{ kind: 'money' | 'revaluation' | 'fx'; amount: number }>;
-}
-
-/**
- * The same net worth measured in troy ounces of a metal. People who hold metal
- * ask what their capital is worth in ounces, because that is the unit their
- * savings are in; it is the money figures divided by the spot price of the day
- * each point belongs to, never by today's.
- */
-export interface NetWorthDenominated {
-  metal: InvestmentMetal;
-  unit: 'ozt';
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  series: NetWorthPoint[];
-}
-
-export interface NetWorthResponse {
-  range: NetWorthRange;
-  /** The window actually charted, which a custom `from`/`to` decides. */
-  from: string;
-  to: string;
-  currency: string;
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  assetsTotal: number;
-  liabilitiesTotal: number;
-  series: NetWorthPoint[];
-  breakdown: NetWorthBreakdownItem[];
-  byRisk: NetWorthClassificationItem[];
-  byRole: NetWorthClassificationItem[];
-  /** Share of assets sitting in medium or high risk. */
-  riskyPercent: number;
-  assetLines: NetWorthAssetLine[];
-  /** Currencies left out of the figures because no rate to `currency` was found. */
-  missingRates: string[];
-  /** The account ids left out, echoed back so the page can show what is hidden. */
-  excluded: string[];
-  /** What made the change over the window, by line and by cause. */
-  attribution: NetWorthAttribution;
-  /**
-   * What came in over the window and what share of it was kept. `rate` is
-   * null when nothing came in — a share of nothing is not zero, it is
-   * nothing to say.
-   */
-  savings: { income: number; kept: number; rate: number | null };
-  /** Present only when the caller asked to see the figures in metal. */
-  denominated?: NetWorthDenominated | null;
-  /** The highest sampled net worth over the whole history, and when. */
-  allTimeHigh: { value: number; date: string } | null;
-  /** Investment holdings by asset class; cash and the other sheet lines keep their own buckets. */
-  byAssetClass: NetWorthClassificationItem[];
+  exclude?: readonly string[];
 }
 
 /**
@@ -188,11 +103,13 @@ export class NetWorthService {
     private readonly exchangeRatesService: ExchangeRatesService,
     @Optional()
     private readonly investmentsService?: InvestmentsService,
+    @Optional()
+    private readonly investmentFlowsService?: InvestmentFlowsService,
   ) {}
 
   async getNetWorth(
     workspaceId: string,
-    query: NetWorthQuery = {},
+    query: NetWorthWindow = {},
     locale?: string,
     denominate?: InvestmentMetal,
   ): Promise<NetWorthResponse> {
@@ -201,7 +118,8 @@ export class NetWorthService {
     const range = query.range ?? '90d';
     const today = isoDate(new Date());
     // A window the user picked wins over the preset; it never runs past today,
-    // because there is nothing to the right of today to chart.
+    // because there is nothing to the right of today to chart. A `to` alone is
+    // net worth as it stood at the end of that past day.
     const to = query.to && query.to < today ? isoDate(new Date(query.to)) : today;
     const windowFrom = query.from
       ? isoDate(new Date(query.from))
@@ -305,8 +223,10 @@ export class NetWorthService {
     const previous = window[0]?.value ?? 0;
     const change = round2(current - previous);
 
-    const attribution = await this.buildAttribution({
-      workspaceId,
+    const attribution = buildAttribution({
+      contributions: this.investmentFlowsService
+        ? await this.investmentFlowsService.contributionsBetween(workspaceId, windowFrom, to)
+        : new Map<string, Map<string, number>>(),
       leaves,
       nativeAt,
       converter,
@@ -316,7 +236,8 @@ export class NetWorthService {
       locale,
     });
 
-    const savings = await this.buildSavings({
+    const savings = await buildSavings({
+      transactionRepository: this.transactionRepository,
       workspaceId,
       converter,
       from: windowFrom,
@@ -326,21 +247,19 @@ export class NetWorthService {
 
     // The high is a property of the whole history, not of the window shown.
     const allTimeHigh = highestPoint(daily);
-    const byAssetClass = await this.buildAssetClasses(
-      workspaceId,
-      leaves,
-      valueAt,
-      to,
-      assetsTotal,
-      excluded,
-    );
+    // The split by asset class prices holdings as they are now, which says
+    // nothing true about a past day; it is left out rather than made up.
+    const byAssetClass =
+      to === today
+        ? await this.buildAssetClasses(workspaceId, leaves, valueAt, to, assetsTotal, excluded)
+        : [];
 
     const assetLines = leaves
       .filter(leaf => leaf.accountType === BalanceAccountType.ASSET)
       .map(leaf => ({
         id: leaf.id,
         code: leaf.code,
-        name: resolveName(leaf, locale),
+        name: balanceAccountName(leaf, locale),
         amount: round2(valueAt(leaf.id, leaf.code, to)),
         // Cash answers for itself: always low risk, never the user's call.
         capitalRole: leaf.capitalRole,
@@ -408,7 +327,7 @@ export class NetWorthService {
       const quote = await this.exchangeRatesService.getRateQuote(metal, currency, point.date, {
         workspaceId,
       });
-      if (!quote || !(quote.rate > 0)) continue;
+      if (!(quote && quote.rate > 0)) continue;
       points.push({
         date: point.date,
         value: round4(point.value / quote.rate),
@@ -450,7 +369,9 @@ export class NetWorthService {
     const holdings = this.investmentsService
       ? await this.investmentsService.valueByAssetClass(workspaceId, excluded)
       : new Map<string, number>();
-    for (const [assetClass, amount] of holdings) add(assetClass, amount);
+    for (const [assetClass, amount] of holdings) {
+      add(assetClass, amount);
+    }
     for (const leaf of leaves) {
       if (leaf.accountType !== BalanceAccountType.ASSET) continue;
       // The crypto line is one account holding many coins; its class is known
@@ -474,170 +395,6 @@ export class NetWorthService {
       .sort((a, b) => b.amount - a.amount);
   }
 
-  /**
-   * Where the change over the window came from.
-   *
-   * For a line worth `A` in its own currency at a rate `R`, the move splits
-   * without a remainder into what the line itself did, valued at the rate it
-   * started the window on, and what the rate did to what the line ended with:
-   *
-   *     A₁R₁ − A₀R₀ = (A₁ − A₀)·R₀ + A₁·(R₁ − R₀)
-   *
-   * The first term is the line's own doing, the second is the currency's. For
-   * cash the first term is money that came in or went out; for an investment
-   * account it is what was paid in plus what the market did, and the paid-in
-   * part is known from the contributions linked to it. Everything else only
-   * ever moves when someone types a new value, so that is all revaluation.
-   *
-   * Money moved between the user's own accounts cancels: it leaves cash and
-   * arrives as a contribution, so `money` is what came in from outside.
-   */
-  private async buildAttribution(input: {
-    workspaceId: string;
-    leaves: BalanceAccount[];
-    nativeAt: (leaf: BalanceAccount, date: string) => Map<string, number>;
-    converter: CurrencyConverter;
-    from: string;
-    to: string;
-    change: number;
-    locale?: string;
-  }): Promise<NetWorthAttribution> {
-    const { workspaceId, leaves, nativeAt, converter, from, to, change, locale } = input;
-    const contributions = this.investmentsService
-      ? await this.investmentsService.contributionsBetween(workspaceId, from, to)
-      : new Map<string, Map<string, number>>();
-
-    const rate = (code: string, date: string): number => converter.convert(1, code, date);
-    const byAccount: NetWorthAttributionRow[] = [];
-    let money = 0;
-    let revaluation = 0;
-
-    for (const leaf of leaves) {
-      const sign =
-        leaf.accountType === BalanceAccountType.ASSET
-          ? 1
-          : leaf.accountType === BalanceAccountType.LIABILITY
-            ? -1
-            : 0;
-      if (sign === 0) {
-        continue;
-      }
-
-      const opening = nativeAt(leaf, from);
-      const closing = nativeAt(leaf, to);
-      const paidIn = contributions.get(leaf.id) ?? new Map<string, number>();
-      let own = 0;
-      let rates = 0;
-      let contributed = 0;
-
-      for (const code of new Set([...opening.keys(), ...closing.keys(), ...paidIn.keys()])) {
-        const before = opening.get(code) ?? 0;
-        const after = closing.get(code) ?? 0;
-        const opened = rate(code, from);
-        const closed = rate(code, to);
-
-        if (opened > 0 && closed > 0) {
-          own += (after - before) * opened;
-          rates += after * (closed - opened);
-        } else {
-          // No rate at one end of the window: there is no rate *move* to speak
-          // of, and calling the whole thing a currency effect would be a lie.
-          // The line simply was not valuable here before, or is not now.
-          own += after * closed - before * opened;
-        }
-        contributed += (paidIn.get(code) ?? 0) * (opened > 0 ? opened : closed);
-      }
-
-      const moved = leaf.code === CASH_ACCOUNT_CODE ? own : contributed;
-      money += sign * moved;
-      revaluation += sign * (own - moved);
-
-      byAccount.push({
-        id: leaf.id,
-        code: leaf.code,
-        name: resolveName(leaf, locale),
-        amount: sign * (own + rates),
-      });
-    }
-
-    const rows = byAccount
-      .map(row => ({ ...row, amount: round2(row.amount) }))
-      .filter(row => row.amount !== 0)
-      .sort((left, right) => Math.abs(right.amount) - Math.abs(left.amount));
-
-    // A table that does not add up to the figure above it is worse than no
-    // table: the pennies lost to rounding go to the largest line, and the last
-    // kind absorbs them the same way.
-    const residual = round2(change - rows.reduce((sum, row) => sum + row.amount, 0));
-    if (residual !== 0 && rows.length > 0) {
-      rows[0] = { ...rows[0], amount: round2(rows[0].amount + residual) };
-    }
-
-    const movedTotal = round2(money);
-    const revaluedTotal = round2(revaluation);
-    const byKind = [
-      { kind: 'money' as const, amount: movedTotal },
-      { kind: 'revaluation' as const, amount: revaluedTotal },
-      { kind: 'fx' as const, amount: round2(change - movedTotal - revaluedTotal) },
-    ].filter(row => row.amount !== 0);
-
-    return { byAccount: rows, byKind };
-  }
-
-  /**
-   * What came in over the window, and the share of it still there at the end.
-   *
-   * `kept` is the money the attribution already found: everything that came
-   * in from outside minus everything that went out, with moves between the
-   * user's own accounts cancelling. Against income that is the savings rate,
-   * the one number the whole early-retirement literature is about.
-   *
-   * Income is counted on the day it arrived, at that day's rate, and a leg of
-   * a transfer or a reimbursement is not income however it is booked.
-   */
-  private async buildSavings(input: {
-    workspaceId: string;
-    converter: CurrencyConverter;
-    from: string;
-    to: string;
-    kept: number;
-  }): Promise<NetWorthResponse['savings']> {
-    const { workspaceId, converter, from, to, kept } = input;
-    // Income a person confirmed, the same rows the cash line counts.
-    const rows = await onlyCounted(
-      this.transactionRepository
-        .createQueryBuilder('transaction')
-        .leftJoin('transaction.statement', 'statement')
-        .select('transaction.transactionDate', 'date')
-        .addSelect('transaction.currency', 'currency')
-        .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
-        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
-      'transaction',
-    )
-      .andWhere('transaction.transactionDate > :from', { from })
-      .andWhere('transaction.transactionDate <= :to', { to })
-      .andWhere('transaction.transferPairId IS NULL')
-      .groupBy('transaction.transactionDate')
-      .addGroupBy('transaction.currency')
-      .getRawMany<{ date: string; currency: string; credit: string }>();
-
-    let income = 0;
-    for (const row of rows) {
-      income += converter.convert(
-        toNumber(row.credit),
-        normalizeCurrencyCode(row.currency || converter.target),
-        isoDate(new Date(row.date)),
-      );
-    }
-
-    const rounded = round2(income);
-    return {
-      income: rounded,
-      kept,
-      rate: rounded > 0 ? round2((kept / rounded) * 100) : null,
-    };
-  }
-
   /** Asset totals grouped under the top-level section each leaf belongs to. */
   private buildBreakdown(
     accounts: BalanceAccount[],
@@ -651,9 +408,7 @@ export class NetWorthService {
     const totals = new Map<string, number>();
 
     for (const leaf of leaves) {
-      if (leaf.accountType !== BalanceAccountType.ASSET) {
-        continue;
-      }
+      if (leaf.accountType !== BalanceAccountType.ASSET) continue;
       const root = findRoot(leaf, byId);
       totals.set(root.id, (totals.get(root.id) ?? 0) + valueAt(leaf.id, leaf.code, date));
     }
@@ -668,7 +423,7 @@ export class NetWorthService {
 
     return sections.map(section => ({
       code: section.account.code,
-      name: resolveName(section.account, locale),
+      name: balanceAccountName(section.account, locale),
       amount: section.amount,
       percent: assetsTotal > 0 ? round2((section.amount / assetsTotal) * 100) : 0,
     }));
@@ -677,7 +432,9 @@ export class NetWorthService {
   private async resolveCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return currencyCodeOrDefault(workspace?.currency);
   }
@@ -789,33 +546,7 @@ function findRoot(account: BalanceAccount, byId: Map<string, BalanceAccount>): B
 function highestPoint(points: NetWorthPoint[]): { value: number; date: string } | null {
   let best: NetWorthPoint | null = null;
   for (const point of points) {
-    if (!best || point.value > best.value) {
-      best = point;
-    }
+    if (!best || point.value > best.value) best = point;
   }
   return best && best.value > 0 ? { value: best.value, date: best.date } : null;
-}
-
-function toNumber(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-/** Ounces are small numbers: two decimals would round a silver stack to noise. */
-function round4(value: number): number {
-  return Math.round(value * 10000) / 10000;
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function resolveName(account: BalanceAccount, locale?: string): string {
-  if (locale === 'en' && account.nameEn) {
-    return account.nameEn;
-  }
-  if (locale === 'kk' && account.nameKk) {
-    return account.nameKk;
-  }
-  return account.name;
 }

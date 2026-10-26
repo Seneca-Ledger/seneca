@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { IncomeTaxDisclaimerAcceptance } from '../../entities/income-tax-disclaimer-acceptance.entity';
 
 /**
@@ -56,10 +57,7 @@ export class IncomeTaxDisclaimerService {
   async assertAccepted(userId: string): Promise<void> {
     const { accepted } = await this.getStatus(userId);
     if (!accepted) {
-      throw new ForbiddenException({
-        code: 'TAX_DISCLAIMER_REQUIRED',
-        message: 'Accept the current tax-declaration disclaimer first.',
-      });
+      throw new ForbiddenException(appError('TAX_DISCLAIMER_REQUIRED'));
     }
   }
 }

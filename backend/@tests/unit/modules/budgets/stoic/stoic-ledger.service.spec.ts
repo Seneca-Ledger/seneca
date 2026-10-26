@@ -1,4 +1,4 @@
-import { countedSql } from '@/common/utils/counted-transactions.util';
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { BudgetPeriodType } from '@/entities/budget.entity';
 import { StoicClass } from '@/entities/category.entity';
 import { StoicLedgerService } from '@/modules/budgets/stoic/stoic-ledger.service';
@@ -8,10 +8,10 @@ type SpendingRow = { categoryId: string; month: string; total: string; currency?
 function transactionRepository(rows: SpendingRow[]) {
   const qb: any = {};
   for (const method of ['select', 'addSelect', 'where', 'andWhere', 'groupBy', 'addGroupBy']) {
-    qb[method] = jest.fn(() => qb);
+    qb[method] = vi.fn(() => qb);
   }
-  qb.getRawMany = jest.fn(async () => rows.map(row => ({ currency: 'EUR', ...row })));
-  return { createQueryBuilder: jest.fn(() => qb), qb };
+  qb.getRawMany = vi.fn(async () => rows.map(row => ({ currency: 'EUR', ...row })));
+  return { createQueryBuilder: vi.fn(() => qb), qb };
 }
 
 const categories = [
@@ -43,16 +43,16 @@ function budget(overrides: Record<string, unknown>) {
 
 /** 1 USD = 0.5 EUR, to make conversion visible. */
 const exchangeRates = {
-  getRate: jest.fn(async (from: string) => (from === 'USD' ? 0.5 : 1)),
+  getRateOrNull: vi.fn(async (from: string) => (from === 'USD' ? 0.5 : 1)),
 };
 
 function service(budgets: unknown[], rows: SpendingRow[]) {
   const transactions = transactionRepository(rows);
   const ledger = new StoicLedgerService(
-    { find: jest.fn(async () => categories) } as any,
-    { find: jest.fn(async () => budgets) } as any,
+    { find: vi.fn(async () => categories) } as any,
+    { find: vi.fn(async () => budgets) } as any,
     transactions as any,
-    { findOne: jest.fn(async () => ({ id: 'ws-1', currency: 'EUR' })) } as any,
+    { findOne: vi.fn(async () => ({ id: 'ws-1', currency: 'EUR' })) } as any,
     exchangeRates as any,
   );
   return { ledger, transactions };
@@ -165,7 +165,7 @@ describe('StoicLedgerService', () => {
       workspaceId: 'ws-1',
     });
     expect(transactions.qb.andWhere).toHaveBeenCalledWith('t.is_duplicate = false');
-    expect(transactions.qb.andWhere).toHaveBeenCalledWith(countedSql('t'));
+    expect(transactions.qb.andWhere).toHaveBeenCalledWith(flowsSql('t'));
   });
 
   it('converts spending and limits into the workspace currency', async () => {

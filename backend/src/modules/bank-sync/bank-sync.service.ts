@@ -5,8 +5,11 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
+import type { UpdateBankSyncSettingsBody } from '../../contracts';
 import {
   Integration,
   IntegrationProvider,
@@ -19,7 +22,6 @@ import {
 import { StatementsService } from '../statements/statements.service';
 import { buildOfxStatement, ofxFileName, providerRowKey } from './bank-sync-ofx.util';
 import { type BankSyncAccount, BankSyncAuthError } from './bank-sync-provider.interface';
-import type { UpdateBankSyncSettingsDto } from './dto/bank-sync.dto';
 import { SimpleFinProvider } from './simplefin.provider';
 
 /** How far back the first pull of an account reaches. */
@@ -73,7 +75,7 @@ const EMPTY_CONFIG: BankSyncConfig = {
 };
 
 /**
- * Bank sync through the user's own aggregator account. Lumio stores the
+ * Bank sync through the user's own aggregator account. Seneca stores the
  * credential encrypted next to the other open-protocol integrations, pulls on
  * demand or every six hours, and feeds each account's new rows to statement
  * import as an OFX file, so everything downstream (dedupe, rules, review
@@ -130,11 +132,11 @@ export class BankSyncService {
 
   async updateSettings(
     workspaceId: string,
-    dto: UpdateBankSyncSettingsDto,
+    dto: UpdateBankSyncSettingsBody,
   ): Promise<BankSyncStatus> {
     const { settings } = await this.requireConnected(workspaceId);
     const config = this.configOf(settings);
-    if (dto.autoSync !== undefined) config.autoSync = dto.autoSync;
+    if (dto.autoSync != null) config.autoSync = dto.autoSync;
     if (dto.accounts) {
       const walletIds = dto.accounts
         .map(item => item.walletId)
@@ -142,17 +144,20 @@ export class BankSyncService {
       const wallets = walletIds.length
         ? await this.walletRepository.find({
             where: { workspaceId, id: In(walletIds) },
-            select: ['id'],
+            select: {
+              id: true,
+            },
           })
         : [];
       const known = new Set(wallets.map(wallet => wallet.id));
       for (const change of dto.accounts) {
         const account = config.accounts.find(item => item.id === change.id);
-        if (!account) throw new NotFoundException(`Account ${change.id} is not in this connection`);
-        if (change.enabled !== undefined) account.enabled = change.enabled;
+        if (!account)
+          throw new NotFoundException(appError('BANK_SYNC_ACCOUNT_UNKNOWN', { id: change.id }));
+        if (change.enabled != null) account.enabled = change.enabled;
         if (change.walletId !== undefined) {
           if (change.walletId !== null && !known.has(change.walletId)) {
-            throw new BadRequestException('Wallet does not belong to this workspace');
+            throw new BadRequestException(appError('BANK_SYNC_WALLET_NOT_IN_WORKSPACE'));
           }
           account.walletId = change.walletId;
         }
@@ -286,8 +291,16 @@ export class BankSyncService {
   @Cron(CronExpression.EVERY_6_HOURS)
   async autoSync(): Promise<void> {
     const integrations = await this.integrationRepository.find({
-      where: { provider: IntegrationProvider.SIMPLEFIN, status: IntegrationStatus.CONNECTED },
-      relations: ['openProtocolSettings', 'connectedByUser'],
+      // A past version pulls nothing new, whatever its copied settings say.
+      where: {
+        provider: IntegrationProvider.SIMPLEFIN,
+        status: IntegrationStatus.CONNECTED,
+        workspace: STANDARD_WORKSPACE,
+      },
+      relations: {
+        openProtocolSettings: true,
+        connectedByUser: true,
+      },
     });
     for (const integration of integrations) {
       const config = this.configOf(integration.openProtocolSettings);
@@ -356,7 +369,9 @@ export class BankSyncService {
     for (let offset = 0; offset < ids.length; offset += 500) {
       const existing = await this.transactionRepository.find({
         where: { workspaceId, documentNumber: In(ids.slice(offset, offset + 500)) },
-        select: ['documentNumber'],
+        select: {
+          documentNumber: true,
+        },
       });
       for (const row of existing) {
         if (row.documentNumber) known.add(row.documentNumber);
@@ -373,9 +388,7 @@ export class BankSyncService {
       if (error instanceof BankSyncAuthError) {
         integration.status = IntegrationStatus.NEEDS_REAUTH;
         await this.integrationRepository.save(integration);
-        throw new BadRequestException(
-          'SimpleFIN no longer accepts this connection: paste a new setup token',
-        );
+        throw new BadRequestException(appError('BANK_SYNC_SIMPLEFIN_REAUTH'));
       }
       throw error;
     }
@@ -384,7 +397,9 @@ export class BankSyncService {
   private async find(workspaceId: string) {
     const integration = await this.integrationRepository.findOne({
       where: { workspaceId, provider: IntegrationProvider.SIMPLEFIN },
-      relations: ['openProtocolSettings'],
+      relations: {
+        openProtocolSettings: true,
+      },
     });
     return { integration, settings: integration?.openProtocolSettings ?? null };
   }
@@ -392,10 +407,10 @@ export class BankSyncService {
   private async requireConnected(workspaceId: string) {
     const { integration, settings } = await this.find(workspaceId);
     if (!integration || integration.status === IntegrationStatus.DISCONNECTED || !settings) {
-      throw new BadRequestException('Bank sync is not connected');
+      throw new BadRequestException(appError('BANK_SYNC_NOT_CONNECTED'));
     }
     if (!settings.encryptedSecrets?.accessUrl) {
-      throw new BadRequestException('Bank sync is not connected');
+      throw new BadRequestException(appError('BANK_SYNC_NOT_CONNECTED'));
     }
     return { integration, settings };
   }

@@ -1,0 +1,121 @@
+{
+  "metadata": {
+    "accountNumber": "KZ17722S601808306665",
+    "currency": "KZT",
+    "dateFrom": "2025-11-25T00:00:00",
+    "dateTo": "2025-11-25T00:00:00",
+    "balanceStart": 198420.54,
+    "balanceEnd": 182220.7
+  },
+  "transactions": [
+    {
+      "transactionDate": "2025-11-25T23:59:59",
+      "documentNumber": "84093716",
+      "counterpartyName": "АО \"KASPI BANK\"",
+      "counterpartyAccount": "KZ19722S230279288990",
+      "counterpartyBank": "",
+      "counterpartyBin": "765176558245",
+      "debit": 200,
+      "paymentPurpose": "Бонусы за отзыв клиенту за 25/11/2025",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-25T23:10:44",
+      "documentNumber": "83823435",
+      "counterpartyName": "ТОО \"Kaspi Магазин\"",
+      "counterpartyAccount": "KZ17722S418741273664",
+      "counterpartyBank": "CASPKZKA",
+      "counterpartyBin": "054453090181",
+      "debit": 7942,
+      "paymentPurpose": "Оплата услуг по обработке данных, связанных с доставкой внутри одного города РК сервисом Kaspi Доставка за 25/11/2025",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-25T23:10:44",
+      "documentNumber": "83823396",
+      "counterpartyName": "АО \"KASPI BANK\"",
+      "counterpartyAccount": "KZ19722S230279288990",
+      "counterpartyBank": "",
+      "counterpartyBin": "765176558245",
+      "debit": 3800,
+      "paymentPurpose": "Бонусы за отзыв клиенту за 25/11/2025",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-25T23:10:44",
+      "documentNumber": "83823414",
+      "counterpartyName": "АО \"KASPI BANK\"",
+      "counterpartyAccount": "KZ72722S322764249194",
+      "counterpartyBank": "",
+      "counterpartyBin": "765176558245",
+      "debit": 25.63,
+      "paymentPurpose": "Оплата за услуги операций по картам Kaspi Gold и другим картам за 25/11/2025",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-25T23:10:44",
+      "documentNumber": "83823373",
+      "counterpartyName": "ТОО Kaspi Pay",
+      "counterpartyAccount": "KZ86722S982378436103",
+      "counterpartyBank": "CASPKZKA",
+      "counterpartyBin": "310651338577",
+      "debit": 1852.96,
+      "paymentPurpose": "Оплата за информационно- технологические услуги. Без НДС за 25/11/2025",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-25T23:10:44",
+      "documentNumber": "83823452",
+      "counterpartyName": "АО \"Kaspi.kz\"",
+      "counterpartyAccount": "KZ92722S020268361504",
+      "counterpartyBank": "CASPKZKA",
+      "counterpartyBin": "936138647348",
+      "debit": 12094.12,
+      "paymentPurpose": "Оплата рекламных услуг. В том числе НДС за 24/11/2025",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-25T23:10:43",
+      "documentNumber": "83823347",
+      "counterpartyName": "АО \"KASPI BANK\"",
+      "counterpartyAccount": "KZ24722S924583361885",
+      "counterpartyBank": "",
+      "counterpartyBin": "765176558245",
+      "credit": 197756,
+      "paymentPurpose": "Продажи с Kaspi.kz за 25/11/2025",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-25T23:10:43",
+      "documentNumber": "83823355",
+      "counterpartyName": "ТОО \"Kaspi Магазин\"",
+      "counterpartyAccount": "KZ17722S418741273664",
+      "counterpartyBank": "CASPKZKA",
+      "counterpartyBin": "054453090181",
+      "debit": 21852.13,
+      "paymentPurpose": "Оплата услуги по обработке данных. В том числе НДС за 25/11/2025",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-25T13:28:55",
+      "documentNumber": "82019466",
+      "counterpartyName": "ИП ТАРАН",
+      "counterpartyAccount": "KZ70722S972744390082",
+      "counterpartyBank": "",
+      "counterpartyBin": "191776200743",
+      "debit": 66189,
+      "paymentPurpose": "Резервирование средств на погашение Бизнес Кредита",
+      "currency": "KZT"
+    },
+    {
+      "transactionDate": "2025-11-25T10:30:11",
+      "documentNumber": "81611333",
+      "counterpartyName": "Марина К.",
+      "counterpartyAccount": "KZ41722C507991202172",
+      "counterpartyBank": "",
+      "debit": 100000,
+      "paymentPurpose": "Перевод собственных средств на карту Kaspi Gold *7781",
+      "currency": "KZT"
+    }
+  ]
+}

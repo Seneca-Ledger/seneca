@@ -1,9 +1,15 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
+import {
+  assertPublicEgressUrl,
+  createPublicEgressHttpAgents,
+} from '../../common/utils/egress-url.util';
+import { secretsMatch } from '../../common/utils/secret-compare.util';
+import type { PushSubscriptionBody } from '../../contracts';
 import { PushSubscription } from '../../entities/push-subscription.entity';
-import type { PushSubscriptionDto } from './dto/push-subscription.dto';
 
 export interface PushPayload {
   title: string;
@@ -39,21 +45,35 @@ export class PushService {
     return this.configService.get<string>('WEB_PUSH_VAPID_PUBLIC_KEY') || null;
   }
 
-  async subscribe(userId: string, dto: PushSubscriptionDto): Promise<PushSubscription> {
+  async subscribe(userId: string, dto: PushSubscriptionBody): Promise<PushSubscription> {
     if (!this.isEnabled()) {
-      throw new ConflictException('Web push is not configured on this server');
+      throw new ConflictException(appError('PUSH_NOT_CONFIGURED'));
+    }
+    // The server POSTs to this URL on every notification: a push service, never
+    // an address inside the network it runs in.
+    const endpoint = await assertPublicEgressUrl(dto.endpoint);
+    if (endpoint.protocol !== 'https:') {
+      throw new BadRequestException(appError('PUSH_ENDPOINT_INSECURE'));
     }
     const existing = await this.subscriptionRepository.findOne({
       where: { endpoint: dto.endpoint },
     });
-    // The same device re-subscribing (or a device that changed hands) just moves the row.
+    // The same device re-subscribing just updates its row. A device that changed
+    // hands moves to the new user only when it presents the subscription's own
+    // keys: knowing someone's endpoint URL is not enough to take it over.
+    const sameKeys =
+      secretsMatch(dto.keys.p256dh, existing?.p256dh ?? '') &&
+      secretsMatch(dto.keys.auth, existing?.auth ?? '');
+    if (existing && existing.userId !== userId && !sameKeys) {
+      throw new ConflictException(appError('PUSH_ENDPOINT_TAKEN'));
+    }
     const row =
       existing ??
       this.subscriptionRepository.create({ endpoint: dto.endpoint, userId, p256dh: '', auth: '' });
     row.userId = userId;
     row.p256dh = dto.keys.p256dh;
     row.auth = dto.keys.auth;
-    if (dto.userAgent !== undefined) {
+    if (dto.userAgent != null) {
       row.userAgent = dto.userAgent.slice(0, 255);
     }
     row.lastUsedAt = new Date();
@@ -80,15 +100,20 @@ export class PushService {
     const lib = await this.loadLibrary();
     if (!lib) return false;
     let delivered = 0;
+    // Connects only to addresses that pass the egress check (DNS rebinding).
+    const { httpsAgent } = createPublicEgressHttpAgents();
     for (const subscription of subscriptions) {
       try {
+        // Rows saved before endpoints were checked on subscribe; an IP literal
+        // never reaches the agent's lookup.
+        await assertPublicEgressUrl(subscription.endpoint);
         await lib.sendNotification(
           {
             endpoint: subscription.endpoint,
             keys: { p256dh: subscription.p256dh, auth: subscription.auth },
           },
           JSON.stringify(payload),
-          { TTL: 60 * 60 * 24, urgency: 'normal' },
+          { TTL: 60 * 60 * 24, urgency: 'normal', agent: httpsAgent },
         );
         delivered += 1;
         await this.subscriptionRepository.update(subscription.id, { lastUsedAt: new Date() });

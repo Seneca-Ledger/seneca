@@ -1,5 +1,14 @@
+import * as crypto from 'node:crypto';
 import { BackupArchiveService } from '../../../../src/modules/backups/backup-archive.service';
-import AdmZip = require('adm-zip');
+import AdmZip from 'adm-zip';
+
+/** A zip whose one entry says it unpacks to `size` bytes: what a zip bomb claims. */
+const declaringSize = (zip: Buffer, size: number): Buffer => {
+  const tampered = Buffer.from(zip);
+  const centralHeader = tampered.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  tampered.writeUInt32LE(size, centralHeader + 24);
+  return tampered;
+};
 
 describe('BackupArchiveService', () => {
   const service = new BackupArchiveService();
@@ -45,11 +54,13 @@ describe('BackupArchiveService', () => {
     });
     const container = new AdmZip(archive);
     const manifest = JSON.parse(container.getEntry('manifest.json')?.getData().toString() ?? '{}');
-    manifest.encryption.payload.ciphertext = `A${manifest.encryption.payload.ciphertext.slice(1)}`;
+    const { ciphertext } = manifest.encryption.payload;
+    // Always a different first character: a ciphertext that already began with 'A' stayed intact.
+    manifest.encryption.payload.ciphertext = `${ciphertext[0] === 'A' ? 'B' : 'A'}${ciphertext.slice(1)}`;
     container.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     const tampered = container.toBuffer();
 
-    await expect(service.open(tampered, 'correct password')).rejects.toThrow('backup is corrupted');
+    await expect(service.open(tampered, 'correct password')).rejects.toThrow('Backup is corrupted');
   });
 
   it('uses persisted encryption material for automatic backups without retaining the password', async () => {
@@ -78,5 +89,53 @@ describe('BackupArchiveService', () => {
     expect(manifest).not.toContain('Private finances');
     expect(manifest).not.toContain('bank-secret.csv');
     expect(manifest).not.toContain('workspace-secret');
+  });
+
+  it('refuses a manifest that would unpack to more than any backup holds, before unpacking it', async () => {
+    const archive = await service.create({
+      password: 'correct password',
+      workspace: { id: 'workspace-1', name: 'Finance' },
+      collections: {},
+      files: [],
+    });
+
+    await expect(
+      service.open(declaringSize(archive, 1024 * 1024 * 1024), 'correct password'),
+    ).rejects.toThrow('Backup is too large');
+  });
+
+  it('refuses an encrypted payload that would unpack to more than any backup holds', async () => {
+    const encryption = await service.initializeEncryption('correct password');
+    const inner = new AdmZip();
+    inner.addFile('data/categories.json', Buffer.from('[]'));
+    const payload = (service as never as { encrypt: (plain: Buffer, key: Buffer) => { ciphertext: string } })
+      .encrypt(declaringSize(inner.toBuffer(), 2 * 1024 * 1024 * 1024 - 1), encryption.dataKey);
+    const container = new AdmZip();
+    container.addFile(
+      'manifest.json',
+      Buffer.from(
+        JSON.stringify({
+          format: 'seneca-backup',
+          formatVersion: 1,
+          createdAt: new Date().toISOString(),
+          collections: {},
+          files: [],
+          payloadSha256: crypto
+            .createHash('sha256')
+            .update(Buffer.from(payload.ciphertext, 'base64'))
+            .digest('hex'),
+          encryption: {
+            algorithm: 'aes-256-gcm',
+            kdf: encryption.passwordEnvelope.kdf,
+            wrappedDataKey: encryption.passwordEnvelope.wrappedDataKey,
+            payload,
+          },
+        }),
+      ),
+    );
+
+    await expect(service.open(container.toBuffer(), 'correct password')).rejects.toThrow(
+      'Backup is too large',
+    );
   });
 });

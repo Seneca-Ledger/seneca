@@ -3,52 +3,45 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
+import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { FileUp, Trash2 } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ModalShell } from '@/app/components/ui/modal-shell';
-import { Spinner } from '@/app/components/ui/spinner';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
+import { usePermissions } from '@/app/hooks/usePermissions';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { BalanceHistoryPoint } from '@/app/lib/contracts';
+import { formatMoney } from '@/app/lib/format-money';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-
-export type BalanceHistoryPoint = {
-  date: string;
-  amount: number;
-  currency: string;
-};
+import { formatStoredDate } from '@/app/lib/user-format-store';
 
 type BalanceHistoryDialogProps = {
   accountId: string | null;
   accountName: string;
   isOpen: boolean;
   onClose: () => void;
-  formatCurrency: (value: number, currency?: string) => string;
-  labels: {
-    title: string;
-    hint: string;
-    empty: string;
-    import: string;
-    remove: string;
-  };
 };
 
 function HistoryRow({
   point,
-  formatCurrency,
   removeLabel,
   isRemoving,
   onRemove,
 }: {
   point: BalanceHistoryPoint;
-  formatCurrency: (value: number, currency?: string) => string;
   removeLabel: string;
-  isRemoving: boolean;
+  /** Null when the viewer may only read the history. */
+  isRemoving: boolean | null;
   onRemove: (date: string) => void;
 }): React.JSX.Element {
+  const { locale } = useLocale();
   return (
     <Box
       sx={{
@@ -62,19 +55,30 @@ function HistoryRow({
       }}
     >
       <Typography variant="body2" sx={{ flex: '0 0 110px' }}>
-        {point.date}
+        {formatStoredDate(point.date)}
       </Typography>
-      <Typography variant="body2" sx={{ flexGrow: 1, textAlign: 'right', fontWeight: 600 }}>
-        {formatCurrency(point.amount, point.currency)}
-      </Typography>
-      <IconButton
-        size="small"
-        aria-label={`${removeLabel} ${point.date}`}
-        disabled={isRemoving}
-        onClick={() => onRemove(point.date)}
+      <Typography
+        variant="body2"
+        sx={{
+          flexGrow: 1,
+          textAlign: 'right',
+          fontWeight: 500,
+          fontVariantNumeric: 'tabular-nums',
+        }}
       >
-        <Trash2 size={16} />
-      </IconButton>
+        {/* A history row carries the currency it was entered in, which need not be the sheet's. */}
+        <PrivateAmount>{formatMoney(point.amount, point.currency, locale)}</PrivateAmount>
+      </Typography>
+      {isRemoving !== null && (
+        <IconButton
+          size="small"
+          aria-label={`${removeLabel} ${point.date}`}
+          disabled={isRemoving}
+          onClick={() => onRemove(point.date)}
+        >
+          <Trash2 size={16} />
+        </IconButton>
+      )}
     </Box>
   );
 }
@@ -92,9 +96,18 @@ export function BalanceHistoryDialog({
   accountName,
   isOpen,
   onClose,
-  formatCurrency,
-  labels,
 }: BalanceHistoryDialogProps): React.JSX.Element {
+  const t = useIntlayer('reportsPage');
+  const text = t.labels as Record<string, { value?: string } | undefined>;
+  const labels = {
+    title: text.snapshotHistoryTitle?.value ?? '',
+    hint: text.snapshotHistoryHint?.value ?? '',
+    empty: text.snapshotHistoryEmpty?.value ?? '',
+    import: text.snapshotHistoryImport?.value ?? '',
+    remove: text.snapshotHistoryRemove?.value ?? '',
+  };
+  // Reading the history is a report; changing it changes what the workspace owns.
+  const canEdit = usePermissions().hasPermission('wallet.edit');
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -103,12 +116,12 @@ export function BalanceHistoryDialog({
   const history = useQuery({
     queryKey: queryKeys.balanceAccountHistory({ workspaceId, accountId: accountId ?? '' }),
     enabled: isOpen && Boolean(accountId),
-    queryFn: async ({ signal }) => {
-      const response = await apiClient.get(`/reports/balance/accounts/${accountId}/history`, {
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: `/reports/balance/accounts/${accountId}/history`,
         signal,
-      });
-      return (response.data?.data ?? response.data) as BalanceHistoryPoint[];
-    },
+        contract: 'BalanceAccountHistory',
+      }),
   });
 
   // The sheet, the chart and this list all read the same snapshots.
@@ -118,17 +131,18 @@ export function BalanceHistoryDialog({
   };
 
   const removePoint = useMutation({
-    mutationFn: (date: string) =>
-      apiClient.delete(`/reports/balance/accounts/${accountId}/history/${date}`),
+    mutationFn: async (date: string) => {
+      await apiClient.delete(`/reports/balance/accounts/${accountId}/history/${date}`);
+    },
     onSuccess: refreshEverything,
     onError: (err: unknown) => setError(getApiErrorMessage(err, labels.title)),
   });
 
   const importFile = useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: async (file: File) => {
       const form = new FormData();
       form.append('file', file);
-      return apiClient.post(`/reports/balance/accounts/${accountId}/history`, form);
+      await apiClient.post(`/reports/balance/accounts/${accountId}/history`, form);
     },
     onSuccess: refreshEverything,
     onError: (err: unknown) => setError(getApiErrorMessage(err, labels.title)),
@@ -148,14 +162,16 @@ export function BalanceHistoryDialog({
       </Typography>
 
       {error && (
-        <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+        <Typography variant="body2" sx={{ mb: 2, color: 'var(--money-down)' }}>
           {error}
         </Typography>
       )}
 
       {history.isPending ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <Spinner />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Skeleton variant="text" height={28} />
+          <Skeleton variant="text" height={28} />
+          <Skeleton variant="text" height={28} />
         </Box>
       ) : points.length === 0 ? (
         <EmptyState illustration="reports" description={labels.empty} compact />
@@ -165,9 +181,8 @@ export function BalanceHistoryDialog({
             <HistoryRow
               key={point.date}
               point={point}
-              formatCurrency={formatCurrency}
               removeLabel={labels.remove}
-              isRemoving={removePoint.isPending}
+              isRemoving={canEdit ? removePoint.isPending : null}
               onRemove={date => {
                 setError(null);
                 removePoint.mutate(date);
@@ -177,31 +192,33 @@ export function BalanceHistoryDialog({
         </Box>
       )}
 
-      <Box sx={{ mt: 2 }}>
-        <input
-          ref={fileInput}
-          type="file"
-          accept=".csv,.xlsx,.xls,text/csv"
-          hidden
-          onChange={event => {
-            const file = event.target.files?.[0];
-            event.target.value = '';
-            if (file) {
-              setError(null);
-              importFile.mutate(file);
-            }
-          }}
-        />
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<FileUp size={16} />}
-          disabled={importFile.isPending || !accountId}
-          onClick={() => fileInput.current?.click()}
-        >
-          {labels.import}
-        </Button>
-      </Box>
+      {canEdit && (
+        <Box sx={{ mt: 2 }}>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".csv,.xlsx,.xls,text/csv"
+            hidden
+            onChange={event => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (file) {
+                setError(null);
+                importFile.mutate(file);
+              }
+            }}
+          />
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<FileUp size={16} />}
+            disabled={importFile.isPending || !accountId}
+            onClick={() => fileInput.current?.click()}
+          >
+            {labels.import}
+          </Button>
+        </Box>
+      )}
     </ModalShell>
   );
 }

@@ -1,16 +1,15 @@
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
-import { SplitTransactionDto } from '@/modules/transactions/dto/split-transaction.dto';
+import { decodeBody, rejectedFields } from '../../../helpers/schema-body';
+import { SplitTransactionBody } from '@/contracts';
 import { TransactionsController } from '@/modules/transactions/transactions.controller';
 
 describe('TransactionsController', () => {
   it('parses query params in findAll', async () => {
     const transactionsService = {
-      findAll: jest.fn(async () => ({ data: [], total: 0, page: 2, limit: 10 })),
-      findOne: jest.fn(),
-      update: jest.fn(),
-      bulkUpdate: jest.fn(),
-      remove: jest.fn(),
+      findAll: vi.fn(async () => ({ data: [], total: 0, page: 2, limit: 10 })),
+      findOne: vi.fn(),
+      update: vi.fn(),
+      bulkUpdate: vi.fn(),
+      remove: vi.fn(),
     };
     const controller = new TransactionsController(transactionsService as any, {} as any);
 
@@ -18,17 +17,15 @@ describe('TransactionsController', () => {
       { id: 'u1' } as any,
       'ws-1',
       'member-self',
-      's1',
-      undefined,
-      '2025-01-01',
-      undefined,
-      '2025-01-31',
-      undefined,
-      'income',
-      'cat1',
-      undefined,
-      '2',
-      '10',
+      {
+        statement_id: 's1',
+        date_from: '2025-01-01',
+        date_to: '2025-01-31',
+        type: 'income',
+        category_id: 'cat1',
+        page: 2,
+        limit: 10,
+      },
     );
 
     expect(res).toEqual({ data: [], items: [], total: 0, page: 2, limit: 10 });
@@ -55,11 +52,11 @@ describe('TransactionsController', () => {
     [undefined, { kind: 'all' }],
   ])('turns owner=%s into %o', async (owner, expected) => {
     const transactionsService = {
-      findAll: jest.fn(async () => ({ data: [], total: 0, page: 1, limit: 50 })),
-      findOne: jest.fn(),
-      update: jest.fn(),
-      bulkUpdate: jest.fn(),
-      remove: jest.fn(),
+      findAll: vi.fn(async () => ({ data: [], total: 0, page: 1, limit: 50 })),
+      findOne: vi.fn(),
+      update: vi.fn(),
+      bulkUpdate: vi.fn(),
+      remove: vi.fn(),
     };
     const controller = new TransactionsController(transactionsService as any, {} as any);
 
@@ -67,10 +64,7 @@ describe('TransactionsController', () => {
       { id: 'u1' } as any,
       'ws-1',
       'member-self',
-      // statementId ×2, dateFrom ×2, dateTo ×2, type, categoryId ×2, page,
-      // limit, currency, convert_to — then owner.
-      ...(Array.from({ length: 13 }) as undefined[]),
-      owner as string | undefined,
+      { owner: owner as 'me' | 'shared' | undefined },
     );
 
     expect(transactionsService.findAll).toHaveBeenCalledWith(
@@ -80,13 +74,14 @@ describe('TransactionsController', () => {
     );
   });
 
-  it('bulkUpdate forwards items', async () => {
+  it('bulkUpdate forwards items and answers each row read back as stored', async () => {
     const transactionsService = {
-      findAll: jest.fn(),
-      findOne: jest.fn(),
-      update: jest.fn(),
-      bulkUpdate: jest.fn(async () => [{ id: 't1' }]),
-      remove: jest.fn(),
+      findAll: vi.fn(),
+      findOne: vi.fn(),
+      findOneFor: vi.fn(async (id: string) => ({ id, debit: '1.00' })),
+      update: vi.fn(),
+      bulkUpdate: vi.fn(async () => [{ id: 't1', debit: 1 }]),
+      remove: vi.fn(),
     };
     const controller = new TransactionsController(transactionsService as any, {} as any);
     const result = await controller.bulkUpdate(
@@ -95,7 +90,8 @@ describe('TransactionsController', () => {
       'ws-1',
       'member-self',
     );
-    expect(result).toEqual([{ id: 't1' }]);
+    expect(result).toEqual([{ id: 't1', debit: '1.00' }]);
+    expect(transactionsService.findOneFor).toHaveBeenCalledWith('t1', 'ws-1', 'member-self');
     expect(transactionsService.bulkUpdate).toHaveBeenCalledWith(
       'ws-1',
       'u1',
@@ -107,65 +103,68 @@ describe('TransactionsController', () => {
   describe('split routes', () => {
     it('getSplitParts delegates with (id, workspaceId)', async () => {
       const parts = [{ id: 'p1' }, { id: 'p2' }];
-      const transactionsService = { getSplitParts: jest.fn(async () => parts) };
+      const transactionsService = { getSplitParts: vi.fn(async () => parts) };
       const controller = new TransactionsController(transactionsService as any, {} as any);
 
-      const result = await controller.getSplitParts('t1', 'ws-1');
+      const result = await controller.getSplitParts({ id: 't1' }, 'ws-1');
 
       expect(result).toBe(parts);
       expect(transactionsService.getSplitParts).toHaveBeenCalledWith('t1', 'ws-1');
     });
 
-    it('split delegates with (id, workspaceId, userId, dto)', async () => {
+    it('split delegates with (id, workspaceId, userId, dto) and answers the parts as stored', async () => {
       const created = [{ id: 'p1' }, { id: 'p2' }];
-      const transactionsService = { split: jest.fn(async () => created) };
+      const stored = [{ id: 'p1', amount: '60.00' }, { id: 'p2', amount: '40.00' }];
+      const transactionsService = {
+        split: vi.fn(async () => created),
+        getSplitParts: vi.fn(async () => stored),
+      };
       const controller = new TransactionsController(transactionsService as any, {} as any);
       const dto = { parts: [{ amount: 60 }, { amount: 40 }] } as any;
 
-      const result = await controller.split('t1', dto, { id: 'u1' } as any, 'ws-1');
+      const result = await controller.split({ id: 't1' }, dto, { id: 'u1' } as any, 'ws-1');
 
-      expect(result).toBe(created);
+      expect(result).toBe(stored);
       expect(transactionsService.split).toHaveBeenCalledWith('t1', 'ws-1', 'u1', dto);
+      expect(transactionsService.getSplitParts).toHaveBeenCalledWith('t1', 'ws-1');
     });
 
     it('unsplit delegates with (id, workspaceId, userId)', async () => {
       const survivor = { id: 't1' };
-      const transactionsService = { unsplit: jest.fn(async () => survivor) };
+      const stored = { id: 't1', amount: '100.00' };
+      const transactionsService = {
+        unsplit: vi.fn(async () => survivor),
+        findOneFor: vi.fn(async () => stored),
+      };
       const controller = new TransactionsController(transactionsService as any, {} as any);
 
-      const result = await controller.unsplit('t1', { id: 'u1' } as any, 'ws-1');
+      const result = await controller.unsplit({ id: 't1' }, { id: 'u1' } as any, 'ws-1');
 
-      expect(result).toBe(survivor);
+      expect(result).toBe(stored);
       expect(transactionsService.unsplit).toHaveBeenCalledWith('t1', 'ws-1', 'u1');
     });
   });
 
-  describe('SplitTransactionDto validation', () => {
-    it('accepts a valid two-part payload', async () => {
-      const dto = plainToInstance(SplitTransactionDto, {
-        parts: [{ amount: 60.5 }, { amount: 39.5 }],
-      });
-      expect(await validate(dto)).toHaveLength(0);
+  describe('SplitTransactionBody validation', () => {
+    it('accepts a valid two-part payload', () => {
+      expect(
+        rejectedFields(SplitTransactionBody, { parts: [{ amount: 60.5 }, { amount: 39.5 }] }),
+      ).toEqual([]);
     });
 
-    it('rejects a payload with a single part', async () => {
-      const dto = plainToInstance(SplitTransactionDto, { parts: [{ amount: 100 }] });
-      const errors = await validate(dto);
-      expect(errors).toHaveLength(1);
-      expect(errors[0].property).toBe('parts');
-      expect(errors[0].constraints).toHaveProperty('arrayMinSize');
+    it('rejects a payload with a single part', () => {
+      const { errors } = decodeBody(SplitTransactionBody, { parts: [{ amount: 100 }] });
+      expect(errors).toEqual(['parts: Expected a value with a length of at least 2']);
     });
 
-    it('rejects nested parts whose amount is not a positive number', async () => {
-      const dto = plainToInstance(SplitTransactionDto, {
+    it('rejects nested parts whose amount is not a positive number', () => {
+      const { errors } = decodeBody(SplitTransactionBody, {
         parts: [{ amount: 'abc' }, { amount: -5 }],
       });
-      const errors = await validate(dto);
-      expect(errors).toHaveLength(1);
-      expect(errors[0].property).toBe('parts');
-      expect(errors[0].children).toHaveLength(2);
-      expect(errors[0].children?.[0].children?.[0].constraints).toHaveProperty('isNumber');
-      expect(errors[0].children?.[1].children?.[0].constraints).toHaveProperty('isPositive');
+      expect(errors.map(message => message.split(':')[0])).toEqual([
+        'parts.0.amount',
+        'parts.1.amount',
+      ]);
     });
   });
 });

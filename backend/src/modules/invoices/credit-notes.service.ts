@@ -10,6 +10,7 @@ import { type EntityManager, In, Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { fromMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import type { CreateCreditNoteBody, InvoicesQuery } from '../../contracts';
 import { Client } from '../../entities/client.entity';
 import { CreditNote, CreditNoteStatus } from '../../entities/credit-note.entity';
 import { CreditNoteApplication } from '../../entities/credit-note-application.entity';
@@ -22,10 +23,9 @@ import { Payable } from '../../entities/payable.entity';
 import { BusinessProfileService } from '../business-profile/business-profile.service';
 import { LedgerPostingError, LedgerPostingService } from '../ledger/ledger-posting.service';
 import { PayablesService } from '../payables/payables.service';
-import { CreateCreditNoteDto } from './dto/create-credit-note.dto';
-import { FilterInvoicesDto } from './dto/filter-invoices.dto';
 import { buildCreditNotePdf } from './invoice-document';
 import { documentLines, priceLines, totalsOf } from './invoice-pricing';
+import { InvoiceXRechnungService } from './invoice-xrechnung.service';
 
 /** One invoice's share of a credit note, resolved against what it can carry. */
 interface ResolvedApplication {
@@ -56,9 +56,10 @@ export class CreditNotesService {
     private readonly ledgerPostingService: LedgerPostingService,
     private readonly businessProfile: BusinessProfileService,
     private readonly payables: PayablesService,
+    private readonly xrechnung: InvoiceXRechnungService,
   ) {}
 
-  async findAll(workspaceId: string, filters: FilterInvoicesDto) {
+  async findAll(workspaceId: string, filters: InvoicesQuery) {
     const { page, limit, skip } = normalizePagination(filters);
     const query = this.creditNoteRepository
       .createQueryBuilder('note')
@@ -82,7 +83,7 @@ export class CreditNotesService {
       order: { lineItems: { sortOrder: 'ASC' } },
     });
     if (!note) {
-      throw new NotFoundException('Credit note not found');
+      throw new NotFoundException(appError('CREDIT_NOTE_NOT_FOUND'));
     }
     return note;
   }
@@ -102,10 +103,16 @@ export class CreditNotesService {
     });
   }
 
-  async create(workspaceId: string, userId: string, dto: CreateCreditNoteDto): Promise<CreditNote> {
+  async create(
+    workspaceId: string,
+    userId: string,
+    dto: CreateCreditNoteBody,
+  ): Promise<CreditNote> {
     const issueDate = dto.issueDate ?? new Date().toISOString().slice(0, 10);
 
-    return this.creditNoteRepository.manager.transaction(async manager => {
+    // Through the payables service: crediting an invoice down to what was paid
+    // closes it, and that is announced once this transaction commits.
+    return this.payables.inPaymentTransaction(async manager => {
       const resolved = await this.resolveApplications(manager, workspaceId, dto);
       const [first] = resolved;
       const note = await manager.getRepository(CreditNote).save(
@@ -181,7 +188,13 @@ export class CreditNotesService {
 
       // Written last and through `update`: the bytes must never ride along on
       // a saved entity and end up in a response.
-      const pdf = await this.renderPdf(manager, saved, lineItems, resolved);
+      // As an invoice: a German business's credit note is kept as a ZUGFeRD
+      // hybrid (type 381) when its XRechnung can be written.
+      const pdf = await this.xrechnung.creditNoteHybridPdf(
+        manager,
+        saved,
+        await this.renderPdf(manager, saved, lineItems, resolved),
+      );
       const fileHash = createHash('sha256').update(pdf).digest('hex');
       await manager
         .getRepository(CreditNote)
@@ -199,14 +212,16 @@ export class CreditNotesService {
    * document that was sent out is never deleted.
    */
   async void(id: string, workspaceId: string, userId: string): Promise<CreditNote> {
-    return this.creditNoteRepository.manager.transaction(async manager => {
+    // Through the payables service: crediting an invoice down to what was paid
+    // closes it, and that is announced once this transaction commits.
+    return this.payables.inPaymentTransaction(async manager => {
       const notes = manager.getRepository(CreditNote);
       const note = await notes.findOne({
         where: { id, workspaceId },
         lock: { mode: 'pessimistic_write' },
       });
       if (!note) {
-        throw new NotFoundException('Credit note not found');
+        throw new NotFoundException(appError('CREDIT_NOTE_NOT_FOUND'));
       }
       if (note.status === CreditNoteStatus.VOID) {
         throw new ConflictException(appError('CREDIT_NOTE_ALREADY_VOID'));
@@ -249,7 +264,7 @@ export class CreditNotesService {
       .where('note.id = :id AND note.workspaceId = :workspaceId', { id, workspaceId })
       .getOne();
     if (!note?.fileData) {
-      throw new NotFoundException('Credit note PDF not found');
+      throw new NotFoundException(appError('CREDIT_NOTE_PDF_NOT_FOUND'));
     }
     return { fileName: `${note.creditNoteNumber ?? 'credit-note'}.pdf`, data: note.fileData };
   }
@@ -258,7 +273,7 @@ export class CreditNotesService {
   private async resolveApplications(
     manager: EntityManager,
     workspaceId: string,
-    dto: CreateCreditNoteDto,
+    dto: CreateCreditNoteBody,
   ): Promise<ResolvedApplication[]> {
     const invoices = manager.getRepository(Invoice);
     const resolved: ResolvedApplication[] = [];
@@ -269,7 +284,7 @@ export class CreditNotesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!invoice) {
-        throw new NotFoundException('Invoice not found');
+        throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
       }
       // A draft was never sent and a void'd invoice no longer stands: neither
       // is a document there is anything to credit against.
@@ -354,6 +369,8 @@ export class CreditNotesService {
             unitPrice,
             taxRateId: line.taxRateId,
             categoryId: line.categoryId,
+            unitCode: line.unitCode ?? 'C62',
+            adjustmentPercent: line.adjustmentPercent ?? null,
             sortOrder: sortOrder++,
           }),
         );

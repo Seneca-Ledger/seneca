@@ -17,7 +17,7 @@ export interface NetWorthDisplay {
   allTimeHigh: boolean;
 }
 
-const STORAGE_KEY = 'lumio:net-worth-display';
+const STORAGE_KEY = 'seneca:net-worth-display';
 const DEFAULTS: NetWorthDisplay = { zeroBaseline: false, allTimeHigh: false };
 
 const listeners = new Set<() => void>();

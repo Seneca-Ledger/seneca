@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
 import { Notification } from '../../entities/notification.entity';
 import {
   NotificationChannel,
@@ -12,12 +13,16 @@ import { User } from '../../entities/user.entity';
 import { MailerService } from '../mailer/mailer.service';
 import { PushService } from '../push/push.service';
 import { TelegramService } from '../telegram/telegram.service';
+import { notificationUrl } from './notification-url';
 import { getLocalHour, isWithinQuietHours } from './quiet-hours.util';
 
 /** Digests go out in the morning rather than at midnight, when nobody reads them. */
 const DIGEST_HOUR = 9;
 const WEEKLY_DIGEST_WEEKDAY = 1; // Monday
 const DIGEST_BATCH_LIMIT = 200;
+
+const digestText = (items: Notification[]) =>
+  items.map(item => `• ${item.title}\n  ${item.message}`).join('\n\n');
 
 @Injectable()
 export class NotificationDeliveryService {
@@ -82,7 +87,7 @@ export class NotificationDeliveryService {
         to: user.email,
         subject: notification.title,
         text: notification.message,
-        user,
+        workspaceId: notification.workspaceId,
       });
     }
 
@@ -103,7 +108,7 @@ export class NotificationDeliveryService {
       return this.pushService.sendToUser(user.id, {
         title: notification.title,
         body: notification.message,
-        url: pushUrlFor(notification),
+        url: notificationUrl(notification),
         tag: notification.id,
       });
     }
@@ -209,20 +214,46 @@ export class NotificationDeliveryService {
     }
   }
 
+  /**
+   * One digest mail per workspace, each through that workspace's SMTP server:
+   * a single mail would have to borrow one tenant's server for the others.
+   * Answers the notifications whose mail went out.
+   */
+  private async mailDigest(pending: Notification[], user: User): Promise<Notification[]> {
+    const byWorkspace = new Map<string, Notification[]>();
+    for (const item of pending) {
+      byWorkspace.set(item.workspaceId, [...(byWorkspace.get(item.workspaceId) ?? []), item]);
+    }
+    const emailed: Notification[] = [];
+    for (const [workspaceId, items] of byWorkspace) {
+      const sent = await this.mailerService.send({
+        to: user.email,
+        subject: `${APP_NAME}: ${items.length}`,
+        text: digestText(items),
+        workspaceId,
+      });
+      if (sent) {
+        emailed.push(...items);
+      }
+    }
+    return emailed;
+  }
+
   private async sendDigest(
     pending: Notification[],
     user: User,
     preference: NotificationPreference,
   ): Promise<void> {
     const channels = [...new Set(pending.flatMap(item => item.pendingChannels ?? []))];
-    const subject = `Lumio: ${pending.length}`;
-    const body = pending.map(item => `• ${item.title}\n  ${item.message}`).join('\n\n');
+    const subject = `${APP_NAME}: ${pending.length}`;
+    const body = digestText(pending);
 
     let delivered = true;
+    let emailed: Notification[] = [];
 
     if (channels.includes(NotificationChannel.EMAIL)) {
-      delivered =
-        (await this.mailerService.send({ to: user.email, subject, text: body, user })) && delivered;
+      emailed = await this.mailDigest(pending, user);
+      delivered = emailed.length === pending.length;
     }
 
     if (channels.includes(NotificationChannel.TELEGRAM) && user.telegramChatId) {
@@ -248,6 +279,14 @@ export class NotificationDeliveryService {
     }
 
     if (!delivered) {
+      // A workspace whose mail did go out does not get it again with the retry.
+      for (const item of emailed) {
+        await this.notificationRepository.update(item.id, {
+          pendingChannels: (item.pendingChannels ?? []).filter(
+            channel => channel !== NotificationChannel.EMAIL,
+          ),
+        });
+      }
       return;
     }
 
@@ -257,21 +296,4 @@ export class NotificationDeliveryService {
     );
     await this.preferenceRepository.update(preference.id, { lastDigestAt: new Date() });
   }
-}
-
-/** The page a tap on the push opens; the in-app bell resolves the same way on the client. */
-function pushUrlFor(notification: Notification): string {
-  const entity = notification.entityType;
-  const id = notification.entityId;
-  if (entity === 'budget') return '/budgets';
-  if (entity === 'subscription') return '/subscriptions';
-  if (entity === 'payable') return '/statements/pay';
-  if (entity === 'statement' && id) return `/statements/${id}`;
-  if (
-    notification.type.startsWith('review.') ||
-    notification.type === 'transaction.uncategorized'
-  ) {
-    return '/review';
-  }
-  return '/dashboard';
 }

@@ -2,7 +2,7 @@
 
 set -e
 
-echo "Lumio quick start"
+echo "Seneca quick start"
 echo ""
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -26,7 +26,7 @@ if ! command -v make >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Starting Lumio in development mode..."
+echo "Starting Seneca in development mode..."
 make quick-dev
 
 echo ""
@@ -34,4 +34,4 @@ echo "Done."
 echo "Frontend: http://localhost:3000"
 echo "Backend:  http://localhost:3001/api/v1"
 echo "Swagger:  http://localhost:3001/api/docs"
-echo "Login:    demo@lumio.dev / demo123"
+echo "Login:    demo@seneca.dev / demo123"

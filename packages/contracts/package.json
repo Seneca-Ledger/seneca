@@ -1,0 +1,17 @@
+{
+  "name": "@seneca/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "API request/response schemas shared by backend and frontend. Synced into both apps by scripts/sync-contracts.mjs.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "effect": "4.0.3"
+  },
+  "devDependencies": {
+    "effect": "4.0.3",
+    "typescript": "~6.0.3"
+  }
+}

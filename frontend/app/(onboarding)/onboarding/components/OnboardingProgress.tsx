@@ -2,6 +2,7 @@
 
 import Box from '@mui/material/Box';
 import { visuallyHidden } from '@mui/utils';
+import { BrandLockup } from '@/app/components/BrandLockup';
 
 interface OnboardingProgressProps {
   currentStep: number;
@@ -12,14 +13,7 @@ interface OnboardingProgressProps {
 
 /** The auth pages' lockup, smaller and flush left: it marks the page, it does not head it. */
 export function OnboardingLogo() {
-  return (
-    <div
-      className="lumio-auth-logo"
-      role="img"
-      aria-label="Lumio"
-      style={{ margin: 0, height: 28 }}
-    />
-  );
+  return <BrandLockup className="seneca-auth-logo seneca-auth-logo--inline" />;
 }
 
 /**

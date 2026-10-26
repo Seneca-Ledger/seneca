@@ -6,15 +6,19 @@ import { Statement } from '../../entities/statement.entity';
 import { Tag } from '../../entities/tag.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { TransactionAttachment } from '../../entities/transaction-attachment.entity';
+import { Wallet } from '../../entities/wallet.entity';
 import { AuditModule } from '../audit/audit.module';
 import { ClassificationModule } from '../classification/classification.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { TaxModule } from '../tax/tax.module';
 import { CrossStatementDeduplicationService } from './services/cross-statement-deduplication.service';
+import { ManualRowDuplicateService } from './services/manual-row-duplicate.service';
 import { TransactionAttachmentsService } from './services/transaction-attachments.service';
 import { TransactionFingerprintService } from './services/transaction-fingerprint.service';
 import { TransactionTagsService } from './services/transaction-tags.service';
+import { TransactionsOverviewService } from './services/transactions-overview.service';
 import { TransferPairingService } from './services/transfer-pairing.service';
+import { TransactionPairingController } from './transaction-pairing.controller';
 import { TransactionsController } from './transactions.controller';
 import { TransactionsService } from './transactions.service';
 
@@ -28,24 +32,28 @@ import { TransactionsService } from './transactions.service';
       Category,
       Tag,
       TransactionAttachment,
+      Wallet,
     ]),
     AuditModule,
     ClassificationModule,
     ExchangeRatesModule,
     TaxModule,
   ],
-  controllers: [TransactionsController],
+  controllers: [TransactionsController, TransactionPairingController],
   providers: [
     TransactionsService,
     CrossStatementDeduplicationService,
+    ManualRowDuplicateService,
     TransactionFingerprintService,
     TransactionTagsService,
     TransactionAttachmentsService,
     TransferPairingService,
+    TransactionsOverviewService,
   ],
   exports: [
     TransactionsService,
     CrossStatementDeduplicationService,
+    ManualRowDuplicateService,
     TransactionFingerprintService,
     TransferPairingService,
     TransactionAttachmentsService,

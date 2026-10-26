@@ -10,10 +10,14 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
+import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { downloadTableExport } from '../../exportTable';
 import type { ConvertResult } from '../components/SendToStatementsDialog';
 import { showUndoToast } from '../components/UndoToast';
+import { isDraftRowId } from '../helpers/draftRowHelpers';
 import { buildDetailLabels } from '../labels';
+import { sourceViewDefaults } from '../utils/source-view-defaults';
 import type { AggregateFn, CustomTableColumn } from '../utils/types';
 import { useColumnEditor } from './useColumnEditor';
 import { usePasteImport } from './usePasteImport';
@@ -23,6 +27,7 @@ import { useTableAggregates } from './useTableAggregates';
 import { useTableData } from './useTableData';
 import { useTableGrid } from './useTableGrid';
 import { useTableGroups } from './useTableGroups';
+import { useTableMoneyTotal } from './useTableMoneyTotal';
 import { useTableSummaries } from './useTableSummaries';
 
 interface ConvertState {
@@ -63,17 +68,68 @@ export function useCustomTablePage(tableId: string) {
   );
 
   const filters = useRowFilters();
-  const [sorting, setSorting] = useState<SortingState>([]);
+  // A table filled from Seneca opens newest first and without the columns that
+  // repeat the row (type, statement, a single currency). These defaults are
+  // derived during render, never set in an effect after the rows arrive: that
+  // re-sorted an already drawn table, emptied it and drew it again, so the old
+  // layout flashed after the skeleton. Whatever the user picks overrides them.
+  const isSourceTable = Boolean(data.table?.sourceBinding);
+  const defaultSorting = useMemo(
+    () => (isSourceTable ? sourceViewDefaults(columns, []).sorting : []),
+    [isSourceTable, columns],
+  );
+  const [userSorting, setUserSorting] = useState<{ tableId: string; value: SortingState } | null>(
+    null,
+  );
+  const sorting =
+    userSorting && userSorting.tableId === tableId ? userSorting.value : defaultSorting;
+  const setSorting = useCallback(
+    (updater: SortingState | ((current: SortingState) => SortingState)) =>
+      setUserSorting(prev => {
+        const current = prev && prev.tableId === tableId ? prev.value : defaultSorting;
+        return {
+          tableId: tableId ?? '',
+          value: typeof updater === 'function' ? updater(current) : updater,
+        };
+      }),
+    [tableId, defaultSorting],
+  );
   const grid = useTableGrid({
     tableId,
-    isAuthenticated,
+    // The first page is asked once the table is known, so it comes already in
+    // the order the table opens with, not re-sorted a moment later.
+    isAuthenticated: isAuthenticated && Boolean(data.table),
     combinedFiltersParam: filters.filtersParam,
     sort: sortParam(sorting),
     loadRowsFailedMessage: labels.toasts.loadRowsFailed,
   });
 
   const [rowSelection, setRowSelection] = useState<Record<string, true>>({});
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+  const [userVisibility, setUserVisibility] = useState<Record<string, boolean>>({});
+  // The currency column hides while every loaded row has one currency (and
+  // before any row is in, the usual case), so it does not pop out on arrival.
+  const defaultHidden = useMemo(
+    () =>
+      isSourceTable ? sourceViewDefaults(columns, grid.rows, { assumeSingle: true }).hidden : [],
+    [isSourceTable, columns, grid.rows],
+  );
+  const columnVisibility = useMemo(
+    () => ({ ...Object.fromEntries(defaultHidden.map(key => [key, false])), ...userVisibility }),
+    [defaultHidden, userVisibility],
+  );
+  const setColumnVisibility = useCallback(
+    (
+      updater:
+        | Record<string, boolean>
+        | ((current: Record<string, boolean>) => Record<string, boolean>),
+    ) =>
+      setUserVisibility(prev =>
+        typeof updater === 'function'
+          ? updater({ ...Object.fromEntries(defaultHidden.map(key => [key, false])), ...prev })
+          : updater,
+      ),
+    [defaultHidden],
+  );
   const [refreshToken, setRefreshToken] = useState(0);
   const onRowsChanged = useCallback(() => setRefreshToken(n => n + 1), []);
 
@@ -96,6 +152,7 @@ export function useCustomTablePage(tableId: string) {
     selection: aggregates,
     refreshToken,
   });
+  const moneyTotal = useTableMoneyTotal({ tableId, isAuthenticated, refreshToken });
   const summaries = useTableSummaries({
     tableId,
     isAuthenticated,
@@ -122,7 +179,10 @@ export function useCustomTablePage(tableId: string) {
         return fn ? { ...rest, [columnKey]: fn } : rest;
       });
       apiClient
-        .patch(`/custom-tables/${tableId}/view-settings/columns`, { columnKey, aggregate: fn })
+        .patch(`/custom-tables/${tableId}/view-settings/columns`, {
+          columnKey,
+          aggregate: fn,
+        } satisfies ContractInput<'UpdateCustomTableViewSettingsColumnBody'>)
         .catch(error => console.error('Failed to persist column aggregate:', error));
     },
     [tableId],
@@ -206,7 +266,11 @@ export function useCustomTablePage(tableId: string) {
     setConvert(prev => ({ ...prev, busy: true }));
     await (async () => {
       const response = await apiClient.post(`/custom-tables/${tableId}/convert-to-statement`);
-      const payload = (response.data?.data ?? response.data) as ConvertResult;
+      const payload = await checkContract(
+        'ConvertedToStatement',
+        response.data,
+        '/custom-tables/:id/convert-to-statement',
+      );
       setConvert({ open: true, busy: false, result: payload });
     })().catch(async error => {
       console.error('Failed to convert table:', error);
@@ -220,10 +284,11 @@ export function useCustomTablePage(tableId: string) {
     setRefreshing(true);
     await (async () => {
       const response = await apiClient.post(`/custom-tables/${tableId}/refresh-from-source`);
-      const result = (response.data?.data ?? response.data) as {
-        inserted: number;
-        updated: number;
-      };
+      const result = await checkContract(
+        'RefreshedFromSource',
+        response.data,
+        '/custom-tables/:id/refresh-from-source',
+      );
       toast.success(
         labels.toasts.refreshed
           .replace('{{inserted}}', String(result.inserted))
@@ -240,6 +305,51 @@ export function useCustomTablePage(tableId: string) {
       .finally(async () => setRefreshing(false));
   }, [tableId, data, grid, onRowsChanged, labels.toasts]);
 
+  // "Restore to default": undo the table's app changes and rebuild it from the source.
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const runRestoreDefault = useCallback(async () => {
+    setRestoring(true);
+    await (async () => {
+      const response = await apiClient.post(`/custom-tables/${tableId}/restore-default`);
+      const result = await checkContract(
+        'RestoredTableDefault',
+        response.data,
+        '/custom-tables/:id/restore-default',
+      );
+      toast.success(labels.toasts.restored.replace('{{reverted}}', String(result.reverted)));
+      if (result.skippedChanged) {
+        toast(labels.toasts.restoredSkipped.replace('{{count}}', String(result.skippedChanged)));
+      }
+      if (result.failed.length) {
+        toast.error(
+          labels.toasts.restoredFailed.replace('{{count}}', String(result.failed.length)),
+        );
+      }
+      // The view settings the server just cleared, and the ones kept only here.
+      // The restore changed app records back: drop cached document lists too.
+      invalidateDocumentLists();
+      setAggregates({});
+      setGroupBy(null);
+      setSorting([]);
+      setColumnVisibility({});
+      setRowSelection({});
+      filters.clearFilters();
+      filters.setSearchQuery('');
+      await data.loadTable();
+      await grid.loadRows({ reset: true });
+      onRowsChanged();
+    })()
+      .catch(async error => {
+        console.error('Failed to restore table to default:', error);
+        toast.error(getApiErrorMessage(error, labels.toasts.restoreFailed));
+      })
+      .finally(async () => {
+        setRestoring(false);
+        setRestoreOpen(false);
+      });
+  }, [tableId, data, grid, filters, onRowsChanged, labels.toasts]);
+
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
   const confirmDelete = useCallback(async () => {
@@ -253,7 +363,10 @@ export function useCustomTablePage(tableId: string) {
     }
     await (async () => {
       await Promise.all(
-        selectedIds.map(id => apiClient.delete(`/custom-tables/${tableId}/rows/${id}`)),
+        // Drafts were never saved, so the server has nothing to delete.
+        selectedIds
+          .filter(id => !isDraftRowId(id))
+          .map(id => apiClient.delete(`/custom-tables/${tableId}/rows/${id}`)),
       );
       grid.setRows(prev => prev.filter(row => !selectedIds.includes(row.id)));
       setRowSelection({});
@@ -269,7 +382,9 @@ export function useCustomTablePage(tableId: string) {
   const rename = useCallback(
     async (name: string) => {
       await (async () => {
-        await apiClient.patch(`/custom-tables/${tableId}`, { name });
+        await apiClient.patch(`/custom-tables/${tableId}`, {
+          name,
+        } satisfies ContractInput<'UpdateCustomTableBody'>);
         data.setTable(prev => (prev ? { ...prev, name } : prev));
         toast.success(labels.toasts.renamed);
       })().catch(async error => {
@@ -284,13 +399,8 @@ export function useCustomTablePage(tableId: string) {
     if (columnEditor.dialog.mode === 'closed' || relationTargets.length) {
       return;
     }
-    apiClient
-      .get('/custom-tables')
-      .then(response => {
-        const items = (response.data?.data ?? response.data ?? []) as Array<{
-          id: string;
-          name: string;
-        }>;
+    apiQueryDecoded({ url: '/custom-tables', contract: 'CustomTableList' })
+      .then(({ items }) => {
         setRelationTargets(
           items.filter(item => item.id !== tableId).map(({ id, name }) => ({ id, name })),
         );
@@ -327,6 +437,7 @@ export function useCustomTablePage(tableId: string) {
     aggregates,
     aggregateValues: aggregateState.values,
     setAggregate,
+    moneyTotal,
     groupBy,
     setGroupBy,
     groups: groupState,
@@ -342,6 +453,10 @@ export function useCustomTablePage(tableId: string) {
     runConvert,
     refreshing,
     runRefreshSource,
+    restoreOpen,
+    setRestoreOpen,
+    restoring,
+    runRestoreDefault,
     summaries,
     pendingDelete,
     setPendingDelete,

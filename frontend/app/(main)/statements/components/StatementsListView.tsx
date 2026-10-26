@@ -9,19 +9,21 @@ import ConfirmModal from '@/app/components/ConfirmModal';
 import { GitMerge, RefreshCcw } from '@/app/components/icons';
 import { NoteCountsProvider } from '@/app/components/notes/NoteCountsContext';
 import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
-import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
 import { useLockBodyScroll } from '@/app/hooks/useLockBodyScroll';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { DeviceLocation } from '@/app/lib/device-location';
-import { resolveLabel } from '@/app/lib/side-panel-utils';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type {
   CreateTaxRatePayload,
   ManualExpenseDraft,
   TaxRateOption,
 } from '@/app/lib/statement-expense-drawer';
+import { useDocumentSelectionCommands } from './hooks/useDocumentSelectionCommands';
 import type { MergeDuplicatesPlan } from './hooks/useStatementSelection';
 import { useStatementsView } from './hooks/useStatementsView';
 import {
@@ -31,7 +33,7 @@ import {
 } from './pending-uploads-store';
 import { StatementsListHeader } from './StatementsListHeader';
 import { StatementsListTable } from './StatementsListTable';
-import { isGmailStatement, resolveStatementViewAction } from './StatementsListView.utils';
+import { resolveStatementViewAction } from './StatementsListView.utils';
 import { StatementsTableToolbar } from './StatementsTableToolbar';
 import { uploadScanDrawerFiles as runUploadScanDrawerFiles } from './statement-upload';
 
@@ -125,14 +127,14 @@ function PullToRefreshIndicator({
 }: PullIndicatorProps): React.JSX.Element | null {
   const listText = useIntlayer('statementsListUi');
   if (!isMobile || (pullDistance <= 0 && !pullRefreshing)) return null;
-  const badgeClass = `lumio-stmt-list-view__pull-badge${isReadyToRefresh || pullRefreshing ? ' lumio-stmt-list-view__pull-badge--ready' : ''}`;
+  const badgeClass = `seneca-stmt-list-view__pull-badge${isReadyToRefresh || pullRefreshing ? ' seneca-stmt-list-view__pull-badge--ready' : ''}`;
   const label = pullRefreshing
     ? listText.refreshing
     : isReadyToRefresh
       ? listText.releaseToRefresh
       : listText.pullToRefresh;
   return (
-    <div className="lumio-stmt-list-view__pull-indicator">
+    <div className="seneca-stmt-list-view__pull-indicator">
       <div className={badgeClass}>
         <RefreshCcw
           size={14}
@@ -155,11 +157,6 @@ function MergeDuplicatesSummary({
   }
   const trashCount = plan.statementIds.length + plan.receiptIds.length;
   const lines: string[] = [];
-  if (plan.gmailEntries.length > 0) {
-    lines.push(
-      listText.mergeGmailMarked.value.replace('{count}', String(plan.gmailEntries.length)),
-    );
-  }
   if (plan.receiptIds.length > 0) {
     lines.push(
       listText.mergeReceiptsTrash.value.replace('{count}', String(plan.receiptIds.length)),
@@ -169,9 +166,6 @@ function MergeDuplicatesSummary({
     lines.push(
       listText.mergeStatementsTrash.value.replace('{count}', String(plan.statementIds.length)),
     );
-  }
-  if (plan.skippedGmailCount > 0) {
-    lines.push(listText.mergeGmailSkipped.value.replace('{count}', String(plan.skippedGmailCount)));
   }
 
   return (
@@ -201,12 +195,7 @@ export default function StatementsListView(): React.JSX.Element {
 
   useLockBodyScroll(v.expenseDrawerOpen);
 
-  useKeyboardShortcuts({
-    'Shift+KeyX': () => v.handleToggleSelectAll(true),
-    'Shift+Delete': () => {
-      void v.handleDeleteSelected();
-    },
-  });
+  const selectionActions = useDocumentSelectionCommands(v, router.push);
 
   const { t, filterState, listHeaderLabels, paginationLabels, uploadLabels } = v;
 
@@ -215,10 +204,13 @@ export default function StatementsListView(): React.JSX.Element {
   const refreshAfterCreate = async (): Promise<void> => {
     v.setPage(1);
     v.refetchStatements();
+    // A new expense counts on the dashboard and in reports right away.
+    invalidateFinancialData();
   };
 
   const refreshAfterAttach = (): void => {
     v.refetchStatements();
+    invalidateFinancialData();
   };
 
   const onUploadSuccess = (msg: string): void => {
@@ -229,7 +221,7 @@ export default function StatementsListView(): React.JSX.Element {
   // refetched too, not only statements.
   const refreshListsAfterScan = async (): Promise<void> => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['gmail-receipts', workspaceId] }),
+      queryClient.invalidateQueries({ queryKey: ['receipt-documents', workspaceId] }),
       queryClient.invalidateQueries({ queryKey: ['statements', workspaceId] }),
     ]);
   };
@@ -281,13 +273,16 @@ export default function StatementsListView(): React.JSX.Element {
   };
 
   const handleCreateTaxRate = async (payload: CreateTaxRatePayload): Promise<TaxRateOption> => {
-    const response = await apiClient.post('/tax-rates', payload);
-    const created = response.data as TaxRateOption & { rate: number | string };
+    const response = await apiClient.post(
+      '/tax-rates',
+      payload satisfies ContractInput<'CreateTaxRateBody'>,
+    );
+    const created = await checkContract('TaxRateItem', response.data, '/tax-rates');
     await v.loadManualExpenseOptions();
     return {
       ...created,
-      rate: Number(created.rate ?? payload.rate),
-      isEnabled: created.isEnabled !== false,
+      rate: Number(created.rate),
+      isEnabled: created.isEnabled,
     };
   };
 
@@ -299,14 +294,14 @@ export default function StatementsListView(): React.JSX.Element {
     id: string;
     source?: string;
     fileName: string;
-    parsingDetails?: { importPreview?: { attachments?: number } };
+    parsingDetails?: StatementParsingDetails | null;
   }): void => {
-    const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
+    const isReceipt = statement.source === 'scan';
     if (isReceipt) {
       v.openPreview({
         fileId: statement.id,
         fileName: statement.fileName || 'receipt.pdf',
-        source: isGmailStatement(statement) ? 'gmail' : 'receipt',
+        source: 'receipt',
         allowAttachFile: false,
       });
       return;
@@ -321,22 +316,16 @@ export default function StatementsListView(): React.JSX.Element {
     });
   };
 
-  const reviewDuplicateLabel = resolveLabel(v.t.actions?.reviewDuplicate, 'Review');
-  const markDuplicateLabel = resolveLabel(v.t.actions?.markDuplicate, 'Mark as duplicate');
-  const markNotDuplicateLabel = resolveLabel(
-    v.t.actions?.markNotDuplicate,
-    'Mark as not duplicate',
-  );
-  const dismissDuplicateLabel = resolveLabel(
-    v.t.actions?.dismissDuplicate,
-    markNotDuplicateLabel || 'Dismiss',
-  );
-  const mergeDuplicatesLabel = resolveLabel(v.t.actions?.mergeDuplicates, 'Merge duplicates');
-  const selectDuplicatesLabel = resolveLabel(v.t.actions?.selectDuplicates, 'Select duplicates');
-  const viewLabel = resolveLabel(v.t.actions?.view, 'View');
+  const reviewDuplicateLabel = v.t.actions.reviewDuplicate.value;
+  const markDuplicateLabel = v.t.actions.markDuplicate.value;
+  const markNotDuplicateLabel = v.t.actions.markNotDuplicate.value;
+  const dismissDuplicateLabel = v.t.actions.dismissDuplicate.value;
+  const mergeDuplicatesLabel = v.t.actions.mergeDuplicates.value;
+  const selectDuplicatesLabel = v.t.actions.selectDuplicates.value;
+  const viewLabel = v.t.actions.view.value;
 
   return (
-    <div className="container-shared lumio-stmt-list-view" {...v.pullToRefreshHandlers}>
+    <div className="container-shared seneca-stmt-list-view" {...v.pullToRefreshHandlers}>
       <PullToRefreshIndicator
         isMobile={v.isMobile}
         pullDistance={v.pullDistance}
@@ -346,9 +335,13 @@ export default function StatementsListView(): React.JSX.Element {
       <StatementsListHeader
         selectedCount={v.selectedCount}
         selectedActionsOpen={v.selectedActionsOpen}
+        selectionActions={selectionActions}
         hasSelectedDuplicates={v.hasSelectedDuplicates}
         draftFilters={filterState.draftFilters}
+        appliedFilters={filterState.appliedFilters}
         activeFilterCount={v.activeFilterCount}
+        search={v.search}
+        onSearchApply={v.applySearch}
         dateDropdownOpen={filterState.dateDropdownOpen}
         filtersDrawerOpen={filterState.filtersDrawerOpen}
         filtersDrawerScreen={filterState.filtersDrawerScreen}
@@ -371,7 +364,7 @@ export default function StatementsListView(): React.JSX.Element {
         mergeDuplicatesLabel={mergeDuplicatesLabel}
         dismissDuplicateLabel={dismissDuplicateLabel}
         markDuplicateLabel={markDuplicateLabel}
-        onToggleActionsOpen={() => v.setSelectedActionsOpen(prev => !prev)}
+        onActionsOpenChange={v.setSelectedActionsOpen}
         onMerge={v.handleMergeSelectedDuplicates}
         onDismiss={v.handleDismissSelectedDuplicates}
         onMarkDuplicate={v.handleMarkSelectedAsDuplicate}
@@ -404,7 +397,7 @@ export default function StatementsListView(): React.JSX.Element {
       <div
         ref={listScrollRef}
         data-tour-id="statements-table"
-        className="lumio-stmt-list-view__body"
+        className="seneca-stmt-list-view__body"
         style={{ paddingBottom: v.selectedCount > 0 ? 96 : 0 }}
       >
         <NoteCountsProvider
@@ -441,7 +434,7 @@ export default function StatementsListView(): React.JSX.Element {
             loading={v.isPending}
             displayStatements={v.displayStatements}
             paginatedStatements={v.paginatedDisplayStatements}
-            gmailSyncSkeletonKeys={v.listSkeletonKeys}
+            skeletonKeys={v.listSkeletonKeys}
             allVisibleSelected={v.allVisibleSelected}
             selectedCount={v.selectedCount}
             selectedStatementIds={v.selectedStatementIds}
@@ -465,11 +458,8 @@ export default function StatementsListView(): React.JSX.Element {
               action: listHeaderLabels.action,
               receipt: listHeaderLabels.receipt,
               scanning: listHeaderLabels.scanning,
-              emptyTitle: resolveLabel(t.empty?.title, 'No statements yet'),
-              emptyDescription: resolveLabel(
-                t.empty?.description,
-                'Upload your first statement to get started',
-              ),
+              emptyTitle: t.empty.title.value,
+              emptyDescription: t.empty.description.value,
               paginationShown: paginationLabels.shown,
               paginationPageOf: paginationLabels.pageOf,
             }}

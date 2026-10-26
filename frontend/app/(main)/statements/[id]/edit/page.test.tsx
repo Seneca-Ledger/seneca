@@ -3,6 +3,13 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  categoryItem,
+  categoryRef,
+  receiptRecord,
+  transactionItem,
+} from '@/app/test/fixtures/contracts';
+import EditStatementPage from './page';
 
 const apiGet = vi.hoisted(() => vi.fn());
 const apiPatch = vi.hoisted(() => vi.fn());
@@ -11,6 +18,7 @@ const apiDelete = vi.hoisted(() => vi.fn());
 
 const push = vi.hoisted(() => vi.fn());
 const back = vi.hoisted(() => vi.fn());
+const replace = vi.hoisted(() => vi.fn());
 const authUser = vi.hoisted(() => ({ id: 'user-1' }));
 
 vi.mock('@/app/lib/api', () => ({
@@ -121,6 +129,31 @@ vi.mock('@/app/i18n', () => {
       unapproveSuccess: token('Statement moved back to submit'),
       paySuccess: token('Statement moved to pay'),
       rollbackToApproveSuccess: token('Statement moved back to approve'),
+      alertReadyBody: token('All required categories are assigned. The data looks good and ready to submit.'),
+      balanceReviewActual: token('Reported'),
+      balanceReviewConfirm: token('Confirm discrepancy'),
+      balanceReviewConfirmFailed: token('Failed to confirm the discrepancy'),
+      balanceReviewDescription: token('This statement stays out of analytics until you confirm the discrepancy. The usual cause is the parser dropping or misreading rows.'),
+      balanceReviewDifference: token('Difference'),
+      balanceReviewExpected: token('Expected'),
+      balanceReviewTitle: token('Balance does not reconcile'),
+      bank: token('Bank'),
+      chooseCategory: token('Choose category'),
+      closingBalance: token('Closing balance'),
+      closingBankSays: token('Bank statement says {amount}'),
+      closingMatches: token('Matches the bank statement'),
+      confirmAll: token('Confirm all'),
+      confirmAllDone: token('Confirmed {count} rows'),
+      confirmAllFailed: token('Could not confirm the rows'),
+      confirmAllUncategorized: token('{count} rows still need a category'),
+      createdTransactions: token('Transactions created'),
+      enterManuallyHint: token('Enter manually if it was not detected'),
+      errors: token('Errors'),
+      extractedMetadata: token('Extracted metadata'),
+      fixDroppedRow: token('Fix'),
+      format: token('Format'),
+      foundTransactions: token('Transactions found'),
+      fromFilePrefix: token('From file: '),
     },
     columns: {
       date: token('Date'),
@@ -146,7 +179,7 @@ vi.mock('@/app/(main)/custom-tables/labels', () => ({
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'statement-1' }),
-  useRouter: () => ({ push, back }),
+  useRouter: () => ({ push, back, replace }),
 }));
 
 vi.mock('react-hot-toast', () => ({
@@ -157,16 +190,27 @@ vi.mock('react-hot-toast', () => ({
   },
 }));
 
+vi.mock('@/app/components/tags/RecordTagsField', () => ({
+  StatementTagsField: () => <div data-testid="statement-tags" />,
+}));
+
+vi.mock('@/app/components/notes/NotesPanel', () => ({
+  NotesPanel: () => <div data-testid="statement-notes" />,
+}));
+
 vi.mock('./ParsingWarningsPanel', () => ({
   ParsingWarningsPanel: ({
     onResolveWarning,
   }: {
-    onResolveWarning?: (warning: string, index: number) => void;
+    onResolveWarning?: (payload: { warning: string; index: number }) => void;
   }) => (
     <button
       type="button"
       onClick={() =>
-        onResolveWarning?.('Balance mismatch: expected 1000.00 got 800.00 (diff 200.00)', 0)
+        onResolveWarning?.({
+          warning: 'Balance mismatch: expected 1000.00 got 800.00 (diff 200.00)',
+          index: 0,
+        })
       }
     >
       Resolve balance warning
@@ -198,21 +242,27 @@ describe('EditStatementPage locale', () => {
     apiDelete.mockReset();
     push.mockReset();
     back.mockReset();
+    replace.mockReset();
 
     apiGet.mockImplementation((url: string) => {
       if (url === '/statements/statement-1') {
         return Promise.resolve({
+          // The wire format (packages/contracts StatementDetail).
           data: {
             id: 'statement-1',
             fileName: 'statement.pdf',
+            fileType: 'pdf',
+            bankName: 'kaspi',
             status: 'completed',
+            stage: 'submit',
             totalTransactions: 1,
+            currency: 'KZT',
             categoryId: 'cat-1',
-            category: { id: 'cat-1', name: 'Services', isEnabled: true },
             statementDateFrom: '2026-03-01',
             statementDateTo: '2026-03-17',
-            balanceStart: 100,
-            balanceEnd: 200,
+            balanceStart: '100.00',
+            balanceEnd: '200.00',
+            createdAt: '2026-03-17T09:00:00.000Z',
             parsingDetails: {
               warnings: ['Balance mismatch: expected 1000.00 got 800.00 (diff 200.00)'],
               errors: [],
@@ -223,27 +273,28 @@ describe('EditStatementPage locale', () => {
 
       if (url === '/transactions?statement_id=statement-1&limit=1000') {
         return Promise.resolve({
+          // The wire format (packages/contracts TransactionListItem): decimals
+          // as strings, `date` columns as YYYY-MM-DD, absent values as null.
           data: [
-            {
+            transactionItem({
               id: 'tx-1',
-              transactionDate: '2026-03-17T00:00:00.000Z',
+              transactionDate: '2026-03-17',
               counterpartyName: 'Test counterparty',
               paymentPurpose: 'Payment for services',
-              debit: 125,
-              credit: 0,
-              transactionType: 'expense',
-              isVerified: false,
+              debit: '125.00',
+              amount: '-125.00',
+              currency: 'KZT',
               categoryId: 'cat-1',
-              category: { id: 'cat-1', name: 'Services', isEnabled: true },
-            },
+              category: categoryRef({ id: 'cat-1', name: 'Services' }),
+              createdAt: '2026-03-17T08:00:00.000Z',
+              updatedAt: '2026-03-17T08:00:00.000Z',
+            }),
           ],
         });
       }
 
       if (url === '/categories') {
-        return Promise.resolve({
-          data: [{ id: 'cat-1', name: 'Services', isEnabled: true }],
-        });
+        return Promise.resolve({ data: [categoryItem({ id: 'cat-1', name: 'Services' })] });
       }
 
       if (url === '/branches' || url === '/wallets') {
@@ -261,8 +312,44 @@ describe('EditStatementPage locale', () => {
     container.remove();
   });
 
+  it('sends a scan’s statement on to its receipt instead of opening the editor', async () => {
+    const base = apiGet.getMockImplementation() as (url: string) => Promise<unknown>;
+    apiGet.mockImplementation(async (url: string, config?: { params?: unknown }) => {
+      if (url === '/statements/statement-1') {
+        const response = (await base(url)) as { data: Record<string, unknown> };
+        return { data: { ...response.data, parsingDetails: { detectedBy: 'receipt-scan' } } };
+      }
+      if (url === '/receipts') {
+        expect(config?.params).toEqual({ statementId: 'statement-1', limit: 1 });
+        return {
+          data: {
+            data: [receiptRecord({ id: 'rc-1', statementId: 'statement-1' })],
+            total: 1,
+            page: 1,
+            limit: 1,
+          },
+        };
+      }
+      return base(url);
+    });
+
+    await act(async () => {
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
+    });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    expect(replace).toHaveBeenCalledWith('/storage/receipts/rc-1');
+    // The editor itself never shows.
+    expect(container.textContent).not.toContain('Counterparty');
+  });
+
   it('renders transaction table headers in English when locale is en', async () => {
-    const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
       root.render(
@@ -287,8 +374,7 @@ describe('EditStatementPage locale', () => {
     expect(/[\u0400-\u04FF]/.test(container.textContent || '')).toBe(false);
   });
 
-  it('centers the loading spinner while statement details are loading', async () => {
-    const { default: EditStatementPage } = await import('./page');
+  it('shows the editor skeleton while statement details are loading', async () => {
 
     apiGet.mockImplementation(
       () =>
@@ -306,19 +392,15 @@ describe('EditStatementPage locale', () => {
       await Promise.resolve();
     });
 
+    // Вместо центрированного спиннера — скелет страницы (EditStatementSkeleton).
     const loadingContainer = container.querySelector('[data-testid="statement-edit-loading"]');
-    const spinner = container.querySelector('[role="status"]');
 
-    expect(spinner).toBeTruthy();
     expect(loadingContainer).toBeTruthy();
-    expect(loadingContainer?.className).toContain('flex');
-    expect(loadingContainer?.className).toContain('items-center');
-    expect(loadingContainer?.className).toContain('justify-center');
-    expect(loadingContainer?.className).toContain('min-h-[60vh]');
+    expect(loadingContainer?.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(0);
+    expect(container.textContent).not.toContain('Counterparty');
   });
 
-  it('uses dark surfaces for parsing details and transactions headers', async () => {
-    const { default: EditStatementPage } = await import('./page');
+  it('colours the parsing details link and the summary line from theme variables', async () => {
 
     await act(async () => {
       root.render(
@@ -332,15 +414,22 @@ describe('EditStatementPage locale', () => {
       await flushPromises();
     });
 
-    const parsingSummary = container.querySelector('.MuiAccordionSummary-root');
-    const tableHeaderRow = container.querySelector('.MuiTableHead-root tr');
+    // dark:-классы ушли вместе с Tailwind (99a50b55): цвета — CSS-переменные темы,
+    // которые сами переключаются в тёмной теме.
+    const parsingSummary = container.querySelector(
+      '.MuiAccordionSummary-root .MuiTypography-root',
+    ) as HTMLElement | null;
+    const summaryLine = container.querySelector(
+      '[data-testid="statement-transactions-chip"]',
+    ) as HTMLElement | null;
 
-    expect(parsingSummary?.className).toContain('dark:bg-[#18222d]');
-    expect(tableHeaderRow?.className).toContain('dark:bg-[#18222d]');
+    expect(parsingSummary?.textContent).toBe('Parsing details');
+    expect(getComputedStyle(parsingSummary as HTMLElement).color).toBe('var(--primary)');
+    expect(summaryLine?.textContent).toContain('1 transactions · KZT');
+    expect(getComputedStyle(summaryLine as HTMLElement).color).toBe('var(--text-muted)');
   });
 
-  it('uses dark theme styling for the transactions chip and statement category button', async () => {
-    const { default: EditStatementPage } = await import('./page');
+  it('shows the statement category in a shared detail action button', async () => {
 
     await act(async () => {
       root.render(
@@ -354,23 +443,17 @@ describe('EditStatementPage locale', () => {
       await flushPromises();
     });
 
-    const transactionsChip = container.querySelector('[data-testid="statement-transactions-chip"]');
     const categoryButton = Array.from(container.querySelectorAll('button')).find(button =>
       button.textContent?.includes('Services'),
     ) as HTMLButtonElement | undefined;
 
-    expect(transactionsChip?.className).toContain('dark:border-slate-700/60');
-    expect(transactionsChip?.className).toContain('dark:bg-[#111827]');
-    expect(transactionsChip?.className).toContain('dark:text-slate-300');
-    expect(categoryButton?.className).toContain('detail-action-button');
-    expect(categoryButton?.className).toContain('dark:border-slate-700/60');
-    expect(categoryButton?.className).toContain('dark:bg-slate-900');
-    expect(categoryButton?.className).toContain('dark:text-slate-200');
-    expect(categoryButton?.className).toContain('dark:hover:bg-slate-800');
+    // DetailActionButton = общий MUI Button outline/sm (8ae15e59).
+    expect(categoryButton?.title).toBe('Services');
+    expect(categoryButton?.className).toContain('MuiButton-outlined');
+    expect(categoryButton?.className).toContain('MuiButton-sizeSmall');
   });
 
   it('focuses closing balance input when resolving balance mismatch warning', async () => {
-    const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
       root.render(
@@ -405,7 +488,6 @@ describe('EditStatementPage locale', () => {
   });
 
   it('renders start and end date fields in the same metadata shell as balance fields', async () => {
-    const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
       root.render(
@@ -437,25 +519,13 @@ describe('EditStatementPage locale', () => {
     ).toBeTruthy();
     expect(metadataShells).toHaveLength(4);
 
-    const startDateWrapper = container.querySelector(
-      '[data-testid="statement-metadata-field-start-date"] [data-slot="input-wrapper"]',
-    );
-    const endDateWrapper = container.querySelector(
-      '[data-testid="statement-metadata-field-end-date"] [data-slot="input-wrapper"]',
-    );
-    const startDateLabel = container.querySelector(
-      '[data-testid="statement-metadata-field-start-date"] [data-slot="label"]',
-    );
-
-    expect(startDateWrapper?.className).toContain('min-h-[40px]');
-    expect(startDateWrapper?.className).not.toContain('h-14');
-    expect(endDateWrapper?.className).toContain('min-h-[40px]');
-    expect(endDateWrapper?.className).not.toContain('h-14');
-    expect(startDateLabel).toBeNull();
+    // Все четыре поля — MUI-поля одного (small) размера с меткой внутри поля.
+    for (const shell of metadataShells) {
+      expect(shell.querySelector('.MuiInputLabel-sizeSmall')).toBeTruthy();
+    }
   });
 
   it('uses shared detail action buttons for statement header actions', async () => {
-    const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
       root.render(
@@ -477,14 +547,12 @@ describe('EditStatementPage locale', () => {
       ) as HTMLButtonElement | undefined;
 
       expect(actionButton).toBeTruthy();
-      expect(actionButton?.className).toContain('detail-action-button');
-      expect(actionButton?.className).toContain('rounded-lg');
-      expect(actionButton?.className).not.toContain('rounded-full');
+      expect(actionButton?.className).toContain('MuiButton-outlined');
+      expect(actionButton?.className).toContain('MuiButton-sizeSmall');
     }
   });
 
   it('offers no review-stage moves: what is left to check lives in Review', async () => {
-    const { default: EditStatementPage } = await import('./page');
 
     await act(async () => {
       root.render(
@@ -506,7 +574,6 @@ describe('EditStatementPage locale', () => {
   });
 
   it('confirms every categorised row of the statement in one go', async () => {
-    const { default: EditStatementPage } = await import('./page');
     apiPost.mockResolvedValue({ data: { approved: 1, uncategorized: 0 } });
 
     await act(async () => {

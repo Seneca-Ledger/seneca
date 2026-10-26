@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { formatStoredDate } from '@/app/lib/user-format-store';
+import { apiResponse } from '@/app/test/api-response';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,13 +18,10 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
   useWorkspace: () => ({ currentWorkspace: { id: 'w1' } }),
 }));
 
-const labels = {
-  title: 'Value history',
-  hint: 'Each value stands until the next one.',
-  empty: 'Nothing entered yet',
-  import: 'Import from file',
-  remove: 'Remove',
-};
+const canEdit = vi.hoisted(() => ({ value: true }));
+vi.mock('@/app/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => canEdit.value }),
+}));
 
 function render() {
   return renderWithQuery(
@@ -31,8 +30,6 @@ function render() {
       accountName="Flat"
       isOpen
       onClose={() => undefined}
-      formatCurrency={value => `${value} T`}
-      labels={labels}
     />,
   );
 }
@@ -40,21 +37,22 @@ function render() {
 describe('BalanceHistoryDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    apiGet.mockResolvedValue({
-      data: [
+    canEdit.value = true;
+    apiGet.mockResolvedValue(
+      apiResponse([
         { date: '2026-01-10', amount: 1000, currency: 'KZT' },
         { date: '2026-02-10', amount: 0, currency: 'KZT' },
-      ],
-    });
-    apiDelete.mockResolvedValue({ data: { deleted: true } });
-    apiPost.mockResolvedValue({ data: { imported: 3 } });
+      ]),
+    );
+    apiDelete.mockResolvedValue(apiResponse({ deleted: true }));
+    apiPost.mockResolvedValue(apiResponse({ imported: 3 }));
   });
 
   it('shows every day that was entered against the line', async () => {
     render();
 
-    expect(await screen.findByText('2026-01-10')).toBeInTheDocument();
-    expect(screen.getByText('2026-02-10')).toBeInTheDocument();
+    expect(await screen.findByText(formatStoredDate('2026-01-10'))).toBeInTheDocument();
+    expect(screen.getByText(formatStoredDate('2026-02-10'))).toBeInTheDocument();
     expect(apiGet).toHaveBeenCalledWith(
       '/reports/balance/accounts/acc-1/history',
       expect.anything(),
@@ -75,7 +73,7 @@ describe('BalanceHistoryDialog', () => {
 
   it('sends a chosen file to the import endpoint', async () => {
     render();
-    await screen.findByText('2026-01-10');
+    await screen.findByText(formatStoredDate('2026-01-10'));
 
     // The dialog renders into a portal, so the input is on document, not in the
     // render container.
@@ -93,9 +91,20 @@ describe('BalanceHistoryDialog', () => {
   });
 
   it('says so when the line has no history yet', async () => {
-    apiGet.mockResolvedValue({ data: [] });
+    apiGet.mockResolvedValue(apiResponse([]));
     render();
 
-    expect(await screen.findByText('Nothing entered yet')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nothing has been entered for this line yet'),
+    ).toBeInTheDocument();
+  });
+
+  it('lets someone who may only read the sheet look, not change', async () => {
+    canEdit.value = false;
+    render();
+
+    await screen.findByText(formatStoredDate('2026-01-10'));
+    expect(screen.queryByLabelText('Remove 2026-02-10')).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
   });
 });

@@ -2,7 +2,7 @@
 
 The loudest complaints about finance apps in 2026 were not about missing features. They were
 about products that moved things around, hid routine actions behind extra taps, nagged, and
-sold to people who had already paid. These rules exist so Lumio does not become that product.
+sold to people who had already paid. These rules exist so Seneca does not become that product.
 
 1. **Routine actions stay one tap away.** Approve, clear, set a category, mark a transfer: never
    behind a "more" menu, never behind an animation. If a change adds a tap to something people do

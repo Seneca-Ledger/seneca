@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -8,22 +7,35 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import type { Repository } from 'typeorm';
+import { IsNull, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { hashPassword } from '../../common/utils/password-hash.util';
+import type {
+  ChangeEmailBody,
+  ChangePasswordBody,
+  CompleteOnboardingBody,
+  UpdateMyPreferencesBody,
+  UpdateUserBody,
+} from '../../contracts';
 import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
-import { User, UserRole } from '../../entities/user.entity';
+import {
+  DateFormatPreference,
+  ThemePreference,
+  UiDensity,
+  User,
+  UserRole,
+} from '../../entities/user.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { AuditService } from '../audit/audit.service';
 import { recordSecurityEvent } from '../auth/security-audit.util';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { CURRENT_DISCLAIMER_VERSION } from './disclaimer.constant';
-import type { ChangeEmailDto } from './dto/change-email.dto';
-import type { ChangePasswordDto } from './dto/change-password.dto';
-import type { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
-import type { UpdateMyPreferencesDto } from './dto/update-my-preferences.dto';
-import type { UpdateUserDto } from './dto/update-user.dto';
 import { EmailChangeService } from './services/email-change.service';
+
+/** How many pages the page-hint map may name; see markPageHintsSeen. */
+export const PAGE_HINTS_MAX_KEYS = 100;
 
 @Injectable()
 export class UsersService {
@@ -41,7 +53,7 @@ export class UsersService {
 
   private getUserFindAllOptions(workspaceId: string, limit = 20) {
     return {
-      where: { deletedAt: null, workspaceMemberships: { workspaceId } } as const,
+      where: { deletedAt: IsNull(), workspaceMemberships: { workspaceId } },
       take: limit,
       order: { createdAt: 'DESC' as const },
     };
@@ -50,37 +62,42 @@ export class UsersService {
   private async findOneWithPassword(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
-      select: [
-        'id',
-        'email',
-        'passwordHash',
-        'name',
-        'company',
-        'role',
-        'workspaceId',
-        'googleId',
-        'telegramId',
-        'telegramChatId',
-        'createdAt',
-        'updatedAt',
-        'lastLogin',
-        'isActive',
-        'permissions',
-        'locale',
-        'timeZone',
-        'themePreference',
-        'mapStylePreference',
-        'avatarUrl',
-        'onboardingCompletedAt',
-        'disclaimerAcceptedAt',
-        'disclaimerVersion',
-        'welcomeTutorialSeenAt',
-        'tokenVersion',
-      ],
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        name: true,
+        company: true,
+        role: true,
+        workspaceId: true,
+        telegramId: true,
+        telegramChatId: true,
+        createdAt: true,
+        updatedAt: true,
+        lastLogin: true,
+        isActive: true,
+        permissions: true,
+        locale: true,
+        timeZone: true,
+        dateFormat: true,
+        firstDayOfWeek: true,
+        uiDensity: true,
+        reduceMotion: true,
+        showDailyQuote: true,
+        themePreference: true,
+        mapStylePreference: true,
+        avatarUrl: true,
+        onboardingCompletedAt: true,
+        disclaimerAcceptedAt: true,
+        disclaimerVersion: true,
+        welcomeTutorialSeenAt: true,
+        pageHintsSeen: true,
+        tokenVersion: true,
+      },
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(appError('USER_NOT_FOUND'));
     }
 
     return user;
@@ -99,9 +116,7 @@ export class UsersService {
           'user.workspaceMemberships',
           'membership',
           'membership.workspaceId = :workspaceId',
-          {
-            workspaceId,
-          },
+          { workspaceId },
         )
         .where('user.deletedAt IS NULL')
         .orderBy('user.createdAt', 'DESC')
@@ -115,57 +130,46 @@ export class UsersService {
   async findOne(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
-      select: [
-        'id',
-        'email',
-        'name',
-        'company',
-        'role',
-        'workspaceId',
-        'googleId',
-        'telegramId',
-        'telegramChatId',
-        'createdAt',
-        'updatedAt',
-        'lastLogin',
-        'isActive',
-        'permissions',
-        'locale',
-        'timeZone',
-        'themePreference',
-        'mapStylePreference',
-        'onboardingCompletedAt',
-        'disclaimerAcceptedAt',
-        'disclaimerVersion',
-        'welcomeTutorialSeenAt',
-      ],
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        company: true,
+        role: true,
+        workspaceId: true,
+        telegramId: true,
+        telegramChatId: true,
+        createdAt: true,
+        updatedAt: true,
+        lastLogin: true,
+        isActive: true,
+        permissions: true,
+        locale: true,
+        timeZone: true,
+        themePreference: true,
+        mapStylePreference: true,
+        onboardingCompletedAt: true,
+        disclaimerAcceptedAt: true,
+        disclaimerVersion: true,
+        welcomeTutorialSeenAt: true,
+        pageHintsSeen: true,
+      },
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(appError('USER_NOT_FOUND'));
     }
 
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto, currentUser: User): Promise<User> {
+  async update(id: string, updateUserDto: UpdateUserBody, currentUser: User): Promise<User> {
     // Only admins can update users
     if (currentUser.role !== UserRole.ADMIN && currentUser.id !== id) {
-      throw new ForbiddenException('You can only update your own profile');
+      throw new ForbiddenException(appError('USER_PROFILE_UPDATE_OWN_ONLY'));
     }
 
     const user = await this.findOne(id);
-
-    // Check email uniqueness if email is being changed
-    if (updateUserDto.email && updateUserDto.email !== user.email) {
-      const existingUser = await this.userRepository.findOne({
-        where: { email: updateUserDto.email },
-      });
-
-      if (existingUser) {
-        throw new ConflictException('Email already in use');
-      }
-    }
 
     // Only admins can change roles
     if (updateUserDto.role && currentUser.role !== UserRole.ADMIN) {
@@ -184,7 +188,8 @@ export class UsersService {
         p => !validPermissions.includes(p as Permission),
       );
       if (invalidPermissions.length > 0) {
-        throw new BadRequestException(`Invalid permissions: ${invalidPermissions.join(', ')}`);
+        const permissions = invalidPermissions.join(', ');
+        throw new BadRequestException(appError('USER_PERMISSIONS_INVALID', { permissions }));
       }
     }
 
@@ -222,12 +227,12 @@ export class UsersService {
   async remove(id: string, currentUser: User): Promise<void> {
     // Only admins can delete users
     if (currentUser.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only admins can delete users');
+      throw new ForbiddenException(appError('USER_DELETE_ADMIN_ONLY'));
     }
 
     // Prevent self-deletion
     if (currentUser.id === id) {
-      throw new ForbiddenException('You cannot delete your own account');
+      throw new ForbiddenException(appError('USER_DELETE_SELF_FORBIDDEN'));
     }
 
     const target = await this.findOne(id);
@@ -283,29 +288,68 @@ export class UsersService {
   }
 
   /**
+   * Records that the hints of `page` were closed up to `version`. One conditional
+   * UPDATE keeps the higher of the stored and the given version, so an older tab
+   * cannot lower it, and no other column is read back and rewritten. A new key is
+   * refused once the map holds PAGE_HINTS_MAX_KEYS pages: the client only knows a
+   * few dozen, so anything beyond that is someone filling the column.
+   */
+  async markPageHintsSeen(
+    userId: string,
+    page: string,
+    version: number,
+  ): Promise<Record<string, number>> {
+    await this.userRepository.query(
+      `UPDATE "users"
+       SET "page_hints_seen" = "page_hints_seen" || jsonb_build_object(
+         $2::text,
+         GREATEST(COALESCE(("page_hints_seen" ->> $2::text)::int, 0), $3::int)
+       )
+       WHERE "id" = $1
+         AND (
+           ("page_hints_seen" -> $2::text) IS NOT NULL
+           OR (SELECT count(*) FROM jsonb_object_keys("page_hints_seen")) < $4
+         )`,
+      [userId, page, version, PAGE_HINTS_MAX_KEYS],
+    );
+    const { pageHintsSeen } = await this.findOne(userId);
+    return pageHintsSeen;
+  }
+
+  /** Settings → "Show hints again": every page shows its hints once more. */
+  async resetPageHints(userId: string): Promise<Record<string, number>> {
+    await this.userRepository.query(
+      `UPDATE "users" SET "page_hints_seen" = '{}'::jsonb WHERE "id" = $1`,
+      [userId],
+    );
+    const { pageHintsSeen } = await this.findOne(userId);
+    return pageHintsSeen;
+  }
+
+  /**
    * Confirms the caller owns the account, then hands off to EmailChangeService,
    * which mails a confirmation link to the new address. The account keeps its
    * current email until that link is opened.
    */
-  async requestEmailChange(userId: string, dto: ChangeEmailDto): Promise<void> {
+  async requestEmailChange(userId: string, dto: ChangeEmailBody): Promise<void> {
     const user = await this.findOneWithPassword(userId);
 
     const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new ForbiddenException('Current password is incorrect');
+      throw new ForbiddenException(appError('AUTH_CURRENT_PASSWORD_INCORRECT'));
     }
 
     await this.emailChangeService.requestEmailChange(user, dto.email);
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+  async changePassword(userId: string, dto: ChangePasswordBody): Promise<void> {
     const user = await this.findOneWithPassword(userId);
 
     const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new ForbiddenException('Current password is incorrect');
+      throw new ForbiddenException(appError('AUTH_CURRENT_PASSWORD_INCORRECT'));
     }
 
     user.passwordHash = await hashPassword(dto.newPassword);
@@ -323,39 +367,39 @@ export class UsersService {
     });
   }
 
-  async updateMyPreferences(userId: string, dto: UpdateMyPreferencesDto): Promise<User> {
+  async updateMyPreferences(userId: string, dto: UpdateMyPreferencesBody): Promise<User> {
     const user = await this.findOneWithPassword(userId);
 
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       user.name = dto.name.trim();
     }
-    if (dto.locale !== undefined) {
+    if (dto.locale != null) {
       user.locale = dto.locale;
     }
     if (dto.timeZone !== undefined) {
       const tz = dto.timeZone;
       user.timeZone = tz === null ? null : String(tz).trim() || null;
     }
-    if (dto.themePreference !== undefined) {
-      user.themePreference = dto.themePreference;
+    if (dto.themePreference != null) {
+      user.themePreference = toEnum(ThemePreference, dto.themePreference);
     }
     if (dto.mapStylePreference !== undefined) {
       const style = dto.mapStylePreference;
       user.mapStylePreference = style === null ? null : String(style).trim() || null;
     }
-    if (dto.dateFormat !== undefined) {
-      user.dateFormat = dto.dateFormat;
+    if (dto.dateFormat != null) {
+      user.dateFormat = toEnum(DateFormatPreference, dto.dateFormat);
     }
     if (dto.firstDayOfWeek !== undefined) {
       user.firstDayOfWeek = dto.firstDayOfWeek;
     }
-    if (dto.uiDensity !== undefined) {
-      user.uiDensity = dto.uiDensity;
+    if (dto.uiDensity != null) {
+      user.uiDensity = toEnum(UiDensity, dto.uiDensity);
     }
-    if (dto.reduceMotion !== undefined) {
+    if (dto.reduceMotion != null) {
       user.reduceMotion = dto.reduceMotion;
     }
-    if (dto.showDailyQuote !== undefined) {
+    if (dto.showDailyQuote != null) {
       user.showDailyQuote = dto.showDailyQuote;
     }
 
@@ -368,7 +412,7 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
-  async completeOnboarding(userId: string, dto: CompleteOnboardingDto): Promise<User> {
+  async completeOnboarding(userId: string, dto: CompleteOnboardingBody): Promise<User> {
     const user = await this.findOneWithPassword(userId);
 
     if (!user.workspaceId) {
@@ -376,7 +420,7 @@ export class UsersService {
       user.workspaceId = ensuredWorkspace.id;
     }
 
-    if (dto.locale !== undefined) {
+    if (dto.locale != null) {
       user.locale = dto.locale;
     }
 
@@ -396,19 +440,21 @@ export class UsersService {
       });
 
       if (workspace) {
-        if (dto.workspaceName !== undefined) {
+        if (dto.workspaceName != null) {
           const workspaceName = dto.workspaceName.trim();
           if (workspaceName.length > 0) {
             workspace.name = workspaceName;
           }
         }
 
-        if (dto.workspaceCurrency !== undefined) {
+        if (dto.workspaceCurrency != null) {
           const workspaceCurrency = dto.workspaceCurrency.trim().toUpperCase();
-          workspace.currency = workspaceCurrency.length > 0 ? workspaceCurrency : null;
+          if (workspaceCurrency.length > 0) {
+            workspace.currency = workspaceCurrency;
+          }
         }
 
-        if (dto.workspaceBackgroundImage !== undefined) {
+        if (dto.workspaceBackgroundImage != null) {
           const workspaceBackgroundImage = dto.workspaceBackgroundImage.trim();
           workspace.backgroundImage =
             workspaceBackgroundImage.length > 0 ? workspaceBackgroundImage : null;

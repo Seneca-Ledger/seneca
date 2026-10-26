@@ -6,6 +6,7 @@ import type {
   PayableStatus,
   PayablesSummary,
 } from '@/app/lib/payables-api';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 
 export type PayablesSortOption = 'dueDateAsc' | 'dueDateDesc' | 'amountDesc' | 'vendorAsc';
@@ -16,6 +17,8 @@ export interface PayablesFiltersState {
   source: PayableSource | 'all';
   dueDateFrom: string;
   dueDateTo: string;
+  /** A tag id, or '' for every bill. */
+  tagId: string;
   sort: PayablesSortOption;
 }
 
@@ -25,17 +28,12 @@ export const DEFAULT_PAYABLES_FILTERS: PayablesFiltersState = {
   source: 'all',
   dueDateFrom: '',
   dueDateTo: '',
+  tagId: '',
   sort: 'dueDateAsc',
 };
 
 export const resolveLocale = (locale?: string): string => {
-  if (locale === 'ru') {
-    return 'ru-RU';
-  }
-  if (locale === 'kk') {
-    return 'kk-KZ';
-  }
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -106,28 +104,6 @@ export const isPayableOverdue = (payable: Pick<Payable, 'status' | 'dueDate'>): 
   return dueDate < today;
 };
 
-export const getPayableStatusVariant = (
-  status: PayableStatus,
-  overdue: boolean,
-): 'destructive' | 'success' | 'info' | 'outline' | 'warning' => {
-  if (overdue || status === 'overdue') {
-    return 'destructive' as const;
-  }
-  if (status === 'paid') {
-    return 'success' as const;
-  }
-  if (status === 'partially_paid') {
-    return 'info' as const;
-  }
-  if (status === 'scheduled') {
-    return 'info' as const;
-  }
-  if (status === 'archived') {
-    return 'outline' as const;
-  }
-  return 'warning' as const;
-};
-
 type PayablesListParams = {
   direction?: PayableDirection;
   page?: number;
@@ -137,6 +113,7 @@ type PayablesListParams = {
   source?: string;
   dueDateFrom?: string;
   dueDateTo?: string;
+  tagId?: string;
   sort: PayablesSortOption;
 };
 
@@ -155,6 +132,7 @@ export const buildPayablesListParams = (
   source: resolveOptional(filters.source, 'all'),
   dueDateFrom: filters.dueDateFrom || undefined,
   dueDateTo: filters.dueDateTo || undefined,
+  tagId: filters.tagId || undefined,
   sort: filters.sort,
 });
 
@@ -186,12 +164,21 @@ export const sortPayables = (payables: Payable[], sort: PayablesSortOption): Pay
   return copy;
 };
 
-type SummaryCardItem = { key: string; value: number; count?: number };
+type SummaryCardItem = { key: string; value: number; count: number };
 
+/**
+ * The four cards. The first is everything still open, overdue included: an
+ * overdue bill is still waiting to be paid, so leaving it out read as "nothing
+ * to pay" next to a card full of overdue ones. Overdue is then a part of it.
+ */
 export const getSummaryCardItems = (summary: PayablesSummary): readonly SummaryCardItem[] =>
   [
-    { key: 'toPay', value: summary.toPay, count: summary.toPayCount },
+    {
+      key: 'toPay',
+      value: summary.toPay + summary.overdue,
+      count: summary.toPayCount + summary.overdueCount,
+    },
     { key: 'overdue', value: summary.overdue, count: summary.overdueCount },
-    { key: 'dueThisWeek', value: summary.dueThisWeek },
+    { key: 'dueThisWeek', value: summary.dueThisWeek, count: summary.dueThisWeekCount ?? 0 },
     { key: 'paidTotal', value: summary.paidTotal, count: summary.paidTotalCount },
   ] as readonly SummaryCardItem[];

@@ -1,8 +1,10 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { Controller, Get } from '@nestjs/common';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
-import { ForecastQueryDto } from './dto/forecast-query.dto';
+import { ForecastQuery, ForecastResponse } from '../../contracts';
 import { ForecastService } from './forecast.service';
 
 @Controller('forecast')
@@ -12,7 +14,12 @@ export class ForecastController {
   /** Projected balance for 30/90/365 days with safe-to-spend, shortfall date, runway and scenarios. */
   @Get()
   @WorkspaceAuth(Permission.REPORT_VIEW)
-  async getForecast(@WorkspaceId() workspaceId: string, @Query() query: ForecastQueryDto) {
-    return this.forecastService.getForecast(workspaceId, query);
+  @SchemaResponse(ForecastResponse)
+  async getForecast(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
+    @SchemaQuery(ForecastQuery) query: ForecastQuery,
+  ) {
+    return this.forecastService.getForecast(workspaceId, query, selfMemberId);
   }
 }

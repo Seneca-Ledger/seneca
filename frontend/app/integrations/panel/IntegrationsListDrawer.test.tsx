@@ -26,7 +26,6 @@ vi.mock('@/app/i18n', async () => {
     setUp: { value: 'Set up' },
     nothingMatches: { value: 'Nothing matches "{query}".' },
     categories: {
-      ai: 'AI',
       application: 'Application',
       storage: 'Storage',
       email: 'Email',
@@ -66,9 +65,9 @@ describe('IntegrationsListDrawer', () => {
     expect(screen.getByText('S3-compatible storage')).toBeTruthy();
     expect(screen.getByText('WebDAV storage')).toBeTruthy();
     expect(screen.getByText('IMAP inbox')).toBeTruthy();
-    expect(screen.getByText('AI-compatible endpoint')).toBeTruthy();
     expect(screen.getByText('SMTP email')).toBeTruthy();
 
+    expect(screen.queryByText('AI-compatible endpoint')).toBeNull();
     expect(screen.queryByText('Dropbox')).toBeNull();
     expect(screen.queryByText('Google Drive')).toBeNull();
   });

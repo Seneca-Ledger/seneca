@@ -1,26 +1,26 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Put,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { Controller, Get, Post, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import {
+  IncomeTaxDisclaimer,
+  IncomeTaxDraft,
+  IncomeTaxExportQuery,
+  IncomeTaxMappings,
+  IncomeTaxProfile,
+  IncomeTaxYearParams,
+  IncomeTaxYearQuery,
+  SaveIncomeTaxMappingsBody,
+  UpdateIncomeTaxProfileBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import {
-  parseTaxYear,
-  SaveIncomeTaxMappingsDto,
-  UpdateIncomeTaxProfileDto,
-} from './dto/income-tax.dto';
+import { parseTaxYear } from './dto/income-tax.dto';
 import { IncomeTaxDisclaimerService } from './income-tax-disclaimer.service';
 import { IncomeTaxDraftService } from './income-tax-draft.service';
 import { IncomeTaxReturnsService } from './income-tax-returns.service';
@@ -42,6 +42,7 @@ export class IncomeTaxController {
 
   @Get('disclaimer')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(IncomeTaxDisclaimer)
   async getDisclaimer(@CurrentUser() user: User) {
     return this.disclaimerService.getStatus(user.id);
   }
@@ -49,22 +50,28 @@ export class IncomeTaxController {
   /** Personal acknowledgement, so anyone who may read drafts may give it. */
   @Post('disclaimer')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(IncomeTaxDisclaimer)
   async acceptDisclaimer(@CurrentUser() user: User) {
     return this.disclaimerService.accept(user.id);
   }
 
   @Get('profile')
   @WorkspaceAuth(Permission.REPORT_VIEW)
-  async getProfile(@WorkspaceId() workspaceId: string, @Query('taxYear') taxYear: string) {
+  @SchemaResponse(IncomeTaxProfile)
+  async getProfile(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(IncomeTaxYearQuery) { taxYear }: IncomeTaxYearQuery,
+  ) {
     return this.draftService.getProfileOverview(workspaceId, parseTaxYear(taxYear));
   }
 
   @Put('profile')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IncomeTaxProfile)
   async saveProfile(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Body() dto: UpdateIncomeTaxProfileDto,
+    @SchemaBody(UpdateIncomeTaxProfileBody) dto: UpdateIncomeTaxProfileBody,
   ) {
     return this.draftService.saveProfile(
       workspaceId,
@@ -77,16 +84,21 @@ export class IncomeTaxController {
 
   @Get('mappings')
   @WorkspaceAuth(Permission.REPORT_VIEW)
-  async getMappings(@WorkspaceId() workspaceId: string, @Query('taxYear') taxYear: string) {
+  @SchemaResponse(IncomeTaxMappings)
+  async getMappings(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(IncomeTaxYearQuery) { taxYear }: IncomeTaxYearQuery,
+  ) {
     return this.draftService.getMappings(workspaceId, parseTaxYear(taxYear));
   }
 
   @Put('mappings')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IncomeTaxMappings)
   async saveMappings(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Body() dto: SaveIncomeTaxMappingsDto,
+    @SchemaBody(SaveIncomeTaxMappingsBody) dto: SaveIncomeTaxMappingsBody,
   ) {
     return this.draftService.saveMappings(
       workspaceId,
@@ -98,26 +110,32 @@ export class IncomeTaxController {
 
   @Get('returns/:taxYear')
   @WorkspaceAuth(Permission.REPORT_VIEW)
-  async getDraft(@WorkspaceId() workspaceId: string, @Param('taxYear') taxYear: string) {
+  @SchemaResponse(IncomeTaxDraft)
+  async getDraft(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(IncomeTaxYearParams) { taxYear }: IncomeTaxYearParams,
+  ) {
     return this.returnsService.getDraft(workspaceId, parseTaxYear(taxYear));
   }
 
   @Post('returns/:taxYear/finalize')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IncomeTaxDraft)
   async finalize(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Param('taxYear') taxYear: string,
+    @SchemaParams(IncomeTaxYearParams) { taxYear }: IncomeTaxYearParams,
   ) {
     return this.returnsService.finalize(workspaceId, user.id, parseTaxYear(taxYear));
   }
 
   @Post('returns/:taxYear/reopen')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(IncomeTaxDraft)
   async reopen(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Param('taxYear') taxYear: string,
+    @SchemaParams(IncomeTaxYearParams) { taxYear }: IncomeTaxYearParams,
   ) {
     return this.returnsService.reopen(workspaceId, parseTaxYear(taxYear), user.id);
   }
@@ -127,14 +145,10 @@ export class IncomeTaxController {
   async export(
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
-    @Param('taxYear') taxYear: string,
-    @Query('format') format: string,
+    @SchemaParams(IncomeTaxYearParams) { taxYear }: IncomeTaxYearParams,
+    @SchemaQuery(IncomeTaxExportQuery) { format }: IncomeTaxExportQuery,
     @Res() res: Response,
   ): Promise<void> {
-    if (format !== 'pdf' && format !== 'xlsx') {
-      throw new BadRequestException("Format must be 'pdf' or 'xlsx'");
-    }
-
     const { buffer, fileName, contentType } = await this.returnsService.export(
       workspaceId,
       user.id,

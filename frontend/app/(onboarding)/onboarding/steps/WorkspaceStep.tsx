@@ -1,15 +1,16 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import { useEffect, useState } from 'react';
-import { CurrencySelector } from '@/app/(main)/workspaces/components/CurrencySelector';
-import { ArrowLeft, Briefcase, Home } from '@/app/components/icons';
+import { Briefcase, Home } from '@/app/components/icons';
 import type { WorkspaceProfile } from '@/app/components/navigation/helpers/navigation-config';
+import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { ChoiceCards } from '@/app/components/ui/choice-cards';
-import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
+import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
+import { useIntlayer } from '@/app/i18n';
+import { makeTx } from '@/app/lib/intlayer-resolve';
 import { LocaleField } from '../components/LocaleField';
 import { FieldLabel, OnboardingTextField } from '../components/OnboardingField';
+import { PickerField } from '../components/PickerField';
 import { StepHeading } from '../components/StepHeading';
 import { useOnboardingText } from '../lib/useOnboardingText';
 import type { SupportedLocale } from '../useOnboardingWizard';
@@ -22,8 +23,6 @@ interface WorkspaceStepProps {
   onWorkspaceNameChange: (value: string) => void;
   onWorkspaceCurrencyChange: (value: string) => void;
   onProfileChange: (value: WorkspaceProfile) => void;
-  /** The currency list takes over the panel; the page hides its navigation meanwhile. */
-  onCurrencyPickerOpenChange?: (open: boolean) => void;
   /**
    * Given only when this flow skips the language step (another workspace is being
    * created): the language is then asked here instead.
@@ -39,112 +38,65 @@ export function WorkspaceStep({
   onWorkspaceNameChange,
   onWorkspaceCurrencyChange,
   onProfileChange,
-  onCurrencyPickerOpenChange,
   onLocaleChange,
 }: WorkspaceStepProps) {
   const text = useOnboardingText(locale);
-  const { tx: settingsText } = useSettingsText();
-  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
+  const settingsText = makeTx(useIntlayer('settingsProfilePage'));
+  const currencyText = useIntlayer('workspaceCurrencySelector');
+  const picker = useCurrencyPickerState(workspaceCurrency);
 
-  useEffect(() => {
-    onCurrencyPickerOpenChange?.(currencyPickerOpen);
-  }, [currencyPickerOpen, onCurrencyPickerOpenChange]);
-
-  useEffect(
-    () => () => {
-      onCurrencyPickerOpenChange?.(false);
-    },
-    [onCurrencyPickerOpenChange],
-  );
-
-  if (currencyPickerOpen) {
-    return (
-      <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <StepHeading
-          title={text(['workspace', 'currencyPickerTitle'], 'Select a currency')}
-          subtitle={text(
-            ['workspace', 'currencyPickerSubtitle'],
-            'Find and select the currency that will be used by default.',
-          )}
-        />
-        <CurrencySelector
-          selectedCurrency={workspaceCurrency || null}
-          onSelect={value => onWorkspaceCurrencyChange(value)}
-          mode="inline"
-          open={currencyPickerOpen}
-          onOpenChange={setCurrencyPickerOpen}
-          showLabel={false}
-          showTrigger={false}
-          minimal
-          size="large"
-        />
-        <Button
-          variant="text"
-          onClick={() => setCurrencyPickerOpen(false)}
-          startIcon={<ArrowLeft size={18} />}
-          sx={{
-            alignSelf: 'flex-start',
-            ml: -1.5,
-            textTransform: 'none',
-            fontSize: 15,
-            fontWeight: 500,
-            color: 'var(--muted-foreground)',
-            '&:hover': { color: 'var(--foreground)', bgcolor: 'transparent' },
-          }}
-        >
-          {text(['navigation', 'back'], 'Back')}
-        </Button>
-      </Box>
-    );
-  }
-
-  const profileLabel = text(['workspace', 'profileLabel'], 'What is this workspace for?');
+  const profileLabel = text(['workspace', 'profileLabel']);
 
   return (
-    <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <Box
+      component="section"
+      sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
+    >
       <StepHeading
-        title={text(['workspace', 'title'], 'Set up your first workspace')}
-        subtitle={text(
-          ['workspace', 'subtitle'],
-          'Set workspace name and default currency for accurate data tracking.',
-        )}
+        title={text(['workspace', 'title'])}
+        subtitle={text(['workspace', 'subtitle'])}
       />
 
       <OnboardingTextField
         id="workspace-name"
-        label={text(['workspace', 'nameLabel'], 'Workspace name')}
+        label={text(['workspace', 'nameLabel'])}
         value={workspaceName}
         onChange={onWorkspaceNameChange}
-        placeholder={text(['workspace', 'namePlaceholder'], 'For example: My Company workspace')}
+        placeholder={text(['workspace', 'namePlaceholder'])}
       />
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <CurrencySelector
-          selectedCurrency={workspaceCurrency || null}
-          onSelect={value => onWorkspaceCurrencyChange(value)}
-          mode="inline"
-          open={currencyPickerOpen}
-          onOpenChange={setCurrencyPickerOpen}
-        />
-        <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-          {text(
-            ['workspace', 'currencyHint'],
-            'This currency will be used by default for new records.',
-          )}
+      {/* With a language to ask too, the two pickers share a row so the step fits the screen. */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: onLocaleChange ? '1fr 1fr' : '1fr' },
+          alignItems: 'start',
+          columnGap: 2,
+          rowGap: { xs: 4, md: 3 },
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <PickerField
+            id="workspace-currency"
+            label={String(currencyText.label.value)}
+            value={picker.selectedCurrencyItem?.label ?? null}
+            placeholder={String(currencyText.selectCurrency.value)}
+            onOpen={() => picker.setCurrencyDrawerOpen(true)}
+          />
+          <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
+            {text(['workspace', 'currencyHint'])}
+          </Box>
         </Box>
-      </Box>
 
-      {onLocaleChange ? (
-        <LocaleField
-          label={text(['language', 'localeLabel'], 'Language')}
-          value={locale}
-          onChange={onLocaleChange}
-          hint={text(
-            ['language', 'timeZoneHint'],
-            'You can always change this later in profile settings.',
-          )}
-        />
-      ) : null}
+        {onLocaleChange ? (
+          <LocaleField
+            label={text(['language', 'localeLabel'])}
+            value={locale}
+            onChange={onLocaleChange}
+            hint={text(['language', 'timeZoneHint'])}
+          />
+        ) : null}
+      </Box>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <FieldLabel id="workspace-profile-label">{profileLabel}</FieldLabel>
@@ -156,30 +108,43 @@ export function WorkspaceStep({
             {
               value: 'home',
               icon: <Home size={20} />,
-              title: settingsText(['workspaceProfileCard', 'home'], 'Home'),
-              description: settingsText(
-                ['workspaceProfileCard', 'homeHint'],
-                'Personal or family money',
-              ),
+              title: settingsText(['workspaceProfileCard', 'home']),
+              description: settingsText(['workspaceProfileCard', 'homeHint']),
             },
             {
               value: 'business',
               icon: <Briefcase size={20} />,
-              title: settingsText(['workspaceProfileCard', 'business'], 'Business'),
-              description: settingsText(
-                ['workspaceProfileCard', 'businessHint'],
-                'Invoices, payables, ledger, tax',
-              ),
+              title: settingsText(['workspaceProfileCard', 'business']),
+              description: settingsText(['workspaceProfileCard', 'businessHint']),
             },
           ]}
         />
         {/* Says why Next is greyed out; it goes once the question is answered. */}
         {profile ? null : (
           <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-            {text(['workspace', 'profileRequired'], 'Choose one to continue.')}
+            {text(['workspace', 'profileRequired'])}
           </Box>
         )}
       </Box>
+
+      <CurrencyDrawer
+        isOpen={picker.currencyDrawerOpen}
+        onClose={() => {
+          picker.setCurrencyDrawerOpen(false);
+          picker.setCurrencySearch('');
+        }}
+        currencySearch={picker.currencySearch}
+        setCurrencySearch={picker.setCurrencySearch}
+        selectedCurrencyItem={picker.selectedCurrencyItem}
+        selectedMatchesSearch={picker.selectedMatchesSearch}
+        currencyQuery={picker.currencyQuery}
+        recentCurrencyItems={picker.recentCurrencyItems}
+        allCurrencyItems={picker.allCurrencyItems}
+        handleSelectCurrency={code => {
+          onWorkspaceCurrencyChange(code);
+          picker.pushRecentCurrency(code);
+        }}
+      />
     </Box>
   );
 }

@@ -1,7 +1,8 @@
 import { Branch } from '@/entities/branch.entity';
 import { CategorizationRule } from '@/entities/categorization-rule.entity';
 import { Category, CategoryType } from '@/entities/category.entity';
-import { PayeeOverride } from '@/entities/payee-override.entity';
+import { Payee } from '@/entities/payee.entity';
+import { PayeeAlias } from '@/entities/payee-alias.entity';
 import {
   Transaction,
   TransactionCategorySource,
@@ -10,7 +11,6 @@ import {
 import { Wallet } from '@/entities/wallet.entity';
 import { Workspace } from '@/entities/workspace.entity';
 import { AuditService } from '@/modules/audit/audit.service';
-import { CategoriesService } from '@/modules/categories/categories.service';
 import { ClassificationService } from '@/modules/classification/services/classification.service';
 import { fakePayeeHistory } from './fake-payee-history';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -128,13 +128,22 @@ describe('category guessing', () => {
         ClassificationService,
         { provide: getRepositoryToken(Category), useValue: categories },
         { provide: getRepositoryToken(Transaction), useValue: fakePayeeHistory().repository },
-        { provide: getRepositoryToken(PayeeOverride), useValue: { findOne: async () => null } },
+        { provide: getRepositoryToken(Payee), useValue: { findOne: async () => null } },
+        { provide: getRepositoryToken(PayeeAlias), useValue: { findOne: async () => null } },
         { provide: getRepositoryToken(Branch), useValue: { find: async () => [] } },
         {
           provide: getRepositoryToken(Wallet),
-          useValue: { find: async () => [], findOne: async () => null },
+          useValue: {
+            find: async () => [],
+            findOne: async () => null,
+            // A matched rule's targets are checked through it; here they are the workspace's.
+            manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
+          },
         },
-        { provide: getRepositoryToken(CategorizationRule), useValue: { find: async () => [] } },
+        {
+          provide: getRepositoryToken(CategorizationRule),
+          useValue: { find: async () => [], update: async () => undefined },
+        },
         { provide: getRepositoryToken(Workspace), useValue: { findOne: async () => null } },
         {
           provide: CACHE_MANAGER,
@@ -144,14 +153,7 @@ describe('category guessing', () => {
             del: async () => undefined,
           },
         },
-        { provide: AuditService, useValue: { createEvent: jest.fn() } },
-        {
-          provide: CategoriesService,
-          useValue: {
-            findAll: async (_workspaceId: string, type: CategoryType) =>
-              categories.rows.filter(row => row.type === type),
-          },
-        },
+        { provide: AuditService, useValue: { createEvent: vi.fn() } },
       ],
     }).compile();
 

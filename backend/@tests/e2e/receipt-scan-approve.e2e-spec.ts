@@ -116,6 +116,12 @@ describe('Approving a scanned receipt (e2e)', () => {
       date: '2026-09-02',
       is_verified: true,
     });
+    // Confirmed with update(), which skips the entity hook: the key follows the edit anyway.
+    const [{ payee_key }] = await dataSource.query(
+      'SELECT payee_key FROM transactions WHERE id = $1',
+      [scan.transactionId],
+    );
+    expect(payee_key).toBe('scan probe edited');
     const [receipt] = await dataSource.query(
       'SELECT status, transaction_id FROM receipts WHERE id = $1',
       [scan.receiptId],
@@ -123,14 +129,41 @@ describe('Approving a scanned receipt (e2e)', () => {
     expect(receipt).toEqual({ status: 'approved', transaction_id: scan.transactionId });
   });
 
-  it('keeps the scan date when the receipt has none', async () => {
+  it('refuses to confirm a receipt without a date, leaving its transaction unconfirmed', async () => {
     const scan = await insertScan({ amount: 5, vendor: 'Dateless probe' });
 
-    await as(request(server()).post(`/receipts/${scan.receiptId}/approve`)).expect(201);
+    await as(request(server()).post(`/receipts/${scan.receiptId}/approve`)).expect(400);
 
     expect(await transactionRow(scan.transactionId)).toMatchObject({
-      amount: 5,
       date: '2026-09-01',
+      is_verified: false,
+    });
+    const [receipt] = await dataSource.query('SELECT status FROM receipts WHERE id = $1', [
+      scan.receiptId,
+    ]);
+    expect(receipt.status).toBe('draft');
+  });
+
+  it('attaches a receipt without a date to a bank row, which keeps its own date', async () => {
+    const scan = await insertScan({ amount: 7, vendor: 'Dateless bank probe' });
+    const [bankRow] = await dataSource.query(
+      `INSERT INTO transactions
+         (transaction_date, counterparty_name, payment_purpose, transaction_type,
+          workspace_id, amount, debit, currency)
+       VALUES ('2026-08-30', 'DATELESS BANK PROBE', 'card', 'expense', $1, 7, 7, 'EUR')
+       RETURNING id`,
+      [owner.workspaceId],
+    );
+
+    await as(
+      request(server())
+        .post(`/receipts/${scan.receiptId}/approve`)
+        .send({ transactionId: bankRow.id }),
+    ).expect(201);
+
+    expect(await transactionRow(bankRow.id)).toMatchObject({
+      date: '2026-08-30',
+      is_verified: true,
     });
   });
 
@@ -163,7 +196,7 @@ describe('Approving a scanned receipt (e2e)', () => {
     const [receipt] = await dataSource.query(
       `INSERT INTO receipts
          (user_id, workspace_id, source, subject, sender, received_at, parsed_data, status)
-       VALUES ($1, $2, 'gmail', 'mail', 'shop@example.com', now(), $3::jsonb, 'draft')
+       VALUES ($1, $2, 'imap', 'mail', 'shop@example.com', now(), $3::jsonb, 'draft')
        RETURNING id`,
       [
         owner.userId,

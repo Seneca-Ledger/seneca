@@ -2,14 +2,12 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { MonthGoal } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type { Goal } from './useGoals';
 
 /** A goal the server picked out for one month, with what it received in it. */
-export interface MonthGoal extends Goal {
-  contributedInMonth: number;
-}
+export type { MonthGoal } from '@/app/lib/contracts';
 
 interface UseMonthGoalsState {
   goals: MonthGoal[];
@@ -26,7 +24,9 @@ export function useMonthGoals(month: string): UseMonthGoalsState {
 
   const query = useQuery({
     queryKey: queryKeys.goalsMonth({ workspaceId, month }),
-    queryFn: ({ signal }) => apiQuery<MonthGoal[]>({ url: `/goals?month=${month}`, signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: `/goals?month=${month}`, signal, contract: 'MonthGoalList' }),
+    enabled: Boolean(workspaceId),
   });
 
   return {

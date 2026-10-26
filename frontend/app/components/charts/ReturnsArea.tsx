@@ -17,7 +17,7 @@ import { CHART_MARGIN, CHART_TICK, LEGEND_STYLE } from './chart-theme';
 import { trendColor } from './NetWorthArea';
 
 /** One returns chart per page, so a fixed gradient id cannot collide. */
-const GRADIENT_ID = 'lumio-returns-fill';
+const GRADIENT_ID = 'seneca-returns-fill';
 
 export interface ReturnsAreaPoint {
   /** YYYY-MM-DD */

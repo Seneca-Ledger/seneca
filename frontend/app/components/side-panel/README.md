@@ -230,8 +230,6 @@ const config = createStoragePageConfig({
   onManageTags: () => void,
   onFolderClick: (folderId: string) => void,
   showIntegrations: boolean,
-  onConnectGoogleDrive: () => void,
-  onConnectDropbox: () => void,
 });
 ```
 

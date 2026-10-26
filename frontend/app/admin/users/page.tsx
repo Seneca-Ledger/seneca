@@ -32,11 +32,13 @@ import { useState } from 'react';
 import { Pencil } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import apiClient from '../../lib/api';
-import { apiQuery } from '../../lib/query-fn';
 import { queryKeys } from '../../lib/query-keys';
+import { type AdminPermission, usePermissionOptions } from './hooks/usePermissionOptions';
 
 const USER_ROW_SKELETON_KEYS = ['user-0', 'user-1', 'user-2', 'user-3', 'user-4', 'user-5'];
 
@@ -78,45 +80,21 @@ interface User {
   createdAt: string;
 }
 
+type UserRole = NonNullable<ContractInput<'UpdateUserBody'>['role']>;
+
+const USER_ROLES: readonly UserRole[] = ['admin', 'user', 'viewer'];
+const isUserRole = (value: string): value is UserRole => USER_ROLES.some(role => role === value);
+
 export default function UsersManagementPage() {
   const t = useIntlayer('adminUsersPage');
   const { locale } = useLocale();
-  const ALL_PERMISSIONS = [
-    { value: 'statement.view', label: t.permissions.statementView.value },
-    { value: 'statement.upload', label: t.permissions.statementUpload.value },
-    { value: 'statement.delete', label: t.permissions.statementDelete.value },
-    { value: 'statement.edit', label: t.permissions.statementEdit.value },
-    { value: 'transaction.view', label: t.permissions.transactionView.value },
-    { value: 'transaction.edit', label: t.permissions.transactionEdit.value },
-    {
-      value: 'transaction.delete',
-      label: t.permissions.transactionDelete.value,
-    },
-    {
-      value: 'transaction.bulk_update',
-      label: t.permissions.transactionBulkUpdate.value,
-    },
-    { value: 'category.view', label: t.permissions.categoryView.value },
-    { value: 'category.create', label: t.permissions.categoryCreate.value },
-    { value: 'category.edit', label: t.permissions.categoryEdit.value },
-    { value: 'category.delete', label: t.permissions.categoryDelete.value },
-    { value: 'branch.view', label: t.permissions.branchView.value },
-    { value: 'branch.create', label: t.permissions.branchCreate.value },
-    { value: 'branch.edit', label: t.permissions.branchEdit.value },
-    { value: 'branch.delete', label: t.permissions.branchDelete.value },
-    { value: 'wallet.view', label: t.permissions.walletView.value },
-    { value: 'wallet.create', label: t.permissions.walletCreate.value },
-    { value: 'wallet.edit', label: t.permissions.walletEdit.value },
-    { value: 'wallet.delete', label: t.permissions.walletDelete.value },
-    { value: 'report.view', label: t.permissions.reportView.value },
-    { value: 'report.export', label: t.permissions.reportExport.value },
-  ];
+  const ALL_PERMISSIONS = usePermissionOptions();
 
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [selectedPermissions, setSelectedPermissions] = useState<AdminPermission[]>([]);
   const [saving, setSaving] = useState(false);
 
   const workspaceId = useWorkspaceId();
@@ -124,7 +102,8 @@ export default function UsersManagementPage() {
 
   const usersQuery = useQuery({
     queryKey: queryKeys.adminUsers(workspaceId),
-    queryFn: ({ signal }) => apiQuery<User[]>({ url: '/users', signal }),
+    queryFn: ({ signal }) => apiQueryDecoded({ url: '/users', signal, contract: 'AdminUserList' }),
+    enabled: Boolean(workspaceId),
   });
 
   const users = usersQuery.data ?? [];
@@ -134,8 +113,11 @@ export default function UsersManagementPage() {
 
   const handleEditPermissions = async (user: User) => {
     await (async () => {
-      const response = await apiClient.get(`/users/${user.id}/permissions`);
-      setSelectedPermissions(response.data.customPermissions || []);
+      const permissions = await apiQueryDecoded({
+        url: `/users/${user.id}/permissions`,
+        contract: 'UserPermissions',
+      });
+      setSelectedPermissions(permissions.customPermissions);
       setEditingUser(user);
       setPermissionsDialogOpen(true);
     })().catch(async (err: unknown) => {
@@ -154,7 +136,7 @@ export default function UsersManagementPage() {
     await (async () => {
       await apiClient.put(`/users/${editingUser.id}/permissions`, {
         permissions: selectedPermissions,
-      });
+      } satisfies ContractInput<'UpdatePermissionsBody'>);
       setPermissionsDialogOpen(false);
       setEditingUser(null);
       loadUsers();
@@ -190,15 +172,17 @@ export default function UsersManagementPage() {
       });
   };
 
-  const handleTogglePermission = (permission: string) => {
+  const handleTogglePermission = (permission: AdminPermission) => {
     setSelectedPermissions(prev =>
       prev.includes(permission) ? prev.filter(p => p !== permission) : [...prev, permission],
     );
   };
 
-  const handleUpdateRole = async (userId: string, newRole: string) => {
+  const handleUpdateRole = async (userId: string, newRole: UserRole) => {
     await (async () => {
-      await apiClient.put(`/users/${userId}`, { role: newRole });
+      await apiClient.put(`/users/${userId}`, {
+        role: newRole,
+      } satisfies ContractInput<'UpdateUserBody'>);
       loadUsers();
     })().catch(async (err: unknown) => {
       const error = err as { response?: { data?: { message?: string } } };
@@ -208,7 +192,9 @@ export default function UsersManagementPage() {
 
   const handleToggleActive = async (user: User) => {
     await (async () => {
-      await apiClient.put(`/users/${user.id}`, { isActive: !user.isActive });
+      await apiClient.put(`/users/${user.id}`, {
+        isActive: !user.isActive,
+      } satisfies ContractInput<'UpdateUserBody'>);
       loadUsers();
     })().catch(async (err: unknown) => {
       const error = err as { response?: { data?: { message?: string } } };
@@ -295,7 +281,10 @@ export default function UsersManagementPage() {
                         <FormControl size="small" sx={{ minWidth: 120 }}>
                           <Select
                             value={user.role}
-                            onChange={e => handleUpdateRole(user.id, e.target.value)}
+                            onChange={e => {
+                              if (isUserRole(e.target.value))
+                                void handleUpdateRole(user.id, e.target.value);
+                            }}
                           >
                             <MenuItem value="admin">{t.roles.admin}</MenuItem>
                             <MenuItem value="user">{t.roles.user}</MenuItem>
@@ -320,10 +309,7 @@ export default function UsersManagementPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        {formatStoredDate(
-                          user.createdAt,
-                          locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-                        )}
+                        {formatStoredDate(user.createdAt, resolveLocaleTag(locale))}
                       </TableCell>
                       <TableCell>
                         <IconButton
@@ -357,7 +343,13 @@ export default function UsersManagementPage() {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                mb: 2,
+              }}
+            >
               {t.dialog.rolePrefix.value}: <strong>{editingUser?.role}</strong>.{' '}
               {t.dialog.subtitleSuffix}
             </Typography>

@@ -1,7 +1,8 @@
-/// <reference types="jest" />
+import type { Mock } from 'vitest';
+/// <reference types="vitest/globals" />
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { Repository } from 'typeorm';
+import { type ObjectLiteral, Repository } from 'typeorm';
 import {
   BankName,
   FileType,
@@ -16,7 +17,7 @@ import { ParserFactoryService } from '../parser-factory.service';
 import { StatementProcessingService } from '../statement-processing.service';
 
 type RepositoryMock<T> = Partial<
-  Record<'findOne' | 'save' | 'create' | 'find' | 'count', jest.Mock>
+  Record<'findOne' | 'save' | 'create' | 'find' | 'count', Mock>
 >;
 
 type ParserFactoryAccess = {
@@ -66,44 +67,41 @@ describe('StatementProcessingService - Headers Integration', () => {
 
   beforeEach(async () => {
     const mockStatementRepository: RepositoryMock<Statement> = {
-      findOne: jest.fn(),
-      save: jest.fn(),
-      create: jest.fn(),
+      findOne: vi.fn(),
+      save: vi.fn(),
+      create: vi.fn(),
     };
 
     const mockTransactionRepository: RepositoryMock<Transaction> = {
-      save: jest.fn(),
-      create: jest.fn(),
+      save: vi.fn(),
+      create: vi.fn(),
     };
 
     const mockParserFactory: Pick<ParserFactoryService, 'detectBankAndFormat' | 'getParser'> = {
-      detectBankAndFormat: jest.fn(),
-      getParser: jest.fn(),
+      detectBankAndFormat: vi.fn(),
+      getParser: vi.fn(),
     };
 
     const mockClassificationService = {
-      determineMajorityCategory: jest.fn(),
-      classifyTransaction: jest.fn(),
+      determineMajorityCategory: vi.fn(),
+      classifyTransaction: vi.fn(),
     };
 
     const mockMetadataExtractionService: Pick<
       MetadataExtractionService,
       'extractMetadata' | 'createDisplayInfo' | 'convertToParsedStatementMetadata'
     > = {
-      extractMetadata: jest.fn(),
-      createDisplayInfo: jest.fn(),
-      convertToParsedStatementMetadata: jest.fn(),
+      extractMetadata: vi.fn(),
+      createDisplayInfo: vi.fn(),
+      convertToParsedStatementMetadata: vi.fn(),
     };
 
     const mockMetricsService = {
       statementParsingDurationSeconds: {
-        observe: jest.fn(),
+        observe: vi.fn(),
       },
       statementParsingErrorsTotal: {
-        inc: jest.fn(),
-      },
-      aiParsingCallsTotal: {
-        inc: jest.fn(),
+        inc: vi.fn(),
       },
     } as unknown as MetricsService;
 
@@ -150,18 +148,18 @@ describe('StatementProcessingService - Headers Integration', () => {
   describe('Header extraction integration', () => {
     it('should call metadata extraction service during processing', async () => {
       // Setup mocks
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement);
 
       const mockParser = {
-        parse: jest.fn().mockResolvedValue(mockParsedStatement),
-        getVersion: jest.fn().mockReturnValue('1.0.0'),
+        parse: vi.fn().mockResolvedValue(mockParsedStatement),
+        getVersion: vi.fn().mockReturnValue('1.0.0'),
       };
 
       const serviceAccess = service as unknown as ParserFactoryAccess;
       serviceAccess.parserFactory = {
-        getParser: jest.fn().mockResolvedValue(mockParser),
-        detectBankAndFormat: jest.fn().mockResolvedValue({
+        getParser: vi.fn().mockResolvedValue(mockParser),
+        detectBankAndFormat: vi.fn().mockResolvedValue({
           bankName: BankName.KASPI,
           formatVersion: 'v1',
           detectedBy: 'header-name',
@@ -222,19 +220,19 @@ describe('StatementProcessingService - Headers Integration', () => {
         headerDisplay: mockDisplayInfo,
       };
 
-      jest
+      vi
         .spyOn(metadataExtractionService, 'extractMetadata')
         .mockResolvedValue(mockExtractedMetadata);
 
-      jest.spyOn(metadataExtractionService, 'createDisplayInfo').mockReturnValue(mockDisplayInfo);
+      vi.spyOn(metadataExtractionService, 'createDisplayInfo').mockReturnValue(mockDisplayInfo);
 
-      jest
+      vi
         .spyOn(metadataExtractionService, 'convertToParsedStatementMetadata')
         .mockReturnValue(mockEnhancedMetadata);
 
       // Mock the file system check
       const fs = require('fs');
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+      vi.spyOn(fs, 'existsSync').mockReturnValue(true);
 
       // Execute
       try {
@@ -250,18 +248,18 @@ describe('StatementProcessingService - Headers Integration', () => {
     });
 
     it('should handle metadata extraction errors gracefully', async () => {
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement);
-      jest.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(mockStatement);
+      vi.spyOn(statementRepository, 'save').mockResolvedValue(mockStatement);
 
       const mockParser = {
-        parse: jest.fn().mockResolvedValue(mockParsedStatement),
-        getVersion: jest.fn().mockReturnValue('1.0.0'),
+        parse: vi.fn().mockResolvedValue(mockParsedStatement),
+        getVersion: vi.fn().mockReturnValue('1.0.0'),
       };
 
       const serviceAccess = service as unknown as ParserFactoryAccess;
       serviceAccess.parserFactory = {
-        getParser: jest.fn().mockResolvedValue(mockParser),
-        detectBankAndFormat: jest.fn().mockResolvedValue({
+        getParser: vi.fn().mockResolvedValue(mockParser),
+        detectBankAndFormat: vi.fn().mockResolvedValue({
           bankName: BankName.KASPI,
           formatVersion: 'v1',
           detectedBy: 'header-name',
@@ -270,12 +268,12 @@ describe('StatementProcessingService - Headers Integration', () => {
         }),
       };
 
-      jest
+      vi
         .spyOn(metadataExtractionService, 'extractMetadata')
         .mockRejectedValue(new Error('Metadata extraction failed'));
 
       const fs = require('fs');
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+      vi.spyOn(fs, 'existsSync').mockReturnValue(true);
 
       // Execute - should not throw due to graceful error handling
       try {
@@ -319,7 +317,7 @@ describe('StatementProcessingService - Headers Integration', () => {
         },
       } as unknown as Statement;
 
-      jest.spyOn(statementRepository, 'findOne').mockResolvedValue(mockEnhancedStatement);
+      vi.spyOn(statementRepository, 'findOne').mockResolvedValue(mockEnhancedStatement);
 
       const result = (await statementRepository.findOne({
         where: { id: 'test-statement-id' },
@@ -365,13 +363,13 @@ describe('StatementProcessingService - Headers Integration', () => {
 });
 
 // Helper function to create mocks
-function createMockRepository<T>(): Partial<Repository<T>> {
+function createMockRepository<T extends ObjectLiteral>(): Partial<Repository<T>> {
   return {
-    findOne: jest.fn(),
-    find: jest.fn(),
-    save: jest.fn(),
-    create: jest.fn(),
-    delete: jest.fn(),
-    update: jest.fn(),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    save: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+    update: vi.fn(),
   };
 }

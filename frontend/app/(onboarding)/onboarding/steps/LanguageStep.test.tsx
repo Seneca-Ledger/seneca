@@ -13,7 +13,16 @@ vi.mock('@/app/i18n', () => ({
             timeZoneLabel: 'Timezone',
           },
         }
-      : { profileCard: { dateFormatLabel: 'Date format', firstDayOfWeekLabel: 'Week starts' } },
+      : key === 'navigation'
+        ? {
+            languageModal: { title: 'Choose language' },
+            shell: {
+              closeLanguageDrawer: { value: 'Close' },
+              search: { value: 'Search languages' },
+              noLanguagesFound: 'No languages',
+            },
+          }
+        : { profileCard: { dateFormatLabel: 'Date format', firstDayOfWeekLabel: 'Week starts' } },
 }));
 
 const props = {

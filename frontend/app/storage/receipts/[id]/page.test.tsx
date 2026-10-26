@@ -4,9 +4,11 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceiptDocumentPage from './page';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import toast from 'react-hot-toast';
 import { IntlayerProviderContent } from 'react-intlayer';
 
 function TestProviders({ children }: { children: React.ReactNode }) {
@@ -29,17 +31,34 @@ const routerMocks = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
 }));
 
-vi.mock('@/app/lib/api', () => ({
-  default: {
-    get: apiMocks.mockApiGet,
-    patch: apiMocks.mockApiPatch,
-    post: apiMocks.mockApiPost,
-  },
-  receiptsApi: {
-    approveReceipt: apiMocks.mockApiPost,
-  },
-  apiBaseUrl: 'http://localhost:3000',
-}));
+vi.mock('@/app/lib/api', async () => {
+  const { categoryItem, receiptRecord } = await import('@/app/test/fixtures/contracts');
+  // The fixtures below name only what each test is about; this fills in the rest
+  // of the wire shape the page checks its responses against.
+  const asWire = (url: string, data: unknown): unknown => {
+    if (url === '/categories' && Array.isArray(data)) {
+      return data.map(category => categoryItem(category));
+    }
+    if (/^\/receipts\/[^/]+$/.test(url) && data && typeof data === 'object') {
+      return receiptRecord(data as Parameters<typeof receiptRecord>[0]);
+    }
+    return data;
+  };
+  return {
+    default: {
+      get: async (url: string, config?: unknown) => {
+        const response = await apiMocks.mockApiGet(url, config);
+        return response && { ...response, data: asWire(url, response.data) };
+      },
+      patch: apiMocks.mockApiPatch,
+      post: apiMocks.mockApiPost,
+    },
+    receiptsApi: {
+      approveReceipt: apiMocks.mockApiPost,
+    },
+    apiBaseUrl: 'http://localhost:3000',
+  };
+});
 
 vi.mock('@/app/lib/workspace-headers', () => ({
   getWorkspaceHeaders: () => ({ 'X-CSRF-Token': 'test-csrf' }),
@@ -81,10 +100,19 @@ vi.mock('next/navigation', () => ({
 }));
 
 // The map pulls in Leaflet and React Query; its own test covers it.
+vi.mock('@/app/components/tags/RecordTagsField', () => ({
+  ReceiptTagsField: () => <div data-testid="receipt-tags" />,
+}));
+
 vi.mock('@/app/components/receipts/location/ReceiptLocationSection', () => ({
   ReceiptLocationSection: ({ receipt }: { receipt: { id: string } }) => (
     <section data-testid="receipt-location-section">Location of {receipt.id}</section>
   ),
+}));
+
+// Reads the workspace and React Query; its own test covers it.
+vi.mock('@/app/components/receipts/ReceiptTaxField', () => ({
+  ReceiptTaxField: () => <div data-testid="receipt-tax-field" />,
 }));
 
 describe('ReceiptDocumentPage', () => {
@@ -119,6 +147,7 @@ describe('ReceiptDocumentPage', () => {
     apiMocks.mockApiGet.mockReset();
     apiMocks.mockApiPatch.mockReset();
     apiMocks.mockApiPost.mockReset();
+    vi.mocked(toast.error).mockReset();
     vi.stubGlobal('fetch', vi.fn());
   });
 
@@ -205,7 +234,10 @@ describe('ReceiptDocumentPage', () => {
     expect(container.textContent).toContain('Export to table');
     expect(container.querySelector('iframe[title="Magnum receipt"]')).toBeTruthy();
     expect(container.querySelector('input[aria-label="Vendor"]')).toBeTruthy();
-    expect(container.querySelector('[role="combobox"][aria-label="Category"]')).toBeTruthy();
+    // С 3b2d9f93 категория — CategoryPickerField: кнопка, открывающая шторку.
+    expect(
+      container.querySelector('button[aria-haspopup="dialog"][aria-label="Category"]'),
+    ).toBeTruthy();
     expect(
       container.querySelector('[data-testid="receipt-location-section"]')?.textContent,
     ).toContain('receipt-1');
@@ -347,12 +379,11 @@ describe('ReceiptDocumentPage', () => {
       await Promise.resolve();
     });
 
-    const title = Array.from(container.querySelectorAll('h1')).find(element =>
-      element.textContent?.includes('Document title receipt'),
-    );
+    // Заголовок строится из продавца и даты (displayTitle), тема — строкой ниже.
+    const title = container.querySelector('h1');
 
-    expect(title).toBeTruthy();
-    expect(title?.textContent).toContain('Document title receipt');
+    expect(title?.textContent).toBe(`Store Receipt — ${formatStoredDate('2026-03-29')}`);
+    expect(container.textContent).toContain('Document title receipt');
   });
 
   it('navigates back to statements from the receipt page', async () => {
@@ -536,6 +567,85 @@ describe('ReceiptDocumentPage', () => {
     expect(routerMocks.push).toHaveBeenCalledWith('/statements/submit');
   });
 
+  it('shows an approved receipt as approved instead of offering to approve it again', async () => {
+    apiMocks.mockApiGet.mockImplementation((url: string) => {
+      if (url === '/receipts/receipt-1') {
+        return Promise.resolve({
+          data: {
+            id: 'receipt-1',
+            subject: 'Magnum receipt',
+            sender: 'camera-scan',
+            source: 'scan',
+            status: 'approved',
+            transactionId: 'tx-1',
+            receivedAt: '2026-03-29T10:30:00.000Z',
+            metadata: {},
+            parsedData: { vendor: 'Magnum', amount: 15420, currency: 'KZT', date: '2026-03-29' },
+          },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    await act(async () => {
+      root.render(
+        <TestProviders>
+          <ReceiptDocumentPage />
+        </TestProviders>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const buttons = Array.from(container.querySelectorAll('button')).map(b => b.textContent);
+    expect(buttons.some(text => text?.includes('Approve receipt'))).toBe(false);
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('Approved');
+  });
+
+  it('asks for the date instead of approving a receipt without one', async () => {
+    apiMocks.mockApiGet.mockImplementation((url: string) => {
+      if (url === '/receipts/receipt-1') {
+        return Promise.resolve({
+          data: {
+            id: 'receipt-1',
+            subject: 'Invoice.pdf',
+            sender: 'camera-scan',
+            source: 'scan',
+            status: 'draft',
+            receivedAt: '2026-10-09T10:30:00.000Z',
+            metadata: { attachments: [] },
+            parsedData: { vendor: 'Captions', amount: 24.99, currency: 'USD', lineItems: [] },
+          },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    await act(async () => {
+      root.render(
+        <TestProviders>
+          <ReceiptDocumentPage />
+        </TestProviders>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const approveButton = Array.from(container.querySelectorAll('button')).find(button =>
+      button.textContent?.includes('Approve receipt'),
+    );
+    await act(async () => {
+      approveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(apiMocks.mockApiPost).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith('Add the receipt date before approving.');
+  });
+
   it('returns to Review after approving a receipt opened from there', async () => {
     apiMocks.mockApiGet.mockImplementation((url: string) => {
       if (url === '/receipts/receipt-1') {
@@ -645,9 +755,11 @@ describe('ReceiptDocumentPage', () => {
     ) as HTMLImageElement;
 
     expect(previewImage).toBeTruthy();
-    expect(previewImage.style.width).toBe('180%');
-    expect(previewImage.style.maxWidth).toBe('none');
-    expect(previewImage.style.height).toBe('auto');
+    // Desktop size; a phone (max-width: 1023px) fits it to the width instead.
+    const style = getComputedStyle(previewImage);
+    expect(style.width).toBe('180%');
+    expect(style.maxWidth).toBe('none');
+    expect(style.height).toBe('auto');
   });
 
   it('opens a currency drawer from the currency field and applies the selected currency', async () => {
@@ -741,7 +853,8 @@ describe('ReceiptDocumentPage', () => {
         paymentMethod: '',
         transactionType: 'expense',
         categoryId: undefined,
-        lineItems: [{ description: 'Store', amount: 500 }],
+        // The receipt has no items; its total is not passed off as one.
+        lineItems: [],
       },
     });
   });
@@ -829,7 +942,8 @@ describe('ReceiptDocumentPage', () => {
         paymentMethod: '',
         transactionType: 'expense',
         categoryId: undefined,
-        lineItems: [{ description: 'Store', amount: 500 }],
+        // The receipt has no items; its total is not passed off as one.
+        lineItems: [],
       },
     });
   });
@@ -870,14 +984,31 @@ describe('ReceiptDocumentPage', () => {
       return Promise.resolve({ data: [] });
     });
 
+    // Ответы проверяются контрактами CreatedCustomTable / CustomTableColumnItem.
+    const createdAt = '2026-03-29T10:30:00.000Z';
+    const column = (key: string, title: string, type: string, position: number) => ({
+      data: { id: `${key}-id`, key, title, type, position, isRequired: false, isUnique: false, config: null },
+    });
     apiMocks.mockApiPost
-      .mockResolvedValueOnce({ data: { id: 'table-1' } })
-      .mockResolvedValueOnce({ data: { key: 'item-col' } })
-      .mockResolvedValueOnce({ data: { key: 'date-col' } })
-      .mockResolvedValueOnce({ data: { key: 'amount-col' } })
-      .mockResolvedValueOnce({ data: { key: 'currency-col' } })
-      .mockResolvedValueOnce({ data: { key: 'source-col' } })
-      .mockResolvedValueOnce({ data: { key: 'status-col' } })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'table-1',
+          name: 'Receipt Receipt export',
+          description: null,
+          source: 'manual',
+          categoryId: null,
+          viewSettings: null,
+          sourceBinding: null,
+          createdAt,
+          updatedAt: createdAt,
+        },
+      })
+      .mockResolvedValueOnce(column('item-col', 'Item', 'text', 0))
+      .mockResolvedValueOnce(column('date-col', 'Date', 'date', 1))
+      .mockResolvedValueOnce(column('amount-col', 'Amount', 'number', 2))
+      .mockResolvedValueOnce(column('currency-col', 'Currency', 'text', 3))
+      .mockResolvedValueOnce(column('source-col', 'Source', 'text', 4))
+      .mockResolvedValueOnce(column('status-col', 'Status', 'text', 5))
       .mockResolvedValueOnce({ data: { created: 1, rows: [] } });
 
     vi.mocked(fetch).mockResolvedValue({
@@ -926,14 +1057,16 @@ describe('ReceiptDocumentPage', () => {
 
     await act(async () => {
       confirmExportButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
+    });
+    // Каждый ответ проходит checkContract (динамический import), так что цепочка
+    // запросов длиннее пары микрозадач — ждём последний, пакет строк.
+    await act(async () => {
+      await vi.waitFor(() => expect(apiMocks.mockApiPost).toHaveBeenCalledTimes(8));
     });
 
     expect(apiMocks.mockApiPost).toHaveBeenNthCalledWith(1, '/custom-tables', {
       name: 'Receipt Receipt export',
-      description: `Exported from scanned receipt on ${new Date(
-        '2026-03-29T10:30:00.000Z',
-      ).toLocaleDateString()}`,
+      description: `Exported from scanned receipt on ${formatStoredDate('2026-03-29T10:30:00.000Z')}`,
     });
     expect(apiMocks.mockApiPost).toHaveBeenNthCalledWith(2, '/custom-tables/table-1/columns', {
       title: 'Item',

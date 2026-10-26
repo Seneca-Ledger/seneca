@@ -14,8 +14,17 @@ const HIGHLIGHT_MS = 3000;
  */
 const WAIT_MS = 20000;
 
-const ATTENTION_CLASS = 'lumio-attention';
+const ATTENTION_CLASS = 'seneca-attention';
 const FOCUS_PARAM = 'focus';
+
+/**
+ * The one element tagged `data-attention="<id>"`, or every member of the group
+ * `<id>`: `data-attention-group` holds space-separated names, so a row can be
+ * in several ("every subscription whose price changed").
+ */
+const singleSelector = (targetId: string): string => `[data-attention="${CSS.escape(targetId)}"]`;
+const groupSelector = (targetId: string): string =>
+  `[data-attention-group~="${CSS.escape(targetId)}"]`;
 
 /**
  * Some lists render a desktop table and mobile cards side by side and hide one
@@ -103,7 +112,9 @@ function keepCentred(element: Element): () => void {
  *
  * The link carries `?focus=<id>` and the target marks itself with
  * `data-attention="<id>"`, so pages opt in by tagging one element instead of
- * each one growing its own deep-link plumbing. Producers are insight links
+ * each one growing its own deep-link plumbing. Several elements can answer one
+ * link through `data-attention-group="<id>"`: all of them ring, and the first
+ * one drawn is scrolled to. Producers are insight links
  * (app/components/insights/insight-href.ts) and the notification bell
  * (app/components/notifications/notification-href.ts).
  *
@@ -148,7 +159,7 @@ export function useAttentionFocus(): string | null {
     url.searchParams.delete(FOCUS_PARAM);
     window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
 
-    let highlighted: Element | null = null;
+    let highlighted: Element[] = [];
     let fadeTimer: number | undefined;
 
     let stopFollowing = (): void => undefined;
@@ -156,22 +167,31 @@ export function useAttentionFocus(): string | null {
     // First match in document order. One category can produce several
     // leaderboard rows (per source and currency); sorted by amount, the first
     // is the largest, which is the one the insight was about.
-    const stopWaiting = whenPresent(`[data-attention="${CSS.escape(targetId)}"]`, element => {
-      highlighted = element;
+    const single = singleSelector(targetId);
+    const group = groupSelector(targetId);
+    const unring = (): void => {
+      for (const element of highlighted) element.classList.remove(ATTENTION_CLASS);
+    };
+    const stopWaiting = whenPresent(`${single}, ${group}`, element => {
+      // One target rings alone, even where it repeats (a category over several
+      // rows); a group rings every member, drawn together with the first.
+      highlighted = element.matches(single)
+        ? [element]
+        : Array.from(document.querySelectorAll(group));
       // Ring first, scroll second: starting the smooth scroll in the same tick
       // before the class lands leaves the outline transition stuck at its
       // transparent start value, so the ring never appears.
-      element.classList.add(ATTENTION_CLASS);
+      for (const member of highlighted) member.classList.add(ATTENTION_CLASS);
       element.scrollIntoView({ block: 'center', behavior: 'smooth' });
       stopFollowing = keepCentred(element);
-      fadeTimer = window.setTimeout(() => element.classList.remove(ATTENTION_CLASS), HIGHLIGHT_MS);
+      fadeTimer = window.setTimeout(unring, HIGHLIGHT_MS);
     });
 
     cleanupRef.current = () => {
       stopWaiting();
       stopFollowing();
       window.clearTimeout(fadeTimer);
-      highlighted?.classList.remove(ATTENTION_CLASS);
+      unring();
     };
   }, [targetId]);
 

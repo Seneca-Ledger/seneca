@@ -9,6 +9,7 @@ import {
   PanelLeftOpen,
   RefreshCw,
 } from '@/app/components/icons';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
@@ -285,21 +286,7 @@ export function SidePanel({
           {/* Content */}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'none' }}>
             {loading ? (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  padding: '48px 0',
-                }}
-              >
-                <Spinner size={32} />
-                <p style={{ fontSize: 14, color: 'var(--muted-foreground)', margin: 0 }}>
-                  {t.loading}
-                </p>
-              </div>
+              <SnapshotSkeleton id="side-panel" loading fallback="panel" />
             ) : error ? (
               <div
                 style={{
@@ -379,11 +366,13 @@ export function SidePanel({
                 </p>
               </div>
             ) : (
-              <div data-side-panel-sections>
-                {filteredSections.map(section => (
-                  <SectionRenderer key={section.id} section={section} />
-                ))}
-              </div>
+              <SnapshotSkeleton id="side-panel" loading={false}>
+                <div data-side-panel-sections>
+                  {filteredSections.map(section => (
+                    <SectionRenderer key={section.id} section={section} />
+                  ))}
+                </div>
+              </SnapshotSkeleton>
             )}
           </div>
 

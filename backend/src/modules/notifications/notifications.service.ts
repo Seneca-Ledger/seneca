@@ -3,6 +3,11 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, type Repository } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
+import { withoutNulls } from '../../common/effect/without-nulls';
+import { isDemoWorkspace } from '../../common/workspaces/demo-workspaces';
+import { isVersionWorkspace, STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
+import type { UpdateNotificationPreferencesBody } from '../../contracts';
 import {
   Notification,
   NotificationCategory,
@@ -17,8 +22,8 @@ import {
 } from '../../entities/notification-preference.entity';
 import { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
-import type { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { NotificationDeliveryService } from './notification-delivery.service';
+import type { NotificationParams } from './notification-params';
 import { type NotificationMessageKey, renderNotification } from './notification-translations';
 
 /**
@@ -91,6 +96,9 @@ const NOTIFICATION_PREFERENCE_MAP: Record<NotificationType, NotificationPreferen
   [NotificationType.BUDGET_WARNING]: 'workspaceUpdated',
   [NotificationType.TAX_THRESHOLD_WARNING]: 'workspaceUpdated',
   [NotificationType.TAX_THRESHOLD_REACHED]: 'workspaceUpdated',
+  [NotificationType.TAX_DEADLINE_UPCOMING]: 'workspaceUpdated',
+  [NotificationType.TAX_DEADLINE_OVERDUE]: 'workspaceUpdated',
+  [NotificationType.TAX_RATES_OFFICIAL_CHANGED]: 'workspaceUpdated',
   [NotificationType.BUDGET_EXCEEDED]: 'workspaceUpdated',
   [NotificationType.SUBSCRIPTION_DETECTED]: 'subscriptionPrompts',
   [NotificationType.SUBSCRIPTION_UPCOMING]: 'workspaceUpdated',
@@ -104,12 +112,19 @@ export interface CreateNotificationPayload {
   category: NotificationCategory;
   severity?: NotificationSeverity;
   messageKey: NotificationMessageKey;
-  messageParams: Record<string, string | number>;
+  messageParams: NotificationParams;
   actorId?: string | null;
   actorName?: string | null;
   entityType?: string | null;
   entityId?: string | null;
   meta?: Record<string, unknown> | null;
+  /**
+   * Set for a notification that is a running summary rather than an event
+   * (upcoming charges): the recipient keeps one row of this type per
+   * workspace. The same fingerprint again changes nothing; a different one
+   * rewrites that row in place and brings it back as unread.
+   */
+  fingerprint?: string;
 }
 
 export interface WorkspaceNotificationPayload {
@@ -119,11 +134,12 @@ export interface WorkspaceNotificationPayload {
   category: NotificationCategory;
   severity?: NotificationSeverity;
   messageKey: NotificationMessageKey;
-  messageParams: Record<string, string | number>;
+  messageParams: NotificationParams;
   actorName?: string | null;
   entityType?: string | null;
   entityId?: string | null;
   meta?: Record<string, unknown> | null;
+  fingerprint?: string;
 }
 
 @Injectable()
@@ -144,6 +160,20 @@ export class NotificationsService {
   ) {}
 
   async create(payload: CreateNotificationPayload): Promise<Notification | null> {
+    // A past version is a copy of old books, not where anything happens: no
+    // event in it is news, whichever job or listener reported it. Nor is
+    // anything in a demo, whose sample data is dated around another day.
+    const manager = this.notificationRepository.manager;
+    if (
+      (await isVersionWorkspace(manager, payload.workspaceId)) ||
+      (await isDemoWorkspace(manager, payload.workspaceId))
+    ) {
+      return null;
+    }
+    return this.notify(payload);
+  }
+
+  private async notify(payload: CreateNotificationPayload): Promise<Notification | null> {
     const preferences = await this.getPreferences(payload.recipientId);
     const channels = this.resolveChannels(preferences, payload.type);
 
@@ -166,9 +196,7 @@ export class NotificationsService {
       pushChannels.length && user && this.deliveryService.isDeferred(preferences, user),
     );
 
-    const notification = this.notificationRepository.create({
-      recipientId: payload.recipientId,
-      workspaceId: payload.workspaceId ?? null,
+    const fields = {
       type: payload.type,
       category: payload.category,
       severity: payload.severity ?? NotificationSeverity.INFO,
@@ -182,9 +210,13 @@ export class NotificationsService {
       entityType: payload.entityType ?? null,
       entityId: payload.entityId ?? null,
       meta: payload.meta ?? null,
-    });
+    };
 
-    const saved = await this.notificationRepository.save(notification);
+    const { row: saved, changed } = await this.store(payload, fields);
+    if (!changed) {
+      // Nothing new: the read state, the place in the list and the sends stay as they were.
+      return saved;
+    }
 
     if (channels.inApp) {
       this.eventEmitter.emit('notification.created', saved);
@@ -195,6 +227,89 @@ export class NotificationsService {
     }
 
     return saved;
+  }
+
+  /**
+   * Inserts the row, or — for a fingerprinted notification — rewrites the
+   * recipient's existing one when its content changed.
+   */
+  private async store(
+    payload: CreateNotificationPayload,
+    plainFields: Partial<Notification>,
+  ): Promise<{ row: Notification; changed: boolean }> {
+    const fields = payload.fingerprint
+      ? { ...plainFields, meta: { ...plainFields.meta, fingerprint: payload.fingerprint } }
+      : plainFields;
+    // Without a workspace the lookup would match every workspace's row.
+    const current =
+      payload.fingerprint && payload.workspaceId
+        ? await this.takeCurrent(payload.recipientId, payload.workspaceId, payload.type)
+        : null;
+
+    if (!current) {
+      const row = await this.notificationRepository.save(
+        this.notificationRepository.create({
+          recipientId: payload.recipientId,
+          workspaceId: payload.workspaceId ?? undefined,
+          ...fields,
+        }),
+      );
+      return { row, changed: true };
+    }
+    if (current.meta?.fingerprint === payload.fingerprint) {
+      return { row: current, changed: false };
+    }
+    const changes = { ...fields, isRead: false, createdAt: new Date() };
+    await this.notificationRepository.update(
+      { id: current.id, recipientId: payload.recipientId },
+      // jsonb `meta` trips the deep-partial typing; the shape is the entity's own.
+      changes as QueryDeepPartialEntity<Notification>,
+    );
+    return { row: Object.assign(current, changes), changed: true };
+  }
+
+  /**
+   * The recipient's one row of a fingerprinted type in this workspace. Copies
+   * left over from runs that still inserted a new row each time are removed.
+   */
+  private async takeCurrent(
+    recipientId: string,
+    workspaceId: string,
+    type: NotificationType,
+  ): Promise<Notification | null> {
+    const [current, ...stale] = await this.notificationRepository.find({
+      where: { recipientId, workspaceId, type },
+      order: { createdAt: 'DESC' },
+    });
+    if (stale.length > 0) {
+      await this.notificationRepository.delete({
+        recipientId,
+        workspaceId,
+        id: In(stale.map(row => row.id)),
+      });
+    }
+    return current ?? null;
+  }
+
+  /**
+   * Removes a workspace's notifications of these types whose meta contains
+   * `match` — reminders about something that is no longer live (a VAT
+   * return that was filed, or a "due soon" superseded by "overdue").
+   */
+  async removeForWorkspace(
+    workspaceId: string,
+    types: NotificationType[],
+    match: Record<string, string>,
+  ): Promise<number> {
+    const result = await this.notificationRepository
+      .createQueryBuilder()
+      .delete()
+      .from(Notification)
+      .where('workspace_id = :workspaceId', { workspaceId })
+      .andWhere('type IN (:...types)', { types })
+      .andWhere('meta @> CAST(:match AS jsonb)', { match: JSON.stringify(match) })
+      .execute();
+    return result.affected ?? 0;
   }
 
   /** In-app is rendered from the row itself; only these two need sending out. */
@@ -249,9 +364,12 @@ export class NotificationsService {
   }
 
   async createForWorkspaceMembers(payload: WorkspaceNotificationPayload): Promise<number> {
+    // No one is told about a past version (see `create`).
     const members = await this.workspaceMemberRepository.find({
-      where: { workspaceId: payload.workspaceId },
-      select: ['userId'],
+      where: { workspaceId: payload.workspaceId, workspace: STANDARD_WORKSPACE },
+      select: {
+        userId: true,
+      },
     });
 
     const recipientIds = members
@@ -277,6 +395,7 @@ export class NotificationsService {
           entityType: payload.entityType ?? null,
           entityId: payload.entityId ?? null,
           meta: payload.meta ?? null,
+          fingerprint: payload.fingerprint,
         }).catch(error => {
           this.logger.error(
             `Failed to create notification for user ${recipientId}`,
@@ -378,14 +497,20 @@ export class NotificationsService {
 
   async updatePreferences(
     userId: string,
-    dto: UpdateNotificationPreferencesDto,
+    dto: UpdateNotificationPreferencesBody,
   ): Promise<NotificationPreference> {
     const preferences = await this.getPreferences(userId);
-    const { channels, ...rest } = dto;
-    Object.assign(preferences, rest);
+    const { channels, quietHoursStart, quietHoursEnd, ...rest } = dto;
+    // null switches quiet hours off; for every other setting it leaves it as it was.
+    Object.assign(preferences, withoutNulls(rest));
+    if (quietHoursStart !== undefined) preferences.quietHoursStart = quietHoursStart;
+    if (quietHoursEnd !== undefined) preferences.quietHoursEnd = quietHoursEnd;
 
     if (channels) {
-      preferences.channels = this.normalizeChannels(preferences, channels);
+      preferences.channels = this.normalizeChannels(
+        preferences,
+        Object.fromEntries(Object.entries(channels).map(([key, set]) => [key, withoutNulls(set)])),
+      );
     }
 
     return this.preferenceRepository.save(preferences);

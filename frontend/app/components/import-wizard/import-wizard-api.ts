@@ -1,4 +1,5 @@
 import { api } from '@/app/lib/api';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 
 export type ImportTarget =
   | 'transactions'
@@ -81,7 +82,6 @@ export interface ImportSuggestion {
   confidence: number;
   columns: Array<{ index: number; role: string | null }>;
   alternatives: Array<{ target: ImportTarget; confidence: number }>;
-  source: 'heuristic' | 'ai';
 }
 
 export type ImportRowStatus = 'created' | 'updated' | 'skipped' | 'error';
@@ -118,38 +118,54 @@ export interface ImportRunPayload {
   options?: { currency?: string; categorize?: boolean };
 }
 
-/** Some routes answer with the `{ success, data }` envelope, some with the bare object. */
-const unwrap = <T>(body: unknown): T => {
-  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
-    return (body as { data: T }).data;
-  }
-  return body as T;
-};
-
 export const suggestImport = async (
   headers: string[],
   samples: string[][],
 ): Promise<ImportSuggestion> => {
-  const response = await api.post('/entity-imports/suggest', { headers, samples });
-  return unwrap<ImportSuggestion>(response.data);
+  const response = await api.post('/entity-imports/suggest', {
+    headers,
+    samples,
+  } satisfies ContractInput<'SuggestImportBody'>);
+  return checkContract('ImportSuggestion', response.data, '/entity-imports/suggest');
 };
 
 export const runEntityImport = async (payload: ImportRunPayload): Promise<ImportRunResult> => {
-  const response = await api.post('/entity-imports', payload);
-  return unwrap<ImportRunResult>(response.data);
+  const response = await api.post(
+    '/entity-imports',
+    payload satisfies ContractInput<'RunEntityImportBody'>,
+  );
+  return checkContract('EntityImportResult', response.data, '/entity-imports');
 };
 
 export const undoEntityImport = async (batchId: string): Promise<void> => {
   await api.delete(`/entity-imports/${batchId}`);
 };
 
+/** Import targets a custom table can be built from; metals have no table source. */
+export type TableSourceTarget = ContractInput<'CreateCustomTableFromSourceBody'>['kind'];
+
+const TABLE_SOURCE_TARGETS: readonly TableSourceTarget[] = [
+  'transactions',
+  'payables',
+  'subscriptions',
+  'invoices',
+  'budgets',
+];
+
+export const isTableSourceTarget = (target: ImportTarget): target is TableSourceTarget =>
+  TABLE_SOURCE_TARGETS.some(source => source === target);
+
 export const createTableFromImport = async (payload: {
-  kind: ImportTarget;
+  kind: TableSourceTarget;
   filters: Record<string, unknown>;
   name: string;
   currency: string;
   columnTitles: Record<string, string>;
 }): Promise<string | null> => {
-  const response = await api.post('/custom-tables/from-source', payload);
-  return unwrap<{ tableId?: string }>(response.data)?.tableId ?? null;
+  const response = await api.post(
+    '/custom-tables/from-source',
+    payload satisfies ContractInput<'CreateCustomTableFromSourceBody'>,
+  );
+  return (await checkContract('CreatedFromSource', response.data, '/custom-tables/from-source'))
+    .tableId;
 };

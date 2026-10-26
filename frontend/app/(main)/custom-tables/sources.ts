@@ -1,7 +1,7 @@
 /**
  * App data a table can be filled from. Column fields and filters mirror the
- * backend adapters (`custom-tables/sources/*.source.ts`); titles are looked up
- * in the dictionary by field name, with these English strings as fallback.
+ * backend adapters (`custom-tables/sources/*.source.ts`); names, descriptions
+ * and column titles are looked up in the dictionary by id and field name.
  */
 export type SourceKind = 'transactions' | 'subscriptions' | 'payables' | 'invoices' | 'budgets';
 
@@ -17,10 +17,10 @@ export type SourceFilterField =
 
 export interface SourceDef {
   id: SourceKind;
-  name: string;
-  description: string;
   filterFields: SourceFilterField[];
   columnFields: string[];
+  /** The few columns the create dialog's preview shows, money last. */
+  previewFields: string[];
   /** Option values of the status filter, when the source has one. */
   statusOptions?: string[];
 }
@@ -60,9 +60,8 @@ export const DIRECTION_OPTIONS = ['payable', 'receivable'] as const;
 export const SOURCE_KINDS: SourceDef[] = [
   {
     id: 'transactions',
-    name: 'Transactions',
-    description: 'Bank transactions filtered by period, category, type or statement.',
     filterFields: ['dateRange', 'categories', 'type', 'currency', 'statements'],
+    previewFields: ['date', 'counterparty', 'category', 'amount'],
     columnFields: [
       'date',
       'counterparty',
@@ -70,15 +69,15 @@ export const SOURCE_KINDS: SourceDef[] = [
       'amount',
       'type',
       'category',
+      'tags',
       'currency',
       'statement',
     ],
   },
   {
     id: 'subscriptions',
-    name: 'Subscriptions',
-    description: 'Recurring charges with frequency, status and next charge date.',
     filterFields: ['status'],
+    previewFields: ['vendor', 'frequency', 'nextChargeDate', 'amount'],
     columnFields: [
       'vendor',
       'amount',
@@ -93,9 +92,8 @@ export const SOURCE_KINDS: SourceDef[] = [
   },
   {
     id: 'payables',
-    name: 'Payables',
-    description: 'Bills to pay and receive, with due dates and payment status.',
     filterFields: ['direction', 'status', 'dueRange'],
+    previewFields: ['vendor', 'dueDate', 'status', 'amount'],
     columnFields: [
       'direction',
       'vendor',
@@ -112,9 +110,8 @@ export const SOURCE_KINDS: SourceDef[] = [
   },
   {
     id: 'invoices',
-    name: 'Invoices',
-    description: 'Issued invoices with client, dates, totals and status.',
     filterFields: ['status'],
+    previewFields: ['invoiceNumber', 'client', 'dueDate', 'total'],
     columnFields: [
       'invoiceNumber',
       'client',
@@ -131,9 +128,8 @@ export const SOURCE_KINDS: SourceDef[] = [
   },
   {
     id: 'budgets',
-    name: 'Budgets',
-    description: 'Every budget with its limit, spent amount and remaining balance.',
     filterFields: [],
+    previewFields: ['name', 'spent', 'remaining', 'limit'],
     columnFields: [
       'name',
       'category',

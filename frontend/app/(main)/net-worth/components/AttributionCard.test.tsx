@@ -71,7 +71,10 @@ describe('AttributionCard', () => {
       />,
     );
 
-    expect(screen.getByText('60% of 1000 T kept')).toBeInTheDocument();
+    // The amount is wrapped for privacy mode, so the sentence spans two nodes.
+    expect(
+      screen.getByText((_, element) => element?.textContent === '60% of 1000 T kept' && element.tagName === 'P'),
+    ).toBeInTheDocument();
   });
 
   it('says nothing about saving when nothing came in', () => {

@@ -47,11 +47,13 @@ export function AnalyticsSection({
   const showEmpty = viewMode !== 'chart' && !loading && isEmpty;
   return (
     <section
-      className="lumio-cash-flow__section"
+      className="seneca-cash-flow__section"
       data-attention={viewMode === 'chart' ? (attentionId ?? undefined) : undefined}
     >
-      <h2 className="lumio-cash-flow__section-title">{title}</h2>
-      {header}
+      <div className="seneca-cash-flow__section-head">
+        <h2 className="seneca-cash-flow__section-title">{title}</h2>
+        {header}
+      </div>
       {showSkeleton ? <AnalyticsLeaderboardSkeleton /> : null}
       {showEmpty ? (
         <div

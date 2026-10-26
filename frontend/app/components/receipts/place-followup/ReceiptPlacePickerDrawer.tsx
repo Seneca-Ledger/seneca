@@ -27,7 +27,7 @@ const candidateKey = (candidate: PlaceCandidate): string =>
 type ReceiptPlacePickerDrawerProps = {
   open: boolean;
   question: PlaceQuestion;
-  summary: string | null;
+  summary: React.ReactNode;
   onClose: () => void;
   onSaved: () => void;
 };

@@ -1,6 +1,8 @@
 'use client';
 
 import Modal from '@mui/material/Modal';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AnalyticsSourceBadge } from '@/app/(main)/statements/components/analytics/AnalyticsSourceBadge';
 import type {
   SpendOverTimePoint,
@@ -9,6 +11,7 @@ import type {
 } from '@/app/(main)/statements/components/spend-over-time.utils';
 import { X } from '@/app/components/icons';
 import { closeOnBackdropClick } from '@/app/components/ui/backdrop-click';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/analytics-common';
 import { formatStoredDate } from '@/app/lib/user-format-store';
@@ -16,7 +19,6 @@ import { formatStoredDate } from '@/app/lib/user-format-store';
 type SourceLabels = {
   sourceBank: string;
   sourceReceipt: string;
-  sourceGmailInbox: string;
   sourceCrypto: string;
 };
 
@@ -63,10 +65,11 @@ function DrillDownTable({
   labels,
 }: TableProps): React.JSX.Element {
   const spendT = useIntlayer('statementsSpendOverTime');
+  const router = useRouter();
   const visible = records.slice(0, 120);
   return (
     <>
-      <table className="lumio-view-page__table lumio-spend-drill__table">
+      <table className="seneca-view-page__table seneca-spend-drill__table">
         <thead>
           <tr>
             <th>{labels.lastOperation}</th>
@@ -78,7 +81,13 @@ function DrillDownTable({
         </thead>
         <tbody>
           {visible.map(record => (
-            <tr key={record.id}>
+            // The merchant is the link (keyboard, middle-click); the rest of the
+            // row is a wider target for the mouse.
+            <tr
+              key={record.id}
+              className={record.href ? 'seneca-spend-drill__row--link' : undefined}
+              onClick={record.href ? () => router.push(record.href as string) : undefined}
+            >
               <td style={{ color: 'var(--text-secondary)' }}>
                 {formatDateValue(record.dateValue)}
               </td>
@@ -89,8 +98,23 @@ function DrillDownTable({
                 />
               </td>
               <td style={{ color: 'var(--text-secondary)' }}>{record.workspaceName ?? '-'}</td>
-              <td style={{ color: 'var(--text-secondary)' }}>{getRecordMerchant(record)}</td>
-              <td style={{ textAlign: 'right', fontWeight: 500, color: 'var(--foreground)' }}>
+              <td style={{ color: 'var(--text-secondary)' }}>
+                {record.href ? (
+                  <Link
+                    href={record.href}
+                    className="seneca-spend-drill__link"
+                    onClick={event => event.stopPropagation()}
+                  >
+                    {getRecordMerchant(record)}
+                  </Link>
+                ) : (
+                  getRecordMerchant(record)
+                )}
+              </td>
+              <td
+                className={PRIVATE_CLASS}
+                style={{ textAlign: 'right', fontWeight: 500, color: 'var(--foreground)' }}
+              >
                 {formatMoney(record.amount, record.currencyValue || currency)}
               </td>
             </tr>
@@ -98,22 +122,35 @@ function DrillDownTable({
         </tbody>
       </table>
       {/* Phones: five columns do not fit, so each operation is a two-line row. */}
-      <ul className="lumio-spend-drill__list">
-        {visible.map(record => (
-          <li key={record.id} className="lumio-spend-drill__item">
-            <span className="lumio-spend-drill__merchant">{getRecordMerchant(record)}</span>
-            <span className="lumio-spend-drill__amount">
-              {formatMoney(record.amount, record.currencyValue || currency)}
-            </span>
-            <span className="lumio-spend-drill__meta">
-              <AnalyticsSourceBadge
-                sourceChannel={record.sourceChannel as SpendOverTimeSourceChannel}
-                labels={sourceLabels}
-              />
-              <span>{formatDateValue(record.dateValue)}</span>
-            </span>
-          </li>
-        ))}
+      <ul className="seneca-spend-drill__list">
+        {visible.map(record => {
+          const content = (
+            <>
+              <span className="seneca-spend-drill__merchant">{getRecordMerchant(record)}</span>
+              <span className={`seneca-spend-drill__amount ${PRIVATE_CLASS}`}>
+                {formatMoney(record.amount, record.currencyValue || currency)}
+              </span>
+              <span className="seneca-spend-drill__meta">
+                <AnalyticsSourceBadge
+                  sourceChannel={record.sourceChannel as SpendOverTimeSourceChannel}
+                  labels={sourceLabels}
+                />
+                <span>{formatDateValue(record.dateValue)}</span>
+              </span>
+            </>
+          );
+          return (
+            <li key={record.id}>
+              {record.href ? (
+                <Link href={record.href} className="seneca-spend-drill__item">
+                  {content}
+                </Link>
+              ) : (
+                <div className="seneca-spend-drill__item">{content}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </>
   );
@@ -134,35 +171,35 @@ export function SpendOverTimeDrillDown({
     <Modal open onClose={onClose} hideBackdrop>
       {/* biome-ignore lint/a11y: the dimmed backdrop is a mouse-only dismiss surface; keyboard users close with Escape (Modal). */}
       <div
-        className="lumio-view-page__drill-backdrop"
+        className="seneca-view-page__drill-backdrop"
         tabIndex={-1}
         onClick={closeOnBackdropClick(onClose)}
       >
         <div
-          className="lumio-view-page__drill-modal"
+          className="seneca-view-page__drill-modal"
           role="dialog"
           aria-modal="true"
           aria-label={`${selectedPoint.label} - ${labels.drillDown}`}
         >
-          <div className="lumio-view-page__drill-header">
+          <div className="seneca-view-page__drill-header">
             <div>
-              <h4 className="lumio-view-page__drill-title">
+              <h4 className="seneca-view-page__drill-title">
                 {selectedPoint.label} - {labels.drillDown}
               </h4>
-              <p className="lumio-view-page__drill-subtitle">{groupBy}</p>
+              <p className="seneca-view-page__drill-subtitle">{groupBy}</p>
             </div>
             <button
               type="button"
-              className="lumio-view-page__drill-close"
+              className="seneca-view-page__drill-close"
               onClick={onClose}
               aria-label={labels.close}
             >
               <X size={16} />
             </button>
           </div>
-          <div className="lumio-view-page__drill-body">
+          <div className="seneca-view-page__drill-body">
             {drillDownRecords.length === 0 ? (
-              <div className="lumio-view-page__drill-empty">{labels.noOperations}</div>
+              <div className="seneca-view-page__drill-empty">{labels.noOperations}</div>
             ) : (
               <DrillDownTable
                 records={drillDownRecords}

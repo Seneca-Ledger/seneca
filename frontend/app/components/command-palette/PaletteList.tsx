@@ -6,9 +6,15 @@ import { useIntlayer } from '@/app/i18n';
 import { PaletteRowView } from './PaletteRowView';
 import type { PaletteRow, PaletteSection, SectionGroup } from './use-palette-sections';
 
-function SectionHeading({ group }: { group: SectionGroup }): React.JSX.Element {
+function SectionHeading({
+  group,
+  title,
+}: {
+  group: SectionGroup;
+  title?: string;
+}): React.JSX.Element {
   const t = useIntlayer('commandPalette');
-  const titles: Record<SectionGroup, React.ReactNode> = {
+  const titles: Record<Exclude<SectionGroup, 'page' | 'picker'>, React.ReactNode> = {
     actions: t.groupActions,
     navigation: t.groupNavigation,
     settings: t.groupSettings,
@@ -33,7 +39,7 @@ function SectionHeading({ group }: { group: SectionGroup }): React.JSX.Element {
         color: 'text.secondary',
       }}
     >
-      {titles[group]}
+      {group === 'page' || group === 'picker' ? title : titles[group]}
     </Typography>
   );
 }
@@ -55,11 +61,16 @@ export function PaletteList({
     <Box
       id="command-palette-list"
       role="listbox"
+      // Focus stays in the field: a press on a row or heading would otherwise move
+      // it to the dialog, and every key after that would miss the palette.
+      onMouseDown={event => event.preventDefault()}
       sx={{ maxHeight: '55vh', overflowY: 'auto', pb: 1 }}
     >
       {sections.map(section => (
         <Box key={section.group}>
-          <SectionHeading group={section.group} />
+          {section.group !== 'picker' && (
+            <SectionHeading group={section.group} title={section.title} />
+          )}
           {section.rows.map(row => {
             const index = rows.indexOf(row);
             return (

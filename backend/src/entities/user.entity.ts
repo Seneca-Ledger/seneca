@@ -7,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { AuthSession } from './auth-session.entity';
@@ -91,7 +92,7 @@ export class User {
     name: 'theme_preference',
     type: 'varchar',
     length: 16,
-    default: ThemePreference.AUTO,
+    default: ThemePreference.DARK,
   })
   themePreference: ThemePreference;
 
@@ -138,6 +139,21 @@ export class User {
   })
   welcomeTutorialSeenAt: Date | null;
 
+  /**
+   * Page hints closed so far: page id → the highest hint version seen there. A
+   * page shows only the steps added after that version. Written only by
+   * UsersService.markPageHintsSeen / resetPageHints with conditional SQL, for the
+   * same reason as welcomeTutorialSeenAt: a whole-row save must not write back a
+   * map it loaded before a hint was closed.
+   */
+  @Column({
+    name: 'page_hints_seen',
+    type: 'jsonb',
+    default: () => "'{}'::jsonb",
+    update: false,
+  })
+  pageHintsSeen: Record<string, number>;
+
   /** Base32 TOTP secret, encrypted at rest. Set during setup, before 2FA is confirmed. */
   @Column({ name: 'two_factor_secret', type: 'text', nullable: true, select: false })
   twoFactorSecret: string | null;
@@ -159,7 +175,7 @@ export class User {
   @Column({ name: 'token_version', type: 'int', default: 0 })
   tokenVersion: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   company: string | null;
 
   @Column({
@@ -171,7 +187,7 @@ export class User {
 
   @ManyToOne(() => Workspace, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace | null;
+  workspace: Relation<Workspace | null>;
 
   @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
   workspaceId: string | null;
@@ -179,16 +195,13 @@ export class User {
   @Column({ name: 'last_workspace_id', type: 'uuid', nullable: true })
   lastWorkspaceId: string | null;
 
-  @Column({ name: 'google_id', nullable: true })
-  googleId: string | null;
-
-  @Column({ name: 'avatar_url', nullable: true })
+  @Column({ type: 'varchar', name: 'avatar_url', nullable: true })
   avatarUrl: string | null;
 
-  @Column({ name: 'telegram_id', nullable: true })
+  @Column({ type: 'varchar', name: 'telegram_id', nullable: true })
   telegramId: string | null;
 
-  @Column({ name: 'telegram_chat_id', nullable: true })
+  @Column({ type: 'varchar', name: 'telegram_chat_id', nullable: true })
   telegramChatId: string | null;
 
   /**
@@ -209,7 +222,7 @@ export class User {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt: Date | null;
 
-  @Column({ name: 'last_login', nullable: true })
+  @Column({ type: 'timestamp', name: 'last_login', nullable: true })
   lastLogin: Date | null;
 
   @Column({ name: 'is_active', default: true })
@@ -235,41 +248,41 @@ export class User {
     () => Statement,
     statement => statement.user,
   )
-  statements: Statement[];
+  statements: Relation<Statement[]>;
 
   @OneToMany(
     () => TelegramReport,
     report => report.user,
   )
-  telegramReports: TelegramReport[];
+  telegramReports: Relation<TelegramReport[]>;
 
   @OneToMany(
     () => Category,
     category => category.user,
   )
-  categories: Category[];
+  categories: Relation<Category[]>;
 
   @OneToMany(
     () => Branch,
     branch => branch.user,
   )
-  branches: Branch[];
+  branches: Relation<Branch[]>;
 
   @OneToMany(
     () => Wallet,
     wallet => wallet.user,
   )
-  wallets: Wallet[];
+  wallets: Relation<Wallet[]>;
 
   @OneToMany(
     () => WorkspaceMember,
     membership => membership.user,
   )
-  workspaceMemberships: WorkspaceMember[];
+  workspaceMemberships: Relation<WorkspaceMember[]>;
 
   @OneToMany(
     () => AuthSession,
     authSession => authSession.user,
   )
-  authSessions: AuthSession[];
+  authSessions: Relation<AuthSession[]>;
 }

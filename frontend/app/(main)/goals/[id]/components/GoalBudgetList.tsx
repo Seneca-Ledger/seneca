@@ -4,9 +4,11 @@ import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { formatMoney } from '@/app/lib/format-money';
 import type { GoalFlowBudget } from '@/app/lib/goals-api';
 import { tokens } from '@/lib/theme-tokens';
+import { formatGoalDate } from './goal-dates';
 
 export interface GoalBudgetListProps {
   budgets: GoalFlowBudget[];
@@ -27,7 +29,13 @@ export function GoalBudgetList({
 }: GoalBudgetListProps): React.JSX.Element {
   return (
     <Box sx={{ mt: 4 }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 600,
+          mb: 1.5,
+        }}
+      >
         {title}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -50,13 +58,18 @@ export function GoalBudgetList({
                 flexWrap: 'wrap',
               }}
             >
-              <Typography variant="body2" fontWeight={600}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {budget.name}
               </Typography>
               <Typography variant="body2">
-                {formatAmount(budget.actualMonthly)}{' '}
+                <PrivateAmount>{formatAmount(budget.actualMonthly)}</PrivateAmount>{' '}
                 <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
-                  / {formatAmount(budget.plannedMonthly)}
+                  / <PrivateAmount>{formatAmount(budget.plannedMonthly)}</PrivateAmount>
                 </Typography>
               </Typography>
             </Box>
@@ -71,9 +84,13 @@ export function GoalBudgetList({
                 keeps the two screens reconcilable instead of leaving the monthly
                 figure looking like a discrepancy. */}
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {nativePeriodLabel}: {formatAmount(budget.nativePeriod.actual)} /{' '}
-              {formatMoney(budget.limitAmount, budget.limitCurrency, locale)} ·{' '}
-              {budget.nativePeriod.start} — {budget.nativePeriod.end}
+              {nativePeriodLabel}:{' '}
+              <PrivateAmount>{formatAmount(budget.nativePeriod.actual)}</PrivateAmount> /{' '}
+              <PrivateAmount>
+                {formatMoney(budget.limitAmount, budget.limitCurrency, locale)}
+              </PrivateAmount>{' '}
+              · {formatGoalDate(budget.nativePeriod.start, locale)} —{' '}
+              {formatGoalDate(budget.nativePeriod.end, locale)}
             </Typography>
           </Box>
         ))}

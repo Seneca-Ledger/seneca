@@ -1,11 +1,17 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Repository } from 'typeorm';
-import { retry, TimeoutError } from '../../common/utils/async.util';
+import { hasPermissions } from '../../common/authz/request-permissions';
+import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
+import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { formatMoney } from '../../common/utils/format-money.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
+import type { SendTelegramReportBody, TelegramConnection } from '../../contracts';
 import { CategoryType } from '../../entities/category.entity';
 import { IdempotencyKey } from '../../entities/idempotency-key.entity';
 import type { Insight } from '../../entities/insight.entity';
@@ -24,59 +30,22 @@ import type { DailyReport } from '../reports/interfaces/daily-report.interface';
 import type { MonthlyReport } from '../reports/interfaces/monthly-report.interface';
 import { ReportsService } from '../reports/reports.service';
 import { StatementsService } from '../statements/statements.service';
-import type { ConnectTelegramDto } from './dto/connect-telegram.dto';
-import type { SendTelegramReportDto } from './dto/send-report.dto';
+import { telegramConnectionOf } from './telegram-connection.util';
 import { parseExpenseText } from './telegram-inbound.util';
+import { TelegramLinkCodes } from './telegram-link-codes';
 import {
   renderTelegramMessage,
   resolveTelegramLocale,
   type TelegramMessageKey,
 } from './telegram-translations';
+import type {
+  TelegramCallbackQuery,
+  TelegramDocument,
+  TelegramUpdate,
+} from './telegram-update.schema';
 
 interface TelegramSendResult {
   messageId: string;
-}
-
-interface TelegramDocumentPayload {
-  file_id: string;
-  file_name?: string;
-  mime_type?: string;
-}
-
-interface TelegramFromPayload {
-  id?: number | string;
-  language_code?: string;
-}
-
-interface TelegramPhotoSizePayload {
-  file_id: string;
-  file_size?: number;
-  width?: number;
-  height?: number;
-}
-
-interface TelegramMessagePayload {
-  chat?: { id?: number | string };
-  text?: string;
-  caption?: string;
-  from?: TelegramFromPayload;
-  document?: TelegramDocumentPayload;
-  /** Telegram sends every size of a photo; the last one is the largest. */
-  photo?: TelegramPhotoSizePayload[];
-}
-
-interface TelegramCallbackQueryPayload {
-  id: string;
-  from?: TelegramFromPayload;
-  message?: { chat?: { id?: number | string } };
-  data?: string;
-}
-
-export interface TelegramUpdatePayload {
-  /** Telegram resends an update with the same id when the webhook answer is late or fails. */
-  update_id?: number;
-  message?: TelegramMessagePayload;
-  callback_query?: TelegramCallbackQueryPayload;
 }
 
 /** An inline keyboard in Telegram's own shape, passed through as `reply_markup`. */
@@ -87,6 +56,20 @@ interface TelegramReplyMarkup {
 const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic']);
 /** Callback data is limited to 64 bytes by Telegram; `kind:action:id` fits a uuid. */
 const CALLBACK_PATTERN = /^(rcpt|stmt):del:([0-9a-f-]{36})$/;
+// Bot API calls besides sendMessage, which has its own configurable timeout.
+const API_TIMEOUT_MS = 10_000;
+// Bots may download files of up to 20 MB.
+const FILE_DOWNLOAD_TIMEOUT_MS = 60_000;
+
+/** A connected chat's account, with its membership of the workspace the bot answers for. */
+interface LinkedSender {
+  user: User;
+  workspaceId: string;
+  member: WorkspaceMember;
+}
+
+/** A bot token is "<bot id>:<secret>"; the id alone names the bot. */
+export const botIdOf = (botToken: string): string => botToken.split(':')[0];
 
 interface TelegramSendMessageResponse {
   ok: boolean;
@@ -123,8 +106,8 @@ class TelegramApiError extends Error {
 export class TelegramService {
   private readonly logger = new Logger(TelegramService.name);
   private readonly botToken?: string;
-  private readonly apiBase?: string;
-  private readonly fileApiBase?: string;
+  /** The bot an update came in on, while it is handled: replies go out through it. */
+  private readonly inboundBot = new AsyncLocalStorage<string>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -150,12 +133,10 @@ export class TelegramService {
     @Optional()
     @InjectRepository(IdempotencyKey)
     private readonly idempotencyKeyRepository?: Repository<IdempotencyKey>,
+    @Optional()
+    private readonly linkCodes?: TelegramLinkCodes,
   ) {
     this.botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
-    this.apiBase = this.botToken ? `https://api.telegram.org/bot${this.botToken}` : undefined;
-    this.fileApiBase = this.botToken
-      ? `https://api.telegram.org/file/bot${this.botToken}`
-      : undefined;
 
     if (!this.botToken) {
       this.logger.warn('TELEGRAM_BOT_TOKEN is not configured. Telegram features will be disabled.');
@@ -163,35 +144,41 @@ export class TelegramService {
   }
 
   async isEnabled(user?: User | null): Promise<boolean> {
-    const settings = await this.applicationSettingsService?.getTelegramSettings(user);
-    return Boolean(settings?.botToken || this.botToken);
+    return Boolean((await this.resolveBot(user)).botToken);
   }
 
-  /** The bot then answers for `workspaceId`, the workspace open when connecting. */
-  async connectAccount(user: User, workspaceId: string, dto: ConnectTelegramDto): Promise<User> {
-    if (!dto.chatId) {
-      throw new BadRequestException('chatId is required to connect Telegram');
+  /**
+   * The bot to talk through: the one the update being handled came in on, else
+   * the bot of the workspace the user's chat is connected in (the only bot that
+   * chat has started, so the only one allowed to write to it), else the server
+   * default.
+   */
+  private async resolveBot(
+    user?: User | null,
+  ): Promise<{ botToken: string | null; timeoutMs?: number }> {
+    const inbound = this.inboundBot.getStore();
+    if (inbound) {
+      return { botToken: inbound };
     }
+    const settings = await this.applicationSettingsService?.getTelegramSettings(
+      user,
+      user?.telegramWorkspaceId ?? undefined,
+    );
+    return {
+      botToken: settings?.botToken || this.botToken || null,
+      timeoutMs: settings?.timeoutMs,
+    };
+  }
 
-    const telegramId = dto.telegramId || dto.chatId;
+  getConnection(user: User, workspaceId: string): TelegramConnection {
+    return telegramConnectionOf(user, workspaceId);
+  }
 
-    const updatedUser = this.userRepository.merge(user, {
-      telegramId,
-      telegramChatId: dto.chatId,
-      telegramWorkspaceId: workspaceId,
-    });
-
-    const savedUser = await this.userRepository.save(updatedUser);
-
-    if (await this.isEnabled(user)) {
-      try {
-        await this.send(dto.chatId, user, 'connected');
-      } catch (error: unknown) {
-        this.logger.warn(`Failed to send confirmation message: ${getErrorMessage(error)}`);
-      }
-    }
-
-    return savedUser;
+  async disconnect(user: User): Promise<void> {
+    await this.userRepository.update(
+      { id: user.id },
+      { telegramId: null, telegramChatId: null, telegramWorkspaceId: null },
+    );
   }
 
   /**
@@ -200,27 +187,37 @@ export class TelegramService {
    * workspace. Null once the user is no longer a member of it.
    */
   async resolveWorkspaceId(user: User): Promise<string | null> {
+    return (await this.linkedMembership(user))?.workspaceId ?? null;
+  }
+
+  private async linkedMembership(
+    user: User,
+  ): Promise<{ workspaceId: string; member: WorkspaceMember } | null> {
     const workspaceId = user.telegramWorkspaceId ?? user.workspaceId;
     if (!workspaceId) {
       return null;
     }
 
-    const membership = await this.workspaceMemberRepository.findOne({
-      where: { workspaceId, userId: user.id },
+    // A past version is never the bot's workspace: no reports from it and no
+    // documents filed into it, scheduled or sent from the chat.
+    const member = await this.workspaceMemberRepository.findOne({
+      where: { workspaceId, userId: user.id, workspace: STANDARD_WORKSPACE },
     });
-    return membership ? workspaceId : null;
+    return member ? { workspaceId, member } : null;
   }
 
-  async sendReport(user: User, dto: SendTelegramReportDto, workspaceId: string) {
+  async sendReport(user: User, dto: SendTelegramReportBody, workspaceId: string) {
+    // Reports go to the caller's own connected chat, never to one they name.
+    if (dto.chatId && dto.chatId !== user.telegramChatId) {
+      throw new BadRequestException(appError('TELEGRAM_CHAT_NOT_OWN'));
+    }
     const chatId = dto.chatId || user.telegramChatId;
     if (!chatId) {
-      throw new BadRequestException(
-        'Telegram chat is not connected. Provide chatId or connect Telegram first.',
-      );
+      throw new BadRequestException(appError('TELEGRAM_CHAT_NOT_CONNECTED'));
     }
 
     if (!(await this.isEnabled(user))) {
-      throw new BadRequestException('Telegram bot is not configured on the server');
+      throw new BadRequestException(appError('TELEGRAM_BOT_NOT_CONFIGURED_ON_SERVER'));
     }
 
     switch (dto.reportType) {
@@ -235,7 +232,7 @@ export class TelegramService {
         return this.handleMonthlyReport(user, workspaceId, chatId, year, month);
       }
       default:
-        throw new BadRequestException('Unsupported report type for Telegram');
+        throw new BadRequestException(appError('TELEGRAM_REPORT_TYPE_UNSUPPORTED'));
     }
   }
 
@@ -352,8 +349,8 @@ export class TelegramService {
       savedRecord.sentAt = new Date();
       savedRecord.messageId = result.messageId;
       await this.telegramReportRepository.save(savedRecord);
-
-      return { status: 'sent', report: savedRecord };
+      const report = { ...savedRecord, reportDate: this.formatDateOnly(reportDate) };
+      return { status: 'sent', report };
     } catch (error) {
       savedRecord.status = ReportStatus.FAILED;
       await this.telegramReportRepository.save(savedRecord);
@@ -401,78 +398,72 @@ export class TelegramService {
     user?: User | null,
     replyMarkup?: TelegramReplyMarkup,
   ): Promise<TelegramSendResult> {
-    const settings = await this.applicationSettingsService?.getTelegramSettings(user);
-    const botToken = settings?.botToken || this.botToken;
-    const apiBase = botToken ? `https://api.telegram.org/bot${botToken}` : undefined;
+    const bot = await this.resolveBot(user);
+    const apiBase = bot.botToken ? `https://api.telegram.org/bot${bot.botToken}` : undefined;
     if (!apiBase) {
-      throw new BadRequestException('Telegram bot is not configured');
+      throw new BadRequestException(appError('TELEGRAM_BOT_NOT_CONFIGURED'));
     }
 
     const timeoutMsRaw =
-      settings?.timeoutMs || Number.parseInt(process.env.TELEGRAM_TIMEOUT_MS || '10000', 10);
+      bot.timeoutMs || Number.parseInt(process.env.TELEGRAM_TIMEOUT_MS || '10000', 10);
     const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 10000;
 
-    const sendOnce = async () => {
-      const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+    const sendOnce = async (signal: AbortSignal) => {
+      const response = await fetch(`${apiBase}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          disable_web_page_preview: true,
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+        }),
+        signal,
+      });
 
-      try {
-        const response = await fetch(`${apiBase}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text,
-            disable_web_page_preview: true,
-            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-          }),
-          signal: controller.signal,
-        });
-
-        if (response.status >= 500) {
-          throw new TelegramApiError('Telegram API temporary error', response.status);
-        }
-
-        const payload = (await response.json()) as TelegramSendMessageResponse;
-
-        if (!payload.ok) {
-          const description = payload?.description || 'Unknown error';
-          const errorCode = payload?.error_code ? Number(payload.error_code) : undefined;
-          this.logger.error(`Failed to send Telegram message: ${description}`);
-          throw new TelegramApiError(description, response.status, errorCode);
-        }
-
-        return { messageId: String(payload.result?.message_id || '') };
-      } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new TimeoutError('Telegram request timed out');
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeoutHandle);
+      if (response.status >= 500) {
+        throw new TelegramApiError('Telegram API temporary error', response.status);
       }
+
+      const payload = (await response.json()) as TelegramSendMessageResponse;
+
+      if (!payload.ok) {
+        const description = payload?.description || 'Unknown error';
+        const errorCode = payload?.error_code ? Number(payload.error_code) : undefined;
+        this.logger.error(`Failed to send Telegram message: ${description}`);
+        throw new TelegramApiError(description, response.status, errorCode);
+      }
+
+      return { messageId: String(payload.result?.message_id || '') };
     };
 
     try {
-      return await retry(sendOnce, {
+      return await attemptWithRetry(sendOnce, {
+        timeoutMs,
+        timeoutMessage: 'Telegram request timed out',
         retries: 2,
         baseDelayMs: 500,
         maxDelayMs: 5000,
-        isRetryable: error =>
-          error instanceof TimeoutError ||
-          (error instanceof TelegramApiError && (error.statusCode || 0) >= 500),
+        retryable: error => error instanceof TelegramApiError && (error.statusCode || 0) >= 500,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new BadRequestException(`Telegram API error: ${message}`);
+      throw new BadRequestException(appError('TELEGRAM_API_ERROR', { reason: message }));
     }
   }
 
-  async handleUpdate(update: TelegramUpdatePayload): Promise<void> {
-    if (!(await this.isEnabled())) {
+  /**
+   * Handles an update `botToken`'s bot received; without one, it came in on the
+   * TELEGRAM_BOT_TOKEN bot (the webhook configured by hand).
+   */
+  async handleUpdate(update: TelegramUpdate, botToken = this.botToken): Promise<void> {
+    if (!botToken) {
       return;
     }
+    await this.inboundBot.run(botToken, () => this.dispatchUpdate(update, botToken));
+  }
 
+  private async dispatchUpdate(update: TelegramUpdate, botToken: string): Promise<void> {
     if (update?.callback_query) {
       await this.handleCallbackQuery(update.callback_query);
       return;
@@ -496,15 +487,19 @@ export class TelegramService {
     // user is matched to an account — once matched, their in-app locale
     // choice (User.locale) always wins, see resolveLocale().
     const fallbackLocale = resolveTelegramLocale(message.from?.language_code);
-    const knownUser = telegramId ? await this.findUserByTelegram(telegramId, chatId) : null;
+    const knownUser = telegramId ? await this.findLinkedUser(telegramId, chatId) : null;
     const locale = knownUser?.locale || fallbackLocale;
 
     if (text?.startsWith('/start')) {
+      // A Connect link opens the bot with `/start <code>`.
+      const code = text.slice('/start'.length).trim();
+      if (code) {
+        await this.linkChat(code, botToken, chatId, telegramId, fallbackLocale);
+        return;
+      }
       await this.sendMessage(
         chatId,
-        renderTelegramMessage(locale, 'start_greeting', {
-          telegramId: telegramId || '—',
-        }),
+        renderTelegramMessage(locale, knownUser ? 'connected' : 'start_greeting'),
         knownUser,
       );
       return;
@@ -571,14 +566,61 @@ export class TelegramService {
   }
 
   /**
+   * `/start <code>` from a Connect link binds this chat to the account and
+   * workspace the code was issued for. A code works once, and only on the bot
+   * it was issued for.
+   */
+  private async linkChat(
+    code: string,
+    botToken: string,
+    chatId: string,
+    telegramId: string | null,
+    fallbackLocale: string,
+  ): Promise<void> {
+    const claim = await this.linkCodes?.take(code);
+    const user =
+      claim && telegramId && claim.botId === botIdOf(botToken)
+        ? await this.userRepository.findOne({ where: { id: claim.userId, isActive: true } })
+        : null;
+    const member =
+      claim && user
+        ? await this.workspaceMemberRepository.findOne({
+            where: {
+              workspaceId: claim.workspaceId,
+              userId: user.id,
+              workspace: STANDARD_WORKSPACE,
+            },
+          })
+        : null;
+    if (!(claim && telegramId && user && member)) {
+      await this.sendMessage(chatId, renderTelegramMessage(fallbackLocale, 'link_expired'));
+      return;
+    }
+
+    // A chat belongs to one account: findUserByTelegram expects a single match.
+    const released = { telegramId: null, telegramChatId: null, telegramWorkspaceId: null };
+    await this.userRepository.update({ telegramId }, released);
+    await this.userRepository.update({ telegramChatId: chatId }, released);
+    await this.userRepository.update(
+      { id: user.id },
+      { telegramId, telegramChatId: chatId, telegramWorkspaceId: claim.workspaceId },
+    );
+    await this.send(chatId, user, 'connected');
+  }
+
+  /**
    * The user and workspace behind a chat, or a reply explaining why there is none.
-   * With an update id it also claims the update, and returns null without a reply
-   * for a redelivery: the first delivery has already booked and answered it.
+   * The user needs `permission` in that workspace, as the same action through the
+   * API would; without it they get `deniedKey`. With an update id it also claims
+   * the update, and returns null without a reply for a redelivery: the first
+   * delivery has already booked and answered it.
    */
   private async resolveSender(
     chatId: string,
     telegramId: string | null,
     fallbackLocale: string,
+    permission: Permission,
+    deniedKey: TelegramMessageKey,
     updateId?: number,
   ): Promise<{ user: User; workspaceId: string } | null> {
     if (!telegramId) {
@@ -588,13 +630,20 @@ export class TelegramService {
       );
       return null;
     }
-    const user = await this.findUserByTelegram(telegramId, chatId);
-    const workspaceId = user ? await this.resolveWorkspaceId(user) : null;
-    if (!(user && workspaceId)) {
-      await this.sendMessage(
-        chatId,
-        renderTelegramMessage(fallbackLocale, 'document_user_not_connected', { telegramId }),
-      );
+    const sender = await this.findLinkedSender(telegramId, chatId);
+    if (!sender) {
+      await this.sendMessage(chatId, renderTelegramMessage(fallbackLocale, 'not_connected'));
+      return null;
+    }
+    const { user, workspaceId, member } = sender;
+    const allowed = hasPermissions([permission], {
+      user,
+      workspaceRole: member.role,
+      workspaceMemberPermissions: member.permissions,
+    });
+    if (!allowed) {
+      this.logger.warn(`Telegram: user ${user.id} lacks ${permission} in workspace ${workspaceId}`);
+      await this.send(chatId, user, deniedKey);
       return null;
     }
     if (updateId !== undefined && !(await this.claimUpdate(updateId, user.id, workspaceId))) {
@@ -639,11 +688,18 @@ export class TelegramService {
   private async handleReceiptImage(
     chatId: string,
     telegramId: string | null,
-    document: TelegramDocumentPayload,
+    document: TelegramDocument,
     fallbackLocale: string,
     updateId?: number,
   ): Promise<void> {
-    const sender = await this.resolveSender(chatId, telegramId, fallbackLocale, updateId);
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.STATEMENT_UPLOAD,
+      'receipt_photo_failed',
+      updateId,
+    );
     if (!sender) {
       return;
     }
@@ -709,7 +765,7 @@ export class TelegramService {
   ): Promise<void> {
     const parsed = parseExpenseText(text);
     if (!parsed) {
-      const user = telegramId ? await this.findUserByTelegram(telegramId, chatId) : null;
+      const user = telegramId ? await this.findLinkedUser(telegramId, chatId) : null;
       await this.sendMessage(
         chatId,
         renderTelegramMessage(user?.locale || fallbackLocale, 'expense_text_unparsed'),
@@ -717,7 +773,14 @@ export class TelegramService {
       );
       return;
     }
-    const sender = await this.resolveSender(chatId, telegramId, fallbackLocale, updateId);
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.STATEMENT_UPLOAD,
+      'expense_text_failed',
+      updateId,
+    );
     if (!sender) {
       return;
     }
@@ -786,7 +849,9 @@ export class TelegramService {
   private async workspaceCurrency(workspaceId: string): Promise<string | null> {
     const member = await this.workspaceMemberRepository.findOne({
       where: { workspaceId },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
     const currency = (member as { workspace?: { currency?: string | null } } | null)?.workspace
       ?.currency;
@@ -794,7 +859,7 @@ export class TelegramService {
   }
 
   /** The delete button under a bot reply; anything else is acknowledged and ignored. */
-  private async handleCallbackQuery(query: TelegramCallbackQueryPayload): Promise<void> {
+  private async handleCallbackQuery(query: TelegramCallbackQuery): Promise<void> {
     const chatId = query.message?.chat?.id ? String(query.message.chat.id) : null;
     const telegramId = query.from?.id ? String(query.from.id) : null;
     const match = query.data ? CALLBACK_PATTERN.exec(query.data) : null;
@@ -803,14 +868,22 @@ export class TelegramService {
       await this.answerCallbackQuery(query.id);
       return;
     }
-    const sender = await this.resolveSender(chatId, telegramId, fallbackLocale);
+    const [, kind, id] = match;
+    // What the same delete needs through the API: receipts and statements differ.
+    const permission = kind === 'rcpt' ? Permission.STATEMENT_EDIT : Permission.STATEMENT_DELETE;
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      permission,
+      'delete_failed',
+    );
     if (!sender) {
       await this.answerCallbackQuery(query.id);
       return;
     }
     const { user, workspaceId } = sender;
     const locale = user.locale || 'en';
-    const [, kind, id] = match;
     try {
       if (kind === 'rcpt') {
         if (!this.receiptsService) throw new Error('Receipts are not available');
@@ -828,17 +901,27 @@ export class TelegramService {
   }
 
   private async answerCallbackQuery(callbackQueryId: string, text?: string): Promise<void> {
-    const settings = await this.applicationSettingsService?.getTelegramSettings();
-    const botToken = settings?.botToken || this.botToken;
+    const { botToken } = await this.resolveBot();
     if (!botToken) {
       return;
     }
     try {
-      await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ callback_query_id: callbackQueryId, ...(text ? { text } : {}) }),
-      });
+      await attemptWithRetry(
+        signal =>
+          fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ callback_query_id: callbackQueryId, ...(text ? { text } : {}) }),
+            signal,
+          }),
+        {
+          timeoutMs: API_TIMEOUT_MS,
+          timeoutMessage: 'Telegram request timed out',
+          retries: 0,
+          baseDelayMs: 0,
+          maxDelayMs: 0,
+        },
+      );
     } catch (error) {
       this.logger.warn(
         `answerCallbackQuery failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -857,16 +940,17 @@ export class TelegramService {
       return;
     }
 
-    const user = await this.findUserByTelegram(telegramId, chatId);
-    const workspaceId = user ? await this.resolveWorkspaceId(user) : null;
-
-    if (!(user && workspaceId)) {
-      await this.sendMessage(
-        chatId,
-        renderTelegramMessage(fallbackLocale, 'user_not_connected', { telegramId }),
-      );
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.REPORT_VIEW,
+      'report_failed',
+    );
+    if (!sender) {
       return;
     }
+    const { user, workspaceId } = sender;
 
     const args = text.split(' ').filter(Boolean);
     const arg = args[1];
@@ -926,15 +1010,17 @@ export class TelegramService {
       return;
     }
 
-    const user = await this.findUserByTelegram(telegramId, chatId);
-    const workspaceId = user ? await this.resolveWorkspaceId(user) : null;
-    if (!(user && workspaceId)) {
-      await this.sendMessage(
-        chatId,
-        renderTelegramMessage(fallbackLocale, 'user_not_connected', { telegramId }),
-      );
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.GOAL_VIEW,
+      'report_failed',
+    );
+    if (!sender) {
       return;
     }
+    const { user, workspaceId } = sender;
 
     const locale = user.locale || 'en';
     const goals = await this.goalsService.findAll(workspaceId);
@@ -970,15 +1056,17 @@ export class TelegramService {
       return;
     }
 
-    const user = await this.findUserByTelegram(telegramId, chatId);
-    const workspaceId = user ? await this.resolveWorkspaceId(user) : null;
-    if (!(user && workspaceId)) {
-      await this.sendMessage(
-        chatId,
-        renderTelegramMessage(fallbackLocale, 'user_not_connected', { telegramId }),
-      );
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.REPORT_VIEW,
+      'report_failed',
+    );
+    if (!sender) {
       return;
     }
+    const { user, workspaceId } = sender;
 
     const locale = user.locale || 'en';
     const netWorth = await this.netWorthService.getNetWorth(workspaceId, { range: '30d' }, locale);
@@ -1024,11 +1112,18 @@ export class TelegramService {
   private async handleDocumentUpload(
     chatId: string,
     telegramId: string | null,
-    document: TelegramDocumentPayload,
+    document: TelegramDocument,
     fallbackLocale: string,
     updateId?: number,
   ): Promise<void> {
-    const sender = await this.resolveSender(chatId, telegramId, fallbackLocale, updateId);
+    const sender = await this.resolveSender(
+      chatId,
+      telegramId,
+      fallbackLocale,
+      Permission.STATEMENT_UPLOAD,
+      'document_failed',
+      updateId,
+    );
     if (!sender) {
       return;
     }
@@ -1066,32 +1161,66 @@ export class TelegramService {
     }
   }
 
+  /**
+   * The account behind an update, with the workspace the bot answers for — but
+   * only when the update came in on the bot that serves that workspace (its own
+   * bot, else the shared one), the bot the chat was connected through. Every
+   * field of an update can be forged by whoever holds the bot's token, and a
+   * workspace admin holds their own bot's: the bot it arrived on is the one
+   * thing the sender cannot choose, so it decides whose chats it may speak for.
+   */
+  private async findLinkedSender(
+    telegramId: string | null,
+    chatId: string,
+  ): Promise<LinkedSender | null> {
+    const user = await this.findUserByTelegram(telegramId, chatId);
+    const linked = user ? await this.linkedMembership(user) : null;
+    if (!(user && linked && (await this.servesWorkspace(user, linked.workspaceId)))) {
+      return null;
+    }
+
+    // A chat connected before chats were recorded: remember it now.
+    if (!user.telegramChatId) {
+      user.telegramChatId = chatId;
+      await this.userRepository.save(user);
+    }
+    return { user, ...linked };
+  }
+
+  private async findLinkedUser(telegramId: string, chatId: string): Promise<User | null> {
+    return (await this.findLinkedSender(telegramId, chatId))?.user ?? null;
+  }
+
+  /** Whether the bot the update being handled came in on is the bot of `workspaceId`. */
+  private async servesWorkspace(user: User, workspaceId: string): Promise<boolean> {
+    const inbound = this.inboundBot.getStore();
+    const settings = await this.applicationSettingsService?.getTelegramSettings(user, workspaceId);
+    const served = settings?.botToken || this.botToken;
+    return Boolean(inbound) && inbound === served;
+  }
+
+  /**
+   * The account the chat is connected to. The chat decides, not the sender: a
+   * sender id only finds an account whose chat was never recorded.
+   */
   private async findUserByTelegram(
     telegramId: string | null,
     chatId: string,
   ): Promise<User | null> {
-    const query = this.userRepository
+    const byChat = await this.userRepository
       .createQueryBuilder('user')
-      .where('user.isActive = :isActive', { isActive: true });
-
-    if (telegramId) {
-      query.andWhere('(user.telegramId = :telegramId OR user.telegramChatId = :chatId)', {
-        telegramId,
-        chatId,
-      });
-    } else {
-      query.andWhere('user.telegramChatId = :chatId', { chatId });
+      .where('user.isActive = :isActive', { isActive: true })
+      .andWhere('user.telegramChatId = :chatId', { chatId })
+      .getOne();
+    if (byChat || !telegramId) {
+      return byChat ?? null;
     }
-
-    const user = await query.getOne();
-
-    // Auto-bind chatId if user has telegramId but no chatId saved
-    if (user && !user.telegramChatId) {
-      user.telegramChatId = chatId;
-      await this.userRepository.save(user);
-    }
-
-    return user || null;
+    return this.userRepository
+      .createQueryBuilder('user')
+      .where('user.isActive = :isActive', { isActive: true })
+      .andWhere('user.telegramId = :telegramId', { telegramId })
+      .andWhere('user.telegramChatId IS NULL')
+      .getOne();
   }
 
   private sanitizeFileName(fileName: string): string {
@@ -1105,20 +1234,31 @@ export class TelegramService {
     fileName: string,
     mimeType: string,
   ): Promise<Express.Multer.File> {
-    if (!(this.apiBase && this.fileApiBase)) {
-      throw new BadRequestException('Telegram bot is not configured');
+    const { botToken } = await this.resolveBot();
+    if (!botToken) {
+      throw new BadRequestException(appError('TELEGRAM_BOT_NOT_CONFIGURED'));
     }
 
-    const filePath = await this.getTelegramFilePath(fileId);
-    const downloadUrl = `${this.fileApiBase}/${filePath}`;
+    const filePath = await this.getTelegramFilePath(botToken, fileId);
+    const downloadUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
 
-    const response = await fetch(downloadUrl);
-    if (!response.ok) {
-      throw new BadRequestException('Failed to download the file from Telegram');
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // The body is read inside the attempt so a stalled transfer times out too.
+    const buffer = await attemptWithRetry(
+      async signal => {
+        const response = await fetch(downloadUrl, { signal });
+        if (!response.ok) {
+          throw new BadRequestException(appError('TELEGRAM_FILE_DOWNLOAD_FAILED'));
+        }
+        return Buffer.from(await response.arrayBuffer());
+      },
+      {
+        timeoutMs: FILE_DOWNLOAD_TIMEOUT_MS,
+        timeoutMessage: 'Telegram file download timed out',
+        retries: 0,
+        baseDelayMs: 0,
+        maxDelayMs: 0,
+      },
+    );
 
     const uploadsBaseDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
     const uploadsDir = path.join(uploadsBaseDir, 'telegram');
@@ -1145,23 +1285,35 @@ export class TelegramService {
     return file as Express.Multer.File;
   }
 
-  private async getTelegramFilePath(fileId: string): Promise<string> {
-    if (!this.apiBase) {
-      throw new BadRequestException('Telegram bot is not configured');
-    }
-
-    const response = await fetch(`${this.apiBase}/getFile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ file_id: fileId }),
-    });
-
-    const payload = (await response.json()) as TelegramGetFileResponse;
+  private async getTelegramFilePath(botToken: string, fileId: string): Promise<string> {
+    const apiBase = `https://api.telegram.org/bot${botToken}`;
+    const payload = await attemptWithRetry(
+      async signal => {
+        const response = await fetch(`${apiBase}/getFile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_id: fileId }),
+          signal,
+        });
+        if (response.status >= 500) {
+          throw new TelegramApiError('Telegram API temporary error', response.status);
+        }
+        return (await response.json()) as TelegramGetFileResponse;
+      },
+      {
+        timeoutMs: API_TIMEOUT_MS,
+        timeoutMessage: 'Telegram request timed out',
+        retries: 2,
+        baseDelayMs: 500,
+        maxDelayMs: 5000,
+        retryable: error => error instanceof TelegramApiError,
+      },
+    );
 
     if (!payload.ok) {
       const description = payload?.description || 'Unknown error';
       this.logger.error(`Failed to get Telegram file info: ${description}`);
-      throw new BadRequestException(`Telegram API error: ${description}`);
+      throw new BadRequestException(appError('TELEGRAM_API_ERROR', { reason: description }));
     }
 
     return payload.result?.file_path || '';

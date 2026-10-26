@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Statement } from './statement.entity';
@@ -25,7 +26,7 @@ export class Folder {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -43,9 +44,9 @@ export class Folder {
     () => Statement,
     statement => statement.folder,
   )
-  statements: Statement[];
+  statements: Relation<Statement[]>;
 
   @ManyToOne(() => Tag, { nullable: true })
   @JoinColumn({ name: 'tag_id' })
-  tag: Tag | null;
+  tag: Relation<Tag | null>;
 }

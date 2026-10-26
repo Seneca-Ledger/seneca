@@ -1,3 +1,4 @@
+import nodemailer from 'nodemailer';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -7,7 +8,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 // Сервис прикладывает сгенерированный отчёт к письму, поэтому путь из мока
 // должен указывать на реально существующий файл.
-const REPORT_FIXTURE = path.join(os.tmpdir(), `lumio-report-fixture-${process.pid}.csv`);
+const REPORT_FIXTURE = path.join(os.tmpdir(), `seneca-report-fixture-${process.pid}.csv`);
 
 beforeAll(() => {
   fs.writeFileSync(REPORT_FIXTURE, 'date,amount\n');
@@ -19,16 +20,16 @@ afterAll(() => {
 
 function createService(overrides: Partial<Record<string, unknown>> = {}) {
   const scheduleRepository = {
-    find: jest.fn(async () => []),
-    findOne: jest.fn(),
-    save: jest.fn(async (row: unknown) => row),
-    create: jest.fn((row: unknown) => row),
-    delete: jest.fn(async () => ({ affected: 1 })),
+    find: vi.fn(async () => []),
+    findOne: vi.fn(),
+    save: vi.fn(async (row: unknown) => row),
+    create: vi.fn((row: unknown) => row),
+    delete: vi.fn(async () => ({ affected: 1 })),
     ...(overrides.scheduleRepository as object),
   };
-  const userRepository = { findOne: jest.fn(async () => ({ id: 'u1' })) };
+  const userRepository = { findOne: vi.fn(async () => ({ id: 'u1' })) };
   const reportsService = {
-    generateFromTemplate: jest.fn(async () => ({
+    generateFromTemplate: vi.fn(async () => ({
       filePath: REPORT_FIXTURE,
       fileName: 'report.csv',
       contentType: 'text/csv',
@@ -36,8 +37,12 @@ function createService(overrides: Partial<Record<string, unknown>> = {}) {
     ...(overrides.reportsService as object),
   };
   const applicationSettings = {
-    getSmtpSettings: jest.fn(async () => ({ source: 'disabled', host: null, from: null })),
+    getSmtpSettings: vi.fn(async () => ({ source: 'disabled', host: null, from: null })),
     ...(overrides.applicationSettings as object),
+  };
+  const workspaceMemberRepository = {
+    findOne: vi.fn(async () => ({ role: 'owner', permissions: null })),
+    ...(overrides.workspaceMemberRepository as object),
   };
 
   const service = new ReportSchedulesService(
@@ -45,6 +50,7 @@ function createService(overrides: Partial<Record<string, unknown>> = {}) {
     userRepository as never,
     reportsService as never,
     applicationSettings as never,
+    workspaceMemberRepository as never,
   );
 
   return { service, scheduleRepository, reportsService, applicationSettings };
@@ -142,7 +148,7 @@ describe('ReportSchedulesService.runDue', () => {
   it('records the failure but still advances the schedule', async () => {
     const schedule = dueSchedule('s1');
     const { service, scheduleRepository } = createService({
-      scheduleRepository: { find: jest.fn(async () => [schedule]) },
+      scheduleRepository: { find: vi.fn(async () => [schedule]) },
     });
 
     // SMTP is disabled in the default mock, so delivery throws.
@@ -158,9 +164,9 @@ describe('ReportSchedulesService.runDue', () => {
 
   it('does not let one broken schedule stop the others', async () => {
     const { service, scheduleRepository, reportsService } = createService({
-      scheduleRepository: { find: jest.fn(async () => [dueSchedule('s1'), dueSchedule('s2')]) },
+      scheduleRepository: { find: vi.fn(async () => [dueSchedule('s1'), dueSchedule('s2')]) },
       reportsService: {
-        generateFromTemplate: jest
+        generateFromTemplate: vi
           .fn()
           .mockRejectedValueOnce(new Error('boom'))
           .mockResolvedValue({ filePath: '/tmp/r.csv', fileName: 'r.csv', contentType: 'text/csv' }),
@@ -176,9 +182,9 @@ describe('ReportSchedulesService.runDue', () => {
 
   it('clears a stale error after a successful run', async () => {
     const { service, scheduleRepository } = createService({
-      scheduleRepository: { find: jest.fn(async () => [dueSchedule('s1')]) },
+      scheduleRepository: { find: vi.fn(async () => [dueSchedule('s1')]) },
       applicationSettings: {
-        getSmtpSettings: jest.fn(async () => ({
+        getSmtpSettings: vi.fn(async () => ({
           source: 'env',
           host: 'smtp.example.com',
           port: 587,
@@ -192,17 +198,50 @@ describe('ReportSchedulesService.runDue', () => {
       },
     });
 
-    // Stub the transport so no real connection is attempted.
-    const nodemailer = require('nodemailer');
-    const sendMail = jest.fn(async () => undefined);
-    jest.spyOn(nodemailer, 'createTransport').mockReturnValue({ sendMail } as never);
+    // Stub the transport so no real connection is attempted; the service uses the
+    // default export, a plain CommonJS object that can be spied on.
+    const sendMail = vi.fn(async () => undefined);
+    vi.spyOn(nodemailer, 'createTransport').mockReturnValue({ sendMail } as never);
 
     const result = await service.runDue(now);
 
     expect(sendMail).toHaveBeenCalledTimes(1);
     expect(sendMail.mock.calls[0][0].to).toBe('finance@example.com');
+    // Named in the reader's language, not by its id.
+    expect(sendMail.mock.calls[0][0].subject).toMatch(/^Profit & Loss \(P&L\): /);
     expect(result).toEqual({ ran: 1, failed: 0 });
     expect(scheduleRepository.save.mock.calls[0][0].lastError).toBeNull();
+  });
+
+  it.each([
+    ['was removed from the workspace', null],
+    ['was demoted to viewer', { role: 'viewer', permissions: null }],
+  ])('pauses, without mailing, a schedule whose creator %s', async (_label, membership) => {
+    const { service, scheduleRepository, reportsService } = createService({
+      scheduleRepository: { find: vi.fn(async () => [dueSchedule('s1')]) },
+      workspaceMemberRepository: { findOne: vi.fn(async () => membership) },
+    });
+
+    const result = await service.runDue(now);
+
+    expect(reportsService.generateFromTemplate).not.toHaveBeenCalled();
+    expect(result).toEqual({ ran: 0, failed: 0 });
+    const saved = scheduleRepository.save.mock.calls[0][0];
+    expect(saved.isActive).toBe(false);
+    expect(saved.lastError).toMatch(/can no longer export/);
+  });
+
+  it('keeps mailing for an accountant, who may export', async () => {
+    const { service, reportsService } = createService({
+      scheduleRepository: { find: vi.fn(async () => [dueSchedule('s1')]) },
+      workspaceMemberRepository: {
+        findOne: vi.fn(async () => ({ role: 'accountant', permissions: null })),
+      },
+    });
+
+    await service.runDue(now);
+
+    expect(reportsService.generateFromTemplate).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -219,6 +258,34 @@ describe('ReportSchedulesService CRUD', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('rejects a template it does not know when the schedule is created', async () => {
+    const { service, scheduleRepository } = createService();
+    await expect(
+      service.create('ws1', 'u1', {
+        templateId: 'no-such-report',
+        format: 'csv',
+        cadence: ReportScheduleCadence.DAILY,
+        recipients: ['a@example.com'],
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(scheduleRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects a format the template cannot be written in', async () => {
+    const { service, scheduleRepository } = createService();
+    // The Balance Sheet has no CSV renderer; without this check the schedule
+    // would be saved and fail on every run.
+    await expect(
+      service.create('ws1', 'u1', {
+        templateId: 'balance-sheet',
+        format: 'csv',
+        cadence: ReportScheduleCadence.DAILY,
+        recipients: ['a@example.com'],
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(scheduleRepository.save).not.toHaveBeenCalled();
+  });
+
   it('reschedules from now when a paused schedule is resumed', async () => {
     const schedule = {
       id: 's1',
@@ -228,7 +295,7 @@ describe('ReportSchedulesService CRUD', () => {
       nextRunAt: new Date('2020-01-01T06:00:00.000Z'),
     };
     const { service } = createService({
-      scheduleRepository: { findOne: jest.fn(async () => schedule) },
+      scheduleRepository: { findOne: vi.fn(async () => schedule) },
     });
 
     const resumed = await service.setActive('ws1', 's1', true);
@@ -239,8 +306,62 @@ describe('ReportSchedulesService CRUD', () => {
 
   it('404s when deleting a schedule from another workspace', async () => {
     const { service } = createService({
-      scheduleRepository: { delete: jest.fn(async () => ({ affected: 0 })) },
+      scheduleRepository: { delete: vi.fn(async () => ({ affected: 0 })) },
     });
     await expect(service.remove('ws1', 's1')).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe("ReportSchedulesService on the owner's clock", () => {
+  const { service } = createService();
+
+  it('sends at 06:00 local, not at 06:00 UTC', () => {
+    // Almaty is UTC+5, so breakfast there is 01:00 UTC.
+    expect(
+      service
+        .computeNextRunAt(
+          ReportScheduleCadence.DAILY,
+          new Date('2026-03-05T02:00:00.000Z'),
+          'Asia/Almaty',
+        )
+        .toISOString(),
+    ).toBe('2026-03-06T01:00:00.000Z');
+  });
+
+  it('keeps 06:00 local across a daylight-saving change', () => {
+    // Berlin moves to UTC+2 on 29 March 2026: 06:00 local goes from 05:00 to 04:00 UTC.
+    expect(
+      service
+        .computeNextRunAt(
+          ReportScheduleCadence.DAILY,
+          new Date('2026-03-28T06:00:00.000Z'),
+          'Europe/Berlin',
+        )
+        .toISOString(),
+    ).toBe('2026-03-29T04:00:00.000Z');
+  });
+
+  it("counts yesterday by the owner's calendar", () => {
+    // 00:30 UTC on the 6th is already 05:30 on the 6th in Almaty, so the last
+    // whole day there is the 5th — in UTC it would still look like the 4th.
+    expect(
+      service.resolvePeriod(
+        ReportScheduleCadence.DAILY,
+        new Date('2026-03-06T00:30:00.000Z'),
+        'Asia/Almaty',
+      ),
+    ).toEqual({ dateFrom: '2026-03-05', dateTo: '2026-03-05' });
+  });
+
+  it('falls back to UTC for a zone it does not recognise', () => {
+    expect(
+      service
+        .computeNextRunAt(
+          ReportScheduleCadence.DAILY,
+          new Date('2026-03-05T07:00:00.000Z'),
+          'Mars/Olympus',
+        )
+        .toISOString(),
+    ).toBe('2026-03-06T06:00:00.000Z');
   });
 });

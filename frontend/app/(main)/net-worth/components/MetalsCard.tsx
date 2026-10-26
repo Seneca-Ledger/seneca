@@ -3,15 +3,17 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
-import { Trash2 } from '@/app/components/icons';
+import { ChevronDown, Plus, Trash2 } from '@/app/components/icons';
+import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { tokens } from '@/lib/theme-tokens';
 import {
   type LotDetailsInput,
   METALS,
@@ -24,6 +26,7 @@ import {
   type WeightUnit,
 } from '../hooks/useMetals';
 import { LotDetailsDialog } from './LotDetailsDialog';
+import { CardTitle, cardSx } from './net-worth-ui';
 import { SellLotDialog } from './SellLotDialog';
 
 /** Dictionary key per metal; the codes are ISO 4217, the names are not. */
@@ -39,13 +42,8 @@ const HOLDING_PERIOD_JURISDICTIONS = ['DE'];
 
 type SortKey = 'newest' | 'roiHigh' | 'roiLow';
 
-const card = {
-  border: '1px solid',
-  borderColor: 'divider',
-  borderRadius: tokens.radius.md,
-  bgcolor: 'background.paper',
-  p: 3,
-} as const;
+/** Labels stay above the fields, so a filled-in form still says what each value is. */
+const LABEL_ON_TOP = { inputLabel: { shrink: true } } as const;
 
 const table = {
   width: '100%',
@@ -71,19 +69,30 @@ const table = {
 interface MetalsCardProps {
   currency: string;
   locale: string;
+  /** Drawn inside the Holdings section, which supplies the frame and the title. */
+  embedded?: boolean;
 }
 
 function formatOunces(value: number, locale: string): string {
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(value)} ozt`;
 }
 
-function AddLotForm({
+/**
+ * Adding a lot, in a dialog rather than a row of nine fields on the page: what
+ * values a lot (metal, pieces, weight, fineness) up front, what it cost and
+ * where it came from under "More details".
+ */
+function AddLotDialog({
+  open,
   currency,
   saving,
+  onClose,
   onAdd,
 }: {
+  open: boolean;
   currency: string;
   saving: boolean;
+  onClose: () => void;
   onAdd: (input: MetalLotInput) => Promise<unknown>;
 }) {
   const t = useIntlayer('netWorthPage');
@@ -96,6 +105,7 @@ function AddLotForm({
   const [paid, setPaid] = useState('');
   const [acquiredOn, setAcquiredOn] = useState('');
   const [dealer, setDealer] = useState('');
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // A fineness is a fraction: 999 would value the lot a thousand times over.
   const purityValue = purity.trim() ? Number(purity) : null;
@@ -122,84 +132,137 @@ function AddLotForm({
     setPaid('');
     setAcquiredOn('');
     setDealer('');
+    setMoreOpen(false);
+    onClose();
   };
 
+  if (!open) {
+    return null;
+  }
+
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'flex-start', mt: 2 }}>
-      <Select
-        size="small"
-        value={metal}
-        onChange={value => setMetal(value as Metal)}
-        inputProps={{ 'aria-label': t.metal.value }}
-        options={METALS.map(item => ({
-          value: item,
-          label: t[METAL_KEYS[item] as 'metalGold'].value,
-        }))}
-        sx={{ minWidth: 130 }}
-      />
-      <TextField
-        size="small"
-        label={t.holdingName.value}
-        value={name}
-        onChange={event => setName(event.target.value)}
-        sx={{ width: 160 }}
-      />
-      <TextField
-        size="small"
-        label={t.quantity.value}
-        value={pieces}
-        onChange={event => setPieces(event.target.value)}
-        inputProps={{ inputMode: 'decimal' }}
-        sx={{ width: 90 }}
-      />
-      <TextField
-        size="small"
-        label={t.unitWeight.value}
-        value={unitWeight}
-        onChange={event => setUnitWeight(event.target.value)}
-        inputProps={{ inputMode: 'decimal' }}
-        sx={{ width: 140 }}
-      />
-      <Select
-        size="small"
-        value={weightUnit}
-        onChange={value => setWeightUnit(value as WeightUnit)}
-        inputProps={{ 'aria-label': t.weightUnit.value }}
-        options={WEIGHT_UNITS.map(unit => ({ value: unit, label: unit }))}
-        sx={{ minWidth: 80 }}
-      />
-      <TextField
-        size="small"
-        label={t.purity.value}
-        value={purity}
-        onChange={event => setPurity(event.target.value)}
-        error={purityInvalid}
-        placeholder="0.999"
-        inputProps={{ inputMode: 'decimal' }}
-        sx={{ width: 100 }}
-      />
-      <TextField
-        size="small"
-        label={`${t.paid.value} (${currency})`}
-        value={paid}
-        onChange={event => setPaid(event.target.value)}
-        inputProps={{ inputMode: 'decimal' }}
-        sx={{ width: 120 }}
-      />
-      <Box sx={{ width: 150 }}>
-        <CustomDatePicker label={t.acquiredAt.value} value={acquiredOn} onChange={setAcquiredOn} />
+    <ModalShell
+      isOpen
+      onClose={onClose}
+      title={t.addMetal.value}
+      size="sm"
+      footer={
+        <ModalFooter
+          onCancel={onClose}
+          onConfirm={() => void submit()}
+          confirmText={t.addLot.value}
+          isConfirmLoading={saving}
+          isConfirmDisabled={!canSave}
+        />
+      }
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pt: 1 }}>
+        <TextField
+          select
+          size="small"
+          label={t.metal.value}
+          value={metal}
+          onChange={event => setMetal(event.target.value as Metal)}
+          slotProps={LABEL_ON_TOP}
+        >
+          {METALS.map(item => (
+            <MenuItem key={item} value={item}>
+              {t[METAL_KEYS[item] as 'metalGold'].value}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          size="small"
+          label={t.quantity.value}
+          value={pieces}
+          onChange={event => setPieces(event.target.value)}
+          slotProps={{ ...LABEL_ON_TOP, htmlInput: { inputMode: 'decimal' } }}
+        />
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            size="small"
+            label={t.unitWeight.value}
+            value={unitWeight}
+            onChange={event => setUnitWeight(event.target.value)}
+            slotProps={{ ...LABEL_ON_TOP, htmlInput: { inputMode: 'decimal' } }}
+            sx={{ flex: 1 }}
+          />
+          <TextField
+            select
+            size="small"
+            label={t.weightUnit.value}
+            value={weightUnit}
+            onChange={event => setWeightUnit(event.target.value as WeightUnit)}
+            slotProps={LABEL_ON_TOP}
+            sx={{ width: 90 }}
+          >
+            {WEIGHT_UNITS.map(unit => (
+              <MenuItem key={unit} value={unit}>
+                {unit}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Box>
+        <TextField
+          size="small"
+          label={t.purity.value}
+          value={purity}
+          onChange={event => setPurity(event.target.value)}
+          error={purityInvalid}
+          placeholder="0.999"
+          slotProps={{ ...LABEL_ON_TOP, htmlInput: { inputMode: 'decimal' } }}
+        />
       </Box>
-      <TextField
+
+      <Button
         size="small"
-        label={t.dealer.value}
-        value={dealer}
-        onChange={event => setDealer(event.target.value)}
-        sx={{ width: 140 }}
-      />
-      <Button size="small" variant="outlined" disabled={!canSave} onClick={submit}>
-        {t.addLot}
+        variant="text"
+        aria-expanded={moreOpen}
+        onClick={() => setMoreOpen(value => !value)}
+        sx={{ mt: 2, px: 0, minWidth: 0, fontWeight: 400 }}
+        endIcon={
+          <ChevronDown
+            size={14}
+            style={{
+              transform: moreOpen ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s',
+            }}
+          />
+        }
+      >
+        {t.moreDetails}
       </Button>
-    </Box>
+      {moreOpen && (
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1.5 }}>
+          <TextField
+            size="small"
+            label={t.holdingName.value}
+            value={name}
+            onChange={event => setName(event.target.value)}
+            slotProps={LABEL_ON_TOP}
+          />
+          <TextField
+            size="small"
+            label={`${t.paid.value} (${currency})`}
+            value={paid}
+            onChange={event => setPaid(event.target.value)}
+            slotProps={{ ...LABEL_ON_TOP, htmlInput: { inputMode: 'decimal' } }}
+          />
+          <CustomDatePicker
+            label={t.acquiredAt.value}
+            value={acquiredOn}
+            onChange={setAcquiredOn}
+          />
+          <TextField
+            size="small"
+            label={t.dealer.value}
+            value={dealer}
+            onChange={event => setDealer(event.target.value)}
+            slotProps={LABEL_ON_TOP}
+          />
+        </Box>
+      )}
+    </ModalShell>
   );
 }
 
@@ -226,25 +289,42 @@ function MetalTotalsRow({
   return (
     <Box sx={{ mt: 2 }} data-testid={`metal-total-${totals.metal}`}>
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t[METAL_KEYS[totals.metal] as 'metalGold']}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {formatOunces(totals.fineOunces, locale)}
         </Typography>
         <Typography variant="body2">
-          <strong>{money(totals.value)}</strong>
+          <strong className={PRIVATE_CLASS}>{money(totals.value)}</strong>
         </Typography>
         <Typography
           variant="body2"
           sx={{ color: totals.gain >= 0 ? 'success.main' : 'error.main' }}
         >
-          {totals.gain >= 0 ? '+' : '−'}
-          {money(Math.abs(totals.gain))}
+          <PrivateAmount>
+            {totals.gain >= 0 ? '+' : '−'}
+            {money(Math.abs(totals.gain))}
+          </PrivateAmount>
         </Typography>
         {totals.costPerOunce !== null && (
-          <Typography variant="body2" color="text.secondary">
-            {t.costPerOunce}: {money(totals.costPerOunce)}
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {t.costPerOunce}: <PrivateAmount>{money(totals.costPerOunce)}</PrivateAmount>
           </Typography>
         )}
         {totals.realized !== 0 && (
@@ -252,8 +332,11 @@ function MetalTotalsRow({
             variant="body2"
             sx={{ color: totals.realized >= 0 ? 'success.main' : 'error.main' }}
           >
-            {t.realized}: {totals.realized >= 0 ? '+' : '−'}
-            {money(Math.abs(totals.realized))}
+            {t.realized}:{' '}
+            <PrivateAmount>
+              {totals.realized >= 0 ? '+' : '−'}
+              {money(Math.abs(totals.realized))}
+            </PrivateAmount>
           </Typography>
         )}
         <TextField
@@ -268,17 +351,29 @@ function MetalTotalsRow({
             }
           }}
           disabled={saving}
-          inputProps={{ inputMode: 'decimal' }}
           sx={{ width: 150 }}
+          slotProps={{
+            htmlInput: { inputMode: 'decimal' },
+          }}
         />
         {totals.pricedAt && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.priceFrom.value.replace('{{date}}', String(totals.pricedAt).slice(0, 10))}
           </Typography>
         )}
       </Box>
       {showSilverVat && totals.metal === 'XAG' && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {t.silverVatNote}
         </Typography>
       )}
@@ -292,7 +387,7 @@ function MetalTotalsRow({
  * to, what the metal cost per ounce, and what a dealer would actually pay for
  * it — the number a decision to sell is made against.
  */
-export function MetalsCard({ currency, locale }: MetalsCardProps) {
+export function MetalsCard({ currency, locale, embedded = false }: MetalsCardProps) {
   const t = useIntlayer('netWorthPage');
   const {
     summary,
@@ -309,6 +404,7 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
   const [sort, setSort] = useState<SortKey>('newest');
   const [selling, setSelling] = useState<MetalLot | null>(null);
   const [viewing, setViewing] = useState<MetalLot | null>(null);
+  const [adding, setAdding] = useState(false);
   const money = (value: number) => formatMoney(value, currency, locale);
   const lots = summary?.lots ?? [];
   const sales = summary?.sales ?? [];
@@ -322,7 +418,7 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
   }, [lots, sort]);
 
   return (
-    <Box sx={card} data-testid="metals-card">
+    <Box sx={embedded ? undefined : cardSx} data-testid="metals-card">
       <Box
         sx={{
           display: 'flex',
@@ -333,13 +429,15 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
         }}
       >
         <Box>
+          {/* Inside Holdings the section header already names it. */}
+          {embedded ? null : <CardTitle>{t.metalsTitle}</CardTitle>}
           <Typography
-            variant="overline"
-            sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: 0.6 }}
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mt: embedded ? 0 : 0.5,
+            }}
           >
-            {t.metalsTitle}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
             {t.metalsHint}
           </Typography>
         </Box>
@@ -368,13 +466,31 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
               {t.refreshPrices}
             </Button>
           )}
+          {lots.length > 0 && (
+            <Button size="small" variant="text" onClick={() => setAdding(true)}>
+              <Plus size={16} aria-hidden />
+              {t.addMetal}
+            </Button>
+          )}
         </Box>
       </Box>
 
+      {/* Nothing yet: one quiet line and a way to add, no form on the page. */}
       {lots.length === 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          {t.noLots}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {t.noLots}
+          </Typography>
+          <Button size="small" variant="text" onClick={() => setAdding(true)}>
+            <Plus size={16} aria-hidden />
+            {t.addMetal}
+          </Button>
+        </Box>
       )}
 
       {(summary?.byMetal ?? []).map(totals => (
@@ -438,7 +554,13 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
                         {lot.name}
                       </Box>
                     </Box>
-                    <Typography component="span" variant="caption" color="text.secondary">
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       {' '}
                       {t[METAL_KEYS[lot.metal] as 'metalGold'].value} · {lot.quantity} ×{' '}
                       {lot.unitWeight} {lot.weightUnit}
@@ -450,25 +572,34 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
                       <Typography
                         component="div"
                         variant="caption"
-                        color="text.secondary"
                         data-testid={`tax-free-${lot.id}`}
+                        sx={{
+                          color: 'text.secondary',
+                        }}
                       >
                         {t.taxFreeFrom.value.replace('{{date}}', lot.taxFreeFrom)}
                       </Typography>
                     )}
                   </td>
                   <td>{formatOunces(lot.fineOunces, locale)}</td>
-                  <td>{lot.costPerOunce === null ? '—' : money(lot.costPerOunce)}</td>
-                  <td>{lot.cost === null ? '—' : money(lot.cost)}</td>
-                  <td>
-                    {lot.premium === null
-                      ? '—'
-                      : `${lot.premium >= 0 ? '+' : '−'}${money(Math.abs(lot.premium))}${
-                          lot.premiumPercent === null ? '' : ` (${lot.premiumPercent}%)`
-                        }`}
+                  <td className={PRIVATE_CLASS}>
+                    {lot.costPerOunce === null ? '—' : money(lot.costPerOunce)}
                   </td>
-                  <td>{money(lot.value)}</td>
-                  <td>{money(lot.dealerValue)}</td>
+                  <td className={PRIVATE_CLASS}>{lot.cost === null ? '—' : money(lot.cost)}</td>
+                  <td>
+                    {lot.premium === null ? (
+                      '—'
+                    ) : (
+                      <>
+                        <PrivateAmount>
+                          {`${lot.premium >= 0 ? '+' : '−'}${money(Math.abs(lot.premium))}`}
+                        </PrivateAmount>
+                        {lot.premiumPercent === null ? '' : ` (${lot.premiumPercent}%)`}
+                      </>
+                    )}
+                  </td>
+                  <td className={PRIVATE_CLASS}>{money(lot.value)}</td>
+                  <td className={PRIVATE_CLASS}>{money(lot.dealerValue)}</td>
                   <td>
                     {lot.roi === null ? (
                       '—'
@@ -490,6 +621,7 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
                       <Typography
                         component="span"
                         variant="body2"
+                        className={PRIVATE_CLASS}
                         sx={{ color: lot.gain >= 0 ? 'success.main' : 'error.main' }}
                       >
                         {lot.gain >= 0 ? '+' : '−'}
@@ -524,23 +656,27 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
         </Box>
       )}
 
-      <AddLotForm currency={currency} saving={saving} onAdd={addLot} />
+      <AddLotDialog
+        open={adding}
+        currency={currency}
+        saving={saving}
+        onClose={() => setAdding(false)}
+        onAdd={addLot}
+      />
 
       {sales.length > 0 && (
         <Box sx={{ mt: 3 }} data-testid="metal-sales">
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'baseline', flexWrap: 'wrap' }}>
-            <Typography
-              variant="overline"
-              sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: 0.6 }}
-            >
-              {t.salesTitle}
-            </Typography>
+            <CardTitle>{t.salesTitle}</CardTitle>
             <Typography
               variant="body2"
               sx={{ color: (summary?.realized ?? 0) >= 0 ? 'success.main' : 'error.main' }}
             >
-              {t.realized}: {(summary?.realized ?? 0) >= 0 ? '+' : '−'}
-              {money(Math.abs(summary?.realized ?? 0))}
+              {t.realized}:{' '}
+              <PrivateAmount>
+                {(summary?.realized ?? 0) >= 0 ? '+' : '−'}
+                {money(Math.abs(summary?.realized ?? 0))}
+              </PrivateAmount>
             </Typography>
           </Box>
           <Box sx={{ overflowX: 'auto' }}>
@@ -560,7 +696,13 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
                   <tr key={sale.id}>
                     <td>
                       {sale.lotName}
-                      <Typography component="span" variant="caption" color="text.secondary">
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {' '}
                         {t[METAL_KEYS[sale.metal] as 'metalGold'].value} · {sale.quantity}
                         {sale.counterparty ? ` · ${sale.counterparty}` : ''}
@@ -568,8 +710,10 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
                     </td>
                     <td>{sale.soldOn}</td>
                     <td>{formatOunces(sale.fineOunces, locale)}</td>
-                    <td>{money(sale.proceeds)}</td>
-                    <td>{sale.costBasis === null ? '—' : money(sale.costBasis)}</td>
+                    <td className={PRIVATE_CLASS}>{money(sale.proceeds)}</td>
+                    <td className={PRIVATE_CLASS}>
+                      {sale.costBasis === null ? '—' : money(sale.costBasis)}
+                    </td>
                     <td>
                       {sale.realized === null ? (
                         '—'
@@ -577,6 +721,7 @@ export function MetalsCard({ currency, locale }: MetalsCardProps) {
                         <Typography
                           component="span"
                           variant="body2"
+                          className={PRIVATE_CLASS}
                           sx={{ color: sale.realized >= 0 ? 'success.main' : 'error.main' }}
                         >
                           {sale.realized >= 0 ? '+' : '−'}

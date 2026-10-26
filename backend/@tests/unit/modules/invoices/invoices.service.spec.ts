@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { Client } from '@/entities/client.entity';
 import { InvoiceLineItem } from '@/entities/invoice-line-item.entity';
 import { Invoice, InvoiceStatus } from '@/entities/invoice.entity';
@@ -6,8 +7,9 @@ import { JournalLine } from '@/entities/journal-line.entity';
 import { Payable, PayableStatus } from '@/entities/payable.entity';
 import { TaxRate } from '@/entities/tax-rate.entity';
 import { LedgerPostingError, LedgerPostingService } from '@/modules/ledger/ledger-posting.service';
+import { InvoiceXRechnungService } from '@/modules/invoices/invoice-xrechnung.service';
 import { InvoicesService } from '@/modules/invoices/invoices.service';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
@@ -15,28 +17,29 @@ import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-s
 import { BusinessProfileService } from '@/modules/business-profile/business-profile.service';
 import { InvoiceSettingsService } from '@/modules/invoices/invoice-settings.service';
 
-jest.mock('@/modules/invoices/invoice-document', () => ({
-  buildInvoicePdf: jest.fn(async () => Buffer.from('pdf')),
+vi.mock('@/modules/invoices/invoice-document', () => ({
+  buildInvoicePdf: vi.fn(async () => Buffer.from('pdf')),
 }));
 
 function createRepositoryMock<T extends object>() {
   return {
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    find: jest.fn(async () => []),
-    findOne: jest.fn(),
-    findOneOrFail: jest.fn(),
-    findBy: jest.fn(async () => []),
-    exists: jest.fn(async () => true),
-    delete: jest.fn(),
-    insert: jest.fn(),
-    update: jest.fn(),
-    softRemove: jest.fn(async (data: Partial<T>) => data as T),
-  } as unknown as Repository<T> & Record<string, jest.Mock>;
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    find: vi.fn(async () => []),
+    findOne: vi.fn(),
+    findOneOrFail: vi.fn(),
+    findBy: vi.fn(async () => []),
+    count: vi.fn(async () => 0),
+    exists: vi.fn(async () => true),
+    delete: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    softRemove: vi.fn(async (data: Partial<T>) => data as T),
+  } as unknown as Repository<T> & Record<string, Mock>;
 }
 
 /** Routes `manager.getRepository(Entity)` to the same mocks the service was built with. */
-function createManagerMock(repos: Map<Function, Record<string, jest.Mock>>, queryImpl: jest.Mock) {
+function createManagerMock(repos: Map<Function, Record<string, Mock>>, queryImpl: Mock) {
   return {
     getRepository: (entity: Function) => {
       const repo = repos.get(entity);
@@ -52,15 +55,15 @@ function createManagerMock(repos: Map<Function, Record<string, jest.Mock>>, quer
 describe('InvoicesService', () => {
   let testingModule: TestingModule;
   let service: InvoicesService;
-  let invoiceRepository: Record<string, jest.Mock>;
-  let lineItemRepository: Record<string, jest.Mock>;
-  let clientRepository: Record<string, jest.Mock>;
-  let payableRepository: Record<string, jest.Mock>;
-  let taxRateRepository: Record<string, jest.Mock>;
-  let journalEntryRepository: Record<string, jest.Mock>;
-  let journalLineRepository: Record<string, jest.Mock>;
-  let ledgerPostingService: { postInvoice: jest.Mock; reverseWithin: jest.Mock };
-  let queryMock: jest.Mock;
+  let invoiceRepository: Record<string, Mock>;
+  let lineItemRepository: Record<string, Mock>;
+  let clientRepository: Record<string, Mock>;
+  let payableRepository: Record<string, Mock>;
+  let taxRateRepository: Record<string, Mock>;
+  let journalEntryRepository: Record<string, Mock>;
+  let journalLineRepository: Record<string, Mock>;
+  let ledgerPostingService: { postInvoice: Mock; reverseWithin: Mock };
+  let queryMock: Mock;
 
   const clientEntity = {
     id: 'client-1',
@@ -69,25 +72,25 @@ describe('InvoicesService', () => {
   } as Client;
 
   beforeAll(async () => {
-    invoiceRepository = createRepositoryMock<Invoice>() as unknown as Record<string, jest.Mock>;
+    invoiceRepository = createRepositoryMock<Invoice>() as unknown as Record<string, Mock>;
     lineItemRepository = createRepositoryMock<InvoiceLineItem>() as unknown as Record<
       string,
-      jest.Mock
+      Mock
     >;
-    clientRepository = createRepositoryMock<Client>() as unknown as Record<string, jest.Mock>;
-    payableRepository = createRepositoryMock<Payable>() as unknown as Record<string, jest.Mock>;
-    taxRateRepository = createRepositoryMock<TaxRate>() as unknown as Record<string, jest.Mock>;
+    clientRepository = createRepositoryMock<Client>() as unknown as Record<string, Mock>;
+    payableRepository = createRepositoryMock<Payable>() as unknown as Record<string, Mock>;
+    taxRateRepository = createRepositoryMock<TaxRate>() as unknown as Record<string, Mock>;
     journalEntryRepository = createRepositoryMock<JournalEntry>() as unknown as Record<
       string,
-      jest.Mock
+      Mock
     >;
     journalLineRepository = createRepositoryMock<JournalLine>() as unknown as Record<
       string,
-      jest.Mock
+      Mock
     >;
-    queryMock = jest.fn();
+    queryMock = vi.fn();
 
-    const repos = new Map<Function, Record<string, jest.Mock>>([
+    const repos = new Map<Function, Record<string, Mock>>([
       [Invoice, invoiceRepository],
       [InvoiceLineItem, lineItemRepository],
       [Client, clientRepository],
@@ -97,9 +100,10 @@ describe('InvoicesService', () => {
       [JournalLine, journalLineRepository],
     ]);
     (invoiceRepository as any).manager = {
-      transaction: jest.fn(async (work: (manager: unknown) => Promise<unknown>) =>
+      transaction: vi.fn(async (work: (manager: unknown) => Promise<unknown>) =>
         work(createManagerMock(repos, queryMock)),
       ),
+      getRepository: createManagerMock(repos, queryMock).getRepository,
       query: queryMock,
     };
 
@@ -109,14 +113,14 @@ describe('InvoicesService', () => {
         workspaceCurrencyProvider(),
         {
           provide: InvoiceSettingsService,
-          useValue: { get: jest.fn(async () => ({ paymentTermsDays: 14, lateFeePercent: 0 })) },
+          useValue: { get: vi.fn(async () => ({ paymentTermsDays: 14, lateFeePercent: 0 })) },
         },
         {
           provide: BusinessProfileService,
           useValue: {
-            get: jest.fn(async () => ({ legalName: 'Us', addressLines: 'Somewhere' })),
-            missingRequiredFields: jest.fn(() => []),
-            logoDataUri: jest.fn(async () => null),
+            get: vi.fn(async () => ({ legalName: 'Us', addressLines: 'Somewhere' })),
+            missingRequiredFields: vi.fn(() => []),
+            logoDataUri: vi.fn(async () => null),
           },
         },
         { provide: getRepositoryToken(Invoice), useValue: invoiceRepository },
@@ -124,7 +128,11 @@ describe('InvoicesService', () => {
         { provide: getRepositoryToken(Payable), useValue: payableRepository },
         {
           provide: LedgerPostingService,
-          useValue: { postInvoice: jest.fn(), reverseWithin: jest.fn() },
+          useValue: { postInvoice: vi.fn(), reverseWithin: vi.fn() },
+        },
+        {
+          provide: InvoiceXRechnungService,
+          useValue: { invoiceHybridPdf: vi.fn(async (_m: unknown, _i: unknown, pdf: Buffer) => pdf) },
         },
       ],
     }).compile();
@@ -134,7 +142,7 @@ describe('InvoicesService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     clientRepository.exists.mockResolvedValue(true);
     clientRepository.findOne.mockResolvedValue(clientEntity);
     queryMock.mockImplementation(async (sql: string) => {
@@ -153,11 +161,12 @@ describe('InvoicesService', () => {
         ...data,
       }));
       taxRateRepository.findBy.mockResolvedValue([{ id: 'tax-1', rate: 21 }]);
+      taxRateRepository.count.mockResolvedValue(1);
       lineItemRepository.find.mockResolvedValue([
         { quantity: 2, unitPrice: 100, taxRateId: 'tax-1' }, // 200 net, 42 tax
         { quantity: 1, unitPrice: 50, taxRateId: null }, // 50 net, 0 tax
       ]);
-      invoiceRepository.findOneOrFail = jest.fn(async () => ({ id: 'invoice-1' }) as Invoice);
+      invoiceRepository.findOneOrFail = vi.fn(async () => ({ id: 'invoice-1' }) as Invoice);
 
       const invoice = await service.create('workspace-1', {
         clientId: 'client-1',
@@ -172,6 +181,24 @@ describe('InvoicesService', () => {
       expect(invoice.subtotal).toBe(250);
       expect(invoice.taxTotal).toBe(42);
       expect(invoice.total).toBe(292);
+    });
+
+    it('refuses a tax rate of another workspace', async () => {
+      taxRateRepository.count.mockResolvedValue(0);
+
+      await expect(
+        service.create('workspace-1', {
+          clientId: 'client-1',
+          issueDate: '2026-03-01',
+          lineItems: [
+            { description: 'Consulting', quantity: 1, unitPrice: 100, taxRateId: 'their-rate' },
+          ],
+        } as any),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(taxRateRepository.count).toHaveBeenCalledWith({
+        where: { id: expect.anything(), workspaceId: 'workspace-1' },
+      });
+      expect(invoiceRepository.save).not.toHaveBeenCalled();
     });
   });
 

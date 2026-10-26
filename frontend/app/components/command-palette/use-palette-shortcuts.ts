@@ -8,11 +8,21 @@ import { keyLabel } from './shortcut-display';
 const SEQUENCE_TIMEOUT_MS = 1000;
 const MODIFIER_ORDER = ['Alt', 'Control', 'Meta', 'Shift'];
 
+/** tinykeys' `$mod`: ⌘ on Apple platforms, Ctrl everywhere else. */
+function platformMod(): string {
+  return /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? 'Meta' : 'Control';
+}
+
 /** 'Alt+Shift+KeyT' -> 'Alt+Shift+KeyT' with the modifiers in a fixed order. */
 function normalizePress(spec: string): string {
   const parts = spec.split('+');
   const key = parts[parts.length - 1];
-  const mods = parts.slice(0, -1).map(mod => (mod === 'Ctrl' ? 'Control' : mod));
+  const mods = parts.slice(0, -1).map(mod => {
+    if (mod === '$mod') {
+      return platformMod();
+    }
+    return mod === 'Ctrl' ? 'Control' : mod;
+  });
   return [...MODIFIER_ORDER.filter(mod => mods.includes(mod)), key].join('+');
 }
 

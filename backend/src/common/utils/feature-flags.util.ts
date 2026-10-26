@@ -161,7 +161,7 @@ export class FeatureFlagService {
    * Update specific flag
    */
   updateFlag(category: keyof FeatureFlags, flag: string, value: boolean): void {
-    const group = this.flags[category];
+    const group: unknown = this.flags[category];
     if (isMutableFlagGroup(group)) {
       group[flag] = value;
       this.logger.log(`Updated flag: ${category}.${flag} = ${value}`);

@@ -5,6 +5,9 @@
  * Wise's "Target name" is the counterparty, Monzo's "Name" is the payee.
  */
 
+/** Order of day and month in numeric dates such as 01/05/2026. */
+export type DateOrder = 'dmy' | 'mdy';
+
 export interface CsvPreset {
   name: string;
   /** Lower-cased header names that must all be present. */
@@ -18,6 +21,8 @@ export interface CsvPreset {
   unsignedAmountDirection?: 'debit' | 'credit';
   /** A hint when the file has no currency column. */
   currency?: string;
+  /** Used only when no date in the file settles the order (every day ≤ 12). */
+  dateOrder?: DateOrder;
 }
 
 export const CSV_PRESETS: CsvPreset[] = [
@@ -99,12 +104,14 @@ export const CSV_PRESETS: CsvPreset[] = [
       category: 'purpose',
     },
     currency: 'USD',
+    dateOrder: 'mdy',
   },
   {
     name: 'Bank of America',
     requires: ['date', 'description', 'amount', 'running bal.'],
     columns: { date: 'date', description: 'counterparty', amount: 'amount' },
     currency: 'USD',
+    dateOrder: 'mdy',
   },
   {
     name: 'Capital One',
@@ -117,6 +124,7 @@ export const CSV_PRESETS: CsvPreset[] = [
       category: 'purpose',
     },
     currency: 'USD',
+    dateOrder: 'mdy',
   },
   {
     name: 'American Express',
@@ -130,12 +138,14 @@ export const CSV_PRESETS: CsvPreset[] = [
     },
     unsignedAmountDirection: 'debit',
     currency: 'USD',
+    dateOrder: 'mdy',
   },
   {
     name: 'Wells Fargo',
     requires: ['date', 'amount', 'description'],
     columns: { date: 'date', amount: 'amount', description: 'counterparty' },
     currency: 'USD',
+    dateOrder: 'mdy',
   },
   {
     name: 'PayPal',

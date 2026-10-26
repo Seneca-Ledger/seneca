@@ -10,27 +10,32 @@ interface NetWorthChartProps {
   points: NetWorthPoint[];
   /** Colours the line: growth reads as success, decline as danger. */
   positive: boolean;
-  view: NetWorthView;
+  /** The net line, or the two sides; the dashboard card always draws the line. */
+  view?: NetWorthView;
   /** Start the value axis at zero; off by default, as the chart has always been. */
   zeroBaseline?: boolean;
   formatValue: (value: number) => string;
-  labels: { assets: string; liabilities: string; net: string };
+  /** Labels for three value lines; left out on small charts, which go without a scale. */
+  formatTick?: (value: number) => string;
+  /** Names of the two sides and the net; only the breakdown view needs them. */
+  labels?: { assets: string; liabilities: string; net: string };
 }
 
 export function NetWorthChart({
   points,
   positive,
-  view,
+  view = 'performance',
   zeroBaseline = false,
   formatValue,
+  formatTick,
   labels,
 }: NetWorthChartProps) {
   const { locale } = useLocale();
 
   return (
     <>
-      <div className="lumio-chart__box">
-        {view === 'breakdown' ? (
+      <div className="seneca-chart__box">
+        {view === 'breakdown' && labels ? (
           <LazyNetWorthBreakdown
             points={points}
             locale={locale}
@@ -43,6 +48,7 @@ export function NetWorthChart({
             positive={positive}
             locale={locale}
             formatValue={formatValue}
+            formatTick={formatTick}
             zeroBaseline={zeroBaseline}
           />
         )}

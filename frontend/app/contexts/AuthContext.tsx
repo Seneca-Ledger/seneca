@@ -15,6 +15,7 @@ import apiClient from '@/app/lib/api';
 import { clearCsrfCookie, hasSessionCookie } from '@/app/lib/csrf';
 import { readLocaleFromCookie, syncLocaleFromUser } from '@/app/lib/locale';
 import { getQueryClient } from '@/app/lib/query-client';
+import { reportContractDrift } from '@/app/lib/query-fn-schema';
 import {
   DEFAULT_THEME_PREFERENCE,
   forgetStoredUser,
@@ -25,6 +26,11 @@ import {
 import type { DateFormatPreference } from '@/app/lib/user-format';
 import { notifyUserFormatChanged } from '@/app/lib/user-format-store';
 
+/**
+ * The signed-in user as the app holds it. Fed by `GET /auth/me` (contract
+ * `CurrentUser`) and by the user objects other endpoints return, some of which
+ * leave fields out — hence the optional fields.
+ */
 export interface User {
   id: string;
   email: string;
@@ -50,6 +56,8 @@ export interface User {
   onboardingCompletedAt?: string | null;
   /** When the welcome tutorial was closed; null opens it after sign-up. */
   welcomeTutorialSeenAt?: string | null;
+  /** Page hints closed so far: page id → highest version seen; absent means unknown. */
+  pageHintsSeen?: Record<string, number>;
 }
 
 export interface AuthContextValue {
@@ -120,8 +128,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 
     apiClient
       .get('/auth/me')
-      .then(response => {
-        const nextUser = normalizeUser(response.data as User);
+      // Drift is reported, not thrown: the catch below would sign the user out.
+      .then(response => reportContractDrift('CurrentUser', response.data, '/auth/me'))
+      .then(user => {
+        const nextUser = normalizeUser(user);
         setUser(nextUser);
         localStorage.setItem('user', JSON.stringify(nextUser));
         notifyUserFormatChanged();

@@ -75,20 +75,11 @@ describe('insightHref', () => {
   it('points the savings rate at the tab that actually shows it', () => {
     // The KPI lives on Overview; the Trends tab has no savings-rate widget.
     expect(insightHref(makeInsight({ type: 'trend.savings_rate' }))).toBe(
-      '/dashboard?tab=overview&focus=kpi%3Asavings-rate',
+      '/dashboard?focus=kpi%3Asavings-rate',
     );
     expect(insightHref(makeInsight({ type: 'trend.savings_rate', data: { month: '2026-09' } }))).toBe(
-      '/dashboard?tab=overview&month=2026-09&focus=kpi%3Asavings-rate',
+      '/dashboard?month=2026-09&focus=kpi%3Asavings-rate',
     );
-  });
-
-  it('sends an AI summary to the month it was written about', () => {
-    expect(
-      insightHref(
-        makeInsight({ type: 'ai.summary', data: { periodKey: '2026-08', modelId: 'local' } }),
-      ),
-    ).toBe('/dashboard?tab=overview&month=2026-08');
-    expect(insightHref(makeInsight({ type: 'ai.summary', data: null }))).toBeNull();
   });
 
   it('sends the operational backlogs to the queue that clears them', () => {
@@ -107,7 +98,7 @@ describe('insightHref', () => {
     expect(insightHref(makeInsight({ type: 'pattern.risky_allocation' }))).toBe(
       '/net-worth?focus=card:risk',
     );
-    expect(insightHref(makeInsight({ type: 'forecast.monthly' }))).toBe('/dashboard?tab=overview');
+    expect(insightHref(makeInsight({ type: 'forecast.monthly' }))).toBe('/dashboard');
     expect(insightHref(makeInsight({ type: 'pattern.detected' }))).toBe('/subscriptions');
   });
 
@@ -180,8 +171,8 @@ describe('insightHref', () => {
 
   it('sends habits, fortune, commitments and subscriptions to where they are seen', () => {
     expect(insightHref(makeInsight({ type: 'stoic.habit' }))).toBe('/reports?tab=cash-flow');
-    expect(insightHref(makeInsight({ type: 'stoic.fortune' }))).toBe('/dashboard?tab=overview');
-    expect(insightHref(makeInsight({ type: 'stoic.commitments' }))).toBe('/dashboard?tab=overview');
+    expect(insightHref(makeInsight({ type: 'stoic.fortune' }))).toBe('/dashboard');
+    expect(insightHref(makeInsight({ type: 'stoic.commitments' }))).toBe('/dashboard');
     expect(insightHref(makeInsight({ type: 'stoic.subscriptions' }))).toBe('/subscriptions');
   });
 
@@ -204,11 +195,11 @@ describe('insightHref', () => {
   it('pins the dashboard to the judged month for fortune and commitments', () => {
     // With no month the dashboard shows the latest one that has data.
     expect(insightHref(makeInsight({ type: 'stoic.fortune', data: { month: '2026-08' } }))).toBe(
-      '/dashboard?tab=overview&month=2026-08',
+      '/dashboard?month=2026-08',
     );
     expect(
       insightHref(makeInsight({ type: 'stoic.commitments', data: { month: '2026-08' } })),
-    ).toBe('/dashboard?tab=overview&month=2026-08');
+    ).toBe('/dashboard?month=2026-08');
   });
 
   it('sends an expert principle to where its numbers live', () => {

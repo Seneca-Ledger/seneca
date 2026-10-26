@@ -4,6 +4,8 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { format, isValid, parseISO } from 'date-fns';
 import { useEffect, useRef, useState } from 'react';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { resolvePickerFormat } from '@/app/lib/user-format';
 import { useUserFormat } from '@/app/lib/user-format-store';
 import { parseLocalizedNumber } from '../../utils/numberFormat';
@@ -13,11 +15,16 @@ import type {
   CustomTableColumn,
   CustomTableGridRow,
 } from '../../utils/types';
+import { CategoryCellEditor } from './CategoryCellEditor';
+import { CurrencyCodeEditor } from './CurrencyCodeEditor';
 import {
   EMPTY_CELL,
   formatCellText,
+  isCategoryColumn,
+  isCurrencyCodeColumn,
   isEditableColumn,
   isNumericColumn,
+  isReadOnlySourceCell,
   selectedOptions,
 } from './formatCell';
 import { MultiSelectEditor, OptionChip, SelectEditor } from './SelectEditors';
@@ -33,6 +40,8 @@ export interface CellLabels {
   no: string;
   clear: string;
   edit: string;
+  /** Hint on cells that show a value the app keeps itself. */
+  readOnlySource: string;
 }
 
 export interface EditableCellProps {
@@ -42,6 +51,8 @@ export interface EditableCellProps {
   missingRequired: boolean;
   onUpdate: UpdateCellFn;
   labels: CellLabels;
+  /** The source of a table filled from app data: its cells write back to the records. */
+  sourceKind?: string | null;
 }
 
 type EditorProps = EditableCellProps & { done: () => void };
@@ -89,7 +100,7 @@ function TextEditor({ column, row, onUpdate, done }: EditorProps) {
   return (
     <input
       ref={inputRef}
-      className={`lumio-ct__cell-input${numeric ? ' lumio-ct__cell-input--numeric' : ''}`}
+      className={`seneca-ct__cell-input${numeric ? ' seneca-ct__cell-input--numeric' : ''}`}
       value={value}
       inputMode={numeric ? 'decimal' : undefined}
       onChange={event => setValue(event.target.value)}
@@ -130,7 +141,7 @@ function DateEditor({ column, row, onUpdate, done }: EditorProps) {
           fullWidth: true,
           size: 'small',
           variant: 'standard',
-          className: 'lumio-ct__cell-input',
+          className: 'seneca-ct__cell-input',
           slotProps: { input: { disableUnderline: true } },
         },
         actionBar: { actions: ['clear', 'today'] },
@@ -164,11 +175,12 @@ function OptionsEditor({ column, row, onUpdate, labels, done }: EditorProps) {
 }
 
 function CellDisplay({ column, row, fallbackCurrency, labels }: EditableCellProps) {
+  const privacy = usePrivacyMode();
   if (column.type === 'select' || column.type === 'multi_select') {
     const options = selectedOptions(column, row.data?.[column.key] ?? null);
     if (options.length) {
       return (
-        <span className="lumio-ct__chips">
+        <span className="seneca-ct__chips">
           {options.map(option => (
             <OptionChip key={option.value} option={option} />
           ))}
@@ -178,10 +190,14 @@ function CellDisplay({ column, row, fallbackCurrency, labels }: EditableCellProp
   }
   const text = formatCellText(column, row, fallbackCurrency, labels);
   const empty = text === EMPTY_CELL;
+  // An amount is hidden in privacy mode, and so is the tooltip that repeats it.
+  const hidden = column.type === 'currency' && !empty;
   return (
     <span
-      className={`lumio-ct__cell-text${empty ? ' lumio-ct__cell-text--empty' : ''}`}
-      title={text}
+      className={`seneca-ct__cell-text${empty ? ' seneca-ct__cell-text--empty' : ''}${
+        hidden ? ` ${PRIVATE_CLASS}` : ''
+      }`}
+      title={hidden && privacy ? undefined : text}
     >
       {text}
     </span>
@@ -194,20 +210,22 @@ const cellClassName = (
   editable: boolean,
   issue: boolean,
 ) =>
-  `lumio-ct__cell${editable ? ' lumio-ct__cell--editable' : ''}${
-    missingRequired ? ' lumio-ct__cell--required' : ''
-  }${issue ? ' lumio-ct__cell--issue' : ''}${
-    isNumericColumn(column) ? ' lumio-ct__cell--numeric' : ''
+  `seneca-ct__cell${editable ? ' seneca-ct__cell--editable' : ''}${
+    missingRequired ? ' seneca-ct__cell--required' : ''
+  }${issue ? ' seneca-ct__cell--issue' : ''}${
+    isNumericColumn(column) ? ' seneca-ct__cell--numeric' : ''
   }`;
 
 /**
  * One cell component for every column type. Read-only types (formula,
  * relation, ai) never enter edit mode: their values come from the server.
+ * Neither do cells of app record fields the app keeps itself.
  */
 export function EditableCell(props: EditableCellProps) {
-  const { column, row, missingRequired, onUpdate, labels } = props;
+  const { column, row, missingRequired, onUpdate, labels, sourceKind } = props;
   const [editing, setEditing] = useState(false);
-  const editable = isEditableColumn(column);
+  const lockedBySource = isReadOnlySourceCell(column, row, sourceKind);
+  const editable = isEditableColumn(column) && !lockedBySource;
   const issue = Boolean(row.styles?.[column.key]?.importIssue);
   const className = cellClassName(column, missingRequired, editable, issue);
 
@@ -217,6 +235,7 @@ export function EditableCell(props: EditableCellProps) {
         <Checkbox
           aria-label={column.title}
           checked={row.data?.[column.key] === true}
+          disabled={lockedBySource}
           onCheckedChange={next => void saveQuietly(onUpdate(row.id, column.key, next))}
         />
       </div>
@@ -228,6 +247,33 @@ export function EditableCell(props: EditableCellProps) {
     if (column.type === 'select' || column.type === 'multi_select') {
       return <OptionsEditor {...props} done={done} />;
     }
+    if (isCategoryColumn(column)) {
+      return (
+        <div className={className}>
+          <CellDisplay {...props} />
+          <CategoryCellEditor
+            value={row.data?.[column.key] ?? null}
+            clearLabel={labels.clear}
+            onChange={name => void saveQuietly(onUpdate(row.id, column.key, name))}
+            onClose={done}
+          />
+        </div>
+      );
+    }
+    if (isCurrencyCodeColumn(column)) {
+      // The cell keeps its value on show while the drawer is open beside the grid.
+      return (
+        <div className={className}>
+          <CellDisplay {...props} />
+          <CurrencyCodeEditor
+            value={row.data?.[column.key] ?? null}
+            clearLabel={labels.clear}
+            onChange={code => void saveQuietly(onUpdate(row.id, column.key, code))}
+            onClose={done}
+          />
+        </div>
+      );
+    }
     return column.type === 'date' ? (
       <DateEditor {...props} done={done} />
     ) : (
@@ -237,7 +283,7 @@ export function EditableCell(props: EditableCellProps) {
 
   if (!editable) {
     return (
-      <div className={className}>
+      <div className={className} title={lockedBySource ? labels.readOnlySource : undefined}>
         <CellDisplay {...props} />
       </div>
     );
@@ -245,7 +291,7 @@ export function EditableCell(props: EditableCellProps) {
   return (
     <button
       type="button"
-      className={`${className} lumio-ct__cell-button`}
+      className={`${className} seneca-ct__cell-button`}
       aria-label={`${labels.edit}: ${column.title}`}
       onClick={() => setEditing(true)}
     >

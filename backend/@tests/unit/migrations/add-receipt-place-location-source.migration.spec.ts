@@ -9,7 +9,7 @@ describe('AddReceiptPlaceLocationSource migration', () => {
   );
 
   const run = async (direction: 'up' | 'down') => {
-    const query = jest.fn().mockResolvedValue(undefined);
+    const query = vi.fn().mockResolvedValue(undefined);
     await new AddReceiptPlaceLocationSource1786900000000()[direction]({ query } as never);
     return query.mock.calls.map(([sql]) => String(sql).replace(/\s+/g, ' ').trim());
   };

@@ -11,7 +11,7 @@ export type TopMerchantSourceType = SourceType;
 export type TopMerchantSourceChannel = SourceChannel;
 
 export type TopMerchantRecord = StatementFilterItem & {
-  sourceType: 'statement' | 'gmail';
+  sourceType: 'statement' | 'receipt';
   sourceChannel: TopMerchantSourceChannel;
   flowType: TopMerchantFlowType;
   merchant: string;

@@ -2,14 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
+import type { CreateContributionBody, CreateGoalBody, UpdateGoalBody } from '../../contracts';
 import { Goal, GoalContribution } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import type { CreateContributionDto } from './dto/create-contribution.dto';
-import type { CreateGoalDto } from './dto/create-goal.dto';
-import type { UpdateGoalDto } from './dto/update-goal.dto';
 
 export interface GoalWithProgress {
   id: string;
@@ -60,7 +58,11 @@ export class GoalsService {
     private readonly workspaceCurrency: WorkspaceCurrencyService,
   ) {}
 
-  async create(workspaceId: string, userId: string, dto: CreateGoalDto): Promise<GoalWithProgress> {
+  async create(
+    workspaceId: string,
+    userId: string,
+    dto: CreateGoalBody,
+  ): Promise<GoalWithProgress> {
     const goal = this.goalRepository.create({
       workspaceId,
       createdById: userId,
@@ -98,9 +100,11 @@ export class GoalsService {
       return [];
     }
 
+    // A month's list shows each goal as it stood when that month ended, not as it is today.
     const totals = await this.sumContributions(
       workspaceId,
       goals.map(goal => goal.id),
+      month ? firstDayOfNextMonth(month) : undefined,
     );
 
     return goals.map(goal => {
@@ -141,19 +145,19 @@ export class GoalsService {
     id: string,
     workspaceId: string,
     userId: string,
-    dto: UpdateGoalDto,
+    dto: UpdateGoalBody,
   ): Promise<GoalWithProgress> {
     const goal = await this.goalRepository.findOne({ where: { id, workspaceId } });
     assertFound(goal, 'Goal');
     const before = goalSnapshot(goal);
 
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       goal.name = dto.name;
     }
-    if (dto.targetAmount !== undefined) {
+    if (dto.targetAmount != null) {
       goal.targetAmount = dto.targetAmount;
     }
-    if (dto.currency !== undefined) {
+    if (dto.currency != null) {
       goal.currency = dto.currency;
     }
     if (dto.targetDate !== undefined) {
@@ -200,7 +204,7 @@ export class GoalsService {
     id: string,
     workspaceId: string,
     userId: string,
-    dto: CreateContributionDto,
+    dto: CreateContributionBody,
   ): Promise<GoalDetail> {
     const goal = await this.goalRepository.findOne({ where: { id, workspaceId } });
     assertFound(goal, 'Goal');
@@ -269,16 +273,22 @@ export class GoalsService {
   }
 
   /** Totals for many goals in one query, so a list of N goals is not N+1. */
+  /** Every contribution per goal, or only those dated before `before` (`YYYY-MM-DD`, exclusive). */
   private async sumContributions(
     workspaceId: string,
     goalIds: string[],
+    before?: string,
   ): Promise<Map<string, number>> {
-    const rows = await this.contributionRepository
+    const query = this.contributionRepository
       .createQueryBuilder('contribution')
       .select('contribution.goal_id', 'goalId')
       .addSelect('COALESCE(SUM(contribution.amount), 0)', 'total')
       .where('contribution.workspace_id = :workspaceId', { workspaceId })
-      .andWhere('contribution.goal_id IN (:...goalIds)', { goalIds })
+      .andWhere('contribution.goal_id IN (:...goalIds)', { goalIds });
+    if (before) {
+      query.andWhere('contribution.contribution_date < :before', { before });
+    }
+    const rows = await query
       .groupBy('contribution.goal_id')
       .getRawMany<{ goalId: string; total: string }>();
 

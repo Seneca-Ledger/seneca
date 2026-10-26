@@ -50,7 +50,7 @@ export function SourcesTable({ sources, formatMoney, sourceName }: SourcesTableP
           {sources.map(source => (
             <TableRow key={`${source.kind}-${source.id}`}>
               <TableCell>
-                <Typography variant="body2" fontWeight={600}>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
                   {sourceName(source)}
                 </Typography>
                 {(source.scope === 'all_time' || !source.includedInReturn) && (
@@ -73,7 +73,14 @@ export function SourcesTable({ sources, formatMoney, sourceName }: SourcesTableP
               </TableCell>
               <TableCell
                 align="right"
-                sx={{ color: source.gain >= 0 ? 'success.main' : 'error.main' }}
+                sx={{
+                  color:
+                    source.gain === 0
+                      ? 'text.primary'
+                      : source.gain > 0
+                        ? 'var(--money-up)'
+                        : 'var(--money-down)',
+                }}
               >
                 {formatMoney(source.gain)}
               </TableCell>

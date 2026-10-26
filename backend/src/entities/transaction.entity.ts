@@ -10,6 +10,7 @@ import {
   ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { payeeKeyOf } from '../common/utils/payee-key.util';
@@ -17,6 +18,7 @@ import { Branch } from './branch.entity';
 import { Category } from './category.entity';
 import { CryptoWallet } from './crypto-wallet.entity';
 import { ImportSession } from './import-session.entity';
+import { Payee } from './payee.entity';
 import { Statement } from './statement.entity';
 import { Tag } from './tag.entity';
 import { TaxRate } from './tax-rate.entity';
@@ -107,7 +109,7 @@ export class Transaction {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -118,7 +120,7 @@ export class Transaction {
     { nullable: true },
   )
   @JoinColumn({ name: 'statement_id' })
-  statement: Statement | null;
+  statement: Relation<Statement | null>;
 
   @Column({ name: 'statement_id', type: 'uuid', nullable: true })
   statementId: string | null;
@@ -126,19 +128,19 @@ export class Transaction {
   @Column({ name: 'transaction_date', type: 'date' })
   transactionDate: Date;
 
-  @Column({ name: 'document_number', nullable: true })
+  @Column({ type: 'varchar', name: 'document_number', nullable: true })
   documentNumber: string | null;
 
   @Column({ name: 'counterparty_name' })
   counterpartyName: string;
 
-  @Column({ name: 'counterparty_bin', nullable: true })
+  @Column({ type: 'varchar', name: 'counterparty_bin', nullable: true })
   counterpartyBin: string | null;
 
-  @Column({ name: 'counterparty_account', nullable: true })
+  @Column({ type: 'varchar', name: 'counterparty_account', nullable: true })
   counterpartyAccount: string | null;
 
-  @Column({ name: 'counterparty_bank', nullable: true })
+  @Column({ type: 'varchar', name: 'counterparty_bank', nullable: true })
   counterpartyBank: string | null;
 
   /**
@@ -175,28 +177,28 @@ export class Transaction {
 
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
 
   @ManyToOne(() => TaxRate, { nullable: true })
   @JoinColumn({ name: 'tax_rate_id' })
-  taxRate: TaxRate | null;
+  taxRate: Relation<TaxRate | null>;
 
   @Column({ name: 'tax_rate_id', type: 'uuid', nullable: true })
   taxRateId: string | null;
 
   @ManyToOne(() => Branch, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'branch_id' })
-  branch: Branch | null;
+  branch: Relation<Branch | null>;
 
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;
 
   @ManyToOne(() => Wallet, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'wallet_id' })
-  wallet: Wallet | null;
+  wallet: Relation<Wallet | null>;
 
   @Column({ name: 'wallet_id', type: 'uuid', nullable: true })
   walletId: string | null;
@@ -210,7 +212,7 @@ export class Transaction {
    */
   @ManyToOne(() => WorkspaceMember, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'owner_member_id' })
-  ownerMember: WorkspaceMember | null;
+  ownerMember: Relation<WorkspaceMember | null>;
 
   @Column({ name: 'owner_member_id', type: 'uuid', nullable: true })
   ownerMemberId: string | null;
@@ -232,14 +234,14 @@ export class Transaction {
    */
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'private_category_id' })
-  privateCategory: Category | null;
+  privateCategory: Relation<Category | null>;
 
   @Column({ name: 'private_category_id', type: 'uuid', nullable: true })
   privateCategoryId: string | null;
 
   @ManyToOne(() => CryptoWallet, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'crypto_wallet_id' })
-  cryptoWallet: CryptoWallet | null;
+  cryptoWallet: Relation<CryptoWallet | null>;
 
   @Column({ name: 'crypto_wallet_id', type: 'uuid', nullable: true })
   cryptoWalletId: string | null;
@@ -279,13 +281,13 @@ export class Transaction {
   @Column({ name: 'crypto_fee_fiat', type: 'decimal', precision: 15, scale: 2, nullable: true })
   cryptoFeeFiat: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   article: string | null;
 
-  @Column({ name: 'activity_type', nullable: true })
+  @Column({ type: 'varchar', name: 'activity_type', nullable: true })
   activityType: string | null;
 
-  @Column({ name: 'vendor_normalized', nullable: true })
+  @Column({ type: 'varchar', name: 'vendor_normalized', nullable: true })
   vendorNormalized: string | null;
 
   /**
@@ -299,6 +301,18 @@ export class Transaction {
   payeeKey: string | null;
 
   /**
+   * Who this row was paid to or received from. Set on insert from the payee
+   * key's alias (`TransactionPayeeSubscriber`), or by the user picking another
+   * payee; NULL when the descriptor names nobody.
+   */
+  @ManyToOne(() => Payee, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'payee_id' })
+  payee: Relation<Payee | null>;
+
+  @Column({ name: 'payee_id', type: 'uuid', nullable: true })
+  payeeId: string | null;
+
+  /**
    * Derived on write so that every path that books a transaction — import,
    * scan, receipt, payable, manual entry, custom table, Telegram — keys the
    * payee the same way without having to remember to.
@@ -309,7 +323,7 @@ export class Transaction {
     this.payeeKey = payeeKeyOf(this);
   }
 
-  @Column({ name: 'category_hint', nullable: true })
+  @Column({ type: 'varchar', name: 'category_hint', nullable: true })
   categoryHint: string | null;
 
   /** See `TransactionCategorySource`. Null on rows classified before it was recorded. */
@@ -320,7 +334,7 @@ export class Transaction {
   @Column({ name: 'category_reason', type: 'varchar', length: 255, nullable: true })
   categoryReason: string | null;
 
-  @Column({ name: 'transaction_nature', nullable: true })
+  @Column({ type: 'varchar', name: 'transaction_nature', nullable: true })
   transactionNature: string | null;
 
   @Column({ name: 'tax_detected', default: false })
@@ -357,10 +371,18 @@ export class Transaction {
   /** Which rule produced these figures, when one did. */
   @ManyToOne(() => TaxRule, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'tax_rule_id' })
-  taxRule: TaxRule | null;
+  taxRule: Relation<TaxRule | null>;
 
   @Column({ name: 'tax_rule_id', type: 'uuid', nullable: true })
   taxRuleId: string | null;
+
+  /**
+   * Overrides the category's tax-relevant mark for this one row: a doctor's
+   * bill in "Health" that is deductible when the gym membership is not.
+   * NULL follows the category.
+   */
+  @Column({ name: 'tax_relevant', type: 'boolean', nullable: true })
+  taxRelevant: boolean | null;
 
   /** Set once this row has been included in a filed return. */
   @Column({ name: 'tax_locked', default: false })
@@ -433,7 +455,7 @@ export class Transaction {
 
   @ManyToOne(() => Transaction, { nullable: true })
   @JoinColumn({ name: 'duplicate_of_id' })
-  duplicateOf: Transaction | null;
+  duplicateOf: Relation<Transaction | null>;
 
   @Column({ name: 'duplicate_of_id', type: 'uuid', nullable: true })
   duplicateOfId: string | null;
@@ -441,7 +463,7 @@ export class Transaction {
   @Column({ name: 'duplicate_confidence', type: 'decimal', precision: 3, scale: 2, nullable: true })
   duplicateConfidence: number | null;
 
-  @Column({ name: 'duplicate_match_type', length: 50, nullable: true })
+  @Column({ type: 'varchar', name: 'duplicate_match_type', length: 50, nullable: true })
   duplicateMatchType: string | null;
 
   /**
@@ -480,7 +502,7 @@ export class Transaction {
    */
   @ManyToOne(() => Transaction, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'reimbursement_of_id' })
-  reimbursementOf: Transaction | null;
+  reimbursementOf: Relation<Transaction | null>;
 
   @Column({ name: 'reimbursement_of_id', type: 'uuid', nullable: true })
   reimbursementOfId: string | null;
@@ -494,12 +516,12 @@ export class Transaction {
   @Column({ name: 'investment_account_id', type: 'uuid', nullable: true })
   investmentAccountId: string | null;
 
-  @Column({ name: 'fingerprint', length: 64, nullable: true })
+  @Column({ type: 'varchar', name: 'fingerprint', length: 64, nullable: true })
   fingerprint: string | null;
 
   @ManyToOne(() => ImportSession, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'import_session_id' })
-  importSession: ImportSession | null;
+  importSession: Relation<ImportSession | null>;
 
   @Column({ name: 'import_session_id', type: 'uuid', nullable: true })
   importSessionId: string | null;
@@ -517,7 +539,7 @@ export class Transaction {
     joinColumn: { name: 'transaction_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
   })
-  tags: Tag[];
+  tags: Relation<Tag[]>;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

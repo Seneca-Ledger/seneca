@@ -23,7 +23,7 @@ vi.mock('@/app/lib/device-location', () => ({
   requestLocationAccess: () => locationAccessMock.request(),
 }));
 
-const CAPTURE_KEY = 'lumio-receipt-location-capture';
+const CAPTURE_KEY = 'seneca-receipt-location-capture';
 
 vi.mock('@mui/x-date-pickers/DatePicker', () => ({
   DatePicker: () => <input aria-label="Date" readOnly />,
@@ -113,6 +113,60 @@ describe('CreateExpenseDrawer mobile uploads', () => {
     });
   });
 
+  it.each([
+    ['onto the upload zone', () => screen.getByText(/drag and drop/i)],
+    ['onto the drawer header, missing the zone', () => screen.getByText('Create expense')],
+  ])('accepts receipts dropped %s instead of letting the browser open them', async (_where, target) => {
+    const container = document.createElement('div');
+    document.body.innerHTML = '';
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onSubmitScan = vi.fn().mockResolvedValue(undefined);
+
+    await act(async () => {
+      root.render(
+        <CreateExpenseDrawer
+          open
+          initialMode="scan"
+          categories={[]}
+          taxRates={[]}
+          onClose={() => undefined}
+          onSubmitScan={onSubmitScan}
+          onSubmitManual={async () => undefined}
+        />,
+      );
+    });
+
+    const receipt = new File(['dummy'], 'receipt.jpg', { type: 'image/jpeg' });
+    const notes = new File(['dummy'], 'notes.csv', { type: 'text/csv' });
+    const dropTarget = target();
+
+    let dragOverAllowed = true;
+    let dropAllowed = true;
+    await act(async () => {
+      dragOverAllowed = fireEvent.dragOver(dropTarget, {
+        dataTransfer: { types: ['Files'], files: [receipt] },
+      });
+      dropAllowed = fireEvent.drop(dropTarget, {
+        dataTransfer: { types: ['Files'], files: [receipt, notes] },
+      });
+    });
+
+    // false = preventDefault was called, so the browser does not open the file itself.
+    expect(dragOverAllowed).toBe(false);
+    expect(dropAllowed).toBe(false);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /upload receipt/i }));
+    });
+
+    expect(onSubmitScan).toHaveBeenCalledWith(expect.objectContaining({ files: [receipt] }));
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   it('uses dark-safe drawer surfaces for scan and manual modes', async () => {
     const container = document.createElement('div');
     document.body.innerHTML = '';
@@ -133,7 +187,7 @@ describe('CreateExpenseDrawer mobile uploads', () => {
       );
     });
 
-    const drawerSurface = document.querySelector('.lumio-expense-drawer');
+    const drawerSurface = document.querySelector('.seneca-expense-drawer');
     const lightSurface = Array.from(document.querySelectorAll('[class]')).find(
       node =>
         typeof node.className === 'string' &&

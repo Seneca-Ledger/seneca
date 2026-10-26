@@ -4,14 +4,14 @@ import { extname, join } from 'node:path';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type { WebhookReceiptUploadBody, WebhookStatementUploadBody } from '../../contracts';
 import { User } from '../../entities/user.entity';
 import type { WebhookEndpoint } from '../../entities/webhook-endpoint.entity';
 import { WorkspaceMember, WorkspaceRole } from '../../entities/workspace-member.entity';
 import { ReceiptsService } from '../receipts/receipts.service';
 import { StatementsService } from '../statements/statements.service';
-import type { WebhookReceiptUploadDto } from './dto/webhook-receipt-upload.dto';
-import type { WebhookStatementUploadDto } from './dto/webhook-statement-upload.dto';
 
 const MAX_BASE64_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -27,9 +27,11 @@ export class WebhookInboundService {
   private async resolveWorkspaceOwner(workspaceId: string): Promise<User> {
     const member = await this.memberRepo.findOne({
       where: { workspaceId, role: WorkspaceRole.OWNER },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
-    if (!member?.user) throw new NotFoundException('Workspace owner not found');
+    if (!member?.user) throw new NotFoundException(appError('WORKSPACE_OWNER_NOT_FOUND'));
     return member.user;
   }
 
@@ -50,7 +52,7 @@ export class WebhookInboundService {
   private async base64ToFile(base64: string, fileName: string): Promise<Express.Multer.File> {
     const buffer = Buffer.from(base64, 'base64');
     if (buffer.length > MAX_BASE64_BYTES) {
-      throw new BadRequestException('File exceeds maximum allowed size of 50MB');
+      throw new BadRequestException(appError('WEBHOOK_FILE_TOO_LARGE'));
     }
     const uniqueName = `${randomUUID()}${extname(fileName || '.bin')}`;
     const uploadsDir = resolveUploadsDir();
@@ -73,7 +75,7 @@ export class WebhookInboundService {
   async uploadStatement(
     endpoint: WebhookEndpoint,
     file: Express.Multer.File | null,
-    dto: WebhookStatementUploadDto,
+    dto: WebhookStatementUploadBody,
   ) {
     const user = await this.resolveWorkspaceOwner(endpoint.workspaceId);
     const resolvedFile =
@@ -81,7 +83,7 @@ export class WebhookInboundService {
       (dto.fileBase64
         ? await this.base64ToFile(dto.fileBase64, dto.fileName ?? 'statement.pdf')
         : null);
-    if (!resolvedFile) throw new BadRequestException('No file provided');
+    if (!resolvedFile) throw new BadRequestException(appError('WEBHOOK_FILE_MISSING'));
     const isTemp = !file && !!dto.fileBase64;
     try {
       const walletId = dto.walletId ?? endpoint.defaultWalletId ?? undefined;
@@ -106,7 +108,7 @@ export class WebhookInboundService {
   async uploadReceipt(
     endpoint: WebhookEndpoint,
     file: Express.Multer.File | null,
-    dto: WebhookReceiptUploadDto,
+    dto: WebhookReceiptUploadBody,
   ) {
     const user = await this.resolveWorkspaceOwner(endpoint.workspaceId);
     const resolvedFile =
@@ -114,14 +116,14 @@ export class WebhookInboundService {
       (dto.fileBase64
         ? await this.base64ToFile(dto.fileBase64, dto.fileName ?? 'receipt.jpg')
         : null);
-    if (!resolvedFile) throw new BadRequestException('No file provided');
+    if (!resolvedFile) throw new BadRequestException(appError('WEBHOOK_FILE_MISSING'));
     const isTemp = !file && !!dto.fileBase64;
     try {
       return await this.receiptsService.createFromUpload({
         userId: user.id,
         workspaceId: endpoint.workspaceId,
         files: [resolvedFile],
-        language: dto.language,
+        language: dto.language ?? undefined,
       });
     } finally {
       if (isTemp) {

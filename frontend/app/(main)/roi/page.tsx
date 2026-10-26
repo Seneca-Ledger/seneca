@@ -1,10 +1,9 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { PageTitle } from '@/app/components/ui/page-title';
+import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIntlayer } from '@/app/i18n';
 import { CalculatorTab } from './components/CalculatorTab';
 import { PerformanceTab } from './components/PerformanceTab';
@@ -33,18 +32,29 @@ export default function RoiPage() {
   return (
     <Box
       component="main"
-      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
     >
-      <Tabs
-        value={tab}
-        onChange={(_event, value: RoiTab) => update({ tab: value })}
-        variant="scrollable"
-        scrollButtons={false}
-        sx={sharedMuiTabsSx}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 3,
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          mb: 3,
+        }}
       >
-        <Tab value="performance" label={t.tabPerformance} />
-        <Tab value="calculator" label={t.tabCalculator} />
-      </Tabs>
+        <PageTitle path="/roi" />
+        <TextTabs<RoiTab>
+          value={tab}
+          onChange={value => update({ tab: value })}
+          options={[
+            { value: 'performance', label: t.tabPerformance.value },
+            { value: 'calculator', label: t.tabCalculator.value },
+          ]}
+          ariaLabel={t.title.value}
+        />
+      </Box>
 
       {tab === 'performance' ? (
         <PerformanceTab range={range} onRangeChange={next => update({ range: next })} />

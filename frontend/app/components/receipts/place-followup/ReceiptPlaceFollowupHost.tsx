@@ -1,8 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { setReceiptPlacePrompt } from '@/app/lib/receipt-place-followup';
@@ -15,11 +16,19 @@ const ReceiptPlacePickerDrawer = dynamic(
   { ssr: false },
 );
 
-const summarize = (question: PlaceQuestion, locale: string): string | null => {
+const summarize = (question: PlaceQuestion, locale: string): React.ReactNode => {
   const { vendor, amount, currency } = question.suggestions;
   const money =
     typeof amount === 'number' && currency ? formatMoney(amount, currency, locale) : null;
-  return [vendor, money].filter(Boolean).join(' · ') || null;
+  if (!money) {
+    return vendor || null;
+  }
+  return (
+    <>
+      {vendor ? `${vendor} · ` : null}
+      <PrivateAmount>{money}</PrivateAmount>
+    </>
+  );
 };
 
 /**
@@ -32,7 +41,11 @@ export function ReceiptPlaceFollowupHost(): React.JSX.Element | null {
   const [pickerOpen, setPickerOpen] = useState(false);
   const t = useIntlayer('receiptPlaceFollowup');
   const { locale } = useLocale();
-  const summary = question ? summarize(question, String(locale)) : null;
+  // Memoised: the toast effect below depends on it.
+  const summary = useMemo(
+    () => (question ? summarize(question, String(locale)) : null),
+    [question, locale],
+  );
 
   const title = t.promptTitle.value;
   const body = t.promptBody.value;

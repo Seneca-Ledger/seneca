@@ -2,7 +2,6 @@
 
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -16,6 +15,8 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useState } from 'react';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage, getApiErrorStatus } from '@/app/lib/api-error';
 import { useAccountCard } from '../hooks/useLedger';
@@ -91,61 +92,70 @@ export function AccountCardTab({
       {card.isError && !stale ? (
         <Alert severity="error">{getApiErrorMessage(card.error)}</Alert>
       ) : null}
-      {accountId && card.isPending && !card.isError ? <CircularProgress size={24} /> : null}
+      {accountId && card.isPending && !card.isError ? (
+        <SnapshotSkeleton id="ledger-account-card" loading fallback="list" />
+      ) : null}
 
       {card.data ? (
-        <>
-          <Typography variant="body2">
-            {t.openingBalance}: <strong>{card.data.openingBalance}</strong> · {t.closingBalance}:{' '}
-            <strong>{card.data.closingBalance}</strong> {card.data.baseCurrency}
-          </Typography>
-          {card.data.lines.length === 0 ? (
-            <Alert severity="info">{t.emptyAccount}</Alert>
-          ) : (
-            <Paper variant="outlined" sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t.colDate}</TableCell>
-                    <TableCell>{t.colNo}</TableCell>
-                    <TableCell>{t.colMemo}</TableCell>
-                    <TableCell align="right">{t.sideDebit}</TableCell>
-                    <TableCell align="right">{t.sideCredit}</TableCell>
-                    <TableCell align="right">{t.colRunning}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {card.data.lines.map(line => (
-                    <TableRow key={`${line.entryId}-${line.lineNo}`}>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{line.entryDate}</TableCell>
-                      <TableCell>{line.entryNo}</TableCell>
-                      <TableCell
-                        sx={{
-                          maxWidth: 320,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {line.memo ?? ''}
-                      </TableCell>
-                      <TableCell align="right">
-                        {line.side === 'debit' ? line.baseAmount : ''}
-                      </TableCell>
-                      <TableCell align="right">
-                        {line.side === 'credit' ? line.baseAmount : ''}
-                      </TableCell>
-                      <TableCell align="right">{line.runningBalance}</TableCell>
+        <SnapshotSkeleton id="ledger-account-card" loading={false}>
+          <Stack spacing={2}>
+            <Typography variant="body2">
+              {t.openingBalance}:{' '}
+              <strong className={PRIVATE_CLASS}>{card.data.openingBalance}</strong> ·{' '}
+              {t.closingBalance}:{' '}
+              <strong className={PRIVATE_CLASS}>{card.data.closingBalance}</strong>{' '}
+              {card.data.baseCurrency}
+            </Typography>
+            {card.data.lines.length === 0 ? (
+              <Alert severity="info">{t.emptyAccount}</Alert>
+            ) : (
+              <Paper variant="outlined" sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>{t.colDate}</TableCell>
+                      <TableCell>{t.colNo}</TableCell>
+                      <TableCell>{t.colMemo}</TableCell>
+                      <TableCell align="right">{t.sideDebit}</TableCell>
+                      <TableCell align="right">{t.sideCredit}</TableCell>
+                      <TableCell align="right">{t.colRunning}</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Paper>
-          )}
-          {card.data.totalPages > 1 ? (
-            <AppPagination page={page} total={card.data.totalPages} onChange={setPage} />
-          ) : null}
-        </>
+                  </TableHead>
+                  <TableBody>
+                    {card.data.lines.map(line => (
+                      <TableRow key={`${line.entryId}-${line.lineNo}`}>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{line.entryDate}</TableCell>
+                        <TableCell>{line.entryNo}</TableCell>
+                        <TableCell
+                          sx={{
+                            maxWidth: 320,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {line.memo ?? ''}
+                        </TableCell>
+                        <TableCell align="right" className={PRIVATE_CLASS}>
+                          {line.side === 'debit' ? line.baseAmount : ''}
+                        </TableCell>
+                        <TableCell align="right" className={PRIVATE_CLASS}>
+                          {line.side === 'credit' ? line.baseAmount : ''}
+                        </TableCell>
+                        <TableCell align="right" className={PRIVATE_CLASS}>
+                          {line.runningBalance}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            )}
+            {card.data.totalPages > 1 ? (
+              <AppPagination page={page} total={card.data.totalPages} onChange={setPage} />
+            ) : null}
+          </Stack>
+        </SnapshotSkeleton>
       ) : null}
     </Stack>
   );

@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { RevaluationResult as RevaluationResultContract, RevalueLedgerBody } from '../../contracts';
+import { LedgerRevaluationList } from '../../contracts/ledger/ledger-reports';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { RevalueLedgerDto } from './dto/revalue-ledger.dto';
 import type { Revaluation, RevaluationResult } from './ledger-revaluation.service';
 import { LedgerRevaluationService } from './ledger-revaluation.service';
 
@@ -15,6 +18,7 @@ export class LedgerRevaluationsController {
 
   @Get()
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(LedgerRevaluationList)
   async list(@WorkspaceId() workspaceId: string): Promise<Revaluation[]> {
     return this.revaluationService.list(workspaceId);
   }
@@ -22,10 +26,11 @@ export class LedgerRevaluationsController {
   /** Idempotent per day: repeating it books nothing unless the balances moved. */
   @Post()
   @WorkspaceAuth(Permission.LEDGER_POST)
+  @SchemaResponse(RevaluationResultContract)
   async revalue(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: RevalueLedgerDto,
+    @SchemaBody(RevalueLedgerBody) dto: RevalueLedgerBody,
   ): Promise<RevaluationResult> {
     return this.revaluationService.revalue(workspaceId, user.id, dto.date);
   }

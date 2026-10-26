@@ -1,4 +1,4 @@
-import pdfParse from 'pdf-parse';
+import { parsePdf } from '@/common/utils/pdf-text.util';
 import type { Client } from '@/entities/client.entity';
 import type { Invoice } from '@/entities/invoice.entity';
 import type { WorkspaceBusinessProfile } from '@/entities/workspace-business-profile.entity';
@@ -7,17 +7,18 @@ import {
   type InvoiceDocumentInput,
   type InvoiceDocumentLine,
 } from '@/modules/invoices/invoice-document';
+import { APP_NAME } from '../../../../src/common/brand';
 
 const profile = {
   workspaceId: 'ws-1',
-  legalName: 'Lumio Software OÜ',
+  legalName: `${APP_NAME} Software OÜ`,
   registrationId: '16123456',
   taxId: 'EE102345678',
   addressLines: 'Tartu mnt 67\n10115 Tallinn',
   countryCode: 'EE',
-  email: 'billing@lumio.test',
+  email: 'billing@seneca.test',
   phone: '+372 5555 0100',
-  website: 'lumio.test',
+  website: 'seneca.test',
   bankName: 'LHV Pank',
   bankAccount: 'EE471000001020145685',
   bankCode: 'LHVBEE22',
@@ -72,22 +73,22 @@ async function textOf(input: Partial<InvoiceDocumentInput> = {}): Promise<string
   // pdf-parse takes the bytes directly, so the document never has to be
   // written to disk. Whitespace is normalised because pdfmake breaks a column
   // into separate text runs.
-  const parsed = await pdfParse(pdf);
+  const parsed = await parsePdf(pdf);
   return String(parsed.text).replace(/\s+/g, ' ');
 }
 
 describe('buildInvoicePdf', () => {
-  jest.setTimeout(60_000);
+  vi.setConfig({ testTimeout: 60_000 });
 
   it('prints who is billing: name, address, tax ids and contacts', async () => {
     const text = await textOf();
 
-    expect(text).toContain('Lumio Software OÜ');
+    expect(text).toContain(`${APP_NAME} Software OÜ`);
     expect(text).toContain('Tartu mnt 67');
     expect(text).toContain('10115 Tallinn');
     expect(text).toContain('16123456');
     expect(text).toContain('EE102345678');
-    expect(text).toContain('billing@lumio.test');
+    expect(text).toContain('billing@seneca.test');
   });
 
   it('prints how to pay it', async () => {
@@ -109,6 +110,50 @@ describe('buildInvoicePdf', () => {
     expect(text).toContain('INV-42');
     expect(text).toContain('2026-03-01');
     expect(text).toContain('2026-03-15');
+  });
+
+  it('prints the client address from its parts when no address was typed', async () => {
+    const text = await textOf({
+      client: {
+        ...client,
+        billingAddress: null,
+        street: 'Marktplatz 5',
+        postalCode: '80331',
+        city: 'München',
+        countryCode: 'de',
+      } as Client,
+    });
+    expect(text).toContain('Marktplatz 5 80331 München DE');
+  });
+
+  it('prints a line discount or surcharge under its description', async () => {
+    const text = await textOf({
+      lines: [line({ adjustmentPercent: -10 }), line({ description: 'Rush', adjustmentPercent: 15 })],
+    });
+    expect(text).toContain('Integration work Discount 10%');
+    expect(text).toContain('Rush Surcharge 15%');
+  });
+
+  it('prints the delivery date and the buyer reference when there are some', async () => {
+    const text = await textOf({
+      invoice: { ...invoice, deliveryDate: '2026-02-27', buyerReference: null } as Invoice,
+      client: { ...client, buyerReference: 'PO-4711' } as Client,
+    });
+    expect(text).toContain('Delivery date: 2026-02-27');
+    expect(text).toContain('Your reference: PO-4711');
+
+    const plain = await textOf();
+    expect(plain).not.toContain('Delivery date');
+    expect(plain).not.toContain('Your reference');
+  });
+
+  it('prints them in German as a German invoice reads them', async () => {
+    const text = await textOf({
+      invoice: { ...invoice, deliveryDate: '2026-02-27', buyerReference: 'Kostenstelle 12' } as Invoice,
+      client: { ...client, locale: 'de' } as Client,
+    });
+    expect(text).toContain('Leistungsdatum: 2026-02-27');
+    expect(text).toContain('Ihre Referenz: Kostenstelle 12');
   });
 
   it('breaks the tax down per rate', async () => {

@@ -2,8 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
+import { useViewPreference } from '@/app/components/transactions/hooks/useViewPreference';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { PERIOD_PRESETS, presetRangeValues } from '../report-period-presets';
 
@@ -53,33 +54,55 @@ export interface CashFlowFilters {
   owner: string | null;
 }
 
+/** The one switch the page remembers: on unless this person turned it off. */
+function readReportsView(saved: Readonly<Record<string, unknown>>): { includeTransfers: boolean } {
+  return {
+    includeTransfers: typeof saved.includeTransfers === 'boolean' ? saved.includeTransfers : true,
+  };
+}
+
 export function useCashFlowMap() {
   const workspaceId = useWorkspaceId();
-  const [filters, setFilters] = useState<CashFlowFilters>(() => {
+  const view = useViewPreference('reports', readReportsView);
+  const includeTransfers = view.state?.includeTransfers ?? true;
+  const [local, setLocal] = useState<Omit<CashFlowFilters, 'includeTransfers'>>(() => {
     const [from, to] = presetRangeValues(PERIOD_PRESETS[0]);
-    return { from, to, compare: true, includeTransfers: false, categories: [], owner: null };
+    return { from, to, compare: true, categories: [], owner: null };
   });
+  const filters = useMemo<CashFlowFilters>(
+    () => ({ ...local, includeTransfers }),
+    [local, includeTransfers],
+  );
 
   const params = useMemo(() => {
-    const query: Record<string, string | boolean> = { dateFrom: filters.from, dateTo: filters.to };
-    if (filters.compare) query.compare = true;
-    if (filters.includeTransfers) query.includeTransfers = true;
-    if (filters.categories.length > 0) query.categories = filters.categories.join(',');
-    if (filters.owner) query.owner = filters.owner;
-    return query;
+    return {
+      dateFrom: filters.from,
+      dateTo: filters.to,
+      ...(filters.compare ? { compare: true } : {}),
+      ...(filters.includeTransfers ? { includeTransfers: true } : {}),
+      ...(filters.categories.length > 0 ? { categories: filters.categories.join(',') } : {}),
+      ...(filters.owner ? { owner: filters.owner } : {}),
+    } satisfies ContractInput<'CashFlowMapQuery'>;
   }, [filters]);
 
   const query = useQuery({
     queryKey: queryKeys.cashFlowMap({ workspaceId, params: JSON.stringify(params) }),
     queryFn: ({ signal }) =>
-      apiQuery<CashFlowMapData>({ url: '/reports/cash-flow-map', params, signal }),
+      apiQueryDecoded({ url: '/reports/cash-flow-map', params, signal, contract: 'CashFlowMap' }),
     enabled: Boolean(workspaceId),
     placeholderData: previous => previous,
   });
 
-  const update = useCallback((patch: Partial<CashFlowFilters>) => {
-    setFilters(current => ({ ...current, ...patch }));
-  }, []);
+  const { save } = view;
+  const update = useCallback(
+    (patch: Partial<CashFlowFilters>) => {
+      const { includeTransfers: nextIncludeTransfers, ...rest } = patch;
+      // Saved per person and workspace, so leaving the page does not reset it.
+      if (nextIncludeTransfers !== undefined) save({ includeTransfers: nextIncludeTransfers });
+      setLocal(current => ({ ...current, ...rest }));
+    },
+    [save],
+  );
 
   const exportUrl = useMemo(() => {
     const search = new URLSearchParams();

@@ -49,7 +49,7 @@ test('buildBackendEnv points local development at generated infrastructure ports
 });
 
 test('applyEnvDefaults preserves existing user values and writes missing values', async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'lumio-setup-env-'));
+  const dir = await mkdtemp(path.join(tmpdir(), 'seneca-setup-env-'));
   const envPath = path.join(dir, '.env');
   await writeFile(envPath, '# Keep my local notes\nPOSTGRES_PORT=15432\nJWT_SECRET=custom\n');
 
@@ -68,7 +68,7 @@ test('applyEnvDefaults preserves existing user values and writes missing values'
 });
 
 test('prepareEnv reuses existing root secrets when completing backend env', async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'lumio-prepare-env-'));
+  const dir = await mkdtemp(path.join(tmpdir(), 'seneca-prepare-env-'));
   await writeFile(
     path.join(dir, '.env'),
     'JWT_SECRET=root-jwt\nJWT_REFRESH_SECRET=root-refresh\nINTEGRATIONS_ENCRYPTION_KEY=root-integration\n',

@@ -4,7 +4,39 @@ import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StatementListItem } from '@/app/lib/contracts';
+import { receiptRecord, transactionItem } from '@/app/test/fixtures/contracts';
 import { SpendCalendarCard } from '../SpendCalendarCard';
+
+/** A completed `GET /statements` row covering `from`..`to`. */
+function statement(row: { id: string; bankName: string; from: string; to: string }): StatementListItem {
+  return {
+    id: row.id,
+    fileName: `${row.id}.pdf`,
+    fileType: 'pdf',
+    bankName: row.bankName,
+    status: 'completed',
+    stage: 'submit',
+    errorMessage: null,
+    totalTransactions: 1,
+    totalDebit: '0',
+    totalCredit: '0',
+    balanceStart: null,
+    balanceEnd: null,
+    currency: 'USD',
+    statementDateFrom: row.from,
+    statementDateTo: row.to,
+    createdAt: `${row.to}T00:00:00.000Z`,
+    updatedAt: `${row.to}T00:00:00.000Z`,
+    processedAt: null,
+    categoryId: null,
+    category: null,
+    tags: [],
+    user: null,
+    parsingDetails: null,
+    transactionSummary: { description: null, exchangeRate: null, exchangeRateMixed: false, cardLabel: null },
+  };
+}
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -78,7 +110,7 @@ vi.mock('@/app/hooks/usePullToRefresh', () => ({
 
 vi.mock('@/app/i18n', async () => {
   const actual = await vi.importActual<typeof import('react-intlayer')>('react-intlayer');
-  const realKeys = new Set(['statementsSpendOverTime', 'statementsAnalyticsRecords']);
+  const realKeys = new Set(['statementsSpendOverTime', 'statementsAnalyticsRecords', 'statementsPage']);
   return {
     useLocale: () => ({ locale: 'en' }),
     useIntlayer: (key: string) =>
@@ -147,17 +179,8 @@ vi.mock('@/app/i18n', async () => {
   };
 });
 
-vi.mock('@/app/(main)/statements/components/filters/TypeFilterDropdown', () => ({
-  TypeFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
-}));
 
-vi.mock('@/app/(main)/statements/components/filters/GroupByFilterDropdown', () => ({
-  GroupByFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
-}));
 
-vi.mock('@/app/(main)/statements/components/filters/StatusFilterDropdown', () => ({
-  StatusFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
-}));
 
 vi.mock('@/app/(main)/statements/components/filters/DateFilterDropdown', () => ({
   DateFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
@@ -203,109 +226,92 @@ describe('SpendCalendarCard', () => {
     document.body.appendChild(container);
     root = createRoot(container);
 
+    // Shaped like the StatementListPage and TransactionListPage contracts,
+    // which the analytics loader checks every page against.
+    const page = <T,>(rows: T[]) => ({
+      data: { data: rows, items: rows, total: rows.length, page: 1, limit: 500 },
+    });
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/statements') {
-        return Promise.resolve({
-          data: {
-            data: [
-              {
-                id: 'statement-1',
-                status: 'completed',
-                createdAt: '2026-01-10T00:00:00.000Z',
-                statementDateFrom: '2026-01-01T00:00:00.000Z',
-                statementDateTo: '2026-01-10T00:00:00.000Z',
-                bankName: 'Kaspi',
-                fileType: 'expense',
-                currency: 'USD',
-              },
-              {
-                id: 'statement-2',
-                status: 'completed',
-                createdAt: '2026-02-03T00:00:00.000Z',
-                statementDateFrom: '2026-02-01T00:00:00.000Z',
-                statementDateTo: '2026-02-03T00:00:00.000Z',
-                bankName: 'Halyk',
-                fileType: 'income',
-                currency: 'USD',
-              },
-            ],
-            total: 2,
-          },
-        });
+        return Promise.resolve(
+          page([
+            statement({ id: 'statement-1', bankName: 'Example Bank', from: '2026-01-01', to: '2026-01-10' }),
+            statement({ id: 'statement-2', bankName: 'Second Bank', from: '2026-02-01', to: '2026-02-03' }),
+          ]),
+        );
       }
-
       if (url === '/transactions') {
-        return Promise.resolve({
-          data: {
-            data: [
-              {
+        return Promise.resolve(
+          page([
+            {
+              ...transactionItem({
                 id: 'tx-1',
                 statementId: 'statement-1',
-                transactionDate: '2026-01-10T00:00:00.000Z',
-                debit: 320,
-                credit: 0,
-                amount: 320,
-                currency: 'USD',
-                transactionType: 'expense',
-                counterpartyName: 'Anthropic',
-                paymentPurpose: 'Claude subscription',
+                transactionDate: '2026-01-10',
+                debit: '320.00',
+                amount: '-320.00',
+                counterpartyName: 'ACME Cloud',
+                paymentPurpose: 'ACME Cloud subscription',
                 isVerified: true,
-              },
-              {
+              }),
+              reimbursementOf: null,
+            },
+            {
+              ...transactionItem({
                 id: 'tx-2',
                 statementId: 'statement-2',
-                transactionDate: '2026-02-03T00:00:00.000Z',
-                debit: 0,
-                credit: 500,
-                amount: 500,
-                currency: 'USD',
+                transactionDate: '2026-02-03',
                 transactionType: 'income',
+                debit: null,
+                credit: '500.00',
+                amount: '500.00',
                 counterpartyName: 'Client payment',
                 paymentPurpose: 'January retainer',
                 isVerified: true,
-              },
-            ],
-            total: 2,
-          },
-        });
+              }),
+              reimbursementOf: null,
+            },
+          ]),
+        );
       }
-
-      if (url === '/integrations/gmail/receipts') {
+      if (url === '/receipts/documents') {
         return Promise.resolve({
           data: {
             receipts: [
-              {
+              receiptRecord({
                 id: 'receipt-1',
-                subject: 'Uber ride',
-                sender: 'Uber <noreply@uber.com>',
+                subject: 'City Rides trip',
+                sender: 'City Rides <noreply@example.com>',
                 receivedAt: '2026-01-12T00:00:00.000Z',
                 status: 'approved',
                 transactionId: null,
                 parsedData: {
                   amount: 45,
                   currency: 'USD',
-                  vendor: 'Uber',
+                  vendor: 'City Rides',
                   date: '2026-01-12',
                   transactionType: 'expense',
                 },
-              },
-              {
+              }),
+              receiptRecord({
                 id: 'receipt-2',
-                subject: 'Duplicate Anthropic receipt',
-                sender: 'Anthropic <billing@anthropic.com>',
+                subject: 'Duplicate ACME Cloud receipt',
+                sender: 'ACME Cloud <billing@example.com>',
                 receivedAt: '2026-01-11T00:00:00.000Z',
                 status: 'approved',
                 transactionId: 'tx-1',
                 parsedData: {
                   amount: 320,
                   currency: 'USD',
-                  vendor: 'Anthropic',
+                  vendor: 'ACME Cloud',
                   date: '2026-01-11',
                   transactionType: 'expense',
                 },
-              },
+              }),
             ],
             total: 2,
+            limit: 100,
+            offset: 0,
           },
         });
       }
@@ -323,7 +329,7 @@ describe('SpendCalendarCard', () => {
     apiMocks.get.mockReset();
   });
 
-  it('renders only the calendar, from transactions and unique gmail receipts', async () => {
+  it('renders only the calendar, from transactions and unique receipts', async () => {
     await act(async () => {
       root.render(<SpendCalendarCard displayMonth={new Date(2026, 0, 1)} />);
     });
@@ -341,7 +347,7 @@ describe('SpendCalendarCard', () => {
     expect(container.textContent).toContain('January 2026');
     // Compact cells: the days with spend carry their total, not merchant names.
     const activeDays = Array.from(
-      container.querySelectorAll('.lumio-spend-calendar__day--active'),
+      container.querySelectorAll('.seneca-spend-calendar__day--active'),
     ).map(day => day.textContent);
     expect(activeDays).toHaveLength(2);
     expect(activeDays.join(' ')).toContain('320');
@@ -371,19 +377,16 @@ describe('SpendCalendarCard', () => {
     });
 
     expect(document.body.textContent).toContain('2026-01-10 - Drill-down');
-    expect(document.body.textContent).toContain('Anthropic');
+    expect(document.body.textContent).toContain('ACME Cloud');
   });
 
   it('shows an empty calendar month when there are no operations', async () => {
     apiMocks.get.mockImplementation((url: string) => {
-      if (url === '/statements') {
-        return Promise.resolve({ data: { data: [], total: 0 } });
+      if (url === '/statements' || url === '/transactions') {
+        return Promise.resolve({ data: { data: [], items: [], total: 0, page: 1, limit: 500 } });
       }
-      if (url === '/transactions') {
-        return Promise.resolve({ data: { data: [], total: 0 } });
-      }
-      if (url === '/integrations/gmail/receipts') {
-        return Promise.resolve({ data: { receipts: [], total: 0 } });
+      if (url === '/receipts/documents') {
+        return Promise.resolve({ data: { receipts: [], total: 0, limit: 100, offset: 0 } });
       }
       return Promise.reject(new Error(`Unhandled request: ${url}`));
     });
@@ -397,7 +400,7 @@ describe('SpendCalendarCard', () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector('.lumio-spend-calendar__grid')).toBeTruthy();
+    expect(container.querySelector('.seneca-spend-calendar__grid')).toBeTruthy();
     expect(container.textContent).not.toContain('Reset filters');
   });
 });

@@ -15,7 +15,7 @@ export type TopSpenderSourceType = SourceType;
 export type TopSpenderSourceChannel = SourceChannel;
 
 export type TopSpenderRecord = StatementFilterItem & {
-  sourceType: 'statement' | 'gmail';
+  sourceType: 'statement' | 'receipt';
   sourceChannel: TopSpenderSourceChannel;
   flowType: TopSpenderFlowType;
   company: string;
@@ -59,7 +59,7 @@ export const resolveSpenderFlow = (
     credit: input.totalCredit,
     amount: input.totalDebit,
     expenseFlowType: 'spend',
-    gmailUsesTransactionType: false,
+    receiptUsesTransactionType: false,
   });
 };
 

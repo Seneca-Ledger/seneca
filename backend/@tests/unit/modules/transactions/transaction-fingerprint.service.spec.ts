@@ -9,11 +9,11 @@ describe('TransactionFingerprintService', () => {
   let repository: Repository<Transaction>;
 
   const mockRepository = {
-    findOne: jest.fn(),
-    find: jest.fn(),
-    update: jest.fn(),
-    save: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    update: vi.fn(),
+    save: vi.fn(),
+    createQueryBuilder: vi.fn(),
   };
 
   const createMockTransaction = (
@@ -53,7 +53,7 @@ describe('TransactionFingerprintService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('generateFingerprint', () => {
@@ -347,9 +347,9 @@ describe('TransactionFingerprintService', () => {
       ];
 
       const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue(mockTransactions),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getMany: vi.fn().mockResolvedValue(mockTransactions),
       };
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);

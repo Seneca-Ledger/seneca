@@ -1,12 +1,21 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
+import {
+  CreateTaxRateBody,
+  MessageResult,
+  TaxRateItem,
+  TaxRateList,
+  TaxRecordParams,
+  UpdateTaxRateBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateTaxRateDto } from './dto/create-tax-rate.dto';
-import { UpdateTaxRateDto } from './dto/update-tax-rate.dto';
 import { TaxRatesService } from './tax-rates.service';
 
 @Controller('tax-rates')
@@ -15,20 +24,26 @@ export class TaxRatesController {
 
   @Get()
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(TaxRateList)
   async findAll(@WorkspaceId() workspaceId: string) {
     return this.taxRatesService.findAll(workspaceId);
   }
 
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(TaxRateItem)
+  async findOne(
+    @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.taxRatesService.findOne(id, workspaceId);
   }
 
   @Post()
   @WorkspaceAuth(Permission.CATEGORY_CREATE)
+  @SchemaResponse(TaxRateItem)
   async create(
-    @Body() createDto: CreateTaxRateDto,
+    @SchemaBody(CreateTaxRateBody) createDto: CreateTaxRateBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -37,9 +52,10 @@ export class TaxRatesController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(TaxRateItem)
   async update(
-    @Param('id') id: string,
-    @Body() updateDto: UpdateTaxRateDto,
+    @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
+    @SchemaBody(UpdateTaxRateBody) updateDto: UpdateTaxRateBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -48,8 +64,9 @@ export class TaxRatesController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.CATEGORY_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

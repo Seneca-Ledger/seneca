@@ -23,9 +23,9 @@ const workspaceState = {
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
     loading: 'Loading...',
-    noWorkspaces: 'No workspaces',
-    createWorkspace: 'Create Workspace',
-    searchPlaceholder: 'Search workspaces...',
+    noWorkspaces: { value: 'You have no workspaces yet' },
+    createWorkspace: { value: 'Create New Workspace' },
+    searchPlaceholder: { value: 'Search workspaces...' },
     // workspacesListView, read by the grid, list and filter children.
     empty: { subtitle: 'Create your first workspace to get started' },
     noResults: { title: 'No workspaces found', subtitle: 'Try adjusting your search query' },
@@ -82,7 +82,7 @@ describe('WorkspacesListContent', () => {
     });
 
     const createWorkspaceButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('Create Workspace'),
+      button.textContent?.includes('Create New Workspace'),
     ) as HTMLButtonElement | undefined;
 
     expect(createWorkspaceButton).toBeTruthy();
@@ -94,15 +94,16 @@ describe('WorkspacesListContent', () => {
     expect(pushMock).toHaveBeenCalledWith('/onboarding?mode=create-workspace');
   });
 
-  it('renders the shared spinner while loading', async () => {
+  it('renders card-shaped skeletons while loading', async () => {
     workspaceState.loading = true;
 
     try {
       const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
       const html = renderToStaticMarkup(<WorkspacesListContent />);
 
-      expect(html).toContain('role="progressbar"');
-      expect(html).toContain('Loading...');
+      // One cover placeholder per skeleton card, in place of the workspace cards.
+      expect(html.match(/MuiSkeleton-rectangular/g)).toHaveLength(6);
+      expect(html).not.toContain('Main Workspace');
     } finally {
       workspaceState.loading = false;
     }
@@ -115,6 +116,23 @@ describe('WorkspacesListContent', () => {
     expect(html).not.toContain('Switch workspace without leaving this page');
     expect(html).not.toContain('All Workspaces');
     expect(html).not.toContain('Close');
+  });
+
+  it('lets the page scroll to the last card instead of cutting the list at screen height', async () => {
+    const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspacesListContent embedded onCloseEmbedded={vi.fn()} />);
+    });
+
+    const outer = container.firstElementChild as HTMLElement;
+    expect(getComputedStyle(outer).overflow).not.toBe('hidden');
+    expect(getComputedStyle(outer).height).not.toContain('100vh');
+    act(() => root.unmount());
+    container.remove();
   });
 
   it('renders statements-style search bar in embedded mode', async () => {
@@ -163,11 +181,11 @@ describe('WorkspacesListContent', () => {
     const { default: WorkspacesListContent } = await import('./WorkspacesListContent');
     const html = renderToStaticMarkup(<WorkspacesListContent />);
 
-    expect(html).toContain('Create Workspace');
+    expect(html).toContain('Create New Workspace');
     // The old tile was a filled card; the dashed outline lives in the sx class now.
     const createTile = html.slice(
-      html.lastIndexOf('<button', html.indexOf('Create Workspace')),
-      html.indexOf('Create Workspace'),
+      html.lastIndexOf('<button', html.indexOf('Create New Workspace')),
+      html.indexOf('Create New Workspace'),
     );
     expect(createTile).not.toContain('background:var(--card-bg)');
   });

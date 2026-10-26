@@ -1,3 +1,5 @@
+export type { CardEmptyProps } from './CardEmpty';
+export { CardEmpty } from './CardEmpty';
 export type { ChipGroupProps, ChipProps, ChipTone } from './Chip';
 export { Chip, ChipGroup } from './Chip';
 export type { CardLinkProps, DashboardCardProps } from './DashboardCard';

@@ -12,6 +12,7 @@ import type React from 'react';
 import { useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { X } from '@/app/components/icons';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { EntryInput } from '../hooks/useLedger';
@@ -182,7 +183,14 @@ export function EntryForm({
 
       {error ? <Alert severity="error">{error}</Alert> : null}
 
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        sx={{
+          flexWrap: 'wrap',
+        }}
+      >
         <Button variant="outlined" disabled={!valid || busy || !dirty} onClick={save}>
           {t.saveDraft}
         </Button>
@@ -233,7 +241,13 @@ function EntryLineRow({
 }: EntryLineRowProps): React.ReactElement {
   const t = useIntlayer('ledgerPage');
   return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+    <Stack
+      direction={{ xs: 'column', sm: 'row' }}
+      spacing={1}
+      sx={{
+        alignItems: { sm: 'center' },
+      }}
+    >
       <TextField
         select
         size="small"
@@ -315,8 +329,14 @@ function BalanceStatus({
         color: zero ? 'success.contrastText' : 'warning.contrastText',
       }}
     >
-      <Typography variant="body2" fontWeight={600}>
-        {zero ? t.balanced : t.difference}: {difference} {baseCurrency}
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 600,
+        }}
+      >
+        {zero ? t.balanced : t.difference}: <PrivateAmount>{difference}</PrivateAmount>{' '}
+        {baseCurrency}
       </Typography>
       {pendingConversion ? <Typography variant="caption">{t.foreignNote}</Typography> : null}
     </Box>

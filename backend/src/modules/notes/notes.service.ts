@@ -8,6 +8,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
+import { canReadPrivate } from '../../common/utils/transaction-privacy.util';
 import { Budget } from '../../entities/budget.entity';
 import { Goal } from '../../entities/goal.entity';
 import { Invoice } from '../../entities/invoice.entity';
@@ -102,12 +103,30 @@ export class NotesService {
   /**
    * Внешний ключ не пускает заметку к несуществующему объекту, но ничего не
    * говорит о его воркспейсе — принадлежность тенанту проверяем сами.
+   *
+   * Чужая приватная транзакция для заметок не существует: заметка к ней
+   * говорит, что это было, так же как скрытые от других `comments` строки.
    */
   private async requireTarget(
     workspaceId: string,
     entityType: NoteEntityType,
     entityId: string,
+    viewerMemberId: string | null,
   ): Promise<void> {
+    if (entityType === NoteEntityType.TRANSACTION) {
+      const row = await this.transactionRepository.findOne({
+        where: { id: entityId, workspaceId },
+        select: {
+          id: true,
+          isPrivate: true,
+          ownerMemberId: true,
+        },
+      });
+      if (!(row && canReadPrivate(row, viewerMemberId))) {
+        throw new NotFoundException(appError('NOTE_TARGET_NOT_FOUND'));
+      }
+      return;
+    }
     const exists = await this.targets[entityType].repository.exists({
       where: { id: entityId, workspaceId },
     });
@@ -153,11 +172,14 @@ export class NotesService {
     workspaceId: string,
     entityType: NoteEntityType,
     entityId: string,
+    viewerMemberId: string | null = null,
   ): Promise<NoteView[]> {
-    await this.requireTarget(workspaceId, entityType, entityId);
+    await this.requireTarget(workspaceId, entityType, entityId, viewerMemberId);
     const notes = await this.noteRepository.find({
-      where: { workspaceId, ...this.targetColumns(entityType, entityId) },
-      relations: ['user'],
+      where: { workspaceId, [this.targets[entityType].column]: entityId },
+      relations: {
+        user: true,
+      },
       order: { createdAt: 'ASC' },
     });
     return notes.map(note => this.toView(note));
@@ -170,8 +192,9 @@ export class NotesService {
     entityId: string,
     body: string,
     mentionedUserIds: string[] = [],
+    viewerMemberId: string | null = null,
   ): Promise<NoteView> {
-    await this.requireTarget(workspaceId, entityType, entityId);
+    await this.requireTarget(workspaceId, entityType, entityId, viewerMemberId);
 
     const trimmed = (body ?? '').trim();
     if (!trimmed) {
@@ -197,7 +220,9 @@ export class NotesService {
 
     const withAuthor = await this.noteRepository.findOne({
       where: { id: saved.id },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
     const view = this.toView(withAuthor ?? saved);
 
@@ -240,7 +265,9 @@ export class NotesService {
   async setResolved(workspaceId: string, noteId: string, resolved: boolean): Promise<NoteView> {
     const note = await this.noteRepository.findOne({
       where: { id: noteId, workspaceId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
     if (!note) {
       throw new NotFoundException(appError('NOTE_NOT_FOUND'));
@@ -264,7 +291,9 @@ export class NotesService {
   private async isWorkspaceAdmin(workspaceId: string, userId: string): Promise<boolean> {
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['role'],
+      select: {
+        role: true,
+      },
     });
     return Boolean(
       membership && [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role),

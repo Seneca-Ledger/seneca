@@ -15,9 +15,6 @@ vi.mock('../hooks/useForecast', async importOriginal => ({
   useForecast: () => hookMock.state,
 }));
 vi.mock('./ForecastChart', () => ({ ForecastChart: () => <div data-testid="forecast-chart" /> }));
-vi.mock('@/app/components/review/UnconfirmedNotice', () => ({
-  UnconfirmedNotice: () => <div data-testid="unconfirmed-notice" />,
-}));
 
 const data: ForecastData = {
   currency: 'USD',
@@ -41,12 +38,15 @@ const data: ForecastData = {
   shortfallDate: null,
   safeToSpend: { amount: 480, untilDate: '2026-10-09', nextIncomeDate: '2026-10-10' },
   runwayMonths: null,
+  runwayChange: 1200,
+  runwayDays: 365,
   everydayMonthly: 300,
   irregularIncomeMonthly: 0,
   monthlyIncome: 2000,
   monthlyExpense: 1700,
   monthsObserved: 3,
   unscheduledCommitted: 0,
+  recurringIncome: [],
 };
 
 const setState = (overrides: Partial<ForecastData> = {}, extra: Record<string, unknown> = {}) => {
@@ -114,16 +114,37 @@ describe('ForecastContent', () => {
     setState({ irregularIncomeMonthly: 450 });
     render(<ForecastContent />);
 
-    expect(screen.getByText(/everyday spending/)).toHaveTextContent(
-      /\$450\.00 a month of other income beyond regular paydays/,
+    // Income sits on its own line under the spending one, whole sums without ".00".
+    expect(screen.getByText(/everyday spending/)).not.toHaveTextContent(/other income/);
+    expect(screen.getByText(/other income beyond regular paydays/)).toHaveTextContent(
+      /\$450 a month of other income beyond regular paydays/,
     );
   });
 
-  it('warns that unconfirmed rows are left out, like every screen with numbers', () => {
-    setState();
+  it('says overdue bills are counted as paid today', () => {
+    setState({
+      events: [
+        {
+          date: '2026-10-01',
+          label: 'Tax office',
+          amount: -4120,
+          kind: 'payable',
+          sourceId: 'tax',
+          isOverdue: true,
+        },
+      ],
+    });
     render(<ForecastContent />);
 
-    expect(screen.getByTestId('unconfirmed-notice')).toBeInTheDocument();
+    expect(screen.getByText(/Overdue bills are assumed paid today/)).toBeInTheDocument();
+    expect(screen.getByText('overdue').className).toBe('seneca-forecast-overdue');
+  });
+
+  it('fades an item left out of the scenario rather than hiding it', () => {
+    setState({}, { scenario: { incomeFactor: 1, expenseFactor: 1, exclude: ['p1'] } });
+    render(<ForecastContent />);
+
+    expect(screen.getByText('Landlord').closest('li')).toHaveStyle({ opacity: '0.45' });
   });
 
   it('offers an empty state when there is nothing to project', () => {

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiResponse } from '@/app/test/api-response';
 import { TransactionDetailsTab } from './TransactionDetailsTab';
 import type { Transaction } from './types';
 
@@ -16,6 +17,12 @@ vi.mock('@/app/contexts/CurrencyDisplayContext', () => ({
 }));
 vi.mock('./hooks/useWorkspaceMembers', () => ({ useWorkspaceMembers: () => [] }));
 vi.mock('./hooks/useBulkUpdateOwner', () => ({ useBulkUpdateOwner: () => vi.fn() }));
+// The payee and rule sections fetch on their own; this file is about the investment actions.
+vi.mock('@/app/components/payees/TransactionPayeeSection', () => ({
+  TransactionPayeeSection: () => null,
+}));
+vi.mock('@/app/components/payees/useOfferPayeeQueue', () => ({ useOfferPayeeQueue: () => vi.fn() }));
+vi.mock('@/app/components/rules/RuleFromRowAction', () => ({ RuleFromRowAction: () => null }));
 
 function income(overrides: Partial<Transaction> = {}): Transaction {
   return {
@@ -40,11 +47,25 @@ const renderTab = (transaction: Transaction) =>
 
 describe('TransactionDetailsTab — investment income', () => {
   beforeEach(() => {
-    api.get.mockReset().mockResolvedValue({
-      data: [{ id: 'account-1', name: 'Broker', kind: 'investment' }],
-    });
-    api.post.mockReset().mockResolvedValue({ data: {} });
-    api.delete.mockReset().mockResolvedValue({ data: {} });
+    api.get.mockReset().mockResolvedValue(
+      apiResponse([
+        {
+          id: 'account-1',
+          name: 'Broker',
+          kind: 'investment',
+          currency: 'EUR',
+          value: 0,
+          contributed: 0,
+          withdrawn: 0,
+          income: 0,
+          netInvested: 0,
+          gain: 0,
+          holdings: [],
+        },
+      ]),
+    );
+    api.post.mockReset().mockResolvedValue(apiResponse({}));
+    api.delete.mockReset().mockResolvedValue(apiResponse({}));
   });
 
   it('links an incoming row as a dividend, asking which account paid it', async () => {

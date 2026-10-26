@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
   NotificationDigestMode,
   NotificationPreference,
@@ -13,9 +14,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 describe('NotificationDeliveryService', () => {
   let service: NotificationDeliveryService;
-  let mailerService: { send: jest.Mock };
-  let telegramService: { sendPlainMessage: jest.Mock };
-  let notificationRepository: { update: jest.Mock; createQueryBuilder: jest.Mock };
+  let mailerService: { send: Mock };
+  let telegramService: { sendPlainMessage: Mock };
+  let notificationRepository: { update: Mock; createQueryBuilder: Mock };
 
   const user = {
     id: 'u1',
@@ -28,6 +29,7 @@ describe('NotificationDeliveryService', () => {
     id: 'n1',
     title: 'Statement uploaded',
     message: 'Anna uploaded a statement',
+    workspaceId: 'ws-b',
     pendingChannels: [],
   } as unknown as Notification;
 
@@ -43,19 +45,22 @@ describe('NotificationDeliveryService', () => {
     }) as NotificationPreference;
 
   beforeEach(async () => {
-    mailerService = { send: jest.fn(async () => true) };
-    telegramService = { sendPlainMessage: jest.fn(async () => ({ messageId: '1' })) };
-    notificationRepository = { update: jest.fn(), createQueryBuilder: jest.fn() };
+    mailerService = { send: vi.fn(async () => true) };
+    telegramService = { sendPlainMessage: vi.fn(async () => ({ messageId: '1' })) };
+    notificationRepository = { update: vi.fn(), createQueryBuilder: vi.fn() };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationDeliveryService,
         { provide: getRepositoryToken(Notification), useValue: notificationRepository },
-        { provide: getRepositoryToken(NotificationPreference), useValue: { findOne: jest.fn() } },
-        { provide: getRepositoryToken(User), useValue: { findOne: jest.fn() } },
+        {
+          provide: getRepositoryToken(NotificationPreference),
+          useValue: { findOne: vi.fn(), update: vi.fn() },
+        },
+        { provide: getRepositoryToken(User), useValue: { findOne: vi.fn() } },
         { provide: MailerService, useValue: mailerService },
         { provide: TelegramService, useValue: telegramService },
-        { provide: PushService, useValue: { sendToUser: jest.fn(async () => true) } },
+        { provide: PushService, useValue: { sendToUser: vi.fn(async () => true) } },
       ],
     }).compile();
 
@@ -90,6 +95,11 @@ describe('NotificationDeliveryService', () => {
       expect(failed).toEqual([]);
       expect(mailerService.send).toHaveBeenCalledWith(
         expect.objectContaining({ to: 'user@example.com', subject: 'Statement uploaded' }),
+      );
+      // The workspace the notification is about picks the SMTP server, not the
+      // recipient's home workspace.
+      expect(mailerService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: 'ws-b' }),
       );
       expect(telegramService.sendPlainMessage).toHaveBeenCalledWith(
         '555',
@@ -126,6 +136,47 @@ describe('NotificationDeliveryService', () => {
 
       expect(failed).toEqual(['email']);
       expect(telegramService.sendPlainMessage).toHaveBeenCalled();
+    });
+  });
+
+  describe('digest', () => {
+    const item = (id: string, workspaceId: string) =>
+      ({
+        id,
+        title: `Title ${id}`,
+        message: `Message ${id}`,
+        workspaceId,
+        pendingChannels: ['email'],
+      }) as unknown as Notification;
+    const sendDigest = (pending: Notification[]) =>
+      (
+        service as unknown as {
+          sendDigest: (p: Notification[], u: User, pref: NotificationPreference) => Promise<void>;
+        }
+      ).sendDigest(pending, user, preference({ digestMode: NotificationDigestMode.DAILY }));
+
+    it("mails each workspace's notifications through that workspace's server", async () => {
+      await sendDigest([item('n1', 'ws-a'), item('n2', 'ws-b'), item('n3', 'ws-a')]);
+
+      expect(mailerService.send).toHaveBeenCalledTimes(2);
+      expect(mailerService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: 'ws-a', text: expect.stringContaining('Title n3') }),
+      );
+      expect(mailerService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: 'ws-b', text: '• Title n2\n  Message n2' }),
+      );
+      expect(notificationRepository.update).toHaveBeenCalledWith(['n1', 'n2', 'n3'], {
+        pendingChannels: [],
+      });
+    });
+
+    it('does not mail a workspace again when only another one failed', async () => {
+      mailerService.send.mockImplementation(async ({ workspaceId }) => workspaceId === 'ws-a');
+
+      await sendDigest([item('n1', 'ws-a'), item('n2', 'ws-b')]);
+
+      expect(notificationRepository.update).toHaveBeenCalledTimes(1);
+      expect(notificationRepository.update).toHaveBeenCalledWith('n1', { pendingChannels: [] });
     });
   });
 });

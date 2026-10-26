@@ -1,33 +1,38 @@
 import { alpha, createTheme, type ThemeOptions } from '@mui/material/styles';
 import { createSvgIcon } from '@mui/material/utils';
 import { createElement } from 'react';
+import { APP_NAME } from '@/app/lib/brand';
 import { tokens } from '@/lib/theme-tokens';
+import { selectMenuComponents } from './components/ui/select-menu-theme';
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'dark' | 'light';
 
 type AppSurfaceTokens = {
   primary: string;
 };
 
 const SURFACE_TOKENS: Record<ThemeMode, AppSurfaceTokens> = {
-  light: { primary: '#168118' },
-  dark: { primary: '#34d399' },
+  light: { primary: '#5b7b6a' },
+  dark: { primary: '#8fb39f' },
 };
 
 /**
  * Background of a filled control on a dark surface. Mirrors
- * `$lumio-color-primary-fill-dk` in styles/abstracts/_variables-dark.scss —
+ * `$seneca-color-primary-fill-dk` in styles/abstracts/_variables-dark.scss —
  * keep the two in step.
  */
-const DARK_PRIMARY_FILL = '#047857';
-const DARK_PRIMARY_FILL_HOVER = '#059669';
+const DARK_PRIMARY_FILL = '#3f5e4e';
+const DARK_PRIMARY_FILL_HOVER = '#4a6b5a';
 
 // Checkbox glyphs matching the filter option indicator (FilterOptionRow): a filled
 // rounded 24px square, with the 16px Material check drawn in white when selected.
 const CHECKBOX_BOX = { width: 24, height: 24, rx: 6, fill: 'currentColor' };
 const CHECKBOX_MARK_COLOR = tokens.color.primaryContrast;
 
-const CheckboxBlankIcon = createSvgIcon(createElement('rect', CHECKBOX_BOX), 'LumioCheckboxBlank');
+const CheckboxBlankIcon = createSvgIcon(
+  createElement('rect', CHECKBOX_BOX),
+  `${APP_NAME}CheckboxBlank`,
+);
 
 const CheckboxCheckedIcon = createSvgIcon(
   [
@@ -39,7 +44,7 @@ const CheckboxCheckedIcon = createSvgIcon(
       transform: 'translate(4 4) scale(0.6667)',
     }),
   ],
-  'LumioCheckboxChecked',
+  `${APP_NAME}CheckboxChecked`,
 );
 
 const CheckboxIndeterminateIcon = createSvgIcon(
@@ -55,7 +60,7 @@ const CheckboxIndeterminateIcon = createSvgIcon(
       fill: CHECKBOX_MARK_COLOR,
     }),
   ],
-  'LumioCheckboxIndeterminate',
+  `${APP_NAME}CheckboxIndeterminate`,
 );
 
 const getSharedOptions = (
@@ -89,6 +94,43 @@ const getSharedOptions = (
             whiteSpace: 'nowrap',
             transition: 'background-color .15s, border-color .15s, color .15s, transform .06s',
             '&:active': { transform: 'translateY(1px)' },
+            // v9 dropped the compound classes (containedPrimary, outlinedPrimary);
+            // the same overrides go here as variants.
+            variants: [
+              {
+                // In dark mode the palette's primary is the light accent used for
+                // text, icons and outlined variants, where it has to stay bright to
+                // be legible. As a filled background under white text it is only
+                // 2.2:1, so contained buttons take the deeper brand green instead
+                // (5.2:1). Keep both roles — swapping the palette value would fix
+                // the buttons and break every primary-coloured label.
+                props: { variant: 'contained', color: 'primary' },
+                style: ({ theme }: { theme: import('@mui/material/styles').Theme }) =>
+                  theme.palette.mode === 'dark'
+                    ? {
+                        backgroundColor: DARK_PRIMARY_FILL,
+                        '&:hover': { backgroundColor: DARK_PRIMARY_FILL_HOVER },
+                      }
+                    : {
+                        '&:hover': { backgroundColor: theme.palette.primary.dark },
+                      },
+              },
+              {
+                // A secondary action is a white button with dark text, not green-on-
+                // transparent: the accent is reserved for the one primary action on a
+                // screen. Error and other colours keep their own outlined look.
+                props: { variant: 'outlined', color: 'primary' },
+                style: {
+                  backgroundColor: c.surface,
+                  borderColor: c.ink150,
+                  color: c.ink900,
+                  '&:hover': {
+                    backgroundColor: c.ink50,
+                    borderColor: c.ink300,
+                  },
+                },
+              },
+            ],
           },
           sizeSmall: {
             height: 32,
@@ -106,35 +148,8 @@ const getSharedOptions = (
               boxShadow: 'none',
             },
           },
-          // In dark mode the palette's primary is the light accent used for
-          // text, icons and outlined variants, where it has to stay bright to
-          // be legible. As a filled background under white text it is only
-          // 2.2:1, so contained buttons take the deeper brand green instead
-          // (5.2:1). Keep both roles — swapping the palette value would fix
-          // the buttons and break every primary-coloured label.
-          containedPrimary: ({ theme }: { theme: import('@mui/material/styles').Theme }) =>
-            theme.palette.mode === 'dark'
-              ? {
-                  backgroundColor: DARK_PRIMARY_FILL,
-                  '&:hover': { backgroundColor: DARK_PRIMARY_FILL_HOVER },
-                }
-              : {
-                  '&:hover': { backgroundColor: theme.palette.primary.dark },
-                },
           outlined: {
             boxShadow: 'none',
-          },
-          // A secondary action is a white button with dark text, not green-on-
-          // transparent: the accent is reserved for the one primary action on a
-          // screen. Error and other colours keep their own outlined look.
-          outlinedPrimary: {
-            backgroundColor: c.surface,
-            borderColor: c.ink150,
-            color: c.ink900,
-            '&:hover': {
-              backgroundColor: c.ink50,
-              borderColor: c.ink300,
-            },
           },
         },
       },
@@ -156,8 +171,8 @@ const getSharedOptions = (
           root: {
             borderRadius: tokens.radius.xs,
             padding: 0,
-            color: mode === 'dark' ? 'rgba(232, 232, 240, 0.18)' : '#f5f5f5',
-            // Dark green fill in both themes: dark mode's primary (#34d399) is a light green.
+            color: mode === 'dark' ? 'rgba(236, 231, 222, 0.18)' : '#f5f5f5',
+            // The deep fill in both themes: dark mode's primary is the light sage accent.
             '&.Mui-checked, &.MuiCheckbox-indeterminate': {
               color: c.primaryFill,
             },
@@ -269,6 +284,7 @@ const getSharedOptions = (
           },
         },
       },
+      ...selectMenuComponents,
       MuiMenu: {
         styleOverrides: {
           paper: {
@@ -302,13 +318,28 @@ const getSharedOptions = (
       MuiTableContainer: {
         styleOverrides: { root: { borderRadius: tokens.radius.lg } },
       },
-      MuiTab: {
+      // Every bar on the neutral warm track, never a pale tint of its own colour.
+      MuiLinearProgress: {
         styleOverrides: {
           root: {
+            borderRadius: 3,
+            backgroundColor: 'var(--icon-badge-bg)',
+          },
+          bar: { borderRadius: 3 },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          // As the text tabs elsewhere: the open tab in ink over its sage underline,
+          // the others in the readable grey, so the two never look alike.
+          root: {
             fontSize: '14px',
-            fontWeight: 600,
+            fontWeight: 500,
             textTransform: 'none',
             minHeight: 44,
+            color: 'var(--text-muted)',
+            '&.Mui-selected': { color: 'var(--foreground)' },
+            '&:hover:not(.Mui-selected)': { color: 'var(--foreground)' },
           },
         },
       },
@@ -341,9 +372,9 @@ const paletteByMode: Record<ThemeMode, ThemeOptions['palette']> = {
   light: {
     mode: 'light',
     primary: {
-      main: '#168118',
-      light: '#3e9c35',
-      dark: '#036704',
+      main: '#5b7b6a',
+      light: '#7a9787',
+      dark: '#3f574a',
       contrastText: '#ffffff',
     },
     secondary: {
@@ -364,10 +395,11 @@ const paletteByMode: Record<ThemeMode, ThemeOptions['palette']> = {
       dark: '#d97706',
       contrastText: '#ffffff',
     },
+    // Our money green, not emerald: success marks (ticks, "paid", bars) sit in the warm palette.
     success: {
-      main: '#10b981',
-      light: '#34d399',
-      dark: '#059669',
+      main: '#3f7d5c',
+      light: '#6f8f7b',
+      dark: '#2f5e45',
       contrastText: '#ffffff',
     },
     info: {
@@ -377,7 +409,7 @@ const paletteByMode: Record<ThemeMode, ThemeOptions['palette']> = {
       contrastText: '#ffffff',
     },
     background: {
-      default: '#f7f8f7',
+      default: '#faf8f5',
       paper: '#ffffff',
     },
     text: {
@@ -389,50 +421,50 @@ const paletteByMode: Record<ThemeMode, ThemeOptions['palette']> = {
   dark: {
     mode: 'dark',
     primary: {
-      main: '#34d399',
-      light: '#6ee7b7',
-      dark: '#047857',
-      contrastText: '#ffffff',
+      main: '#8fb39f',
+      light: '#a3c2b0',
+      dark: '#3f5e4e',
+      contrastText: '#ece7de',
     },
     secondary: {
-      main: '#242b3a',
-      light: '#333b4d',
-      dark: '#171c26',
-      contrastText: '#e8e8f0',
+      main: '#2e2c29',
+      light: '#3a3733',
+      dark: '#1f1e1c',
+      contrastText: '#ece7de',
     },
     error: {
-      main: '#fb7185',
-      light: '#fda4af',
-      dark: '#e11d48',
+      main: '#d9806f',
+      light: '#e29a8b',
+      dark: '#b9634f',
       contrastText: '#ffffff',
     },
     warning: {
-      main: '#fbbf24',
-      light: '#fcd34d',
-      dark: '#f59e0b',
+      main: '#d4a94f',
+      light: '#ddb96a',
+      dark: '#b88f3c',
       contrastText: '#0b0b10',
     },
     success: {
-      main: '#34d399',
-      light: '#6ee7b7',
-      dark: '#10b981',
+      main: '#8fb39f',
+      light: '#a3c2b0',
+      dark: '#a3c2b0',
       contrastText: '#0b0b10',
     },
     info: {
-      main: '#38bdf8',
-      light: '#7dd3fc',
-      dark: '#0ea5e9',
+      main: '#8fa5b8',
+      light: '#a8bacb',
+      dark: '#6f8aa1',
       contrastText: '#0b0b10',
     },
     background: {
-      default: '#12161f',
-      paper: '#1e2430',
+      default: '#1b1a18',
+      paper: '#232220',
     },
     text: {
-      primary: '#e8e8f0',
-      secondary: '#a0a0b4',
+      primary: '#ece7de',
+      secondary: '#a8a196',
     },
-    divider: 'rgba(255, 255, 255, 0.07)',
+    divider: '#2e2c29',
   },
 };
 

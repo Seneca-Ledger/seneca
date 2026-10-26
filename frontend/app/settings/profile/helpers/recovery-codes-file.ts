@@ -1,6 +1,7 @@
 'use client';
 
 import { format as formatDate } from 'date-fns';
+import { APP_SLUG } from '@/app/lib/brand';
 
 export type RecoveryCodesFileFormat = 'pdf' | 'docx';
 
@@ -180,5 +181,8 @@ export async function downloadRecoveryCodes(
   content: RecoveryCodesFileContent,
 ): Promise<void> {
   const blob = format === 'pdf' ? await buildPdf(content) : await buildDocx(content);
-  triggerDownload(blob, `lumio-recovery-codes-${formatDate(new Date(), 'yyyy-MM-dd')}.${format}`);
+  triggerDownload(
+    blob,
+    `${APP_SLUG}-recovery-codes-${formatDate(new Date(), 'yyyy-MM-dd')}.${format}`,
+  );
 }

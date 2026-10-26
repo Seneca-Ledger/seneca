@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   setReceiptLocationCapture: vi.fn(),
   text: {
     title: 'Save where receipts are photographed?',
-    body: 'Lumio will save the place…',
+    body: 'Seneca will save the place…',
     privacy: 'The place is stored only with the receipt…',
     allow: 'Allow',
     notNow: 'Not now',

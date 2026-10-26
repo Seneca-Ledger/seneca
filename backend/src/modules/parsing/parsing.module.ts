@@ -12,7 +12,6 @@ import { ObservabilityModule } from '../observability/observability.module';
 import { TaxModule } from '../tax/tax.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { ParsingController } from './controllers/parsing.controller';
-import { AiDocumentExtractor } from './helpers/ai-document-extractor.helper';
 import {
   StaleStatementReaper,
   StatementParsingProcessor,
@@ -51,8 +50,8 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
  * left in place — un-comment a line here to wire one back in.
  *
  * Verified consumers of what remains:
- *   UniversalExtractorService  -> parsing.controller, receipts, gmail
- *   UniversalAmountParser      -> gmail, UniversalExtractorService
+ *   UniversalExtractorService  -> parsing.controller, receipts
+ *   UniversalAmountParser      -> receipts (email parser), UniversalExtractorService
  *   DocumentClassifierService  -> UniversalExtractorService
  *   TransactionTypeDetector    -> UniversalExtractorService
  *   MetadataExtractionService  -> StatementProcessingService
@@ -104,10 +103,6 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
     OcrService,
     TransactionTypeDetectorService,
     UniversalExtractorService,
-    {
-      provide: 'AI_DOCUMENT_EXTRACTOR',
-      useFactory: () => new AiDocumentExtractor(process.env.AI_API_KEY),
-    },
   ],
   exports: [
     ParserFactoryService,

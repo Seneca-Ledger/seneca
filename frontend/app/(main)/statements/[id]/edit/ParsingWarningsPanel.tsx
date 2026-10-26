@@ -4,6 +4,7 @@ import { Alert, AlertTitle, Dialog, DialogTitle, Typography } from '@mui/materia
 import { useMemo } from 'react';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { useIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { DroppedSampleForm } from './DroppedSampleForm';
 import {
   extractTxKey,
@@ -22,29 +23,13 @@ import { WarningsList } from './WarningsList';
 // Core types
 // ---------------------------------------------------------------------------
 
-export interface ParsingDroppedSampleTransaction {
-  transactionDate?: string;
-  counterpartyName?: string;
-  paymentPurpose?: string;
-  debit?: number;
-  credit?: number;
-  currency?: string;
-  documentNumber?: string;
-  counterpartyBin?: string;
-  counterpartyAccount?: string;
-  counterpartyBank?: string;
-  article?: string;
-  comments?: string;
-  branchId?: string;
-  walletId?: string;
-  categoryId?: string;
-  [key: string]: unknown;
-}
+/** A parsed row the import left out, as the parser kept it. */
+export type ParsingDroppedSample = Exclude<
+  NonNullable<StatementParsingDetails['droppedSamples']>[number],
+  string
+>;
 
-export interface ParsingDroppedSample {
-  reason: string;
-  transaction?: ParsingDroppedSampleTransaction;
-}
+export type ParsingDroppedSampleTransaction = NonNullable<ParsingDroppedSample['transaction']>;
 
 export type ConvertDroppedSamplePayload = {
   sample: ParsingDroppedSample;
@@ -74,6 +59,10 @@ interface ParsingWarningsPanelProps {
 
 export const formatDroppedSample = formatDroppedSampleText;
 
+// One array for every render: a fresh `[]` default re-derives the entries each
+// render, and the draft sync effect then re-renders forever.
+const NO_DROPPED_SAMPLES: Array<string | ParsingDroppedSample> = [];
+
 // ---------------------------------------------------------------------------
 // Editable entry builder
 // ---------------------------------------------------------------------------
@@ -89,7 +78,6 @@ const buildFallbackEntries = ({
   sampleKeyByReason,
   sampleKeyByTxKey,
 }: FallbackCtx): EditableWarningEntry[] =>
-  // eslint-disable-next-line max-params, complexity
   warnings.flatMap((warning, warningIndex) => {
     const warningTxKey = extractTxKey(warning);
     const matchedKey =
@@ -115,7 +103,6 @@ const buildEditableEntries = ({
   droppedSamples: Array<string | ParsingDroppedSample>;
   warnings: string[];
 }): EditableWarningEntry[] => {
-  // eslint-disable-next-line max-params
   const sampleEntries: EditableWarningEntry[] = droppedSamples.map((sample, index) => {
     const normalized = toDroppedSample(sample);
     return {
@@ -183,17 +170,17 @@ function ConvertDialog({ panel }: ConvertDialogProps): React.JSX.Element {
 // Main component
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ParsingWarningsPanel({
   warnings,
-  droppedSamples = [],
+  droppedSamples = NO_DROPPED_SAMPLES,
   onConvertDroppedSample,
   onResolveWarning,
-  fixTooltipLabel = 'Fix',
-  resolveBalanceTooltipLabel = 'Review balances',
-  title = 'Parsing warnings',
-  helperText = 'Review the flagged rows before submitting this statement.',
+  fixTooltipLabel,
+  resolveBalanceTooltipLabel,
+  title,
+  helperText,
 }: ParsingWarningsPanelProps): React.JSX.Element | null {
+  const t = useIntlayer('statementDroppedSampleForm');
   const editableEntries = useMemo(
     () => buildEditableEntries({ droppedSamples, warnings }),
     [droppedSamples, warnings],
@@ -212,16 +199,22 @@ export function ParsingWarningsPanel({
   return (
     <>
       <Alert severity="warning" variant="outlined" sx={{ mt: 3, alignItems: 'flex-start' }}>
-        <AlertTitle sx={{ mb: 0.5 }}>{title}</AlertTitle>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {helperText}
+        <AlertTitle sx={{ mb: 0.5 }}>{title ?? t.panelTitle}</AlertTitle>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 1.5,
+          }}
+        >
+          {helperText ?? t.panelHelper}
         </Typography>
         <WarningsList
           warnings={warnings}
           editableEntryByReason={panel.editableEntryByReason}
           editableEntryByTxKey={panel.editableEntryByTxKey}
-          fixTooltipLabel={fixTooltipLabel}
-          resolveBalanceTooltipLabel={resolveBalanceTooltipLabel}
+          fixTooltipLabel={fixTooltipLabel ?? t.panelFix.value}
+          resolveBalanceTooltipLabel={resolveBalanceTooltipLabel ?? t.panelReviewBalances.value}
           extractTxKey={extractTxKey}
           onSelectWarning={panel.handleSelectWarning}
           onResolve={panel.handleResolve}

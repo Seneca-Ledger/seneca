@@ -2,6 +2,7 @@
 
 import Modal from '@mui/material/Modal';
 import { AnalyticsSourceBadge } from '@/app/(main)/statements/components/analytics/AnalyticsSourceBadge';
+import { useAnalyticsMoney } from '@/app/(main)/statements/components/analytics/useAnalyticsMoney';
 import type {
   TopSpenderAggregateRow,
   TopSpenderRecord,
@@ -9,14 +10,13 @@ import type {
 } from '@/app/(main)/statements/components/top-spenders/top-spenders.types';
 import { X } from '@/app/components/icons';
 import { closeOnBackdropClick } from '@/app/components/ui/backdrop-click';
-import { formatMoney } from '@/app/lib/analytics-common';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 
 type SourceLabels = {
   sourceBank: string;
   sourceReceipt: string;
-  sourceGmailInbox: string;
   sourceCrypto: string;
 };
 
@@ -179,6 +179,7 @@ function DrillDownTable({
   sourceLabels,
   labels,
 }: TableProps): React.JSX.Element {
+  const money = useAnalyticsMoney();
   return (
     <table style={{ minWidth: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
       <thead>
@@ -225,7 +226,9 @@ function DrillDownTable({
                 color: 'var(--foreground)',
               }}
             >
-              {formatMoney(record.amount, record.currencyValue || currency)}
+              <PrivateAmount>
+                {money(record.amount, record.currencyValue || currency)}
+              </PrivateAmount>
             </td>
           </tr>
         ))}

@@ -13,10 +13,11 @@ import {
 import NextLink from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronLeft } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import type { BudgetFormData, BudgetItem } from '../hooks/useBudgetsPage';
 
 type CategoryOption = { id: string; name: string; type: string };
@@ -44,11 +45,9 @@ function useExpenseCategories(open: boolean): CategoryOption[] {
       return;
     }
 
-    apiClient
-      .get('/categories')
-      .then(res => {
-        const data = res.data?.data ?? res.data ?? [];
-        setCategories(data.filter((category: CategoryOption) => category.type === 'expense'));
+    apiQueryDecoded({ url: '/categories', contract: 'CategoryList' })
+      .then(categories => {
+        setCategories(categories.filter(category => category.type === 'expense'));
       })
       .catch(() => {
         setCategories([]);
@@ -68,11 +67,8 @@ function useGoals(open: boolean): GoalOption[] | null {
       return;
     }
 
-    apiClient
-      .get('/goals')
-      .then(res => {
-        setGoals(res.data?.data ?? res.data ?? []);
-      })
+    apiQueryDecoded({ url: '/goals', contract: 'GoalList' })
+      .then(setGoals)
       // A member without goal.view keeps the picker empty and unexplained —
       // the budget is still saveable without a goal.
       .catch(() => {});
@@ -87,11 +83,11 @@ function DrawerTitle({
 }: Pick<BudgetFormDrawerProps, 'editing' | 'onClose'>): React.JSX.Element {
   const t = useIntlayer('budgetsPage');
   return (
-    <div className="lumio-payable-drawer__title-wrap">
+    <div className="seneca-payable-drawer__title-wrap">
       <button
         type="button"
         onClick={onClose}
-        className="lumio-payable-drawer__back-btn"
+        className="seneca-payable-drawer__back-btn"
         aria-label={t.cancel.value}
       >
         <ChevronLeft size={20} />
@@ -134,21 +130,22 @@ function CategoryField({
 }): React.JSX.Element {
   const t = useIntlayer('budgetsPage');
   return (
-    <FormControl fullWidth>
-      <InputLabel>{t.fieldCategory}</InputLabel>
-      <Select
-        value={value}
-        label={t.fieldCategory.value}
-        onChange={event => onChange(event.target.value)}
-        disabled={disabled}
+    <div style={{ display: 'grid', gap: 6 }}>
+      <label
+        htmlFor="budget-category"
+        style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}
       >
-        {categories.map(category => (
-          <MenuItem key={category.id} value={category.id}>
-            {category.name}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
+        {t.fieldCategory}
+      </label>
+      <CategoryPickerField
+        id="budget-category"
+        value={value}
+        categories={categories}
+        onChange={onChange}
+        placeholder={t.fieldCategory.value}
+        disabled={disabled}
+      />
+    </div>
   );
 }
 
@@ -167,7 +164,9 @@ function LimitAmountField({
       value={value || ''}
       onChange={event => onChange(Number(event.target.value))}
       fullWidth
-      inputProps={{ min: 0, step: 1000 }}
+      slotProps={{
+        htmlInput: { min: 0, step: 1000 },
+      }}
     />
   );
 }
@@ -389,7 +388,7 @@ function DrawerFooter({
 }): React.JSX.Element {
   const t = useIntlayer('budgetsPage');
   return (
-    <div className="lumio-payable-drawer__footer">
+    <div className="seneca-payable-drawer__footer">
       <Button variant="outlined" sx={{ flex: 1 }} onClick={onClose} disabled={saving}>
         {t.cancel}
       </Button>
@@ -433,7 +432,7 @@ export function BudgetFormDrawer(props: BudgetFormDrawerProps): React.JSX.Elemen
       }}
       title={<DrawerTitle editing={props.editing} onClose={props.onClose} />}
     >
-      <div className="lumio-payable-drawer__body">
+      <div className="seneca-payable-drawer__body">
         <FormFields
           editing={props.editing}
           formData={formData}

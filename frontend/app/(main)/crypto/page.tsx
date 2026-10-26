@@ -5,19 +5,19 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import type React from 'react';
 import { useState } from 'react';
-import { RefreshCcw } from '@/app/components/icons';
+import { Plus, RefreshCcw } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
-import { Spinner } from '@/app/components/ui/spinner';
+import { PageTitle } from '@/app/components/ui/page-title';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { AllocationCard } from './components/AllocationCard';
+import { ActivityCard } from './components/ActivityCard';
 import { ConnectedWalletsCard } from './components/ConnectedWalletsCard';
 import { ConnectWalletDrawer } from './components/ConnectWalletDrawer';
-import { CryptoTransactionsTable } from './components/CryptoTransactionsTable';
 import { ExchangeImportButton } from './components/ExchangeImportButton';
-import { GainsCard } from './components/GainsCard';
 import { HoldingsTable } from './components/HoldingsTable';
-import { ManualHoldingsCard } from './components/ManualHoldingsCard';
+import { ManualHoldingsDialog } from './components/ManualHoldingsCard';
 import { PortfolioSummary } from './components/PortfolioSummary';
 import { useCrypto } from './hooks/useCrypto';
 
@@ -38,6 +38,8 @@ export default function CryptoPage(): React.JSX.Element {
     syncWallet,
     removeWallet,
     history,
+    historyDays,
+    setHistoryDays,
     savingHolding,
     saveHolding,
     removeHolding,
@@ -49,6 +51,10 @@ export default function CryptoPage(): React.JSX.Element {
   } = useCrypto();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  useQuickActions([
+    { id: 'connect', label: t.connect.value, icon: Plus, run: () => setDrawerOpen(true) },
+  ]);
+  const [holdingsOpen, setHoldingsOpen] = useState(false);
 
   const currency = summary?.currency ?? 'USD';
   const money = (value: number): string => formatMoney(value, currency, locale);
@@ -73,9 +79,13 @@ export default function CryptoPage(): React.JSX.Element {
   return (
     <Box
       component="main"
-      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
     >
+      <Box sx={{ mb: 2 }}>
+        <PageTitle path="/crypto" />
+      </Box>
       <Box
+        data-tour-shot="crypto-actions"
         sx={{
           display: 'flex',
           justifyContent: { xs: 'stretch', sm: 'flex-end' },
@@ -98,16 +108,18 @@ export default function CryptoPage(): React.JSX.Element {
           }}
           onImport={importExchangeCsv}
         />
-        <Button variant="contained" onClick={() => setDrawerOpen(true)}>
+        <Button
+          variant="contained"
+          className="seneca-bottom-bar-source"
+          onClick={() => setDrawerOpen(true)}
+          data-tour-shot="crypto-connect"
+        >
+          <Plus size={18} aria-hidden />
           {t.connect}
         </Button>
       </Box>
 
-      {isPending && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <Spinner size={32} />
-        </Box>
-      )}
+      {isPending && <SnapshotSkeleton id="crypto" loading fallback="cards" />}
 
       {/* Nothing to show at all: the illustrated state replaces the page. With data
           already on screen (a failed sync), a slim alert keeps that data visible. */}
@@ -145,82 +157,67 @@ export default function CryptoPage(): React.JSX.Element {
       )}
 
       {!isPending && wallets.length > 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {summary && (
-            <PortfolioSummary
-              summary={summary}
-              history={history}
-              locale={locale}
-              money={money}
-              labels={{
-                sinceYesterday: t.sinceYesterday.value,
-                historyEmpty: t.historyEmpty.value,
-                unrealized: t.unrealized.value,
-                costBasis: t.costBasis.value,
-                income: t.income.value,
-                expense: t.expense.value,
-              }}
-            />
-          )}
+        <SnapshotSkeleton id="crypto" loading={false}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {summary && (
+              <PortfolioSummary
+                summary={summary}
+                history={history}
+                locale={locale}
+                money={money}
+                historyDays={historyDays}
+                onHistoryDaysChange={setHistoryDays}
+                labels={{
+                  sinceYesterday: t.sinceYesterday.value,
+                  historyEmpty: t.historyEmpty.value,
+                  unrealized: t.unrealized.value,
+                  costBasis: t.costBasis.value,
+                  income: t.income.value,
+                  expense: t.expense.value,
+                }}
+              />
+            )}
 
-          {summary && summary.holdings.length > 0 && (
-            <HoldingsTable
-              holdings={summary.holdings}
-              locale={locale}
-              money={money}
-              labels={{
-                title: t.holdings.value,
-                asset: t.asset.value,
-                balance: t.balance.value,
-                price: t.price.value,
-                worth: t.worth.value,
-                avgCost: t.avgCost.value,
-                unrealized: t.unrealized.value,
-                basisUnknown: t.basisUnknown.value,
+            {/* Holdings, and the wallets beside them as a narrow reference column:
+              Allocation repeated Holdings (it is the Share column now), and the
+              hand-kept coins are a dialog opened from Holdings' header. */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' },
+                gap: 3,
+                alignItems: 'start',
               }}
-            />
-          )}
-
-          {/* Two columns, not three: the wallets are a list that grows, the other
-              two are short cards, and pairing them keeps both sides the same
-              height instead of leaving a hole under the shorter one. */}
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr)' },
-              gap: 3,
-              alignItems: 'start',
-            }}
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {summary && summary.holdings.length > 0 && (
-                <AllocationCard
+            >
+              {summary && summary.holdings.length > 0 ? (
+                <HoldingsTable
                   holdings={summary.holdings}
+                  locale={locale}
+                  currency={currency}
                   money={money}
-                  title={t.allocation.value}
+                  onAddHolding={() => setHoldingsOpen(true)}
+                  labels={{
+                    title: t.holdings.value,
+                    asset: t.asset.value,
+                    balance: t.balance.value,
+                    price: t.price.value,
+                    worth: t.worth.value,
+                    avgCost: t.avgCost.value,
+                    unrealized: t.unrealized.value,
+                    basisUnknown: t.basisUnknown.value,
+                    share: t.share.value,
+                    addHolding: t.addHolding.value,
+                  }}
                 />
+              ) : (
+                <Box>
+                  <Button variant="text" onClick={() => setHoldingsOpen(true)}>
+                    <Plus size={16} aria-hidden />
+                    {t.addHolding}
+                  </Button>
+                </Box>
               )}
 
-              <ManualHoldingsCard
-                wallet={manualWallet}
-                balances={manualBalances}
-                saving={savingHolding}
-                labels={{
-                  title: t.manualHoldings.value,
-                  add: t.addHolding.value,
-                  ticker: t.tickerLabel.value,
-                  amount: t.amount.value,
-                  costPerUnit: t.costPerUnit.value,
-                  save: t.save.value,
-                  cancel: t.cancel.value,
-                  remove: t.remove.value,
-                }}
-                onSave={saveHolding}
-                onRemove={removeHolding}
-              />
-            </Box>
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <ConnectedWalletsCard
                 wallets={onChainWallets}
                 locale={locale}
@@ -231,65 +228,98 @@ export default function CryptoPage(): React.JSX.Element {
                   remove: t.remove.value,
                   transactions: t.transactions.value,
                   neverSynced: t.neverSynced.value,
+                  walletOfChain: t.walletOfChain.value,
+                  copyAddress: t.copyAddress.value,
+                  copied: t.addressCopied.value,
+                  syncedToday: t.syncedToday.value,
+                  syncedOn: t.syncedOn.value,
+                  moreActions: t.moreActions.value,
+                  removeConfirm: t.removeWalletConfirm.value,
+                  cancel: t.cancel.value,
                 }}
                 onSync={id => syncWallet(id)}
                 onRemove={id => removeWallet(id)}
               />
             </Box>
-          </Box>
 
-          {summary && summary.unpriced.length > 0 && (
-            <Alert severity="info" variant="outlined">
-              <strong>{t.unpriced}</strong>{' '}
-              {summary.unpriced.map(item => `${item.amount} ${item.asset}`).join(', ')} —{' '}
-              {t.unpricedHint}
-            </Alert>
-          )}
+            <ManualHoldingsDialog
+              open={holdingsOpen}
+              onClose={() => setHoldingsOpen(false)}
+              balances={manualBalances}
+              saving={savingHolding}
+              labels={{
+                title: t.manualHoldings.value,
+                add: t.addHolding.value,
+                ticker: t.tickerLabel.value,
+                amount: t.amount.value,
+                costPerUnit: t.costPerUnit.value,
+                save: t.save.value,
+                cancel: t.cancel.value,
+                remove: t.remove.value,
+              }}
+              onSave={saveHolding}
+              onRemove={removeHolding}
+            />
 
-          {gains && (
-            <GainsCard
+            {summary && summary.unpriced.length > 0 && (
+              <Alert severity="info" variant="outlined">
+                <strong>{t.unpriced}</strong>{' '}
+                {summary.unpriced.map(item => `${item.amount} ${item.asset}`).join(', ')} —{' '}
+                {t.unpricedHint}
+              </Alert>
+            )}
+
+            {/* Transactions and realized gains in one block with tabs: two long
+              tables one after the other made the page endless. */}
+            <ActivityCard
+              transactions={transactions}
               gains={gains}
-              year={gainsYear}
-              years={gainYears.length > 0 ? gainYears : [new Date().getFullYear()]}
+              gainsYear={gainsYear}
+              gainsYears={gainYears.length > 0 ? gainYears : [new Date().getFullYear()]}
+              onGainsYearChange={setGainsYear}
               locale={locale}
               money={money}
-              onYearChange={setGainsYear}
               labels={{
-                title: t.gains.value,
-                hint: t.gainsHint.value,
-                empty: t.gainsEmpty.value,
-                allYears: t.allYears.value,
-                asset: t.asset.value,
-                sold: t.soldOn.value,
-                acquired: t.acquiredOn.value,
-                amount: t.amount.value,
-                proceeds: t.proceeds.value,
-                cost: t.costBasis.value,
-                gain: t.realized.value,
-                heldDays: t.heldDays.value,
-                exportCsv: t.exportCsv.value,
-                basisIncomplete: t.basisIncomplete.value,
-                basisIncompleteHint: t.basisIncompleteHint.value,
+                tabs: t.activityTabs.value,
+                transactions: {
+                  title: t.transactionsTab.value,
+                  empty: t.noTransactions.value,
+                  date: t.date.value,
+                  wallet: t.wallet.value,
+                  counterparty: t.counterparty.value,
+                  amount: t.amount.value,
+                  worth: t.worth.value,
+                  received: t.received.value,
+                  sent: t.sent.value,
+                  receivedFrom: t.receivedFrom.value,
+                  sentTo: t.sentTo.value,
+                },
+                gains: {
+                  title: t.gains.value,
+                  hint: t.gainsHint.value,
+                  empty: t.gainsEmpty.value,
+                  allYears: t.allYears.value,
+                  asset: t.asset.value,
+                  sold: t.soldOn.value,
+                  acquired: t.acquiredOn.value,
+                  amount: t.amount.value,
+                  proceeds: t.proceeds.value,
+                  cost: t.costBasis.value,
+                  gain: t.realized.value,
+                  heldDays: t.heldDays.value,
+                  exportCsv: t.exportCsv.value,
+                  basisIncomplete: t.basisIncomplete.value,
+                  basisIncompleteHint: t.basisIncompleteHint.value,
+                  acquiredUnknown: t.acquiredUnknown.value,
+                  totalRealized: t.totalRealized.value,
+                  lotCount: t.lotCount.value,
+                  showUncovered: t.showUncovered.value,
+                  hideUncovered: t.hideUncovered.value,
+                },
               }}
             />
-          )}
-
-          <CryptoTransactionsTable
-            transactions={transactions}
-            locale={locale}
-            labels={{
-              title: t.recentTransactions.value,
-              empty: t.noTransactions.value,
-              date: t.date.value,
-              wallet: t.wallet.value,
-              counterparty: t.counterparty.value,
-              amount: t.amount.value,
-              worth: t.worth.value,
-              received: t.received.value,
-              sent: t.sent.value,
-            }}
-          />
-        </Box>
+          </Box>
+        </SnapshotSkeleton>
       )}
 
       <ConnectWalletDrawer

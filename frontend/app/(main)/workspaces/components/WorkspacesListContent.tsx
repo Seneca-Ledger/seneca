@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import { useRouter } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
+import { PageTitle } from '@/app/components/ui/page-title';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
@@ -11,11 +12,6 @@ import { WorkspaceGridView } from './WorkspaceGridView';
 import { type ViewMode, WorkspaceListFilters } from './WorkspaceListFilters';
 import { WorkspaceListView } from './WorkspaceListView';
 import { SORT_FNS, type SortOption } from './workspace-list.helpers';
-
-type TranslationValue = string | { value?: string };
-
-const resolveTranslation = (value: TranslationValue | undefined, fallback: string): string =>
-  typeof value === 'string' ? value : (value?.value ?? fallback);
 
 /** Workspace shape shared by the list views (grid + list). */
 type WorkspaceListItem = {
@@ -25,7 +21,7 @@ type WorkspaceListItem = {
   icon: string | null;
   backgroundImage: string | null;
   isFavorite: boolean;
-  createdAt: Date;
+  createdAt: string;
   memberRole?: string;
 };
 
@@ -218,7 +214,6 @@ function useWorkspaceNav({
   return { handleWorkspaceClick };
 }
 
-// eslint-disable-next-line max-lines-per-function
 export default function WorkspacesListContent({
   embedded,
   redirectPathOnSelect = '/workspaces/overview',
@@ -236,22 +231,24 @@ export default function WorkspacesListContent({
   const handleCreateWorkspace = (): void => {
     router.push('/onboarding?mode=create-workspace');
   };
-  const createLabel = resolveTranslation(content.createWorkspace, 'Create workspace');
-  const noWorkspacesLabel = resolveTranslation(content.noWorkspaces, 'You have no workspaces yet');
-  const searchPlaceholder = resolveTranslation(content.searchPlaceholder, 'Search workspaces...');
+  const createLabel = content.createWorkspace.value;
+  const noWorkspacesLabel = content.noWorkspaces.value;
+  const searchPlaceholder = content.searchPlaceholder.value;
 
   if (loading) {
     return <LoadingView />;
   }
 
   return (
-    <Box
-      sx={{
-        height: 'calc(100vh - var(--global-nav-height, 0px))',
-        overflow: 'hidden',
-        pt: embedded ? 2 : 0,
-      }}
-    >
+    // No fixed height: the page scrolls, and the shell keeps the room under the
+    // mobile bottom bar. A screen-high box with hidden overflow cut off the last cards.
+    <Box sx={{ pt: embedded ? 2 : 0 }}>
+      {/* Embedded, it sits under the workspace shell, whose title row already names the page. */}
+      {embedded ? null : (
+        <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', mb: 1 }}>
+          <PageTitle path="/workspaces" />
+        </Box>
+      )}
       <WorkspaceListBody
         ls={ls}
         allCount={workspaces.length}

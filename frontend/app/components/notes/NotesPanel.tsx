@@ -1,9 +1,8 @@
 'use client';
 
 import { Box, Typography } from '@mui/material';
-import { type ChangeEvent, type KeyboardEvent, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Button } from '@/app/components/ui/button';
 import { useAuth } from '@/app/hooks/useAuth';
 import {
   type Note,
@@ -29,6 +28,8 @@ const MAX_BODY_LENGTH = 4000;
 interface NotesPanelProps {
   entityType: NoteEntityType;
   entityId: string;
+  /** Off where a tab already says "Notes" above the panel. */
+  showTitle?: boolean;
 }
 
 function initialOf(name: string): string {
@@ -69,10 +70,13 @@ function handleSuggestionKey(key: string, handlers: SuggestionKeyHandlers): bool
 }
 
 /** Общее обсуждение выписки или чека: заметки, @упоминания и отметка «решено». */
-export function NotesPanel({ entityType, entityId }: NotesPanelProps) {
+export function NotesPanel({ entityType, entityId, showTitle = true }: NotesPanelProps) {
   const t = useIntlayer('notes');
   const { user } = useAuth();
   const members = useWorkspaceMembers();
+  // Alone in the workspace there is no team to write for and nobody to mention.
+  const solo = members.length <= 1;
+  const placeholder = solo ? t.placeholderSolo.value : t.placeholder.value;
   const { notes, isPending, addNote, isAdding, setResolved, deleteNote } = useNotes({
     entityType,
     entityId,
@@ -138,19 +142,43 @@ export function NotesPanel({ entityType, entityId }: NotesPanelProps) {
     }
   };
 
+  // What is typed is never lost: it is sent when the field loses focus and when
+  // the panel goes away (the drawer closes, another tab opens), not only on Send.
+  const pending = useRef({ draft, candidates, addNote, sending: false });
+  useEffect(() => {
+    Object.assign(pending.current, { draft, candidates, addNote });
+  });
+  useEffect(
+    () => () => {
+      const { draft: unsent, candidates: people, addNote: send, sending } = pending.current;
+      const body = unsent.trim();
+      if (body && !sending) {
+        send({ body, mentionedUserIds: collectMentionedIds(body, people) }).catch(() =>
+          toast.error(t.addFailed.value),
+        );
+      }
+    },
+    [t.addFailed],
+  );
+
   const submit = async (): Promise<void> => {
     const body = draft.trim();
-    if (!body || isAdding) {
+    // Blur and the Send click arrive together; the second one finds it sending.
+    if (!body || pending.current.sending) {
       return;
     }
+    pending.current.sending = true;
     try {
       await addNote({ body, mentionedUserIds: collectMentionedIds(body, candidates) });
-      setDraft('');
+      // Only what was sent is cleared: text typed meanwhile stays to be sent next.
+      setDraft(current => (current.trim() === body ? '' : current));
       setCaret(0);
     } catch (error) {
       // Причина бывает содержательной («упомянутого нет в воркспейсе») —
       // общая заглушка её бы съела.
       toast.error(getApiErrorMessage(error, t.addFailed.value));
+    } finally {
+      pending.current.sending = false;
     }
   };
 
@@ -166,17 +194,19 @@ export function NotesPanel({ entityType, entityId }: NotesPanelProps) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Typography
-        component="h3"
-        sx={{ fontSize: 15, fontWeight: 600, color: 'var(--foreground)', m: 0 }}
-      >
-        {t.title.value}
-        {notes.length > 0 && (
-          <Box component="span" sx={{ ml: 1, color: 'var(--muted-foreground)', fontWeight: 400 }}>
-            {notes.length}
-          </Box>
-        )}
-      </Typography>
+      {showTitle && (
+        <Typography
+          component="h3"
+          sx={{ fontSize: 15, fontWeight: 600, color: 'var(--foreground)', m: 0 }}
+        >
+          {t.title.value}
+          {notes.length > 0 && (
+            <Box component="span" sx={{ ml: 1, color: 'var(--muted-foreground)', fontWeight: 400 }}>
+              {notes.length}
+            </Box>
+          )}
+        </Typography>
+      )}
 
       <Box sx={{ position: 'relative' }}>
         <Box
@@ -185,13 +215,14 @@ export function NotesPanel({ entityType, entityId }: NotesPanelProps) {
           value={draft}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onBlur={() => void submit()}
           onSelect={(event: React.SyntheticEvent<HTMLTextAreaElement>) =>
             setCaret(event.currentTarget.selectionStart ?? 0)
           }
           rows={3}
           maxLength={MAX_BODY_LENGTH}
-          placeholder={t.placeholder.value}
-          aria-label={t.placeholder.value}
+          placeholder={placeholder}
+          aria-label={placeholder}
           sx={{
             width: '100%',
             border: '1px solid var(--border-color)',
@@ -201,7 +232,7 @@ export function NotesPanel({ entityType, entityId }: NotesPanelProps) {
             p: 1.5,
             fontSize: 14,
             fontFamily: 'inherit',
-            resize: 'vertical',
+            resize: 'none',
             '&:focus': { outline: 'none', borderColor: 'var(--primary)' },
           }}
         />
@@ -250,24 +281,34 @@ export function NotesPanel({ entityType, entityId }: NotesPanelProps) {
         )}
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-        <Typography sx={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
-          {t.mentionHint.value}
-        </Typography>
-        <Button onClick={() => void submit()} disabled={isAdding || !draft.trim()}>
+      {/* A text button that turns sage once there is something to send. */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: -1 }}>
+        <Box
+          component="button"
+          type="button"
+          onClick={() => void submit()}
+          disabled={isAdding || !draft.trim()}
+          sx={{
+            border: 'none',
+            background: 'none',
+            p: 0,
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: 'pointer',
+            color: 'var(--primary)',
+            '&:disabled': { color: 'var(--text-muted)', cursor: 'default' },
+          }}
+        >
           {t.submit.value}
-        </Button>
+        </Box>
       </Box>
+      <Typography sx={{ fontSize: 13, color: 'var(--text-muted)', mt: -1 }}>
+        {solo ? t.sendHint.value : t.mentionHint.value}
+      </Typography>
 
       {isPending && (
         <Typography sx={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
           {t.loading.value}
-        </Typography>
-      )}
-
-      {!isPending && notes.length === 0 && (
-        <Typography sx={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
-          {t.empty.value}
         </Typography>
       )}
 

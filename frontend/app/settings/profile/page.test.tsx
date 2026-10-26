@@ -1,6 +1,11 @@
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { currentUser } from '@/app/test/fixtures/contracts';
+import { createTestQueryClient } from '@/app/test/query-wrapper';
 
 const apiPatch = vi.hoisted(() => vi.fn());
 const apiGet = vi.hoisted(() => vi.fn());
@@ -11,11 +16,11 @@ const searchParams = vi.hoisted(() => ({ current: new URLSearchParams() }));
 const setUser = vi.hoisted(() => vi.fn());
 const authUser = vi.hoisted(() => ({
   id: 'user-1',
-  email: 'symon@example.com',
-  name: 'Symon Baikov',
+  email: 'member-1@example.com',
+  name: 'Member One',
   timeZone: '',
   lastLogin: '2026-01-01T00:00:00.000Z',
-  avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=test',
+  avatarUrl: '/api/v1/users/avatars/member-1.png',
 }));
 const i18nContent = vi.hoisted(() => {
   const createI18nProxy = (path: string[] = []) =>
@@ -24,6 +29,8 @@ const i18nContent = vi.hoisted(() => {
       {
         get: (_target, prop) => {
           if (prop === 'value') return path.join('.');
+          // A node rendered as a child (`{t.x}`, as intlayer allows) reads as its path.
+          if (prop === Symbol.iterator) return () => [path.join('.')][Symbol.iterator]();
           return createI18nProxy([...path, String(prop)]);
         },
       },
@@ -77,26 +84,28 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams.current,
 }));
 
-vi.mock('@/components/mode-toggle', () => ({
-  ModeToggle: (props: {
-    onThemeChange?: (theme: 'light' | 'dark' | 'auto') => void;
-    labels?: { auto?: string };
-  }) => (
-    <button type="button" onClick={() => props.onThemeChange?.('auto')}>
-      {props.labels?.auto ?? 'Auto'}
-    </button>
-  ),
-}));
+import ProfileSettingsPage from './page';
 
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
+// Unmounted after each test, or a drawer left open in its portal leaks into the next.
+const mounted: ReturnType<typeof createRoot>[] = [];
+
 async function renderPage(): Promise<HTMLDivElement> {
-  const { default: ProfileSettingsPage } = await import('./page');
   const container = document.createElement('div');
   const root = createRoot(container);
+  mounted.push(root);
 
   await act(async () => {
-    root.render(<ProfileSettingsPage />);
+    // As in providers.tsx: the update section reads through React Query, and
+    // the date pickers need their localization context.
+    root.render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <ProfileSettingsPage />
+        </LocalizationProvider>
+      </QueryClientProvider>,
+    );
   });
   await act(async () => {
     await flushPromises();
@@ -109,7 +118,22 @@ const findButton = (container: HTMLElement, text: string): HTMLButtonElement | u
     button.textContent?.includes(text),
   ) as HTMLButtonElement | undefined;
 
-describe('ProfileSettingsPage', () => {
+/** Object-shaped answers for the sections that check them against their contracts. */
+const SETTINGS_RESPONSES: Record<string, unknown> = {
+  '/backups/config': null,
+  '/telegram/reports': { data: [], total: 0, page: 1, limit: 20 },
+  '/telegram/connection': { connected: false, inThisWorkspace: false },
+  '/settings/notifications/telegram': {
+    connected: false,
+    status: 'disconnected',
+    source: 'disabled',
+    settings: { timeoutMs: 10000, botTokenConfigured: false, sharedBot: false },
+  },
+};
+
+// The whole settings page renders in each test: ~0.5 s alone, past 5 s when every
+// core is busy with other files, so this file gets more room than the default.
+describe('ProfileSettingsPage', { timeout: 15_000 }, () => {
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     window.history.replaceState(null, '', '/settings/profile');
@@ -121,11 +145,17 @@ describe('ProfileSettingsPage', () => {
     routerReplace.mockReset();
     setUser.mockReset();
     // Every tab fetches something on mount; an empty list keeps the sections rendering.
-    apiGet.mockImplementation(async (url: string) =>
-      url === '/backups/config' ? { data: null } : { data: [] },
-    );
+    apiGet.mockImplementation(async (url: string) => ({
+      data: SETTINGS_RESPONSES[url] ?? [],
+    }));
     vi.restoreAllMocks();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    act(() => {
+      for (const root of mounted.splice(0)) root.unmount();
+    });
   });
 
   it('disables profile save button when there are no changes and shows unsaved state after edits', async () => {
@@ -141,7 +171,7 @@ describe('ProfileSettingsPage', () => {
         window.HTMLInputElement.prototype,
         'value',
       )?.set;
-      setValue?.call(nameInput, 'Symon Baikov Updated');
+      setValue?.call(nameInput, 'Member One Updated');
       nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
@@ -176,11 +206,11 @@ describe('ProfileSettingsPage', () => {
     expect(berlin?.textContent).toContain('Центральная Европа');
   });
 
-  it('renders the five tabs and switches tab through the URL', async () => {
+  it('renders the six tabs and switches tab through the URL', async () => {
     const container = await renderPage();
 
     const tabs = container.querySelectorAll('[role="tab"]');
-    expect(tabs).toHaveLength(5);
+    expect(tabs).toHaveLength(6);
     expect(container.textContent).toContain('tabs.general');
 
     const securityTab = findButton(container, 'tabs.security');
@@ -210,7 +240,7 @@ describe('ProfileSettingsPage', () => {
 
     const container = await renderPage();
 
-    expect(apiGet).toHaveBeenCalledWith('/auth/sessions');
+    expect(apiGet).toHaveBeenCalledWith('/auth/sessions', expect.anything());
     const logoutAllButton = findButton(container, 'sessionsCard.logoutAllButton');
     expect(logoutAllButton).toBeTruthy();
 
@@ -250,10 +280,10 @@ describe('ProfileSettingsPage', () => {
     expect(apiPatch).not.toHaveBeenCalledWith('/users/me/password', expect.anything());
   });
 
-  it('renders appearance settings and saves auto theme preference', async () => {
+  it('renders appearance settings and saves the theme picked from the dropdown', async () => {
     apiPatch.mockResolvedValue({
       data: {
-        user: { ...authUser, themePreference: 'auto' },
+        user: currentUser({ themePreference: 'light' }),
         message: 'Theme updated',
       },
     });
@@ -262,21 +292,28 @@ describe('ProfileSettingsPage', () => {
 
     expect(container.textContent).toContain('appearanceCard.themeLabel');
 
-    const autoButton = Array.from(container.querySelectorAll('button')).find(
-      button =>
-        button.textContent?.includes('appearanceCard.auto') || button.textContent?.includes('Auto'),
-    ) as HTMLButtonElement;
-    expect(autoButton).toBeTruthy();
+    // The theme is a dropdown (Dark by default): open it, then pick Light from the menu.
+    const themeSelect = container.querySelector(
+      '[role="combobox"][aria-label="appearanceCard.themeLabel"]',
+    ) as HTMLElement;
+    expect(themeSelect).toBeTruthy();
+    await act(async () => {
+      themeSelect.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+    const lightOption = Array.from(document.querySelectorAll('[role="option"]')).find(
+      option => option.textContent === 'appearanceCard.light',
+    ) as HTMLElement;
+    expect(lightOption).toBeTruthy();
 
     await act(async () => {
-      autoButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      lightOption.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await flushPromises();
     });
 
     expect(apiPatch).toHaveBeenCalledWith('/users/me/preferences', {
-      themePreference: 'auto',
+      themePreference: 'light',
     });
-    expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ themePreference: 'auto' }));
+    expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ themePreference: 'light' }));
   });
 
   it('does not render the active theme block in appearance settings', async () => {
@@ -292,6 +329,6 @@ describe('ProfileSettingsPage', () => {
 
     expect(container.textContent).toContain('connect.title');
     expect(apiGet).toHaveBeenCalledWith('/telegram/reports');
-    expect(apiGet).toHaveBeenCalledWith('/notifications/preferences');
+    expect(apiGet).toHaveBeenCalledWith('/notifications/preferences', expect.anything());
   });
 });

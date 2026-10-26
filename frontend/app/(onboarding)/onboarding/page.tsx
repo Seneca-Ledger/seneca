@@ -1,9 +1,10 @@
 'use client';
 
-import { Alert, Box, CircularProgress } from '@mui/material';
+import { Alert, Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import type { WorkspaceProfile } from '@/app/components/navigation/helpers/navigation-config';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { enterSx } from '@/app/components/welcome-tutorial/welcome-tutorial.styles';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
@@ -39,16 +40,6 @@ import {
 
 const DEFAULT_CURRENCY = 'USD';
 
-function FullScreenSpinner() {
-  return (
-    <Box
-      sx={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}
-    >
-      <CircularProgress size={32} color="primary" />
-    </Box>
-  );
-}
-
 interface StepViewProps {
   stepKey: OnboardingStepKey;
   data: OnboardingData;
@@ -57,7 +48,6 @@ interface StepViewProps {
   updateData: (patch: Partial<OnboardingData>) => void;
   onLocaleChange: (locale: AppLocale) => void;
   onProfileChange: (profile: WorkspaceProfile) => void;
-  onCurrencyPickerOpenChange: (open: boolean) => void;
   onDeferTax: () => void;
 }
 
@@ -70,7 +60,6 @@ function StepView({
   updateData,
   onLocaleChange,
   onProfileChange,
-  onCurrencyPickerOpenChange,
   onDeferTax,
 }: StepViewProps) {
   switch (stepKey) {
@@ -98,7 +87,6 @@ function StepView({
           onWorkspaceNameChange={workspaceName => updateData({ workspaceName })}
           onWorkspaceCurrencyChange={workspaceCurrency => updateData({ workspaceCurrency })}
           onProfileChange={onProfileChange}
-          onCurrencyPickerOpenChange={onCurrencyPickerOpenChange}
           // Creating another workspace skips the language step, so it is asked here.
           onLocaleChange={mode === 'create-workspace' ? onLocaleChange : undefined}
         />
@@ -158,7 +146,6 @@ export default function OnboardingPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const {
     loading: disclaimerLoading,
     accepted: disclaimerAccepted,
@@ -239,7 +226,7 @@ export default function OnboardingPage() {
         setUser(updatedUser);
       }
     } catch {
-      setError(text(['errors', 'completeFailed'], 'Failed to save onboarding settings.'));
+      setError(text(['errors', 'completeFailed']));
       setIsSubmitting(false);
       return;
     }
@@ -286,7 +273,7 @@ export default function OnboardingPage() {
     !user ||
     (user.onboardingCompletedAt && flow.shouldRedirectCompletedUser)
   ) {
-    return <FullScreenSpinner />;
+    return <SnapshotSkeleton id="onboarding" loading fallback="panel" />;
   }
 
   // Stands in front of the wizard rather than inside it: the wizard can be skipped
@@ -294,66 +281,45 @@ export default function OnboardingPage() {
   if (!disclaimerAccepted) {
     return (
       <DisclaimerGate
-        title={text(['disclaimer', 'title'], 'Before you start')}
-        intro={text(
-          ['disclaimer', 'intro'],
-          'Lumio helps you track and analyse your finances, but it does not replace an accountant, a tax adviser or a financial adviser.',
-        )}
+        title={text(['disclaimer', 'title'])}
+        intro={text(['disclaimer', 'intro'])}
         points={[
-          text(
-            ['disclaimer', 'pointAccuracy'],
-            'Calculations, categories and tax rates may be wrong or out of date. Check them before you file anything or make a financial decision.',
-          ),
-          text(
-            ['disclaimer', 'pointResponsibility'],
-            'You remain responsible for whatever you submit to government authorities.',
-          ),
-          text(
-            ['disclaimer', 'pointNoWarranty'],
-            'The app is provided as is, without warranties. We are not liable for losses arising from its use.',
-          ),
-          text(
-            ['disclaimer', 'pointReport'],
-            'If you spot an error in the data or the calculations, tell us and we will fix it.',
-          ),
+          text(['disclaimer', 'pointAccuracy']),
+          text(['disclaimer', 'pointResponsibility']),
+          text(['disclaimer', 'pointNoWarranty']),
+          text(['disclaimer', 'pointReport']),
         ]}
-        consentLabel={text(
-          ['disclaimer', 'consent'],
-          'I understand the above and accept these terms',
-        )}
-        acceptLabel={text(['disclaimer', 'accept'], 'I accept')}
-        savingLabel={text(['disclaimer', 'saving'], 'Saving…')}
-        errorLabel={text(
-          ['disclaimer', 'error'],
-          'Could not save your acknowledgement. Please try again.',
-        )}
+        consentLabel={text(['disclaimer', 'consent'])}
+        acceptLabel={text(['disclaimer', 'accept'])}
+        savingLabel={text(['disclaimer', 'saving'])}
+        errorLabel={text(['disclaimer', 'error'])}
         onAccepted={markDisclaimerAccepted}
       />
     );
   }
 
   const stepLabels: Record<(typeof stepKeys)[number], string> = {
-    language: text(['steps', 'language'], 'Language'),
-    workspace: text(['steps', 'workspace'], 'Workspace'),
-    tax: text(['steps', 'tax'], 'Taxes'),
-    business: text(['steps', 'business'], 'Business'),
-    completion: text(['steps', 'completion'], 'Done'),
+    language: text(['steps', 'language']),
+    workspace: text(['steps', 'workspace']),
+    tax: text(['steps', 'tax']),
+    business: text(['steps', 'business']),
+    completion: text(['steps', 'completion']),
   };
 
   return (
-    <OnboardingLayout
-      header={
-        <OnboardingProgress
-          currentStep={currentStep}
-          stepLabels={stepKeys.map(key => stepLabels[key])}
-          progressLabel={text(['progressLabel'], 'Step {current} of {total}')
-            .replace('{current}', String(currentStep + 1))
-            .replace('{total}', String(stepKeys.length))}
-        />
-      }
-      aside={<OnboardingPreview stepKey={stepKey} data={data} />}
-      footer={
-        currencyPickerOpen ? null : (
+    <SnapshotSkeleton id="onboarding" loading={false}>
+      <OnboardingLayout
+        header={
+          <OnboardingProgress
+            currentStep={currentStep}
+            stepLabels={stepKeys.map(key => stepLabels[key])}
+            progressLabel={text(['progressLabel'])
+              .replace('{current}', String(currentStep + 1))
+              .replace('{total}', String(stepKeys.length))}
+          />
+        }
+        aside={<OnboardingPreview stepKey={stepKey} data={data} />}
+        footer={
           <OnboardingNavigation
             canGoBack={currentStep > 0 || isCreateWorkspaceFlow}
             isSubmitting={isSubmitting}
@@ -363,40 +329,37 @@ export default function OnboardingPage() {
             // The tax step has its own "not listed / decide later" in place of a bare Skip.
             onSkip={stepKey === 'business' ? handleSkip : undefined}
             labels={{
-              back: text(['navigation', 'back'], 'Back'),
-              next: isLastStep
-                ? text(['navigation', 'finish'], 'Start using app')
-                : text(['navigation', 'next'], 'Next'),
-              skip: text(['navigation', 'skip'], 'Skip'),
-              saving: text(['navigation', 'saving'], 'Saving...'),
+              back: text(['navigation', 'back']),
+              next: isLastStep ? text(['navigation', 'finish']) : text(['navigation', 'next']),
+              skip: text(['navigation', 'skip']),
+              saving: text(['navigation', 'saving']),
             }}
           />
-        )
-      }
-    >
-      {error || workspaceLoadFailed ? (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error || text(['errors', 'workspaceLoadFailed'], 'Failed to load workspace settings.')}
-        </Alert>
-      ) : null}
+        }
+      >
+        {error || workspaceLoadFailed ? (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error || text(['errors', 'workspaceLoadFailed'])}
+          </Alert>
+        ) : null}
 
-      {/* Keyed by step: each one mounts fresh, so it fades in and its heading takes focus. */}
-      <Box key={stepKey} sx={enterSx}>
-        <StepView
-          stepKey={stepKey}
-          data={data}
-          mode={flow.mode}
-          userName={user.name}
-          updateData={updateData}
-          onLocaleChange={nextLocale => {
-            updateData({ locale: nextLocale });
-            setLocale(nextLocale);
-          }}
-          onProfileChange={handleProfileChange}
-          onCurrencyPickerOpenChange={setCurrencyPickerOpen}
-          onDeferTax={handleDeferTax}
-        />
-      </Box>
-    </OnboardingLayout>
+        {/* Keyed by step: each one mounts fresh, so it fades in and its heading takes focus. */}
+        <Box key={stepKey} sx={enterSx}>
+          <StepView
+            stepKey={stepKey}
+            data={data}
+            mode={flow.mode}
+            userName={user.name}
+            updateData={updateData}
+            onLocaleChange={nextLocale => {
+              updateData({ locale: nextLocale });
+              setLocale(nextLocale);
+            }}
+            onProfileChange={handleProfileChange}
+            onDeferTax={handleDeferTax}
+          />
+        </Box>
+      </OnboardingLayout>
+    </SnapshotSkeleton>
   );
 }

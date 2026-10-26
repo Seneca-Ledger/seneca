@@ -12,8 +12,10 @@ import {
 import type { User } from '../../entities/user.entity';
 import type { WorkspaceBusinessProfile } from '../../entities/workspace-business-profile.entity';
 import { BusinessProfileService } from '../business-profile/business-profile.service';
+import { embeddedInvoiceXml } from '../e-invoices/einvoice-reader';
 import { MailerService } from '../mailer/mailer.service';
 import { type InvoiceLabelMap, renderInvoiceLabels } from './invoice-document.translations';
+import { InvoiceXRechnungService } from './invoice-xrechnung.service';
 import { InvoicesService } from './invoices.service';
 
 /**
@@ -119,6 +121,7 @@ export class InvoiceDeliveryService {
     private readonly invoicesService: InvoicesService,
     private readonly businessProfile: BusinessProfileService,
     private readonly mailerService: MailerService,
+    private readonly xrechnungService: InvoiceXRechnungService,
   ) {}
 
   async history(invoiceId: string, workspaceId: string): Promise<InvoiceDelivery[]> {
@@ -141,7 +144,7 @@ export class InvoiceDeliveryService {
       where: { id: invoiceId, workspaceId },
     });
     if (!invoice) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
     }
     // A draft has no number and no stored document; issuing it is a separate,
     // irreversible step the user takes deliberately.
@@ -169,6 +172,14 @@ export class InvoiceDeliveryService {
     const text = input.message?.trim() || composed.text;
 
     const pdf = await this.invoicesService.getPdf(invoiceId, workspaceId);
+    // A German business's invoice goes with its XRechnung, the e-invoice
+    // B2B customers must be able to receive; when it cannot be written yet,
+    // the PDF goes alone as before. A PDF that already carries it (ZUGFeRD,
+    // since it was sent) is the e-invoice itself, and goes alone too: one
+    // e-invoice per mail, the one that was issued.
+    const xrechnung = (await embeddedInvoiceXml(pdf.data))
+      ? null
+      : await this.xrechnungService.attachmentFor(invoiceId, workspaceId);
 
     const log = (status: InvoiceDeliveryStatus, error?: string) =>
       this.deliveryRepository.save(
@@ -190,10 +201,10 @@ export class InvoiceDeliveryService {
         to: recipient,
         subject,
         text,
-        user,
         workspaceId,
         attachments: [
           { filename: pdf.fileName, content: pdf.data, contentType: 'application/pdf' },
+          ...(xrechnung ? [xrechnung] : []),
         ],
       });
       // `send` returns false rather than throwing when no SMTP is configured:

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activeNavPath,
+  buildNavGroups,
   buildNavItems,
   buildUserMenuNavItems,
+  groupNavItems,
   isNavItemActive,
   isNavItemVisible,
   workspaceProfileOf,
@@ -9,7 +12,10 @@ import {
 
 const nav = {
   dashboard: 'Dashboard',
+  allTransactions: 'All transactions',
   statements: 'Statements',
+  expenses: 'Expenses',
+  income: 'Income',
   tables: 'Tables',
   workspaces: 'Workspaces',
   reports: 'Reports',
@@ -25,14 +31,15 @@ const nav = {
   ledger: 'Ledger',
   invoices: 'Invoices',
   review: 'Review',
+  categories: 'Categories',
+  tags: 'Tags',
+  rules: 'Rules',
 };
 
 const userMenuNav = {
   activityLog: 'Activity log',
   integrations: 'Integrations',
   plugins: 'Plugins',
-  aiAnalysis: 'AI analysis',
-  chatMode: 'Chat mode',
 };
 
 describe('workspace profile', () => {
@@ -85,8 +92,6 @@ describe('buildNavItems', () => {
     expect(items.map(item => item.path)).not.toContain('/integrations');
     expect(items.map(item => item.path)).not.toContain('/plugins');
     expect(items.map(item => item.path)).not.toContain('/admin');
-    expect(items.map(item => item.path)).not.toContain('/ai-analysis');
-    expect(items.map(item => item.path)).not.toContain('/chat');
   });
 
   it('gates goals behind their own permission and leaves the calculator open', () => {
@@ -108,62 +113,79 @@ describe('buildNavItems', () => {
     expect(items.find(item => item.path === '/tax-declaration')?.permission).toBe('report.view');
   });
 
-  it('lists net worth next to the other money views', () => {
+  it('puts net worth and the forecast built on it with the analytics', () => {
     const items = buildNavItems(nav);
 
-    expect(items.map(item => item.path)).toContain('/net-worth');
-    // Net worth, then the forecast built on it, then budgets.
-    expect(items.findIndex(item => item.path === '/net-worth')).toBe(
-      items.findIndex(item => item.path === '/forecast') - 1,
-    );
-    expect(items.findIndex(item => item.path === '/forecast')).toBe(
-      items.findIndex(item => item.path === '/budgets') - 1,
-    );
+    expect(items.find(item => item.path === '/net-worth')?.group).toBe('analytics');
+    expect(items.find(item => item.path === '/forecast')?.group).toBe('analytics');
     expect(items.find(item => item.path === '/forecast')?.permission).toBe('report.view');
   });
-});
 
-describe('buildUserMenuNavItems', () => {
-  it('places AI analysis first, right before chat mode', () => {
-    const items = buildUserMenuNavItems(userMenuNav);
+  it('puts categories and tags together under classification, each behind its own view permission', () => {
+    const items = buildNavItems(nav);
+    const classification = items.filter(item => item.group === 'classification');
 
-    expect(items.at(0)).toMatchObject({
-      label: 'AI analysis',
-      path: '/ai-analysis',
-      permission: 'statement.view',
-    });
-    expect(items.at(1)).toMatchObject({
-      label: 'Chat mode',
-      path: '/chat',
-      permission: 'statement.view',
-    });
-  });
-
-  it('marks chat mode experimental so it stays hidden until opted in', () => {
-    const items = buildUserMenuNavItems(userMenuNav);
-
-    expect(items.find(item => item.path === '/chat')?.experimental).toBe(true);
-    expect(items.find(item => item.path === '/ai-analysis')?.experimental).toBeUndefined();
-  });
-
-  it('gates activity log behind the audit log permission', () => {
-    const items = buildUserMenuNavItems(userMenuNav);
-
-    expect(items.find(item => item.path === '/admin')?.permission).toBe('audit_log.view');
-  });
-
-  it('keeps integrations and plugins away from the viewer role', () => {
-    const items = buildUserMenuNavItems(userMenuNav);
-
-    expect(items.find(item => item.path === '/integrations')?.permission).toBe('telegram.connect');
-    expect(items.find(item => item.path === '/plugins')?.permission).toBe('telegram.connect');
+    expect(classification.map(item => [item.path, item.permission])).toEqual([
+      ['/categories', 'category.view'],
+      ['/tags', 'tag.view'],
+    ]);
+    expect(buildNavGroups({ transactions: '', classification: 'Classification', analytics: '', investments: '', business: '' })
+      .map(group => group.id)).toContain('classification');
   });
 });
 
-describe('isNavItemActive', () => {
-  it('matches the AI analysis route and its children', () => {
-    expect(isNavItemActive('/ai-analysis', '/ai-analysis')).toBe(true);
-    expect(isNavItemActive('/ai-analysis/chat', '/ai-analysis')).toBe(true);
-    expect(isNavItemActive('/statements', '/ai-analysis')).toBe(false);
+describe('groupNavItems', () => {
+  const groups = buildNavGroups({
+    transactions: 'Transactions',
+    classification: 'Classification',
+    analytics: 'Analytics',
+    investments: 'Investments',
+    business: 'Business',
+  });
+  const rows = (items: ReturnType<typeof buildNavItems>) =>
+    groupNavItems(items, groups).map(entry =>
+      entry.kind === 'item'
+        ? entry.item.path
+        : `${entry.group.id}: ${entry.items.map(item => item.path).join(' ')}`,
+    );
+
+  it('keeps standalone pages as rows and puts each group where its first page was', () => {
+    expect(rows(buildNavItems(nav))).toEqual([
+      '/dashboard',
+      'transactions: /statements /statements/pay /statements/receive /statements/transactions /rules',
+      '/review',
+      'classification: /categories /tags',
+      '/budgets',
+      '/goals',
+      '/subscriptions',
+      'analytics: /reports /net-worth /forecast /advice',
+      'investments: /crypto /roi',
+      'business: /invoices /tax-declaration /ledger /custom-tables',
+      '/workspaces',
+    ]);
+  });
+
+  it('leaves out a group with nothing visible in it', () => {
+    const home = buildNavItems(nav).filter(item => item.group !== 'business');
+    expect(rows(home).some(row => row.startsWith('business'))).toBe(false);
+  });
+});
+
+describe('activeNavPath', () => {
+  const items = buildNavItems(nav);
+
+  it('lights the most specific page when one sits inside another', () => {
+    expect(activeNavPath('/statements/pay', items)).toBe('/statements/pay');
+    expect(activeNavPath('/statements/transactions', items)).toBe('/statements/transactions');
+    expect(activeNavPath('/statements/receive', items)).toBe('/statements/receive');
+  });
+
+  it('keeps the statements page and its documents on Statements', () => {
+    expect(activeNavPath('/statements/submit', items)).toBe('/statements');
+    expect(activeNavPath('/statements/doc-1/edit', items)).toBe('/statements');
+  });
+
+  it('lights nothing outside the menu', () => {
+    expect(activeNavPath('/settings', items)).toBeUndefined();
   });
 });

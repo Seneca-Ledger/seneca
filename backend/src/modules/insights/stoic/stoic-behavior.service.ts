@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
-import { countedSql } from '../../../common/utils/counted-transactions.util';
+import { flowsSql } from '../../../common/utils/counted-transactions.util';
+import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../../common/utils/transaction-privacy.util';
 import {
   Subscription,
   SubscriptionFrequency,
@@ -77,8 +81,13 @@ export class StoicBehaviorService {
       1,
     );
 
+    // Advice is the workspace's and names merchants, so nobody's private rows
+    // feed the merchant lists; their money still counts in every total below.
+    const named = readablePrivateSql('t');
+    const nobody = { [PRIVACY_VIEWER_PARAM]: null };
     const [merchantRows, previousRows, weekdayRows, flowRows, subscriptions] = await Promise.all([
       this.expenses(workspaceId, month)
+        .andWhere(named, nobody)
         .select('t.counterparty_name', 'name')
         .addSelect('t.category_id', 'categoryId')
         .addSelect('t.currency', 'currency')
@@ -95,6 +104,7 @@ export class StoicBehaviorService {
           total: string;
         }>(),
       this.expenses(workspaceId, previous)
+        .andWhere(named, nobody)
         .select('t.counterparty_name', 'name')
         .addSelect('COUNT(*)', 'count')
         .groupBy('t.counterparty_name')
@@ -122,7 +132,7 @@ export class StoicBehaviorService {
         .where('t.workspace_id = :workspaceId', { workspaceId })
         .andWhere('t.is_duplicate = false')
         .andWhere('t.transfer_pair_id IS NULL')
-        .andWhere(countedSql('t'))
+        .andWhere(flowsSql('t'))
         .andWhere('t.transaction_date >= :start', { start: flowStart })
         .andWhere('t.transaction_date <= :end', { end: month.end })
         .groupBy("to_char(t.transaction_date, 'YYYY-MM')")
@@ -134,7 +144,12 @@ export class StoicBehaviorService {
           workspaceId,
           status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.DETECTED]),
         },
-        select: ['id', 'amount', 'currency', 'frequency'],
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          frequency: true,
+        },
       }),
     ]);
 
@@ -177,7 +192,7 @@ export class StoicBehaviorService {
       .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
-      .andWhere(countedSql('t'))
+      .andWhere(flowsSql('t'))
       .andWhere('t.transaction_date >= :start', { start: range.start })
       .andWhere('t.transaction_date <= :end', { end: range.end });
   }

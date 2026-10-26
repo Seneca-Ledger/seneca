@@ -22,16 +22,22 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GripVertical } from '@/app/components/icons';
 import { useViewPreference } from '@/app/components/transactions/hooks/useViewPreference';
 import { useIntlayer } from '@/app/i18n';
+import { OverviewWidgetPicker } from './OverviewWidgetPicker';
 import {
   canSitBeside,
   DEFAULT_OVERVIEW_ROWS,
   type DropZone,
+  hideSection,
   isDefaultLayout,
+  isTile,
   moveSection,
   normalizeRows,
   type OverviewRows,
   type OverviewSectionId,
+  rowSpans,
+  showSection,
 } from './overview-layout';
+import { SectionSpanProvider } from './section-span';
 
 interface Drop {
   target: string;
@@ -74,8 +80,10 @@ function zoneFor(rows: OverviewRows, active: string, target: string, rect: DOMRe
 
 interface OverviewSectionProps {
   id: string;
-  /** Spans both columns: alone in its row, or its partner has nothing to show. */
-  wide: boolean;
+  /** Columns of the twelve it spans, given what else in its row has something to show. */
+  span: number;
+  /** The odd tile left over when a narrow screen pairs the row's tiles two by two. */
+  unpaired: boolean;
   drop: DropZone | null;
   handleLabel: string;
   onEmptyChange: (id: string, empty: boolean) => void;
@@ -84,7 +92,8 @@ interface OverviewSectionProps {
 
 function OverviewSection({
   id,
-  wide,
+  span,
+  unpaired,
   drop,
   handleLabel,
   onEmptyChange,
@@ -122,17 +131,19 @@ function OverviewSection({
     <div
       ref={setRef}
       data-overview-section={id}
+      style={{ '--overview-span': span } as React.CSSProperties}
       className={clsx(
-        'lumio-overview__section',
-        wide && 'lumio-overview__section--wide',
-        drag.isDragging && 'lumio-overview__section--dragging',
-        drop && `lumio-overview__section--drop-${drop}`,
+        'seneca-overview__section',
+        isTile(id) && 'seneca-overview__section--tile',
+        unpaired && 'seneca-overview__section--unpaired',
+        drag.isDragging && 'seneca-overview__section--dragging',
+        drop && `seneca-overview__section--drop-${drop}`,
       )}
     >
       <button
         type="button"
         ref={drag.setActivatorNodeRef}
-        className="lumio-overview__handle"
+        className="seneca-overview__handle"
         {...drag.attributes}
         {...drag.listeners}
         aria-label={handleLabel}
@@ -140,7 +151,7 @@ function OverviewSection({
       >
         <GripVertical size={16} />
       </button>
-      {children}
+      <SectionSpanProvider value={span}>{children}</SectionSpanProvider>
     </div>
   );
 }
@@ -167,7 +178,7 @@ function SectionGhost({ id }: { id: string }): React.JSX.Element {
     clone.removeAttribute('data-overview-section');
     // A picture, not a second set of controls.
     clone.setAttribute('inert', '');
-    clone.className = 'lumio-overview__section';
+    clone.className = 'seneca-overview__section';
     clone.style.width = `${width}px`;
     host.replaceChildren(clone);
     setScale(Math.min(1, GHOST_MAX_WIDTH_PX / width));
@@ -176,7 +187,7 @@ function SectionGhost({ id }: { id: string }): React.JSX.Element {
   return (
     <div
       ref={hostRef}
-      className="lumio-overview__ghost"
+      className="seneca-overview__ghost"
       style={{ transform: `scale(${scale})` }}
       aria-hidden
     />
@@ -193,10 +204,24 @@ interface OverviewLayoutProps {
  * below it gets a row of its own. The arrangement is remembered per person and
  * workspace. Phones get no grips: there everything is one column anyway.
  */
+/** The saved rows as stored; `normalizeRows` decides what of them is still usable. */
+const readOverviewLayout = (
+  saved: Readonly<Record<string, unknown>>,
+): { overviewRows: unknown; hiddenSections?: string[] } => ({
+  overviewRows: saved.overviewRows,
+  hiddenSections: Array.isArray(saved.hiddenSections)
+    ? saved.hiddenSections.filter((id): id is string => typeof id === 'string')
+    : [],
+});
+
 export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Element {
   const t = useIntlayer('overviewTab');
-  const { state, save } = useViewPreference<{ overviewRows: OverviewRows }>('dashboard');
-  const rows = useMemo(() => normalizeRows(state ? { rows: state.overviewRows } : null), [state]);
+  const { state, save } = useViewPreference('dashboard', readOverviewLayout);
+  const hidden = useMemo(() => state?.hiddenSections ?? [], [state]);
+  const rows = useMemo(
+    () => normalizeRows(state ? { rows: state.overviewRows, hidden } : null),
+    [state, hidden],
+  );
   const [empty, setEmpty] = useState<ReadonlySet<string>>(() => new Set());
   const [drop, setDrop] = useState<Drop | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -270,13 +295,21 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
       if (drop) {
         const next = moveSection(rows, String(active.id), drop.target, drop.zone);
         if (next !== rows) {
-          save({ overviewRows: next });
+          save({ overviewRows: next, hiddenSections: hidden });
         }
       }
       stopTracking();
     },
-    [drop, rows, save, stopTracking],
+    [drop, rows, hidden, save, stopTracking],
   );
+
+  const toggleSection = useCallback(
+    (id: OverviewSectionId, shown: boolean) =>
+      save(shown ? showSection(rows, hidden, id) : hideSection(rows, hidden, id)),
+    [rows, hidden, save],
+  );
+
+  const shown = useMemo(() => new Set(rows.flat()), [rows]);
 
   const targetRow = drop ? rows.find(row => row.includes(drop.target)) : undefined;
 
@@ -290,19 +323,23 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
       onDragEnd={handleDragEnd}
       onDragCancel={stopTracking}
     >
-      <div className="lumio-dashboard__tab lumio-overview">
-        <div className="lumio-overview__body">
-          <div className="lumio-overview__grid">
+      <div className="seneca-dashboard__tab seneca-overview">
+        <div className="seneca-overview__body">
+          <div className="seneca-overview__grid">
             {/* One flat list, not a wrapper per row: a moved card keeps its place
               in the tree, so it is not remounted and keeps its own state. */}
             {rows.flatMap(row => {
               const shown = row.filter(id => !empty.has(id));
+              const spans = rowSpans(shown);
+              const tiles = shown.filter(isTile);
+              const unpaired = tiles.length % 2 === 1 ? tiles[tiles.length - 1] : undefined;
               const vertical = drop && (drop.zone === 'above' || drop.zone === 'below');
               return row.map(id => (
                 <OverviewSection
                   key={id}
                   id={id}
-                  wide={shown.length < 2}
+                  span={spans.get(id) ?? 0}
+                  unpaired={id === unpaired}
                   drop={
                     drop?.target === id || (vertical && row === targetRow)
                       ? (drop?.zone ?? null)
@@ -317,15 +354,18 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
             })}
           </div>
         </div>
-        {!isDefaultLayout(rows) && (
-          <button
-            type="button"
-            className="lumio-overview__reset"
-            onClick={() => save({ overviewRows: DEFAULT_OVERVIEW_ROWS })}
-          >
-            {t.layoutReset}
-          </button>
-        )}
+        <div className="seneca-overview__footer">
+          <OverviewWidgetPicker shown={shown} onToggle={toggleSection} />
+          {!isDefaultLayout(rows) && (
+            <button
+              type="button"
+              className="seneca-overview__reset"
+              onClick={() => save({ overviewRows: DEFAULT_OVERVIEW_ROWS, hiddenSections: [] })}
+            >
+              {t.layoutReset}
+            </button>
+          )}
+        </div>
       </div>
       <DragOverlay>{dragging ? <SectionGhost id={dragging} /> : null}</DragOverlay>
     </DndContext>

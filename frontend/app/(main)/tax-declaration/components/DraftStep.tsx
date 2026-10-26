@@ -19,6 +19,7 @@ import {
 import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import type React from 'react';
 import { type ReactNode, useState } from 'react';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
@@ -131,10 +132,14 @@ export function DraftStep({ draft }: { draft: IncomeTaxDraft }): React.ReactElem
                     {formatLineRef(figure.lineNo, figure.fieldNo)}
                   </TableCell>
                   <TableCell>{figure.label}</TableCell>
-                  <TableCell align="right" sx={amountSx(figure.amount)}>
+                  <TableCell align="right" className={PRIVATE_CLASS} sx={amountSx(figure.amount)}>
                     {money(figure.amount)}
                   </TableCell>
-                  <TableCell align="right" sx={amountSx(figure.deductible)}>
+                  <TableCell
+                    align="right"
+                    className={PRIVATE_CLASS}
+                    sx={amountSx(figure.deductible)}
+                  >
                     {money(figure.deductible)}
                   </TableCell>
                   <TableCell align="right">
@@ -201,6 +206,7 @@ export function DraftStep({ draft }: { draft: IncomeTaxDraft }): React.ReactElem
             {resultFigure.label}
           </Typography>
           <Typography
+            className={PRIVATE_CLASS}
             sx={{
               fontSize: 24,
               fontWeight: 600,
@@ -229,7 +235,7 @@ export function DraftStep({ draft }: { draft: IncomeTaxDraft }): React.ReactElem
           }}
         >
           <Typography sx={{ fontSize: 16, fontWeight: 600 }}>
-            {t.estimateTitle}: {money(draft.taxEstimate.amount)}
+            {t.estimateTitle}: <PrivateAmount>{money(draft.taxEstimate.amount)}</PrivateAmount>
           </Typography>
           <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.5 }}>
             {draft.taxEstimate.basis}
@@ -264,10 +270,10 @@ export function DraftStep({ draft }: { draft: IncomeTaxDraft }): React.ReactElem
                 <TableRow key={row.transactionId}>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.date}</TableCell>
                   <TableCell>{row.counterparty}</TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                  <TableCell align="right" className={PRIVATE_CLASS} sx={{ whiteSpace: 'nowrap' }}>
                     {money(row.amount, row.currency)}
                   </TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                  <TableCell align="right" className={PRIVATE_CLASS} sx={{ whiteSpace: 'nowrap' }}>
                     {money(row.amountConverted)}
                   </TableCell>
                 </TableRow>

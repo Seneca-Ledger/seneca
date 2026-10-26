@@ -4,12 +4,11 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Link from 'next/link';
 import { LazyReturnsArea } from '@/app/components/charts/lazy-charts';
 import { DashboardCard, KpiCard } from '@/app/components/dashboard/ui';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { RETURNS_RANGES, type ReturnsRange } from '../helpers/roi-url-state';
@@ -39,19 +38,15 @@ export function PerformanceTab({ range, onRangeChange }: PerformanceTabProps) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <ToggleButtonGroup
-          size="small"
-          exclusive
+        <TextTabs<ReturnsRange>
           value={range}
-          onChange={(_event, next: ReturnsRange | null) => next && onRangeChange(next)}
-          aria-label={t.rangeLabel.value}
-        >
-          {RETURNS_RANGES.map(option => (
-            <ToggleButton key={option} value={option} sx={{ px: 1.5, textTransform: 'none' }}>
-              {rangeLabel(option, t.rangeAll.value)}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+          onChange={onRangeChange}
+          options={RETURNS_RANGES.map(option => ({
+            value: option,
+            label: rangeLabel(option, t.rangeAll.value),
+          }))}
+          ariaLabel={t.rangeLabel.value}
+        />
       </Box>
 
       {isError && <Alert severity="error">{t.loadError}</Alert>}
@@ -98,7 +93,14 @@ function PerformanceBody({ data }: { data: ReturnsData }) {
 
   return (
     <>
-      <div className="lumio-dashboard__stat-grid" data-testid="returns-kpis">
+      <Box
+        data-testid="returns-kpis"
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gap: 1.5,
+        }}
+      >
         <KpiCard
           label={t.netInvested.value}
           value={money(summary.netInvested)}
@@ -126,10 +128,10 @@ function PerformanceBody({ data }: { data: ReturnsData }) {
           tone={summary.returnPercent === null ? 'neutral' : positive ? 'positive' : 'negative'}
           caption={annual ? `${t.methodCaption.value} · ${annual}` : t.methodCaption}
         />
-      </div>
+      </Box>
 
       <DashboardCard title={t.chartTitle}>
-        <div className="lumio-chart__box" data-testid="returns-chart">
+        <div className="seneca-chart__box" data-testid="returns-chart">
           <LazyReturnsArea
             points={data.series}
             positive={positive}

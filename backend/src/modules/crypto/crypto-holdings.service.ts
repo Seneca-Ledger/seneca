@@ -56,6 +56,12 @@ export interface CryptoHoldingsResult {
  * number computed one way: balances as the last sync read them off the chain (or
  * as the user entered them for a manual holding), at today's price.
  */
+/**
+ * A unit price kept to six decimals: cents hide what matters for a stablecoin
+ * ($0.9991, not $1.00) or a coin worth a fraction of a cent.
+ */
+const roundPrice = (value: number): number => Math.round(value * 1e6) / 1e6;
+
 @Injectable()
 export class CryptoHoldingsService {
   constructor(
@@ -72,7 +78,10 @@ export class CryptoHoldingsService {
   async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['id', 'currency'],
+      select: {
+        id: true,
+        currency: true,
+      },
     });
     return currencyCodeOrDefault(workspace?.currency);
   }
@@ -88,7 +97,12 @@ export class CryptoHoldingsService {
   async getHoldings(workspaceId: string, currency: string): Promise<CryptoHoldingsResult> {
     const wallets = await this.walletRepo.find({
       where: { workspaceId },
-      select: ['id', 'balances', 'kind', 'createdAt'],
+      select: {
+        id: true,
+        balances: true,
+        kind: true,
+        createdAt: true,
+      },
     });
 
     const amountByAsset = new Map<string, string>();
@@ -122,7 +136,7 @@ export class CryptoHoldingsService {
           return {
             asset,
             amount,
-            price: round2(usdPrices[asset] * usdToCurrency),
+            price: roundPrice(usdPrices[asset] * usdToCurrency),
             value,
             ...this.gain(basis.get(asset), Number(amount), value),
           };
@@ -158,13 +172,16 @@ export class CryptoHoldingsService {
         basisIncomplete: basis?.incomplete ?? true,
       };
     }
-    const cost = round2(avgCost * amount);
+    const exactCost = avgCost * amount;
+    const cost = round2(exactCost);
     const unrealized = round2(value - cost);
     return {
-      avgCost: round2(avgCost),
+      avgCost: roundPrice(avgCost),
       cost,
       unrealized,
-      unrealizedPercent: cost > 0 ? round2((unrealized / cost) * 100) : null,
+      // From the unrounded figures: on a few dollars, dividing two cent-rounded
+      // numbers moved ETH's +24.0% to +23.6%.
+      unrealizedPercent: exactCost > 0 ? round2(((value - exactCost) / exactCost) * 100) : null,
       realized: basis?.realized ?? 0,
       basisIncomplete: basis?.incomplete ?? false,
     };
@@ -258,7 +275,7 @@ export class CryptoHoldingsService {
    * Every sale in a period, against the purchases it consumed — what a capital
    * gains return is made of. The holding period is stated rather than judged:
    * whether a year makes a gain tax-free, or a sale short-term, is a question for
-   * the user's own tax authority, and Lumio does not answer it for them.
+   * the user's own tax authority, and Seneca does not answer it for them.
    */
   async realizedGains(
     workspaceId: string,
@@ -275,7 +292,12 @@ export class CryptoHoldingsService {
     const currency = await this.getWorkspaceCurrency(workspaceId);
     const wallets = await this.walletRepo.find({
       where: { workspaceId },
-      select: ['id', 'balances', 'kind', 'createdAt'],
+      select: {
+        id: true,
+        balances: true,
+        kind: true,
+        createdAt: true,
+      },
     });
     const { disposals } = computeBasisWithDisposals(await this.lotEvents(workspaceId, wallets));
 
@@ -311,7 +333,13 @@ export class CryptoHoldingsService {
     const currency = await this.getWorkspaceCurrency(workspaceId);
     const wallets = await this.walletRepo.find({
       where: { workspaceId },
-      select: ['id', 'balances', 'kind', 'createdAt', 'connectedByUserId'],
+      select: {
+        id: true,
+        balances: true,
+        kind: true,
+        createdAt: true,
+        connectedByUserId: true,
+      },
     });
     const ownerByWallet = new Map<string, string | null>(
       wallets.map(wallet => [wallet.id, wallet.connectedByUserId ?? null]),

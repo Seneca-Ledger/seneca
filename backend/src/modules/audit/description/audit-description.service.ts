@@ -78,6 +78,8 @@ const ENTITY_LABELS_EN: Record<EntityType, string> = {
   [EntityType.WEBHOOK]: 'webhook',
   [EntityType.BACKUP]: 'backup',
   [EntityType.USER]: 'user account',
+  [EntityType.PAYEE]: 'payee',
+  [EntityType.TAG]: 'tag',
 };
 
 const FIELD_LABELS_EN: Partial<Record<EntityType, Record<string, string>>> = {

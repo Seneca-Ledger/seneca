@@ -2,15 +2,11 @@ import { readFile, unlink } from 'node:fs/promises';
 import {
   BadGatewayException,
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
   NotFoundException,
-  Param,
-  ParseUUIDPipe,
   Post,
-  Query,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -20,15 +16,40 @@ import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
+import { resolveInUploadsDir } from '../../common/utils/uploads.util';
 import { multerConfig } from '../../config/multer.config';
+import {
+  ConnectCryptoWalletBody,
+  CryptoGains,
+  CryptoGainsByOwner,
+  CryptoGainsQuery,
+  CryptoHistory,
+  CryptoHistoryQuery,
+  CryptoHoldingParams,
+  CryptoIconParams,
+  CryptoNetworkList,
+  CryptoRemoved,
+  CryptoSummary,
+  CryptoSummaryQuery,
+  CryptoSyncResult,
+  CryptoTransactionList,
+  CryptoTransactionsQuery,
+  CryptoWallet,
+  CryptoWalletList,
+  CryptoWalletParams,
+  ExchangeImportResult,
+  ManualHoldingBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CryptoService } from './crypto.service';
 import { CryptoIconsService } from './crypto-icons.service';
 import { CryptoImportService } from './crypto-import.service';
-import { ConnectCryptoWalletDto } from './dto/connect-crypto-wallet.dto';
-import { ManualHoldingDto } from './dto/manual-holding.dto';
 
 @Controller('crypto')
 export class CryptoController {
@@ -46,18 +67,18 @@ export class CryptoController {
    */
   @Get('icon/:asset')
   @SkipThrottle()
-  async getIcon(@Param('asset') asset: string, @Res() res: Response) {
+  async getIcon(@SchemaParams(CryptoIconParams) { asset }: CryptoIconParams, @Res() res: Response) {
     const icon = await this.iconsService.fetchIcon(asset);
     if (icon.status === 'invalid') {
-      throw new BadRequestException('Not a ticker');
+      throw new BadRequestException(appError('CRYPTO_TICKER_INVALID'));
     }
     // 404 rather than a placeholder: it fires the <img> error handler, which is
     // how the page falls back to the monogram.
     if (icon.status === 'missing') {
-      throw new NotFoundException('No icon for this asset');
+      throw new NotFoundException(appError('CRYPTO_ICON_NOT_FOUND'));
     }
     if (icon.status === 'unavailable') {
-      throw new BadGatewayException('Coin icons are unavailable');
+      throw new BadGatewayException(appError('CRYPTO_ICONS_UNAVAILABLE'));
     }
 
     res.setHeader('Content-Type', icon.contentType);
@@ -68,50 +89,46 @@ export class CryptoController {
 
   @Get('wallets')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoWalletList)
   async findAll(@WorkspaceId() workspaceId: string) {
     return this.cryptoService.findAll(workspaceId);
   }
 
   @Get('networks')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoNetworkList)
   getNetworks() {
     return this.cryptoService.getNetworks();
   }
 
   @Get('summary')
   @WorkspaceAuth(Permission.WALLET_VIEW)
+  @SchemaResponse(CryptoSummary)
   async getSummary(
     @WorkspaceId() workspaceId: string,
-    @Query('days') days?: string,
-    @Query('month') month?: string,
+    @SchemaQuery(CryptoSummaryQuery) query: CryptoSummaryQuery,
   ) {
-    const parsed = Number.parseInt(days ?? '', 10);
-    return this.cryptoService.getSummary(
-      workspaceId,
-      Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 365) : 30,
-      // Anything but a real YYYY-MM falls back to the rolling window.
-      month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : undefined,
-    );
+    return this.cryptoService.getSummary(workspaceId, Math.min(query.days ?? 30, 365), query.month);
   }
 
   @Get('transactions')
   @WorkspaceAuth(Permission.WALLET_VIEW)
-  async getRecentTransactions(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
-    const parsed = Number.parseInt(limit ?? '', 10);
-    return this.cryptoService.getRecentTransactions(
-      workspaceId,
-      Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : 20,
-    );
+  @SchemaResponse(CryptoTransactionList)
+  async getRecentTransactions(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CryptoTransactionsQuery) query: CryptoTransactionsQuery,
+  ) {
+    return this.cryptoService.getRecentTransactions(workspaceId, Math.min(query.limit ?? 20, 100));
   }
 
   @Get('history')
   @WorkspaceAuth(Permission.WALLET_VIEW)
-  async getHistory(@WorkspaceId() workspaceId: string, @Query('days') days?: string) {
-    const parsed = Number.parseInt(days ?? '', 10);
-    return this.cryptoService.getHistory(
-      workspaceId,
-      Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 1825) : 90,
-    );
+  @SchemaResponse(CryptoHistory)
+  async getHistory(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CryptoHistoryQuery) query: CryptoHistoryQuery,
+  ) {
+    return this.cryptoService.getHistory(workspaceId, Math.min(query.days ?? 90, 1825));
   }
 
   /**
@@ -120,13 +137,12 @@ export class CryptoController {
    */
   @Get('gains')
   @WorkspaceAuth(Permission.WALLET_VIEW)
-  async getGains(@WorkspaceId() workspaceId: string, @Query('year') year?: string) {
-    const parsed = Number.parseInt(year ?? '', 10);
-    const valid = Number.isFinite(parsed) && parsed >= 2009 && parsed <= 2100;
-    return this.cryptoService.getGains(
-      workspaceId,
-      valid ? { from: `${parsed}-01-01`, to: `${parsed}-12-31` } : {},
-    );
+  @SchemaResponse(CryptoGains)
+  async getGains(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CryptoGainsQuery) query: CryptoGainsQuery,
+  ) {
+    return this.cryptoService.getGains(workspaceId, yearRange(query.year));
   }
 
   /**
@@ -135,19 +151,19 @@ export class CryptoController {
    */
   @Get('gains/by-owner')
   @WorkspaceAuth(Permission.WALLET_VIEW)
-  async getGainsByOwner(@WorkspaceId() workspaceId: string, @Query('year') year?: string) {
-    const parsed = Number.parseInt(year ?? '', 10);
-    const valid = Number.isFinite(parsed) && parsed >= 2009 && parsed <= 2100;
-    return this.cryptoService.getGainsByOwner(
-      workspaceId,
-      valid ? { from: `${parsed}-01-01`, to: `${parsed}-12-31` } : {},
-    );
+  @SchemaResponse(CryptoGainsByOwner)
+  async getGainsByOwner(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CryptoGainsQuery) query: CryptoGainsQuery,
+  ) {
+    return this.cryptoService.getGainsByOwner(workspaceId, yearRange(query.year));
   }
 
   @Post('holdings')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(CryptoWallet)
   async upsertHolding(
-    @Body() dto: ManualHoldingDto,
+    @SchemaBody(ManualHoldingBody) dto: ManualHoldingBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -156,8 +172,9 @@ export class CryptoController {
 
   @Delete('holdings/:asset')
   @WorkspaceAuth(Permission.WALLET_DELETE)
+  @SchemaResponse(CryptoRemoved)
   async removeHolding(
-    @Param('asset') asset: string,
+    @SchemaParams(CryptoHoldingParams) { asset }: CryptoHoldingParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -173,6 +190,7 @@ export class CryptoController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @WorkspaceAuth(Permission.WALLET_CREATE)
   @UseInterceptors(FileInterceptor('file', multerConfig))
+  @SchemaResponse(ExchangeImportResult)
   async importExchangeCsv(
     // `unknown`, not `Express.Multer.File`: the decorator's emitted metadata would
     // reference a namespace that exists only in the type system.
@@ -182,7 +200,7 @@ export class CryptoController {
   ) {
     const path = uploadedPath(file);
     if (!path) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException(appError('CRYPTO_FILE_NOT_PROVIDED'));
     }
     try {
       const csv = await readFile(path, 'utf-8');
@@ -194,8 +212,9 @@ export class CryptoController {
 
   @Post('wallets')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(CryptoWalletList)
   async connect(
-    @Body() dto: ConnectCryptoWalletDto,
+    @SchemaBody(ConnectCryptoWalletBody) dto: ConnectCryptoWalletBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -207,8 +226,9 @@ export class CryptoController {
   @Post('wallets/:id/sync')
   @Throttle({ default: { limit: 6, ttl: 60000 } })
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(CryptoSyncResult)
   async sync(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(CryptoWalletParams) { id }: CryptoWalletParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -217,8 +237,9 @@ export class CryptoController {
 
   @Delete('wallets/:id')
   @WorkspaceAuth(Permission.WALLET_DELETE)
+  @SchemaResponse(CryptoRemoved)
   async remove(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(CryptoWalletParams) { id }: CryptoWalletParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {
@@ -230,5 +251,10 @@ export class CryptoController {
 /** Where multer put the upload, when it put one anywhere. */
 function uploadedPath(file: unknown): string | null {
   const path = (file as { path?: unknown } | null)?.path;
-  return typeof path === 'string' && path.length > 0 ? path : null;
+  return typeof path === 'string' && path.length > 0 ? resolveInUploadsDir(path) : null;
+}
+
+/** One calendar year, or no bounds (the whole history). */
+function yearRange(year: number | undefined): { from?: string; to?: string } {
+  return year === undefined ? {} : { from: `${year}-01-01`, to: `${year}-12-31` };
 }

@@ -1,9 +1,16 @@
 import React from 'react';
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const documentTypeIconSpy = vi.hoisted(() => vi.fn());
+const appLocale = vi.hoisted(() => ({ current: 'en' }));
+
+vi.mock('@/app/i18n', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/i18n')>()),
+  useLocale: () => ({ locale: appLocale.current }),
+}));
 const pdfThumbnailSpy = vi.hoisted(() => vi.fn());
 
 type IconProps = {
@@ -30,7 +37,7 @@ type StatementsListItemProps = React.ComponentProps<typeof StatementsListItem>;
 
 type Statement = {
   id: string;
-  source?: 'statement' | 'gmail' | 'scan';
+  source?: 'statement' | 'scan';
   fileName: string;
   subject?: string;
   sender?: string;
@@ -54,6 +61,14 @@ type Statement = {
 
 describe('StatementsListItem', () => {
   let container: HTMLDivElement;
+  // Every root is unmounted after its test: a root left mounted let React run
+  // scheduled work after the environment was torn down ("window is not defined").
+  let roots: Root[] = [];
+  const mount = (): Root => {
+    const created = createRoot(container);
+    roots.push(created);
+    return created;
+  };
 
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -61,21 +76,28 @@ describe('StatementsListItem', () => {
     document.body.appendChild(container);
     documentTypeIconSpy.mockReset();
     pdfThumbnailSpy.mockReset();
+    appLocale.current = 'en';
   });
 
   afterEach(() => {
+    act(() => {
+      for (const root of roots) {
+        root.unmount();
+      }
+    });
+    roots = [];
     container.remove();
     container = null as unknown as HTMLDivElement;
   });
 
-  it('renders Gmail receipt using document layout', () => {
-    const root = createRoot(container);
+  it('renders an emailed receipt using document layout', () => {
+    const root = mount();
     const onView = vi.fn();
     const onIconClick = vi.fn();
 
     const statement: Statement = {
-      id: 'gmail-1',
-      source: 'gmail',
+      id: 'receipt-1',
+      source: 'scan',
       fileName: 'Receipt.pdf',
       subject: 'Receipt',
       sender: 'sender@example.com',
@@ -85,7 +107,7 @@ describe('StatementsListItem', () => {
       createdAt: '2026-02-01T00:00:00Z',
       statementDateFrom: null,
       statementDateTo: null,
-      bankName: 'gmail',
+      bankName: 'receipt',
       fileType: 'pdf',
       currency: 'KZT',
       receivedAt: '2026-02-01T00:00:00Z',
@@ -118,11 +140,12 @@ describe('StatementsListItem', () => {
     expect(container.textContent).toContain('Shop');
     const viewIcon = container.querySelector('[data-testid="statement-view-icon"]');
     expect(viewIcon).toBeTruthy();
-    expect(container.querySelector('img[alt="Gmail"]')).not.toBeNull();
+    // The thumbnail stands for the document; the type is a word beside the date.
+    expect(container.textContent).toContain('02/01/2026 · PDF');
   });
 
   it('renders a stacked phone layout next to the column layout', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-1',
@@ -159,10 +182,10 @@ describe('StatementsListItem', () => {
 
     // CSS shows one or the other at 768px; the phone row must carry who, how much and when.
     const mobile = container.querySelector('[data-testid="statement-item-mobile-statement-1"]');
-    expect(mobile?.querySelector('.lumio-stmt-list-item__mobile-merchant')?.textContent).toBe(
+    expect(mobile?.querySelector('.seneca-stmt-list-item__mobile-merchant')?.textContent).toBe(
       'Kaspi',
     );
-    expect(mobile?.querySelector('.lumio-stmt-list-item__mobile-amount')?.textContent).toBe(
+    expect(mobile?.querySelector('.seneca-stmt-list-item__mobile-amount')?.textContent).toBe(
       '1,200 KZT',
     );
     expect(mobile?.textContent).toContain('01/31/2026');
@@ -172,7 +195,7 @@ describe('StatementsListItem', () => {
   });
 
   it('uses receipt thumbnail source for local receipts', async () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'receipt-local-1',
@@ -241,7 +264,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders hover preview in portal without clipping', async () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-hover-preview',
@@ -290,7 +313,7 @@ describe('StatementsListItem', () => {
   });
 
   it('dismisses hover preview when the list scrolls', async () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-hover-scroll',
@@ -346,7 +369,7 @@ describe('StatementsListItem', () => {
   });
 
   it('opens from the unified column row overlay', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement: Statement = {
@@ -397,7 +420,7 @@ describe('StatementsListItem', () => {
     expect(onView).toHaveBeenCalledTimes(1);
 
     const overlayButton = container.querySelector(
-      '.lumio-stmt-list-item__desktop-overlay',
+      '.seneca-stmt-list-item__desktop-overlay',
     ) as HTMLButtonElement | null;
     expect(overlayButton).toBeTruthy();
 
@@ -409,7 +432,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders payments icon for manual expense type', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'manual-1',
@@ -453,8 +476,8 @@ describe('StatementsListItem', () => {
     expect(container.textContent).not.toContain('FILE');
   });
 
-  it('renders receipt icon for receipt-scan statement instead of gmail icon', () => {
-    const root = createRoot(container);
+  it('names a receipt-scan statement by type beside the date, with no extra icon', () => {
+    const root = mount();
 
     const statement: Statement = {
       id: 'receipt-scan-1',
@@ -501,16 +524,15 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.querySelector('img[alt="Gmail"]')).toBeNull();
-    const receiptIcons = container.querySelectorAll('[data-testid="receipt-statement-type-icon"]');
-    expect(receiptIcons.length).toBe(1);
+    expect(container.querySelector('[data-testid="receipt-statement-type-icon"]')).toBeNull();
+    expect(container.textContent).toContain('03/27/2026 · IMAGE');
     expect(
       container.querySelector('[data-testid="statement-thumbnail-trigger-receipt-scan-1"]'),
     ).toBeTruthy();
   });
 
   it('badges a needs_review statement distinctly from a completed one', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-needs-review',
@@ -545,14 +567,14 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.querySelector('.lumio-stmt-badge--review')).toBeTruthy();
+    expect(container.querySelector('.seneca-stmt-badge--review')).toBeTruthy();
     // Must not read as done: the statement is excluded from analytics until confirmed.
-    expect(container.querySelector('.lumio-stmt-badge--completed')).toBeNull();
+    expect(container.querySelector('.seneca-stmt-badge--completed')).toBeNull();
     expect(container.textContent).toContain('Needs review');
   });
 
   it('does not call onView when view is disabled', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement: Statement = {
@@ -590,7 +612,7 @@ describe('StatementsListItem', () => {
     });
 
     const overlayButton = container.querySelector(
-      '.lumio-stmt-list-item__desktop-overlay',
+      '.seneca-stmt-list-item__desktop-overlay',
     ) as HTMLButtonElement | null;
     expect(overlayButton).toBeTruthy();
 
@@ -611,7 +633,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders amount loader instead of zero while statement parsing is in progress', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-loading-amount',
@@ -652,8 +674,8 @@ describe('StatementsListItem', () => {
     expect(container.querySelectorAll('[aria-label="Loading"]')).toHaveLength(2);
   });
 
-  it('uses the primary color for amounts in dark mode', () => {
-    const root = createRoot(container);
+  it('sets the currency apart from the figure', () => {
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-dark-amount',
@@ -691,18 +713,61 @@ describe('StatementsListItem', () => {
     const desktop = container.querySelector(
       '[data-testid="statement-item-desktop-statement-dark-amount"]',
     ) as HTMLElement;
-    const amountNodes = Array.from(desktop.querySelectorAll('p, span')).filter(node =>
-      node.textContent?.includes('702,799.13KZT'),
+    const amount = desktop.querySelector('.seneca-stmt-list-item__amount');
+    expect(amount?.textContent).toBe('702,799.13 KZT');
+    expect(amount?.querySelector('.seneca-stmt-list-item__currency')?.textContent?.trim()).toBe(
+      'KZT',
     );
-
-    expect(amountNodes).toHaveLength(1);
-    amountNodes.forEach(node => {
-      expect(node.textContent).toContain('702,799.13KZT');
-    });
   });
 
-  it('renders primary duplicate badge and review action for duplicate item', () => {
-    const root = createRoot(container);
+  it('marks the amount for privacy mode on desktop and on the phone', () => {
+    const root = mount();
+
+    const statement: Statement = {
+      id: 'statement-private-amount',
+      source: 'statement',
+      fileName: 'Private.pdf',
+      status: 'completed',
+      totalDebit: 1200,
+      totalCredit: 0,
+      createdAt: '2026-02-01T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+      currency: 'KZT',
+    };
+
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Kaspi"
+          amountLabel="1,200 KZT"
+          dateLabel="01/31/2026"
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          typeLabel="PDF"
+        />,
+      );
+    });
+
+    const amounts = container.querySelectorAll('.seneca-private');
+    expect(container.querySelector('.seneca-stmt-list-item__amount')).toHaveClass('seneca-private');
+    expect(container.querySelector('.seneca-stmt-list-item__mobile-amount')).toHaveClass(
+      'seneca-private',
+    );
+    // Only the figure: the merchant and the date stay readable.
+    expect(Array.from(amounts, node => node.textContent?.replace(/\s+/g, ''))).toEqual([
+      '1,200KZT',
+      '1,200KZT',
+    ]);
+  });
+
+  it('marks a duplicate with a caption, a line on the left and a Review link', () => {
+    const root = mount();
 
     const statement: Statement = {
       id: 'duplicate-1',
@@ -743,20 +808,66 @@ describe('StatementsListItem', () => {
       );
     });
 
-    expect(container.textContent).toContain('PRIMARY #1/2');
-    expect(container.textContent).toContain('Review');
-    const duplicateRow = container.querySelector('.lumio-stmt-list-item') as HTMLElement | null;
-    const duplicateAccent = container.querySelector(
-      '.lumio-stmt-list-item__accent',
-    ) as HTMLElement | null;
+    expect(
+      container.querySelector('[data-testid="statement-duplicate-caption"]')?.textContent,
+    ).toContain('Possible duplicate · 1 of 2');
+    expect(container.textContent).not.toContain('PRIMARY');
+    const review = container.querySelector('[data-testid="statement-view-icon"]');
+    expect(review?.textContent).toBe('Review');
+    expect(review?.className).toContain('seneca-stmt-list-item__view-btn--link');
+    const duplicateRow = container.querySelector('.seneca-stmt-list-item') as HTMLElement | null;
+    expect(duplicateRow?.style.boxShadow).toBe('');
+    // A lone duplicate both starts and ends its group's line.
+    const accent = container.querySelector('.seneca-stmt-list-item__accent');
+    expect(accent?.className).toContain('seneca-stmt-list-item__accent--start');
+    expect(accent?.className).toContain('seneca-stmt-list-item__accent--end');
+  });
 
-    expect(duplicateRow?.style.backgroundColor).toBe('rgb(255, 255, 255)');
-    expect(duplicateRow?.style.boxShadow).toContain('inset 0 0 0 1px');
-    expect(duplicateAccent?.style.width).toBe('4px');
+  it('runs the duplicate line through the middle of a group', () => {
+    const root = mount();
+    const statement: Statement = {
+      id: 'duplicate-2',
+      source: 'statement',
+      fileName: 'Invoice.pdf',
+      status: 'completed',
+      totalDebit: 14.63,
+      totalCredit: 0,
+      createdAt: '2026-10-09T00:00:00Z',
+      statementDateFrom: '2026-10-09',
+      statementDateTo: '2026-10-09',
+      bankName: 'other',
+      fileType: 'pdf',
+      currency: 'USD',
+    };
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Railway"
+          amountLabel="14.63 USD"
+          dateLabel="10/09/2026"
+          isPossibleDuplicate
+          duplicateRole="suspected"
+          duplicateGroupStart={false}
+          duplicateGroupEnd={false}
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          typeLabel="PDF"
+        />,
+      );
+    });
+
+    expect(container.querySelector('.seneca-stmt-list-item__accent')?.className).toBe(
+      'seneca-stmt-list-item__accent',
+    );
   });
 
   it('honors desktop column visibility and keeps hidden action rows clickable', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement: Statement = {
@@ -804,7 +915,7 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.querySelector('[data-testid="statement-view-icon"]')).toBeNull();
 
     const desktopOverlay = container.querySelector(
-      '.lumio-stmt-list-item__desktop-overlay',
+      '.seneca-stmt-list-item__desktop-overlay',
     ) as HTMLButtonElement | null;
     expect(desktopOverlay).toBeTruthy();
 
@@ -816,7 +927,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders optional summary columns with fallbacks from statement data', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-optional-values',
@@ -872,13 +983,19 @@ describe('StatementsListItem', () => {
     ) as HTMLDivElement | null;
     expect(desktopContainer?.textContent).toContain('Software');
     expect(desktopContainer?.textContent).toContain('SaaS');
+    expect(desktopContainer?.querySelector('[data-testid="LocalOfferIcon"]')).not.toBeNull();
+    // Like the category, the tag opens its row of the By tag report on the statement's month.
+    expect(
+      desktopContainer?.querySelector('a[href="/reports?tab=cash-flow&month=2026-01&focus=tag%3Asaas"]')
+        ?.textContent,
+    ).toBe('SaaS');
     expect(desktopContainer?.textContent).toContain('Cloud subscription');
     expect(desktopContainer?.textContent).toContain('1 USD = 512.34 KZT');
     expect(desktopContainer?.textContent).toContain('Corporate card');
   });
 
   it('uses the current USD exchange rate for non-USD statement rows', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-usd-rate',
@@ -921,8 +1038,10 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.textContent).toContain('1 USD = 512.34 KZT');
   });
 
-  it('uses the current USD exchange rate when workspace currency is missing', () => {
-    const root = createRoot(container);
+  it('falls back to the default target currency when workspace currency is missing', () => {
+    const root = mount();
+    // Цель без валюты воркспейса — FALLBACK_CURRENCY (USD или NEXT_PUBLIC_DEFAULT_CURRENCY).
+    const fallbackRateLabel = `1 KZT = 0.002 ${FALLBACK_CURRENCY}`;
 
     const statement = {
       id: 'column-usd-rate-default-currency',
@@ -950,7 +1069,7 @@ describe('StatementsListItem', () => {
           onView={() => undefined}
           onIconClick={() => undefined}
           onToggleSelect={() => undefined}
-          currentExchangeRateLabels={{ 'USD:KZT': '1 USD = 512.34 KZT' }}
+          currentExchangeRateLabels={{ [`KZT:${FALLBACK_CURRENCY}`]: fallbackRateLabel }}
           workspaceCurrency={null}
           columns={[{ id: 'exchangeRate', label: 'Exchange rate', visible: true, order: 0 }]}
         />,
@@ -960,11 +1079,11 @@ describe('StatementsListItem', () => {
     const desktopContainer = container.querySelector(
       '[data-testid="statement-item-desktop-column-usd-rate-default-currency"]',
     ) as HTMLDivElement | null;
-    expect(desktopContainer?.textContent).toContain('1 USD = 512.34 KZT');
+    expect(desktopContainer?.textContent).toContain(fallbackRateLabel);
   });
 
   it('normalizes NIS workspace currency to ILS for current exchange rates', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-usd-rate-nis-currency',
@@ -1005,8 +1124,106 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.textContent).toContain('1 USD = 3.72 ILS');
   });
 
+  it('says a one-purchase document has no category yet, but leaves a multi-row statement blank', () => {
+    const renderCategory = (
+      statement: Partial<StatementsListItemProps['statement']>,
+      props: Partial<StatementsListItemProps> = {},
+    ): HTMLElement | null => {
+      const root = mount();
+      act(() => {
+        root.render(
+          <StatementsListItem
+            statement={
+              {
+                id: 'no-category',
+                source: 'scan',
+                fileName: 'scan.jpg',
+                status: 'completed',
+                createdAt: '2026-02-05T00:00:00Z',
+                bankName: 'other',
+                fileType: 'image',
+                ...statement,
+              } as StatementsListItemProps['statement']
+            }
+            viewLabel="View"
+            isReceipt
+            isProcessing={false}
+            merchantLabel="Lidl"
+            amountLabel="9.99 EUR"
+            dateLabel="02/05/2026"
+            onView={() => undefined}
+            onIconClick={() => undefined}
+            columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+            {...props}
+          />,
+        );
+      });
+      const cell = container.querySelector(
+        '[data-testid="statement-column-no-category-category"]',
+      ) as HTMLElement | null;
+      const snapshot = cell?.cloneNode(true) as HTMLElement | null;
+      act(() => root.unmount());
+      return snapshot;
+    };
+
+    // A scan with nothing picked, and one still in the Uncategorized fallback.
+    expect(renderCategory({})?.querySelector('[data-testid="no-category-badge"]')).toBeTruthy();
+    expect(
+      renderCategory({ category: { id: 'u', name: 'Uncategorized' } })?.querySelector(
+        '[data-testid="no-category-badge"]',
+      ),
+    ).toBeTruthy();
+    // A bank statement's category is only the majority of its rows'.
+    const multiRow = renderCategory(
+      { source: 'statement', fileType: 'pdf' },
+      { isReceipt: false, transactionCount: 24 },
+    );
+    expect(multiRow?.querySelector('[data-testid="no-category-badge"]')).toBeNull();
+    expect(multiRow?.textContent).toBe('—');
+  });
+
+  it('opens the category drawer from "Add category" without opening the document', () => {
+    const root = mount();
+    const onView = vi.fn();
+    const onAddCategory = vi.fn();
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: 'add-category',
+              source: 'scan',
+              fileName: 'scan.jpg',
+              status: 'completed',
+              createdAt: '2026-02-05T00:00:00Z',
+              bankName: 'other',
+              fileType: 'image',
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt
+          isProcessing={false}
+          merchantLabel="Lidl"
+          amountLabel="9.99 EUR"
+          dateLabel="02/05/2026"
+          onView={onView}
+          onIconClick={() => undefined}
+          onAddCategory={onAddCategory}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const slot = container.querySelector('[data-testid="no-category-badge"]') as HTMLElement;
+    expect(slot.tagName).toBe('BUTTON');
+    act(() => slot.click());
+    expect(onAddCategory).toHaveBeenCalledTimes(1);
+    expect(onView).not.toHaveBeenCalled();
+    act(() => root.unmount());
+  });
+
   it('links the category chip to that category on the Top categories leaderboard', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-category-link',
@@ -1041,7 +1258,7 @@ describe('StatementsListItem', () => {
       );
     });
 
-    const link = container.querySelector('a.lumio-stmt-category-link') as HTMLAnchorElement | null;
+    const link = container.querySelector('a.seneca-stmt-category-link') as HTMLAnchorElement | null;
     // The statement's own month, so the leaderboard opens where the row is.
     expect(link?.getAttribute('href')).toBe(
       '/reports?tab=cash-flow&month=2026-03&focus=category%3Ameals+and+entertainment',
@@ -1050,7 +1267,7 @@ describe('StatementsListItem', () => {
   });
 
   it('treats a category chip click as a row click until the chip lights up', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement = {
@@ -1085,7 +1302,7 @@ describe('StatementsListItem', () => {
       );
     });
 
-    const link = container.querySelector('a.lumio-stmt-category-link') as HTMLAnchorElement | null;
+    const link = container.querySelector('a.seneca-stmt-category-link') as HTMLAnchorElement | null;
     // jsdom would try to follow the href and log "navigation not implemented".
     container.addEventListener('click', event => event.preventDefault(), true);
 
@@ -1101,11 +1318,216 @@ describe('StatementsListItem', () => {
     act(() => {
       link?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     });
-    expect(link?.className).toContain('lumio-stmt-category-link--lit');
+    expect(link?.className).toContain('seneca-stmt-category-link--lit');
 
     act(() => {
       link?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     });
     expect(onView).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives each tag its own link that acts as a row click until it lights up', () => {
+    const root = createRoot(container);
+    const onView = vi.fn();
+    const statement = {
+      id: 'column-tag-link-click',
+      source: 'statement',
+      fileName: 'Summary.pdf',
+      status: 'completed',
+      totalDebit: 1200,
+      totalCredit: 0,
+      createdAt: '2026-02-05T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+      currency: 'KZT',
+      tags: [
+        { id: 'tag-1', name: 'Team Trip', color: null },
+        { id: 'tag-2', name: 'Office Move', color: null },
+      ],
+    } as StatementsListItemProps['statement'];
+
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Kaspi"
+          amountLabel="1,200 KZT"
+          dateLabel="02/05/2026"
+          onView={onView}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          columns={[{ id: 'tag', label: 'Tag', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a.seneca-stmt-tag-link'));
+    expect(links.map(link => link.getAttribute('href'))).toEqual([
+      '/reports?tab=cash-flow&month=2026-02&focus=tag%3Ateam+trip',
+      '/reports?tab=cash-flow&month=2026-02&focus=tag%3Aoffice+move',
+    ]);
+    container.addEventListener('click', event => event.preventDefault(), true);
+
+    const beforeDwell = new MouseEvent('click', { bubbles: true, cancelable: true });
+    act(() => {
+      links[1].dispatchEvent(beforeDwell);
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+    expect(beforeDwell.defaultPrevented).toBe(true);
+
+    act(() => {
+      links[1].dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    });
+    expect(links[1].className).toContain('seneca-stmt-category-link--lit');
+    expect(links[0].className).not.toContain('seneca-stmt-category-link--lit');
+
+    act(() => {
+      links[1].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a multi-row statement under its line instead of opening the statement', () => {
+    const root = mount();
+    const onView = vi.fn();
+    const onToggleExpand = vi.fn();
+    const statement: Statement = {
+      id: 'statement-rows',
+      source: 'statement',
+      fileName: 'september.pdf',
+      status: 'completed',
+      totalDebit: 300,
+      totalCredit: 0,
+      createdAt: '2026-09-30T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+    };
+    const render = (count: number, expanded: boolean): void =>
+      act(() => {
+        root.render(
+          <StatementsListItem
+            statement={statement}
+            viewLabel="View"
+            isReceipt={false}
+            isProcessing={false}
+            merchantLabel="Kaspi"
+            amountLabel="300 KZT"
+            dateLabel="09/30/2026"
+            onView={onView}
+            onIconClick={() => undefined}
+            transactionCount={count}
+            expanded={expanded}
+            onToggleExpand={onToggleExpand}
+          />,
+        );
+      });
+
+    render(1, false);
+    expect(container.querySelector('.seneca-stmt-list-item__rows-toggle')).toBeNull();
+
+    render(3, false);
+    const toggle = container.querySelector(
+      '[data-testid="statement-item-desktop-statement-rows"] .seneca-stmt-list-item__rows-toggle',
+    ) as HTMLButtonElement | null;
+    expect(toggle?.textContent).toContain('3');
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+
+    act(() => {
+      toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onToggleExpand).toHaveBeenCalledTimes(1);
+    expect(onView).not.toHaveBeenCalled();
+
+    render(3, true);
+    expect(
+      container
+        .querySelector('.seneca-stmt-list-item__rows-toggle')
+        ?.getAttribute('aria-expanded'),
+    ).toBe('true');
+  });
+
+  const renderApprovedCell = (status: string, isReceipt: boolean, pendingReview: number) => {
+    const root = mount();
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: `approved-${status}`,
+              source: isReceipt ? 'scan' : 'statement',
+              fileName: 'doc.pdf',
+              status,
+              createdAt: '2026-10-14T00:00:00Z',
+              bankName: 'other',
+              fileType: 'pdf',
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt={isReceipt}
+          isProcessing={false}
+          merchantLabel="Shop"
+          amountLabel="8.90 ILS"
+          dateLabel="10/14/2026"
+          pendingReview={pendingReview}
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          columns={[{ id: 'approved', label: 'Approved', visible: true, order: 0 }]}
+        />,
+      );
+    });
+    const text = container.textContent;
+    act(() => root.unmount());
+    return text;
+  };
+
+  it('marks an approved receipt as approved and a draft one as not', () => {
+    expect(renderApprovedCell('approved', true, 0)).toContain('Yes');
+    expect(renderApprovedCell('draft', true, 1)).toContain('No');
+  });
+
+  it('does not call a parsed statement approved while its rows wait in Review', () => {
+    expect(renderApprovedCell('completed', false, 3)).toContain('No');
+    expect(renderApprovedCell('completed', false, 0)).toContain('Yes');
+  });
+
+  it("shows a system category in the reader's language and links it by its stored name", () => {
+    appLocale.current = 'ru';
+    const root = mount();
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: 'ru-category',
+              source: 'scan',
+              fileName: 'scan.jpg',
+              status: 'draft',
+              createdAt: '2026-10-14T00:00:00Z',
+              bankName: 'other',
+              fileType: 'image',
+              category: { id: 'cat-ad', name: 'Advertising', color: null, icon: null },
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt
+          isProcessing={false}
+          merchantLabel="100 Telegram Stars"
+          amountLabel="8.90 ILS"
+          dateLabel="10/14/2026"
+          onView={() => undefined}
+          onIconClick={() => undefined}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const link = container.querySelector('.seneca-stmt-category-link') as HTMLAnchorElement;
+    expect(link.textContent).toContain('Реклама');
+    expect(link.textContent).not.toContain('Advertising');
+    expect(link.getAttribute('href')).toContain('focus=category%3Aadvertising');
+    act(() => root.unmount());
   });
 });

@@ -1,25 +1,40 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import {
+  CreatedWebhookEndpoint,
+  CreateWebhookEndpointBody,
+  UpdateWebhookEndpointBody,
+  WebhookActionResult,
+  WebhookEndpointItem,
+  WebhookEndpointList,
+  WebhookIdParams,
+} from '../../contracts';
 import { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateWebhookEndpointDto } from './dto/create-webhook-endpoint.dto';
-import { UpdateWebhookEndpointDto } from './dto/update-webhook-endpoint.dto';
 import { WebhookEndpointsService } from './services/webhook-endpoints.service';
 
+/**
+ * An endpoint token lets anyone holding it upload into the workspace, so minting
+ * or changing one is managing an integration (owner and admins).
+ */
 @ApiTags('Webhook Endpoints')
 @Controller('webhook-endpoints')
 export class WebhookEndpointsController {
   constructor(private readonly service: WebhookEndpointsService) {}
 
   @Post()
-  @WorkspaceAuth(Permission.STATEMENT_UPLOAD)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   @ApiOperation({ summary: 'Create inbound webhook endpoint' })
+  @SchemaResponse(CreatedWebhookEndpoint)
   async create(
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateWebhookEndpointDto,
+    @SchemaBody(CreateWebhookEndpointBody) dto: CreateWebhookEndpointBody,
     @CurrentUser() user: User,
   ) {
     return this.service.create(workspaceId, dto, user.id); // token returned only on creation
@@ -27,6 +42,7 @@ export class WebhookEndpointsController {
 
   @Get()
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(WebhookEndpointList)
   async findAll(@WorkspaceId() workspaceId: string) {
     const endpoints = await this.service.findAll(workspaceId);
     return endpoints.map(({ token, ...rest }) => ({
@@ -37,17 +53,22 @@ export class WebhookEndpointsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(WebhookEndpointItem)
+  async findOne(
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const { token, ...rest } = await this.service.findOne(id, workspaceId);
     return { ...rest, tokenPreview: `${token.slice(0, 8)}...` };
   }
 
   @Patch(':id')
-  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(WebhookEndpointItem)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpdateWebhookEndpointDto,
+    @SchemaBody(UpdateWebhookEndpointBody) dto: UpdateWebhookEndpointBody,
     @CurrentUser() user: User,
   ) {
     const { token, ...rest } = await this.service.update(id, workspaceId, dto, user.id);
@@ -55,9 +76,10 @@ export class WebhookEndpointsController {
   }
 
   @Delete(':id')
-  @WorkspaceAuth(Permission.STATEMENT_DELETE)
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(WebhookActionResult)
   async delete(
-    @Param('id') id: string,
+    @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

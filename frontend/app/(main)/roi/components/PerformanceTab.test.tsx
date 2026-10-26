@@ -154,7 +154,7 @@ describe('PerformanceTab', () => {
     const onRangeChange = vi.fn();
 
     render(<PerformanceTab range="1y" onRangeChange={onRangeChange} />);
-    fireEvent.click(screen.getByRole('button', { name: '5Y' }));
+    fireEvent.click(screen.getByRole('tab', { name: '5Y' }));
 
     expect(hook.range).toBe('1y');
     expect(onRangeChange).toHaveBeenCalledWith('5y');

@@ -1,16 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, FileText } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
+import { useIntlayer } from '@/app/i18n';
 import { apiBaseUrl } from '@/app/lib/api';
 import { hasSessionCookie } from '@/app/lib/csrf';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
+import { PdfErrorView } from './PDFThumbnailErrorView';
 
 interface PdfThumbnailProps {
   fileId: string;
   fileName?: string;
-  source?: 'statement' | 'gmail' | 'receipt';
+  source?: 'statement' | 'receipt';
   size?: number;
   width?: number;
   thumbnailWidth?: number;
@@ -31,8 +32,7 @@ const MAX_THUMBNAIL_WIDTH = 1600;
 const thumbnailCache = new Map<string, string>();
 
 const SOURCE_THUMBNAIL_URLS: Record<string, (fileId: string, w: number) => string> = {
-  gmail: (id, w) => `${apiBaseUrl}/integrations/gmail/receipts/${id}/thumbnail?width=${w}`,
-  receipt: (id, w) => `${apiBaseUrl}/integrations/gmail/receipts/${id}/thumbnail?width=${w}`,
+  receipt: (id, w) => `${apiBaseUrl}/receipts/${id}/thumbnail?width=${w}`,
 };
 
 function buildThumbnailUrl(source: string, fileId: string, requestedWidth: number): string {
@@ -186,63 +186,6 @@ function useThumbnailFetch(
   }, [fileId, source, requestedWidth, setThumbnailDataUrl, setError, setLoading]);
 }
 
-interface PdfErrorViewProps {
-  frameWidth: number;
-  frameHeight: number;
-  fallbackIconSize: number;
-  errorMessage?: string;
-}
-
-function PdfErrorView(props: PdfErrorViewProps): React.ReactElement {
-  const { frameWidth, frameHeight, fallbackIconSize, errorMessage } = props;
-
-  if (errorMessage) {
-    return (
-      <div
-        style={{
-          width: frameWidth,
-          height: frameHeight,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          border: '1px solid var(--border-color)',
-          borderRadius: 0,
-          backgroundColor: 'var(--card-bg)',
-          padding: 16,
-          textAlign: 'center',
-        }}
-      >
-        <AlertCircle
-          data-testid="pdf-thumbnail-error-icon"
-          size={24}
-          style={{ color: 'var(--muted-foreground)' }}
-        />
-        <p style={{ fontSize: 14, color: 'var(--muted-foreground)', margin: 0 }}>{errorMessage}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      style={{
-        width: frameWidth,
-        height: frameHeight,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <FileText
-        data-testid="pdf-thumbnail-fallback-icon"
-        size={fallbackIconSize}
-        style={{ color: 'var(--muted-foreground)' }}
-      />
-    </div>
-  );
-}
-
 export function PDFThumbnail(props: PdfThumbnailProps): React.ReactElement {
   const {
     fileId,
@@ -257,6 +200,7 @@ export function PDFThumbnail(props: PdfThumbnailProps): React.ReactElement {
     preservePageAspect = false,
     muted = false,
   } = props;
+  const t = useIntlayer('imageAlt');
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [thumbnailDataUrl, setThumbnailDataUrl] = useState<string | null>(null);
@@ -312,7 +256,7 @@ export function PDFThumbnail(props: PdfThumbnailProps): React.ReactElement {
       {thumbnailDataUrl && (
         <img
           src={thumbnailDataUrl}
-          alt={fileName || 'PDF thumbnail'}
+          alt={fileName || t.pdfThumbnail.value}
           className={className}
           style={{
             width: '100%',

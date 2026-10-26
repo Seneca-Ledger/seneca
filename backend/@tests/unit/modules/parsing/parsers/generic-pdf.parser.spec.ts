@@ -1,11 +1,11 @@
+import type { Mock } from 'vitest';
 import { extractTablesFromPdf, extractTextFromPdf } from '@/common/utils/pdf-parser.util';
 import { BankName, FileType } from '@/entities/statement.entity';
-import { AiTransactionExtractor } from '@/modules/parsing/helpers/ai-transaction-extractor.helper';
 import { GenericPdfParser } from '@/modules/parsing/parsers/generic-pdf.parser';
 
-jest.mock('@/common/utils/advanced-language-detector.util', () => ({
+vi.mock('@/common/utils/advanced-language-detector.util', () => ({
   advancedLanguageDetector: {
-    detectLanguage: jest.fn().mockResolvedValue({
+    detectLanguage: vi.fn().mockResolvedValue({
       locale: 'unknown',
       confidence: 0,
       method: 'legacy',
@@ -14,23 +14,14 @@ jest.mock('@/common/utils/advanced-language-detector.util', () => ({
   },
 }));
 
-jest.mock('@/common/utils/pdf-parser.util', () => ({
-  extractTextFromPdf: jest.fn(),
-  extractTablesFromPdf: jest.fn(),
+vi.mock('@/common/utils/pdf-parser.util', () => ({
+  extractTextFromPdf: vi.fn(),
+  extractTablesFromPdf: vi.fn(),
 }));
 
 describe('GenericPdfParser', () => {
-  let aiAvailableSpy: jest.SpyInstance;
-
   beforeEach(() => {
-    jest.clearAllMocks();
-    aiAvailableSpy = jest
-      .spyOn(AiTransactionExtractor.prototype, 'isAvailable')
-      .mockReturnValue(false);
-  });
-
-  afterEach(() => {
-    aiAvailableSpy.mockRestore();
+    vi.clearAllMocks();
   });
 
   describe('canParse', () => {
@@ -47,8 +38,8 @@ describe('GenericPdfParser', () => {
       const parser = new GenericPdfParser();
       const text = ['Statement', 'Остаток на начало 0,00', 'Остаток на конец 500,00'].join('\n');
 
-      (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+      (extractTextFromPdf as Mock).mockResolvedValue(text);
+      (extractTablesFromPdf as Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 
@@ -68,8 +59,8 @@ describe('GenericPdfParser', () => {
         'Остаток на конец 500,00',
       ].join('\n');
 
-      (extractTextFromPdf as jest.Mock).mockResolvedValue(text);
-      (extractTablesFromPdf as jest.Mock).mockResolvedValue({ rows: [] });
+      (extractTextFromPdf as Mock).mockResolvedValue(text);
+      (extractTablesFromPdf as Mock).mockResolvedValue({ rowSets: [] });
 
       const result = await parser.parse('/tmp/mock.pdf');
 

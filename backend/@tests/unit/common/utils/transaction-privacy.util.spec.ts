@@ -24,6 +24,8 @@ const row = (overrides: Partial<Transaction> = {}): Transaction =>
     transactionDate: new Date('2026-12-14'),
     categoryId: 'cat-private',
     privateCategoryId: 'cat-gifts',
+    payeeId: 'payee-jeweller',
+    payee: { id: 'payee-jeweller', name: 'Jewellery shop' },
     ...overrides,
   }) as unknown as Transaction;
 
@@ -61,6 +63,9 @@ describe('redactPrivate', () => {
     expect(theirs.paymentPurpose).toBe(PRIVATE_PLACEHOLDER);
     expect(theirs.documentNumber).toBe(PRIVATE_PLACEHOLDER);
     expect(theirs.comments).toBe(PRIVATE_PLACEHOLDER);
+    // The payee names the shop as plainly as the descriptor.
+    expect(theirs.payeeId).toBeNull();
+    expect(theirs.payee).toBeNull();
   });
 
   it('keeps the money and the date, which the household’s totals are made of', () => {

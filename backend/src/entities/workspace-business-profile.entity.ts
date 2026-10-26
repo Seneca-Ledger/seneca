@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Workspace } from './workspace.entity';
@@ -26,7 +27,7 @@ export class WorkspaceBusinessProfile {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   /** The name the business trades under on its documents. */
   @Column({ name: 'legal_name', type: 'varchar', length: 255, nullable: true })
@@ -46,6 +47,24 @@ export class WorkspaceBusinessProfile {
 
   @Column({ name: 'country_code', type: 'varchar', length: 2, nullable: true })
   countryCode: string | null;
+
+  /** The address in parts, as an e-invoice (EN 16931) carries it; `addressLines` stays for print. */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  street: string | null;
+
+  @Column({ name: 'postal_code', type: 'varchar', length: 16, nullable: true })
+  postalCode: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  city: string | null;
+
+  /** The national tax number (Steuernummer), apart from the VAT id in `taxId`. */
+  @Column({ name: 'tax_number', type: 'varchar', length: 64, nullable: true })
+  taxNumber: string | null;
+
+  /** Who the buyer can ask about an invoice (XRechnung seller contact, BT-41). */
+  @Column({ name: 'contact_name', type: 'varchar', length: 255, nullable: true })
+  contactName: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   email: string | null;

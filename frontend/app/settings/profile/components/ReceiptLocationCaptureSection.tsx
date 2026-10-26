@@ -67,10 +67,20 @@ export function ReceiptLocationCaptureSection(): React.JSX.Element {
             }
             label={
               <Stack spacing={0.25}>
-                <Typography variant="body2" fontWeight={500}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                  }}
+                >
                   {t.toggleLabel.value}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {t.toggleHelp.value}
                 </Typography>
               </Stack>
@@ -88,10 +98,20 @@ export function ReceiptLocationCaptureSection(): React.JSX.Element {
             }
             label={
               <Stack spacing={0.25}>
-                <Typography variant="body2" fontWeight={500}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                  }}
+                >
                   {t.placePromptLabel.value}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {t.placePromptHelp.value}
                 </Typography>
               </Stack>

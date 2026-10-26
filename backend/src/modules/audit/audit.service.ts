@@ -4,7 +4,9 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, type Repository } from 'typeorm';
 import { getAuditActor } from '../../common/audit-actor.context';
+import { appError } from '../../common/errors/app-error';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import { ACCOUNT_KEYS, recordWithoutKeys } from '../../common/utils/sensitive-keys.util';
 import {
   ActorType,
   AuditAction,
@@ -33,6 +35,21 @@ import {
 
 const AUDIT_RETENTION_YEARS = 1;
 
+/**
+ * A before/after snapshot as the trail keeps it: entity rows come with their
+ * relations, and a joined account (Telegram ids, last login, token
+ * version) or a file's path and bytes are not what an audit reader may see.
+ * Rollback restores only the keys a snapshot has, so nothing it needs is lost.
+ */
+function snapshotForTrail(diff: AuditEventDiff | null | undefined): AuditEventDiff | null {
+  if (!diff) return null;
+  if (Array.isArray(diff)) return diff;
+  return {
+    before: diff.before === null ? null : recordWithoutKeys(diff.before, ACCOUNT_KEYS),
+    after: diff.after === null ? null : recordWithoutKeys(diff.after, ACCOUNT_KEYS),
+  };
+}
+
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
@@ -50,16 +67,18 @@ export class AuditService {
 
   async createEvent(dto: CreateAuditEventDto): Promise<AuditEvent> {
     if (!dto.entityId) {
-      throw new BadRequestException('Audit event requires entityId');
+      throw new BadRequestException(appError('AUDIT_ENTITY_ID_REQUIRED'));
     }
 
     if (dto.workspaceId) {
       const workspace = await this.workspaceRepository.findOne({
         where: { id: dto.workspaceId },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
       if (!workspace) {
-        throw new BadRequestException('Workspace not found for audit event');
+        throw new BadRequestException(appError('AUDIT_WORKSPACE_NOT_FOUND'));
       }
     }
 
@@ -96,7 +115,7 @@ export class AuditService {
       entityId: dto.entityId,
       action: dto.action,
       description,
-      diff: dto.diff ?? null,
+      diff: snapshotForTrail(dto.diff),
       meta,
       batchId: dto.batchId ?? null,
       severity: dto.severity ?? Severity.INFO,
@@ -228,7 +247,7 @@ export class AuditService {
     const event = await qb.getOne();
 
     if (workspaceId && event && event.workspaceId !== workspaceId) {
-      throw new BadRequestException('Audit event is outside workspace scope');
+      throw new BadRequestException(appError('AUDIT_EVENT_OUT_OF_SCOPE'));
     }
 
     return event;
@@ -266,20 +285,18 @@ export class AuditService {
   }
 
   async rollback(eventId: string, userId: string, workspaceId?: string): Promise<RollbackResult> {
-    const event = await this.auditEventRepository.findOne({
-      where: { id: eventId },
-    });
+    const event = await this.auditEventRepository.findOne({ where: { id: eventId } });
 
     if (!event) {
-      throw new NotFoundException('Audit event not found');
+      throw new NotFoundException(appError('AUDIT_EVENT_NOT_FOUND'));
     }
 
     if (workspaceId && event.workspaceId && event.workspaceId !== workspaceId) {
-      throw new BadRequestException('Audit event is outside workspace scope');
+      throw new BadRequestException(appError('AUDIT_EVENT_OUT_OF_SCOPE'));
     }
 
     if (!event.isUndoable) {
-      throw new BadRequestException('Audit event is not undoable');
+      throw new BadRequestException(appError('AUDIT_EVENT_NOT_UNDOABLE'));
     }
 
     const rollbackResult = await this.rollbackService.rollback(event);
@@ -322,7 +339,11 @@ export class AuditService {
     if (dto.actorType === ActorType.USER && dto.actorId) {
       const user = await this.userRepository.findOne({
         where: { id: dto.actorId },
-        select: ['id', 'email', 'name'],
+        select: {
+          id: true,
+          email: true,
+          name: true,
+        },
       });
       if (user?.email) {
         return user.email;

@@ -35,7 +35,7 @@ describe('BranchesService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -54,37 +54,38 @@ describe('BranchesService', () => {
     };
 
     it('should create a new branch', async () => {
-      jest.spyOn(branchRepository, 'create').mockReturnValue(mockBranch as Branch);
-      jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'create').mockReturnValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
-      const result = await service.create('ws-1', createDto);
+      const result = await service.create('ws-1', 'u1', createDto);
 
       expect(result).toEqual(mockBranch);
       expect(branchRepository.save).toHaveBeenCalled();
     });
 
     it('should set isActive to true by default', async () => {
-      const createSpy = jest
+      const createSpy = vi
         .spyOn(branchRepository, 'create')
         .mockReturnValue(mockBranch as Branch);
-      jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
-      await service.create('ws-1', createDto);
+      await service.create('ws-1', 'u1', createDto);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           isActive: true,
+          userId: 'u1',
         }),
       );
     });
 
     it('should associate branch with workspace', async () => {
-      const createSpy = jest
+      const createSpy = vi
         .spyOn(branchRepository, 'create')
         .mockReturnValue(mockBranch as Branch);
-      jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
-      await service.create('ws-1', createDto);
+      await service.create('ws-1', 'u1', createDto);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -94,12 +95,12 @@ describe('BranchesService', () => {
     });
 
     it('should store location information', async () => {
-      const createSpy = jest
+      const createSpy = vi
         .spyOn(branchRepository, 'create')
         .mockReturnValue(mockBranch as Branch);
-      jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
-      await service.create('ws-1', createDto);
+      await service.create('ws-1', 'u1', createDto);
 
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -112,7 +113,7 @@ describe('BranchesService', () => {
   describe('findAll', () => {
     it('should return all branches for workspace', async () => {
       const branches = [mockBranch, { ...mockBranch, id: 'branch-2' }];
-      jest.spyOn(branchRepository, 'find').mockResolvedValue(branches as Branch[]);
+      vi.spyOn(branchRepository, 'find').mockResolvedValue(branches as Branch[]);
 
       const result = await service.findAll('ws-1');
 
@@ -125,7 +126,7 @@ describe('BranchesService', () => {
     });
 
     it('should order branches by name', async () => {
-      const findSpy = jest
+      const findSpy = vi
         .spyOn(branchRepository, 'find')
         .mockResolvedValue([mockBranch] as Branch[]);
 
@@ -139,7 +140,7 @@ describe('BranchesService', () => {
     });
 
     it('should return empty array if no branches', async () => {
-      jest.spyOn(branchRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(branchRepository, 'find').mockResolvedValue([]);
 
       const result = await service.findAll('ws-1');
 
@@ -148,7 +149,7 @@ describe('BranchesService', () => {
 
     it('should include inactive branches', async () => {
       const inactiveBranch = { ...mockBranch, isActive: false };
-      jest.spyOn(branchRepository, 'find').mockResolvedValue([inactiveBranch] as Branch[]);
+      vi.spyOn(branchRepository, 'find').mockResolvedValue([inactiveBranch] as Branch[]);
 
       const result = await service.findAll('ws-1');
 
@@ -158,7 +159,7 @@ describe('BranchesService', () => {
 
   describe('findOne', () => {
     it('should return branch by id', async () => {
-      jest.spyOn(branchRepository, 'findOne').mockResolvedValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'findOne').mockResolvedValue(mockBranch as Branch);
 
       const result = await service.findOne('branch-1', 'ws-1');
 
@@ -166,13 +167,13 @@ describe('BranchesService', () => {
     });
 
     it('should throw NotFoundException if not found', async () => {
-      jest.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.findOne('invalid', 'ws-1')).rejects.toThrow(NotFoundException);
     });
 
     it('should verify workspace ownership', async () => {
-      const findOneSpy = jest
+      const findOneSpy = vi
         .spyOn(branchRepository, 'findOne')
         .mockResolvedValue(mockBranch as Branch);
 
@@ -186,7 +187,7 @@ describe('BranchesService', () => {
     });
 
     it('should not return other workspace branches', async () => {
-      jest.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.findOne('branch-1', 'ws-999')).rejects.toThrow(NotFoundException);
     });
@@ -199,11 +200,11 @@ describe('BranchesService', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(branchRepository, 'findOne').mockResolvedValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'findOne').mockResolvedValue(mockBranch as Branch);
     });
 
     it('should update branch', async () => {
-      jest.spyOn(branchRepository, 'save').mockResolvedValue({
+      vi.spyOn(branchRepository, 'save').mockResolvedValue({
         ...mockBranch,
         ...updateDto,
       } as Branch);
@@ -215,13 +216,13 @@ describe('BranchesService', () => {
     });
 
     it('should throw NotFoundException if branch not found', async () => {
-      jest.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.update('invalid', 'ws-1', updateDto)).rejects.toThrow(NotFoundException);
     });
 
     it('should preserve workspaceId on update', async () => {
-      const saveSpy = jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
+      const saveSpy = vi.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
       await service.update('branch-1', 'ws-1', updateDto);
 
@@ -231,7 +232,7 @@ describe('BranchesService', () => {
 
     it('should allow partial updates', async () => {
       const partialUpdate = { name: 'New Name Only' };
-      jest.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'save').mockResolvedValue(mockBranch as Branch);
 
       await service.update('branch-1', 'ws-1', partialUpdate);
 
@@ -240,7 +241,7 @@ describe('BranchesService', () => {
 
     it('should allow toggling isActive status', async () => {
       const toggleDto = { isActive: false };
-      jest.spyOn(branchRepository, 'save').mockResolvedValue({
+      vi.spyOn(branchRepository, 'save').mockResolvedValue({
         ...mockBranch,
         isActive: false,
       } as Branch);
@@ -253,11 +254,11 @@ describe('BranchesService', () => {
 
   describe('remove', () => {
     beforeEach(() => {
-      jest.spyOn(branchRepository, 'findOne').mockResolvedValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'findOne').mockResolvedValue(mockBranch as Branch);
     });
 
     it('should delete branch', async () => {
-      const removeSpy = jest
+      const removeSpy = vi
         .spyOn(branchRepository, 'remove')
         .mockResolvedValue(mockBranch as Branch);
 
@@ -267,20 +268,20 @@ describe('BranchesService', () => {
     });
 
     it('should throw NotFoundException if branch not found', async () => {
-      jest.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.remove('invalid', 'ws-1')).rejects.toThrow(NotFoundException);
     });
 
     it('should verify workspace ownership before delete', async () => {
-      jest.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.remove('branch-1', 'ws-999')).rejects.toThrow(NotFoundException);
     });
 
     it('should handle branches with transactions', async () => {
       // Should prevent deletion or cascade
-      jest.spyOn(branchRepository, 'remove').mockResolvedValue(mockBranch as Branch);
+      vi.spyOn(branchRepository, 'remove').mockResolvedValue(mockBranch as Branch);
 
       await service.remove('branch-1', 'ws-1');
 

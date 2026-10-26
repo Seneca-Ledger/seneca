@@ -1,3 +1,4 @@
+import { isSourceFieldWritable } from '@/app/lib/contracts/custom-tables/source-fields';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { formatCellNumber } from '../../utils/numberFormat';
 import { findOption, normalizeSelectOptions } from '../../utils/selectOptions';
@@ -74,7 +75,8 @@ function formatTypedCellText(
       const n = asNumber(value);
       return n === null || Number.isNaN(n)
         ? EMPTY_CELL
-        : formatCellNumber(n, numberFormatFor(column, fallbackCurrency));
+        : // A typographic minus, not a hyphen: the same width as the plus.
+          formatCellNumber(n, numberFormatFor(column, fallbackCurrency)).replace('-', '−');
     }
     case 'date':
       return typeof value === 'string' && value && !Number.isNaN(new Date(value).getTime())
@@ -113,3 +115,38 @@ export const isNumericColumn = (column: CustomTableColumn): boolean =>
 
 export const isEditableColumn = (column: CustomTableColumn): boolean =>
   column.type !== 'formula' && column.type !== 'relation' && column.type !== 'ai';
+
+const sourceField = (column: CustomTableColumn): unknown =>
+  (column.config?.source as { field?: unknown } | undefined)?.field;
+
+/**
+ * A text column holding ISO currency codes. Tables filled from Seneca data tag
+ * it on creation (`config.source.field`, set by the backend for app and
+ * data-entry sources), so it gets the app's currency drawer instead of free text.
+ */
+export const isCurrencyCodeColumn = (column: CustomTableColumn): boolean =>
+  column.type === 'text' && sourceField(column) === 'currency';
+
+/** A text column holding category names, tagged the same way; it gets the category drawer. */
+export const isCategoryColumn = (column: CustomTableColumn): boolean =>
+  column.type === 'text' && sourceField(column) === 'category';
+
+/**
+ * A cell that shows an app record field the app keeps itself (a statement's
+ * file name, an invoice total): the table can't change it. Only on rows that
+ * came from a record — rows added by hand are plain table cells.
+ */
+export const isReadOnlySourceCell = (
+  column: CustomTableColumn,
+  row: CustomTableGridRow,
+  sourceKind: string | null | undefined,
+): boolean => {
+  const field = sourceField(column);
+  const source = column.config?.source as { kind?: unknown } | undefined;
+  return (
+    Boolean(sourceKind && row.sourceKey) &&
+    source?.kind === 'app_field' &&
+    typeof field === 'string' &&
+    !isSourceFieldWritable(sourceKind as string, field)
+  );
+};

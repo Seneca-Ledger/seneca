@@ -4,19 +4,19 @@
    Cards and KPI tiles live in _dashboard.scss under the same block. */
 
 /* ── Chips ── */
-.lumio-chip {
+.seneca-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 32px;
   padding: 0 14px;
-  border-radius: $lumio-radius-full;
-  border: 1px solid $lumio-color-ink-150;
-  background: $lumio-color-surface;
-  color: $lumio-color-ink-700;
+  border-radius: $seneca-radius-full;
+  border: 1px solid $seneca-color-ink-150;
+  background: $seneca-color-surface;
+  color: $seneca-color-ink-700;
   font-family: inherit;
   font-size: 13px;
-  font-weight: $lumio-font-weight-medium;
+  font-weight: $seneca-font-weight-medium;
   line-height: 1;
   white-space: nowrap;
   text-decoration: none;
@@ -25,18 +25,18 @@
   transition: background-color 120ms, border-color 120ms, color 120ms;
 
   @include dark {
-    border-color: $lumio-color-ink-150-dk;
-    background: $lumio-color-surface-dk;
-    color: $lumio-color-ink-700-dk;
+    border-color: $seneca-color-ink-150-dk;
+    background: $seneca-color-surface-dk;
+    color: $seneca-color-ink-700-dk;
   }
 
-  &:hover:not(:disabled):not(.lumio-chip--active) {
-    background: $lumio-color-ink-50;
-    border-color: $lumio-color-ink-200;
+  &:hover:not(:disabled):not(.seneca-chip--active) {
+    background: $seneca-color-ink-50;
+    border-color: $seneca-color-ink-200;
 
     @include dark {
-      background: $lumio-color-ink-50-dk;
-      border-color: $lumio-color-ink-200-dk;
+      background: $seneca-color-ink-50-dk;
+      border-color: $seneca-color-ink-200-dk;
     }
   }
 
@@ -45,7 +45,7 @@
     outline-offset: 2px;
 
     @include dark {
-      outline-color: $lumio-color-primary-dk;
+      outline-color: $seneca-color-primary-dk;
     }
   }
 
@@ -56,12 +56,12 @@
   &--active {
     background: var(--primary-fill);
     border-color: var(--primary-fill);
-    color: $lumio-color-primary-contrast;
+    color: $seneca-color-primary-contrast;
 
     @include dark {
-      background: $lumio-color-primary-fill-dk;
-      border-color: $lumio-color-primary-fill-dk;
-      color: $lumio-color-primary-contrast;
+      background: $seneca-color-primary-fill-dk;
+      border-color: $seneca-color-primary-fill-dk;
+      color: $seneca-color-primary-contrast;
     }
   }
 
@@ -76,55 +76,55 @@
   }
 
   &--tone-success {
-    background: $lumio-color-success-soft;
+    background: $seneca-color-success-soft;
     border-color: transparent;
-    color: $lumio-color-success;
+    color: $seneca-color-success;
 
     @include dark {
-      background: $lumio-color-success-soft-dk;
-      color: $lumio-color-success-dk;
+      background: $seneca-color-success-soft-dk;
+      color: $seneca-color-success-dk;
     }
   }
 
   &--tone-warning {
-    background: $lumio-color-warning-soft;
+    background: $seneca-color-warning-soft;
     border-color: transparent;
-    color: $lumio-color-warning;
+    color: $seneca-color-warning;
 
     @include dark {
-      background: $lumio-color-warning-soft-dk;
-      color: $lumio-color-warning-dk;
+      background: $seneca-color-warning-soft-dk;
+      color: $seneca-color-warning-dk;
     }
   }
 
   &--tone-danger {
-    background: $lumio-color-danger-soft;
+    background: $seneca-color-danger-soft;
     border-color: transparent;
-    color: $lumio-color-danger;
+    color: $seneca-color-danger;
 
     @include dark {
-      background: $lumio-color-danger-soft-dk;
-      color: $lumio-color-danger-dk;
+      background: $seneca-color-danger-soft-dk;
+      color: $seneca-color-danger-dk;
     }
   }
 
   &--tone-info {
-    background: $lumio-color-info-soft;
+    background: $seneca-color-info-soft;
     border-color: transparent;
-    color: $lumio-color-info;
+    color: $seneca-color-info;
 
     @include dark {
-      background: $lumio-color-info-soft-dk;
-      color: $lumio-color-info-dk;
+      background: $seneca-color-info-soft-dk;
+      color: $seneca-color-info-dk;
     }
   }
 
   &__count {
-    color: $lumio-color-ink-500;
-    font-weight: $lumio-font-weight-regular;
+    color: $seneca-color-ink-500;
+    font-weight: $seneca-font-weight-regular;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -134,7 +134,7 @@
   }
 }
 
-.lumio-chip-group {
+.seneca-chip-group {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -160,7 +160,7 @@
 }
 
 /* ── List rows & section headers (dashboard block) ── */
-.lumio-dashboard {
+.seneca-dashboard {
   &__row {
     display: flex;
     align-items: center;
@@ -170,10 +170,10 @@
     text-decoration: none;
 
     & + & {
-      border-top: 1px solid $lumio-color-ink-150;
+      border-top: 1px solid $seneca-color-ink-150;
 
       @include dark {
-        border-top-color: $lumio-color-ink-150-dk;
+        border-top-color: $seneca-color-ink-150-dk;
       }
     }
 
@@ -189,11 +189,11 @@
       cursor: pointer;
       transition: color 120ms;
 
-      &:hover .lumio-dashboard__row-primary {
+      &:hover .seneca-dashboard__row-primary {
         color: var(--primary);
 
         @include dark {
-          color: $lumio-color-primary-dk;
+          color: $seneca-color-primary-dk;
         }
       }
     }
@@ -212,27 +212,27 @@
 
   &__row-primary {
     font-size: 14px;
-    font-weight: $lumio-font-weight-medium;
-    color: $lumio-color-ink-900;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-ink-900;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
   &__row-secondary {
     font-size: 12px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     margin-top: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -242,37 +242,37 @@
     align-items: center;
     gap: 8px;
     font-size: 14px;
-    font-weight: $lumio-font-weight-semibold;
-    color: $lumio-color-ink-900;
+    font-weight: $seneca-font-weight-semibold;
+    color: $seneca-color-ink-900;
     font-variant-numeric: tabular-nums;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 
   &__amount--positive {
-    color: $lumio-color-success;
+    color: $seneca-color-money-up;
 
     @include dark {
-      color: $lumio-color-success-dk;
+      color: $seneca-color-success-dk;
     }
   }
 
   &__amount--negative {
-    color: $lumio-color-danger;
+    color: $seneca-color-money-down;
 
     @include dark {
-      color: $lumio-color-danger-dk;
+      color: $seneca-color-danger-dk;
     }
   }
 
   &__muted {
-    color: $lumio-color-ink-500;
-    font-weight: $lumio-font-weight-regular;
+    color: $seneca-color-ink-500;
+    font-weight: $seneca-font-weight-regular;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -287,23 +287,23 @@
   &__section-title {
     margin: 0;
     font-size: 11.5px;
-    font-weight: $lumio-font-weight-semibold;
+    font-weight: $seneca-font-weight-semibold;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
   &__section-sub {
     margin: 4px 0 0;
     font-size: 12.5px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -318,15 +318,121 @@
   &__card-empty {
     display: flex;
     flex: 1;
+    flex-direction: column;
+    gap: 10px;
     align-items: center;
     justify-content: center;
-    min-height: 120px;
+    min-height: 160px;
+    padding: 16px;
     font-size: 13px;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     text-align: center;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
+
+    /* Inside a chart's box: as tall as the chart it stands in for. */
+    &--fill {
+      height: 100%;
+      min-height: 0;
+    }
+  }
+
+  &__card-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--muted);
+    color: var(--muted-foreground);
+
+    /* The whole Overview with nothing imported yet. */
+    &--lg {
+      width: 96px;
+      height: 96px;
+    }
+  }
+
+  &__card-empty-text {
+    max-width: 320px;
+    margin: 0;
+    line-height: 1.5;
+  }
+}
+
+// Advice page: one list with hairlines instead of a stack of framed cards.
+.seneca-advice {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: $seneca-radius-md;
+  border: 1px solid $seneca-color-hairline;
+  background: var(--card-bg);
+
+  @include dark {
+    border-color: $seneca-color-border-dk;
+  }
+
+  &__row {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+
+    & + & {
+      border-top: 1px solid $seneca-color-hairline;
+
+      @include dark {
+        border-top-color: $seneca-color-border-dk;
+      }
+    }
+  }
+
+  &__main {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: flex-start !important;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+    padding: 16px 48px 16px 16px !important;
+    text-align: left;
+    color: inherit;
+    border-radius: $seneca-radius-md;
+  }
+
+  &__arrow {
+    flex-shrink: 0;
+    margin-top: 3px;
+    color: var(--muted-foreground);
+  }
+
+  // The ochre dot of a line that asks for something.
+  &__dot {
+    width: 7px;
+    height: 7px;
+    margin-top: 6px;
+    border-radius: 50%;
+    background: $seneca-color-attention;
+
+    @include dark {
+      background: $seneca-color-warning-dk;
+    }
+  }
+
+  // Dismiss shows on the line under the pointer or the keyboard, not on every line.
+  &__dismiss {
+    position: absolute !important;
+    top: 12px;
+    right: 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  &__row:hover &__dismiss,
+  &__row:focus-within &__dismiss {
+    opacity: 1;
   }
 }

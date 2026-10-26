@@ -3,11 +3,11 @@ import { OperationalAnalyzer } from '@/modules/insights/analyzers/operational.an
 
 function createCountQueryBuilder(count: number) {
   const builder = {
-    innerJoin: jest.fn().mockReturnThis(),
-    leftJoin: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getCount: jest.fn().mockResolvedValue(count),
+    innerJoin: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getCount: vi.fn().mockResolvedValue(count),
   };
 
   return builder;
@@ -15,13 +15,13 @@ function createCountQueryBuilder(count: number) {
 
 describe('OperationalAnalyzer', () => {
   const transactionRepository = {
-    createQueryBuilder: jest.fn(),
+    createQueryBuilder: vi.fn(),
   } as any;
 
   let analyzer: OperationalAnalyzer;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     analyzer = new OperationalAnalyzer(transactionRepository);
   });
 
@@ -45,6 +45,22 @@ describe('OperationalAnalyzer', () => {
     expect(results.map(item => 'messageParams' in item && item.messageParams.count)).toEqual([
       64, 12, 3,
     ]);
+  });
+
+  it("counts with the Review queue's own queries, so the number matches what Review lists", async () => {
+    const builders = [64, 12, 3].map(createCountQueryBuilder);
+    for (const builder of builders) {
+      transactionRepository.createQueryBuilder.mockReturnValueOnce(builder);
+    }
+
+    await analyzer.analyze({ userId: 'user-1', workspaceId: 'workspace-1' });
+
+    // Rows of a trashed statement are not waiting for anyone (unconfirmed, duplicates)…
+    for (const builder of [builders[0], builders[2]]) {
+      expect(builder.andWhere).toHaveBeenCalledWith('(t.statementId IS NULL OR s.deletedAt IS NULL)');
+    }
+    // …and a transfer has no category to give (uncategorized).
+    expect(builders[1].andWhere).toHaveBeenCalledWith('t.transferPairId IS NULL');
   });
 
   it('returns no candidates when counts do not pass thresholds', async () => {

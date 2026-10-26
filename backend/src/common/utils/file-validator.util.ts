@@ -6,7 +6,8 @@ import {
   sniffStatementFormat,
   type TextStatementFormat,
 } from '../../modules/parsing/parsers/statement-formats.util';
-import { resolveUploadsDir } from './uploads.util';
+import { appError } from '../errors/app-error';
+import { resolveUploadsDir, resolveInUploadsDir as resolveUploadsPath } from './uploads.util';
 
 // Multer's diskStorage (see config/multer.config.ts) always writes to this
 // directory under a server-generated random filename — file.path is never
@@ -14,18 +15,10 @@ import { resolveUploadsDir } from './uploads.util';
 // in depth against that invariant ever being violated, and makes the
 // filesystem calls below auditable as bounded rather than taking an
 // Express.Multer.File's path on faith.
-const uploadsRoot = resolveUploadsDir();
+const uploadsRoot = path.resolve(resolveUploadsDir());
 
-/**
- * The path resolved, or NULL when it falls outside the uploads directory. Callers
- * repeat the prefix check next to the filesystem call so the bound is visible there.
- */
-function resolveInUploadsDir(candidatePath: string): string | null {
-  const resolved = path.resolve(candidatePath);
-  return resolved === uploadsRoot || resolved.startsWith(`${uploadsRoot}${path.sep}`)
-    ? resolved
-    : null;
-}
+const resolveInUploadsDir = (candidatePath: string): string | null =>
+  resolveUploadsPath(candidatePath, uploadsRoot);
 
 enum AllowedFileType {
   // Interchange formats arrive under loose MIME types; they are admitted only
@@ -218,27 +211,44 @@ export function resolveFileType(file: {
   return textStatementFormatOf(file) ?? byMime;
 }
 
-export function validateFile(file: Express.Multer.File): void {
+/**
+ * Whether an uploaded XML file is a structured e-invoice: an EN 16931
+ * invoice in UBL (Invoice, CreditNote) or CII (CrossIndustryInvoice).
+ */
+export function isEInvoiceXml(file: { path?: string | null }): boolean {
+  const sample = file.path ? readTextSample(file.path) : null;
+  return (
+    sample !== null &&
+    /<(?:[\w-]+:)?(?:Invoice|CreditNote|CrossIndustryInvoice)[\s>]/.test(
+      // Past the declaration and any comments in front of the root element.
+      sample.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->/g, ''),
+    )
+  );
+}
+
+export function validateFile(
+  file: Express.Multer.File,
+  options: { allowEInvoiceXml?: boolean } = {},
+): void {
   if (!file) {
-    throw new BadRequestException('No file provided');
+    throw new BadRequestException(appError('FILE_NOT_PROVIDED'));
   }
 
   if (file.size > MAX_FILE_SIZE) {
     throw new BadRequestException(
-      `File size exceeds maximum allowed size of ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+      appError('FILE_SIZE_EXCEEDED', { limit: MAX_FILE_SIZE / 1024 / 1024 }),
     );
   }
 
   const allowedTypes = Object.values(AllowedFileType);
   if (!allowedTypes.includes(file.mimetype as AllowedFileType)) {
     throw new BadRequestException(
-      `File type ${file.mimetype} is not allowed. Allowed types: PDF, XLSX, XLS, CSV, DOCX, OFX, QIF, camt.053, MT940, JPG, PNG, TIFF, BMP, WEBP`,
+      appError('FILE_TYPE_NOT_ALLOWED_LIST', { mimetype: file.mimetype }),
     );
   }
-  if (LOOSE_TEXT_MIMES.has(file.mimetype) && !textStatementFormatOf(file)) {
-    throw new BadRequestException(
-      'File content is not a recognised statement format (OFX/QFX, QIF, camt.053 or MT940)',
-    );
+  const isEInvoice = options.allowEInvoiceXml === true && isEInvoiceXml(file);
+  if (LOOSE_TEXT_MIMES.has(file.mimetype) && !isEInvoice && !textStatementFormatOf(file)) {
+    throw new BadRequestException(appError('FILE_STATEMENT_FORMAT_UNRECOGNISED'));
   }
 
   const checkSignature = isCsvDeclaredAsExcel(file)
@@ -248,9 +258,30 @@ export function validateFile(file: Express.Multer.File): void {
     const signature = readSignature(file.path);
     if (signature && !checkSignature(signature)) {
       throw new BadRequestException(
-        `File content does not match its declared type (${file.mimetype})`,
+        appError('FILE_SIGNATURE_MISMATCH', { mimetype: file.mimetype }),
       );
     }
+  }
+}
+
+/** What a receipt may be: a photo or scan, a PDF, or a structured e-invoice. */
+const SUPPORTED_RECEIPT_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/bmp',
+  'image/tiff',
+  'application/pdf',
+  // A structured e-invoice (XRechnung) sent as the XML itself.
+  'application/xml',
+  'text/xml',
+]);
+
+/** Refuses a receipt upload that is not an image, a PDF or an e-invoice XML. */
+export function assertReceiptFileSupported(file: Express.Multer.File): void {
+  const isXml = file.mimetype === 'application/xml' || file.mimetype === 'text/xml';
+  if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype) || (isXml && !isEInvoiceXml(file))) {
+    throw new BadRequestException(appError('FILE_RECEIPT_TYPE_UNSUPPORTED'));
   }
 }
 
@@ -281,7 +312,7 @@ const AVATAR_MAGIC_BYTES: ReadonlyMap<string, (buf: Buffer) => boolean> = new Ma
 export function validateImageSignature(file: Express.Multer.File): void {
   const checkSignature = AVATAR_MAGIC_BYTES.get(file.mimetype);
   if (typeof checkSignature !== 'function') {
-    throw new BadRequestException(`File type ${file.mimetype} is not allowed`);
+    throw new BadRequestException(appError('FILE_TYPE_NOT_ALLOWED', { mimetype: file.mimetype }));
   }
 
   if (!file.path) {
@@ -290,9 +321,7 @@ export function validateImageSignature(file: Express.Multer.File): void {
 
   const signature = readSignature(file.path);
   if (signature && !checkSignature(signature)) {
-    throw new BadRequestException(
-      `File content does not match its declared type (${file.mimetype})`,
-    );
+    throw new BadRequestException(appError('FILE_SIGNATURE_MISMATCH', { mimetype: file.mimetype }));
   }
 }
 

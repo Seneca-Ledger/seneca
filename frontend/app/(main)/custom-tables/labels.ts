@@ -15,7 +15,8 @@ export interface ListLabels {
     | 'newTable'
     | 'open'
     | 'delete'
-    | 'search'
+    | 'searchHint'
+    | 'apply'
     | 'sourceAll'
     | 'sourceManual'
     | 'caption'
@@ -108,6 +109,13 @@ const sourcePanelLabels = (t: Dictionary): SourceFilterPanelLabels => ({
     'empty',
     'overwriteNote',
     'failed',
+    'countOf',
+    'sample',
+    'resetFilters',
+    'sourceLine',
+    'allTime',
+    'existing',
+    'openExisting',
   ]),
 });
 
@@ -129,7 +137,8 @@ export function buildListLabels(t: Dictionary): ListLabels {
       'newTable',
       'open',
       'delete',
-      'search',
+      'searchHint',
+      'apply',
       'sourceAll',
       'sourceManual',
       'caption',
@@ -170,6 +179,8 @@ export function buildListLabels(t: Dictionary): ListLabels {
       columnTitles: allColumnTitles,
       groupTemplates: t.createFromSource.groupTemplates.value,
       groupSources: t.createFromSource.groupSources.value,
+      sourcesHint: t.createFromSource.sourcesHint.value,
+      nameTaken: t.createFromSource.nameTaken.value,
       sources: sourceLabels(t),
       sourceColumnTitles: allColumnTitles,
       sourcePanel: sourcePanelLabels(t),

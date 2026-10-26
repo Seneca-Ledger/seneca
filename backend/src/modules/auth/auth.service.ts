@@ -13,10 +13,12 @@ import * as bcrypt from 'bcrypt';
 import { createHmac, randomUUID } from 'crypto';
 import type { StringValue } from 'ms';
 import { IsNull, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { DEV_DEFAULTS } from '../../common/utils/dev-defaults';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { requireSecret } from '../../common/utils/required-secret.util';
+import type { LoginBody, RegisterBody } from '../../contracts';
 import {
   AuthSession,
   User,
@@ -31,8 +33,6 @@ import { AuditAction, EntityType, Severity } from '../../entities/audit-event.en
 import { AuditService } from '../audit/audit.service';
 import { CategoriesService } from '../categories/categories.service';
 import type { AuthResponseDto, LoginResultDto } from './dto/auth-response.dto';
-import type { LoginDto } from './dto/login.dto';
-import type { RegisterDto } from './dto/register.dto';
 import { recordSecurityEvent } from './security-audit.util';
 import type { JwtPayload } from './strategies/jwt.strategy';
 import type { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
@@ -100,7 +100,15 @@ export class AuthService {
     const email = DEV_DEFAULTS.ADMIN_EMAIL;
     const existing = await this.userRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'passwordHash', 'role', 'isActive', 'name', 'workspaceId'],
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        role: true,
+        isActive: true,
+        name: true,
+        workspaceId: true,
+      },
     });
 
     const passwordHash = await hashPassword(DEV_DEFAULTS.ADMIN_PASSWORD);
@@ -146,7 +154,9 @@ export class AuthService {
     if (workspaceId) {
       const workspace = await this.workspaceRepository.findOne({
         where: { id: workspaceId },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
       if (!workspace) {
         workspaceId = null;
@@ -174,7 +184,9 @@ export class AuthService {
 
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId: user.id },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
     if (!membership) {
@@ -188,7 +200,7 @@ export class AuthService {
   }
 
   async register(
-    registerDto: RegisterDto,
+    registerDto: RegisterBody,
     sessionContext?: SessionContext,
   ): Promise<AuthResponseDto> {
     const normalizedEmail = registerDto.email.trim().toLowerCase();
@@ -196,12 +208,10 @@ export class AuthService {
 
     await this.validateInvitationForEmail(invitationToken, normalizedEmail);
 
-    const existingUser = await this.userRepository.findOne({
-      where: { email: normalizedEmail },
-    });
+    const existingUser = await this.userRepository.findOne({ where: { email: normalizedEmail } });
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException(appError('AUTH_EMAIL_TAKEN'));
     }
 
     const passwordHash = await hashPassword(registerDto.password);
@@ -233,41 +243,42 @@ export class AuthService {
     return this.generateTokens(savedUser, sessionContext);
   }
 
-  async login(loginDto: LoginDto, sessionContext?: SessionContext): Promise<LoginResultDto> {
+  async login(loginDto: LoginBody, sessionContext?: SessionContext): Promise<LoginResultDto> {
     const normalizedEmail = loginDto.email.trim().toLowerCase();
     const user = await this.userRepository.findOne({
       where: { email: normalizedEmail },
-      select: [
-        'id',
-        'email',
-        'passwordHash',
-        'name',
-        'role',
-        'workspaceId',
-        'locale',
-        'timeZone',
-        'themePreference',
-        'mapStylePreference',
-        'onboardingCompletedAt',
-        'avatarUrl',
-        'isActive',
-        'tokenVersion',
-        'twoFactorEnabledAt',
-      ],
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        name: true,
+        role: true,
+        workspaceId: true,
+        lastWorkspaceId: true,
+        locale: true,
+        timeZone: true,
+        themePreference: true,
+        mapStylePreference: true,
+        onboardingCompletedAt: true,
+        avatarUrl: true,
+        isActive: true,
+        tokenVersion: true,
+        twoFactorEnabledAt: true,
+      },
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(appError('AUTH_INVALID_CREDENTIALS'));
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('User account is inactive');
+      throw new UnauthorizedException(appError('AUTH_ACCOUNT_INACTIVE'));
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(appError('AUTH_INVALID_CREDENTIALS'));
     }
 
     if (user.twoFactorEnabledAt) {
@@ -293,21 +304,21 @@ export class AuthService {
     });
 
     if (!invitation) {
-      throw new BadRequestException('Invitation not found or already used');
+      throw new BadRequestException(appError('INVITATION_NOT_FOUND_OR_USED'));
     }
 
     if (invitation.status !== WorkspaceInvitationStatus.PENDING) {
-      throw new BadRequestException('Invitation is not pending');
+      throw new BadRequestException(appError('AUTH_INVITATION_NOT_PENDING'));
     }
 
     if (invitation.expiresAt && invitation.expiresAt.getTime() < Date.now()) {
       invitation.status = WorkspaceInvitationStatus.EXPIRED;
       await this.workspaceInvitationRepository.save(invitation);
-      throw new BadRequestException('Invitation has expired');
+      throw new BadRequestException(appError('INVITATION_EXPIRED'));
     }
 
     if (invitation.email.trim().toLowerCase() !== email) {
-      throw new BadRequestException('Email does not match invitation');
+      throw new BadRequestException(appError('AUTH_INVITATION_EMAIL_MISMATCH'));
     }
 
     return invitation;
@@ -347,7 +358,7 @@ export class AuthService {
       });
 
       if (payload.type !== 'refresh') {
-        throw new UnauthorizedException('Invalid token type');
+        throw new UnauthorizedException(appError('AUTH_TOKEN_TYPE_INVALID'));
       }
 
       const user = await this.userRepository.findOne({
@@ -355,16 +366,16 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new UnauthorizedException('User not found or inactive');
+        throw new UnauthorizedException(appError('AUTH_USER_NOT_FOUND_OR_INACTIVE'));
       }
 
       const tokenVersion = payload.tokenVersion ?? 0;
       if ((user.tokenVersion ?? 0) !== tokenVersion) {
-        throw new UnauthorizedException('Token has been revoked');
+        throw new UnauthorizedException(appError('AUTH_TOKEN_REVOKED'));
       }
 
       if (!payload.sessionId) {
-        throw new UnauthorizedException('Session is missing');
+        throw new UnauthorizedException(appError('AUTH_SESSION_MISSING'));
       }
 
       const session = await this.authSessionRepository.findOne({
@@ -376,12 +387,12 @@ export class AuthService {
       });
 
       if (!session) {
-        throw new UnauthorizedException('Session is not active');
+        throw new UnauthorizedException(appError('AUTH_SESSION_NOT_ACTIVE'));
       }
 
       const refreshTokenHash = this.hashRefreshToken(refreshToken);
       if (session.refreshTokenHash !== refreshTokenHash) {
-        throw new UnauthorizedException('Refresh token does not match session');
+        throw new UnauthorizedException(appError('AUTH_REFRESH_TOKEN_MISMATCH'));
       }
 
       const parsedDevice = this.parseUserAgent(
@@ -437,7 +448,7 @@ export class AuthService {
 
       return { access_token: accessToken, refresh_token: newRefreshToken };
     } catch (_error) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException(appError('AUTH_REFRESH_TOKEN_INVALID'));
     }
   }
 
@@ -510,7 +521,7 @@ export class AuthService {
     );
 
     if (!result.affected) {
-      throw new NotFoundException('Session not found');
+      throw new NotFoundException(appError('AUTH_SESSION_NOT_FOUND'));
     }
 
     await this.recordSessionRevocation(userId, { sessions: 'revoked', sessionId });
@@ -523,7 +534,13 @@ export class AuthService {
   ): Promise<void> {
     // The sessions are already revoked; a failed lookup must not undo that answer.
     const user = await this.userRepository
-      .findOne({ where: { id: userId }, select: ['id', 'workspaceId'] })
+      .findOne({
+        where: { id: userId },
+        select: {
+          id: true,
+          workspaceId: true,
+        },
+      })
       .catch(() => null);
     await recordSecurityEvent(this.auditService, this.logger, {
       workspaceId: user?.workspaceId,
@@ -595,6 +612,9 @@ export class AuthService {
         name: user.name,
         role: user.role,
         workspaceId: user.workspaceId || null,
+        // The workspace open at the last switch: the client reopens it after
+        // login when the user still belongs to it, and the home one otherwise.
+        lastWorkspaceId: user.lastWorkspaceId ?? null,
         locale: user.locale,
         timeZone: user.timeZone ?? null,
         themePreference: user.themePreference,

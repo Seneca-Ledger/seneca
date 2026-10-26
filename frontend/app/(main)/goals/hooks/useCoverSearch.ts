@@ -2,7 +2,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
-import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface CoverSearchResult {
   id: string;
@@ -13,12 +13,6 @@ export interface CoverSearchResult {
   /** The credit line Openverse composes; shown verbatim, never recomposed here. */
   attribution: string;
   sourceUrl: string | null;
-}
-
-interface CoverSearchPage {
-  results: CoverSearchResult[];
-  page: number;
-  hasMore: boolean;
 }
 
 interface UseCoverSearchState {
@@ -42,10 +36,11 @@ export function useCoverSearch(): UseCoverSearchState {
 
   const mutation = useMutation({
     mutationFn: async (term: string) => {
-      const response = await apiClient.get<CoverSearchPage>('/goals/covers/search', {
-        params: { q: term },
+      return apiQueryDecoded({
+        url: '/goals/covers/search',
+        params: { q: term } satisfies ContractInput<'SearchCoversQuery'>,
+        contract: 'GoalCoverSearchPage',
       });
-      return response.data;
     },
     onSuccess: page => {
       setResults(page.results);

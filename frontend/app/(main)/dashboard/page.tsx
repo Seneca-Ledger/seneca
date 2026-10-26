@@ -3,18 +3,12 @@
 import Box from '@mui/material/Box';
 import type React from 'react';
 import { Suspense } from 'react';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
-import { DashboardContent } from './components/DashboardContent';
+import { DASHBOARD_SKELETON_ID, DashboardContent } from './components/DashboardContent';
 import { DashboardPullIndicator } from './components/DashboardPullIndicator';
 import { useDashboardPage } from './hooks/useDashboardPage';
 
-const REDIRECTING_SX = {
-  display: 'flex',
-  minHeight: 'calc(100vh - var(--global-nav-height,0px))',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
 const MAIN_SX = {
   minHeight: 'calc(100vh - var(--global-nav-height,0px))',
   display: 'flex',
@@ -33,8 +27,6 @@ function DashboardPageInner(): React.JSX.Element {
     error,
     isPending,
     data,
-    activeTab,
-    setActiveTab,
     refetch,
     formatAmount,
     periodBanner,
@@ -46,11 +38,7 @@ function DashboardPageInner(): React.JSX.Element {
   } = useDashboardPage();
 
   if (isRedirecting) {
-    return (
-      <Box sx={REDIRECTING_SX}>
-        <Spinner size={40} />
-      </Box>
-    );
+    return <SnapshotSkeleton id={DASHBOARD_SKELETON_ID} loading />;
   }
 
   return (
@@ -70,8 +58,6 @@ function DashboardPageInner(): React.JSX.Element {
           onRefresh={() => {
             void refetch();
           }}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
           formatAmount={formatAmount}
           periodBanner={periodBanner}
           displayMonth={displayMonth}
@@ -87,13 +73,7 @@ function DashboardPageInner(): React.JSX.Element {
 /** `useSearchParams` needs a Suspense boundary so the static shell can prerender. */
 export default function DashboardPage(): React.JSX.Element {
   return (
-    <Suspense
-      fallback={
-        <Box sx={REDIRECTING_SX}>
-          <Spinner size={40} />
-        </Box>
-      }
-    >
+    <Suspense fallback={<SnapshotSkeleton id={DASHBOARD_SKELETON_ID} loading />}>
       <DashboardPageInner />
     </Suspense>
   );

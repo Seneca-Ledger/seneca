@@ -2,6 +2,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecoveryCodesDownloadButton } from './RecoveryCodesDownloadButton';
+import { APP_NAME } from '@/app/lib/brand';
+import { enTx as tx } from '@/app/settings/profile/helpers/en-tx';
 
 const mocks = vi.hoisted(() => ({
   downloadRecoveryCodes: vi.fn(),
@@ -20,7 +22,6 @@ vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({ loading: { value: 'Loading' } }),
 }));
 
-const tx = (_path: string[], fallback: string) => fallback;
 const codes = ['SV4EA-ZYFTP', 'F3DYA-87KRK'];
 
 function renderPanel() {
@@ -35,7 +36,7 @@ function renderPanel() {
 }
 
 function chooseFormat(label: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+  fireEvent.click(screen.getByRole('button', { name: tx(['securityCard', 'downloadButton']) }));
   fireEvent.click(screen.getByRole('menuitem', { name: label }));
 }
 
@@ -48,7 +49,7 @@ describe('RecoveryCodesDownloadButton', () => {
   it('offers PDF and Word under the Download button', () => {
     renderPanel();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+    fireEvent.click(screen.getByRole('button', { name: tx(['securityCard', 'downloadButton']) }));
 
     expect(
       screen.getAllByRole('menuitem').map(item => item.textContent),
@@ -66,13 +67,16 @@ describe('RecoveryCodesDownloadButton', () => {
     await waitFor(() => expect(mocks.downloadRecoveryCodes).toHaveBeenCalledTimes(1));
     expect(mocks.downloadRecoveryCodes).toHaveBeenCalledWith(format, {
       locale: 'hi',
-      title: 'Lumio — Recovery codes',
-      details: ['Account: user@example.com', expect.stringMatching(/^Generated: \S/)],
-      hint: expect.stringContaining('Each code works once'),
+      title: `${APP_NAME} — ${tx(['securityCard', 'recoveryTitle'])}`,
+      details: [
+        `${tx(['securityCard', 'fileAccount'])}: user@example.com`,
+        expect.stringMatching(new RegExp(`^${tx(['securityCard', 'fileGenerated'])}: \\S`)),
+      ],
+      hint: tx(['securityCard', 'fileHint']),
       codes,
     });
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Download' }).hasAttribute('disabled')).toBe(
+      expect(screen.getByRole('button', { name: tx(['securityCard', 'downloadButton']) }).hasAttribute('disabled')).toBe(
         false,
       ),
     );
@@ -86,11 +90,9 @@ describe('RecoveryCodesDownloadButton', () => {
     chooseFormat('PDF');
 
     await waitFor(() =>
-      expect(mocks.toastError).toHaveBeenCalledWith(
-        "Couldn't create the file — copy the codes instead.",
-      ),
+      expect(mocks.toastError).toHaveBeenCalledWith(tx(['securityCard', 'downloadError'])),
     );
-    expect(screen.getByRole('button', { name: 'Download' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: tx(['securityCard', 'downloadButton']) }).hasAttribute('disabled')).toBe(false);
     consoleError.mockRestore();
   });
 });

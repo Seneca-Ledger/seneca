@@ -1,3 +1,5 @@
+import type { CustomTablesReport, CustomTablesReportDrillDown } from '@/app/lib/contracts';
+
 export type TablesReportFlowType = 'all' | 'expense' | 'income';
 export type TablesReportSortKey = 'amount' | 'average' | 'operations';
 export type TablesReportTrend = 'up' | 'down' | 'flat';
@@ -10,62 +12,10 @@ export interface TablesReportsFilters {
   search: string;
 }
 
-export interface TablesReportRow {
-  counterparty: string;
-  source: 'manual';
-  tableId: string;
-  tableName: string;
-  count: number;
-  total: number;
-  average: number;
-  lastDate: string | null;
-  currency: string | null;
-}
-
-export interface TablesReportResponse {
-  totals: {
-    total: number;
-    manualTotal: number;
-    operations: number;
-  };
-  comparison: {
-    totalDelta: number;
-    totalPercentage: number;
-    totalTrend: TablesReportTrend;
-    manualDelta: number;
-    manualPercentage: number;
-    manualTrend: TablesReportTrend;
-    operationsDelta: number;
-    operationsPercentage: number;
-    operationsTrend: TablesReportTrend;
-  };
-  timeseries: Array<{ date: string; amount: number }>;
-  sourceSplit: { manual: number };
-  aggregatedRows: TablesReportRow[];
-  tables: Array<{
-    id: string;
-    name: string;
-    source: 'manual';
-    total: number;
-    rows: number;
-  }>;
-}
-
-export interface TablesReportDrillDownItem {
-  rowId: string;
-  tableId: string;
-  tableName: string;
-  source: 'manual';
-  date: string | null;
-  amount: number;
-  category: string | null;
-  currency: string | null;
-}
-
-export interface TablesReportDrillDownResponse {
-  counterparty: string;
-  items: TablesReportDrillDownItem[];
-}
+export type TablesReportResponse = CustomTablesReport;
+export type TablesReportRow = TablesReportResponse['aggregatedRows'][number];
+export type TablesReportDrillDownResponse = CustomTablesReportDrillDown;
+export type TablesReportDrillDownItem = TablesReportDrillDownResponse['items'][number];
 
 export interface AvailableTable {
   id: string;
@@ -74,7 +24,7 @@ export interface AvailableTable {
   rowCount: number;
 }
 
-export const TABLES_REPORTS_FILTERS_STORAGE_KEY = 'lumio-tables-reports-filters';
+export const TABLES_REPORTS_FILTERS_STORAGE_KEY = 'seneca-tables-reports-filters';
 
 export const DEFAULT_TABLES_REPORTS_FILTERS: TablesReportsFilters = {
   tableIds: [],
@@ -84,12 +34,13 @@ export const DEFAULT_TABLES_REPORTS_FILTERS: TablesReportsFilters = {
   search: '',
 };
 
+// Labels come from the statementsTablesReports dictionary where the presets render.
 export const DATE_PRESETS = [
-  { label: 'Last 7 days', value: 7 },
-  { label: 'Last 30 days', value: 30 },
-  { label: 'Last 90 days', value: 90 },
-  { label: 'Last 365 days', value: 365 },
-  { label: 'Year to date', value: -1 },
+  { value: 7 },
+  { value: 30 },
+  { value: 90 },
+  { value: 365 },
+  { value: -1 },
 ] as const;
 
 export function loadTablesReportsFilters(): TablesReportsFilters {
@@ -126,7 +77,7 @@ export function formatAmount(value: number, currency?: string | null): string {
   return currency ? `${formatted} ${currency}` : formatted;
 }
 
-export function getSourceLabel(source: string, manualLabel = 'Manual'): string {
+export function getSourceLabel(source: string, manualLabel: string): string {
   return source === 'manual' ? manualLabel : source;
 }
 

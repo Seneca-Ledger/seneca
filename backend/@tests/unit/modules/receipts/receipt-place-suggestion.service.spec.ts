@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { Receipt, ReceiptLocationSource } from '@/entities/receipt.entity';
 import type { GeocodingService, NearbyPlace } from '@/modules/geocoding/geocoding.service';
 import { NEARBY_PLACE_TYPES } from '@/modules/geocoding/nearby-place-types';
@@ -33,13 +34,13 @@ const buildReceipt = (overrides: Partial<Receipt> = {}): Receipt =>
 
 describe('ReceiptPlaceSuggestionService', () => {
   let repository: ReturnType<typeof createRepoMock<Receipt>>;
-  let searchNearby: jest.Mock;
+  let searchNearby: Mock;
   let service: ReceiptPlaceSuggestionService;
 
   beforeEach(() => {
     repository = createRepoMock<Receipt>();
     repository.findOne.mockResolvedValue(buildReceipt());
-    searchNearby = jest.fn().mockResolvedValue([]);
+    searchNearby = vi.fn().mockResolvedValue([]);
     service = new ReceiptPlaceSuggestionService(
       repository as never,
       { searchNearby } as unknown as GeocodingService,

@@ -101,13 +101,25 @@ function EventDrawerBody({
           p: 2,
         }}
       >
-        <Typography variant="body2" fontWeight={600} style={{ color: '#1e3a5f' }}>
+        <Typography
+          variant="body2"
+          style={{ color: '#1e3a5f' }}
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {formatted.description}
         </Typography>
       </Box>
       <EventMetaRows event={event} formatted={formatted} />
       <Box>
-        <Typography variant="body2" fontWeight={600} style={{ color: c.ink900 }}>
+        <Typography
+          variant="body2"
+          style={{ color: c.ink900 }}
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.diff}
         </Typography>
         <Box sx={{ mt: 1 }}>

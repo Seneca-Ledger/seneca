@@ -65,25 +65,6 @@ export function getFieldDisplay({ tx, field, locale, fmt }: DisplayParams): stri
   return String(tx[field] ?? '—');
 }
 
-type ChipSx = {
-  bgcolor: string;
-  color: string;
-  border: string;
-  borderColor: string;
-  fontWeight: number;
-  fontSize: string;
-};
-export function getCategoryChipSx(isDisabled: boolean): ChipSx {
-  return {
-    bgcolor: isDisabled ? 'error.50' : 'primary.50',
-    color: isDisabled ? 'error.700' : 'primary.700',
-    border: isDisabled ? '1px solid' : 'none',
-    borderColor: isDisabled ? 'error.200' : 'transparent',
-    fontWeight: 500,
-    fontSize: '0.8125rem',
-  };
-}
-
 function colVal(
   columns: Record<string, { value?: string }>,
   key: string,
@@ -96,8 +77,7 @@ export type ColumnLabels = {
   date: string;
   counterparty: string;
   paymentPurpose: string;
-  expense: string;
-  income: string;
+  amount: string;
   category: string;
   actions: string;
 };
@@ -106,8 +86,7 @@ export function getColumnLabels(columns: Record<string, { value?: string }>): Co
     date: colVal(columns, 'date', 'Date'),
     counterparty: colVal(columns, 'counterparty', 'Counterparty'),
     paymentPurpose: colVal(columns, 'paymentPurposeShort', 'Payment purpose'),
-    expense: colVal(columns, 'expense', 'Expense'),
-    income: colVal(columns, 'income', 'Income'),
+    amount: colVal(columns, 'amount', 'Amount'),
     category: colVal(columns, 'category', 'Category'),
     actions: colVal(columns, 'actions', 'Actions'),
   };
@@ -123,6 +102,9 @@ function labelVal(
 
 export type EditTableLabels = {
   confirmDelete: string;
+  deleteAction: string;
+  moreActions: string;
+  cancel: string;
   notSelected: string;
   noCategory: string;
   assignCategory: string;
@@ -132,6 +114,9 @@ export function getEditTableLabels(
 ): EditTableLabels {
   return {
     confirmDelete: labelVal(labels, 'confirmDeleteOne', 'Delete transaction?'),
+    deleteAction: labelVal(labels, 'delete', 'Delete'),
+    moreActions: labelVal(labels, 'moreActions', 'More actions'),
+    cancel: labelVal(labels, 'cancel', 'Cancel'),
     notSelected: labelVal(labels, 'notSelected', 'Not selected'),
     noCategory: labelVal(labels, 'noCategoryOption', 'No category'),
     assignCategory: labelVal(labels, 'assignCategory', 'Assign category'),
@@ -139,18 +124,16 @@ export function getEditTableLabels(
 }
 
 type RowSx = {
-  bgcolor: string | undefined;
-  borderLeft: string | undefined;
-  borderLeftColor: string | undefined;
   transition: string;
   '&:hover': { bgcolor: string };
 };
-export function getRowSx(missing: boolean): RowSx {
+/**
+ * A row with no category is marked in its category cell (an ochre dot), not
+ * painted pink: it is something to do, not an error. Hover is a soft neutral.
+ */
+export function getRowSx(_missing: boolean): RowSx {
   return {
-    bgcolor: missing ? 'error.50' : undefined,
-    borderLeft: missing ? '3px solid' : undefined,
-    borderLeftColor: missing ? 'error.400' : undefined,
-    transition: 'all 0.15s',
-    '&:hover': { bgcolor: missing ? 'error.100' : 'grey.50' },
+    transition: 'background-color 0.15s',
+    '&:hover': { bgcolor: 'var(--surface-soft)' },
   };
 }

@@ -1,3 +1,4 @@
+import type { Mock, Mocked } from 'vitest';
 import { User } from '@/entities';
 import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { AuditService } from '@/modules/audit/audit.service';
@@ -9,12 +10,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { generateSync } from 'otplib';
 import type { Repository } from 'typeorm';
+import { APP_NAME } from '../../../../src/common/brand';
 
 describe('TwoFactorService', () => {
   let service: TwoFactorService;
-  let userRepository: jest.Mocked<Repository<User>>;
+  let userRepository: Mocked<Repository<User>>;
   let stored: Partial<User>;
-  let auditService: { createEvent: jest.Mock };
+  let auditService: { createEvent: Mock };
 
   beforeEach(async () => {
     stored = {
@@ -27,7 +29,7 @@ describe('TwoFactorService', () => {
       twoFactorRecoveryCodes: [],
     };
 
-    auditService = { createEvent: jest.fn().mockResolvedValue({}) };
+    auditService = { createEvent: vi.fn().mockResolvedValue({}) };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -35,8 +37,8 @@ describe('TwoFactorService', () => {
         {
           provide: getRepositoryToken(User),
           useValue: {
-            findOne: jest.fn(async () => stored as User),
-            update: jest.fn(async (_id: string, patch: Partial<User>) => {
+            findOne: vi.fn(async () => stored as User),
+            update: vi.fn(async (_id: string, patch: Partial<User>) => {
               Object.assign(stored, patch);
               return { affected: 1 };
             }),
@@ -44,7 +46,7 @@ describe('TwoFactorService', () => {
         },
         {
           provide: ConfigService,
-          useValue: { get: jest.fn(() => 'session-salt') },
+          useValue: { get: vi.fn(() => 'session-salt') },
         },
         { provide: AuditService, useValue: auditService },
       ],
@@ -68,7 +70,7 @@ describe('TwoFactorService', () => {
   it('stores the secret encrypted and stays disabled until a code is confirmed', async () => {
     const { secret, otpauthUrl } = await service.setup('u1', 'correct-password');
 
-    expect(otpauthUrl).toContain('otpauth://totp/Lumio');
+    expect(otpauthUrl).toContain(`otpauth://totp/${APP_NAME}`);
     expect(stored.twoFactorSecret).toMatch(/^enc:/);
     expect(stored.twoFactorSecret).not.toContain(secret);
     await expect(service.getStatus('u1')).resolves.toMatchObject({

@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type Repository } from 'typeorm';
-import { onlyCounted } from '../../common/utils/counted-transactions.util';
+import { onlyFlows } from '../../common/utils/counted-transactions.util';
 import {
   applyOwnerFilter,
   type OwnerFilter,
   parseOwnerFilter,
 } from '../../common/utils/transaction-owner.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
+import type { CashFlowMapQuery } from '../../contracts';
 import { Category } from '../../entities/category.entity';
-import { StatementStatus } from '../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
@@ -20,7 +21,6 @@ import {
   type CategoryNode,
   previousPeriod,
 } from './cash-flow-map.util';
-import type { CashFlowMapQueryDto } from './dto/cash-flow-map-query.dto';
 
 export interface CashFlowMapResponse extends CashFlowMap {
   currency: string;
@@ -68,7 +68,7 @@ export class CashFlowMapService {
 
   async getMap(
     workspaceId: string,
-    query: CashFlowMapQueryDto,
+    query: CashFlowMapQuery,
     locale?: string,
     selfMemberId: string | null = null,
   ): Promise<CashFlowMapResponse> {
@@ -78,10 +78,20 @@ export class CashFlowMapService {
     const includeTransfers = query.includeTransfers === true;
 
     const [workspace, categories] = await Promise.all([
-      this.workspaceRepository.findOne({ where: { id: workspaceId }, select: ['currency'] }),
+      this.workspaceRepository.findOne({
+        where: { id: workspaceId },
+        select: {
+          currency: true,
+        },
+      }),
       this.categoryRepository.find({
         where: { workspaceId },
-        select: ['id', 'name', 'parentId', 'type'],
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+          type: true,
+        },
       }),
     ]);
     const currency = normalizeCurrency(workspace?.currency);
@@ -101,6 +111,7 @@ export class CashFlowMapService {
       includeTransfers,
       allowed,
       owner,
+      selfMemberId,
     );
     const previousRows = previous
       ? await this.loadRows(
@@ -111,6 +122,7 @@ export class CashFlowMapService {
           includeTransfers,
           allowed,
           owner,
+          selfMemberId,
         )
       : null;
 
@@ -154,28 +166,26 @@ export class CashFlowMapService {
     includeTransfers: boolean,
     allowed: Set<string> | null,
     owner: OwnerFilter,
+    selfMemberId: string | null,
   ): Promise<CashFlowRow[]> {
     const qb = this.transactionRepository
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
       .select([
         't.transactionType AS "type"',
         't.currency AS currency',
         't.credit AS credit',
         't.debit AS debit',
         't.categoryId AS "categoryId"',
-        't.counterpartyName AS "counterpartyName"',
+        // Another member's private rows count under the placeholder, not their merchant.
+        `${redactedSql('t', 't.counterparty_name')} AS "counterpartyName"`,
         't.transferPairId AS "transferPairId"',
       ])
-      .where('s.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('s.deletedAt IS NULL')
-      .andWhere('s.status NOT IN (:...excluded)', {
-        excluded: [StatementStatus.ERROR, StatementStatus.PROCESSING],
-      })
+      .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.isDuplicate = false')
       .andWhere('t.transactionDate >= :from', { from })
-      .andWhere('t.transactionDate <= :to', { to });
-    onlyCounted(qb, 't');
+      .andWhere('t.transactionDate <= :to', { to })
+      .setParameter(PRIVACY_VIEWER_PARAM, selfMemberId);
+    onlyFlows(qb, 't');
     applyOwnerFilter(qb, 't', owner);
     if (!includeTransfers) {
       qb.andWhere('t.transferPairId IS NULL');

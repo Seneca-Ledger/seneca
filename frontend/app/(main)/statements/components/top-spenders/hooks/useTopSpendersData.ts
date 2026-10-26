@@ -67,11 +67,7 @@ export const useTopSpendersData = ({
   month,
   state,
 }: Params): TopSpendersDataReturn => {
-  const {
-    statements: raw,
-    gmailReceipts,
-    loading,
-  } = useAnalyticsData({
+  const { statements, receipts, loading } = useAnalyticsData({
     user,
     currentWorkspace,
     workspaces,
@@ -80,12 +76,12 @@ export const useTopSpendersData = ({
     includeTransactions: false,
     errorToastMessage: labels.loadError,
   });
-  const statements = raw as unknown as StatementWithWorkspace[];
+
   const monthFilters = useMonthFilters(month);
   const { flowFilteredRecords, flowRecordsWithoutDateFilter, fromOptions, currencyOptions } =
     useTopSpendersRecords({
       statements,
-      gmailReceipts,
+      receipts,
       workspaceCurrency,
       appliedFilters: monthFilters,
       searchInput: state.searchInput,
@@ -100,7 +96,7 @@ export const useTopSpendersData = ({
       workspaceCurrency,
       resolvedTheme,
       sourceStatementLabel: labels.sourceStatement,
-      sourceGmailLabel: labels.sourceGmail,
+      sourceReceiptLabel: labels.sourceReceipt,
       totalIncomeLabel: labels.totalIncome,
       totalSpendLabel: labels.totalSpend,
     });

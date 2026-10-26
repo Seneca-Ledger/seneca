@@ -8,23 +8,51 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   In,
   IsNull,
   Not,
+  type QueryDeepPartialEntity,
   QueryFailedError,
   type Repository,
   type SelectQueryBuilder,
 } from 'typeorm';
 import * as xlsx from 'xlsx';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
 import { appDefaultCurrency, currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { normalizeFilename } from '../../common/utils/filename.util';
-import { generateTransactionFingerprint } from '../../common/utils/fingerprint.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
+import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type {
+  BatchCreateCustomTableRowsBody,
+  ClassifyPaidStatusBody,
+  ColumnStylePartInput,
+  CreateCustomTableBody,
+  CreateCustomTableColumnBody,
+  CreateCustomTableFromDataEntryBody,
+  CreateCustomTableFromDataEntryCustomTabBody,
+  CreateCustomTableFromSourceBody,
+  CreateCustomTableRowBody,
+  PreviewCustomTableSourceBody,
+  PreviewFormulaBody,
+  ReorderCustomTableColumnsBody,
+  RestoredTableDefault,
+  SourceFiltersInput,
+  UpdateCustomTableBody,
+  UpdateCustomTableColumnBody,
+  UpdateCustomTableColumnStyleBody,
+  UpdateCustomTableRowBody,
+  UpdateCustomTableSummariesBody,
+  UpdateCustomTableViewSettingsColumnBody,
+  UpdateCustomTableViewsBody,
+} from '../../contracts';
+import { MAX_SOURCE_STATEMENTS } from '../../contracts';
 import {
   ActorType,
   AuditAction,
@@ -44,28 +72,16 @@ import { CustomTableRow } from '../../entities/custom-table-row.entity';
 import { DataEntry, DataEntryType } from '../../entities/data-entry.entity';
 import { DataEntryCustomField } from '../../entities/data-entry-custom-field.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../entities/statement.entity';
-import {
-  Transaction,
-  TransactionCategorySource,
-  TransactionType,
-} from '../../entities/transaction.entity';
+import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { ClassificationService } from '../classification/services/classification.service';
+import type { TransactionsImportedEvent } from '../notifications/events/notification-events';
+import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { CustomTableSourcesService } from './custom-table-sources.service';
-import type { BatchCreateCustomTableRowsDto } from './dto/batch-create-custom-table-rows.dto';
-import type { ClassifyPaidStatusDto } from './dto/classify-paid-status.dto';
-import type { CreateCustomTableDto } from './dto/create-custom-table.dto';
-import type { CreateCustomTableColumnDto } from './dto/create-custom-table-column.dto';
-import {
-  type CreateCustomTableFromDataEntryDto,
-  DataEntryToCustomTableScope,
-} from './dto/create-custom-table-from-data-entry.dto';
-import type { CreateCustomTableFromDataEntryCustomTabDto } from './dto/create-custom-table-from-data-entry-custom-tab.dto';
-import type { CreateCustomTableFromSourceDto } from './dto/create-custom-table-from-source.dto';
-import type { CreateCustomTableRowDto } from './dto/create-custom-table-row.dto';
+import { DataEntryToCustomTableScope } from './dto/create-custom-table-from-data-entry.dto';
 import {
   CUSTOM_TABLE_AGGREGATE_FNS,
   type CustomTableAggregateDto,
@@ -74,46 +90,36 @@ import {
   type CustomTableRowFilterDto,
   type CustomTableRowSortDto,
 } from './dto/list-custom-table-rows.dto';
-import type { PreviewCustomTableSourceDto } from './dto/preview-custom-table-source.dto';
-import type { PreviewFormulaDto } from './dto/preview-formula.dto';
-import type { ReorderCustomTableColumnsDto } from './dto/reorder-custom-table-columns.dto';
-import type { SourceFiltersDto } from './dto/source-filters.dto';
-import type { UpdateCustomTableDto } from './dto/update-custom-table.dto';
-import type { UpdateCustomTableColumnDto } from './dto/update-custom-table-column.dto';
-import type {
-  ColumnStylePartDto,
-  UpdateCustomTableColumnStyleDto,
-} from './dto/update-custom-table-column-style.dto';
-import type { UpdateCustomTableRowDto } from './dto/update-custom-table-row.dto';
-import type { UpdateCustomTableSummariesDto } from './dto/update-custom-table-summaries.dto';
-import type { UpdateCustomTableViewSettingsColumnDto } from './dto/update-custom-table-view-settings.dto';
-import type { UpdateCustomTableViewsDto } from './dto/update-custom-table-views.dto';
 import { FormulaRecalcService, formulaColumnsOf } from './formula-recalc.service';
-import { AiColumnFiller } from './helpers/ai-column.helper';
-import { AiPaidStatusClassifier, type PaidStatusInput } from './helpers/ai-paid-status.helper';
+import { convertedRowFingerprint, flagRepeatedRows } from './helpers/converted-repeats';
 import {
   assertValidFormula,
   collectFieldRefs,
   evaluateFormula,
   evaluateFormulaDetailed,
+  FormulaError,
   type FormulaResultType,
   type FormulaValue,
   inferFormulaResultType,
 } from './helpers/formula-evaluator';
+import { detectPaidStatus, type PaidStatusInput } from './helpers/paid-status.helper';
+import {
+  columnSourceConfig,
+  generateColumnKey,
+  newSourceColumns,
+  sourceBindingOf,
+  sourceColumnConfig,
+  sourceFields,
+} from './helpers/source-columns';
 import { orderFormulaColumns } from './helpers/table-evaluator';
 import type { SourceAdapter, SourceFilters, SourceRow, SourceValue } from './sources/source.types';
 import { MAX_SOURCE_ROWS } from './sources/source.utils';
+import { SourceWriteBackService } from './write-back/source-write-back.service';
 
 type DataEntryFieldKey = 'date' | 'type' | 'amount' | 'currency' | 'note';
 type JsonObject = Record<string, unknown>;
 type RowDataValue = string | number | boolean | null | undefined | JsonObject | RowDataValue[];
 type RowDataRecord = Record<string, RowDataValue>;
-type ColumnSourceConfig = {
-  kind?: string;
-  field?: string;
-  name?: string;
-  colIndex?: number;
-};
 type DriverErrorLike = { driverError?: { code?: string } };
 type RowStylesRecord = Record<string, JsonObject>;
 type CustomTableWithViewSettings = CustomTable & { viewSettings?: JsonObject };
@@ -177,7 +183,7 @@ export class CustomTablesService {
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
     private readonly auditService: AuditService,
-    // Optional: the classifier needs AI settings; unit tests build the service without it.
+    // Optional: unit tests build the service without the classifier.
     @Optional() private readonly classificationService?: ClassificationService,
     // Optional for the same reason: most unit specs never touch app data sources.
     @Optional() private readonly customTableSources?: CustomTableSourcesService,
@@ -185,6 +191,12 @@ export class CustomTablesService {
     @Optional() private readonly formulaRecalc?: FormulaRecalcService,
     // Optional for the same reason: only converting rows to a statement needs it.
     @Optional() private readonly workspaceCurrency?: WorkspaceCurrencyService,
+    // Optional: converted rows are assessed when the tax module is wired in.
+    @Optional() private readonly taxAssignmentService?: TaxAssignmentService,
+    // Optional: cells of tables filled from app data write back through it.
+    @Optional() private readonly sourceWriteBack?: SourceWriteBackService,
+    // Optional: announces converted rows to webhooks; unit specs build the service without it.
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   private getDriverErrorCode(error: unknown): string | undefined {
@@ -201,16 +213,6 @@ export class CustomTablesService {
 
   private getRowDataValue(data: Record<string, unknown>, key: string): unknown {
     return data[key];
-  }
-
-  private getColumnSourceConfig(
-    config: CustomTableColumn['config'] | null | undefined,
-  ): ColumnSourceConfig | null {
-    if (!config || typeof config !== 'object') {
-      return null;
-    }
-    const source = (config as { source?: unknown }).source;
-    return typeof source === 'object' && source !== null ? (source as ColumnSourceConfig) : null;
   }
 
   private getViewSettingsObject(table: CustomTable): JsonObject {
@@ -298,7 +300,7 @@ export class CustomTablesService {
   }
 
   private getColumnSearchText(column: CustomTableColumn): string {
-    const source = this.getColumnSourceConfig(column.config);
+    const source = columnSourceConfig(column.config);
     return [column.title, column.key, source?.field, source?.name, source?.kind]
       .map(value => this.normalizeColumnText(value))
       .filter(Boolean)
@@ -311,7 +313,7 @@ export class CustomTablesService {
   ): string | undefined {
     const normalizedTokens = tokens.map(token => token.toLowerCase());
     const exact = columns.find(column => {
-      const source = this.getColumnSourceConfig(column.config);
+      const source = columnSourceConfig(column.config);
       const sourceField = this.normalizeColumnText(source?.field);
       return sourceField && normalizedTokens.includes(sourceField);
     });
@@ -330,7 +332,6 @@ export class CustomTablesService {
    * a classifier failure must not undo the conversion itself.
    */
   private async categorizeConvertedTransactions(
-    workspaceId: string,
     userId: string,
     transactions: Transaction[],
   ): Promise<void> {
@@ -339,32 +340,13 @@ export class CustomTablesService {
       return;
     }
     try {
-      const results = await this.classificationService.classifyTransactionsBatch(
-        pending.map((transaction, index) => ({
-          index,
-          counterpartyName: transaction.counterpartyName ?? '',
-          paymentPurpose: transaction.paymentPurpose ?? '',
-          transactionType: transaction.transactionType,
-        })),
-        workspaceId,
-      );
-      for (const [index, transaction] of pending.entries()) {
-        // Same order as a statement import: rules, keywords and what the user
-        // taught first; the model only where those fell through to "uncategorised".
+      for (const transaction of pending) {
+        // Same order as a statement import: rules, keywords and what the user taught.
         const classification = await this.classificationService.classifyTransaction(
           transaction,
           userId,
         );
-        let { categoryId, categorySource, categoryReason } = classification;
-        const aiResult = results.get(index);
-        if (aiResult && (!categoryId || categorySource === TransactionCategorySource.DEFAULT)) {
-          categoryId = aiResult.categoryId;
-          categorySource = TransactionCategorySource.AI;
-          categoryReason =
-            aiResult.enrichment?.confidence !== undefined
-              ? `confidence ${aiResult.enrichment.confidence.toFixed(2)}`
-              : null;
-        }
+        const { categoryId, categorySource, categoryReason } = classification;
         if (categoryId) {
           await this.transactionRepository.update(
             { id: transaction.id },
@@ -554,11 +536,6 @@ export class CustomTablesService {
     throw new NotFoundException(appError('TABLE_NOT_FOUND'));
   }
 
-  private generateColumnKey(): string {
-    const raw = randomUUID().replace(/-/g, '');
-    return `col_${raw.slice(0, 12)}`;
-  }
-
   private isUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
@@ -583,7 +560,9 @@ export class CustomTablesService {
   private async getAllowedColumnKeys(tableId: string): Promise<Set<string>> {
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key'],
+      select: {
+        key: true,
+      },
     });
     return new Set(columns.map(c => c.key));
   }
@@ -685,14 +664,18 @@ export class CustomTablesService {
     };
 
     for (const column of columns) {
-      const source = this.getColumnSourceConfig(column.config);
-      if (source?.kind === 'data_entry_field' && source.field && !fieldKeyByName[source.field]) {
+      const source = columnSourceConfig(column.config);
+      if (
+        source?.kind === 'data_entry_field' &&
+        source.field &&
+        !fieldKeyByName[source.field as DataEntryFieldKey]
+      ) {
         fieldKeyByName[source.field as DataEntryFieldKey] = column.key;
       }
       if (
         source?.kind === 'data_entry_custom_tab' &&
         source.field &&
-        !fieldKeyByName[source.field]
+        !fieldKeyByName[source.field as DataEntryFieldKey]
       ) {
         fieldKeyByName[source.field as DataEntryFieldKey] = column.key;
       }
@@ -803,7 +786,7 @@ export class CustomTablesService {
   async createTable(
     userId: string,
     workspaceId: string,
-    dto: CreateCustomTableDto,
+    dto: CreateCustomTableBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const categoryId =
@@ -872,7 +855,10 @@ export class CustomTablesService {
     try {
       const styles = await this.customTableColumnStyleRepository.find({
         where: { tableId },
-        select: ['columnKey', 'style'],
+        select: {
+          columnKey: true,
+          style: true,
+        },
       });
       const byKey = new Map(styles.map(s => [s.columnKey, s.style]));
       table.columns = this.attachColumnStyles(table.columns, byKey);
@@ -887,12 +873,12 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: UpdateCustomTableDto,
+    dto: UpdateCustomTableBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const table = await this.requireTable(workspaceId, tableId);
     const before = { ...table };
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       table.name = dto.name;
     }
     if (dto.description !== undefined) {
@@ -922,10 +908,11 @@ export class CustomTablesService {
   async createFromDataEntry(
     userId: string,
     workspaceId: string,
-    dto: CreateCustomTableFromDataEntryDto,
+    dto: CreateCustomTableFromDataEntryBody,
   ): Promise<{ tableId: string; columnsCreated: number; rowsCreated: number }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
-    const selectedType = dto.scope === DataEntryToCustomTableScope.TYPE ? dto.type : undefined;
+    const selectedType =
+      dto.scope === DataEntryToCustomTableScope.TYPE ? toEnum(DataEntryType, dto.type) : undefined;
 
     let entries: DataEntry[];
     try {
@@ -1086,7 +1073,7 @@ export class CustomTablesService {
         columnDefs.map((def, position) =>
           this.customTableColumnRepository.create({
             tableId: table.id,
-            key: this.generateColumnKey(),
+            key: generateColumnKey(),
             title: def.title,
             type: def.type,
             isRequired: false,
@@ -1186,7 +1173,7 @@ export class CustomTablesService {
   async createFromDataEntryCustomTab(
     userId: string,
     workspaceId: string,
-    dto: CreateCustomTableFromDataEntryCustomTabDto,
+    dto: CreateCustomTableFromDataEntryCustomTabBody,
   ): Promise<{ tableId: string; columnsCreated: number; rowsCreated: number }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     let customTab: DataEntryCustomField | null = null;
@@ -1321,7 +1308,7 @@ export class CustomTablesService {
         columnDefs.map((def, position) =>
           this.customTableColumnRepository.create({
             tableId: table.id,
-            key: this.generateColumnKey(),
+            key: generateColumnKey(),
             title: def.title,
             type: def.type,
             isRequired: false,
@@ -1553,6 +1540,135 @@ export class CustomTablesService {
     return this.customTableSources;
   }
 
+  /**
+   * "Restore to default" of a table filled from app data. First every app
+   * record change made from the table is undone (fields changed in the app since
+   * are left alone), then the table becomes a fresh copy of its source: columns
+   * and rows added by hand, styles, formulas, summaries and view settings go;
+   * the source columns get their original type, options and order back (their
+   * titles stay); rows of records that no longer exist go too.
+   *
+   * Idempotent: a second run finds nothing journaled and a table already at default.
+   */
+  async restoreDefault(
+    userId: string,
+    workspaceId: string,
+    tableId: string,
+  ): Promise<RestoredTableDefault> {
+    await this.ensureCanEditCustomTables(userId, workspaceId);
+    const table = await this.requireTable(workspaceId, tableId);
+    const binding = table.sourceBinding;
+    if (!(binding?.kind && this.sourceWriteBack)) {
+      throw new BadRequestException(appError('TABLE_NOT_LINKED_TO_SOURCE'));
+    }
+    const adapter = this.requireSources().get(binding.kind);
+
+    const report = await this.sourceWriteBack.revertTable({ userId, workspaceId, table });
+    const sourceRows = await this.fetchSourceRows(
+      adapter,
+      workspaceId,
+      binding.filters as SourceFilters,
+    );
+    const liveKeys = sourceRows.map(row => row.sourceKey);
+
+    const columns = await this.customTableRepository.manager.transaction(async manager => {
+      const columnRepo = manager.getRepository(CustomTableColumn);
+      const rowRepo = manager.getRepository(CustomTableRow);
+      const existing = await columnRepo.find({ where: { tableId } });
+      const byField = new Map<string, CustomTableColumn>();
+      const extra: CustomTableColumn[] = [];
+      for (const column of existing) {
+        const field = columnSourceConfig(column.config);
+        const known =
+          field?.kind === 'app_field' &&
+          field.field &&
+          adapter.columns.some(def => def.field === field.field) &&
+          !byField.has(field.field);
+        if (known && field?.field) {
+          byField.set(field.field, column);
+        } else {
+          extra.push(column);
+        }
+      }
+      const currency = existing
+        .map(column => (column.config as { currency?: unknown } | null)?.currency)
+        .find((value): value is string => typeof value === 'string' && value.length === 3);
+
+      if (extra.length) {
+        await columnRepo.delete(extra.map(column => column.id));
+      }
+      const kept = adapter.columns.map((def, position) => {
+        const column =
+          byField.get(def.field) ??
+          columnRepo.create({ tableId, key: generateColumnKey(), title: def.title });
+        column.type = def.type;
+        column.isRequired = false;
+        column.isUnique = false;
+        column.position = position;
+        column.config = sourceColumnConfig(def, currency);
+        return column;
+      });
+      const saved = await columnRepo.save(kept);
+
+      // Rows typed by hand, and rows whose record is gone (all of them when the
+      // source has no records left).
+      const rowDelete = rowRepo
+        .createQueryBuilder()
+        .delete()
+        .where('table_id = :tableId', { tableId });
+      if (liveKeys.length) {
+        rowDelete.andWhere('(source_key IS NULL OR source_key NOT IN (:...liveKeys))', {
+          liveKeys,
+        });
+      }
+      await rowDelete.execute();
+      // What the remaining rows hold beyond the record goes with them: the
+      // source values are written back in full below.
+      await rowRepo
+        .createQueryBuilder()
+        .update()
+        .set({ data: {}, styles: {}, computed: {} })
+        .where('table_id = :tableId', { tableId })
+        .execute();
+      await manager.getRepository(CustomTableColumnStyle).delete({ tableId });
+      await manager
+        .createQueryBuilder()
+        .delete()
+        .from(CustomTableCellStyle)
+        .where('row_id IN (SELECT id FROM custom_table_rows WHERE table_id = :tableId)', {
+          tableId,
+        })
+        .execute();
+      await manager.getRepository(CustomTable).update({ id: tableId }, { viewSettings: {} });
+      return saved;
+    });
+
+    table.sourceBinding = { ...binding, fields: sourceFields(adapter) };
+    const applied = await this.applySourceRows({
+      userId,
+      workspaceId,
+      table,
+      columns,
+      sourceRows,
+    });
+    await this.logEvent({
+      userId,
+      workspaceId,
+      entityType: EntityType.CUSTOM_TABLE,
+      entityId: tableId,
+      action: AuditAction.ROLLBACK,
+      meta: {
+        restoredDefault: true,
+        reverted: report.reverted,
+        skippedChanged: report.skippedChanged,
+        failed: report.failed.length,
+        rows: applied.total,
+      },
+      isUndoable: false,
+    });
+    return { tableId, ...report, rows: applied.total };
+  }
+
   private async fetchSourceRows(
     adapter: SourceAdapter,
     workspaceId: string,
@@ -1566,7 +1682,7 @@ export class CustomTablesService {
   }
 
   /** Empty filter values are dropped so the stored binding equals what the preview used. */
-  private normalizeSourceFilters(filters: SourceFiltersDto | undefined): JsonObject {
+  private normalizeSourceFilters(filters: SourceFiltersInput | undefined): JsonObject {
     const normalized: JsonObject = {};
     for (const [key, value] of Object.entries(filters ?? {})) {
       if (value === undefined || value === null || value === '') {
@@ -1587,18 +1703,21 @@ export class CustomTablesService {
   async previewSource(
     userId: string,
     workspaceId: string,
-    dto: PreviewCustomTableSourceDto,
+    dto: PreviewCustomTableSourceBody,
   ): Promise<{
     count: number;
     columns: Array<{ field: string; title: string; type: CustomTableColumnType }>;
     rows: Array<Record<string, SourceValue>>;
+    currencies: string[];
   }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const adapter = this.requireSources().get(dto.kind);
     const rows = await this.fetchSourceRows(
       adapter,
       workspaceId,
-      this.normalizeSourceFilters(dto.filters) as SourceFilters,
+      this.normalizeSourceFilters(
+        dto.filters ? withoutNulls(dto.filters) : undefined,
+      ) as SourceFilters,
     );
     return {
       count: rows.length,
@@ -1608,17 +1727,26 @@ export class CustomTablesService {
         type: def.type,
       })),
       rows: rows.slice(0, 20).map(row => row.values),
+      currencies: [
+        ...new Set(
+          rows
+            .map(row => row.values.currency)
+            .filter((value): value is string => typeof value === 'string' && value !== ''),
+        ),
+      ].sort(),
     };
   }
 
   async createFromSource(
     userId: string,
     workspaceId: string,
-    dto: CreateCustomTableFromSourceDto,
+    dto: CreateCustomTableFromSourceBody,
   ): Promise<{ tableId: string; columnsCreated: number; rowsCreated: number }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const adapter = this.requireSources().get(dto.kind);
-    const filters = this.normalizeSourceFilters(dto.filters);
+    const filters = this.normalizeSourceFilters(
+      dto.filters ? withoutNulls(dto.filters) : undefined,
+    );
     const sourceRows = await this.fetchSourceRows(adapter, workspaceId, filters as SourceFilters);
     if (!sourceRows.length) {
       throw new BadRequestException(appError('SOURCE_EMPTY'));
@@ -1643,7 +1771,7 @@ export class CustomTablesService {
           description: dto.description?.trim() || null,
           source: CustomTableSource.MANUAL,
           categoryId,
-          sourceBinding: { kind: adapter.kind, filters, syncedAt: null },
+          sourceBinding: sourceBindingOf(adapter, filters),
         }),
       );
     } catch (error) {
@@ -1656,17 +1784,13 @@ export class CustomTablesService {
         adapter.columns.map((def, position) =>
           this.customTableColumnRepository.create({
             tableId: table.id,
-            key: this.generateColumnKey(),
+            key: generateColumnKey(),
             title: (dto.columnTitles?.[def.field] || def.title).slice(0, 120),
             type: def.type,
             isRequired: false,
             isUnique: false,
             position,
-            config: {
-              ...(def.config ?? {}),
-              ...(def.money ? { precision: 2, ...(currency ? { currency } : {}) } : {}),
-              source: { kind: 'app_field', field: def.field },
-            },
+            config: sourceColumnConfig(def, currency),
           }),
         ),
       );
@@ -1725,13 +1849,9 @@ export class CustomTablesService {
       workspaceId,
       (binding.filters ?? {}) as SourceFilters,
     );
-    const result = await this.applySourceRows({
-      userId,
-      workspaceId,
-      table,
-      columns: table.columns ?? [],
-      sourceRows,
-    });
+    const columns = await this.addNewSourceColumns(table, adapter);
+    table.sourceBinding = { ...binding, fields: sourceFields(adapter) };
+    const result = await this.applySourceRows({ userId, workspaceId, table, columns, sourceRows });
     await this.logEvent({
       userId,
       workspaceId,
@@ -1747,6 +1867,68 @@ export class CustomTablesService {
       },
     });
     return { tableId: table.id, ...result };
+  }
+
+  /**
+   * Adds documents to a table built from documents' transactions, then
+   * refreshes it. Only such a table qualifies: on one bound to a date range or
+   * to picked records, a document filter would narrow the table instead of
+   * growing it. Ids already in the binding are kept once, so a repeat is a no-op.
+   */
+  async addSourceStatements(
+    userId: string,
+    workspaceId: string,
+    tableId: string,
+    statementIds: readonly string[],
+  ): ReturnType<CustomTablesService['refreshFromSource']> {
+    await this.ensureCanEditCustomTables(userId, workspaceId);
+    const table = await this.customTableRepository.findOne({ where: { id: tableId, workspaceId } });
+    if (!table) {
+      throw new NotFoundException(appError('TABLE_NOT_FOUND'));
+    }
+    const binding = table.sourceBinding;
+    const current = binding?.filters?.statementIds;
+    if (binding?.kind !== 'transactions' || !Array.isArray(current) || binding.filters?.ids) {
+      throw new BadRequestException(appError('SOURCE_NOT_DOCUMENTS'));
+    }
+    const requested = [...new Set(statementIds)];
+    const found = await this.statementRepository.count({
+      where: { id: In(requested), workspaceId, deletedAt: IsNull() },
+    });
+    if (found !== requested.length) {
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
+    }
+    const merged = [...new Set([...current.map(String), ...requested])];
+    if (merged.length > MAX_SOURCE_STATEMENTS) {
+      throw new BadRequestException(
+        appError('SOURCE_TOO_MANY_DOCUMENTS', { limit: MAX_SOURCE_STATEMENTS }),
+      );
+    }
+    await this.customTableRepository.update(
+      { id: table.id, workspaceId },
+      { sourceBinding: { ...binding, filters: { ...binding.filters, statementIds: merged } } },
+    );
+    return this.refreshFromSource(userId, workspaceId, table.id);
+  }
+
+  /** Adds a column for each field the source gained since the table was made. */
+  private async addNewSourceColumns(
+    table: CustomTable,
+    adapter: SourceAdapter,
+  ): Promise<CustomTableColumn[]> {
+    const existing = table.columns ?? [];
+    const drafts = newSourceColumns(table, adapter);
+    if (!drafts.length) {
+      return existing;
+    }
+    try {
+      const created = await this.customTableColumnRepository.save(
+        drafts.map(draft => this.customTableColumnRepository.create(draft)),
+      );
+      return [...existing, ...created];
+    } catch (error) {
+      this.throwHelpfulSchemaError(error);
+    }
   }
 
   /**
@@ -1770,7 +1952,7 @@ export class CustomTablesService {
     const { table, sourceRows } = params;
     const keyByField = new Map<string, string>();
     for (const column of params.columns) {
-      const source = this.getColumnSourceConfig(column.config);
+      const source = columnSourceConfig(column.config);
       if (source?.kind === 'app_field' && source.field) {
         keyByField.set(source.field, column.key);
       }
@@ -1783,7 +1965,11 @@ export class CustomTablesService {
     try {
       existing = await this.customTableRowRepository.find({
         where: { tableId: table.id, sourceKey: Not(IsNull()) },
-        select: ['id', 'sourceKey', 'data'],
+        select: {
+          id: true,
+          sourceKey: true,
+          data: true,
+        },
       });
     } catch (error) {
       this.throwHelpfulSchemaError(error);
@@ -1850,7 +2036,13 @@ export class CustomTablesService {
         await manager.update(
           CustomTable,
           { id: table.id },
-          { sourceBinding: { ...binding, syncedAt } },
+          {
+            // jsonb: TypeORM's deep-partial type cannot express `unknown` values.
+            sourceBinding: {
+              ...binding,
+              syncedAt,
+            } as QueryDeepPartialEntity<CustomTable>['sourceBinding'],
+          },
         );
       });
     } catch (error) {
@@ -2039,6 +2231,14 @@ export class CustomTablesService {
       },
     };
 
+    // Re-converting replaces the statement's rows, and rows on a filed return may not go.
+    if (existingStatement) {
+      await assertNoTaxLockedTransactions(this.transactionRepository, {
+        statementId: existingStatement.id,
+        workspaceId,
+      });
+    }
+
     const beforeStatement = existingStatement ? { ...existingStatement } : null;
     const statement = existingStatement
       ? Object.assign(existingStatement, statementPayload)
@@ -2073,20 +2273,21 @@ export class CustomTablesService {
         categoryId: table.categoryId ?? null,
         // Converted in bulk from a table: each row is confirmed in Review.
         isVerified: false,
-        fingerprint: generateTransactionFingerprint({
-          workspaceId,
-          accountNumber: '',
-          date: row.transactionDate,
-          amount: row.amount,
-          currency: row.currency,
-          direction: 'debit',
-          merchant: row.merchant,
-        }),
+        fingerprint: convertedRowFingerprint(workspaceId, row),
       }),
+    );
+    // Identical rows import as identical statement lines do: kept, the repeat flagged.
+    warnings.push(
+      ...(await flagRepeatedRows(this.transactionRepository, workspaceId, transactions, converted)),
     );
 
     const savedTransactions = await this.transactionRepository.save(transactions);
-    await this.categorizeConvertedTransactions(workspaceId, userId, savedTransactions);
+    await this.categorizeConvertedTransactions(userId, savedTransactions);
+    // Converted rows are created without tax and categorised with update(),
+    // which the tax subscriber never sees: assess them once they have a category.
+    await this.taxAssignmentService?.reassess(workspaceId, {
+      ids: savedTransactions.map(transaction => transaction.id),
+    });
 
     await this.logEvent({
       userId,
@@ -2103,6 +2304,14 @@ export class CustomTablesService {
       },
       isUndoable: false,
     });
+    if (savedTransactions.length > 0) {
+      this.eventEmitter?.emit('transactions.imported', {
+        workspaceId,
+        source: 'custom_table',
+        statementId: savedStatement.id,
+        transactionIds: savedTransactions.map(transaction => transaction.id),
+      } satisfies TransactionsImportedEvent);
+    }
 
     return {
       statementId: savedStatement.id,
@@ -2301,7 +2510,12 @@ export class CustomTablesService {
     }
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key', 'title', 'type', 'config'],
+      select: {
+        key: true,
+        title: true,
+        type: true,
+        config: true,
+      },
     });
     const others = columns.filter(col => col.key !== selfColumnKey);
     // Все колонки, включая свою: «остаток = PREV([Остаток]) + …» должен резолвиться в ключ.
@@ -2315,7 +2529,7 @@ export class CustomTablesService {
         { selfKey },
       );
     } catch (error) {
-      throw new BadRequestException(error instanceof Error ? error.message : 'Invalid formula');
+      throw new BadRequestException(appError(...FormulaError.argsOf(error)));
     }
 
     const refsByKey = new Map<string, string[]>();
@@ -2367,7 +2581,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: PreviewFormulaDto,
+    dto: PreviewFormulaBody,
   ): Promise<{
     valid: boolean;
     error: string | null;
@@ -2435,22 +2649,23 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: CreateCustomTableColumnDto,
+    dto: CreateCustomTableColumnBody,
   ): Promise<CustomTableColumn> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
 
-    this.validateNumberConfig(dto.type, dto.config);
-    this.validateSelectConfig(dto.type, dto.config);
-    await this.validateFormulaConfig(tableId, dto.type, dto.config, null, dto.title);
-    await this.validateRelationConfig(workspaceId, dto.type, dto.config);
+    const type = toEnum(CustomTableColumnType, dto.type);
+    this.validateNumberConfig(type ?? undefined, dto.config);
+    this.validateSelectConfig(type ?? undefined, dto.config);
+    await this.validateFormulaConfig(tableId, type ?? undefined, dto.config, null, dto.title);
+    await this.validateRelationConfig(workspaceId, type ?? undefined, dto.config);
 
     const position = dto.position ?? (await this.getNextColumnPosition(tableId));
     const column = this.customTableColumnRepository.create({
       tableId,
-      key: this.generateColumnKey(),
+      key: generateColumnKey(),
       title: dto.title,
-      type: dto.type ?? CustomTableColumnType.TEXT,
+      type: type ?? CustomTableColumnType.TEXT,
       isRequired: dto.isRequired ?? false,
       isUnique: dto.isUnique ?? false,
       position,
@@ -2503,7 +2718,7 @@ export class CustomTablesService {
     workspaceId: string,
     tableId: string,
     columnId: string,
-    dto: UpdateCustomTableColumnDto,
+    dto: UpdateCustomTableColumnBody,
   ): Promise<CustomTableColumn> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -2523,27 +2738,27 @@ export class CustomTablesService {
     }
 
     const before = { ...column };
-    if (dto.title !== undefined) {
+    if (dto.title != null) {
       column.title = dto.title;
     }
-    if (dto.type !== undefined) {
-      column.type = dto.type;
+    if (dto.type != null) {
+      column.type = toEnum(CustomTableColumnType, dto.type);
     }
-    if (dto.isRequired !== undefined) {
+    if (dto.isRequired != null) {
       column.isRequired = dto.isRequired;
     }
-    if (dto.isUnique !== undefined) {
+    if (dto.isUnique != null) {
       column.isUnique = dto.isUnique;
     }
-    if (dto.position !== undefined) {
+    if (dto.position != null) {
       column.position = dto.position;
     }
     if (dto.config !== undefined) {
-      const previousSource = this.getColumnSourceConfig(column.config);
+      const previousSource = columnSourceConfig(column.config);
       column.config = dto.config ?? null;
       // Clients rebuild config from their draft and know nothing about the
       // source link; dropping it would silently stop refreshes for this column.
-      if (previousSource && !this.getColumnSourceConfig(column.config)) {
+      if (previousSource && !columnSourceConfig(column.config)) {
         column.config = { ...(column.config ?? {}), source: previousSource };
       }
     }
@@ -2582,7 +2797,7 @@ export class CustomTablesService {
     workspaceId: string,
     tableId: string,
     columnId: string,
-    dto: UpdateCustomTableColumnStyleDto,
+    dto: UpdateCustomTableColumnStyleBody,
   ): Promise<{ columnKey: string; style: JsonObject }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -2593,7 +2808,10 @@ export class CustomTablesService {
     try {
       column = await this.customTableColumnRepository.findOne({
         where: { id: columnId, tableId },
-        select: ['id', 'key'],
+        select: {
+          id: true,
+          key: true,
+        },
       });
     } catch (error) {
       this.throwHelpfulSchemaError(error);
@@ -2647,7 +2865,7 @@ export class CustomTablesService {
 
   private mergeColumnStyle(
     before: JsonObject | null,
-    dto: UpdateCustomTableColumnStyleDto,
+    dto: UpdateCustomTableColumnStyleBody,
   ): JsonObject {
     const next: JsonObject = { ...(before ?? {}) };
     for (const part of ['header', 'cell'] as const) {
@@ -2666,7 +2884,7 @@ export class CustomTablesService {
   }
 
   /** Оставляем только заполненные поля; пустая часть превращается в null. */
-  private normalizeColumnStylePart(part: ColumnStylePartDto): JsonObject | null {
+  private normalizeColumnStylePart(part: ColumnStylePartInput): JsonObject | null {
     const result: JsonObject = {};
     if (part.backgroundColor) {
       result.backgroundColor = part.backgroundColor;
@@ -2688,7 +2906,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: ReorderCustomTableColumnsDto,
+    dto: ReorderCustomTableColumnsBody,
   ): Promise<void> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -2860,13 +3078,18 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: UpdateCustomTableSummariesDto,
+    dto: UpdateCustomTableSummariesBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const table = await this.requireTable(workspaceId, tableId);
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key', 'title', 'type', 'config'],
+      select: {
+        key: true,
+        title: true,
+        type: true,
+        config: true,
+      },
     });
     const keys = columns.map(col => col.key);
     const summaries = dto.summaries.map(item => {
@@ -2874,7 +3097,7 @@ export class CustomTablesService {
       try {
         assertValidFormula(expression, keys);
       } catch (error) {
-        throw new BadRequestException(error instanceof Error ? error.message : 'Invalid formula');
+        throw new BadRequestException(appError(...FormulaError.argsOf(error)));
       }
       return { id: item.id?.trim() || randomUUID(), title: item.title.trim(), expression };
     });
@@ -2954,7 +3177,10 @@ export class CustomTablesService {
     }
     const fresh = await this.customTableRowRepository.find({
       where: { id: In(rows.map(row => row.id)) },
-      select: ['id', 'computed'],
+      select: {
+        id: true,
+        computed: true,
+      },
     });
     const byId = new Map(fresh.map(row => [row.id, row.computed]));
     for (const row of rows) {
@@ -3019,7 +3245,11 @@ export class CustomTablesService {
 
       const targetRows = await this.customTableRowRepository.find({
         where: { id: In(ids), tableId: targetTableId },
-        select: ['id', 'rowNumber', 'data'],
+        select: {
+          id: true,
+          rowNumber: true,
+          data: true,
+        },
       });
       const labelById = new Map(
         targetRows.map(target => {
@@ -3154,7 +3384,11 @@ export class CustomTablesService {
   private async loadColumnTypeMap(tableId: string): Promise<Map<string, CustomTableColumnType>> {
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key', 'type', 'config'],
+      select: {
+        key: true,
+        type: true,
+        config: true,
+      },
     });
     return new Map<string, CustomTableColumnType>(columns.map(c => [c.key, this.storageTypeOf(c)]));
   }
@@ -3543,7 +3777,7 @@ export class CustomTablesService {
       columns.forEach((col, index) => {
         const aggregate = viewColumns[col.key]?.aggregate;
         const fn = aggregate ? FN[aggregate] : undefined;
-        if (!fn) {
+        if (!(aggregate && fn)) {
           return;
         }
         const letter = xlsx.utils.encode_col(index);
@@ -3565,11 +3799,15 @@ export class CustomTablesService {
       const computed = await this.getSummaries(table.workspaceId, table.id);
       for (const item of computed.items) {
         lastRow += 1;
-        worksheet[`A${lastRow}`] = { t: 's', v: item.title };
+        // Summary titles are editor input, like column titles.
+        worksheet[`A${lastRow}`] = { t: 's', v: neutralizeSpreadsheetFormulaCell(item.title) };
         worksheet[`B${lastRow}`] =
           typeof item.value === 'number'
             ? { t: 'n', v: item.value }
-            : { t: 's', v: item.value === null ? '' : String(item.value) };
+            : {
+                t: 's',
+                v: neutralizeSpreadsheetFormulaCell(item.value === null ? '' : String(item.value)),
+              };
       }
     }
     if (lastRow > rowCount + 1) {
@@ -3578,6 +3816,11 @@ export class CustomTablesService {
         e: { r: lastRow - 1, c: Math.max(columns.length - 1, 1) },
       });
     }
+  }
+
+  /** A column title is editor input: it must not open as a formula in the header row. */
+  private exportHeader(col: CustomTableColumn): string {
+    return neutralizeSpreadsheetFormulaCell(col.title || col.key);
   }
 
   private exportCellValue(raw: unknown, columnType: CustomTableColumnType): unknown {
@@ -3908,7 +4151,7 @@ export class CustomTablesService {
         const labels = (row as CustomTableRow & { relationLabels?: Record<string, string> })
           .relationLabels;
         for (const col of columns) {
-          const header = col.title || col.key;
+          const header = this.exportHeader(col);
           // В выгрузку идёт подпись связанной строки: идентификатор в отчёте
           // человеку ничего не говорит.
           record[header] =
@@ -3920,7 +4163,7 @@ export class CustomTablesService {
       }
     }
 
-    const headers = columns.map(col => col.title || col.key);
+    const headers = columns.map(col => this.exportHeader(col));
     const worksheet = xlsx.utils.json_to_sheet(records, { header: headers });
     await this.appendExportTotals(worksheet, table, columns, records.length);
 
@@ -3979,7 +4222,11 @@ export class CustomTablesService {
         const rowIds = rows.map(r => r.id);
         const styles = await this.customTableCellStyleRepository.find({
           where: { rowId: In(rowIds) },
-          select: ['rowId', 'columnKey', 'style'],
+          select: {
+            rowId: true,
+            columnKey: true,
+            style: true,
+          },
         });
         this.mergeRowStyles(rows, styles);
       } catch (_error) {
@@ -3996,96 +4243,10 @@ export class CustomTablesService {
     }
   }
 
-  /**
-   * Заполняет AI-колонку по её промпту. Обобщение classifyPaidStatus: тот же
-   * приём (батчи, санитизация, фолбэк), но результат произвольный, а не
-   * булев флаг «оплачено».
-   */
-  async fillAiColumn(
-    workspaceId: string,
-    tableId: string,
-    dto: { columnKey: string; rowIds: string[] },
-  ): Promise<{ items: Array<{ rowId: string; value: string | null }>; aiAvailable: boolean }> {
-    await this.requireTable(workspaceId, tableId);
-
-    const column = await this.customTableColumnRepository.findOne({
-      where: { tableId, key: dto.columnKey },
-    });
-    if (!column || column.type !== CustomTableColumnType.AI) {
-      throw new BadRequestException(appError('COLUMN_NOT_AI'));
-    }
-    const prompt = column.config?.prompt;
-    if (typeof prompt !== 'string' || !prompt.trim()) {
-      throw new BadRequestException(appError('COLUMN_AI_PROMPT_MISSING'));
-    }
-
-    const rowIds = Array.from(new Set((dto.rowIds ?? []).filter(id => this.isUuid(id))));
-    if (!rowIds.length) {
-      return { items: [], aiAvailable: true };
-    }
-
-    const [rows, columns] = await Promise.all([
-      this.customTableRowRepository.find({
-        where: { tableId, id: In(rowIds) },
-        select: ['id', 'data'],
-      }),
-      this.customTableColumnRepository.find({
-        where: { tableId },
-        select: ['key', 'title', 'type'],
-      }),
-    ]);
-
-    // В модель отправляем только человекочитаемые поля, без служебных
-    // и без самой AI-колонки — иначе она будет видеть свой прошлый ответ.
-    const sourceColumns = columns.filter(
-      col => col.key !== column.key && col.type !== CustomTableColumnType.AI,
-    );
-
-    const filler = new AiColumnFiller();
-    const inputs = rows.map(row => {
-      const data = (row.data ?? {}) as Record<string, unknown>;
-      const text = sourceColumns
-        .map(col => {
-          const value = data[col.key];
-          return value === null || value === undefined || String(value).trim() === ''
-            ? null
-            : `${col.title}: ${String(value)}`;
-        })
-        .filter(Boolean)
-        .join('; ');
-      return { id: row.id, text };
-    });
-
-    const results: Array<{ id: string; value: string | null }> = [];
-    const batchSize = 25;
-    for (let i = 0; i < inputs.length; i += batchSize) {
-      results.push(...(await filler.fill(prompt, inputs.slice(i, i + batchSize))));
-    }
-
-    // Сохраняем: повторный вызов модели стоит денег, а ответ недетерминирован.
-    const byId = new Map(results.map(item => [item.id, item.value]));
-    for (const row of rows) {
-      const value = byId.get(row.id) ?? null;
-      if (value === null) {
-        continue;
-      }
-      await this.customTableRowRepository.update(
-        { id: row.id },
-        { data: { ...((row.data ?? {}) as Record<string, unknown>), [column.key]: value } },
-      );
-    }
-
-    await this.recalcAfterWrite(tableId, workspaceId);
-    return {
-      items: rowIds.map(rowId => ({ rowId, value: byId.get(rowId) ?? null })),
-      aiAvailable: filler.isReady(),
-    };
-  }
-
   async classifyPaidStatus(
     workspaceId: string,
     tableId: string,
-    dto: ClassifyPaidStatusDto,
+    dto: ClassifyPaidStatusBody,
   ): Promise<{ items: Array<{ rowId: string; paid: boolean | null }> }> {
     await this.requireTable(workspaceId, tableId);
     const rowIds = Array.isArray(dto.rowIds) ? dto.rowIds.filter(Boolean) : [];
@@ -4105,11 +4266,17 @@ export class CustomTablesService {
     try {
       rows = await this.customTableRowRepository.find({
         where: { tableId, id: In(validRowIds) },
-        select: ['id', 'data'],
+        select: {
+          id: true,
+          data: true,
+        },
       });
       columns = await this.customTableColumnRepository.find({
         where: { tableId },
-        select: ['key', 'title'],
+        select: {
+          key: true,
+          title: true,
+        },
       });
     } catch (error) {
       this.throwHelpfulSchemaError(error);
@@ -4131,16 +4298,9 @@ export class CustomTablesService {
       };
     });
 
-    const classifier = new AiPaidStatusClassifier();
-    const results: Array<{ id: string; paid: boolean | null }> = [];
-    const batchSize = 25;
-    for (let i = 0; i < inputs.length; i += batchSize) {
-      const batch = inputs.slice(i, i + batchSize);
-      const chunkResults = await classifier.classify(batch);
-      results.push(...chunkResults);
-    }
-
-    const byId = new Map<string, boolean | null>(results.map(item => [item.id, item.paid]));
+    const byId = new Map<string, boolean | null>(
+      inputs.map(input => [input.id, detectPaidStatus(input)]),
+    );
     const items = uniqueRowIds.map(rowId => ({
       rowId,
       paid: byId.has(rowId) ? (byId.get(rowId) as boolean | null) : null,
@@ -4173,7 +4333,13 @@ export class CustomTablesService {
   ): Promise<void> {
     const columns = await this.customTableColumnRepository.find({
       where: { tableId },
-      select: ['key', 'title', 'isRequired', 'isUnique', 'type'],
+      select: {
+        key: true,
+        title: true,
+        isRequired: true,
+        isUnique: true,
+        type: true,
+      },
     });
     const guarded = columns.filter(col => col.isRequired || col.isUnique);
     if (!guarded.length) {
@@ -4228,7 +4394,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: CreateCustomTableRowDto,
+    dto: CreateCustomTableRowBody,
   ): Promise<CustomTableRow> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -4273,10 +4439,10 @@ export class CustomTablesService {
     workspaceId: string,
     tableId: string,
     rowId: string,
-    dto: UpdateCustomTableRowDto,
+    dto: UpdateCustomTableRowBody,
   ): Promise<CustomTableRow> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
-    await this.requireTable(workspaceId, tableId);
+    const table = await this.requireTable(workspaceId, tableId);
     if (!this.isUuid(rowId)) {
       throw new BadRequestException(appError('ROW_ID_INVALID'));
     }
@@ -4293,16 +4459,33 @@ export class CustomTablesService {
     }
 
     const allowedKeys = await this.getAllowedColumnKeys(tableId);
-    const patch = this.sanitizeRowData(dto.data, allowedKeys);
-    await this.validateRowsAgainstColumns(tableId, [patch], {
-      excludeRowId: rowId,
-      partial: true,
-    });
+    let patch = this.sanitizeRowData(dto.data, allowedKeys);
+    const writeBack = await this.writeBackAppFields(userId, workspaceId, table, row, patch);
+    if (writeBack) {
+      // The row shows the app record: its app cells take what the app now holds,
+      // also when the app refused — then nothing else of this edit is saved.
+      patch = writeBack.error ? writeBack.values : { ...patch, ...writeBack.values };
+    }
+    if (!writeBack?.error) {
+      await this.validateRowsAgainstColumns(tableId, [patch], {
+        excludeRowId: rowId,
+        partial: true,
+      });
+    }
     const beforeData = { ...(row.data || {}) };
     const beforeStyles = row.styles ? { ...row.styles } : null;
     row.data = { ...(row.data || {}), ...patch };
-    if (dto.styles && typeof dto.styles === 'object') {
+    if (dto.styles && typeof dto.styles === 'object' && !writeBack?.error) {
       row.styles = { ...(row.styles || {}), ...dto.styles };
+    }
+
+    if (writeBack?.error) {
+      try {
+        await this.customTableRowRepository.save(row);
+      } catch (error) {
+        this.throwHelpfulSchemaError(error);
+      }
+      throw writeBack.error;
     }
 
     let saved: CustomTableRow;
@@ -4311,7 +4494,9 @@ export class CustomTablesService {
     } catch (error) {
       this.throwHelpfulSchemaError(error);
     }
-    const patchKeys = Object.keys(patch || {});
+    const patchKeys = Object.keys(patch || {}).filter(
+      key => !this.sameCellValue(beforeData?.[key] ?? null, (patch[key] ?? null) as SourceValue),
+    );
     const batchId = patchKeys.length > 1 ? randomUUID() : null;
 
     for (const key of patchKeys) {
@@ -4332,6 +4517,9 @@ export class CustomTablesService {
           cell: { column: key },
         },
         batchId,
+        // Undo of an app cell would rewrite the table and leave the record as it
+        // is; the record's own event is the one to undo.
+        ...(writeBack && key in writeBack.values ? { isUndoable: false } : {}),
       });
     }
 
@@ -4360,6 +4548,55 @@ export class CustomTablesService {
       await this.customTableColumnRepository.find({ where: { tableId } }),
     );
     return saved;
+  }
+
+  /**
+   * Sends the patch's cells that show an app record (source columns of a table
+   * filled from app data, on a row that came from a record) to that record.
+   * Returns the record's values for every source column of the row, keyed by
+   * column, and the app's refusal if there was one; null when nothing applies.
+   */
+  private async writeBackAppFields(
+    userId: string,
+    workspaceId: string,
+    table: CustomTable,
+    row: CustomTableRow,
+    patch: Record<string, unknown>,
+  ): Promise<{ values: Record<string, unknown>; error: unknown | null } | null> {
+    if (!(this.sourceWriteBack && table.sourceBinding?.kind && row.sourceKey)) {
+      return null;
+    }
+    const columns = await this.customTableColumnRepository.find({ where: { tableId: table.id } });
+    const keyByField = new Map<string, string>();
+    for (const column of columns) {
+      const source = columnSourceConfig(column.config);
+      if (source?.kind === 'app_field' && source.field) {
+        keyByField.set(source.field, column.key);
+      }
+    }
+    const changes: Record<string, unknown> = {};
+    for (const [field, key] of keyByField) {
+      if (key in patch) {
+        changes[field] = patch[key];
+      }
+    }
+    if (!Object.keys(changes).length) {
+      return null;
+    }
+    const result = await this.sourceWriteBack.apply({
+      userId,
+      workspaceId,
+      table,
+      sourceKey: row.sourceKey,
+      changes,
+    });
+    const values: Record<string, unknown> = {};
+    for (const [field, key] of keyByField) {
+      if (field in result.values) {
+        values[key] = result.values[field] ?? null;
+      }
+    }
+    return { values, error: result.error };
   }
 
   async removeRow(
@@ -4406,7 +4643,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: BatchCreateCustomTableRowsDto,
+    dto: BatchCreateCustomTableRowsBody,
   ): Promise<{ created: number; rows: CustomTableRow[] }> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     await this.requireTable(workspaceId, tableId);
@@ -4457,7 +4694,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: UpdateCustomTableViewSettingsColumnDto,
+    dto: UpdateCustomTableViewSettingsColumnBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const table = await this.requireTable(workspaceId, tableId);
@@ -4470,7 +4707,10 @@ export class CustomTablesService {
 
     const column = await this.customTableColumnRepository.findOne({
       where: { tableId, key: columnKey },
-      select: ['id', 'key'],
+      select: {
+        id: true,
+        key: true,
+      },
     });
     if (!column) {
       throw new BadRequestException(appError('COLUMN_NOT_FOUND'));
@@ -4482,7 +4722,7 @@ export class CustomTablesService {
       columns[columnKey] && typeof columns[columnKey] === 'object' ? columns[columnKey] : {};
     const next = { ...existing };
 
-    if (dto.width !== undefined) {
+    if (dto.width != null) {
       next.width = dto.width;
     }
 
@@ -4566,7 +4806,7 @@ export class CustomTablesService {
     userId: string,
     workspaceId: string,
     tableId: string,
-    dto: UpdateCustomTableViewsDto,
+    dto: UpdateCustomTableViewsBody,
   ): Promise<CustomTable> {
     await this.ensureCanEditCustomTables(userId, workspaceId);
     const table = await this.requireTable(workspaceId, tableId);
@@ -4579,9 +4819,9 @@ export class CustomTablesService {
       }
       ids.add(view.id);
 
-      // class-validator проверяет, что aggregates — объект, но не его значения.
+      // Схема пропускает любую строку: неизвестная функция получает свой код ошибки.
       for (const [col, fn] of Object.entries(view.aggregates ?? {})) {
-        if (!CUSTOM_TABLE_AGGREGATE_FNS.includes(fn)) {
+        if (!(CUSTOM_TABLE_AGGREGATE_FNS as readonly string[]).includes(fn)) {
           throw new BadRequestException(
             appError('AGG_TOTAL_FUNCTION_UNKNOWN', { column: String(col), fn: String(fn) }),
           );

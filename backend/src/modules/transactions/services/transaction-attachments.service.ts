@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { validateFile } from '../../../common/utils/file-validator.util';
 import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { Transaction } from '../../../entities/transaction.entity';
@@ -67,7 +68,10 @@ export class TransactionAttachmentsService {
       fileSize: file.size,
     });
 
-    return this.attachmentRepository.save(attachment);
+    const saved = await this.attachmentRepository.save(attachment);
+    // bigint: a read answers it as a string, so the upload answers the same.
+    saved.fileSize = String(saved.fileSize) as unknown as number;
+    return saved;
   }
 
   async getForDownload(attachmentId: string, workspaceId: string): Promise<AttachmentDownload> {
@@ -75,7 +79,7 @@ export class TransactionAttachmentsService {
     const absolutePath = this.resolveStoredPath(attachment.storedFileName);
 
     if (!fs.existsSync(absolutePath)) {
-      throw new NotFoundException('Attachment file is missing from storage');
+      throw new NotFoundException(appError('TRANSACTION_ATTACHMENT_FILE_MISSING'));
     }
 
     return { absolutePath, fileName: attachment.fileName, mimeType: attachment.mimeType };
@@ -104,7 +108,7 @@ export class TransactionAttachmentsService {
     });
 
     if (!attachment) {
-      throw new NotFoundException('Attachment not found');
+      throw new NotFoundException(appError('TRANSACTION_ATTACHMENT_NOT_FOUND'));
     }
 
     return attachment;
@@ -114,12 +118,12 @@ export class TransactionAttachmentsService {
     transactionId: string,
     workspaceId: string,
   ): Promise<void> {
-    const exists = await this.transactionRepository.exist({
+    const exists = await this.transactionRepository.exists({
       where: { id: transactionId, workspaceId },
     });
 
     if (!exists) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
   }
 

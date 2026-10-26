@@ -45,7 +45,7 @@ const createRecord = (overrides: Partial<TopCategoryRecord> = {}): TopCategoryRe
 });
 
 describe('top categories helpers', () => {
-  it('resolves category flow for statement and gmail records', () => {
+  it('resolves category flow for statement and receipt records', () => {
     expect(
       resolveCategoryFlow({
         sourceType: 'statement',
@@ -68,7 +68,7 @@ describe('top categories helpers', () => {
 
     expect(
       resolveCategoryFlow({
-        sourceType: 'gmail',
+        sourceType: 'receipt',
         amount: 95,
         transactionType: 'income',
       }),
@@ -81,24 +81,24 @@ describe('top categories helpers', () => {
     expect(resolveCategoryName(undefined)).toBe('Uncategorized');
   });
 
-  it('deduplicates gmail receipts already linked to transactions', () => {
+  it('deduplicates receipts already linked to transactions', () => {
     const receipts = [
       createRecord({
         id: 'receipt-1',
-        sourceType: 'gmail',
-        sourceChannel: 'gmail',
+        sourceType: 'receipt',
+        sourceChannel: 'receipt',
         transactionId: 'tx-1',
       }),
       createRecord({
         id: 'receipt-2',
-        sourceType: 'gmail',
-        sourceChannel: 'gmail',
+        sourceType: 'receipt',
+        sourceChannel: 'receipt',
         transactionId: null,
       }),
       createRecord({
         id: 'receipt-3',
-        sourceType: 'gmail',
-        sourceChannel: 'gmail',
+        sourceType: 'receipt',
+        sourceChannel: 'receipt',
         transactionId: 'tx-3',
       }),
     ];
@@ -115,8 +115,8 @@ describe('top categories helpers', () => {
       createRecord({ id: 'b', category: 'software', amount: 300, dateValue: '2026-02-11' }),
       createRecord({
         id: 'c',
-        sourceType: 'gmail',
-        sourceChannel: 'gmail',
+        sourceType: 'receipt',
+        sourceChannel: 'receipt',
         category: 'Software',
         amount: 120,
         dateValue: '2026-02-12',
@@ -147,10 +147,10 @@ describe('top categories helpers', () => {
         icon: null,
       },
       {
-        id: 'spend:gmail:USD:software',
+        id: 'spend:receipt:USD:software',
         category: 'Software',
-        sourceType: 'gmail',
-        sourceChannel: 'gmail',
+        sourceType: 'receipt',
+        sourceChannel: 'receipt',
         flowType: 'spend',
         count: 1,
         total: 120,
@@ -210,8 +210,8 @@ describe('top categories helpers', () => {
       {
         id: 'c',
         category: 'C',
-        sourceType: 'gmail',
-        sourceChannel: 'gmail',
+        sourceType: 'receipt',
+        sourceChannel: 'receipt',
         flowType: 'spend',
         count: 15,
         total: 900,

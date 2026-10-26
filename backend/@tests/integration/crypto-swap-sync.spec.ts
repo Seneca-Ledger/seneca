@@ -45,7 +45,7 @@ import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-
 import { TransferPairingService } from '../../src/modules/transactions/services/transfer-pairing.service';
 
 const BASE_URL = process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_crypto_swap_${process.pid}`;
+const SCRATCH_DB = `seneca_crypto_swap_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -57,15 +57,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -93,12 +93,12 @@ const USED_BTC_ADDRESSES = [
 
 /** mempool.space, with two addresses of the key funded and the rest untouched. */
 const bitcoinStub = {
-  getAddress: jest.fn(async (address: string) =>
+  getAddress: vi.fn(async (address: string) =>
     USED_BTC_ADDRESSES.includes(address)
       ? { chain_stats: { funded_txo_sum: 100_000, spent_txo_sum: 0, tx_count: 1 } }
       : { chain_stats: { funded_txo_sum: 0, spent_txo_sum: 0, tx_count: 0 } },
   ),
-  getTransactions: jest.fn(async (address: string) =>
+  getTransactions: vi.fn(async (address: string) =>
     USED_BTC_ADDRESSES.includes(address)
       ? [
           {
@@ -116,7 +116,7 @@ const bitcoinStub = {
 const GAS = { gasUsed: '21000', gasPrice: '1000000000', fee: '0.000021' };
 
 describe('crypto wallet sync (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let sync: CryptoSyncService;
@@ -213,11 +213,11 @@ describe('crypto wallet sync (real Postgres)', () => {
     await dataSource.runMigrations();
 
     const priceStub = {
-      getUsdPrice: jest.fn(async (asset: string) => PRICES[asset] ?? null),
-      getCurrentUsdPrices: jest.fn(async (assets: string[]) =>
+      getUsdPrice: vi.fn(async (asset: string) => PRICES[asset] ?? null),
+      getCurrentUsdPrices: vi.fn(async (assets: string[]) =>
         Object.fromEntries(assets.filter(asset => PRICES[asset]).map(a => [a, PRICES[a]])),
       ),
-      primeHistoricalPrices: jest.fn().mockResolvedValue(undefined),
+      primeHistoricalPrices: vi.fn().mockResolvedValue(undefined),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -233,16 +233,16 @@ describe('crypto wallet sync (real Postgres)', () => {
         {
           provide: ExchangeRatesService,
           useValue: {
-            getRate: jest.fn(async () => 1),
-            getRateOrNull: jest.fn(async () => 1),
+            getRate: vi.fn(async () => 1),
+            getRateOrNull: vi.fn(async () => 1),
           },
         },
         {
           provide: AuditService,
           useValue: {
-            createEvent: jest.fn(),
-            createBatchEvents: jest.fn(),
-            logAction: jest.fn(),
+            createEvent: vi.fn(),
+            createBatchEvents: vi.fn(),
+            logAction: vi.fn(),
           },
         },
         { provide: TronGridClient, useValue: {} },
@@ -322,7 +322,7 @@ describe('crypto wallet sync (real Postgres)', () => {
       )
     ).id;
 
-    global.fetch = jest.fn(async (input: RequestInfo | URL) => ({
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => ({
       ok: true,
       status: 200,
       json: async () => explorerAnswer(String(input)),

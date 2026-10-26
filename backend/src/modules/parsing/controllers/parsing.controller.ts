@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   HttpCode,
   HttpStatus,
@@ -14,14 +13,18 @@ import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagg
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as xlsx from 'xlsx';
+import { SchemaBody } from '../../../common/effect/schema-body';
+import { SchemaResponse } from '../../../common/effect/schema-response';
+import { appError } from '../../../common/errors/app-error';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { validateFile } from '../../../common/utils/file-validator.util';
 import { assertSafeZipDecompressionRatio } from '../../../common/utils/zip-bomb-guard.util';
 import { multerConfig } from '../../../config/multer.config';
-import { ParseDocumentDto } from '../dto/parse-document.dto';
+import { ParseDocumentBody } from '../../../contracts';
+import { ParsedDocumentResult } from '../../../contracts/imports/import-sessions';
 import { UniversalExtractorService } from '../services/universal-extractor.service';
 
-// Local type alias prevents babel-plugin-transform-typescript-metadata from emitting
+// Local type alias keeps the decorator-metadata transform from emitting
 // the ambient `Express` namespace as a runtime expression in decorator metadata.
 type MulterFile = Express.Multer.File;
 
@@ -43,9 +46,13 @@ export class ParsingController {
   @ApiOperation({ summary: 'Parse uploaded document and extract structured financial fields' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', multerConfig))
-  async parseDocument(@UploadedFile() file: MulterFile, @Body() payload: ParseDocumentDto) {
+  @SchemaResponse(ParsedDocumentResult)
+  async parseDocument(
+    @UploadedFile() file: MulterFile,
+    @SchemaBody(ParseDocumentBody) payload: ParseDocumentBody,
+  ) {
     if (!file) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException(appError('UPLOAD_NO_FILE'));
     }
 
     validateFile(file);
@@ -53,9 +60,9 @@ export class ParsingController {
     const ext = path.extname(file.originalname || '').toLowerCase();
     const buffer = await fs.readFile(file.path);
     const context = {
-      sender: payload.sender,
-      subject: payload.subject,
-      emailBody: payload.emailBody,
+      sender: payload.sender ?? undefined,
+      subject: payload.subject ?? undefined,
+      emailBody: payload.emailBody ?? undefined,
       fileNameHint: file.originalname,
     };
 
@@ -96,7 +103,7 @@ export class ParsingController {
         const firstSheet = workbook.SheetNames[0];
 
         if (!firstSheet) {
-          throw new BadRequestException('Spreadsheet has no sheets to parse');
+          throw new BadRequestException(appError('PARSING_NO_SHEETS'));
         }
 
         const csvText = xlsx.utils.sheet_to_csv(workbook.Sheets[firstSheet]);
@@ -109,7 +116,7 @@ export class ParsingController {
       }
 
       throw new BadRequestException(
-        `Unsupported file extension: ${ext || 'unknown'}. Supported: PDF, CSV, XLSX/XLS, JPG, PNG`,
+        appError('PARSING_UNSUPPORTED_EXTENSION', { ext: ext || 'unknown' }),
       );
     } finally {
       await fs.unlink(file.path).catch(() => undefined);

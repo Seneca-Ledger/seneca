@@ -1,16 +1,13 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Patch,
   Post,
   Put,
-  Query,
   Res,
   UploadedFile,
   UseGuards,
@@ -19,43 +16,54 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
-import * as fs from 'fs';
-import { diskStorage } from 'multer';
-import * as path from 'path';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
+import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TimezonesService } from '../../common/services/timezones.service';
-import {
-  isAllowedAvatarMime,
-  resolveAvatarContentType,
-  sanitizeAvatarFilename,
-} from '../../common/utils/avatar-filename.util';
 import { removeUploadedFile, validateImageSignature } from '../../common/utils/file-validator.util';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import {
+  AddPermissionBody,
+  AdminUser,
+  AdminUserList,
+  AvatarFileParams,
+  ChangeEmailBody,
+  ChangePasswordBody,
+  CompleteOnboardingBody,
+  ConfirmEmailChangeBody,
+  DeleteMyAccountBody,
+  DisclaimerAccepted,
+  DisclaimerStatus,
+  EmailChangeConfirmed,
+  MessageResult,
+  PageHintsSeen,
+  PageHintsSeenBody,
+  RemovePermissionBody,
+  TimeZoneList,
+  UpdateMyPreferencesBody,
+  UpdatePermissionsBody,
+  UpdateUserBody,
+  UserIdParams,
+  UserPermissions,
+  UserPermissionsUpdate,
+  UserProfile,
+  UsersQuery,
+  UserUpdateResponse,
+  WelcomeTutorialSeen,
+} from '../../contracts';
 import { type User, UserRole } from '../../entities/user.entity';
+import { toCurrentUser } from '../auth/current-user.view';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { avatarUploadOptions, sendAvatarFile } from './avatar-file.util';
 import { CURRENT_DISCLAIMER_VERSION } from './disclaimer.constant';
-import { ChangeEmailDto } from './dto/change-email.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
-import { ConfirmEmailChangeDto } from './dto/confirm-email-change.dto';
-import { DeleteMyAccountDto } from './dto/delete-my-account.dto';
-import { UpdateMyPreferencesDto } from './dto/update-my-preferences.dto';
-// Value import, not `import type`: a type-only import erases the DTO class, so
-// the global ValidationPipe sees an `Object` metatype and validates nothing —
-// arbitrary strings then reach the users.permissions column.
-import {
-  AddPermissionDto,
-  RemovePermissionDto,
-  UpdatePermissionsDto,
-} from './dto/update-permissions.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { AccountDataService } from './services/account-data.service';
 import { EmailChangeService } from './services/email-change.service';
 import { PermissionsService } from './services/permissions.service';
@@ -77,31 +85,35 @@ export class UsersController {
     private readonly accountDataService: AccountDataService,
   ) {}
 
-  private toSafeUser(user: User): Omit<User, 'passwordHash'> {
-    const { passwordHash, ...safeUser } = user;
-    return safeUser;
-  }
-
   @Get()
   @WorkspaceAuth(Permission.USER_VIEW_ALL)
-  async findAll(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
-    return this.usersService.findAll(workspaceId, limit ? Number.parseInt(limit) : 20);
+  @SchemaResponse(AdminUserList)
+  async findAll(@WorkspaceId() workspaceId: string, @SchemaQuery(UsersQuery) query: UsersQuery) {
+    return this.usersService.findAll(workspaceId, query.limit ?? 20);
   }
 
   @Get('me')
-  async getProfile(@CurrentUser() user: User): Promise<User> {
-    return this.usersService.getProfile(user.id);
+  @SchemaResponse(UserProfile)
+  async getProfile(@CurrentUser() user: User) {
+    // The row the auth guard loaded, as `GET /auth/me` answers it.
+    const { disclaimerAcceptedAt, disclaimerVersion } = user;
+    return { ...toCurrentUser(user), disclaimerAcceptedAt, disclaimerVersion };
   }
 
   @Get('timezones')
+  @SchemaResponse(TimeZoneList)
   async getTimeZones() {
     return { timeZones: this.timezonesService.listTimeZones() };
   }
 
   @Patch('me/onboarding')
-  async completeOnboarding(@CurrentUser() currentUser: User, @Body() dto: CompleteOnboardingDto) {
+  @SchemaResponse(UserUpdateResponse)
+  async completeOnboarding(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(CompleteOnboardingBody) dto: CompleteOnboardingBody,
+  ) {
     const updatedUser = await this.usersService.completeOnboarding(currentUser.id, dto);
-    const safeUser = this.toSafeUser(updatedUser);
+    const safeUser = toCurrentUser(updatedUser);
     return { user: safeUser, message: 'Onboarding completed successfully' };
   }
 
@@ -111,7 +123,11 @@ export class UsersController {
   }
 
   @Delete('me')
-  async deleteMyAccount(@CurrentUser() currentUser: User, @Body() dto: DeleteMyAccountDto) {
+  @SchemaResponse(MessageResult)
+  async deleteMyAccount(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(DeleteMyAccountBody) dto: DeleteMyAccountBody,
+  ) {
     await this.accountDataService.deleteMyAccount(currentUser.id, dto.currentPassword);
     return deletedResponse('Account');
   }
@@ -122,15 +138,15 @@ export class UsersController {
    * when, which is the part that has to be auditable.
    */
   @Post('me/disclaimer')
+  @SchemaResponse(DisclaimerAccepted)
   async acceptDisclaimer(@CurrentUser() currentUser: User) {
-    const updatedUser = await this.usersService.acceptDisclaimer(currentUser.id);
-    return {
-      user: this.toSafeUser(updatedUser),
-      version: CURRENT_DISCLAIMER_VERSION,
-    };
+    await this.usersService.acceptDisclaimer(currentUser.id);
+    // The acceptance changes no field of the profile, so the guard's full row answers it.
+    return { user: toCurrentUser(currentUser), version: CURRENT_DISCLAIMER_VERSION };
   }
 
   @Get('me/disclaimer')
+  @SchemaResponse(DisclaimerStatus)
   async getDisclaimerStatus(@CurrentUser() currentUser: User) {
     const user = await this.usersService.getProfile(currentUser.id);
     return {
@@ -149,40 +165,50 @@ export class UsersController {
    * already has instead of replacing that with a partial profile.
    */
   @Post('me/welcome-tutorial')
+  @SchemaResponse(WelcomeTutorialSeen)
   async markWelcomeTutorialSeen(@CurrentUser() currentUser: User) {
     const welcomeTutorialSeenAt = await this.usersService.markWelcomeTutorialSeen(currentUser.id);
     return { welcomeTutorialSeenAt };
   }
 
+  /**
+   * Called when the person closes a page's hints. Answers only the map, which the
+   * client merges into the user it already has, like the welcome tutorial above.
+   */
+  @Post('me/page-hints')
+  @SchemaResponse(PageHintsSeen)
+  async markPageHintsSeen(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(PageHintsSeenBody) body: PageHintsSeenBody,
+  ) {
+    const pageHintsSeen = await this.usersService.markPageHintsSeen(
+      currentUser.id,
+      body.page,
+      body.version,
+    );
+    return { pageHintsSeen };
+  }
+
+  /** Settings → "Show hints again". */
+  @Delete('me/page-hints')
+  @SchemaResponse(PageHintsSeen)
+  async resetPageHints(@CurrentUser() currentUser: User) {
+    const pageHintsSeen = await this.usersService.resetPageHints(currentUser.id);
+    return { pageHintsSeen };
+  }
+
   @Public()
   @Get('avatars/:fileName')
-  getAvatar(@Param('fileName') fileName: string, @Res() res: Response) {
-    const uploadsDir = resolveUploadsDir();
-    const safeFileName = path.basename(fileName);
-    const filePath = path.join(uploadsDir, 'user-avatars', safeFileName);
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).send('Avatar not found');
-    }
-
-    // Pin the Content-Type to the image type the extension maps to instead of
-    // letting sendFile infer it: an inferred text/html here would execute on
-    // this origin. Unknown extensions predate the allowlist above — serve them
-    // as an opaque download rather than guessing a type for them.
-    const contentType = resolveAvatarContentType(safeFileName);
-
-    return res.sendFile(filePath, {
-      headers: {
-        'Cache-Control': 'public, max-age=86400',
-        'X-Content-Type-Options': 'nosniff',
-        'Content-Type': contentType ?? 'application/octet-stream',
-        ...(contentType ? {} : { 'Content-Disposition': 'attachment' }),
-      },
-    });
+  getAvatar(@SchemaParams(AvatarFileParams) { fileName }: AvatarFileParams, @Res() res: Response) {
+    return sendAvatarFile(res, fileName);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string, @CurrentUser() currentUser: User): Promise<User> {
+  @SchemaResponse(AdminUser)
+  async findOne(
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @CurrentUser() currentUser: User,
+  ): Promise<User> {
     // Users can only view their own profile unless they're admin
     if (currentUser.role !== UserRole.ADMIN && currentUser.id !== id) {
       return this.usersService.getProfile(currentUser.id);
@@ -192,9 +218,10 @@ export class UsersController {
   }
 
   @Put(':id')
+  @SchemaResponse(AdminUser)
   async update(
-    @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @SchemaBody(UpdateUserBody) updateUserDto: UpdateUserBody,
     @CurrentUser() currentUser: User,
   ): Promise<User> {
     return this.usersService.update(id, updateUserDto, currentUser);
@@ -202,8 +229,9 @@ export class UsersController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @CurrentUser() currentUser: User,
   ): Promise<{ message: string }> {
     await this.usersService.remove(id, currentUser);
@@ -212,7 +240,11 @@ export class UsersController {
 
   @Get(':id/permissions')
   @WorkspaceAuth(Permission.USER_MANAGE)
-  async getUserPermissions(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(UserPermissions)
+  async getUserPermissions(
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const user = await this.permissionsService.findUserInWorkspace(id, workspaceId);
     const permissions = this.permissionsService.getUserPermissions(user);
     return {
@@ -225,15 +257,16 @@ export class UsersController {
 
   @Put(':id/permissions')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async updatePermissions(
-    @Param('id') id: string,
-    @Body() dto: UpdatePermissionsDto,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @SchemaBody(UpdatePermissionsBody) dto: UpdatePermissionsBody,
     @CurrentUser() currentUser: User,
     @WorkspaceId() workspaceId: string,
   ) {
     const user = await this.permissionsService.updateUserPermissions(
       id,
-      dto.permissions,
+      dto.permissions.map(permission => toEnum(Permission, permission)),
       currentUser,
       workspaceId,
     );
@@ -246,15 +279,16 @@ export class UsersController {
 
   @Post(':id/permissions/add')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async addPermission(
-    @Param('id') id: string,
-    @Body() dto: AddPermissionDto,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @SchemaBody(AddPermissionBody) dto: AddPermissionBody,
     @CurrentUser() currentUser: User,
     @WorkspaceId() workspaceId: string,
   ) {
     const user = await this.permissionsService.addPermission(
       id,
-      dto.permission,
+      toEnum(Permission, dto.permission),
       currentUser,
       workspaceId,
     );
@@ -267,15 +301,16 @@ export class UsersController {
 
   @Post(':id/permissions/remove')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async removePermission(
-    @Param('id') id: string,
-    @Body() dto: RemovePermissionDto,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @SchemaBody(RemovePermissionBody) dto: RemovePermissionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() currentUser: User,
   ) {
     const user = await this.permissionsService.removePermission(
       id,
-      dto.permission,
+      toEnum(Permission, dto.permission),
       workspaceId,
       currentUser.id,
     );
@@ -288,8 +323,9 @@ export class UsersController {
 
   @Post(':id/permissions/reset')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async resetPermissions(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() currentUser: User,
   ) {
@@ -305,7 +341,11 @@ export class UsersController {
   // online guessing oracle for anyone holding a stolen session.
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('me/email')
-  async changeEmail(@CurrentUser() currentUser: User, @Body() dto: ChangeEmailDto) {
+  @SchemaResponse(MessageResult)
+  async changeEmail(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(ChangeEmailBody) dto: ChangeEmailBody,
+  ) {
     await this.usersService.requestEmailChange(currentUser.id, dto);
 
     // The address does not change until the link lands; say so rather than
@@ -320,61 +360,37 @@ export class UsersController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('me/email/confirm')
   @HttpCode(HttpStatus.OK)
-  async confirmEmailChange(@Body() dto: ConfirmEmailChangeDto) {
+  @SchemaResponse(EmailChangeConfirmed)
+  async confirmEmailChange(@SchemaBody(ConfirmEmailChangeBody) dto: ConfirmEmailChangeBody) {
     const { email } = await this.emailChangeService.confirmEmailChange(dto.token);
     return { email, message: 'Email address confirmed.' };
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('me/password')
-  async changePassword(@CurrentUser() currentUser: User, @Body() dto: ChangePasswordDto) {
+  @SchemaResponse(MessageResult)
+  async changePassword(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(ChangePasswordBody) dto: ChangePasswordBody,
+  ) {
     await this.usersService.changePassword(currentUser.id, dto);
     return { message: 'Password updated successfully' };
   }
 
   @Patch('me/preferences')
-  async updateMyPreferences(@CurrentUser() currentUser: User, @Body() dto: UpdateMyPreferencesDto) {
+  @SchemaResponse(UserUpdateResponse)
+  async updateMyPreferences(
+    @CurrentUser() currentUser: User,
+    @SchemaBody(UpdateMyPreferencesBody) dto: UpdateMyPreferencesBody,
+  ) {
     const updatedUser = await this.usersService.updateMyPreferences(currentUser.id, dto);
-    const safeUser = this.toSafeUser(updatedUser);
+    const safeUser = toCurrentUser(updatedUser);
     return { user: safeUser, message: 'Profile updated successfully' };
   }
 
   @Post('me/avatar')
-  @UseInterceptors(
-    FileInterceptor('avatar', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadsDir = resolveUploadsDir();
-          const targetDir = path.join(uploadsDir, 'user-avatars');
-          if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-          }
-          cb(null, targetDir);
-        },
-        filename: (_req, file, cb) => {
-          try {
-            cb(null, sanitizeAvatarFilename(file.originalname, file.mimetype));
-          } catch {
-            // Unreachable while fileFilter runs first, but the filename callback
-            // must not surface an unsupported type as a 500.
-            cb(new BadRequestException('Unsupported avatar type'), '');
-          }
-        },
-      }),
-      fileFilter: (_req, file, cb) => {
-        // Allowlist, not `startsWith('image/')`: the declared type decides the
-        // stored extension, so anything outside this set must be rejected here.
-        if (!isAllowedAvatarMime(file.mimetype)) {
-          return cb(
-            new BadRequestException('Only JPEG, PNG, WebP and GIF images are allowed'),
-            false,
-          );
-        }
-        cb(null, true);
-      },
-      limits: { fileSize: 2_000_000 },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('avatar', avatarUploadOptions))
+  @SchemaResponse(UserUpdateResponse)
   async uploadMyAvatar(
     @CurrentUser() currentUser: User,
     @UploadedFile() file: MulterFile | undefined,
@@ -394,7 +410,7 @@ export class UsersController {
 
     const url = `/api/v1/users/avatars/${encodeURIComponent(file.filename)}`;
     const updatedUser = await this.usersService.updateMyAvatar(currentUser.id, url);
-    const safeUser = this.toSafeUser(updatedUser);
+    const safeUser = toCurrentUser(updatedUser);
     return { user: safeUser, avatarUrl: url };
   }
 }

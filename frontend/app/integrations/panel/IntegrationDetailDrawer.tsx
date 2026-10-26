@@ -1,7 +1,6 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { ExternalLink } from '@/app/components/icons';
@@ -9,7 +8,6 @@ import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { BankSyncPanel } from '../bank-sync/BankSyncPanel';
-import { LocalCategorizationPanel } from '../local-categorization/LocalCategorizationPanel';
 import { ProtocolIntegrationPage } from '../open-protocol-page';
 import type { IntegrationEntry } from './integration-catalog';
 
@@ -28,33 +26,14 @@ function DetailBody({
   entry: IntegrationEntry;
   onConnectionChange: () => void;
 }): React.JSX.Element {
-  if (entry.detail.kind === 'local-categorization') {
-    return <LocalCategorizationPanel />;
-  }
   if (entry.detail.kind === 'bank-sync') {
     return <BankSyncPanel onConnectionChange={onConnectionChange} />;
   }
 
-  const { config, secondary } = entry.detail;
+  const { config } = entry.detail;
 
   return (
-    <>
-      <ProtocolIntegrationPage {...config} embedded onConnectionStatusChange={onConnectionChange} />
-      {secondary ? (
-        <>
-          <Divider sx={{ my: 2 }} />
-          <Box>
-            <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary' }}>
-              {secondary.title}
-            </Typography>
-            <Typography sx={{ fontSize: 13, lineHeight: 1.6, color: 'text.secondary' }}>
-              {secondary.description}
-            </Typography>
-          </Box>
-          <ProtocolIntegrationPage {...secondary} embedded />
-        </>
-      ) : null}
-    </>
+    <ProtocolIntegrationPage {...config} embedded onConnectionStatusChange={onConnectionChange} />
   );
 }
 

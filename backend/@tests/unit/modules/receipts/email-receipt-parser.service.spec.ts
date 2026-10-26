@@ -1,0 +1,308 @@
+import type { MockedFunction } from 'vitest';
+vi.mock('../../../../src/common/utils/pdf-text.util', () => ({ parsePdf: vi.fn() }));
+
+import { parsePdf } from '../../../../src/common/utils/pdf-text.util';
+import { UniversalAmountParser } from '../../../../src/modules/parsing/services/universal-amount-parser.service';
+import {
+  EmailReceiptParserService,
+  normalizeDateHeader,
+} from '../../../../src/modules/receipts/services/email-receipt-parser.service';
+
+describe('EmailReceiptParserService', () => {
+  let service: InstanceType<typeof EmailReceiptParserService>;
+  let pdfParseMock: MockedFunction<typeof parsePdf>;
+
+  beforeEach(() => {
+    pdfParseMock = parsePdf as MockedFunction<typeof parsePdf>;
+    pdfParseMock.mockReset();
+    service = new EmailReceiptParserService(new UniversalAmountParser());
+  });
+
+  it('skips generic page markers when extracting vendor', () => {
+    const vendor = (service as any).extractVendor('Page 1 of 1\nGitHub\nReceipt');
+
+    expect(vendor).toBe('GitHub');
+  });
+
+  it('falls back to sender name when vendor line is generic', () => {
+    const vendor = (service as any).extractVendor('Receipt\nInvoice', 'GitHub');
+
+    expect(vendor).toBe('GitHub');
+  });
+
+  it('prefers sender brand when pdf line is long sentence', () => {
+    const vendor = (service as any).extractVendor(
+      'We received payment for your sponsorship. Thanks for your support of Open Source Software!',
+      'GitHub <noreply@github.com>',
+    );
+
+    expect(vendor).toBe('GitHub');
+  });
+
+  it('normalizes sender support suffix into brand', () => {
+    const vendor = (service as any).extractVendor(
+      'Page 1 of 1',
+      'Bitwage Support <support@bitwage.com>',
+    );
+
+    expect(vendor).toBe('Bitwage');
+  });
+
+  it('normalizes sender no-reply suffix into brand', () => {
+    const vendor = (service as any).extractVendor(
+      'Receipt\nInvoice',
+      'Stripe No Reply <no-reply@stripe.com>',
+    );
+
+    expect(vendor).toBe('Stripe');
+  });
+
+  it('extracts brand from sender email domain when display name is absent', () => {
+    const vendor = (service as any).extractVendor('Invoice', '<billing@lidl.com>');
+
+    expect(vendor).toBe('Lidl');
+  });
+
+  it('skips date-like lines when extracting vendor', () => {
+    const vendor = (service as any).extractVendor(
+      'Date2026-02-16 10:57AM PST\nGitHub\nTotal: $10.00',
+    );
+
+    expect(vendor).toBe('GitHub');
+  });
+
+  it('skips lines that look like timestamps', () => {
+    const vendor = (service as any).extractVendor('2026-02-16\n10:57 AM PST\nSpotify');
+
+    expect(vendor).toBe('Spotify');
+  });
+
+  it('skips numeric-only lines', () => {
+    const vendor = (service as any).extractVendor('12345\nNetflix');
+
+    expect(vendor).toBe('Netflix');
+  });
+
+  it('skips amount-like lines', () => {
+    const vendor = (service as any).extractVendor('$49.99\nAdobe Creative Cloud');
+
+    expect(vendor).toBe('Adobe Creative Cloud');
+  });
+
+  it('skips email address lines', () => {
+    const vendor = (service as any).extractVendor(
+      'noreply@github.com\nGitHub',
+      'GitHub <noreply@github.com>',
+    );
+
+    expect(vendor).toBe('GitHub');
+  });
+
+  it('falls back to sender brand when candidate lines are id-like', () => {
+    const vendor = (service as any).extractVendor(
+      'ABCDEF-12345\n12345',
+      'Notion <team@makenotion.com>',
+    );
+
+    expect(vendor).toBe('Notion');
+  });
+
+  describe('merchant extraction', () => {
+    it('reads the vendor from the PDF text', () => {
+      const vendor = (service as any).extractVendor(
+        'Spotify\nReceipt for your subscription',
+        'no-reply@spotify.com',
+      );
+
+      expect(vendor).toBe('Spotify');
+    });
+
+    it('extracts merchant from email-only parsing flow', async () => {
+      const parsed = await service.parseFromEmailOnly({
+        sender: 'Notion <billing@makenotion.com>',
+        subject: 'Your invoice',
+        dateHeader: '2026-02-16',
+        emailBody: '<p>Amount paid: $12.00</p>',
+      });
+
+      expect(parsed.vendor).toBe('Notion');
+      expect(parsed.currency).toBe('USD');
+    });
+  });
+
+  it('extracts USD amount and currency from amount due line', async () => {
+    const parsed = await (service as any).extractAmountWithCurrency('Amount Due: $1,234.56');
+
+    expect(parsed).toEqual({ amount: 1234.56, currency: 'USD' });
+  });
+
+  it('extracts KZT amount from a total line with KZT suffix', async () => {
+    const parsed = await (service as any).extractAmountWithCurrency('TOTAL 90,000.00KZT');
+
+    expect(parsed).toEqual({ amount: 90000, currency: 'KZT' });
+  });
+
+  it('extracts CZK amount and currency from localized total line', async () => {
+    const parsed = await (service as any).extractAmountWithCurrency('Celkem: 1 500,00 CZK');
+
+    expect(parsed).toEqual({ amount: 1500, currency: 'CZK' });
+  });
+
+  describe('receipts in the email body', () => {
+    it('takes line items from the stripped body and normalises the Date header', async () => {
+      const extractor = {
+        extractFromText: vi.fn(async () => ({
+          lineItems: [
+            { description: 'Echo Dot', amount: 49.99 },
+            { description: 'HDMI cable', amount: 9.99 },
+            { description: 'Broken', amount: 0 },
+          ],
+          totalAmount: 59.98,
+        })),
+      };
+      const bodyService = new EmailReceiptParserService(
+        new UniversalAmountParser(),
+        extractor as any,
+      );
+
+      const parsed = await bodyService.parseFromEmailOnly({
+        sender: 'order-update@amazon.de',
+        subject: 'Your order',
+        dateHeader: 'Mon, 11 May 2026 10:15:00 +0200',
+        emailBody: '<p>Echo Dot 49.99 EUR</p><p>HDMI cable 9.99 EUR</p><p>Total 59.98 EUR</p>',
+      });
+
+      expect(parsed?.lineItems).toEqual([
+        { description: 'Echo Dot', amount: 49.99 },
+        { description: 'HDMI cable', amount: 9.99 },
+      ]);
+      expect(parsed?.date).toBe('2026-05-11');
+      expect(typeof parsed?.amount).toBe('number');
+    });
+
+    it('drops body line items that do not add up to the amount the email states', async () => {
+      const extractor = {
+        extractFromText: vi.fn(async () => ({
+          lineItems: [
+            { description: 'Page 1 of', amount: 2 },
+            { description: 'Date of issueJune 13,', amount: 202 },
+          ],
+          totalAmount: 204,
+        })),
+      };
+      const bodyService = new EmailReceiptParserService(
+        new UniversalAmountParser(),
+        extractor as any,
+      );
+
+      const parsed = await bodyService.parseFromEmailOnly({
+        sender: 'billing@railway.com',
+        subject: 'Your invoice',
+        emailBody: '<p>Amount due $14.63</p>',
+      });
+
+      expect(parsed?.amount).toBe(14.63);
+      expect(parsed?.lineItems).toEqual([]);
+    });
+
+    it('keeps an unparseable Date header as it is', () => {
+      expect(normalizeDateHeader('yesterday-ish')).toBe('yesterday-ish');
+      expect(normalizeDateHeader('2026-05-11')).toBe('2026-05-11');
+      expect(normalizeDateHeader(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('line item extraction filters', () => {
+    it('skips date-range-like descriptions', async () => {
+      const lineItems = await (service as any).extractLineItems(
+        'Feb 27, 2026-Mar 15,2026 202.00\nTotal 202.00',
+      );
+
+      expect(lineItems).toEqual([]);
+    });
+
+    it('skips address-like descriptions', async () => {
+      const lineItems = await (service as any).extractLineItems(
+        'San Francisco, CA 94107 941.00\nTotal 941.00',
+      );
+
+      expect(lineItems).toEqual([]);
+    });
+
+    it('skips sentence-like descriptions', async () => {
+      const lineItems = await (service as any).extractLineItems(
+        'Thanks for your purchase! 202.00\nTotal 202.00',
+      );
+
+      expect(lineItems).toEqual([]);
+    });
+
+    it('accepts a normal line item', async () => {
+      const lineItems = await (service as any).extractLineItems('GitHub Actions 10.00');
+
+      expect(lineItems).toEqual([{ description: 'GitHub Actions', amount: 10 }]);
+    });
+  });
+
+  it('drops line items when their sum dwarfs the total', async () => {
+    pdfParseMock.mockResolvedValue({
+      text: [
+        'GitHub',
+        'Line Item A 600.00',
+        'Line Item B 500.00',
+        'Total $10.00',
+      ].join('\n'),
+    } as any);
+
+    const parsed = await (service as any).parsePdfReceipt(Buffer.from(''), {
+      sender: 'GitHub <noreply@github.com>',
+    });
+
+    expect(parsed.amount).toBe(10);
+    expect(parsed.lineItems).toEqual([]);
+  });
+
+  it('keeps GitHub receipt date/address lines out of line items', async () => {
+    pdfParseMock.mockResolvedValue({
+      text: [
+        'GitHub',
+        'Thanks for your purchase',
+        'Feb 27, 2026 - Mar 15, 2026',
+        'San Francisco, CA 94107',
+        'Total: $17.61',
+      ].join('\n'),
+    } as any);
+
+    const parsed = await (service as any).parsePdfReceipt(Buffer.from(''), {
+      sender: 'GitHub <noreply@github.com>',
+    });
+
+    expect(parsed.amount).toBe(17.61);
+    expect(parsed.lineItems).toEqual([]);
+  });
+});
+
+describe('EmailReceiptParserService.extractDate', () => {
+  const extract = (text: string): string | undefined =>
+    (
+      new EmailReceiptParserService(new UniversalAmountParser()) as unknown as {
+        extractDate(input: string): string | undefined;
+      }
+    ).extractDate(text);
+
+  it('returns a plausible receipt date in either common layout', () => {
+    expect(extract('Receipt\nDate: 16.02.2026\nTotal 12.00')).toBe('16.02.2026');
+    expect(extract('Issued 2026-02-16 10:31')).toBe('2026-02-16');
+  });
+
+  it('ignores digit runs inside DOIs, page references and impossible dates', () => {
+    expect(extract('doi:10.1145/1250734.1250752 pp. 465-478')).toBeUndefined();
+    expect(extract('ref 11.11.9301 something')).toBeUndefined();
+    expect(extract('31.02.2026 is not a date')).toBeUndefined();
+    expect(extract('see 99.99.2026 or 2026-13-01')).toBeUndefined();
+  });
+
+  it('skips a bogus candidate and keeps looking for a real one', () => {
+    expect(extract('code 12.12.9999\nDate 05.03.2026')).toBe('05.03.2026');
+  });
+});

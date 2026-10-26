@@ -34,7 +34,12 @@ export function EnableLedger({
   return (
     <Paper variant="outlined" sx={{ p: 3, maxWidth: 560 }}>
       <Stack spacing={2}>
-        <Typography variant="h6" fontWeight={600}>
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.enableTitle}
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>

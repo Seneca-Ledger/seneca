@@ -2,6 +2,7 @@
 import { waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithQuery } from '@/app/test/query-wrapper';
+import { SectionSpanProvider } from './section-span';
 import { WorkspaceActivityCard } from './WorkspaceActivityCard';
 
 const apiGet = vi.hoisted(() => vi.fn());
@@ -16,10 +17,13 @@ vi.mock('@/app/components/transactions/hooks/useWorkspaceMembers', () => ({
 const entry = (overrides: Record<string, unknown> = {}) => ({
   id: 'e-1',
   actorName: 'Partner',
+  actorType: 'user',
   action: 'update',
   entityType: 'transaction',
   entityId: 'tx-1',
   description: 'Changed: category',
+  descriptionKey: null,
+  descriptionParams: null,
   createdAt: '2026-10-05T10:00:00.000Z',
   ...overrides,
 });
@@ -64,5 +68,36 @@ describe('WorkspaceActivityCard', () => {
     const { container } = renderWithQuery(<WorkspaceActivityCard />);
 
     await waitFor(() => expect(container.textContent).toContain('update transaction'));
+  });
+
+  it('shows eight moves at half width and all sixteen it asked for with the row to itself', async () => {
+    members.value = [{ memberId: 'm-1' }, { memberId: 'm-2' }];
+    apiGet.mockResolvedValue({
+      data: {
+        items: Array.from({ length: 16 }, (_, index) =>
+          entry({ id: `e-${index}`, description: `Move ${index}` }),
+        ),
+      },
+    });
+    const count = (text: string) => (text.match(/Move \d+/g) ?? []).length;
+
+    const half = renderWithQuery(
+      <SectionSpanProvider value={6}>
+        <WorkspaceActivityCard />
+      </SectionSpanProvider>,
+    );
+    await waitFor(() => expect(count(half.container.textContent ?? '')).toBe(8));
+    expect(apiGet).toHaveBeenCalledWith(
+      '/audit-events/activity',
+      expect.objectContaining({ params: { limit: 16 } }),
+    );
+    half.unmount();
+
+    const full = renderWithQuery(
+      <SectionSpanProvider value={12}>
+        <WorkspaceActivityCard />
+      </SectionSpanProvider>,
+    );
+    await waitFor(() => expect(count(full.container.textContent ?? '')).toBe(16));
   });
 });

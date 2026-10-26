@@ -14,10 +14,11 @@ vi.mock('@/app/lib/api', () => ({
 }));
 
 import { DisclaimerGate, useDisclaimerAcceptance } from './DisclaimerGate';
+import { APP_NAME } from '@/app/lib/brand';
 
 const labels = {
   title: 'Before you start',
-  intro: 'Lumio does not replace an accountant.',
+  intro: `${APP_NAME} does not replace an accountant.`,
   points: ['Rates may be out of date.', 'You remain responsible.'],
   consentLabel: 'I understand the above and accept these terms',
   acceptLabel: 'I accept',
@@ -87,14 +88,23 @@ describe('useDisclaimerAcceptance', () => {
   });
 
   it('lets an accepted user through', async () => {
-    get.mockResolvedValue({ data: { version: '2026-08-21', accepted: true } });
+    get.mockResolvedValue({
+      data: {
+        version: '2026-08-21',
+        accepted: true,
+        acceptedAt: '2026-08-22T09:00:00.000Z',
+        acceptedVersion: '2026-08-21',
+      },
+    });
     render(<AcceptanceProbe />);
 
     await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent('accepted'));
   });
 
   it('blocks a user who has not accepted', async () => {
-    get.mockResolvedValue({ data: { version: '2026-08-21', accepted: false } });
+    get.mockResolvedValue({
+      data: { version: '2026-08-21', accepted: false, acceptedAt: null, acceptedVersion: null },
+    });
     render(<AcceptanceProbe />);
 
     await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent('blocked'));

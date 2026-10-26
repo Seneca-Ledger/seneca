@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, LessThanOrEqual, type Repository } from 'typeorm';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import { Invoice } from '../../entities/invoice.entity';
 import { InvoiceLineItem } from '../../entities/invoice-line-item.entity';
 import { advanceIssueDate } from './invoice-recurrence.util';
@@ -22,8 +23,14 @@ export class InvoicesScheduler {
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   async generateRecurringInvoices(): Promise<void> {
     const today = new Date().toISOString().slice(0, 10);
+    // A past version keeps its copied recurring templates but never issues from them.
     const templates = await this.invoiceRepository.find({
-      where: { isRecurring: true, nextIssueDate: LessThanOrEqual(today), deletedAt: IsNull() },
+      where: {
+        isRecurring: true,
+        nextIssueDate: LessThanOrEqual(today),
+        deletedAt: IsNull(),
+        workspace: STANDARD_WORKSPACE,
+      },
     });
 
     for (const template of templates) {

@@ -3,6 +3,10 @@ import type { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppService } from './app.service';
+import { APP_NAME } from './common/brand';
+import { SchemaResponse } from './common/effect/schema-response';
+import { appError } from './common/errors/app-error';
+import { HealthStatus, ReadinessStatus } from './contracts';
 import { Public } from './modules/auth/decorators/public.decorator';
 
 type ReadinessResponse = Awaited<ReturnType<AppService['getReadiness']>>;
@@ -13,16 +17,18 @@ export class AppController {
 
   @Public()
   @Get('health')
+  @SchemaResponse(HealthStatus)
   getHealth(): object {
     return this.appService.getHealth();
   }
 
   @Public()
   @Get('health/ready')
+  @SchemaResponse(ReadinessStatus)
   async getReadiness(): Promise<ReadinessResponse> {
     const readiness = await this.appService.getReadiness();
     if (readiness.status !== 'ok') {
-      throw new ServiceUnavailableException(readiness);
+      throw new ServiceUnavailableException(appError('APP_NOT_READY'));
     }
     return readiness;
   }
@@ -39,7 +45,7 @@ export class AppController {
     } else {
       // Fallback to API info
       res.status(200).json({
-        message: 'Lumio - Bank Statement Processing System',
+        message: `${APP_NAME} - Bank Statement Processing System`,
         version: '1.0.0',
         status: 'running',
         endpoints: {

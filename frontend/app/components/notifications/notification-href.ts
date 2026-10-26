@@ -12,6 +12,9 @@ type NotificationLink = Pick<NotificationItem, 'type' | 'entityType' | 'entityId
  * Notifications written before a field was added to `meta` lack it, so every
  * id-dependent route falls back to the page alone. Returns null when there is
  * nowhere sensible to go; the item then only marks itself read.
+ *
+ * Push notifications open the same pages through a copy of these rules in
+ * backend/src/modules/notifications/notification-url.ts — change both together.
  */
 export function notificationHref(notification: NotificationLink): string | null {
   // The weekly review digest reuses `transaction.uncategorized`, but its
@@ -70,11 +73,16 @@ const subscriptionRoute = (notification: NotificationLink): string =>
     notification.entityId === null ? null : `subscription:${notification.entityId}`,
   );
 
-const taxRoute = (): string => withFocus('/reports?tab=tax', 'tax:threshold');
+// The threshold matters to a business not yet registered for VAT, and the Tax
+// year tab is the one such a workspace has.
+const taxRoute = (): string => withFocus('/reports?tab=tax-year', 'tax:threshold');
+
+// A VAT return is filed from the VAT tab; the income tax return from its own page.
+const taxDeadlineRoute = (notification: NotificationLink): string =>
+  readString(notification.meta, 'kind') === 'income_tax' ? '/tax-declaration' : '/reports?tab=tax';
 
 const TYPE_ROUTES: Record<string, (notification: NotificationLink) => string | null> = {
-  'receipt.uncategorized': n =>
-    n.entityId ? `/storage/gmail-receipts/${n.entityId}` : entityRoute(n),
+  'receipt.uncategorized': n => (n.entityId ? `/storage/receipts/${n.entityId}` : entityRoute(n)),
   ...Object.fromEntries(
     STATEMENT_TYPES.map(type => [
       type,
@@ -90,6 +98,9 @@ const TYPE_ROUTES: Record<string, (notification: NotificationLink) => string | n
   'subscription.detected': subscriptionRoute,
   'tax.threshold.warning': taxRoute,
   'tax.threshold.reached': taxRoute,
+  'tax.deadline.upcoming': taxDeadlineRoute,
+  'tax.deadline.overdue': taxDeadlineRoute,
+  'tax.rates.official_changed': () => withFocus('/workspaces/overview', 'tax:official-rates'),
   'member.invited': () => '/workspaces/members',
   'member.joined': () => '/workspaces/members',
   // A deleted statement can still be restored from the trash; a deleted
@@ -107,7 +118,7 @@ function entityRoute(notification: NotificationLink): string | null {
     return '/statements';
   }
   if (entityType === 'category') {
-    return '/workspaces/categories';
+    return '/categories';
   }
   if (entityType === 'workspace') {
     return '/workspaces/overview';

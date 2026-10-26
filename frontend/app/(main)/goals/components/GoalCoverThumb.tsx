@@ -5,7 +5,7 @@ import { Flag } from '@/app/components/icons';
 import { apiBaseUrl } from '@/app/lib/api';
 import { tokens } from '@/lib/theme-tokens';
 import type { GoalCover } from '../hooks/useGoals';
-import { findGoalCoverPreset } from '../lib/goal-cover-presets';
+import { findGoalCoverPreset, type GoalCoverPreset } from '../lib/goal-cover-presets';
 
 interface GoalCoverThumbProps {
   cover: GoalCover | null;
@@ -16,54 +16,54 @@ interface GoalCoverThumbProps {
 /** The API serves /uploads as static files, one level above its /api/v1 base. */
 const uploadsOrigin = apiBaseUrl.replace(/\/api\/v1$/, '');
 
+/** A bundled cover as a flat earthy tile with its line icon; none = the neutral badge. */
+export function GoalPresetTile({
+  preset,
+  size,
+  label,
+}: {
+  preset: GoalCoverPreset | null;
+  /** Omitted: fills its parent (the picker's tiles). */
+  size?: number;
+  label?: string;
+}) {
+  const Icon = preset?.Icon ?? Flag;
+  const iconSize = size ? Math.round(size * 0.46) : 28;
+  return (
+    <span
+      className="seneca-goal-cover"
+      data-tone={preset?.tone ?? 'none'}
+      {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
+      style={size ? { width: size, height: size } : undefined}
+    >
+      <Icon size={iconSize} />
+    </span>
+  );
+}
+
 /**
- * The square on the left of a goal. A preset is drawn here as a gradient tile;
- * a photo is a stored upload served by the API, which is the only other origin
- * the page's CSP allows images from.
+ * The square on the left of a goal. A preset is a flat tile in one of the
+ * app's earthy tones; a photo is a stored upload served by the API, which is
+ * the only other origin the page's CSP allows images from.
  */
 export function GoalCoverThumb({ cover, size = 56, alt }: GoalCoverThumbProps) {
-  const radius = tokens.radius.md;
-
   if (cover?.kind === 'photo') {
     return (
       <Box
         component="img"
         src={`${uploadsOrigin}${cover.url}`}
         alt={alt}
-        width={size}
-        height={size}
         sx={{
+          width: size,
+          height: size,
           flexShrink: 0,
-          borderRadius: radius,
+          borderRadius: tokens.radius.md,
           objectFit: 'cover',
-          bgcolor: 'action.hover',
+          bgcolor: 'var(--icon-badge-bg)',
         }}
       />
     );
   }
-
   const preset = cover?.kind === 'preset' ? findGoalCoverPreset(cover.preset) : null;
-  const Icon = preset?.Icon ?? Flag;
-
-  return (
-    <Box
-      role="img"
-      aria-label={alt}
-      sx={{
-        flexShrink: 0,
-        width: size,
-        height: size,
-        borderRadius: radius,
-        display: 'grid',
-        placeItems: 'center',
-        // No preset means no choice has been made yet: a flat token-coloured
-        // tile, so an unset cover does not look like a deliberate one.
-        background: preset ? `linear-gradient(135deg, ${preset.from}, ${preset.to})` : undefined,
-        bgcolor: preset ? undefined : 'action.hover',
-        color: preset ? '#fff' : 'text.disabled',
-      }}
-    >
-      <Icon size={Math.round(size * 0.46)} />
-    </Box>
-  );
+  return <GoalPresetTile preset={preset} size={size} label={alt} />;
 }

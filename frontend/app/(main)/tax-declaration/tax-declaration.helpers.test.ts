@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  completenessTone,
   deHomeOfficeAllowance,
   exportFileName,
   formatLineRef,
@@ -27,12 +26,6 @@ describe('tax declaration helpers', () => {
     expect(parseTaxYear(null, now)).toBe(2025);
     expect(parseTaxYear('2026', now)).toBe(2026);
     expect(parseTaxYear('1999', now)).toBe(2025);
-  });
-
-  it('colours the completeness score', () => {
-    expect(completenessTone(85)).toBe('success');
-    expect(completenessTone(84)).toBe('warning');
-    expect(completenessTone(59)).toBe('error');
   });
 
   it('points issues at the place they are fixed', () => {

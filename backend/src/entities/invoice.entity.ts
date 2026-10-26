@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Client } from './client.entity';
@@ -54,14 +55,14 @@ export class Invoice {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Client, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'client_id' })
-  client: Client;
+  client: Relation<Client>;
 
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
@@ -106,6 +107,14 @@ export class Invoice {
 
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   total: number;
+
+  /** The buyer's reference for this invoice (BT-10); empty falls back to the client's. */
+  @Column({ name: 'buyer_reference', type: 'varchar', length: 255, nullable: true })
+  buyerReference: string | null;
+
+  /** When the goods or service were delivered (BT-72, § 14 Abs. 4 Nr. 6 UStG). */
+  @Column({ name: 'delivery_date', type: 'date', nullable: true })
+  deliveryDate: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
@@ -174,7 +183,7 @@ export class Invoice {
     () => InvoiceLineItem,
     lineItem => lineItem.invoice,
   )
-  lineItems: InvoiceLineItem[];
+  lineItems: Relation<InvoiceLineItem[]>;
 
   /**
    * Read models only, filled from the receivable's payments: what has arrived

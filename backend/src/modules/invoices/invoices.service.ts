@@ -6,10 +6,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { type EntityManager, Repository } from 'typeorm';
+import { type EntityManager, In, Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { fromMinor } from '../../common/utils/money.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import { assertWorkspaceOwned } from '../../common/utils/workspace-refs.util';
+import type {
+  CreateInvoiceBody,
+  InvoiceLineItemInput,
+  InvoicesQuery,
+  UpdateInvoiceBody,
+} from '../../contracts';
+import { Category } from '../../entities/category.entity';
 import { Client } from '../../entities/client.entity';
 import { CreditNoteStatus } from '../../entities/credit-note.entity';
 import { Invoice, InvoiceRecurrenceInterval, InvoiceStatus } from '../../entities/invoice.entity';
@@ -22,18 +31,16 @@ import {
   PayableSource,
   PayableStatus,
 } from '../../entities/payable.entity';
+import { TaxRate } from '../../entities/tax-rate.entity';
 import type { WorkspaceBusinessProfile } from '../../entities/workspace-business-profile.entity';
 import { BusinessProfileService } from '../business-profile/business-profile.service';
 import { LedgerPostingError, LedgerPostingService } from '../ledger/ledger-posting.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import { CreateInvoiceDto } from './dto/create-invoice.dto';
-import { FilterInvoicesDto } from './dto/filter-invoices.dto';
-import type { InvoiceLineItemDto } from './dto/invoice-line-item.dto';
-import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { buildInvoicePdf } from './invoice-document';
 import { documentLines, priceLines, totalsOf } from './invoice-pricing';
 import { advanceIssueDate, shiftDueDate } from './invoice-recurrence.util';
 import { InvoiceSettingsService } from './invoice-settings.service';
+import { InvoiceXRechnungService } from './invoice-xrechnung.service';
 
 /**
  * The status a user sees, in SQL.
@@ -87,10 +94,12 @@ interface DraftInput {
   currency: string;
   notes: string | null;
   pricesIncludeTax: boolean;
-  lineItems: InvoiceLineItemDto[];
+  lineItems: InvoiceLineItemInput[];
   recurrenceInterval: InvoiceRecurrenceInterval | null;
   recurrenceEndDate: string | null;
   sourceRecurringInvoiceId: string | null;
+  buyerReference: string | null;
+  deliveryDate: string | null;
 }
 
 @Injectable()
@@ -104,10 +113,13 @@ export class InvoicesService {
     private readonly workspaceCurrency: WorkspaceCurrencyService,
     private readonly businessProfile: BusinessProfileService,
     private readonly settingsService: InvoiceSettingsService,
+    private readonly xrechnung: InvoiceXRechnungService,
   ) {}
 
-  async create(workspaceId: string, dto: CreateInvoiceDto): Promise<Invoice> {
+  async create(workspaceId: string, dto: CreateInvoiceBody): Promise<Invoice> {
     const client = await this.clientInWorkspace(workspaceId, dto.clientId);
+    await this.taxRatesInWorkspace(workspaceId, dto.lineItems);
+    await this.categoriesInWorkspace(workspaceId, dto.lineItems);
     return this.buildDraft(workspaceId, dto.clientId, {
       issueDate: dto.issueDate,
       dueDate: dto.dueDate ?? (await this.dueDateFor(workspaceId, client, dto.issueDate)),
@@ -120,9 +132,11 @@ export class InvoicesService {
       notes: dto.notes ?? null,
       pricesIncludeTax: dto.pricesIncludeTax ?? false,
       lineItems: dto.lineItems,
-      recurrenceInterval: dto.recurrenceInterval ?? null,
+      recurrenceInterval: toEnum(InvoiceRecurrenceInterval, dto.recurrenceInterval) ?? null,
       recurrenceEndDate: dto.recurrenceEndDate ?? null,
       sourceRecurringInvoiceId: null,
+      buyerReference: dto.buyerReference?.trim() || null,
+      deliveryDate: dto.deliveryDate ?? null,
     });
   }
 
@@ -130,7 +144,7 @@ export class InvoicesService {
   async cloneAsDraft(template: Invoice, lineItems: InvoiceLineItem[]): Promise<Invoice> {
     const issueDate = template.nextIssueDate;
     if (!issueDate) {
-      throw new BadRequestException('Recurring invoice has no next issue date');
+      throw new BadRequestException(appError('INVOICE_RECURRING_NO_NEXT_DATE'));
     }
     return this.buildDraft(template.workspaceId, template.clientId, {
       issueDate,
@@ -144,14 +158,20 @@ export class InvoicesService {
         unitPrice: Number(item.unitPrice),
         taxRateId: item.taxRateId ?? undefined,
         categoryId: item.categoryId ?? undefined,
+        unitCode: item.unitCode,
+        adjustmentPercent:
+          item.adjustmentPercent === null ? undefined : Number(item.adjustmentPercent),
       })),
       recurrenceInterval: null,
       recurrenceEndDate: null,
       sourceRecurringInvoiceId: template.id,
+      buyerReference: template.buyerReference,
+      // A recurring invoice is for a new period; its delivery date is not the template's.
+      deliveryDate: null,
     });
   }
 
-  async findAll(workspaceId: string, filters: FilterInvoicesDto) {
+  async findAll(workspaceId: string, filters: InvoicesQuery) {
     const { page, limit, skip } = normalizePagination(filters);
     const queryBuilder = this.invoiceRepository
       .createQueryBuilder('invoice')
@@ -214,7 +234,7 @@ export class InvoicesService {
 
     const [invoice] = result.entities;
     if (!invoice) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
     }
     return applyAmounts(
       applyEffectiveStatus(invoice, result.raw[0]?.effective_status),
@@ -231,7 +251,7 @@ export class InvoicesService {
       .where('invoice.id = :id AND invoice.workspaceId = :workspaceId', { id, workspaceId })
       .getOne();
     if (!invoice?.fileData) {
-      throw new NotFoundException('Invoice PDF not found');
+      throw new NotFoundException(appError('INVOICE_PDF_NOT_FOUND'));
     }
     return {
       fileName: `${invoice.invoiceNumber ?? 'invoice'}.pdf`,
@@ -239,12 +259,12 @@ export class InvoicesService {
     };
   }
 
-  async update(id: string, workspaceId: string, dto: UpdateInvoiceDto): Promise<Invoice> {
+  async update(id: string, workspaceId: string, dto: UpdateInvoiceBody): Promise<Invoice> {
     return this.invoiceRepository.manager.transaction(async manager => {
       const invoices = manager.getRepository(Invoice);
       const invoice = await invoices.findOne({ where: { id, workspaceId } });
       if (!invoice) {
-        throw new NotFoundException('Invoice not found');
+        throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
       }
       if (invoice.status !== InvoiceStatus.DRAFT) {
         throw new ConflictException(appError('INVOICE_NOT_DRAFT'));
@@ -257,6 +277,8 @@ export class InvoicesService {
       await invoices.save(invoice);
 
       if (dto.lineItems) {
+        await this.taxRatesInWorkspace(workspaceId, dto.lineItems);
+        await this.categoriesInWorkspace(workspaceId, dto.lineItems);
         await this.replaceLineItems(manager, invoice.id, dto.lineItems);
       }
       return this.recalculateTotals(manager, invoice.id);
@@ -276,7 +298,7 @@ export class InvoicesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!invoice) {
-        throw new NotFoundException('Invoice not found');
+        throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
       }
       if (invoice.status !== InvoiceStatus.DRAFT) {
         throw new ConflictException(appError('INVOICE_ALREADY_SENT'));
@@ -327,13 +349,20 @@ export class InvoicesService {
       );
       invoice.payableId = payable.id;
 
-      const pdf = await buildInvoicePdf({
+      // A German business's invoice is stored as a ZUGFeRD hybrid when its
+      // XRechnung can be written: the file sent, downloaded and kept is then
+      // the e-invoice itself.
+      const pdf = await this.xrechnung.invoiceHybridPdf(
+        manager,
         invoice,
-        client,
-        profile,
-        lines: await documentLines(manager, lineItems, invoice.pricesIncludeTax),
-        logo: await this.businessProfile.logoDataUri(profile),
-      });
+        await buildInvoicePdf({
+          invoice,
+          client,
+          profile,
+          lines: await documentLines(manager, lineItems, invoice.pricesIncludeTax),
+          logo: await this.businessProfile.logoDataUri(profile),
+        }),
+      );
       const fileSize = pdf.length;
       const fileHash = createHash('sha256').update(pdf).digest('hex');
       // Written via `update`, not the entity object: `fileData` must never ride
@@ -396,7 +425,7 @@ export class InvoicesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!invoice) {
-        throw new NotFoundException('Invoice not found');
+        throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
       }
       // `invoices.status` never says 'paid' — the receivable does — so the
       // stored column alone would let a settled invoice be voided, reversing
@@ -435,7 +464,7 @@ export class InvoicesService {
   async remove(id: string, workspaceId: string): Promise<void> {
     const invoice = await this.invoiceRepository.findOne({ where: { id, workspaceId } });
     if (!invoice) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
     }
     if (invoice.status !== InvoiceStatus.DRAFT) {
       throw new ConflictException(appError('INVOICE_NOT_DRAFT'));
@@ -489,6 +518,8 @@ export class InvoicesService {
             : null,
           recurrenceEndDate: input.recurrenceEndDate,
           sourceRecurringInvoiceId: input.sourceRecurringInvoiceId,
+          buyerReference: input.buyerReference,
+          deliveryDate: input.deliveryDate,
         }),
       );
       await this.replaceLineItems(manager, invoice.id, input.lineItems);
@@ -499,7 +530,7 @@ export class InvoicesService {
   private async replaceLineItems(
     manager: EntityManager,
     invoiceId: string,
-    items: InvoiceLineItemDto[],
+    items: InvoiceLineItemInput[],
   ): Promise<void> {
     const repo = manager.getRepository(InvoiceLineItem);
     await repo.delete({ invoiceId });
@@ -514,6 +545,8 @@ export class InvoicesService {
         unitPrice: item.unitPrice,
         taxRateId: item.taxRateId ?? null,
         categoryId: item.categoryId ?? null,
+        unitCode: item.unitCode ?? 'C62',
+        adjustmentPercent: item.adjustmentPercent || null,
         sortOrder: index,
       })),
     );
@@ -599,39 +632,47 @@ export class InvoicesService {
     }
     const payable = await manager.getRepository(Payable).findOne({
       where: { id: invoice.payableId },
-      select: ['status'],
+      select: {
+        status: true,
+      },
     });
     return payable?.status === PayableStatus.PAID;
   }
 
-  private applyDraftFields(invoice: Invoice, dto: UpdateInvoiceDto): void {
+  private applyDraftFields(invoice: Invoice, dto: UpdateInvoiceBody): void {
     if (dto.clientId) {
       invoice.clientId = dto.clientId;
     }
-    if (dto.issueDate !== undefined) {
+    if (dto.issueDate != null) {
       invoice.issueDate = dto.issueDate;
     }
-    if (dto.dueDate !== undefined) {
+    if (dto.dueDate != null) {
       invoice.dueDate = dto.dueDate;
     }
-    if (dto.currency !== undefined) {
+    if (dto.currency != null) {
       invoice.currency = dto.currency;
     }
     if (dto.notes !== undefined) {
       invoice.notes = dto.notes ?? null;
     }
-    if (dto.pricesIncludeTax !== undefined) {
+    if (dto.pricesIncludeTax != null) {
       invoice.pricesIncludeTax = dto.pricesIncludeTax;
     }
     if (dto.recurrenceInterval !== undefined) {
-      invoice.isRecurring = !!dto.recurrenceInterval;
-      invoice.recurrenceInterval = dto.recurrenceInterval ?? null;
-      invoice.nextIssueDate = dto.recurrenceInterval
-        ? advanceIssueDate(invoice.issueDate, dto.recurrenceInterval)
-        : null;
+      // null stops the recurrence.
+      const interval = toEnum(InvoiceRecurrenceInterval, dto.recurrenceInterval);
+      invoice.isRecurring = !!interval;
+      invoice.recurrenceInterval = interval;
+      invoice.nextIssueDate = interval ? advanceIssueDate(invoice.issueDate, interval) : null;
     }
     if (dto.recurrenceEndDate !== undefined) {
       invoice.recurrenceEndDate = dto.recurrenceEndDate ?? null;
+    }
+    if (dto.buyerReference !== undefined) {
+      invoice.buyerReference = dto.buyerReference?.trim() || null;
+    }
+    if (dto.deliveryDate !== undefined) {
+      invoice.deliveryDate = dto.deliveryDate || null;
     }
   }
 
@@ -658,6 +699,37 @@ export class InvoicesService {
       throw new BadRequestException(appError('INVOICE_CLIENT_NOT_FOUND'));
     }
     return client;
+  }
+
+  /** A line's tax rate comes from the request: one of another workspace's is "not found". */
+  private async taxRatesInWorkspace(
+    workspaceId: string,
+    lineItems: ReadonlyArray<{ taxRateId?: string | null }>,
+  ): Promise<void> {
+    const ids = [...new Set(lineItems.map(item => item.taxRateId).filter(id => !!id))];
+    if (ids.length === 0) return;
+    const found = await this.invoiceRepository.manager
+      .getRepository(TaxRate)
+      .count({ where: { id: In(ids), workspaceId } });
+    if (found !== ids.length) {
+      throw new NotFoundException(appError('TAX_RATE_NOT_FOUND'));
+    }
+  }
+
+  /**
+   * A line's category comes from the request and is carried onto credit notes
+   * and journal lines: one of another workspace's is "not found".
+   */
+  private categoriesInWorkspace(
+    workspaceId: string,
+    lineItems: ReadonlyArray<{ categoryId?: string | null }>,
+  ): Promise<void> {
+    return assertWorkspaceOwned(
+      this.invoiceRepository.manager,
+      Category,
+      lineItems.map(item => item.categoryId),
+      workspaceId,
+    );
   }
 
   private parseDateOnly(value: string): Date {

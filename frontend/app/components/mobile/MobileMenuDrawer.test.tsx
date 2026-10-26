@@ -15,7 +15,7 @@ vi.mock('@/app/hooks/usePermissions', () => ({
 // is about the drawer's focus trap, so a focusable stand-in is enough.
 vi.mock('../navigation/AccountMenu', () => ({
   AccountMenu: () => (
-    <button type="button" className="lumio-account__trigger">
+    <button type="button" className="seneca-account__trigger">
       Account
     </button>
   ),

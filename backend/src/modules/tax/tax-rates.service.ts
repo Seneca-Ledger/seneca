@@ -2,12 +2,12 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder } from 'typeorm';
 import { IsNull, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
+import type { CreateTaxRateBody, UpdateTaxRateBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { TaxRate } from '../../entities/tax-rate.entity';
 import { AuditService } from '../audit/audit.service';
-import type { CreateTaxRateDto } from './dto/create-tax-rate.dto';
-import type { UpdateTaxRateDto } from './dto/update-tax-rate.dto';
 import { toDateOnly } from './jurisdictions.service';
 
 /** Stands in for "no end date" when comparing periods in SQL. */
@@ -146,12 +146,12 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
 
   async create(
     workspaceId: string,
-    createDto: CreateTaxRateDto,
+    createDto: CreateTaxRateBody,
     userId?: string,
   ): Promise<TaxRate> {
     const name = createDto.name.trim();
     if (!name) {
-      throw new BadRequestException('Tax rate name is required');
+      throw new BadRequestException(appError('TAX_RATE_NAME_REQUIRED'));
     }
 
     const duplicate = await this.repository.findOne({
@@ -159,7 +159,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
     });
 
     if (duplicate) {
-      throw new BadRequestException('Tax rate with this name already exists');
+      throw new BadRequestException(appError('TAX_RATE_NAME_TAKEN'));
     }
 
     // Hand-made rates carry no statutory lineage, so they span the whole
@@ -178,6 +178,7 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       rate: createDto.rate,
       isDefault: shouldBeDefault,
       isEnabled: createDto.isEnabled ?? true,
+      isReverseCharge: createDto.isReverseCharge ?? false,
       validFrom,
       validTo,
     });
@@ -197,16 +198,16 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
   async update(
     id: string,
     workspaceId: string,
-    updateDto: UpdateTaxRateDto,
+    updateDto: UpdateTaxRateBody,
     userId?: string,
   ): Promise<TaxRate> {
     const taxRate = await this.findOne(id, workspaceId);
     const before = this.snapshotTaxRate(taxRate);
 
-    if (updateDto.name !== undefined) {
+    if (updateDto.name != null) {
       const normalizedName = updateDto.name.trim();
       if (!normalizedName) {
-        throw new BadRequestException('Tax rate name is required');
+        throw new BadRequestException(appError('TAX_RATE_NAME_REQUIRED'));
       }
 
       const duplicate = await this.repository.findOne({
@@ -214,21 +215,25 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       });
 
       if (duplicate && duplicate.id !== id) {
-        throw new BadRequestException('Tax rate with this name already exists');
+        throw new BadRequestException(appError('TAX_RATE_NAME_TAKEN'));
       }
 
       taxRate.name = normalizedName;
     }
 
-    if (updateDto.rate !== undefined) {
+    if (updateDto.rate != null) {
       taxRate.rate = updateDto.rate;
     }
 
-    if (updateDto.isEnabled !== undefined) {
+    if (updateDto.isEnabled != null) {
       taxRate.isEnabled = updateDto.isEnabled;
     }
 
-    if (updateDto.isDefault !== undefined) {
+    if (updateDto.isReverseCharge != null) {
+      taxRate.isReverseCharge = updateDto.isReverseCharge;
+    }
+
+    if (updateDto.isDefault != null) {
       if (updateDto.isDefault) {
         await this.clearOverlappingDefaults(workspaceId, taxRate.validFrom, taxRate.validTo, id);
       }
@@ -242,6 +247,113 @@ export class TaxRatesService extends WorkspaceCrudBaseService<TaxRate> {
       saved.id,
       AuditAction.UPDATE,
       before,
+      this.snapshotTaxRate(saved),
+    );
+    return this.findOne(id, workspaceId);
+  }
+
+  /**
+   * Starts a new version of a rate on `from`, as the law changing it does:
+   * the version in force then ends the day before, and a copy at the new
+   * percentage runs from `from` to where the old one would have ended. Rules
+   * and the default find rates by code and date, so they follow on their own.
+   */
+  async startNewVersion(
+    workspaceId: string,
+    id: string,
+    newRate: number,
+    from: string,
+    userId?: string,
+  ): Promise<TaxRate> {
+    const current = await this.findOne(id, workspaceId);
+    const currentFrom = String(current.validFrom).slice(0, 10);
+    const currentTo = current.validTo ? String(current.validTo).slice(0, 10) : null;
+    if (!(currentFrom < from && (currentTo === null || currentTo >= from))) {
+      throw new BadRequestException(appError('TAX_RATE_NOT_IN_FORCE'));
+    }
+    const before = this.snapshotTaxRate(current);
+    const dayBefore = new Date(`${from}T00:00:00Z`);
+    dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+
+    const oldPercent = `${Number(current.rate)}%`;
+    const name = current.name.includes(oldPercent)
+      ? current.name.replace(oldPercent, `${newRate}%`)
+      : `${current.name} ${newRate}%`;
+
+    const { ended, started } = await this.repository.manager.transaction(async manager => {
+      const repository = manager.getRepository(TaxRate);
+      const ended = await repository.save({
+        ...current,
+        validTo: toDateOnly(dayBefore),
+      });
+      const started = await repository.save(
+        repository.create({
+          workspaceId,
+          jurisdictionId: current.jurisdictionId,
+          code: current.code,
+          kind: current.kind,
+          name,
+          rate: newRate,
+          isDefault: current.isDefault,
+          isEnabled: current.isEnabled,
+          isInclusive: current.isInclusive,
+          isReverseCharge: current.isReverseCharge,
+          validFrom: from,
+          validTo: currentTo,
+        }),
+      );
+      return { ended, started };
+    });
+
+    await this.recordAudit(
+      workspaceId,
+      userId,
+      ended.id,
+      AuditAction.UPDATE,
+      before,
+      this.snapshotTaxRate(ended),
+    );
+    await this.recordAudit(
+      workspaceId,
+      userId,
+      started.id,
+      AuditAction.CREATE,
+      null,
+      this.snapshotTaxRate(started),
+    );
+    return started;
+  }
+
+  /** Adds a statutory rate of the workspace's country that it lacks, from `from` on. */
+  async addStatutoryRate(
+    workspaceId: string,
+    fields: Pick<TaxRate, 'jurisdictionId' | 'code' | 'name' | 'kind'> & {
+      rate: number;
+      validFrom: string;
+    },
+    userId?: string,
+  ): Promise<TaxRate> {
+    const saved = await this.repository.save(
+      this.repository.create({
+        workspaceId,
+        jurisdictionId: fields.jurisdictionId,
+        code: fields.code,
+        kind: fields.kind,
+        name: fields.name,
+        rate: fields.rate,
+        isDefault: false,
+        isEnabled: true,
+        isReverseCharge: false,
+        validFrom: fields.validFrom,
+        validTo: null,
+      }),
+    );
+    await this.recordAudit(
+      workspaceId,
+      userId,
+      saved.id,
+      AuditAction.CREATE,
+      null,
       this.snapshotTaxRate(saved),
     );
     return saved;

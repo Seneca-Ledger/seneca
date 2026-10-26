@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { normalizeSelectOptions } from '../utils/selectOptions';
 import type {
   ColumnType,
@@ -23,7 +24,6 @@ export interface ColumnDraft {
   isRequired: boolean;
   isUnique: boolean;
   targetTableId: string;
-  prompt: string;
   /** Decimal places for number/currency/formula; empty means default. */
   precision: string;
   format: 'plain' | 'percent';
@@ -38,7 +38,6 @@ export const emptyColumnDraft = (currency = DEFAULT_COLUMN_CURRENCY): ColumnDraf
   isRequired: false,
   isUnique: false,
   targetTableId: '',
-  prompt: '',
   precision: '',
   format: 'plain',
   options: [],
@@ -57,7 +56,6 @@ export function draftFromColumn(
     isRequired: Boolean(column.isRequired),
     isUnique: Boolean(column.isUnique),
     targetTableId: typeof config.targetTableId === 'string' ? config.targetTableId : '',
-    prompt: typeof config.prompt === 'string' ? config.prompt : '',
     precision: typeof config.precision === 'number' ? String(config.precision) : '',
     format: config.format === 'percent' ? 'percent' : 'plain',
     options: normalizeSelectOptions(config),
@@ -99,8 +97,6 @@ export function buildColumnConfig(
       return { expression: draft.expression.trim(), ...numberFormatConfig(draft) };
     case 'relation':
       return { targetTableId: draft.targetTableId };
-    case 'ai':
-      return { prompt: draft.prompt.trim() };
     case 'select':
     case 'multi_select':
       return { options: normalizeSelectOptions({ options: draft.options }) };
@@ -183,9 +179,15 @@ export function useColumnEditor({
     const body = buildBody(draft, defaultCurrency);
     await (async () => {
       if (dialog.mode === 'add') {
-        await apiClient.post(`/custom-tables/${tableId}/columns`, body);
+        await apiClient.post(
+          `/custom-tables/${tableId}/columns`,
+          body satisfies ContractInput<'CreateCustomTableColumnBody'>,
+        );
       } else {
-        await apiClient.patch(`/custom-tables/${tableId}/columns/${dialog.column.id}`, body);
+        await apiClient.patch(
+          `/custom-tables/${tableId}/columns/${dialog.column.id}`,
+          body satisfies ContractInput<'UpdateCustomTableColumnBody'>,
+        );
       }
       toast.success(messages.saved);
       setDialog({ mode: 'closed' });

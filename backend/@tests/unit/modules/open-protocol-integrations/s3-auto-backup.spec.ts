@@ -1,27 +1,34 @@
-jest.mock('webdav', () => ({ createClient: jest.fn() }));
-jest.mock('../../../../src/common/utils/egress-url.util', () => ({
-  assertPublicEgressHost: jest.fn(),
-  assertPublicEgressUrl: jest.fn(),
-  createPublicEgressHttpAgents: jest.fn(() => ({
-    lookup: jest.fn(),
+import type { Mock } from 'vitest';
+vi.mock('webdav', () => ({ createClient: vi.fn() }));
+vi.mock('../../../../src/common/utils/egress-url.util', () => ({
+  assertPublicEgressHost: vi.fn(),
+  assertPublicEgressUrl: vi.fn(),
+  createPublicEgressHttpAgents: vi.fn(() => ({
+    lookup: vi.fn(),
     httpAgent: {},
     httpsAgent: {},
   })),
 }));
-jest.mock('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn(),
-  PutObjectCommand: jest.fn(args => args),
-  HeadBucketCommand: jest.fn(),
+vi.mock('@aws-sdk/client-s3', () => ({
+  S3Client: vi.fn(),
+  // Built with `new`: a mock constructor must be a function, not an arrow.
+  PutObjectCommand: vi.fn(function (args) {
+    return args;
+  }),
+  HeadBucketCommand: vi.fn(),
 }));
 
 import { Readable } from 'stream';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { OpenProtocolIntegrationsService } from '../../../../src/modules/open-protocol-integrations/open-protocol-integrations.service';
 import { IntegrationProvider, IntegrationStatus } from '../../../../src/entities';
 import type { Integration, OpenProtocolSettings, Statement } from '../../../../src/entities';
 
-const s3SendMock = jest.fn().mockResolvedValue({});
-(S3Client as jest.Mock).mockImplementation(() => ({ send: s3SendMock }));
+const s3SendMock = vi.fn().mockResolvedValue({});
+(S3Client as Mock).mockImplementation(function () {
+    return { send: s3SendMock };
+  });
 
 const makeSettings = (config: Record<string, unknown>): OpenProtocolSettings =>
   ({
@@ -56,9 +63,9 @@ const makeStatement = (): Statement =>
   }) as unknown as Statement;
 
 describe('OpenProtocolIntegrationsService.autoBackupStatementToS3', () => {
-  const integrationRepository = { findOne: jest.fn() };
-  const statementRepository = { findOne: jest.fn() };
-  const fileStorageService = { getStatementFileStream: jest.fn() };
+  const integrationRepository = { findOne: vi.fn() };
+  const statementRepository = { findOne: vi.fn() };
+  const fileStorageService = { getStatementFileStream: vi.fn() };
 
   const createService = () =>
     new OpenProtocolIntegrationsService(
@@ -75,9 +82,11 @@ describe('OpenProtocolIntegrationsService.autoBackupStatementToS3', () => {
     );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     s3SendMock.mockResolvedValue({});
-    (S3Client as jest.Mock).mockImplementation(() => ({ send: s3SendMock }));
+    (S3Client as Mock).mockImplementation(function () {
+    return { send: s3SendMock };
+  });
     fileStorageService.getStatementFileStream.mockResolvedValue({
       stream: Readable.from(Buffer.from('csv')),
       fileName: 'bank.csv',
@@ -116,5 +125,25 @@ describe('OpenProtocolIntegrationsService.autoBackupStatementToS3', () => {
     await createService().autoBackupStatementToS3('ws-1', 'stmt-1');
 
     expect(s3SendMock).not.toHaveBeenCalled();
+  });
+
+  // The connection test on save runs right after the endpoint passed the egress
+  // check; without the pinned agents a short-TTL name could resolve privately
+  // for the probe itself (DNS rebinding).
+  it('probes a new S3 endpoint through the pinned-lookup agents', async () => {
+    const service = createService() as unknown as {
+      assertS3Connection: (config: Record<string, unknown>) => Promise<void>;
+    };
+
+    await service.assertS3Connection({
+      endpoint: 'https://s3.test.com',
+      bucket: 'test-bucket',
+      region: 'us-east-1',
+      forcePathStyle: false,
+    });
+
+    expect(S3Client).toHaveBeenCalledWith(
+      expect.objectContaining({ requestHandler: expect.any(NodeHttpHandler) }),
+    );
   });
 });

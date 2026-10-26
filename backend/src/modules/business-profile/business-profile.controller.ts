@@ -3,11 +3,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
-  Param,
   Post,
   Put,
   Res,
@@ -19,6 +17,9 @@ import type { Response } from 'express';
 import { diskStorage } from 'multer';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import {
@@ -27,11 +28,17 @@ import {
 } from '../../common/utils/avatar-filename.util';
 import { removeUploadedFile, validateImageSignature } from '../../common/utils/file-validator.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import {
+  BusinessLogoFileParams,
+  BusinessProfileLogo,
+  BusinessProfileLogoCleared,
+  BusinessProfileResponse,
+  UpdateBusinessProfileBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { BusinessProfileService, LOGO_DIRECTORY } from './business-profile.service';
-import { UpdateBusinessProfileDto } from './dto/update-business-profile.dto';
 
 // Aliased: `Express.Multer.File` in a decorated parameter would be emitted as a
 // runtime reference to `Express`, which does not exist.
@@ -50,6 +57,7 @@ export class BusinessProfileController {
 
   @Get()
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(BusinessProfileResponse)
   async get(@WorkspaceId() workspaceId: string) {
     const profile = await this.businessProfileService.get(workspaceId);
     return {
@@ -61,7 +69,11 @@ export class BusinessProfileController {
   @Put()
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
   @Audit({ entityType: EntityType.WORKSPACE, includeDiff: true, isUndoable: true })
-  async update(@Body() dto: UpdateBusinessProfileDto, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(BusinessProfileResponse)
+  async update(
+    @SchemaBody(UpdateBusinessProfileBody) dto: UpdateBusinessProfileBody,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const profile = await this.businessProfileService.update(workspaceId, dto);
     return {
       ...profile,
@@ -104,6 +116,7 @@ export class BusinessProfileController {
       limits: { fileSize: 2_000_000 },
     }),
   )
+  @SchemaResponse(BusinessProfileLogo)
   async uploadLogo(
     @UploadedFile() file: MulterFile | undefined,
     @WorkspaceId() workspaceId: string,
@@ -129,6 +142,7 @@ export class BusinessProfileController {
 
   @Delete('logo')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(BusinessProfileLogoCleared)
   async deleteLogo(@WorkspaceId() workspaceId: string) {
     await this.businessProfileService.clearLogo(workspaceId);
     return { logoFile: null };
@@ -140,7 +154,10 @@ export class BusinessProfileController {
    */
   @Public()
   @Get('logo/:fileName')
-  getLogo(@Param('fileName') fileName: string, @Res() res: Response) {
+  getLogo(
+    @SchemaParams(BusinessLogoFileParams) { fileName }: BusinessLogoFileParams,
+    @Res() res: Response,
+  ) {
     const safeFileName = path.basename(fileName);
     const filePath = this.businessProfileService.logoPath(safeFileName);
     if (!fs.existsSync(filePath)) {

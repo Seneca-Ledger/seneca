@@ -53,7 +53,7 @@ const MultiSelect = ({
       }}
       renderValue={selected => {
         if (!selected.length) {
-          return <span className="lumio-multi-select__placeholder">{placeholder}</span>;
+          return <span className="seneca-multi-select__placeholder">{placeholder}</span>;
         }
         if (selected.length <= MAX_INLINE) {
           return selected.map(labelOf).join(', ');
@@ -67,7 +67,7 @@ const MultiSelect = ({
           <Checkbox size="small" checked={value.includes(option.value)} />
           <ListItemText
             primary={option.label}
-            slotProps={{ primary: { noWrap: true, fontSize: 13 } }}
+            slotProps={{ primary: { noWrap: true, sx: { fontSize: 13 } } }}
           />
         </MenuItem>
       ))}

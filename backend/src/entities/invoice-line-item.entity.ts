@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Category } from './category.entity';
@@ -22,7 +23,7 @@ export class InvoiceLineItem {
     { onDelete: 'CASCADE' },
   )
   @JoinColumn({ name: 'invoice_id' })
-  invoice: Invoice;
+  invoice: Relation<Invoice>;
 
   @Column({ name: 'invoice_id', type: 'uuid' })
   invoiceId: string;
@@ -36,9 +37,20 @@ export class InvoiceLineItem {
   @Column({ name: 'unit_price', type: 'decimal', precision: 15, scale: 2 })
   unitPrice: number;
 
+  /** Unit of measure, UN/ECE Recommendation 20: C62 one, HUR hour, DAY day, MON month… */
+  @Column({ name: 'unit_code', type: 'varchar', length: 3, default: 'C62' })
+  unitCode: string;
+
+  /**
+   * Discount (negative) or surcharge (positive) on quantity × unit price, in
+   * percent. NULL is neither.
+   */
+  @Column({ name: 'adjustment_percent', type: 'decimal', precision: 7, scale: 2, nullable: true })
+  adjustmentPercent: number | null;
+
   @ManyToOne(() => TaxRate, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'tax_rate_id' })
-  taxRate: TaxRate | null;
+  taxRate: Relation<TaxRate | null>;
 
   @Column({ name: 'tax_rate_id', type: 'uuid', nullable: true })
   taxRateId: string | null;
@@ -46,7 +58,7 @@ export class InvoiceLineItem {
   /** Which income account the line's revenue books to; falls back to a generic sales account. */
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;

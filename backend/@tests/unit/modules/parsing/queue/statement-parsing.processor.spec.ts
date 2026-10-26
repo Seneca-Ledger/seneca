@@ -1,21 +1,29 @@
-/// <reference types="jest" />
+/// <reference types="vitest/globals" />
 
+import { UnrecoverableError } from 'bullmq';
 import { StatementStatus } from '@/entities/statement.entity';
+import { WorkspaceKind } from '@/entities/workspace.entity';
 import {
   MAX_PARSING_ATTEMPTS,
   StaleStatementReaper,
   StatementParsingProcessor,
 } from '@/modules/parsing/queue/statement-parsing.processor';
+import { StatementRejected } from '@/modules/parsing/services/statement-processing.service';
 
 describe('StatementParsingProcessor', () => {
   const statementRepository = {
-    increment: jest.fn(async () => undefined),
-    find: jest.fn(async () => []),
-    update: jest.fn(async () => undefined),
+    exists: vi.fn(async () => false),
+    increment: vi.fn(async () => undefined),
+    find: vi.fn(async () => []),
+    update: vi.fn(async () => undefined),
   };
-  const statementProcessingService = { processStatement: jest.fn(async () => undefined) };
+  const statementProcessingService = { processStatement: vi.fn(async () => undefined) };
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
+
+  /** A job on its (attemptsMade + 1)th try out of the 3 the queue allows. */
+  const job = (attemptsMade: number) =>
+    ({ data: { statementId: 'stmt-1' }, attemptsMade, opts: { attempts: 3 } }) as never;
 
   const processor = () =>
     new StatementParsingProcessor(
@@ -24,33 +32,66 @@ describe('StatementParsingProcessor', () => {
     );
 
   it('counts the attempt before parsing so a crash still leaves a trace', async () => {
-    await processor().process({ data: { statementId: 'stmt-1' }, attemptsMade: 0 } as never);
+    await processor().process(job(0));
 
     expect(statementRepository.increment).toHaveBeenCalledWith(
       { id: 'stmt-1' },
       'parsingAttempts',
       1,
     );
-    expect(statementProcessingService.processStatement).toHaveBeenCalledWith('stmt-1');
+    expect(statementProcessingService.processStatement).toHaveBeenCalledWith('stmt-1', {
+      finalAttempt: false,
+    });
+  });
+
+  it('marks the last of the queue attempts as final', async () => {
+    await processor().process(job(2));
+
+    expect(statementProcessingService.processStatement).toHaveBeenCalledWith('stmt-1', {
+      finalAttempt: true,
+    });
+  });
+
+  it('stops retrying a statement no attempt can parse', async () => {
+    statementProcessingService.processStatement.mockRejectedValueOnce(
+      new StatementRejected({ message: 'No parser found for bank other' }) as never,
+    );
+
+    const failure = processor().process(job(0));
+
+    await expect(failure).rejects.toBeInstanceOf(UnrecoverableError);
+    await expect(failure).rejects.toThrow('No parser found for bank other');
   });
 
   it('propagates failures so the queue retries with backoff', async () => {
     statementProcessingService.processStatement.mockRejectedValueOnce(new Error('parser blew up'));
 
     await expect(
-      processor().process({ data: { statementId: 'stmt-1' }, attemptsMade: 1 } as never),
+      processor().process(job(1)),
     ).rejects.toThrow('parser blew up');
+  });
+
+  it('drops a job for a statement of a past version without counting or parsing it', async () => {
+    statementRepository.exists.mockResolvedValueOnce(true);
+
+    await processor().process(job(0));
+
+    expect(statementRepository.exists).toHaveBeenCalledWith({
+      where: { id: 'stmt-1', workspace: { kind: WorkspaceKind.VERSION } },
+    });
+    expect(statementRepository.increment).not.toHaveBeenCalled();
+    expect(statementProcessingService.processStatement).not.toHaveBeenCalled();
   });
 });
 
 describe('StaleStatementReaper', () => {
   const statementRepository = {
-    find: jest.fn(),
-    update: jest.fn(async () => ({ affected: 1 })),
+    find: vi.fn(),
+    update: vi.fn(async () => ({ affected: 1 })),
   };
-  const queue = { enqueue: jest.fn(async () => undefined) };
+  const queue = { enqueue: vi.fn(async () => undefined) };
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   const reaper = () => new StaleStatementReaper(statementRepository as never, queue as never);
 
@@ -88,6 +129,18 @@ describe('StaleStatementReaper', () => {
 
     expect(statementRepository.update).not.toHaveBeenCalled();
     expect(queue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('looks only at statements of ordinary workspaces, never a past version', async () => {
+    statementRepository.find.mockResolvedValueOnce([]);
+
+    await reaper().reap();
+
+    expect(statementRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ workspace: { kind: WorkspaceKind.STANDARD } }),
+      }),
+    );
   });
 
   it('does not re-queue (or clobber) a statement that already left PROCESSING by the time the conditional update runs', async () => {

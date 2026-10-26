@@ -4,8 +4,8 @@ import { PayablesScheduler } from '@/modules/payables/payables.scheduler';
 describe('PayablesScheduler', () => {
   it('notifies due-soon payables once and marks them notified', async () => {
     const payablesService = {
-      markOverduePayables: jest.fn(async () => []),
-      findDueSoonPayables: jest.fn(async () => [
+      markOverduePayables: vi.fn(async () => []),
+      findDueSoonPayables: vi.fn(async () => [
         {
           id: 'payable-1',
           workspaceId: 'workspace-1',
@@ -15,10 +15,10 @@ describe('PayablesScheduler', () => {
           dueSoonNotifiedAt: null,
         },
       ]),
-      markDueSoonNotified: jest.fn(async () => undefined),
+      markDueSoonNotified: vi.fn(async () => undefined),
     };
     const notificationsService = {
-      createForWorkspaceMembers: jest.fn(async () => 1),
+      createForWorkspaceMembers: vi.fn(async () => 1),
     };
 
     const scheduler = new PayablesScheduler(payablesService as any, notificationsService as any);
@@ -31,7 +31,7 @@ describe('PayablesScheduler', () => {
 
   it('continues processing remaining items when one notification fails', async () => {
     const payablesService = {
-      markOverduePayables: jest.fn(async () => [
+      markOverduePayables: vi.fn(async () => [
         {
           id: 'overdue-1',
           workspaceId: 'workspace-1',
@@ -45,14 +45,14 @@ describe('PayablesScheduler', () => {
           direction: PayableDirection.PAYABLE,
         },
       ]),
-      findDueSoonPayables: jest.fn(async () => [
+      findDueSoonPayables: vi.fn(async () => [
         { id: 'due-1', workspaceId: 'workspace-1', vendor: 'C' },
         { id: 'due-2', workspaceId: 'workspace-1', vendor: 'D' },
       ]),
-      markDueSoonNotified: jest.fn(async () => undefined),
+      markDueSoonNotified: vi.fn(async () => undefined),
     };
     const notificationsService = {
-      createForWorkspaceMembers: jest
+      createForWorkspaceMembers: vi
         .fn()
         .mockRejectedValueOnce(new Error('boom'))
         .mockResolvedValueOnce(1)
@@ -70,7 +70,7 @@ describe('PayablesScheduler', () => {
   });
   it('does not send payable-worded overdue notifications for receivables', async () => {
     const payablesService = {
-      markOverduePayables: jest.fn(async () => [
+      markOverduePayables: vi.fn(async () => [
         {
           id: 'overdue-1',
           workspaceId: 'workspace-1',
@@ -78,11 +78,11 @@ describe('PayablesScheduler', () => {
           direction: PayableDirection.RECEIVABLE,
         },
       ]),
-      findDueSoonPayables: jest.fn(async () => []),
-      markDueSoonNotified: jest.fn(async () => undefined),
+      findDueSoonPayables: vi.fn(async () => []),
+      markDueSoonNotified: vi.fn(async () => undefined),
     };
     const notificationsService = {
-      createForWorkspaceMembers: jest.fn(async () => 1),
+      createForWorkspaceMembers: vi.fn(async () => 1),
     };
 
     const scheduler = new PayablesScheduler(payablesService as any, notificationsService as any);

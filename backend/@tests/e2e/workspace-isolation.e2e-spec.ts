@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -108,8 +108,8 @@ describe('Workspace isolation (e2e)', () => {
     await app.close();
   });
 
-  describe('Gmail receipts list', () => {
-    const list = '/integrations/gmail/receipts?includeLinkedScans=true';
+  describe('Receipt documents list', () => {
+    const list = '/receipts/documents?includeLinkedScans=true';
 
     it('shows the receipt in the workspace it was uploaded to', async () => {
       const res = await as(owner, request(server()).get(list), secondWorkspaceId).expect(200);
@@ -143,34 +143,34 @@ describe('Workspace isolation (e2e)', () => {
     });
   });
 
-  describe('Gmail receipt by id', () => {
+  describe('Receipt by id', () => {
     it('finds it in its own workspace', async () => {
       const res = await as(
         owner,
-        request(server()).get(`/integrations/gmail/receipts/${receiptId}`),
+        request(server()).get(`/receipts/${receiptId}`),
         secondWorkspaceId,
       ).expect(200);
-      expect(res.body.receipt.id).toBe(receiptId);
+      expect(res.body.id).toBe(receiptId);
     });
 
     it('does not find it from the other workspace', () => {
-      return as(owner, request(server()).get(`/integrations/gmail/receipts/${receiptId}`)).expect(
-        400,
-      );
+      return as(owner, request(server()).get(`/receipts/${receiptId}`)).expect(400);
     });
 
     it('does not serve its file or thumbnail from the other workspace', async () => {
-      for (const suffix of ['file', 'thumbnail']) {
-        const res = await as(
-          owner,
-          request(server()).get(`/integrations/gmail/receipts/${receiptId}/${suffix}`),
-        ).expect(404);
-        expect(res.body).toEqual({ error: 'Receipt not found' });
-      }
+      const file = await as(owner, request(server()).get(`/receipts/${receiptId}/file`)).expect(
+        404,
+      );
+      expect(file.body).toEqual({ error: 'Receipt file not found' });
+      const thumbnail = await as(
+        owner,
+        request(server()).get(`/receipts/${receiptId}/thumbnail`),
+      ).expect(404);
+      expect(thumbnail.body).toEqual({ error: 'Receipt not found' });
     });
 
     it('cannot be edited from the other workspace', async () => {
-      await as(owner, request(server()).patch(`/integrations/gmail/receipts/${receiptId}`))
+      await as(owner, request(server()).patch(`/receipts/${receiptId}`))
         .send({ parsedData: { vendor: 'Hijacked' } })
         .expect(400);
 
@@ -181,133 +181,24 @@ describe('Workspace isolation (e2e)', () => {
     });
 
     it('cannot be approved from the other workspace', () => {
-      return as(owner, request(server()).post(`/integrations/gmail/receipts/${receiptId}/approve`))
-        .send({ amount: 12.5, date: '2026-09-01', description: 'Iso Cafe' })
+      return as(owner, request(server()).post(`/receipts/${receiptId}/approve`))
+        .send({})
         .expect(400);
     });
 
     it('books the approved transaction into the receipt’s workspace', async () => {
       const res = await as(
         owner,
-        request(server()).post(`/integrations/gmail/receipts/${receiptId}/approve`),
+        request(server()).post(`/receipts/${receiptId}/approve`),
         secondWorkspaceId,
       )
-        .send({ amount: 12.5, date: '2026-09-01', currency: 'EUR', description: 'Iso Cafe' })
+        .send({})
         .expect(201);
 
       const [row] = await dataSource.query('SELECT workspace_id FROM transactions WHERE id = $1', [
         res.body.transaction.id,
       ]);
       expect(row.workspace_id).toBe(secondWorkspaceId);
-    });
-  });
-
-  describe('Gmail integration', () => {
-    const oauthEnv = {
-      GMAIL_CLIENT_ID: 'iso-client',
-      GMAIL_CLIENT_SECRET: 'iso-secret',
-      GMAIL_REDIRECT_URI: 'https://app.example.com/api/v1/integrations/gmail/callback',
-    };
-    const savedEnv: Record<string, string | undefined> = {};
-
-    beforeAll(async () => {
-      for (const [key, value] of Object.entries(oauthEnv)) {
-        savedEnv[key] = process.env[key];
-        process.env[key] = value;
-      }
-      await dataSource.query(
-        `INSERT INTO integrations (workspace_id, provider, status, connected_by_user_id)
-         VALUES ($1, 'gmail', 'connected', $2)`,
-        [owner.workspaceId, owner.userId],
-      );
-    });
-
-    afterAll(async () => {
-      for (const [key, value] of Object.entries(savedEnv)) {
-        if (value === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = value;
-        }
-      }
-      await dataSource.query(
-        "DELETE FROM integrations WHERE provider = 'gmail' AND connected_by_user_id = $1",
-        [owner.userId],
-      );
-    });
-
-    it('is connected only in the workspace it was connected in', async () => {
-      const first = await as(owner, request(server()).get('/integrations/gmail/status')).expect(
-        200,
-      );
-      expect(first.body.connected).toBe(true);
-
-      const second = await as(
-        owner,
-        request(server()).get('/integrations/gmail/status'),
-        secondWorkspaceId,
-      ).expect(200);
-      expect(second.body.connected).toBe(false);
-    });
-
-    it('connects the workspace that is open', async () => {
-      const res = await as(
-        owner,
-        request(server()).get('/integrations/gmail/connect'),
-        secondWorkspaceId,
-      ).expect(200);
-
-      const state = new URL(res.body.url).searchParams.get('state') ?? '';
-      const payload = JSON.parse(Buffer.from(state.split('.')[0], 'base64url').toString('utf8'));
-      expect(payload).toMatchObject({ userId: owner.userId, workspaceId: secondWorkspaceId });
-    });
-
-    it('leaves connecting to those who manage the workspace', () => {
-      return as(
-        member,
-        request(server()).get('/integrations/gmail/connect'),
-        secondWorkspaceId,
-      ).expect(403);
-    });
-  });
-
-  describe('Cloud storage integrations', () => {
-    beforeAll(async () => {
-      await dataSource.query(
-        `INSERT INTO integrations (workspace_id, provider, status, connected_by_user_id)
-         VALUES ($1, 'dropbox', 'connected', $2)`,
-        [owner.workspaceId, owner.userId],
-      );
-    });
-
-    afterAll(async () => {
-      await dataSource.query(
-        "DELETE FROM integrations WHERE provider = 'dropbox' AND connected_by_user_id = $1",
-        [owner.userId],
-      );
-    });
-
-    it('shows the integration only in the workspace it was connected in', async () => {
-      // No token was stored, so the connected one reads as needing re-authorisation.
-      const first = await as(owner, request(server()).get('/integrations/dropbox/status')).expect(
-        200,
-      );
-      expect(first.body.status).toBe('needs_reauth');
-
-      const second = await as(
-        owner,
-        request(server()).get('/integrations/dropbox/status'),
-        secondWorkspaceId,
-      ).expect(200);
-      expect(second.body).toMatchObject({ connected: false, status: 'disconnected' });
-    });
-
-    it('leaves managing it to those who manage the workspace', () => {
-      return as(
-        member,
-        request(server()).post('/integrations/dropbox/sync'),
-        secondWorkspaceId,
-      ).expect(403);
     });
   });
 

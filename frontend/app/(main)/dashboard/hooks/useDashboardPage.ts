@@ -17,19 +17,13 @@ import {
   resolveLocale,
 } from '../helpers/dashboard-helpers';
 import {
-  type DashboardTabId,
-  DEFAULT_DASHBOARD_TAB,
   formatMonthParam,
   parseMonthParam,
-  parseTabParam,
   withDashboardParams,
 } from '../helpers/dashboard-url-state';
 import { useDashboardRedirect } from './useDashboardRedirect';
 
-export type { DashboardTabId } from '../helpers/dashboard-url-state';
-
-/** Month and active tab live in the URL so a reload or shared link restores the view. */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+/** The month lives in the URL so a reload or shared link restores the view. */
 function useDashboardUrlState() {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,9 +33,8 @@ function useDashboardUrlState() {
   // current month and auto-shifts to the latest month with data. Once the
   // user picks a month, auto-shift is disabled for good.
   const pickedMonth = useMemo(() => parseMonthParam(searchParams?.get('month')), [searchParams]);
-  const activeTab = parseTabParam(searchParams?.get('tab'));
   const navigate = useCallback(
-    (patch: { month?: string | null; tab?: string | null }): void => {
+    (patch: { month?: string | null }): void => {
       const next = withDashboardParams(query, patch);
       router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
     },
@@ -53,16 +46,9 @@ function useDashboardUrlState() {
     },
     [navigate],
   );
-  const setActiveTab = useCallback(
-    (tab: DashboardTabId): void => {
-      navigate({ tab: tab === DEFAULT_DASHBOARD_TAB ? null : tab });
-    },
-    [navigate],
-  );
-  return { pickedMonth, activeTab, changeMonth, setActiveTab };
+  return { pickedMonth, changeMonth };
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function useDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
@@ -70,7 +56,7 @@ export function useDashboardPage() {
   const t = useIntlayer('dashboardPage');
   const headerT = useIntlayer('dashboardHeader');
   const isMobile = useIsMobile();
-  const { pickedMonth, activeTab, changeMonth, setActiveTab } = useDashboardUrlState();
+  const { pickedMonth, changeMonth } = useDashboardUrlState();
   const targetDateParam = pickedMonth ? formatDateOnly(pickedMonth) : undefined;
   const { data, isPending, error, refetch, range } = useDashboard('month', targetDateParam);
   const effectiveSince = data?.effectiveSince;
@@ -125,12 +111,6 @@ export function useDashboardPage() {
     ? fillTemplate(headerT.periodBanner.value, { period: effectivePeriod })
     : null;
   const headerLabels = {
-    tabs: {
-      financeOps: t.tabs.financeOps.value,
-      overview: t.tabs.overview.value,
-      trends: t.tabs.trends.value,
-      dataHealth: t.tabs.dataHealth.value,
-    },
     monthStrip: {
       group: headerT.monthStripLabel.value,
       previousYear: headerT.previousYear.value,
@@ -143,8 +123,6 @@ export function useDashboardPage() {
     error,
     refetch,
     range,
-    activeTab,
-    setActiveTab,
     isMobile,
     pullHandlers,
     pullDistance,

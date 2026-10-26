@@ -1,172 +1,27 @@
 'use client';
 
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
-import Skeleton from '@mui/material/Skeleton';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Typography from '@mui/material/Typography';
-import { formatDayLabel } from '@/app/components/charts/chart-format';
-import { ArrowDownRight, ArrowUpRight } from '@/app/components/icons';
-import { EmptyState } from '@/app/components/ui/EmptyState';
+import { LoadError } from '@/app/components/ui/load-error';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
-import { tokens } from '@/lib/theme-tokens';
-import {
-  NET_WORTH_RANGES,
-  type NetWorthAssetLine,
-  type NetWorthRange,
-  type NetWorthView,
-  useNetWorth,
-} from '../hooks/useNetWorth';
-import { nextMilestone } from '../milestone';
-import { setNetWorthDisplay, useNetWorthDisplay } from '../net-worth-display';
-import { AccountFilter } from './AccountFilter';
+import { useNetWorth } from '../hooks/useNetWorth';
 import { AllocationCard } from './AllocationCard';
 import { AttributionCard } from './AttributionCard';
-import { CustomRange } from './CustomRange';
+import { HoldingsSection } from './HoldingsSection';
 import { ASSET_CLASS_KEYS, InvestmentsCard } from './InvestmentsCard';
 import { MetalsCard } from './MetalsCard';
-import { NetWorthChart } from './NetWorthChart';
+import { NetWorthControls } from './NetWorthControls';
+import { NetWorthHeadline } from './NetWorthHeadline';
+import { NetWorthSkeleton } from './NetWorthSkeleton';
+import { CardTitle, cardSx } from './net-worth-ui';
 import { RiskCard } from './RiskCard';
-
-/**
- * MUI colours a toggle button near-black whatever the palette says, which is
- * invisible on this page's dark surface. The chips beside it are themed; these
- * have to be told.
- */
-const toggleSx = {
-  px: 1.5,
-  textTransform: 'none',
-  color: 'text.secondary',
-  '&.Mui-selected': { color: 'text.primary' },
-} as const;
-
-function daysBetween(from: string, to: string): number {
-  return Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000));
-}
-
-function NetWorthSkeleton(): React.JSX.Element {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box
-        sx={{
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: tokens.radius.md,
-          bgcolor: 'background.paper',
-          p: 3,
-        }}
-      >
-        <Skeleton variant="text" width={220} height={44} />
-        <Skeleton variant="text" width={160} height={20} sx={{ mt: 1 }} />
-        <Skeleton variant="rounded" height={220} sx={{ mt: 2, borderRadius: tokens.radius.md }} />
-        <Box sx={{ display: 'flex', gap: 4, mt: 2, flexWrap: 'wrap' }}>
-          <Box>
-            <Skeleton variant="text" width={60} height={16} />
-            <Skeleton variant="text" width={100} height={22} />
-          </Box>
-          <Box>
-            <Skeleton variant="text" width={80} height={16} />
-            <Skeleton variant="text" width={100} height={22} />
-          </Box>
-        </Box>
-      </Box>
-      <Skeleton variant="rounded" height={140} sx={{ borderRadius: tokens.radius.md }} />
-      <Skeleton variant="rounded" height={200} sx={{ borderRadius: tokens.radius.md }} />
-    </Box>
-  );
-}
-
-type RangeControlsProps = {
-  range: NetWorthRange;
-  custom: ReturnType<typeof useNetWorth>['custom'];
-  view: NetWorthView;
-  data: { from: string; to: string } | undefined;
-  setRange: (range: NetWorthRange) => void;
-  setCustom: ReturnType<typeof useNetWorth>['setCustom'];
-  setView: (view: NetWorthView) => void;
-  lines: NetWorthAssetLine[];
-  excluded: string[];
-  setExcluded: (ids: string[]) => void;
-  t: ReturnType<typeof useIntlayer<'netWorthPage'>>;
-};
-
-/** Which window, and which shape of it. */
-function RangeControls({
-  range,
-  custom,
-  view,
-  data,
-  setRange,
-  setCustom,
-  setView,
-  lines,
-  excluded,
-  setExcluded,
-  t,
-}: RangeControlsProps): React.JSX.Element {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'flex-end' }}>
-      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={custom ? null : range}
-          onChange={(_event, next: NetWorthRange | null) => next && setRange(next)}
-          aria-label={t.title.value}
-        >
-          {NET_WORTH_RANGES.map(option => (
-            <ToggleButton key={option} value={option} sx={toggleSx}>
-              {option === 'all' ? t.rangeAll : option.toUpperCase().replace('180D', '6M')}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-
-        <AccountFilter
-          lines={lines}
-          excluded={excluded}
-          onChange={setExcluded}
-          labels={{ accounts: t.accountsFilter.value, showAll: t.accountsShowAll.value }}
-        />
-
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={view}
-          onChange={(_event, next: NetWorthView | null) => next && setView(next)}
-        >
-          <ToggleButton value="performance" sx={toggleSx}>
-            {t.viewPerformance}
-          </ToggleButton>
-          <ToggleButton value="breakdown" sx={toggleSx}>
-            {t.viewBreakdown}
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-
-      <CustomRange
-        value={custom}
-        fallback={data ? { from: data.from, to: data.to } : null}
-        onChange={setCustom}
-        labels={{
-          custom: t.rangeCustom.value,
-          from: t.rangeFrom.value,
-          to: t.rangeTo.value,
-        }}
-      />
-    </Box>
-  );
-}
 
 export function NetWorthContent() {
   const t = useIntlayer('netWorthPage');
   useAttentionFocus();
   const { locale } = useLocale();
-  const display = useNetWorthDisplay();
   const {
     data,
     isPending,
@@ -186,72 +41,31 @@ export function NetWorthContent() {
   } = useNetWorth();
 
   const currency = data?.currency ?? FALLBACK_CURRENCY;
-  // The next round number, and when this window's pace would reach it.
-  const milestone = data
-    ? nextMilestone(data.current, data.change, daysBetween(data.from, data.to))
-    : null;
   // Measured in metal, the figures are ounces; the money ones stay untouched
   // underneath, so the toggle changes the unit and nothing else.
   const inMetal = denominate ? (data?.denominated ?? null) : null;
-  const formatOunces = (value: number) =>
-    `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value)} ozt`;
-  const show = (value: number) =>
-    inMetal ? formatOunces(value) : formatMoney(value, currency, locale);
-  const headline = inMetal ?? data;
-  const isPositive = (headline?.change ?? 0) >= 0;
-  const hasData = Boolean(data && (data.assetsTotal !== 0 || data.liabilitiesTotal !== 0));
 
   return (
-    <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--lumio-page-top, 24px)', pb: 3, width: '100%' }}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 2,
-          justifyContent: 'flex-end',
-          alignItems: 'flex-start',
-          mb: 3,
-        }}
-      >
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={denominate ?? 'money'}
-          onChange={(_event, next: string | null) =>
-            next && setDenominate(next === 'money' ? null : 'XAU')
-          }
-          aria-label={t.ouncesOfGold.value}
-        >
-          <ToggleButton value="money" sx={{ px: 1.5, textTransform: 'none' }}>
-            {currency}
-          </ToggleButton>
-          <ToggleButton value="XAU" sx={{ px: 1.5, textTransform: 'none' }}>
-            {t.ouncesOfGold}
-          </ToggleButton>
-        </ToggleButtonGroup>
-
-        <RangeControls
-          range={range}
-          custom={custom}
-          view={view}
-          data={data}
-          setRange={setRange}
-          setCustom={setCustom}
-          setView={setView}
-          lines={data?.assetLines ?? []}
-          excluded={excluded}
-          setExcluded={setExcluded}
-          t={t}
-        />
-      </Box>
+    <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}>
+      <NetWorthControls
+        currency={currency}
+        range={range}
+        custom={custom}
+        view={view}
+        window={data ? { from: data.from, to: data.to } : null}
+        lines={data?.assetLines ?? []}
+        excluded={excluded}
+        denominate={denominate}
+        setRange={setRange}
+        setCustom={setCustom}
+        setView={setView}
+        setExcluded={setExcluded}
+        setDenominate={setDenominate}
+      />
 
       {isPending && <NetWorthSkeleton />}
 
-      {error && (
-        <Typography color="error" sx={{ py: 2, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && <LoadError spacing={2}>{t.error}</LoadError>}
 
       {data && (
         <Box
@@ -264,168 +78,54 @@ export function NetWorthContent() {
             transition: 'opacity 150ms ease',
           }}
         >
-          <Box
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: tokens.radius.md,
-              bgcolor: 'background.paper',
-              p: 3,
+          <NetWorthHeadline
+            data={data}
+            inMetal={inMetal}
+            denominate={denominate}
+            view={view}
+            locale={locale}
+          />
+
+          <AttributionCard
+            attribution={data.attribution}
+            savings={data.savings}
+            formatMoney={value => formatMoney(value, currency, locale)}
+            labels={{
+              title: t.changeTitle.value,
+              hint: t.changeHint.value,
+              savings: t.savingsRate.value,
+              kinds: {
+                money: t.changeMoney.value,
+                revaluation: t.changeRevaluation.value,
+                fx: t.changeFx.value,
+              },
             }}
-          >
-            <Typography variant="h3" fontWeight={700} sx={{ lineHeight: 1.1 }}>
-              {show(headline?.current ?? 0)}
-            </Typography>
+          />
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1 }}>
-              {isPositive ? (
-                <ArrowUpRight size={18} color={tokens.color.success} />
-              ) : (
-                <ArrowDownRight size={18} color={tokens.color.danger} />
-              )}
-              <Typography
-                variant="body2"
-                sx={{ fontWeight: 600, color: isPositive ? 'success.main' : 'error.main' }}
-              >
-                {isPositive ? '+' : '−'}
-                {show(Math.abs(headline?.change ?? 0))}
-                {headline?.changePercent != null &&
-                  ` (${isPositive ? '+' : '−'}${Math.abs(headline.changePercent)}%)`}
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {t.overPeriod}
-              </Typography>
-            </Box>
-            {denominate && !inMetal && (
-              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                {t.noMetalPrice}
-              </Typography>
-            )}
-            {display.allTimeHigh && !inMetal && data.allTimeHigh && (
-              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                {t.allTimeHigh.value
-                  .replace('{{value}}', formatMoney(data.allTimeHigh.value, currency, locale))
-                  .replace('{{date}}', data.allTimeHigh.date)}
-              </Typography>
-            )}
-
-            {milestone && !inMetal && (
-              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                {t.milestoneRemaining.value
-                  .replace('{{target}}', formatMoney(milestone.target, currency, locale))
-                  .replace('{{remaining}}', formatMoney(milestone.remaining, currency, locale))}
-                {milestone.reachedOn &&
-                  ` — ${t.milestonePace.value.replace(
-                    '{{date}}',
-                    formatDayLabel(milestone.reachedOn, locale),
-                  )}`}
-              </Typography>
-            )}
-
-            {data.missingRates && data.missingRates.length > 0 && (
-              <Alert severity="warning" sx={{ mt: 2 }}>
-                {`${t.missingRates.value}: ${data.missingRates.join(', ')}`}
-              </Alert>
-            )}
-
-            {hasData ? (
-              <Box sx={{ mt: 2 }}>
-                <NetWorthChart
-                  points={inMetal ? inMetal.series : data.series}
-                  positive={isPositive}
-                  view={view}
-                  zeroBaseline={display.zeroBaseline}
-                  formatValue={show}
-                  labels={{
-                    assets: t.assets.value,
-                    liabilities: t.liabilities.value,
-                    net: t.title.value,
-                  }}
-                />
-              </Box>
-            ) : (
-              <EmptyState illustration="net-worth" description={t.empty} compact />
-            )}
-
-            <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
-              <Chip
-                size="small"
-                variant={display.zeroBaseline ? 'filled' : 'outlined'}
-                label={t.axisFromZero.value}
-                onClick={() => setNetWorthDisplay({ zeroBaseline: !display.zeroBaseline })}
-              />
-              <Chip
-                size="small"
-                variant={display.allTimeHigh ? 'filled' : 'outlined'}
-                label={t.showAllTimeHigh.value}
-                onClick={() => setNetWorthDisplay({ allTimeHigh: !display.allTimeHigh })}
-              />
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 4, mt: 2, flexWrap: 'wrap' }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  {t.assets}
-                </Typography>
-                <Typography variant="body1" fontWeight={600}>
-                  {formatMoney(data.assetsTotal, currency, locale)}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  {t.liabilities}
-                </Typography>
-                <Typography variant="body1" fontWeight={600}>
-                  {formatMoney(data.liabilitiesTotal, currency, locale)}
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-
-          {data.attribution && (
-            <AttributionCard
-              attribution={data.attribution}
-              savings={data.savings ?? null}
-              formatMoney={value => formatMoney(value, currency, locale)}
-              labels={{
-                title: t.changeTitle.value,
-                hint: t.changeHint.value,
-                savings: t.savingsRate.value,
-                kinds: {
-                  money: t.changeMoney.value,
-                  revaluation: t.changeRevaluation.value,
-                  fx: t.changeFx.value,
-                },
-              }}
-            />
-          )}
-
+          {/* Read top to bottom: the total, what moved it, how it splits, how
+              much of it is at risk; the editing comes last, folded away under Holdings. */}
           <AllocationCard
             title={t.allocation.value}
-            items={data.breakdown}
+            views={[
+              { key: 'sheet', label: t.balanceSheet.value, items: data.breakdown },
+              {
+                key: 'class',
+                label: t.assetClasses.value,
+                items: data.byAssetClass.map(item => ({
+                  code: item.key ?? 'other',
+                  name: t[
+                    ASSET_CLASS_KEYS[
+                      (item.key ?? 'other') as keyof typeof ASSET_CLASS_KEYS
+                    ] as 'classOther'
+                  ].value,
+                  amount: item.amount,
+                  percent: item.percent,
+                })),
+              },
+            ]}
             currency={currency}
             locale={locale}
           />
-
-          <AllocationCard
-            title={t.assetClasses.value}
-            items={(data.byAssetClass ?? []).map(item => ({
-              code: item.key ?? 'other',
-              name: t[
-                ASSET_CLASS_KEYS[
-                  (item.key ?? 'other') as keyof typeof ASSET_CLASS_KEYS
-                ] as 'classOther'
-              ].value,
-              amount: item.amount,
-              percent: item.percent,
-            }))}
-            currency={currency}
-            locale={locale}
-          />
-
-          <InvestmentsCard currency={currency} locale={locale} />
-
-          <MetalsCard currency={currency} locale={locale} />
 
           <RiskCard
             byRisk={data.byRisk}
@@ -454,6 +154,18 @@ export function NetWorthContent() {
             }}
             onClassify={classify}
           />
+
+          <Box sx={cardSx}>
+            <CardTitle>{t.holdingsTitle}</CardTitle>
+            <Box sx={{ mt: 1.5 }}>
+              <HoldingsSection title={t.investmentsTitle.value}>
+                <InvestmentsCard currency={currency} locale={locale} embedded />
+              </HoldingsSection>
+              <HoldingsSection title={t.metalsTitle.value}>
+                <MetalsCard currency={currency} locale={locale} embedded />
+              </HoldingsSection>
+            </Box>
+          </Box>
         </Box>
       )}
     </Box>

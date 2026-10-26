@@ -1,12 +1,11 @@
 import { normalizeDate } from '@/common/utils/number-normalizer.util';
 import { BankName, FileType } from '@/entities/statement.entity';
-import { AiHapoalimExtractor } from '@/modules/parsing/helpers/ai-hapoalim-extractor.helper';
 import { HapoalimParser } from '@/modules/parsing/parsers/hapoalim.parser';
 import { OcrService } from '@/modules/parsing/services/ocr.service';
 
-jest.mock('@/common/utils/advanced-language-detector.util', () => ({
+vi.mock('@/common/utils/advanced-language-detector.util', () => ({
   advancedLanguageDetector: {
-    detectLanguage: jest.fn().mockResolvedValue({
+    detectLanguage: vi.fn().mockResolvedValue({
       locale: 'unknown',
       confidence: 0,
       method: 'legacy',
@@ -16,8 +15,6 @@ jest.mock('@/common/utils/advanced-language-detector.util', () => ({
 }));
 
 describe('HapoalimParser', () => {
-  let aiAvailableSpy: jest.SpyInstance;
-
   const expectDateParts = (date: Date | null | undefined, expected: string) => {
     expect(date).toBeInstanceOf(Date);
     if (!date) return;
@@ -28,14 +25,7 @@ describe('HapoalimParser', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    aiAvailableSpy = jest
-      .spyOn(AiHapoalimExtractor.prototype, 'isAvailable')
-      .mockReturnValue(false);
-  });
-
-  afterEach(() => {
-    aiAvailableSpy.mockRestore();
+    vi.clearAllMocks();
   });
 
   describe('canParse', () => {

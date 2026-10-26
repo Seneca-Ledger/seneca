@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import {
   CryptoWallet,
   type CryptoWalletBalance,
@@ -14,6 +16,7 @@ import {
   TransferPairSource,
 } from '../../entities/transaction.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { TransactionsImportedEvent } from '../notifications/events/notification-events';
 import { CryptoBalanceService } from './crypto-balance.service';
 import { type ExchangeEntry, type ExchangeName, parseExchangeCsv } from './crypto-exchange-csv';
 import { CryptoHoldingsService } from './crypto-holdings.service';
@@ -30,7 +33,7 @@ export interface ExchangeImportResult {
 }
 
 /**
- * Brings an exchange account into Lumio from the CSV the exchange exports.
+ * Brings an exchange account into Seneca from the CSV the exchange exports.
  *
  * Most people's coins are not on a chain we can read. The account becomes a
  * wallet of kind `exchange` whose balances are the running total of the file,
@@ -54,32 +57,32 @@ export class CryptoImportService {
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly holdingsService: CryptoHoldingsService,
     private readonly balanceService: CryptoBalanceService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async importCsv(workspaceId: string, userId: string, csv: string): Promise<ExchangeImportResult> {
     const parsed = parseExchangeCsv(csv);
     if (!parsed) {
-      throw new BadRequestException(
-        'This file is not a Coinbase, Binance or Kraken history export',
-      );
+      throw new BadRequestException(appError('CRYPTO_IMPORT_UNSUPPORTED_FILE'));
     }
     if (parsed.entries.length === 0) {
-      throw new BadRequestException('The file holds no coin movements');
+      throw new BadRequestException(appError('CRYPTO_IMPORT_EMPTY'));
     }
 
     const currency = await this.holdingsService.getWorkspaceCurrency(workspaceId);
     const wallet = await this.getOrCreateWallet(workspaceId, userId, parsed.exchange);
 
-    let imported = 0;
+    const importedIds: string[] = [];
     let skipped = 0;
     for (const entry of parsed.entries) {
-      const written = await this.persist(wallet, entry, parsed.exchange, currency);
-      if (written) {
-        imported += 1;
+      const writtenId = await this.persist(wallet, entry, parsed.exchange, currency);
+      if (writtenId) {
+        importedIds.push(writtenId);
       } else {
         skipped += 1;
       }
     }
+    const imported = importedIds.length;
 
     // The file is the only record of what the account holds, so the balances are
     // its running total — not a sum of what we managed to book.
@@ -89,6 +92,13 @@ export class CryptoImportService {
       lastSyncError: null,
     });
     await this.balanceService.writePortfolioSnapshot(workspaceId, userId);
+    if (imported > 0) {
+      this.eventEmitter?.emit('transactions.imported', {
+        workspaceId,
+        source: 'crypto_import',
+        transactionIds: importedIds,
+      } satisfies TransactionsImportedEvent);
+    }
 
     return { exchange: parsed.exchange, imported, skipped, walletId: wallet.id };
   }
@@ -104,7 +114,7 @@ export class CryptoImportService {
     entry: ExchangeEntry,
     exchange: ExchangeName,
     currency: string,
-  ): Promise<boolean> {
+  ): Promise<string | null> {
     const date = new Date(`${entry.date}T00:00:00.000Z`);
     const amount = Math.abs(entry.amount);
     const stated = await this.statedValue(entry, date, currency, wallet.workspaceId);
@@ -112,12 +122,12 @@ export class CryptoImportService {
       stated ?? (await this.marketValue(entry, amount, date, currency, wallet.workspaceId));
     if (fiatAmount === null) {
       // Priced later rather than booked at zero; a re-import picks it up.
-      return false;
+      return null;
     }
     const isIncome = entry.amount > 0;
     const id = reference(exchange, entry.reference);
     // A trade and a move are not income and not spending; a one-leg transfer is
-    // exactly how the rest of Lumio already says that about a row.
+    // exactly how the rest of Seneca already says that about a row.
     const neutral = entry.kind === 'trade' || entry.kind === 'move';
 
     const result = await this.transactionRepo
@@ -145,7 +155,7 @@ export class CryptoImportService {
         ...(neutral
           ? {
               // A pair of one: the row is simply not spending, and `transferPairId`
-              // is what every total in Lumio already reads to know that.
+              // is what every total in Seneca already reads to know that.
               transferPairId: randomUUID(),
               transferPairSource: TransferPairSource.AUTO,
               transferPairKind: TransferPairKind.TRANSFER,
@@ -155,7 +165,10 @@ export class CryptoImportService {
       .orIgnore()
       .execute();
 
-    return Array.isArray(result.raw) && result.raw.length > 0;
+    // No row back: the unique index refused a repeated import.
+    return Array.isArray(result.raw)
+      ? ((result.raw[0] as { id?: string } | undefined)?.id ?? null)
+      : null;
   }
 
   /** The money the file states for a row, in the workspace currency. */

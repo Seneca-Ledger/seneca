@@ -39,10 +39,12 @@ export interface DrawerShellProps {
   sx?: SxProps<Theme>;
   /** Override z-index for the drawer modal (useful when rendering above MUI Dialog) */
   zIndex?: number;
+  /** Pinned under the content, which then scrolls on its own: the drawer's main actions. */
+  footer?: React.ReactNode;
 }
 
 /** Set on an overlay while a sidebar opened after it sits on top; styled in `_drawer-stack.scss`. */
-const COVERED_ATTR = 'data-lumio-covered';
+const COVERED_ATTR = 'data-seneca-covered';
 /** Every overlay a sidebar can open over: other sidebars and centred dialogs, however they are built. */
 const OVERLAY_SELECTOR = '.MuiDrawer-root, .MuiDialog-root';
 
@@ -78,6 +80,37 @@ function useHideOverlaysBelow(
   }, [isOpen, ownRoot]);
 }
 
+/** The close handlers of the drawers on screen, so a shortcut can clear them before it navigates. */
+const openDrawerClosers = new Set<() => void>();
+
+/**
+ * Closes every open drawer the way Escape would (one that ignores Escape stays).
+ * Called before a shortcut or palette jump: a drawer outside the page, or on the
+ * page being navigated to, would otherwise stay on top of where the user went.
+ */
+export function closeAllDrawers(): void {
+  for (const close of [...openDrawerClosers]) {
+    close();
+  }
+}
+
+function useRegisterOpenDrawer(isOpen: boolean, closeOnEscape: boolean, onClose: () => void): void {
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+  React.useEffect(() => {
+    if (!(isOpen && closeOnEscape)) {
+      return;
+    }
+    const close = (): void => onCloseRef.current();
+    openDrawerClosers.add(close);
+    return () => {
+      openDrawerClosers.delete(close);
+    };
+  }, [isOpen, closeOnEscape]);
+}
+
 const widthMap: Record<DrawerWidth, number | string> = {
   sm: 320,
   md: 448,
@@ -94,7 +127,6 @@ const widthMap: Record<DrawerWidth, number | string> = {
  * - Body scroll lock
  * - Keyboard (ESC) support
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function DrawerShell({
   isOpen,
   onClose,
@@ -109,9 +141,9 @@ export function DrawerShell({
   lockScroll: LockScroll = true,
   sx,
   zIndex,
+  footer,
 }: DrawerShellProps) {
   const t = useIntlayer('uiShell');
-  // eslint-disable-next-line max-params
   const handleClose = (_event: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
     if (reason === 'backdropClick' && !closeOnBackdropClick) {
       return;
@@ -125,6 +157,7 @@ export function DrawerShell({
   const drawerWidth = widthMap[width];
   const rootRef = React.useRef<HTMLDivElement>(null);
   useHideOverlaysBelow(isOpen, rootRef);
+  useRegisterOpenDrawer(isOpen, closeOnEscape, onClose);
 
   return (
     <Drawer
@@ -134,19 +167,21 @@ export function DrawerShell({
       className={className}
       ref={rootRef}
       sx={zIndex !== undefined ? { zIndex } : undefined}
-      PaperProps={{
-        role: 'dialog',
-        'aria-labelledby': title ? 'drawer-title' : undefined,
-        sx: [
-          {
-            width: drawerWidth,
-            maxWidth: '100%',
-            borderRadius: tokens.radius.xl,
-            display: 'flex',
-            flexDirection: 'column',
-          },
-          ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-        ],
+      slotProps={{
+        paper: {
+          role: 'dialog',
+          'aria-labelledby': title ? 'drawer-title' : undefined,
+          sx: [
+            {
+              width: drawerWidth,
+              maxWidth: '100%',
+              borderRadius: tokens.radius.xl,
+              display: 'flex',
+              flexDirection: 'column',
+            },
+            ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+          ],
+        },
       }}
     >
       {(title || showCloseButton) && (
@@ -161,7 +196,13 @@ export function DrawerShell({
           }}
         >
           {title && (
-            <Typography id="drawer-title" variant="h6" fontWeight={700}>
+            <Typography
+              id="drawer-title"
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+              }}
+            >
               {title}
             </Typography>
           )}
@@ -178,9 +219,21 @@ export function DrawerShell({
           )}
         </div>
       )}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 24, minHeight: 0 }}>
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 24,
+          minHeight: 0,
+          overflowY: footer ? 'auto' : undefined,
+        }}
+      >
         {children}
       </div>
+      {footer && (
+        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)' }}>{footer}</div>
+      )}
     </Drawer>
   );
 }

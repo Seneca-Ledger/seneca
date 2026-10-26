@@ -26,14 +26,18 @@ export function buildGoalFlowSankey(
   resolvedTheme: string | undefined,
   labels: GoalFlowChartLabels,
   formatAmount: (value: number) => string,
+  /** A stored category name as the reader should see it. */
+  categoryName: (name: string) => string = name => name,
 ): Record<string, unknown> {
   const isDark = resolvedTheme === 'dark';
   const color = isDark ? tokens.dark.color : tokens.color;
 
-  const label = (node: GoalFlowNode): string =>
-    node.kind === 'other'
-      ? labels.otherMerchants.replace('{{count}}', String(node.mergedCount ?? 0))
-      : node.name;
+  const label = (node: GoalFlowNode): string => {
+    if (node.kind === 'other') {
+      return labels.otherMerchants.replace('{{count}}', String(node.mergedCount ?? 0));
+    }
+    return node.kind === 'category' ? categoryName(node.name) : node.name;
+  };
 
   const byId = new Map(data.nodes.map(node => [node.id, node]));
 

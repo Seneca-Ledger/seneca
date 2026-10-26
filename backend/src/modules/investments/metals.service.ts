@@ -3,7 +3,20 @@ import * as path from 'node:path';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import type {
+  Metal,
+  MetalLot as MetalLotView,
+  MetalReceipt as MetalReceiptView,
+  MetalSale as MetalSaleView,
+  MetalSettingsBody,
+  MetalsSummary as MetalsSummaryView,
+  MetalTotals as MetalTotalsView,
+  SellMetalLotBody,
+  UpsertMetalLotBody,
+} from '../../contracts';
 import { BalanceAccount, BalanceAccountKind } from '../../entities/balance-account.entity';
 import {
   InvestmentAssetClass,
@@ -22,9 +35,6 @@ import {
 } from '../../entities/workspace-service-settings.entity';
 import { BalanceService } from '../balance/balance.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import type { MetalSettingsDto } from './dto/metal-settings.dto';
-import type { SellMetalLotDto } from './dto/sell-metal-lot.dto';
-import type { UpsertMetalLotDto } from './dto/upsert-metal-lot.dto';
 import { InvestmentsService } from './investments.service';
 import { fineTroyOunces } from './metal-weight.util';
 
@@ -37,119 +47,7 @@ const HOLDING_PERIOD_JURISDICTIONS = new Set(['DE']);
 
 export type DealerDiscounts = Record<InvestmentMetal, number>;
 
-export interface MetalLotView {
-  id: string;
-  metal: InvestmentMetal;
-  name: string;
-  /** Pieces in the lot. */
-  quantity: number;
-  unitWeight: number;
-  weightUnit: MetalWeightUnit;
-  purity: number;
-  /** Fine metal in the lot, troy ounces. */
-  fineOunces: number;
-  /** Spot price of one fine troy ounce. */
-  price: number;
-  priceCurrency: string;
-  priceSource: InvestmentPriceSource;
-  /** The day the price is quoted for, so the UI can say how old it is. */
-  pricedAt: Date | null;
-  /** Melt value in the workspace currency. */
-  value: number;
-  acquiredOn: string | null;
-  counterparty: string | null;
-  /** What was paid, as entered and in the workspace currency. */
-  costTotal: number | null;
-  costCurrency: string | null;
-  cost: number | null;
-  /** value − cost; null when the lot has no recorded cost. */
-  gain: number | null;
-  /** What one fine ounce cost, the number people compare lots by. */
-  costPerOunce: number | null;
-  /** Paid over the melt value on the day it was bought, and as a share of it. */
-  premium: number | null;
-  premiumPercent: number | null;
-  /** Melt value less what a dealer keeps: what selling would actually bring. */
-  dealerValue: number;
-  /** Dealer value against cost, in percent; null without a cost. */
-  roi: number | null;
-  /** Germany only: the day a private sale stops being taxable (§ 23 EStG). */
-  taxFreeFrom: string | null;
-  /** Where the photo of the lot is served from; null when there is none. */
-  photoUrl: string | null;
-  storageLocation: string | null;
-  /** What it is insured for, as entered and in the workspace currency. */
-  insuredValue: number | null;
-  insuredCurrency: string | null;
-  insured: number | null;
-  /** The receipt that proves the purchase, enough of it to recognise. */
-  receipt: MetalReceiptView | null;
-  /** Whose metal it is; a tax return belongs to a person, not to a workspace. */
-  ownerUserId: string | null;
-}
-
-/** A purchase receipt as the metals card needs it. */
-export interface MetalReceiptView {
-  id: string;
-  vendor: string | null;
-  date: string | null;
-  amount: number | null;
-  currency: string | null;
-}
-
-export interface MetalTotalsView {
-  metal: InvestmentMetal;
-  fineOunces: number;
-  price: number;
-  pricedAt: Date | null;
-  value: number;
-  cost: number;
-  gain: number;
-  /** Average cost of a fine ounce across the lots still held. */
-  costPerOunce: number | null;
-  dealerValue: number;
-  /** Percent below spot a dealer pays for this metal. */
-  dealerDiscount: number;
-  /** Result of the sales already made, in the workspace currency. */
-  realized: number;
-}
-
-export interface MetalSaleView {
-  id: string;
-  metal: InvestmentMetal;
-  lotName: string;
-  quantity: number;
-  fineOunces: number;
-  proceeds: number;
-  proceedsCurrency: string;
-  costBasis: number | null;
-  /** proceeds − cost basis, in the workspace currency. */
-  realized: number | null;
-  soldOn: string;
-  /** The day the sold pieces were bought; null when the lot never said. */
-  acquiredOn: string | null;
-  counterparty: string | null;
-  ownerUserId: string | null;
-}
-
-export interface MetalsSummaryView {
-  currency: string;
-  value: number;
-  cost: number;
-  gain: number;
-  dealerValue: number;
-  realized: number;
-  /** What the lots are insured for in total; zero when nobody filled it in. */
-  insured: number;
-  byMetal: MetalTotalsView[];
-  lots: MetalLotView[];
-  sales: MetalSaleView[];
-  dealerDiscount: DealerDiscounts;
-  /** The balance-sheet account the lots sit on; null until the first lot. */
-  accountId: string | null;
-  /** Country the workspace files tax in, so the UI knows whose rules apply. */
-  jurisdiction: string | null;
-}
+export type { MetalLotView, MetalReceiptView, MetalSaleView, MetalsSummaryView, MetalTotalsView };
 
 /** What a single pass over the lots needs; the rates are memoised per request. */
 interface ViewContext {
@@ -212,11 +110,13 @@ export class MetalsService {
     const sales = await this.listSales(workspaceId, context);
     const account = await this.accountRepository.findOne({
       where: { workspaceId, accountKind: BalanceAccountKind.METALS },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
 
-    const byMetal = new Map<InvestmentMetal, MetalTotalsView>();
-    const totalsFor = (metal: InvestmentMetal): MetalTotalsView => {
+    const byMetal = new Map<Metal, MetalTotalsView>();
+    const totalsFor = (metal: Metal): MetalTotalsView => {
       const existing = byMetal.get(metal);
       if (existing) return existing;
       const created: MetalTotalsView = {
@@ -245,6 +145,7 @@ export class MetalsService {
       totals.gain = round2(totals.value - totals.cost);
       totals.price = lot.price;
       // The oldest quote wins: a total is only as fresh as its stalest lot.
+      // ISO timestamps order the same way as the instants they name.
       if (lot.pricedAt && (!totals.pricedAt || lot.pricedAt < totals.pricedAt)) {
         totals.pricedAt = lot.pricedAt;
       }
@@ -278,25 +179,31 @@ export class MetalsService {
     };
   }
 
-  async addLot(userId: string, workspaceId: string, dto: UpsertMetalLotDto): Promise<MetalLotView> {
-    if (!dto.metal) throw new BadRequestException('A lot needs a metal');
+  async addLot(
+    userId: string,
+    workspaceId: string,
+    dto: UpsertMetalLotBody,
+  ): Promise<MetalLotView> {
+    if (!dto.metal) throw new BadRequestException(appError('METALS_LOT_METAL_REQUIRED'));
     if (!dto.unitWeight || dto.unitWeight <= 0) {
-      throw new BadRequestException('A lot needs the weight of one piece');
+      throw new BadRequestException(appError('METALS_WEIGHT_REQUIRED'));
     }
     const quantity = dto.quantity ?? 1;
-    if (quantity <= 0) throw new BadRequestException('A lot needs at least one piece');
+    if (quantity <= 0) throw new BadRequestException(appError('METALS_LOT_PIECES_REQUIRED'));
 
     const account = await this.ensureMetalsAccount(workspaceId, userId);
     const currency = await this.workspaceCurrency(workspaceId);
-    const weightUnit = dto.weightUnit ?? MetalWeightUnit.TROY_OUNCE;
+    const weightUnit = toEnum(MetalWeightUnit, dto.weightUnit) ?? MetalWeightUnit.TROY_OUNCE;
     const priceCurrency = (dto.priceCurrency ?? currency).toUpperCase();
     const holding = this.holdingRepository.create({
       workspaceId,
       accountId: account.id,
       symbol: null,
-      name: dto.name ?? defaultLotName(dto.metal, quantity, dto.unitWeight, weightUnit),
+      name:
+        dto.name ??
+        defaultLotName(toEnum(InvestmentMetal, dto.metal), quantity, dto.unitWeight, weightUnit),
       assetClass: InvestmentAssetClass.METAL,
-      metal: dto.metal,
+      metal: toEnum(InvestmentMetal, dto.metal),
       quantity,
       unitWeight: dto.unitWeight,
       weightUnit,
@@ -306,7 +213,10 @@ export class MetalsService {
       costCurrency:
         dto.costTotal === undefined ? null : (dto.costCurrency ?? currency).toUpperCase(),
       counterparty: dto.counterparty ?? null,
-      ownerUserId: dto.ownerUserId ?? userId,
+      // Same rule as updateLot: an owner named in the request is a member of this workspace.
+      ownerUserId: dto.ownerUserId
+        ? await this.requireMemberId(workspaceId, dto.ownerUserId)
+        : userId,
       price: dto.price ?? 0,
       priceCurrency,
       priceSource: InvestmentPriceSource.MANUAL,
@@ -325,27 +235,27 @@ export class MetalsService {
     userId: string,
     workspaceId: string,
     lotId: string,
-    dto: UpsertMetalLotDto,
+    dto: UpsertMetalLotBody,
   ): Promise<MetalLotView> {
     const lot = await this.requireLot(workspaceId, lotId);
     const currency = await this.workspaceCurrency(workspaceId);
-    if (dto.metal !== undefined) lot.metal = dto.metal;
-    if (dto.name !== undefined) lot.name = dto.name;
-    if (dto.quantity !== undefined) {
-      if (dto.quantity <= 0) throw new BadRequestException('A lot needs at least one piece');
+    if (dto.metal !== undefined) lot.metal = toEnum(InvestmentMetal, dto.metal);
+    if (dto.name != null) lot.name = dto.name;
+    if (dto.quantity != null) {
+      if (dto.quantity <= 0) throw new BadRequestException(appError('METALS_LOT_PIECES_REQUIRED'));
       lot.quantity = dto.quantity;
     }
-    if (dto.unitWeight !== undefined) {
-      if (dto.unitWeight <= 0) throw new BadRequestException('A lot needs the weight of one piece');
+    if (dto.unitWeight != null) {
+      if (dto.unitWeight <= 0) throw new BadRequestException(appError('METALS_WEIGHT_REQUIRED'));
       lot.unitWeight = dto.unitWeight;
     }
-    if (dto.weightUnit !== undefined) lot.weightUnit = dto.weightUnit;
+    if (dto.weightUnit !== undefined) lot.weightUnit = toEnum(MetalWeightUnit, dto.weightUnit);
     if (dto.purity !== undefined) lot.purity = dto.purity;
-    if (dto.acquiredOn !== undefined) lot.acquiredOn = dto.acquiredOn.slice(0, 10);
+    if (dto.acquiredOn != null) lot.acquiredOn = dto.acquiredOn.slice(0, 10);
     if (dto.costTotal !== undefined) {
       lot.costTotal = dto.costTotal;
       lot.costCurrency = (dto.costCurrency ?? lot.costCurrency ?? currency).toUpperCase();
-    } else if (dto.costCurrency !== undefined) {
+    } else if (dto.costCurrency != null) {
       lot.costCurrency = dto.costCurrency.toUpperCase();
     }
     if (dto.counterparty !== undefined) lot.counterparty = dto.counterparty;
@@ -353,7 +263,7 @@ export class MetalsService {
     if (dto.insuredValue !== undefined) {
       lot.insuredValue = dto.insuredValue;
       lot.insuredCurrency = (dto.insuredCurrency ?? lot.insuredCurrency ?? currency).toUpperCase();
-    } else if (dto.insuredCurrency !== undefined) {
+    } else if (dto.insuredCurrency != null) {
       lot.insuredCurrency = dto.insuredCurrency.toUpperCase();
     }
     if (dto.ownerUserId !== undefined) {
@@ -375,8 +285,8 @@ export class MetalsService {
         ? await this.requireReceiptId(workspaceId, dto.receiptId)
         : null;
     }
-    if (dto.priceCurrency !== undefined) lot.priceCurrency = dto.priceCurrency.toUpperCase();
-    if (dto.price !== undefined) {
+    if (dto.priceCurrency != null) lot.priceCurrency = dto.priceCurrency.toUpperCase();
+    if (dto.price != null) {
       lot.price = dto.price;
       lot.priceSource = InvestmentPriceSource.MANUAL;
       lot.pricedAt = new Date();
@@ -409,13 +319,13 @@ export class MetalsService {
     userId: string,
     workspaceId: string,
     lotId: string,
-    dto: SellMetalLotDto,
+    dto: SellMetalLotBody,
   ): Promise<{ sale: MetalSaleView; lot: MetalLotView | null }> {
     const lot = await this.requireLot(workspaceId, lotId);
     const held = Number(lot.quantity);
     const pieces = dto.quantity ?? held;
-    if (!(pieces > 0)) throw new BadRequestException('A sale needs at least one piece');
-    if (pieces > held) throw new BadRequestException('The lot does not hold that many pieces');
+    if (!(pieces > 0)) throw new BadRequestException(appError('METALS_SALE_PIECES_REQUIRED'));
+    if (pieces > held) throw new BadRequestException(appError('METALS_SALE_EXCEEDS_LOT'));
 
     const currency = await this.workspaceCurrency(workspaceId);
     const share = pieces / held;
@@ -503,7 +413,7 @@ export class MetalsService {
   async saveSettings(
     userId: string,
     workspaceId: string,
-    dto: MetalSettingsDto,
+    dto: MetalSettingsBody,
   ): Promise<DealerDiscounts> {
     const current = await this.dealerDiscounts(workspaceId);
     const next = { ...current, ...(dto.dealerDiscount ?? {}) };
@@ -570,7 +480,7 @@ export class MetalsService {
       undefined,
       { workspaceId },
     );
-    if (!quote || !(quote.rate > 0)) return false;
+    if (!(quote && quote.rate > 0)) return false;
     lot.price = quote.rate;
     lot.priceSource = InvestmentPriceSource.AUTO;
     lot.pricedAt = new Date(`${quote.rateDate}T00:00:00.000Z`);
@@ -613,7 +523,7 @@ export class MetalsService {
       price,
       priceCurrency: lot.priceCurrency,
       priceSource: lot.priceSource,
-      pricedAt: lot.pricedAt,
+      pricedAt: lot.pricedAt?.toISOString() ?? null,
       value,
       acquiredOn,
       counterparty: lot.counterparty,
@@ -772,7 +682,9 @@ export class MetalsService {
   private async loadReceipts(workspaceId: string): Promise<Map<string, MetalReceiptView>> {
     const lots = await this.holdingRepository.find({
       where: { workspaceId, metal: Not(IsNull()), receiptId: Not(IsNull()) },
-      select: ['receiptId'],
+      select: {
+        receiptId: true,
+      },
     });
     const ids = [...new Set(lots.map(lot => lot.receiptId as string))];
     if (ids.length === 0) return new Map();
@@ -784,9 +696,11 @@ export class MetalsService {
   private async requireReceiptId(workspaceId: string, receiptId: string): Promise<string> {
     const receipt = await this.receiptRepository.findOne({
       where: { id: receiptId, workspaceId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
-    if (!receipt) throw new NotFoundException('Receipt not found');
+    if (!receipt) throw new NotFoundException(appError('METALS_RECEIPT_NOT_FOUND'));
     return receipt.id;
   }
 
@@ -794,9 +708,11 @@ export class MetalsService {
   private async requireMemberId(workspaceId: string, userId: string): Promise<string> {
     const member = await this.memberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
-    if (!member) throw new NotFoundException('Workspace member not found');
+    if (!member) throw new NotFoundException(appError('METALS_MEMBER_NOT_FOUND'));
     return userId;
   }
 
@@ -824,7 +740,7 @@ export class MetalsService {
     const section = await this.accountRepository.findOne({
       where: { workspaceId, code: INVESTMENTS_SECTION_CODE },
     });
-    if (!section) throw new NotFoundException('Investments section not found');
+    if (!section) throw new NotFoundException(appError('INVESTMENTS_SECTION_NOT_FOUND'));
     const created = await this.balanceService.createCustomAccount(userId, workspaceId, {
       name: METALS_ACCOUNT_NAME,
       nameEn: METALS_ACCOUNT_NAME,
@@ -841,14 +757,16 @@ export class MetalsService {
     const lot = await this.holdingRepository.findOne({
       where: { id: lotId, workspaceId, metal: Not(IsNull()) },
     });
-    if (!lot) throw new NotFoundException('Metal lot not found');
+    if (!lot) throw new NotFoundException(appError('METALS_LOT_NOT_FOUND'));
     return lot;
   }
 
   private async workspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return this.currencyOf(workspace);
   }

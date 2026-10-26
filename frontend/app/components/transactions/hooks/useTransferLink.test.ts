@@ -1,4 +1,5 @@
 import apiClient from '@/app/lib/api';
+import { apiResponse } from '@/app/test/api-response';
 import { act, renderHook } from '@testing-library/react';
 import toast from 'react-hot-toast';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,21 +25,45 @@ describe('useTransferLink', () => {
   });
 
   it('loads the counterpart candidates for a transaction', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({
-      data: {
+    vi.mocked(apiClient.get).mockResolvedValue(apiResponse({
         data: [
+          // The wire format (packages/contracts TransactionCandidates).
           {
             id: 'tx-2',
+            statementId: null,
+            cryptoWalletId: null,
+            ownerMemberId: null,
+            isPrivate: false,
+            privateCategoryId: null,
+            transferPairId: null,
+            transferPairSource: null,
+            transferPairKind: null,
+            reimbursementOfId: null,
             transactionDate: '2026-03-11',
-            counterpartyName: 'Savings',
-            paymentPurpose: 'Top-up',
-            credit: 100,
             transactionType: 'income',
+            isVerified: true,
+            documentNumber: null,
+            counterpartyName: 'Savings',
+            counterpartyBin: null,
+            counterpartyAccount: null,
+            counterpartyBank: null,
+            paymentPurpose: 'Top-up',
+            debit: null,
+            credit: '100.00',
+            amount: '100.00',
             currency: 'EUR',
+            exchangeRate: null,
+            amountForeign: null,
+            categoryId: null,
+            branchId: null,
+            walletId: null,
+            article: null,
+            comments: null,
+            createdAt: '2026-03-11T09:00:00.000Z',
+            updatedAt: '2026-03-11T09:00:00.000Z',
           },
         ],
-      },
-    });
+      }));
     const { result } = renderHook(() => useTransferLink(vi.fn()));
 
     await act(async () => {
@@ -52,7 +77,7 @@ describe('useTransferLink', () => {
   });
 
   it('links two legs, drops the picker and refetches', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({ data: { transferPairId: 'pair' } });
+    vi.mocked(apiClient.post).mockResolvedValue(apiResponse({ transferPairId: 'pair' }));
     const onDone = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() => useTransferLink(onDone));
 
@@ -84,7 +109,7 @@ describe('useTransferLink', () => {
   });
 
   it('unlinks and refetches', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({ data: { unlinked: true } });
+    vi.mocked(apiClient.post).mockResolvedValue(apiResponse({ unlinked: true }));
     const onDone = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() => useTransferLink(onDone));
 

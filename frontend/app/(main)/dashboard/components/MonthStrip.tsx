@@ -1,9 +1,16 @@
 'use client';
 
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Chip, ChipGroup } from '@/app/components/dashboard/ui';
 import { ChevronLeft, ChevronRight } from '@/app/components/icons';
+import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
+import {
+  NEXT_MONTH_BINDING,
+  PREVIOUS_MONTH_BINDING,
+  SHORTCUT_NEXT_MONTH,
+  SHORTCUT_PREVIOUS_MONTH,
+} from '@/app/lib/keyboard-shortcuts';
 import { resolveLocale } from '../helpers/dashboard-helpers';
 import { isFutureMonth } from '../helpers/dashboard-url-state';
 
@@ -24,6 +31,24 @@ export interface MonthStripProps {
 
 const MONTHS = Array.from({ length: 12 }, (_, index) => index);
 
+/** Widgets that already move with the arrow keys keep them; so does anything over the page. */
+const ARROW_OWNERS = [
+  '[role="tab"]',
+  '[role="slider"]',
+  '[role="listbox"]',
+  '[role="menu"]',
+  '[role="radiogroup"]',
+  '[role="grid"]',
+  '[role="application"]',
+  '[role="dialog"]',
+  '.MuiModal-root',
+].join(',');
+
+function arrowsOwnedElsewhere(event: KeyboardEvent): boolean {
+  const target = event.target;
+  return event.defaultPrevented || (target instanceof Element && !!target.closest(ARROW_OWNERS));
+}
+
 function useMonthNames(locale: string): string[] {
   return useMemo(() => {
     const formatter = new Intl.DateTimeFormat(resolveLocale(locale), { month: 'short' });
@@ -31,7 +56,10 @@ function useMonthNames(locale: string): string[] {
   }, [locale]);
 }
 
-/** Jan…Dec chips for one year plus a ‹ year › stepper; future months are disabled. */
+/**
+ * Jan…Dec chips for one year plus a ‹ year › stepper; future months are disabled.
+ * ← and → step one month, as do the command palette's month rows.
+ */
 export function MonthStrip({
   displayMonth,
   onChange,
@@ -58,6 +86,41 @@ export function MonthStrip({
     group.scrollLeft = chip.offsetLeft - group.clientWidth / 2 + chip.offsetWidth / 2;
   }, [activeMonth, year]);
 
+  const stepMonth = (delta: number): void => {
+    const target = new Date(year, activeMonth + delta, 1);
+    if (!isFutureMonth(target.getFullYear(), target.getMonth(), today)) {
+      onChange(target.getFullYear(), target.getMonth());
+    }
+  };
+
+  useKeyboardShortcuts({
+    [PREVIOUS_MONTH_BINDING]: event => {
+      if (!arrowsOwnedElsewhere(event)) {
+        event.preventDefault();
+        stepMonth(-1);
+      }
+    },
+    [NEXT_MONTH_BINDING]: event => {
+      if (!arrowsOwnedElsewhere(event)) {
+        event.preventDefault();
+        stepMonth(1);
+      }
+    },
+  });
+
+  // The command palette's "Previous month" / "Next month" rows.
+  const onPaletteStep = useEffectEvent((delta: number) => stepMonth(delta));
+  useEffect(() => {
+    const previous = (): void => onPaletteStep(-1);
+    const next = (): void => onPaletteStep(1);
+    window.addEventListener(SHORTCUT_PREVIOUS_MONTH, previous);
+    window.addEventListener(SHORTCUT_NEXT_MONTH, next);
+    return () => {
+      window.removeEventListener(SHORTCUT_PREVIOUS_MONTH, previous);
+      window.removeEventListener(SHORTCUT_NEXT_MONTH, next);
+    };
+  }, []);
+
   const stepYear = (delta: number): void => {
     const nextYear = year + delta;
     const month = isFutureMonth(nextYear, activeMonth, today) ? today.getMonth() : activeMonth;
@@ -65,12 +128,12 @@ export function MonthStrip({
   };
 
   return (
-    <div className="lumio-dashboard__month-strip">
+    <div className="seneca-dashboard__month-strip">
       <ChipGroup
         ref={groupRef}
         scroll
         aria-label={labels.group}
-        className="lumio-dashboard__month-chips"
+        className="seneca-dashboard__month-chips"
       >
         {MONTHS.map(month => {
           const future = isFutureMonth(year, month, today);
@@ -87,19 +150,19 @@ export function MonthStrip({
           );
         })}
       </ChipGroup>
-      <div className="lumio-dashboard__year-stepper">
+      <div className="seneca-dashboard__year-stepper">
         <button
           type="button"
-          className="lumio-dashboard__year-btn"
+          className="seneca-dashboard__year-btn"
           aria-label={labels.previousYear}
           onClick={() => stepYear(-1)}
         >
           <ChevronLeft size={16} />
         </button>
-        <span className="lumio-dashboard__year-value">{year}</span>
+        <span className="seneca-dashboard__year-value">{year}</span>
         <button
           type="button"
-          className="lumio-dashboard__year-btn"
+          className="seneca-dashboard__year-btn"
           aria-label={labels.nextYear}
           disabled={year >= today.getFullYear()}
           onClick={() => stepYear(1)}

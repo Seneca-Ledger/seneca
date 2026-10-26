@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import {
   CryptoWallet,
   type CryptoWalletBalance,
@@ -17,6 +19,7 @@ import {
 } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { TransactionsImportedEvent } from '../notifications/events/notification-events';
 import { TransferPairingService } from '../transactions/services/transfer-pairing.service';
 import { BitcoinClient } from './bitcoin.client';
 import {
@@ -46,7 +49,7 @@ import {
   mapChainTransfers,
   mapWalletBalances,
 } from './crypto-transfer.mapper';
-import { isTransient, MAX_ATTEMPTS, retryWaitMs, sleep } from './retry.util';
+import { fetchJsonWithRetry } from './retry.util';
 import { SolanaRpcClient } from './solana-rpc.client';
 import { mapSolanaBalances, mapSolanaTransfers } from './solana-transfer.mapper';
 import { TronGridClient } from './tron-grid.client';
@@ -78,6 +81,9 @@ const BITCOIN_GAP_LIMIT = 20;
 const BITCOIN_MAX_ADDRESSES = 200;
 const ONE_DAY_SECONDS = 86_400;
 
+/** An on-chain wallet: the only kind with an address to read. */
+type AddressedWallet = CryptoWallet & { address: string };
+
 export interface WalletSyncResult {
   imported: number;
   skipped: number;
@@ -101,10 +107,11 @@ export class CryptoSyncService {
     private readonly solana: SolanaRpcClient,
     private readonly transferPairing: TransferPairingService,
     private readonly balanceService: CryptoBalanceService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   /** One reader per chain family; each returns the chain's balances and transfers. */
-  private readonly readers: Record<ChainFamily, (wallet: CryptoWallet) => Promise<ChainRead>> = {
+  private readonly readers: Record<ChainFamily, (wallet: AddressedWallet) => Promise<ChainRead>> = {
     evm: wallet => this.readEvm(wallet),
     tron: wallet => this.readTron(wallet),
     bitcoin: wallet => this.readBitcoin(wallet),
@@ -113,9 +120,10 @@ export class CryptoSyncService {
 
   @Cron('0 */6 * * *')
   async syncAllWallets(): Promise<void> {
-    // A manual holding has no chain to read; only addresses are synced.
+    // A manual holding has no chain to read; only addresses are synced. A past
+    // version keeps the balances it was copied with.
     const wallets = await this.walletRepo.find({
-      where: { isActive: true, kind: CryptoWalletKind.ONCHAIN },
+      where: { isActive: true, kind: CryptoWalletKind.ONCHAIN, workspace: STANDARD_WORKSPACE },
     });
     this.logger.log(`Syncing ${wallets.length} crypto wallet(s)`);
 
@@ -165,16 +173,24 @@ export class CryptoSyncService {
     const transfers = finalizeTransfers(chain.transfers);
     await this.primePrices(transfers);
 
-    let imported = 0;
+    const importedIds: string[] = [];
     let skipped = 0;
 
     for (const transfer of transfers) {
-      const inserted = await this.persistTransfer(wallet, transfer, currency);
-      if (inserted) {
-        imported += 1;
+      const insertedId = await this.persistTransfer(wallet, transfer, currency);
+      if (insertedId) {
+        importedIds.push(insertedId);
       } else {
         skipped += 1;
       }
+    }
+    const imported = importedIds.length;
+    if (imported > 0) {
+      this.eventEmitter?.emit('transactions.imported', {
+        workspaceId: wallet.workspaceId,
+        source: 'crypto_sync',
+        transactionIds: importedIds,
+      } satisfies TransactionsImportedEvent);
     }
 
     // A swap's two legs are linked so neither counts as income or spending, and the
@@ -197,6 +213,9 @@ export class CryptoSyncService {
     if (!family) {
       throw new Error(`Chain ${wallet.chainId} is not supported`);
     }
+    if (!hasAddress(wallet)) {
+      throw new Error('A wallet without an address has no chain to read');
+    }
     return this.readers[family](wallet);
   }
 
@@ -206,7 +225,7 @@ export class CryptoSyncService {
    * plus the gap we scan past the last one — which is the price of a balance that
    * is actually right.
    */
-  private async readBitcoin(wallet: CryptoWallet): Promise<ChainRead> {
+  private async readBitcoin(wallet: AddressedWallet): Promise<ChainRead> {
     const addresses = isExtendedKey(wallet.address)
       ? await this.discoverBitcoinAddresses(wallet.address)
       : [wallet.address];
@@ -264,7 +283,7 @@ export class CryptoSyncService {
     return found.length > 0 ? found : deriveAddresses(extendedKey, { chain: 0, from: 0, count: 1 });
   }
 
-  private async readSolana(wallet: CryptoWallet): Promise<ChainRead> {
+  private async readSolana(wallet: AddressedWallet): Promise<ChainRead> {
     // Sequential: the public RPC's budget is per second, and the history alone is
     // one request per transaction.
     const lamports = await this.solana.getLamports(wallet.address);
@@ -282,7 +301,7 @@ export class CryptoSyncService {
     };
   }
 
-  private async readTron(wallet: CryptoWallet): Promise<ChainRead> {
+  private async readTron(wallet: AddressedWallet): Promise<ChainRead> {
     const [account, transactions, tokenTransfers, ownAddresses] = await Promise.all([
       this.tronGrid.getAccount(wallet.address),
       this.tronGrid.getTransactions(wallet.address),
@@ -302,7 +321,7 @@ export class CryptoSyncService {
     };
   }
 
-  private async readEvm(wallet: CryptoWallet): Promise<ChainRead> {
+  private async readEvm(wallet: AddressedWallet): Promise<ChainRead> {
     const nativeAsset = NATIVE_ASSET_BY_CHAIN[wallet.chainId] ?? 'ETH';
     // Which contracts count as real money on this chain. A chain we have no table
     // for prices no tokens at all, which is safer than trusting another chain's.
@@ -357,7 +376,7 @@ export class CryptoSyncService {
   }
 
   /** The address's current native-coin balance, in wei. */
-  private async fetchNativeBalance(wallet: CryptoWallet): Promise<string> {
+  private async fetchNativeBalance(wallet: AddressedWallet): Promise<string> {
     const data = await this.explorerGet(wallet.chainId, {
       module: 'account',
       action: 'balance',
@@ -372,7 +391,7 @@ export class CryptoSyncService {
   }
 
   /** The address's current token balances. An address holding none returns no rows. */
-  private async fetchTokenBalances(wallet: CryptoWallet): Promise<EtherscanTokenBalance[]> {
+  private async fetchTokenBalances(wallet: AddressedWallet): Promise<EtherscanTokenBalance[]> {
     const data = await this.explorerGet(wallet.chainId, {
       module: 'account',
       action: 'tokenlist',
@@ -398,11 +417,11 @@ export class CryptoSyncService {
     wallet: CryptoWallet,
     transfer: ChainTransfer,
     currency: string,
-  ): Promise<boolean> {
+  ): Promise<string | null> {
     const date = new Date(transfer.timestamp * 1000);
     const usdPrice = await this.priceService.getUsdPrice(transfer.asset, date);
     if (usdPrice === null) {
-      return false;
+      return null;
     }
 
     const usdRate = await this.exchangeRatesService.getRateOrNull(
@@ -412,7 +431,7 @@ export class CryptoSyncService {
       wallet.workspaceId,
     );
     if (usdRate === null) {
-      return false;
+      return null;
     }
 
     // A fee we cannot price is dropped from the row rather than taking the whole
@@ -456,7 +475,9 @@ export class CryptoSyncService {
 
     // `ON CONFLICT DO NOTHING` returns no row when the unique index rejected the
     // insert, which is exactly how a repeated sync stays idempotent.
-    return Array.isArray(result.raw) && result.raw.length > 0;
+    return Array.isArray(result.raw)
+      ? ((result.raw[0] as { id?: string } | undefined)?.id ?? null)
+      : null;
   }
 
   /** The fee folded onto a transfer, priced; null when there is none or no price. */
@@ -502,7 +523,11 @@ export class CryptoSyncService {
         cryptoLeg: 'value',
         transferPairId: IsNull(),
       },
-      select: ['id', 'cryptoTxHash', 'transactionType'],
+      select: {
+        id: true,
+        cryptoTxHash: true,
+        transactionType: true,
+      },
     });
 
     const byHash = new Map<string, Transaction[]>();
@@ -532,21 +557,26 @@ export class CryptoSyncService {
   private async getWorkspaceAddresses(workspaceId: string, chainId: number): Promise<string[]> {
     const wallets = await this.walletRepo.find({
       where: { workspaceId, chainId },
-      select: ['address'],
+      select: {
+        address: true,
+      },
     });
-    return wallets.map(wallet => wallet.address);
+    return wallets.flatMap(wallet => (wallet.address ? [wallet.address] : []));
   }
 
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['id', 'currency'],
+      select: {
+        id: true,
+        currency: true,
+      },
     });
     return currencyCodeOrDefault(workspace?.currency);
   }
 
   private async fetchEtherscan<T>(
-    wallet: CryptoWallet,
+    wallet: AddressedWallet,
     action: 'txlist' | 'tokentx',
   ): Promise<T[]> {
     const params = new URLSearchParams({
@@ -588,28 +618,12 @@ export class CryptoSyncService {
       throw new Error(`No block explorer for chain ${chainId}`);
     }
     const query = new URLSearchParams(params).toString();
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-      const response = await fetch(`${baseUrl}?${query}`).catch(() => null);
-
-      if (response?.ok) {
-        return (await response.json()) as ExplorerResponse;
-      }
-
-      const wait = isTransient(response) ? retryWaitMs(response, attempt) : null;
-      if (wait === null || attempt === MAX_ATTEMPTS - 1) {
-        throw new Error(
-          response
-            ? `Block explorer returned HTTP ${response.status}`
-            : 'Block explorer is unreachable',
-        );
-      }
-
-      this.logger.warn(`Block explorer returned ${response?.status}, retrying in ${wait}ms`);
-      await sleep(wait);
-    }
-
-    throw new Error('Block explorer is unreachable');
+    return fetchJsonWithRetry<ExplorerResponse>(
+      `${baseUrl}?${query}`,
+      {},
+      'Block explorer',
+      message => this.logger.warn(message),
+    );
   }
 }
 
@@ -641,6 +655,10 @@ function describeTransfer(transfer: ChainTransfer): string {
   const verb = transfer.direction === 'in' ? 'Received' : 'Sent';
   const fee = transfer.fee ? ` (fee ${transfer.fee.amount} ${transfer.fee.asset})` : '';
   return `${verb} ${transfer.amount} ${transfer.asset}${fee}`;
+}
+
+function hasAddress(wallet: CryptoWallet): wallet is AddressedWallet {
+  return typeof wallet.address === 'string' && wallet.address.length > 0;
 }
 
 function shortenAddress(address: string): string {

@@ -15,30 +15,17 @@ import {
 import React, { useCallback, useMemo, useState } from 'react';
 import { Search as SearchIcon } from '@/app/components/icons';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import type { StatementTransaction } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { useCategoryName } from '@/app/lib/use-category-name';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 
-export interface Transaction {
-  id: string;
-  transactionDate: string;
-  documentNumber?: string;
-  counterpartyName: string;
-  counterpartyBin?: string;
-  paymentPurpose: string;
-  debit: number;
-  credit: number;
-  amount: number;
-  transactionType: string;
-  currency?: string;
-  exchangeRate?: number;
-  article?: string;
-  amountForeign?: number;
-  category?: { name: string; isEnabled?: boolean };
-  branch?: { name: string };
-  wallet?: { name: string };
-}
+/** A statement's row as the storage and shared pages receive it: money as decimal strings. */
+export type Transaction = StatementTransaction;
 
 interface TransactionsViewProps {
   transactions: Transaction[];
@@ -66,6 +53,7 @@ const getNamedObjectLabel = (value: object): string | null => {
 export default function TransactionsView({ transactions }: TransactionsViewProps) {
   const t = useIntlayer('transactionsView');
   const { locale } = useLocale();
+  const categoryName = useCategoryName();
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -73,24 +61,18 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
   const formatDate = useCallback(
     (dateString: string): string => {
       const date = new Date(dateString);
-      return formatStoredDate(
-        date,
-        locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-      );
+      return formatStoredDate(date, resolveLocaleTag(locale));
     },
     [locale],
   );
 
   const formatAmount = useCallback(
     (amount: number, currency?: string): string => {
-      return new Intl.NumberFormat(
-        locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-        {
-          style: 'currency',
-          currency: currency || FALLBACK_CURRENCY,
-          minimumFractionDigits: 2,
-        },
-      ).format(amount);
+      return new Intl.NumberFormat(resolveLocaleTag(locale), {
+        style: 'currency',
+        currency: currency || FALLBACK_CURRENCY,
+        minimumFractionDigits: 2,
+      }).format(amount);
     },
     [locale],
   );
@@ -188,15 +170,24 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
 
     const renderers: Record<string, (tx: Transaction) => React.ReactNode> = {
       transactionDate: tx => formatDate(tx.transactionDate),
-      debit: tx => (tx.debit > 0 ? formatAmount(tx.debit, tx.currency) : t.dash),
-      credit: tx => (tx.credit > 0 ? formatAmount(tx.credit, tx.currency) : t.dash),
+      debit: tx =>
+        Number(tx.debit) > 0 ? (
+          <PrivateAmount>{formatAmount(Number(tx.debit), tx.currency)}</PrivateAmount>
+        ) : (
+          t.dash
+        ),
+      credit: tx =>
+        Number(tx.credit) > 0 ? (
+          <PrivateAmount>{formatAmount(Number(tx.credit), tx.currency)}</PrivateAmount>
+        ) : (
+          t.dash
+        ),
       currency: tx => tx.currency || FALLBACK_CURRENCY,
       exchangeRate: tx =>
         tx.exchangeRate
-          ? tx.exchangeRate.toLocaleString(
-              locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-              { minimumFractionDigits: 2 },
-            )
+          ? Number(tx.exchangeRate).toLocaleString(resolveLocaleTag(locale), {
+              minimumFractionDigits: 2,
+            })
           : t.dash,
       transactionType: tx => (
         <Chip
@@ -210,8 +201,8 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
           <Chip
             label={
               tx.category.isEnabled === false
-                ? `${tx.category.name} — select category`
-                : tx.category.name
+                ? `${categoryName(tx.category.name)} — select category`
+                : categoryName(tx.category.name)
             }
             size="small"
             variant="outlined"
@@ -227,12 +218,15 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
       counterpartyBin: tx => tx.counterpartyBin || t.dash.value,
       documentNumber: tx => tx.documentNumber || t.dash.value,
       amountForeign: tx =>
-        tx.amountForeign
-          ? tx.amountForeign.toLocaleString(
-              locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-              { minimumFractionDigits: 2 },
-            )
-          : t.dash,
+        tx.amountForeign ? (
+          <PrivateAmount>
+            {Number(tx.amountForeign).toLocaleString(resolveLocaleTag(locale), {
+              minimumFractionDigits: 2,
+            })}
+          </PrivateAmount>
+        ) : (
+          t.dash
+        ),
     };
 
     const columns: ColumnDef[] = [];
@@ -259,9 +253,7 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
             return t.dash;
           }
           if (typeof value === 'number') {
-            return value.toLocaleString(
-              locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
-            );
+            return value.toLocaleString(resolveLocaleTag(locale));
           }
           if (typeof value === 'object') {
             return getNamedObjectLabel(value) || JSON.stringify(value);
@@ -272,7 +264,7 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
     });
 
     return columns;
-  }, [transactions, locale, t, formatDate, formatAmount, getTypeColor, getTypeLabel]);
+  }, [transactions, locale, t, formatDate, formatAmount, getTypeColor, getTypeLabel, categoryName]);
 
   return (
     <Box>
@@ -283,12 +275,14 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
           placeholder={t.searchPlaceholder.value}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            },
           }}
         />
       </Box>

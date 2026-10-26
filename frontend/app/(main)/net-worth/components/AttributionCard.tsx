@@ -2,8 +2,10 @@
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { tokens } from '@/lib/theme-tokens';
+import type React from 'react';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import type { NetWorthAttribution, NetWorthChangeKind } from '../hooks/useNetWorth';
+import { CardTitle, cardSx, plainLineName } from './net-worth-ui';
 
 interface AttributionCardProps {
   attribution: NetWorthAttribution;
@@ -37,34 +39,28 @@ export function AttributionCard({
     return null;
   }
 
-  const tone = (amount: number) => (amount >= 0 ? 'success.main' : 'error.main');
-  const signed = (amount: number) => `${amount >= 0 ? '+' : '−'}${formatMoney(Math.abs(amount))}`;
+  // Colour only for a real move; a zero stays ink.
+  const tone = (amount: number) =>
+    amount === 0 ? 'text.primary' : amount > 0 ? 'var(--money-up)' : 'var(--money-down)';
+  const signed = (amount: number) =>
+    `${amount > 0 ? '+' : amount < 0 ? '−' : ''}${formatMoney(Math.abs(amount))}`;
+  const figureSx = { fontWeight: 500, fontVariantNumeric: 'tabular-nums' } as const;
 
   return (
-    <Box
-      sx={{
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: tokens.radius.md,
-        bgcolor: 'background.paper',
-        p: 3,
-      }}
-    >
+    <Box sx={cardSx}>
+      <CardTitle>{labels.title}</CardTitle>
       <Typography
-        variant="overline"
-        sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: 0.6 }}
+        variant="body2"
+        sx={{ color: 'text.secondary', display: 'block', mt: 0.5, mb: 2 }}
       >
-        {labels.title}
-      </Typography>
-      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
         {labels.hint}
       </Typography>
 
-      {savings?.rate !== null && savings !== null && (
-        <Typography variant="body2" sx={{ fontWeight: 600, mb: 2 }}>
-          {labels.savings
-            .replace('{{rate}}', String(savings.rate))
-            .replace('{{income}}', formatMoney(savings.income))}
+      {savings !== null && savings.rate !== null && (
+        <Typography variant="body2" sx={{ ...figureSx, mb: 2 }}>
+          {fillTemplateNodes(labels.savings.replace('{{rate}}', String(savings.rate)), {
+            income: formatMoney(savings.income),
+          })}
         </Typography>
       )}
 
@@ -75,8 +71,8 @@ export function AttributionCard({
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                 {labels.kinds[row.kind]}
               </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 600, color: tone(row.amount) }}>
-                {signed(row.amount)}
+              <Typography variant="body1" sx={{ ...figureSx, color: tone(row.amount) }}>
+                <PrivateAmount>{signed(row.amount)}</PrivateAmount>
               </Typography>
             </Box>
           ))}
@@ -87,10 +83,10 @@ export function AttributionCard({
         {attribution.byAccount.map(row => (
           <Box key={row.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0 }} noWrap>
-              {row.name}
+              {plainLineName(row.name)}
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: tone(row.amount) }}>
-              {signed(row.amount)}
+            <Typography variant="body2" sx={{ ...figureSx, color: tone(row.amount) }}>
+              <PrivateAmount>{signed(row.amount)}</PrivateAmount>
             </Typography>
           </Box>
         ))}

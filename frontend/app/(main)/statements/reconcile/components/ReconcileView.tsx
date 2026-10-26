@@ -6,6 +6,8 @@ import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { LoadError } from '@/app/components/ui/load-error';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
@@ -57,7 +59,12 @@ export function ReconcileView(): React.JSX.Element {
       }}
     >
       <Box>
-        <Typography variant="h5" fontWeight={700}>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 700,
+          }}
+        >
           {t.title}
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -66,11 +73,7 @@ export function ReconcileView(): React.JSX.Element {
       </Box>
 
       {isPending && <Skeleton variant="rounded" height={320} />}
-      {error && (
-        <Typography color="error" sx={{ py: 2, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && <LoadError spacing={2}>{t.error}</LoadError>}
 
       {data && (
         <Box
@@ -83,11 +86,22 @@ export function ReconcileView(): React.JSX.Element {
           }}
         >
           <Box sx={card}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 600,
+                mb: 1.5,
+              }}
+            >
               {t.matches}
             </Typography>
             {data.matches.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.noMatches}
               </Typography>
             ) : (
@@ -110,12 +124,25 @@ export function ReconcileView(): React.JSX.Element {
                     }}
                   >
                     <Box>
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 600,
+                        }}
+                      >
                         {match.item.vendor}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {match.item.direction === 'receivable' ? t.receivables : t.payables} ·{' '}
-                        {money(match.item.amount, match.item.currency)} ·{' '}
+                        <PrivateAmount>
+                          {money(match.item.amount, match.item.currency)}
+                        </PrivateAmount>{' '}
+                        ·{' '}
                         {match.item.dueDate
                           ? fill(t.due.value, { date: formatDate(match.item.dueDate) })
                           : t.noDue}
@@ -125,10 +152,17 @@ export function ReconcileView(): React.JSX.Element {
                       <Typography variant="body2">
                         {match.transaction.counterpartyName ?? match.transaction.paymentPurpose}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {formatDate(match.transaction.date)} ·{' '}
-                        {money(match.transaction.amount, match.transaction.currency)} ·{' '}
-                        {Math.round(match.confidence * 100)}%
+                        <PrivateAmount>
+                          {money(match.transaction.amount, match.transaction.currency)}
+                        </PrivateAmount>{' '}
+                        · {Math.round(match.confidence * 100)}%
                       </Typography>
                     </Box>
                     <Button
@@ -153,7 +187,13 @@ export function ReconcileView(): React.JSX.Element {
             }}
           >
             <Box sx={card}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.5,
+                }}
+              >
                 {t.ageing}
               </Typography>
               <Box sx={{ overflowX: 'auto' }}>
@@ -181,10 +221,14 @@ export function ReconcileView(): React.JSX.Element {
                       <tr key={row.direction}>
                         <td>{row.direction === 'receivable' ? t.receivables : t.payables}</td>
                         {BUCKETS.map(bucket => (
-                          <td key={bucket.key}>{money(row.buckets[bucket.key])}</td>
+                          <td key={bucket.key}>
+                            <PrivateAmount>{money(row.buckets[bucket.key])}</PrivateAmount>
+                          </td>
                         ))}
                         <td>
-                          <strong>{money(row.total)}</strong>
+                          <strong>
+                            <PrivateAmount>{money(row.total)}</PrivateAmount>
+                          </strong>
                         </td>
                       </tr>
                     ))}
@@ -194,16 +238,30 @@ export function ReconcileView(): React.JSX.Element {
             </Box>
 
             <Box sx={card}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.5,
+                }}
+              >
                 {t.unmatched}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  display: 'block',
+                  mb: 1,
+                }}
+              >
                 {fill(t.unmatchedRows.value, { count: String(data.unmatchedRowCount) })}
               </Typography>
               <Box sx={{ display: 'grid', gap: 0.5 }}>
                 {data.unmatchedItems.slice(0, 20).map(item => (
                   <Typography key={item.id} variant="body2">
-                    {item.vendor} · {money(item.amount, item.currency)} ·{' '}
+                    {item.vendor} ·{' '}
+                    <PrivateAmount>{money(item.amount, item.currency)}</PrivateAmount> ·{' '}
                     {item.dueDate ? fill(t.due.value, { date: formatDate(item.dueDate) }) : t.noDue}
                   </Typography>
                 ))}
@@ -213,7 +271,13 @@ export function ReconcileView(): React.JSX.Element {
 
           {data.duplicates.length > 0 && (
             <Box sx={card}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.5,
+                }}
+              >
                 {t.duplicates}
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -222,11 +286,13 @@ export function ReconcileView(): React.JSX.Element {
                     key={`${group.vendor}:${group.amount}`}
                     color="warning"
                     variant="outlined"
-                    label={fill(t.duplicateRow.value, {
-                      vendor: group.vendor,
-                      amount: money(group.amount, group.currency),
-                      count: String(group.itemIds.length),
-                    })}
+                    label={fillTemplateNodes(
+                      fill(t.duplicateRow.value, {
+                        vendor: group.vendor,
+                        count: String(group.itemIds.length),
+                      }),
+                      { amount: money(group.amount, group.currency) },
+                    )}
                   />
                 ))}
               </Box>

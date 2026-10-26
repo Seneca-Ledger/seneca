@@ -6,18 +6,35 @@ import { renderWithQuery } from '@/app/test/query-wrapper';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn() }));
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
+const pathnameMock = vi.hoisted(() => ({ value: '/dashboard' }));
 const permissionMocks = vi.hoisted(() => ({
   hasPermission: vi.fn((_permission: string) => true),
 }));
 
 vi.mock('@/app/lib/api', () => ({ default: apiMocks }));
-vi.mock('next/navigation', () => ({ useRouter: () => routerMocks }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => routerMocks,
+  usePathname: () => pathnameMock.value,
+}));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/hooks/usePermissions', () => ({ usePermissions: () => permissionMocks }));
 vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light', setTheme: vi.fn() }) }));
+vi.mock('@/app/hooks/useAuth', () => ({ useAuth: () => ({ user: null, setUser: vi.fn() }) }));
 
 import CommandPalette from './CommandPalette';
 import { closeCommandPalette, openCommandPalette } from './command-palette-store';
+import { openPalettePicker, usePageCommands } from './page-commands-store';
+
+/** Stands in for a page that lends the palette its commands while mounted. */
+function PageWithCommands({ run }: { run: () => void }): null {
+  usePageCommands({
+    title: '2 selected',
+    commands: [
+      { id: 'documents.addToTable', group: 'page', label: 'Add selected to a table', icon: null, binding: 'KeyT KeyA', run },
+    ],
+  });
+  return null;
+}
 
 const FOUND = [
   {
@@ -26,6 +43,7 @@ const FOUND = [
     title: 'Landlord',
     subtitle: 'Rent for March',
     href: '/statements/transactions?highlight=t-1',
+    document: null,
   },
 ];
 
@@ -53,6 +71,7 @@ beforeEach(() => {
     url === '/search' ? envelope(FOUND) : envelope([]),
   );
   routerMocks.push.mockReset();
+  pathnameMock.value = '/dashboard';
   permissionMocks.hasPermission.mockReset();
   permissionMocks.hasPermission.mockReturnValue(true);
   closeCommandPalette();
@@ -150,9 +169,107 @@ describe('CommandPalette', () => {
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
   });
 
+  it('keeps the cursor where the arrow keys put it', async () => {
+    const input = await open();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const options = screen.getAllByRole('option');
+    expect(options[2].getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('keeps focus in the field when a row or heading is pressed', async () => {
+    await open();
+    const row = screen.getAllByRole('option')[1];
+    expect(fireEvent.mouseDown(row)).toBe(false);
+    expect(fireEvent.mouseDown(screen.getByText('Navigation'))).toBe(false);
+  });
+
+  it('does not scroll the list under a hovering pointer', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    await open();
+    const row = screen.getAllByRole('option')[3];
+    const matches = vi.spyOn(row, 'matches').mockImplementation(sel => sel === ':hover');
+    scrollIntoView.mockClear();
+    fireEvent.mouseMove(row);
+    await waitFor(() => expect(row.getAttribute('aria-selected')).toBe('true'));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    matches.mockRestore();
+  });
+
   it('hides a command the user has no permission for', async () => {
     permissionMocks.hasPermission.mockImplementation((perm: string) => perm !== 'statement.upload');
     await open();
     expect(screen.queryByText('Upload a document')).toBeNull();
+  });
+
+  it('runs a $mod shortcut from the field: Ctrl+comma opens settings', async () => {
+    const input = await open();
+    fireEvent.keyDown(input, { key: ',', code: 'Comma', ctrlKey: true });
+    await waitFor(() => expect(routerMocks.push).toHaveBeenCalledWith('/settings/profile'));
+  });
+
+  it('shows Open filters on the Documents list and nowhere else', async () => {
+    await open();
+    expect(screen.queryByText('Open filters')).toBeNull();
+    act(() => closeCommandPalette());
+    pathnameMock.value = '/statements/submit';
+    act(() => openCommandPalette());
+    expect(await screen.findByText('Open filters')).toBeTruthy();
+  });
+
+  it('shows the page\'s own commands first, under the page\'s heading', async () => {
+    const run = vi.fn();
+    renderWithQuery(<PageWithCommands run={run} />);
+    const input = await open();
+    const options = screen.getAllByRole('option');
+    expect(options[0]?.textContent).toContain('Add selected to a table');
+    expect(screen.getByText('2 selected')).toBeTruthy();
+    fireEvent.keyDown(input, { key: 't', code: 'KeyT' });
+    fireEvent.keyDown(input, { key: 'a', code: 'KeyA' });
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+  });
+
+  it('opens a picker, filters it and hands back the chosen item', async () => {
+    render();
+    const onPick = vi.fn();
+    act(() =>
+      openPalettePicker({
+        id: 'pick-1',
+        placeholder: 'Choose a category…',
+        items: [
+          { id: 'cat-groceries', label: 'Groceries', hint: '3' },
+          { id: 'cat-travel', label: 'Travel', hint: '1' },
+        ],
+        onPick,
+      }),
+    );
+    const input = (await screen.findByPlaceholderText('Choose a category…')) as HTMLInputElement;
+    expect(screen.getByText('3')).toBeTruthy();
+    fireEvent.change(input, { target: { value: 'trav' } });
+    expect(screen.queryByText('Groceries')).toBeNull();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onPick).toHaveBeenCalledWith('cat-travel');
+    await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull());
+
+    // The next open is the usual list again.
+    act(() => openCommandPalette());
+    expect(await screen.findByPlaceholderText(/Search or type a command/)).toBeTruthy();
+  });
+
+  it('turns into a picker when a page command opens one', async () => {
+    const run = () =>
+      openPalettePicker({
+        id: 'pick-2',
+        placeholder: 'Choose a table…',
+        items: [{ id: 'table-1', label: 'March documents' }],
+        onPick: vi.fn(),
+      });
+    renderWithQuery(<PageWithCommands run={run} />);
+    await open();
+    fireEvent.click(screen.getByText('Add selected to a table'));
+    expect(await screen.findByPlaceholderText('Choose a table…')).toBeTruthy();
+    expect(screen.getByText('March documents')).toBeTruthy();
   });
 });

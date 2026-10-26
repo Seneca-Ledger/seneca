@@ -2,8 +2,8 @@
 
 import Box from '@mui/material/Box';
 import { Suspense } from 'react';
-import { Spinner } from '@/app/components/ui/spinner';
 import { NetWorthContent } from './components/NetWorthContent';
+import { NetWorthSkeleton } from './components/NetWorthSkeleton';
 
 export default function NetWorthPage() {
   return (
@@ -17,7 +17,13 @@ export default function NetWorthPage() {
     >
       {/* The window lives in the address, and `useSearchParams` needs a
           boundary so the static shell can still prerender. */}
-      <Suspense fallback={<Spinner size={40} />}>
+      <Suspense
+        fallback={
+          <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)' }}>
+            <NetWorthSkeleton />
+          </Box>
+        }
+      >
         <NetWorthContent />
       </Suspense>
     </Box>

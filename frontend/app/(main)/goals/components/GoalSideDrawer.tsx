@@ -41,11 +41,11 @@ export function GoalSideDrawer({
         '@media (min-width:600px)': { maxWidth: 512 },
       }}
       title={
-        <div className="lumio-payable-drawer__title-wrap">
+        <div className="seneca-payable-drawer__title-wrap">
           <button
             type="button"
             onClick={onClose}
-            className="lumio-payable-drawer__back-btn"
+            className="seneca-payable-drawer__back-btn"
             aria-label={labels.cancel}
           >
             <ChevronLeft size={20} />
@@ -54,7 +54,7 @@ export function GoalSideDrawer({
         </div>
       }
     >
-      <div className="lumio-payable-drawer__body">
+      <div className="seneca-payable-drawer__body">
         {/* The padding keeps the first field's floating label inside the scroll box. */}
         <div
           style={{
@@ -69,7 +69,7 @@ export function GoalSideDrawer({
         >
           {children}
         </div>
-        <div className="lumio-payable-drawer__footer">
+        <div className="seneca-payable-drawer__footer">
           <Button variant="outlined" sx={{ flex: 1 }} onClick={onClose} disabled={saving}>
             {labels.cancel}
           </Button>

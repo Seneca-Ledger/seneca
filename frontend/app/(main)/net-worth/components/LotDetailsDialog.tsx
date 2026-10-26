@@ -7,13 +7,14 @@ import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceMembers } from '@/app/hooks/useNotes';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { apiQuery } from '@/app/lib/query-fn';
-import type { LotDetailsInput, MetalLot, MetalReceipt } from '../hooks/useMetals';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import type { LotDetailsInput, MetalLot } from '../hooks/useMetals';
 
 interface LotDetailsDialogProps {
   /** The lot being looked at; the dialog is closed while null. */
@@ -53,7 +54,8 @@ export function LotDetailsDialog({
 
   const receipts = useQuery({
     queryKey: ['metals', 'receipt-options', workspaceId],
-    queryFn: ({ signal }) => apiQuery<MetalReceipt[]>({ url: '/metals/receipt-options', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/metals/receipt-options', signal, contract: 'MetalReceiptList' }),
     enabled: Boolean(workspaceId && lot),
   });
 
@@ -186,13 +188,25 @@ export function LotDetailsDialog({
           label={`${t.insuredValue.value} (${currency})`}
           value={insured}
           onChange={event => setInsured(event.target.value)}
-          inputProps={{ inputMode: 'decimal' }}
-          helperText={`${t.value.value}: ${formatMoney(lot.value, currency, locale)}`}
+          helperText={
+            <>
+              {t.value.value}:{' '}
+              <PrivateAmount>{formatMoney(lot.value, currency, locale)}</PrivateAmount>
+            </>
+          }
           fullWidth
+          slotProps={{
+            htmlInput: { inputMode: 'decimal' },
+          }}
         />
         {members.length > 1 && (
           <Box>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.owner}
             </Typography>
             <Select
@@ -210,7 +224,12 @@ export function LotDetailsDialog({
         )}
 
         <Box>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.receipt}
           </Typography>
           <Select

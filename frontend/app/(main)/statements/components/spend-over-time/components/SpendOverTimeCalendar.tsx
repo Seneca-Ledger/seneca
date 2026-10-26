@@ -1,8 +1,10 @@
 'use client';
+import clsx from 'clsx';
 import type { JSX } from 'react';
 import { useMemo } from 'react';
 
 import type { SpendOverTimeRecord } from '@/app/(main)/statements/components/spend-over-time.utils';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/analytics-common';
 
@@ -57,6 +59,23 @@ const parseIso = (iso: string): Date => {
 };
 
 const startOfMonth = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), 1);
+
+/** Shades of the heat scale: one sage, five steps of strength. */
+const HEAT_LEVELS = 5;
+
+/**
+ * A day's step on the heat scale, by where its total ranks among the month's
+ * days (quantiles), not by its share of the largest: one day of €761 would
+ * otherwise leave every other day the same pale shade.
+ */
+export function heatLevel(total: number, sortedTotals: number[]): number {
+  if (sortedTotals.length === 0 || total <= 0) {
+    return 0;
+  }
+  const below = sortedTotals.filter(value => value < total).length;
+  const rank = sortedTotals.length > 1 ? below / (sortedTotals.length - 1) : 1;
+  return Math.min(HEAT_LEVELS, Math.floor(rank * HEAT_LEVELS) + 1);
+}
 const getGridStart = (monthStart: Date): Date => {
   const day = monthStart.getDay();
   const diff = day === 0 ? -6 : 1 - day;
@@ -142,48 +161,79 @@ export function SpendOverTimeCalendar({
   }, [dayMap, month]);
 
   const hasRecordsInMonth = days.some(day => day.inCurrentMonth && day.records.length > 0);
+  // The heat scale only compares like with like: days spent in the workspace currency.
+  const inBaseCurrency = (day: CalendarDay) =>
+    day.currencies.length === 1 && day.currencies[0] === currency;
+  const sortedTotals = days
+    .filter(day => day.inCurrentMonth && day.records.length > 0 && inBaseCurrency(day))
+    .map(day => day.total)
+    .sort((a, b) => a - b);
+  const todayIso = toIso(new Date());
+  const money = (value: number, code: string) => formatMoney(value, code, locale);
 
   const monthDaysWithItems = days.filter(day => day.inCurrentMonth && day.records.length > 0);
 
   return (
-    <section className="lumio-spend-calendar">
-      <div className="lumio-spend-calendar__grid lumio-spend-calendar__grid--weekdays">
+    <section className="seneca-spend-calendar">
+      <div className="seneca-spend-calendar__grid seneca-spend-calendar__grid--weekdays">
         {weekdayLabels.map(label => (
-          <div key={label} className="lumio-spend-calendar__weekday">
+          <div key={label} className="seneca-spend-calendar__weekday">
             {label}
           </div>
         ))}
       </div>
 
-      <div className="lumio-spend-calendar__grid">
+      <div className="seneca-spend-calendar__grid">
         {days.map(day => {
-          const hasItems = day.records.length > 0;
+          // Days of the neighbouring months are only a number: their spending
+          // belongs to another month's calendar.
+          const hasItems = day.inCurrentMonth && day.records.length > 0;
           const singleCurrency = day.currencies.length === 1 ? day.currencies[0] || currency : null;
           const totalLabel = singleCurrency
-            ? formatMoney(day.total, singleCurrency)
+            ? money(day.total, singleCurrency)
             : `${day.records.length} ${labels.operations}`;
+          // Spent in another currency: not summed with the rest, so it is
+          // marked and left off the heat scale.
+          const foreign = hasItems && !inBaseCurrency(day);
+          const level = hasItems && !foreign ? heatLevel(day.total, sortedTotals) : 0;
 
           return (
             <button
               key={day.iso}
               type="button"
               onClick={() => hasItems && onDayClick(day.iso)}
+              data-heat={level || undefined}
+              title={foreign ? day.currencies.join(', ') : undefined}
               className={[
-                'lumio-spend-calendar__day',
-                hasItems ? 'lumio-spend-calendar__day--active' : '',
-                day.inCurrentMonth ? '' : 'lumio-spend-calendar__day--outside',
+                'seneca-spend-calendar__day',
+                hasItems ? 'seneca-spend-calendar__day--active' : '',
+                foreign ? 'seneca-spend-calendar__day--foreign' : '',
+                day.inCurrentMonth ? '' : 'seneca-spend-calendar__day--outside',
+                day.iso === todayIso ? 'seneca-spend-calendar__day--today' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
             >
-              <span className="lumio-spend-calendar__day-number">{day.dayNumber}</span>
+              <span className="seneca-spend-calendar__day-number">{day.dayNumber}</span>
               {hasItems ? (
-                <span className="lumio-spend-calendar__day-total">{totalLabel}</span>
+                <span
+                  className={clsx(
+                    'seneca-spend-calendar__day-total',
+                    singleCurrency && PRIVATE_CLASS,
+                  )}
+                >
+                  {totalLabel}
+                </span>
               ) : null}
 
               {/* Phones: the cell is too narrow even for the plain total. */}
               {hasItems ? (
-                <span className="lumio-spend-calendar__day-compact">
+                <span
+                  className={clsx(
+                    'seneca-spend-calendar__day-compact',
+                    singleCurrency && PRIVATE_CLASS,
+                  )}
+                >
                   {singleCurrency
                     ? compactFormatter(singleCurrency).format(day.total)
                     : day.records.length}
@@ -196,26 +246,31 @@ export function SpendOverTimeCalendar({
 
       {/* Phones: the month's days with spending as a list under the grid. */}
       {monthDaysWithItems.length > 0 ? (
-        <ul className="lumio-spend-calendar__agenda">
+        <ul className="seneca-spend-calendar__agenda">
           {monthDaysWithItems.map(day => (
             <li key={day.iso}>
               <button
                 type="button"
-                className="lumio-spend-calendar__agenda-row"
+                className="seneca-spend-calendar__agenda-row"
                 onClick={() => onDayClick(day.iso)}
               >
-                <span className="lumio-spend-calendar__agenda-date">
-                  <span className="lumio-spend-calendar__agenda-day">{day.dayNumber}</span>
-                  <span className="lumio-spend-calendar__agenda-weekday">
+                <span className="seneca-spend-calendar__agenda-date">
+                  <span className="seneca-spend-calendar__agenda-day">{day.dayNumber}</span>
+                  <span className="seneca-spend-calendar__agenda-weekday">
                     {agendaWeekdayFormatter.format(parseIso(day.iso))}
                   </span>
                 </span>
-                <span className="lumio-spend-calendar__agenda-merchants">
+                <span className="seneca-spend-calendar__agenda-merchants">
                   {day.records.map(record => record.merchant || record.fileName).join(', ')}
                 </span>
-                <span className="lumio-spend-calendar__agenda-total">
+                <span
+                  className={clsx(
+                    'seneca-spend-calendar__agenda-total',
+                    day.currencies.length === 1 && PRIVATE_CLASS,
+                  )}
+                >
                   {day.currencies.length === 1
-                    ? formatMoney(day.total, day.currencies[0] || currency)
+                    ? money(day.total, day.currencies[0] || currency)
                     : `${day.records.length} ${labels.operations}`}
                 </span>
               </button>
@@ -225,7 +280,7 @@ export function SpendOverTimeCalendar({
       ) : null}
 
       {!hasRecordsInMonth ? (
-        <div className="lumio-spend-calendar__empty">{labels.emptyMonth}</div>
+        <div className="seneca-spend-calendar__empty">{labels.emptyMonth}</div>
       ) : null}
     </section>
   );

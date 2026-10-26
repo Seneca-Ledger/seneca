@@ -7,6 +7,7 @@ import {
   isDateRangeLike,
   isLikelySentence,
   isYearLikeAmount,
+  lineItemsReconcile,
   scoreAmountCandidate,
   shouldSkipLineItem,
 } from '@/common/utils/receipt-extraction.util';
@@ -74,3 +75,29 @@ describe('receipt-extraction util', () => {
     expect(result).toEqual([{ description: 'Service Fee', amount: 10 }]);
   });
 });
+
+describe('lineItemsReconcile', () => {
+  const items = (...amounts: number[]) => amounts.map(amount => ({ amount }));
+
+  it('accepts items that add up to the total, the subtotal or the total less tax', () => {
+    expect(lineItemsReconcile(items(10, 20.49), { totalAmount: 30.49 })).toBe(true);
+    expect(lineItemsReconcile(items(40), { totalAmount: 47.6, subtotal: 40 })).toBe(true);
+    expect(lineItemsReconcile(items(40), { totalAmount: 47.6, tax: 7.6 })).toBe(true);
+  });
+
+  it('allows 5% for rounding and a tip, not more', () => {
+    expect(lineItemsReconcile(items(100), { totalAmount: 104.9 })).toBe(true);
+    expect(lineItemsReconcile(items(100), { totalAmount: 106 })).toBe(false);
+  });
+
+  it('rejects page numbers, dates and postcodes read as prices', () => {
+    // What a Railway invoice yielded: "Page 1 of 2", "June 13, 202", "PMB 689", a ZIP.
+    expect(lineItemsReconcile(items(2, 202, 202, 689, 941), { totalAmount: 14.63 })).toBe(false);
+  });
+
+  it('cannot confirm anything without a figure to compare against', () => {
+    expect(lineItemsReconcile(items(10, 20), {})).toBe(false);
+    expect(lineItemsReconcile([], { totalAmount: 30 })).toBe(false);
+  });
+});
+

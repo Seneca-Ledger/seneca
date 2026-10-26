@@ -10,14 +10,13 @@ interface AuthLayoutProps {
   topRightAction?: ReactNode;
 }
 
-// eslint-disable-next-line max-lines-per-function, @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export default function AuthLayout({ children, sideContent, topRightAction }: AuthLayoutProps) {
   return (
     <Grid container sx={{ minHeight: '100vh', overflow: 'hidden' }}>
       {/* Left Side - Form */}
       <Grid
         size={{ xs: 12, md: 6 }}
-        className="lumio-auth-form-panel"
+        className="seneca-auth-form-panel"
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -31,6 +30,8 @@ export default function AuthLayout({ children, sideContent, topRightAction }: Au
           bgcolor: 'var(--card-bg)',
           color: 'var(--foreground)',
           p: 6,
+          // A little above the geometric centre: the optical one.
+          pb: { md: '12vh' },
           position: 'relative',
           zIndex: 20,
         }}

@@ -1,0 +1,117 @@
+import * as Schema from 'effect/Schema';
+import { Timestamp, type Wire } from '../common/wire';
+import { ReceiptRecord } from '../receipts/receipts';
+import { StatementStatus } from '../statements/statement-list';
+
+/** Every event an outbound webhook subscription can listen to. */
+export const WebhookEventName = Schema.Literals([
+  'transaction.created',
+  'transactions.imported',
+  'statement.uploaded',
+  'statement.processed',
+  'statement.failed',
+  'transactions.uncategorized',
+  'receipt.approved',
+  'receipt.needs_review',
+  'invoice.paid',
+  'invoice.overdue',
+  'bill.paid',
+  'bill.overdue',
+  'budget.exceeded',
+  'tax.deadline.upcoming',
+  'tax.threshold.reached',
+]);
+export type WebhookEventName = Wire<typeof WebhookEventName>;
+
+export { WEBHOOK_EVENT_GROUPS } from './event-groups';
+
+/** `GET`/`PATCH /webhook-endpoints/:id`: an inbound endpoint, the token shown only as a preview. */
+export const WebhookEndpointItem = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  tokenPreview: Schema.String,
+  isActive: Schema.Boolean,
+  defaultWalletId: Schema.NullOr(Schema.String),
+  defaultBranchId: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+});
+export type WebhookEndpointItem = Wire<typeof WebhookEndpointItem>;
+
+/** `GET /webhook-endpoints`. */
+export const WebhookEndpointList = Schema.Array(WebhookEndpointItem);
+export type WebhookEndpointList = Wire<typeof WebhookEndpointList>;
+
+/**
+ * An outbound subscription: `POST`, `GET` and `PATCH /webhook-subscriptions(/:id)`.
+ * Never the signing secret, not even on creation: the client chose it.
+ */
+export const WebhookSubscriptionItem = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  url: Schema.String,
+  events: Schema.Array(WebhookEventName),
+  isActive: Schema.Boolean,
+  createdAt: Timestamp,
+});
+export type WebhookSubscriptionItem = Wire<typeof WebhookSubscriptionItem>;
+
+/** `GET /webhook-subscriptions`. */
+export const WebhookSubscriptionList = Schema.Array(WebhookSubscriptionItem);
+export type WebhookSubscriptionList = Wire<typeof WebhookSubscriptionList>;
+
+/** `DELETE` of an endpoint or a subscription, and `POST /webhook-deliveries/:id/retry`. */
+export const WebhookActionResult = Schema.Struct({ success: Schema.Boolean });
+export type WebhookActionResult = Wire<typeof WebhookActionResult>;
+
+/** `POST /webhook-subscriptions/:id/test`: a ping delivery was queued. */
+export const WebhookTestQueued = Schema.Struct({
+  success: Schema.Boolean,
+  message: Schema.String,
+});
+export type WebhookTestQueued = Wire<typeof WebhookTestQueued>;
+
+/** `POST /webhooks/:token/statements`: the statement the upload became. */
+export const WebhookStatementAccepted = Schema.Struct({
+  success: Schema.Boolean,
+  statementId: Schema.String,
+  status: StatementStatus,
+});
+export type WebhookStatementAccepted = Wire<typeof WebhookStatementAccepted>;
+
+/** `POST /webhooks/:token/receipts`: the receipts the upload became. */
+export const WebhookReceiptAccepted = Schema.Struct({
+  success: Schema.Boolean,
+  receipts: Schema.Array(
+    Schema.Struct({ receiptId: Schema.String, status: ReceiptRecord.fields.status }),
+  ),
+});
+export type WebhookReceiptAccepted = Wire<typeof WebhookReceiptAccepted>;
+
+/** `POST /webhook-endpoints`: the only answer that carries the whole token. */
+export const CreatedWebhookEndpoint = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  token: Schema.String,
+  isActive: Schema.Boolean,
+  defaultWalletId: Schema.NullOr(Schema.String),
+  defaultBranchId: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+});
+export type CreatedWebhookEndpoint = Wire<typeof CreatedWebhookEndpoint>;
+
+/** `GET /webhook-subscriptions/:id/deliveries`: the last 100 deliveries, newest first. */
+export const WebhookDeliveryList = Schema.Array(
+  Schema.Struct({
+    id: Schema.String,
+    event: Schema.String,
+    status: Schema.Literals(['pending', 'processing', 'success', 'failed', 'exhausted']),
+    attemptCount: Schema.Number,
+    maxAttempts: Schema.Number,
+    lastAttemptedAt: Schema.NullOr(Timestamp),
+    nextAttemptAt: Schema.NullOr(Timestamp),
+    lastResponseCode: Schema.NullOr(Schema.Number),
+    lastError: Schema.NullOr(Schema.String),
+    createdAt: Timestamp,
+  }),
+);
+export type WebhookDeliveryList = Wire<typeof WebhookDeliveryList>;

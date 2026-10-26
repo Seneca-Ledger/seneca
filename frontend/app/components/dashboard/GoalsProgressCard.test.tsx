@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MonthGoal } from '@/app/(main)/goals/hooks/useMonthGoals';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { GoalsProgressCard } from './GoalsProgressCard';
+import { SectionSpanProvider } from './section-span';
 
 const apiGet = vi.hoisted(() => vi.fn());
 
@@ -47,6 +48,7 @@ function goal(overrides: Partial<MonthGoal> = {}): MonthGoal {
     remaining: 300,
     percent: 87.5,
     isReached: false,
+    createdAt: '2026-01-10T09:00:00.000Z',
     cover: null,
     contributedInMonth: 450,
     ...overrides,
@@ -65,7 +67,8 @@ describe('GoalsProgressCard', () => {
 
     await waitFor(() => expect(screen.getByText('Studio camera')).toBeInTheDocument());
     expect(apiGet).toHaveBeenCalledWith('/goals?month=2026-09', expect.anything());
-    expect(screen.getByText(/€450\.00 saved this month/)).toBeInTheDocument();
+    // The amount is an element of its own (privacy mode); the line is around it.
+    expect(screen.getByText(/saved this month/).textContent).toMatch(/€450\.00 saved this month/);
     expect(screen.getByRole('link', { name: /view all goals/i }).getAttribute('href')).toBe(
       '/goals',
     );
@@ -99,5 +102,19 @@ describe('GoalsProgressCard', () => {
     );
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('puts goals side by side with the row to itself, in one column at half width', async () => {
+    apiGet.mockResolvedValue({ data: [goal()] });
+    const card = <GoalsProgressCard month="2026-09" monthLabel="September 2026" />;
+
+    const half = renderWithQuery(<SectionSpanProvider value={6}>{card}</SectionSpanProvider>);
+    await screen.findByText('Studio camera');
+    expect(getComputedStyle(screen.getByTestId('goals-list')).display).toBe('flex');
+    half.unmount();
+
+    renderWithQuery(<SectionSpanProvider value={12}>{card}</SectionSpanProvider>);
+    await screen.findByText('Studio camera');
+    expect(getComputedStyle(screen.getByTestId('goals-list')).display).toBe('grid');
   });
 });

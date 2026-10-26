@@ -15,6 +15,7 @@ describe('payables-utils', () => {
         source: 'manual',
         dueDateFrom: '2026-03-01',
         dueDateTo: '2026-03-31',
+        tagId: 'tag-1',
         sort: 'amountDesc',
       },
       { page: 2, limit: 50 },
@@ -28,6 +29,7 @@ describe('payables-utils', () => {
       source: 'manual',
       dueDateFrom: '2026-03-01',
       dueDateTo: '2026-03-31',
+      tagId: 'tag-1',
       sort: 'amountDesc',
     });
 
@@ -38,6 +40,7 @@ describe('payables-utils', () => {
         source: 'all',
         dueDateFrom: '',
         dueDateTo: '',
+        tagId: '',
         sort: 'dueDateAsc',
       }),
     ).toEqual({
@@ -46,13 +49,15 @@ describe('payables-utils', () => {
       source: undefined,
       dueDateFrom: undefined,
       dueDateTo: undefined,
+      tagId: undefined,
       sort: 'dueDateAsc',
     });
   });
 
   it('formats date-only values without timezone shift', () => {
     const formatted = formatPayableDate('2026-03-28', 'en');
-    expect(formatted).toContain('3');
+    // С edb838aa даты идут через formatStoredDate: месяц словом («Mar 28, 2026»).
+    expect(formatted).toContain('Mar');
     expect(formatted).toContain('28');
     expect(formatted).not.toContain('27');
   });
@@ -87,8 +92,11 @@ describe('payables-utils', () => {
           statementId: null,
           paidAt: null,
           dueSoonNotifiedAt: null,
+          workspaceId: 'workspace-1',
+          createdById: null,
           createdAt: '2026-03-01T00:00:00.000Z',
           updatedAt: '2026-03-01T00:00:00.000Z',
+          deletedAt: null,
         },
         {
           id: 'a',
@@ -106,8 +114,11 @@ describe('payables-utils', () => {
           statementId: null,
           paidAt: null,
           dueSoonNotifiedAt: null,
+          workspaceId: 'workspace-1',
+          createdById: null,
           createdAt: '2026-03-01T00:00:00.000Z',
           updatedAt: '2026-03-01T00:00:00.000Z',
+          deletedAt: null,
         },
       ],
       'dueDateAsc',

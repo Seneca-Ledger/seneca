@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 /**
  * Integration test — an invoice's status, against a real Postgres.
  *
@@ -38,12 +39,14 @@ import { PublicInvoicesService } from '../../src/modules/invoices/public-invoice
 import { MailerService } from '../../src/modules/mailer/mailer.service';
 import { LedgerAccountsService } from '../../src/modules/ledger/ledger-accounts.service';
 import { LedgerPostingService } from '../../src/modules/ledger/ledger-posting.service';
+import { InvoiceXRechnungService } from '../../src/modules/invoices/invoice-xrechnung.service';
 import { InvoicesService } from '../../src/modules/invoices/invoices.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace-currency.service';
+import { APP_NAME } from '../../src/common/brand';
 
 const BASE_URL = process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_invoices_lifecycle_${process.pid}`;
+const SCRATCH_DB = `seneca_invoices_lifecycle_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -55,22 +58,22 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
 }
 
 describe('invoice status (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let invoices: InvoicesService;
@@ -80,7 +83,7 @@ describe('invoice status (real Postgres)', () => {
   let invoiceSettings: InvoiceSettingsService;
   let ageing: InvoiceAgeingService;
   let deliveryRepo: Repository<InvoiceDelivery>;
-  let sendMail: jest.Mock;
+  let sendMail: Mock;
   let invoiceRepo: Repository<Invoice>;
   let payableRepo: Repository<Payable>;
   let workspaceId: string;
@@ -134,16 +137,17 @@ describe('invoice status (real Postgres)', () => {
       providers: [
         InvoicesService,
         InvoiceDeliveryService,
+        InvoiceXRechnungService,
         InvoiceRemindersService,
         InvoiceSettingsService,
         InvoiceAgeingService,
         PublicInvoicesService,
         BusinessProfileService,
         WorkspaceCurrencyService,
-        { provide: MailerService, useValue: { send: (sendMail = jest.fn(async () => true)) } },
+        { provide: MailerService, useValue: { send: (sendMail = vi.fn(async () => true)) } },
         LedgerPostingService,
         LedgerAccountsService,
-        { provide: ExchangeRatesService, useValue: { getRateQuote: jest.fn(), getRate: jest.fn() } },
+        { provide: ExchangeRatesService, useValue: { getRateQuote: vi.fn(), getRate: vi.fn() } },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
           useValue: dataSource.getRepository(entity),
@@ -188,7 +192,7 @@ describe('invoice status (real Postgres)', () => {
     // Sending refuses without the issuer's details, which is the point of the
     // profile; every status case below needs a sendable workspace.
     await moduleRef.get(BusinessProfileService).update(workspaceId, {
-      legalName: 'Lumio Software OÜ',
+      legalName: `${APP_NAME} Software OÜ`,
       addressLines: 'Tartu mnt 67\n10115 Tallinn',
       registrationId: '16123456',
       taxId: 'EE102345678',
@@ -525,7 +529,7 @@ describe('invoice status (real Postgres)', () => {
       expect(view.number).toBe(invoice.invoiceNumber);
       expect(view.status).toBe('sent');
       expect(view.total).toBe('250.00');
-      expect(view.issuer.legalName).toBe('Lumio Software OÜ');
+      expect(view.issuer.legalName).toBe(`${APP_NAME} Software OÜ`);
       expect(view.issuer.bankAccount).toBe('EE471000001020145685');
       expect(view.billedTo.name).toBe('Beta GmbH');
       expect(view.lines).toEqual([
@@ -577,15 +581,18 @@ describe('invoice status (real Postgres)', () => {
 
       expect(await errorOf(publicInvoices.view(token))).toEqual({
         status: 404,
-        code: undefined,
+        code: 'INVOICE_NOT_FOUND',
       });
-      expect(await errorOf(publicInvoices.pdf(token))).toEqual({ status: 404, code: undefined });
+      expect(await errorOf(publicInvoices.pdf(token))).toEqual({
+        status: 404,
+        code: 'INVOICE_NOT_FOUND',
+      });
     });
 
     it('does not answer an unknown token', async () => {
       expect(await errorOf(publicInvoices.view('not-a-real-token'))).toEqual({
         status: 404,
-        code: undefined,
+        code: 'INVOICE_NOT_FOUND',
       });
     });
   });

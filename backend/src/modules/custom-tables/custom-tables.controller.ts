@@ -1,127 +1,93 @@
 import {
   BadRequestException,
-  Body,
   Controller,
-  DefaultValuePipe,
   Delete,
   Get,
-  Param,
-  ParseIntPipe,
-  ParseUUIDPipe,
   Patch,
   Post,
-  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { AllowInVersion } from '../../common/decorators/allow-in-version.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import {
+  AddSourceStatementsBody,
+  BatchCreateCustomTableRowsBody,
+  ClassifyPaidStatusBody,
+  ConvertedToStatement,
+  CreateCustomTableBody,
+  CreateCustomTableColumnBody,
+  CreateCustomTableFromDataEntryBody,
+  CreateCustomTableFromDataEntryCustomTabBody,
+  CreateCustomTableFromSourceBody,
+  CreateCustomTableRowBody,
+  CreatedCustomTable,
+  CreatedFromSource,
+  CustomTableAggregates,
+  CustomTableColumnItem,
+  CustomTableDetail,
+  CustomTableGroups,
+  CustomTableList,
+  CustomTableMoneyTotal,
+  CustomTableRowBatch,
+  CustomTableRowItem,
+  CustomTableRowPage,
+  CustomTableSummaries,
+  FormulaPreview,
+  OkResult,
+  PreviewCustomTableSourceBody,
+  PreviewFormulaBody,
+  RefreshedFromSource,
+  ReorderCustomTableColumnsBody,
+  RestoredTableDefault,
+  SourcePreview,
+  UpdateCustomTableBody,
+  UpdateCustomTableColumnBody,
+  UpdateCustomTableColumnStyleBody,
+  UpdateCustomTableRowBody,
+  UpdateCustomTableRulesBody,
+  UpdateCustomTableSummariesBody,
+  UpdateCustomTableViewSettingsColumnBody,
+  UpdateCustomTableViewsBody,
+} from '../../contracts';
+import {
+  CustomTableColumnStyle,
+  CustomTableDuplicates,
+  CustomTableRelationOptions,
+  PaidClassification,
+  SyncedFromDataEntry,
+} from '../../contracts/custom-tables/custom-table-actions';
+import {
+  CustomTableAggregatesQuery,
+  CustomTableColumnParams,
+  CustomTableDuplicatesQuery,
+  CustomTableExportQuery,
+  CustomTableGroupsQuery,
+  CustomTableParams,
+  CustomTableRelationOptionsQuery,
+  CustomTableRowParams,
+  CustomTableRowsQuery,
+} from '../../contracts/requests/custom-table-queries';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CustomTableMoneyTotalService } from './custom-table-money-total.service';
 import { CustomTablesService } from './custom-tables.service';
 import { CustomTablesCacheService } from './custom-tables-cache.service';
-import { BatchCreateCustomTableRowsDto } from './dto/batch-create-custom-table-rows.dto';
-import { ClassifyPaidStatusDto } from './dto/classify-paid-status.dto';
-import { CreateCustomTableDto } from './dto/create-custom-table.dto';
-import { CreateCustomTableColumnDto } from './dto/create-custom-table-column.dto';
-import { CreateCustomTableFromDataEntryDto } from './dto/create-custom-table-from-data-entry.dto';
-import { CreateCustomTableFromDataEntryCustomTabDto } from './dto/create-custom-table-from-data-entry-custom-tab.dto';
-import { CreateCustomTableFromSourceDto } from './dto/create-custom-table-from-source.dto';
-import { CreateCustomTableRowDto } from './dto/create-custom-table-row.dto';
-import { FillAiColumnDto } from './dto/fill-ai-column.dto';
 import {
-  CUSTOM_TABLE_AGGREGATE_FNS,
-  type CustomTableAggregateDto,
-  type CustomTableAggregateFn,
-  CustomTableRowFilterDto,
-  CustomTableRowSortDto,
-} from './dto/list-custom-table-rows.dto';
-import { PreviewCustomTableSourceDto } from './dto/preview-custom-table-source.dto';
-import { PreviewFormulaDto } from './dto/preview-formula.dto';
-import { ReorderCustomTableColumnsDto } from './dto/reorder-custom-table-columns.dto';
-import { UpdateCustomTableDto } from './dto/update-custom-table.dto';
-import { UpdateCustomTableColumnDto } from './dto/update-custom-table-column.dto';
-import { UpdateCustomTableColumnStyleDto } from './dto/update-custom-table-column-style.dto';
-import { UpdateCustomTableRowDto } from './dto/update-custom-table-row.dto';
-import { UpdateCustomTableSummariesDto } from './dto/update-custom-table-summaries.dto';
-import { UpdateCustomTableViewSettingsColumnDto } from './dto/update-custom-table-view-settings.dto';
-import {
-  UpdateCustomTableRulesDto,
-  UpdateCustomTableViewsDto,
-} from './dto/update-custom-table-views.dto';
-
-function parseRowFiltersParam(filtersRaw?: string): CustomTableRowFilterDto[] | undefined {
-  if (!filtersRaw) {
-    return undefined;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(filtersRaw);
-  } catch {
-    throw new BadRequestException(appError('FILTER_JSON_INVALID'));
-  }
-  if (!Array.isArray(parsed)) {
-    throw new BadRequestException(appError('FILTER_FORMAT_INVALID'));
-  }
-  return parsed as CustomTableRowFilterDto[];
-}
-
-function parseAggregatesParam(aggsRaw?: string): CustomTableAggregateDto[] {
-  if (!aggsRaw) {
-    return [];
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(aggsRaw);
-  } catch {
-    throw new BadRequestException(appError('AGG_JSON_INVALID'));
-  }
-  if (!Array.isArray(parsed)) {
-    throw new BadRequestException(appError('AGG_FORMAT_INVALID'));
-  }
-  return parsed.map(entry => {
-    const { col, fn } = (entry ?? {}) as { col?: unknown; fn?: unknown };
-    if (typeof col !== 'string' || !col.trim()) {
-      throw new BadRequestException(appError('AGG_FORMAT_INVALID'));
-    }
-    if (
-      typeof fn !== 'string' ||
-      !CUSTOM_TABLE_AGGREGATE_FNS.includes(fn as CustomTableAggregateFn)
-    ) {
-      throw new BadRequestException(appError('AGG_FUNCTION_UNKNOWN', { fn: String(fn) }));
-    }
-    return { col: col.trim(), fn: fn as CustomTableAggregateFn };
-  });
-}
-
-function parseRowSortParam(sortRaw?: string): CustomTableRowSortDto | undefined {
-  if (!sortRaw) {
-    return undefined;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(sortRaw);
-  } catch {
-    throw new BadRequestException(appError('SORT_JSON_INVALID'));
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new BadRequestException(appError('SORT_FORMAT_INVALID'));
-  }
-  const { col, dir } = parsed as { col?: unknown; dir?: unknown };
-  if (typeof col !== 'string' || !col.trim()) {
-    throw new BadRequestException(appError('SORT_FORMAT_INVALID'));
-  }
-  if (dir !== 'asc' && dir !== 'desc') {
-    throw new BadRequestException(appError('SORT_DIRECTION_INVALID'));
-  }
-  return { col: col.trim(), dir };
-}
+  parseAggregatesParam,
+  parseRowFiltersParam,
+  parseRowSortParam,
+} from './helpers/row-query-params';
 
 @Controller('custom-tables')
 @UseGuards(JwtAuthGuard)
@@ -129,14 +95,16 @@ export class CustomTablesController {
   constructor(
     private readonly customTablesService: CustomTablesService,
     private readonly customTablesCache: CustomTablesCacheService,
+    private readonly moneyTotal: CustomTableMoneyTotalService,
   ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CreatedCustomTable)
   async createTable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateCustomTableDto,
+    @SchemaBody(CreateCustomTableBody) dto: CreateCustomTableBody,
   ) {
     const table = await this.customTablesService.createTable(user.id, workspaceId, dto);
     await this.customTablesCache.bumpList(workspaceId);
@@ -145,6 +113,7 @@ export class CustomTablesController {
 
   @Get()
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableList)
   async listTables(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
     const cacheKey = await this.customTablesCache.listKey(workspaceId);
     return this.customTablesCache.getOrSet(cacheKey, async () => {
@@ -155,10 +124,11 @@ export class CustomTablesController {
 
   @Post('from-data-entry')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CreatedFromSource)
   async createFromDataEntry(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateCustomTableFromDataEntryDto,
+    @SchemaBody(CreateCustomTableFromDataEntryBody) dto: CreateCustomTableFromDataEntryBody,
   ) {
     const table = await this.customTablesService.createFromDataEntry(user.id, workspaceId, dto);
     await this.customTablesCache.bumpList(workspaceId);
@@ -167,10 +137,12 @@ export class CustomTablesController {
 
   @Post('from-data-entry-custom-tab')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CreatedFromSource)
   async createFromDataEntryCustomTab(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateCustomTableFromDataEntryCustomTabDto,
+    @SchemaBody(CreateCustomTableFromDataEntryCustomTabBody)
+    dto: CreateCustomTableFromDataEntryCustomTabBody,
   ) {
     const table = await this.customTablesService.createFromDataEntryCustomTab(
       user.id,
@@ -183,10 +155,11 @@ export class CustomTablesController {
 
   @Post(':id/sync-from-data-entry')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(SyncedFromDataEntry)
   async syncFromDataEntry(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     const table = await this.customTablesService.syncFromDataEntry(user.id, workspaceId, id);
     await this.customTablesCache.bumpTable(workspaceId, id);
@@ -195,21 +168,25 @@ export class CustomTablesController {
   }
 
   @Post('source-preview')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(SourcePreview)
   async previewSource(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: PreviewCustomTableSourceDto,
+    @SchemaBody(PreviewCustomTableSourceBody) dto: PreviewCustomTableSourceBody,
   ) {
     return this.customTablesService.previewSource(user.id, workspaceId, dto);
   }
 
   @Post('from-source')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CreatedFromSource)
   async createFromSource(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateCustomTableFromSourceDto,
+    @SchemaBody(CreateCustomTableFromSourceBody) dto: CreateCustomTableFromSourceBody,
   ) {
     const table = await this.customTablesService.createFromSource(user.id, workspaceId, dto);
     await this.customTablesCache.bumpList(workspaceId);
@@ -218,10 +195,11 @@ export class CustomTablesController {
 
   @Post(':id/refresh-from-source')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RefreshedFromSource)
   async refreshFromSource(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     const result = await this.customTablesService.refreshFromSource(user.id, workspaceId, id);
     await this.customTablesCache.bumpTable(workspaceId, id);
@@ -230,34 +208,79 @@ export class CustomTablesController {
     return result;
   }
 
-  @Post(':id/formula-preview')
+  @Post(':id/source-statements')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RefreshedFromSource)
+  async addSourceStatements(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
+    @SchemaBody(AddSourceStatementsBody) dto: AddSourceStatementsBody,
+  ) {
+    const result = await this.customTablesService.addSourceStatements(
+      user.id,
+      workspaceId,
+      id,
+      dto.statementIds,
+    );
+    await this.customTablesCache.bumpTable(workspaceId, id);
+    await this.customTablesCache.bumpRows(workspaceId, id);
+    await this.customTablesCache.bumpList(workspaceId);
+    return result;
+  }
+
+  /**
+   * "Restore to default": undoes the app record changes made from this table,
+   * then rebuilds it as a fresh copy of its source. Idempotent.
+   */
+  @Post(':id/restore-default')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RestoredTableDefault)
+  async restoreDefault(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
+  ) {
+    const result = await this.customTablesService.restoreDefault(user.id, workspaceId, id);
+    await this.customTablesCache.bumpTable(workspaceId, id);
+    await this.customTablesCache.bumpRows(workspaceId, id);
+    await this.customTablesCache.bumpList(workspaceId);
+    return result;
+  }
+
+  @Post(':id/formula-preview')
+  // Reads only: allowed in a past version.
+  @AllowInVersion()
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(FormulaPreview)
   async previewFormula(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: PreviewFormulaDto,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
+    @SchemaBody(PreviewFormulaBody) dto: PreviewFormulaBody,
   ) {
     return this.customTablesService.previewFormula(user.id, workspaceId, id, dto);
   }
 
   @Get(':id/summaries')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableSummaries)
   async getSummaries(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     return this.customTablesService.getSummaries(workspaceId, id);
   }
 
   @Patch(':id/view-settings/summaries')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async updateViewSettingsSummaries(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateCustomTableSummariesDto,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
+    @SchemaBody(UpdateCustomTableSummariesBody) dto: UpdateCustomTableSummariesBody,
   ) {
     const table = await this.customTablesService.updateViewSettingsSummaries(
       user.id,
@@ -271,20 +294,22 @@ export class CustomTablesController {
 
   @Post(':id/convert-to-statement')
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD, Permission.STATEMENT_EDIT)
+  @SchemaResponse(ConvertedToStatement)
   async convertToStatement(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     return this.customTablesService.convertToStatement(user.id, workspaceId, id);
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async getTable(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     const cacheKey = await this.customTablesCache.tableKey(workspaceId, id);
     return this.customTablesCache.getOrSet(cacheKey, async () => {
@@ -295,11 +320,13 @@ export class CustomTablesController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  // The saved table carries its owner's user row: the contract keeps it out.
+  @SchemaResponse(CreatedCustomTable)
   async updateTable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateCustomTableDto,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
+    @SchemaBody(UpdateCustomTableBody) dto: UpdateCustomTableBody,
   ) {
     const table = await this.customTablesService.updateTable(user.id, workspaceId, id, dto);
     await this.customTablesCache.bumpTable(workspaceId, id);
@@ -309,10 +336,11 @@ export class CustomTablesController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(OkResult)
   async removeTable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(CustomTableParams) { id }: CustomTableParams,
   ) {
     await this.customTablesService.removeTable(user.id, workspaceId, id);
     await this.customTablesCache.bumpList(workspaceId);
@@ -321,11 +349,12 @@ export class CustomTablesController {
 
   @Post(':id/columns')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableColumnItem)
   async addColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: CreateCustomTableColumnDto,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaBody(CreateCustomTableColumnBody) dto: CreateCustomTableColumnBody,
   ) {
     const column = await this.customTablesService.addColumn(user.id, workspaceId, tableId, dto);
     await this.customTablesCache.bumpTable(workspaceId, tableId);
@@ -335,12 +364,12 @@ export class CustomTablesController {
 
   @Patch(':id/columns/:columnId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableColumnItem)
   async updateColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('columnId', new ParseUUIDPipe()) columnId: string,
-    @Body() dto: UpdateCustomTableColumnDto,
+    @SchemaParams(CustomTableColumnParams) { id: tableId, columnId }: CustomTableColumnParams,
+    @SchemaBody(UpdateCustomTableColumnBody) dto: UpdateCustomTableColumnBody,
   ) {
     const column = await this.customTablesService.updateColumn(
       user.id,
@@ -356,12 +385,12 @@ export class CustomTablesController {
 
   @Patch(':id/columns/:columnId/style')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableColumnStyle)
   async updateColumnStyle(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('columnId', new ParseUUIDPipe()) columnId: string,
-    @Body() dto: UpdateCustomTableColumnStyleDto,
+    @SchemaParams(CustomTableColumnParams) { id: tableId, columnId }: CustomTableColumnParams,
+    @SchemaBody(UpdateCustomTableColumnStyleBody) dto: UpdateCustomTableColumnStyleBody,
   ) {
     const result = await this.customTablesService.updateColumnStyle(
       user.id,
@@ -376,11 +405,11 @@ export class CustomTablesController {
 
   @Delete(':id/columns/:columnId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(OkResult)
   async removeColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('columnId', new ParseUUIDPipe()) columnId: string,
+    @SchemaParams(CustomTableColumnParams) { id: tableId, columnId }: CustomTableColumnParams,
   ) {
     await this.customTablesService.removeColumn(user.id, workspaceId, tableId, columnId);
     await this.customTablesCache.bumpTable(workspaceId, tableId);
@@ -390,11 +419,12 @@ export class CustomTablesController {
 
   @Post(':id/columns/reorder')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(OkResult)
   async reorderColumns(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: ReorderCustomTableColumnsDto,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaBody(ReorderCustomTableColumnsBody) dto: ReorderCustomTableColumnsBody,
   ) {
     await this.customTablesService.reorderColumns(user.id, workspaceId, tableId, dto);
     await this.customTablesCache.bumpTable(workspaceId, tableId);
@@ -403,12 +433,13 @@ export class CustomTablesController {
 
   @Get(':id/relation-options')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRelationOptions)
   async listRelationOptions(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('column') column?: string,
-    @Query('search') search?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableRelationOptionsQuery)
+    { column, search }: CustomTableRelationOptionsQuery,
   ) {
     if (!column?.trim()) {
       throw new BadRequestException(appError('RELATION_COLUMN_REQUIRED'));
@@ -423,52 +454,40 @@ export class CustomTablesController {
 
   @Get(':id/duplicates')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDuplicates)
   async findDuplicates(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('keys') keysRaw?: string,
-    @Query('limit') limitRaw?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableDuplicatesQuery) { keys = [], limit }: CustomTableDuplicatesQuery,
   ) {
-    const keys = (keysRaw ?? '')
-      .split(',')
-      .map(key => key.trim())
-      .filter(Boolean);
     if (!keys.length) {
       throw new BadRequestException(appError('DUPLICATE_KEY_COLUMNS_REQUIRED'));
     }
-    const limitNumber = limitRaw ? Number(limitRaw) : undefined;
     const { items, groupCount } = await this.customTablesService.findDuplicateRows(
       workspaceId,
       tableId,
-      { keys, limit: Number.isFinite(limitNumber) ? limitNumber : undefined },
+      { keys, limit },
     );
     return { items, meta: { groupCount } };
   }
 
   @Get(':id/groups')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableGroups)
   async groupRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('groupBy') groupBy?: string,
-    @Query('aggs') aggsRaw?: string,
-    @Query('filters') filtersRaw?: string,
-    @Query('limit') limitRaw?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableGroupsQuery) query: CustomTableGroupsQuery,
   ) {
-    if (!groupBy?.trim()) {
+    const groupBy = query.groupBy?.trim();
+    if (!groupBy) {
       throw new BadRequestException(appError('GROUP_COLUMN_REQUIRED'));
     }
-    const aggs = parseAggregatesParam(aggsRaw);
-    const filters = parseRowFiltersParam(filtersRaw);
-    const limitNumber = limitRaw ? Number(limitRaw) : undefined;
-    const queryParams = {
-      groupBy: groupBy.trim(),
-      aggs,
-      filters,
-      limit: Number.isFinite(limitNumber) ? limitNumber : undefined,
-    };
+    const aggs = parseAggregatesParam(query.aggs);
+    const filters = parseRowFiltersParam(query.filters);
+    const queryParams = { groupBy, aggs, filters, limit: query.limit };
     const cacheKey = await this.customTablesCache.rowsKey(workspaceId, tableId, queryParams);
     return this.customTablesCache.getOrSet(cacheKey, async () => {
       const { items, groupCount } = await this.customTablesService.groupRows(
@@ -480,17 +499,29 @@ export class CustomTablesController {
     });
   }
 
+  /** The table's balance: its money column over every row, in the workspace currency. */
+  @Get(':id/money-total')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableMoneyTotal)
+  async getMoneyTotal(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+  ) {
+    // Not cached: a rate entered in settings has to show up here at once.
+    return this.moneyTotal.getTotal(workspaceId, tableId);
+  }
+
   @Get(':id/aggregates')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableAggregates)
   async aggregateRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('aggs') aggsRaw?: string,
-    @Query('filters') filtersRaw?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableAggregatesQuery) query: CustomTableAggregatesQuery,
   ) {
-    const aggs = parseAggregatesParam(aggsRaw);
-    const filters = parseRowFiltersParam(filtersRaw);
+    const aggs = parseAggregatesParam(query.aggs);
+    const filters = parseRowFiltersParam(query.filters);
     const cacheKey = await this.customTablesCache.rowsKey(workspaceId, tableId, {
       aggs,
       filters,
@@ -509,29 +540,18 @@ export class CustomTablesController {
   async exportRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
     @Res() res: Response,
-    @Query('format') formatRaw?: string,
-    @Query('filters') filtersRaw?: string,
-    @Query('sort') sortRaw?: string,
-    @Query('columns') columnsRaw?: string,
+    @SchemaQuery(CustomTableExportQuery) query: CustomTableExportQuery,
   ) {
-    const format = formatRaw === 'csv' ? 'csv' : 'xlsx';
-    const columnKeys = columnsRaw
-      ? columnsRaw
-          .split(',')
-          .map(key => key.trim())
-          .filter(Boolean)
-      : undefined;
-
     const { buffer, fileName, contentType } = await this.customTablesService.exportRows(
       workspaceId,
       tableId,
       {
-        format,
-        filters: parseRowFiltersParam(filtersRaw),
-        sort: parseRowSortParam(sortRaw),
-        columnKeys,
+        format: query.format ?? 'xlsx',
+        filters: parseRowFiltersParam(query.filters),
+        sort: parseRowSortParam(query.sort),
+        columnKeys: query.columns,
       },
     );
 
@@ -543,29 +563,19 @@ export class CustomTablesController {
 
   @Get(':id/rows')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRowPage)
   async listRows(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Query('cursor') cursor?: string,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
-    @Query('filters') filtersRaw?: string,
-    // Новые параметры идут в конец: позиционный порядок прежних сохраняется.
-    @Query('sort') sortRaw?: string,
-    @Query('offset') offset?: string,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaQuery(CustomTableRowsQuery) query: CustomTableRowsQuery,
   ) {
-    const safeLimit = Math.min(Math.max(limit ?? 50, 1), 500);
-    const cursorNumber = cursor ? Number(cursor) : undefined;
-    const offsetNumber = offset ? Number(offset) : undefined;
-    const filters = parseRowFiltersParam(filtersRaw);
-    const sort = parseRowSortParam(sortRaw);
     const queryParams = {
-      cursor: Number.isFinite(cursorNumber) ? cursorNumber : undefined,
-      offset:
-        Number.isFinite(offsetNumber) && (offsetNumber as number) >= 0 ? offsetNumber : undefined,
-      limit: safeLimit,
-      filters,
-      sort,
+      cursor: query.cursor,
+      offset: query.offset,
+      limit: Math.min(Math.max(query.limit ?? 50, 1), 500),
+      filters: parseRowFiltersParam(query.filters),
+      sort: parseRowSortParam(query.sort),
     };
     const cacheKey = await this.customTablesCache.rowsKey(workspaceId, tableId, queryParams);
     return this.customTablesCache.getOrSet(cacheKey, async () => {
@@ -578,38 +588,26 @@ export class CustomTablesController {
     });
   }
 
-  @Post(':id/rows/ai-fill')
-  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
-  async fillAiColumn(
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: FillAiColumnDto,
-  ) {
-    const result = await this.customTablesService.fillAiColumn(workspaceId, tableId, dto);
-    await this.customTablesCache.bumpTable(workspaceId, tableId);
-    await this.customTablesCache.bumpRows(workspaceId, tableId);
-    return result;
-  }
-
   @Post(':id/rows/paid-classify')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(PaidClassification)
   async classifyPaidStatus(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: ClassifyPaidStatusDto,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaBody(ClassifyPaidStatusBody) dto: ClassifyPaidStatusBody,
   ) {
     return this.customTablesService.classifyPaidStatus(workspaceId, tableId, dto);
   }
 
   @Post(':id/rows')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRowItem)
   async createRow(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: CreateCustomTableRowDto,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaBody(CreateCustomTableRowBody) dto: CreateCustomTableRowBody,
   ) {
     const row = await this.customTablesService.createRow(user.id, workspaceId, tableId, dto);
     await this.customTablesCache.bumpRows(workspaceId, tableId);
@@ -618,12 +616,12 @@ export class CustomTablesController {
 
   @Patch(':id/rows/:rowId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRowItem)
   async updateRow(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('rowId', new ParseUUIDPipe()) rowId: string,
-    @Body() dto: UpdateCustomTableRowDto,
+    @SchemaParams(CustomTableRowParams) { id: tableId, rowId }: CustomTableRowParams,
+    @SchemaBody(UpdateCustomTableRowBody) dto: UpdateCustomTableRowBody,
   ) {
     const row = await this.customTablesService.updateRow(user.id, workspaceId, tableId, rowId, dto);
     await this.customTablesCache.bumpRows(workspaceId, tableId);
@@ -632,11 +630,11 @@ export class CustomTablesController {
 
   @Delete(':id/rows/:rowId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(OkResult)
   async removeRow(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Param('rowId', new ParseUUIDPipe()) rowId: string,
+    @SchemaParams(CustomTableRowParams) { id: tableId, rowId }: CustomTableRowParams,
   ) {
     await this.customTablesService.removeRow(user.id, workspaceId, tableId, rowId);
     await this.customTablesCache.bumpRows(workspaceId, tableId);
@@ -645,11 +643,12 @@ export class CustomTablesController {
 
   @Post(':id/rows/batch')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRowBatch)
   async batchCreateRows(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: BatchCreateCustomTableRowsDto,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaBody(BatchCreateCustomTableRowsBody) dto: BatchCreateCustomTableRowsBody,
   ) {
     const result = await this.customTablesService.batchCreateRows(
       user.id,
@@ -663,11 +662,12 @@ export class CustomTablesController {
 
   @Patch(':id/view-settings/rules')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async updateViewSettingsRules(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: UpdateCustomTableRulesDto,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaBody(UpdateCustomTableRulesBody) dto: UpdateCustomTableRulesBody,
   ) {
     const table = await this.customTablesService.updateViewSettingsRules(
       user.id,
@@ -681,11 +681,12 @@ export class CustomTablesController {
 
   @Patch(':id/view-settings/views')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async updateViewSettingsViews(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: UpdateCustomTableViewsDto,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaBody(UpdateCustomTableViewsBody) dto: UpdateCustomTableViewsBody,
   ) {
     const table = await this.customTablesService.updateViewSettingsViews(
       user.id,
@@ -699,11 +700,13 @@ export class CustomTablesController {
 
   @Patch(':id/view-settings/columns')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async updateViewSettingsColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', new ParseUUIDPipe()) tableId: string,
-    @Body() dto: UpdateCustomTableViewSettingsColumnDto,
+    @SchemaParams(CustomTableParams) { id: tableId }: CustomTableParams,
+    @SchemaBody(UpdateCustomTableViewSettingsColumnBody)
+    dto: UpdateCustomTableViewSettingsColumnBody,
   ) {
     const table = await this.customTablesService.updateViewSettingsColumn(
       user.id,

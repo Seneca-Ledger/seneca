@@ -3,7 +3,14 @@
 import { Tab, Tabs } from '@mui/material';
 import type React from 'react';
 import type { ComponentType } from 'react';
-import { Bell, Cloud, FlaskConical, ShieldCheck, UserCircle } from '@/app/components/icons';
+import {
+  Bell,
+  Cloud,
+  FlaskConical,
+  History,
+  ShieldCheck,
+  UserCircle,
+} from '@/app/components/icons';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import {
   SETTINGS_TABS,
@@ -18,6 +25,7 @@ const TAB_ICON: Record<SettingsTabId, ComponentType<{ size?: number }>> = {
   notifications: Bell,
   data: Cloud,
   advanced: FlaskConical,
+  versions: History,
 };
 
 type SettingsTabsProps = {
@@ -31,7 +39,6 @@ export function SettingsTabs({
   onTabChange,
   labels,
 }: SettingsTabsProps): React.JSX.Element {
-  // eslint-disable-next-line max-params
   const handleChange = (_: React.SyntheticEvent, value: SettingsTabId): void => onTabChange(value);
   return (
     <Tabs

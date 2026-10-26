@@ -3,11 +3,11 @@ title: Importing Statements
 description: Uploads, supported formats, and validation
 ---
 
-Lumio accepts multiple statement formats and standardizes them into a consistent transaction model.
+Seneca accepts multiple statement formats and standardizes them into a consistent transaction model.
 
 ## Supported inputs
 
-- PDF — native parsers for supported banks, and an AI-assisted generic parser for the rest
+- PDF — native parsers for supported banks, and a generic table parser for the rest
 - CSV, XLSX and XLS exports
 - DOCX files with statement tables
 - Images (JPG, PNG, TIFF, BMP, WEBP) via OCR
@@ -22,7 +22,7 @@ See [Integrations](integrations).
 ## Import flow
 
 1. Upload a file from the Statements page.
-2. Lumio checks the file hash, then parses the file in a background queue, picking a parser by
+2. Seneca checks the file hash, then parses the file in a background queue, picking a parser by
    bank and file type.
 3. The import preview shows the parsed rows and any conflicts.
 4. Resolve each conflict — skip it, import it anyway, or mark it as a duplicate.

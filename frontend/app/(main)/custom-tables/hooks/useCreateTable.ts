@@ -4,9 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
+import { unwrapEnvelope } from '@/app/lib/query-fn';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import {
   buildSourcePayload,
   EMPTY_SOURCE_FILTERS,
@@ -59,6 +62,7 @@ interface UseCreateTableParams {
 export function useCreateTable({ columnTitles, messages }: UseCreateTableParams) {
   const router = useRouter();
   const { currentWorkspace } = useWorkspace();
+  const templateOptions = useIntlayer('customTableTemplateOptions');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CreateTableForm>(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
@@ -88,33 +92,38 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
             categoryId: form.categoryId,
             currency: resolveCurrencyCode(currentWorkspace?.currency),
             titles: columnTitles,
-          }),
+          }) satisfies ContractInput<'CreateCustomTableFromSourceBody'>,
         );
-        const created = (response.data?.data ?? response.data) as { tableId?: string } | null;
+        const created = await checkContract(
+          'CreatedFromSource',
+          response.data,
+          '/custom-tables/from-source',
+        );
         toast.success(messages.createdFromSource);
         close();
-        if (created?.tableId) {
-          router.push(`/custom-tables/${created.tableId}`);
-        }
+        router.push(`/custom-tables/${created.tableId}`);
         return;
       }
       const response = await apiClient.post('/custom-tables', {
         name,
         description: form.description.trim() || undefined,
         categoryId: form.categoryId || undefined,
-      });
-      const created = (response.data?.data ?? response.data) as { id?: string } | null;
-      if (created?.id && template) {
+      } satisfies ContractInput<'CreateCustomTableBody'>);
+      const created = await checkContract('CreatedCustomTable', response.data, '/custom-tables');
+      if (created.id && template) {
         const toastId = toast.loading(messages.applying);
         const { failed } = await applyTemplate({
           tableId: created.id,
           payloads: buildTemplateColumnPayloads(template, {
             titles: columnTitles,
+            options: Object.fromEntries(
+              Object.entries(templateOptions).map(([key, node]) => [key, node.value]),
+            ),
             currency: resolveCurrencyCode(currentWorkspace?.currency),
           }),
           post: async (url, body) => {
             const columnResponse = await apiClient.post(url, body);
-            return columnResponse.data?.data ?? columnResponse.data ?? null;
+            return checkContract('CustomTableColumnItem', unwrapEnvelope(columnResponse.data), url);
           },
         });
         if (failed.length) {
@@ -137,7 +146,16 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
       .finally(async () => {
         setCreating(false);
       });
-  }, [form, creating, columnTitles, currentWorkspace?.currency, messages, router, close]);
+  }, [
+    form,
+    creating,
+    columnTitles,
+    templateOptions,
+    currentWorkspace?.currency,
+    messages,
+    router,
+    close,
+  ]);
 
   return { open, setOpen, form, setForm, creating, close, submit };
 }

@@ -4,6 +4,8 @@ import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { Fragment } from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -18,6 +20,8 @@ export interface ReportPreviewData {
     rows: PreviewCell[][];
     total?: PreviewCell[];
   }>;
+  /** Caveats about the figures, e.g. amounts left out for want of a rate. */
+  notes?: string[];
   footer?: PreviewCell[][];
   /** Some section had more rows than the preview shows. */
   truncated: boolean;
@@ -46,10 +50,17 @@ const headCellSx = {
   letterSpacing: '0.06em',
 };
 
+/** A figure (a number, or an amount with its currency like "12.5 EUR") is hidden in privacy mode. */
+const cellNode = (cell: PreviewCell): React.ReactNode =>
+  typeof cell === 'number' || /^-?[\d.,]+ [A-Z]{3}$/.test(cell) ? (
+    <PrivateAmount>{String(cell)}</PrivateAmount>
+  ) : (
+    String(cell)
+  );
+
 /** Only the first column holds labels; everything else is a figure, so right-align it. */
 const alignFor = (index: number): 'left' | 'right' => (index === 0 ? 'left' : 'right');
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function ReportPreview({
   data,
   loading,
@@ -57,7 +68,6 @@ export function ReportPreview({
 }: ReportPreviewProps): React.JSX.Element | null {
   const t = useIntlayer('reportsPage');
   const labels = t.labels as Record<string, { value?: string } | undefined>;
-  // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
 
   if (loading) {
@@ -102,16 +112,31 @@ export function ReportPreview({
         {data.subtitle}
       </Typography>
 
+      {(data.notes ?? []).map(note => (
+        <Typography
+          key={note}
+          variant="caption"
+          sx={{ display: 'block', color: 'var(--color-warning-soft-text)' }}
+        >
+          {note}
+        </Typography>
+      ))}
+
       {isEmpty ? (
         <Typography variant="body2" sx={{ mt: 1, color: 'var(--muted-foreground)' }}>
           {text('previewEmpty', 'No data for this period and filter')}
         </Typography>
       ) : (
-        // eslint-disable-next-line max-lines-per-function
         data.sections.map(section => (
           <Box key={section.title ?? section.columns.join('|')} sx={{ mt: 1.5 }}>
             {section.title && (
-              <Typography variant="caption" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: 'var(--foreground)',
+                }}
+              >
                 {section.title}
               </Typography>
             )}
@@ -140,7 +165,7 @@ export function ReportPreview({
                         key={section.columns[cellIndex] ?? cellIndex}
                         sx={{ ...cellSx, textAlign: alignFor(cellIndex) }}
                       >
-                        {String(cell)}
+                        {cellNode(cell)}
                       </Box>
                     ))}
                   </tr>
@@ -153,7 +178,7 @@ export function ReportPreview({
                         key={section.columns[cellIndex] ?? cellIndex}
                         sx={{ ...cellSx, fontWeight: 700, textAlign: alignFor(cellIndex) }}
                       >
-                        {String(cell)}
+                        {cellNode(cell)}
                       </Box>
                     ))}
                   </tr>
@@ -168,10 +193,19 @@ export function ReportPreview({
         <Typography
           key={String(line[0])}
           variant="body2"
-          fontWeight={700}
-          sx={{ mt: 1, color: 'var(--foreground)' }}
+          sx={{
+            fontWeight: 700,
+            mt: 1,
+            color: 'var(--foreground)',
+          }}
         >
-          {line.join('  ')}
+          {line.map((cell, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: a fixed label-and-figures line
+            <Fragment key={index}>
+              {index > 0 ? '  ' : null}
+              {cellNode(cell)}
+            </Fragment>
+          ))}
         </Typography>
       ))}
 

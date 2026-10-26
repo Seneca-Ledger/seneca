@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
@@ -79,14 +80,14 @@ export class Insight {
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -125,6 +126,10 @@ export class Insight {
 
   @Column({ name: 'is_dismissed', type: 'boolean', default: false })
   isDismissed: boolean;
+
+  /** When the person closed it; a refresh brings it back after a week or when its count grows. */
+  @Column({ name: 'dismissed_at', type: 'timestamptz', nullable: true })
+  dismissedAt: Date | null;
 
   @Column({ name: 'is_actioned', type: 'boolean', default: false })
   isActioned: boolean;

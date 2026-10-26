@@ -1,24 +1,21 @@
 import { Logger } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import { VendorIconsService } from '@/modules/vendor-icons/vendor-icons.service';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 
 const makeCache = () => {
   const store = new Map<string, unknown>();
   return {
-    get: jest.fn(async (key: string) => store.get(key)),
-    set: jest.fn(async (key: string, value: unknown) => {
+    get: vi.fn(async (key: string) => store.get(key)),
+    set: vi.fn(async (key: string, value: unknown) => {
       store.set(key, value);
     }),
   };
 };
 
+// A real Response: the HTTP client reads headers and body the standard way.
 const imageResponse = (body: Buffer, contentType = 'image/png', status = 200) =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    headers: { get: (name: string) => (name === 'content-type' ? contentType : null) },
-    arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
-  }) as unknown as Response;
+  new Response(new Uint8Array(body), { status, headers: { 'content-type': contentType } });
 
 describe('VendorIconsService', () => {
   const originalFetch = global.fetch;
@@ -26,14 +23,14 @@ describe('VendorIconsService', () => {
   let service: VendorIconsService;
 
   beforeEach(() => {
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     cache = makeCache();
-    service = new VendorIconsService(cache as unknown as Cache);
+    service = new VendorIconsService(cache as unknown as Cache, new EffectRuntime());
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('input validation', () => {
@@ -47,7 +44,7 @@ describe('VendorIconsService', () => {
       ['a port', 'evil.com:8080'],
       ['an over-long name', `${'x'.repeat(250)}.com`],
     ])('rejects %s without reaching the network', async (_label, domain) => {
-      const fetchMock = jest.fn();
+      const fetchMock = vi.fn();
       global.fetch = fetchMock as unknown as typeof fetch;
 
       await expect(service.fetchIcon(domain)).resolves.toEqual({ status: 'invalid' });
@@ -57,7 +54,7 @@ describe('VendorIconsService', () => {
 
   it('returns and caches a raster icon', async () => {
     const body = Buffer.from('png-bytes');
-    global.fetch = jest.fn().mockResolvedValue(imageResponse(body)) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue(imageResponse(body)) as unknown as typeof fetch;
 
     const result = await service.fetchIcon('netflix.com');
 
@@ -66,7 +63,7 @@ describe('VendorIconsService', () => {
   });
 
   it('serves a repeat request from the cache', async () => {
-    const fetchMock = jest.fn().mockResolvedValue(imageResponse(Buffer.from('png-bytes')));
+    const fetchMock = vi.fn().mockResolvedValue(imageResponse(Buffer.from('png-bytes')));
     global.fetch = fetchMock as unknown as typeof fetch;
 
     await service.fetchIcon('netflix.com');
@@ -81,7 +78,7 @@ describe('VendorIconsService', () => {
   });
 
   it('caches a 404 as a miss for a day', async () => {
-    const fetchMock = jest.fn().mockResolvedValue(imageResponse(Buffer.alloc(0), 'text/html', 404));
+    const fetchMock = vi.fn().mockResolvedValue(imageResponse(Buffer.alloc(0), 'text/html', 404));
     global.fetch = fetchMock as unknown as typeof fetch;
 
     await expect(service.fetchIcon('no-icon-here.com')).resolves.toEqual({ status: 'missing' });
@@ -97,7 +94,7 @@ describe('VendorIconsService', () => {
     ['an oversized body', imageResponse(Buffer.alloc(100 * 1024), 'image/png')],
     ['an empty body', imageResponse(Buffer.alloc(0), 'image/png')],
   ])('reports %s as unavailable and does not cache it', async (_label, response) => {
-    global.fetch = jest.fn().mockResolvedValue(response) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockResolvedValue(response) as unknown as typeof fetch;
 
     await expect(service.fetchIcon('netflix.com')).resolves.toEqual({ status: 'unavailable' });
     expect(cache.set).not.toHaveBeenCalled();
@@ -105,7 +102,7 @@ describe('VendorIconsService', () => {
 
   it('reports a timeout as unavailable and does not cache it', async () => {
     const timeout = Object.assign(new Error('timed out'), { name: 'TimeoutError' });
-    global.fetch = jest.fn().mockRejectedValue(timeout) as unknown as typeof fetch;
+    global.fetch = vi.fn().mockRejectedValue(timeout) as unknown as typeof fetch;
 
     await expect(service.fetchIcon('netflix.com')).resolves.toEqual({ status: 'unavailable' });
     expect(cache.set).not.toHaveBeenCalled();
@@ -114,7 +111,7 @@ describe('VendorIconsService', () => {
   it('survives a cache outage', async () => {
     cache.get.mockRejectedValue(new Error('redis down'));
     cache.set.mockRejectedValue(new Error('redis down'));
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValue(imageResponse(Buffer.from('png-bytes'))) as unknown as typeof fetch;
 

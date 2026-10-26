@@ -82,7 +82,7 @@ export default function AdminPage() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: { xs: 2, md: 4 } }}>
       <Typography variant="h4" component="h1" gutterBottom>
         {t.title}
       </Typography>
@@ -97,7 +97,9 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <AuditFilterBar filters={auditFilters} onFiltersChange={handleFiltersChange} />
+        <div data-tour-id="admin-audit-filters">
+          <AuditFilterBar filters={auditFilters} onFiltersChange={handleFiltersChange} />
+        </div>
 
         {auditError && (
           <div

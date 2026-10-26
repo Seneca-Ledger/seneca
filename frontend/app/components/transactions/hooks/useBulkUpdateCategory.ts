@@ -1,9 +1,9 @@
 'use client';
 
-import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { type UseMutationResult, useMutation } from '@tanstack/react-query';
 import api from '@/app/lib/api';
-import { queryKeys } from '@/app/lib/query-keys';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 
 export interface BulkUpdateCategoryVariables {
   txIds: string[];
@@ -11,26 +11,24 @@ export interface BulkUpdateCategoryVariables {
 }
 
 /**
- * Массовая смена категории. Инвалидация по префиксу ['transactions'] заменяет
- * ручной refetch() и заодно обновляет любой другой смонтированный список
- * транзакций, а не только тот, из которого пришёл вызов.
+ * Массовая смена категории. invalidateFinancialData заменяет ручной refetch():
+ * обновляет любой смонтированный список транзакций и всё, что из них
+ * считается (дашборд, отчёты, бюджеты), а не только список, откуда пришёл вызов.
  */
 export function useBulkUpdateCategory(): UseMutationResult<
   unknown,
   Error,
   BulkUpdateCategoryVariables
 > {
-  const queryClient = useQueryClient();
-  const workspaceId = useWorkspaceId();
-
   return useMutation({
-    mutationFn: ({ txIds, categoryId }: BulkUpdateCategoryVariables) =>
-      api.post('/transactions/bulk-update', {
+    mutationFn: async ({ txIds, categoryId }: BulkUpdateCategoryVariables) => {
+      await api.post('/transactions/bulk-update', {
         items: txIds.map(id => ({ id, updates: { categoryId } })),
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.categories(workspaceId) });
+      } satisfies ContractInput<'BulkUpdateRequestBody'>);
+    },
+    // A category moves the row between budgets, reports and the dashboard too.
+    onSuccess: () => {
+      invalidateFinancialData();
     },
   });
 }

@@ -92,7 +92,7 @@ function FilterForm({
 
   return (
     <form
-      className="lumio-ct__filter-form"
+      className="seneca-ct__filter-form"
       onSubmit={event => {
         event.preventDefault();
         submit();
@@ -137,7 +137,7 @@ function FilterForm({
           />
         ) : (
           <input
-            className="lumio-ct__filter-input"
+            className="seneca-ct__filter-input"
             type={type}
             aria-label={currentOp === 'between' ? labels.from : labels.value}
             value={value}
@@ -150,7 +150,7 @@ function FilterForm({
           <CustomDatePicker label={labels.to} value={valueTo || null} onChange={setValueTo} />
         ) : (
           <input
-            className="lumio-ct__filter-input"
+            className="seneca-ct__filter-input"
             type={type}
             aria-label={labels.to}
             value={valueTo}
@@ -170,24 +170,24 @@ export function FilterBar({ columns, filters, onAdd, onRemove, onClear, labels }
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const titleFor = (key: string) => columns.find(c => c.key === key)?.title ?? key;
   return (
-    <div className="lumio-ct__filters">
+    <div className="seneca-ct__filters">
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         type="button"
         onClick={event => setAnchor(event.currentTarget)}
       >
         <Filter size={14} aria-hidden />
         {labels.filter}
-        {filters.length ? <span className="lumio-grid__menu-count">{filters.length}</span> : null}
+        {filters.length ? <span className="seneca-grid__menu-count">{filters.length}</span> : null}
       </Button>
       {filters.map(filter => (
-        <span key={filter.id} className="lumio-ct__filter-chip">
+        <span key={filter.id} className="seneca-ct__filter-chip">
           {titleFor(filter.col)} {labels.operators[filter.op].toLowerCase()}
           {describeValue(filter, labels)}
           <button
             type="button"
-            className="lumio-ct__filter-chip-remove"
+            className="seneca-ct__filter-chip-remove"
             aria-label={`${labels.removeFilter}: ${titleFor(filter.col)}`}
             onClick={() => onRemove(filter.id)}
           >

@@ -1,13 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { type EntityManager, Repository } from 'typeorm';
+import { type EntityManager, type QueryDeepPartialEntity, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import type { CaptureLocation } from '../../common/utils/capture-location.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { normalizePagination } from '../../common/utils/pagination.util';
+import { payeeKeyOf } from '../../common/utils/payee-key.util';
+import { taxLockedConflict } from '../../common/utils/tax-lock.util';
+import { assertWorkspaceOwned } from '../../common/utils/workspace-refs.util';
+import type { ReceiptsQuery } from '../../contracts';
 import {
   Category,
   Receipt,
@@ -16,17 +28,25 @@ import {
   ReceiptSource,
   ReceiptStatus,
   Statement,
+  TaxRate,
   Transaction,
   TransactionType,
+  VatStatus,
+  Workspace,
 } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
-import { TransactionCategorySource } from '../../entities/transaction.entity';
+import { TaxSource, TransactionCategorySource } from '../../entities/transaction.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
-import { ReceiptApprovedEvent } from '../notifications/events/notification-events';
+import { hasDecidedCategory } from '../classification/engine/category-decision';
+import {
+  type ReceiptApprovedEvent,
+  transactionCreatedEvent,
+} from '../notifications/events/notification-events';
+import { resolvePayeeId } from '../payees/payee-resolution';
+import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { TransactionAttachmentsService } from '../transactions/services/transaction-attachments.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
-import { ReceiptQueryDto } from './dto/receipt-query.dto';
 import {
   attachReceiptCategories,
   type ReceiptWithCategory,
@@ -73,6 +93,19 @@ type ScanParams = {
 
 const MANUAL_RECEIPT_WORKER_ID = 'manual-receipt-sync';
 
+/** How an approval settled a receipt. */
+/** What `GET`/`PUT /receipts/:id/tax` answer (contract `ReceiptTax`). */
+export interface ReceiptTaxView {
+  transactionId: string | null;
+  assessable: boolean;
+  locked: boolean;
+  taxRateId: string | null;
+  taxSource: TaxSource | null;
+  taxAmount: number | null;
+}
+
+type ApproveMode = NonNullable<ReceiptApprovedEvent['mode']>;
+
 @Injectable()
 export class ReceiptsService {
   private readonly logger = new Logger(ReceiptsService.name);
@@ -94,6 +127,8 @@ export class ReceiptsService {
     private readonly workspaceCurrency: WorkspaceCurrencyService,
     @Optional()
     private readonly attachmentsService?: TransactionAttachmentsService,
+    @Optional()
+    private readonly taxAssignmentService?: TaxAssignmentService,
   ) {}
 
   async createFromUpload(params: UploadParams): Promise<Receipt> {
@@ -151,7 +186,7 @@ export class ReceiptsService {
     return result;
   }
 
-  async findAll(workspaceId: string, query: ReceiptQueryDto) {
+  async findAll(workspaceId: string, query: ReceiptsQuery) {
     const { page, limit, skip } = normalizePagination(query);
     const where: Record<string, unknown> = { workspaceId };
 
@@ -160,6 +195,9 @@ export class ReceiptsService {
     }
     if (query.status) {
       where.status = query.status;
+    }
+    if (query.statementId) {
+      where.statementId = query.statementId;
     }
 
     const [data, total] = await this.receiptRepository.findAndCount({
@@ -172,13 +210,23 @@ export class ReceiptsService {
     return { data: await this.withCategories(data, workspaceId), total, page, limit };
   }
 
-  async findOne(id: string, workspaceId: string): Promise<ReceiptWithCategory | null> {
+  async findOne(
+    id: string,
+    workspaceId: string,
+  ): Promise<(ReceiptWithCategory & { transactionSplit: boolean }) | null> {
     const receipt = await this.receiptRepository.findOne({ where: { id, workspaceId } });
     if (!receipt) {
       return null;
     }
     const [withCategory] = await this.withCategories([receipt], workspaceId);
-    return withCategory;
+    // Whether the row it documents is split by its items, so the page offers undo.
+    const transaction = receipt.transactionId
+      ? await this.transactionRepository.findOne({
+          where: { id: receipt.transactionId, workspaceId },
+          select: { id: true, splitGroupId: true },
+        })
+      : null;
+    return Object.assign(withCategory, { transactionSplit: Boolean(transaction?.splitGroupId) });
   }
 
   private withCategories(receipts: Receipt[], workspaceId: string): Promise<ReceiptWithCategory[]> {
@@ -200,6 +248,13 @@ export class ReceiptsService {
     if (!receipt) {
       return null;
     }
+    // The category is copied onto the receipt's transaction: one of this workspace's only.
+    await assertWorkspaceOwned(
+      this.receiptRepository.manager,
+      Category,
+      [dto.parsedData?.categoryId as string | null | undefined],
+      workspaceId,
+    );
     const before = this.changedFields(receipt, dto);
 
     if (dto.status) {
@@ -207,10 +262,19 @@ export class ReceiptsService {
     }
 
     if (dto.parsedData) {
+      // Where a category came from is the server's to say, never the client's.
+      const { categorySource: _source, categoryReason: _reason, ...edits } = dto.parsedData;
       receipt.parsedData = {
         ...(receipt.parsedData ?? {}),
-        ...dto.parsedData,
+        ...edits,
       };
+      // A category a person picked on the receipt is theirs, and teaches the payee.
+      if (userId && dto.parsedData.categoryId !== undefined) {
+        receipt.parsedData.categorySource = dto.parsedData.categoryId
+          ? TransactionCategorySource.MANUAL
+          : null;
+        receipt.parsedData.categoryReason = null;
+      }
     }
 
     if (dto.statementId !== undefined) {
@@ -219,6 +283,9 @@ export class ReceiptsService {
 
     const saved = await this.receiptRepository.save(receipt);
     await this.syncStatementCategory(saved, workspaceId);
+    if (dto.parsedData) {
+      await this.syncBookedTransaction(saved, workspaceId, dto.parsedData);
+    }
 
     if (userId) {
       await this.recordAudit({
@@ -236,6 +303,104 @@ export class ReceiptsService {
   }
 
   /**
+   * The tax on the transaction the receipt stands for: the row it was approved
+   * into or attached to, else its scan's row. Null when the receipt is unknown.
+   */
+  async getTax(id: string, workspaceId: string): Promise<ReceiptTaxView | null> {
+    const receipt = await this.receiptRepository.findOne({ where: { id, workspaceId } });
+    if (!receipt) {
+      return null;
+    }
+    return this.taxView(await this.findReceiptTransaction(receipt, workspaceId), workspaceId);
+  }
+
+  /**
+   * Pins the rate a person picked on the receipt to its transaction, or with
+   * null hands the row back to the rules and the workspace default. The figures
+   * are worked out by the tax engine, as for any other row.
+   */
+  async setTax(
+    id: string,
+    workspaceId: string,
+    taxRateId: string | null,
+    userId: string,
+  ): Promise<ReceiptTaxView | null> {
+    const receipt = await this.receiptRepository.findOne({ where: { id, workspaceId } });
+    if (!receipt) {
+      return null;
+    }
+    const target = await this.findReceiptTransaction(receipt, workspaceId);
+    if (!target) {
+      throw new ConflictException(appError('RECEIPT_NO_TRANSACTION_TO_TAX'));
+    }
+    if (target.taxLocked) {
+      throw taxLockedConflict(1);
+    }
+    if (taxRateId) {
+      const owned = await this.transactionRepository.manager
+        .getRepository(TaxRate)
+        .exists({ where: { id: taxRateId, workspaceId } });
+      if (!owned) {
+        throw new NotFoundException(appError('RECEIPT_TAX_RATE_NOT_FOUND'));
+      }
+    }
+
+    const before = { taxRateId: target.taxRateId, taxSource: target.taxSource };
+    await this.transactionRepository.update(
+      { id: target.id, workspaceId, taxLocked: false },
+      taxRateId
+        ? { taxRateId, taxSource: TaxSource.MANUAL }
+        : // Not manual any more, so reassess derives the rate again.
+          { taxRateId: null, taxSource: null },
+    );
+    await this.taxAssignmentService?.reassess(workspaceId, { ids: [target.id] });
+
+    const updated = await this.transactionRepository.findOneOrFail({
+      where: { id: target.id, workspaceId },
+    });
+    await this.recordAudit({
+      workspaceId,
+      actorType: ActorType.USER,
+      actorId: userId,
+      entityType: EntityType.TRANSACTION,
+      entityId: target.id,
+      action: AuditAction.UPDATE,
+      diff: { before, after: { taxRateId: updated.taxRateId, taxSource: updated.taxSource } },
+    });
+    return this.taxView(updated, workspaceId);
+  }
+
+  private async findReceiptTransaction(
+    receipt: Receipt,
+    workspaceId: string,
+  ): Promise<Transaction | null> {
+    return receipt.transactionId
+      ? this.transactionRepository.findOne({ where: { id: receipt.transactionId, workspaceId } })
+      : this.findScanTransaction(this.transactionRepository.manager, receipt, workspaceId);
+  }
+
+  private async taxView(
+    transaction: Transaction | null,
+    workspaceId: string,
+  ): Promise<ReceiptTaxView> {
+    const workspace = await this.transactionRepository.manager.getRepository(Workspace).findOne({
+      where: { id: workspaceId },
+      select: {
+        id: true,
+        vatStatus: true,
+      },
+    });
+    return {
+      transactionId: transaction?.id ?? null,
+      assessable: workspace?.vatStatus === VatStatus.REGISTERED,
+      locked: transaction?.taxLocked ?? false,
+      taxRateId: transaction?.taxRateId ?? null,
+      taxSource: transaction?.taxSource ?? null,
+      taxAmount: transaction?.taxAmount ?? null,
+    };
+  }
+
+  /**
    * A scan receipt is converted into a statement before the user ever opens it,
    * so the statement carries the fallback category picked at conversion time.
    * When the user then picks a category on the receipt, the statement has to
@@ -249,7 +414,9 @@ export class ReceiptsService {
 
     const category = await this.categoryRepository.findOne({
       where: { id: categoryId, workspaceId },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (!category) {
       return;
@@ -272,11 +439,105 @@ export class ReceiptsService {
     // filed under the fallback category picked at conversion time. Statements
     // parsed from a bank file carry unrelated transactions and are left alone.
     if (statement.parsingDetails?.detectedBy === 'receipt-scan') {
+      // Rows on a filed tax return keep the category they were filed under.
       await this.transactionRepository.update(
-        { statementId: statement.id, workspaceId },
-        { categoryId: category.id },
+        { statementId: statement.id, workspaceId, taxLocked: false },
+        {
+          categoryId: category.id,
+          categorySource: receipt.parsedData?.categorySource ?? null,
+          categoryReason: receipt.parsedData?.categoryReason ?? null,
+        },
       );
+      // update() skips the tax subscriber; the new category may carry another rate.
+      await this.taxAssignmentService?.reassess(workspaceId, { statementId: statement.id });
     }
+  }
+
+  /**
+   * Every figure sums transactions, not receipts, so an edit to a receipt has
+   * to reach the row it stands for, or the documents list shows one date and
+   * every number another. The row the receipt booked itself (its scan's row, or
+   * the one approval created) takes every field the edit touched. A scan's row
+   * exists before approval, while the receipt has no transactionId yet: Review
+   * lists it. A row it was attached to (a bank row) keeps the bank's date and
+   * amount and takes only a category picked here. A row filed on a tax return
+   * does not change.
+   */
+  private async syncBookedTransaction(
+    receipt: Receipt,
+    workspaceId: string,
+    edits: Record<string, unknown>,
+  ): Promise<void> {
+    const target = receipt.transactionId
+      ? await this.transactionRepository.findOne({
+          where: { id: receipt.transactionId, workspaceId },
+        })
+      : await this.findScanTransaction(this.transactionRepository.manager, receipt, workspaceId);
+    if (!target || target.taxLocked) {
+      return;
+    }
+
+    if (await this.isBookedByReceipt(receipt, target, workspaceId)) {
+      const touched = Object.keys(edits).some(key => SYNCED_RECEIPT_FIELDS.has(key));
+      if (!touched) {
+        return;
+      }
+      const currency = await this.workspaceCurrency.resolve(workspaceId);
+      const fields = receiptTransactionFields(receipt, workspaceId, currency);
+      await assertWorkspaceOwned(
+        this.transactionRepository.manager,
+        Category,
+        [fields.categoryId],
+        workspaceId,
+      );
+      await this.transactionRepository.update(
+        { id: target.id, workspaceId },
+        {
+          ...scanTransactionUpdate(fields, Boolean(receipt.parsedData?.date)),
+          // update() skips the subscriber: the vendor may have changed.
+          payeeId: await resolvePayeeId(this.transactionRepository.manager, workspaceId, fields),
+        },
+      );
+    } else if (receipt.parsedData?.categoryId && edits.categoryId !== undefined) {
+      await this.transactionRepository.update(
+        { id: target.id, workspaceId },
+        {
+          categoryId: receipt.parsedData.categoryId,
+          categorySource: receipt.parsedData.categorySource ?? null,
+          categoryReason: receipt.parsedData.categoryReason ?? null,
+        },
+      );
+    } else {
+      return;
+    }
+    // update() skips the tax subscriber; the new amount or category may carry another rate.
+    await this.taxAssignmentService?.reassess(workspaceId, { ids: [target.id] });
+  }
+
+  /**
+   * Whether the receipt booked this row itself rather than being attached to an
+   * existing one: the row on its own scan's statement, or a row approval created
+   * (no statement, wallet or crypto wallet; a bank row always has a statement).
+   */
+  private async isBookedByReceipt(
+    receipt: Receipt,
+    target: Transaction,
+    workspaceId: string,
+  ): Promise<boolean> {
+    if (target.statementId) {
+      if (target.statementId !== receipt.statementId) {
+        return false;
+      }
+      const statement = await this.statementRepository.findOne({
+        where: { id: target.statementId, workspaceId },
+        select: {
+          id: true,
+          parsingDetails: true,
+        },
+      });
+      return statement?.parsingDetails?.detectedBy === 'receipt-scan';
+    }
+    return !(target.walletId || target.cryptoWalletId);
   }
 
   async approve(
@@ -305,7 +566,7 @@ export class ReceiptsService {
    * Turns a receipt into its transaction at most once. The receipt row is locked
    * for the duration, so a repeated or concurrent approve finds the transaction
    * the first one made and returns it instead of booking the expense twice.
-   * Every approve path (here and the Gmail receipts endpoints) goes through it;
+   * Every approve path goes through it;
    * `buildTransaction` only decides the new transaction's fields.
    */
   async approveOnce(
@@ -319,6 +580,8 @@ export class ReceiptsService {
     created: boolean;
     /** The receipt was attached to a transaction that already existed: a bank row, or its scan's own. */
     attached: boolean;
+    /** How this call approved it; null when it had been approved before. */
+    mode: ApproveMode | null;
     previousStatus: ReceiptStatus;
   } | null> {
     const result = await this.receiptRepository.manager.transaction(async manager => {
@@ -341,6 +604,7 @@ export class ReceiptsService {
             transaction: existing,
             created: false,
             attached: false,
+            mode: null as ApproveMode | null,
             previousStatus: receipt.status,
           };
         }
@@ -358,32 +622,51 @@ export class ReceiptsService {
       if (attachTo) {
         const target = await transactions.findOne({ where: { id: attachTo, workspaceId } });
         if (!target) {
-          throw new NotFoundException('Transaction to attach to was not found');
+          throw new NotFoundException(appError('RECEIPT_ATTACH_TARGET_NOT_FOUND'));
         }
         const taken = await receipts.findOne({
           where: { transactionId: attachTo, workspaceId },
-          select: ['id'],
+          select: {
+            id: true,
+          },
         });
         if (taken && taken.id !== receipt.id) {
-          throw new ConflictException('Another receipt is already attached to that transaction');
+          throw new ConflictException(appError('RECEIPT_TRANSACTION_TAKEN'));
         }
         // The bank row is the real payment; the transaction the scan booked
         // would count it twice. Flagged, not deleted, like any duplicate.
+        // Flagging the scan row as a duplicate would take it out of a return it
+        // was filed on, and a filed row's category is fixed.
+        if (scanTransaction?.taxLocked && scanTransaction.id !== target.id) {
+          throw taxLockedConflict(1);
+        }
         if (scanTransaction && scanTransaction.id !== target.id) {
           await transactions.update(
             { id: scanTransaction.id, workspaceId },
             { isDuplicate: true, duplicateOfId: target.id },
           );
         }
-        // Approving the receipt confirms the bank row it documents.
+        // Approving the receipt confirms the bank row it documents. As with a
+        // matched entry in YNAB, the receipt's category wins over whatever the
+        // import filled in, but never over one a person or their rule chose.
+        const takesCategory =
+          receipt.parsedData?.categoryId && !hasDecidedCategory(target) && !target.taxLocked;
+        if (takesCategory) {
+          await assertWorkspaceOwned(
+            manager,
+            Category,
+            [receipt.parsedData.categoryId],
+            workspaceId,
+          );
+        }
         await transactions.update(
-          { id: target.id },
-          !target.categoryId && receipt.parsedData?.categoryId
+          { id: target.id, workspaceId },
+          takesCategory
             ? {
                 isVerified: true,
                 categoryId: receipt.parsedData.categoryId,
-                categorySource: TransactionCategorySource.HISTORY,
-                categoryReason: receipt.parsedData.vendor ?? 'receipt',
+                categorySource: receipt.parsedData.categorySource ?? null,
+                categoryReason: receipt.parsedData.categoryReason ?? null,
               }
             : { isVerified: true },
         );
@@ -396,17 +679,28 @@ export class ReceiptsService {
           transaction: target,
           created: false,
           attached: true,
+          mode: (scanTransaction?.id === target.id
+            ? 'confirmed_scan'
+            : 'attached_to_bank_row') as ApproveMode,
           previousStatus,
         };
       }
 
       // A scan booked its transaction at upload; approving confirms it with the
       // receipt as it stands now instead of booking the expense again.
+      if (scanTransaction?.taxLocked) {
+        throw taxLockedConflict(1);
+      }
+      // Whatever the stored or the requested category, it must be one of this workspace's.
+      const fields = buildTransaction(receipt);
+      await assertWorkspaceOwned(manager, Category, [fields.categoryId], workspaceId);
       if (scanTransaction) {
         await transactions.update(
           { id: scanTransaction.id, workspaceId },
           {
-            ...scanTransactionUpdate(buildTransaction(receipt), Boolean(receipt.parsedData?.date)),
+            ...scanTransactionUpdate(fields, Boolean(receipt.parsedData?.date)),
+            // update() skips the subscriber: the vendor may have been corrected since the upload.
+            payeeId: await resolvePayeeId(manager, workspaceId, fields),
             isVerified: true,
           },
         );
@@ -422,32 +716,47 @@ export class ReceiptsService {
           transaction: confirmed,
           created: false,
           attached: true,
+          mode: 'confirmed_scan' as ApproveMode,
           previousStatus,
         };
       }
 
       const transaction = await transactions.save(
-        transactions.create({ ...buildTransaction(receipt), isVerified: true }),
+        transactions.create(withLedgerSides({ ...fields, isVerified: true })),
       );
       const previousStatus = receipt.status;
       receipt.status = ReceiptStatus.APPROVED;
       receipt.transactionId = transaction.id;
       const saved = await receipts.save(receipt);
-      return { receipt: saved, transaction, created: true, attached: false, previousStatus };
+      return {
+        receipt: saved,
+        transaction,
+        created: true,
+        attached: false,
+        mode: 'created' as ApproveMode,
+        previousStatus,
+      };
     });
 
     if (result?.attached) {
       await this.copyFileToTransaction(result.receipt, result.transaction.id, options.userId);
     }
 
-    if (result?.created) {
+    if (result?.mode) {
       this.eventEmitter
         .emitAsync('receipt.approved', {
           workspaceId: result.receipt.workspaceId,
           receiptId: result.receipt.id,
           transactionId: result.transaction.id,
+          mode: result.mode,
         } satisfies ReceiptApprovedEvent)
         .catch(err => this.logger.error('Failed to emit receipt.approved event', err));
+    }
+    if (result?.created) {
+      this.eventEmitter.emit(
+        'transaction.created',
+        transactionCreatedEvent(result.transaction, 'receipt_approval'),
+      );
     }
     return result;
   }
@@ -467,7 +776,10 @@ export class ReceiptsService {
     }
     const statement = await manager.getRepository(Statement).findOne({
       where: { id: receipt.statementId, workspaceId },
-      select: ['id', 'parsingDetails'],
+      select: {
+        id: true,
+        parsingDetails: true,
+      },
     });
     if (statement?.parsingDetails?.detectedBy !== 'receipt-scan') {
       return null;
@@ -483,6 +795,7 @@ export class ReceiptsService {
     userId: string,
     categoryId?: string,
   ) {
+    await assertWorkspaceOwned(this.receiptRepository.manager, Category, [categoryId], workspaceId);
     // Resolved once for the batch: a receipt whose parse found no currency is
     // booked in the workspace's own.
     const workspaceCurrency = await this.workspaceCurrency.resolve(workspaceId);
@@ -699,7 +1012,7 @@ export class ReceiptsService {
       lockedBy: MANUAL_RECEIPT_WORKER_ID,
       payload: {
         integrationId,
-        gmailMessageId: receiptId,
+        messageId: receiptId,
         historyId: language ?? 'auto',
       },
     });
@@ -719,8 +1032,7 @@ export class ReceiptsService {
       userId: params.userId,
       workspaceId: params.workspaceId,
       source: params.source,
-      gmailMessageId: null,
-      gmailThreadId: null,
+      messageId: null,
       subject: params.file.originalname,
       sender:
         params.source === ReceiptSource.SCAN
@@ -794,23 +1106,64 @@ export class ReceiptsService {
     workspaceCurrency: string,
     categoryId?: string,
   ): Partial<Transaction> {
-    const transactionType =
-      receipt.parsedData?.transactionType === 'income'
-        ? TransactionType.INCOME
-        : TransactionType.EXPENSE;
-
-    return {
-      statementId: null,
-      workspaceId,
-      transactionDate: receipt.parsedData?.date ? new Date(receipt.parsedData.date) : new Date(),
-      counterpartyName: receipt.parsedData?.vendor || receipt.subject || 'Unknown',
-      paymentPurpose: receipt.parsedData?.vendor || receipt.subject || '',
-      amount: receipt.parsedData?.amount ?? null,
-      currency: currencyCodeOrDefault(receipt.parsedData?.currency, workspaceCurrency),
-      categoryId: categoryId ?? (receipt.parsedData?.categoryId || null),
-      transactionType,
-    };
+    // Without its own date the expense would be booked on the day it was
+    // approved. Attaching to a bank row needs none: the bank's date stands.
+    if (!receipt.parsedData?.date) {
+      throw new BadRequestException(appError('RECEIPT_DATE_REQUIRED'));
+    }
+    return receiptTransactionFields(receipt, workspaceId, workspaceCurrency, categoryId);
   }
+}
+
+/** The receipt fields that live on the row it booked too, so an edit to one moves the row. */
+const SYNCED_RECEIPT_FIELDS = new Set([
+  'date',
+  'amount',
+  'currency',
+  'vendor',
+  'transactionType',
+  'categoryId',
+]);
+
+/**
+ * The row a receipt books, from its fields as they stand. Without a date the
+ * transaction date is today's; callers that may lack one leave it out
+ * (`scanTransactionUpdate`).
+ */
+function receiptTransactionFields(
+  receipt: Receipt,
+  workspaceId: string,
+  workspaceCurrency: string,
+  categoryId?: string,
+): Partial<Transaction> {
+  const transactionType =
+    receipt.parsedData?.transactionType === 'income'
+      ? TransactionType.INCOME
+      : TransactionType.EXPENSE;
+
+  const counterpartyName = receipt.parsedData?.vendor || receipt.subject || 'Unknown';
+  const paymentPurpose = receipt.parsedData?.vendor || receipt.subject || '';
+  return {
+    statementId: null,
+    workspaceId,
+    transactionDate: receipt.parsedData?.date ? new Date(receipt.parsedData.date) : new Date(),
+    counterpartyName,
+    paymentPurpose,
+    // Set here because a scan's row is confirmed with update(), which skips
+    // the entity hook: the vendor may have been corrected since the upload.
+    payeeKey: payeeKeyOf({ counterpartyName, paymentPurpose }),
+    amount: receipt.parsedData?.amount ?? null,
+    currency: currencyCodeOrDefault(receipt.parsedData?.currency, workspaceCurrency),
+    // A category passed in is the one the person picked while approving.
+    ...(categoryId
+      ? { categoryId, categorySource: TransactionCategorySource.MANUAL, categoryReason: null }
+      : {
+          categoryId: receipt.parsedData?.categoryId || null,
+          categorySource: receipt.parsedData?.categorySource ?? null,
+          categoryReason: receipt.parsedData?.categoryReason ?? null,
+        }),
+    transactionType,
+  };
 }
 
 /** Plain fields of a receipt for the audit diff: no file paths, metadata or relations. */
@@ -837,18 +1190,36 @@ export function receiptAuditSnapshot(receipt: Receipt): Record<string, unknown> 
 function scanTransactionUpdate(
   fields: Partial<Transaction>,
   hasDate: boolean,
-): Partial<Transaction> {
+): QueryDeepPartialEntity<Transaction> {
   const { statementId: _statementId, workspaceId: _workspaceId, transactionDate, ...rest } = fields;
-  const update: Partial<Transaction> = Object.fromEntries(
+  const update: QueryDeepPartialEntity<Transaction> = Object.fromEntries(
     Object.entries(rest).filter(([, value]) => value !== null && value !== undefined),
   );
   if (hasDate) {
     update.transactionDate = transactionDate;
   }
-  if (typeof update.amount === 'number') {
-    const isExpense = update.transactionType !== TransactionType.INCOME;
-    update.debit = isExpense ? update.amount : null;
-    update.credit = isExpense ? null : update.amount;
+  return withLedgerSides(update as Partial<Transaction>) as QueryDeepPartialEntity<Transaction>;
+}
+
+/**
+ * A booked row carries its amount on the side it moves: debit for spending,
+ * credit for income. Every income and spending figure sums those two, so a row
+ * with only an amount would count as nothing. A parse may hand the amount over
+ * as text; it is a number by the time it is stored.
+ */
+function withLedgerSides<T extends Partial<Transaction>>(fields: T): T {
+  if (fields.amount === null || fields.amount === undefined) {
+    return fields;
   }
-  return update;
+  const amount = Math.round(Math.abs(Number(fields.amount)) * 100) / 100;
+  if (!Number.isFinite(amount)) {
+    return fields;
+  }
+  const isExpense = fields.transactionType !== TransactionType.INCOME;
+  return {
+    ...fields,
+    amount,
+    debit: isExpense ? amount : null,
+    credit: isExpense ? null : amount,
+  };
 }

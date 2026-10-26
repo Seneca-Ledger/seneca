@@ -4,17 +4,25 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
-import { type EntityTarget, In, type Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { toMinor } from '../../common/utils/money.util';
+import { taxLockedConflict } from '../../common/utils/tax-lock.util';
 import {
   applyOwnerFilter,
   assertOwnerMemberInWorkspace,
   type OwnerFilter,
 } from '../../common/utils/transaction-owner.util';
 import { redactPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
+import { assertWorkspaceOwned, assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
+import type {
+  BulkUpdateItemInput,
+  SplitPartInput,
+  SplitTransactionBody,
+  UpdateTransactionBody,
+} from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { Branch } from '../../entities/branch.entity';
 import { Category, CategoryType } from '../../entities/category.entity';
@@ -35,9 +43,6 @@ import { ensurePrivateCategory } from '../categories/private-category';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { DataDeletedEvent } from '../notifications/events/notification-events';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
-import type { BulkUpdateItemDto } from './dto/bulk-update-transaction.dto';
-import type { SplitPartDto, SplitTransactionDto } from './dto/split-transaction.dto';
-import type { UpdateTransactionDto } from './dto/update-transaction.dto';
 
 export type TransactionWithConversion = Transaction & {
   convertedAmount?: number;
@@ -68,13 +73,17 @@ export class TransactionsService {
   private async resolveActorName(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
     return user?.name || user?.email || 'User';
   }
 
-  private async invalidateReports(userId: string): Promise<void> {
-    const key = `reports:version:${userId}`;
+  /** Bumps the version the cached reports are keyed by; they are keyed by workspace. */
+  private async invalidateReports(workspaceId: string): Promise<void> {
+    const key = `reports:version:${workspaceId}`;
     await this.cacheManager.set(key, Date.now().toString(), 0);
   }
 
@@ -113,6 +122,7 @@ export class TransactionsService {
       .leftJoinAndSelect('transaction.category', 'category')
       .leftJoinAndSelect('transaction.branch', 'branch')
       .leftJoinAndSelect('transaction.wallet', 'wallet')
+      .leftJoinAndSelect('transaction.payee', 'payee')
       .leftJoinAndSelect('transaction.reimbursementOf', 'reimbursementOf');
 
     applyOwnerFilter(query, 'transaction', filters.owner ?? { kind: 'all' });
@@ -157,7 +167,13 @@ export class TransactionsService {
     const limit = filters.limit || 50;
     const skip = (page - 1) * limit;
 
-    query.orderBy('transaction.transactionDate', 'DESC').skip(skip).take(limit);
+    // Same-day rows keep one order across pages, the one the running balance follows.
+    query
+      .orderBy('transaction.transactionDate', 'DESC')
+      .addOrderBy('transaction.createdAt', 'DESC')
+      .addOrderBy('transaction.id', 'DESC')
+      .skip(skip)
+      .take(limit);
 
     const [rows, total] = await query.getManyAndCount();
     const rawData = redactPrivateRows(rows, viewerMemberId);
@@ -193,11 +209,16 @@ export class TransactionsService {
   async findOne(id: string, workspaceId: string): Promise<Transaction> {
     const transaction = await this.transactionRepository.findOne({
       where: { id, workspaceId },
-      relations: ['category', 'branch', 'wallet'],
+      relations: {
+        category: true,
+        branch: true,
+        wallet: true,
+        payee: true,
+      },
     });
 
     if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
 
     return transaction;
@@ -220,12 +241,12 @@ export class TransactionsService {
    * counterparty spelling — stays editable, so locking does not turn the row
    * into a museum piece.
    */
-  private assertTaxEditable(transaction: Transaction, updateDto: UpdateTransactionDto): void {
+  private assertTaxEditable(transaction: Transaction, updateDto: UpdateTransactionBody): void {
     if (!transaction.taxLocked) {
       return;
     }
 
-    const frozen: Array<keyof UpdateTransactionDto> = [
+    const frozen: Array<keyof UpdateTransactionBody> = [
       'amount',
       'debit',
       'credit',
@@ -242,7 +263,7 @@ export class TransactionsService {
     const attempted = frozen.filter(field => updateDto[field] !== undefined);
     if (attempted.length > 0) {
       throw new BadRequestException(
-        `Cannot change ${attempted.join(', ')} on a transaction that is part of a filed tax return. Reopen the return first.`,
+        appError('TRANSACTION_TAX_LOCKED_FIELDS', { fields: attempted.join(', ') }),
       );
     }
   }
@@ -251,7 +272,7 @@ export class TransactionsService {
     id: string,
     workspaceId: string,
     userId: string,
-    updateDto: UpdateTransactionDto,
+    updateDto: UpdateTransactionBody,
     batchId?: string | null,
     viewerMemberId: string | null = null,
   ): Promise<Transaction> {
@@ -315,7 +336,7 @@ export class TransactionsService {
     }
 
     const saved = await this.transactionRepository.save(transaction);
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     // Audit: capture transaction update with before/after snapshot.
     await this.auditService.createEvent({
@@ -351,7 +372,7 @@ export class TransactionsService {
    */
   private async applyPrivacy(
     transaction: Transaction,
-    updateDto: UpdateTransactionDto,
+    updateDto: UpdateTransactionBody,
     viewerMemberId: string | null,
   ): Promise<boolean> {
     if (updateDto.isPrivate === undefined || updateDto.isPrivate === transaction.isPrivate) {
@@ -390,7 +411,7 @@ export class TransactionsService {
   async bulkUpdate(
     workspaceId: string,
     userId: string,
-    items: BulkUpdateItemDto[],
+    items: BulkUpdateItemInput[],
     viewerMemberId: string | null = null,
   ): Promise<Transaction[]> {
     await this.ensureCanEditStatements(userId, workspaceId);
@@ -414,7 +435,7 @@ export class TransactionsService {
     }
 
     if (updatedTransactions.length > 0) {
-      await this.invalidateReports(userId);
+      await this.invalidateReports(workspaceId);
     }
 
     return updatedTransactions;
@@ -424,44 +445,16 @@ export class TransactionsService {
     return Math.round(value * 100) / 100;
   }
 
-  /**
-   * Rejects an id that belongs to another workspace before it is written onto a
-   * transaction. `@IsUUID()` on the DTO only proves the shape of the string, so
-   * without this a caller can point their own row at another tenant's category,
-   * branch or wallet — whose name then comes back to them through the
-   * `relations` loads in `findOne` / `getSplitParts`.
-   *
-   * ponytail: app-level check; a composite FK on (id, workspace_id) would
-   * enforce it in the database, but that needs a migration over existing rows.
-   */
-  private async assertWorkspaceOwned(
-    entity: EntityTarget<{ id: string; workspaceId: string }>,
-    ids: Array<string | null | undefined>,
-    workspaceId: string,
-  ): Promise<void> {
-    const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
-    if (unique.length === 0) {
-      return;
-    }
-
-    const found = await this.transactionRepository.manager
-      .getRepository(entity)
-      .countBy({ id: In(unique), workspaceId });
-
-    if (found !== unique.length) {
-      throw new NotFoundException('Referenced record not found in this workspace');
-    }
-  }
-
   /** Every workspace-scoped reference an update body can carry. */
   private assertWorkspaceOwnedRefs(
-    updateDto: Pick<UpdateTransactionDto, 'categoryId' | 'branchId' | 'walletId' | 'ownerMemberId'>,
+    updateDto: Pick<
+      UpdateTransactionBody,
+      'categoryId' | 'branchId' | 'walletId' | 'ownerMemberId'
+    >,
     workspaceId: string,
   ): Promise<unknown> {
     return Promise.all([
-      this.assertWorkspaceOwned(Category, [updateDto.categoryId], workspaceId),
-      this.assertWorkspaceOwned(Branch, [updateDto.branchId], workspaceId),
-      this.assertWorkspaceOwned(Wallet, [updateDto.walletId], workspaceId),
+      assertWorkspaceRefs(this.transactionRepository.manager, workspaceId, updateDto),
       assertOwnerMemberInWorkspace(
         this.workspaceMemberRepository,
         workspaceId,
@@ -498,6 +491,8 @@ export class TransactionsService {
       exchangeRate: source.exchangeRate,
       paymentPurpose: source.paymentPurpose,
       categoryId: source.categoryId,
+      categorySource: source.categorySource,
+      categoryReason: source.categoryReason,
       // The rate carries over, but never the assessed figures: those belong to
       // the pre-split amount, and copying them onto each part would multiply
       // the transaction's tax by the number of parts. `split()` re-assesses
@@ -529,39 +524,39 @@ export class TransactionsService {
    * Called twice: once outside the DB transaction as a cheap fast path, and again
    * on the locked row, which is the read the parts are actually derived from.
    */
-  private assertSplittable(transaction: Transaction, dto: SplitTransactionDto): number {
+  private assertSplittable(transaction: Transaction, dto: SplitTransactionBody): number {
     if (transaction.splitGroupId) {
-      throw new BadRequestException('Transaction is already part of a split');
+      throw new BadRequestException(appError('TRANSACTION_ALREADY_SPLIT'));
     }
 
     // A duplicate-flagged row is excluded from dashboards and reports. Splitting it
     // would produce siblings that default to isDuplicate=false, so the sibling
     // amounts would reappear in those totals. Refuse instead.
     if (transaction.isDuplicate) {
-      throw new BadRequestException('Cannot split a transaction marked as a duplicate');
+      throw new BadRequestException(appError('TRANSACTION_SPLIT_DUPLICATE'));
     }
 
     // A locked row has already been reported on a filed return. Splitting it
     // re-assesses the tax across the parts, which would change figures that
     // have been submitted to a tax authority.
     if (transaction.taxLocked) {
-      throw new BadRequestException(
-        'Cannot split a transaction that is part of a filed tax return',
-      );
+      throw new BadRequestException(appError('TRANSACTION_SPLIT_TAX_LOCKED'));
     }
 
     const total = Number(
       transaction.amount ?? transaction.debit ?? transaction.credit ?? Number.NaN,
     );
     if (!Number.isFinite(total) || total <= 0) {
-      throw new BadRequestException('Cannot split a transaction without a positive amount');
+      throw new BadRequestException(appError('TRANSACTION_SPLIT_NOT_POSITIVE'));
     }
 
     const partsTotal = this.round2(dto.parts.reduce((sum, part) => sum + Number(part.amount), 0));
     // Round the drift too: |99.99 - 100| is 0.010000000000005 in binary floating
     // point, which would reject the very boundary the tolerance exists to accept.
     if (this.round2(Math.abs(partsTotal - total)) > 0.01) {
-      throw new BadRequestException(`Split parts must sum to ${total}, received ${partsTotal}`);
+      throw new BadRequestException(
+        appError('TRANSACTION_SPLIT_SUM_MISMATCH', { total, received: partsTotal }),
+      );
     }
 
     return total;
@@ -577,7 +572,7 @@ export class TransactionsService {
   private allocateParts(
     total: number,
     foreignTotal: number | null,
-    parts: SplitPartDto[],
+    parts: SplitPartInput[],
   ): { amounts: number[]; foreignAmounts: (number | null)[] } {
     const amounts = parts.map(part => this.round2(Number(part.amount)));
     const lastIndex = amounts.length - 1;
@@ -591,7 +586,7 @@ export class TransactionsService {
     if (foreignTotal !== null) {
       foreignAmounts[lastIndex] = this.round2(
         foreignTotal -
-          foreignAmounts.slice(0, lastIndex).reduce((sum, value) => sum + (value ?? 0), 0),
+          foreignAmounts.slice(0, lastIndex).reduce<number>((sum, value) => sum + (value ?? 0), 0),
       );
     }
 
@@ -609,11 +604,12 @@ export class TransactionsService {
     id: string,
     workspaceId: string,
     userId: string,
-    dto: SplitTransactionDto,
+    dto: SplitTransactionBody,
   ): Promise<Transaction[]> {
     await this.ensureCanEditStatements(userId, workspaceId);
     const original = await this.findOne(id, workspaceId);
-    await this.assertWorkspaceOwned(
+    await assertWorkspaceOwned(
+      this.transactionRepository.manager,
       Category,
       dto.parts.map(part => part.categoryId),
       workspaceId,
@@ -637,7 +633,7 @@ export class TransactionsService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!locked) {
-        throw new NotFoundException('Transaction not found');
+        throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
       }
 
       const total = this.assertSplittable(locked, dto);
@@ -667,7 +663,11 @@ export class TransactionsService {
         row.fingerprint = null;
 
         // Per-part override, else keep what the row already inherited.
-        row.categoryId = part.categoryId ?? row.categoryId;
+        if (part.categoryId && part.categoryId !== row.categoryId) {
+          row.categoryId = part.categoryId;
+          row.categorySource = TransactionCategorySource.MANUAL;
+          row.categoryReason = null;
+        }
         row.paymentPurpose = part.paymentPurpose ?? row.paymentPurpose;
         row.comments = part.comments ?? row.comments;
 
@@ -701,7 +701,7 @@ export class TransactionsService {
       return rows;
     });
 
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     await this.auditService.createEvent({
       workspaceId,
@@ -731,7 +731,12 @@ export class TransactionsService {
     return this.transactionRepository.find({
       // Same relations as findOne, so a caller gets one shape either way.
       where: { workspaceId, splitGroupId: transaction.splitGroupId },
-      relations: ['category', 'branch', 'wallet'],
+      relations: {
+        category: true,
+        branch: true,
+        wallet: true,
+        payee: true,
+      },
       order: { splitIndex: 'ASC' },
     });
   }
@@ -753,7 +758,7 @@ export class TransactionsService {
     // transaction and taking row locks. The authoritative read is the locked one.
     const target = await this.findOne(id, workspaceId);
     if (!target.splitGroupId) {
-      throw new BadRequestException('Transaction is not part of a split');
+      throw new BadRequestException(appError('TRANSACTION_NOT_SPLIT'));
     }
     const splitGroupId = target.splitGroupId;
 
@@ -780,7 +785,13 @@ export class TransactionsService {
       // waited for the lock. A single part is a group that lost its siblings some
       // other way; clearing its markers below is the right repair either way.
       if (parts.length === 0) {
-        throw new BadRequestException('Transaction is not part of a split');
+        throw new BadRequestException(appError('TRANSACTION_NOT_SPLIT'));
+      }
+
+      // Folding the parts back deletes all but one, and a part on a filed
+      // return may not disappear from under it.
+      if (parts.some(part => part.taxLocked)) {
+        throw new BadRequestException(appError('TRANSACTION_UNSPLIT_TAX_LOCKED'));
       }
 
       before = parts.map(part => ({ ...part }));
@@ -795,9 +806,7 @@ export class TransactionsService {
       // sides are distinguishable. Checked on the locked rows: the flag may have
       // landed after the unlocked read.
       if (parts.some(part => part.isDuplicate)) {
-        throw new BadRequestException(
-          'Cannot unsplit a group containing a transaction marked as a duplicate',
-        );
+        throw new BadRequestException(appError('TRANSACTION_UNSPLIT_DUPLICATE'));
       }
 
       const [survivor, ...rest] = parts;
@@ -870,7 +879,7 @@ export class TransactionsService {
       return saved;
     });
 
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     await this.auditService.createEvent({
       workspaceId,
@@ -897,10 +906,13 @@ export class TransactionsService {
   async remove(id: string, workspaceId: string, userId: string): Promise<void> {
     await this.ensureCanEditStatements(userId, workspaceId);
     const transaction = await this.findOne(id, workspaceId);
+    if (transaction.taxLocked) {
+      throw taxLockedConflict(1);
+    }
     // Use delete for simplicity; entity already validated for ownership.
 
     await this.transactionRepository.delete(transaction.id);
-    await this.invalidateReports(userId);
+    await this.invalidateReports(workspaceId);
 
     // Audit: record deletion for potential rollback.
     await this.auditService.createEvent({

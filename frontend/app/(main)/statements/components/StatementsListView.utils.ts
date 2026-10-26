@@ -1,9 +1,7 @@
-/* eslint-disable max-lines */
-
 import { resolveBankLogo } from '@bank-logos';
-import { getIntlayer } from 'react-intlayer';
+import { getCachedIntlayer } from '@/app/i18n';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
-import { resolveLabel } from '@/app/lib/side-panel-utils';
 import type { StatementCategoryNode } from '@/app/lib/statement-categories';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import {
@@ -16,6 +14,7 @@ import {
   getVisibleFilterScreens,
   resetHiddenStatementFilters,
   type StatementFilterScreen,
+  type StatementsQueryParams,
   serializeStatementFiltersToQuery,
 } from './filters/server-statement-filters';
 import type { StatementFilters } from './filters/statement-filters';
@@ -102,7 +101,7 @@ export type FilterOptionLabels = {
   paid: string;
 };
 
-const UI_ONLY_BANK_FILTER_IDS = new Set(['bank:receipt', 'bank:gmail']);
+const UI_ONLY_BANK_FILTER_IDS = new Set(['bank:receipt']);
 
 // ---------------------------------------------------------------------------
 // Structural types used by helper functions below.
@@ -129,19 +128,7 @@ export type StatementLike = {
   statementDateTo?: string | null;
   receivedAt?: string;
   createdAt?: string;
-  parsingDetails?: {
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: { currencyDisplay?: string };
-    };
-    importPreview?: {
-      source?: string;
-      attachments?: number;
-      description?: string;
-      merchant?: string;
-      categoryId?: string;
-    };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 export type DuplicateGroupTone = 'sky' | 'blue' | 'indigo' | 'slate' | 'zinc' | 'stone';
@@ -152,12 +139,7 @@ export type StatementCategoryWithEnabled = StatementCategoryNode & {
 };
 
 type ReceiptDerivedStatementCandidate = {
-  parsingDetails?: {
-    detectedBy?: string;
-    importPreview?: {
-      source?: string;
-    };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 };
 
 type StatementViewCandidate = {
@@ -181,22 +163,19 @@ export const isStatementParsingInProgress = (statement: Pick<StatementLike, 'sta
 export const isReceiptProcessing = (
   statement: Pick<StatementLike, 'source' | 'status'>,
 ): boolean => {
-  if (statement.source !== 'gmail' && statement.source !== 'scan') {
+  if (statement.source !== 'scan') {
     return false;
   }
   const status = (statement.status || '').toLowerCase();
   return status === 'new' || status === 'processing';
 };
 
-export const isGmailStatement = (statement: Pick<StatementLike, 'source'>): boolean =>
-  statement.source === 'gmail';
-
 export const isScanReceiptStatement = (statement: Pick<StatementLike, 'source'>): boolean =>
   statement.source === 'scan';
 
 export const isStoreReceiptStatement = (
   statement: Pick<StatementLike, 'source' | 'receiptSource'>,
-): boolean => statement.source === 'scan' && statement.receiptSource !== 'gmail';
+): boolean => statement.source === 'scan';
 
 // ---------------------------------------------------------------------------
 // Statement formatting helpers
@@ -205,12 +184,9 @@ export const isStoreReceiptStatement = (
 type StatementCurrencyLike = {
   parsedData?: { currency?: string };
   currency?: string | null;
-  parsingDetails?: {
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 };
 
-// eslint-disable-next-line complexity
 export const resolveStatementCurrency = (statement: StatementCurrencyLike): string =>
   (
     statement.parsedData?.currency ||
@@ -228,9 +204,8 @@ export const parseAmountValue = (value?: number | string | null): number | null 
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-// eslint-disable-next-line complexity
 export const formatStatementAmount = (statement: StatementLike): string => {
-  if (statement.source === 'gmail' || statement.source === 'scan') {
+  if (statement.source === 'scan') {
     const amount = parseAmountValue(statement.parsedData?.amount ?? null);
     if (amount === null) {
       return '-';
@@ -266,19 +241,13 @@ export const formatStatementAmount = (statement: StatementLike): string => {
   return `${formatted}${currency || ''}`;
 };
 
-const resolveReceiptDateValue = (statement: StatementLike): string => {
-  // Scan receipts: use upload time so newly uploaded items appear at the top.
-  // Gmail receipts: use parsed transaction date (close to received date).
-  if (statement.source === 'scan') {
-    return statement.receivedAt || statement.createdAt || statement.parsedData?.date || '';
-  }
-  return statement.parsedData?.date || statement.receivedAt || statement.createdAt || '';
-};
+// Receipts use upload time so newly uploaded items appear at the top.
+const resolveReceiptDateValue = (statement: StatementLike): string =>
+  statement.receivedAt || statement.createdAt || statement.parsedData?.date || '';
 
-// eslint-disable-next-line complexity
 export const formatStatementDate = (statement: StatementLike): string => {
   const dateValue =
-    statement.source === 'gmail' || statement.source === 'scan'
+    statement.source === 'scan'
       ? resolveReceiptDateValue(statement)
       : statement.statementDateTo || statement.statementDateFrom || statement.createdAt || '';
   if (!dateValue) {
@@ -291,10 +260,9 @@ export const formatStatementDate = (statement: StatementLike): string => {
   return formatStoredDate(date);
 };
 
-// eslint-disable-next-line complexity
 export const resolveStatementSortDate = (statement: StatementLike): number => {
   const dateValue =
-    statement.source === 'gmail' || statement.source === 'scan'
+    statement.source === 'scan'
       ? resolveReceiptDateValue(statement)
       : statement.statementDateTo || statement.statementDateFrom || statement.createdAt || '';
   const date = dateValue ? new Date(dateValue) : null;
@@ -317,7 +285,8 @@ export const getBankDisplayName = (bankName: string): string => {
 // ---------------------------------------------------------------------------
 
 /** Module-level helpers cannot use hooks; read the dictionary for the cookie locale. */
-const listUiText = () => getIntlayer('statementsListUi', readLocaleFromCookie() ?? DEFAULT_LOCALE);
+const listUiText = () =>
+  getCachedIntlayer('statementsListUi', readLocaleFromCookie() ?? DEFAULT_LOCALE);
 
 export const toDuplicateGroupLabel = (index: number): string => {
   let current = index + 1;
@@ -348,16 +317,14 @@ export const getBulkActionErrorOptions = (id: string): { id: string } => ({ id }
 export const getExportEndpoint = (
   statement: Pick<StatementLike, 'id' | 'source' | 'receiptSource'>,
 ): string =>
-  statement.source === 'gmail' || isScanReceiptStatement(statement)
+  isScanReceiptStatement(statement)
     ? `/receipts/${statement.id}/file`
     : `/statements/${statement.id}/file`;
 
 export const getDeleteEndpoint = (
   statement: Pick<StatementLike, 'id' | 'source' | 'receiptSource'>,
 ): string =>
-  statement.source === 'gmail' || isScanReceiptStatement(statement)
-    ? `/receipts/${statement.id}`
-    : `/statements/${statement.id}`;
+  isScanReceiptStatement(statement) ? `/receipts/${statement.id}` : `/statements/${statement.id}`;
 
 // ---------------------------------------------------------------------------
 // Category helpers
@@ -378,21 +345,27 @@ export const filterEnabledCategories = (
 // Existing helpers (unchanged)
 // ---------------------------------------------------------------------------
 
+/** A chart's merchant and period, sent with its deep link. */
+export type RowsFilter = Pick<
+  StatementsQueryParams,
+  'merchant' | 'transactionsFrom' | 'transactionsTo'
+>;
+
 export const buildStatementRequestParams = ({
   appliedFilters,
   categoryId,
+  rowsFilter,
   search,
 }: {
   appliedFilters: StatementFilters;
   categoryId?: string | null;
+  /** A merchant, and the window the category's or merchant's rows must fall in. */
+  rowsFilter?: RowsFilter | null;
   search?: string;
-}): Record<string, unknown> => {
+}): StatementsQueryParams => {
   const serverSafeFilters: StatementFilters = {
     ...appliedFilters,
-    type:
-      appliedFilters.type === 'receipt' || appliedFilters.type === 'gmail'
-        ? null
-        : appliedFilters.type,
+    type: appliedFilters.type === 'receipt' ? null : appliedFilters.type,
     from: appliedFilters.from.filter(value => !UI_ONLY_BANK_FILTER_IDS.has(value.toLowerCase())),
     to: appliedFilters.to.filter(value => !UI_ONLY_BANK_FILTER_IDS.has(value.toLowerCase())),
   };
@@ -400,6 +373,7 @@ export const buildStatementRequestParams = ({
   return {
     ...serializeStatementFiltersToQuery(serverSafeFilters),
     ...(categoryId ? { categoryId } : {}),
+    ...(rowsFilter ?? {}),
     ...(search ? { search } : {}),
   };
 };
@@ -414,10 +388,6 @@ export const isReceiptDerivedStatement = (statement: ReceiptDerivedStatementCand
 export const resolveStatementViewAction = (
   statement: StatementViewCandidate,
 ): StatementViewAction => {
-  if (statement.source === 'gmail') {
-    return { type: 'route', href: `/storage/gmail-receipts/${statement.id}` };
-  }
-
   if (statement.source === 'scan') {
     return { type: 'route', href: `/storage/receipts/${statement.id}` };
   }
@@ -452,6 +422,41 @@ export const resolvePendingReview = (
     return SETTLED_RECEIPT_STATUSES.has(document.status) ? 0 : 1;
   }
   return statementReviewCounts[document.id] ?? 0;
+};
+
+const PARSED_STATEMENT_STATUSES = new Set(['completed', 'parsed', 'validated']);
+
+/**
+ * The Approved column: a person has confirmed the document. A receipt once it
+ * is approved; a statement once its file is parsed and none of its rows still
+ * waits in Review. A receipt's status is the receipt's own, never a parse status.
+ */
+export const isDocumentApproved = (
+  status: string,
+  isReceipt: boolean,
+  pendingReview: number,
+): boolean => {
+  const normalized = status.toLowerCase();
+  if (isReceipt) {
+    return normalized === 'approved';
+  }
+  return PARSED_STATEMENT_STATUSES.has(normalized) && pendingReview === 0;
+};
+
+/** The Approved filter, by the same rule as the Approved column. */
+export const filterByApproved = <T extends { id: string; status: string; source?: string }>(
+  documents: T[],
+  approved: boolean | null,
+  statementReviewCounts: Record<string, number>,
+): T[] => {
+  if (approved === null) {
+    return documents;
+  }
+  return documents.filter(document => {
+    const isReceipt = document.source === 'scan';
+    const pending = resolvePendingReview(document, isReceipt, statementReviewCounts);
+    return isDocumentApproved(document.status, isReceipt, pending) === approved;
+  });
 };
 
 export const paginateStatements = <T>(statements: T[], page: number, pageSize: number): T[] => {
@@ -506,113 +511,109 @@ export const reconcileFiltersWithColumns = ({
 // Label builder helpers (extracted from StatementsListView for reuse)
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IntlayerDict = any;
-type TxFn = (path: string[], fallback: string) => string;
+type TxFn = (path: string[]) => string;
 
-// eslint-disable-next-line complexity
 export const buildFilterLabels = (t: IntlayerDict): FilterLabels => ({
-  type: resolveLabel(t.filters?.type, 'Type'),
-  status: resolveLabel(t.filters?.status, 'Status'),
-  date: resolveLabel(t.filters?.date, 'Date'),
-  from: resolveLabel(t.filters?.from, 'From'),
-  filters: resolveLabel(t.filters?.filters, 'Filters'),
-  columns: resolveLabel(t.filters?.columns, 'Columns'),
+  type: t.filters.type.value,
+  status: t.filters.status.value,
+  date: t.filters.date.value,
+  from: t.filters.from.value,
+  filters: t.filters.filters.value,
+  columns: t.filters.columns.value,
 });
 
-// eslint-disable-next-line complexity
 export const buildListHeaderLabels = (t: IntlayerDict): Record<string, string> => ({
-  receipt: resolveLabel(t.listHeader?.receipt, 'Receipt'),
-  type: resolveLabel(t.listHeader?.type, 'Type'),
-  date: resolveLabel(t.listHeader?.date, 'Date'),
-  merchant: resolveLabel(t.listHeader?.merchant, 'Merchant'),
-  amount: resolveLabel(t.listHeader?.amount, 'Amount'),
-  action: resolveLabel(t.listHeader?.action, 'Action'),
-  scanning: resolveLabel(t.listHeader?.scanning, 'Scanning...'),
+  receipt: t.listHeader.receipt.value,
+  type: t.listHeader.type.value,
+  date: t.listHeader.date.value,
+  merchant: t.listHeader.merchant.value,
+  amount: t.listHeader.amount.value,
+  action: t.listHeader.action.value,
+  scanning: t.listHeader.scanning.value,
 });
 
 export const buildPaginationLabels = (tx: TxFn): Record<string, string> => ({
-  shown: tx(['pagination', 'shown'], 'Showing {from}–{to} of {count}'),
-  previous: tx(['pagination', 'previous'], 'Previous'),
-  next: tx(['pagination', 'next'], 'Next'),
-  pageOf: tx(['pagination', 'pageOf'], 'Page {page} of {count}'),
+  shown: tx(['pagination', 'shown']),
+  previous: tx(['pagination', 'previous']),
+  next: tx(['pagination', 'next']),
+  pageOf: tx(['pagination', 'pageOf']),
 });
 
 export const buildUploadLabels = (t: IntlayerDict): StatementUploadLabels => ({
-  pickAtLeastOne: resolveLabel(t.uploadModal?.pickAtLeastOne, 'Select at least one file'),
-  uploadedProcessing: resolveLabel(t.uploadModal?.uploadedProcessing, 'Files uploaded'),
-  uploadFailed: resolveLabel(t.uploadModal?.uploadFailed, 'Failed to upload files'),
+  pickAtLeastOne: t.uploadModal.pickAtLeastOne.value,
+  uploadedProcessing: t.uploadModal.uploadedProcessing.value,
+  uploadFailed: t.uploadModal.uploadFailed.value,
 });
 
-// eslint-disable-next-line max-lines-per-function
 export const buildFilterOptionLabels = (_t: IntlayerDict, tx: TxFn): FilterOptionLabels => ({
-  apply: tx(['filters', 'apply'], 'Apply'),
-  reset: tx(['filters', 'reset'], 'Reset'),
-  resetFilters: tx(['filters', 'resetFilters'], 'Reset filters'),
-  viewResults: tx(['filters', 'viewResults'], 'View results'),
-  save: tx(['filters', 'save'], 'Save'),
-  saveSearch: tx(['filters', 'saveSearch'], 'Save search'),
-  any: tx(['filters', 'any'], 'Any'),
-  yes: tx(['filters', 'yes'], 'Yes'),
-  no: tx(['filters', 'no'], 'No'),
-  typeExpense: tx(['filters', 'typeExpense'], 'Expense'),
-  typeReport: tx(['filters', 'typeReport'], 'Expense Report'),
-  typeChat: tx(['filters', 'typeChat'], 'Chat'),
-  typeTrip: tx(['filters', 'typeTrip'], 'Trip'),
-  typeTask: tx(['filters', 'typeTask'], 'Task'),
-  typeImage: tx(['filters', 'typeImage'], 'Image'),
-  statusUploaded: tx(['filters', 'statusUploaded'], 'Uploaded'),
-  statusProcessing: tx(['filters', 'statusProcessing'], 'Processing'),
-  statusParsed: tx(['filters', 'statusParsed'], 'Parsed'),
-  statusValidated: tx(['filters', 'statusValidated'], 'Validated'),
-  statusCompleted: tx(['filters', 'statusCompleted'], 'Completed'),
-  statusError: tx(['filters', 'statusError'], 'Error'),
-  dateThisMonth: tx(['filters', 'dateThisMonth'], 'This month'),
-  dateLastMonth: tx(['filters', 'dateLastMonth'], 'Last month'),
-  dateYearToDate: tx(['filters', 'dateYearToDate'], 'Year to date'),
-  dateOn: tx(['filters', 'dateOn'], 'On'),
-  dateAfter: tx(['filters', 'dateAfter'], 'After'),
-  dateBefore: tx(['filters', 'dateBefore'], 'Before'),
-  drawerTitle: tx(['filters', 'drawerTitle'], 'Filters'),
-  drawerGeneral: tx(['filters', 'drawerGeneral'], 'General'),
-  drawerExpenses: tx(['filters', 'drawerExpenses'], 'Expenses'),
-  drawerReports: tx(['filters', 'drawerReports'], 'Reports'),
-  drawerGroupBy: tx(['filters', 'drawerGroupBy'], 'Group by'),
-  drawerHas: tx(['filters', 'drawerHas'], 'Has'),
-  drawerKeywords: tx(['filters', 'drawerKeywords'], 'Keywords'),
-  drawerLimit: tx(['filters', 'drawerLimit'], 'Limit'),
-  drawerTo: tx(['filters', 'drawerTo'], 'To'),
-  drawerAmount: tx(['filters', 'drawerAmount'], 'Amount'),
-  drawerApproved: tx(['filters', 'drawerApproved'], 'Approved'),
-  drawerBillable: tx(['filters', 'drawerBillable'], 'Billable'),
-  groupByDate: tx(['filters', 'groupByDate'], 'Date'),
-  groupByStatus: tx(['filters', 'groupByStatus'], 'Status'),
-  groupByType: tx(['filters', 'groupByType'], 'Type'),
-  groupByBank: tx(['filters', 'groupByBank'], 'Bank'),
-  groupByUser: tx(['filters', 'groupByUser'], 'User'),
-  groupByAmount: tx(['filters', 'groupByAmount'], 'Amount'),
-  hasErrors: tx(['filters', 'hasErrors'], 'Errors'),
-  hasLogs: tx(['filters', 'hasLogs'], 'Logs'),
-  hasTransactions: tx(['filters', 'hasTransactions'], 'Transactions'),
-  hasDateRange: tx(['filters', 'hasDateRange'], 'Date range'),
-  hasCurrency: tx(['filters', 'hasCurrency'], 'Currency'),
-  columnReceipt: tx(['filters', 'columnReceipt'], 'Receipt'),
-  columnDate: tx(['filters', 'columnDate'], 'Date'),
-  columnMerchant: tx(['filters', 'columnMerchant'], 'Merchant'),
-  columnFrom: tx(['filters', 'columnFrom'], 'From'),
-  columnTo: tx(['filters', 'columnTo'], 'To'),
-  columnCategory: tx(['filters', 'columnCategory'], 'Category'),
-  columnTag: tx(['filters', 'columnTag'], 'Tag'),
-  columnAmount: tx(['filters', 'columnAmount'], 'Amount'),
-  columnAction: tx(['filters', 'columnAction'], 'Action'),
-  columnApproved: tx(['filters', 'columnApproved'], 'Approved'),
-  columnBillable: tx(['filters', 'columnBillable'], 'Billable'),
-  columnCard: tx(['filters', 'columnCard'], 'Card'),
-  columnDescription: tx(['filters', 'columnDescription'], 'Description'),
-  columnExchangeRate: tx(['filters', 'columnExchangeRate'], 'Exchange rate'),
-  columnExported: tx(['filters', 'columnExported'], 'Exported'),
-  columnsTitle: tx(['filters', 'columnsTitle'], 'Columns'),
-  paid: tx(['filters', 'paid'], 'Paid'),
+  apply: tx(['filters', 'apply']),
+  reset: tx(['filters', 'reset']),
+  resetFilters: tx(['filters', 'resetFilters']),
+  viewResults: tx(['filters', 'viewResults']),
+  save: tx(['filters', 'save']),
+  saveSearch: tx(['filters', 'saveSearch']),
+  any: tx(['filters', 'any']),
+  yes: tx(['filters', 'yes']),
+  no: tx(['filters', 'no']),
+  typeExpense: tx(['filters', 'typeExpense']),
+  typeReport: tx(['filters', 'typeReport']),
+  typeChat: tx(['filters', 'typeChat']),
+  typeTrip: tx(['filters', 'typeTrip']),
+  typeTask: tx(['filters', 'typeTask']),
+  typeImage: tx(['filters', 'typeImage']),
+  statusUploaded: tx(['filters', 'statusUploaded']),
+  statusProcessing: tx(['filters', 'statusProcessing']),
+  statusParsed: tx(['filters', 'statusParsed']),
+  statusValidated: tx(['filters', 'statusValidated']),
+  statusCompleted: tx(['filters', 'statusCompleted']),
+  statusError: tx(['filters', 'statusError']),
+  dateThisMonth: tx(['filters', 'dateThisMonth']),
+  dateLastMonth: tx(['filters', 'dateLastMonth']),
+  dateYearToDate: tx(['filters', 'dateYearToDate']),
+  dateOn: tx(['filters', 'dateOn']),
+  dateAfter: tx(['filters', 'dateAfter']),
+  dateBefore: tx(['filters', 'dateBefore']),
+  drawerTitle: tx(['filters', 'drawerTitle']),
+  drawerGeneral: tx(['filters', 'drawerGeneral']),
+  drawerExpenses: tx(['filters', 'drawerExpenses']),
+  drawerReports: tx(['filters', 'drawerReports']),
+  drawerGroupBy: tx(['filters', 'drawerGroupBy']),
+  drawerHas: tx(['filters', 'drawerHas']),
+  drawerKeywords: tx(['filters', 'drawerKeywords']),
+  drawerLimit: tx(['filters', 'drawerLimit']),
+  drawerTo: tx(['filters', 'drawerTo']),
+  drawerAmount: tx(['filters', 'drawerAmount']),
+  drawerApproved: tx(['filters', 'drawerApproved']),
+  drawerBillable: tx(['filters', 'drawerBillable']),
+  groupByDate: tx(['filters', 'groupByDate']),
+  groupByStatus: tx(['filters', 'groupByStatus']),
+  groupByType: tx(['filters', 'groupByType']),
+  groupByBank: tx(['filters', 'groupByBank']),
+  groupByUser: tx(['filters', 'groupByUser']),
+  groupByAmount: tx(['filters', 'groupByAmount']),
+  hasErrors: tx(['filters', 'hasErrors']),
+  hasLogs: tx(['filters', 'hasLogs']),
+  hasTransactions: tx(['filters', 'hasTransactions']),
+  hasDateRange: tx(['filters', 'hasDateRange']),
+  hasCurrency: tx(['filters', 'hasCurrency']),
+  columnReceipt: tx(['filters', 'columnReceipt']),
+  columnDate: tx(['filters', 'columnDate']),
+  columnMerchant: tx(['filters', 'columnMerchant']),
+  columnFrom: tx(['filters', 'columnFrom']),
+  columnTo: tx(['filters', 'columnTo']),
+  columnCategory: tx(['filters', 'columnCategory']),
+  columnTag: tx(['filters', 'columnTag']),
+  columnAmount: tx(['filters', 'columnAmount']),
+  columnAction: tx(['filters', 'columnAction']),
+  columnApproved: tx(['filters', 'columnApproved']),
+  columnBillable: tx(['filters', 'columnBillable']),
+  columnCard: tx(['filters', 'columnCard']),
+  columnDescription: tx(['filters', 'columnDescription']),
+  columnExchangeRate: tx(['filters', 'columnExchangeRate']),
+  columnExported: tx(['filters', 'columnExported']),
+  columnsTitle: tx(['filters', 'columnsTitle']),
+  paid: tx(['filters', 'paid']),
 });
 
 export const buildTypeOptions = (
@@ -624,7 +625,6 @@ export const buildTypeOptions = (
   { value: 'chat', label: labels.typeChat },
   { value: 'trip', label: labels.typeTrip },
   { value: 'task', label: labels.typeTask },
-  { value: 'gmail', label: 'Gmail' },
   { value: 'pdf', label: 'PDF' },
   { value: 'xlsx', label: 'Excel' },
   { value: 'csv', label: 'CSV' },
@@ -708,7 +708,6 @@ interface StatementForFromOptions {
   receiptSource?: string;
 }
 
-/* eslint-disable complexity, max-lines-per-function */
 export const buildFromOptions = (
   stagedStatements: StatementForFromOptions[],
 ): Array<{
@@ -747,19 +746,13 @@ export const buildFromOptions = (
     if (statement.bankName) {
       const key = `bank:${statement.bankName}`;
       if (!seen.has(key)) {
-        const isGmail = statement.source === 'gmail';
         const hasRealBank = statement.bankName !== 'other';
-        const isStore =
-          statement.source === 'scan' && statement.receiptSource !== 'gmail' && !hasRealBank;
+        const isStore = statement.source === 'scan' && !hasRealBank;
         seen.set(key, {
           id: key,
-          label: isGmail
-            ? 'Gmail'
-            : isStore
-              ? text.typeReceipt.value
-              : getBankDisplayName(statement.bankName),
+          label: isStore ? text.typeReceipt.value : getBankDisplayName(statement.bankName),
           description: null,
-          iconUrl: isGmail ? '/icons/gmail.png' : null,
+          iconUrl: null,
           bankName: statement.bankName,
         });
       }
@@ -768,14 +761,11 @@ export const buildFromOptions = (
 
   return Array.from(seen.values());
 };
-/* eslint-enable complexity, max-lines-per-function */
 
 interface StatementForCurrencyOptions {
   parsedData?: { currency?: string };
   currency?: string | null;
-  parsingDetails?: {
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  };
+  parsingDetails?: StatementParsingDetails | null;
 }
 
 export const buildCurrencyOptions = (stagedStatements: StatementForCurrencyOptions[]): string[] => {
@@ -789,7 +779,6 @@ export const buildCurrencyOptions = (stagedStatements: StatementForCurrencyOptio
   return Array.from(unique.values());
 };
 
-// eslint-disable-next-line complexity
 export const computeActiveFilterCount = (appliedFilters: StatementFilters): number => {
   let count = 0;
   if (appliedFilters.type) {

@@ -8,16 +8,18 @@ import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { Trash2 } from '@/app/components/icons';
+import { Plus, Trash2 } from '@/app/components/icons';
+import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { tokens } from '@/lib/theme-tokens';
 import {
   ASSET_CLASSES,
   type InvestmentAccount,
   type InvestmentAssetClass,
   useInvestments,
 } from '../hooks/useInvestments';
+import { CardTitle, cardSx } from './net-worth-ui';
 
 /**
  * Labels for every asset class net worth can show. `crypto` is not a holding
@@ -40,15 +42,71 @@ export const ASSET_CLASS_KEYS: Record<InvestmentAssetClass | 'crypto' | 'metal',
 interface InvestmentsCardProps {
   currency: string;
   locale: string;
+  /** Drawn inside the Holdings section, which supplies the frame and the title. */
+  embedded?: boolean;
 }
 
-const card = {
-  border: '1px solid',
-  borderColor: 'divider',
-  borderRadius: tokens.radius.md,
-  bgcolor: 'background.paper',
-  p: 3,
-} as const;
+/** A new account: a name and its kind, in a dialog rather than a form on the page. */
+function AddAccountDialog({
+  open,
+  saving,
+  onClose,
+  onCreate,
+}: {
+  open: boolean;
+  saving: boolean;
+  onClose: () => void;
+  onCreate: (name: string, kind: 'investment' | 'retirement') => Promise<unknown>;
+}) {
+  const t = useIntlayer('netWorthPage');
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState<'investment' | 'retirement'>('investment');
+  if (!open) {
+    return null;
+  }
+  return (
+    <ModalShell
+      isOpen
+      onClose={onClose}
+      title={t.addAccount.value}
+      size="sm"
+      footer={
+        <ModalFooter
+          onCancel={onClose}
+          onConfirm={async () => {
+            await onCreate(name.trim(), kind);
+            setName('');
+            onClose();
+          }}
+          confirmText={t.addAccount.value}
+          isConfirmLoading={saving}
+          isConfirmDisabled={!name.trim() || saving}
+        />
+      }
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pt: 1 }}>
+        <TextField
+          size="small"
+          label={t.accountName.value}
+          value={name}
+          onChange={event => setName(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <TextField
+          select
+          size="small"
+          label={t.assetClass.value}
+          value={kind}
+          onChange={event => setKind(event.target.value as 'investment' | 'retirement')}
+          slotProps={{ inputLabel: { shrink: true } }}
+        >
+          <MenuItem value="investment">{t.kindInvestment}</MenuItem>
+          <MenuItem value="retirement">{t.kindRetirement}</MenuItem>
+        </TextField>
+      </Box>
+    </ModalShell>
+  );
+}
 
 function AddHoldingRow({
   account,
@@ -123,16 +181,20 @@ function AddHoldingRow({
         label={t.quantity.value}
         value={quantity}
         onChange={event => setQuantity(event.target.value)}
-        inputProps={{ inputMode: 'decimal' }}
         sx={{ width: 100 }}
+        slotProps={{
+          htmlInput: { inputMode: 'decimal' },
+        }}
       />
       <TextField
         size="small"
         label={`${t.price.value} (${account.currency})`}
         value={price}
         onChange={event => setPrice(event.target.value)}
-        inputProps={{ inputMode: 'decimal' }}
         sx={{ width: 130 }}
+        slotProps={{
+          htmlInput: { inputMode: 'decimal' },
+        }}
       />
       <Button size="small" variant="outlined" disabled={!canSave || saving} onClick={submit}>
         {t.addHolding}
@@ -142,7 +204,7 @@ function AddHoldingRow({
 }
 
 /** Investment and retirement accounts with their holdings, right under the net worth they feed. */
-export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
+export function InvestmentsCard({ currency, locale, embedded = false }: InvestmentsCardProps) {
   const t = useIntlayer('netWorthPage');
   const {
     accounts,
@@ -153,13 +215,12 @@ export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
     deleteHolding,
     refreshPrices,
   } = useInvestments();
-  const [newName, setNewName] = useState('');
-  const [newKind, setNewKind] = useState<'investment' | 'retirement'>('investment');
+  const [adding, setAdding] = useState(false);
   const money = (value: number) => formatMoney(value, currency, locale);
   const hasSymbols = accounts.some(account => account.holdings.some(holding => holding.symbol));
 
   return (
-    <Box sx={card}>
+    <Box sx={embedded ? undefined : cardSx}>
       <Box
         sx={{
           display: 'flex',
@@ -170,50 +231,98 @@ export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
         }}
       >
         <Box>
+          {/* Inside Holdings the section header already names it. */}
+          {embedded ? null : <CardTitle>{t.investmentsTitle}</CardTitle>}
           <Typography
-            variant="overline"
-            sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: 0.6 }}
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mt: embedded ? 0 : 0.5,
+            }}
           >
-            {t.investmentsTitle}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
             {t.investmentsHint}
           </Typography>
         </Box>
-        {hasSymbols && (
-          <Button size="small" variant="outlined" disabled={saving} onClick={() => refreshPrices()}>
-            {t.refreshPrices}
-          </Button>
-        )}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {hasSymbols && (
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={saving}
+              onClick={() => refreshPrices()}
+            >
+              {t.refreshPrices}
+            </Button>
+          )}
+          {accounts.length > 0 && (
+            <Button size="small" variant="text" onClick={() => setAdding(true)}>
+              <Plus size={16} aria-hidden />
+              {t.addAccount}
+            </Button>
+          )}
+        </Box>
       </Box>
 
+      {/* Nothing yet: one quiet line and a way to add, no form on the page. */}
       {accounts.length === 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          {t.noAccounts}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {t.noAccounts}
+          </Typography>
+          <Button size="small" variant="text" onClick={() => setAdding(true)}>
+            <Plus size={16} aria-hidden />
+            {t.addAccount}
+          </Button>
+        </Box>
       )}
 
       {accounts.map(account => (
         <Box key={account.id} sx={{ mt: 3 }} data-testid={`investment-account-${account.id}`}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ flex: 1 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 600,
+                flex: 1,
+              }}
+            >
               {account.name}
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+              <Typography
+                component="span"
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  ml: 1,
+                }}
+              >
                 {account.kind === 'retirement' ? t.kindRetirement : t.kindInvestment}
               </Typography>
             </Typography>
             <Typography variant="body2">
-              {t.value}: <strong>{money(account.value)}</strong>
+              {t.value}: <strong className={PRIVATE_CLASS}>{money(account.value)}</strong>
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t.contributed}: {money(account.contributed)}
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
+              {t.contributed}: <PrivateAmount>{money(account.contributed)}</PrivateAmount>
             </Typography>
             <Typography
               variant="body2"
               sx={{ color: account.gain >= 0 ? 'success.main' : 'error.main' }}
             >
-              {t.gain}: {account.gain >= 0 ? '+' : '−'}
-              {money(Math.abs(account.gain))}
+              {t.gain}:{' '}
+              <PrivateAmount>
+                {account.gain >= 0 ? '+' : '−'}
+                {money(Math.abs(account.gain))}
+              </PrivateAmount>
             </Typography>
             <IconButton
               size="small"
@@ -252,7 +361,13 @@ export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
                     <td>
                       {holding.name}
                       {holding.symbol && (
-                        <Typography component="span" variant="caption" color="text.secondary">
+                        <Typography
+                          component="span"
+                          variant="caption"
+                          sx={{
+                            color: 'text.secondary',
+                          }}
+                        >
                           {' '}
                           {holding.symbol}
                         </Typography>
@@ -261,15 +376,21 @@ export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
                     <td>{t[ASSET_CLASS_KEYS[holding.assetClass] as 'classStock']}</td>
                     <td>{holding.quantity}</td>
                     <td>
-                      {holding.price} {holding.priceCurrency}
+                      <PrivateAmount>{holding.price}</PrivateAmount> {holding.priceCurrency}
                       {holding.priceSource === 'manual' && (
-                        <Typography component="span" variant="caption" color="text.secondary">
+                        <Typography
+                          component="span"
+                          variant="caption"
+                          sx={{
+                            color: 'text.secondary',
+                          }}
+                        >
                           {' '}
                           · {t.manualPrice}
                         </Typography>
                       )}
                     </td>
-                    <td>{money(holding.value)}</td>
+                    <td className={PRIVATE_CLASS}>{money(holding.value)}</td>
                     <td>
                       <IconButton
                         size="small"
@@ -294,35 +415,12 @@ export function InvestmentsCard({ currency, locale }: InvestmentsCardProps) {
         </Box>
       ))}
 
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: 3 }}>
-        <TextField
-          size="small"
-          label={t.accountName.value}
-          value={newName}
-          onChange={event => setNewName(event.target.value)}
-          sx={{ width: 220 }}
-        />
-        <Select
-          size="small"
-          value={newKind}
-          onChange={event => setNewKind(event.target.value as 'investment' | 'retirement')}
-          inputProps={{ 'aria-label': t.assetClass.value }}
-        >
-          <MenuItem value="investment">{t.kindInvestment}</MenuItem>
-          <MenuItem value="retirement">{t.kindRetirement}</MenuItem>
-        </Select>
-        <Button
-          size="small"
-          variant="contained"
-          disabled={!newName.trim() || saving}
-          onClick={async () => {
-            await createAccount(newName.trim(), newKind);
-            setNewName('');
-          }}
-        >
-          {t.addAccount}
-        </Button>
-      </Box>
+      <AddAccountDialog
+        open={adding}
+        saving={saving}
+        onClose={() => setAdding(false)}
+        onCreate={createAccount}
+      />
     </Box>
   );
 }

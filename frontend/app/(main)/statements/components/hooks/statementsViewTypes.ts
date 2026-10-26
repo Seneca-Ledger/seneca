@@ -3,6 +3,7 @@ import type { ReadonlyURLSearchParams } from 'next/navigation';
 import type { RefObject } from 'react';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { usePullToRefresh } from '@/app/hooks/usePullToRefresh';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { StatementExpenseMode } from '@/app/lib/statement-expense-drawer';
 import type { useManualExpenseOptions } from './useManualExpenseOptions';
 import type { useStatementPreview } from './useStatementPreview';
@@ -12,7 +13,9 @@ import type { useStatementsListData } from './useStatementsListData';
 
 export interface StatementsStatement {
   id: string;
-  source?: 'statement' | 'gmail' | 'scan';
+  /** A scan's hidden statement, which holds its transactions; a row's own id is the receipt. */
+  statementId?: string | null;
+  source?: 'statement' | 'scan';
   receiptSource?: string;
   fileName: string;
   subject?: string;
@@ -24,7 +27,7 @@ export interface StatementsStatement {
   exported?: boolean | null;
   paid?: boolean | null;
   createdAt: string;
-  processedAt?: string;
+  processedAt?: string | null;
   statementDateFrom?: string | null;
   statementDateTo?: string | null;
   bankName: string;
@@ -50,20 +53,7 @@ export interface StatementsStatement {
     avatarUrl?: string | null;
   } | null;
   errorMessage?: string | null;
-  parsingDetails?: {
-    logEntries?: Array<{ timestamp: string; level: string; message: string }>;
-    detectedBy?: string;
-    parserUsed?: string;
-    importPreview?: {
-      source?: string;
-      merchant?: string;
-      attachments?: number;
-      description?: string;
-      categoryId?: string;
-    };
-    metadataExtracted?: { currency?: string; headerDisplay?: { currencyDisplay?: string } };
-  };
-  gmailMessageId?: string;
+  parsingDetails?: StatementParsingDetails | null;
   receivedAt?: string;
   parsedData?: {
     amount?: number;
@@ -97,7 +87,6 @@ export interface StatementsViewState {
   expenseDrawerOpen: boolean;
   setExpenseDrawerOpen: (v: boolean) => void;
   expenseDrawerMode: StatementExpenseMode;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
   filterLabels: Record<string, string>;
   filterOptionLabels: Record<string, string>;
@@ -118,9 +107,9 @@ export interface StatementsViewState {
   openPreview: ReturnType<typeof useStatementPreview>['openPreview'];
   closePreview: ReturnType<typeof useStatementPreview>['closePreview'];
   loading: boolean;
-  gmailSyncSkeletonKeys: string[];
+  listSkeletonKeys: string[];
   refetchStatements: ReturnType<typeof useStatementsListData>['refetchStatements'];
-  refetchGmailReceipts: ReturnType<typeof useStatementsListData>['refetchGmailReceipts'];
+  refetchReceipts: ReturnType<typeof useStatementsListData>['refetchReceipts'];
   refreshActiveStatements: ReturnType<typeof useStatementsListData>['refreshActiveStatements'];
   displayStatements: StatementsStatement[];
   paginatedDisplayStatements: StatementsStatement[];

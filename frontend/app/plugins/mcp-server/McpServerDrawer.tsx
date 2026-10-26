@@ -10,14 +10,24 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Copy, Lock, Trash2 } from '@/app/components/icons';
+import { Copy, Lock, Plus, Trash2 } from '@/app/components/icons';
 import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
+import { apiBaseUrl } from '@/app/lib/api';
+import type { ApiKeyScope } from '@/app/lib/contracts';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
+import { PluginOffBanner } from '../components/PluginOffBanner';
+import {
+  claudeCodeCommand,
+  KEY_PLACEHOLDER,
+  mcpEndpointUrl,
+  mcpJsonConfig,
+} from './mcp-connection';
 import { useApiKeys } from './useApiKeys';
 
 interface McpServerDrawerProps {
@@ -35,8 +45,10 @@ const sectionLabelStyle = {
   mb: 1.5,
 };
 
+const stepLabelStyle = { fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 };
+
 const codeBlockStyle = {
-  background: 'var(--muted, #f4f4f5)',
+  background: 'var(--muted)',
   borderRadius: tokens.radius.sm,
   p: 1.5,
   fontFamily: 'monospace',
@@ -77,20 +89,6 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-const MCP_JSON = `{
-  "mcpServers": {
-    "lumio": {
-      "command": "node",
-      "args": ["mcp-server/dist/index.js"],
-      "env": {
-        "LUMIO_BASE_URL": "http://localhost:3001/api/v1",
-        "LUMIO_API_KEY": "lum_<your-api-key>",
-        "LUMIO_WORKSPACE_ID": "<workspace-uuid>"
-      }
-    }
-  }
-}`;
-
 function timeAgo(dateStr: string | null, t: McpServerText): string {
   if (!dateStr) return t.neverUsed.value;
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -103,12 +101,20 @@ function timeAgo(dateStr: string | null, t: McpServerText): string {
 
 export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDrawerProps) {
   const t = useIntlayer('mcpServerDrawer');
+  const pluginsText = useIntlayer('pluginsPage');
+  const { user } = useAuth();
   const { keys, loading, newKey, isActive, scopes, create, revoke, clearNewKey } = useApiKeys();
+  // Creating keys needs api_key.manage, which only the instance admin role carries.
+  const canCreateKeys = user?.role === 'admin';
+  const endpoint = useMemo(
+    () => (typeof window === 'undefined' ? '' : mcpEndpointUrl(apiBaseUrl, window.location.origin)),
+    [],
+  );
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [keyName, setKeyName] = useState('');
   // Read-only is the safe default; a wider key is a deliberate choice.
   const [scopeMode, setScopeMode] = useState<'read' | 'write' | 'custom'>('read');
-  const [customScopes, setCustomScopes] = useState<string[]>([]);
+  const [customScopes, setCustomScopes] = useState<ApiKeyScope[]>([]);
   const selectedScopes = scopeMode === 'custom' ? customScopes : (scopes?.presets[scopeMode] ?? []);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
 
@@ -137,6 +143,7 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
         zIndex={zIndex}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto', flex: 1 }}>
+          <PluginOffBanner plugin="mcp-server" message={pluginsText.offBanner.mcp} />
           {/* ── Status ── */}
           <Box>
             <Typography sx={sectionLabelStyle}>{t.status}</Typography>
@@ -181,34 +188,26 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
           <Box>
             <Typography sx={sectionLabelStyle}>{t.setup}</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                {t.step1}
-              </Typography>
+              <Typography sx={stepLabelStyle}>{t.endpointLabel}</Typography>
               <Box sx={codeBlockStyle}>
-                cd mcp-server && npm install && npm run build
-                <CopyButton text="cd mcp-server && npm install && npm run build" />
+                {endpoint}
+                <CopyButton text={endpoint} />
               </Box>
 
-              <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                {t.step2Prefix}{' '}
-                <code
-                  style={{
-                    background: 'var(--muted)',
-                    borderRadius: tokens.radius.xs,
-                    padding: '1px 4px',
-                  }}
-                >
-                  .mcp.json
-                </code>{' '}
-                {t.step2Suffix}
-              </Typography>
+              <Typography sx={stepLabelStyle}>{t.claudeCodeLabel}</Typography>
               <Box sx={codeBlockStyle}>
-                {MCP_JSON}
-                <CopyButton text={MCP_JSON} />
+                {claudeCodeCommand(endpoint, KEY_PLACEHOLDER)}
+                <CopyButton text={claudeCodeCommand(endpoint, KEY_PLACEHOLDER)} />
               </Box>
 
-              <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                {t.step3}
+              <Typography sx={stepLabelStyle}>{t.jsonConfigLabel}</Typography>
+              <Box sx={codeBlockStyle}>
+                {mcpJsonConfig(endpoint, KEY_PLACEHOLDER)}
+                <CopyButton text={mcpJsonConfig(endpoint, KEY_PLACEHOLDER)} />
+              </Box>
+
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                {t.workspaceBoundHint}
               </Typography>
             </Box>
           </Box>
@@ -224,7 +223,7 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
               }}
             >
               <Typography sx={sectionLabelStyle}>{t.apiKeys}</Typography>
-              {!showCreateForm && (
+              {canCreateKeys && !showCreateForm && (
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(true)}
@@ -242,12 +241,18 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
                     cursor: 'pointer',
                   }}
                 >
+                  <Plus size={14} aria-hidden />
                   {t.createKey}
                 </button>
               )}
             </Box>
 
             {/* Create form */}
+            {!canCreateKeys && (
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mb: 1.5 }}>
+                {t.adminOnlyKeys}
+              </Typography>
+            )}
             {showCreateForm && (
               <Box sx={{ display: 'grid', gap: 1, mb: 2 }}>
                 <Typography variant="caption" sx={{ color: 'var(--text-secondary)' }}>
@@ -264,7 +269,7 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
                       style={{
                         padding: '4px 12px',
                         borderRadius: tokens.radius.full,
-                        border: '1px solid var(--border-color, #e5e7eb)',
+                        border: '1px solid var(--border-color)',
                         background: scopeMode === mode ? 'var(--primary-fill)' : 'transparent',
                         color:
                           scopeMode === mode
@@ -300,7 +305,7 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
                           style={{
                             padding: '2px 8px',
                             borderRadius: tokens.radius.full,
-                            border: '1px solid var(--border-color, #e5e7eb)',
+                            border: '1px solid var(--border-color)',
                             background: on ? 'var(--primary-fill)' : 'transparent',
                             color: on ? tokens.color.primaryContrast : 'var(--text-secondary)',
                             fontSize: 11,
@@ -354,7 +359,7 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
                     style={{
                       padding: '6px 10px',
                       borderRadius: tokens.radius.full,
-                      border: '1px solid var(--border-color, #e5e7eb)',
+                      border: '1px solid var(--border-color)',
                       background: 'transparent',
                       fontSize: 12,
                       cursor: 'pointer',
@@ -388,7 +393,7 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
                       justifyContent: 'space-between',
                       p: 1.5,
                       borderRadius: tokens.radius.md,
-                      border: '1px solid var(--border-color, #e5e7eb)',
+                      border: '1px solid var(--border-color)',
                     }}
                   >
                     <Box>
@@ -440,6 +445,11 @@ export function McpServerDrawer({ isOpen, onClose, onBack, zIndex }: McpServerDr
           <Box sx={{ ...codeBlockStyle, wordBreak: 'break-all', whiteSpace: 'normal' }}>
             {newKey?.key}
             <CopyButton text={newKey?.key ?? ''} />
+          </Box>
+          <Typography sx={{ ...stepLabelStyle, mt: 2, mb: 1 }}>{t.claudeCodeLabel}</Typography>
+          <Box sx={{ ...codeBlockStyle, wordBreak: 'break-all', whiteSpace: 'normal' }}>
+            {claudeCodeCommand(endpoint, newKey?.key ?? KEY_PLACEHOLDER)}
+            <CopyButton text={claudeCodeCommand(endpoint, newKey?.key ?? KEY_PLACEHOLDER)} />
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

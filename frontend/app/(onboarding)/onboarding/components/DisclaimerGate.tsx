@@ -4,14 +4,10 @@ import { Alert, Box, Button, Checkbox, CircularProgress, Stack, Typography } fro
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { OnboardingLayout } from './OnboardingLayout';
 import { OnboardingLogo } from './OnboardingProgress';
 import { StepHeading } from './StepHeading';
-
-interface DisclaimerStatus {
-  version: string;
-  accepted: boolean;
-}
 
 /**
  * Tracks whether the signed-in user has accepted the current disclaimer.
@@ -30,11 +26,10 @@ export function useDisclaimerAcceptance(): {
   useEffect(() => {
     let cancelled = false;
 
-    apiClient
-      .get<DisclaimerStatus>('/users/me/disclaimer')
-      .then(response => {
+    apiQueryDecoded({ url: '/users/me/disclaimer', contract: 'DisclaimerStatus' })
+      .then(status => {
         if (!cancelled) {
-          setAccepted(response.data.accepted);
+          setAccepted(status.accepted);
         }
       })
       .catch(() => {
@@ -144,7 +139,9 @@ export function DisclaimerGate({
             onChange={event => setChecked(event.target.checked)}
             disabled={submitting}
             sx={{ p: 0, mt: '2px' }}
-            inputProps={{ 'aria-label': consentLabel }}
+            slotProps={{
+              input: { 'aria-label': consentLabel },
+            }}
           />
           <Typography sx={{ fontSize: 14, lineHeight: 1.6, color: 'var(--foreground)' }}>
             {consentLabel}
@@ -170,7 +167,13 @@ export function DisclaimerGate({
           }}
         >
           {submitting ? (
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: 'center',
+              }}
+            >
               <CircularProgress size={16} color="inherit" />
               <span>{savingLabel}</span>
             </Stack>

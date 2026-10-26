@@ -31,17 +31,13 @@ describe('API key scopes', () => {
 });
 
 describe('resolveAuditActor', () => {
-  it('names the API key, recognises the assistant header and leaves sessions alone', () => {
+  it('names the API key and leaves sessions alone', () => {
     expect(resolveAuditActor({ apiKey: { id: 'k1', name: 'CI', prefix: 'abcd1234' } })).toEqual({
       actorType: ActorType.INTEGRATION,
       actorLabel: 'API key "CI" (abcd1234)',
       meta: { apiKeyId: 'k1', apiKeyPrefix: 'abcd1234' },
     });
-    expect(resolveAuditActor({ headers: { 'x-lumio-actor': 'ai-chat' } })).toMatchObject({
-      actorType: ActorType.AI,
-      actorLabel: 'AI assistant (chat)',
-    });
-    expect(resolveAuditActor({ headers: { 'x-lumio-actor': 'nope' } })).toBeNull();
-    expect(resolveAuditActor({ headers: {} })).toBeNull();
+    expect(resolveAuditActor({})).toBeNull();
+    expect(resolveAuditActor({ apiKey: null })).toBeNull();
   });
 });

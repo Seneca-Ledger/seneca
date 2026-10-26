@@ -3,10 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { fetchGoalItems, type GoalItemPayload, type GoalItemsResponse } from '@/app/lib/goals-api';
 import { unwrapEnvelope } from '@/app/lib/query-fn';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export interface GoalItemsState {
@@ -26,12 +28,14 @@ type Write =
 
 export function useGoalItems(goalId: string): GoalItemsState {
   const workspaceId = useWorkspaceId();
+  const t = useIntlayer('goalDetailPage');
   const queryClient = useQueryClient();
   const queryKey = queryKeys.goalItems({ workspaceId, goalId });
 
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) => fetchGoalItems(goalId, signal),
+    enabled: Boolean(workspaceId),
   });
 
   // Every write returns the whole list back, so the response is written
@@ -45,7 +49,7 @@ export function useGoalItems(goalId: string): GoalItemsState {
           : write.kind === 'update'
             ? await apiClient.patch(`${base}/${write.itemId}`, write.payload)
             : await apiClient.delete(`${base}/${write.itemId}`);
-      return unwrapEnvelope<GoalItemsResponse>(response.data);
+      return checkContract('GoalItemsResponse', unwrapEnvelope(response.data), base);
     },
     onSuccess: (data: GoalItemsResponse) => {
       queryClient.setQueryData(queryKey, data);
@@ -82,7 +86,7 @@ export function useGoalItems(goalId: string): GoalItemsState {
     data: query.data,
     isPending: query.isPending,
     isSaving: mutation.isPending,
-    error: query.isError ? getApiErrorMessage(query.error, 'Failed to load goal items') : null,
+    error: query.isError ? getApiErrorMessage(query.error, t.itemsLoadFailed.value) : null,
     createItem,
     updateItem,
     removeItem,

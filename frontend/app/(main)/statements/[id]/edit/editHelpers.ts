@@ -1,7 +1,11 @@
 // Pure helper functions and types for the Statement Edit page
 
+import type {
+  StatementParsingDetails as ContractStatementParsingDetails,
+  TransactionListItem,
+} from '@/app/lib/contracts';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
-import type { ParsingDroppedSample } from './ParsingWarningsPanel';
 
 export interface CategoryOption {
   id: string;
@@ -56,54 +60,42 @@ export interface Transaction {
   wallet?: { id: string; name: string };
 }
 
-export interface StatementParsingDetails {
-  detectedBank?: string;
-  detectedFormat?: string;
-  detectedBy?: string;
-  detectedEvidence?: string[];
-  otherBankMentions?: string[];
-  parserUsed?: string;
-  totalLinesProcessed?: number;
-  transactionsFound?: number;
-  transactionsCreated?: number;
-  errors?: string[];
-  warnings?: string[];
-  metadataExtracted?: {
-    accountNumber?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    balanceStart?: number;
-    balanceEnd?: number;
-    rawHeader?: string;
-    normalizedHeader?: string;
-    headerDisplay?: {
-      title?: string;
-      subtitle?: string;
-      periodDisplay?: string;
-      accountDisplay?: string;
-      institutionDisplay?: string;
-      currencyDisplay?: string;
-    };
-  };
-  processingTime?: number;
-  logEntries?: Array<{ timestamp: string; level: string; message: string }>;
-  droppedSamples?: Array<string | ParsingDroppedSample>;
-  /** Balance reconciliation result. `passed: false` puts the statement in `needs_review`. */
-  validation?: {
-    passed: boolean;
-    warnings?: string[];
-    balanceCheck?: {
-      expectedEnd?: number;
-      actualEnd?: number;
-      difference?: number;
-      tolerance?: number;
-    };
-  };
-  balanceConfirmation?: {
-    confirmedBy: string;
-    confirmedAt: string;
+/**
+ * A row of `GET /transactions` as the edit page holds it: amounts as numbers
+ * (the API sends decimal strings), absent values as undefined.
+ */
+export function toEditableTransaction(row: TransactionListItem): Transaction {
+  const amount = (value: string | null) => (value === null ? undefined : Number(value));
+  const text = (value: string | null) => value ?? undefined;
+  return {
+    id: row.id,
+    transactionDate: row.transactionDate,
+    isVerified: row.isVerified,
+    documentNumber: text(row.documentNumber),
+    counterpartyName: row.counterpartyName,
+    counterpartyBin: text(row.counterpartyBin),
+    counterpartyAccount: text(row.counterpartyAccount),
+    counterpartyBank: text(row.counterpartyBank),
+    debit: amount(row.debit),
+    credit: amount(row.credit),
+    paymentPurpose: row.paymentPurpose,
+    currency: row.currency,
+    exchangeRate: amount(row.exchangeRate),
+    amountForeign: amount(row.amountForeign),
+    categoryId: text(row.categoryId),
+    branchId: text(row.branchId),
+    walletId: text(row.walletId),
+    article: text(row.article),
+    comments: text(row.comments),
+    transactionType: row.transactionType,
+    category: row.category ?? undefined,
+    branch: row.branch ?? undefined,
+    wallet: row.wallet ?? undefined,
   };
 }
+
+/** The parser's notes, as `GET /statements/:id` sends them. */
+export type StatementParsingDetails = ContractStatementParsingDetails;
 
 export interface Statement {
   id: string;
@@ -149,13 +141,7 @@ export const parseNullableNumber = (value: string): number | null => {
 };
 
 export const resolveLocale = (locale: string): string => {
-  if (locale === 'ru') {
-    return 'ru-RU';
-  }
-  if (locale === 'kk') {
-    return 'kk-KZ';
-  }
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 export const isIdEmpty = (id?: string | null): boolean =>
@@ -175,7 +161,7 @@ export const formatDate = (dateString?: string | null): string => {
     return '';
   }
   try {
-    return formatStoredDate(dateString, 'ru-RU');
+    return formatStoredDate(dateString);
   } catch {
     return String(dateString);
   }
@@ -208,9 +194,6 @@ export const formatLabel = (
 // Reconstructed helpers consumed across the Statement Edit page
 // ---------------------------------------------------------------------------
 
-export const labelValue = (label: { value?: string } | undefined, fallback: string): string =>
-  label?.value ?? fallback;
-
 export interface FieldChangeParams {
   id: string;
   field: keyof Transaction;
@@ -228,31 +211,27 @@ type BuildHintsParams = {
   prefix?: string;
   locale: string;
   meta?: {
-    dateFrom?: string;
-    dateTo?: string;
-    balanceStart?: number;
-    balanceEnd?: number;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    balanceStart?: number | null;
+    balanceEnd?: number | null;
   };
   fmt: (n?: number | null) => string;
-  labels: Record<string, { value?: string } | undefined>;
+  labels: Record<string, { value: string }>;
 };
 
 export function buildHints({ prefix, locale, meta, fmt, labels }: BuildHintsParams): MetadataHints {
-  const filePrefix = prefix ?? labelValue(labels.fromFilePrefix, 'From file: ');
+  const filePrefix = prefix ?? labels.fromFilePrefix.value;
   const { dateFrom, dateTo, balanceStart, balanceEnd } = meta ?? {};
-  const dateHint = (value?: string): string =>
+  const dateHint = (value?: string | null): string =>
     value ? `${filePrefix}${new Date(value).toLocaleDateString(resolveLocale(locale))}` : '';
   return {
     startDate: dateHint(dateFrom),
     endDate: dateHint(dateTo),
     openingBalance:
-      balanceStart != null
-        ? `${filePrefix}${fmt(balanceStart)}`
-        : labelValue(labels.enterOpeningBalance, 'Enter opening balance'),
+      balanceStart != null ? `${filePrefix}${fmt(balanceStart)}` : labels.enterOpeningBalance.value,
     closingBalance:
-      balanceEnd != null
-        ? `${filePrefix}${fmt(balanceEnd)}`
-        : labelValue(labels.enterManuallyHint, 'Enter manually if it was not detected'),
+      balanceEnd != null ? `${filePrefix}${fmt(balanceEnd)}` : labels.enterManuallyHint.value,
   };
 }
 
@@ -260,13 +239,13 @@ export function ignoreEventArg<T>(handler: (value: T) => void): (event: unknown,
   return (_event, value) => handler(value);
 }
 
-export const countArray = (items?: unknown[] | null): number => items?.length ?? 0;
+export const countArray = (items?: readonly unknown[] | null): number => items?.length ?? 0;
 
 export const getParsingStats = (pd: {
-  errors?: string[];
-  warnings?: string[];
-  otherBankMentions?: string[];
-}): { errCount: number; warnCount: number; mentions: string[] } => ({
+  errors?: readonly string[] | null;
+  warnings?: readonly string[] | null;
+  otherBankMentions?: readonly string[] | null;
+}): { errCount: number; warnCount: number; mentions: readonly string[] } => ({
   errCount: countArray(pd.errors),
   warnCount: countArray(pd.warnings),
   mentions: pd.otherBankMentions ?? [],

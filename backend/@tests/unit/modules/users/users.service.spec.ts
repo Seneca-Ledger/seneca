@@ -5,10 +5,9 @@ import { AuthSession } from '@/entities/auth-session.entity';
 import { WorkspaceMember } from '@/entities/workspace-member.entity';
 import { Workspace } from '@/entities/workspace.entity';
 import { EmailChangeService } from '@/modules/users/services/email-change.service';
-import { UsersService } from '@/modules/users/users.service';
+import { PAGE_HINTS_MAX_KEYS, UsersService } from '@/modules/users/users.service';
 import { WorkspacesService } from '@/modules/workspaces/workspaces.service';
 import {
-  ConflictException,
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
@@ -16,12 +15,12 @@ import {
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { getMetadataArgsStorage, type Repository } from 'typeorm';
+import { getMetadataArgsStorage, IsNull, type Repository } from 'typeorm';
 import { passwordHashRounds } from '@/common/utils/password-hash.util';
 
-jest.mock('bcrypt', () => ({
-  compare: jest.fn(),
-  hash: jest.fn(),
+vi.mock('bcrypt', () => ({
+  compare: vi.fn(),
+  hash: vi.fn(),
 }));
 
 describe('UsersService', () => {
@@ -30,7 +29,7 @@ describe('UsersService', () => {
   let repository: Repository<User>;
   let workspaceRepository: Repository<Workspace>;
   let workspacesService: WorkspacesService;
-  const auditService = { createEvent: jest.fn() };
+  const auditService = { createEvent: vi.fn() };
 
   const mockUser: Partial<User> = {
     id: '1',
@@ -53,43 +52,43 @@ describe('UsersService', () => {
         {
           provide: getRepositoryToken(User),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            findAndCount: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
-            softDelete: jest.fn(),
-            query: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            findAndCount: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
+            softDelete: vi.fn(),
+            query: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Workspace),
           useValue: {
-            findOne: jest.fn(),
-            save: jest.fn(),
+            findOne: vi.fn(),
+            save: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
-          useValue: { count: jest.fn(async () => 0) },
+          useValue: { count: vi.fn(async () => 0) },
         },
         {
           provide: getRepositoryToken(AuthSession),
-          useValue: { update: jest.fn(async () => ({ affected: 0 })) },
+          useValue: { update: vi.fn(async () => ({ affected: 0 })) },
         },
         {
           provide: WorkspacesService,
           useValue: {
-            ensureUserWorkspace: jest.fn(),
+            ensureUserWorkspace: vi.fn(),
           },
         },
         {
           provide: EmailChangeService,
           useValue: {
-            requestEmailChange: jest.fn(),
-            confirmEmailChange: jest.fn(),
+            requestEmailChange: vi.fn(),
+            confirmEmailChange: vi.fn(),
           },
         },
         { provide: AuditService, useValue: auditService },
@@ -103,7 +102,7 @@ describe('UsersService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -116,7 +115,7 @@ describe('UsersService', () => {
 
   describe('findOne', () => {
     it('should return user by id', async () => {
-      jest.spyOn(repository, 'findOne').mockResolvedValue(mockUserWithoutPasswordHash as User);
+      vi.spyOn(repository, 'findOne').mockResolvedValue(mockUserWithoutPasswordHash as User);
 
       const result = await service.findOne('1');
 
@@ -124,19 +123,19 @@ describe('UsersService', () => {
       expect(repository.findOne).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: '1' },
-          select: expect.any(Array),
+          select: expect.any(Object),
         }),
       );
     });
 
     it('should throw NotFoundException if user not found', async () => {
-      jest.spyOn(repository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(repository, 'findOne').mockResolvedValue(null);
 
       await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
     });
 
     it('should not expose password field', async () => {
-      jest.spyOn(repository, 'findOne').mockResolvedValue(mockUserWithoutPasswordHash as User);
+      vi.spyOn(repository, 'findOne').mockResolvedValue(mockUserWithoutPasswordHash as User);
 
       const result = await service.findOne('1');
 
@@ -152,8 +151,8 @@ describe('UsersService', () => {
         company: 'Updated Company',
       };
 
-      jest.spyOn(repository, 'findOne').mockResolvedValue(mockUser as User);
-      jest.spyOn(repository, 'save').mockResolvedValue({
+      vi.spyOn(repository, 'findOne').mockResolvedValue(mockUser as User);
+      vi.spyOn(repository, 'save').mockResolvedValue({
         ...mockUser,
         ...updateDto,
       } as User);
@@ -166,25 +165,10 @@ describe('UsersService', () => {
 
     it('should throw NotFoundException if user does not exist', async () => {
       const adminUser = { ...mockUser, role: UserRole.ADMIN };
-      jest.spyOn(repository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(repository, 'findOne').mockResolvedValue(null);
 
       await expect(service.update('999', { name: 'Test' }, adminUser as User)).rejects.toThrow(
         NotFoundException,
-      );
-    });
-
-    it('should not update email if already taken', async () => {
-      const updateDto = {
-        email: 'existing@example.com',
-      };
-
-      jest
-        .spyOn(repository, 'findOne')
-        .mockResolvedValueOnce(mockUser as User) // First call for the user being updated
-        .mockResolvedValueOnce({ id: '2' } as User); // Second call to check if email exists
-
-      await expect(service.update('1', updateDto, mockUser as User)).rejects.toThrow(
-        ConflictException,
       );
     });
   });
@@ -192,8 +176,8 @@ describe('UsersService', () => {
   describe('remove', () => {
     it('should soft delete user', async () => {
       const adminUser = { ...mockUser, id: '2', role: UserRole.ADMIN };
-      jest.spyOn(repository, 'findOne').mockResolvedValue(mockUser as User);
-      const softDeleteSpy = jest
+      vi.spyOn(repository, 'findOne').mockResolvedValue(mockUser as User);
+      const softDeleteSpy = vi
         .spyOn(repository, 'softDelete')
         .mockResolvedValue({ affected: 1, raw: [], generatedMaps: [] });
 
@@ -204,9 +188,9 @@ describe('UsersService', () => {
 
     it('should not physically delete from database', async () => {
       const adminUser = { ...mockUser, id: '2', role: UserRole.ADMIN };
-      jest.spyOn(repository, 'findOne').mockResolvedValue(mockUser as User);
-      const deleteSpy = jest.spyOn(repository, 'delete');
-      jest
+      vi.spyOn(repository, 'findOne').mockResolvedValue(mockUser as User);
+      const deleteSpy = vi.spyOn(repository, 'delete');
+      vi
         .spyOn(repository, 'softDelete')
         .mockResolvedValue({ affected: 1, raw: [], generatedMaps: [] });
 
@@ -217,7 +201,7 @@ describe('UsersService', () => {
 
     it('should throw NotFoundException if user does not exist', async () => {
       const adminUser = { ...mockUser, role: UserRole.ADMIN };
-      jest.spyOn(repository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(repository, 'findOne').mockResolvedValue(null);
 
       await expect(service.remove('999', adminUser as User)).rejects.toThrow(NotFoundException);
     });
@@ -225,8 +209,8 @@ describe('UsersService', () => {
 
   describe('changePassword', () => {
     beforeEach(() => {
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      jest.spyOn(bcrypt, 'hash').mockResolvedValue('new_hashed' as never);
+      vi.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      vi.spyOn(bcrypt, 'hash').mockResolvedValue('new_hashed' as never);
     });
 
     it('should verify old password', async () => {
@@ -235,12 +219,12 @@ describe('UsersService', () => {
         newPassword: 'new_password',
       };
 
-      jest.spyOn<any, any>(service as any, 'findOneWithPassword').mockResolvedValue({
+      vi.spyOn<any, any>(service as any, 'findOneWithPassword').mockResolvedValue({
         ...mockUser,
         passwordHash: await bcrypt.hash('old_password', 10),
       } as User);
-      const compareSpy = jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      jest.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
+      const compareSpy = vi.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      vi.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
 
       await service.changePassword('1', changePasswordDto);
 
@@ -253,11 +237,11 @@ describe('UsersService', () => {
         newPassword: 'new_password',
       };
 
-      jest.spyOn<any, any>(service as any, 'findOneWithPassword').mockResolvedValue({
+      vi.spyOn<any, any>(service as any, 'findOneWithPassword').mockResolvedValue({
         ...mockUser,
         passwordHash: await bcrypt.hash('correct_password', 10),
       } as User);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
+      vi.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
 
       await expect(service.changePassword('1', changePasswordDto)).rejects.toThrow(
         ForbiddenException,
@@ -270,13 +254,13 @@ describe('UsersService', () => {
         newPassword: 'new_password',
       };
 
-      jest.spyOn<any, any>(service as any, 'findOneWithPassword').mockResolvedValue({
+      vi.spyOn<any, any>(service as any, 'findOneWithPassword').mockResolvedValue({
         ...mockUser,
         passwordHash: await bcrypt.hash('old_password', 10),
       } as User);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      const hashSpy = jest.spyOn(bcrypt, 'hash');
-      const saveSpy = jest.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
+      vi.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      const hashSpy = vi.spyOn(bcrypt, 'hash');
+      const saveSpy = vi.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
 
       await service.changePassword('1', changePasswordDto);
 
@@ -300,11 +284,11 @@ describe('UsersService', () => {
       };
       const initialTokenVersion = userWithTokenVersion.tokenVersion;
 
-      jest
+      vi
         .spyOn<any, any>(service as any, 'findOneWithPassword')
         .mockResolvedValue(userWithTokenVersion as User);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      const saveSpy = jest.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
+      vi.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      const saveSpy = vi.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
 
       await service.changePassword('1', changePasswordDto);
 
@@ -318,7 +302,7 @@ describe('UsersService', () => {
 
     it('should return all users in workspace', async () => {
       const users = [mockUser, { ...mockUser, id: '2' }];
-      jest.spyOn(repository, 'find').mockResolvedValue(users as User[]);
+      vi.spyOn(repository, 'find').mockResolvedValue(users as User[]);
 
       const result = await service.findAll(WORKSPACE_ID, 20);
 
@@ -327,21 +311,21 @@ describe('UsersService', () => {
     });
 
     it('should not include deleted users', async () => {
-      jest.spyOn(repository, 'find').mockResolvedValue([mockUser] as User[]);
+      vi.spyOn(repository, 'find').mockResolvedValue([mockUser] as User[]);
 
       await service.findAll(WORKSPACE_ID, 20);
 
       expect(repository.find).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            deletedAt: null,
+            deletedAt: IsNull(),
           }),
         }),
       );
     });
 
     it('lists the members of the workspace, whichever workspace they registered with', async () => {
-      const findSpy = jest.spyOn(repository, 'find').mockResolvedValue([mockUser] as User[]);
+      const findSpy = vi.spyOn(repository, 'find').mockResolvedValue([mockUser] as User[]);
 
       await service.findAll(WORKSPACE_ID, 20);
 
@@ -355,7 +339,7 @@ describe('UsersService', () => {
     });
 
     it('should handle empty result', async () => {
-      jest.spyOn(repository, 'find').mockResolvedValue([]);
+      vi.spyOn(repository, 'find').mockResolvedValue([]);
 
       const result = await service.findAll(WORKSPACE_ID, 20);
 
@@ -366,10 +350,10 @@ describe('UsersService', () => {
   describe('updateMyAvatar', () => {
     it('should store new avatar url for user', async () => {
       const userWithPassword = { ...mockUser } as User;
-      jest
+      vi
         .spyOn<any, any>(service as any, 'findOneWithPassword')
         .mockResolvedValue(userWithPassword);
-      const saveSpy = jest.spyOn(repository, 'save').mockResolvedValue({
+      const saveSpy = vi.spyOn(repository, 'save').mockResolvedValue({
         ...userWithPassword,
         avatarUrl: '/uploads/user-avatars/avatar.png',
       } as User);
@@ -392,10 +376,10 @@ describe('UsersService', () => {
         themePreference: 'light',
       } as User;
 
-      jest
+      vi
         .spyOn<any, any>(service as any, 'findOneWithPassword')
         .mockResolvedValue(userWithPassword);
-      const saveSpy = jest.spyOn(repository, 'save').mockResolvedValue({
+      const saveSpy = vi.spyOn(repository, 'save').mockResolvedValue({
         ...userWithPassword,
         themePreference: 'auto',
       } as User);
@@ -416,10 +400,10 @@ describe('UsersService', () => {
 
     it('turns the daily quote off and leaves the other preferences alone', async () => {
       const userWithPassword = { ...mockUser, showDailyQuote: true, reduceMotion: true } as User;
-      jest
+      vi
         .spyOn<any, any>(service as any, 'findOneWithPassword')
         .mockResolvedValue(userWithPassword);
-      const saveSpy = jest
+      const saveSpy = vi
         .spyOn(repository, 'save')
         .mockImplementation(async user => user as User);
 
@@ -433,10 +417,10 @@ describe('UsersService', () => {
     it('stores a trimmed map style and clears it with null', async () => {
       const userWithPassword = { ...mockUser, mapStylePreference: 'positron' } as User;
 
-      jest
+      vi
         .spyOn<any, any>(service as any, 'findOneWithPassword')
         .mockResolvedValue(userWithPassword);
-      const saveSpy = jest
+      const saveSpy = vi
         .spyOn(repository, 'save')
         .mockImplementation(async (user: any) => user as User);
 
@@ -466,17 +450,17 @@ describe('UsersService', () => {
         backgroundImage: null,
       } as Workspace;
 
-      jest
+      vi
         .spyOn<any, any>(service as any, 'findOneWithPassword')
         .mockResolvedValue(userWithPassword);
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(workspace);
-      const workspaceSaveSpy = jest.spyOn(workspaceRepository, 'save').mockResolvedValue({
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(workspace);
+      const workspaceSaveSpy = vi.spyOn(workspaceRepository, 'save').mockResolvedValue({
         ...workspace,
         name: 'My workspace',
         currency: 'USD',
         backgroundImage: 'hero.jpg',
       } as Workspace);
-      const userSaveSpy = jest.spyOn(repository, 'save').mockResolvedValue({
+      const userSaveSpy = vi.spyOn(repository, 'save').mockResolvedValue({
         ...userWithPassword,
         locale: 'en',
         timeZone: 'Asia/Almaty',
@@ -515,15 +499,15 @@ describe('UsersService', () => {
         onboardingCompletedAt: new Date('2026-01-01T00:00:00.000Z'),
       } as User;
 
-      jest
+      vi
         .spyOn<any, any>(service as any, 'findOneWithPassword')
         .mockResolvedValue(alreadyCompleted);
-      const ensureWorkspaceSpy = jest
+      const ensureWorkspaceSpy = vi
         .spyOn(workspacesService, 'ensureUserWorkspace')
         .mockResolvedValue({ id: 'workspace-ensured' } as Workspace);
-      const workspaceFindSpy = jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(null);
-      const workspaceSaveSpy = jest.spyOn(workspaceRepository, 'save');
-      const userSaveSpy = jest.spyOn(repository, 'save').mockResolvedValue(alreadyCompleted);
+      const workspaceFindSpy = vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(null);
+      const workspaceSaveSpy = vi.spyOn(workspaceRepository, 'save');
+      const userSaveSpy = vi.spyOn(repository, 'save').mockResolvedValue(alreadyCompleted);
 
       await service.completeOnboarding('1', {});
 
@@ -542,11 +526,11 @@ describe('UsersService', () => {
   describe('markWelcomeTutorialSeen', () => {
     it('stamps the time with one conditional update and returns the stored time', async () => {
       const seenAt = new Date('2026-09-25T12:00:00.000Z');
-      const querySpy = jest.spyOn(repository, 'query').mockResolvedValue([]);
-      jest
+      const querySpy = vi.spyOn(repository, 'query').mockResolvedValue([]);
+      vi
         .spyOn(repository, 'findOne')
         .mockResolvedValue({ ...mockUserWithoutPasswordHash, welcomeTutorialSeenAt: seenAt } as User);
-      const saveSpy = jest.spyOn(repository, 'save');
+      const saveSpy = vi.spyOn(repository, 'save');
 
       await expect(service.markWelcomeTutorialSeen('1')).resolves.toEqual(seenAt);
       // Only a still-NULL stamp is set: the first close wins, even for concurrent ones,
@@ -559,8 +543,8 @@ describe('UsersService', () => {
     });
 
     it('throws NotFoundException for an unknown user', async () => {
-      jest.spyOn(repository, 'query').mockResolvedValue([]);
-      jest.spyOn(repository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(repository, 'query').mockResolvedValue([]);
+      vi.spyOn(repository, 'findOne').mockResolvedValue(null);
 
       await expect(service.markWelcomeTutorialSeen('999')).rejects.toThrow(NotFoundException);
     });
@@ -580,18 +564,82 @@ describe('UsersService', () => {
     it('loads the flag in the profile and in the onboarding response', async () => {
       // The completeOnboarding cases above stub this loader, and clearAllMocks
       // keeps stubs; the real one has to run to expose its select list.
-      jest.spyOn<any, any>(service as any, 'findOneWithPassword').mockRestore();
-      const findOneSpy = jest
+      vi.spyOn<any, any>(service as any, 'findOneWithPassword').mockRestore();
+      const findOneSpy = vi
         .spyOn(repository, 'findOne')
         .mockResolvedValue({ ...mockUser, onboardingCompletedAt: new Date() } as User);
-      jest.spyOn(repository, 'save').mockResolvedValue({} as User);
+      vi.spyOn(repository, 'save').mockResolvedValue({} as User);
 
       await service.findOne('1');
       await service.completeOnboarding('1', {});
 
       expect(findOneSpy).toHaveBeenCalledTimes(2);
       for (const [options] of findOneSpy.mock.calls) {
-        expect((options as { select: string[] }).select).toContain('welcomeTutorialSeenAt');
+        expect((options as { select: Record<string, boolean> }).select).toHaveProperty('welcomeTutorialSeenAt', true);
+      }
+    });
+  });
+
+  describe('page hints', () => {
+    it('keeps the higher version with one conditional update and returns the stored map', async () => {
+      const querySpy = vi.spyOn(repository, 'query').mockResolvedValue([]);
+      vi
+        .spyOn(repository, 'findOne')
+        .mockResolvedValue({ ...mockUserWithoutPasswordHash, pageHintsSeen: { budgets: 2 } } as User);
+      const saveSpy = vi.spyOn(repository, 'save');
+
+      await expect(service.markPageHintsSeen('1', 'budgets', 2)).resolves.toEqual({ budgets: 2 });
+      expect(querySpy).toHaveBeenCalledWith(
+        expect.stringMatching(/GREATEST\(COALESCE\(\("page_hints_seen" ->> \$2::text\)::int, 0\), \$3::int\)/),
+        ['1', 'budgets', 2, PAGE_HINTS_MAX_KEYS],
+      );
+      // A new key only while the map is below the cap.
+      expect(querySpy.mock.calls[0][0]).toMatch(/jsonb_object_keys\("page_hints_seen"\)\) < \$4/);
+      expect(saveSpy).not.toHaveBeenCalled();
+    });
+
+    it('empties the map on reset', async () => {
+      const querySpy = vi.spyOn(repository, 'query').mockResolvedValue([]);
+      vi
+        .spyOn(repository, 'findOne')
+        .mockResolvedValue({ ...mockUserWithoutPasswordHash, pageHintsSeen: {} } as User);
+
+      await expect(service.resetPageHints('1')).resolves.toEqual({});
+      expect(querySpy).toHaveBeenCalledWith(
+        expect.stringMatching(/SET "page_hints_seen" = '\{\}'::jsonb WHERE "id" = \$1/),
+        ['1'],
+      );
+    });
+
+    it('throws NotFoundException for an unknown user', async () => {
+      vi.spyOn(repository, 'query').mockResolvedValue([]);
+      vi.spyOn(repository, 'findOne').mockResolvedValue(null);
+
+      await expect(service.markPageHintsSeen('999', 'budgets', 1)).rejects.toThrow(NotFoundException);
+    });
+
+    it('keeps the column out of whole-row saves', () => {
+      const column = getMetadataArgsStorage().columns.find(
+        args => args.target === User && args.propertyName === 'pageHintsSeen',
+      );
+      expect(column?.options.update).toBe(false);
+    });
+
+    // A profile loaded without the column would answer an empty map, which the
+    // client reads as "nothing seen" and shows every hint again.
+    it('loads the map in the profile and in the onboarding response', async () => {
+      vi.spyOn<any, any>(service as any, 'findOneWithPassword').mockRestore();
+      const findOneSpy = vi
+        .spyOn(repository, 'findOne')
+        .mockResolvedValue({ ...mockUser, onboardingCompletedAt: new Date() } as User);
+      vi.spyOn(repository, 'save').mockResolvedValue({} as User);
+
+      await service.findOne('1');
+      await service.completeOnboarding('1', {});
+
+      expect(findOneSpy).toHaveBeenCalledTimes(2);
+      for (const [options] of findOneSpy.mock.calls) {
+        expect((options as { select: Record<string, boolean> }).select).toHaveProperty('pageHintsSeen', true);
       }
     });
   });
@@ -601,16 +649,16 @@ describe('UsersService', () => {
 
     beforeEach(() => {
       auditService.createEvent.mockResolvedValue({});
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      jest.spyOn(bcrypt, 'hash').mockResolvedValue('new_hashed' as never);
+      vi.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      vi.spyOn(bcrypt, 'hash').mockResolvedValue('new_hashed' as never);
     });
 
     it('logs a password change as WARN without any password or hash', async () => {
-      jest.spyOn<any, any>(service as any, 'findOneWithPassword').mockResolvedValue({
+      vi.spyOn<any, any>(service as any, 'findOneWithPassword').mockResolvedValue({
         ...mockUser,
         workspaceId: 'ws-home',
       } as User);
-      jest.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
+      vi.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
 
       await service.changePassword('1', { currentPassword: 'old_pw', newPassword: 'new_pw' });
 
@@ -632,10 +680,10 @@ describe('UsersService', () => {
     });
 
     it('still changes the password when the audit write fails', async () => {
-      jest
+      vi
         .spyOn<any, any>(service as any, 'findOneWithPassword')
         .mockResolvedValue({ ...mockUser } as User);
-      const saveSpy = jest.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
+      const saveSpy = vi.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
       auditService.createEvent.mockRejectedValue(new Error('audit down'));
 
       await expect(
@@ -645,10 +693,10 @@ describe('UsersService', () => {
     });
 
     it('skips the event when the user has no home workspace', async () => {
-      jest
+      vi
         .spyOn<any, any>(service as any, 'findOneWithPassword')
         .mockResolvedValue({ ...mockUser, workspaceId: null } as User);
-      jest.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
+      vi.spyOn(repository, 'save').mockResolvedValue(mockUser as User);
 
       await service.changePassword('1', { currentPassword: 'a', newPassword: 'b' });
 
@@ -657,8 +705,8 @@ describe('UsersService', () => {
 
     it('logs an admin update against the target with the admin as actor', async () => {
       const target = { ...mockUser, id: 'target-1', workspaceId: 'ws-target', role: UserRole.USER };
-      jest.spyOn(repository, 'findOne').mockResolvedValue(target as User);
-      jest.spyOn(repository, 'save').mockImplementation(async user => user as User);
+      vi.spyOn(repository, 'findOne').mockResolvedValue(target as User);
+      vi.spyOn(repository, 'save').mockImplementation(async user => user as User);
 
       await service.update('target-1', { role: UserRole.ADMIN }, admin);
 
@@ -676,10 +724,10 @@ describe('UsersService', () => {
     });
 
     it('logs an admin removal as DELETE', async () => {
-      jest
+      vi
         .spyOn(repository, 'findOne')
         .mockResolvedValue({ ...mockUser, id: 'target-1', workspaceId: 'ws-target' } as User);
-      jest
+      vi
         .spyOn(repository, 'softDelete')
         .mockResolvedValue({ affected: 1, raw: [], generatedMaps: [] });
 

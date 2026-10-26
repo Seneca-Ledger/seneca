@@ -1,4 +1,7 @@
 import * as xlsx from 'xlsx';
+import { APP_NAME } from '../../common/brand';
+import { toCsv } from '../../common/utils/csv.util';
+import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import type { IncomeTaxDraft } from './income-tax.types';
 
 /**
@@ -10,7 +13,7 @@ import type { IncomeTaxDraft } from './income-tax.types';
  */
 
 export const INCOME_TAX_DOCUMENT_DISCLAIMER =
-  'DRAFT — NOT TAX ADVICE, NOT FILED. Prepared by Lumio from the data you entered. ' +
+  `DRAFT — NOT TAX ADVICE, NOT FILED. Prepared by ${APP_NAME} from the data you entered. ` +
   'These figures can only be relied on if the app was used every day and every income ' +
   'and expense was tracked consistently; missing statements, receipts or uncategorised ' +
   'transactions make them wrong. Check them against the pre-filled return of your tax ' +
@@ -218,8 +221,9 @@ export function buildIncomeTaxXlsx(draft: IncomeTaxDraft): Buffer {
     rows.map(row => ({
       Line: lineKey,
       Date: row.date,
-      Counterparty: row.counterparty,
-      Category: row.categoryName ?? '',
+      // Bank and user text: a leading = + - @ must not become a formula once edited.
+      Counterparty: neutralizeSpreadsheetFormulaCell(row.counterparty),
+      Category: neutralizeSpreadsheetFormulaCell(row.categoryName ?? ''),
       Currency: row.currency,
       Amount: row.amount,
       'Exchange rate': row.exchangeRate,
@@ -233,6 +237,55 @@ export function buildIncomeTaxXlsx(draft: IncomeTaxDraft): Buffer {
   xlsx.utils.book_append_sheet(workbook, transactions, 'Transactions');
 
   return xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+}
+
+/**
+ * The draft as CSV: figures first, then every transaction behind them, with
+ * plain numbers so a spreadsheet or an accountant's software can add them up.
+ */
+export function buildIncomeTaxCsv(draft: IncomeTaxDraft): Buffer {
+  return Buffer.from(
+    toCsv([
+      ['Income tax declaration draft'],
+      [INCOME_TAX_DOCUMENT_DISCLAIMER],
+      [],
+      ...summaryRows(draft),
+      [],
+      FIGURE_HEADER,
+      ...draft.figures.map(figure => [
+        figure.lineNo ?? '',
+        figure.fieldNo ?? '',
+        figure.label,
+        figure.amount,
+        figure.deductible,
+        figure.transactionCount,
+      ]),
+      [],
+      [
+        'Line',
+        'Date',
+        'Counterparty',
+        'Category',
+        'Currency',
+        'Amount',
+        'Exchange rate',
+        `Amount in ${draft.currency}`,
+      ],
+      ...Object.entries(draft.contributions).flatMap(([lineKey, rows]) =>
+        rows.map(row => [
+          lineKey,
+          row.date,
+          row.counterparty,
+          row.categoryName ?? '',
+          row.currency,
+          row.amount,
+          row.exchangeRate,
+          row.amountConverted,
+        ]),
+      ),
+    ]),
+    'utf8',
+  );
 }
 
 export async function buildIncomeTaxPdf(draft: IncomeTaxDraft): Promise<Buffer> {

@@ -1,6 +1,6 @@
 import { InvestmentPriceSource } from '@/entities/investment-holding.entity';
 import { InvestmentReturnsService } from '@/modules/investments/investment-returns.service';
-import type { InvestmentFlow } from '@/modules/investments/investments.service';
+import type { InvestmentFlow } from '@/modules/investments/investment-flows.service';
 
 function daysAgo(days: number): string {
   const date = new Date();
@@ -41,8 +41,8 @@ function createService(
   } = {},
 ) {
   const investments = {
-    workspaceCurrency: jest.fn(async () => 'EUR'),
-    listAccounts: jest.fn(async () =>
+    workspaceCurrency: vi.fn(async () => 'EUR'),
+    listAccounts: vi.fn(async () =>
       (options.accounts ?? []).map(account => ({
         id: account.id,
         name: account.name ?? account.id,
@@ -50,17 +50,17 @@ function createService(
         holdings: account.holdings ?? [{ name: 'Fund', ...fresh }],
       })),
     ),
-    loadFlows: jest.fn(async () =>
+    loadFlows: vi.fn(async () =>
       (options.flows ?? []).map(flow => ({ ...flow, currency: 'EUR' })),
     ),
     // Everything is already in euros: the dated conversion has its own tests.
-    valueFlows: jest.fn(async (_ws: string, flows: InvestmentFlow[]) => ({
+    valueFlows: vi.fn(async (_ws: string, flows: InvestmentFlow[]) => ({
       flows: flows.map(flow => ({ ...flow, value: flow.amount })),
       missing: [],
     })),
   };
   const metals = {
-    getSummary: jest.fn(async () => ({
+    getSummary: vi.fn(async () => ({
       accountId: options.metals?.accountId ?? null,
       value: options.metals?.value ?? 0,
       lots: (options.metals?.lots ?? []).map(lot => ({ ...lot, ...fresh })),
@@ -68,20 +68,21 @@ function createService(
     })),
   };
   const crypto = {
-    getHoldings: jest.fn(async () => ({
+    getHoldings: vi.fn(async () => ({
       currency: 'EUR',
       holdings: options.crypto?.holdings ?? [],
       unpriced: options.crypto?.unpriced ?? [],
     })),
   };
   const balance = {
-    getAccountHistory: jest.fn(async (_ws: string, accountId: string) =>
+    getAccountHistory: vi.fn(async (_ws: string, accountId: string) =>
       (options.history?.[accountId] ?? []).map(point => ({ ...point, currency: 'EUR' })),
     ),
   };
-  const exchangeRates = { getRateCurve: jest.fn(async () => []) };
+  const exchangeRates = { getRateCurve: vi.fn(async () => []) };
 
   return new InvestmentReturnsService(
+    investments as never,
     investments as never,
     metals as never,
     crypto as never,

@@ -4,7 +4,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Branch } from '../../../../../src/entities/branch.entity';
 import { CategorizationRule } from '../../../../../src/entities/categorization-rule.entity';
 import { Category } from '../../../../../src/entities/category.entity';
-import { PayeeOverride } from '../../../../../src/entities/payee-override.entity';
+import { Payee } from '../../../../../src/entities/payee.entity';
+import { PayeeAlias } from '../../../../../src/entities/payee-alias.entity';
 import {
   Transaction,
   TransactionCategorySource,
@@ -12,15 +13,11 @@ import {
 } from '../../../../../src/entities/transaction.entity';
 import { Wallet } from '../../../../../src/entities/wallet.entity';
 import { Workspace } from '../../../../../src/entities/workspace.entity';
-import { ApplicationSettingsService } from '../../../../../src/modules/application-settings/application-settings.service';
 import { AuditService } from '../../../../../src/modules/audit/audit.service';
-import { CategoriesService } from '../../../../../src/modules/categories/categories.service';
 import { ClassificationService } from '../../../../../src/modules/classification/services/classification.service';
 
 /**
- * Where a category came from, and the switches that decide which steps may run:
- * the behaviour Monarch and Copilot users complained about in 2026 — a model
- * that overrides rules and no way to turn it off.
+ * Where a category came from, and the switches that decide which steps may run.
  */
 describe('ClassificationService provenance and switches', () => {
   let service: ClassificationService;
@@ -31,7 +28,7 @@ describe('ClassificationService provenance and switches', () => {
     seen: [] as string[],
   };
   const transactionRepository = {
-    createQueryBuilder: jest.fn(() => {
+    createQueryBuilder: vi.fn(() => {
       const builder = {
         select: () => builder,
         where: (condition: string) => {
@@ -50,18 +47,20 @@ describe('ClassificationService provenance and switches', () => {
       return builder;
     }),
   };
-  const overrideRepository = { findOne: jest.fn(async () => null) };
-  const workspaceRepository = { findOne: jest.fn() };
-  const ruleRepository = { find: jest.fn(async () => []) };
-  const categoryRepository = {
-    find: jest.fn(async () => []),
-    findOne: jest.fn(async () => null),
-    create: jest.fn(),
-    save: jest.fn(),
+  // Every descriptor in these tests is the one payee, "Magnum".
+  const aliasRepository = { findOne: vi.fn(async () => ({ payeeId: 'payee-1' })) };
+  const payeeRepository = {
+    findOne: vi.fn(async () => ({ id: 'payee-1', name: 'Magnum', mode: 'auto', categoryId: null })),
   };
-  const cache = { get: jest.fn(async () => undefined), set: jest.fn(), del: jest.fn() };
-  const applicationSettings = { getAiSettingsForWorkspaceId: jest.fn(async () => null) };
-  const categoriesService = { findAll: jest.fn(async () => []) };
+  const workspaceRepository = { findOne: vi.fn() };
+  const ruleRepository = { find: vi.fn(async () => []), update: vi.fn() };
+  const categoryRepository = {
+    find: vi.fn(async () => []),
+    findOne: vi.fn(async () => null),
+    create: vi.fn(),
+    save: vi.fn(),
+  };
+  const cache = { get: vi.fn(async () => undefined), set: vi.fn(), del: vi.fn() };
 
   const tx = (overrides: Partial<Transaction> = {}): Transaction =>
     ({
@@ -86,18 +85,22 @@ describe('ClassificationService provenance and switches', () => {
         ClassificationService,
         { provide: getRepositoryToken(Category), useValue: categoryRepository },
         { provide: getRepositoryToken(Transaction), useValue: transactionRepository },
-        { provide: getRepositoryToken(PayeeOverride), useValue: overrideRepository },
-        { provide: getRepositoryToken(Branch), useValue: { find: jest.fn(async () => []) } },
+        { provide: getRepositoryToken(Payee), useValue: payeeRepository },
+        { provide: getRepositoryToken(PayeeAlias), useValue: aliasRepository },
+        { provide: getRepositoryToken(Branch), useValue: { find: vi.fn(async () => []) } },
         {
           provide: getRepositoryToken(Wallet),
-          useValue: { find: jest.fn(async () => []), findOne: jest.fn(async () => null) },
+          useValue: {
+            find: vi.fn(async () => []),
+            findOne: vi.fn(async () => null),
+            // A matched rule's targets are checked through it; here they are the workspace's.
+            manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
+          },
         },
         { provide: getRepositoryToken(CategorizationRule), useValue: ruleRepository },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepository },
         { provide: CACHE_MANAGER, useValue: cache },
-        { provide: AuditService, useValue: { createEvent: jest.fn() } },
-        { provide: CategoriesService, useValue: categoriesService },
-        { provide: ApplicationSettingsService, useValue: applicationSettings },
+        { provide: AuditService, useValue: { createEvent: vi.fn() } },
       ],
     }).compile();
     service = module.get(ClassificationService);
@@ -108,19 +111,17 @@ describe('ClassificationService provenance and switches', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     cache.get.mockResolvedValue(undefined);
-    categoriesService.findAll.mockResolvedValue([]);
     ruleRepository.find.mockResolvedValue([]);
     payeeHistory.rows = [];
     payeeHistory.seen = [];
-    overrideRepository.findOne.mockResolvedValue(null);
     settings({});
   });
 
   describe('category source', () => {
     it('names the rule that matched', async () => {
-      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
         {
           id: 'rule-1',
           name: 'Magnum is groceries',
@@ -140,9 +141,9 @@ describe('ClassificationService provenance and switches', () => {
       });
     });
 
-    it('marks the uncategorised fallback as default so the model may still step in', async () => {
-      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
-      jest.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
+    it('marks the uncategorised fallback as default', async () => {
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      vi.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
 
       const result = await service.classifyTransaction(tx({ counterpartyName: 'Zzz' }), 'u1');
 
@@ -151,7 +152,7 @@ describe('ClassificationService provenance and switches', () => {
     });
 
     it('names the payee whose history decided it', async () => {
-      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
       payeeHistory.rows = [{ categoryId: 'cat-groceries' }];
 
       const result = await service.classifyTransaction(tx(), 'u1');
@@ -165,31 +166,11 @@ describe('ClassificationService provenance and switches', () => {
   });
 
   describe('switches', () => {
-    it('skips the model entirely when AI categorisation is off', async () => {
-      settings({ aiCategorization: false });
-
-      const result = await service.classifyTransactionsBatch(
-        [
-          {
-            index: 0,
-            counterpartyName: 'Magnum',
-            paymentPurpose: 'Groceries',
-            transactionType: TransactionType.EXPENSE,
-          },
-        ],
-        'ws-1',
-        'u1',
-      );
-
-      expect(result.size).toBe(0);
-      expect(applicationSettings.getAiSettingsForWorkspaceId).not.toHaveBeenCalled();
-    });
-
     it('does not read the payee history when learning is off', async () => {
       settings({ merchantLearning: false });
       payeeHistory.rows = [{ categoryId: 'cat-groceries' }];
-      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
-      jest.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      vi.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
 
       const result = await service.classifyTransaction(tx(), 'u1');
 

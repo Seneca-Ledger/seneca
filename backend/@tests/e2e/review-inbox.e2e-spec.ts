@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -214,7 +214,7 @@ describe('Review inbox (e2e)', () => {
       const [row] = await dataSource.query(
         `INSERT INTO receipts
            (user_id, workspace_id, source, subject, sender, received_at, parsed_data, status)
-         VALUES ($1, $2, 'gmail', 'probe', 'shop@example.com', now(), $3::jsonb, $4)
+         VALUES ($1, $2, 'imap', 'probe', 'shop@example.com', now(), $3::jsonb, $4)
          RETURNING id`,
         [owner.userId, owner.workspaceId, JSON.stringify(parsed), status],
       );
@@ -321,8 +321,51 @@ describe('Review inbox (e2e)', () => {
 
     expect(byId.get(scanRowId)).toBe(receipt.id);
     expect(byId.get(bankRowId)).toBeNull();
+    // The thumbnail: the receipt for a scan, the statement file for a bank row.
+    const documents = new Map(
+      res.body.items.map((item: { id: string; document: unknown }) => [item.id, item.document]),
+    );
+    expect(documents.get(scanRowId)).toEqual({
+      source: 'receipt',
+      id: receipt.id,
+      fileName: 'bank.csv',
+      fileType: 'csv',
+    });
+    expect(documents.get(bankRowId)).toEqual(
+      expect.objectContaining({ source: 'statement', fileType: 'csv' }),
+    );
     await dataSource.query('DELETE FROM receipts WHERE workspace_id = $1', [owner.workspaceId]);
     await dataSource.query('DELETE FROM transactions WHERE id = ANY($1)', [[scanRowId, bankRowId]]);
+  });
+
+  it('asks about a scan once, as its row, and confirming the row closes the receipt', async () => {
+    const scanStatementId = await insertBankStatement();
+    const scanRowId = await insertBankRow(scanStatementId);
+    const [receipt] = await dataSource.query(
+      `INSERT INTO receipts
+         (user_id, workspace_id, source, subject, sender, received_at, parsed_data, status, statement_id)
+       VALUES ($1, $2, 'scan', 'scan.jpg', 'scan', now(), '{"amount": 4}'::jsonb, 'draft', $3)
+       RETURNING id`,
+      [owner.userId, owner.workspaceId, scanStatementId],
+    );
+
+    const receipts = await as(owner, request(server()).get('/review-inbox?kind=receipt')).expect(
+      200,
+    );
+    expect(receipts.body.items.map((item: { id: string }) => item.id)).not.toContain(receipt.id);
+    expect(receipts.body.counts.receipt).toBe(0);
+
+    await as(owner, request(server()).post('/review-inbox/transactions/approve'))
+      .send({ ids: [scanRowId], categoryId: categoryIds[0] })
+      .expect(200);
+
+    const [closed] = await dataSource.query(
+      'SELECT status, transaction_id FROM receipts WHERE id = $1',
+      [receipt.id],
+    );
+    expect(closed).toEqual({ status: 'approved', transaction_id: scanRowId });
+    await dataSource.query('DELETE FROM receipts WHERE workspace_id = $1', [owner.workspaceId]);
+    await dataSource.query('DELETE FROM transactions WHERE id = $1', [scanRowId]);
   });
 
   it('asks about every unconfirmed row, whatever set its category', async () => {
@@ -347,11 +390,33 @@ describe('Review inbox (e2e)', () => {
     expect(ids).toEqual(expect.arrayContaining([byRule, byHistory, transfer]));
   });
 
+  async function uncategorizedCategoryId(): Promise<string> {
+    const [existing] = await dataSource.query(
+      `SELECT id FROM categories
+        WHERE workspace_id = $1 AND type = 'expense' AND name = 'Uncategorized' AND parent_id IS NULL`,
+      [owner.workspaceId],
+    );
+    if (existing) {
+      return existing.id;
+    }
+    const [created] = await dataSource.query(
+      `INSERT INTO categories (name, type, workspace_id, user_id)
+       VALUES ('Uncategorized', 'expense', $1, $2) RETURNING id`,
+      [owner.workspaceId, owner.userId],
+    );
+    return created.id;
+  }
+
   it('confirms a whole statement at once, leaving rows without a category', async () => {
     const statementId = await insertBankStatement();
     const first = await insertBankRow(statementId, { categoryId: categoryIds[0], source: 'rule' });
     const second = await insertBankRow(statementId, { categoryId: categoryIds[0], source: 'ai' });
     const open = await insertBankRow(statementId);
+    // The importer's fallback is not a category anyone chose: it waits too.
+    const fallback = await insertBankRow(statementId, {
+      categoryId: await uncategorizedCategoryId(),
+      source: 'default',
+    });
 
     await as(other, request(server()).post(`/review-inbox/statements/${statementId}/approve`)).expect(
       404,
@@ -361,15 +426,16 @@ describe('Review inbox (e2e)', () => {
       request(server()).post(`/review-inbox/statements/${statementId}/approve`),
     ).expect(200);
 
-    expect(res.body).toEqual({ approved: 2, uncategorized: 1 });
+    expect(res.body).toEqual({ approved: 2, uncategorized: 2 });
     const verified = await dataSource.query(
       'SELECT id, is_verified FROM transactions WHERE id = ANY($1)',
-      [[first, second, open]],
+      [[first, second, open, fallback]],
     );
     expect(Object.fromEntries(verified.map((row: { id: string; is_verified: boolean }) => [row.id, row.is_verified]))).toEqual({
       [first]: true,
       [second]: true,
       [open]: false,
+      [fallback]: false,
     });
   });
 });

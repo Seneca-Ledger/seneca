@@ -1,16 +1,18 @@
-import { IsNull } from 'typeorm';
+import type { Mock } from 'vitest';
+import { IsNull, Not } from 'typeorm';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxThresholdPeriod } from '@/entities/tax-jurisdiction.entity';
 import { TransactionType } from '@/entities/transaction.entity';
+import { VatStatus } from '@/entities/workspace.entity';
 import { TaxThresholdService } from '@/modules/tax/tax-threshold.service';
 
 describe('TaxThresholdService', () => {
   let service: TaxThresholdService;
   let workspaceRepo: ReturnType<typeof createRepoMock>;
   let transactionRepo: ReturnType<typeof createRepoMock>;
-  let adoption: { getCurrentJurisdiction: jest.Mock };
-  let exchangeRates: { getRate: jest.Mock };
-  let events: { emit: jest.Mock };
+  let adoption: { getCurrentJurisdiction: Mock };
+  let exchangeRates: { getRateOrNull: Mock };
+  let events: { emit: Mock };
   let workspace: Record<string, unknown>;
 
   const GB = {
@@ -41,16 +43,22 @@ describe('TaxThresholdService', () => {
   const NOW = new Date('2026-06-15T00:00:00.000Z');
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    workspace = { id: 'ws-1', taxThresholdAlertLevel: 0, taxThresholdAlertWindow: null };
+    vi.clearAllMocks();
+    workspace = {
+      id: 'ws-1',
+      vatStatus: VatStatus.SMALL_BUSINESS,
+      settings: null,
+      taxThresholdAlertLevel: 0,
+      taxThresholdAlertWindow: null,
+    };
     workspaceRepo = createRepoMock();
     workspaceRepo.findOne.mockImplementation(async () => workspace);
     workspaceRepo.save.mockImplementation(async (row: unknown) => row);
     transactionRepo = createRepoMock();
     transactionRepo.find.mockResolvedValue([]);
-    adoption = { getCurrentJurisdiction: jest.fn().mockResolvedValue(GB) };
-    exchangeRates = { getRate: jest.fn().mockResolvedValue(1) };
-    events = { emit: jest.fn() };
+    adoption = { getCurrentJurisdiction: vi.fn().mockResolvedValue(GB) };
+    exchangeRates = { getRateOrNull: vi.fn().mockResolvedValue(1) };
+    events = { emit: vi.fn() };
 
     service = new TaxThresholdService(
       workspaceRepo,
@@ -77,6 +85,9 @@ describe('TaxThresholdService', () => {
       for (const branch of where) {
         expect(branch).toMatchObject({ isVerified: true, isDuplicate: false, workspaceId: 'ws-1' });
         expect(branch.transferPairId).toEqual(IsNull());
+        // Every categorised sale, assessed or not. `Not(null)` would compile to
+        // `!= NULL`, which matches nothing.
+        expect(branch.categoryId).toEqual(Not(IsNull()));
       }
       expect(where[0].statementId).toEqual(IsNull());
       expect(where[1].statement).toEqual({ deletedAt: IsNull() });
@@ -93,17 +104,64 @@ describe('TaxThresholdService', () => {
 
     it('converts foreign sales at the rate for their own date', async () => {
       transactionRepo.find.mockResolvedValue([sale('1000.00', { currency: 'USD' })]);
-      exchangeRates.getRate.mockResolvedValue(0.8);
+      exchangeRates.getRateOrNull.mockResolvedValue(0.8);
 
       const status = await service.getStatus('ws-1', NOW);
 
-      expect(exchangeRates.getRate).toHaveBeenCalledWith(
+      expect(exchangeRates.getRateOrNull).toHaveBeenCalledWith(
         'USD',
         'GBP',
         new Date('2026-05-01'),
         'ws-1',
       );
       expect(status?.turnover).toBe(800);
+    });
+
+    it('counts a sale with no VAT worked out at its full amount', async () => {
+      // Below the threshold no VAT is assessed, so there is no net figure yet.
+      transactionRepo.find.mockResolvedValue([sale(null as never, { amount: '4000.00' })]);
+
+      const status = await service.getStatus('ws-1', NOW);
+
+      expect(status?.turnover).toBe(4000);
+    });
+
+    it('leaves wages, loans, transfers and tax refunds out of turnover', async () => {
+      transactionRepo.find.mockResolvedValue([
+        sale('1000.00'),
+        sale('2000.00', { transactionNature: 'salary' }),
+        sale('3000.00', { transactionNature: 'loan' }),
+        sale('4000.00', { transactionNature: 'tax' }),
+      ]);
+
+      expect((await service.getStatus('ws-1', NOW))?.turnover).toBe(1000);
+    });
+
+    it('leaves out a sale with no exchange rate for its day, and says which currency', async () => {
+      transactionRepo.find.mockResolvedValue([
+        sale('1000.00'),
+        sale('500.00', { currency: 'USD' }),
+      ]);
+      exchangeRates.getRateOrNull.mockResolvedValue(null);
+
+      const status = await service.getStatus('ws-1', NOW);
+
+      // Taking 1 for the missing rate would count $500 as £500.
+      expect(status?.turnover).toBe(1000);
+      expect(status?.missingRateCurrencies).toEqual(['USD']);
+    });
+
+    it('is absent for a VAT-registered workspace, which is past the threshold', async () => {
+      workspace.vatStatus = VatStatus.REGISTERED;
+      transactionRepo.find.mockResolvedValue([sale('100000.00')]);
+
+      expect(await service.getStatus('ws-1', NOW)).toBeNull();
+    });
+
+    it('is absent for household money', async () => {
+      workspace.settings = { profile: 'home' };
+
+      expect(await service.getStatus('ws-1', NOW)).toBeNull();
     });
 
     it('reports no percentage when the jurisdiction publishes no threshold', async () => {
@@ -217,7 +275,7 @@ describe('TaxThresholdService', () => {
   describe('checkAll', () => {
     it('keeps sweeping after one workspace fails', async () => {
       workspaceRepo.find.mockResolvedValue([{ id: 'ws-1' }, { id: 'ws-2' }]);
-      const failing = jest
+      const failing = vi
         .spyOn(service, 'checkWorkspace')
         .mockRejectedValueOnce(new Error('rate lookup down'))
         .mockResolvedValueOnce(null);

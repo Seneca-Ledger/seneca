@@ -17,13 +17,13 @@ In order of priority:
 4. **Device position** — only for receipts shot with the in-app camera.
 
 The device position is requested only after the user agrees. The choice is stored per device, and
-after a refusal Lumio does not ask again; it can be changed later in the Data tab of the profile
+after a refusal Seneca does not ask again; it can be changed later in the Data tab of the profile
 settings.
 
 ## Asking for the shop when GPS was missing
 
 Phones often lose GPS inside a shop. When a receipt is shot with the camera and the phone has no fix,
-or only a rough one (worse than 100 m), Lumio remembers the receipt on that device and waits for GPS
+or only a rough one (worse than 100 m), Seneca remembers the receipt on that device and waits for GPS
 to come back:
 
 - while the app stays on screen, for up to 20 minutes after the photo;
@@ -37,7 +37,7 @@ asked when the store address on the receipt was already geocoded or the user pla
 
 The queue lives in the browser and holds no coordinates. A position taken after leaving the shop is
 only used for the search and is not stored unless the user picks a shop. Browsers do not share
-location with a web app in the background, so the question only appears while Lumio is open.
+location with a web app in the background, so the question only appears while Seneca is open.
 
 ## Enable it
 

@@ -16,7 +16,6 @@ type WorkspaceLike = { id: string; name?: string | null };
 type SourceLabels = {
   sourceBank: string;
   sourceReceipt: string;
-  sourceGmailInbox: string;
   sourceCrypto: string;
 };
 type DrillLabels = {
@@ -29,7 +28,7 @@ type DrillLabels = {
   amount: string;
 };
 
-type TxFn = (path: string[], fallback: string) => string;
+type TxFn = (path: string[]) => string;
 
 type DataParams<TState> = {
   user: unknown;
@@ -62,7 +61,6 @@ export type TopAnalyticsViewModelReturn<TState, TData> = TState &
     drillLabels: DrillLabels;
   };
 
-// eslint-disable-next-line max-params
 export function useTopAnalyticsViewModel<TState, TData>(
   config: TopAnalyticsViewModelConfig<TState, TData>,
   month: Date,
@@ -94,7 +92,6 @@ export function useTopAnalyticsViewModel<TState, TData>(
     () => ({
       sourceBank: labels.sourceBank,
       sourceReceipt: labels.sourceReceipt,
-      sourceGmailInbox: labels.sourceGmailInbox,
       sourceCrypto: labels.sourceCrypto,
     }),
     [labels],

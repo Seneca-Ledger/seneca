@@ -10,6 +10,11 @@ const workspaceState = vi.hoisted(() => ({
   currentWorkspaceId: 'workspace-1',
 }));
 
+// Packs count as loaded unless a test holds one back.
+const localePacks = vi.hoisted(() => ({
+  load: vi.fn((_locale: string) => Promise.resolve()),
+}));
+
 const themeMocks = vi.hoisted(() => ({
   createAppTheme: vi.fn((_mode: string) => ({})),
   persistPaletteModeCookie: vi.fn(),
@@ -51,6 +56,11 @@ vi.mock('react-intlayer', () => ({
       {children}
     </>
   ),
+}));
+
+vi.mock('@/app/i18n', () => ({
+  loadLocalePack: localePacks.load,
+  LocalePackGate: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   // The always-mounted keyboard shortcuts modal reads its dictionary on render.
   useIntlayer: () => {
     const node = (key: string): unknown =>
@@ -61,7 +71,7 @@ vi.mock('react-intlayer', () => ({
 
 vi.mock('@/app/lib/theme-preference', () => ({
   DEFAULT_THEME_PREFERENCE: 'light',
-  THEME_STORAGE_EVENT: 'lumio-theme-change',
+  THEME_STORAGE_EVENT: 'seneca-theme-change',
   getStoredThemePreference: () => 'light',
   persistPaletteModeCookie: themeMocks.persistPaletteModeCookie,
   resolveThemePreference: (value: string) => value,
@@ -81,6 +91,8 @@ vi.mock('./contexts/CurrencyDisplayContext', () => ({
 
 vi.mock('./contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  // Read through useAuth by components mounted in the provider tree.
+  useAuthContext: () => ({ user: null, loading: false }),
 }));
 
 vi.mock('./contexts/WorkspaceContext', () => ({
@@ -91,6 +103,7 @@ vi.mock('./contexts/WorkspaceContext', () => ({
       : null,
     loading: false,
   }),
+  useReadOnlyWorkspace: () => ({ isReadOnly: false, version: null }),
 }));
 
 vi.mock('./hooks/useAutoTheme', () => ({
@@ -109,6 +122,7 @@ describe('Providers', () => {
   // Клиент — модульный синглтон, иначе тесты делили бы один кэш.
   afterEach(() => {
     resetQueryClient();
+    localePacks.load.mockImplementation(() => Promise.resolve());
   });
 
   it('prefers locale from the intlayer cookie over server fallback locale', async () => {
@@ -144,6 +158,36 @@ describe('Providers', () => {
     });
 
     expect(document.cookie).toContain('INTLAYER_LOCALE=kk');
+    expect(screen.getByTestId('intlayer-locale').textContent).toBe('kk');
+  });
+
+  it('switches locale only once the language pack has loaded', async () => {
+    document.cookie = 'INTLAYER_LOCALE=en; path=/';
+    let finishLoading = () => {};
+    localePacks.load.mockImplementation(
+      locale =>
+        locale === 'kk'
+          ? new Promise<void>(resolve => {
+              finishLoading = resolve;
+            })
+          : Promise.resolve(),
+    );
+
+    const { Providers } = await import('./providers');
+
+    render(<Providers initialLocale="en">test</Providers>);
+
+    await act(async () => {
+      screen.getByTestId('set-locale-kk').click();
+    });
+
+    expect(localePacks.load).toHaveBeenCalledWith('kk');
+    expect(screen.getByTestId('intlayer-locale').textContent).toBe('en');
+
+    await act(async () => {
+      finishLoading();
+    });
+
     expect(screen.getByTestId('intlayer-locale').textContent).toBe('kk');
   });
 

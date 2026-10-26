@@ -3,8 +3,8 @@ title: Configuration
 description: Environment variables and integration setup
 ---
 
-Lumio ships with working defaults for local development — `npm run setup:env` generates them.
-Production deployments need real secrets and a few settings that match how you host Lumio.
+Seneca ships with working defaults for local development — `npm run setup:env` generates them.
+Production deployments need real secrets and a few settings that match how you host Seneca.
 
 ## Root environment (.env)
 
@@ -30,7 +30,7 @@ Also set for production:
 - `METRICS_AUTH_TOKEN` if you scrape `/api/v1/metrics` — see [Observability](../guides/observability)
 - `TELEGRAM_WEBHOOK_SECRET` when the Telegram webhook is enabled
 
-Optional: `LUMIO_IMAGE_TAG` pins the prebuilt GHCR images, and `DB_QUERY_LOGGING=true` logs every SQL
+Optional: `IMAGE_TAG` pins the prebuilt GHCR images, and `DB_QUERY_LOGGING=true` logs every SQL
 query.
 
 ## Sessions, CORS and security
@@ -66,12 +66,12 @@ JWT_REFRESH_SECRET=<generated>
 INTEGRATIONS_ENCRYPTION_KEY=<generated>
 ```
 
-`backend/.env.all-options` lists every infrastructure setting — parsing and AI timeouts, concurrency,
+`backend/.env.all-options` lists every infrastructure setting — parsing timeouts, concurrency,
 storage paths and more. Treat it as a reference and copy single values, not the whole file.
 
 ## Integrations
 
-Configure AI endpoints, SMTP, S3-compatible storage, WebDAV, IMAP, Telegram and the public App URL in
+Configure SMTP, S3-compatible storage, WebDAV, IMAP, Telegram and the public App URL in
 the app under **Integrations** and **Settings**. Their credentials are stored encrypted per workspace;
 env values with the same purpose are only temporary fallback defaults. See
 [Integrations](../guides/integrations).
@@ -80,7 +80,6 @@ env values with the same purpose are only temporary fallback defaults. See
 
 - `NEXT_PUBLIC_API_URL` — the API base URL seen by the browser
 - `NEXT_PUBLIC_SUPPORT_EMAIL` — where "report an error" in the tax screens sends people
-- `NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY`, `NEXT_PUBLIC_DROPBOX_APP_KEY` — only for the legacy file pickers
 
 `NEXT_PUBLIC_*` values are compiled into the frontend at build time, so the prebuilt image needs a
 rebuild to change them. The Next.js server proxies `/api/*` and `/uploads/*` to `API_PROXY_TARGET`

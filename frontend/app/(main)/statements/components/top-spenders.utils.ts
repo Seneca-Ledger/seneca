@@ -52,7 +52,7 @@ export const resolveSpenderFlow = (
     credit: input.totalCredit,
     amount: input.totalDebit,
     expenseFlowType: 'spend',
-    gmailUsesTransactionType: false,
+    receiptUsesTransactionType: false,
   });
 };
 

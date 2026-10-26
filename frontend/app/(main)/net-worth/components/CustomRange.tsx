@@ -2,8 +2,10 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import { useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { X } from '@/app/components/icons';
 import type { NetWorthCustomRange } from '../hooks/useNetWorth';
 
 interface CustomRangeProps {
@@ -60,16 +62,16 @@ export function CustomRange({
         onChange={next => apply({ to: next })}
         size="small"
       />
-      <Button
+      <IconButton
         size="small"
-        sx={{ textTransform: 'none' }}
+        aria-label={labels.custom}
         onClick={() => {
           setIsOpen(false);
           onChange(null);
         }}
       >
-        ✕
-      </Button>
+        <X size={16} />
+      </IconButton>
     </Box>
   );
 }

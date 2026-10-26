@@ -1,10 +1,36 @@
-import { cleanup } from '@testing-library/react';
+import { cleanup, waitFor } from '@testing-library/react';
 // @vitest-environment jsdom
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestQueryClient } from '@/app/test/query-wrapper';
 import { TopCategoriesSection } from '../TopCategoriesSection';
+import { analyticsResponse } from './top-categories.fixtures';
+
+// The analytics behind the section load through React Query.
+function renderSection(root: ReturnType<typeof createRoot>): void {
+  root.render(
+    <QueryClientProvider client={createTestQueryClient()}>
+      <TopCategoriesSection focusId="none" />
+    </QueryClientProvider>,
+  );
+}
+
+/** The section opens on the chart; the rows are one switch away, on the table. */
+async function openTable(container: HTMLElement, root: ReturnType<typeof createRoot>) {
+  await act(async () => {
+    renderSection(root);
+  });
+  const tableToggle = () =>
+    Array.from(container.querySelectorAll('button')).find(button => button.textContent === 'Table');
+  await waitFor(() => expect(tableToggle()).toBeTruthy());
+  await act(async () => {
+    tableToggle()?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  await waitFor(() => expect(container.textContent).toContain('Software'));
+}
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -61,7 +87,8 @@ vi.mock('next-themes', () => ({
 
 vi.mock('@/app/i18n', async () => {
   const actual = await vi.importActual<typeof import('react-intlayer')>('react-intlayer');
-  const realKeys = new Set(['statementsAnalyticsRecords', 'dashboardHeader']);
+  // statementsPage is real: the section's labels come only from its en dictionary.
+  const realKeys = new Set(['statementsAnalyticsRecords', 'dashboardHeader', 'statementsPage']);
   return {
     useLocale: () => ({ locale: 'en' }),
     useIntlayer: (key: string) =>
@@ -130,13 +157,7 @@ vi.mock('@/app/i18n', async () => {
   };
 });
 
-vi.mock('@/app/(main)/statements/components/filters/TypeFilterDropdown', () => ({
-  TypeFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
-}));
 
-vi.mock('@/app/(main)/statements/components/filters/StatusFilterDropdown', () => ({
-  StatusFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
-}));
 
 vi.mock('@/app/(main)/statements/components/filters/DateFilterDropdown', () => ({
   DateFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
@@ -177,102 +198,16 @@ describe('TopCategoriesSection', () => {
     document.body.appendChild(container);
     root = createRoot(container);
 
-    apiMocks.get.mockImplementation((url: string) => {
-      if (url === '/statements') {
-        return Promise.resolve({
-          data: {
-            data: [
-              {
-                id: 'statement-1',
-                status: 'completed',
-                createdAt: '2026-02-10T00:00:00.000Z',
-                statementDateFrom: '2026-02-01T00:00:00.000Z',
-                statementDateTo: '2026-02-10T00:00:00.000Z',
-                bankName: 'Kaspi',
-                fileType: 'expense',
-                currency: 'USD',
-              },
-            ],
-            total: 1,
-          },
-        });
-      }
+    // jsdom has no ResizeObserver; the chart view only needs it to exist.
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
 
-      if (url === '/transactions') {
-        return Promise.resolve({
-          data: {
-            data: [
-              {
-                id: 'tx-1',
-                statementId: 'statement-1',
-                transactionDate: '2026-02-10T00:00:00.000Z',
-                debit: 320,
-                credit: 0,
-                amount: 320,
-                currency: 'USD',
-                transactionType: 'expense',
-                counterpartyName: 'Anthropic',
-                paymentPurpose: 'Claude subscription',
-                isVerified: true,
-                categoryId: 'cat-1',
-                category: {
-                  id: 'cat-1',
-                  name: 'Software',
-                  color: '#2563eb',
-                },
-              },
-            ],
-            total: 1,
-          },
-        });
-      }
-
-      if (url === '/integrations/gmail/receipts') {
-        return Promise.resolve({
-          data: {
-            receipts: [
-              {
-                id: 'receipt-1',
-                subject: 'Travel receipt',
-                sender: 'Uber <noreply@uber.com>',
-                receivedAt: '2026-02-12T00:00:00.000Z',
-                status: 'approved',
-                transactionId: null,
-                parsedData: {
-                  amount: 45,
-                  currency: 'USD',
-                  vendor: 'Uber',
-                  date: '2026-02-12',
-                  category: 'Travel',
-                  categoryId: 'cat-2',
-                  transactionType: 'expense',
-                },
-              },
-              {
-                id: 'receipt-2',
-                subject: 'Duplicate software receipt',
-                sender: 'Anthropic <billing@anthropic.com>',
-                receivedAt: '2026-02-13T00:00:00.000Z',
-                status: 'approved',
-                transactionId: 'tx-1',
-                parsedData: {
-                  amount: 320,
-                  currency: 'USD',
-                  vendor: 'Anthropic',
-                  date: '2026-02-13',
-                  category: 'Software',
-                  categoryId: 'cat-1',
-                  transactionType: 'expense',
-                },
-              },
-            ],
-            total: 2,
-          },
-        });
-      }
-
-      return Promise.reject(new Error(`Unhandled request: ${url}`));
-    });
+    apiMocks.get.mockImplementation(analyticsResponse);
   });
 
   afterEach(() => {
@@ -285,15 +220,7 @@ describe('TopCategoriesSection', () => {
   });
 
   it('renders aggregated categories from transactions and non-duplicated receipts', async () => {
-    await act(async () => {
-      // A focus id opens the section on the table, where the rows are.
-      root.render(<TopCategoriesSection focusId="none" />);
-    });
-
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    await openTable(container, root);
 
     expect(container.textContent).toContain('Top categories');
     expect(container.textContent).toContain('Software');
@@ -302,15 +229,7 @@ describe('TopCategoriesSection', () => {
   });
 
   it('opens a drilldown modal for a selected category row', async () => {
-    await act(async () => {
-      // A focus id opens the section on the table, where the rows are.
-      root.render(<TopCategoriesSection focusId="none" />);
-    });
-
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    await openTable(container, root);
 
     const rowButton = Array.from(container.querySelectorAll('button')).find(button =>
       button.textContent?.includes('Software'),
@@ -322,8 +241,8 @@ describe('TopCategoriesSection', () => {
       rowButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(document.body.textContent).toContain('Software - Operations');
+    // en statementsPage › topCategoriesAnalytics.drillDown
+    expect(document.body.textContent).toContain('Software - Drill-down');
     expect(document.body.textContent).toContain('Main workspace');
   });
-
 });

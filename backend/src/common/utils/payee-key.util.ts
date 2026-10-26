@@ -43,6 +43,43 @@ const PLACEHOLDERS = new Set([
   'нет данных',
 ]);
 
+/**
+ * Words that name the document rather than who issued it. A key made only of
+ * these ("Invoice number 2955 6044", "Tax invoice", "Receipt") would file every
+ * invoice from every supplier under one payee, so such a descriptor has no key.
+ * Compared after diacritics are stripped, so "счёт" arrives as "счет".
+ */
+const DOCUMENT_WORDS = new Set([
+  'invoice',
+  'inv',
+  'receipt',
+  'bill',
+  'order',
+  'payment',
+  'document',
+  'tax',
+  'number',
+  'no',
+  'nr',
+  'ref',
+  'reference',
+  'unknown',
+  'merchant',
+  'rechnung',
+  'quittung',
+  'beleg',
+  'factura',
+  'facture',
+  'fattura',
+  'recibo',
+  'faktura',
+  'чек',
+  'счет',
+  'фактура',
+  'квитанция',
+  'номер',
+]);
+
 const stripDiacritics = (value: string): string =>
   value.normalize('NFKD').replace(/\p{Diacritic}/gu, '');
 
@@ -67,14 +104,13 @@ const dropAcquirerPrefix = (value: string): string => {
 
 export type PayeeKeyInput = {
   counterpartyName?: string | null;
-  /** Only read when the counterparty is missing or a parser placeholder. */
+  /** Only read when the counterparty names nobody (see `payeeKeyOf`). */
   paymentPurpose?: string | null;
 };
 
-/** The payee key, or `null` when the descriptor holds no name to key on. */
-export function payeeKeyOf({ counterpartyName, paymentPurpose }: PayeeKeyInput): string | null {
-  const named = (counterpartyName ?? '').trim();
-  const source = named && !isPlaceholder(named) ? named : (paymentPurpose ?? '').trim();
+/** The key of one string, or `null` when it holds no name to key on. */
+const keyOf = (value: string | null | undefined): string | null => {
+  const source = (value ?? '').trim();
   if (!source || isPlaceholder(source)) {
     return null;
   }
@@ -84,5 +120,27 @@ export function payeeKeyOf({ counterpartyName, paymentPurpose }: PayeeKeyInput):
     .split(/[^\p{L}\p{N}]+/u)
     .filter(token => token && !isReference(token));
 
-  return tokens.length ? tokens.join(' ') : null;
+  return tokens.some(token => !DOCUMENT_WORDS.has(token)) ? tokens.join(' ') : null;
+};
+
+/**
+ * The payee key, or `null` when the descriptor holds no name to key on. The
+ * payment purpose is only read when the counterparty names nobody: missing, a
+ * parser placeholder, or only document words like "Invoice number 2955".
+ */
+export function payeeKeyOf({ counterpartyName, paymentPurpose }: PayeeKeyInput): string | null {
+  return keyOf(counterpartyName) ?? keyOf(paymentPurpose);
+}
+
+/**
+ * The descriptor a new payee is named after: whichever of the two strings the
+ * key came from, trimmed. The user renames it from there.
+ */
+export function payeeNameOf({ counterpartyName, paymentPurpose }: PayeeKeyInput): string | null {
+  const source = keyOf(counterpartyName)
+    ? counterpartyName
+    : keyOf(paymentPurpose)
+      ? paymentPurpose
+      : null;
+  return source ? source.trim().slice(0, 200) : null;
 }

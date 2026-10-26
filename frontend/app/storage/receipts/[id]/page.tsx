@@ -9,146 +9,32 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { ArrowLeft } from '@/app/components/icons';
+import { AlertCircle, ArrowLeft, CheckCircle } from '@/app/components/icons';
+import { EInvoicePanel } from '@/app/components/receipts/EInvoicePanel';
 import { ReceiptLocationSection } from '@/app/components/receipts/location/ReceiptLocationSection';
 import { ReceiptParsedDataForm } from '@/app/components/receipts/ReceiptParsedDataForm';
 import { ReceiptTransactionMatch } from '@/app/components/receipts/ReceiptTransactionMatch';
 import type {
-  EditableReceiptLineItem,
   EditableReceiptParsedData,
   ReceiptCategoryOption,
 } from '@/app/components/receipts/receipt-types';
+import { ReceiptTagsField } from '@/app/components/tags/RecordTagsField';
 import { DetailActionButton } from '@/app/components/ui/detail-action-button';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
-import { normalizeReceiptLineItems } from '@/app/lib/financial-document';
-import { getQueryClient } from '@/app/lib/query-client';
+import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { tokens } from '@/lib/theme-tokens';
-
-type ReceiptExportColumn = {
-  /** Row key the column's values are stored under; `title` is the localized header. */
-  field: string;
-  title: string;
-  type: 'text' | 'number' | 'date';
-};
-
-type ReceiptExportRow = Record<string, string | number>;
-
-type ReceiptExportColumnLabels = Record<
-  'item' | 'vendor' | 'date' | 'amount' | 'currency' | 'source' | 'status',
-  string
->;
-
-function buildLineItems(receipt: ReceiptRecord | null): EditableReceiptLineItem[] {
-  return normalizeReceiptLineItems(receipt?.parsedData).map((item, index) => ({
-    id: `line-${index + 1}`,
-    description: item.description,
-    amount: item.amount,
-  }));
-}
-
-function buildReceiptDisplayTitle(receipt: ReceiptRecord, titleTemplate: string): string {
-  const vendor = receipt.parsedData?.vendor?.trim();
-  if (!vendor) {
-    return receipt.subject;
-  }
-  const date = receipt.parsedData?.date || receipt.receivedAt;
-  return titleTemplate.replace('{vendor}', vendor).replace('{date}', formatStoredDate(date));
-}
-
-function buildInitialForm(receipt: ReceiptRecord | null): EditableReceiptParsedData {
-  return {
-    vendor: receipt?.parsedData?.vendor ?? '',
-    amount: receipt?.parsedData?.amount ?? '',
-    currency: receipt?.parsedData?.currency ?? FALLBACK_CURRENCY,
-    date: receipt?.parsedData?.date?.split('T')[0] ?? '',
-    tax: receipt?.parsedData?.tax ?? '',
-    paymentMethod: receipt?.parsedData?.paymentMethod ?? '',
-    transactionType: receipt?.parsedData?.transactionType ?? 'expense',
-    categoryId: receipt?.parsedData?.categoryId ?? '',
-    lineItems: buildLineItems(receipt),
-  };
-}
-
-function buildParsedDataPayload(formValue: EditableReceiptParsedData) {
-  const lineItems = formValue.lineItems
-    .filter(item => item.description.trim().length > 0 || Number.isFinite(item.amount))
-    .map(item => ({ description: item.description, amount: item.amount }));
-
-  return {
-    vendor: formValue.vendor,
-    amount: formValue.amount === '' ? undefined : Number(formValue.amount),
-    currency: formValue.currency,
-    date: formValue.date,
-    tax: formValue.tax === '' ? undefined : Number(formValue.tax),
-    paymentMethod: formValue.paymentMethod,
-    transactionType: formValue.transactionType,
-    categoryId: formValue.categoryId || undefined,
-    lineItems,
-  };
-}
-
-function buildReceiptExportData(
-  receipt: ReceiptRecord,
-  formValue: EditableReceiptParsedData,
-  labels: ReceiptExportColumnLabels,
-): {
-  columns: ReceiptExportColumn[];
-  rows: ReceiptExportRow[];
-} {
-  const parsedData = buildParsedDataPayload(formValue);
-  const columns: ReceiptExportColumn[] = [];
-  const baseRow: ReceiptExportRow = {};
-
-  const hasLineItems = parsedData.lineItems.length > 0;
-
-  if (hasLineItems) {
-    columns.push({ field: 'Item', title: labels.item, type: 'text' });
-  } else if (parsedData.vendor?.trim()) {
-    columns.push({ field: 'Vendor', title: labels.vendor, type: 'text' });
-    baseRow.Vendor = parsedData.vendor.trim();
-  }
-  if (parsedData.date?.trim()) {
-    columns.push({ field: 'Date', title: labels.date, type: 'date' });
-    baseRow.Date = parsedData.date.trim();
-  }
-  if (typeof parsedData.amount === 'number' && Number.isFinite(parsedData.amount)) {
-    columns.push({ field: 'Amount', title: labels.amount, type: 'number' });
-    baseRow.Amount = parsedData.amount;
-  }
-  if (parsedData.currency?.trim()) {
-    columns.push({ field: 'Currency', title: labels.currency, type: 'text' });
-    baseRow.Currency = parsedData.currency.trim();
-  }
-  if (receipt.source?.trim()) {
-    columns.push({ field: 'Source', title: labels.source, type: 'text' });
-    baseRow.Source = receipt.source.trim();
-  }
-  if (receipt.status?.trim()) {
-    columns.push({ field: 'Status', title: labels.status, type: 'text' });
-    baseRow.Status = receipt.status.trim();
-  }
-
-  if (hasLineItems) {
-    return {
-      columns,
-      rows: parsedData.lineItems.map(item => ({
-        Item: item.description,
-        Date: baseRow.Date,
-        Amount: item.amount,
-        Currency: baseRow.Currency,
-        Source: baseRow.Source,
-        Status: baseRow.Status,
-      })),
-    };
-  }
-
-  return { columns, rows: [baseRow] };
-}
+import {
+  buildInitialForm,
+  buildParsedDataPayload,
+  buildReceiptDisplayTitle,
+  buildReceiptExportData,
+} from './receipt-form';
 
 type PreviewFetchResult = {
   url: string | null;
@@ -230,16 +116,19 @@ function ReceiptPreviewContent({
   }
   return (
     <Box sx={{ display: 'flex', minHeight: '100%', minWidth: '100%', justifyContent: 'center' }}>
-      <img
+      <Box
+        component="img"
         src={url}
         alt={title}
-        style={{
+        sx={{
           height: 'auto',
           minHeight: 0,
           width: '180%',
           minWidth: 720,
           maxWidth: 'none',
           objectFit: 'contain',
+          // A phone fits the whole receipt to the width instead of a zoomed crop.
+          '@media (max-width: 1023px)': { width: '100%', minWidth: 0 },
         }}
       />
     </Box>
@@ -273,15 +162,10 @@ export default function ReceiptDocumentPage() {
       setLoading(true);
       setError(null);
 
-      const [receiptResponse, categoriesResponse] = await Promise.all([
-        apiClient.get(`/receipts/${receiptId}`),
-        apiClient.get('/categories'),
+      const [nextReceipt, nextCategories] = await Promise.all([
+        apiQueryDecoded({ url: `/receipts/${receiptId}`, contract: 'ReceiptRecord' }),
+        apiQueryDecoded({ url: '/categories', contract: 'CategoryList' }),
       ]);
-
-      const nextReceipt = (receiptResponse.data?.data || receiptResponse.data) as ReceiptRecord;
-      const nextCategories = (categoriesResponse.data?.data ||
-        categoriesResponse.data ||
-        []) as ReceiptCategoryOption[];
 
       setReceipt(nextReceipt);
       setFormValue(buildInitialForm(nextReceipt));
@@ -389,8 +273,9 @@ export default function ReceiptDocumentPage() {
       await (async () => {
         await apiClient.patch(`/receipts/${receipt.id}`, {
           parsedData: nextPayload,
-        });
+        } satisfies ContractInput<'UpdateReceiptBody'>);
         lastSavedPayloadRef.current = serializedPayload;
+        invalidateDocumentLists();
         setReceipt(currentReceipt =>
           currentReceipt
             ? {
@@ -428,6 +313,12 @@ export default function ReceiptDocumentPage() {
     if (!receipt) {
       return;
     }
+    // Booking it without a date would date the expense today. A bank row to
+    // attach to brings its own date.
+    if (!(formValue.date || options.transactionId)) {
+      toast.error(t.approveNeedsDate.value);
+      return;
+    }
 
     setSaving(true);
 
@@ -435,15 +326,12 @@ export default function ReceiptDocumentPage() {
       const currentPayload = buildParsedDataPayload(formValue);
       await apiClient.patch(`/receipts/${receipt.id}`, {
         parsedData: currentPayload,
-      });
+      } satisfies ContractInput<'UpdateReceiptBody'>);
       lastSavedPayloadRef.current = JSON.stringify(currentPayload);
       await receiptsApi.approveReceipt(receipt.id, options);
       toast.success(t.approved.value);
       // It leaves the Review queue; both lists are cached for 30s.
-      const queryClient = getQueryClient();
-      void queryClient.invalidateQueries({ queryKey: ['gmail-receipts'] });
-      void queryClient.invalidateQueries({ queryKey: ['statements'] });
-      void queryClient.invalidateQueries({ queryKey: ['review-inbox'] });
+      invalidateDocumentLists();
       router.push(searchParams.get('from') === 'review' ? '/review' : '/statements/submit');
     })()
       .catch(async () => {
@@ -516,30 +404,38 @@ export default function ReceiptDocumentPage() {
           '{date}',
           formatStoredDate(receipt.receivedAt),
         ),
-      });
+      } satisfies ContractInput<'CreateCustomTableBody'>);
 
-      const createdTable = createTableResponse.data?.data || createTableResponse.data;
-      const tableId = createdTable?.id;
+      const createdTable = await checkContract(
+        'CreatedCustomTable',
+        createTableResponse.data,
+        '/custom-tables',
+      );
+      const tableId = createdTable.id;
 
       if (!tableId) {
-        toast.error('Failed to export to table');
+        toast.error(t.exportFailed.value);
         router.push('/custom-tables');
         return;
       }
 
       const createdColumns = await Promise.all(
-        exportData.columns.map(column =>
-          apiClient.post(`/custom-tables/${tableId}/columns`, {
+        exportData.columns.map(async column => {
+          const response = await apiClient.post(`/custom-tables/${tableId}/columns`, {
             title: column.title,
             type: column.type,
-          }),
-        ),
+          } satisfies ContractInput<'CreateCustomTableColumnBody'>);
+          return checkContract(
+            'CustomTableColumnItem',
+            response.data,
+            '/custom-tables/:id/columns',
+          );
+        }),
       );
 
       const columnKeyByField = exportData.columns.reduce<Record<string, string>>(
         (acc, column, index) => {
-          const payload = createdColumns[index]?.data?.data || createdColumns[index]?.data;
-          const key = payload?.key;
+          const key = createdColumns[index]?.key;
           if (key) {
             acc[column.field] = key;
           }
@@ -565,14 +461,14 @@ export default function ReceiptDocumentPage() {
 
       await apiClient.post(`/custom-tables/${tableId}/rows/batch`, {
         rows,
-      });
+      } satisfies ContractInput<'BatchCreateCustomTableRowsBody'>);
 
       toast.success(t.exportSuccess.value);
       router.push(`/custom-tables/${tableId}`);
       return;
     })()
       .catch(async () => {
-        toast.error('Failed to export to table');
+        toast.error(t.exportFailed.value);
       })
       .finally(async () => {
         setExportingToTable(false);
@@ -682,14 +578,22 @@ export default function ReceiptDocumentPage() {
         }}
       >
         <Box
+          role="alert"
           sx={{
             mb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
             border: `1px solid ${c.dangerSoft}`,
+            borderRadius: tokens.radius.md,
             bgcolor: c.dangerSoft,
-            p: 2,
+            px: 2,
+            py: 1.5,
+            fontSize: 14,
             color: c.danger,
           }}
         >
+          <AlertCircle size={18} aria-hidden style={{ flexShrink: 0 }} />
           {error || t.notFound}
         </Box>
         <Box
@@ -828,20 +732,41 @@ export default function ReceiptDocumentPage() {
             >
               {t.exportToTable}
             </DetailActionButton>
-            <DetailActionButton
-              variant="default"
-              type="button"
-              onClick={() => void handleApprove()}
-              disabled={saving}
-            >
-              {saving ? <Spinner className="size-[18px] mr-2" /> : null}
-              {t.approve}
-            </DetailActionButton>
+            {/* Approving again books nothing new, so an approved receipt says so instead. */}
+            {receipt.status === 'approved' ? (
+              <Box
+                role="status"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  px: 1.5,
+                  height: 32,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'var(--primary)',
+                }}
+              >
+                <CheckCircle size={18} />
+                {t.approvedState}
+              </Box>
+            ) : (
+              <DetailActionButton
+                variant="default"
+                type="button"
+                onClick={() => void handleApprove()}
+                disabled={saving}
+              >
+                {saving ? <Spinner className="size-[18px] mr-2" /> : null}
+                {t.approve}
+              </DetailActionButton>
+            )}
           </Box>
         </Box>
 
         <ReceiptTransactionMatch
           receipt={receipt}
+          categories={categories}
           saving={saving}
           onApprove={handleApprove}
           onChanged={loadData}
@@ -852,7 +777,8 @@ export default function ReceiptDocumentPage() {
             display: 'grid',
             alignItems: 'stretch',
             gap: { xs: 3, xl: 2.5 },
-            gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 1fr) minmax(0, 1fr)' },
+            // minmax(0, …): a wide screenshot must not stretch the column past the screen.
+            gridTemplateColumns: { xs: 'minmax(0, 1fr)', xl: 'minmax(0, 1fr) minmax(0, 1fr)' },
             gridTemplateRows: { xl: 'minmax(0, 1fr)' },
             flex: { xl: 1 },
             minHeight: { xl: 0 },
@@ -931,7 +857,18 @@ export default function ReceiptDocumentPage() {
               value={formValue}
               categories={categories}
               onChange={handleFormChange}
+              receiptId={receipt.id}
             />
+
+            <ReceiptTagsField receiptId={receipt.id} />
+
+            {receipt.parsedData?.einvoice ? (
+              <EInvoicePanel
+                einvoice={receipt.parsedData.einvoice}
+                issues={receipt.parsedData.validationIssues ?? []}
+                currency={receipt.parsedData.currency ?? FALLBACK_CURRENCY}
+              />
+            ) : null}
 
             {/* In the form's column, so correcting a place never scrolls the document away. */}
             <ReceiptLocationSection flat receipt={receipt} onReceiptChange={setReceipt} />

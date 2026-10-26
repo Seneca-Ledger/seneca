@@ -18,12 +18,12 @@ import type { Repository } from 'typeorm';
 
 function createRepoMock<T>() {
   return {
-    findOne: jest.fn(),
-    find: jest.fn(),
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    update: jest.fn(async () => ({ affected: 1 })),
-    delete: jest.fn(async () => ({ affected: 1 })),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    update: vi.fn(async () => ({ affected: 1 })),
+    delete: vi.fn(async () => ({ affected: 1 })),
   } as unknown as Repository<T> & Record<string, any>;
 }
 
@@ -33,15 +33,15 @@ describe('WorkspacesService', () => {
   const invitationRepository = createRepoMock<WorkspaceInvitation>();
   const userRepository = createRepoMock<User>();
   const integrationRepository = createRepoMock<Integration>();
-  const auditService = { createEvent: jest.fn() };
-  const balanceService = { seedDefaultAccounts: jest.fn(async () => undefined) };
-  const categoriesService = { createSystemCategories: jest.fn(async () => undefined) };
-  const taxRatesService = { createDefaultTaxRates: jest.fn(async () => undefined) };
+  const auditService = { createEvent: vi.fn() };
+  const balanceService = { seedDefaultAccounts: vi.fn(async () => undefined) };
+  const categoriesService = { createSystemCategories: vi.fn(async () => undefined) };
+  const taxRatesService = { createDefaultTaxRates: vi.fn(async () => undefined) };
 
   let service: WorkspacesService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new WorkspacesService(
       workspaceRepository as any,
       workspaceMemberRepository as any,
@@ -53,7 +53,7 @@ describe('WorkspacesService', () => {
       categoriesService as any,
       taxRatesService as any,
     );
-    (service as any).sendInvitationEmail = jest.fn(async () => undefined);
+    (service as any).sendInvitationEmail = vi.fn(async () => undefined);
   });
 
   describe('ensureUserWorkspace', () => {
@@ -64,7 +64,7 @@ describe('WorkspacesService', () => {
         name: 'A',
         workspaceId: 'w1',
       } as User;
-      workspaceRepository.findOne = jest.fn(async () => ({ id: 'w1', name: 'W' }) as Workspace);
+      workspaceRepository.findOne = vi.fn(async () => ({ id: 'w1', name: 'W' }) as Workspace);
 
       const result = await service.ensureUserWorkspace(user);
 
@@ -82,9 +82,9 @@ describe('WorkspacesService', () => {
         name: 'A',
         workspaceId: null,
       } as any as User;
-      workspaceRepository.findOne = jest.fn(async () => null);
-      workspaceRepository.create = jest.fn(data => ({ ...data }) as any);
-      workspaceRepository.save = jest.fn(async (ws: any) => ({
+      workspaceRepository.findOne = vi.fn(async () => null);
+      workspaceRepository.create = vi.fn(data => ({ ...data }) as any);
+      workspaceRepository.save = vi.fn(async (ws: any) => ({
         ...ws,
         id: 'w-new',
         createdAt: new Date(),
@@ -116,17 +116,17 @@ describe('WorkspacesService', () => {
         workspaceId: 'w1',
       } as User;
 
-      workspaceRepository.findOne = jest.fn(async () => ({
+      workspaceRepository.findOne = vi.fn(async () => ({
         id: 'w1',
         name: 'W',
         ownerId: 'u-owner',
       }));
 
-      userRepository.findOne = jest.fn(async ({ where }: any) =>
+      userRepository.findOne = vi.fn(async ({ where }: any) =>
         where?.email === 'member@example.com' ? ({ id: 'u2', workspaceId: null } as any) : null,
       );
 
-      workspaceMemberRepository.findOne = jest.fn(async ({ where }: any) => {
+      workspaceMemberRepository.findOne = vi.fn(async ({ where }: any) => {
         if (where?.workspaceId === 'w1' && where?.userId === 'u-owner') {
           return {
             id: 'm1',
@@ -154,6 +154,22 @@ describe('WorkspacesService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it('refuses an owner-role invitation, even from an admin of the workspace', async () => {
+      const currentUser = { id: 'u-admin', email: 'admin@example.com', name: 'Admin' } as User;
+      workspaceRepository.findOne = vi.fn(async () => ({ id: 'w1', name: 'W', ownerId: 'o' }));
+      workspaceMemberRepository.findOne = vi.fn(
+        async () => ({ id: 'm1', role: WorkspaceRole.ADMIN, permissions: null }) as any,
+      );
+
+      await expect(
+        service.inviteMember('w1', currentUser, {
+          email: 'second-owner@example.com',
+          role: WorkspaceRole.OWNER,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(invitationRepository.save).not.toHaveBeenCalled();
+    });
+
     it('refreshes an existing pending invitation and sends email', async () => {
       const currentUser = {
         id: 'u-owner',
@@ -174,19 +190,19 @@ describe('WorkspacesService', () => {
         invitedById: 'someone',
       } as any as WorkspaceInvitation;
 
-      workspaceRepository.findOne = jest.fn(async () => ({
+      workspaceRepository.findOne = vi.fn(async () => ({
         id: 'w1',
         name: 'W',
         ownerId: 'u-owner',
       }));
-      userRepository.findOne = jest.fn(async () => null);
-      workspaceMemberRepository.findOne = jest.fn(async ({ where }: any) =>
+      userRepository.findOne = vi.fn(async () => null);
+      workspaceMemberRepository.findOne = vi.fn(async ({ where }: any) =>
         where?.workspaceId === 'w1' && where?.userId === 'u-owner'
           ? ({ id: 'm1', role: WorkspaceRole.OWNER, permissions: null } as any)
           : null,
       );
-      invitationRepository.findOne = jest.fn(async () => existingInvitation);
-      invitationRepository.save = jest.fn(async (inv: any) => inv);
+      invitationRepository.findOne = vi.fn(async () => existingInvitation);
+      invitationRepository.save = vi.fn(async (inv: any) => inv);
 
       const result = await service.inviteMember(
         'w1',
@@ -225,15 +241,15 @@ describe('WorkspacesService', () => {
         permissions: null,
       } as WorkspaceMember;
 
-      workspaceRepository.findOne = jest.fn(async () => workspace);
-      workspaceMemberRepository.findOne = jest.fn(async ({ where }: any) => {
+      workspaceRepository.findOne = vi.fn(async () => workspace);
+      workspaceMemberRepository.findOne = vi.fn(async ({ where }: any) => {
         if (where?.workspaceId !== 'w1') return null;
         if (where?.userId === 'u-owner') return ownerMembership;
         if (where?.userId === 'u-target') return targetMembership;
         return null;
       });
-      workspaceRepository.save = jest.fn(async (data: any) => data);
-      workspaceMemberRepository.save = jest.fn(async (data: any) => data);
+      workspaceRepository.save = vi.fn(async (data: any) => data);
+      workspaceMemberRepository.save = vi.fn(async (data: any) => data);
 
       const result = await service.updateMemberRole(
         'w1',
@@ -257,18 +273,18 @@ describe('WorkspacesService', () => {
 
   describe('cancelInvitation', () => {
     it('marks pending invitation as cancelled', async () => {
-      workspaceMemberRepository.findOne = jest.fn(async ({ where }: any) =>
+      workspaceMemberRepository.findOne = vi.fn(async ({ where }: any) =>
         where?.workspaceId === 'w1' && where?.userId === 'u-admin'
           ? ({ id: 'm-admin', role: WorkspaceRole.ADMIN } as WorkspaceMember)
           : null,
       );
 
-      invitationRepository.findOne = jest.fn(async () => ({
+      invitationRepository.findOne = vi.fn(async () => ({
         id: 'inv-1',
         workspaceId: 'w1',
         status: WorkspaceInvitationStatus.PENDING,
       }));
-      invitationRepository.save = jest.fn(async (inv: any) => inv);
+      invitationRepository.save = vi.fn(async (inv: any) => inv);
 
       const result = await service.cancelInvitation('w1', 'u-admin', 'inv-1');
 
@@ -293,8 +309,8 @@ describe('WorkspacesService', () => {
         expiresAt: new Date(Date.now() - 60_000),
       } as any as WorkspaceInvitation;
 
-      invitationRepository.findOne = jest.fn(async () => invitation);
-      invitationRepository.save = jest.fn(async (inv: any) => inv);
+      invitationRepository.findOne = vi.fn(async () => invitation);
+      invitationRepository.save = vi.fn(async (inv: any) => inv);
 
       const info = await service.getInvitationInfo('t1');
 
@@ -310,7 +326,7 @@ describe('WorkspacesService', () => {
     });
 
     it('throws NotFoundException when invitation does not exist', async () => {
-      invitationRepository.findOne = jest.fn(async () => null);
+      invitationRepository.findOne = vi.fn(async () => null);
       await expect(service.getInvitationInfo('missing')).rejects.toThrow(NotFoundException);
     });
   });
@@ -318,7 +334,7 @@ describe('WorkspacesService', () => {
   describe('acceptInvitation', () => {
     it('throws ForbiddenException when logged in as different email', async () => {
       const currentUser = { id: 'u2', email: 'wrong@example.com' } as User;
-      invitationRepository.findOne = jest.fn(async () => ({
+      invitationRepository.findOne = vi.fn(async () => ({
         id: 'inv-1',
         workspaceId: 'w1',
         email: 'right@example.com',
@@ -346,13 +362,13 @@ describe('WorkspacesService', () => {
         expiresAt: new Date(Date.now() + 60_000),
       } as any;
 
-      invitationRepository.findOne = jest.fn(async () => invitation);
-      workspaceRepository.findOne = jest.fn(
+      invitationRepository.findOne = vi.fn(async () => invitation);
+      workspaceRepository.findOne = vi.fn(
         async () => ({ id: 'w1', name: 'W', ownerId: 'u-owner' }) as any,
       );
-      workspaceMemberRepository.findOne = jest.fn(async () => null);
-      workspaceMemberRepository.save = jest.fn(async (m: any) => m);
-      invitationRepository.save = jest.fn(async (inv: any) => inv);
+      workspaceMemberRepository.findOne = vi.fn(async () => null);
+      workspaceMemberRepository.save = vi.fn(async (m: any) => m);
+      invitationRepository.save = vi.fn(async (inv: any) => inv);
 
       const result = await service.acceptInvitation(currentUser, 't1');
 
@@ -393,13 +409,13 @@ describe('WorkspacesService', () => {
         expiresAt: new Date(Date.now() + 60_000),
       } as any;
 
-      invitationRepository.findOne = jest.fn(async () => invitation);
-      workspaceRepository.findOne = jest.fn(
+      invitationRepository.findOne = vi.fn(async () => invitation);
+      workspaceRepository.findOne = vi.fn(
         async () => ({ id: 'w1', name: 'W', ownerId: 'u-owner' }) as any,
       );
-      workspaceMemberRepository.findOne = jest.fn(async () => null);
-      workspaceMemberRepository.save = jest.fn(async (m: any) => m);
-      invitationRepository.save = jest.fn(async (inv: any) => inv);
+      workspaceMemberRepository.findOne = vi.fn(async () => null);
+      workspaceMemberRepository.save = vi.fn(async (m: any) => m);
+      invitationRepository.save = vi.fn(async (inv: any) => inv);
 
       await service.acceptInvitation(currentUser, 't1');
 
@@ -409,6 +425,64 @@ describe('WorkspacesService', () => {
       );
       // ...but their home workspace is left alone.
       expect(userRepository.update).not.toHaveBeenCalled();
+    });
+
+    const acceptedBefore = (role: WorkspaceRole, status: WorkspaceInvitationStatus) =>
+      ({
+        id: 'inv-1',
+        workspaceId: 'w1',
+        email: 'invited@example.com',
+        role,
+        permissions: null,
+        invitedById: 'u-owner',
+        status,
+        token: 't1',
+        expiresAt: new Date(Date.now() + 60_000),
+      }) as any;
+
+    it('does not bring a removed member back through the invitation they accepted', async () => {
+      const currentUser = { id: 'u2', email: 'invited@example.com' } as User;
+      invitationRepository.findOne = vi.fn(async () =>
+        acceptedBefore(WorkspaceRole.ADMIN, WorkspaceInvitationStatus.ACCEPTED),
+      );
+      workspaceRepository.findOne = vi.fn(async () => ({ id: 'w1', name: 'W' }) as any);
+      workspaceMemberRepository.findOne = vi.fn(async () => null);
+      workspaceMemberRepository.save = vi.fn(async (m: any) => m);
+
+      await expect(service.acceptInvitation(currentUser, 't1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(workspaceMemberRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('answers an accepted invitation again while the membership lasts', async () => {
+      const currentUser = { id: 'u2', email: 'invited@example.com', workspaceId: 'w1' } as User;
+      invitationRepository.findOne = vi.fn(async () =>
+        acceptedBefore(WorkspaceRole.MEMBER, WorkspaceInvitationStatus.ACCEPTED),
+      );
+      workspaceRepository.findOne = vi.fn(async () => ({ id: 'w1', name: 'W' }) as any);
+      workspaceMemberRepository.findOne = vi.fn(async () => ({ id: 'm1' }) as any);
+      workspaceMemberRepository.save = vi.fn(async (m: any) => m);
+
+      await expect(service.acceptInvitation(currentUser, 't1')).resolves.toMatchObject({
+        workspaceId: 'w1',
+      });
+      expect(workspaceMemberRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('never makes an owner out of an invitation', async () => {
+      const currentUser = { id: 'u2', email: 'invited@example.com' } as User;
+      invitationRepository.findOne = vi.fn(async () =>
+        acceptedBefore(WorkspaceRole.OWNER, WorkspaceInvitationStatus.PENDING),
+      );
+      workspaceRepository.findOne = vi.fn(async () => ({ id: 'w1', name: 'W' }) as any);
+      workspaceMemberRepository.findOne = vi.fn(async () => null);
+      workspaceMemberRepository.save = vi.fn(async (m: any) => m);
+
+      await expect(service.acceptInvitation(currentUser, 't1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(workspaceMemberRepository.save).not.toHaveBeenCalled();
     });
   });
 });

@@ -25,6 +25,9 @@ import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import type { WorkspaceOverview } from '@/app/lib/contracts';
+import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -33,44 +36,9 @@ import {
   type MemberSortBy,
 } from './workspace-members.utils';
 
-type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
-
-type WorkspaceOverview = {
-  workspace: { id: string; name: string; ownerId?: string | null; createdAt?: string };
-  members: Array<{
-    id: string;
-    email?: string;
-    name?: string;
-    avatarUrl?: string | null;
-    timeZone?: string | null;
-    role: WorkspaceRole;
-    permissions?: {
-      canEditStatements?: boolean;
-      canEditCustomTables?: boolean;
-      canEditCategories?: boolean;
-      canEditDataEntry?: boolean;
-      canShareFiles?: boolean;
-    } | null;
-    joinedAt?: string;
-  }>;
-  invitations: Array<{
-    id: string;
-    email: string;
-    role: WorkspaceRole;
-    permissions?: {
-      canEditStatements?: boolean;
-      canEditCustomTables?: boolean;
-      canEditCategories?: boolean;
-      canEditDataEntry?: boolean;
-      canShareFiles?: boolean;
-    } | null;
-    status: string;
-    token: string;
-    expiresAt?: string;
-    createdAt?: string;
-    link?: string;
-  }>;
-};
+type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer' | 'accountant';
+/** Ownership is never invited, only transferred. */
+type InviteRole = Exclude<WorkspaceRole, 'owner'>;
 
 type InvitePermissions = {
   canEditStatements: boolean;
@@ -81,11 +49,18 @@ type InvitePermissions = {
 };
 
 const INVITATION_EXPIRY_DAYS = 7;
-const ALL_ROLES: WorkspaceRole[] = ['owner', 'admin', 'member', 'viewer'];
+const ALL_ROLES: WorkspaceRole[] = ['owner', 'admin', 'member', 'viewer', 'accountant'];
 
 const SORT_OPTIONS: MemberSortBy[] = ['name', 'role', 'joinedAt'];
 
-const ROLE_FILTER_OPTIONS: MemberRoleFilter[] = ['all', 'owner', 'admin', 'viewer', 'member'];
+const ROLE_FILTER_OPTIONS: MemberRoleFilter[] = [
+  'all',
+  'owner',
+  'admin',
+  'viewer',
+  'member',
+  'accountant',
+];
 
 const PERMISSION_KEYS: Array<keyof InvitePermissions> = [
   'canEditStatements',
@@ -109,14 +84,6 @@ const readMemberPermissions = (member: {
 const isWorkspaceRole = (role: string): role is WorkspaceRole =>
   (ALL_ROLES as string[]).includes(role);
 
-const getInitials = (value?: string) =>
-  (value || '?')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase() ?? '')
-    .join('');
-
 const getApiMessage = (err: unknown, fallback: string) => {
   if (!err || typeof err !== 'object') {
     return fallback;
@@ -125,7 +92,7 @@ const getApiMessage = (err: unknown, fallback: string) => {
   return response?.data?.message ?? fallback;
 };
 
-const formatDate = (value: string | undefined, fallback: string) => {
+const formatDate = (value: string | null | undefined, fallback: string) => {
   if (!value) {
     return fallback;
   }
@@ -165,7 +132,7 @@ const TOOLBAR_BUTTON_SX = {
   },
 } satisfies SxProps<Theme>;
 
-// A flat row: hairline under it, a faint wash on hover. The ••• button only
+// A flat row: hairline only between rows, a faint wash on hover. The ••• button only
 // shows on hover or keyboard focus; touch screens have no hover, so there it stays.
 const MEMBER_ROW_SX = {
   display: 'flex',
@@ -177,8 +144,7 @@ const MEMBER_ROW_SX = {
   py: 1.25,
   mx: -1.5,
   borderRadius: tokens.radius.sm,
-  borderBottom: '1px solid',
-  borderColor: HAIRLINE,
+  '& + &': { borderTop: '1px solid', borderColor: HAIRLINE },
   transition: 'background-color 120ms ease',
   '&:hover': { bgcolor: (theme: Theme) => alpha(theme.palette.text.primary, 0.04) },
   '& .members-row-actions': { opacity: 0, transition: 'opacity 120ms ease' },
@@ -187,7 +153,7 @@ const MEMBER_ROW_SX = {
   '@media (hover: none)': { '& .members-row-actions': { opacity: 1 } },
 } satisfies SxProps<Theme>;
 
-/** Mirrors a loaded member row: flat, hairline underneath, 32px avatar. */
+/** Mirrors a loaded member row: flat, hairline between rows, 32px avatar. */
 function MemberRowSkeleton(): React.JSX.Element {
   return (
     <Box
@@ -197,8 +163,7 @@ function MemberRowSkeleton(): React.JSX.Element {
         justifyContent: 'space-between',
         gap: 1.5,
         py: 1.25,
-        borderBottom: '1px solid',
-        borderColor: HAIRLINE,
+        '& + &': { borderTop: '1px solid', borderColor: HAIRLINE },
       }}
     >
       <Box sx={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: 1.5 }}>
@@ -225,7 +190,7 @@ export default function WorkspaceMembersView() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
+  const [inviteRole, setInviteRole] = useState<InviteRole>('member');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [updatingRoleMemberId, setUpdatingRoleMemberId] = useState<string | null>(null);
@@ -264,22 +229,22 @@ export default function WorkspaceMembersView() {
   const isOwnerOrAdmin = currentMembership?.role === 'owner' || currentMembership?.role === 'admin';
   const isWorkspaceOwner = currentMembership?.role === 'owner';
 
+  // Search, sort and role filter only earn their place once there is more than
+  // one member; while hidden they must not filter, or a leftover query hides the owner.
+  const showListControls = (overview?.members.length ?? 0) > 1;
   const visibleMembers = useMemo(
     () =>
-      filterAndSortMembers(overview?.members || [], {
-        searchEmail,
-        roleFilter,
-        sortBy,
-      }),
-    [overview?.members, roleFilter, searchEmail, sortBy],
+      showListControls
+        ? filterAndSortMembers(overview?.members || [], { searchEmail, roleFilter, sortBy })
+        : overview?.members || [],
+    [overview?.members, roleFilter, searchEmail, showListControls, sortBy],
   );
 
   const loadOverview = async () => {
     await (async () => {
       setLoading(true);
       setFetchError(null);
-      const response = await apiClient.get<WorkspaceOverview>('/workspaces/me');
-      setOverview(response.data);
+      setOverview(await apiQueryDecoded({ url: '/workspaces/me', contract: 'WorkspaceOverview' }));
     })()
       .catch(async err => {
         setFetchError(getApiMessage(err, t.errors.loadFailed.value));
@@ -311,7 +276,7 @@ export default function WorkspaceMembersView() {
       return true;
     }
 
-    return member.role === 'member' || member.role === 'viewer';
+    return member.role === 'member' || member.role === 'viewer' || member.role === 'accountant';
   };
 
   const getAllowedRoleTargets = (member: WorkspaceOverview['members'][number]): WorkspaceRole[] => {
@@ -330,7 +295,7 @@ export default function WorkspaceMembersView() {
       return [];
     }
 
-    return ['member', 'viewer'];
+    return ['member', 'viewer', 'accountant'];
   };
 
   const handleInvite = async (event: React.FormEvent) => {
@@ -347,7 +312,7 @@ export default function WorkspaceMembersView() {
         email: inviteEmail,
         role: inviteRole,
         permissions: inviteRole === 'member' ? invitePermissions : undefined,
-      });
+      } satisfies ContractInput<'InviteMemberBody'>);
 
       setInviteEmail('');
       toast.success(t.toasts.inviteSent.value);
@@ -382,7 +347,7 @@ export default function WorkspaceMembersView() {
     await (async () => {
       await apiClient.patch(`/workspaces/${overview.workspace.id}/members/${member.id}/role`, {
         role: nextRole,
-      });
+      } satisfies ContractInput<'UpdateMemberRoleBody'>);
       toast.success(t.toasts.roleUpdated.value);
       await loadOverview();
     })()
@@ -414,7 +379,7 @@ export default function WorkspaceMembersView() {
     await (async () => {
       await apiClient.patch(
         `/workspaces/${overview.workspace.id}/members/${member.id}/permissions`,
-        { permissions: next },
+        { permissions: next } satisfies ContractInput<'UpdateMemberPermissionsBody'>,
       );
       toast.success(t.toasts.permissionsUpdated.value);
       // Patch the one row instead of reloading: the menu stays open for the
@@ -468,9 +433,11 @@ export default function WorkspaceMembersView() {
     await (async () => {
       await apiClient.post(`/workspaces/${overview.workspace.id}/invitations`, {
         email: invite.email,
-        role: invite.role,
-        permissions: invite.role === 'member' ? invite.permissions : undefined,
-      });
+        // Ownership moves only by transfer; an owner-role invitation from before
+        // that rule goes out again as admin.
+        role: invite.role === 'owner' ? 'admin' : invite.role,
+        permissions: invite.role === 'member' ? (invite.permissions ?? undefined) : undefined,
+      } satisfies ContractInput<'InviteMemberBody'>);
       toast.success(t.toasts.inviteResent.value);
       await loadOverview();
     })()
@@ -568,9 +535,8 @@ export default function WorkspaceMembersView() {
               <MemberRowSkeleton key={key} />
             ))}
           </Box>
-          <Box sx={{ pt: 2.5, borderTop: '1px solid', borderColor: HAIRLINE }}>
+          <Box sx={{ pt: 2 }}>
             <Skeleton variant="text" width={170} height={18} />
-            <Skeleton variant="text" width={150} height={14} />
           </Box>
         </Box>
       </Box>
@@ -604,6 +570,7 @@ export default function WorkspaceMembersView() {
       }}
     >
       <Box
+        data-tour-shot="workspaces-members"
         sx={{
           maxWidth: 1120,
           px: { xs: 2.5, sm: 4 },
@@ -622,84 +589,90 @@ export default function WorkspaceMembersView() {
             gap: 1.5,
           }}
         >
-          <TextField
-            aria-label={t.searchAria.value}
-            placeholder={t.searchPlaceholder.value}
-            value={searchEmail}
-            onChange={e => setSearchEmail(e.target.value)}
-            size="small"
-            variant="outlined"
-            sx={{
-              width: { xs: '100%', sm: 240 },
-              '& .MuiOutlinedInput-root': { bgcolor: 'transparent' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border)' },
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={16} style={{ color: 'var(--muted-foreground)' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <Button
-            variant="text"
-            size="small"
-            onClick={e => setSortMenuAnchor(e.currentTarget)}
-            endIcon={<ChevronDown size={14} />}
-            sx={TOOLBAR_BUTTON_SX}
-          >
-            {t.sortButton.value.replace('{value}', t.sort[sortBy].value)}
-          </Button>
-          <Menu
-            anchorEl={sortMenuAnchor}
-            open={Boolean(sortMenuAnchor)}
-            onClose={() => setSortMenuAnchor(null)}
-            aria-label={t.sortMenuAria.value}
-          >
-            {SORT_OPTIONS.map(option => (
-              <MenuItem
-                key={option}
-                selected={option === sortBy}
-                onClick={() => {
-                  setSortBy(option);
-                  setSortMenuAnchor(null);
+          {showListControls && (
+            <>
+              <TextField
+                aria-label={t.searchAria.value}
+                placeholder={t.searchPlaceholder.value}
+                value={searchEmail}
+                onChange={e => setSearchEmail(e.target.value)}
+                size="small"
+                variant="outlined"
+                sx={{
+                  width: { xs: '100%', sm: 240 },
+                  '& .MuiOutlinedInput-root': { bgcolor: 'transparent' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border)' },
                 }}
-              >
-                {t.sort[option]}
-              </MenuItem>
-            ))}
-          </Menu>
-
-          <Button
-            variant="text"
-            size="small"
-            onClick={e => setRoleMenuAnchor(e.currentTarget)}
-            endIcon={<ChevronDown size={14} />}
-            sx={TOOLBAR_BUTTON_SX}
-          >
-            {t.roleButton.value.replace('{value}', getRoleFilterLabel(roleFilter))}
-          </Button>
-          <Menu
-            anchorEl={roleMenuAnchor}
-            open={Boolean(roleMenuAnchor)}
-            onClose={() => setRoleMenuAnchor(null)}
-            aria-label={t.roleMenuAria.value}
-          >
-            {ROLE_FILTER_OPTIONS.map(option => (
-              <MenuItem
-                key={option}
-                selected={option === roleFilter}
-                onClick={() => {
-                  setRoleFilter(option);
-                  setRoleMenuAnchor(null);
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search size={16} style={{ color: 'var(--muted-foreground)' }} />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
+              />
+
+              <Button
+                variant="text"
+                size="small"
+                onClick={e => setSortMenuAnchor(e.currentTarget)}
+                endIcon={<ChevronDown size={14} />}
+                sx={TOOLBAR_BUTTON_SX}
               >
-                {getRoleFilterLabel(option)}
-              </MenuItem>
-            ))}
-          </Menu>
+                {t.sortButton.value.replace('{value}', t.sort[sortBy].value)}
+              </Button>
+              <Menu
+                anchorEl={sortMenuAnchor}
+                open={Boolean(sortMenuAnchor)}
+                onClose={() => setSortMenuAnchor(null)}
+                aria-label={t.sortMenuAria.value}
+              >
+                {SORT_OPTIONS.map(option => (
+                  <MenuItem
+                    key={option}
+                    selected={option === sortBy}
+                    onClick={() => {
+                      setSortBy(option);
+                      setSortMenuAnchor(null);
+                    }}
+                  >
+                    {t.sort[option]}
+                  </MenuItem>
+                ))}
+              </Menu>
+
+              <Button
+                variant="text"
+                size="small"
+                onClick={e => setRoleMenuAnchor(e.currentTarget)}
+                endIcon={<ChevronDown size={14} />}
+                sx={TOOLBAR_BUTTON_SX}
+              >
+                {t.roleButton.value.replace('{value}', getRoleFilterLabel(roleFilter))}
+              </Button>
+              <Menu
+                anchorEl={roleMenuAnchor}
+                open={Boolean(roleMenuAnchor)}
+                onClose={() => setRoleMenuAnchor(null)}
+                aria-label={t.roleMenuAria.value}
+              >
+                {ROLE_FILTER_OPTIONS.map(option => (
+                  <MenuItem
+                    key={option}
+                    selected={option === roleFilter}
+                    onClick={() => {
+                      setRoleFilter(option);
+                      setRoleMenuAnchor(null);
+                    }}
+                  >
+                    {getRoleFilterLabel(option)}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          )}
 
           <Button
             variant="contained"
@@ -783,21 +756,32 @@ export default function WorkspaceMembersView() {
                   fullWidth
                   id="invite-role"
                   value={inviteRole}
-                  onChange={value => setInviteRole(value as WorkspaceRole)}
+                  onChange={value => setInviteRole(value as InviteRole)}
                   disabled={!isOwnerOrAdmin}
                   options={[
                     { value: 'member', label: t.roles.member.value },
                     { value: 'viewer', label: t.roles.viewer.value },
+                    { value: 'accountant', label: t.roles.accountant.value },
                     { value: 'admin', label: t.roles.admin.value },
                   ]}
                 />
+                {/* What the chosen role can do, right where it is chosen. */}
+                <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
+                  {t.roleTooltips[inviteRole].value}
+                </Typography>
               </Box>
             </Box>
 
             {/* Permissions */}
             {inviteRole === 'member' && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Typography variant="body2" fontWeight={500} sx={{ color: 'var(--foreground)' }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    color: 'var(--foreground)',
+                  }}
+                >
                   {t.invite.permissionsTitle}
                 </Typography>
                 <Box
@@ -903,14 +887,13 @@ export default function WorkspaceMembersView() {
                         flexShrink: 0,
                         overflow: 'hidden',
                         borderRadius: tokens.radius.full,
-                        // Monochrome initials: the avatar identifies, it does not decorate.
-                        bgcolor: theme => alpha(theme.palette.text.primary, 0.08),
-                        color: 'var(--muted-foreground)',
+                        bgcolor: avatarTone(member.email),
+                        color: 'var(--foreground)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: 12,
-                        fontWeight: 600,
+                        fontSize: 14,
+                        fontWeight: 500,
                       }}
                     >
                       {normalizeAvatarUrl(member.avatarUrl) ? (
@@ -920,11 +903,19 @@ export default function WorkspaceMembersView() {
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                       ) : (
-                        getInitials(member.name || member.email)
+                        avatarInitial(member.name || member.email)
                       )}
                     </Box>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={500} sx={TRUNCATE_SX}>
+                      <Typography
+                        variant="body2"
+                        sx={[
+                          {
+                            fontWeight: 500,
+                          },
+                          ...(Array.isArray(TRUNCATE_SX) ? TRUNCATE_SX : [TRUNCATE_SX]),
+                        ]}
+                      >
                         {member.name || member.email}
                       </Typography>
                       <Typography
@@ -989,15 +980,12 @@ export default function WorkspaceMembersView() {
                             </Menu>
                           </>
                         ) : (
-                          // A light outlined tag, not a filled badge.
+                          // Plain muted text, no tag outline.
                           <Box
                             component="span"
                             sx={{
                               display: 'inline-block',
-                              border: '1px solid var(--border)',
-                              borderRadius: tokens.radius.sm,
                               px: 1,
-                              py: '1px',
                               fontSize: 12,
                               fontWeight: 500,
                               color: 'var(--muted-foreground)',
@@ -1110,36 +1098,31 @@ export default function WorkspaceMembersView() {
           )}
         </Box>
 
-        {/* Pending invitations: a lower section under a thin rule, not a box. */}
-        <Box sx={{ pt: 2.5, borderTop: '1px solid', borderColor: HAIRLINE }}>
+        {/* Pending invitations: separated by whitespace alone, no rule. */}
+        <Box sx={{ pt: 2 }}>
           <Typography
             component="h2"
-            sx={{
-              fontSize: 12,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'var(--muted-foreground)',
-            }}
+            sx={{ fontSize: 13, fontWeight: 500, color: 'var(--muted-foreground)' }}
           >
-            {t.pending.title} · {overview.invitations.length}
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{ display: 'block', mt: 0.5, color: 'var(--muted-foreground)', opacity: 0.8 }}
-          >
-            {t.pending.expiry.value.replace('{days}', String(INVITATION_EXPIRY_DAYS))}
+            {t.pending.title}
+            {overview.invitations.length > 0 ? ` · ${overview.invitations.length}` : null}
           </Typography>
 
           {overview.invitations.length === 0 ? (
             <Typography
               variant="body2"
-              sx={{ mt: 1.5, color: 'var(--muted-foreground)', opacity: 0.6 }}
+              sx={{ mt: 0.5, color: 'var(--muted-foreground)', opacity: 0.7 }}
             >
               {t.pending.empty}
             </Typography>
           ) : (
             <Box sx={{ mt: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{ display: 'block', mb: 0.5, color: 'var(--muted-foreground)', opacity: 0.8 }}
+              >
+                {t.pending.expiry.value.replace('{days}', String(INVITATION_EXPIRY_DAYS))}
+              </Typography>
               {overview.invitations.map(invite => {
                 const isResending = resendingInvitationId === invite.id;
                 const isRevoking = revokingInvitationId === invite.id;
@@ -1148,7 +1131,15 @@ export default function WorkspaceMembersView() {
                 return (
                   <Box key={invite.id} sx={MEMBER_ROW_SX}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={500} sx={TRUNCATE_SX}>
+                      <Typography
+                        variant="body2"
+                        sx={[
+                          {
+                            fontWeight: 500,
+                          },
+                          ...(Array.isArray(TRUNCATE_SX) ? TRUNCATE_SX : [TRUNCATE_SX]),
+                        ]}
+                      >
                         {invite.email}
                       </Typography>
                       <Typography

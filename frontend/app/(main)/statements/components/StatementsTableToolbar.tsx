@@ -54,7 +54,7 @@ export function StatementsTableToolbar({
   onColumnsOpen,
 }: Props): React.JSX.Element {
   return (
-    <div className="lumio-stmt-list-view__table-toolbar">
+    <div className="seneca-stmt-list-view__table-toolbar">
       <div
         style={{
           display: 'flex',
@@ -84,18 +84,18 @@ export function StatementsTableToolbar({
           resetLabel={labels.reset}
         />
 
-        {/* Not shown while loading: an orange chip flashing in and out on every
-            refetch reads as a warning even when there are no duplicates. */}
+        {/* Not shown while loading: a chip flashing in and out on every refetch
+            reads as a warning even when there are no duplicates. */}
         {!loading && duplicateStatementIds.length > 0 ? (
           <button
             type="button"
-            className="lumio-stmt-list-view__duplicate-chip"
+            className="seneca-stmt-list-view__duplicate-chip"
             onClick={onSelectDetectedDuplicates}
           >
             <Copy size={14} />
             {labels.selectDuplicates}
-            <span className="lumio-stmt-list-view__duplicate-count">
-              {duplicateStatementIds.length}
+            <span className="seneca-stmt-list-view__duplicate-count">
+              ({duplicateStatementIds.length})
             </span>
           </button>
         ) : null}

@@ -1,12 +1,11 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import { alpha } from '@mui/material/styles';
 import type React from 'react';
 import { resolveCategoryVisual } from '@/app/lib/category-defaults';
 
 interface CategoryIconBadgeProps {
-  /** Category name; drives the default icon and colour for system categories. */
+  /** Category name; drives the default icon for system categories. */
   name?: string | null;
   color?: string | null;
   icon?: string | null;
@@ -35,8 +34,9 @@ export function CategoryIconBadge({
         height: size,
         borderRadius: '50%',
         flexShrink: 0,
-        bgcolor: alpha(visual.color, 0.16),
-        color: visual.color,
+        // One neutral circle for every category: colour belongs to the charts alone.
+        bgcolor: 'var(--icon-badge-bg)',
+        color: 'var(--text-secondary)',
       }}
     >
       {visual.iconUrl ? (

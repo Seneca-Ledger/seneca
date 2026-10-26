@@ -3,7 +3,7 @@ title: Testing
 description: Unit, integration, and e2e test guidance
 ---
 
-Lumio uses Jest for the backend and Vitest for the frontend. CI runs the backend unit and e2e suites against
+Seneca uses Jest for the backend and Vitest for the frontend. CI runs the backend unit and e2e suites against
 PostgreSQL 16 and Redis 7 service containers.
 
 ## Backend tests (Jest)

@@ -14,7 +14,7 @@ import type {
   TopSpenderFlowType,
   TopSpenderRecord,
 } from '@/app/(main)/statements/components/top-spenders/top-spenders.types';
-import type { GmailReceipt } from '@/app/(main)/statements/types/statement-types';
+import type { ReceiptDocument } from '@/app/(main)/statements/types/statement-types';
 import { useIntlayer } from '@/app/i18n';
 
 type StatementWithWorkspace = StatementFilterItem & {
@@ -24,7 +24,7 @@ type StatementWithWorkspace = StatementFilterItem & {
 
 type Params = {
   statements: StatementWithWorkspace[];
-  gmailReceipts: GmailReceipt[];
+  receipts: ReceiptDocument[];
   workspaceCurrency: string;
   appliedFilters: StatementFilters;
   searchInput: string;
@@ -80,7 +80,7 @@ const buildUserOption = (record: TopSpenderRecord, userFallback: string): FromOp
 
 const buildBankOption = (bank: string): FromOption => ({
   id: `bank:${bank}`,
-  label: bank === 'gmail' ? 'Gmail' : getBankDisplayName(bank),
+  label: getBankDisplayName(bank),
   description: null,
   bankName: bank,
 });
@@ -102,7 +102,7 @@ const buildFromOptions = (allRecords: TopSpenderRecord[], userFallback: string):
 
 export const useTopSpendersRecords = ({
   statements,
-  gmailReceipts,
+  receipts,
   workspaceCurrency,
   appliedFilters,
   searchInput,
@@ -111,13 +111,13 @@ export const useTopSpendersRecords = ({
   const allRecords = useMemo<TopSpenderRecord[]>(() => {
     const mappedStatements = statements.map(item => mapStatementToRecord(item, workspaceCurrency));
     const existingIds = new Set(
-      mappedStatements.filter(r => r.sourceType === 'gmail').map(r => r.id),
+      mappedStatements.filter(r => r.sourceType === 'receipt').map(r => r.id),
     );
-    const mappedReceipts = gmailReceipts
+    const mappedReceipts = receipts
       .filter(r => !existingIds.has(r.id))
       .map(r => mapReceiptToRecord(r, workspaceCurrency));
     return [...mappedStatements, ...mappedReceipts];
-  }, [statements, gmailReceipts, workspaceCurrency]);
+  }, [statements, receipts, workspaceCurrency]);
 
   const filteredRecords = useMemo(
     () =>

@@ -10,7 +10,7 @@ describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
   let reflector: Reflector;
   const apiKeysService = {
-    validate: jest.fn(),
+    validate: vi.fn(),
   };
 
   beforeAll(async () => {
@@ -20,13 +20,13 @@ describe('JwtAuthGuard', () => {
         {
           provide: ModuleRef,
           useValue: {
-            get: jest.fn(() => apiKeysService),
+            get: vi.fn(() => apiKeysService),
           },
         },
         {
           provide: Reflector,
           useValue: {
-            getAllAndOverride: jest.fn(),
+            getAllAndOverride: vi.fn(),
           },
         },
       ],
@@ -37,7 +37,7 @@ describe('JwtAuthGuard', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -51,7 +51,7 @@ describe('JwtAuthGuard', () => {
   describe('canActivate', () => {
     it('should allow access for public routes', async () => {
       const context = createMockExecutionContext();
-      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
 
       const result = await guard.canActivate(context);
 
@@ -64,8 +64,8 @@ describe('JwtAuthGuard', () => {
 
     it('should call super.canActivate for protected routes', async () => {
       const context = createMockExecutionContext();
-      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
-      jest.spyOn(AuthGuard('jwt').prototype, 'canActivate').mockResolvedValue(true);
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+      vi.spyOn(AuthGuard('jwt').prototype, 'canActivate').mockResolvedValue(true);
 
       const result = await guard.canActivate(context);
 
@@ -79,10 +79,10 @@ describe('JwtAuthGuard', () => {
       });
       const context = createMockExecutionContext({
         headers: {
-          'x-api-key': 'lumio_test_key',
+          'x-api-key': 'seneca_test_key',
         },
       });
-      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
 
       await expect(guard.canActivate(context)).resolves.toBe(true);
 
@@ -98,21 +98,94 @@ describe('JwtAuthGuard', () => {
       });
       const context = createMockExecutionContext({
         headers: {
-          'x-api-key': 'lumio_test_key',
+          'x-api-key': 'seneca_test_key',
           'x-workspace-id': 'workspace-other',
         },
       });
-      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
 
       await expect(guard.canActivate(context)).rejects.toThrow(
         'API key is not valid for the requested workspace',
       );
     });
 
+    it('refuses the API key of a deactivated user, as it refuses their session', async () => {
+      apiKeysService.validate.mockResolvedValue({
+        workspaceId: 'workspace-key',
+        user: { id: 'user-1', isActive: false },
+      });
+      const context = createMockExecutionContext({
+        headers: {
+          'x-api-key': 'seneca_test_key',
+        },
+      });
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+
+      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+      expect((context.switchToHttp().getRequest() as any).apiKey).toBeUndefined();
+    });
+
+    describe('a scoped API key', () => {
+      const keyRequest = () =>
+        createMockExecutionContext({ headers: { 'x-api-key': 'seneca_test_key' } });
+      const routeMetadata = (metadata: Record<string, unknown>) =>
+        vi
+          .spyOn(reflector, 'getAllAndOverride')
+          .mockImplementation((key: unknown) => metadata[key as string]);
+
+      it('is refused on a route that declares no permission', async () => {
+        apiKeysService.validate.mockResolvedValue({
+          workspaceId: 'workspace-key',
+          user: { id: 'user-1' },
+          scopes: ['transaction.view'],
+        });
+        routeMetadata({});
+
+        await expect(guard.canActivate(keyRequest())).rejects.toThrow(
+          'This route does not accept scoped API keys',
+        );
+      });
+
+      it('passes on to the permission check where the route declares one', async () => {
+        apiKeysService.validate.mockResolvedValue({
+          workspaceId: 'workspace-key',
+          user: { id: 'user-1' },
+          scopes: ['transaction.view'],
+        });
+        routeMetadata({ permissions: ['transaction.view'] });
+
+        await expect(guard.canActivate(keyRequest())).resolves.toBe(true);
+      });
+
+      it('passes where the route checks scopes itself', async () => {
+        apiKeysService.validate.mockResolvedValue({
+          workspaceId: 'workspace-key',
+          user: { id: 'user-1' },
+          scopes: [],
+        });
+        routeMetadata({ apiKeyAllowed: true });
+
+        await expect(guard.canActivate(keyRequest())).resolves.toBe(true);
+      });
+
+      it('is refused even with an empty scope list', async () => {
+        apiKeysService.validate.mockResolvedValue({
+          workspaceId: 'workspace-key',
+          user: { id: 'user-1' },
+          scopes: [],
+        });
+        routeMetadata({});
+
+        await expect(guard.canActivate(keyRequest())).rejects.toThrow(
+          'This route does not accept scoped API keys',
+        );
+      });
+    });
+
     it('should throw UnauthorizedException for invalid token', async () => {
       const context = createMockExecutionContext();
-      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
-      jest
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+      vi
         .spyOn(AuthGuard('jwt').prototype, 'canActivate')
         .mockRejectedValue(new UnauthorizedException());
 
@@ -125,8 +198,8 @@ describe('JwtAuthGuard', () => {
           authorization: 'Bearer valid.jwt.token',
         },
       });
-      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
-      jest.spyOn(AuthGuard('jwt').prototype, 'canActivate').mockResolvedValue(true);
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+      vi.spyOn(AuthGuard('jwt').prototype, 'canActivate').mockResolvedValue(true);
 
       const result = await guard.canActivate(context);
 
@@ -137,8 +210,8 @@ describe('JwtAuthGuard', () => {
       const context = createMockExecutionContext({
         headers: {},
       });
-      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
-      jest
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+      vi
         .spyOn(AuthGuard('jwt').prototype, 'canActivate')
         .mockRejectedValue(new UnauthorizedException());
 

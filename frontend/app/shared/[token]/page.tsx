@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 import {
   Alert,
@@ -13,34 +12,25 @@ import {
   Typography,
 } from '@mui/material';
 import { useParams } from 'next/navigation';
-import React, { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { Download as DownloadIcon, Lock as LockIcon } from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { SharedFileAccess } from '@/app/lib/contracts';
+import { checkContract } from '@/app/lib/query-fn-schema';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import TransactionsView from '../../components/TransactionsView';
 import api from '../../lib/api';
+import { blobOf } from '../../lib/blob-of';
 
-interface SharedStatement {
-  fileName: string;
-  bankName: string;
-  fileSize: number;
-  metadata?: {
-    accountNumber?: string;
-  } | null;
-}
-
-interface SharedFileAccess {
-  statement: SharedStatement;
-  transactions: React.ComponentProps<typeof TransactionsView>['transactions'];
-  permission: string;
-  canDownload: boolean;
-}
+/** The link's password goes in a header, never the URL: query strings end up in logs. */
+const sharePasswordHeaders = (password?: string): Record<string, string> =>
+  password ? { 'x-share-password': password } : {};
 
 /**
  * Public page for accessing shared files
  */
-// eslint-disable-next-line max-lines-per-function, complexity, @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export default function SharedFilePage() {
   const params = useParams();
   const token = params.token as string;
@@ -71,10 +61,11 @@ export default function SharedFilePage() {
       setLoading(true);
       setError(null);
 
-      const params = pwd ? { password: pwd } : {};
-      const response = await api.get(`/storage/shared/${token}`, { params });
+      const response = await api.get(`/storage/shared/${token}`, {
+        headers: sharePasswordHeaders(pwd),
+      });
 
-      setAccess(response.data);
+      setAccess(await checkContract('SharedFileAccess', response.data, '/storage/shared/:token'));
       setNeedsPassword(false);
     })()
       .catch(async err => {
@@ -110,13 +101,12 @@ export default function SharedFilePage() {
     if (!access) return;
 
     await (async () => {
-      const params = password ? { password } : {};
       const response = await api.get(`/storage/shared/${token}/download`, {
-        params,
+        headers: sharePasswordHeaders(password),
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', access.statement.fileName);
@@ -133,7 +123,7 @@ export default function SharedFilePage() {
     return formatStoredDateWithOptions(
       date,
       { year: 'numeric', month: 'long', day: 'numeric' },
-      locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
+      resolveLocaleTag(locale),
     );
   };
 
@@ -160,7 +150,13 @@ export default function SharedFilePage() {
             <Typography variant="h5" align="center">
               {t.protected.title}
             </Typography>
-            <Typography variant="body1" color="text.secondary" align="center">
+            <Typography
+              variant="body1"
+              align="center"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.protected.subtitle}
             </Typography>
 
@@ -248,7 +244,12 @@ export default function SharedFilePage() {
       >
         <Card>
           <CardContent>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.cards.bank}
             </Typography>
             <Typography variant="h6">{statement.bankName}</Typography>
@@ -256,7 +257,12 @@ export default function SharedFilePage() {
         </Card>
         <Card>
           <CardContent>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.cards.fileSize}
             </Typography>
             <Typography variant="h6">{formatFileSize(statement.fileSize)}</Typography>
@@ -264,7 +270,12 @@ export default function SharedFilePage() {
         </Card>
         <Card>
           <CardContent>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.cards.transactions}
             </Typography>
             <Typography variant="h6">{transactions.length}</Typography>
@@ -272,12 +283,15 @@ export default function SharedFilePage() {
         </Card>
         <Card>
           <CardContent>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.cards.account}
             </Typography>
-            <Typography variant="h6">
-              {statement.metadata?.accountNumber || t.cards.dash.value}
-            </Typography>
+            <Typography variant="h6">{statement.accountNumber || t.cards.dash.value}</Typography>
           </CardContent>
         </Card>
       </Box>

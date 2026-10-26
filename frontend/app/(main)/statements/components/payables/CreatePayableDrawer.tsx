@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import MuiButton from '@mui/material/Button';
@@ -6,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronLeft } from '@/app/components/icons';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
+import { TagPicker } from '@/app/components/tags/TagPicker';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
@@ -18,6 +18,7 @@ import type {
   PayableStatus,
   UpdatePayableInput,
 } from '@/app/lib/payables-api';
+import { type PayableFormState, toFormState } from './payable-form-state';
 
 interface CreatePayableDrawerProps {
   open: boolean;
@@ -47,59 +48,6 @@ interface CreatePayableDrawerProps {
   };
 }
 
-interface PayableFormState {
-  vendor: string;
-  amount: string;
-  currency: string;
-  dueDate: string;
-  source: PayableSource;
-  status: PayableStatus;
-  comment: string;
-}
-
-const createEmptyState = (defaultCurrency: string): PayableFormState => ({
-  vendor: '',
-  amount: '',
-  currency: defaultCurrency,
-  dueDate: '',
-  source: 'manual',
-  status: 'to_pay',
-  comment: '',
-});
-
-const toFormState = (
-  payable: Payable | null | undefined,
-  initialValues: CreatePayableInput | null | undefined,
-  defaultCurrency: string,
-): PayableFormState => {
-  if (!(payable || initialValues)) {
-    return createEmptyState(defaultCurrency);
-  }
-
-  if (!payable && initialValues) {
-    return {
-      vendor: initialValues.vendor || '',
-      amount: String(initialValues.amount ?? ''),
-      currency: initialValues.currency || defaultCurrency,
-      dueDate: initialValues.dueDate ? initialValues.dueDate.slice(0, 10) : '',
-      source: initialValues.source || 'manual',
-      status: initialValues.status || 'to_pay',
-      comment: initialValues.comment || '',
-    };
-  }
-
-  return {
-    vendor: payable?.vendor || '',
-    amount: String(payable?.amount ?? ''),
-    currency: payable?.currency || defaultCurrency,
-    dueDate: payable?.dueDate ? payable.dueDate.slice(0, 10) : '',
-    source: payable?.source || 'manual',
-    status: payable?.status || 'to_pay',
-    comment: payable?.comment || '',
-  };
-};
-
-// eslint-disable-next-line max-lines-per-function, complexity
 export function CreatePayableDrawer({
   open,
   payable,
@@ -151,6 +99,7 @@ export function CreatePayableDrawer({
       source: form.source,
       status: form.status,
       comment: form.comment.trim() || undefined,
+      tagIds: form.tags.map(tag => tag.id),
     });
   };
 
@@ -174,11 +123,11 @@ export function CreatePayableDrawer({
           '@media (min-width:600px)': { maxWidth: 512 },
         }}
         title={
-          <div className="lumio-payable-drawer__title-wrap">
+          <div className="seneca-payable-drawer__title-wrap">
             <button
               type="button"
               onClick={onClose}
-              className="lumio-payable-drawer__back-btn"
+              className="seneca-payable-drawer__back-btn"
               aria-label={labels.cancel}
             >
               <ChevronLeft size={20} />
@@ -189,10 +138,10 @@ export function CreatePayableDrawer({
           </div>
         }
       >
-        <div className="lumio-payable-drawer__body">
+        <div className="seneca-payable-drawer__body">
           <div style={{ display: 'grid', gap: 16 }}>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="payable-vendor">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="payable-vendor">
                 {labels.vendor}
               </label>
               <Input
@@ -202,9 +151,9 @@ export function CreatePayableDrawer({
               />
             </div>
 
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-amount">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-amount">
                   {labels.amount}
                 </label>
                 <Input
@@ -216,14 +165,14 @@ export function CreatePayableDrawer({
                   onChange={event => setForm(prev => ({ ...prev, amount: event.target.value }))}
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-currency">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-currency">
                   {labels.currency}
                 </label>
                 <button
                   id="payable-currency"
                   type="button"
-                  className="lumio-payable-drawer__currency-trigger"
+                  className="seneca-payable-drawer__currency-trigger"
                   onClick={() => setCurrencyDrawerOpen(true)}
                   aria-label={labels.currency}
                 >
@@ -232,9 +181,9 @@ export function CreatePayableDrawer({
               </div>
             </div>
 
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-due-date">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-due-date">
                   {labels.dueDate}
                 </label>
                 <CustomDatePicker
@@ -244,8 +193,8 @@ export function CreatePayableDrawer({
                   onChange={value => setForm(prev => ({ ...prev, dueDate: value }))}
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="payable-source">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="payable-source">
                   {labels.source}
                 </label>
                 <Select
@@ -262,8 +211,8 @@ export function CreatePayableDrawer({
               </div>
             </div>
 
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="payable-status">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="payable-status">
                 {labels.status}
               </label>
               <Select
@@ -272,27 +221,30 @@ export function CreatePayableDrawer({
                 sx={FORM_CONTROL_SX}
                 value={form.status}
                 onChange={value => setForm(prev => ({ ...prev, status: value as PayableStatus }))}
-                options={Object.entries(labels.statusOptions).map(([value, label]) => ({
-                  value,
-                  label,
-                }))}
+                // Paid comes from recording the payment (Mark paid), which books the
+                // money; an edit cannot make an open bill paid, only keep a paid one so.
+                options={Object.entries(labels.statusOptions)
+                  .filter(([value]) => value !== 'paid' || payable?.status === 'paid')
+                  .map(([value, label]) => ({ value, label }))}
               />
             </div>
 
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="payable-comment">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="payable-comment">
                 {labels.comment}
               </label>
               <textarea
                 id="payable-comment"
                 value={form.comment}
                 onChange={event => setForm(prev => ({ ...prev, comment: event.target.value }))}
-                className="lumio-payable-drawer__textarea"
+                className="seneca-payable-drawer__textarea"
               />
             </div>
+
+            <TagPicker value={form.tags} onChange={tags => setForm(prev => ({ ...prev, tags }))} />
           </div>
 
-          <div className="lumio-payable-drawer__footer">
+          <div className="seneca-payable-drawer__footer">
             <MuiButton variant="outlined" sx={{ flex: 1 }} onClick={onClose}>
               {labels.cancel}
             </MuiButton>

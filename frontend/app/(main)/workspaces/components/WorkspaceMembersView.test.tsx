@@ -29,6 +29,8 @@ vi.mock('react-hot-toast', () => ({
   },
 }));
 
+import WorkspaceMembersView from './WorkspaceMembersView';
+
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('WorkspaceMembersView', () => {
@@ -39,26 +41,37 @@ describe('WorkspaceMembersView', () => {
     apiPatch.mockReset();
     apiDelete.mockReset();
 
+    // The wire shape of GET /workspaces/me (packages/contracts WorkspaceOverview).
     apiGet.mockResolvedValue({
       data: {
-        workspace: { id: 'ws-1', name: 'Workspace', ownerId: 'owner-1' },
+        workspace: {
+          id: 'ws-1',
+          name: 'Workspace',
+          ownerId: 'owner-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
         members: [
           {
             id: 'owner-1',
+            memberId: 'member-owner-1',
             email: 'owner@example.com',
             name: 'Workspace Owner',
             role: 'owner',
+            permissions: null,
             joinedAt: '2026-01-01T00:00:00.000Z',
           },
           {
             id: 'viewer-1',
+            memberId: 'member-viewer-1',
             email: 'viewer@example.com',
             name: 'Viewer User',
             role: 'viewer',
+            permissions: null,
             joinedAt: '2026-01-05T00:00:00.000Z',
           },
           {
             id: 'member-1',
+            memberId: 'member-member-1',
             email: 'member@example.com',
             name: 'Plain Member',
             role: 'member',
@@ -72,7 +85,6 @@ describe('WorkspaceMembersView', () => {
   });
 
   it('renders member controls and pending invitation note', async () => {
-    const { default: WorkspaceMembersView } = await import('./WorkspaceMembersView');
     const container = document.createElement('div');
     const root = createRoot(container);
 
@@ -86,12 +98,76 @@ describe('WorkspaceMembersView', () => {
 
     expect(container.textContent).toContain('Sort: Name');
     expect(container.textContent).toContain('Role: All roles');
-    expect(container.textContent).toContain('Invitations expire in 7 days.');
+    expect(container.textContent).not.toContain('Invitations expire in 7 days.');
     expect(container.textContent).toContain('No active invitations.');
   });
 
+  it('hides search, sort and role filter while the owner is alone', async () => {
+    apiGet.mockResolvedValue({
+      data: {
+        workspace: {
+          id: 'ws-1',
+          name: 'Workspace',
+          ownerId: 'owner-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+        members: [
+          {
+            id: 'owner-1',
+            memberId: 'member-owner-1',
+            email: 'owner@example.com',
+            name: 'Owner',
+            role: 'owner',
+            permissions: null,
+            joinedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        invitations: [],
+      },
+    });
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspaceMembersView />);
+    });
+
+    await act(async () => {
+      await flushPromises();
+    });
+
+    expect(container.textContent).toContain('owner@example.com');
+    expect(container.textContent).not.toContain('Sort: Name');
+    expect(container.textContent).not.toContain('Role: All roles');
+    expect(container.querySelector('input[placeholder="Search by email"]')).toBeNull();
+  });
+
+  it('says what the chosen role can do in the invite form', async () => {
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<WorkspaceMembersView />);
+    });
+
+    await act(async () => {
+      await flushPromises();
+    });
+
+    const inviteButton = Array.from(container.querySelectorAll('button')).find(
+      button => button.textContent === 'Invite member',
+    );
+    await act(async () => {
+      inviteButton?.click();
+    });
+
+    const form = container.querySelector('form');
+    expect(form?.textContent).toContain(
+      'Can work with workspace data based on assigned permissions.',
+    );
+  });
+
   it('counts only the toggles a member actually carries', async () => {
-    const { default: WorkspaceMembersView } = await import('./WorkspaceMembersView');
     const container = document.createElement('div');
     const root = createRoot(container);
 
@@ -111,7 +187,6 @@ describe('WorkspaceMembersView', () => {
 
   it('sends the whole toggle set when one is flipped', async () => {
     apiPatch.mockResolvedValue({ data: {} });
-    const { default: WorkspaceMembersView } = await import('./WorkspaceMembersView');
     const container = document.createElement('div');
     const root = createRoot(container);
 

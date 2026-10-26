@@ -7,22 +7,17 @@ import { DashboardCard } from '@/app/components/dashboard/ui/DashboardCard';
 import { useHouseholdMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
+import { useIsWideSection } from './section-span';
 
-/** Short: the point is "recently", and the full audit is a page of its own. */
-const ACTIVITY_LIMIT = 8;
+/**
+ * Short: the point is "recently", and the full audit is a page of its own. A
+ * half-width card shows the first eight; with the row to itself, all it got.
+ */
+const ACTIVITY_LIMIT = 16;
+const NARROW_ACTIVITY_LIMIT = 8;
 const ACTIVITY_STALE_TIME = 60 * 1000;
-
-interface ActivityEntry {
-  id: string;
-  actorName: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  description: string | null;
-  createdAt: string;
-}
 
 /**
  * Who in the household moved what, lately.
@@ -35,14 +30,16 @@ export function WorkspaceActivityCard(): React.JSX.Element | null {
   const members = useHouseholdMembers();
   const t = useIntlayer('workspaceActivity');
   const { locale } = useLocale();
+  const wide = useIsWideSection();
 
   const { data } = useQuery({
     queryKey: ['workspace-activity', workspaceId, ACTIVITY_LIMIT],
     queryFn: ({ signal }) =>
-      apiQuery<{ items: ActivityEntry[] }>({
+      apiQueryDecoded({
         url: '/audit-events/activity',
         params: { limit: ACTIVITY_LIMIT },
         signal,
+        contract: 'WorkspaceActivity',
       }),
     staleTime: ACTIVITY_STALE_TIME,
     enabled: Boolean(workspaceId) && members.length > 0,
@@ -52,7 +49,8 @@ export function WorkspaceActivityCard(): React.JSX.Element | null {
     return null;
   }
 
-  const items = data?.items ?? [];
+  const all = data?.items ?? [];
+  const items = wide ? all : all.slice(0, NARROW_ACTIVITY_LIMIT);
 
   return (
     <DashboardCard title={t.title.value}>

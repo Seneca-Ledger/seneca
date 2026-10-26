@@ -12,8 +12,8 @@ const baseProps: ComponentProps<typeof TopMerchantsDrillDown> = {
   selectedRow: {
     id: 'merchant-1',
     merchant: 'GitHub',
-    sourceType: 'gmail',
-    sourceChannel: 'gmail',
+    sourceType: 'receipt',
+    sourceChannel: 'receipt',
     flowType: 'spend',
     count: 1,
     total: 39,
@@ -24,16 +24,16 @@ const baseProps: ComponentProps<typeof TopMerchantsDrillDown> = {
   drillDownRecords: [
     {
       id: 'receipt-1',
-      source: 'gmail',
+      source: 'scan',
       fileName: 'GitHub receipt',
       subject: 'GitHub',
       sender: 'noreply@github.com',
       status: 'processed',
-      fileType: 'gmail',
+      fileType: 'receipt',
       createdAt: '2026-03-16T00:00:00.000Z',
       statementDateFrom: '2026-03-16',
       statementDateTo: null,
-      bankName: 'gmail',
+      bankName: 'receipt',
       totalDebit: 39,
       totalCredit: null,
       currency: 'USD',
@@ -43,8 +43,8 @@ const baseProps: ComponentProps<typeof TopMerchantsDrillDown> = {
       user: null,
       receivedAt: '2026-03-16T00:00:00.000Z',
       parsedData: { vendor: 'GitHub', date: '2026-03-16' },
-      sourceType: 'gmail',
-      sourceChannel: 'gmail',
+      sourceType: 'receipt',
+      sourceChannel: 'receipt',
       flowType: 'spend',
       merchant: 'GitHub',
       amount: 39,
@@ -61,7 +61,6 @@ const baseProps: ComponentProps<typeof TopMerchantsDrillDown> = {
     sourceBank: 'Bank',
     sourceCrypto: 'Crypto',
     sourceReceipt: 'Receipt',
-    sourceGmailInbox: 'Gmail',
   },
   labels: {
     drillDown: 'Drill-down',
@@ -80,7 +79,7 @@ describe('TopMerchantsDrillDown', () => {
     render(<TopMerchantsDrillDown {...baseProps} />);
     const html = document.body.innerHTML;
 
-    expect(html).toContain('39,00');
+    expect(html).toContain('39');
     expect(html).toContain('$');
     expect(html).not.toContain('KZT');
   });

@@ -31,18 +31,13 @@ describe('financial document helpers', () => {
     expect(isLowConfidenceDocument(undefined)).toBe(false);
   });
 
-  it('falls back to a synthetic line item when receipt has no explicit line items', () => {
+  it('does not pass the total off as a line item when the receipt has none', () => {
     expect(
       normalizeReceiptLineItems({
         amount: 12000,
         vendor: 'Acme Inc',
       }),
-    ).toEqual([
-      {
-        description: 'Acme Inc',
-        amount: 12000,
-      },
-    ]);
+    ).toEqual([]);
   });
 
   it('uses explicit line items when parser returned them', () => {

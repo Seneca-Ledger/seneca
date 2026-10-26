@@ -2,7 +2,8 @@
 import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BudgetSummaryWidget } from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
-import { CashRunwayWidget } from '@/app/(main)/dashboard/components/CashRunwayWidget';
+import { SubscriptionsMonthWidget } from '@/app/(main)/dashboard/components/SubscriptionsMonthWidget';
+import { budgetItem, cryptoSummary } from '@/app/test/fixtures/contracts';
 import { createTestQueryClient, renderWithQuery } from '@/app/test/query-wrapper';
 import { CryptoPortfolioCard } from '../CryptoPortfolioCard';
 
@@ -19,7 +20,7 @@ vi.mock('@/app/lib/api', () => ({ default: { get: apiGet }, apiBaseUrl: '/api/v1
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/i18n', async () => {
   const { autoDictionary } = await import('./intlayer-mock');
-  return { useIntlayer: () => autoDictionary() };
+  return { useIntlayer: () => autoDictionary(), useLocale: () => ({ locale: 'en' }) };
 });
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
@@ -28,43 +29,27 @@ vi.mock('next/link', () => ({
 }));
 
 const RESPONSES: Record<string, unknown> = {
-  '/crypto/summary': {
-    currency: 'EUR',
-    portfolioValue: 5532,
-    income: 0,
-    expense: 0,
-    walletCount: 1,
-    holdings: [],
-  },
+  '/crypto/summary': cryptoSummary({ currency: 'EUR', portfolioValue: 5532 }),
   '/budgets': [
-    {
-      id: 'b-1',
-      name: 'Travel',
-      limitAmount: 100,
-      spentAmount: 10,
-      percentUsed: 10,
-      currency: 'EUR',
-    },
+    budgetItem({ id: 'b-1', name: 'Travel', currency: 'EUR', spentAmount: 10, percentUsed: 10 }),
   ],
-  '/dashboard/commitments': {
+  '/subscriptions/month-status': {
     currency: 'EUR',
-    horizonDays: 60,
-    openingBalance: 1000,
-    totalCommitted: 50,
-    unscheduledCommitted: 0,
+    month: '2026-10',
+    paidAmount: 14,
+    paidCount: 1,
+    unpaidAmount: 50,
+    unpaidCount: 1,
     items: [
       {
-        date: '2026-10-07',
-        label: 'Telekom',
+        subscriptionId: 'sub-1',
+        vendorName: 'ACME Music',
+        vendorDomain: null,
         amount: 50,
-        source: 'subscription',
-        sourceId: 's-1',
-        isOverdue: false,
+        paid: false,
+        nextChargeDate: '2026-10-28',
       },
     ],
-    lowestBalance: 950,
-    lowestBalanceDate: '2026-10-07',
-    shortfallDate: null,
   },
 };
 
@@ -76,8 +61,22 @@ const CARDS: Array<{ name: string; ui: React.ReactElement; shows: string }> = [
     ui: <CryptoPortfolioCard formatAmount={money} month="2026-10" monthLabel="October 2026" />,
     shows: '€5532',
   },
-  { name: 'budgets', ui: <BudgetSummaryWidget />, shows: 'Travel' },
-  { name: 'cash runway', ui: <CashRunwayWidget formatAmount={money} />, shows: 'Telekom' },
+  // The widget names a budget by its category.
+  {
+    name: 'budgets',
+    ui: (
+      <BudgetSummaryWidget
+        month={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+        monthLabel="This month"
+      />
+    ),
+    shows: 'Groceries',
+  },
+  {
+    name: 'subscriptions this month',
+    ui: <SubscriptionsMonthWidget formatAmount={money} />,
+    shows: '€50',
+  },
 ];
 
 describe('Overview cards coming back after a tab switch', () => {

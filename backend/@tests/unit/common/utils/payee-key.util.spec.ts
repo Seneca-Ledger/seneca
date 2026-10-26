@@ -58,6 +58,28 @@ describe('payeeKeyOf', () => {
       },
     );
 
+    it.each([
+      'Invoice number295560440015',
+      'Invoice No. 2955-6044-0015',
+      'Tax invoice #INV-2026-0042',
+      'Receipt 2333-5432-2082',
+      'Rechnung Nr. 4711',
+      'Счёт № 15',
+      'Unknown merchant',
+    ])('returns null for %s, which names the document and not who issued it', raw => {
+      expect(payeeKeyOf({ counterpartyName: raw })).toBeNull();
+    });
+
+    it('keeps a name that only starts with a document word', () => {
+      expect(payeeKeyOf({ counterpartyName: 'Invoice Ninja GmbH' })).toBe('invoice ninja gmbh');
+    });
+
+    it('falls back to the payment purpose when the counterparty is only a document word', () => {
+      expect(
+        payeeKeyOf({ counterpartyName: 'Invoice 4711', paymentPurpose: 'HETZNER ONLINE GMBH' }),
+      ).toBe('hetzner online gmbh');
+    });
+
     it('falls back to the payment purpose when the counterparty is unnamed', () => {
       expect(
         payeeKeyOf({ counterpartyName: 'Unknown', paymentPurpose: 'SPOTIFY AB MONTHLY' }),

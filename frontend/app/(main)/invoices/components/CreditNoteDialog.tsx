@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import React, { useState } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { ModalShell } from '@/app/components/ui/modal-shell';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import type { CreateCreditNoteInput } from '@/app/lib/credit-notes-api';
 import { formatMoney } from '@/app/lib/format-money';
@@ -85,7 +86,10 @@ export function CreditNoteDialog({
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {invoice.invoiceNumber} · {formatMoney(Number(invoice.total), invoice.currency, locale)}
+          {invoice.invoiceNumber} ·{' '}
+          <PrivateAmount>
+            {formatMoney(Number(invoice.total), invoice.currency, locale)}
+          </PrivateAmount>
         </Typography>
         <TextField
           size="small"
@@ -94,12 +98,23 @@ export function CreditNoteDialog({
           value={typed}
           error={tooMuch}
           helperText={
-            tooMuch
-              ? String(t.detail.creditNoteTooMuch.value)
-              : `${String(t.detail.creditNoteCreditable.value)} ${formatMoney(creditable, invoice.currency, locale)}`
+            tooMuch ? (
+              String(t.detail.creditNoteTooMuch.value)
+            ) : (
+              <>
+                {String(t.detail.creditNoteCreditable.value)}{' '}
+                <PrivateAmount>{formatMoney(creditable, invoice.currency, locale)}</PrivateAmount>
+              </>
+            )
           }
           onChange={event => setAmount(event.target.value)}
-          inputProps={{ min: 0, step: 0.01, 'aria-label': String(t.detail.creditNoteAmount.value) }}
+          slotProps={{
+            htmlInput: {
+              min: 0,
+              step: 0.01,
+              'aria-label': String(t.detail.creditNoteAmount.value),
+            },
+          }}
         />
         <TextField
           size="small"

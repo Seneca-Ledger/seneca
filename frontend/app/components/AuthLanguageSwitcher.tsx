@@ -1,9 +1,9 @@
 'use client';
 
-import IconButton from '@mui/material/IconButton';
+import ButtonBase from '@mui/material/ButtonBase';
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Globe } from '@/app/components/icons';
+import { ChevronDown } from '@/app/components/icons';
 import { LanguageDrawer } from '@/app/components/navigation/LanguageDrawer';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import {
@@ -15,7 +15,6 @@ import {
 import { tokens } from '@/lib/theme-tokens';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function AuthLanguageSwitcher() {
   const { locale, setLocale, availableLocales } = useLocale();
   const { languageModal } = useIntlayer('navigation');
@@ -51,7 +50,6 @@ export function AuthLanguageSwitcher() {
     return languages.filter(lang => lang.label.toLowerCase().includes(query));
   }, [languageSearch, languages]);
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleLanguageSelect = (code: AppLanguage) => {
     setLocale(code);
     setLanguageModalOpen(false);
@@ -68,25 +66,29 @@ export function AuthLanguageSwitcher() {
 
   return (
     <>
-      <IconButton
+      {/* "EN ▾" in words: a bare globe did not say what it switches. */}
+      <ButtonBase
         aria-label={currentLanguageLabel}
+        aria-haspopup="dialog"
         onClick={() => {
           setLanguageSearch('');
           setLanguageModalOpen(true);
         }}
         sx={{
-          width: 48,
-          height: 48,
-          borderRadius: `${tokens.radius.full} !important`,
-          color: 'text.secondary',
-          '&:hover': {
-            borderRadius: `${tokens.radius.full} !important`,
-            color: 'text.primary',
-          },
+          gap: 0.25,
+          px: 1,
+          py: 0.5,
+          borderRadius: tokens.radius.sm,
+          fontSize: 14,
+          fontWeight: 500,
+          letterSpacing: '0.02em',
+          color: 'var(--text-muted)',
+          '&:hover, &.Mui-focusVisible': { color: 'var(--foreground)' },
         }}
       >
-        <Globe size={20} suppressHydrationWarning />
-      </IconButton>
+        {(locale || DEFAULT_LOCALE).toUpperCase()}
+        <ChevronDown size={16} aria-hidden />
+      </ButtonBase>
 
       {/* The same drawer the app uses, so sign-in and the app look identical. */}
       <LanguageDrawer

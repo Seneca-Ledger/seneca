@@ -1,4 +1,3 @@
-import { IsNull } from 'typeorm';
 import { AuditService } from '@/modules/audit/audit.service';
 import { ReportsService } from '@/modules/reports/reports.service';
 
@@ -14,6 +13,12 @@ const COUNTABLE: Array<[string, (sql: string) => boolean]> = [
   ['not a duplicate', sql => sql === 'transaction.isDuplicate = false'],
   ['not a transfer', sql => sql === 'transaction.transferPairId IS NULL'],
   ['not on a trashed statement', sql => /deleted_at IS NOT NULL/.test(sql)],
+];
+
+/** What an income or spending figure adds on top: no failed statement, crypto only when it settles a bill. */
+const FLOWS: Array<[string, (sql: string) => boolean]> = [
+  ['not on a failed statement', sql => /unread\.status IN/.test(sql)],
+  ['crypto only when it settles a bill', sql => /cryptoWalletId IS NULL OR EXISTS/.test(sql)],
 ];
 
 function recordingQueryBuilder() {
@@ -48,15 +53,15 @@ function recordingQueryBuilder() {
 
 function emptyRepo() {
   return {
-    find: jest.fn(async () => []),
-    findOne: jest.fn(async () => null),
-    count: jest.fn(async () => 0),
+    find: vi.fn(async () => []),
+    findOne: vi.fn(async () => null),
+    count: vi.fn(async () => 0),
   };
 }
 
 function buildService() {
   const { qb, wheres } = recordingQueryBuilder();
-  const transactionRepository = { ...emptyRepo(), createQueryBuilder: jest.fn(() => qb) };
+  const transactionRepository = { ...emptyRepo(), createQueryBuilder: vi.fn(() => qb) };
   const service = new ReportsService(
     transactionRepository as any,
     emptyRepo() as any,
@@ -66,17 +71,17 @@ function buildService() {
     emptyRepo() as any,
     emptyRepo() as any,
     emptyRepo() as any,
-    { get: jest.fn(async () => undefined), set: jest.fn(async () => undefined) } as any,
-    { createEvent: jest.fn() } as unknown as AuditService,
+    { get: vi.fn(async () => undefined), set: vi.fn(async () => undefined) } as any,
+    { createEvent: vi.fn() } as unknown as AuditService,
     emptyRepo() as any,
-    { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-    { getRate: jest.fn(async () => 1) } as any,
-    { exportBalanceSheet: jest.fn() } as any,
+    { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+    { getRate: vi.fn(async () => 1), getRateOrNull: vi.fn(async () => 1) } as any,
+    { exportBalanceSheet: vi.fn() } as any,
   );
   const conditionsPerQuery = () => {
     const built = transactionRepository.createQueryBuilder.mock.calls.length;
     const counts = Object.fromEntries(
-      COUNTABLE.map(([name, matches]) => [name, wheres.filter(matches).length]),
+      [...COUNTABLE, ...FLOWS].map(([name, matches]) => [name, wheres.filter(matches).length]),
     );
     return { built, counts };
   };
@@ -112,12 +117,13 @@ describe('ReportsService counts only what a report should', () => {
 
     const { built, counts } = conditionsPerQuery();
     expect(built).toBeGreaterThan(0);
-    expect(counts).toEqual(Object.fromEntries(COUNTABLE.map(([name]) => [name, built])));
+    expect(counts).toEqual(
+      Object.fromEntries([...COUNTABLE, ...FLOWS].map(([name]) => [name, built])),
+    );
   });
 
   it('template reports load confirmed rows only', async () => {
-    const { service, transactionRepository } = buildService();
-    jest.spyOn(service as any, 'buildRateMap').mockResolvedValue(new Map());
+    const { service, transactionRepository, conditionsPerQuery } = buildService();
 
     await (service as any).loadReportRows('ws-1', {
       templateId: 'pnl',
@@ -125,14 +131,10 @@ describe('ReportsService counts only what a report should', () => {
       dateTo: '2026-12-31',
     });
 
-    // Two alternatives: rows without a statement, and rows whose statement is not trashed.
-    const where = transactionRepository.find.mock.calls[0][0].where;
-    expect(where).toHaveLength(2);
-    for (const branch of where) {
-      expect(branch).toMatchObject({ isVerified: true, workspaceId: 'ws-1', isDuplicate: false });
-      expect(branch.transferPairId).toEqual(IsNull());
-    }
-    expect(where[0].statementId).toEqual(IsNull());
-    expect(where[1].statement).toEqual({ deletedAt: IsNull() });
+    // The same conditions as every other figure, on the one query it builds.
+    const { built, counts } = conditionsPerQuery();
+    expect(built).toBe(1);
+    expect(counts).toEqual(Object.fromEntries([...COUNTABLE, ...FLOWS].map(([name]) => [name, 1])));
+    expect(transactionRepository.find).not.toHaveBeenCalled();
   });
 });

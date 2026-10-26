@@ -9,11 +9,12 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { HttpException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import pdfParse from 'pdf-parse';
 import { Client as PgClient } from 'pg';
 import { DataSource, type Repository } from 'typeorm';
+import { parsePdf } from '../../src/common/utils/pdf-text.util';
 
 import * as entityIndex from '../../src/entities';
 import {
@@ -33,6 +34,7 @@ import { BusinessProfileService } from '../../src/modules/business-profile/busin
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { CreditNotesService } from '../../src/modules/invoices/credit-notes.service';
 import { InvoiceSettingsService } from '../../src/modules/invoices/invoice-settings.service';
+import { InvoiceXRechnungService } from '../../src/modules/invoices/invoice-xrechnung.service';
 import { InvoicesService } from '../../src/modules/invoices/invoices.service';
 import { LedgerAccountsService } from '../../src/modules/ledger/ledger-accounts.service';
 import { LedgerPostingService } from '../../src/modules/ledger/ledger-posting.service';
@@ -40,9 +42,10 @@ import { NotificationsService } from '../../src/modules/notifications/notificati
 import { PayablesService } from '../../src/modules/payables/payables.service';
 import { PayablesExportService } from '../../src/modules/payables/payables-export.service';
 import { WorkspaceCurrencyService } from '../../src/modules/workspaces/workspace-currency.service';
+import { APP_NAME } from '../../src/common/brand';
 
 const BASE_URL = process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_credit_notes_${process.pid}`;
+const SCRATCH_DB = `seneca_credit_notes_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -54,22 +57,22 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
 }
 
 describe('credit notes (real Postgres)', () => {
-  jest.setTimeout(240_000);
+  vi.setConfig({ testTimeout: 240_000 });
 
   let dataSource: DataSource;
   let invoices: InvoicesService;
@@ -83,6 +86,7 @@ describe('credit notes (real Postgres)', () => {
   let clientId: string;
   let otherClientId: string;
   let vatRateId: string;
+  const eventEmitter = { emit: vi.fn() };
 
   async function errorOf(promise: Promise<unknown>) {
     try {
@@ -158,6 +162,7 @@ describe('credit notes (real Postgres)', () => {
       providers: [
         InvoicesService,
         CreditNotesService,
+        InvoiceXRechnungService,
         InvoiceSettingsService,
         BusinessProfileService,
         WorkspaceCurrencyService,
@@ -165,8 +170,9 @@ describe('credit notes (real Postgres)', () => {
         PayablesExportService,
         LedgerPostingService,
         LedgerAccountsService,
-        { provide: ExchangeRatesService, useValue: { getRateQuote: jest.fn(), getRate: jest.fn() } },
-        { provide: NotificationsService, useValue: { createForWorkspaceMembers: jest.fn() } },
+        { provide: ExchangeRatesService, useValue: { getRateQuote: vi.fn(), getRate: vi.fn() } },
+        { provide: NotificationsService, useValue: { createForWorkspaceMembers: vi.fn() } },
+        { provide: EventEmitter2, useValue: eventEmitter },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
           useValue: dataSource.getRepository(entity),
@@ -203,7 +209,7 @@ describe('credit notes (real Postgres)', () => {
     ).id;
     profiles = moduleRef.get(BusinessProfileService);
     await profiles.update(workspaceId, {
-      legalName: 'Lumio Software OÜ',
+      legalName: `${APP_NAME} Software OÜ`,
       addressLines: 'Tartu mnt 67\n10115 Tallinn',
       registrationId: '16123456',
       taxId: 'EE102345678',
@@ -301,6 +307,17 @@ describe('credit notes (real Postgres)', () => {
     const settled = await payableRepo.findOneByOrFail({ id: payable.id });
     expect(settled.status).toBe(PayableStatus.PAID);
     expect(Number(settled.amount)).toBe(600);
+    // Webhooks hear of it as of any other payment that closes an invoice.
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'payable.paid',
+      expect.objectContaining({
+        workspaceId,
+        payableId: payable.id,
+        direction: 'receivable',
+        source: 'invoice',
+        amount: 600,
+      }),
+    );
   });
 
   it('covers three invoices of one client with one note', async () => {
@@ -424,7 +441,7 @@ describe('credit notes (real Postgres)', () => {
     });
 
     const { fileName, data } = await creditNotes.getPdf(note.id, workspaceId);
-    const text = (await pdfParse(data)).text;
+    const text = (await parsePdf(data)).text;
 
     expect(fileName).toBe(`${note.creditNoteNumber}.pdf`);
     expect(text).toContain('Credit note');
@@ -478,7 +495,7 @@ describe('credit notes (real Postgres)', () => {
       .save({ workspaceId: plain.id, name: 'Delta', currency: 'EUR', locale: 'en' });
     // The issuer's details are per workspace, and a send refuses without them.
     await profiles.update(plain.id, {
-      legalName: 'Lumio Software OÜ',
+      legalName: `${APP_NAME} Software OÜ`,
       addressLines: 'Tartu mnt 67\n10115 Tallinn',
       registrationId: '16123456',
       taxId: 'EE102345678',

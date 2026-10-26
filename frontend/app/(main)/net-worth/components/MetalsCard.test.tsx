@@ -116,7 +116,10 @@ describe('MetalsCard', () => {
   it('says there is no metal and hides the price refresh until there is', () => {
     renderWithQuery(<MetalsCard currency="EUR" locale="en" />);
 
-    expect(screen.getByText('No metal yet')).toBeInTheDocument();
+    expect(screen.getByText('No metals yet')).toBeInTheDocument();
+    // No form on the page: adding happens in a dialog.
+    expect(screen.queryByLabelText('Purity')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add metal' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Refresh prices' })).not.toBeInTheDocument();
   });
 
@@ -133,15 +136,20 @@ describe('MetalsCard', () => {
     expect(hookMock.refreshPrices).toHaveBeenCalledTimes(1);
   });
 
-  it('adds a lot as pieces, weight and fineness', () => {
+  it('adds a lot as pieces, weight and fineness, with the price under More details', async () => {
     renderWithQuery(<MetalsCard currency="EUR" locale="en" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add metal' }));
+    const dialog = within(screen.getByRole('dialog'));
 
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Krugerrand' } });
-    fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '10' } });
-    fireEvent.change(screen.getByLabelText('Weight of one'), { target: { value: '1' } });
-    fireEvent.change(screen.getByLabelText('Purity'), { target: { value: '0.9167' } });
-    fireEvent.change(screen.getByLabelText('Paid (EUR)'), { target: { value: '30000' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add lot' }));
+    fireEvent.change(dialog.getByLabelText('Quantity'), { target: { value: '10' } });
+    fireEvent.change(dialog.getByLabelText('Weight of one'), { target: { value: '1' } });
+    fireEvent.change(dialog.getByLabelText('Purity'), { target: { value: '0.9167' } });
+    expect(dialog.queryByLabelText('Paid (EUR)')).toBeNull();
+    fireEvent.click(dialog.getByRole('button', { name: 'More details' }));
+    fireEvent.change(dialog.getByLabelText('Name'), { target: { value: 'Krugerrand' } });
+    fireEvent.change(dialog.getByLabelText('Paid (EUR)'), { target: { value: '30000' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Add lot' }));
+    await waitFor(() => expect(hookMock.addLot).toHaveBeenCalled());
 
     expect(hookMock.addLot).toHaveBeenCalledWith({
       metal: 'XAU',
@@ -164,7 +172,8 @@ describe('MetalsCard', () => {
     // Melt is €33,745.10; a 5% dealer discount leaves €32,057.85.
     expect(screen.getAllByText('€32,057.85').length).toBeGreaterThan(0);
     expect(screen.getByText('+6.86%')).toBeInTheDocument();
-    expect(screen.getByText(/\+€2,499\.00 \(9\.09%\)/)).toBeInTheDocument();
+    // The amount is an element of its own (privacy mode); the percent is beside it.
+    expect(screen.getByText(/\(9\.09%\)/).textContent).toMatch(/\+€2,499\.00 \(9\.09%\)/);
   });
 
   it('states the German holding period only for a workspace that files there', () => {
@@ -287,11 +296,13 @@ describe('MetalsCard', () => {
 
   it('refuses a fineness entered as 999 instead of 0.999', () => {
     renderWithQuery(<MetalsCard currency="EUR" locale="en" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add metal' }));
+    const dialog = within(screen.getByRole('dialog'));
 
-    fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '1' } });
-    fireEvent.change(screen.getByLabelText('Weight of one'), { target: { value: '1' } });
-    fireEvent.change(screen.getByLabelText('Purity'), { target: { value: '999' } });
+    fireEvent.change(dialog.getByLabelText('Quantity'), { target: { value: '1' } });
+    fireEvent.change(dialog.getByLabelText('Weight of one'), { target: { value: '1' } });
+    fireEvent.change(dialog.getByLabelText('Purity'), { target: { value: '999' } });
 
-    expect(screen.getByRole('button', { name: 'Add lot' })).toBeDisabled();
+    expect(dialog.getByRole('button', { name: 'Add lot' })).toBeDisabled();
   });
 });

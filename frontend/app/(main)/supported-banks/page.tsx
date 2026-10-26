@@ -16,7 +16,6 @@ type SupportedBankCard = {
   notes: string;
 };
 
-// eslint-disable-next-line max-lines-per-function
 export default function SupportedBanksPage(): React.JSX.Element {
   const t = useIntlayer('supportedBanksPage');
 
@@ -24,25 +23,19 @@ export default function SupportedBanksPage(): React.JSX.Element {
     {
       id: 'kaspi',
       logo: '/images/bank-logo/kaspi.png',
-      name: resolveLabel(getNestedValue(t, ['banks', 'kaspi', 'name']), 'Kaspi'),
-      notes: resolveLabel(
-        getNestedValue(t, ['banks', 'kaspi', 'notes']),
-        'Upload Kaspi PDF statements for automatic transaction extraction.',
-      ),
+      name: resolveLabel(getNestedValue(t, ['banks', 'kaspi', 'name'])),
+      notes: resolveLabel(getNestedValue(t, ['banks', 'kaspi', 'notes'])),
     },
     {
       id: 'bereke',
       logo: '/images/bank-logo/bereke-bank.png',
-      name: resolveLabel(getNestedValue(t, ['banks', 'bereke', 'name']), 'Bereke'),
-      notes: resolveLabel(
-        getNestedValue(t, ['banks', 'bereke', 'notes']),
-        'Upload Bereke PDF statements for automatic transaction extraction.',
-      ),
+      name: resolveLabel(getNestedValue(t, ['banks', 'bereke', 'name'])),
+      notes: resolveLabel(getNestedValue(t, ['banks', 'bereke', 'notes'])),
     },
   ];
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--lumio-page-top, 32px)', pb: 4 }}>
+    <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}>
       <Box
         sx={{
           border: '1px solid var(--border-color)',
@@ -54,7 +47,7 @@ export default function SupportedBanksPage(): React.JSX.Element {
         <Box>
           <Chip
             icon={<CheckCircle2 size={14} />}
-            label={resolveLabel(getNestedValue(t, ['parserStatus']), 'Parser is active')}
+            label={resolveLabel(getNestedValue(t, ['parserStatus']))}
             size="small"
             sx={{
               bgcolor: 'var(--color-success-soft-bg)',
@@ -111,8 +104,8 @@ export default function SupportedBanksPage(): React.JSX.Element {
                   {bank.name}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-                  {resolveLabel(getNestedValue(t, ['statusLabel']), 'Status')}:{' '}
-                  {resolveLabel(getNestedValue(t, ['supported']), 'Supported')}
+                  {resolveLabel(getNestedValue(t, ['statusLabel']))}:{' '}
+                  {resolveLabel(getNestedValue(t, ['supported']))}
                 </Typography>
               </Box>
             </Box>
@@ -131,9 +124,9 @@ export default function SupportedBanksPage(): React.JSX.Element {
               }}
             >
               <Box component="span" sx={{ fontWeight: 500, color: 'var(--foreground)', mr: 0.5 }}>
-                {resolveLabel(getNestedValue(t, ['formatsLabel']), 'Supported format')}:
+                {resolveLabel(getNestedValue(t, ['formatsLabel']))}:
               </Box>
-              {resolveLabel(getNestedValue(t, ['pdfStatements']), 'PDF statements')}
+              {resolveLabel(getNestedValue(t, ['pdfStatements']))}
             </Box>
 
             <Typography variant="body2" sx={{ mt: 1.5, color: 'var(--text-secondary)' }}>
@@ -144,7 +137,7 @@ export default function SupportedBanksPage(): React.JSX.Element {
       </Box>
 
       <Typography variant="body2" sx={{ mt: 3, fontWeight: 500, color: 'var(--muted-foreground)' }}>
-        {resolveLabel(getNestedValue(t, ['comingSoon']), 'More banks are coming soon')}
+        {resolveLabel(getNestedValue(t, ['comingSoon']))}
       </Typography>
     </Box>
   );
