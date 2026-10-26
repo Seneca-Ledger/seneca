@@ -2,7 +2,7 @@
 <img width="150" height="150" alt="N (5)" src="https://github.com/user-attachments/assets/766c9c0b-50b5-4eaf-8b17-871c4a8c1a49" />
 
 
-<h1>Seneca Ledger</h1>
+<h1>Stoic Budget</h1>
 
 <p align="center">
   :globe_with_meridians: <a href="https://github.com/Seneca-Ledger/seneca/releases/latest">Download</a> · :book: <a href="https://symonbaikov.github.io/seneca/">Documentation</a>
@@ -74,7 +74,7 @@
 
 ## 📢 Wanted: real bank statements for parser development
 
-Seneca's parsers are only as good as the statements they were tested on. **I'm looking for people willing to share bank statements** — any bank, any country, any format (PDF, CSV, XLSX, OFX, MT940, CAMT.053, a phone screenshot) — so I can write and test parsers for them.
+Stoic Budget's parsers are only as good as the statements they were tested on. **I'm looking for people willing to share bank statements** — any bank, any country, any format (PDF, CSV, XLSX, OFX, MT940, CAMT.053, a phone screenshot) — so I can write and test parsers for them.
 
 - **Redact what you like.** Names, account numbers, addresses and counterparties can be blacked out or replaced; the parser needs the layout, the columns and the way dates and amounts are written, not your data. A statement with a handful of rows is enough.
 - **Your files stay private.** They are used only to build and test the parser. The originals are never committed to this repository — test fixtures that land in the repo are anonymized first.
@@ -99,15 +99,15 @@ Seneca's parsers are only as good as the statements they were tested on. **I'm l
 
 ---
 
-## Why Seneca exists
+## Why Stoic Budget exists
 
-Seneca turns unstructured financial documents (PDFs, CSVs, email receipts) into clean, queryable data. Most personal finance apps ask for your bank login or upload your statements to their servers; Seneca runs on your own machine or server, so your financial history stays with you. Open source and self-hosted — for a single person keeping private books as much as for a team that needs control over its financial data pipeline.
+Stoic Budget turns unstructured financial documents (PDFs, CSVs, email receipts) into clean, queryable data. Most personal finance apps ask for your bank login or upload your statements to their servers; Stoic Budget runs on your own machine or server, so your financial history stays with you. Open source and self-hosted — for a single person keeping private books as much as for a team that needs control over its financial data pipeline.
 
 ---
 
 ## Features
 
-Seneca is a full-stack platform for importing, categorizing and analyzing bank statement data — on your own for personal finances, or together with a partner, an accountant or a team.
+Stoic Budget is a full-stack platform for importing, categorizing and analyzing bank statement data — on your own for personal finances, or together with a partner, an accountant or a team.
 
 ### Core capabilities
 
@@ -115,7 +115,7 @@ Seneca is a full-stack platform for importing, categorizing and analyzing bank s
 - **OCR for Image Statements** — Tesseract.js text extraction from scanned documents and photos.
 - **Idempotent Uploads** — SHA-256 file hashing prevents duplicate imports.
 - **Transaction Deduplication** — Fingerprint-based duplicate detection with confidence scoring, merge, and mark-as-duplicate workflows.
-- **Categorization** — Rules first, then what the workspace already taught Seneca about a payee (payees with aliases, learned from your confirmations). Rows neither covers stay uncategorised for review; no external model is ever contacted.
+- **Categorization** — Rules first, then what the workspace already taught Stoic Budget about a payee (payees with aliases, learned from your confirmations). Rows neither covers stay uncategorised for review; no external model is ever contacted.
 - **Review Queue** — Every imported row waits in Review until a person confirms it; only confirmed rows count in reports, budgets and the ledger. Suspected duplicates have their own list.
 - **Bank Sync (bring your own aggregator)** — Connect your own SimpleFIN Bridge account; new rows are pulled on demand or every six hours and go through the same import path as an uploaded file.
 - **Multi-Tenant Workspaces** — Unlimited workspaces with invitation flows and per-workspace data isolation.
@@ -195,14 +195,14 @@ Seneca is a full-stack platform for importing, categorizing and analyzing bank s
 
 ---
 
-## What Seneca is NOT
+## What Stoic Budget is NOT
 
 Setting expectations upfront:
 
-- **Not a bank integration** — Seneca holds no bank integration of its own: it parses statement files you export from your bank. If you hold your own account with a data provider (SimpleFIN Bridge for the US and Canada, Enable Banking for the EU/EEA), you can connect it under Integrations and Seneca pulls your statements through the same import; Seneca itself never talks to a bank and holds no provider contract. That arrangement is also the only one in which this is free: every provider's free tier covers the accounts the person who linked them can see, which is why a workspace may hold one connection per person. A wallet's feed can be moved to another provider without losing its history.
+- **Not a bank integration** — Stoic Budget holds no bank integration of its own: it parses statement files you export from your bank. If you hold your own account with a data provider (SimpleFIN Bridge for the US and Canada, Enable Banking for the EU/EEA), you can connect it under Integrations and Stoic Budget pulls your statements through the same import; Stoic Budget itself never talks to a bank and holds no provider contract. That arrangement is also the only one in which this is free: every provider's free tier covers the accounts the person who linked them can see, which is why a workspace may hold one connection per person. A wallet's feed can be moved to another provider without losing its history.
 - **Not an accrual accounting suite** — The ledger records what your statements and manual entries say. There is no automatic accrual, depreciation schedule, or period-end closing workflow.
-- **Not a filing service or tax adviser** — Seneca computes tax figures and drafts VAT and income tax documents, but it does not submit anything to a tax authority on your behalf. An income tax draft is not tax advice — check it before you file.
-- **Not a replacement for accounting software** — Seneca keeps double-entry books of your bank activity and issues invoices, but it does not run payroll or file statutory reports. Use it next to QuickBooks, Xero, or 1C rather than instead of them.
+- **Not a filing service or tax adviser** — Stoic Budget computes tax figures and drafts VAT and income tax documents, but it does not submit anything to a tax authority on your behalf. An income tax draft is not tax advice — check it before you file.
+- **Not a replacement for accounting software** — Stoic Budget keeps double-entry books of your bank activity and issues invoices, but it does not run payroll or file statutory reports. Use it next to QuickBooks, Xero, or 1C rather than instead of them.
 
 ---
 
@@ -572,11 +572,11 @@ bash scripts/generate-env.sh
 
 ### Product Name
 
-`APP_NAME` in the root `.env` (default `Seneca`) is the name people see: the UI and all its translations, page titles, e-mails, Telegram replies, PDF/DATEV/e-invoice metadata, and export file names created from then on. The backend reads it at startup; the frontend bakes it in at build time (`docker-compose.yml` passes it as `NEXT_PUBLIC_APP_NAME`), so restart the dev stack or rebuild the frontend image after changing it.
+`APP_NAME` in the root `.env` (default `Stoic Budget`) is the name people see: the UI and all its translations, page titles, e-mails, Telegram replies, PDF/DATEV/e-invoice metadata, and export file names created from then on. The backend reads it at startup; the frontend bakes it in at build time (`docker-compose.yml` passes it as `NEXT_PUBLIC_APP_NAME`), so restart the dev stack or rebuild the frontend image after changing it.
 
 ### Sessions, CORS and Metrics
 
-Browsers authenticate with HttpOnly cookies, so the cookie and CORS settings have to match how you host Seneca:
+Browsers authenticate with HttpOnly cookies, so the cookie and CORS settings have to match how you host Stoic Budget:
 
 | Variable | Default | When to set it |
 |---|---|---|
@@ -605,7 +605,7 @@ Endpoints and hosts saved in the UI must resolve to public addresses: the egress
 <details>
 <summary><b>Categorization & Generic PDF Parsing</b></summary>
 
-Seneca never contacts an external AI model. Categories come from your rules first, then from payee history (a payee's default moves only when two of its three most recent confirmed rows agree); anything left stays uncategorised in Review. PDFs from banks without a native parser go through `GenericPdfParser`, which reads the transaction tables from the PDF text layer.
+Stoic Budget never contacts an external AI model. Categories come from your rules first, then from payee history (a payee's default moves only when two of its three most recent confirmed rows agree); anything left stays uncategorised in Review. PDFs from banks without a native parser go through `GenericPdfParser`, which reads the transaction tables from the PDF text layer.
 </details>
 
 <details>
@@ -627,7 +627,7 @@ GEOCODER_URL=http://nominatim:8080
 ```
 
 - `maps` builds vector tiles from the extract with Planetiler and renders four styles — OSM Bright, Positron, Dark Matter and Basic — through tileserver-gl. The backend proxies the tiles, so the tile server never needs a public port. Users switch styles on the map in one click; the choice is saved to their profile.
-- `geocoder` runs Nominatim on the same extract. The first import takes from minutes for a small country to hours for a large one, and needs several GB of disk. Each start also imports `infra/nominatim/special-phrases.csv`, which lets Seneca suggest shops near the phone when a receipt was photographed without GPS.
+- `geocoder` runs Nominatim on the same extract. The first import takes from minutes for a small country to hours for a large one, and needs several GB of disk. Each start also imports `infra/nominatim/special-phrases.csv`, which lets Stoic Budget suggest shops near the phone when a receipt was photographed without GPS.
 - Without these variables the feature stays off: receipts still get a photo or device point, and the map says tiles are not configured.
 </details>
 
@@ -769,7 +769,7 @@ make update            # Update npm dependencies
 
 ### Database Migrations
 
-Seneca uses TypeORM migrations exclusively (`synchronize: false`). Migrations run automatically on every startup unless `RUN_MIGRATIONS=false` is set. The migrations cover the entire schema history.
+Stoic Budget uses TypeORM migrations exclusively (`synchronize: false`). Migrations run automatically on every startup unless `RUN_MIGRATIONS=false` is set. The migrations cover the entire schema history.
 
 ```bash
 # Apply all pending migrations (Docker)
@@ -939,7 +939,7 @@ Upload request
 
 ## Monitoring & Observability
 
-Seneca exposes what a monitoring stack needs and leaves the stack itself to you —
+Stoic Budget exposes what a monitoring stack needs and leaves the stack itself to you —
 which collector, dashboards and alerting you run is a self-hosting decision.
 
 | What | Where | Notes |
@@ -1077,14 +1077,14 @@ Built on great open-source foundations:
 
 [NestJS](https://nestjs.com/) · [Next.js](https://nextjs.org/) · [PostgreSQL](https://www.postgresql.org/) · [TypeORM](https://typeorm.io/) · [Redis](https://redis.io/) · [MUI](https://mui.com/) · [Emotion](https://emotion.sh/) · [TanStack Table](https://tanstack.com/table) · [ECharts](https://echarts.apache.org/) · [Recharts](https://recharts.org/) · [Tesseract.js](https://tesseract.projectnaptha.com/) · [Socket.IO](https://socket.io/) · [Intlayer](https://intlayer.org/) · [driver.js](https://driverjs.com/) · [Biome](https://biomejs.dev/) · and many more.
 
-The cash flow, net worth, category and ROI charts follow the chart design of [Aurum](https://github.com/ZProger/Aurum) by [ZProger](https://github.com/ZProger). They were reimplemented for Seneca; no Aurum source code is included (Aurum is licensed under PolyForm Noncommercial 1.0.0).
+The cash flow, net worth, category and ROI charts follow the chart design of [Aurum](https://github.com/ZProger/Aurum) by [ZProger](https://github.com/ZProger). They were reimplemented for Stoic Budget; no Aurum source code is included (Aurum is licensed under PolyForm Noncommercial 1.0.0).
 
 ---
 
 <div align="center">
 
-**[back to top](#seneca)**
+**[back to top](#stoic-budget)**
 
-Made with care by the Seneca community
+Made with care by the Stoic Budget community
 
 </div>

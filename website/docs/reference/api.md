@@ -3,7 +3,7 @@ title: API Overview
 description: REST API structure and authentication
 ---
 
-The Seneca API is served from the backend at `/api/v1`.
+The Stoic Budget API is served from the backend at `/api/v1`.
 
 ## Base URLs
 

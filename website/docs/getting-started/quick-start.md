@@ -1,9 +1,9 @@
 ---
 title: Quick Start
-description: Run Seneca locally with Docker in minutes
+description: Run Stoic Budget locally with Docker in minutes
 ---
 
-This guide gets you from zero to a running Seneca stack using Docker Compose.
+This guide gets you from zero to a running Stoic Budget stack using Docker Compose.
 
 ## Prerequisites
 
@@ -40,6 +40,6 @@ PostgreSQL listens on `127.0.0.1:5434` and Redis on `127.0.0.1:6379`.
 
 - Upload a statement from the Statements page
 - Connect storage, mail or bank sync under **Integrations** — see [Integrations](../guides/integrations)
-- Read [Configuration](configuration) before exposing Seneca beyond localhost
+- Read [Configuration](configuration) before exposing Stoic Budget beyond localhost
 
 Next: [Local Development](local-development)

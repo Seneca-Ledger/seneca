@@ -1,7 +1,7 @@
 {
   "name": "parse-ledger",
   "version": "1.0.0",
-  "description": "Seneca - Bank statements processing system",
+  "description": "Stoic Budget - Bank statements processing system",
   "main": "backend/dist/main.js",
   "scripts": {
     "prepare": "husky",

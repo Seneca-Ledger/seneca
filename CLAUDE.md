@@ -64,7 +64,7 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 
 ---
 
-## Project Context (Seneca)
+## Project Context (Stoic Budget)
 
 Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, api-standards, clean-architecture, frontend-perf, observability, best-practices, effect, design-tokens). Read those before changes in those domains.
 
