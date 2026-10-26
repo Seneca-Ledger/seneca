@@ -2,6 +2,8 @@ name: CI
 
 "on":
   pull_request:
+  # The merge queue tests each group of queued pull requests before it lands.
+  merge_group:
   push:
     branches:
       - main
@@ -14,7 +16,49 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # onnxruntime-node downloads the CUDA providers on linux/x64 at install time.
+  # CI runs on CPU, and that download is what timed out installs.
+  ONNXRUNTIME_NODE_INSTALL: skip
+
 jobs:
+  # Which half of the app a pull request or queue group touches. Pushes to main
+  # and develop always run everything.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+      frontend: ${{ steps.diff.outputs.frontend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed areas
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+          QUEUE_HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          case "$EVENT" in
+            pull_request) files=$(git diff --name-only "${PR_BASE}...${PR_HEAD}") ;;
+            merge_group) files=$(git diff --name-only "${QUEUE_BASE}" "${QUEUE_HEAD}") ;;
+            *) echo "backend=true" >> "$GITHUB_OUTPUT"; echo "frontend=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          # Shared code, tooling and CI itself affect both halves.
+          shared='^(packages/|scripts/|\.github/|package(-lock)?\.json$|Dockerfile$|docker-compose)'
+          backend=false; frontend=false
+          if echo "$files" | grep -qE "$shared|^backend/"; then backend=true; fi
+          if echo "$files" | grep -qE "$shared|^frontend/"; then frontend=true; fi
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend frontend=$frontend"
+
   sensitive-changes:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
@@ -225,7 +269,8 @@ jobs:
   # failure while real type errors reached main unseen.
   typecheck:
     runs-on: ubuntu-latest
-    needs: [shellcheck, hadolint, trivy-config]
+    needs: [changes, shellcheck, hadolint, trivy-config]
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -259,15 +304,18 @@ jobs:
         run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Backend typecheck
+        if: needs.changes.outputs.backend == 'true'
         run: npm --prefix backend run typecheck
 
       - name: Frontend typecheck
+        if: needs.changes.outputs.frontend == 'true'
         run: npm --prefix frontend run type-check
 
   # Frontend Vitest. It was never run in CI, so 132 tests went red unnoticed.
   frontend-tests:
     runs-on: ubuntu-latest
-    needs: [typecheck]
+    needs: [changes, typecheck]
+    if: needs.changes.outputs.frontend == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -298,9 +346,11 @@ jobs:
       - name: Frontend tests
         run: npm --prefix frontend test
 
+  # Backend unit and integration specs, with the coverage gate. e2e runs in its own job.
   tests:
     runs-on: ubuntu-latest
-    needs: [typecheck]
+    needs: [changes, typecheck]
+    if: needs.changes.outputs.backend == 'true'
     services:
       postgres:
         image: postgres:16
@@ -382,13 +432,10 @@ jobs:
           npm --prefix backend run migration:run
           npm --prefix backend run migration:run
 
-      - name: Backend tests (unit + e2e with coverage gate)
-        run: npm --prefix backend run test:ci
+      - name: Backend tests (unit with coverage gate)
+        run: npm --prefix backend run test:ci:unit
 
       - name: Upload coverage to Qlty
-        # !cancelled(): unit coverage is written before the e2e stage runs, so
-        # upload it even when e2e fails — otherwise the badge never updates
-        # while e2e is red.
         if: ${{ !cancelled() && env.QLTY_COVERAGE_TOKEN != '' }}
         uses: qltysh/qlty-action/coverage@v2
         with:
@@ -404,6 +451,84 @@ jobs:
         with:
           name: backend-coverage
           path: backend/coverage
+
+  # Every e2e suite boots AppModule against one database, so the files run one at
+  # a time. Four shards, each with its own Postgres, cut the wait by about four.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [changes, typecheck]
+    if: needs.changes.outputs.backend == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: finflow
+          POSTGRES_PASSWORD: finflow
+          POSTGRES_DB: finflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U finflow -d finflow"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://finflow:finflow@localhost:5432/finflow
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-jwt-secret
+      JWT_REFRESH_SECRET: test-jwt-refresh
+      JWT_EXPIRES_IN: 1h
+      JWT_REFRESH_EXPIRES_IN: 30d
+      RESEND_API_KEY: test-api-key
+      RESEND_FROM: noreply@example.com
+      NODE_ENV: test
+      RUN_MIGRATIONS: "true"
+      CI: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install backend deps
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
+
+      - name: Run migrations
+        run: npm --prefix backend run migration:run
+
+      - name: Backend e2e (shard ${{ matrix.shard }}/4)
+        run: npm --prefix backend run test:e2e -- --shard=${{ matrix.shard }}/4
 
   sonarcloud:
     runs-on: ubuntu-latest
@@ -439,7 +564,11 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: [typecheck, tests, frontend-tests]
+    needs: [changes, typecheck, tests, e2e, frontend-tests]
+    # Runs when nothing it waits on failed: a half the change skips leaves its jobs skipped.
+    if: >-
+      !cancelled() && !failure() &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true')
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -465,17 +594,21 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
+        if: needs.changes.outputs.backend == 'true'
         working-directory: backend
         run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Install frontend deps
+        if: needs.changes.outputs.frontend == 'true'
         working-directory: frontend
         run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Frontend build
+        if: needs.changes.outputs.frontend == 'true'
         run: npm --prefix frontend run build
 
       - name: Backend build
+        if: needs.changes.outputs.backend == 'true'
         run: npm --prefix backend run build
 
   dependency-scan:
@@ -570,11 +703,15 @@ jobs:
           EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+          QUEUE_HEAD: ${{ github.event.merge_group.head_sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_AFTER: ${{ github.sha }}
         run: |
           if [ "$EVENT" = pull_request ]; then
             range="${PR_BASE}..${PR_HEAD}"
+          elif [ "$EVENT" = merge_group ]; then
+            range="${QUEUE_BASE}..${QUEUE_HEAD}"
           elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != 0000000000000000000000000000000000000000 ]; then
             range="${PUSH_BEFORE}..${PUSH_AFTER}"
           else
@@ -582,9 +719,12 @@ jobs:
           fi
           ./gitleaks git --redact --verbose --log-opts="${range}" .
 
+  # The image build and its Trivy scan take about eight minutes, so they run after
+  # a merge, on the push to main, rather than on every pull request.
   docker:
     runs-on: ubuntu-latest
     needs: [build, dependency-scan, secrets-scan]
+    if: github.event_name == 'push'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -624,3 +764,33 @@ jobs:
         with:
           name: sbom
           path: sbom.spdx.json
+
+  # The one check the merge queue requires. Jobs a change skips (the other half of
+  # the app, docker outside a push) count as passed; a failed or cancelled one does not.
+  ci-ok:
+    runs-on: ubuntu-latest
+    needs:
+      - sensitive-changes
+      - policy-as-code
+      - shellcheck
+      - hadolint
+      - trivy-config
+      - lint
+      - typecheck
+      - frontend-tests
+      - tests
+      - e2e
+      - build
+      - dependency-scan
+      - secrets-scan
+      - docker
+    if: always()
+    steps:
+      - name: All required jobs passed or were skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          case " $RESULTS " in
+            *" failure "*|*" cancelled "*) exit 1 ;;
+          esac
