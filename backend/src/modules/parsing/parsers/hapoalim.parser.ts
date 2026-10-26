@@ -173,13 +173,13 @@ export class HapoalimParser extends BaseParser {
   }
 
   private extractHapoalimAccountNumber(text: string): string | null {
-    // Format: XX-XXX-XXXXXXX (e.g., 12-522-0650653)
+    // Format: XX-XXX-XXXXXXX (e.g., 12-600-1234567)
     const match = text.match(/(\d{2}-\d{3}-\d{7})/);
     return match ? match[1] : null;
   }
 
   private extractCardEnding(text: string): string | null {
-    // Look for card ending like •2414 or *2414
+    // Look for card ending like •4321 or *4321
     const match = text.match(/[•*](\d{4})/);
     return match ? match[1] : null;
   }

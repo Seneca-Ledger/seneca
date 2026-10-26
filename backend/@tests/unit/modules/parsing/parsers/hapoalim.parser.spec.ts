@@ -125,18 +125,19 @@ describe('HapoalimParser', () => {
   describe('parseForeignTransactionLine exchange rate', () => {
     it('parses a 3-fractional-digit exchange rate without thousands-grouping corruption', () => {
       const parser = new HapoalimParser();
-      const line = '13/12/25  RAILWAY SAN FRANCISCO  5.00 $  14/12/25  3.182  16.24';
+      const rate = 3.612;
+      const line = `13/12/25  DEMO CLOUD DUBLIN  5.00 $  14/12/25  ${rate}  18.06`;
 
       const tx = (parser as any).parseForeignTransactionLine(line);
 
-      expect(tx.exchangeRate).toBe(3.182);
+      expect(tx.exchangeRate).toBe(rate);
     });
   });
 
   describe('parseDomesticTransactionLine sign handling', () => {
     it('parses a positive amount as a debit', () => {
       const parser = new HapoalimParser();
-      const line = '09/12/25  מייקס מרקט חולון  סכולות/סופר  17.00  17.00';
+      const line = '09/12/25  מכולת דוגמה עיר אקמה  סכולות/סופר  17.00  17.00';
 
       const tx = (parser as any).parseDomesticTransactionLine(line);
 
@@ -156,27 +157,28 @@ describe('HapoalimParser', () => {
   });
 
   describe('parse with cachedText', () => {
+    const ACCOUNT_NUMBER = '12-600-1234567';
     const SAMPLE_FOREIGN_TEXT = `בנק הפועלים
 www.isracard.co.il
-מספר חשבון לחיוב במטבע ישראלי: 12-522-0650653
+מספר חשבון לחיוב במטבע ישראלי: ${ACCOUNT_NUMBER}
 רכישות בחו"ל
-11/12/25  SPOTIFYIL STOCKHOLM  23.90 ₪  23.90
-13/12/25  RAILWAY SAN FRANCISCO  5.00 $  14/12/25  3.2020  16.24
-16/12/25  GITHUB, INC. SAN FRANCISCO  10.00 $  17/12/25  3.2230  32.69
-סה"כ חיוב לתאריך 02/01/26  72.83
+11/12/25  SAMPLE MUSIC STOCKHOLM  19.90 ₪  19.90
+13/12/25  DEMO CLOUD DUBLIN  5.00 $  14/12/25  3.6100  18.05
+16/12/25  ACME HOSTING AMSTERDAM  10.00 $  17/12/25  3.6200  36.20
+סה"כ חיוב לתאריך 02/01/26  74.15
 עסקות שחויבו / זוכו - בארץ
-09/12/25  מייקס מרקט חולון  סכולות/סופר  17.00  17.00
-16/12/25  דרמון אשקלון  שונות  13.90  13.90
-21/12/25  HOT MOBILE  תקשורת  85.51  85.51
-25/12/25  סופר אלונית גן יבנה  סכולות/סופר  41.60  41.60  תשלום 3 מתוך 12
-סה"כ חיוב לתאריך 11/01/26  158.01
+09/12/25  מכולת דוגמה עיר אקמה  סכולות/סופר  17.00  17.00
+16/12/25  קפה דוגמה  שונות  13.90  13.90
+21/12/25  SAMPLE MOBILE  תקשורת  59.90  59.90
+25/12/25  סופר אקמה  סכולות/סופר  41.60  41.60  תשלום 3 מתוך 12
+סה"כ חיוב לתאריך 11/01/26  132.40
 מסגרת הכרטיס ותנאי האשראי`;
 
     it('extracts metadata from Hapoalim statement', async () => {
       const parser = new HapoalimParser();
       const result = await parser.parse('/tmp/mock.jpg', SAMPLE_FOREIGN_TEXT);
 
-      expect(result.metadata.accountNumber).toBe('12-522-0650653');
+      expect(result.metadata.accountNumber).toBe(ACCOUNT_NUMBER);
       expect(result.metadata.currency).toBe('ILS');
       expect(result.metadata.institution).toBe('Bank Hapoalim');
       expect(result.metadata.locale).toBe('he-IL');
