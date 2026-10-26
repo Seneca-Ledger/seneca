@@ -52,3 +52,12 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+  # Base images are pinned by digest; this keeps the digests current.
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+      - "/backend"
+      - "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

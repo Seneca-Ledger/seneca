@@ -20,7 +20,7 @@ We take the security of Seneca seriously. If you believe you have found a securi
 
 Report them through **GitHub Security Advisories**:
 
-- Go to the [Security tab](https://github.com/Seneca-Ledger/seneca/security/advisories/new) of this repository
+- Open https://github.com/stoic-budget/stoic-budget/security/advisories/new (the Security tab of this repository)
 - Click "Report a vulnerability"
 - Fill out the form with details
 
