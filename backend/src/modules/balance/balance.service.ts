@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import type {
@@ -94,7 +95,7 @@ export class BalanceService {
 
     const asDate = new Date(date);
     if (Number.isNaN(asDate.getTime())) {
-      throw new BadRequestException('Invalid date format');
+      throw new BadRequestException(appError('BALANCE_DATE_INVALID'));
     }
 
     return asDate.toISOString().split('T')[0];
@@ -428,11 +429,11 @@ export class BalanceService {
     });
 
     if (!account) {
-      throw new NotFoundException('Balance account not found');
+      throw new NotFoundException(appError('BALANCE_ACCOUNT_NOT_FOUND'));
     }
 
     if (account.code === CASH_ACCOUNT_CODE) {
-      throw new BadRequestException('Cash is always low risk and cannot be classified');
+      throw new BadRequestException(appError('BALANCE_CASH_NOT_CLASSIFIABLE'));
     }
 
     const before = { capitalRole: account.capitalRole, riskLevel: account.riskLevel };
@@ -487,11 +488,11 @@ export class BalanceService {
     });
 
     if (!parent) {
-      throw new NotFoundException('Balance account not found');
+      throw new NotFoundException(appError('BALANCE_ACCOUNT_NOT_FOUND'));
     }
 
     if (!parent.isExpandable) {
-      throw new BadRequestException('This balance section does not accept custom accounts');
+      throw new BadRequestException(appError('BALANCE_SECTION_NO_CUSTOM_ACCOUNTS'));
     }
 
     const siblingCount = await this.balanceAccountRepository.count({
@@ -555,7 +556,7 @@ export class BalanceService {
     }
 
     if (account.isSystem) {
-      throw new BadRequestException('System accounts cannot be deleted');
+      throw new BadRequestException(appError('BALANCE_SYSTEM_ACCOUNT_LOCKED'));
     }
 
     await this.balanceAccountRepository.remove(account);
@@ -787,11 +788,11 @@ export class BalanceService {
     });
 
     if (!account) {
-      throw new NotFoundException('Balance account not found');
+      throw new NotFoundException(appError('BALANCE_ACCOUNT_NOT_FOUND'));
     }
 
     if (!account.isEditable) {
-      throw new BadRequestException('This balance line is auto-calculated and cannot be edited');
+      throw new BadRequestException(appError('BALANCE_LINE_AUTO_CALCULATED'));
     }
 
     const amount = this.round(dto.amount);

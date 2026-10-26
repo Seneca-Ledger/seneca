@@ -5,6 +5,7 @@ import * as path from 'path';
 import { Readable } from 'stream';
 import type { Repository } from 'typeorm';
 import { FileType, Statement } from '../../entities';
+import { appError } from '../errors/app-error';
 import { calculateFileHash } from '../utils/file-hash.util';
 import { resolveInUploadsDir, resolveUploadsDir } from '../utils/uploads.util';
 
@@ -237,7 +238,7 @@ export class FileStorageService {
       return restored;
     }
 
-    throw new NotFoundException('File content is unavailable');
+    throw new NotFoundException(appError('FILE_CONTENT_UNAVAILABLE'));
   }
 
   /**

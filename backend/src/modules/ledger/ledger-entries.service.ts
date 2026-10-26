@@ -482,7 +482,7 @@ export class LedgerEntriesService {
     }
     const amountMinor = toMinor(input.amount);
     if (amountMinor <= 0) {
-      throw new BadRequestException('Line amounts must be greater than zero');
+      throw new BadRequestException(appError('LEDGER_LINE_AMOUNT_NOT_POSITIVE'));
     }
     return {
       accountId: account.id,

@@ -218,7 +218,7 @@ export class TransactionsService {
     });
 
     if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
 
     return transaction;
@@ -263,7 +263,7 @@ export class TransactionsService {
     const attempted = frozen.filter(field => updateDto[field] !== undefined);
     if (attempted.length > 0) {
       throw new BadRequestException(
-        `Cannot change ${attempted.join(', ')} on a transaction that is part of a filed tax return. Reopen the return first.`,
+        appError('TRANSACTION_TAX_LOCKED_FIELDS', { fields: attempted.join(', ') }),
       );
     }
   }
@@ -526,37 +526,37 @@ export class TransactionsService {
    */
   private assertSplittable(transaction: Transaction, dto: SplitTransactionBody): number {
     if (transaction.splitGroupId) {
-      throw new BadRequestException('Transaction is already part of a split');
+      throw new BadRequestException(appError('TRANSACTION_ALREADY_SPLIT'));
     }
 
     // A duplicate-flagged row is excluded from dashboards and reports. Splitting it
     // would produce siblings that default to isDuplicate=false, so the sibling
     // amounts would reappear in those totals. Refuse instead.
     if (transaction.isDuplicate) {
-      throw new BadRequestException('Cannot split a transaction marked as a duplicate');
+      throw new BadRequestException(appError('TRANSACTION_SPLIT_DUPLICATE'));
     }
 
     // A locked row has already been reported on a filed return. Splitting it
     // re-assesses the tax across the parts, which would change figures that
     // have been submitted to a tax authority.
     if (transaction.taxLocked) {
-      throw new BadRequestException(
-        'Cannot split a transaction that is part of a filed tax return',
-      );
+      throw new BadRequestException(appError('TRANSACTION_SPLIT_TAX_LOCKED'));
     }
 
     const total = Number(
       transaction.amount ?? transaction.debit ?? transaction.credit ?? Number.NaN,
     );
     if (!Number.isFinite(total) || total <= 0) {
-      throw new BadRequestException('Cannot split a transaction without a positive amount');
+      throw new BadRequestException(appError('TRANSACTION_SPLIT_NOT_POSITIVE'));
     }
 
     const partsTotal = this.round2(dto.parts.reduce((sum, part) => sum + Number(part.amount), 0));
     // Round the drift too: |99.99 - 100| is 0.010000000000005 in binary floating
     // point, which would reject the very boundary the tolerance exists to accept.
     if (this.round2(Math.abs(partsTotal - total)) > 0.01) {
-      throw new BadRequestException(`Split parts must sum to ${total}, received ${partsTotal}`);
+      throw new BadRequestException(
+        appError('TRANSACTION_SPLIT_SUM_MISMATCH', { total, received: partsTotal }),
+      );
     }
 
     return total;
@@ -633,7 +633,7 @@ export class TransactionsService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!locked) {
-        throw new NotFoundException('Transaction not found');
+        throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
       }
 
       const total = this.assertSplittable(locked, dto);
@@ -758,7 +758,7 @@ export class TransactionsService {
     // transaction and taking row locks. The authoritative read is the locked one.
     const target = await this.findOne(id, workspaceId);
     if (!target.splitGroupId) {
-      throw new BadRequestException('Transaction is not part of a split');
+      throw new BadRequestException(appError('TRANSACTION_NOT_SPLIT'));
     }
     const splitGroupId = target.splitGroupId;
 
@@ -785,15 +785,13 @@ export class TransactionsService {
       // waited for the lock. A single part is a group that lost its siblings some
       // other way; clearing its markers below is the right repair either way.
       if (parts.length === 0) {
-        throw new BadRequestException('Transaction is not part of a split');
+        throw new BadRequestException(appError('TRANSACTION_NOT_SPLIT'));
       }
 
       // Folding the parts back deletes all but one, and a part on a filed
       // return may not disappear from under it.
       if (parts.some(part => part.taxLocked)) {
-        throw new BadRequestException(
-          'Cannot unsplit a transaction whose parts are part of a filed tax return',
-        );
+        throw new BadRequestException(appError('TRANSACTION_UNSPLIT_TAX_LOCKED'));
       }
 
       before = parts.map(part => ({ ...part }));
@@ -808,9 +806,7 @@ export class TransactionsService {
       // sides are distinguishable. Checked on the locked rows: the flag may have
       // landed after the unlocked read.
       if (parts.some(part => part.isDuplicate)) {
-        throw new BadRequestException(
-          'Cannot unsplit a group containing a transaction marked as a duplicate',
-        );
+        throw new BadRequestException(appError('TRANSACTION_UNSPLIT_DUPLICATE'));
       }
 
       const [survivor, ...rest] = parts;

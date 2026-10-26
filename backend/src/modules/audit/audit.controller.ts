@@ -12,6 +12,7 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { StripKeysInterceptor } from '../../common/interceptors/strip-keys.interceptor';
 import { ACCOUNT_KEYS } from '../../common/utils/sensitive-keys.util';
@@ -117,7 +118,7 @@ export class AuditController {
     @WorkspaceId() workspaceId: string,
   ) {
     if (user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only admins can rollback audit events');
+      throw new ForbiddenException(appError('AUDIT_ROLLBACK_ADMIN_ONLY'));
     }
     return this.auditService.rollback(id, user.id, workspaceId);
   }

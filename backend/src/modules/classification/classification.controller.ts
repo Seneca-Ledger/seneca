@@ -6,6 +6,7 @@ import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspac
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { redactPrivate } from '../../common/utils/transaction-privacy.util';
 import { ClassifyBulkBody } from '../../contracts';
 import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
@@ -36,7 +37,7 @@ export class ClassificationController {
     });
 
     if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('CLASSIFICATION_TRANSACTION_NOT_FOUND'));
     }
 
     // A category picked by hand outranks the rules, as in the bulk re-run.

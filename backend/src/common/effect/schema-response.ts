@@ -9,6 +9,7 @@ import {
 import { ApiOkResponse } from '@nestjs/swagger';
 import { Exit, Schema, SchemaAST } from 'effect';
 import { map, type Observable } from 'rxjs';
+import { appError } from '../errors/app-error';
 import { describeSchemaFailure } from './schema-issues';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -103,10 +104,9 @@ export class ContractResponseInterceptor<S extends Schema.Top> implements NestIn
       // Outside production a drifted answer fails loudly, so e2e catches it;
       // in production it is logged and still leaves with only declared keys.
       if (process.env.NODE_ENV !== 'production') {
-        throw new InternalServerErrorException({
-          message: `${handler} answered outside its contract`,
-          issues,
-        });
+        throw new InternalServerErrorException(
+          appError('CONTRACT_RESPONSE_DRIFT', { handler, issues: issues.join('; ') }),
+        );
       }
     }
     return projected;

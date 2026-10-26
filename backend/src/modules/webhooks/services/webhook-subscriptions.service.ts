@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { toEnum } from '../../../common/effect/to-enum';
 import { withoutNulls, withoutNullsOnRequired } from '../../../common/effect/without-nulls';
+import { appError } from '../../../common/errors/app-error';
 import { assertPublicEgressUrl } from '../../../common/utils/egress-url.util';
 import type {
   CreateWebhookSubscriptionBody,
@@ -49,7 +50,7 @@ export class WebhookSubscriptionsService {
   async findOne(id: string, workspaceId: string): Promise<WebhookSubscription> {
     const sub = await this.repo.findOne({ where: { id, workspaceId } });
     if (!sub) {
-      throw new NotFoundException('Webhook subscription not found');
+      throw new NotFoundException(appError('WEBHOOK_SUBSCRIPTION_NOT_FOUND'));
     }
     return sub;
   }

@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, Injectable, Logger } from '@nest
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { IsNull, type Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import {
   AuditAction,
   AuditEvent,
@@ -123,12 +124,12 @@ export class AccountDataService {
     });
 
     if (!user) {
-      throw new ForbiddenException('Account not found');
+      throw new ForbiddenException(appError('USER_ACCOUNT_NOT_FOUND'));
     }
 
     const passwordMatches = await bcrypt.compare(currentPassword, user.passwordHash ?? '');
     if (!passwordMatches) {
-      throw new ForbiddenException('Current password is incorrect');
+      throw new ForbiddenException(appError('AUTH_CURRENT_PASSWORD_INCORRECT'));
     }
 
     await this.assertNotSoleOwner(userId);
@@ -168,7 +169,9 @@ export class AccountDataService {
 
       if (ownerCount <= 1) {
         throw new ConflictException(
-          `You are the only owner of workspace "${membership.workspace?.name ?? membership.workspaceId}". Transfer ownership or delete the workspace before deleting your account.`,
+          appError('USER_DELETE_ONLY_OWNER', {
+            workspace: membership.workspace?.name ?? membership.workspaceId,
+          }),
         );
       }
     }

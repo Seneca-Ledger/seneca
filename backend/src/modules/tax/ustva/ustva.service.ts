@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, IsNull, Not, Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { countedWhere } from '../../../common/utils/counted-transactions.util';
 import { canReadPrivate } from '../../../common/utils/transaction-privacy.util';
 import { TaxFilingPeriod } from '../../../entities/tax-jurisdiction.entity';
@@ -51,7 +52,7 @@ export class UstvaService {
   async build(workspaceId: string, periodStart: string, periodEnd: string): Promise<UstvaResult> {
     const day = /^\d{4}-\d{2}-\d{2}$/;
     if (!(day.test(periodStart) && day.test(periodEnd))) {
-      throw new BadRequestException('periodStart and periodEnd must be YYYY-MM-DD');
+      throw new BadRequestException(appError('TAX_USTVA_PERIOD_FORMAT'));
     }
     const result = (unsupported: UstvaUnsupportedReason): UstvaResult => ({
       unsupported,

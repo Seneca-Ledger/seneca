@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder } from 'typeorm';
 import { Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
 import type { CreateTaxRuleBody, UpdateTaxRuleBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
@@ -36,7 +37,7 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     const category = await this.categoryRepository.findOne({
       where: { id: categoryId, workspaceId },
     });
-    if (!category) throw new NotFoundException('Category not found');
+    if (!category) throw new NotFoundException(appError('CATEGORY_NOT_FOUND'));
   }
 
   private snapshotTaxRule(rule: TaxRule) {
@@ -92,9 +93,7 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     });
 
     if (!exists) {
-      throw new BadRequestException(
-        `No tax rate with code '${code}' in this workspace. Pick a country first, or use a code from GET /tax/settings/rates.`,
-      );
+      throw new BadRequestException(appError('TAX_RULE_RATE_CODE_UNKNOWN', { code }));
     }
   }
 
@@ -111,9 +110,7 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     });
 
     if (duplicate) {
-      throw new BadRequestException(
-        'A rule for this category and direction already exists. Edit it instead.',
-      );
+      throw new BadRequestException(appError('TAX_RULE_DUPLICATE'));
     }
 
     const saved = await this.repository.save(
@@ -175,9 +172,7 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
       });
 
       if (clash && clash.id !== id) {
-        throw new BadRequestException(
-          'A rule for this category and direction already exists. Edit it instead.',
-        );
+        throw new BadRequestException(appError('TAX_RULE_DUPLICATE'));
       }
 
       rule.categoryId = nextCategoryId;

@@ -22,6 +22,7 @@ import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator'
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { resolveInUploadsDir } from '../../common/utils/uploads.util';
 import { multerConfig } from '../../config/multer.config';
 import {
@@ -59,15 +60,15 @@ export class CryptoController {
   async getIcon(@Param('asset') asset: string, @Res() res: Response) {
     const icon = await this.iconsService.fetchIcon(asset);
     if (icon.status === 'invalid') {
-      throw new BadRequestException('Not a ticker');
+      throw new BadRequestException(appError('CRYPTO_TICKER_INVALID'));
     }
     // 404 rather than a placeholder: it fires the <img> error handler, which is
     // how the page falls back to the monogram.
     if (icon.status === 'missing') {
-      throw new NotFoundException('No icon for this asset');
+      throw new NotFoundException(appError('CRYPTO_ICON_NOT_FOUND'));
     }
     if (icon.status === 'unavailable') {
-      throw new BadGatewayException('Coin icons are unavailable');
+      throw new BadGatewayException(appError('CRYPTO_ICONS_UNAVAILABLE'));
     }
 
     res.setHeader('Content-Type', icon.contentType);
@@ -198,7 +199,7 @@ export class CryptoController {
   ) {
     const path = uploadedPath(file);
     if (!path) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException(appError('CRYPTO_FILE_NOT_PROVIDED'));
     }
     try {
       const csv = await readFile(path, 'utf-8');

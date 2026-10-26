@@ -11,6 +11,7 @@ import { Interval } from '@nestjs/schedule';
 import { Exit } from 'effect';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { describeSchemaFailure } from '../../common/effect/schema-issues';
+import { appError } from '../../common/errors/app-error';
 import type { TelegramLink } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { ApplicationSettingsService } from '../application-settings/application-settings.service';
@@ -121,7 +122,7 @@ export class TelegramBotsService implements OnApplicationBootstrap, OnModuleDest
       workspaceId,
     );
     if (!botToken) {
-      throw new BadRequestException('Telegram bot is not configured');
+      throw new BadRequestException(appError('TELEGRAM_BOT_NOT_CONFIGURED'));
     }
     if (!this.bots.has(botIdOf(botToken))) {
       // A token saved a moment ago: start listening before the user presses Start.
@@ -240,7 +241,7 @@ export class TelegramBotsService implements OnApplicationBootstrap, OnModuleDest
     }
     const me = await this.call<{ username?: string }>(botToken, 'getMe', {});
     if (!me.username) {
-      throw new BadRequestException('Telegram did not return the bot username');
+      throw new BadRequestException(appError('TELEGRAM_BOT_USERNAME_MISSING'));
     }
     this.usernames.set(botToken, me.username);
     return me.username;

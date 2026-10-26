@@ -10,6 +10,7 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { SchemaResponse } from '../../common/effect/schema-response';
+import { appError } from '../../common/errors/app-error';
 import { MapStyles } from '../../contracts';
 import { MapsService } from './maps.service';
 
@@ -56,10 +57,10 @@ export class MapsController {
   ) {
     const tile = await this.mapsService.fetchTile(styleId, z, x, y);
     if (tile.status === 'invalid') {
-      throw new BadRequestException('Unknown map style or tile');
+      throw new BadRequestException(appError('MAPS_TILE_UNKNOWN'));
     }
     if (tile.status === 'unavailable') {
-      throw new BadGatewayException('Map tiles are unavailable');
+      throw new BadGatewayException(appError('MAPS_TILES_UNAVAILABLE'));
     }
 
     res.setHeader('Content-Type', tile.contentType);

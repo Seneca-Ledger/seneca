@@ -358,29 +358,29 @@ export class StatementsService {
         .trim(),
     );
     if (!Number.isFinite(amountValue) || amountValue <= 0) {
-      throw new BadRequestException('Amount must be a positive number');
+      throw new BadRequestException(appError('EXPENSE_AMOUNT_INVALID'));
     }
 
     const merchant = payload.merchant?.trim();
     if (!merchant) {
-      throw new BadRequestException('Merchant is required');
+      throw new BadRequestException(appError('EXPENSE_MERCHANT_REQUIRED'));
     }
 
     const currency = await this.workspaceCurrency.resolveFor(workspaceId, payload.currency);
     if (!currency) {
-      throw new BadRequestException('Currency is required');
+      throw new BadRequestException(appError('EXPENSE_CURRENCY_REQUIRED'));
     }
 
     const parsedDate = new Date(payload.date);
     if (Number.isNaN(parsedDate.getTime())) {
-      throw new BadRequestException('Date is invalid');
+      throw new BadRequestException(appError('EXPENSE_DATE_INVALID'));
     }
 
     const allowDuplicates = payload.allowDuplicates ?? false;
     const description = payload.description?.trim() || '';
     const categoryId = payload.categoryId?.trim();
     if (!categoryId) {
-      throw new BadRequestException('Category is required');
+      throw new BadRequestException(appError('EXPENSE_CATEGORY_REQUIRED'));
     }
 
     const category = await this.categoryRepository.findOne({
@@ -388,15 +388,15 @@ export class StatementsService {
     });
 
     if (!category) {
-      throw new BadRequestException('Category not found');
+      throw new BadRequestException(appError('CATEGORY_NOT_FOUND'));
     }
 
     if (category.isEnabled === false) {
-      throw new BadRequestException('Category is disabled');
+      throw new BadRequestException(appError('EXPENSE_CATEGORY_DISABLED'));
     }
 
     if (category.type !== CategoryType.EXPENSE) {
-      throw new BadRequestException('Category must be an expense category');
+      throw new BadRequestException(appError('EXPENSE_CATEGORY_NOT_EXPENSE'));
     }
 
     const taxRateId = payload.taxRateId?.trim();
@@ -412,7 +412,7 @@ export class StatementsService {
       });
 
       if (!taxRate) {
-        throw new BadRequestException('Tax rate not found');
+        throw new BadRequestException(appError('EXPENSE_TAX_RATE_NOT_FOUND'));
       }
     } else {
       taxRate = await this.taxRateRepository.findOne({
@@ -653,19 +653,19 @@ export class StatementsService {
     const sample = sampleIndex >= 0 ? droppedSamples[sampleIndex] : null;
 
     if (!(sample || warning)) {
-      throw new NotFoundException('Dropped sample not found');
+      throw new NotFoundException(appError('STATEMENT_SAMPLE_NOT_FOUND'));
     }
 
     const transactionDate = new Date(payload.transaction.transactionDate);
     if (Number.isNaN(transactionDate.getTime())) {
-      throw new BadRequestException('Transaction date is invalid');
+      throw new BadRequestException(appError('STATEMENT_TRANSACTION_DATE_INVALID'));
     }
 
     const debit = this.normalizePositiveAmount(payload.transaction.debit);
     const credit = this.normalizePositiveAmount(payload.transaction.credit);
 
     if (!(debit || credit)) {
-      throw new BadRequestException('Either debit or credit amount is required');
+      throw new BadRequestException(appError('STATEMENT_AMOUNT_REQUIRED'));
     }
 
     const transactionType = debit ? TransactionType.EXPENSE : TransactionType.INCOME;
@@ -1250,7 +1250,7 @@ export class StatementsService {
       });
 
       if (!statement) {
-        throw new NotFoundException('Statement not found');
+        throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
       }
 
       const availability = await this.fileStorageService.getFileAvailability(statement);
@@ -1269,7 +1269,7 @@ export class StatementsService {
     const statement = await qb.getOne();
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
 
     const availability = await this.fileStorageService.getFileAvailability(statement);
@@ -1440,7 +1440,7 @@ export class StatementsService {
     });
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
     await assertNoTaxLockedTransactions(this.transactionRepository, {
       statementId: statement.id,
@@ -1649,7 +1649,7 @@ export class StatementsService {
     });
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
 
     await this.ensureCanModify(statement, userId, workspaceId);
@@ -1681,7 +1681,7 @@ export class StatementsService {
     // Otherwise, restore file from database if it's missing from disk
     const restored = await this.fileStorageService.restoreFile(statement);
     if (!restored) {
-      throw new NotFoundException('File data is unavailable for restore');
+      throw new NotFoundException(appError('STATEMENT_FILE_RESTORE_UNAVAILABLE'));
     }
     return { status: 'restored', source: restored.source };
   }
@@ -1703,7 +1703,7 @@ export class StatementsService {
 
     // Check if file is PDF
     if (statement.fileType !== 'pdf' && !statement.fileName.toLowerCase().endsWith('.pdf')) {
-      throw new BadRequestException('Thumbnails are only available for PDF files');
+      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_PDF_ONLY'));
     }
 
     // Determine source file path
@@ -1721,7 +1721,7 @@ export class StatementsService {
     }
 
     if (!pdfPath) {
-      throw new NotFoundException('File data not available');
+      throw new NotFoundException(appError('STATEMENT_FILE_DATA_UNAVAILABLE'));
     }
 
     try {
@@ -1770,7 +1770,7 @@ export class StatementsService {
       }
 
       this.logger.error('Error generating thumbnail:', error);
-      throw new BadRequestException('Failed to generate thumbnail');
+      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_FAILED'));
     }
   }
 

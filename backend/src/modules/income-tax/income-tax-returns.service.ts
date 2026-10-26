@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { IncomeTaxReturn, IncomeTaxReturnStatus } from '../../entities/income-tax-return.entity';
 import { AuditService } from '../audit/audit.service';
@@ -85,7 +86,7 @@ export class IncomeTaxReturnsService {
       where: { workspaceId, taxYear, formKey: pack.formKey },
     });
     if (existing?.status === IncomeTaxReturnStatus.FINALIZED) {
-      throw new ConflictException('This tax year has already been finalized');
+      throw new ConflictException(appError('INCOME_TAX_YEAR_FINALIZED'));
     }
 
     const draft = await this.draftService.compute(workspaceId, taxYear);
@@ -113,7 +114,7 @@ export class IncomeTaxReturnsService {
       // Two finalize requests racing for the same year: the unique index lets
       // exactly one through, and the other is the same conflict as above.
       if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
-        throw new ConflictException('This tax year has already been finalized');
+        throw new ConflictException(appError('INCOME_TAX_YEAR_FINALIZED'));
       }
       throw error;
     }
@@ -141,7 +142,7 @@ export class IncomeTaxReturnsService {
       where: { workspaceId, taxYear, formKey: pack.formKey },
     });
     if (existing?.status !== IncomeTaxReturnStatus.FINALIZED) {
-      throw new BadRequestException('This tax year is not finalized');
+      throw new BadRequestException(appError('INCOME_TAX_YEAR_NOT_FINALIZED'));
     }
 
     await this.returnRepository.save({

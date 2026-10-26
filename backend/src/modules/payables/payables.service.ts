@@ -206,7 +206,7 @@ export class PayablesService {
     });
 
     if (!payable) {
-      throw new NotFoundException('Payable not found');
+      throw new NotFoundException(appError('PAYABLE_NOT_FOUND'));
     }
 
     return payable;
@@ -697,7 +697,7 @@ export class PayablesService {
       where: { id: transactionId, workspaceId },
     });
     if (!transaction) {
-      throw new NotFoundException('Transaction not found in workspace');
+      throw new NotFoundException(appError('PAYABLE_TRANSACTION_NOT_FOUND'));
     }
 
     const total = this.round2(
@@ -1325,7 +1325,7 @@ export class PayablesService {
       },
     });
     if (!payable) {
-      throw new NotFoundException('Payable not found');
+      throw new NotFoundException(appError('PAYABLE_NOT_FOUND'));
     }
 
     payable.dueSoonNotifiedAt = new Date();
@@ -1441,7 +1441,7 @@ export class PayablesService {
     });
 
     if (!transaction) {
-      throw new BadRequestException('Linked transaction not found in workspace');
+      throw new BadRequestException(appError('PAYABLE_LINKED_TRANSACTION_NOT_FOUND'));
     }
   }
 
@@ -1461,7 +1461,7 @@ export class PayablesService {
     });
 
     if (!statement) {
-      throw new BadRequestException('Statement not found in workspace');
+      throw new BadRequestException(appError('PAYABLE_STATEMENT_NOT_FOUND'));
     }
   }
 

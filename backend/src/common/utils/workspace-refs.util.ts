@@ -3,6 +3,7 @@ import { type EntityManager, type EntityTarget, In } from 'typeorm';
 import { Branch } from '../../entities/branch.entity';
 import { Category } from '../../entities/category.entity';
 import { Wallet } from '../../entities/wallet.entity';
+import { appError } from '../errors/app-error';
 
 /**
  * The workspace-scoped ids a transaction-shaped write can carry. An owner is a
@@ -48,7 +49,7 @@ export async function assertWorkspaceOwned(
   workspaceId: string,
 ): Promise<void> {
   if (!(await workspaceOwnsAll(manager, entity, ids, workspaceId))) {
-    throw new NotFoundException('Referenced record not found in this workspace');
+    throw new NotFoundException(appError('WORKSPACE_REF_NOT_FOUND'));
   }
 }
 

@@ -26,6 +26,7 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
 import { assertReceiptFileSupported, validateFile } from '../../common/utils/file-validator.util';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
@@ -89,7 +90,7 @@ export class ReceiptsController {
     @WorkspaceId() workspaceId: string,
   ) {
     if (!files?.length) {
-      throw new BadRequestException('No files provided');
+      throw new BadRequestException(appError('UPLOAD_NO_FILES'));
     }
 
     files.forEach(file => {
@@ -123,7 +124,7 @@ export class ReceiptsController {
     @WorkspaceId() workspaceId: string,
   ) {
     if (!file) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException(appError('UPLOAD_NO_FILE'));
     }
 
     validateFile(file, { allowEInvoiceXml: true });
@@ -160,7 +161,7 @@ export class ReceiptsController {
       withoutNulls(dto),
     );
     if (!suggestions) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return suggestions;
   }
@@ -208,7 +209,7 @@ export class ReceiptsController {
   async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const receipt = await this.receiptsService.findOne(id, workspaceId);
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return receipt;
   }
@@ -235,7 +236,7 @@ export class ReceiptsController {
       user.id,
     );
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return receipt;
   }
@@ -255,7 +256,7 @@ export class ReceiptsController {
   ) {
     const receipt = await this.locationService.resetToAuto(id, workspaceId, user.id);
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return receipt;
   }
@@ -276,7 +277,7 @@ export class ReceiptsController {
       user.id,
     );
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return receipt;
   }
@@ -288,7 +289,7 @@ export class ReceiptsController {
   async getTax(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
     const tax = await this.receiptsService.getTax(id, workspaceId);
     if (!tax) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return tax;
   }
@@ -309,7 +310,7 @@ export class ReceiptsController {
   ) {
     const tax = await this.receiptsService.setTax(id, workspaceId, dto.taxRateId, user.id);
     if (!tax) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return tax;
   }
@@ -344,7 +345,7 @@ export class ReceiptsController {
       attachTo: dto?.transactionId,
     });
     if (!result) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     return result;
   }
@@ -360,7 +361,7 @@ export class ReceiptsController {
   ) {
     const receipt = await this.receiptMatchService.refresh(id, workspaceId);
     if (!receipt) {
-      throw new BadRequestException('Receipt not found');
+      throw new BadRequestException(appError('RECEIPT_NOT_FOUND'));
     }
     const candidates = await this.receiptMatchService.candidates(receipt, selfMemberId);
     return {

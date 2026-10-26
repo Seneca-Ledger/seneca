@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, type Repository, type SelectQueryBuilder } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import {
   applyOwnerFilter,
   type OwnerFilter,
@@ -380,7 +381,7 @@ export class ReviewInboxService {
       },
     });
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
     const rows = await this.transactionRepository.find({
       where: { workspaceId, statementId, isVerified: false, isDuplicate: false },
@@ -406,7 +407,7 @@ export class ReviewInboxService {
       where: { id, workspaceId, isDuplicate: true, duplicateOfId: Not(IsNull()) },
     });
     if (!row) {
-      throw new NotFoundException('Suspected duplicate not found');
+      throw new NotFoundException(appError('REVIEW_DUPLICATE_NOT_FOUND'));
     }
     if (decision === DuplicateDecision.KEEP) {
       await this.deduplicationService.unmarkDuplicate(id, workspaceId);
