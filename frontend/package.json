@@ -89,7 +89,6 @@
     "next": "^16.4.3",
     "oxc-transform-react": "^0.152.0",
     "playwright-core": "^1.63.0",
-    "react-scan": "^0.5.7",
     "sass": "^1.99.0",
     "stylelint": "^17.16.0",
     "stylelint-config-recommended-scss": "^17.0.1",

@@ -157,13 +157,7 @@ vi.mock('@/app/i18n', async () => {
   };
 });
 
-vi.mock('@/app/(main)/statements/components/filters/TypeFilterDropdown', () => ({
-  TypeFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
-}));
 
-vi.mock('@/app/(main)/statements/components/filters/StatusFilterDropdown', () => ({
-  StatusFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
-}));
 
 vi.mock('@/app/(main)/statements/components/filters/DateFilterDropdown', () => ({
   DateFilterDropdown: ({ trigger }: { trigger: React.ReactNode }) => <>{trigger}</>,
