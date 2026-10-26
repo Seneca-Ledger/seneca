@@ -110,6 +110,11 @@ export async function seedWorkspace(
   await send('view preference', 'put', '/view-preferences/transactions', {
     state: { owner: 'me' },
   });
+  await send('import mapping', 'put', '/entity-imports/mapping-profiles', {
+    target: 'transactions',
+    headers: [`${marker} date`, `${marker} payee`, `${marker} amount`],
+    mapping: { date: 0, merchant: 1, amount: 2 },
+  });
   await send('note', 'post', '/notes', {
     entityType: 'transaction',
     entityId: transaction.id,

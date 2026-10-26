@@ -534,6 +534,34 @@ describe('IntelligentDeduplicationService - Tolerant Matching', () => {
       expect(conflicts[0].recommendedAction).toBe(ConflictAction.KEEP_EXISTING);
     });
 
+    it('reads an existing date the way the database returns it (a YYYY-MM-DD string)', async () => {
+      const newTransactions: ParsedTransaction[] = [
+        {
+          transactionDate: new Date('2024-01-15'),
+          counterpartyName: 'Acme Corp',
+          paymentPurpose: 'Invoice #12345',
+          debit: 1000,
+          currency: 'KZT',
+        },
+      ];
+      const existingTransactions = [
+        {
+          id: 'tx-1',
+          transactionDate: '2024-01-16',
+          counterpartyName: 'Acme Corp',
+          paymentPurpose: 'Invoice #12345',
+          debit: 1000,
+          amount: 1000,
+          currency: 'KZT',
+        } as unknown as Transaction,
+      ];
+
+      const conflicts = await service.detectConflicts(newTransactions, existingTransactions);
+
+      expect(conflicts).toHaveLength(1);
+      expect(conflicts[0].existingTransaction.id).toBe('tx-1');
+    });
+
     it('should not create duplicate conflicts for same new transaction', async () => {
       const newTransactions: ParsedTransaction[] = [
         {

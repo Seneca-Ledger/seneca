@@ -47,6 +47,19 @@ describe('ImportSuggestService (heuristics only)', () => {
     expect(result.target).toBe('transactions');
   });
 
+  it('maps separate debit and credit columns of a bank export', async () => {
+    const result = await service.suggest({
+      headers: ['Date', 'Payee', 'Debit', 'Credit'],
+      samples: [
+        ['2026-09-01', 'ACME Store - Wireless Buds', '19.99', ''],
+        ['2026-09-02', 'Employer One', '', '1500'],
+      ],
+    });
+    expect(result.target).toBe('transactions');
+    const roles = Object.fromEntries(result.columns.map(c => [c.index, c.role]));
+    expect(roles).toMatchObject({ 0: 'date', 1: 'merchant', 2: 'amount', 3: 'credit' });
+  });
+
   it('falls back to a plain table when required fields are missing', async () => {
     const result = await service.suggest({
       headers: ['Project', 'Owner', 'Notes'],
