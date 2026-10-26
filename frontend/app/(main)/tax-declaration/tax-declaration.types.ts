@@ -53,7 +53,8 @@ export type RetentionKind =
   | 'accounting_records';
 
 export interface RetentionInfo {
-  periods: Array<{ kind: RetentionKind; years: number | null; until: string }>;
+  /** Reference data names the kinds: one this list lacks is shown by its key. */
+  periods: Array<{ kind: RetentionKind | (string & {}); years: number | null; until: string }>;
   sourceUrl: string;
 }
 
@@ -62,12 +63,19 @@ export interface FilingInfo {
   taxYear: number;
   formName: string;
   filingOpens: string | null;
-  deadlines: Array<{ kind: DeadlineKind; date: string }>;
+  /** Reference data names the kinds: one this list lacks is shown by its key. */
+  deadlines: Array<{ kind: DeadlineKind | (string & {}); date: string }>;
   authorityPreparation: AuthorityPreparation | null;
   portal: string | null;
   sourceUrl: string;
   /** Optional: drafts finalized before retention was recorded do not carry it. */
   retention?: RetentionInfo | null;
+  /**
+   * published: the dates the authority announced for the year; statute: worked
+   * out from the rule in the law as read on `checkedAt`. Absent on older drafts.
+   */
+  basis?: 'published' | 'statute';
+  checkedAt?: string;
 }
 
 export type FxRule = 'transaction_date' | 'nbp_previous_business_day' | 'bdi_reference_rate';

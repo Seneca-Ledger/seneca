@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { Tag } from '../../../entities/tag.entity';
 import { Transaction } from '../../../entities/transaction.entity';
 
@@ -36,7 +37,7 @@ export class TransactionTagsService {
     // Anything missing is either a bad id or another tenant's tag; both are refused
     // rather than silently dropped, so the caller never thinks a tag was applied.
     if (tags.length !== uniqueIds.length) {
-      throw new BadRequestException('One or more tags do not exist in this workspace');
+      throw new BadRequestException(appError('TRANSACTION_TAGS_NOT_FOUND'));
     }
 
     transaction.tags = tags;
@@ -47,11 +48,13 @@ export class TransactionTagsService {
   private async loadTransaction(transactionId: string, workspaceId: string): Promise<Transaction> {
     const transaction = await this.transactionRepository.findOne({
       where: { id: transactionId, workspaceId },
-      relations: ['tags'],
+      relations: {
+        tags: true,
+      },
     });
 
     if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
 
     return transaction;

@@ -1,14 +1,16 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder } from 'typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
+import type { CreateTaxRuleBody, UpdateTaxRuleBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
+import { Category } from '../../entities/category.entity';
 import { TaxRate } from '../../entities/tax-rate.entity';
 import { TaxRule, TaxRuleDirection } from '../../entities/tax-rule.entity';
 import { AuditService } from '../audit/audit.service';
-import type { CreateTaxRuleDto } from './dto/create-tax-rule.dto';
-import type { UpdateTaxRuleDto } from './dto/update-tax-rule.dto';
 
 @Injectable()
 export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
@@ -20,8 +22,22 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     @InjectRepository(TaxRate)
     private readonly taxRateRepository: Repository<TaxRate>,
     private readonly auditService: AuditService,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
   ) {
     super(repository, 'Tax rule');
+  }
+
+  /** The id came from the request: another workspace's category is "not found". */
+  private async assertCategoryInWorkspace(
+    workspaceId: string,
+    categoryId: string | null,
+  ): Promise<void> {
+    if (!categoryId) return;
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId, workspaceId },
+    });
+    if (!category) throw new NotFoundException(appError('CATEGORY_NOT_FOUND'));
   }
 
   private snapshotTaxRule(rule: TaxRule) {
@@ -77,27 +93,24 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     });
 
     if (!exists) {
-      throw new BadRequestException(
-        `No tax rate with code '${code}' in this workspace. Pick a country first, or use a code from GET /tax/settings/rates.`,
-      );
+      throw new BadRequestException(appError('TAX_RULE_RATE_CODE_UNKNOWN', { code }));
     }
   }
 
-  async create(workspaceId: string, dto: CreateTaxRuleDto, userId?: string): Promise<TaxRule> {
+  async create(workspaceId: string, dto: CreateTaxRuleBody, userId?: string): Promise<TaxRule> {
     const code = dto.taxRateCode.trim();
     await this.assertCodeExists(workspaceId, code);
 
-    const direction = dto.direction ?? TaxRuleDirection.BOTH;
+    const direction = toEnum(TaxRuleDirection, dto.direction) ?? TaxRuleDirection.BOTH;
     const categoryId = dto.categoryId ?? null;
+    await this.assertCategoryInWorkspace(workspaceId, categoryId);
 
     const duplicate = await this.repository.findOne({
-      where: { workspaceId, categoryId, direction } as any,
+      where: { workspaceId, categoryId: categoryId ?? IsNull(), direction },
     });
 
     if (duplicate) {
-      throw new BadRequestException(
-        'A rule for this category and direction already exists. Edit it instead.',
-      );
+      throw new BadRequestException(appError('TAX_RULE_DUPLICATE'));
     }
 
     const saved = await this.repository.save(
@@ -124,23 +137,23 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
   async update(
     id: string,
     workspaceId: string,
-    dto: UpdateTaxRuleDto,
+    dto: UpdateTaxRuleBody,
     userId?: string,
   ): Promise<TaxRule> {
     const rule = await this.findOne(id, workspaceId);
     const before = this.snapshotTaxRule(rule);
 
-    if (dto.taxRateCode !== undefined) {
+    if (dto.taxRateCode != null) {
       const code = dto.taxRateCode.trim();
       await this.assertCodeExists(workspaceId, code);
       rule.taxRateCode = code;
     }
 
-    if (dto.priority !== undefined) {
+    if (dto.priority != null) {
       rule.priority = dto.priority;
     }
 
-    if (dto.isEnabled !== undefined) {
+    if (dto.isEnabled != null) {
       rule.isEnabled = dto.isEnabled;
     }
 
@@ -148,17 +161,18 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     // either has to re-check for a clash with an existing rule.
     const nextCategoryId =
       dto.categoryId !== undefined ? (dto.categoryId ?? null) : rule.categoryId;
-    const nextDirection = dto.direction ?? rule.direction;
+    const nextDirection = toEnum(TaxRuleDirection, dto.direction) ?? rule.direction;
 
     if (nextCategoryId !== rule.categoryId || nextDirection !== rule.direction) {
+      if (nextCategoryId !== rule.categoryId) {
+        await this.assertCategoryInWorkspace(workspaceId, nextCategoryId);
+      }
       const clash = await this.repository.findOne({
-        where: { workspaceId, categoryId: nextCategoryId, direction: nextDirection } as any,
+        where: { workspaceId, categoryId: nextCategoryId ?? IsNull(), direction: nextDirection },
       });
 
       if (clash && clash.id !== id) {
-        throw new BadRequestException(
-          'A rule for this category and direction already exists. Edit it instead.',
-        );
+        throw new BadRequestException(appError('TAX_RULE_DUPLICATE'));
       }
 
       rule.categoryId = nextCategoryId;

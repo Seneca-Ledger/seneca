@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { isAbortError } from '../utils/pasteUtils';
 import type { AggregateFn, AggregateSelection } from './useTableAggregates';
 
@@ -26,13 +27,6 @@ interface UseTableGroupsParams {
 export interface UseTableGroupsReturn {
   groups: TableGroup[];
   loading: boolean;
-}
-
-function parseGroupItems(responseData: unknown): TableGroup[] {
-  const root = (responseData ?? {}) as Record<string, unknown>;
-  const nested = (root.data ?? {}) as Record<string, unknown>;
-  const items = root.items ?? nested.items ?? [];
-  return Array.isArray(items) ? (items as TableGroup[]) : [];
 }
 
 export function useTableGroups({
@@ -67,10 +61,15 @@ export function useTableGroups({
         signal: controller.signal,
         params: { groupBy, aggs: aggsParam, filters: combinedFiltersParam },
       });
+      const page = await checkContract(
+        'CustomTableGroups',
+        response.data,
+        '/custom-tables/:id/groups',
+      );
       if (controller.signal.aborted) {
         return;
       }
-      setGroups(parseGroupItems(response.data));
+      setGroups(page.items);
     })()
       .catch(async error => {
         if (!isAbortError(error)) {

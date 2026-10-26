@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
@@ -16,6 +17,11 @@ export enum WorkspaceRole {
   ADMIN = 'admin',
   MEMBER = 'member',
   VIEWER = 'viewer',
+  /**
+   * The tax adviser or bookkeeper: reads everything a viewer reads and may take
+   * exports away (tax pack, DATEV, returns), but changes nothing.
+   */
+  ACCOUNTANT = 'accountant',
 }
 
 export type WorkspaceMemberPermissions = {
@@ -43,7 +49,7 @@ export class WorkspaceMember {
     },
   )
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
@@ -56,7 +62,7 @@ export class WorkspaceMember {
     },
   )
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({
     name: 'role',
@@ -80,7 +86,7 @@ export class WorkspaceMember {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'invited_by_id' })
-  invitedBy: User | null;
+  invitedBy: Relation<User | null>;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

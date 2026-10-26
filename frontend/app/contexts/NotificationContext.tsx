@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { NotificationItem } from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import {
   connectNotificationsSocket,
@@ -13,23 +15,7 @@ import {
 import { useAuthContext } from './AuthContext';
 import { useWorkspace } from './WorkspaceContext';
 
-export interface NotificationItem {
-  id: string;
-  recipientId: string;
-  workspaceId: string | null;
-  type: string;
-  category: string;
-  severity: 'info' | 'warn' | 'error';
-  title: string;
-  message: string;
-  isRead: boolean;
-  actorId: string | null;
-  actorName: string | null;
-  entityType: string | null;
-  entityId: string | null;
-  meta: Record<string, unknown> | null;
-  createdAt: string;
-}
+export type { NotificationItem } from '@/app/lib/contracts';
 
 export type NotificationContextValue = {
   notifications: NotificationItem[];
@@ -48,6 +34,26 @@ export type NotificationContextValue = {
 interface NotificationsSnapshot {
   items: NotificationItem[];
   unreadCount: number;
+}
+
+/**
+ * A pushed notification on top of the list. A known id is one the server
+ * updated in place (the upcoming-charges reminder is a single row it rewrites):
+ * it takes the new text, moves back on top, and the unread count follows.
+ */
+export function mergePushedNotification(
+  previous: NotificationsSnapshot,
+  notification: NotificationItem,
+): NotificationsSnapshot {
+  const known = previous.items.find(item => item.id === notification.id);
+  const unreadDelta = (notification.isRead ? 0 : 1) - (known && !known.isRead ? 1 : 0);
+  return {
+    items: [notification, ...previous.items.filter(item => item.id !== notification.id)].slice(
+      0,
+      50,
+    ),
+    unreadCount: Math.max(0, previous.unreadCount + unreadDelta),
+  };
 }
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
@@ -69,10 +75,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     queryKey,
     queryFn: async ({ signal }): Promise<NotificationsSnapshot> => {
       const [list, unread] = await Promise.all([
-        apiQuery<{ items?: NotificationItem[] }>({ url: '/notifications', params, signal }),
-        apiQuery<{ count?: number }>({ url: '/notifications/unread-count', params, signal }),
+        apiQueryDecoded({
+          url: '/notifications',
+          params,
+          signal,
+          contract: 'NotificationList',
+          drift: 'report',
+        }),
+        apiQueryDecoded({
+          url: '/notifications/unread-count',
+          params,
+          signal,
+          contract: 'UnreadCount',
+          drift: 'report',
+        }),
       ]);
-      return { items: list.items ?? [], unreadCount: unread.count ?? 0 };
+      return { items: list.items, unreadCount: unread.count };
     },
     // `user` реактивен, в отличие от прежнего чтения localStorage: логин в той же
     // вкладке теперь сам запускает загрузку. workspaceLoading сохраняет прежнее
@@ -96,15 +114,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // setQueryData, а не invalidateQueries: пуш и есть новый элемент,
       // рефетч был бы лишним раундтрипом на каждое событие.
-      queryClient.setQueryData<NotificationsSnapshot>(queryKey, previous => {
-        if (!previous || previous.items.some(item => item.id === notification.id)) {
-          return previous;
-        }
-        return {
-          items: [notification, ...previous.items].slice(0, 50),
-          unreadCount: notification.isRead ? previous.unreadCount : previous.unreadCount + 1,
-        };
-      });
+      queryClient.setQueryData<NotificationsSnapshot>(queryKey, previous =>
+        previous ? mergePushedNotification(previous, notification) : previous,
+      );
     };
 
     socket.on('notification:new', onNotification);
@@ -121,7 +133,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [workspaceId, user, queryClient, queryKey]);
 
   const markAsReadMutation = useMutation({
-    mutationFn: (ids: string[]) => apiClient.post('/notifications/mark-read', { ids }),
+    mutationFn: async (ids: string[]) => {
+      await apiClient.post('/notifications/mark-read', {
+        ids,
+      } satisfies ContractInput<'MarkReadBody'>);
+    },
     onMutate: async (ids: string[]) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<NotificationsSnapshot>(queryKey);
@@ -144,7 +160,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   });
 
   const markAllAsReadMutation = useMutation({
-    mutationFn: () => apiClient.post('/notifications/mark-all-read', null, { params }),
+    mutationFn: async () => {
+      // No body at all: a JSON `null` is rejected by the server's strict body parser (400).
+      await apiClient.post('/notifications/mark-all-read', undefined, { params });
+    },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<NotificationsSnapshot>(queryKey);

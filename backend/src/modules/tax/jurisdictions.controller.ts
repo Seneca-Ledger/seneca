@@ -1,5 +1,14 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import {
+  JurisdictionParams,
+  JurisdictionRateList,
+  TaxJurisdictionItem,
+  TaxJurisdictionList,
+  TaxRatesOnDateQuery,
+} from '../../contracts';
 import { JurisdictionsService } from './jurisdictions.service';
 
 /**
@@ -13,12 +22,14 @@ export class JurisdictionsController {
   constructor(private readonly jurisdictionsService: JurisdictionsService) {}
 
   @Get()
+  @SchemaResponse(TaxJurisdictionList)
   async findAll() {
     return this.jurisdictionsService.findAll();
   }
 
   @Get(':code')
-  async findOne(@Param('code') code: string) {
+  @SchemaResponse(TaxJurisdictionItem)
+  async findOne(@SchemaParams(JurisdictionParams) { code }: JurisdictionParams) {
     return this.jurisdictionsService.findByCode(code);
   }
 
@@ -27,11 +38,15 @@ export class JurisdictionsController {
    * you get every version, which is what the settings timeline wants.
    */
   @Get(':code/rates')
-  async findRates(@Param('code') code: string, @Query('date') date?: string) {
+  @SchemaResponse(JurisdictionRateList)
+  async findRates(
+    @SchemaParams(JurisdictionParams) { code }: JurisdictionParams,
+    @SchemaQuery(TaxRatesOnDateQuery) query: TaxRatesOnDateQuery,
+  ) {
     const jurisdiction = await this.jurisdictionsService.findByCode(code);
 
-    return date
-      ? this.jurisdictionsService.findRatesForDate(jurisdiction.id, date)
+    return query.date
+      ? this.jurisdictionsService.findRatesForDate(jurisdiction.id, query.date)
       : this.jurisdictionsService.findAllRates(jurisdiction.id);
   }
 }

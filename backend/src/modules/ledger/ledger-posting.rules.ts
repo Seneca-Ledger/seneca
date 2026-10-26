@@ -25,7 +25,7 @@ export interface BaseLine extends Leg {
   fxRate: number;
 }
 
-export type SkipReason = 'duplicate' | 'zero_amount';
+export type SkipReason = 'duplicate' | 'unconfirmed' | 'zero_amount';
 
 export interface TransactionFacts {
   transactionType: 'income' | 'expense';
@@ -36,6 +36,8 @@ export interface TransactionFacts {
   taxReverseCharge: boolean;
   taxNotionalAmount: number | string | null;
   isDuplicate: boolean;
+  /** Confirmed by the user in Review; nothing unconfirmed is booked. */
+  isVerified: boolean;
   cryptoWalletId: string | null;
   categoryId: string | null;
   branchId: string | null;
@@ -80,11 +82,15 @@ const grossMinor = (tx: TransactionFacts): number =>
 /**
  * Why a transaction is not booked at all, or null when it is. Checked before
  * any account is resolved, so a duplicate never opens a cash account.
- * Duplicates would count the money twice.
+ * Duplicates would count the money twice; an unconfirmed row does not count
+ * anywhere until the user approves it, and is booked then.
  */
 export function skipReason(tx: TransactionFacts): SkipReason | null {
   if (tx.isDuplicate) {
     return 'duplicate';
+  }
+  if (!tx.isVerified) {
+    return 'unconfirmed';
   }
   return grossMinor(tx) === 0 ? 'zero_amount' : null;
 }

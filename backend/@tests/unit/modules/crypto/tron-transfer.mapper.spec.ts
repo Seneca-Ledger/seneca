@@ -93,10 +93,19 @@ describe('mapTronTransfers', () => {
     ]);
   });
 
-  it('books an outgoing transfer and the TRX it burned as one sum', () => {
-    const [transfer] = map([tx({ from: ME_HEX, to: OTHER_HEX, amount: 2_000_000, fee: 268_000 })]);
+  it('keeps the TRX burned by an outgoing transfer off the amount that was sent', () => {
+    const transfers = map([tx({ from: ME_HEX, to: OTHER_HEX, amount: 2_000_000, fee: 268_000 })]);
 
-    expect(transfer).toMatchObject({ direction: 'out', asset: 'TRX', amount: '2.268' });
+    expect(transfers.find(transfer => transfer.leg === 'fee')).toMatchObject({
+      asset: 'TRX',
+      amount: '0.268',
+      direction: 'out',
+    });
+    expect(transfers.find(transfer => transfer.leg !== 'fee')).toMatchObject({
+      asset: 'TRX',
+      amount: '2',
+      direction: 'out',
+    });
   });
 
   it('books the fee of a USDT transfer, whose row is a contract call', () => {

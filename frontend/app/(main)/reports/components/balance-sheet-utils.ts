@@ -1,3 +1,4 @@
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import type { BalanceAccountNode } from './BalanceAccountRow';
 
 export type BalanceLabels = Record<string, { value?: string } | undefined>;
@@ -14,13 +15,7 @@ export type BalanceSheetResponse = {
 export type BalanceExportFormat = 'excel' | 'pdf';
 
 export const resolveLocale = (locale: string): string => {
-  if (locale === 'ru') {
-    return 'ru-RU';
-  }
-  if (locale === 'kk') {
-    return 'kk-KZ';
-  }
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 export const toDateInputValue = (date: Date): string => {

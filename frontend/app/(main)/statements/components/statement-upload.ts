@@ -3,6 +3,7 @@
 import apiClient from '@/app/lib/api';
 import type { DeviceLocation } from '@/app/lib/device-location';
 import { enqueue, indexedDbStore, isOfflineStoreAvailable } from '@/app/lib/offline/offline-queue';
+import { enqueuePlaceFollowups, needsPlaceFollowup } from '@/app/lib/receipt-place-followup';
 
 export const RECEIPT_SCAN_UPLOAD_BATCH_SIZE = 5;
 
@@ -60,7 +61,7 @@ const chunkFiles = (files: File[], size: number): File[][] => {
   return chunks;
 };
 
-const readCreatedStatementIds = (responseData: unknown): string[] => {
+export const readCreatedStatementIds = (responseData: unknown): string[] => {
   const created = (responseData as { data?: unknown } | null)?.data;
   if (!Array.isArray(created)) {
     return [];
@@ -71,7 +72,6 @@ const readCreatedStatementIds = (responseData: unknown): string[] => {
   });
 };
 
-// eslint-disable-next-line complexity
 export const extractUploadErrorMessage = (error: unknown, fallback: string): string => {
   // HttpExceptionFilter wraps failures as { error: { message } }; older/plain
   // Nest responses still use a top-level { message }.
@@ -125,7 +125,7 @@ export const uploadStatementFiles = async ({
     await refreshAfterCreate();
   } catch (error) {
     console.error('Failed to upload statements:', error);
-    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed));
+    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed), { cause: error });
   }
 };
 
@@ -185,7 +185,7 @@ export const uploadReceiptScanFiles = async ({
     await refreshAfterCreate();
   } catch (error) {
     console.error('Failed to upload receipt scans:', error);
-    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed));
+    throw new Error(extractUploadErrorMessage(error, labels.uploadFailed), { cause: error });
   }
 };
 
@@ -201,8 +201,15 @@ export const uploadScanDrawerFiles = async ({
   }
 
   const workspaceId = readOpenWorkspaceId();
+  const capturedAt = Date.now();
   // Bounded by getDeviceLocation's timeout and usually settled by now.
   const deviceLocation = payload.deviceLocationRequest ? await payload.deviceLocationRequest : null;
+  // A request exists only for a camera shot the user agreed to tag. Without a
+  // good fix the shop is asked about once GPS comes back.
+  const askForPlace =
+    Boolean(payload.deviceLocationRequest) &&
+    workspaceId !== null &&
+    needsPlaceFollowup(deviceLocation);
   await uploadReceiptScanFiles({
     files: payload.files,
     deviceLocation,
@@ -210,6 +217,13 @@ export const uploadScanDrawerFiles = async ({
     labels,
     onUploadSuccess,
     refreshAfterCreate,
-    onBatchCreated,
+    onBatchCreated: (fileOffset, statementIds) => {
+      if (askForPlace && workspaceId) {
+        enqueuePlaceFollowups(
+          statementIds.map(statementId => ({ statementId, workspaceId, capturedAt })),
+        );
+      }
+      onBatchCreated?.(fileOffset, statementIds);
+    },
   });
 };

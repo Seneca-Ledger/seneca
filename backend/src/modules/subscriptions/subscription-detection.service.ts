@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { countedSql } from '../../common/utils/counted-transactions.util';
+import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../common/utils/transaction-privacy.util';
 import {
   NotificationCategory,
   NotificationSeverity,
@@ -47,8 +52,12 @@ export class SubscriptionDetectionService {
       .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(countedSql('t'))
       .andWhere('t.transaction_date >= :since', { since })
       .andWhere('t.counterparty_name IS NOT NULL')
+      // A detected subscription is named after its merchant and shown to the
+      // whole workspace, so nobody's private rows feed it.
+      .andWhere(readablePrivateSql('t'), { [PRIVACY_VIEWER_PARAM]: null })
       .orderBy('t.transaction_date', 'ASC')
       .getMany();
 

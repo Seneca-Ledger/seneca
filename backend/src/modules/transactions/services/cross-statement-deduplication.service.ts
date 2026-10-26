@@ -1,6 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, type FindOptionsWhere, In, Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
+import { taxLockedConflict } from '../../../common/utils/tax-lock.util';
+import { redactPrivateRows } from '../../../common/utils/transaction-privacy.util';
 import { Statement } from '../../../entities/statement.entity';
 import { Transaction } from '../../../entities/transaction.entity';
 
@@ -37,11 +40,15 @@ export class CrossStatementDeduplicationService {
    * @param workspaceId Workspace ID
    * @param statementId Optional: limit to specific statement
    * @param threshold Similarity threshold (default: 0.85)
+   * @param viewerMemberId When given, rows are compared as this member may see
+   *   them: another member's private row matches on date and amount only, so a
+   *   group (or its `matchedFields`) cannot tell what that row was.
    */
   async findDuplicates(
     workspaceId: string,
     statementId?: string,
     threshold = 0.85,
+    viewerMemberId?: string | null,
   ): Promise<DuplicateGroup[]> {
     this.logger.log(
       `Finding duplicates in workspace ${workspaceId}${statementId ? ` for statement ${statementId}` : ''}`,
@@ -74,6 +81,11 @@ export class CrossStatementDeduplicationService {
         createdAt: 'ASC',
       },
     });
+
+    if (viewerMemberId !== undefined) {
+      redactPrivateRows(transactionsToCheck, viewerMemberId);
+      redactPrivateRows(potentialDuplicates, viewerMemberId);
+    }
 
     const accountByStatement = await this.loadAccountNumbers([
       ...transactionsToCheck,
@@ -141,6 +153,11 @@ export class CrossStatementDeduplicationService {
 
     for (const group of duplicateGroups) {
       for (const duplicate of group.duplicates) {
+        // A row on a filed tax return stays counted: flagging it would take it
+        // out of the totals that return was built from.
+        if (duplicate.transaction.taxLocked) {
+          continue;
+        }
         await this.transactionRepository.update(duplicate.transaction.id, {
           isDuplicate: true,
           duplicateOfId: group.master.id,
@@ -162,7 +179,7 @@ export class CrossStatementDeduplicationService {
    */
   async mergeDuplicates(transactionIds: string[], workspaceId: string): Promise<Transaction> {
     if (transactionIds.length < 2) {
-      throw new Error('At least 2 transactions required for merge');
+      throw new BadRequestException(appError('TRANSACTION_MERGE_TOO_FEW'));
     }
 
     const transactions = await this.transactionRepository.findBy({
@@ -171,11 +188,15 @@ export class CrossStatementDeduplicationService {
     });
 
     if (transactions.length !== transactionIds.length) {
-      throw new Error('One or more transactions not found');
+      throw new NotFoundException(appError('TRANSACTION_SOME_NOT_FOUND'));
     }
 
-    const master = transactions[0];
-    const duplicates = transactions.slice(1);
+    const master = transactions.find(row => row.id === transactionIds[0]) ?? transactions[0];
+    const duplicates = transactions.filter(row => row.id !== master.id);
+    const locked = duplicates.filter(row => row.taxLocked).length;
+    if (locked > 0) {
+      throw taxLockedConflict(locked);
+    }
 
     // Mark duplicates
     for (const duplicate of duplicates) {
@@ -197,7 +218,7 @@ export class CrossStatementDeduplicationService {
   async unmarkDuplicate(transactionId: string, workspaceId: string): Promise<Transaction> {
     const existing = await this.transactionRepository.findOneBy({ id: transactionId, workspaceId });
     if (!existing) {
-      throw new Error('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
 
     await this.transactionRepository.update(transactionId, {
@@ -209,7 +230,7 @@ export class CrossStatementDeduplicationService {
 
     const transaction = await this.transactionRepository.findOneBy({ id: transactionId });
     if (!transaction) {
-      throw new Error('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
 
     return transaction;
@@ -271,9 +292,13 @@ export class CrossStatementDeduplicationService {
     if (ids.length === 0 || typeof manager?.getRepository !== 'function') {
       return result;
     }
-    const statements = await manager
-      .getRepository(Statement)
-      .find({ where: { id: In(ids) }, select: ['id', 'accountNumber'] });
+    const statements = await manager.getRepository(Statement).find({
+      where: { id: In(ids) },
+      select: {
+        id: true,
+        accountNumber: true,
+      },
+    });
     for (const statement of statements) {
       const account = statement.accountNumber?.trim();
       if (account) {

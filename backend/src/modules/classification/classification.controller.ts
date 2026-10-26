@@ -1,18 +1,27 @@
 import { randomUUID } from 'node:crypto';
-import { Body, Controller, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, HttpCode, HttpStatus, NotFoundException, Post } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
+import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
+import { redactPrivate } from '../../common/utils/transaction-privacy.util';
+import { ClassifyBulkBody, ClassifyTransactionParams } from '../../contracts';
+import {
+  ClassifiedTransaction,
+  ClassifyBulkResult,
+} from '../../contracts/classification/categorization-rules';
 import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ClassifyBulkDto, RecordLearningDto } from './dto/classification-body.dto';
 import { ClassificationService } from './services/classification.service';
 
+/** Re-running the rules rewrites a row's category, so it takes the right to edit transactions. */
 @Controller('classification')
-@UseGuards(JwtAuthGuard, WorkspaceContextGuard)
 export class ClassificationController {
   constructor(
     private classificationService: ClassificationService,
@@ -22,17 +31,25 @@ export class ClassificationController {
 
   @Post('transaction/:id')
   @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(ClassifiedTransaction)
   async classifyTransaction(
-    @Param('id') id: string,
+    @SchemaParams(ClassifyTransactionParams) { id }: ClassifyTransactionParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     const transaction = await this.transactionRepository.findOne({
       where: { id, workspaceId },
     });
 
     if (!transaction) {
-      throw new Error('Transaction not found');
+      throw new NotFoundException(appError('CLASSIFICATION_TRANSACTION_NOT_FOUND'));
+    }
+
+    // A category picked by hand outranks the rules, as in the bulk re-run.
+    if (transaction.categorySource === TransactionCategorySource.MANUAL) {
+      return redactPrivate(transaction, selfMemberId);
     }
 
     const classification = await this.classificationService.classifyTransaction(
@@ -43,13 +60,15 @@ export class ClassificationController {
     Object.assign(transaction, classification);
     await this.transactionRepository.save(transaction);
 
-    return transaction;
+    return redactPrivate(transaction, selfMemberId);
   }
 
   @Post('bulk')
   @HttpCode(HttpStatus.OK)
+  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(ClassifyBulkResult)
   async classifyBulk(
-    @Body() body: ClassifyBulkDto,
+    @SchemaBody(ClassifyBulkBody) body: ClassifyBulkBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -110,31 +129,11 @@ export class ClassificationController {
         results.failed++;
         results.errors.push({
           transactionId,
-          error: error.message || 'Unknown error',
+          error: (error instanceof Error && error.message) || 'Unknown error',
         });
       }
     }
 
     return results;
-  }
-
-  @Post('learn')
-  @HttpCode(HttpStatus.OK)
-  async recordLearning(
-    @Body() body: RecordLearningDto,
-    @CurrentUser() user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    const transaction = await this.transactionRepository.findOne({
-      where: { id: body.transactionId, workspaceId },
-    });
-
-    if (!transaction) {
-      throw new Error('Transaction not found');
-    }
-
-    await this.classificationService.learnFromCorrection(transaction, body.categoryId, user.id);
-
-    return { message: 'Learning recorded successfully' };
   }
 }

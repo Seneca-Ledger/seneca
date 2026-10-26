@@ -6,17 +6,17 @@ import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
 export const TUTORIAL_PAGES = [
   { id: 'dashboard', path: DEFAULT_APP_ROUTE },
   { id: 'statements', path: '/statements' },
+  { id: 'budgets', path: '/budgets' },
+  { id: 'goals', path: '/goals' },
+  { id: 'subscriptions', path: '/subscriptions' },
+  { id: 'reports', path: '/reports' },
+  { id: 'netWorth', path: '/net-worth' },
+  { id: 'advice', path: '/advice' },
+  { id: 'crypto', path: '/crypto' },
+  { id: 'roi', path: '/roi' },
+  { id: 'taxDeclaration', path: '/tax-declaration' },
   { id: 'tables', path: '/custom-tables' },
   { id: 'workspaces', path: '/workspaces' },
-  { id: 'reports', path: '/reports' },
-  { id: 'taxDeclaration', path: '/tax-declaration' },
-  { id: 'netWorth', path: '/net-worth' },
-  { id: 'budgets', path: '/budgets' },
-  { id: 'advice', path: '/advice' },
-  { id: 'goals', path: '/goals' },
-  { id: 'roi', path: '/roi' },
-  { id: 'subscriptions', path: '/subscriptions' },
-  { id: 'crypto', path: '/crypto' },
 ] as const;
 
 export type TutorialStepId = (typeof TUTORIAL_PAGES)[number]['id'];

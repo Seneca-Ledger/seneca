@@ -5,8 +5,8 @@ import { SITUATION_THEMES } from '@/modules/insights/quotes/situation-themes';
 import { QUOTE_TEXTS } from '@/modules/insights/quotes/texts';
 
 function serviceWith(rows: unknown[], locale = 'en') {
-  const insights = { find: jest.fn(async () => rows) };
-  const users = { findOne: jest.fn(async () => ({ id: 'user-1', locale })) };
+  const insights = { find: vi.fn(async () => rows) };
+  const users = { findOne: vi.fn(async () => ({ id: 'user-1', locale })) };
   return new DailyQuoteService(insights as any, users as any);
 }
 

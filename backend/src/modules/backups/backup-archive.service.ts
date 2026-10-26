@@ -1,11 +1,28 @@
 import * as crypto from 'node:crypto';
 import { promisify } from 'node:util';
+import { BadRequestException, HttpException, PayloadTooLargeException } from '@nestjs/common';
+import { appError, type ErrorCode } from '../../common/errors/app-error';
 
 import AdmZip = require('adm-zip');
 
 const scrypt = promisify(crypto.scrypt);
 const ARCHIVE_FORMAT_VERSION = 1;
+/** Archives made before the rename to Seneca say 'lumio-backup'; they restore the same way. */
+const ARCHIVE_FORMATS = ['seneca-backup', 'lumio-backup'] as const;
+export const BACKUP_FILE_EXTENSION = '.seneca-backup';
+export const isBackupFileName = (name: string): boolean =>
+  name.endsWith(BACKUP_FILE_EXTENSION) || name.endsWith('.lumio-backup');
 const DATA_KEY_LENGTH = 32;
+
+/**
+ * What opening an archive may unpack. adm-zip inflates an entry no further
+ * than the size its header declares, so checking the declared sizes first
+ * bounds memory: an upload is capped at 200 MB, and its one manifest carries
+ * the payload as base64 text, so even the largest real backup stays well inside.
+ */
+const MAX_MANIFEST_BYTES = 300 * 1024 * 1024;
+const MAX_PAYLOAD_BYTES = 1024 * 1024 * 1024;
+const MAX_PAYLOAD_ENTRIES = 100_000;
 
 type ArchiveInput = {
   password?: string;
@@ -32,7 +49,7 @@ export type BackupEncryptionMaterial = {
 };
 
 export type BackupManifest = {
-  format: 'lumio-backup';
+  format: (typeof ARCHIVE_FORMATS)[number];
   formatVersion: number;
   createdAt: string;
   collections: Record<string, number>;
@@ -89,7 +106,7 @@ export class BackupArchiveService {
     const encryption = input.encryption || (await this.initializeEncryption(input.password || ''));
     const encryptedPayload = this.encrypt(payload.toBuffer(), encryption.dataKey);
     const manifest: BackupManifest = {
-      format: 'lumio-backup',
+      format: 'seneca-backup',
       formatVersion: ARCHIVE_FORMAT_VERSION,
       createdAt: new Date().toISOString(),
       collections: collectionCounts,
@@ -116,6 +133,7 @@ export class BackupArchiveService {
       if (!manifestEntry) {
         throw new Error('missing manifest');
       }
+      this.assertUnpackedSize([manifestEntry], MAX_MANIFEST_BYTES, 1);
       const manifest = JSON.parse(manifestEntry.getData().toString('utf8')) as BackupManifest;
       this.validateManifest(manifest);
 
@@ -129,10 +147,15 @@ export class BackupArchiveService {
       const dataKey = this.decrypt(
         manifest.encryption.wrappedDataKey,
         passwordKey,
-        'password is invalid',
+        'BACKUP_ARCHIVE_PASSWORD_INVALID',
       );
-      const payload = this.decrypt(manifest.encryption.payload, dataKey, 'backup is corrupted');
+      const payload = this.decrypt(
+        manifest.encryption.payload,
+        dataKey,
+        'BACKUP_ARCHIVE_CORRUPTED',
+      );
       const inner = new AdmZip(payload);
+      this.assertUnpackedSize(inner.getEntries(), MAX_PAYLOAD_BYTES, MAX_PAYLOAD_ENTRIES);
       const collections: Record<string, unknown[]> = {};
       const files = new Map<string, Buffer>();
 
@@ -155,13 +178,19 @@ export class BackupArchiveService {
       this.verifyContents(manifest, collections, files);
       return { manifest, collections, files };
     } catch (error) {
-      if (
-        error instanceof Error &&
-        ['password is invalid', 'backup is corrupted'].includes(error.message)
-      ) {
+      // The integrity checks above throw plain errors: each one means a corrupted archive.
+      if (error instanceof HttpException) {
         throw error;
       }
-      throw new Error('backup is corrupted');
+      throw new BadRequestException(appError('BACKUP_ARCHIVE_CORRUPTED'));
+    }
+  }
+
+  /** Refuses entries that would unpack to more than `maxBytes` together, or too many of them. */
+  private assertUnpackedSize(entries: AdmZip.IZipEntry[], maxBytes: number, maxEntries: number) {
+    const declared = entries.reduce((total, entry) => total + entry.header.size, 0);
+    if (entries.length > maxEntries || declared > maxBytes) {
+      throw new PayloadTooLargeException(appError('BACKUP_ARCHIVE_TOO_LARGE'));
     }
   }
 
@@ -180,7 +209,7 @@ export class BackupArchiveService {
     };
   }
 
-  private decrypt(envelope: EncryptionEnvelope, key: Buffer, message: string): Buffer {
+  private decrypt(envelope: EncryptionEnvelope, key: Buffer, code: ErrorCode): Buffer {
     try {
       const decipher = crypto.createDecipheriv(
         'aes-256-gcm',
@@ -193,13 +222,13 @@ export class BackupArchiveService {
         decipher.final(),
       ]);
     } catch {
-      throw new Error(message);
+      throw new BadRequestException(appError(code));
     }
   }
 
   private validateManifest(manifest: BackupManifest): void {
     if (
-      manifest?.format !== 'lumio-backup' ||
+      !ARCHIVE_FORMATS.includes(manifest?.format) ||
       manifest.formatVersion !== ARCHIVE_FORMAT_VERSION ||
       manifest.encryption?.algorithm !== 'aes-256-gcm' ||
       manifest.encryption.kdf?.algorithm !== 'scrypt' ||
@@ -257,7 +286,7 @@ export class BackupArchiveService {
 
   private assertPassword(password: string): void {
     if (!password) {
-      throw new Error('backup password is required');
+      throw new BadRequestException(appError('BACKUP_ARCHIVE_PASSWORD_REQUIRED'));
     }
   }
 }

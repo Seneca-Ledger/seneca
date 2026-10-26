@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import type { SubscriptionChargeCalendar } from '../hooks/useSubscriptionsPage';
 import { isPeakAmount, monthPeaks } from './charge-calendar.utils';
@@ -23,14 +24,14 @@ export function SubscriptionChargeCalendar({
   const peaks = monthPeaks(calendar.rows, monthLabels.length);
 
   return (
-    <div className="lumio-charge-calendar">
-      <table className="lumio-charge-calendar__table">
-        <caption className="lumio-charge-calendar__caption">
+    <div className="seneca-charge-calendar">
+      <table className="seneca-charge-calendar__table">
+        <caption className="seneca-charge-calendar__caption">
           {t.calendarCaption.value.replace('{count}', String(monthLabels.length))}
         </caption>
         <thead>
           <tr>
-            <th scope="col" className="lumio-charge-calendar__vendor">
+            <th scope="col" className="seneca-charge-calendar__vendor">
               {t.colVendor}
             </th>
             {monthLabels.map(label => (
@@ -43,15 +44,15 @@ export function SubscriptionChargeCalendar({
         <tbody>
           {calendar.rows.map(row => (
             <tr key={row.subscriptionId}>
-              <th scope="row" className="lumio-charge-calendar__vendor">
-                <span className="lumio-charge-calendar__vendor-inner">
+              <th scope="row" className="seneca-charge-calendar__vendor">
+                <span className="seneca-charge-calendar__vendor-inner">
                   {renderVendor?.(row)}
                   {row.vendorName}
                   {row.kind === 'payable' && (
-                    <span className="lumio-charge-calendar__kind"> · {t.calendarKindPayable}</span>
+                    <span className="seneca-charge-calendar__kind"> · {t.calendarKindPayable}</span>
                   )}
                   {row.kind === 'invoice' && (
-                    <span className="lumio-charge-calendar__kind"> · {t.calendarKindInvoice}</span>
+                    <span className="seneca-charge-calendar__kind"> · {t.calendarKindInvoice}</span>
                   )}
                 </span>
               </th>
@@ -64,19 +65,19 @@ export function SubscriptionChargeCalendar({
                     className={
                       amount > 0
                         ? isPeak
-                          ? 'lumio-charge-calendar__peak'
+                          ? 'seneca-charge-calendar__peak'
                           : undefined
-                        : 'lumio-charge-calendar__empty'
+                        : 'seneca-charge-calendar__empty'
                     }
                   >
                     {amount > 0 ? (
-                      formatAmount(amount)
+                      <PrivateAmount>{formatAmount(amount)}</PrivateAmount>
                     ) : (
                       <>
                         {/* A bare aria-label on a span is ignored, so the
                             dash is hidden and the words are read instead. */}
                         <span aria-hidden="true">—</span>
-                        <span className="lumio-charge-calendar__sr-only">{t.noCharge}</span>
+                        <span className="seneca-charge-calendar__sr-only">{t.noCharge}</span>
                       </>
                     )}
                   </td>
@@ -87,11 +88,13 @@ export function SubscriptionChargeCalendar({
         </tbody>
         <tfoot>
           <tr>
-            <th scope="row" className="lumio-charge-calendar__vendor">
+            <th scope="row" className="seneca-charge-calendar__vendor">
               {t.total}
             </th>
             {monthLabels.map((label, index) => (
-              <td key={label}>{formatAmount(calendar.monthTotals[index] ?? 0)}</td>
+              <td key={label}>
+                <PrivateAmount>{formatAmount(calendar.monthTotals[index] ?? 0)}</PrivateAmount>
+              </td>
             ))}
           </tr>
         </tfoot>

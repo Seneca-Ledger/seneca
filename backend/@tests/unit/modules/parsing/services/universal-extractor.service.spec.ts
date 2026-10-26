@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { DocumentClassifierService } from '@/modules/parsing/services/document-classifier.service';
 import { OcrService } from '@/modules/parsing/services/ocr.service';
 import { TransactionTypeDetectorService } from '@/modules/parsing/services/transaction-type-detector.service';
@@ -122,9 +124,28 @@ describe('UniversalExtractorService', () => {
       const text = 'Receipt\nStore ABC\nDate: 26.11.2025\nTotal: $10.00';
       const result = await service.extractFromText(text);
 
-      expect(result.date?.getFullYear()).toBe(2025);
-      expect(result.date?.getMonth()).toBe(10);
-      expect(result.date?.getDate()).toBe(26);
+      expect(result.date?.toISOString()).toBe('2025-11-26T00:00:00.000Z');
+    });
+
+    it('reads the date of an invoice whose label is glued to it', async () => {
+      const text = ['Invoice', 'Date of issueJune 21, 2026', 'Date dueJuly 5, 2026', 'Total $24.99'];
+      const result = await service.extractFromText(text.join('\n'));
+
+      expect(result.date?.toISOString().slice(0, 10)).toBe('2026-06-21');
+      expect(result.fieldConfidence.date).toBe(0.8);
+    });
+
+    it('reads an ambiguous date day first when no currency is stated', async () => {
+      const result = await service.extractFromText('Invoice\nStore ABC\nDate: 08/07/2026\nTotal: 10.00');
+
+      expect(result.date?.toISOString().slice(0, 10)).toBe('2026-07-08');
+    });
+
+    it('reads an ambiguous date month first on a dollar receipt, with less confidence', async () => {
+      const result = await service.extractFromText('Receipt\nStore ABC\nDate: 07/08/2026\nTotal: $10.00');
+
+      expect(result.date?.toISOString().slice(0, 10)).toBe('2026-07-08');
+      expect(result.fieldConfidence.date).toBe(0.5);
     });
 
     it('ignores a date with an implausible year', async () => {
@@ -154,25 +175,73 @@ describe('UniversalExtractorService', () => {
     });
   });
 
-  describe('mergeResults', () => {
-    const primary = {
-      documentType: 'receipt',
-      transactionType: 'expense',
-      merchantAddress: 'ул. Абая 10',
-      lineItems: [],
-      confidence: 0.5,
-      extractionMethod: 'regex',
-      fieldConfidence: {},
-      validationIssues: [],
-    };
+  describe('line items', () => {
+    it('keeps items that add up to the total', async () => {
+      const text = 'Payment Receipt\nStore ABC\nItem 1  $10.00\nItem 2  $20.49\nTotal: $30.49';
+      const result = await service.extractFromText(text);
 
-    it('prefers the AI merchant address over the line heuristic', () => {
-      const merge = (service as any).mergeResults.bind(service);
+      expect(result.lineItems).toEqual([
+        { description: 'Item 1', amount: 10 },
+        { description: 'Item 2', amount: 20.49 },
+      ]);
+    });
 
-      expect(merge(primary, { merchantAddress: 'г. Алматы, ул. Абая 10' }).merchantAddress).toBe(
-        'г. Алматы, ул. Абая 10',
-      );
-      expect(merge(primary, {}).merchantAddress).toBe('ул. Абая 10');
+    it.each([
+      'railway-invoice.txt',
+      'anthropic-invoice.txt',
+      'anthropic-receipt.txt',
+      'captions-invoice.txt',
+      'anomaly-invoice.txt',
+    ])('drops the page numbers, dates and postcodes %s yields as items', async file => {
+      const text = readFileSync(join(__dirname, '../fixtures/invoices', file), 'utf8');
+      const result = await service.extractFromText(text);
+
+      expect(result.lineItems).toEqual([]);
+      expect(result.fieldConfidence.lineItems).toBe(0);
+      expect(result.validationIssues.join(' ')).toContain('line items dropped');
+      // The total is untouched: only the items were wrong.
+      expect(result.totalAmount).toBeGreaterThan(0);
+    });
+  });
+
+  describe('the vendor of an invoice', () => {
+    // pdf-parse output of real invoices, with the buyer's details replaced. The
+    // label and its value arrive glued ("Invoice number29556044 0015"), which is
+    // what used to be taken for the vendor.
+    const invoice = (name: string) =>
+      readFileSync(join(__dirname, '../fixtures/invoices', name), 'utf8');
+
+    it.each([
+      ['railway-invoice.txt', 'Railway Corporation'],
+      ['captions-invoice.txt', 'Captions (captions.ai)'],
+      ['anthropic-invoice.txt', 'Anthropic, PBC'],
+      ['anomaly-invoice.txt', 'Anomaly'],
+      ['anthropic-receipt.txt', 'Anthropic, PBC'],
+    ])('reads the issuer of %s, not its number', async (file, vendor) => {
+      const result = await service.extractFromText(invoice(file));
+
+      expect(result.vendor).toBe(vendor);
+    });
+
+    it('never takes the "Bill to" party, which is the user', async () => {
+      const text = ['Invoice', 'Invoice No. 4711', 'Bill to', 'Jane Doe', 'Total: $10.00'].join('\n');
+
+      const result = await service.extractFromText(text);
+
+      expect(result.vendor).toBeUndefined();
+    });
+
+    it.each([
+      ['From: Hetzner Online GmbH', 'Hetzner Online GmbH'],
+      ['Seller', 'Hetzner Online GmbH'],
+      ['Продавец: ТОО Ромашка', 'ТОО Ромашка'],
+    ])('follows the seller label in "%s"', async (label, vendor) => {
+      const lines = label.includes(':') ? [label] : [label, vendor];
+      const text = ['Rechnung', 'Kundennummer 0042', ...lines, 'Total: 10,00 EUR'].join('\n');
+
+      const result = await service.extractFromText(text);
+
+      expect(result.vendor).toBe(vendor);
     });
   });
 });

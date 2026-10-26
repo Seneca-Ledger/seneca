@@ -181,8 +181,8 @@ describe('Tax jurisdictions (e2e)', () => {
       await dataSource.query(
         `INSERT INTO transactions
            (transaction_date, counterparty_name, payment_purpose, transaction_type,
-            workspace_id, tax_rate_id)
-         VALUES ('2025-06-01', 'Probe vendor', 'Probe purchase', 'expense', $1, $2)`,
+            workspace_id, tax_rate_id, currency)
+         VALUES ('2025-06-01', 'Probe vendor', 'Probe purchase', 'expense', $1, $2, 'KZT')`,
         [workspaceId, pinnedRateId],
       );
 
@@ -248,7 +248,8 @@ describe('Tax jurisdictions (e2e)', () => {
           WHERE workspace_id = $1 AND code LIKE 'DE_%'`,
         [workspaceId],
       );
-      expect(count).toBe(3);
+      // Three statutory rates plus the reverse-charge twin of the standard one.
+      expect(count).toBe(4);
     });
 
     it('rejects an unknown country without touching the rate set', async () => {

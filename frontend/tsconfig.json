@@ -15,7 +15,7 @@
     "incremental": true,
     "plugins": [
       {
-        "name": "next"
+        "name": "@effect/language-service"
       }
     ],
     "paths": {
@@ -23,16 +23,6 @@
       "@bank-logos": ["./app/bank-logos/index.ts"]
     }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "types/**/*.d.ts",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    ".intlayer/**/*.ts",
-    ".next/dev/dev/types/**/*.ts"
-  ],
-  "exclude": ["node_modules"]
+  "include": ["**/*.ts", "**/*.tsx", "types/**/*.d.ts", "**/*.mts", ".intlayer/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

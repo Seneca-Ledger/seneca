@@ -1,7 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Not, Repository } from 'typeorm';
+import { Between, IsNull, Not, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
+import { countedWhere } from '../../common/utils/counted-transactions.util';
 import { fromMinor, roundHalfAwayFromZero, toMinor } from '../../common/utils/money.util';
+import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import {
   TaxReturn,
@@ -11,10 +15,12 @@ import {
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { AuditService } from '../audit/audit.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { TaxDeadlineResolvedEvent } from '../notifications/events/notification-events';
 import { JurisdictionAdoptionService } from './jurisdiction-adoption.service';
 import { JurisdictionsService, toDateOnly } from './jurisdictions.service';
 import {
   buildFileName,
+  buildTaxReturnCsv,
   buildTaxReturnPdf,
   buildTaxReturnXlsx,
   type TaxReturnDocumentInput,
@@ -26,6 +32,11 @@ export interface ReturnTotals {
   netPayable: number;
   currency: string;
   lines: TaxReturnSnapshotLine[];
+  /**
+   * Rows left out because no exchange rate exists for their day. A return
+   * with any of these is incomplete and cannot be filed.
+   */
+  missingRates: Array<{ transactionId: string; date: string; currency: string }>;
 }
 
 /**
@@ -51,6 +62,7 @@ export class TaxReturnsService {
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly jurisdictionsService: JurisdictionsService,
     private readonly auditService: AuditService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -105,24 +117,28 @@ export class TaxReturnsService {
   ): Promise<ReturnTotals> {
     const jurisdiction = await this.adoptionService.getCurrentJurisdiction(workspaceId);
     if (!jurisdiction) {
-      throw new BadRequestException(
-        'This workspace has no tax jurisdiction. Pick a country before building a return.',
-      );
+      throw new BadRequestException(appError('TAX_RETURN_NO_JURISDICTION'));
     }
 
     const transactions = await this.transactionRepository.find({
-      where: {
+      // A transfer between the user's own accounts is not a taxable supply.
+      where: countedWhere({
         workspaceId,
+        transferPairId: IsNull(),
         transactionDate: Between(new Date(periodStart), new Date(periodEnd)),
-        taxAmount: Not(null as never),
-      },
+        taxAmount: Not(IsNull()),
+      }),
       order: { transactionDate: 'ASC' },
     });
+    // A return is the workspace's document, frozen into a snapshot on filing:
+    // a private row's tax counts, its counterparty is nobody's to read there.
+    redactPrivateRows(transactions, null);
 
     const currency = jurisdiction.currency;
     let outputMinor = 0;
     let inputMinor = 0;
     const lines: TaxReturnSnapshotLine[] = [];
+    const missingRates: ReturnTotals['missingRates'] = [];
 
     for (const transaction of transactions) {
       // Under reverse charge nothing was charged, so the figure the return
@@ -138,15 +154,25 @@ export class TaxReturnsService {
       }
 
       const from = (transaction.currency || currency).toUpperCase();
+      // Never `getRate`: it answers 1 when it has no rate, which would put a
+      // dollar figure into a tenge return as if it were tenge.
       const rate =
         from === currency
           ? 1
-          : await this.exchangeRatesService.getRate(
+          : await this.exchangeRatesService.getRateOrNull(
               from,
               currency,
               new Date(transaction.transactionDate),
               workspaceId,
             );
+      if (rate === null) {
+        missingRates.push({
+          transactionId: transaction.id,
+          date: toDateOnly(transaction.transactionDate),
+          currency: from,
+        });
+        continue;
+      }
 
       // Rounded once, on the converted figure, so the line and the total agree.
       const convertedMinor = roundHalfAwayFromZero(toMinor(taxAmount) * rate);
@@ -180,6 +206,7 @@ export class TaxReturnsService {
       netPayable: fromMinor(outputMinor - inputMinor),
       currency,
       lines,
+      missingRates,
     };
   }
 
@@ -202,7 +229,7 @@ export class TaxReturnsService {
     periodEnd: string,
   ): Promise<TaxReturn> {
     if (periodEnd < periodStart) {
-      throw new BadRequestException('Period end must not be before period start');
+      throw new BadRequestException(appError('TAX_RETURN_PERIOD_INVALID'));
     }
 
     const existing = await this.returnRepository.findOne({
@@ -216,7 +243,7 @@ export class TaxReturnsService {
     const totals = await this.computeTotals(workspaceId, periodStart, periodEnd);
     const jurisdiction = await this.adoptionService.getCurrentJurisdiction(workspaceId);
 
-    const draft = this.returnRepository.create({
+    const draft = await this.returnRepository.save({
       ...(existing ?? {}),
       workspaceId,
       // biome-ignore lint/style/noNonNullAssertion: computeTotals already threw if absent.
@@ -231,8 +258,7 @@ export class TaxReturnsService {
       filedAt: null,
       snapshot: null,
     });
-
-    return this.returnRepository.save(draft);
+    return this.returnRepository.findOneByOrFail({ id: draft.id });
   }
 
   /**
@@ -253,10 +279,20 @@ export class TaxReturnsService {
     });
 
     if (existing?.status === TaxReturnStatus.FILED) {
-      throw new ConflictException('This period has already been filed');
+      throw new ConflictException(appError('TAX_RETURN_ALREADY_FILED'));
     }
 
     const totals = await this.computeTotals(workspaceId, periodStart, periodEnd);
+    if (totals.missingRates.length > 0) {
+      const currencies = [...new Set(totals.missingRates.map(row => row.currency))].join(', ');
+      throw new BadRequestException({
+        ...appError('TAX_RETURN_MISSING_RATES', {
+          count: totals.missingRates.length,
+          currencies,
+        }),
+        missingRates: totals.missingRates,
+      });
+    }
     const jurisdiction = await this.adoptionService.getCurrentJurisdiction(workspaceId);
 
     const filed = await this.returnRepository.manager.transaction(async manager => {
@@ -295,7 +331,12 @@ export class TaxReturnsService {
     });
 
     await this.recordStatusChange(workspaceId, userId, existing, filed);
-    return filed;
+    this.eventEmitter.emit('tax.deadline.resolved', {
+      workspaceId,
+      kind: 'vat_return',
+      periodEnd,
+    } satisfies TaxDeadlineResolvedEvent);
+    return this.returnRepository.findOneByOrFail({ id: filed.id });
   }
 
   /**
@@ -316,7 +357,7 @@ export class TaxReturnsService {
     });
 
     if (!existing || existing.status !== TaxReturnStatus.FILED) {
-      throw new BadRequestException('This period is not filed');
+      throw new BadRequestException(appError('TAX_RETURN_NOT_FILED'));
     }
 
     const lockedIds = (existing.snapshot ?? []).map(line => line.transactionId);
@@ -387,9 +428,17 @@ export class TaxReturnsService {
     workspaceId: string,
     periodStart: string,
     periodEnd: string,
-    format: 'pdf' | 'xlsx',
+    format: 'pdf' | 'xlsx' | 'csv',
   ): Promise<{ buffer: Buffer; fileName: string; contentType: string }> {
     const input = await this.buildDocumentInput(workspaceId, periodStart, periodEnd);
+
+    if (format === 'csv') {
+      return {
+        buffer: buildTaxReturnCsv(input),
+        fileName: buildFileName(input, 'csv'),
+        contentType: 'text/csv; charset=utf-8',
+      };
+    }
 
     if (format === 'pdf') {
       return {

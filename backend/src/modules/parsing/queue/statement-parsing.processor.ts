@@ -2,10 +2,15 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Job } from 'bullmq';
+import { type Job, UnrecoverableError } from 'bullmq';
 import { LessThan, Repository } from 'typeorm';
+import { STANDARD_WORKSPACE } from '../../../common/workspaces/version-workspaces';
 import { Statement, StatementStatus } from '../../../entities/statement.entity';
-import { StatementProcessingService } from '../services/statement-processing.service';
+import { WorkspaceKind } from '../../../entities/workspace.entity';
+import {
+  StatementProcessingService,
+  StatementRejected,
+} from '../services/statement-processing.service';
 import {
   STATEMENT_PARSING_QUEUE,
   type StatementParsingJob,
@@ -44,12 +49,31 @@ export class StatementParsingProcessor extends WorkerHost {
   async process(job: Job<StatementParsingJob>): Promise<void> {
     const { statementId } = job.data;
 
+    // A past version's statements stay as they were copied; a job that still
+    // names one (queued before the copy, say) is dropped, not retried.
+    const inVersion = await this.statementRepository.exists({
+      where: { id: statementId, workspace: { kind: WorkspaceKind.VERSION } },
+    });
+    if (inVersion) {
+      this.logger.log(`Statement ${statementId} belongs to a past version; not parsing it`);
+      return;
+    }
+
     await this.statementRepository.increment({ id: statementId }, 'parsingAttempts', 1);
     this.logger.log(`Processing statement ${statementId} (attempt ${job.attemptsMade + 1})`);
 
     // Errors propagate so BullMQ retries with backoff. processStatement already
     // recorded the failure on the statement itself before rethrowing.
-    await this.statementProcessingService.processStatement(statementId);
+    const finalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+    try {
+      await this.statementProcessingService.processStatement(statementId, { finalAttempt });
+    } catch (error) {
+      // Another attempt would read the same file and fail the same way.
+      if (error instanceof StatementRejected) {
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
   }
 }
 
@@ -85,8 +109,13 @@ export class StaleStatementReaper {
       where: {
         status: StatementStatus.PROCESSING,
         updatedAt: LessThan(new Date(Date.now() - STALE_PROCESSING_MS)),
+        // A past version may hold a copy caught mid-parse; it stays that way.
+        workspace: STANDARD_WORKSPACE,
       },
-      select: ['id', 'parsingAttempts'],
+      select: {
+        id: true,
+        parsingAttempts: true,
+      },
       take: 50,
     });
 

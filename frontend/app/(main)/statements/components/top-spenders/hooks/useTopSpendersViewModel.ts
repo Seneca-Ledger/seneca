@@ -20,10 +20,13 @@ export type TopSpendersViewModelReturn = TopAnalyticsViewModelReturn<
   TopSpendersDataReturn
 >;
 
-export const useTopSpendersViewModel = (): TopSpendersViewModelReturn =>
-  useTopAnalyticsViewModel({
-    useStateHook: useTopSpendersState,
-    useDataHook: useTopSpendersData,
-    createTx,
-    buildLabels: buildTopSpendersLabels,
-  });
+export const useTopSpendersViewModel = (month: Date): TopSpendersViewModelReturn =>
+  useTopAnalyticsViewModel(
+    {
+      useStateHook: useTopSpendersState,
+      useDataHook: useTopSpendersData,
+      createTx,
+      buildLabels: buildTopSpendersLabels,
+    },
+    month,
+  );

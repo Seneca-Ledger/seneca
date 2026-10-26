@@ -4,12 +4,17 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
+import type { EInvoiceSummary } from '../modules/e-invoices/einvoice-summary';
 import { StatementStage } from './statement.entity';
-import { Transaction } from './transaction.entity';
+import { Tag } from './tag.entity';
+import { Transaction, type TransactionCategorySource } from './transaction.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 
@@ -25,11 +30,12 @@ export enum ReceiptStatus {
 }
 
 export enum ReceiptSource {
-  GMAIL = 'gmail',
   UPLOAD = 'upload',
   TELEGRAM = 'telegram',
   SCAN = 'scan',
   IMAP = 'imap',
+  /** An e-invoice received over the Peppol network. */
+  PEPPOL = 'peppol',
 }
 
 /** Where a receipt's point on the map came from, in the order auto-detection trusts them. */
@@ -40,13 +46,18 @@ export enum ReceiptLocationSource {
   MANUAL = 'manual',
   /** Reserved for the tax-authority QR lookup; nothing writes it yet. */
   FISCAL_QR = 'fiscal_qr',
+  /** A shop the user picked from the places near them; details in metadata.place. */
+  PLACE = 'place',
 }
 
 @Entity('receipts')
 @Index(['userId'])
 @Index('IDX_receipts_workspace_received_at', ['workspaceId', 'receivedAt'])
 @Index(['status'])
-@Index(['gmailMessageId'])
+@Index('IDX_receipts_workspace_message_id_unique', ['workspaceId', 'messageId'], {
+  unique: true,
+  where: '"message_id" IS NOT NULL',
+})
 @Index(['receivedAt'])
 @Index(['duplicateOfId'])
 @Index(['isDuplicate'])
@@ -59,28 +70,26 @@ export class Receipt {
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({
     name: 'source',
     type: 'enum',
     enum: ReceiptSource,
-    default: ReceiptSource.GMAIL,
+    default: ReceiptSource.UPLOAD,
   })
   source: ReceiptSource;
 
-  @Column({ name: 'gmail_message_id', nullable: true })
-  gmailMessageId: string | null;
-
-  @Column({ name: 'gmail_thread_id', nullable: true })
-  gmailThreadId: string | null;
+  /** The source's own message key (IMAP); unique per workspace. */
+  @Column({ type: 'varchar', name: 'message_id', nullable: true })
+  messageId: string | null;
 
   @Column()
   subject: string;
@@ -143,6 +152,13 @@ export class Receipt {
       source: 'exif' | 'device';
       capturedAt: string;
     };
+    /** The OpenStreetMap place behind a PLACE location. */
+    place?: {
+      name: string;
+      category: string | null;
+      osmType: string;
+      osmId: string;
+    };
   };
 
   @Column({ type: 'jsonb', nullable: true, name: 'parsed_data' })
@@ -154,6 +170,9 @@ export class Receipt {
     date?: string;
     category?: string;
     categoryId?: string;
+    /** Which step picked `categoryId`, carried onto the transaction the receipt books. */
+    categorySource?: TransactionCategorySource | null;
+    categoryReason?: string | null;
     tax?: number;
     taxRate?: number;
     subtotal?: number;
@@ -166,6 +185,8 @@ export class Receipt {
     transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
     confidence?: number;
     validationIssues?: string[];
+    /** Set when the file is a structured e-invoice: what its XML says beyond the fields above. */
+    einvoice?: EInvoiceSummary;
   };
 
   @Column({ type: 'varchar', length: 32, nullable: true, name: 'language' })
@@ -185,7 +206,7 @@ export class Receipt {
 
   @ManyToOne(() => Transaction, { nullable: true })
   @JoinColumn({ name: 'transaction_id' })
-  transaction: Transaction | null;
+  transaction: Relation<Transaction | null>;
 
   @Column({ name: 'statement_id', type: 'uuid', nullable: true })
   statementId: string | null;
@@ -198,7 +219,7 @@ export class Receipt {
 
   @ManyToOne(() => Receipt, { nullable: true })
   @JoinColumn({ name: 'duplicate_of_id' })
-  duplicateOf: Receipt | null;
+  duplicateOf: Relation<Receipt | null>;
 
   @Column({ name: 'is_duplicate', type: 'boolean', default: false })
   isDuplicate: boolean;
@@ -223,4 +244,15 @@ export class Receipt {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @ManyToMany(
+    () => Tag,
+    tag => tag.receipts,
+  )
+  @JoinTable({
+    name: 'receipt_tags',
+    joinColumn: { name: 'receipt_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
+  })
+  tags: Relation<Tag[]>;
 }

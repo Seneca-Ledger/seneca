@@ -215,7 +215,7 @@ function buildWallets(announced: Eip6963Detail[]): BrowserWallet[] {
 
   const knownRdns = new Set(CATALOG.map(entry => entry.rdns));
   const others: BrowserWallet[] = announced
-    .filter(detail => !knownRdns.has(detail.info.rdns) && !HIDDEN_RDNS.has(detail.info.rdns))
+    .filter(detail => !(knownRdns.has(detail.info.rdns) || HIDDEN_RDNS.has(detail.info.rdns)))
     .map(detail => ({
       id: detail.info.uuid,
       name: detail.info.name,

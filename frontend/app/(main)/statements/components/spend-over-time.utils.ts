@@ -2,8 +2,8 @@ import type { StatementFilterItem } from '@/app/(main)/statements/components/fil
 import { formatDateISO, resolveAmountFlow } from './shared-analytics.utils';
 
 export type SpendOverTimeFlowType = 'expense' | 'income';
-export type SpendOverTimeSourceType = 'statement' | 'gmail';
-export type SpendOverTimeSourceChannel = 'bank' | 'receipt' | 'gmail' | 'crypto';
+export type SpendOverTimeSourceType = 'statement' | 'receipt';
+export type SpendOverTimeSourceChannel = 'bank' | 'receipt' | 'crypto';
 export type SpendOverTimeGroupBy = 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 export type SpendOverTimeRecord = StatementFilterItem & {
@@ -18,6 +18,8 @@ export type SpendOverTimeRecord = StatementFilterItem & {
   workspaceName?: string;
   merchant?: string | null;
   paymentPurpose?: string | null;
+  /** The document behind the operation, opened the way the Documents list opens it. */
+  href?: string | null;
 };
 
 export type SpendOverTimePoint = {
@@ -28,7 +30,7 @@ export type SpendOverTimePoint = {
   net: number;
   count: number;
   statementAmount: number;
-  gmailAmount: number;
+  receiptAmount: number;
 };
 
 export type SpendOverTimeTotals = {
@@ -38,7 +40,7 @@ export type SpendOverTimeTotals = {
   count: number;
   avgPerPeriod: number;
   statementAmount: number;
-  gmailAmount: number;
+  receiptAmount: number;
 };
 
 export type SpendOverTimeReport = {
@@ -166,8 +168,8 @@ export const buildSpendOverTimeSelectedPoint = (
       } else {
         result.expense += record.amount;
       }
-      if (record.sourceType === 'gmail') {
-        result.gmailAmount += record.amount;
+      if (record.sourceType === 'receipt') {
+        result.receiptAmount += record.amount;
       } else {
         result.statementAmount += record.amount;
       }
@@ -183,7 +185,7 @@ export const buildSpendOverTimeSelectedPoint = (
       net: 0,
       count: 0,
       statementAmount: 0,
-      gmailAmount: 0,
+      receiptAmount: 0,
     },
   );
   return {
@@ -192,7 +194,7 @@ export const buildSpendOverTimeSelectedPoint = (
     expense: Number(point.expense.toFixed(2)),
     net: Number(point.net.toFixed(2)),
     statementAmount: Number(point.statementAmount.toFixed(2)),
-    gmailAmount: Number(point.gmailAmount.toFixed(2)),
+    receiptAmount: Number(point.receiptAmount.toFixed(2)),
   };
 };
 
@@ -221,14 +223,12 @@ export const dedupeSpendOverTimeReceiptRecords = (
   });
 };
 
-// eslint-disable-next-line max-lines-per-function
 export const buildSpendOverTimeReport = (
   records: SpendOverTimeRecord[],
   groupBy: SpendOverTimeGroupBy,
 ): SpendOverTimeReport => {
   const pointsMap = new Map<string, SpendOverTimePoint>();
 
-  // eslint-disable-next-line complexity
   records.forEach(record => {
     const date = toDateOnly(record.dateValue || record.createdAt || null);
     if (!date || record.amount <= 0) {
@@ -244,7 +244,7 @@ export const buildSpendOverTimeReport = (
       net: 0,
       count: 0,
       statementAmount: 0,
-      gmailAmount: 0,
+      receiptAmount: 0,
     };
 
     if (record.flowType === 'income') {
@@ -253,8 +253,8 @@ export const buildSpendOverTimeReport = (
       existing.expense += record.amount;
     }
 
-    if (record.sourceType === 'gmail') {
-      existing.gmailAmount += record.amount;
+    if (record.sourceType === 'receipt') {
+      existing.receiptAmount += record.amount;
     } else {
       existing.statementAmount += record.amount;
     }
@@ -272,7 +272,7 @@ export const buildSpendOverTimeReport = (
       expense: Number(point.expense.toFixed(2)),
       net: Number(point.net.toFixed(2)),
       statementAmount: Number(point.statementAmount.toFixed(2)),
-      gmailAmount: Number(point.gmailAmount.toFixed(2)),
+      receiptAmount: Number(point.receiptAmount.toFixed(2)),
     }));
 
   const totals = points.reduce<SpendOverTimeTotals>(
@@ -282,7 +282,7 @@ export const buildSpendOverTimeReport = (
       result.net += point.net;
       result.count += point.count;
       result.statementAmount += point.statementAmount;
-      result.gmailAmount += point.gmailAmount;
+      result.receiptAmount += point.receiptAmount;
       return result;
     },
     {
@@ -292,7 +292,7 @@ export const buildSpendOverTimeReport = (
       count: 0,
       avgPerPeriod: 0,
       statementAmount: 0,
-      gmailAmount: 0,
+      receiptAmount: 0,
     },
   );
 
@@ -302,7 +302,7 @@ export const buildSpendOverTimeReport = (
   totals.expense = Number(totals.expense.toFixed(2));
   totals.net = Number(totals.net.toFixed(2));
   totals.statementAmount = Number(totals.statementAmount.toFixed(2));
-  totals.gmailAmount = Number(totals.gmailAmount.toFixed(2));
+  totals.receiptAmount = Number(totals.receiptAmount.toFixed(2));
 
   return {
     points,

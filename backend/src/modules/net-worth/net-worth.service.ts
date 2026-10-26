@@ -1,78 +1,44 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { onlyCounted } from '../../common/utils/counted-transactions.util';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import type {
+  NetWorthAssetLine,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthResponse,
+} from '../../contracts';
 import {
   BalanceAccount,
+  BalanceAccountKind,
   BalanceAccountType,
   BalanceSnapshot,
-  CapitalRole,
   RiskLevel,
   Transaction,
   Workspace,
 } from '../../entities';
+import type { InvestmentMetal } from '../../entities/investment-holding.entity';
 import { BalanceService, CASH_ACCOUNT_CODE } from '../balance/balance.service';
+import { balanceAccountName } from '../balance/balance-account-name';
 import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { InvestmentsService } from '../investments/investments.service';
 import type { NetWorthRange } from './dto/net-worth-query.dto';
 
-export interface NetWorthPoint {
-  date: string;
-  value: number;
-}
+export type {
+  NetWorthAssetLine,
+  NetWorthBreakdownItem,
+  NetWorthClassificationItem,
+  NetWorthDenominated,
+  NetWorthPoint,
+  NetWorthResponse,
+};
 
-export interface NetWorthBreakdownItem {
-  code: string;
-  name: string;
-  amount: number;
-  percent: number;
-}
-
-/** One bucket of a classification split. `key` is null for what is unlabelled. */
-export interface NetWorthClassificationItem {
-  key: string | null;
-  amount: number;
-  percent: number;
-}
-
-/** An asset line the user can classify, with what it is currently worth. */
-export interface NetWorthAssetLine {
-  id: string;
-  code: string;
-  name: string;
-  amount: number;
-  capitalRole: CapitalRole | null;
-  riskLevel: RiskLevel | null;
-  /** False for cash, whose risk is fixed rather than chosen. */
-  isClassifiable: boolean;
-}
-
-export interface NetWorthResponse {
-  range: NetWorthRange;
-  currency: string;
-  current: number;
-  previous: number;
-  change: number;
-  changePercent: number | null;
-  assetsTotal: number;
-  liabilitiesTotal: number;
-  series: NetWorthPoint[];
-  breakdown: NetWorthBreakdownItem[];
-  byRisk: NetWorthClassificationItem[];
-  byRole: NetWorthClassificationItem[];
-  /** Share of assets sitting in medium or high risk. */
-  riskyPercent: number;
-  assetLines: NetWorthAssetLine[];
-  /** Currencies left out of the figures because no rate to `currency` was found. */
-  missingRates: string[];
-  /** The highest sampled net worth over the whole history, and when. */
-  allTimeHigh: { value: number; date: string } | null;
-  /** Investment holdings by asset class; cash and the other sheet lines keep their own buckets. */
-  byAssetClass: NetWorthClassificationItem[];
-}
-
-/** Days back from today for each range. `all` is resolved from the data. */
-const RANGE_DAYS: Record<Exclude<NetWorthRange, 'all'>, number> = {
+/** Days back from today for each range. `all` and `ytd` come from elsewhere. */
+const RANGE_DAYS: Record<Exclude<NetWorthRange, 'all' | 'ytd'>, number> = {
   '30d': 30,
   '90d': 90,
   '180d': 180,
@@ -125,10 +91,14 @@ export class NetWorthService {
     workspaceId: string,
     range: NetWorthRange = '90d',
     locale?: string,
+    denominate?: InvestmentMetal,
+    asOf?: string,
   ): Promise<NetWorthResponse> {
     await this.balanceService.seedDefaultAccounts(workspaceId);
 
-    const to = isoDate(new Date());
+    const today = isoDate(new Date());
+    // Net worth as it stood at the end of a past day; nothing is known about later ones.
+    const to = asOf && asOf < today ? asOf : today;
     const from = await this.resolveFrom(workspaceId, range, to);
     const dates = samplePoints(from, to, SERIES_POINTS);
 
@@ -209,20 +179,19 @@ export class NetWorthService {
       snapshotsByAccount,
       currency,
     );
-    const byAssetClass = await this.buildAssetClasses(
-      workspaceId,
-      leaves,
-      valueAt,
-      to,
-      assetsTotal,
-    );
+    // The split by asset class prices holdings as they are now, which says
+    // nothing true about a past day; it is left out rather than made up.
+    const byAssetClass =
+      to === today
+        ? await this.buildAssetClasses(workspaceId, leaves, valueAt, to, assetsTotal)
+        : [];
 
     const assetLines = leaves
       .filter(leaf => leaf.accountType === BalanceAccountType.ASSET)
       .map(leaf => ({
         id: leaf.id,
         code: leaf.code,
-        name: resolveName(leaf, locale),
+        name: balanceAccountName(leaf, locale),
         amount: round2(valueAt(leaf.id, leaf.code, to)),
         // Cash answers for itself: always low risk, never the user's call.
         capitalRole: leaf.capitalRole,
@@ -260,6 +229,9 @@ export class NetWorthService {
       ),
       assetLines,
       missingRates: converter.missing,
+      denominated: denominate
+        ? await this.denominate(workspaceId, denominate, currency, series)
+        : null,
       allTimeHigh,
       byAssetClass,
     };
@@ -333,9 +305,45 @@ export class NetWorthService {
   }
 
   /**
-   * Assets by class: investment holdings by their own class, the cash line as
-   * cash, everything else on the sheet as "other". The investment accounts'
-   * own snapshot lines are left out so their holdings are not counted twice.
+   * The series in troy ounces of a metal, each point at the spot price of its
+   * own day. A day without a quote has no honest answer, so it is left out
+   * rather than filled with today's price; with no quotes at all there is no
+   * denominated view.
+   */
+  private async denominate(
+    workspaceId: string,
+    metal: InvestmentMetal,
+    currency: string,
+    series: NetWorthPoint[],
+  ): Promise<NetWorthDenominated | null> {
+    const points: NetWorthPoint[] = [];
+    for (const point of series) {
+      const quote = await this.exchangeRatesService.getRateQuote(metal, currency, point.date, {
+        workspaceId,
+      });
+      if (!(quote && quote.rate > 0)) continue;
+      points.push({ date: point.date, value: round4(point.value / quote.rate) });
+    }
+    if (points.length === 0) return null;
+    const current = points[points.length - 1]?.value ?? 0;
+    const previous = points[0]?.value ?? 0;
+    const change = round4(current - previous);
+    return {
+      metal,
+      unit: 'ozt',
+      current,
+      previous,
+      change,
+      changePercent: previous > 0 ? round2((change / previous) * 100) : null,
+      series: points,
+    };
+  }
+
+  /**
+   * Assets by class: investment holdings by their own class, the crypto account
+   * as crypto, the cash line as cash, everything else on the sheet as "other".
+   * The investment accounts' own snapshot lines are left out so their holdings
+   * are not counted twice.
    */
   private async buildAssetClasses(
     workspaceId: string,
@@ -352,6 +360,12 @@ export class NetWorthService {
     for (const [assetClass, amount] of holdings) add(assetClass, amount);
     for (const leaf of leaves) {
       if (leaf.accountType !== BalanceAccountType.ASSET) continue;
+      // The crypto line is one account holding many coins; its class is known
+      // without asking the investments table, which no longer keeps crypto.
+      if (leaf.accountKind === BalanceAccountKind.CRYPTO) {
+        add('crypto', valueAt(leaf.id, leaf.code, to));
+        continue;
+      }
       if (leaf.accountKind) continue;
       const amount = valueAt(leaf.id, leaf.code, to);
       if (amount === 0) continue;
@@ -397,7 +411,7 @@ export class NetWorthService {
 
     return sections.map(section => ({
       code: section.account.code,
-      name: resolveName(section.account, locale),
+      name: balanceAccountName(section.account, locale),
       amount: section.amount,
       percent: assetsTotal > 0 ? round2((section.amount / assetsTotal) * 100) : 0,
     }));
@@ -406,12 +420,11 @@ export class NetWorthService {
   private async resolveCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
-    const normalized = String(workspace?.currency || '')
-      .trim()
-      .toUpperCase();
-    return /^[A-Z]{3}$/.test(normalized) ? normalized : 'KZT';
+    return currencyCodeOrDefault(workspace?.currency);
   }
 
   /**
@@ -424,6 +437,9 @@ export class NetWorthService {
     range: NetWorthRange,
     to: string,
   ): Promise<string> {
+    if (range === 'ytd') {
+      return `${to.slice(0, 4)}-01-01`;
+    }
     if (range !== 'all') {
       return shiftDays(to, -RANGE_DAYS[range]);
     }
@@ -434,11 +450,14 @@ export class NetWorthService {
         .select('MIN(snapshot.snapshotDate)', 'earliest')
         .where('snapshot.workspaceId = :workspaceId', { workspaceId })
         .getRawOne<{ earliest: string | null }>(),
-      this.transactionRepository
-        .createQueryBuilder('transaction')
-        .select('MIN(transaction.transactionDate)', 'earliest')
-        .where('transaction.workspaceId = :workspaceId', { workspaceId })
-        .getRawOne<{ earliest: string | null }>(),
+      // The chart starts at the first confirmed row: unconfirmed ones are not on it.
+      onlyCounted(
+        this.transactionRepository
+          .createQueryBuilder('transaction')
+          .select('MIN(transaction.transactionDate)', 'earliest')
+          .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+        'transaction',
+      ).getRawOne<{ earliest: string | null }>(),
     ]);
 
     const candidates = [snapshot?.earliest, transaction?.earliest]
@@ -574,16 +593,11 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+/** Ounces are small numbers: two decimals would round a silver stack to noise. */
+function round4(value: number): number {
+  return Math.round(value * 10000) / 10000;
 }
 
-function resolveName(account: BalanceAccount, locale?: string): string {
-  if (locale === 'en' && account.nameEn) {
-    return account.nameEn;
-  }
-  if (locale === 'kk' && account.nameKk) {
-    return account.nameKk;
-  }
-  return account.name;
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }

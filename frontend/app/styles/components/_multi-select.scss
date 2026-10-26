@@ -1,0 +1,6 @@
+@use '../abstracts' as *;
+
+// Placeholder of the multi-pick dropdown (`ui/multi-select`), muted like an input's.
+.seneca-multi-select__placeholder {
+  color: $seneca-color-ink-400;
+}

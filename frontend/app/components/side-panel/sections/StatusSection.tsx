@@ -7,7 +7,6 @@ import { RenderIcon } from './components/RenderIcon';
 import { SectionWrapper } from './components/SectionWrapper';
 import { STATUS_COLOR_MAP } from './helpers/section-constants';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, max-lines-per-function
 function StatusItemComponent({ item }: { item: StatusItem }) {
   const formattedTime = useMemo(() => {
     if (!item.timestamp) return null;
@@ -67,7 +66,6 @@ function StatusItemComponent({ item }: { item: StatusItem }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function StatusSectionRenderer({ section }: { section: StatusSection }) {
   return (
     <SectionWrapper section={section}>

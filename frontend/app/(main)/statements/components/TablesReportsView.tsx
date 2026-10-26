@@ -11,6 +11,8 @@ import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import {
@@ -24,7 +26,6 @@ import {
   saveTablesReportsFilters,
   type TablesReportDrillDownResponse,
   type TablesReportFlowType,
-  type TablesReportResponse,
   type TablesReportSortKey,
 } from './tables-reports.utils';
 
@@ -88,11 +89,10 @@ export default function TablesReportsView() {
   useEffect(() => {
     let mounted = true;
 
-    apiClient
-      .get('/reports/custom-tables/available')
-      .then(response => {
+    apiQueryDecoded({ url: '/reports/custom-tables/available', contract: 'AvailableCustomTables' })
+      .then(tables => {
         if (!mounted) return;
-        setAvailableTables(Array.isArray(response.data) ? response.data : []);
+        setAvailableTables(tables);
       })
       .catch(() => {
         if (!mounted) return;
@@ -130,17 +130,18 @@ export default function TablesReportsView() {
   const reportQuery = useQuery({
     queryKey: queryKeys.tablesReport({ workspaceId, params: reportPayload }),
     queryFn: async ({ signal }) => {
-      const response = await apiClient.post<TablesReportResponse>(
+      const response = await apiClient.post(
         '/reports/custom-tables/report',
-        reportPayload,
+        reportPayload satisfies ContractInput<'CustomTablesReportBody'>,
         { signal },
       );
-      return response.data;
+      return checkContract('CustomTablesReport', response.data, '/reports/custom-tables/report');
     },
     // Клик по фильтру меняет ключ; цифры и графики держатся на экране до
     // прихода нового отчёта, но только внутри того же воркспейса.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 
   const report = reportQuery.isError ? null : (reportQuery.data ?? null);
@@ -167,8 +168,17 @@ export default function TablesReportsView() {
           payload.tableIds = selectedTableIds;
         }
 
-        const response = await apiClient.post('/reports/custom-tables/report/drill-down', payload);
-        setDrillDown(response.data);
+        const response = await apiClient.post(
+          '/reports/custom-tables/report/drill-down',
+          payload satisfies ContractInput<'CustomTablesReportDrillDownBody'>,
+        );
+        setDrillDown(
+          await checkContract(
+            'CustomTablesReportDrillDown',
+            response.data,
+            '/reports/custom-tables/report/drill-down',
+          ),
+        );
       })().catch(async () => {
         setDrillDown({ counterparty, items: [] });
       });
@@ -182,11 +192,13 @@ export default function TablesReportsView() {
   }, []);
 
   const timeseries = report?.timeseries;
+  // Privacy mode: the canvas is out of reach of the CSS redaction, so the value axes drop their figures.
+  const privacy = usePrivacyMode();
   const trendChartOption = useMemo(() => {
     if (!timeseries?.length) return null;
     return {
       xAxis: { type: 'category', data: timeseries.map(item => item.date) },
-      yAxis: { type: 'value' },
+      yAxis: { type: 'value', axisLabel: { show: !privacy } },
       series: [
         {
           type: 'line',
@@ -195,7 +207,7 @@ export default function TablesReportsView() {
         },
       ],
     };
-  }, [timeseries]);
+  }, [timeseries, privacy]);
 
   const sourceSplitOption = useMemo(() => {
     if (!report) return null;
@@ -218,7 +230,7 @@ export default function TablesReportsView() {
     return {
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { top: 10, right: 30, bottom: 20, left: 140 },
-      xAxis: { type: 'value' },
+      xAxis: { type: 'value', axisLabel: { show: !privacy } },
       yAxis: {
         type: 'category',
         data: topRows.map(item => item.counterparty),
@@ -236,7 +248,7 @@ export default function TablesReportsView() {
         },
       ],
     };
-  }, [aggregatedRows]);
+  }, [aggregatedRows, privacy]);
 
   const selectedTablesCount = selectedTableIds.length;
   const chartTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
@@ -275,10 +287,6 @@ export default function TablesReportsView() {
     >
       <div style={{ marginBottom: 20, flexShrink: 0 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 600, color: c.ink900 }}>{reportsT.title}</h1>
-            <p style={{ fontSize: 14, color: c.ink500 }}>{reportsT.subtitle}</p>
-          </div>
           <div
             style={{
               display: 'inline-flex',

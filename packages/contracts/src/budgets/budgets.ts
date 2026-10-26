@@ -1,0 +1,138 @@
+import * as Schema from 'effect/Schema';
+import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
+import { CategoryRef } from '../reference/reference';
+
+export const BudgetPeriodType = Schema.Literals(['weekly', 'monthly', 'quarterly', 'annual']);
+export type BudgetPeriodType = Wire<typeof BudgetPeriodType>;
+
+export const BudgetRolloverMode = Schema.Literals(['none', 'carry', 'refill']);
+export type BudgetRolloverMode = Wire<typeof BudgetRolloverMode>;
+
+/** One row of `GET /budgets`: the budget, its category and the current period's figures. */
+export const BudgetItem = Schema.Struct({
+  id: Schema.String,
+  workspaceId: Schema.String,
+  name: Schema.String,
+  categoryId: Schema.String,
+  category: CategoryRef,
+  limitAmount: DecimalString,
+  currency: Schema.String,
+  periodType: BudgetPeriodType,
+  rolloverMode: BudgetRolloverMode,
+  currentPeriodStart: DateOnly,
+  /** The window the budget applies in; both null means it runs forever. */
+  startsOn: Schema.NullOr(DateOnly),
+  endsOn: Schema.NullOr(DateOnly),
+  /** The goal this budget serves; null when it stands on its own. */
+  goalId: Schema.NullOr(Schema.String),
+  createdById: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+  spentAmount: Schema.Number,
+  percentUsed: Schema.Number,
+  /** What the period has to spend once rollover is settled; equals the limit without rollover. */
+  availableAmount: Schema.Number,
+  /** availableAmount minus the limit: positive = leftover carried in, negative = overspend. */
+  carriedAmount: Schema.Number,
+  /** Whether today falls inside the budget's window. */
+  isActive: Schema.Boolean,
+  /**
+   * Spending in currencies with no rate to the budget's on its day: left out
+   * of spentAmount rather than counted one to one, and shown as a note.
+   */
+  unconvertedSpending: Schema.Array(
+    Schema.Struct({ currency: Schema.String, amount: Schema.Number }),
+  ),
+  /**
+   * The category's spending earlier in the current period than `startsOn`,
+   * per currency as booked: outside the budget, and shown as a note.
+   */
+  beforeStartSpending: Schema.Array(
+    Schema.Struct({ currency: Schema.String, amount: Schema.Number }),
+  ),
+  /**
+   * Charges of active subscriptions paid from this budget that still fall in
+   * the current period, from today to its end, in the budget's currency.
+   * Already-paid ones are in spentAmount (their rows carry the category).
+   */
+  subscriptionReserve: Schema.Struct({
+    amount: Schema.Number,
+    items: Schema.Array(
+      Schema.Struct({
+        subscriptionId: Schema.String,
+        vendorName: Schema.String,
+        amount: Schema.Number,
+      }),
+    ),
+  }),
+});
+export type BudgetItem = Wire<typeof BudgetItem>;
+
+export const BudgetList = Schema.Array(BudgetItem);
+export type BudgetList = Wire<typeof BudgetList>;
+
+/** `GET /budgets/impact`: what a planned expense would do to budgets and the account. */
+export const BudgetImpact = Schema.Struct({
+  budgets: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      categoryName: Schema.NullOr(Schema.String),
+      currency: Schema.String,
+      availableAmount: Schema.Number,
+      spentAmount: Schema.Number,
+      remainingAfter: Schema.Number,
+      exceeds: Schema.Boolean,
+    }),
+  ),
+  account: Schema.NullOr(
+    Schema.Struct({
+      walletId: Schema.String,
+      name: Schema.String,
+      currency: Schema.String,
+      balance: Schema.Number,
+      balanceAfter: Schema.Number,
+      overdraws: Schema.Boolean,
+    }),
+  ),
+});
+export type BudgetImpact = Wire<typeof BudgetImpact>;
+
+const StoicSplit = Schema.Struct({
+  necessity: Schema.Number,
+  work: Schema.Number,
+  virtue: Schema.Number,
+  leisure: Schema.Number,
+  unclassified: Schema.Number,
+});
+
+/** `GET /budgets/stoic-balance`: intended against actual spending, by Stoic class. */
+export const StoicBalance = Schema.Struct({
+  currency: Schema.String,
+  months: Schema.Array(
+    Schema.Struct({
+      month: Schema.String,
+      monthsAgo: Schema.Number,
+      intended: StoicSplit,
+      actual: StoicSplit,
+      overBudgetCategoryIds: Schema.Array(Schema.String),
+      spentByCategory: Schema.Record(Schema.String, Schema.Number),
+      limitByCategory: Schema.Record(Schema.String, Schema.Number),
+    }),
+  ),
+  categories: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      parentId: Schema.NullOr(Schema.String),
+      stoicClass: Schema.NullOr(Schema.Literals(['necessity', 'work', 'virtue', 'leisure'])),
+      source: Schema.NullOr(Schema.Literals(['user', 'suggested'])),
+      helpsOthers: Schema.Boolean,
+      helpsOthersSource: Schema.Literals(['user', 'suggested']),
+      spent: Schema.Number,
+      active: Schema.Boolean,
+      budgeted: Schema.Boolean,
+    }),
+  ),
+});
+export type StoicBalance = Wire<typeof StoicBalance>;

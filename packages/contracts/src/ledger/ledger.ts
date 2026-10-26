@@ -1,0 +1,283 @@
+import * as Schema from 'effect/Schema';
+import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
+
+export const LedgerAccountType = Schema.Literals([
+  'asset',
+  'liability',
+  'equity',
+  'income',
+  'expense',
+]);
+export type LedgerAccountType = Wire<typeof LedgerAccountType>;
+
+export const LedgerSide = Schema.Literals(['debit', 'credit']);
+export type LedgerSide = Wire<typeof LedgerSide>;
+
+export const JournalEntrySource = Schema.Literals([
+  'transaction',
+  'manual',
+  'opening_balance',
+  'fx_revaluation',
+  'invoice',
+  'credit_note',
+]);
+export type JournalEntrySource = Wire<typeof JournalEntrySource>;
+
+/** One row of `GET /ledger/accounts`: the chart of accounts, parents included. */
+export const LedgerAccount = Schema.Struct({
+  id: Schema.String,
+  parentId: Schema.NullOr(Schema.String),
+  code: Schema.String,
+  name: Schema.String,
+  accountType: LedgerAccountType,
+  normalBalance: LedgerSide,
+  currency: Schema.NullOr(Schema.String),
+  isPostable: Schema.Boolean,
+  isSystem: Schema.Boolean,
+  position: Schema.Number,
+});
+export type LedgerAccount = Wire<typeof LedgerAccount>;
+
+export const LedgerAccountList = Schema.Array(LedgerAccount);
+export type LedgerAccountList = Wire<typeof LedgerAccountList>;
+
+const JournalEntryHeader = Schema.Struct({
+  id: Schema.String,
+  entryNo: Schema.NullOr(Schema.String),
+  entryDate: DateOnly,
+  baseCurrency: Schema.String,
+  memo: Schema.NullOr(Schema.String),
+  status: Schema.Literals(['draft', 'posted', 'reversed']),
+  source: JournalEntrySource,
+  reversalOfId: Schema.NullOr(Schema.String),
+  postedAt: Schema.NullOr(Timestamp),
+});
+
+/** `GET /ledger/entries`: a page of journal entries, newest first. */
+export const JournalEntryPage = Schema.Struct({
+  data: Schema.Array(Schema.Struct({ ...JournalEntryHeader.fields, baseTotal: DecimalString })),
+  total: Schema.Number,
+  page: Schema.Number,
+  limit: Schema.Number,
+  totalPages: Schema.Number,
+});
+export type JournalEntryPage = Wire<typeof JournalEntryPage>;
+
+/** `GET /ledger/entries/:id`: the entry with its lines. */
+export const JournalEntryDetail = Schema.Struct({
+  ...JournalEntryHeader.fields,
+  sourceTransactionId: Schema.NullOr(Schema.String),
+  reversedById: Schema.NullOr(Schema.String),
+  postedBy: Schema.NullOr(Schema.String),
+  createdBy: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+  lines: Schema.Array(
+    Schema.Struct({
+      lineNo: Schema.Number,
+      accountId: Schema.String,
+      accountCode: Schema.String,
+      accountName: Schema.String,
+      side: LedgerSide,
+      amount: DecimalString,
+      currency: Schema.String,
+      baseAmount: DecimalString,
+      fxRate: DecimalString,
+      categoryId: Schema.NullOr(Schema.String),
+      branchId: Schema.NullOr(Schema.String),
+    }),
+  ),
+  totals: Schema.Struct({
+    baseDebit: DecimalString,
+    baseCredit: DecimalString,
+    difference: DecimalString,
+  }),
+});
+export type JournalEntryDetail = Wire<typeof JournalEntryDetail>;
+
+/** `GET /ledger/settings`. */
+export const LedgerSettings = Schema.Struct({
+  baseCurrency: Schema.NullOr(Schema.String),
+  enabled: Schema.Boolean,
+  suggestedBaseCurrency: Schema.NullOr(Schema.String),
+  pendingTransactions: Schema.Number,
+});
+export type LedgerSettings = Wire<typeof LedgerSettings>;
+
+/** `GET /ledger/integrity`: whether the books agree with the transactions and statements. */
+export const LedgerIntegrity = Schema.Struct({
+  baseCurrency: Schema.NullOr(Schema.String),
+  pendingTransactions: Schema.Number,
+  failingTransactions: Schema.Number,
+  failures: Schema.Array(
+    Schema.Struct({
+      transactionId: Schema.String,
+      error: Schema.String,
+      attemptedAt: Timestamp,
+    }),
+  ),
+  orphanEntries: Schema.Number,
+  unbalancedEntries: Schema.Number,
+  cashAccounts: Schema.Array(
+    Schema.Struct({
+      accountId: Schema.String,
+      code: Schema.String,
+      name: Schema.String,
+      currency: Schema.NullOr(Schema.String),
+      ledgerBalance: DecimalString,
+      statementBalance: Schema.NullOr(DecimalString),
+      statementDate: Schema.NullOr(DateOnly),
+      difference: Schema.NullOr(DecimalString),
+      hasOpeningBalance: Schema.Boolean,
+    }),
+  ),
+  lastRevaluation: Schema.NullOr(
+    Schema.Struct({
+      date: DateOnly,
+      entryNo: Schema.NullOr(Schema.String),
+      stale: Schema.Boolean,
+    }),
+  ),
+  upToDate: Schema.Boolean,
+});
+export type LedgerIntegrity = Wire<typeof LedgerIntegrity>;
+
+const Freshness = Schema.Struct({
+  upToDate: Schema.Boolean,
+  pendingTransactions: Schema.Number,
+  failingTransactions: Schema.Number,
+});
+
+/** `GET /ledger/reports/accounts/:id`: one account's lines with a running balance. */
+export const AccountLedger = Schema.Struct({
+  baseCurrency: Schema.String,
+  account: Schema.Struct({
+    id: Schema.String,
+    code: Schema.String,
+    name: Schema.String,
+    accountType: LedgerAccountType,
+    normalBalance: LedgerSide,
+  }),
+  dateFrom: DateOnly,
+  dateTo: DateOnly,
+  freshness: Freshness,
+  openingBalance: DecimalString,
+  closingBalance: DecimalString,
+  lines: Schema.Array(
+    Schema.Struct({
+      entryId: Schema.String,
+      lineNo: Schema.Number,
+      entryNo: Schema.NullOr(Schema.String),
+      entryDate: DateOnly,
+      memo: Schema.NullOr(Schema.String),
+      source: JournalEntrySource,
+      side: LedgerSide,
+      amount: DecimalString,
+      currency: Schema.String,
+      baseAmount: DecimalString,
+      runningBalance: DecimalString,
+    }),
+  ),
+  total: Schema.Number,
+  page: Schema.Number,
+  limit: Schema.Number,
+  totalPages: Schema.Number,
+});
+export type AccountLedger = Wire<typeof AccountLedger>;
+
+/** `GET /ledger/reports/trial-balance`. */
+export const TrialBalance = Schema.Struct({
+  baseCurrency: Schema.String,
+  dateFrom: DateOnly,
+  dateTo: DateOnly,
+  freshness: Freshness,
+  rows: Schema.Array(
+    Schema.Struct({
+      accountId: Schema.String,
+      parentId: Schema.NullOr(Schema.String),
+      code: Schema.String,
+      name: Schema.String,
+      accountType: LedgerAccountType,
+      isPostable: Schema.Boolean,
+      openingDebit: DecimalString,
+      openingCredit: DecimalString,
+      debit: DecimalString,
+      credit: DecimalString,
+      closingDebit: DecimalString,
+      closingCredit: DecimalString,
+    }),
+  ),
+  totals: Schema.Struct({
+    debit: DecimalString,
+    credit: DecimalString,
+    openingDebit: DecimalString,
+    openingCredit: DecimalString,
+    closingDebit: DecimalString,
+    closingCredit: DecimalString,
+  }),
+  balanced: Schema.Boolean,
+});
+export type TrialBalance = Wire<typeof TrialBalance>;
+
+const OpenItem = Schema.Struct({
+  id: Schema.String,
+  direction: Schema.Literals(['payable', 'receivable']),
+  vendor: Schema.String,
+  amount: Schema.Number,
+  currency: Schema.String,
+  dueDate: Schema.NullOr(Schema.String),
+  createdAt: Schema.String,
+  status: Schema.String,
+  amountInWorkspace: Schema.Number,
+});
+
+const AgeingBucket = Schema.Literals(['current', 'd1_30', 'd31_60', 'd61_90', 'd90_plus']);
+
+/** `GET /reconciliation`: open bills and invoices against the bank rows that may settle them. */
+export const ReconciliationResponse = Schema.Struct({
+  currency: Schema.String,
+  matches: Schema.Array(
+    Schema.Struct({
+      itemId: Schema.String,
+      transactionId: Schema.String,
+      confidence: Schema.Number,
+      reasons: Schema.Array(Schema.Literals(['amount', 'vendor', 'date'])),
+      item: OpenItem,
+      transaction: Schema.Struct({
+        id: Schema.String,
+        type: Schema.Literals(['income', 'expense']),
+        amount: Schema.Number,
+        currency: Schema.String,
+        date: Schema.String,
+        counterpartyName: Schema.NullOr(Schema.String),
+        paymentPurpose: Schema.NullOr(Schema.String),
+      }),
+    }),
+  ),
+  unmatchedItems: Schema.Array(OpenItem),
+  unmatchedRowCount: Schema.Number,
+  duplicates: Schema.Array(
+    Schema.Struct({
+      vendor: Schema.String,
+      amount: Schema.Number,
+      currency: Schema.String,
+      itemIds: Schema.Array(Schema.String),
+    }),
+  ),
+  ageing: Schema.Array(
+    Schema.Struct({
+      direction: Schema.Literals(['payable', 'receivable']),
+      buckets: Schema.Struct({
+        current: Schema.Number,
+        d1_30: Schema.Number,
+        d31_60: Schema.Number,
+        d61_90: Schema.Number,
+        d90_plus: Schema.Number,
+      }),
+      total: Schema.Number,
+      top: Schema.Array(
+        Schema.Struct({ vendor: Schema.String, amount: Schema.Number, bucket: AgeingBucket }),
+      ),
+    }),
+  ),
+});
+export type ReconciliationResponse = Wire<typeof ReconciliationResponse>;

@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStatementRequestParams,
   deriveVisibleFilterScreens,
+  filterByApproved,
+  isDocumentApproved,
   isReceiptDerivedStatement,
   paginateStatements,
   reconcileFiltersWithColumns,
+  resolvePendingReview,
   resolveStatementViewAction,
 } from './StatementsListView.utils';
 import { DEFAULT_STATEMENT_FILTERS } from './filters/statement-filters';
@@ -60,21 +63,6 @@ describe('StatementsListView utils', () => {
     });
   });
 
-  it('omits gmail from server request params because gmail receipts are loaded separately', () => {
-    const result = buildStatementRequestParams({
-      appliedFilters: {
-        ...DEFAULT_STATEMENT_FILTERS,
-        type: 'gmail',
-        statuses: ['processing'],
-      },
-      search: '',
-    });
-
-    expect(result).toEqual({
-      statuses: ['processing'],
-    });
-  });
-
   it('includes route category filters in server request params', () => {
     const result = buildStatementRequestParams({
       appliedFilters: DEFAULT_STATEMENT_FILTERS,
@@ -87,11 +75,11 @@ describe('StatementsListView utils', () => {
     });
   });
 
-  it('omits ui-only receipt and gmail bank filters from server request params', () => {
+  it('omits the ui-only receipt bank filter from server request params', () => {
     const result = buildStatementRequestParams({
       appliedFilters: {
         ...DEFAULT_STATEMENT_FILTERS,
-        from: ['bank:receipt', 'bank:gmail', 'bank:kaspi', 'user:user-1'],
+        from: ['bank:receipt', 'bank:kaspi', 'user:user-1'],
         to: ['bank:receipt', 'user:user-2'],
       },
       search: '',
@@ -140,19 +128,6 @@ describe('StatementsListView utils', () => {
     ).toEqual({
       type: 'route',
       href: '/storage/receipts/receipt-1',
-    });
-  });
-
-  it('keeps gmail receipts routed to gmail receipt details', () => {
-    expect(
-      resolveStatementViewAction({
-        id: 'gmail-1',
-        source: 'gmail',
-        status: 'draft',
-      }),
-    ).toEqual({
-      type: 'route',
-      href: '/storage/gmail-receipts/gmail-1',
     });
   });
 
@@ -252,6 +227,66 @@ describe('StatementsListView utils', () => {
     expect(result.nextDraftFilters).toEqual({
       ...DEFAULT_STATEMENT_FILTERS,
       keywords: 'keep',
+    });
+  });
+
+  describe('resolvePendingReview', () => {
+    const counts = { 'statement-1': 3 };
+
+    it("counts a statement's rows still waiting in Review", () => {
+      expect(resolvePendingReview({ id: 'statement-1', status: 'completed' }, false, counts)).toBe(3);
+      expect(resolvePendingReview({ id: 'statement-2', status: 'completed' }, false, counts)).toBe(0);
+    });
+
+    it('counts a receipt as one until it is approved, rejected or failed', () => {
+      for (const status of ['new', 'parsed', 'needs_review', 'draft', 'reviewed']) {
+        expect(resolvePendingReview({ id: 'r', status }, true, counts)).toBe(1);
+      }
+      for (const status of ['approved', 'rejected', 'failed']) {
+        expect(resolvePendingReview({ id: 'r', status }, true, counts)).toBe(0);
+      }
+    });
+  });
+
+  describe('isDocumentApproved', () => {
+    it('reads a receipt by its own status, not by a parse status', () => {
+      expect(isDocumentApproved('approved', true, 0)).toBe(true);
+      for (const status of ['draft', 'new', 'parsed', 'needs_review', 'rejected', 'completed']) {
+        expect(isDocumentApproved(status, true, 0)).toBe(false);
+      }
+    });
+
+    it('counts a parsed statement as approved only once Review holds none of its rows', () => {
+      expect(isDocumentApproved('completed', false, 0)).toBe(true);
+      expect(isDocumentApproved('COMPLETED', false, 0)).toBe(true);
+      expect(isDocumentApproved('completed', false, 2)).toBe(false);
+      expect(isDocumentApproved('uploaded', false, 0)).toBe(false);
+      expect(isDocumentApproved('error', false, 0)).toBe(false);
+    });
+  });
+
+  describe('filterByApproved', () => {
+    const documents = [
+      { id: 'receipt-approved', status: 'approved', source: 'scan' },
+      { id: 'receipt-draft', status: 'draft', source: 'scan' },
+      { id: 'statement-done', status: 'completed', source: 'statement' },
+      { id: 'statement-waiting', status: 'completed', source: 'statement' },
+      { id: 'statement-uploading', status: 'uploaded', source: 'statement' },
+    ];
+    const reviewCounts = { 'statement-waiting': 2 };
+    const ids = (approved: boolean | null) =>
+      filterByApproved(documents, approved, reviewCounts).map(document => document.id);
+
+    it('keeps approved receipts and statements Review is done with', () => {
+      expect(ids(true)).toEqual(['receipt-approved', 'statement-done']);
+    });
+
+    it('keeps drafts, statements with rows in Review and unparsed files as not approved', () => {
+      expect(ids(false)).toEqual(['receipt-draft', 'statement-waiting', 'statement-uploading']);
+    });
+
+    it('leaves the list alone without the filter', () => {
+      expect(ids(null)).toHaveLength(documents.length);
     });
   });
 });

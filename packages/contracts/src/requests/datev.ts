@@ -1,0 +1,35 @@
+import * as Schema from 'effect/Schema';
+import { NumericInput } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+/** `PUT /tax/datev/settings`. Account numbers are checked by the service, with its messages. */
+export const SaveDatevSettingsBody = Schema.Struct({
+  chart: Schema.Literals(['03', '04']),
+  /** Beraternummer, 1001–9999999 per the DATEV format. */
+  consultantNumber: Schema.NullOr(
+    NumericInput.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(1001),
+      Schema.isLessThanOrEqualTo(9_999_999),
+    ),
+  ),
+  /** Mandantennummer, 1–99999. */
+  clientNumber: Schema.NullOr(
+    NumericInput.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(1),
+      Schema.isLessThanOrEqualTo(99_999),
+    ),
+  ),
+  /** The bank account the rows are booked against; the chart's bank account when null. */
+  bankAccount: Schema.NullOr(
+    Schema.String.check(
+      Schema.isPattern(/^[0-9]{1,9}$/, { message: 'bankAccount must be 1–9 digits' }),
+    ),
+  ),
+  /** Category id → account number. A missing category is not exported. */
+  accounts: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  /** Statement account number (IBAN) → DATEV bank account; the rest book to `bankAccount`. */
+  bankAccounts: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+});
+export type SaveDatevSettingsBody = Wire<typeof SaveDatevSettingsBody>;

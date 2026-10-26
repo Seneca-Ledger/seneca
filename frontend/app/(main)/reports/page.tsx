@@ -3,15 +3,30 @@
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import Typography from '@mui/material/Typography';
+import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { BarChart3, CalendarDays, DollarSign, List, PieChart, Scale } from '@/app/components/icons';
+import {
+  BarChart3,
+  Briefcase,
+  CalendarDays,
+  DollarSign,
+  List,
+  PieChart,
+  PiggyBank,
+  Scale,
+  Table2,
+} from '@/app/components/icons';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
 import BalanceSheet from './components/BalanceSheet';
 import { CashFlowView } from './components/cash-flow/CashFlowView';
 import { type ReportGenerateParams, ReportGenerator } from './components/ReportGenerator';
@@ -19,12 +34,28 @@ import { ReportHistory } from './components/ReportHistory';
 import { ReportSchedules } from './components/ReportSchedules';
 import { type ReportTemplate, ReportTemplateCard } from './components/ReportTemplateCard';
 import { TaxReturnView } from './components/TaxReturnView';
+import { TaxYearView } from './components/TaxYearView';
 
-// eslint-disable-next-line max-lines-per-function
+type ReportsTab = 'templates' | 'history' | 'schedules' | 'tax' | 'tax-year' | 'cash-flow';
+
+const LINKED_TABS: ReportsTab[] = ['tax', 'tax-year', 'cash-flow'];
+
+const readLinkedTab = (value: string | null): ReportsTab | null =>
+  LINKED_TABS.find(tab => tab === value) ?? null;
+
 export default function ReportsPage(): React.JSX.Element {
   const t = useIntlayer('reportsPage');
+  const taxYearText = useIntlayer('taxYearView');
+  const workspaceId = useWorkspaceId();
+  // The VAT return only means something to a workspace that charges VAT.
+  const taxSettings = useQuery({
+    queryKey: queryKeys.taxSettings(workspaceId),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/tax/settings', signal, contract: 'WorkspaceTaxSettings' }),
+    enabled: Boolean(workspaceId),
+  });
+  const chargesVat = taxSettings.data?.vatStatus === 'registered';
   const labels = t.labels as Record<string, { value?: string } | undefined>;
-  // eslint-disable-next-line max-params
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
 
   const templates: ReportTemplate[] = [
@@ -46,6 +77,9 @@ export default function ReportsPage(): React.JSX.Element {
       icon: Scale,
       category: 'financial',
       formats: ['pdf', 'excel'],
+      // A snapshot of accounts, not a transaction query, and it has its own view.
+      scopeFilters: false,
+      preview: false,
     },
     {
       id: 'cash-flow',
@@ -54,6 +88,7 @@ export default function ReportsPage(): React.JSX.Element {
       icon: BarChart3,
       category: 'financial',
       formats: ['pdf', 'excel', 'csv'],
+      groupBy: true,
     },
     {
       id: 'expense-by-category',
@@ -88,20 +123,65 @@ export default function ReportsPage(): React.JSX.Element {
       category: 'financial',
       formats: ['pdf', 'excel', 'csv'],
     },
+    {
+      id: 'category-by-month',
+      name: text('templateCategoryByMonthName', 'Categories by Month'),
+      description: text(
+        'templateCategoryByMonthDescription',
+        'Income and spending per category, a column per month, with totals and averages',
+      ),
+      hint: text(
+        'categoryByMonthHint',
+        'A PDF page fits up to 12 months; choose Excel or CSV for longer periods (up to 36).',
+      ),
+      icon: Table2,
+      category: 'operational',
+      formats: ['pdf', 'excel', 'csv'],
+    },
+    {
+      id: 'budget-vs-actual',
+      name: text('templateBudgetVsActualName', 'Budget vs Actual'),
+      description: text(
+        'templateBudgetVsActualDescription',
+        'What each budget allowed against what was spent, plus spending no budget covers',
+      ),
+      icon: PiggyBank,
+      category: 'operational',
+      formats: ['pdf', 'excel', 'csv'],
+    },
+    {
+      id: 'investment-holdings',
+      name: text('templateInvestmentHoldingsName', 'Investment Holdings'),
+      description: text(
+        'templateInvestmentHoldingsDescription',
+        'Securities, precious metals and crypto valued today, in one list',
+      ),
+      hint: text(
+        'holdingsSnapshotHint',
+        "A snapshot of today's holdings: the period does not apply.",
+      ),
+      icon: Briefcase,
+      category: 'financial',
+      formats: ['pdf', 'excel', 'csv'],
+      period: 'none',
+      scopeFilters: false,
+    },
   ];
 
-  const [tab, setTab] = useState<'templates' | 'cashflow' | 'history' | 'schedules' | 'tax'>(
-    'templates',
-  );
-  // Only the tax tab is linked to (threshold notifications). Followed on change,
-  // not just read once: the link can be opened while this page is already up.
-  const linkedToTax = useSearchParams().get('tab') === 'tax';
+  const [tab, setTab] = useState<ReportsTab>('cash-flow');
+  const [cashFlowPeriod, setCashFlowPeriod] = useState('');
+  // Tax (threshold notifications) and cash flow (advice links) are linked to.
+  // Followed on change, not just read once: the link can be opened while this
+  // page is already up.
+  const linkedTab = readLinkedTab(useSearchParams().get('tab'));
   useEffect(() => {
-    if (linkedToTax) {
-      setTab('tax');
+    if (linkedTab) {
+      setTab(linkedTab);
     }
-  }, [linkedToTax]);
-  useAttentionFocus();
+  }, [linkedTab]);
+  // Read once for the whole page: a second reader would find the parameter
+  // already cleared and never ring its row.
+  const focusId = useAttentionFocus();
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
   const [showBalanceSheet, setShowBalanceSheet] = useState(false);
 
@@ -115,10 +195,14 @@ export default function ReportsPage(): React.JSX.Element {
   };
 
   const handleGenerate = async (params: ReportGenerateParams): Promise<void> => {
-    const response = await apiClient.post('/reports/generate', params, {
-      responseType: 'blob',
-    });
-    const blob = new Blob([response.data]);
+    const response = await apiClient.post(
+      '/reports/generate',
+      params satisfies ContractInput<'GenerateReportBody'>,
+      {
+        responseType: 'blob',
+      },
+    );
+    const blob = new Blob([blobOf(response)]);
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -147,9 +231,6 @@ export default function ReportsPage(): React.JSX.Element {
           >
             ← {text('backToTemplates', 'Back to templates')}
           </button>
-          <Typography variant="h5" fontWeight={700}>
-            {text('balanceSheetTitle', 'Balance Sheet')}
-          </Typography>
         </Box>
         <Box sx={{ px: { xs: 2, sm: 4 }, pb: 4 }}>
           <BalanceSheet />
@@ -158,23 +239,31 @@ export default function ReportsPage(): React.JSX.Element {
     );
   }
 
+  const tabLabels: Record<ReportsTab, string> = {
+    'cash-flow': text('tabCashFlow', 'Cash flow'),
+    templates: text('tabTemplates', 'Templates'),
+    schedules: text('tabSchedules', 'Schedules'),
+    history: text('tabHistory', 'History'),
+    'tax-year': taxYearText.tabLabel.value,
+    tax: text('tabTax', 'Tax return'),
+  };
+  const titleSummary = joinSummary([tabLabels[tab], tab === 'cash-flow' && cashFlowPeriod]);
+
   return (
     <Box>
-      <Box sx={{ px: { xs: 2, sm: 4 }, pt: 4, pb: 0 }}>
-        <Typography variant="h5" fontWeight={700}>
-          {text('title', 'Reports')}
-        </Typography>
-        <Typography variant="body2" sx={{ mt: 0.5, color: 'var(--muted-foreground)' }}>
-          {text('subtitle', 'Generate financial reports and export documents')}
-        </Typography>
+      <Box sx={{ mt: 'var(--seneca-page-top, 16px)', px: { xs: 2, sm: 4 }, mb: 1 }}>
+        <PageTitle path="/reports" summary={titleSummary} />
       </Box>
-
-      <Box sx={{ mt: 2, borderBottom: '1px solid var(--border)', px: { xs: 2, sm: 4 } }}>
+      <Box
+        sx={{
+          borderBottom: '1px solid var(--border)',
+          px: { xs: 2, sm: 4 },
+        }}
+      >
         <Tabs
           data-tour-id="reports-tabs"
           value={tab}
-          // eslint-disable-next-line max-params
-          onChange={(_e, v: 'templates' | 'cashflow' | 'history' | 'schedules' | 'tax') => {
+          onChange={(_e, v: ReportsTab) => {
             setTab(v);
             setSelectedTemplate(null);
           }}
@@ -182,8 +271,8 @@ export default function ReportsPage(): React.JSX.Element {
           scrollButtons={false}
           sx={sharedMuiTabsSx}
         >
+          <Tab value="cash-flow" label={text('tabCashFlow', 'Cash flow')} />
           <Tab value="templates" label={text('tabTemplates', 'Templates')} />
-          <Tab value="cashflow" label={text('tabCashFlow', 'Cash flow')} />
           <Tab
             value="schedules"
             label={text('tabSchedules', 'Schedules')}
@@ -194,13 +283,20 @@ export default function ReportsPage(): React.JSX.Element {
             label={text('tabHistory', 'History')}
             data-tour-id="reports-history-tab"
           />
-          <Tab value="tax" label={text('tabTax', 'Tax return')} />
+          <Tab value="tax-year" label={taxYearText.tabLabel.value} />
+          {chargesVat || tab === 'tax' ? (
+            <Tab value="tax" label={text('tabTax', 'Tax return')} />
+          ) : null}
         </Tabs>
       </Box>
 
       <Box sx={{ px: { xs: 2, sm: 4 }, py: 3 }}>
         {tab === 'tax' && <TaxReturnView />}
-        {tab === 'cashflow' && <CashFlowView />}
+        {tab === 'tax-year' && <TaxYearView />}
+        {tab === 'cash-flow' && (
+          // The leaderboards sit inside the view: they take its period.
+          <CashFlowView focusId={focusId} onPeriodChange={setCashFlowPeriod} />
+        )}
         {tab === 'templates' && (
           <>
             <Box
@@ -230,7 +326,13 @@ export default function ReportsPage(): React.JSX.Element {
           </>
         )}
         {tab === 'schedules' && (
-          <ReportSchedules templates={templates.map(tmpl => ({ id: tmpl.id, name: tmpl.name }))} />
+          <ReportSchedules
+            templates={templates.map(tmpl => ({
+              id: tmpl.id,
+              name: tmpl.name,
+              formats: tmpl.formats,
+            }))}
+          />
         )}
         {tab === 'history' && <ReportHistory />}
       </Box>

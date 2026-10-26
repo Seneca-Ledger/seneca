@@ -2,13 +2,13 @@ import { CustomTableColumnType } from '../../../src/entities/custom-table-column
 import { CustomTablesService } from '../../../src/modules/custom-tables/custom-tables.service';
 
 const createRepositoryMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  save: jest.fn(async (v: unknown) => v),
-  create: jest.fn((value?: unknown) => value),
-  delete: jest.fn(),
-  update: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  findOne: vi.fn(),
+  find: vi.fn(),
+  save: vi.fn(async (v: unknown) => v),
+  create: vi.fn((value?: unknown) => value),
+  delete: vi.fn(),
+  update: vi.fn(),
+  createQueryBuilder: vi.fn(),
 });
 
 const TABLE_ID = '11111111-1111-4111-8111-111111111111';
@@ -40,22 +40,22 @@ function buildService(duplicateExists = false): {
   const workspaceMemberRepository = createRepositoryMock();
 
   customTableRepository.createQueryBuilder.mockReturnValue({
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getOne: jest.fn().mockResolvedValue({ id: TABLE_ID, name: 'Контрагенты' }),
+    leftJoinAndSelect: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getOne: vi.fn().mockResolvedValue({ id: TABLE_ID, name: 'Контрагенты' }),
   });
   customTableColumnRepository.find.mockResolvedValue(COLUMNS);
   workspaceMemberRepository.findOne.mockResolvedValue({ role: 'owner', permissions: {} });
 
   customTableRowRepository.createQueryBuilder.mockReturnValue({
-    select: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getExists: jest.fn().mockResolvedValue(duplicateExists),
-    getCount: jest.fn().mockResolvedValue(0),
+    select: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getExists: vi.fn().mockResolvedValue(duplicateExists),
+    getCount: vi.fn().mockResolvedValue(0),
     // Нумерация строк спрашивает максимум — в этих сценариях он не важен.
-    getRawOne: jest.fn().mockResolvedValue({ max: '0' }),
+    getRawOne: vi.fn().mockResolvedValue({ max: '0' }),
   });
   customTableRowRepository.findOne.mockResolvedValue({
     id: ROW_ID,
@@ -77,7 +77,7 @@ function buildService(duplicateExists = false): {
     createRepositoryMock() as never,
     createRepositoryMock() as never,
     workspaceMemberRepository as never,
-    { createEvent: jest.fn(), createBatchEvents: jest.fn() } as never,
+    { createEvent: vi.fn(), createBatchEvents: vi.fn() } as never,
   );
 
   return { service };

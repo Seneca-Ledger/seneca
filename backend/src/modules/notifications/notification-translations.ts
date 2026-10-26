@@ -1,3 +1,5 @@
+import { formatParam, type NotificationParams } from './notification-params';
+
 export type NotificationMessageKey =
   | 'statement.uploaded'
   | 'import.committed'
@@ -23,9 +25,14 @@ export type NotificationMessageKey =
   | 'budget.warning'
   | 'subscription.detected'
   | 'subscription.upcoming'
+  | 'subscription.upcoming.one'
   | 'subscription.price_changed'
   | 'tax.threshold.warning'
   | 'tax.threshold.reached'
+  | 'tax.deadline.vat'
+  | 'tax.deadline.vat.overdue'
+  | 'tax.deadline.income'
+  | 'tax.rates.official'
   | 'review.waiting';
 
 interface TranslationEntry {
@@ -102,8 +109,14 @@ const ru: TranslationMap = {
     message: 'Чек "{{receiptName}}" не имеет категории',
   },
   'payable.marked_paid': { title: 'Платёж оплачен', message: '{{vendor}} отмечен как оплаченный' },
-  'payable.overdue': { title: 'Платёж просрочен', message: '{{vendor}} просрочен' },
-  'payable.due_soon': { title: 'Скоро срок оплаты', message: 'Скоро срок оплаты: {{vendor}}' },
+  'payable.overdue': {
+    title: 'Платёж просрочен',
+    message: '{{vendor}}: {{amount}}, срок оплаты был {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Скоро срок оплаты',
+    message: '{{vendor}}: {{amount}}, срок оплаты {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Бюджет превышен',
     message: 'Бюджет "{{budgetName}}" превышен ({{percentUsed}}%)',
@@ -118,7 +131,11 @@ const ru: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Предстоящие списания',
-    message: 'Предстоящие списания: {{details}}',
+    message: 'Скоро спишутся: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Предстоящее списание',
+    message: 'Скоро спишется: {{charges}}',
   },
   'tax.threshold.warning': {
     title: 'Порог регистрации по налогу',
@@ -127,6 +144,23 @@ const ru: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Порог регистрации достигнут',
     message: 'Оборот достиг порога регистрации {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Скоро срок декларации по НДС за {{period}}',
+    message: 'Декларацию по НДС за {{period}} ({{range}}) нужно подать до {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Просрочена декларация по НДС за {{period}}',
+    message: 'Срок был {{dueDate}}, декларация не подана.',
+  },
+  'tax.deadline.income': {
+    title: 'Скоро срок декларации о доходах',
+    message: '{{returnName}} за {{taxYear}}: срок подачи {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Официальные ставки НДС отличаются от ваших',
+    message:
+      'Официальные ставки НДС ({{country}}) отличаются от ваших. Проверьте их в налоговых настройках.',
   },
 };
 
@@ -200,8 +234,14 @@ const en: TranslationMap = {
     title: 'Payable marked as paid',
     message: '{{vendor}} was marked as paid',
   },
-  'payable.overdue': { title: 'Payable overdue', message: '{{vendor}} is overdue' },
-  'payable.due_soon': { title: 'Payable due soon', message: '{{vendor}} is due soon' },
+  'payable.overdue': {
+    title: 'Payable overdue',
+    message: '{{amount}} to {{vendor}} was due {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Payable due soon',
+    message: '{{amount}} to {{vendor}} is due {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Budget exceeded',
     message: 'Budget "{{budgetName}}" has exceeded its limit ({{percentUsed}}%)',
@@ -216,7 +256,11 @@ const en: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Upcoming subscription charges',
-    message: 'Upcoming: {{details}}',
+    message: '{{charges}} are due soon',
+  },
+  'subscription.upcoming.one': {
+    title: 'Upcoming subscription charge',
+    message: '{{charges}} is due soon',
   },
   'tax.threshold.warning': {
     title: 'Tax registration threshold',
@@ -226,6 +270,22 @@ const en: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Registration threshold reached',
     message: 'Turnover has reached the {{threshold}} {{currency}} registration threshold',
+  },
+  'tax.deadline.vat': {
+    title: '{{period}} VAT return due soon',
+    message: '{{period}} VAT return ({{range}}) is due {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: '{{period}} VAT return overdue',
+    message: "Was due {{dueDate}} and isn't filed.",
+  },
+  'tax.deadline.income': {
+    title: 'Income tax return due soon',
+    message: '{{returnName}} for {{taxYear}} is due on {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Official VAT rates differ from yours',
+    message: 'Official VAT rates for {{country}} differ from yours. Review them in tax settings.',
   },
 };
 
@@ -293,10 +353,13 @@ const kk: TranslationMap = {
     message: '"{{receiptName}}" чегінде санат жоқ',
   },
   'payable.marked_paid': { title: 'Төлем жасалды', message: '{{vendor}} төленді деп белгіленді' },
-  'payable.overdue': { title: 'Төлем мерзімі өтті', message: '{{vendor}} мерзімі өтіп кетті' },
+  'payable.overdue': {
+    title: 'Төлем мерзімі өтті',
+    message: '{{vendor}}: {{amount}}, төлем мерзімі {{dueDate}} болатын',
+  },
   'payable.due_soon': {
     title: 'Төлем мерзімі жақындады',
-    message: '{{vendor}} төлем мерзімі жақын',
+    message: '{{vendor}}: {{amount}}, төлем мерзімі {{dueDate}}',
   },
   'budget.exceeded': {
     title: 'Бюджет асып кетті',
@@ -310,7 +373,14 @@ const kk: TranslationMap = {
     title: 'Жазылымдар анықталды',
     message: 'Тұрақты төлемдер табылды: {{vendors}}',
   },
-  'subscription.upcoming': { title: 'Алдағы төлемдер', message: 'Алдағы төлемдер: {{details}}' },
+  'subscription.upcoming': {
+    title: 'Алдағы төлемдер',
+    message: 'Жақында төленеді: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Алдағы төлем',
+    message: 'Жақында төленеді: {{charges}}',
+  },
   'tax.threshold.warning': {
     title: 'Салықтық тіркеу шегі',
     message: 'Айналым тіркеу шегінің {{percentUsed}}% жетті ({{threshold}} {{currency}})',
@@ -318,6 +388,23 @@ const kk: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Тіркеу шегіне жетті',
     message: 'Айналым {{threshold}} {{currency}} тіркеу шегіне жетті',
+  },
+  'tax.deadline.vat': {
+    title: 'ҚҰН декларациясының мерзімі жақындады ({{period}})',
+    message: 'ҚҰН декларациясы ({{period}}, {{range}}) {{dueDate}} дейін тапсырылуы керек.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'ҚҰН декларациясының мерзімі өтті ({{period}})',
+    message: 'Мерзімі {{dueDate}} болатын, декларация тапсырылмаған.',
+  },
+  'tax.deadline.income': {
+    title: 'Табыс салығы декларациясының мерзімі жақындады',
+    message: '{{returnName}} ({{taxYear}}) тапсыру мерзімі — {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Ресми ҚҰН мөлшерлемелері сіздікінен өзгеше',
+    message:
+      'Ресми ҚҰН мөлшерлемелері ({{country}}) сіздікінен өзгеше. Оларды салық баптауларынан тексеріңіз.',
   },
 };
 
@@ -400,8 +487,14 @@ const de: TranslationMap = {
     title: 'Zahlung als bezahlt markiert',
     message: '{{vendor}} wurde als bezahlt markiert',
   },
-  'payable.overdue': { title: 'Zahlung überfällig', message: '{{vendor}} ist überfällig' },
-  'payable.due_soon': { title: 'Zahlung bald fällig', message: '{{vendor}} ist bald fällig' },
+  'payable.overdue': {
+    title: 'Zahlung überfällig',
+    message: '{{amount}} an {{vendor}} waren am {{dueDate}} fällig',
+  },
+  'payable.due_soon': {
+    title: 'Zahlung bald fällig',
+    message: '{{amount}} an {{vendor}} sind am {{dueDate}} fällig',
+  },
   'budget.exceeded': {
     title: 'Budget überschritten',
     message: 'Budget "{{budgetName}}" hat sein Limit überschritten ({{percentUsed}}%)',
@@ -416,7 +509,11 @@ const de: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Anstehende Abonnement-Abbuchungen',
-    message: 'Anstehend: {{details}}',
+    message: '{{charges}} werden bald abgebucht',
+  },
+  'subscription.upcoming.one': {
+    title: 'Anstehende Abonnement-Abbuchung',
+    message: '{{charges}} wird bald abgebucht',
   },
   'tax.threshold.warning': {
     title: 'Registrierungsgrenze',
@@ -426,6 +523,23 @@ const de: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Registrierungsgrenze erreicht',
     message: 'Der Umsatz hat die Registrierungsgrenze von {{threshold}} {{currency}} erreicht',
+  },
+  'tax.deadline.vat': {
+    title: 'USt-Voranmeldung {{period}} bald fällig',
+    message: 'USt-Voranmeldung {{period}} ({{range}}) ist am {{dueDate}} fällig.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'USt-Voranmeldung {{period}} überfällig',
+    message: 'War am {{dueDate}} fällig und ist nicht eingereicht.',
+  },
+  'tax.deadline.income': {
+    title: 'Einkommensteuererklärung bald fällig',
+    message: '{{returnName}} für {{taxYear}} ist am {{dueDate}} fällig',
+  },
+  'tax.rates.official': {
+    title: 'Amtliche USt-Sätze weichen ab',
+    message:
+      'Die amtlichen USt-Sätze für {{country}} weichen von Ihren ab. Prüfen Sie sie in den Steuereinstellungen.',
   },
 };
 
@@ -505,10 +619,13 @@ const fr: TranslationMap = {
     title: 'Paiement marqué comme payé',
     message: '{{vendor}} a été marqué comme payé',
   },
-  'payable.overdue': { title: 'Paiement en retard', message: '{{vendor}} est en retard' },
+  'payable.overdue': {
+    title: 'Paiement en retard',
+    message: '{{amount}} à {{vendor}} était dû le {{dueDate}}',
+  },
   'payable.due_soon': {
     title: 'Paiement bientôt dû',
-    message: '{{vendor}} arrive bientôt à échéance',
+    message: '{{amount}} à {{vendor}} est dû le {{dueDate}}',
   },
   'budget.exceeded': {
     title: 'Budget dépassé',
@@ -522,7 +639,14 @@ const fr: TranslationMap = {
     title: 'Abonnements détectés',
     message: 'Paiements récurrents trouvés : {{vendors}}',
   },
-  'subscription.upcoming': { title: 'Prélèvements à venir', message: 'À venir : {{details}}' },
+  'subscription.upcoming': {
+    title: 'Prélèvements à venir',
+    message: 'Bientôt prélevés : {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Prélèvement à venir',
+    message: 'Bientôt prélevé : {{charges}}',
+  },
   'tax.threshold.warning': {
     title: "Seuil d'immatriculation",
     message:
@@ -531,6 +655,23 @@ const fr: TranslationMap = {
   'tax.threshold.reached': {
     title: "Seuil d'immatriculation atteint",
     message: "Le chiffre d'affaires a atteint le seuil de {{threshold}} {{currency}}",
+  },
+  'tax.deadline.vat': {
+    title: 'Déclaration de TVA ({{period}}) bientôt due',
+    message: 'La déclaration de TVA {{period}} ({{range}}) est due le {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Déclaration de TVA ({{period}}) en retard',
+    message: "Était due le {{dueDate}} et n'est pas déposée.",
+  },
+  'tax.deadline.income': {
+    title: 'Déclaration de revenus bientôt due',
+    message: '{{returnName}} pour {{taxYear}} est due le {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Les taux de TVA officiels diffèrent des vôtres',
+    message:
+      'Les taux de TVA officiels ({{country}}) diffèrent des vôtres. Vérifiez-les dans les paramètres fiscaux.',
   },
 };
 
@@ -610,8 +751,14 @@ const es: TranslationMap = {
     title: 'Pago marcado como pagado',
     message: '{{vendor}} fue marcado como pagado',
   },
-  'payable.overdue': { title: 'Pago vencido', message: '{{vendor}} está vencido' },
-  'payable.due_soon': { title: 'Pago próximo a vencer', message: '{{vendor}} vence pronto' },
+  'payable.overdue': {
+    title: 'Pago vencido',
+    message: '{{amount}} a {{vendor}} vencía el {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Pago próximo a vencer',
+    message: '{{amount}} a {{vendor}} vence el {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Presupuesto excedido',
     message: 'El presupuesto "{{budgetName}}" ha excedido su límite ({{percentUsed}}%)',
@@ -626,7 +773,11 @@ const es: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Cargos de suscripción próximos',
-    message: 'Próximos: {{details}}',
+    message: 'Pronto se cobrarán: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Cargo de suscripción próximo',
+    message: 'Pronto se cobrará: {{charges}}',
   },
   'tax.threshold.warning': {
     title: 'Umbral de registro fiscal',
@@ -636,6 +787,23 @@ const es: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Umbral de registro alcanzado',
     message: 'La facturación ha alcanzado el umbral de {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Declaración de IVA ({{period}}) próxima a vencer',
+    message: 'La declaración de IVA {{period}} ({{range}}) vence el {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Declaración de IVA ({{period}}) vencida',
+    message: 'Vencía el {{dueDate}} y no está presentada.',
+  },
+  'tax.deadline.income': {
+    title: 'Declaración del impuesto sobre la renta próxima a vencer',
+    message: '{{returnName}} de {{taxYear}} vence el {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Los tipos de IVA oficiales difieren de los suyos',
+    message:
+      'Los tipos de IVA oficiales ({{country}}) difieren de los suyos. Revíselos en la configuración fiscal.',
   },
 };
 
@@ -715,8 +883,14 @@ const pt: TranslationMap = {
     title: 'Pagamento marcado como pago',
     message: '{{vendor}} foi marcado como pago',
   },
-  'payable.overdue': { title: 'Pagamento atrasado', message: '{{vendor}} está atrasado' },
-  'payable.due_soon': { title: 'Pagamento próximo', message: '{{vendor}} vence em breve' },
+  'payable.overdue': {
+    title: 'Pagamento atrasado',
+    message: '{{amount}} a {{vendor}} venceu a {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Pagamento próximo',
+    message: '{{amount}} a {{vendor}} vence a {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Orçamento excedido',
     message: 'O orçamento "{{budgetName}}" excedeu seu limite ({{percentUsed}}%)',
@@ -731,7 +905,11 @@ const pt: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Cobranças de assinatura próximas',
-    message: 'Próximas: {{details}}',
+    message: 'A cobrar em breve: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Cobrança de assinatura próxima',
+    message: 'A cobrar em breve: {{charges}}',
   },
   'tax.threshold.warning': {
     title: 'Limite de registo fiscal',
@@ -741,6 +919,23 @@ const pt: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Limite de registo atingido',
     message: 'O volume de negócios atingiu o limite de {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Declaração de IVA ({{period}}) a vencer em breve',
+    message: 'A declaração de IVA {{period}} ({{range}}) vence a {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Declaração de IVA ({{period}}) atrasada',
+    message: 'Venceu a {{dueDate}} e não foi entregue.',
+  },
+  'tax.deadline.income': {
+    title: 'Declaração do imposto sobre o rendimento a vencer em breve',
+    message: '{{returnName}} de {{taxYear}} vence em {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'As taxas de IVA oficiais diferem das suas',
+    message:
+      'As taxas de IVA oficiais ({{country}}) diferem das suas. Reveja-as nas definições fiscais.',
   },
 };
 
@@ -814,8 +1009,14 @@ const tr: TranslationMap = {
     title: 'Ödeme yapıldı olarak işaretlendi',
     message: '{{vendor}} ödendi olarak işaretlendi',
   },
-  'payable.overdue': { title: 'Ödeme gecikmiş', message: '{{vendor}} gecikmiş durumda' },
-  'payable.due_soon': { title: 'Ödeme yakında', message: '{{vendor}} yakında ödenecek' },
+  'payable.overdue': {
+    title: 'Ödeme gecikmiş',
+    message: '{{vendor}}: {{amount}}, son ödeme tarihi {{dueDate}} idi',
+  },
+  'payable.due_soon': {
+    title: 'Ödeme yakında',
+    message: '{{vendor}}: {{amount}}, son ödeme tarihi {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Bütçe aşıldı',
     message: '"{{budgetName}}" bütçesi limitini aştı ({{percentUsed}}%)',
@@ -830,7 +1031,11 @@ const tr: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Yaklaşan abonelik ödemeleri',
-    message: 'Yaklaşan: {{details}}',
+    message: 'Yakında tahsil edilecek: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Yaklaşan abonelik ödemesi',
+    message: 'Yakında tahsil edilecek: {{charges}}',
   },
   'tax.threshold.warning': {
     title: 'Vergi kayıt eşiği',
@@ -839,6 +1044,23 @@ const tr: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Kayıt eşiğine ulaşıldı',
     message: 'Ciro, {{threshold}} {{currency}} kayıt eşiğine ulaştı',
+  },
+  'tax.deadline.vat': {
+    title: 'KDV beyannamesinin teslim tarihi yaklaşıyor ({{period}})',
+    message: 'KDV beyannamesi ({{period}}, {{range}}) için son tarih: {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'KDV beyannamesi gecikmiş ({{period}})',
+    message: 'Son tarih {{dueDate}} idi ve beyanname verilmedi.',
+  },
+  'tax.deadline.income': {
+    title: 'Gelir vergisi beyannamesinin teslim tarihi yaklaşıyor',
+    message: '{{returnName}} ({{taxYear}}) için son teslim tarihi {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Resmî KDV oranları sizinkilerden farklı',
+    message:
+      'Resmî KDV oranları ({{country}}) sizinkilerden farklı. Bunları vergi ayarlarında kontrol edin.',
   },
 };
 
@@ -912,8 +1134,14 @@ const uk: TranslationMap = {
     message: 'Чек "{{receiptName}}" не має категорії',
   },
   'payable.marked_paid': { title: 'Платіж оплачено', message: '{{vendor}} позначено як оплачений' },
-  'payable.overdue': { title: 'Платіж прострочено', message: '{{vendor}} прострочено' },
-  'payable.due_soon': { title: 'Платіж скоро', message: '{{vendor}} скоро до сплати' },
+  'payable.overdue': {
+    title: 'Платіж прострочено',
+    message: '{{vendor}}: {{amount}}, термін оплати був {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Платіж скоро',
+    message: '{{vendor}}: {{amount}}, термін оплати {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Бюджет перевищено',
     message: 'Бюджет "{{budgetName}}" перевищив ліміт ({{percentUsed}}%)',
@@ -928,7 +1156,11 @@ const uk: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Майбутні списання',
-    message: 'Майбутні списання: {{details}}',
+    message: 'Незабаром спишуться: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Майбутнє списання',
+    message: 'Незабаром спишеться: {{charges}}',
   },
   'tax.threshold.warning': {
     title: 'Поріг податкової реєстрації',
@@ -937,6 +1169,23 @@ const uk: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Поріг реєстрації досягнуто',
     message: 'Оборот досяг порогу реєстрації {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Скоро термін декларації з ПДВ за {{period}}',
+    message: 'Декларацію з ПДВ за {{period}} ({{range}}) треба подати до {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Прострочено декларацію з ПДВ за {{period}}',
+    message: 'Термін був {{dueDate}}, декларацію не подано.',
+  },
+  'tax.deadline.income': {
+    title: 'Скоро термін подання декларації про доходи',
+    message: '{{returnName}} за {{taxYear}}: термін подання {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Офіційні ставки ПДВ відрізняються від ваших',
+    message:
+      'Офіційні ставки ПДВ ({{country}}) відрізняються від ваших. Перевірте їх у податкових налаштуваннях.',
   },
 };
 
@@ -986,8 +1235,14 @@ const zh: TranslationMap = {
   'receipt.uncategorized': { title: '未分类收据', message: '发现未分类的收据' },
   'receipt.uncategorized.named': { title: '未分类收据', message: '收据 "{{receiptName}}" 未分类' },
   'payable.marked_paid': { title: '应付款已标记为已付', message: '{{vendor}} 已标记为已付' },
-  'payable.overdue': { title: '应付款逾期', message: '{{vendor}} 已逾期' },
-  'payable.due_soon': { title: '应付款即将到期', message: '{{vendor}} 即将到期' },
+  'payable.overdue': {
+    title: '应付款逾期',
+    message: '应付 {{vendor}} 的 {{amount}} 已于 {{dueDate}} 到期',
+  },
+  'payable.due_soon': {
+    title: '应付款即将到期',
+    message: '应付 {{vendor}} 的 {{amount}} 将于 {{dueDate}} 到期',
+  },
   'budget.exceeded': {
     title: '预算超支',
     message: '预算 "{{budgetName}}" 已超出限额 ({{percentUsed}}%)',
@@ -997,7 +1252,14 @@ const zh: TranslationMap = {
     message: '预算 "{{budgetName}}" 已达到限额的 {{percentUsed}}%',
   },
   'subscription.detected': { title: '检测到订阅', message: '发现定期付款：{{vendors}}' },
-  'subscription.upcoming': { title: '即将扣费的订阅', message: '即将扣费：{{details}}' },
+  'subscription.upcoming': {
+    title: '即将扣费的订阅',
+    message: '{{charges}} 即将扣费',
+  },
+  'subscription.upcoming.one': {
+    title: '即将扣费的订阅',
+    message: '{{charges}} 即将扣费',
+  },
   'tax.threshold.warning': {
     title: '税务登记门槛',
     message: '营业额已达到登记门槛 {{threshold}} {{currency}} 的 {{percentUsed}}%',
@@ -1006,94 +1268,21 @@ const zh: TranslationMap = {
     title: '已达到登记门槛',
     message: '营业额已达到 {{threshold}} {{currency}} 的登记门槛',
   },
-};
-
-const ar: TranslationMap = {
-  'subscription.price_changed': {
-    title: 'تغيّر سعر الاشتراك',
-    message:
-      '{{vendor}}: {{previous}} ← {{current}} {{currency}} ({{delta}} لكل خصم، {{yearly}} سنويًا)',
+  'tax.deadline.vat': {
+    title: '{{period}}增值税申报即将到期',
+    message: '{{period}}增值税申报（{{range}}）的截止日期为 {{dueDate}}。',
   },
-  'review.waiting': {
-    title: 'عناصر بانتظار المراجعة',
-    message: '{{count}} عنصرًا بانتظارك في صندوق المراجعة',
+  'tax.deadline.vat.overdue': {
+    title: '{{period}}增值税申报已逾期',
+    message: '截止日期为 {{dueDate}}，尚未提交。',
   },
-  'note.mentioned': {
-    title: 'تمت الإشارة إليك في ملاحظة',
-    message: 'أشار إليك {{actorName}}: {{excerpt}}',
+  'tax.deadline.income': {
+    title: '个人所得税申报即将到期',
+    message: '{{returnName}}（{{taxYear}}）的申报截止日期为 {{dueDate}}',
   },
-  'statement.uploaded': {
-    title: 'تم رفع كشف الحساب',
-    message: '{{actorName}} رفع كشف الحساب "{{statementName}}"',
-  },
-  'import.committed': {
-    title: 'اكتمل الاستيراد',
-    message: '{{actorName}} استورد {{transactionCount}} معاملة',
-  },
-  'category.created': {
-    title: 'تم إنشاء الفئة',
-    message: '{{actorName}} أنشأ الفئة "{{categoryName}}"',
-  },
-  'category.updated': {
-    title: 'تم تحديث الفئة',
-    message: '{{actorName}} حدّث الفئة "{{categoryName}}"',
-  },
-  'category.deleted': {
-    title: 'تم حذف الفئة',
-    message: '{{actorName}} حذف الفئة "{{categoryName}}"',
-  },
-  'member.invited': { title: 'تمت دعوة عضو جديد', message: '{{actorName}} دعا {{invitedEmail}}' },
-  'member.joined': { title: 'انضم عضو', message: '{{memberName}} انضم إلى مساحة العمل' },
-  'data.deleted': { title: 'تم حذف البيانات', message: '{{actorName}} حذف {{count}} سجلات' },
-  'workspace.updated': {
-    title: 'تم تحديث إعدادات مساحة العمل',
-    message: '{{actorName}} حدّث إعدادات مساحة العمل',
-  },
-  'parsing.error': { title: 'خطأ في تحليل كشف الحساب', message: 'تعذرت معالجة كشف الحساب' },
-  'parsing.error.named': {
-    title: 'خطأ في تحليل كشف الحساب',
-    message: 'تعذرت معالجة كشف الحساب "{{statementName}}"',
-  },
-  'import.failed': { title: 'فشل الاستيراد', message: 'فشل الاستيراد' },
-  'import.failed.named': {
-    title: 'فشل الاستيراد',
-    message: 'فشل استيراد كشف الحساب "{{statementName}}"',
-  },
-  'transactions.uncategorized': {
-    title: 'معاملات بدون تصنيف',
-    message: '{{count}} معاملة تحتاج إلى تصنيف',
-  },
-  'receipt.uncategorized': { title: 'إيصال بدون تصنيف', message: 'تم العثور على إيصال بدون تصنيف' },
-  'receipt.uncategorized.named': {
-    title: 'إيصال بدون تصنيف',
-    message: 'الإيصال "{{receiptName}}" ليس له تصنيف',
-  },
-  'payable.marked_paid': {
-    title: 'تم تحديد الدفعة كمدفوعة',
-    message: 'تم تحديد {{vendor}} كمدفوع',
-  },
-  'payable.overdue': { title: 'دفعة متأخرة', message: '{{vendor}} متأخر' },
-  'payable.due_soon': { title: 'دفعة مستحقة قريباً', message: '{{vendor}} مستحق قريباً' },
-  'budget.exceeded': {
-    title: 'تجاوز الميزانية',
-    message: 'الميزانية "{{budgetName}}" تجاوزت الحد ({{percentUsed}}%)',
-  },
-  'budget.warning': {
-    title: 'تحذير الميزانية',
-    message: 'الميزانية "{{budgetName}}" وصلت إلى {{percentUsed}}% من الحد',
-  },
-  'subscription.detected': {
-    title: 'تم اكتشاف اشتراكات',
-    message: 'تم العثور على مدفوعات متكررة: {{vendors}}',
-  },
-  'subscription.upcoming': { title: 'رسوم اشتراك قادمة', message: 'قادمة: {{details}}' },
-  'tax.threshold.warning': {
-    title: 'حد التسجيل الضريبي',
-    message: 'بلغ حجم الأعمال {{percentUsed}}% من حد التسجيل البالغ {{threshold}} {{currency}}',
-  },
-  'tax.threshold.reached': {
-    title: 'تم بلوغ حد التسجيل',
-    message: 'بلغ حجم الأعمال حد التسجيل {{threshold}} {{currency}}',
+  'tax.rates.official': {
+    title: '官方增值税税率与您的不同',
+    message: '{{country}}的官方增值税税率与您的不同。请在税务设置中核对。',
   },
 };
 
@@ -1176,8 +1365,14 @@ const pl: TranslationMap = {
     title: 'Płatność oznaczona jako zapłacona',
     message: '{{vendor}} został oznaczony jako zapłacony',
   },
-  'payable.overdue': { title: 'Płatność zaległa', message: '{{vendor}} jest zaległy' },
-  'payable.due_soon': { title: 'Płatność wkrótce', message: '{{vendor}} jest wkrótce wymagalny' },
+  'payable.overdue': {
+    title: 'Płatność zaległa',
+    message: '{{vendor}}: {{amount}}, termin płatności minął {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Płatność wkrótce',
+    message: '{{vendor}}: {{amount}}, termin płatności {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Budżet przekroczony',
     message: 'Budżet "{{budgetName}}" przekroczył limit ({{percentUsed}}%)',
@@ -1192,7 +1387,11 @@ const pl: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Nadchodzące opłaty subskrypcyjne',
-    message: 'Nadchodzące: {{details}}',
+    message: 'Wkrótce do zapłaty: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Nadchodząca opłata subskrypcyjna',
+    message: 'Wkrótce do zapłaty: {{charges}}',
   },
   'tax.threshold.warning': {
     title: 'Próg rejestracji podatkowej',
@@ -1201,6 +1400,23 @@ const pl: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Osiągnięto próg rejestracji',
     message: 'Obrót osiągnął próg rejestracji {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Deklaracja VAT za {{period}} wkrótce do złożenia',
+    message: 'Deklarację VAT za {{period}} ({{range}}) należy złożyć do {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Zaległa deklaracja VAT za {{period}}',
+    message: 'Termin minął {{dueDate}}, deklaracja nie została złożona.',
+  },
+  'tax.deadline.income': {
+    title: 'Deklaracja podatku dochodowego wkrótce do złożenia',
+    message: '{{returnName}} za {{taxYear}} należy złożyć do {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Oficjalne stawki VAT różnią się od Twoich',
+    message:
+      'Oficjalne stawki VAT ({{country}}) różnią się od Twoich. Sprawdź je w ustawieniach podatkowych.',
   },
 };
 
@@ -1280,8 +1496,14 @@ const it: TranslationMap = {
     title: 'Pagamento contrassegnato come pagato',
     message: '{{vendor}} è stato contrassegnato come pagato',
   },
-  'payable.overdue': { title: 'Pagamento scaduto', message: '{{vendor}} è scaduto' },
-  'payable.due_soon': { title: 'Pagamento in scadenza', message: '{{vendor}} è in scadenza' },
+  'payable.overdue': {
+    title: 'Pagamento scaduto',
+    message: '{{amount}} a {{vendor}} scadeva il {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Pagamento in scadenza',
+    message: '{{amount}} a {{vendor}} scade il {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Budget superato',
     message: 'Il budget "{{budgetName}}" ha superato il limite ({{percentUsed}}%)',
@@ -1296,7 +1518,11 @@ const it: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Addebiti abbonamento in arrivo',
-    message: 'In arrivo: {{details}}',
+    message: 'Presto in addebito: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Addebito abbonamento in arrivo',
+    message: 'Presto in addebito: {{charges}}',
   },
   'tax.threshold.warning': {
     title: 'Soglia di registrazione fiscale',
@@ -1306,6 +1532,23 @@ const it: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Soglia di registrazione raggiunta',
     message: 'Il fatturato ha raggiunto la soglia di {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Dichiarazione IVA ({{period}}) in scadenza',
+    message: 'La dichiarazione IVA {{period}} ({{range}}) scade il {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Dichiarazione IVA ({{period}}) scaduta',
+    message: 'Scadeva il {{dueDate}} e non è stata presentata.',
+  },
+  'tax.deadline.income': {
+    title: 'Dichiarazione dei redditi in scadenza',
+    message: '{{returnName}} per {{taxYear}} scade il {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Le aliquote IVA ufficiali differiscono dalle tue',
+    message:
+      'Le aliquote IVA ufficiali ({{country}}) differiscono dalle tue. Controllale nelle impostazioni fiscali.',
   },
 };
 
@@ -1382,8 +1625,14 @@ const sk: TranslationMap = {
     title: 'Platba označená ako zaplatená',
     message: '{{vendor}} bol označený ako zaplatený',
   },
-  'payable.overdue': { title: 'Platba po splatnosti', message: '{{vendor}} je po splatnosti' },
-  'payable.due_soon': { title: 'Platba čoskoro splatná', message: '{{vendor}} je čoskoro splatný' },
+  'payable.overdue': {
+    title: 'Platba po splatnosti',
+    message: '{{vendor}}: {{amount}} bolo splatné {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Platba čoskoro splatná',
+    message: '{{vendor}}: {{amount}} je splatné {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Rozpočet prekročený',
     message: 'Rozpočet "{{budgetName}}" prekročil limit ({{percentUsed}}%)',
@@ -1398,7 +1647,11 @@ const sk: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Nadchádzajúce platby predplatného',
-    message: 'Nadchádzajúce: {{details}}',
+    message: 'Čoskoro na úhradu: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Nadchádzajúca platba predplatného',
+    message: 'Čoskoro na úhradu: {{charges}}',
   },
   'tax.threshold.warning': {
     title: 'Prah daňovej registrácie',
@@ -1407,6 +1660,23 @@ const sk: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Prah registrácie dosiahnutý',
     message: 'Obrat dosiahol prah registrácie {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Priznanie k DPH za {{period}} je čoskoro splatné',
+    message: 'Priznanie k DPH za {{period}} ({{range}}) je splatné {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Priznanie k DPH za {{period}} po splatnosti',
+    message: 'Bolo splatné {{dueDate}} a nie je podané.',
+  },
+  'tax.deadline.income': {
+    title: 'Daňové priznanie k dani z príjmov je čoskoro splatné',
+    message: '{{returnName}} za {{taxYear}} je splatné {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Oficiálne sadzby DPH sa líšia od vašich',
+    message:
+      'Oficiálne sadzby DPH ({{country}}) sa líšia od vašich. Skontrolujte ich v daňových nastaveniach.',
   },
 };
 
@@ -1488,11 +1758,11 @@ const ja: TranslationMap = {
   },
   'payable.overdue': {
     title: '支払い期限超過',
-    message: '{{vendor}} の支払いが期限を超過しています',
+    message: '{{vendor}} への {{amount}} の支払期限は{{dueDate}}でした',
   },
   'payable.due_soon': {
     title: '支払い期限間近',
-    message: '{{vendor}} の支払い期限が近づいています',
+    message: '{{vendor}} への {{amount}} の支払期限は{{dueDate}}です',
   },
   'budget.exceeded': {
     title: '予算超過',
@@ -1508,7 +1778,11 @@ const ja: TranslationMap = {
   },
   'subscription.upcoming': {
     title: '今後のサブスクリプション請求',
-    message: '今後の請求：{{details}}',
+    message: '{{charges}} の請求が近づいています',
+  },
+  'subscription.upcoming.one': {
+    title: '今後のサブスクリプション請求',
+    message: '{{charges}} の請求が近づいています',
   },
   'tax.threshold.warning': {
     title: '税務登録のしきい値',
@@ -1517,6 +1791,23 @@ const ja: TranslationMap = {
   'tax.threshold.reached': {
     title: '登録しきい値に到達',
     message: '売上が登録しきい値 {{threshold}} {{currency}} に達しました',
+  },
+  'tax.deadline.vat': {
+    title: '{{period}}の消費税申告の期限が近づいています',
+    message: '{{period}}（{{range}}）の消費税申告の期限は{{dueDate}}です。',
+  },
+  'tax.deadline.vat.overdue': {
+    title: '{{period}}の消費税申告が期限超過',
+    message: '期限は{{dueDate}}でしたが、まだ提出されていません。',
+  },
+  'tax.deadline.income': {
+    title: '所得税の確定申告の期限が近づいています',
+    message: '{{returnName}}（{{taxYear}}）の申告期限は {{dueDate}} です',
+  },
+  'tax.rates.official': {
+    title: '公式の付加価値税率がお使いの税率と異なります',
+    message:
+      '{{country}}の公式の付加価値税率がお使いの税率と異なります。税設定で確認してください。',
   },
 };
 
@@ -1593,8 +1884,14 @@ const ko: TranslationMap = {
     title: '결제 완료로 표시됨',
     message: '{{vendor}}이(가) 결제 완료로 표시되었습니다',
   },
-  'payable.overdue': { title: '결제 연체', message: '{{vendor}}이(가) 연체되었습니다' },
-  'payable.due_soon': { title: '결제 기한 임박', message: '{{vendor}}의 결제 기한이 임박했습니다' },
+  'payable.overdue': {
+    title: '결제 연체',
+    message: '{{vendor}}에 대한 {{amount}}의 기한은 {{dueDate}}였습니다',
+  },
+  'payable.due_soon': {
+    title: '결제 기한 임박',
+    message: '{{vendor}}에 대한 {{amount}}의 기한은 {{dueDate}}입니다',
+  },
   'budget.exceeded': {
     title: '예산 초과',
     message: '예산 "{{budgetName}}"이(가) 한도를 초과했습니다 ({{percentUsed}}%)',
@@ -1604,7 +1901,14 @@ const ko: TranslationMap = {
     message: '예산 "{{budgetName}}"이(가) 한도의 {{percentUsed}}%에 도달했습니다',
   },
   'subscription.detected': { title: '구독 감지됨', message: '정기 결제 발견: {{vendors}}' },
-  'subscription.upcoming': { title: '예정된 구독 결제', message: '예정: {{details}}' },
+  'subscription.upcoming': {
+    title: '예정된 구독 결제',
+    message: '{{charges}} 결제가 곧 예정되어 있습니다',
+  },
+  'subscription.upcoming.one': {
+    title: '예정된 구독 결제',
+    message: '{{charges}} 결제가 곧 예정되어 있습니다',
+  },
   'tax.threshold.warning': {
     title: '세무 등록 기준액',
     message: '매출이 등록 기준액 {{threshold}} {{currency}}의 {{percentUsed}}%에 도달했습니다',
@@ -1612,6 +1916,22 @@ const ko: TranslationMap = {
   'tax.threshold.reached': {
     title: '등록 기준액 도달',
     message: '매출이 등록 기준액 {{threshold}} {{currency}}에 도달했습니다',
+  },
+  'tax.deadline.vat': {
+    title: '{{period}} 부가가치세 신고 기한 임박',
+    message: '{{period}} 부가가치세 신고({{range}}) 기한은 {{dueDate}}입니다.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: '{{period}} 부가가치세 신고 기한 초과',
+    message: '기한은 {{dueDate}}였으며 아직 제출되지 않았습니다.',
+  },
+  'tax.deadline.income': {
+    title: '소득세 신고 기한 임박',
+    message: '{{returnName}} ({{taxYear}})의 신고 기한은 {{dueDate}}입니다',
+  },
+  'tax.rates.official': {
+    title: '공식 부가가치세율이 설정과 다릅니다',
+    message: '{{country}}의 공식 부가가치세율이 설정과 다릅니다. 세금 설정에서 확인하세요.',
   },
 };
 
@@ -1682,8 +2002,14 @@ const hi: TranslationMap = {
     title: 'भुगतान को भुगतान के रूप में चिह्नित किया गया',
     message: '{{vendor}} को भुगतान के रूप में चिह्नित किया गया',
   },
-  'payable.overdue': { title: 'भुगतान अतिदेय', message: '{{vendor}} अतिदेय है' },
-  'payable.due_soon': { title: 'भुगतान जल्द देय', message: '{{vendor}} जल्द देय है' },
+  'payable.overdue': {
+    title: 'भुगतान अतिदेय',
+    message: '{{vendor}} को {{amount}} का भुगतान {{dueDate}} को देय था',
+  },
+  'payable.due_soon': {
+    title: 'भुगतान जल्द देय',
+    message: '{{vendor}} को {{amount}} का भुगतान {{dueDate}} को देय है',
+  },
   'budget.exceeded': {
     title: 'बजट पार',
     message: 'बजट "{{budgetName}}" ने सीमा पार कर ली ({{percentUsed}}%)',
@@ -1696,7 +2022,14 @@ const hi: TranslationMap = {
     title: 'सदस्यताएं पता चलीं',
     message: 'नियमित भुगतान पाए गए: {{vendors}}',
   },
-  'subscription.upcoming': { title: 'आगामी सदस्यता शुल्क', message: 'आगामी: {{details}}' },
+  'subscription.upcoming': {
+    title: 'आगामी सदस्यता शुल्क',
+    message: 'जल्द देय: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'आगामी सदस्यता शुल्क',
+    message: 'जल्द देय: {{charges}}',
+  },
   'tax.threshold.warning': {
     title: 'कर पंजीकरण सीमा',
     message: 'कारोबार {{threshold}} {{currency}} पंजीकरण सीमा के {{percentUsed}}% तक पहुंच गया',
@@ -1704,6 +2037,22 @@ const hi: TranslationMap = {
   'tax.threshold.reached': {
     title: 'पंजीकरण सीमा तक पहुंच गया',
     message: 'कारोबार {{threshold}} {{currency}} की पंजीकरण सीमा तक पहुंच गया',
+  },
+  'tax.deadline.vat': {
+    title: 'वैट रिटर्न ({{period}}) जल्द देय',
+    message: 'वैट रिटर्न {{period}} ({{range}}) {{dueDate}} को देय है।',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'वैट रिटर्न ({{period}}) अतिदेय',
+    message: '{{dueDate}} को देय था और दाखिल नहीं किया गया है।',
+  },
+  'tax.deadline.income': {
+    title: 'आयकर रिटर्न जल्द देय',
+    message: '{{returnName}} ({{taxYear}}) {{dueDate}} को देय है',
+  },
+  'tax.rates.official': {
+    title: 'आधिकारिक वैट दरें आपकी दरों से अलग हैं',
+    message: '{{country}} की आधिकारिक वैट दरें आपकी दरों से अलग हैं। इन्हें टैक्स सेटिंग्स में जाँचें।',
   },
 };
 
@@ -1786,10 +2135,13 @@ const nl: TranslationMap = {
     title: 'Betaling als betaald gemarkeerd',
     message: '{{vendor}} is als betaald gemarkeerd',
   },
-  'payable.overdue': { title: 'Betaling achterstallig', message: '{{vendor}} is achterstallig' },
+  'payable.overdue': {
+    title: 'Betaling achterstallig',
+    message: '{{amount}} aan {{vendor}} moest uiterlijk {{dueDate}} betaald zijn',
+  },
   'payable.due_soon': {
     title: 'Betaling binnenkort verschuldigd',
-    message: '{{vendor}} is binnenkort verschuldigd',
+    message: '{{amount}} aan {{vendor}} moet uiterlijk {{dueDate}} betaald zijn',
   },
   'budget.exceeded': {
     title: 'Budget overschreden',
@@ -1805,7 +2157,11 @@ const nl: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Aankomende abonnementskosten',
-    message: 'Aankomend: {{details}}',
+    message: '{{charges}} worden binnenkort afgeschreven',
+  },
+  'subscription.upcoming.one': {
+    title: 'Aankomende abonnementskosten',
+    message: '{{charges}} wordt binnenkort afgeschreven',
   },
   'tax.threshold.warning': {
     title: 'Drempel voor btw-registratie',
@@ -1815,6 +2171,23 @@ const nl: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Registratiedrempel bereikt',
     message: 'De omzet heeft de registratiedrempel van {{threshold}} {{currency}} bereikt',
+  },
+  'tax.deadline.vat': {
+    title: 'Btw-aangifte {{period}} binnenkort verschuldigd',
+    message: 'Btw-aangifte {{period}} ({{range}}) moet uiterlijk {{dueDate}} binnen zijn.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Btw-aangifte {{period}} te laat',
+    message: 'Moest uiterlijk {{dueDate}} binnen zijn en is niet ingediend.',
+  },
+  'tax.deadline.income': {
+    title: 'Aangifte inkomstenbelasting binnenkort verschuldigd',
+    message: '{{returnName}} voor {{taxYear}} is verschuldigd op {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Officiële btw-tarieven wijken af van de uwe',
+    message:
+      'De officiële btw-tarieven voor {{country}} wijken af van de uwe. Controleer ze in de belastinginstellingen.',
   },
 };
 
@@ -1891,8 +2264,14 @@ const sv: TranslationMap = {
     title: 'Betalning markerad som betald',
     message: '{{vendor}} har markerats som betald',
   },
-  'payable.overdue': { title: 'Betalning förfallen', message: '{{vendor}} är förfallen' },
-  'payable.due_soon': { title: 'Betalning snart förfallen', message: '{{vendor}} förfaller snart' },
+  'payable.overdue': {
+    title: 'Betalning förfallen',
+    message: '{{amount}} till {{vendor}} skulle betalas senast {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Betalning snart förfallen',
+    message: '{{amount}} till {{vendor}} ska betalas senast {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Budget överskriden',
     message: 'Budgeten "{{budgetName}}" har överskridit sin gräns ({{percentUsed}}%)',
@@ -1907,7 +2286,11 @@ const sv: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Kommande prenumerationsavgifter',
-    message: 'Kommande: {{details}}',
+    message: '{{charges}} dras snart',
+  },
+  'subscription.upcoming.one': {
+    title: 'Kommande prenumerationsavgift',
+    message: '{{charges}} dras snart',
   },
   'tax.threshold.warning': {
     title: 'Tröskel för skatteregistrering',
@@ -1917,6 +2300,23 @@ const sv: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Registreringströskeln nådd',
     message: 'Omsättningen har nått registreringströskeln på {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Momsdeklaration för {{period}} förfaller snart',
+    message: 'Momsdeklarationen för {{period}} ({{range}}) ska lämnas senast {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Momsdeklaration för {{period}} försenad',
+    message: 'Skulle lämnas senast {{dueDate}} och är inte inlämnad.',
+  },
+  'tax.deadline.income': {
+    title: 'Inkomstdeklaration snart förfallen',
+    message: '{{returnName}} för {{taxYear}} förfaller {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Officiella momssatser skiljer sig från dina',
+    message:
+      'De officiella momssatserna för {{country}} skiljer sig från dina. Kontrollera dem i skatteinställningarna.',
   },
 };
 
@@ -1993,8 +2393,14 @@ const vi: TranslationMap = {
     title: 'Thanh toán đã được đánh dấu',
     message: '{{vendor}} đã được đánh dấu là đã thanh toán',
   },
-  'payable.overdue': { title: 'Thanh toán quá hạn', message: '{{vendor}} đã quá hạn' },
-  'payable.due_soon': { title: 'Thanh toán sắp đến hạn', message: '{{vendor}} sắp đến hạn' },
+  'payable.overdue': {
+    title: 'Thanh toán quá hạn',
+    message: '{{amount}} cho {{vendor}} đã đến hạn vào {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Thanh toán sắp đến hạn',
+    message: '{{amount}} cho {{vendor}} đến hạn vào {{dueDate}}',
+  },
   'budget.exceeded': {
     title: 'Vượt ngân sách',
     message: 'Ngân sách "{{budgetName}}" đã vượt giới hạn ({{percentUsed}}%)',
@@ -2007,7 +2413,14 @@ const vi: TranslationMap = {
     title: 'Phát hiện đăng ký',
     message: 'Tìm thấy thanh toán định kỳ: {{vendors}}',
   },
-  'subscription.upcoming': { title: 'Phí đăng ký sắp tới', message: 'Sắp tới: {{details}}' },
+  'subscription.upcoming': {
+    title: 'Phí đăng ký sắp tới',
+    message: 'Sắp bị trừ tiền: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Phí đăng ký sắp tới',
+    message: 'Sắp bị trừ tiền: {{charges}}',
+  },
   'tax.threshold.warning': {
     title: 'Ngưỡng đăng ký thuế',
     message: 'Doanh thu đã đạt {{percentUsed}}% ngưỡng đăng ký {{threshold}} {{currency}}',
@@ -2015,6 +2428,23 @@ const vi: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Đã đạt ngưỡng đăng ký',
     message: 'Doanh thu đã đạt ngưỡng đăng ký {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Tờ khai thuế VAT {{period}} sắp đến hạn',
+    message: 'Tờ khai thuế VAT {{period}} ({{range}}) đến hạn vào {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Tờ khai thuế VAT {{period}} quá hạn',
+    message: 'Đã đến hạn vào {{dueDate}} và chưa được nộp.',
+  },
+  'tax.deadline.income': {
+    title: 'Tờ khai thuế thu nhập sắp đến hạn',
+    message: '{{returnName}} cho {{taxYear}} đến hạn vào {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Thuế suất VAT chính thức khác với của bạn',
+    message:
+      'Thuế suất VAT chính thức của {{country}} khác với của bạn. Hãy kiểm tra trong cài đặt thuế.',
   },
 };
 
@@ -2088,10 +2518,13 @@ const id: TranslationMap = {
     title: 'Tagihan ditandai lunas',
     message: '{{vendor}} ditandai sebagai lunas',
   },
-  'payable.overdue': { title: 'Tagihan terlambat', message: '{{vendor}} sudah lewat jatuh tempo' },
+  'payable.overdue': {
+    title: 'Tagihan terlambat',
+    message: '{{amount}} untuk {{vendor}} sudah jatuh tempo pada {{dueDate}}',
+  },
   'payable.due_soon': {
     title: 'Tagihan segera jatuh tempo',
-    message: '{{vendor}} segera jatuh tempo',
+    message: '{{amount}} untuk {{vendor}} jatuh tempo pada {{dueDate}}',
   },
   'budget.exceeded': {
     title: 'Anggaran terlampaui',
@@ -2107,7 +2540,11 @@ const id: TranslationMap = {
   },
   'subscription.upcoming': {
     title: 'Tagihan langganan mendatang',
-    message: 'Mendatang: {{details}}',
+    message: 'Segera ditagih: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Tagihan langganan mendatang',
+    message: 'Segera ditagih: {{charges}}',
   },
   'tax.threshold.warning': {
     title: 'Ambang pendaftaran pajak',
@@ -2117,6 +2554,2086 @@ const id: TranslationMap = {
   'tax.threshold.reached': {
     title: 'Ambang pendaftaran tercapai',
     message: 'Omzet telah mencapai ambang pendaftaran {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'SPT PPN {{period}} segera jatuh tempo',
+    message: 'SPT PPN {{period}} ({{range}}) jatuh tempo pada {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'SPT PPN {{period}} terlambat',
+    message: 'Jatuh tempo pada {{dueDate}} dan belum diajukan.',
+  },
+  'tax.deadline.income': {
+    title: 'SPT pajak penghasilan segera jatuh tempo',
+    message: '{{returnName}} untuk {{taxYear}} jatuh tempo pada {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Tarif PPN resmi berbeda dari tarif Anda',
+    message: 'Tarif PPN resmi {{country}} berbeda dari tarif Anda. Periksa di pengaturan pajak.',
+  },
+};
+
+const da: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Abonnementets pris er ændret',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} pr. træk, {{yearly}} om året)',
+  },
+  'review.waiting': {
+    title: 'Poster venter på gennemgang',
+    message: '{{count}} poster venter i gennemgangsindbakken',
+  },
+  'note.mentioned': {
+    title: 'Du blev nævnt i en note',
+    message: '{{actorName}} nævnte dig: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Kontoudtog uploadet',
+    message: '{{actorName}} uploadede kontoudtoget "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Import fuldført',
+    message: '{{actorName}} importerede {{transactionCount}} posteringer',
+  },
+  'category.created': {
+    title: 'Kategori oprettet',
+    message: '{{actorName}} oprettede kategorien "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategori opdateret',
+    message: '{{actorName}} opdaterede kategorien "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategori slettet',
+    message: '{{actorName}} slettede kategorien "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nyt medlem inviteret',
+    message: '{{actorName}} inviterede {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Medlem tilsluttet',
+    message: '{{memberName}} blev medlem af arbejdsområdet',
+  },
+  'data.deleted': {
+    title: 'Data slettet',
+    message: '{{actorName}} slettede {{count}} poster',
+  },
+  'workspace.updated': {
+    title: 'Arbejdsområdets indstillinger opdateret',
+    message: '{{actorName}} opdaterede arbejdsområdets indstillinger',
+  },
+  'parsing.error': {
+    title: 'Fejl ved tolkning af kontoudtog',
+    message: 'Kontoudtoget kunne ikke behandles',
+  },
+  'parsing.error.named': {
+    title: 'Fejl ved tolkning af kontoudtog',
+    message: 'Kontoudtoget "{{statementName}}" kunne ikke behandles',
+  },
+  'import.failed': {
+    title: 'Import mislykkedes',
+    message: 'Importen mislykkedes med en fejl',
+  },
+  'import.failed.named': {
+    title: 'Import mislykkedes',
+    message: 'Import af kontoudtoget "{{statementName}}" mislykkedes',
+  },
+  'transactions.uncategorized': {
+    title: 'Ukategoriserede posteringer',
+    message: '{{count}} posteringer mangler kategori',
+  },
+  'receipt.uncategorized': {
+    title: 'Ukategoriseret kvittering',
+    message: 'Der blev fundet en kvittering uden kategori',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Ukategoriseret kvittering',
+    message: 'Kvitteringen "{{receiptName}}" har ingen kategori',
+  },
+  'payable.marked_paid': {
+    title: 'Kreditorpost markeret som betalt',
+    message: '{{vendor}} blev markeret som betalt',
+  },
+  'payable.overdue': {
+    title: 'Kreditorpost overskredet',
+    message: '{{amount}} til {{vendor}} skulle betales senest {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Kreditorpost forfalder snart',
+    message: '{{amount}} til {{vendor}} skal betales senest {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Budget overskredet',
+    message: 'Budgettet "{{budgetName}}" har overskredet sin grænse ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Budgetadvarsel',
+    message: 'Budgettet "{{budgetName}}" har nået {{percentUsed}} % af sin grænse',
+  },
+  'subscription.detected': {
+    title: 'Abonnementer fundet',
+    message: 'Fundet tilbagevendende betalinger: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Kommende abonnementsopkrævninger',
+    message: '{{charges}} trækkes snart',
+  },
+  'subscription.upcoming.one': {
+    title: 'Kommende abonnementsopkrævning',
+    message: '{{charges}} trækkes snart',
+  },
+  'tax.threshold.warning': {
+    title: 'Grænse for momsregistrering',
+    message:
+      'Omsætningen har nået {{percentUsed}} % af registreringsgrænsen på {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Registreringsgrænsen er nået',
+    message: 'Omsætningen har nået registreringsgrænsen på {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Momsangivelse for {{period}} forfalder snart',
+    message: 'Momsangivelsen for {{period}} ({{range}}) skal indberettes senest {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Momsangivelse for {{period}} er overskredet',
+    message: 'Skulle indberettes senest {{dueDate}} og er ikke indberettet.',
+  },
+  'tax.deadline.income': {
+    title: 'Selvangivelse forfalder snart',
+    message: '{{returnName}} for {{taxYear}} forfalder {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Officielle momssatser afviger fra dine',
+    message:
+      'De officielle momssatser for {{country}} afviger fra dine. Gennemgå dem i skatteindstillingerne.',
+  },
+};
+
+const nb: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Abonnementsprisen er endret',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} per trekk, {{yearly}} i året)',
+  },
+  'review.waiting': {
+    title: 'Poster venter på gjennomgang',
+    message: '{{count}} poster venter i gjennomgangsinnboksen',
+  },
+  'note.mentioned': {
+    title: 'Du ble nevnt i et notat',
+    message: '{{actorName}} nevnte deg: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Kontoutskrift lastet opp',
+    message: '{{actorName}} lastet opp kontoutskriften "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Import fullført',
+    message: '{{actorName}} importerte {{transactionCount}} transaksjoner',
+  },
+  'category.created': {
+    title: 'Kategori opprettet',
+    message: '{{actorName}} opprettet kategorien "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategori oppdatert',
+    message: '{{actorName}} oppdaterte kategorien "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategori slettet',
+    message: '{{actorName}} slettet kategorien "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nytt medlem invitert',
+    message: '{{actorName}} inviterte {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Medlem ble med',
+    message: '{{memberName}} ble med i arbeidsområdet',
+  },
+  'data.deleted': {
+    title: 'Data slettet',
+    message: '{{actorName}} slettet {{count}} poster',
+  },
+  'workspace.updated': {
+    title: 'Innstillinger for arbeidsområdet oppdatert',
+    message: '{{actorName}} oppdaterte innstillingene for arbeidsområdet',
+  },
+  'parsing.error': {
+    title: 'Feil ved tolking av kontoutskrift',
+    message: 'Kontoutskriften kunne ikke behandles',
+  },
+  'parsing.error.named': {
+    title: 'Feil ved tolking av kontoutskrift',
+    message: 'Kontoutskriften "{{statementName}}" kunne ikke behandles',
+  },
+  'import.failed': {
+    title: 'Import mislyktes',
+    message: 'Importen mislyktes med en feil',
+  },
+  'import.failed.named': {
+    title: 'Import mislyktes',
+    message: 'Import av kontoutskriften "{{statementName}}" mislyktes',
+  },
+  'transactions.uncategorized': {
+    title: 'Ukategoriserte transaksjoner',
+    message: '{{count}} transaksjoner mangler kategori',
+  },
+  'receipt.uncategorized': {
+    title: 'Ukategorisert kvittering',
+    message: 'Det ble funnet en kvittering uten kategori',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Ukategorisert kvittering',
+    message: 'Kvitteringen "{{receiptName}}" har ingen kategori',
+  },
+  'payable.marked_paid': {
+    title: 'Leverandørgjeld merket som betalt',
+    message: '{{vendor}} ble merket som betalt',
+  },
+  'payable.overdue': {
+    title: 'Leverandørgjeld forfalt',
+    message: '{{amount}} til {{vendor}} skulle vært betalt innen {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Leverandørgjeld forfaller snart',
+    message: '{{amount}} til {{vendor}} skal betales innen {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Budsjett overskredet',
+    message: 'Budsjettet "{{budgetName}}" har overskredet grensen ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Budsjettvarsel',
+    message: 'Budsjettet "{{budgetName}}" har nådd {{percentUsed}} % av grensen',
+  },
+  'subscription.detected': {
+    title: 'Abonnementer oppdaget',
+    message: 'Fant gjentakende betalinger: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Kommende abonnementsbelastninger',
+    message: '{{charges}} trekkes snart',
+  },
+  'subscription.upcoming.one': {
+    title: 'Kommende abonnementsbelastning',
+    message: '{{charges}} trekkes snart',
+  },
+  'tax.threshold.warning': {
+    title: 'Grense for mva-registrering',
+    message:
+      'Omsetningen har nådd {{percentUsed}} % av registreringsgrensen på {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Registreringsgrensen er nådd',
+    message: 'Omsetningen har nådd registreringsgrensen på {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Mva-melding for {{period}} forfaller snart',
+    message: 'Mva-meldingen for {{period}} ({{range}}) skal leveres innen {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Mva-melding for {{period}} er forfalt',
+    message: 'Skulle vært levert innen {{dueDate}} og er ikke levert.',
+  },
+  'tax.deadline.income': {
+    title: 'Skattemelding forfaller snart',
+    message: '{{returnName}} for {{taxYear}} forfaller {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Offisielle mva-satser avviker fra dine',
+    message:
+      'De offisielle mva-satsene for {{country}} avviker fra dine. Gå gjennom dem i skatteinnstillingene.',
+  },
+};
+
+const nn: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Abonnementsprisen er endra',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} per trekk, {{yearly}} i året)',
+  },
+  'review.waiting': {
+    title: 'Postar ventar på gjennomgang',
+    message: '{{count}} postar ventar i gjennomgangsinnboksen',
+  },
+  'note.mentioned': {
+    title: 'Du vart nemnd i eit notat',
+    message: '{{actorName}} nemnde deg: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Kontoutskrift lasta opp',
+    message: '{{actorName}} lasta opp kontoutskrifta "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Import fullført',
+    message: '{{actorName}} importerte {{transactionCount}} transaksjonar',
+  },
+  'category.created': {
+    title: 'Kategori oppretta',
+    message: '{{actorName}} oppretta kategorien "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategori oppdatert',
+    message: '{{actorName}} oppdaterte kategorien "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategori sletta',
+    message: '{{actorName}} sletta kategorien "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nytt medlem invitert',
+    message: '{{actorName}} inviterte {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Medlem vart med',
+    message: '{{memberName}} vart med i arbeidsområdet',
+  },
+  'data.deleted': {
+    title: 'Data sletta',
+    message: '{{actorName}} sletta {{count}} postar',
+  },
+  'workspace.updated': {
+    title: 'Innstillingar for arbeidsområdet oppdaterte',
+    message: '{{actorName}} oppdaterte innstillingane for arbeidsområdet',
+  },
+  'parsing.error': {
+    title: 'Feil ved tolking av kontoutskrift',
+    message: 'Kontoutskrifta kunne ikkje handsamast',
+  },
+  'parsing.error.named': {
+    title: 'Feil ved tolking av kontoutskrift',
+    message: 'Kontoutskrifta "{{statementName}}" kunne ikkje handsamast',
+  },
+  'import.failed': {
+    title: 'Import mislukkast',
+    message: 'Importen mislukkast med ein feil',
+  },
+  'import.failed.named': {
+    title: 'Import mislukkast',
+    message: 'Import av kontoutskrifta "{{statementName}}" mislukkast',
+  },
+  'transactions.uncategorized': {
+    title: 'Ukategoriserte transaksjonar',
+    message: '{{count}} transaksjonar manglar kategori',
+  },
+  'receipt.uncategorized': {
+    title: 'Ukategorisert kvittering',
+    message: 'Det vart funnen ei kvittering utan kategori',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Ukategorisert kvittering',
+    message: 'Kvitteringa "{{receiptName}}" har ingen kategori',
+  },
+  'payable.marked_paid': {
+    title: 'Leverandørgjeld merkt som betalt',
+    message: '{{vendor}} vart merkt som betalt',
+  },
+  'payable.overdue': {
+    title: 'Leverandørgjeld forfallen',
+    message: '{{amount}} til {{vendor}} skulle vore betalt innan {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Leverandørgjeld forfell snart',
+    message: '{{amount}} til {{vendor}} skal betalast innan {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Budsjett overskride',
+    message: 'Budsjettet "{{budgetName}}" har overskride grensa ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Budsjettåtvaring',
+    message: 'Budsjettet "{{budgetName}}" har nådd {{percentUsed}} % av grensa',
+  },
+  'subscription.detected': {
+    title: 'Abonnement oppdaga',
+    message: 'Fann gjentakande betalingar: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Komande abonnementsbelastingar',
+    message: '{{charges}} vert trekt snart',
+  },
+  'subscription.upcoming.one': {
+    title: 'Komande abonnementsbelasting',
+    message: '{{charges}} vert trekt snart',
+  },
+  'tax.threshold.warning': {
+    title: 'Grense for mva-registrering',
+    message:
+      'Omsetninga har nådd {{percentUsed}} % av registreringsgrensa på {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Registreringsgrensa er nådd',
+    message: 'Omsetninga har nådd registreringsgrensa på {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Mva-melding for {{period}} forfell snart',
+    message: 'Mva-meldinga for {{period}} ({{range}}) skal leverast innan {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Mva-melding for {{period}} er forfallen',
+    message: 'Skulle vore levert innan {{dueDate}} og er ikkje levert.',
+  },
+  'tax.deadline.income': {
+    title: 'Skattemelding forfell snart',
+    message: '{{returnName}} for {{taxYear}} forfell {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Offisielle mva-satsar avvik frå dine',
+    message:
+      'Dei offisielle mva-satsane for {{country}} avvik frå dine. Gå gjennom dei i skatteinnstillingane.',
+  },
+};
+
+const fi: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Tilauksen hinta muuttui',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} per veloitus, {{yearly}} vuodessa)',
+  },
+  'review.waiting': {
+    title: 'Kohteita odottaa tarkistusta',
+    message: '{{count}} kohdetta odottaa tarkistuslaatikossa',
+  },
+  'note.mentioned': {
+    title: 'Sinut mainittiin muistiinpanossa',
+    message: '{{actorName}} mainitsi sinut: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Tiliote ladattu',
+    message: '{{actorName}} latasi tiliotteen "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Tuonti valmis',
+    message: '{{actorName}} toi {{transactionCount}} tapahtumaa',
+  },
+  'category.created': {
+    title: 'Kategoria luotu',
+    message: '{{actorName}} loi kategorian "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategoria päivitetty',
+    message: '{{actorName}} päivitti kategorian "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategoria poistettu',
+    message: '{{actorName}} poisti kategorian "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Uusi jäsen kutsuttu',
+    message: '{{actorName}} kutsui {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Jäsen liittyi',
+    message: '{{memberName}} liittyi työtilaan',
+  },
+  'data.deleted': {
+    title: 'Tietoja poistettu',
+    message: '{{actorName}} poisti {{count}} tietuetta',
+  },
+  'workspace.updated': {
+    title: 'Työtilan asetukset päivitetty',
+    message: '{{actorName}} päivitti työtilan asetuksia',
+  },
+  'parsing.error': {
+    title: 'Virhe tiliotteen jäsennyksessä',
+    message: 'Tiliotteen käsittely ei onnistunut',
+  },
+  'parsing.error.named': {
+    title: 'Virhe tiliotteen jäsennyksessä',
+    message: 'Tiliotteen "{{statementName}}" käsittely ei onnistunut',
+  },
+  'import.failed': {
+    title: 'Tuonti epäonnistui',
+    message: 'Tuonti päättyi virheeseen',
+  },
+  'import.failed.named': {
+    title: 'Tuonti epäonnistui',
+    message: 'Tiliotteen "{{statementName}}" tuonti epäonnistui',
+  },
+  'transactions.uncategorized': {
+    title: 'Luokittelemattomat tapahtumat',
+    message: '{{count}} tapahtumaa tarvitsee kategorian',
+  },
+  'receipt.uncategorized': {
+    title: 'Luokittelematon kuitti',
+    message: 'Löytyi kuitti ilman kategoriaa',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Luokittelematon kuitti',
+    message: 'Kuitilla "{{receiptName}}" ei ole kategoriaa',
+  },
+  'payable.marked_paid': {
+    title: 'Ostovelka merkitty maksetuksi',
+    message: '{{vendor}} merkittiin maksetuksi',
+  },
+  'payable.overdue': {
+    title: 'Ostovelka myöhässä',
+    message: '{{vendor}}: {{amount}}, erääntyi {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Ostovelka erääntyy pian',
+    message: '{{vendor}}: {{amount}}, erääntyy {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Budjetti ylitetty',
+    message: 'Budjetti "{{budgetName}}" on ylittänyt rajansa ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Budjettivaroitus',
+    message: 'Budjetti "{{budgetName}}" on saavuttanut {{percentUsed}} % rajastaan',
+  },
+  'subscription.detected': {
+    title: 'Tilauksia havaittu',
+    message: 'Löytyi toistuvia maksuja: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Tulevat tilausveloitukset',
+    message: 'Veloitetaan pian: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Tuleva tilausveloitus',
+    message: 'Veloitetaan pian: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'ALV-rekisteröinnin raja',
+    message:
+      'Liikevaihto on saavuttanut {{percentUsed}} % rekisteröintirajasta {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Rekisteröintiraja saavutettu',
+    message: 'Liikevaihto on saavuttanut rekisteröintirajan {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'ALV-ilmoitus erääntyy pian ({{period}})',
+    message: 'ALV-ilmoitus ({{period}}, {{range}}) erääntyy {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'ALV-ilmoitus myöhässä ({{period}})',
+    message: 'Erääntyi {{dueDate}}, eikä sitä ole jätetty.',
+  },
+  'tax.deadline.income': {
+    title: 'Veroilmoitus erääntyy pian',
+    message: '{{returnName}} vuodelle {{taxYear}} erääntyy {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Viralliset ALV-kannat poikkeavat omistasi',
+    message:
+      'Viralliset ALV-kannat ({{country}}) poikkeavat omistasi. Tarkista ne veroasetuksista.',
+  },
+};
+
+const is: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Verð áskriftar breyttist',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} á hverja færslu, {{yearly}} á ári)',
+  },
+  'review.waiting': {
+    title: 'Færslur bíða yfirferðar',
+    message: '{{count}} færslur bíða í yfirferðarhólfinu',
+  },
+  'note.mentioned': {
+    title: 'Þú varst nefnd í athugasemd',
+    message: '{{actorName}} nefndi þig: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Yfirliti hlaðið upp',
+    message: '{{actorName}} hlóð upp yfirlitinu "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Innflutningi lokið',
+    message: '{{actorName}} flutti inn {{transactionCount}} færslur',
+  },
+  'category.created': {
+    title: 'Kategoría búin til',
+    message: '{{actorName}} bjó til kategoríuna "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategoría uppfærð',
+    message: '{{actorName}} uppfærði kategoríuna "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategoríu eytt',
+    message: '{{actorName}} eyddi kategoríunni "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nýjum meðlim boðið',
+    message: '{{actorName}} bauð {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Meðlimur gekk til liðs',
+    message: '{{memberName}} gekk til liðs við vinnusvæðið',
+  },
+  'data.deleted': {
+    title: 'Gögnum eytt',
+    message: '{{actorName}} eyddi {{count}} skrám',
+  },
+  'workspace.updated': {
+    title: 'Stillingar vinnusvæðis uppfærðar',
+    message: '{{actorName}} uppfærði stillingar vinnusvæðisins',
+  },
+  'parsing.error': {
+    title: 'Villa við þáttun yfirlits',
+    message: 'Ekki var unnt að vinna úr yfirlitinu',
+  },
+  'parsing.error.named': {
+    title: 'Villa við þáttun yfirlits',
+    message: 'Ekki var unnt að vinna úr yfirlitinu "{{statementName}}"',
+  },
+  'import.failed': {
+    title: 'Innflutningur mistókst',
+    message: 'Innflutningur endaði með villu',
+  },
+  'import.failed.named': {
+    title: 'Innflutningur mistókst',
+    message: 'Innflutningur yfirlitsins "{{statementName}}" mistókst',
+  },
+  'transactions.uncategorized': {
+    title: 'Óflokkaðar færslur',
+    message: '{{count}} færslur þurfa kategoríu',
+  },
+  'receipt.uncategorized': {
+    title: 'Óflokkuð kvittun',
+    message: 'Kvittun án kategoríu fannst',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Óflokkuð kvittun',
+    message: 'Kvittunin "{{receiptName}}" hefur enga kategoríu',
+  },
+  'payable.marked_paid': {
+    title: 'Skuld merkt sem greidd',
+    message: '{{vendor}} var merkt sem greidd',
+  },
+  'payable.overdue': {
+    title: 'Skuld í vanskilum',
+    message: '{{vendor}}: {{amount}}, gjalddagi var {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Skuld á gjalddaga á næstunni',
+    message: '{{vendor}}: {{amount}}, gjalddagi {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Fjárhagsáætlun yfirfarin',
+    message: 'Fjárhagsáætlunin "{{budgetName}}" hefur farið yfir markið ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Viðvörun fjárhagsáætlunar',
+    message: 'Fjárhagsáætlunin "{{budgetName}}" hefur náð {{percentUsed}} % af markinu',
+  },
+  'subscription.detected': {
+    title: 'Áskriftir greindar',
+    message: 'Fundust endurteknar greiðslur: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Komandi áskriftargjöld',
+    message: 'Skuldfært fljótlega: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Komandi áskriftargjald',
+    message: 'Skuldfært fljótlega: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Þröskuldur VSK-skráningar',
+    message:
+      'Velta hefur náð {{percentUsed}} % af skráningarþröskuldinum {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Skráningarþröskuldi náð',
+    message: 'Velta hefur náð skráningarþröskuldinum {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'VSK-skýrsla ({{period}}) á gjalddaga á næstunni',
+    message: 'VSK-skýrsla {{period}} ({{range}}) er á gjalddaga {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'VSK-skýrsla ({{period}}) í vanskilum',
+    message: 'Var á gjalddaga {{dueDate}} og hefur ekki verið skilað.',
+  },
+  'tax.deadline.income': {
+    title: 'Skattframtal á gjalddaga á næstunni',
+    message: '{{returnName}} fyrir {{taxYear}} er á gjalddaga {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Opinber VSK-hlutföll eru önnur en þín',
+    message:
+      'Opinber VSK-hlutföll ({{country}}) eru önnur en þín. Farðu yfir þau í skattastillingum.',
+  },
+};
+
+const fo: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Prísurin á haldinum er broyttur',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} fyri hvørja skuldseting, {{yearly}} um árið)',
+  },
+  'review.waiting': {
+    title: 'Postar bíða eftir eftirkanning',
+    message: '{{count}} postar bíða í eftirkanningarinnbakkanum',
+  },
+  'note.mentioned': {
+    title: 'Tú varðst nevnd í einum notati',
+    message: '{{actorName}} nevndi tær: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Kontoúrtøk lagt upp',
+    message: '{{actorName}} legði kontoúrtøkið "{{statementName}}" upp',
+  },
+  'import.committed': {
+    title: 'Innflutningur fullfíggjaður',
+    message: '{{actorName}} flutti {{transactionCount}} posteringar inn',
+  },
+  'category.created': {
+    title: 'Bólkur stovnaður',
+    message: '{{actorName}} stovnaði bólkin "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Bólkur dagførdur',
+    message: '{{actorName}} dagførdi bólkin "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Bólkur strikaður',
+    message: '{{actorName}} strikaði bólkin "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Nýggjur limur bodin',
+    message: '{{actorName}} bjóðaði {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Limur varð við',
+    message: '{{memberName}} varð við í arbeiðsøkinum',
+  },
+  'data.deleted': {
+    title: 'Dátur strikaðar',
+    message: '{{actorName}} strikaði {{count}} skrásetingar',
+  },
+  'workspace.updated': {
+    title: 'Innstillingar fyri arbeiðsøki dagførdar',
+    message: '{{actorName}} dagførdi innstillingarnar fyri arbeiðsøkið',
+  },
+  'parsing.error': {
+    title: 'Feilur í tólking av kontoúrtøki',
+    message: 'Fekk ikki viðgjørt kontoúrtøkið',
+  },
+  'parsing.error.named': {
+    title: 'Feilur í tólking av kontoúrtøki',
+    message: 'Fekk ikki viðgjørt kontoúrtøkið "{{statementName}}"',
+  },
+  'import.failed': {
+    title: 'Innflutningur miseydnaðist',
+    message: 'Innflutningurin endaði við einum feili',
+  },
+  'import.failed.named': {
+    title: 'Innflutningur miseydnaðist',
+    message: 'Innflutningur av kontoúrtøkinum "{{statementName}}" miseydnaðist',
+  },
+  'transactions.uncategorized': {
+    title: 'Óbólkaðar posteringar',
+    message: '{{count}} posteringar mangla bólk',
+  },
+  'receipt.uncategorized': {
+    title: 'Óbólkað kvittan',
+    message: 'Ein kvittan uttan bólk varð funnin',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Óbólkað kvittan',
+    message: 'Kvittanin "{{receiptName}}" hevur ongan bólk',
+  },
+  'payable.marked_paid': {
+    title: 'Skuld merkt sum gjaldað',
+    message: '{{vendor}} varð merkt sum gjaldað',
+  },
+  'payable.overdue': {
+    title: 'Skuld yvir tíðina',
+    message: '{{vendor}}: {{amount}}, gjalddagur var {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Skuld fellur skjótt',
+    message: '{{vendor}}: {{amount}}, gjalddagur {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Fíggjarætlan yvirstigin',
+    message: 'Fíggjarætlanin "{{budgetName}}" hevur fart yvir markið ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Ávaring um fíggjarætlan',
+    message: 'Fíggjarætlanin "{{budgetName}}" hevur nátt {{percentUsed}} % av markinum',
+  },
+  'subscription.detected': {
+    title: 'Hald funnin',
+    message: 'Funnar endurtaknar gjaldingar: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Komandi haldsgjøld',
+    message: 'Verður trekt skjótt: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Komandi haldsgjald',
+    message: 'Verður trekt skjótt: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Mark fyri MVG-skráseting',
+    message:
+      'Umsetningurin hevur nátt {{percentUsed}} % av skrásetingarmarkinum {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Skrásetingarmarkið er nátt',
+    message: 'Umsetningurin hevur nátt skrásetingarmarkinum {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'MVG-frágreiðing ({{period}}) fellur skjótt',
+    message: 'MVG-frágreiðingin {{period}} ({{range}}) fellur {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'MVG-frágreiðing ({{period}}) er yvir tíðina',
+    message: 'Skuldi verið latin inn {{dueDate}} og er ikki latin inn.',
+  },
+  'tax.deadline.income': {
+    title: 'Skattframtal fellur skjótt',
+    message: '{{returnName}} fyri {{taxYear}} fellur {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Almennir MVG-satsar víkja frá tínum',
+    message:
+      'Almennu MVG-satsarnir ({{country}}) víkja frá tínum. Kanna teir í skattastillingunum.',
+  },
+};
+
+const cs: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Cena předplatného se změnila',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} za platbu, {{yearly}} ročně)',
+  },
+  'review.waiting': {
+    title: 'Položky čekají na kontrolu',
+    message: '{{count}} položek čeká ve schránce ke kontrole',
+  },
+  'note.mentioned': {
+    title: 'Byli jste zmíněni v poznámce',
+    message: '{{actorName}} vás zmínil: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Výpis nahrán',
+    message: '{{actorName}} nahrál výpis "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Import dokončen',
+    message: '{{actorName}} naimportoval {{transactionCount}} transakcí',
+  },
+  'category.created': {
+    title: 'Kategorie vytvořena',
+    message: '{{actorName}} vytvořil kategorii "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategorie upravena',
+    message: '{{actorName}} upravil kategorii "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategorie smazána',
+    message: '{{actorName}} smazal kategorii "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Pozvání nového člena',
+    message: '{{actorName}} pozval {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Člen se připojil',
+    message: '{{memberName}} se připojil k pracovnímu prostoru',
+  },
+  'data.deleted': {
+    title: 'Data smazána',
+    message: '{{actorName}} smazal {{count}} záznamů',
+  },
+  'workspace.updated': {
+    title: 'Nastavení pracovního prostoru upraveno',
+    message: '{{actorName}} upravil nastavení pracovního prostoru',
+  },
+  'parsing.error': {
+    title: 'Chyba zpracování výpisu',
+    message: 'Výpis se nepodařilo zpracovat',
+  },
+  'parsing.error.named': {
+    title: 'Chyba zpracování výpisu',
+    message: 'Výpis "{{statementName}}" se nepodařilo zpracovat',
+  },
+  'import.failed': {
+    title: 'Import se nezdařil',
+    message: 'Import skončil chybou',
+  },
+  'import.failed.named': {
+    title: 'Import se nezdařil',
+    message: 'Import výpisu "{{statementName}}" se nezdařil',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakce bez kategorie',
+    message: '{{count}} transakcí potřebuje kategorii',
+  },
+  'receipt.uncategorized': {
+    title: 'Účtenka bez kategorie',
+    message: 'Byla nalezena účtenka bez kategorie',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Účtenka bez kategorie',
+    message: 'Účtenka "{{receiptName}}" nemá kategorii',
+  },
+  'payable.marked_paid': {
+    title: 'Závazek označen jako zaplacený',
+    message: '{{vendor}} byl označen jako zaplacený',
+  },
+  'payable.overdue': {
+    title: 'Závazek po splatnosti',
+    message: '{{vendor}}: {{amount}} bylo splatné {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Závazek je brzy splatný',
+    message: '{{vendor}}: {{amount}} je splatné {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Rozpočet překročen',
+    message: 'Rozpočet "{{budgetName}}" překročil svůj limit ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Upozornění rozpočtu',
+    message: 'Rozpočet "{{budgetName}}" dosáhl {{percentUsed}} % svého limitu',
+  },
+  'subscription.detected': {
+    title: 'Zjištěno předplatné',
+    message: 'Nalezeny opakované platby: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Blížící se platby předplatného',
+    message: 'Brzy k úhradě: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Blížící se platba předplatného',
+    message: 'Brzy k úhradě: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Limit pro registraci k DPH',
+    message: 'Obrat dosáhl {{percentUsed}} % registračního limitu {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Registrační limit dosažen',
+    message: 'Obrat dosáhl registračního limitu {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Přiznání k DPH za {{period}} je brzy splatné',
+    message: 'Přiznání k DPH za {{period}} ({{range}}) je splatné {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Přiznání k DPH za {{period}} po splatnosti',
+    message: 'Bylo splatné {{dueDate}} a není podané.',
+  },
+  'tax.deadline.income': {
+    title: 'Daňové přiznání k dani z příjmů je brzy splatné',
+    message: '{{returnName}} za {{taxYear}} je splatné {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Oficiální sazby DPH se liší od vašich',
+    message:
+      'Oficiální sazby DPH ({{country}}) se liší od vašich. Zkontrolujte je v daňovém nastavení.',
+  },
+};
+
+const bg: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Цената на абонамента се промени',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} на плащане, {{yearly}} годишно)',
+  },
+  'review.waiting': {
+    title: 'Записи чакат преглед',
+    message: '{{count}} записа чакат в кутията за преглед',
+  },
+  'note.mentioned': {
+    title: 'Споменаха ви в бележка',
+    message: '{{actorName}} ви спомена: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Извлечението е качено',
+    message: '{{actorName}} качи извлечението "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Импортът е завършен',
+    message: '{{actorName}} импортира {{transactionCount}} транзакции',
+  },
+  'category.created': {
+    title: 'Категорията е създадена',
+    message: '{{actorName}} създаде категорията "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Категорията е обновена',
+    message: '{{actorName}} обнови категорията "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Категорията е изтрита',
+    message: '{{actorName}} изтри категорията "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Поканен е нов участник',
+    message: '{{actorName}} покани {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Участник се присъедини',
+    message: '{{memberName}} се присъедини към работното пространство',
+  },
+  'data.deleted': {
+    title: 'Данни са изтрити',
+    message: '{{actorName}} изтри {{count}} записа',
+  },
+  'workspace.updated': {
+    title: 'Настройките на работното пространство са обновени',
+    message: '{{actorName}} обнови настройките на работното пространство',
+  },
+  'parsing.error': {
+    title: 'Грешка при разчитане на извлечение',
+    message: 'Извлечението не можа да бъде обработено',
+  },
+  'parsing.error.named': {
+    title: 'Грешка при разчитане на извлечение',
+    message: 'Извлечението "{{statementName}}" не можа да бъде обработено',
+  },
+  'import.failed': {
+    title: 'Импортът се провали',
+    message: 'Импортът завърши с грешка',
+  },
+  'import.failed.named': {
+    title: 'Импортът се провали',
+    message: 'Импортът на извлечението "{{statementName}}" се провали',
+  },
+  'transactions.uncategorized': {
+    title: 'Транзакции без категория',
+    message: '{{count}} транзакции се нуждаят от категория',
+  },
+  'receipt.uncategorized': {
+    title: 'Касова бележка без категория',
+    message: 'Намерена е бележка без категория',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Касова бележка без категория',
+    message: 'Бележката "{{receiptName}}" е без категория',
+  },
+  'payable.marked_paid': {
+    title: 'Задължението е отбелязано като платено',
+    message: '{{vendor}} беше отбелязано като платено',
+  },
+  'payable.overdue': {
+    title: 'Просрочено задължение',
+    message: '{{vendor}}: {{amount}}, падежът беше {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Задължение с близък срок',
+    message: '{{vendor}}: {{amount}}, падеж {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Бюджетът е надвишен',
+    message: 'Бюджетът "{{budgetName}}" надвиши лимита си ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Предупреждение за бюджет',
+    message: 'Бюджетът "{{budgetName}}" достигна {{percentUsed}} % от лимита си',
+  },
+  'subscription.detected': {
+    title: 'Открити са абонаменти',
+    message: 'Намерени повтарящи се плащания: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Предстоящи плащания по абонаменти',
+    message: 'Предстои таксуване: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Предстоящо плащане по абонамент',
+    message: 'Предстои таксуване: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Праг за регистрация по ДДС',
+    message:
+      'Оборотът достигна {{percentUsed}} % от прага за регистрация {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Прагът за регистрация е достигнат',
+    message: 'Оборотът достигна прага за регистрация {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Декларацията по ДДС за {{period}} скоро изтича',
+    message: 'Декларацията по ДДС за {{period}} ({{range}}) трябва да се подаде до {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Декларацията по ДДС за {{period}} е просрочена',
+    message: 'Срокът беше {{dueDate}} и не е подадена.',
+  },
+  'tax.deadline.income': {
+    title: 'Данъчната декларация за доходите скоро изтича',
+    message: '{{returnName}} за {{taxYear}} трябва да се подаде до {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Официалните ставки на ДДС се различават от вашите',
+    message:
+      'Официалните ставки на ДДС ({{country}}) се различават от вашите. Проверете ги в данъчните настройки.',
+  },
+};
+
+const hr: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Cijena pretplate se promijenila',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} po terećenju, {{yearly}} godišnje)',
+  },
+  'review.waiting': {
+    title: 'Stavke čekaju pregled',
+    message: '{{count}} stavki čeka u sandučiću za pregled',
+  },
+  'note.mentioned': {
+    title: 'Spomenuti ste u bilješci',
+    message: '{{actorName}} vas je spomenuo: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Izvod je prenesen',
+    message: '{{actorName}} je prenio izvod "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Uvoz je dovršen',
+    message: '{{actorName}} je uvezao {{transactionCount}} transakcija',
+  },
+  'category.created': {
+    title: 'Kategorija je napravljena',
+    message: '{{actorName}} je napravio kategoriju "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategorija je ažurirana',
+    message: '{{actorName}} je ažurirao kategoriju "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategorija je izbrisana',
+    message: '{{actorName}} je izbrisao kategoriju "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Pozvan je novi član',
+    message: '{{actorName}} je pozvao {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Član se pridružio',
+    message: '{{memberName}} se pridružio radnom prostoru',
+  },
+  'data.deleted': {
+    title: 'Podaci su izbrisani',
+    message: '{{actorName}} je izbrisao {{count}} zapisa',
+  },
+  'workspace.updated': {
+    title: 'Postavke radnog prostora su ažurirane',
+    message: '{{actorName}} je ažurirao postavke radnog prostora',
+  },
+  'parsing.error': {
+    title: 'Pogreška obrade izvoda',
+    message: 'Izvod nije bilo moguće obraditi',
+  },
+  'parsing.error.named': {
+    title: 'Pogreška obrade izvoda',
+    message: 'Izvod "{{statementName}}" nije bilo moguće obraditi',
+  },
+  'import.failed': {
+    title: 'Uvoz nije uspio',
+    message: 'Uvoz je završio pogreškom',
+  },
+  'import.failed.named': {
+    title: 'Uvoz nije uspio',
+    message: 'Uvoz izvoda "{{statementName}}" nije uspio',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakcije bez kategorije',
+    message: '{{count}} transakcija treba kategoriju',
+  },
+  'receipt.uncategorized': {
+    title: 'Račun bez kategorije',
+    message: 'Nađen je račun bez kategorije',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Račun bez kategorije',
+    message: 'Račun "{{receiptName}}" nema kategoriju',
+  },
+  'payable.marked_paid': {
+    title: 'Obveza označena kao plaćena',
+    message: '{{vendor}} je označen kao plaćen',
+  },
+  'payable.overdue': {
+    title: 'Dospjela obveza',
+    message: '{{vendor}}: {{amount}}, dospijeće je bilo {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Obveza dospijeva uskoro',
+    message: '{{vendor}}: {{amount}}, dospijeće {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Proračun je prekoračen',
+    message: 'Proračun "{{budgetName}}" prekoračio je svoje ograničenje ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Upozorenje proračuna',
+    message: 'Proračun "{{budgetName}}" dosegao je {{percentUsed}} % svojeg ograničenja',
+  },
+  'subscription.detected': {
+    title: 'Otkrivene pretplate',
+    message: 'Nađena ponavljajuća plaćanja: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Predstojeće naplate pretplata',
+    message: 'Uskoro se naplaćuje: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Predstojeća naplata pretplate',
+    message: 'Uskoro se naplaćuje: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Prag za registraciju PDV-a',
+    message: 'Promet je dosegao {{percentUsed}} % praga za registraciju {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Prag za registraciju je dosegnut',
+    message: 'Promet je dosegao prag za registraciju {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Prijava PDV-a za {{period}} uskoro dospijeva',
+    message: 'Prijava PDV-a za {{period}} ({{range}}) dospijeva {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Prijava PDV-a za {{period}} je dospjela',
+    message: 'Dospjela je {{dueDate}} i nije predana.',
+  },
+  'tax.deadline.income': {
+    title: 'Porezna prijava uskoro dospijeva',
+    message: '{{returnName}} za {{taxYear}} dospijeva {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Službene stope PDV-a razlikuju se od vaših',
+    message:
+      'Službene stope PDV-a ({{country}}) razlikuju se od vaših. Provjerite ih u poreznim postavkama.',
+  },
+};
+
+const sr: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Цена претплате се променила',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} по задужењу, {{yearly}} годишње)',
+  },
+  'review.waiting': {
+    title: 'Ставке чекају преглед',
+    message: '{{count}} ставки чека у сандучету за преглед',
+  },
+  'note.mentioned': {
+    title: 'Поменути сте у белешци',
+    message: '{{actorName}} вас је поменуо: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Извод је пренет',
+    message: '{{actorName}} је пренео извод "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Увоз је завршен',
+    message: '{{actorName}} је увезао {{transactionCount}} трансакција',
+  },
+  'category.created': {
+    title: 'Категорија је направљена',
+    message: '{{actorName}} је направио категорију "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Категорија је ажурирана',
+    message: '{{actorName}} је ажурирао категорију "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Категорија је избрисана',
+    message: '{{actorName}} је избрисао категорију "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Позван је нови члан',
+    message: '{{actorName}} је позвао {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Члан се придружио',
+    message: '{{memberName}} се придружио радном простору',
+  },
+  'data.deleted': {
+    title: 'Подаци су избрисани',
+    message: '{{actorName}} је избрисао {{count}} записа',
+  },
+  'workspace.updated': {
+    title: 'Подешавања радног простора су ажурирана',
+    message: '{{actorName}} је ажурирао подешавања радног простора',
+  },
+  'parsing.error': {
+    title: 'Грешка обраде извода',
+    message: 'Извод није могуће обрадити',
+  },
+  'parsing.error.named': {
+    title: 'Грешка обраде извода',
+    message: 'Извод "{{statementName}}" није могуће обрадити',
+  },
+  'import.failed': {
+    title: 'Увоз није успео',
+    message: 'Увоз је завршио грешком',
+  },
+  'import.failed.named': {
+    title: 'Увоз није успео',
+    message: 'Увоз извода "{{statementName}}" није успео',
+  },
+  'transactions.uncategorized': {
+    title: 'Трансакције без категорије',
+    message: '{{count}} трансакција треба категорију',
+  },
+  'receipt.uncategorized': {
+    title: 'Рачун без категорије',
+    message: 'Нађен је рачун без категорије',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Рачун без категорије',
+    message: 'Рачун "{{receiptName}}" нема категорију',
+  },
+  'payable.marked_paid': {
+    title: 'Обавеза означена као плаћена',
+    message: '{{vendor}} је означен као плаћен',
+  },
+  'payable.overdue': {
+    title: 'Доспела обавеза',
+    message: '{{vendor}}: {{amount}}, рок је био {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Обавеза доспева ускоро',
+    message: '{{vendor}}: {{amount}}, рок {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Буџет је прекорачен',
+    message: 'Буџет "{{budgetName}}" прекорачио је своје ограничење ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Упозорење буџета',
+    message: 'Буџет "{{budgetName}}" достигао је {{percentUsed}} % свог ограничења',
+  },
+  'subscription.detected': {
+    title: 'Откривене претплате',
+    message: 'Нађена понављајућа плаћања: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Предстојеће наплате претплата',
+    message: 'Ускоро се наплаћује: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Предстојећа наплата претплате',
+    message: 'Ускоро се наплаћује: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Праг за регистрацију ПДВ-а',
+    message:
+      'Промет је достигао {{percentUsed}} % прага за регистрацију {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Праг за регистрацију је достигнут',
+    message: 'Промет је достигао праг за регистрацију {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Пријава ПДВ-а за {{period}} ускоро доспева',
+    message: 'Пријава ПДВ-а за {{period}} ({{range}}) доспева {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Пријава ПДВ-а за {{period}} је доспела',
+    message: 'Доспела је {{dueDate}} и није предата.',
+  },
+  'tax.deadline.income': {
+    title: 'Пореска пријава ускоро доспева',
+    message: '{{returnName}} за {{taxYear}} доспева {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Званичне стопе ПДВ-а разликују се од ваших',
+    message:
+      'Званичне стопе ПДВ-а ({{country}}) разликују се од ваших. Проверите их у пореским подешавањима.',
+  },
+};
+
+const sl: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Cena naročnine se je spremenila',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} na bremenitev, {{yearly}} na leto)',
+  },
+  'review.waiting': {
+    title: 'Postavke čakajo na pregled',
+    message: '{{count}} postavk čaka v nabiralniku za pregled',
+  },
+  'note.mentioned': {
+    title: 'Omenjeni ste bili v opombi',
+    message: '{{actorName}} vas je omenil: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Izpisek je naložen',
+    message: '{{actorName}} je naložil izpisek "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Uvoz je končan',
+    message: '{{actorName}} je uvozil {{transactionCount}} transakcij',
+  },
+  'category.created': {
+    title: 'Kategorija je ustvarjena',
+    message: '{{actorName}} je ustvaril kategorijo "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategorija je posodobljena',
+    message: '{{actorName}} je posodobil kategorijo "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategorija je izbrisana',
+    message: '{{actorName}} je izbrisal kategorijo "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Povabljen je nov član',
+    message: '{{actorName}} je povabil {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Član se je pridružil',
+    message: '{{memberName}} se je pridružil delovnemu prostoru',
+  },
+  'data.deleted': {
+    title: 'Podatki so izbrisani',
+    message: '{{actorName}} je izbrisal {{count}} zapisov',
+  },
+  'workspace.updated': {
+    title: 'Nastavitve delovnega prostora so posodobljene',
+    message: '{{actorName}} je posodobil nastavitve delovnega prostora',
+  },
+  'parsing.error': {
+    title: 'Napaka pri razčlenjevanju izpiska',
+    message: 'Izpiska ni bilo mogoče obdelati',
+  },
+  'parsing.error.named': {
+    title: 'Napaka pri razčlenjevanju izpiska',
+    message: 'Izpiska "{{statementName}}" ni bilo mogoče obdelati',
+  },
+  'import.failed': {
+    title: 'Uvoz ni uspel',
+    message: 'Uvoz se je končal z napako',
+  },
+  'import.failed.named': {
+    title: 'Uvoz ni uspel',
+    message: 'Uvoz izpiska "{{statementName}}" ni uspel',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakcije brez kategorije',
+    message: '{{count}} transakcij potrebuje kategorijo',
+  },
+  'receipt.uncategorized': {
+    title: 'Račun brez kategorije',
+    message: 'Najden je račun brez kategorije',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Račun brez kategorije',
+    message: 'Račun "{{receiptName}}" nima kategorije',
+  },
+  'payable.marked_paid': {
+    title: 'Obveznost označena kot plačana',
+    message: '{{vendor}} je bil označen kot plačan',
+  },
+  'payable.overdue': {
+    title: 'Zapadla obveznost',
+    message: '{{vendor}}: {{amount}}, zapadlo {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Obveznost zapade kmalu',
+    message: '{{vendor}}: {{amount}}, zapade {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Proračun je presežen',
+    message: 'Proračun "{{budgetName}}" je presegel svojo omejitev ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Opozorilo proračuna',
+    message: 'Proračun "{{budgetName}}" je dosegel {{percentUsed}} % svoje omejitve',
+  },
+  'subscription.detected': {
+    title: 'Zaznane naročnine',
+    message: 'Najdena ponavljajoča se plačila: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Prihajajoči obračuni naročnin',
+    message: 'Kmalu v obračunu: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Prihajajoči obračun naročnine',
+    message: 'Kmalu v obračunu: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Prag za registracijo DDV',
+    message: 'Promet je dosegel {{percentUsed}} % praga za registracijo {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Prag za registracijo je dosežen',
+    message: 'Promet je dosegel prag za registracijo {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Napoved DDV za {{period}} kmalu zapade',
+    message: 'Napoved DDV za {{period}} ({{range}}) zapade {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Napoved DDV za {{period}} je zapadla',
+    message: 'Zapadla je {{dueDate}} in ni oddana.',
+  },
+  'tax.deadline.income': {
+    title: 'Davčna napoved kmalu zapade',
+    message: '{{returnName}} za {{taxYear}} zapade {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Uradne stopnje DDV se razlikujejo od vaših',
+    message:
+      'Uradne stopnje DDV ({{country}}) se razlikujejo od vaših. Preverite jih v davčnih nastavitvah.',
+  },
+};
+
+const mk: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Цената на претплатата се промени',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} по задолжување, {{yearly}} годишно)',
+  },
+  'review.waiting': {
+    title: 'Ставки чекаат преглед',
+    message: '{{count}} ставки чекаат во сандачето за преглед',
+  },
+  'note.mentioned': {
+    title: 'Споменати сте во белешка',
+    message: '{{actorName}} ве спомна: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Изводот е прикачен',
+    message: '{{actorName}} го прикачи изводот "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Увозот е завршен',
+    message: '{{actorName}} увезе {{transactionCount}} трансакции',
+  },
+  'category.created': {
+    title: 'Категоријата е создадена',
+    message: '{{actorName}} ја создаде категоријата "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Категоријата е ажурирана',
+    message: '{{actorName}} ја ажурира категоријата "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Категоријата е избришана',
+    message: '{{actorName}} ја избриша категоријата "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Поканет е нов член',
+    message: '{{actorName}} покани {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Член се придружи',
+    message: '{{memberName}} се придружи на работниот простор',
+  },
+  'data.deleted': {
+    title: 'Податоците се избришани',
+    message: '{{actorName}} избриша {{count}} записи',
+  },
+  'workspace.updated': {
+    title: 'Поставките на работниот простор се ажурирани',
+    message: '{{actorName}} ги ажурира поставките на работниот простор',
+  },
+  'parsing.error': {
+    title: 'Грешка при обработка на изводот',
+    message: 'Изводот не можеше да се обработи',
+  },
+  'parsing.error.named': {
+    title: 'Грешка при обработка на изводот',
+    message: 'Изводот "{{statementName}}" не можеше да се обработи',
+  },
+  'import.failed': {
+    title: 'Увозот не успеа',
+    message: 'Увозот заврши со грешка',
+  },
+  'import.failed.named': {
+    title: 'Увозот не успеа',
+    message: 'Увозот на изводот "{{statementName}}" не успеа',
+  },
+  'transactions.uncategorized': {
+    title: 'Трансакции без категорија',
+    message: '{{count}} трансакции бараат категорија',
+  },
+  'receipt.uncategorized': {
+    title: 'Фискална сметка без категорија',
+    message: 'Најдена е сметка без категорија',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Фискална сметка без категорија',
+    message: 'Сметката "{{receiptName}}" нема категорија',
+  },
+  'payable.marked_paid': {
+    title: 'Обврската е означена како платена',
+    message: '{{vendor}} беше означен како платен',
+  },
+  'payable.overdue': {
+    title: 'Пречекорена обврска',
+    message: '{{vendor}}: {{amount}}, рокот беше {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Обврска со близок рок',
+    message: '{{vendor}}: {{amount}}, рок {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Буџетот е пречекорен',
+    message: 'Буџетот "{{budgetName}}" го пречекори својот лимит ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Предупредување за буџет',
+    message: 'Буџетот "{{budgetName}}" достигна {{percentUsed}} % од својот лимит',
+  },
+  'subscription.detected': {
+    title: 'Откриени претплати',
+    message: 'Најдени повторливи плаќања: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Претстојни наплати за претплати',
+    message: 'Наскоро се наплатува: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Претстојна наплата за претплата',
+    message: 'Наскоро се наплатува: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Праг за регистрација за ДДВ',
+    message:
+      'Прометот достигна {{percentUsed}} % од прагот за регистрација {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Прагот за регистрација е достигнат',
+    message: 'Прометот достигна прагот за регистрација {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Пријавата за ДДВ за {{period}} наскоро доспева',
+    message: 'Пријавата за ДДВ за {{period}} ({{range}}) доспева на {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Пријавата за ДДВ за {{period}} е пречекорена',
+    message: 'Доспеа на {{dueDate}} и не е поднесена.',
+  },
+  'tax.deadline.income': {
+    title: 'Даночната пријава за доход наскоро доспева',
+    message: '{{returnName}} за {{taxYear}} доспева на {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Официјалните стапки на ДДВ се разликуваат од вашите',
+    message:
+      'Официјалните стапки на ДДВ ({{country}}) се разликуваат од вашите. Проверете ги во даночните поставки.',
+  },
+};
+
+const be: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Кошт падпіскі змяніўся',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} за спісанне, {{yearly}} у год)',
+  },
+  'review.waiting': {
+    title: 'Запісы чакаюць праверкі',
+    message: '{{count}} запісаў чакаюць у скрыні праверкі',
+  },
+  'note.mentioned': {
+    title: 'Вас згадалі ў заўвазе',
+    message: '{{actorName}} згадаў вас: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Выпіска загружана',
+    message: '{{actorName}} загрузіў выпіску «{{statementName}}»',
+  },
+  'import.committed': {
+    title: 'Імпарт завершаны',
+    message: '{{actorName}} імпартаваў {{transactionCount}} транзакцый',
+  },
+  'category.created': {
+    title: 'Катэгорыя створана',
+    message: '{{actorName}} стварыў катэгорыю «{{categoryName}}»',
+  },
+  'category.updated': {
+    title: 'Катэгорыя абноўлена',
+    message: '{{actorName}} абнавіў катэгорыю «{{categoryName}}»',
+  },
+  'category.deleted': {
+    title: 'Катэгорыя выдалена',
+    message: '{{actorName}} выдаліў катэгорыю «{{categoryName}}»',
+  },
+  'member.invited': {
+    title: 'Запрошаны новы ўдзельнік',
+    message: '{{actorName}} запрасіў {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Удзельнік далучыўся',
+    message: '{{memberName}} далучыўся да працоўнай прасторы',
+  },
+  'data.deleted': {
+    title: 'Даныя выдалены',
+    message: '{{actorName}} выдаліў {{count}} запісаў',
+  },
+  'workspace.updated': {
+    title: 'Налады працоўнай прасторы абноўлены',
+    message: '{{actorName}} абнавіў налады працоўнай прасторы',
+  },
+  'parsing.error': {
+    title: 'Памылка разбору выпіскі',
+    message: 'Не ўдалося апрацаваць выпіску',
+  },
+  'parsing.error.named': {
+    title: 'Памылка разбору выпіскі',
+    message: 'Не ўдалося апрацаваць выпіску «{{statementName}}»',
+  },
+  'import.failed': {
+    title: 'Імпарт не ўдаўся',
+    message: 'Імпарт завяршыўся памылкай',
+  },
+  'import.failed.named': {
+    title: 'Імпарт не ўдаўся',
+    message: 'Імпарт выпіскі «{{statementName}}» не ўдаўся',
+  },
+  'transactions.uncategorized': {
+    title: 'Транзакцыі без катэгорыі',
+    message: '{{count}} транзакцый патрабуюць катэгорыю',
+  },
+  'receipt.uncategorized': {
+    title: 'Чэк без катэгорыі',
+    message: 'Знойдзены чэк без катэгорыі',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Чэк без катэгорыі',
+    message: 'У чэка «{{receiptName}}» няма катэгорыі',
+  },
+  'payable.marked_paid': {
+    title: 'Плацёж пазначаны як аплачаны',
+    message: '{{vendor}} пазначаны як аплачаны',
+  },
+  'payable.overdue': {
+    title: 'Пратэрмінаваны плацёж',
+    message: '{{vendor}}: {{amount}}, тэрмін аплаты быў {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Плацёж хутка настане',
+    message: '{{vendor}}: {{amount}}, тэрмін аплаты {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Бюджэт перавышаны',
+    message: 'Бюджэт «{{budgetName}}» перавысіў свой ліміт ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Папярэджанне па бюджэце',
+    message: 'Бюджэт «{{budgetName}}» дасягнуў {{percentUsed}} % свайго ліміту',
+  },
+  'subscription.detected': {
+    title: 'Выяўлены падпіскі',
+    message: 'Знойдзены паўтаральныя плацяжы: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Хуткія спісанні па падпісках',
+    message: 'Хутка спішуцца: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Хуткае спісанне па падпісцы',
+    message: 'Хутка спішацца: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Парог рэгістрацыі ПДВ',
+    message: 'Абарот дасягнуў {{percentUsed}} % парога рэгістрацыі {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Парог рэгістрацыі дасягнуты',
+    message: 'Абарот дасягнуў парога рэгістрацыі {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Хутка тэрмін дэкларацыі па ПДВ за {{period}}',
+    message: 'Дэкларацыю па ПДВ за {{period}} ({{range}}) трэба падаць да {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Пратэрмінавана дэкларацыя па ПДВ за {{period}}',
+    message: 'Тэрмін быў {{dueDate}}, дэкларацыя не пададзена.',
+  },
+  'tax.deadline.income': {
+    title: 'Дэкларацыя аб падатку на даходы хутка настане',
+    message: '{{returnName}} за {{taxYear}} трэба падаць да {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Афіцыйныя стаўкі ПДВ адрозніваюцца ад вашых',
+    message:
+      'Афіцыйныя стаўкі ПДВ ({{country}}) адрозніваюцца ад вашых. Праверце іх у падатковых наладах.',
+  },
+};
+
+const bs: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Cijena pretplate se promijenila',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} po terećenju, {{yearly}} godišnje)',
+  },
+  'review.waiting': {
+    title: 'Stavke čekaju pregled',
+    message: '{{count}} stavki čeka u sandučetu za pregled',
+  },
+  'note.mentioned': {
+    title: 'Spomenuti ste u bilješci',
+    message: '{{actorName}} vas je spomenuo: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Izvod je prenesen',
+    message: '{{actorName}} je prenio izvod "{{statementName}}"',
+  },
+  'import.committed': {
+    title: 'Uvoz je završen',
+    message: '{{actorName}} je uvezao {{transactionCount}} transakcija',
+  },
+  'category.created': {
+    title: 'Kategorija je napravljena',
+    message: '{{actorName}} je napravio kategoriju "{{categoryName}}"',
+  },
+  'category.updated': {
+    title: 'Kategorija je ažurirana',
+    message: '{{actorName}} je ažurirao kategoriju "{{categoryName}}"',
+  },
+  'category.deleted': {
+    title: 'Kategorija je izbrisana',
+    message: '{{actorName}} je izbrisao kategoriju "{{categoryName}}"',
+  },
+  'member.invited': {
+    title: 'Pozvan je novi član',
+    message: '{{actorName}} je pozvao {{invitedEmail}}',
+  },
+  'member.joined': {
+    title: 'Član se pridružio',
+    message: '{{memberName}} se pridružio radnom prostoru',
+  },
+  'data.deleted': {
+    title: 'Podaci su izbrisani',
+    message: '{{actorName}} je izbrisao {{count}} zapisa',
+  },
+  'workspace.updated': {
+    title: 'Postavke radnog prostora su ažurirane',
+    message: '{{actorName}} je ažurirao postavke radnog prostora',
+  },
+  'parsing.error': {
+    title: 'Greška obrade izvoda',
+    message: 'Izvod nije moguće obraditi',
+  },
+  'parsing.error.named': {
+    title: 'Greška obrade izvoda',
+    message: 'Izvod "{{statementName}}" nije moguće obraditi',
+  },
+  'import.failed': {
+    title: 'Uvoz nije uspio',
+    message: 'Uvoz je završio greškom',
+  },
+  'import.failed.named': {
+    title: 'Uvoz nije uspio',
+    message: 'Uvoz izvoda "{{statementName}}" nije uspio',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakcije bez kategorije',
+    message: '{{count}} transakcija treba kategoriju',
+  },
+  'receipt.uncategorized': {
+    title: 'Račun bez kategorije',
+    message: 'Nađen je račun bez kategorije',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Račun bez kategorije',
+    message: 'Račun "{{receiptName}}" nema kategoriju',
+  },
+  'payable.marked_paid': {
+    title: 'Obaveza označena kao plaćena',
+    message: '{{vendor}} je označen kao plaćen',
+  },
+  'payable.overdue': {
+    title: 'Dospjela obaveza',
+    message: '{{vendor}}: {{amount}}, rok je bio {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Obaveza dospijeva uskoro',
+    message: '{{vendor}}: {{amount}}, rok {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Budžet je prekoračen',
+    message: 'Budžet "{{budgetName}}" prekoračio je svoje ograničenje ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Upozorenje budžeta',
+    message: 'Budžet "{{budgetName}}" dosegao je {{percentUsed}} % svog ograničenja',
+  },
+  'subscription.detected': {
+    title: 'Otkrivene pretplate',
+    message: 'Nađena ponavljajuća plaćanja: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Predstojeće naplate pretplata',
+    message: 'Uskoro se naplaćuje: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Predstojeća naplata pretplate',
+    message: 'Uskoro se naplaćuje: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Prag za registraciju PDV-a',
+    message: 'Promet je dosegao {{percentUsed}} % praga za registraciju {{threshold}} {{currency}}',
+  },
+  'tax.threshold.reached': {
+    title: 'Prag za registraciju je dosegnut',
+    message: 'Promet je dosegao prag za registraciju {{threshold}} {{currency}}',
+  },
+  'tax.deadline.vat': {
+    title: 'Prijava PDV-a za {{period}} uskoro dospijeva',
+    message: 'Prijava PDV-a za {{period}} ({{range}}) dospijeva {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'Prijava PDV-a za {{period}} je dospjela',
+    message: 'Dospjela je {{dueDate}} i nije predana.',
+  },
+  'tax.deadline.income': {
+    title: 'Porezna prijava uskoro dospijeva',
+    message: '{{returnName}} za {{taxYear}} dospijeva {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Službene stope PDV-a razlikuju se od vaših',
+    message:
+      'Službene stope PDV-a ({{country}}) razlikuju se od vaših. Provjerite ih u poreznim postavkama.',
+  },
+};
+
+const hsb: TranslationMap = {
+  'subscription.price_changed': {
+    title: 'Płaćizna abonementa je so změniła',
+    message:
+      '{{vendor}}: {{previous}} → {{current}} {{currency}} ({{delta}} na wotknihowanje, {{yearly}} wob lěto)',
+  },
+  'review.waiting': {
+    title: 'Zapiski čakaja na přepruwowanje',
+    message: '{{count}} zapiskow čaka w kašćiku za přepruwowanje',
+  },
+  'note.mentioned': {
+    title: 'Sće so w notici naspomnjeli',
+    message: '{{actorName}} je was naspomnił: {{excerpt}}',
+  },
+  'statement.uploaded': {
+    title: 'Wupis je nahrate',
+    message: '{{actorName}} je wupis "{{statementName}}" nahrał',
+  },
+  'import.committed': {
+    title: 'Import je dokónčeny',
+    message: '{{actorName}} je {{transactionCount}} transakcijow importował',
+  },
+  'category.created': {
+    title: 'Kategorija je załožena',
+    message: '{{actorName}} je kategoriju "{{categoryName}}" załožił',
+  },
+  'category.updated': {
+    title: 'Kategorija je aktualizowana',
+    message: '{{actorName}} je kategoriju "{{categoryName}}" aktualizował',
+  },
+  'category.deleted': {
+    title: 'Kategorija je zhašana',
+    message: '{{actorName}} je kategoriju "{{categoryName}}" zhašał',
+  },
+  'member.invited': {
+    title: 'Nowy čłon je přeprošeny',
+    message: '{{actorName}} je {{invitedEmail}} přeprosył',
+  },
+  'member.joined': {
+    title: 'Čłon je so přizamknył',
+    message: '{{memberName}} je so dźěłowemu rumej přizamknył',
+  },
+  'data.deleted': {
+    title: 'Daty su zhašane',
+    message: '{{actorName}} je {{count}} zapiskow zhašał',
+  },
+  'workspace.updated': {
+    title: 'Nastajenja dźěłoweho ruma su aktualizowane',
+    message: '{{actorName}} je nastajenja dźěłoweho ruma aktualizował',
+  },
+  'parsing.error': {
+    title: 'Zmylk při analyzy wupisa',
+    message: 'Wupis njeda so předźěłać',
+  },
+  'parsing.error.named': {
+    title: 'Zmylk při analyzy wupisa',
+    message: 'Wupis "{{statementName}}" njeda so předźěłać',
+  },
+  'import.failed': {
+    title: 'Import je so njeporadźił',
+    message: 'Import je so ze zmylkom skónčił',
+  },
+  'import.failed.named': {
+    title: 'Import je so njeporadźił',
+    message: 'Import wupisa "{{statementName}}" je so njeporadźił',
+  },
+  'transactions.uncategorized': {
+    title: 'Transakcije bjez kategorije',
+    message: '{{count}} transakcijow trjeba kategoriju',
+  },
+  'receipt.uncategorized': {
+    title: 'Kwitancija bjez kategorije',
+    message: 'Kwitancija bjez kategorije je namakana',
+  },
+  'receipt.uncategorized.named': {
+    title: 'Kwitancija bjez kategorije',
+    message: 'Kwitancija "{{receiptName}}" nima kategoriju',
+  },
+  'payable.marked_paid': {
+    title: 'Dołh je jako zapłaćeny markowany',
+    message: '{{vendor}} bu jako zapłaćeny markowany',
+  },
+  'payable.overdue': {
+    title: 'Přepadnjeny dołh',
+    message: '{{vendor}}: {{amount}}, termin bě {{dueDate}}',
+  },
+  'payable.due_soon': {
+    title: 'Dołh bórze dospěje',
+    message: '{{vendor}}: {{amount}}, termin {{dueDate}}',
+  },
+  'budget.exceeded': {
+    title: 'Budget je překročeny',
+    message: 'Budget "{{budgetName}}" je swój limit překročił ({{percentUsed}} %)',
+  },
+  'budget.warning': {
+    title: 'Warnowanje budgeta',
+    message: 'Budget "{{budgetName}}" je {{percentUsed}} % swojeho limita docpěł',
+  },
+  'subscription.detected': {
+    title: 'Spóznate abonementy',
+    message: 'Namakane wospjetowane zapłaćenja: {{vendors}}',
+  },
+  'subscription.upcoming': {
+    title: 'Přichodne zapłaćenja abonementow',
+    message: 'Bórze so wotknihuje: {{charges}}',
+  },
+  'subscription.upcoming.one': {
+    title: 'Přichodne zapłaćenje abonementa',
+    message: 'Bórze so wotknihuje: {{charges}}',
+  },
+  'tax.threshold.warning': {
+    title: 'Prag registracije MwSt.',
+    message: 'Wobrot je {{percentUsed}} % praga registracije {{threshold}} {{currency}} docpěł',
+  },
+  'tax.threshold.reached': {
+    title: 'Prag registracije docpěty',
+    message: 'Wobrot je prag registracije {{threshold}} {{currency}} docpěł',
+  },
+  'tax.deadline.vat': {
+    title: 'MwSt.-přiznanje za {{period}} bórze dospěje',
+    message: 'MwSt.-přiznanje za {{period}} ({{range}}) dospěje {{dueDate}}.',
+  },
+  'tax.deadline.vat.overdue': {
+    title: 'MwSt.-přiznanje za {{period}} přepadnjene',
+    message: 'Dyrbješe so {{dueDate}} podać a njeje podate.',
+  },
+  'tax.deadline.income': {
+    title: 'Dochodowe přiznanje bórze dospěje',
+    message: '{{returnName}} za {{taxYear}} dospěje {{dueDate}}',
+  },
+  'tax.rates.official': {
+    title: 'Oficialne sadźby MwSt. so wot wašich rozeznawaja',
+    message:
+      'Oficialne sadźby MwSt. ({{country}}) so wot wašich rozeznawaja. Přepruwujće je w dawkowych nastajenjach.',
   },
 };
 
@@ -2131,7 +4648,6 @@ export const NOTIFICATION_TRANSLATIONS: Record<string, TranslationMap> = {
   tr,
   uk,
   zh,
-  ar,
   pl,
   it,
   sk,
@@ -2142,16 +4658,38 @@ export const NOTIFICATION_TRANSLATIONS: Record<string, TranslationMap> = {
   sv,
   vi,
   id,
+  da,
+  nb,
+  nn,
+  fi,
+  is,
+  fo,
+  cs,
+  bg,
+  hr,
+  sr,
+  sl,
+  mk,
+  be,
+  bs,
+  hsb,
 };
 
 export function renderNotification(
   locale: string,
   key: NotificationMessageKey,
-  params: Record<string, string | number>,
+  params: NotificationParams,
+  now: Date = new Date(),
 ): { title: string; message: string } {
-  const translations = NOTIFICATION_TRANSLATIONS[locale] ?? NOTIFICATION_TRANSLATIONS.en;
-  const entry = translations[key];
+  const known = NOTIFICATION_TRANSLATIONS[locale] ? locale : 'en';
+  const entry = NOTIFICATION_TRANSLATIONS[known][key];
   const interpolate = (template: string) =>
-    template.replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(params[k] ?? ''));
+    template.replace(/\{\{(\w+)\}\}/g, (placeholder, k: string, at: number) => {
+      const value = formatParam(params[k], known, now);
+      // "due 12 окт." at the end of a sentence must not read "12 окт..".
+      return template[at + placeholder.length] === '.' && value.endsWith('.')
+        ? value.slice(0, -1)
+        : value;
+    });
   return { title: interpolate(entry.title), message: interpolate(entry.message) };
 }

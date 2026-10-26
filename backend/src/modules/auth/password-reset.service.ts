@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHmac, randomBytes } from 'crypto';
 import { IsNull, LessThan, type Repository } from 'typeorm';
+import { APP_NAME } from '../../common/brand';
+import { appError } from '../../common/errors/app-error';
 import { hashPassword } from '../../common/utils/password-hash.util';
 import { requireSecret } from '../../common/utils/required-secret.util';
 import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
@@ -40,9 +42,15 @@ export class PasswordResetService {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await this.userRepository.findOne({
       where: { email: normalizedEmail },
-      // workspaceId included so the mailer can pick up workspace SMTP settings;
-      // without it getSmtpSettings throws "Workspace is required".
-      select: ['id', 'email', 'name', 'isActive', 'workspaceId'],
+      // workspaceId included so the mailer can use the SMTP the user set up in
+      // their home workspace (see getAccountSmtpSettings).
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isActive: true,
+        workspaceId: true,
+      },
     });
 
     if (!user || user.isActive === false) {
@@ -52,7 +60,7 @@ export class PasswordResetService {
 
     // Supersede any outstanding request: a user who clicks "forgot password"
     // twice should not leave an extra live token behind.
-    await this.tokenRepository.delete({ userId: user.id, usedAt: null });
+    await this.tokenRepository.delete({ userId: user.id, usedAt: IsNull() });
 
     const token = randomBytes(32).toString('hex');
     await this.tokenRepository.save(
@@ -73,16 +81,16 @@ export class PasswordResetService {
     try {
       const sent = await this.mailerService.send({
         to: user.email,
-        subject: 'Reset your Lumio password',
+        subject: `Reset your ${APP_NAME} password`,
         text: [
           `Hello${user.name ? ` ${user.name}` : ''},`,
           '',
-          'We received a request to reset your Lumio password.',
+          `We received a request to reset your ${APP_NAME} password.`,
           `Open this link to choose a new one (valid for 1 hour): ${resetUrl}`,
           '',
           'If you did not ask for this, you can ignore this email — your password stays unchanged.',
         ].join('\n'),
-        user,
+        accountOf: user,
       });
 
       if (!sent) {
@@ -106,12 +114,12 @@ export class PasswordResetService {
     // One message for every failure mode: expired, already used, never existed.
     // Distinguishing them tells an attacker which guesses were closer.
     if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Reset link is invalid or has expired');
+      throw new BadRequestException(appError('AUTH_RESET_LINK_INVALID'));
     }
 
     const user = await this.userRepository.findOne({ where: { id: record.userId } });
     if (!(user && user.isActive !== false)) {
-      throw new BadRequestException('Reset link is invalid or has expired');
+      throw new BadRequestException(appError('AUTH_RESET_LINK_INVALID'));
     }
 
     user.passwordHash = await hashPassword(newPassword);

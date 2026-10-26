@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { useLedgerMutations } from '../hooks/useLedger';
@@ -28,7 +29,8 @@ function ResultAlert({ result }: { result: RevaluationResult }): React.ReactElem
     <Alert severity="success">
       {result.status === 'posted' ? t.revaluePosted : t.revalueUnchanged} #{revaluation.entryNo}
       {' · '}
-      {t.revalueGain}: {revaluation.gain} · {t.revalueLoss}: {revaluation.loss}
+      {t.revalueGain}: <PrivateAmount>{revaluation.gain}</PrivateAmount> · {t.revalueLoss}:{' '}
+      <PrivateAmount>{revaluation.loss}</PrivateAmount>
     </Alert>
   );
 }

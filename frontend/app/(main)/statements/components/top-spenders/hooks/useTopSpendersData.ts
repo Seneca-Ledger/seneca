@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useMonthFilters } from '@/app/(main)/statements/components/analytics/flow/useMonthFilters';
 import type { StatementFilterItem } from '@/app/(main)/statements/components/filters/statement-filters';
 import {
   type TopSpendersAggregationReturn,
@@ -29,6 +30,7 @@ type Params = {
   workspaceCurrency: string;
   resolvedTheme: string | undefined;
   labels: Record<string, string>;
+  month: Date;
   state: ReturnType<typeof useTopSpendersState>;
 };
 
@@ -62,13 +64,10 @@ export const useTopSpendersData = ({
   workspaceCurrency,
   resolvedTheme,
   labels,
+  month,
   state,
 }: Params): TopSpendersDataReturn => {
-  const {
-    statements: raw,
-    gmailReceipts,
-    loading,
-  } = useAnalyticsData({
+  const { statements, receipts, loading } = useAnalyticsData({
     user,
     currentWorkspace,
     workspaces,
@@ -77,13 +76,14 @@ export const useTopSpendersData = ({
     includeTransactions: false,
     errorToastMessage: labels.loadError,
   });
-  const statements = raw as unknown as StatementWithWorkspace[];
+
+  const monthFilters = useMonthFilters(month);
   const { flowFilteredRecords, flowRecordsWithoutDateFilter, fromOptions, currencyOptions } =
     useTopSpendersRecords({
       statements,
-      gmailReceipts,
+      receipts,
       workspaceCurrency,
-      appliedFilters: state.filterState.appliedFilters,
+      appliedFilters: monthFilters,
       searchInput: state.searchInput,
       activeFlowType: state.activeFlowType,
     });
@@ -96,7 +96,7 @@ export const useTopSpendersData = ({
       workspaceCurrency,
       resolvedTheme,
       sourceStatementLabel: labels.sourceStatement,
-      sourceGmailLabel: labels.sourceGmail,
+      sourceReceiptLabel: labels.sourceReceipt,
       totalIncomeLabel: labels.totalIncome,
       totalSpendLabel: labels.totalSpend,
     });

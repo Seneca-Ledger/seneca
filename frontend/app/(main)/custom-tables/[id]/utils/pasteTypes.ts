@@ -1,4 +1,14 @@
+import type { TotalsAggregate } from './importRows';
 import type { ColumnType, CustomTableColumnConfig } from './types';
+
+/** Формула Excel из файла и что с ней стало: перенесена в колонку или нет, и почему. */
+export type ImportedFormula = {
+  excel: string;
+  expression?: string;
+  reason?: string;
+  /** Ячейки с обычным значением вместо формулы: после импорта будут пересчитаны. */
+  overriddenCells: number;
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,6 +27,9 @@ export type PasteColumnMapping = {
   mode: 'existing' | 'new';
   newTitle?: string;
   newType?: ColumnType;
+  /** Настройки новой колонки, угаданные по значениям: валюта, процент, варианты select. */
+  newConfig?: CustomTableColumnConfig;
+  formula?: ImportedFormula;
 };
 
 export type PasteSourceColumn = {
@@ -31,12 +44,25 @@ export type PasteMappingSelection = {
   field?: PasteFieldKey | null;
   newTitle?: string;
   newType?: ColumnType;
+  newConfig?: CustomTableColumnConfig;
+  formula?: ImportedFormula;
 };
 
 export type PastePreviewCell = {
   value: string;
+  /** Не разобралась по типу колонки: попадёт в таблицу текстом и будет подсвечена. */
   error: boolean;
   sourceIndex: number | null;
+};
+
+/** Стили строки для ячеек, оставленных текстом; ключ — ключ колонки. */
+export type PasteRowStyles = Record<string, { importIssue: true }>;
+
+export type PasteTotals = {
+  /** Сколько итоговых строк исключено из данных. */
+  excludedRows: number;
+  /** Агрегат футера по ключу колонки (для новых — placeholder-ключ). */
+  aggregates: Record<string, TotalsAggregate>;
 };
 
 export type PastePreviewRow = {
@@ -51,7 +77,15 @@ export type PastePreviewData = {
   dataRows: import('./types').CustomTableRowPatch[];
   columns: PasteColumnMapping[];
   errors: Record<PasteErrorKey, number>;
+  /** Есть ячейки, которые уйдут текстом; импорт это не блокирует. */
   hasErrors: boolean;
+  /** Стили по строкам, параллельно dataRows; null — без замечаний. */
+  rowStyles: Array<PasteRowStyles | null>;
+  totals: PasteTotals;
+  /** Формулы файла: сколько перенесено из скольких найденных. */
+  formulas: { carried: number; total: number };
+  /** Формулы строки «Итого», ставшие сводками под таблицей. */
+  summaries: Array<{ title: string; expression: string }>;
   extraRowsCount: number;
   hasHeadersToggle: boolean;
   headersDetected: boolean;

@@ -1,3 +1,4 @@
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { SubscriptionFrequency } from '@/entities/subscription.entity';
 import { StoicBehaviorService } from '@/modules/insights/stoic/stoic-behavior.service';
 
@@ -5,19 +6,19 @@ import { StoicBehaviorService } from '@/modules/insights/stoic/stoic-behavior.se
 function transactionRepository(results: unknown[][]) {
   const queue = [...results];
   return {
-    createQueryBuilder: jest.fn(() => {
+    createQueryBuilder: vi.fn(() => {
       const rows = queue.shift() ?? [];
       const qb: any = {};
       for (const method of ['select', 'addSelect', 'where', 'andWhere', 'groupBy', 'addGroupBy']) {
-        qb[method] = jest.fn(() => qb);
+        qb[method] = vi.fn(() => qb);
       }
-      qb.getRawMany = jest.fn(async () => rows);
+      qb.getRawMany = vi.fn(async () => rows);
       return qb;
     }),
   };
 }
 
-const exchangeRates = { getRate: jest.fn(async (from: string) => (from === 'USD' ? 0.5 : 1)) };
+const exchangeRates = { getRateOrNull: vi.fn(async (from: string) => (from === 'USD' ? 0.5 : 1)) };
 
 describe('StoicBehaviorService', () => {
   it('merges merchants across categories and currencies, and splits weekends', async () => {
@@ -40,7 +41,7 @@ describe('StoicBehaviorService', () => {
     const service = new StoicBehaviorService(
       transactions as any,
       {
-        find: jest.fn(async () => [
+        find: vi.fn(async () => [
           { amount: '10', currency: 'EUR', frequency: SubscriptionFrequency.MONTHLY },
           { amount: '120', currency: 'EUR', frequency: SubscriptionFrequency.ANNUAL },
         ]),
@@ -60,5 +61,22 @@ describe('StoicBehaviorService', () => {
     ]);
     expect(behavior.cashFlow).toHaveLength(8);
     expect(behavior.subscriptions).toEqual({ count: 2, monthlyTotal: 20 });
+  });
+
+  it('reads every query from confirmed transactions only', async () => {
+    const transactions = transactionRepository([]);
+    const service = new StoicBehaviorService(
+      transactions as any,
+      { find: vi.fn(async () => []) } as any,
+      exchangeRates as any,
+    );
+
+    await service.load('ws-1', 'EUR', new Date(2026, 8, 1));
+
+    const builders = transactions.createQueryBuilder.mock.results.map(result => result.value);
+    expect(builders).toHaveLength(4);
+    for (const qb of builders) {
+      expect(qb.andWhere).toHaveBeenCalledWith(flowsSql('t'));
+    }
   });
 });

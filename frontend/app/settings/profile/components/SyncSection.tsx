@@ -12,6 +12,7 @@ import { Cloud, Download, Folder } from '@/app/components/icons';
 import { Alert } from '@/app/components/ui/alert';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
+import { APP_SLUG } from '@/app/lib/brand';
 import { BackupSection } from '@/app/settings/profile/components/BackupSection';
 import type { BankStat } from '@/app/settings/profile/hooks/useSync';
 import { tokens } from '@/lib/theme-tokens';
@@ -52,17 +53,33 @@ export function SyncSection({
       {/* Description */}
       <Card variant="outlined">
         <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {t.title.value}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mt: 0.5,
+            }}
+          >
             {t.intro.value}
           </Typography>
         </Box>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
             <Cloud size={18} style={{ color: c.ink400 }} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.foldersIntro.value}
             </Typography>
           </Box>
@@ -89,7 +106,7 @@ export function SyncSection({
               </Box>
             ) : (
               <Stack spacing={0.25}>
-                <span>lumio-export.zip</span>
+                <span>{APP_SLUG}-export.zip</span>
                 {bankStats.map(({ bank, count }) => (
                   <Box key={bank} sx={{ pl: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -122,7 +139,12 @@ export function SyncSection({
                   : t.exportZip.value}
             </Button>
             {totalCount === 0 && !statsLoading && (
-              <Typography variant="body2" color="text.disabled">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.disabled',
+                }}
+              >
                 {t.noFilesToExport.value}
               </Typography>
             )}

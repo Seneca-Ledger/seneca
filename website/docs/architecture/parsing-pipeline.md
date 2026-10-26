@@ -33,9 +33,10 @@ be previewed, audited, or reprocessed.
      `mark_duplicate`
 
 6. **Categorization**
-   - Learning rules apply per-workspace merchant patterns
-   - AI classification uses the OpenAI-compatible endpoint configured under **Integrations** (the Anthropic API
-     is also supported)
+   - Your categorization rules apply first, in priority order
+   - Payee history fills the rest: a payee's default category moves only when two of its three most recent
+     confirmed rows agree; anything left is *Uncategorized* and goes to **Review** — see
+     [Categorization](../guides/categorization)
 
 7. **Deduplication**
    - Transaction fingerprints plus fuzzy matching on date, amount, and text

@@ -10,6 +10,14 @@ import { Receipt, ReceiptLocationSource } from '../../../entities/receipt.entity
 import { AuditService } from '../../audit/audit.service';
 import { GeocodingService } from '../../geocoding/geocoding.service';
 
+type PickedPlace = { name: string; category?: string | null; osmType: string; osmId: string };
+
+/** Points the user chose; automatic detection never replaces them. */
+const USER_SOURCES = new Set<ReceiptLocationSource | null>([
+  ReceiptLocationSource.MANUAL,
+  ReceiptLocationSource.PLACE,
+]);
+
 type ResolvedLocation = {
   lat: number;
   lng: number;
@@ -33,7 +41,7 @@ export class ReceiptLocationService {
    * entity; the caller saves it. A point the user placed is never replaced.
    */
   async applyAutoLocation(receipt: Receipt): Promise<void> {
-    if (receipt.locationSource === ReceiptLocationSource.MANUAL) {
+    if (USER_SOURCES.has(receipt.locationSource)) {
       return;
     }
 
@@ -43,7 +51,7 @@ export class ReceiptLocationService {
   async setManual(
     id: string,
     workspaceId: string,
-    point: { latitude: number; longitude: number },
+    point: { latitude: number; longitude: number; place?: PickedPlace },
     userId: string,
   ): Promise<Receipt | null> {
     const receipt = await this.receiptRepository.findOne({ where: { id, workspaceId } });
@@ -55,11 +63,12 @@ export class ReceiptLocationService {
     this.assign(receipt, {
       lat: roundCoordinate(point.latitude),
       lng: roundCoordinate(point.longitude),
-      source: ReceiptLocationSource.MANUAL,
+      source: point.place ? ReceiptLocationSource.PLACE : ReceiptLocationSource.MANUAL,
       accuracyM: null,
     });
+    this.setPlace(receipt, point.place ?? null);
     const saved = await this.receiptRepository.save(receipt);
-    await this.recordAudit(saved, before, userId, workspaceId, 'manual');
+    await this.recordAudit(saved, before, userId, workspaceId, point.place ? 'place' : 'manual');
     return saved;
   }
 
@@ -71,9 +80,29 @@ export class ReceiptLocationService {
 
     const before = locationSnapshot(receipt);
     this.assign(receipt, await this.resolveAutoLocation(receipt));
+    this.setPlace(receipt, null);
     const saved = await this.receiptRepository.save(receipt);
     await this.recordAudit(saved, before, userId, workspaceId, 'reset');
     return saved;
+  }
+
+  private setPlace(receipt: Receipt, place: PickedPlace | null): void {
+    if (place) {
+      receipt.metadata = {
+        ...receipt.metadata,
+        place: {
+          name: place.name,
+          category: place.category ?? null,
+          osmType: place.osmType,
+          osmId: place.osmId,
+        },
+      };
+      return;
+    }
+    if (receipt.metadata?.place) {
+      const { place: _dropped, ...rest } = receipt.metadata;
+      receipt.metadata = rest;
+    }
   }
 
   // Coordinates are the stored, already rounded ones; an audit failure never fails the edit.
@@ -82,7 +111,7 @@ export class ReceiptLocationService {
     before: Record<string, unknown>,
     userId: string,
     workspaceId: string,
-    change: 'manual' | 'reset',
+    change: 'manual' | 'place' | 'reset',
   ): Promise<void> {
     try {
       await this.auditService.createEvent({
@@ -96,7 +125,11 @@ export class ReceiptLocationService {
         meta: {
           reason: 'location',
           change,
-          place: receipt.parsedData?.merchantAddress ?? receipt.parsedData?.vendor ?? null,
+          place:
+            receipt.metadata?.place?.name ??
+            receipt.parsedData?.merchantAddress ??
+            receipt.parsedData?.vendor ??
+            null,
         },
       });
     } catch (error: unknown) {

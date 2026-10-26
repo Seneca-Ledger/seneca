@@ -1,3 +1,4 @@
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { NotFoundException } from '@nestjs/common';
 import { BudgetPeriodType } from '@/entities/budget.entity';
 import { GoalPlanService } from '@/modules/goals/goal-plan.service';
@@ -17,28 +18,30 @@ interface Options {
   estimatedTotal?: number;
   workspaceCurrency?: string;
   rate?: number;
+  /** Collects the conditions the income query was given. */
+  incomeClauses?: string[];
 }
 
 function createService(options: Options) {
   const goalRepository = {
-    findOne: jest.fn(async () => options.goal ?? null),
+    findOne: vi.fn(async () => options.goal ?? null),
   } as never;
 
   // Two calls: the lifetime total first, then the windowed one. They are told
   // apart by whether the caller narrowed the query by date.
   const contributionRepository = {
-    createQueryBuilder: jest.fn(() => {
+    createQueryBuilder: vi.fn(() => {
       let windowed = false;
       const builder: Record<string, unknown> = {
-        select: jest.fn(() => builder),
-        where: jest.fn(() => builder),
-        andWhere: jest.fn((clause: string) => {
+        select: vi.fn(() => builder),
+        where: vi.fn(() => builder),
+        andWhere: vi.fn((clause: string) => {
           if (clause.includes('contribution_date')) {
             windowed = true;
           }
           return builder;
         }),
-        getRawOne: jest.fn(async () => ({
+        getRawOne: vi.fn(async () => ({
           total: windowed
             ? (options.contributed?.inWindow ?? '0')
             : (options.contributed?.total ?? '0'),
@@ -49,32 +52,35 @@ function createService(options: Options) {
   } as never;
 
   const transactionRepository = {
-    createQueryBuilder: jest.fn(() => {
+    createQueryBuilder: vi.fn(() => {
       const builder: Record<string, unknown> = {
-        select: jest.fn(() => builder),
-        addSelect: jest.fn(() => builder),
-        where: jest.fn(() => builder),
-        andWhere: jest.fn(() => builder),
-        groupBy: jest.fn(() => builder),
-        getRawMany: jest.fn(async () => options.income ?? []),
+        select: vi.fn(() => builder),
+        addSelect: vi.fn(() => builder),
+        where: vi.fn(() => builder),
+        andWhere: vi.fn((clause: string) => {
+          options.incomeClauses?.push(clause);
+          return builder;
+        }),
+        groupBy: vi.fn(() => builder),
+        getRawMany: vi.fn(async () => options.income ?? []),
       };
       return builder;
     }),
   } as never;
 
   const budgetRepository = {
-    find: jest.fn(async () => options.budgets ?? []),
+    find: vi.fn(async () => options.budgets ?? []),
   } as never;
 
   const workspaceRepository = {
-    findOne: jest.fn(async () => ({ currency: options.workspaceCurrency ?? 'KZT' })),
+    findOne: vi.fn(async () => ({ currency: options.workspaceCurrency ?? 'KZT' })),
   } as never;
 
   const goalItemsService = {
-    estimatedTotal: jest.fn(async () => options.estimatedTotal ?? 0),
+    estimatedTotal: vi.fn(async () => options.estimatedTotal ?? 0),
   } as never;
 
-  const exchangeRatesService = { getRate: jest.fn(async () => options.rate ?? 1) } as never;
+  const exchangeRatesService = { getRateOrNull: vi.fn(async () => options.rate ?? 1) } as never;
 
   return new GoalPlanService(
     goalRepository,
@@ -200,6 +206,20 @@ describe('GoalPlanService', () => {
     // normalised to 400k is 800k committed.
     expect(plan.capacity).toEqual({ income: 800000, committed: 800000, free: 0 });
     expect(plan.status).toBe('not_feasible');
+  });
+
+  it('reads income from confirmed transactions only', async () => {
+    const incomeClauses: string[] = [];
+    const service = createService({
+      goal: relocation,
+      contributed: { total: '0', inWindow: '0' },
+      income: [{ currency: 'KZT', total: '2400000' }],
+      incomeClauses,
+    });
+
+    await service.getPlan(GOAL_ID, WORKSPACE_ID, NOW);
+
+    expect(incomeClauses).toContain(flowsSql('t'));
   });
 
   it('ignores a budget whose window has closed', async () => {

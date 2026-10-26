@@ -7,10 +7,6 @@ import { ApplicationSettingsController } from '@/modules/application-settings/ap
 
 describe('ApplicationSettingsController security metadata', () => {
   it.each([
-    ['saveAi'],
-    ['disconnectAi'],
-    ['saveLocalCategorization'],
-    ['uploadLocalCategorizationModel'],
     ['saveSmtp'],
     ['disconnectSmtp'],
     ['saveTelegram'],
@@ -29,17 +25,6 @@ describe('ApplicationSettingsController security metadata', () => {
       Permission.WORKSPACE_SETTINGS_MANAGE,
     ]);
   });
-
-  it.each([['getPersonalAi'], ['savePersonalAi'], ['disconnectPersonalAi']])(
-    'keeps %s open to any member: a personal key is not a workspace setting',
-    methodName => {
-      const handler = ApplicationSettingsController.prototype[
-        methodName as keyof ApplicationSettingsController
-      ] as (...args: never[]) => unknown;
-
-      expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toBeUndefined();
-    },
-  );
 
   // Settings belong to the workspace open in the request; without the guard
   // the service fell back to the caller's registration workspace.

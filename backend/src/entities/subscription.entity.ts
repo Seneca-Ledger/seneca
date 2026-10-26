@@ -6,9 +6,11 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
+import { Budget } from './budget.entity';
 import { Category } from './category.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -43,13 +45,14 @@ export enum SubscriptionRiskStatus {
 @Unique('UQ_subscriptions_workspace_vendor_frequency', ['workspaceId', 'vendorName', 'frequency'])
 @Index('IDX_subscriptions_workspace_status', ['workspaceId', 'status'])
 @Index('IDX_subscriptions_workspace_next_charge', ['workspaceId', 'nextChargeDate'])
+@Index('IDX_subscriptions_workspace_budget', ['workspaceId', 'budgetId'])
 export class Subscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -57,18 +60,18 @@ export class Subscription {
   @Column({ name: 'vendor_name', length: 255 })
   vendorName: string;
 
-  @Column({ name: 'vendor_raw', length: 255, nullable: true })
+  @Column({ type: 'varchar', name: 'vendor_raw', length: 255, nullable: true })
   vendorRaw: string | null;
 
   // The vendor's website host, used to fetch a brand icon. Null falls back to
   // initials; detected subscriptions start null until somebody reviews them.
-  @Column({ name: 'vendor_domain', length: 253, nullable: true })
+  @Column({ type: 'varchar', name: 'vendor_domain', length: 253, nullable: true })
   vendorDomain: string | null;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount: number;
 
-  @Column({ default: 'USD' })
+  @Column()
   currency: string;
 
   @Column({ type: 'enum', enum: SubscriptionFrequency })
@@ -79,7 +82,7 @@ export class Subscription {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'owner_id' })
-  owner: User | null;
+  owner: Relation<User | null>;
 
   @Column({ name: 'owner_id', type: 'uuid', nullable: true })
   ownerId: string | null;
@@ -120,10 +123,18 @@ export class Subscription {
 
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
+
+  /** The budget its money comes out of: new payments take that budget's category. */
+  @ManyToOne(() => Budget, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'budget_id' })
+  budget: Relation<Budget | null>;
+
+  @Column({ name: 'budget_id', type: 'uuid', nullable: true })
+  budgetId: string | null;
 
   /** "I used it" taps; with `usageSince` they give a cost per use. */
   @Column({ name: 'usage_count', type: 'int', default: 0 })
@@ -144,7 +155,7 @@ export class Subscription {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;

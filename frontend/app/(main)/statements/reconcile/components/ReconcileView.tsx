@@ -6,6 +6,8 @@ import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { LoadError } from '@/app/components/ui/load-error';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
@@ -45,9 +47,24 @@ export function ReconcileView(): React.JSX.Element {
     formatMoney(value, currency ?? data?.currency ?? 'KZT', locale);
 
   return (
-    <Box sx={{ px: { xs: 2, md: 4 }, py: 3, display: 'grid', gap: 3 }}>
+    // minmax(0, 1fr): grid items default to min-width: auto, and the ageing
+    // table then pushed every card past the edge of a phone.
+    <Box
+      sx={{
+        px: { xs: 2, md: 4 },
+        py: 3,
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr)',
+        gap: 3,
+      }}
+    >
       <Box>
-        <Typography variant="h5" fontWeight={700}>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 700,
+          }}
+        >
           {t.title}
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -56,27 +73,35 @@ export function ReconcileView(): React.JSX.Element {
       </Box>
 
       {isPending && <Skeleton variant="rounded" height={320} />}
-      {error && (
-        <Typography color="error" sx={{ py: 2, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && <LoadError spacing={2}>{t.error}</LoadError>}
 
       {data && (
         <Box
           sx={{
             display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr)',
             gap: 3,
             opacity: isFetching ? 0.6 : 1,
             transition: 'opacity 150ms',
           }}
         >
           <Box sx={card}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 600,
+                mb: 1.5,
+              }}
+            >
               {t.matches}
             </Typography>
             {data.matches.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.noMatches}
               </Typography>
             ) : (
@@ -87,7 +112,10 @@ export function ReconcileView(): React.JSX.Element {
                     data-testid={`match-${match.itemId}`}
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: { xs: '1fr', md: '1fr 1fr auto' },
+                      gridTemplateColumns: {
+                        xs: 'minmax(0, 1fr)',
+                        md: 'minmax(0, 1fr) minmax(0, 1fr) auto',
+                      },
                       gap: 1.5,
                       alignItems: 'center',
                       py: 1,
@@ -96,12 +124,25 @@ export function ReconcileView(): React.JSX.Element {
                     }}
                   >
                     <Box>
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 600,
+                        }}
+                      >
                         {match.item.vendor}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {match.item.direction === 'receivable' ? t.receivables : t.payables} ·{' '}
-                        {money(match.item.amount, match.item.currency)} ·{' '}
+                        <PrivateAmount>
+                          {money(match.item.amount, match.item.currency)}
+                        </PrivateAmount>{' '}
+                        ·{' '}
                         {match.item.dueDate
                           ? fill(t.due.value, { date: formatDate(match.item.dueDate) })
                           : t.noDue}
@@ -111,10 +152,17 @@ export function ReconcileView(): React.JSX.Element {
                       <Typography variant="body2">
                         {match.transaction.counterpartyName ?? match.transaction.paymentPurpose}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                        }}
+                      >
                         {formatDate(match.transaction.date)} ·{' '}
-                        {money(match.transaction.amount, match.transaction.currency)} ·{' '}
-                        {Math.round(match.confidence * 100)}%
+                        <PrivateAmount>
+                          {money(match.transaction.amount, match.transaction.currency)}
+                        </PrivateAmount>{' '}
+                        · {Math.round(match.confidence * 100)}%
                       </Typography>
                     </Box>
                     <Button
@@ -131,56 +179,89 @@ export function ReconcileView(): React.JSX.Element {
             )}
           </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' },
+              gap: 3,
+            }}
+          >
             <Box sx={card}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
-                {t.ageing}
-              </Typography>
-              <Box
-                component="table"
+              <Typography
+                variant="subtitle1"
                 sx={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  '& th': { textAlign: 'left', py: 0.5, color: 'text.secondary', fontSize: 12 },
-                  '& td': { py: 0.75, borderTop: 1, borderColor: 'divider', fontSize: 14 },
+                  fontWeight: 600,
+                  mb: 1.5,
                 }}
               >
-                <thead>
-                  <tr>
-                    <th />
-                    {BUCKETS.map(bucket => (
-                      <th key={bucket.key}>{t[bucket.label as 'bucketCurrent']}</th>
-                    ))}
-                    <th>{t.total}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.ageing.map(row => (
-                    <tr key={row.direction}>
-                      <td>{row.direction === 'receivable' ? t.receivables : t.payables}</td>
+                {t.ageing}
+              </Typography>
+              <Box sx={{ overflowX: 'auto' }}>
+                <Box
+                  component="table"
+                  sx={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    '& th, & td': { pr: 1.5, whiteSpace: 'nowrap' },
+                    '& th': { textAlign: 'left', py: 0.5, color: 'text.secondary', fontSize: 12 },
+                    '& td': { py: 0.75, borderTop: 1, borderColor: 'divider', fontSize: 14 },
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th />
                       {BUCKETS.map(bucket => (
-                        <td key={bucket.key}>{money(row.buckets[bucket.key])}</td>
+                        <th key={bucket.key}>{t[bucket.label as 'bucketCurrent']}</th>
                       ))}
-                      <td>
-                        <strong>{money(row.total)}</strong>
-                      </td>
+                      <th>{t.total}</th>
                     </tr>
-                  ))}
-                </tbody>
+                  </thead>
+                  <tbody>
+                    {data.ageing.map(row => (
+                      <tr key={row.direction}>
+                        <td>{row.direction === 'receivable' ? t.receivables : t.payables}</td>
+                        {BUCKETS.map(bucket => (
+                          <td key={bucket.key}>
+                            <PrivateAmount>{money(row.buckets[bucket.key])}</PrivateAmount>
+                          </td>
+                        ))}
+                        <td>
+                          <strong>
+                            <PrivateAmount>{money(row.total)}</PrivateAmount>
+                          </strong>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Box>
               </Box>
             </Box>
 
             <Box sx={card}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.5,
+                }}
+              >
                 {t.unmatched}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  display: 'block',
+                  mb: 1,
+                }}
+              >
                 {fill(t.unmatchedRows.value, { count: String(data.unmatchedRowCount) })}
               </Typography>
               <Box sx={{ display: 'grid', gap: 0.5 }}>
                 {data.unmatchedItems.slice(0, 20).map(item => (
                   <Typography key={item.id} variant="body2">
-                    {item.vendor} · {money(item.amount, item.currency)} ·{' '}
+                    {item.vendor} ·{' '}
+                    <PrivateAmount>{money(item.amount, item.currency)}</PrivateAmount> ·{' '}
                     {item.dueDate ? fill(t.due.value, { date: formatDate(item.dueDate) }) : t.noDue}
                   </Typography>
                 ))}
@@ -190,7 +271,13 @@ export function ReconcileView(): React.JSX.Element {
 
           {data.duplicates.length > 0 && (
             <Box sx={card}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.5,
+                }}
+              >
                 {t.duplicates}
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -199,11 +286,13 @@ export function ReconcileView(): React.JSX.Element {
                     key={`${group.vendor}:${group.amount}`}
                     color="warning"
                     variant="outlined"
-                    label={fill(t.duplicateRow.value, {
-                      vendor: group.vendor,
-                      amount: money(group.amount, group.currency),
-                      count: String(group.itemIds.length),
-                    })}
+                    label={fillTemplateNodes(
+                      fill(t.duplicateRow.value, {
+                        vendor: group.vendor,
+                        count: String(group.itemIds.length),
+                      }),
+                      { amount: money(group.amount, group.currency) },
+                    )}
                   />
                 ))}
               </Box>

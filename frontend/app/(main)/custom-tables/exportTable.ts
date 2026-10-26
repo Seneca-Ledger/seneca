@@ -1,6 +1,7 @@
 'use client';
 
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
 
 export type CustomTableExportFormat = 'csv' | 'xlsx';
 
@@ -48,7 +49,7 @@ export async function downloadTableExport(
   format: CustomTableExportFormat,
   params: CustomTableExportParams = {},
 ): Promise<void> {
-  const response = await apiClient.get<Blob>(`/custom-tables/${tableId}/export`, {
+  const response = await apiClient.get(`/custom-tables/${tableId}/export`, {
     responseType: 'blob',
     params: {
       format,
@@ -59,5 +60,5 @@ export async function downloadTableExport(
   });
 
   const fileName = parseFileName(response.headers['content-disposition'], format);
-  triggerBlobDownload(response.data, fileName);
+  triggerBlobDownload(blobOf(response), fileName);
 }

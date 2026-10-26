@@ -1,3 +1,4 @@
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import type { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 
 /**
@@ -9,12 +10,9 @@ import type { ExchangeRatesService } from '../exchange-rates/exchange-rates.serv
  * EUR deposit is worth.
  */
 
-/** Falls back to KZT rather than throwing: a bad code must not lose the amount. */
+/** Falls back rather than throwing: a bad code must not lose the amount. */
 export function normalizeCurrency(currency: string | null | undefined): string {
-  const normalized = String(currency || '')
-    .trim()
-    .toUpperCase();
-  return /^[A-Z]{3}$/.test(normalized) ? normalized : 'KZT';
+  return currencyCodeOrDefault(currency);
 }
 
 export function toNumber(value: unknown): number {
@@ -31,8 +29,10 @@ export function toDateOnly(date: Date): string {
 }
 
 /**
- * One rate lookup per distinct source currency rather than one per row.
- * getRate never throws: it degrades to a stale rate, then to 1:1, and logs.
+ * One rate lookup per distinct source currency rather than one per row. A
+ * currency with no rate to `target` is left out of the map, so `convertWith`
+ * drops its amounts instead of reading 500 UAH as 500 USD; `getRate` would
+ * hand back 1:1 for it.
  */
 export async function buildRateMap(
   exchangeRates: ExchangeRatesService,
@@ -40,21 +40,47 @@ export async function buildRateMap(
   target: string,
   workspaceId: string,
 ): Promise<Map<string, number>> {
-  const rates = new Map<string, number>();
-  for (const source of new Set(currencies.map(normalizeCurrency))) {
-    rates.set(
-      source,
-      source === target ? 1 : await exchangeRates.getRate(source, target, undefined, workspaceId),
-    );
-  }
+  const rates = new Map<string, number>([[normalizeCurrency(target), 1]]);
+  await addMissingRates(exchangeRates, rates, currencies, target, workspaceId);
   return rates;
 }
 
-/** Converts with a map built by `buildRateMap`; an unknown currency stays 1:1. */
+/** Looks up the currencies `rates` does not know yet, for rows read after the map was built. */
+export async function addMissingRates(
+  exchangeRates: ExchangeRatesService,
+  rates: Map<string, number>,
+  currencies: string[],
+  target: string,
+  workspaceId: string,
+): Promise<void> {
+  const to = normalizeCurrency(target);
+  for (const source of new Set(currencies.map(normalizeCurrency))) {
+    if (rates.has(source)) {
+      continue;
+    }
+    if (source === to) {
+      rates.set(source, 1);
+      continue;
+    }
+    const rate = await exchangeRates
+      .getRateOrNull(source, to, undefined, workspaceId)
+      .catch(() => null);
+    if (rate !== null) {
+      rates.set(source, rate);
+    }
+  }
+}
+
+/**
+ * Converts with a map built by `buildRateMap`. A currency the map has no rate
+ * for counts as nothing: leaving an amount out is a smaller error than counting
+ * it one to one in another currency.
+ */
 export function convertWith(
   rates: Map<string, number>,
   amount: string | number | null | undefined,
   from: string,
 ): number {
-  return toNumber(amount) * (rates.get(normalizeCurrency(from)) ?? 1);
+  const rate = rates.get(normalizeCurrency(from));
+  return rate === undefined ? 0 : toNumber(amount) * rate;
 }

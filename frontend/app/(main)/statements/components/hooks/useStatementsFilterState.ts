@@ -16,6 +16,7 @@ import {
   type StatementFilters,
   saveStatementFilters,
 } from '@/app/(main)/statements/components/filters/statement-filters';
+import { monthDeepLinkFilters } from '../filters/month-deep-link';
 import { reconcileFiltersWithColumns } from '../StatementsListView.utils';
 
 interface UseStatementsFilterStateReturn {
@@ -51,7 +52,8 @@ interface UseStatementsFilterStateReturn {
   handleReorderColumns: (activeId: StatementColumnId, overId: StatementColumnId) => void;
   handleSaveColumns: () => void;
   handleColumnsOpen: () => void;
-  initFromStorage: () => void;
+  /** `deepLinkMonth` (`?month=YYYY-MM`) wins over the stored filters for this visit, unsaved. */
+  initFromStorage: (deepLinkMonth?: string | null, ignoreStored?: boolean) => void;
 }
 
 export function useStatementsFilterState({
@@ -71,8 +73,10 @@ export function useStatementsFilterState({
   const [columns, setColumns] = useState<StatementColumn[]>(DEFAULT_STATEMENT_COLUMNS);
   const [draftColumns, setDraftColumns] = useState<StatementColumn[]>(DEFAULT_STATEMENT_COLUMNS);
 
-  const initFromStorage = (): void => {
-    const storedFilters = loadStatementFilters();
+  const initFromStorage = (deepLinkMonth?: string | null, ignoreStored = false): void => {
+    const storedFilters =
+      monthDeepLinkFilters(deepLinkMonth) ??
+      (ignoreStored ? DEFAULT_STATEMENT_FILTERS : loadStatementFilters());
     setDraftFilters(storedFilters);
     setAppliedFilters(storedFilters);
     const storedColumns = loadStatementColumns();

@@ -20,10 +20,13 @@ export type TopCategoriesViewModelReturn = TopAnalyticsViewModelReturn<
   TopCategoriesDataReturn
 >;
 
-export const useTopCategoriesViewModel = (): TopCategoriesViewModelReturn =>
-  useTopAnalyticsViewModel({
-    useStateHook: useTopCategoriesState,
-    useDataHook: useTopCategoriesData,
-    createTx,
-    buildLabels: buildTopCategoriesLabels,
-  });
+export const useTopCategoriesViewModel = (month: Date): TopCategoriesViewModelReturn =>
+  useTopAnalyticsViewModel(
+    {
+      useStateHook: useTopCategoriesState,
+      useDataHook: useTopCategoriesData,
+      createTx,
+      buildLabels: buildTopCategoriesLabels,
+    },
+    month,
+  );

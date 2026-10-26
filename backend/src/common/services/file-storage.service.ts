@@ -5,8 +5,9 @@ import * as path from 'path';
 import { Readable } from 'stream';
 import type { Repository } from 'typeorm';
 import { FileType, Statement } from '../../entities';
+import { appError } from '../errors/app-error';
 import { calculateFileHash } from '../utils/file-hash.util';
-import { resolveUploadsDir } from '../utils/uploads.util';
+import { resolveInUploadsDir, resolveUploadsDir } from '../utils/uploads.util';
 
 export type FileAvailabilityStatus = 'both' | 'disk' | 'db' | 'missing';
 
@@ -70,9 +71,13 @@ export class FileStorageService {
       path.join(path.dirname(rawPath), basename),
     ].filter(Boolean) as string[];
 
+    // Stored paths come in several legacy shapes, but every file lives under the
+    // uploads directory — a candidate outside it is never served.
+    const uploadsRoot = path.resolve(uploadBaseDir);
     for (const candidate of candidates) {
-      if (isRegularFile(candidate)) {
-        return candidate;
+      const bounded = resolveInUploadsDir(candidate, uploadsRoot);
+      if (bounded?.startsWith(`${uploadsRoot}${path.sep}`) && isRegularFile(bounded)) {
+        return bounded;
       }
     }
 
@@ -233,7 +238,7 @@ export class FileStorageService {
       return restored;
     }
 
-    throw new NotFoundException('File content is unavailable');
+    throw new NotFoundException(appError('FILE_CONTENT_UNAVAILABLE'));
   }
 
   /**

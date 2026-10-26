@@ -1,62 +1,21 @@
-export type BankSyncHealth = 'ok' | 'never_synced' | 'stale' | 'incomplete' | 'needs_reauth';
+import type { ContractType } from '@/app/lib/query-fn-schema';
 
-export type BankSyncAccount = {
-  id: string;
-  name: string;
-  org: string;
-  currency: string;
-  enabled: boolean;
-  walletId: string | null;
-  linkId: string | null;
-  lastSyncAt: string | null;
-  balance: number | null;
-  balanceDate: string | null;
-  consentExpiresAt: string | null;
-  syncFrom: string | null;
-  health: BankSyncHealth;
-  lastError: string | null;
-  balanceDrift: number | null;
-};
-
-export type BankSyncLink = {
-  id: string;
-  institution: string;
-  country: string | null;
-  consentExpiresAt: string | null;
-};
-
-export type BankSyncConnection = {
-  id: string;
-  provider: string;
-  linkStyle: 'token' | 'redirect';
-  label: string;
-  status: 'connected' | 'disconnected' | 'needs_reauth';
-  config: {
-    label: string;
-    autoSync: boolean;
-    links: BankSyncLink[];
-    accounts: BankSyncAccount[];
-    lastSyncAt: string | null;
-    lastError: string | null;
-  };
-};
-
-export type BankSyncProviderInfo = { key: string; linkStyle: 'token' | 'redirect' };
-
-export type BankSyncInstitution = {
-  name: string;
-  country: string;
-  maxConsentValiditySeconds: number | null;
-  beta: boolean;
-};
-
-export type BankSyncResult = {
-  imported: number;
-  statements: number;
-  accounts: Array<{ id: string; imported: number; skipped: number; error?: string }>;
-};
-
+export type BankSyncHealth = ContractType<'BankSyncHealth'>;
+export type BankSyncConnection = ContractType<'BankSyncConnection'>;
+export type BankSyncAccount = BankSyncConnection['config']['accounts'][number];
+export type BankSyncProviderInfo = ContractType<'BankSyncProviderList'>[number];
+export type BankSyncInstitution = ContractType<'BankSyncInstitutionList'>[number];
 export type WalletOption = { id: string; name: string; currency: string };
+
+/** One wallet's feed: the provider account behind it. */
+export type FeedRef = { connectionId: string; accountId: string; walletId: string };
+
+/** Runs one action and shows what came of it. */
+export type RunAction = (
+  key: string,
+  action: () => Promise<Message | null>,
+  failure: string,
+) => Promise<void>;
 
 export type Message = { tone: 'ok' | 'error'; text: string };
 

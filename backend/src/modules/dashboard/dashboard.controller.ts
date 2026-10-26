@@ -1,77 +1,89 @@
-import {
-  BadRequestException,
-  Controller,
-  DefaultValuePipe,
-  Get,
-  ParseIntPipe,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
+import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
+import {
+  CashFlowEntriesQuery,
+  CashFlowQuery,
+  DashboardCashFlowEntriesResponse,
+  DashboardCommitmentsResponse,
+  DashboardMonthlyCashFlowResponse,
+  DashboardResponse,
+  DashboardTrendsResponse,
+} from '../../contracts';
+import {
+  DashboardCommitmentsQuery,
+  DashboardQuery,
+  DashboardTrendsQuery,
+} from '../../contracts/requests/dashboard';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CashFlowEntriesService } from './cash-flow-entries.service';
 import { DashboardService } from './dashboard.service';
-import { parseMonthWindow } from './dashboard-window.util';
-import { CashFlowQueryDto } from './dto/cash-flow-query.dto';
-
-const MIN_HISTORY_YEAR = 1970;
-const MAX_HISTORY_YEAR = 9999;
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly cashFlowEntries: CashFlowEntriesService,
+  ) {}
 
   @Get()
+  @SchemaResponse(DashboardResponse)
   async getDashboard(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('range') range: '7d' | '30d' | '90d' | 'month' = '30d',
-    @Query('date') date?: string,
+    @SchemaQuery(DashboardQuery) query: DashboardQuery,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
-    const validRange: '7d' | '30d' | '90d' | 'month' = ['7d', '30d', '90d', 'month'].includes(range)
-      ? range
-      : '30d';
-    return this.dashboardService.getDashboard(user.id, workspaceId, validRange, date);
+    return this.dashboardService.getDashboard(
+      user.id,
+      workspaceId,
+      query.range ?? '30d',
+      query.date,
+      selfMemberId ?? null,
+    );
   }
 
   @Get('cash-flow')
-  async getCashFlow(@WorkspaceId() workspaceId: string, @Query() query: CashFlowQueryDto) {
+  @SchemaResponse(DashboardMonthlyCashFlowResponse)
+  async getCashFlow(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(CashFlowQuery) query: CashFlowQuery,
+  ) {
     return this.dashboardService.getMonthlyCashFlow(workspaceId, query.range ?? '12m', query.month);
   }
 
+  @Get('cash-flow/entries')
+  @SchemaResponse(DashboardCashFlowEntriesResponse)
+  async getCashFlowEntries(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() viewerMemberId: string | null,
+    @SchemaQuery(CashFlowEntriesQuery) query: CashFlowEntriesQuery,
+  ) {
+    return this.cashFlowEntries.getCashFlowEntries(workspaceId, query.month, viewerMemberId);
+  }
+
   @Get('trends')
+  @SchemaResponse(DashboardTrendsResponse)
   async getTrends(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
-    @Query('month') month?: string,
+    @SchemaQuery(DashboardTrendsQuery) { days = 30, month }: DashboardTrendsQuery,
+    @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
-    if (month !== undefined && !parseMonthWindow(month)) {
-      throw new BadRequestException('month must be YYYY-MM');
-    }
-    return this.dashboardService.getTrends(workspaceId, days, month);
-  }
-
-  @Get('health-history')
-  async getHealthHistory(
-    @WorkspaceId() workspaceId: string,
-    @Query('year', new ParseIntPipe({ optional: true })) year?: number,
-  ) {
-    const resolvedYear = year ?? new Date().getFullYear();
-    if (resolvedYear < MIN_HISTORY_YEAR || resolvedYear > MAX_HISTORY_YEAR) {
-      throw new BadRequestException('year is out of range');
-    }
-    return this.dashboardService.getHealthHistory(workspaceId, resolvedYear);
+    return this.dashboardService.getTrends(workspaceId, days, month, selfMemberId ?? null);
   }
 
   @Get('commitments')
+  @SchemaResponse(DashboardCommitmentsResponse)
   async getCommitments(
     @WorkspaceId() workspaceId: string,
-    @Query('days', new DefaultValuePipe(60), ParseIntPipe) days: number,
+    @SchemaQuery(DashboardCommitmentsQuery) query: DashboardCommitmentsQuery,
   ) {
-    return this.dashboardService.getCommitments(workspaceId, days);
+    return this.dashboardService.getCommitments(workspaceId, query.days ?? 60);
   }
 }

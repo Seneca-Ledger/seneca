@@ -5,7 +5,8 @@ import type React from 'react';
 import { useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { BANK_SYNC_BASE, type BankSyncInstitution, type Message } from './types';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { BANK_SYNC_BASE, type BankSyncInstitution, type RunAction } from './types';
 
 /**
  * Authorizes one more bank inside a redirect-style connection. The consent
@@ -20,7 +21,7 @@ export function AddBankForm({
 }: {
   connectionId: string;
   busy: string | null;
-  onRun: (key: string, action: () => Promise<Message | null>, failure: string) => Promise<void>;
+  onRun: RunAction;
   onDone: () => void;
 }): React.JSX.Element {
   const t = useIntlayer('bankSyncPanel');
@@ -34,11 +35,14 @@ export function AddBankForm({
     onRun(
       `banks:${connectionId}`,
       async () => {
-        const response = await apiClient.get<BankSyncInstitution[]>(
-          `${base}/institutions?country=${encodeURIComponent(country.trim().toUpperCase())}`,
-        );
-        const list = Array.isArray(response.data) ? response.data : [];
-        setBanks(list);
+        const list = await apiQueryDecoded({
+          url: `${base}/institutions`,
+          params: {
+            country: country.trim().toUpperCase(),
+          } satisfies ContractInput<'BankSyncInstitutionsQuery'>,
+          contract: 'BankSyncInstitutionList',
+        });
+        setBanks([...list]);
         setBank('');
         return list.length === 0 ? { tone: 'error', text: t.noBanksForCountry.value } : null;
       },
@@ -51,25 +55,27 @@ export function AddBankForm({
       async () => {
         const chosen = banks?.find(item => item.name === bank);
         if (!chosen) return { tone: 'error', text: t.noBanksForCountry.value };
-        const response = await apiClient.post<{ url: string; state: string }>(
+        const response = await apiClient.post(`${base}/links/begin`, {
+          institution: chosen.name,
+          country: chosen.country,
+          redirectUrl: `${window.location.origin}/integrations/bank-sync/callback`,
+          ...(chosen.maxConsentValiditySeconds
+            ? { maxConsentValiditySeconds: chosen.maxConsentValiditySeconds }
+            : {}),
+        } satisfies ContractInput<'BeginBankSyncLinkBody'>);
+        const started = await checkContract(
+          'BankSyncLinkStarted',
+          response.data,
           `${base}/links/begin`,
-          {
-            institution: chosen.name,
-            country: chosen.country,
-            redirectUrl: `${window.location.origin}/integrations/bank-sync/callback`,
-            ...(chosen.maxConsentValiditySeconds
-              ? { maxConsentValiditySeconds: chosen.maxConsentValiditySeconds }
-              : {}),
-          },
         );
         // The callback page finishes the link, so it needs to know which
         // connection and which state this redirect belongs to.
         window.sessionStorage.setItem(
           'bankSyncPendingLink',
-          JSON.stringify({ connectionId, state: response.data.state }),
+          JSON.stringify({ connectionId, state: started.state }),
         );
         onDone();
-        window.location.assign(response.data.url);
+        window.location.assign(started.url);
         return null;
       },
       t.authorizeFailed.value,

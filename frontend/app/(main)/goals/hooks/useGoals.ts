@@ -4,8 +4,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { GoalCover } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+
+/** How the goal's picture should be drawn. */
+export type { GoalCover } from '@/app/lib/contracts';
+
+/**
+ * What the picker hands back, which is not the same shape the server returns:
+ * a photo is chosen by its Openverse id, and only afterwards becomes a stored
+ * file the goal serves by its own id.
+ */
+export type GoalCoverSelection =
+  | { kind: 'preset'; preset: string }
+  | { kind: 'photo'; photoId: string; attribution: string };
 
 export interface Goal {
   id: string;
@@ -17,12 +30,19 @@ export interface Goal {
   remaining: number;
   percent: number;
   isReached: boolean;
+  cover: GoalCover | null;
 }
 
 export interface GoalFormData {
   name: string;
   targetAmount: number;
   targetDate: string;
+  /**
+   * `undefined` means "leave the cover alone", `null` means "remove it". The
+   * distinction matters on edit, where not opening the picker must not wipe
+   * the picture the goal already has.
+   */
+  cover?: GoalCoverSelection | null;
 }
 
 export const EMPTY_GOAL_FORM: GoalFormData = {
@@ -44,6 +64,31 @@ interface UseGoalsState {
   addContribution: (id: string, amount: number, note: string) => Promise<boolean>;
 }
 
+/**
+ * The cover is its own request because it is its own resource: picking a photo
+ * downloads bytes, which has no business happening inside the write that renames
+ * a goal. On create the goal has to exist first, so the id only becomes
+ * available after the POST.
+ */
+async function applyCover(
+  goalId: string,
+  cover: GoalCoverSelection | null | undefined,
+): Promise<void> {
+  if (cover === undefined) {
+    return;
+  }
+  if (cover === null) {
+    await apiClient.delete(`/goals/${goalId}/cover`);
+    return;
+  }
+  await apiClient.put(
+    `/goals/${goalId}/cover`,
+    cover.kind === 'preset'
+      ? { preset: cover.preset }
+      : ({ photoId: cover.photoId } satisfies ContractInput<'SetGoalCoverBody'>),
+  );
+}
+
 export function useGoals(): UseGoalsState {
   // Workspace-scoped: the request itself does not mention the workspace (the
   // server scopes by session), so the key carries it explicitly.
@@ -52,7 +97,8 @@ export function useGoals(): UseGoalsState {
 
   const query = useQuery({
     queryKey: queryKeys.goalsList(workspaceId),
-    queryFn: ({ signal }) => apiQuery<Goal[]>({ url: '/goals', signal }),
+    queryFn: ({ signal }) => apiQueryDecoded({ url: '/goals', signal, contract: 'GoalList' }),
+    enabled: Boolean(workspaceId),
   });
 
   const mutation = useMutation({
@@ -78,13 +124,27 @@ export function useGoals(): UseGoalsState {
   });
 
   const createGoal = useCallback(
-    (form: GoalFormData) => submit(() => apiClient.post('/goals', toPayload(form))),
+    (form: GoalFormData) =>
+      submit(async () => {
+        const response = await apiClient.post(
+          '/goals',
+          toPayload(form) satisfies ContractInput<'CreateGoalBody'>,
+        );
+        const goal = await checkContract('GoalWithProgress', response.data, '/goals');
+        await applyCover(goal.id, form.cover);
+      }),
     [submit],
   );
 
   const updateGoal = useCallback(
     (id: string, form: GoalFormData) =>
-      submit(() => apiClient.put(`/goals/${id}`, toPayload(form))),
+      submit(async () => {
+        await apiClient.put(
+          `/goals/${id}`,
+          toPayload(form) satisfies ContractInput<'UpdateGoalBody'>,
+        );
+        await applyCover(id, form.cover);
+      }),
     [submit],
   );
 
@@ -101,7 +161,7 @@ export function useGoals(): UseGoalsState {
         apiClient.post(`/goals/${id}/contributions`, {
           amount,
           note: note.trim() === '' ? undefined : note.trim(),
-        }),
+        } satisfies ContractInput<'CreateContributionBody'>),
       ),
     [submit],
   );

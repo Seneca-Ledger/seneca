@@ -11,6 +11,9 @@ const effectivePeriod = vi.hoisted(() => ({ current: null as string | null }));
 
 const searchParams = vi.hoisted(() => ({ current: new URLSearchParams() }));
 
+// Reads the Review counts through React Query; its own test covers it.
+
+vi.mock('@/app/components/insights/AlertBanner', () => ({ AlertBanner: () => null }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace }),
   usePathname: () => '/dashboard',
@@ -22,25 +25,6 @@ vi.mock('next/link', () => ({
     <a href={href} {...props}>
       {children}
     </a>
-  ),
-}));
-
-vi.mock('@mui/material', () => ({
-  Tabs: ({
-    children,
-    value,
-  }: {
-    children?: React.ReactNode;
-    value: string;
-  }) => (
-    <div data-testid="tabs" data-active={value}>
-      {children}
-    </div>
-  ),
-  Tab: ({ label, value }: { label: React.ReactNode; value: string }) => (
-    <button type="button" data-value={value}>
-      {label}
-    </button>
   ),
 }));
 
@@ -56,30 +40,16 @@ vi.mock('@/app/components/icons', () => ({
   ChevronRight: () => <span data-testid="chevron-right-icon" />,
 }));
 
-vi.mock('@/app/components/ui/spinner', () => ({
-  Spinner: () => <div>spinner</div>,
-}));
+// The heading reads the whole sidebar config; it has tests of its own.
+vi.mock('@/app/components/ui/page-title', () => ({ PageTitle: () => null }));
 
-vi.mock('@/app/components/dashboard/FinanceOpsTab', () => ({
-  FinanceOpsTab: () => <div>Finance ops tab</div>,
+vi.mock('@/app/components/ui/snapshot-skeleton/SnapshotSkeleton', () => ({
+  SnapshotSkeleton: ({ loading, children }: { loading: boolean; children?: React.ReactNode }) =>
+    loading ? <div role="status" /> : children,
 }));
 
 vi.mock('@/app/components/dashboard/OverviewTab', () => ({
   OverviewTab: () => <div>Overview tab</div>,
-}));
-
-vi.mock('@/app/components/dashboard/TrendsTab', () => ({
-  TrendsTab: () => <div>Trends tab</div>,
-}));
-
-vi.mock('@/app/components/dashboard/DataHealthTab', () => ({
-  DataHealthTab: () => <div>Data health tab</div>,
-}));
-
-vi.mock('@/app/components/dashboard/ExportDropdown', () => ({
-  ExportDropdown: ({ t }: { t: { button: { value: string } } }) => (
-    <div data-testid="export-dropdown">{t.button.value}</div>
-  ),
 }));
 
 vi.mock('@/app/contexts/WorkspaceContext', () => ({
@@ -150,16 +120,6 @@ vi.mock('@/app/i18n', () => ({
       ready: { value: 'Ready' },
       idle: { value: 'Idle' },
     },
-    exportMenu: {
-      button: { value: 'Export' },
-    },
-    tabs: {
-      financeOps: { value: 'Finance Ops' },
-      overview: { value: 'Overview' },
-      trends: { value: 'Trends' },
-      dataHealth: { value: 'Data Health' },
-    },
-    uploadStatement: { value: 'Upload statement' },
     periodBanner: { value: 'Showing latest available period: {period}' },
     monthStripLabel: { value: 'Select month' },
     previousYear: { value: 'Previous year' },
@@ -172,9 +132,6 @@ vi.mock('@/app/lib/dashboard-effective-window', () => ({
   resolveDashboardEffectivePeriod: () => effectivePeriod.current,
 }));
 
-vi.mock('@/app/lib/dashboard-status-heading', () => ({
-  resolveDashboardStatusHeading: () => 'allClear',
-}));
 
 describe('DashboardPage', () => {
   beforeEach(() => {
@@ -183,54 +140,28 @@ describe('DashboardPage', () => {
     effectivePeriod.current = null;
   });
 
-  it('renders the export dropdown in the header actions', () => {
+  it('is the Overview alone, with no tabs to switch', () => {
     render(<DashboardPage />);
 
-    expect(screen.getByTestId('export-dropdown')).toHaveTextContent('Export');
+    expect(screen.getByText('Overview tab')).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 
-  it('links Upload statement to statements with the scan drawer open', () => {
+  it('opens the Overview from an old link to a tab that is gone', () => {
+    searchParams.current = new URLSearchParams('tab=trends');
     render(<DashboardPage />);
 
-    const link = screen.getByRole('link', { name: /upload statement/i });
-
-    expect(link.getAttribute('href')).toBe('/statements?openExpenseDrawer=scan');
-  });
-
-  it('renders the Upload statement action as a circular icon button', () => {
-    render(<DashboardPage />);
-
-    const link = screen.getByRole('link', { name: /upload statement/i });
-
-    expect(link.className).toContain('lumio-dashboard-header__icon-btn');
-  });
-
-  it('orders tabs Overview, Trends, Finance Ops, Data Health and defaults to Overview', () => {
-    render(<DashboardPage />);
-
-    const tabs = screen.getByTestId('tabs');
-    const order = Array.from(tabs.querySelectorAll('button')).map(b => b.textContent);
-    expect(order).toEqual(['Overview', 'Trends', 'Finance Ops', 'Data Health']);
-    expect(tabs).toHaveAttribute('data-active', 'overview');
     expect(screen.getByText('Overview tab')).toBeInTheDocument();
   });
 
-  it('selects the tab from the ?tab query param', () => {
-    searchParams.current = new URLSearchParams('tab=trends');
-    render(<DashboardPage />);
-
-    expect(screen.getByTestId('tabs')).toHaveAttribute('data-active', 'trends');
-    expect(screen.getByText('Trends tab')).toBeInTheDocument();
-  });
-
-  it('writes the picked month to the URL without scrolling', () => {
-    searchParams.current = new URLSearchParams('tab=trends');
+  it('writes the picked month to the URL without scrolling, keeping the rest', () => {
+    searchParams.current = new URLSearchParams('cf=5y');
     render(<DashboardPage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Jan' }));
 
     const year = new Date().getFullYear();
-    expect(replace).toHaveBeenCalledWith(`/dashboard?tab=trends&month=${year}-01`, {
+    expect(replace).toHaveBeenCalledWith(`/dashboard?cf=5y&month=${year}-01`, {
       scroll: false,
     });
   });
@@ -243,9 +174,8 @@ describe('DashboardPage', () => {
     expect(screen.getByText('2025')).toBeInTheDocument();
   });
 
-  it('shows the effective period banner under the month strip on every tab', () => {
+  it('shows the effective period banner under the month strip', () => {
     effectivePeriod.current = '2025-05-01 - 2025-05-31';
-    searchParams.current = new URLSearchParams('tab=data-health');
     render(<DashboardPage />);
 
     expect(

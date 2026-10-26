@@ -16,7 +16,7 @@ services:
       - redis_dev_data:/data
 
   backend:
-    image: lumio-backend:dev
+    image: seneca-backend:dev
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -38,7 +38,7 @@ services:
     command: sh scripts/dev-entrypoint.sh npm run start:dev
 
   frontend:
-    image: lumio-frontend:dev
+    image: seneca-frontend:dev
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -47,9 +47,9 @@ services:
       - NODE_ENV=development
       - API_PROXY_TARGET=http://backend:3001
     volumes:
-      - ./frontend:/app
-      - frontend_node_modules:/app/node_modules
-      - frontend_next:/app/.next
+      # Not /app: see WORKDIR in frontend/Dockerfile.
+      - ./frontend:/frontend
+      - frontend_node_modules:/frontend/node_modules
     command: sh scripts/dev-entrypoint.sh npm run dev
 
 volumes:
@@ -57,4 +57,3 @@ volumes:
   redis_dev_data:
   backend_node_modules:
   frontend_node_modules:
-  frontend_next:

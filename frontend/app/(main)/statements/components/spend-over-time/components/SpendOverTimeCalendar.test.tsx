@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SpendOverTimeRecord } from '@/app/(main)/statements/components/spend-over-time.utils';
-import { SpendOverTimeCalendar } from './SpendOverTimeCalendar';
+import { heatLevel, SpendOverTimeCalendar } from './SpendOverTimeCalendar';
 
 const createRecord = (overrides: Partial<SpendOverTimeRecord> = {}): SpendOverTimeRecord => ({
   id: 'record-1',
@@ -58,42 +58,83 @@ describe('SpendOverTimeCalendar', () => {
     container.remove();
   });
 
-  it('moves between calendar months with navigation buttons', () => {
+  it('renders the month it is given and opens the day that has records', () => {
+    const onDayClick = vi.fn();
     act(() => {
       root.render(
         <SpendOverTimeCalendar
           records={[createRecord()]}
+          month={new Date(2025, 11, 1)}
           currency="KZT"
-          onDayClick={vi.fn()}
-          labels={{ title: 'Calendar view', emptyMonth: 'Empty month', operations: 'operations' }}
+          onDayClick={onDayClick}
+          labels={{ emptyMonth: 'Empty month', operations: 'operations' }}
         />,
       );
     });
 
-    expect(container.textContent).toContain('December 2025');
-
-    const previous = container.querySelector(
-      'button[aria-label="Previous month"]',
-    ) as HTMLButtonElement;
-    const next = container.querySelector('button[aria-label="Next month"]') as HTMLButtonElement;
-    const latest = Array.from(container.querySelectorAll('button')).find(
-      button => button.textContent?.trim() === 'Latest',
-    ) as HTMLButtonElement;
+    const day = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('.seneca-spend-calendar__day--active'),
+    );
+    expect(day).toHaveLength(1);
+    expect(day[0].textContent).toContain('8');
 
     act(() => {
-      previous.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      day[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(container.textContent).toContain('November 2025');
+    expect(onDayClick).toHaveBeenCalledWith('2025-12-08');
+  });
 
+  it('shows the empty label for a month without records', () => {
     act(() => {
-      next.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      next.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      root.render(
+        <SpendOverTimeCalendar
+          records={[createRecord()]}
+          month={new Date(2025, 10, 1)}
+          currency="KZT"
+          onDayClick={vi.fn()}
+          labels={{ emptyMonth: 'Empty month', operations: 'operations' }}
+        />,
+      );
     });
-    expect(container.textContent).toContain('January 2026');
 
+    expect(container.textContent).toContain('Empty month');
+    expect(container.querySelectorAll('.seneca-spend-calendar__day--active')).toHaveLength(0);
+  });
+
+  it('shades a month by rank, a heat scale one big day cannot flatten', () => {
     act(() => {
-      latest.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      root.render(
+        <SpendOverTimeCalendar
+          records={[
+            createRecord({ id: 'a', dateValue: '2025-12-01', amount: 4 }),
+            createRecord({ id: 'b', dateValue: '2025-12-02', amount: 15 }),
+            createRecord({ id: 'c', dateValue: '2025-12-03', amount: 250 }),
+            createRecord({ id: 'd', dateValue: '2025-12-04', amount: 760 }),
+            createRecord({ id: 'usd', dateValue: '2025-12-05', amount: 9, currencyValue: 'USD' }),
+          ]}
+          month={new Date(2025, 11, 1)}
+          currency="KZT"
+          onDayClick={vi.fn()}
+          labels={{ emptyMonth: 'Nothing', operations: 'operations' }}
+        />,
+      );
     });
-    expect(container.textContent).toContain('December 2025');
+
+    const heat = [...container.querySelectorAll<HTMLElement>('[data-heat]')].map(
+      cell => cell.dataset.heat,
+    );
+    expect(heat).toEqual(['1', '2', '4', '5']);
+    // Another currency is marked and left off the scale.
+    const foreign = container.querySelector('.seneca-spend-calendar__day--foreign');
+    expect(foreign?.getAttribute('title')).toBe('USD');
+    expect(foreign?.hasAttribute('data-heat')).toBe(false);
+  });
+});
+
+describe('heatLevel', () => {
+  it('gives nothing to an empty day and the top step to the largest', () => {
+    expect(heatLevel(0, [1, 2, 3])).toBe(0);
+    expect(heatLevel(3, [1, 2, 3])).toBe(5);
+    expect(heatLevel(1, [1, 2, 3])).toBe(1);
   });
 });

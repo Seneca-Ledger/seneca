@@ -1,12 +1,14 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
+import { Schema } from 'effect';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { TransactionList } from '../../src/contracts';
 import {
   deleteUserByEmail,
   type E2eAccount,
@@ -99,6 +101,8 @@ describe('Transactions (e2e)', () => {
       expect(res.body.data).toHaveLength(3);
       expect(res.body.items).toEqual(res.body.data);
       expect(res.body).toMatchObject({ page: 1, limit: 50 });
+      // The statement edit page checks the rows against the same contract in dev.
+      Schema.decodeUnknownSync(TransactionList)(res.body.data);
     });
 
     it('filters by statement', async () => {

@@ -1,29 +1,20 @@
-/* eslint-disable max-lines */
-
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
-import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
+import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
+import { blobOf } from '@/app/lib/blob-of';
 import {
   areAllVisibleSelected,
   toggleSelectAllVisible,
   toggleStatementSelection,
 } from '@/app/lib/statement-selection';
 import {
-  type StatementStage,
-  type StatementStageUpdateResult,
-  statementStageSkipMessage,
-  updateReceiptStages,
-  updateStatementStages,
-} from '@/app/lib/statement-workflow';
-import {
   DUPLICATE_GROUP_TONES,
   type DuplicateGroupTone,
   getDeleteEndpoint,
   getExportEndpoint,
-  isGmailStatement,
   isScanReceiptStatement,
   type StatementLike,
 } from '../StatementsListView.utils';
@@ -57,30 +48,6 @@ export type DuplicateOverride = {
   total?: number;
 };
 
-const NO_STAGE_MOVES: StatementStageUpdateResult = { updated: [], skipped: [] };
-
-/** One toast for a bulk stage move: how many moved, and why the first refused one did not. */
-function notifyStageMoveResult(
-  movedCount: number,
-  skipped: StatementStageUpdateResult['skipped'],
-  labels: { movedCount: string; movedPartial: string },
-): void {
-  if (skipped.length === 0) {
-    toast.success(labels.movedCount.replace('{count}', String(movedCount)));
-    return;
-  }
-  const reason = statementStageSkipMessage(skipped[0].code);
-  const message = labels.movedPartial
-    .replace('{count}', String(movedCount))
-    .replace('{skipped}', String(skipped.length))
-    .replace('{reason}', reason);
-  if (movedCount === 0) {
-    toast.error(message);
-  } else {
-    toast(message);
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Merge helpers (extracted to reduce cognitive complexity)
 // ---------------------------------------------------------------------------
@@ -88,34 +55,18 @@ function notifyStageMoveResult(
 type ClassifyResult = {
   statementsToDelete: Set<string>;
   receiptsToDelete: Set<string>;
-  gmailToMark: Map<string, string>;
-  skippedGmailCount: number;
 };
 
 function classifyDuplicatesForMerge(
   statements: StatementLike[],
-  allStatements: StatementLike[],
   duplicateMetaById: Map<string, DuplicateMeta>,
 ): ClassifyResult {
-  const statementById = new Map(allStatements.map(s => [s.id, s]));
   const statementsToDelete = new Set<string>();
   const receiptsToDelete = new Set<string>();
-  const gmailToMark = new Map<string, string>();
-  let skippedGmailCount = 0;
 
   for (const statement of statements) {
     const meta = duplicateMetaById.get(statement.id);
     if (!meta || statement.id === meta.primaryId) {
-      continue;
-    }
-
-    if (isGmailStatement(statement)) {
-      const primary = statementById.get(meta.primaryId);
-      if (primary && isGmailStatement(primary)) {
-        gmailToMark.set(statement.id, primary.id);
-      } else {
-        skippedGmailCount += 1;
-      }
       continue;
     }
 
@@ -127,7 +78,7 @@ function classifyDuplicatesForMerge(
     statementsToDelete.add(statement.id);
   }
 
-  return { statementsToDelete, receiptsToDelete, gmailToMark, skippedGmailCount };
+  return { statementsToDelete, receiptsToDelete };
 }
 
 function tabulateDeleteResults(
@@ -155,35 +106,12 @@ function tabulateDeleteResults(
   return { succeeded, failed };
 }
 
-function tabulateMarkResults(
-  results: PromiseSettledResult<unknown>[],
-  entries: [string, string][],
-): { succeeded: string[]; failed: number } {
-  const succeeded: string[] = [];
-  let failed = 0;
-  results.forEach((result, index) => {
-    const receiptId = entries[index]?.[0];
-    if (!receiptId) {
-      return;
-    }
-    if (result.status === 'fulfilled') {
-      succeeded.push(receiptId);
-      return;
-    }
-    failed += 1;
-  });
-  return { succeeded, failed };
-}
-
 /** Pending merge, awaiting user confirmation in the merge-duplicates modal. */
 export type MergeDuplicatesPlan = {
   /** Bank statements to move to trash. */
   statementIds: string[];
   /** Scanned receipts to move to trash. */
   receiptIds: string[];
-  /** Gmail receipts to mark as duplicate, as `[duplicateId, primaryId]`. */
-  gmailEntries: [string, string][];
-  skippedGmailCount: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -199,13 +127,12 @@ interface UseStatementSelectionParams {
   duplicateMetaById: Map<string, DuplicateMeta>;
   setDuplicateOverrides: React.Dispatch<React.SetStateAction<Record<string, DuplicateOverride>>>;
   search: string;
-  stage: string;
   onRefreshStatements: (opts?: {
     silent?: boolean;
     showErrorToast?: boolean;
     search?: string;
   }) => Promise<void>;
-  onRefreshGmail: (opts?: { silent?: boolean; showErrorToast?: boolean }) => Promise<void>;
+  onRefreshReceipts: (opts?: { silent?: boolean; showErrorToast?: boolean }) => Promise<void>;
 }
 
 export interface UseStatementSelectionResult {
@@ -213,7 +140,6 @@ export interface UseStatementSelectionResult {
   setSelectedStatementIds: React.Dispatch<React.SetStateAction<string[]>>;
   selectedActionsOpen: boolean;
   setSelectedActionsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  selectedActionsRef: React.RefObject<HTMLDivElement | null>;
   allVisibleSelected: boolean;
   selectedCount: number;
   selectedDuplicateCount: number;
@@ -223,7 +149,6 @@ export interface UseStatementSelectionResult {
   handleToggleSelectAll: (checked: boolean) => void;
   handleExportSelected: () => Promise<void>;
   handleDeleteSelected: () => Promise<void>;
-  handleMoveSelectedToStage: (target: StatementStage) => Promise<void>;
   handleMarkSelectedAsDuplicate: () => void;
   handleDismissSelectedDuplicates: () => void;
   handleSelectDetectedDuplicates: () => void;
@@ -234,23 +159,20 @@ export interface UseStatementSelectionResult {
   cancelMergeSelectedDuplicates: () => void;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function useStatementSelection({
   displayStatements,
   visibleStatementIds,
   duplicateMetaById,
   setDuplicateOverrides,
   search,
-  stage,
   onRefreshStatements,
-  onRefreshGmail,
+  onRefreshReceipts,
 }: UseStatementSelectionParams): UseStatementSelectionResult {
   const selectionText = useIntlayer('statementsSelection');
   const [selectedStatementIds, setSelectedStatementIds] = useState<string[]>([]);
   const [selectedActionsOpen, setSelectedActionsOpen] = useState(false);
   const [mergePlan, setMergePlan] = useState<MergeDuplicatesPlan | null>(null);
   const [mergeRunning, setMergeRunning] = useState(false);
-  const selectedActionsRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCount = selectedStatementIds.length;
   const allVisibleSelected = areAllVisibleSelected(selectedStatementIds, visibleStatementIds);
@@ -277,27 +199,6 @@ export function useStatementSelection({
     }
   }, [selectedCount]);
 
-  // Close bulk-action menu on outside click
-  useEffect(() => {
-    if (!selectedActionsOpen) {
-      return;
-    }
-
-    const handleOutsideClick = (event: MouseEvent): void => {
-      if (!selectedActionsRef.current) {
-        return;
-      }
-      if (!selectedActionsRef.current.contains(event.target as Node)) {
-        setSelectedActionsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-    };
-  }, [selectedActionsOpen]);
-
   const handleToggleStatement = (statementId: string): void => {
     setSelectedStatementIds(prev => toggleStatementSelection(prev, statementId));
   };
@@ -311,7 +212,7 @@ export function useStatementSelection({
       const response = await apiClient.get(getExportEndpoint(statement), {
         responseType: 'blob',
       });
-      const blob = response.data as Blob;
+      const blob = blobOf(response);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -415,7 +316,11 @@ export function useStatementSelection({
 
       setSelectedStatementIds(prev => prev.filter(id => !deletedIds.includes(id)));
       setSelectedActionsOpen(false);
-      await onRefreshStatements({ search, showErrorToast: false });
+      // Scanned and emailed documents come from the receipts list, not /statements.
+      await Promise.all([
+        onRefreshStatements({ search, showErrorToast: false }),
+        onRefreshReceipts({ silent: true, showErrorToast: false }),
+      ]);
 
       toast.success(
         failedIds.length > 0
@@ -428,45 +333,6 @@ export function useStatementSelection({
       console.error('Failed to delete selected statements:', error);
       toast.error(selectionText.deleteFailed.value);
     });
-  };
-
-  const handleMoveSelectedToStage = async (target: StatementStage): Promise<void> => {
-    const selected = displayStatements.filter(statement =>
-      selectedStatementIds.includes(statement.id),
-    );
-    if (selected.length === 0) {
-      return;
-    }
-    // Gmail and scanned receipts are rows of the receipts table, with their own endpoint.
-    const isReceipt = (statement: StatementLike): boolean =>
-      isGmailStatement(statement) || isScanReceiptStatement(statement);
-    const receiptIds = selected.filter(isReceipt).map(statement => statement.id);
-    const statementIds = selected.filter(s => !isReceipt(s)).map(statement => statement.id);
-
-    try {
-      const [statementResult, receiptResult] = await Promise.all([
-        statementIds.length > 0 ? updateStatementStages(statementIds, target) : NO_STAGE_MOVES,
-        receiptIds.length > 0 ? updateReceiptStages(receiptIds, target) : NO_STAGE_MOVES,
-      ]);
-      const updated = [...statementResult.updated, ...receiptResult.updated];
-      setSelectedStatementIds(prev => prev.filter(id => !updated.includes(id)));
-      setSelectedActionsOpen(false);
-      await Promise.all([
-        onRefreshStatements({ search, showErrorToast: false }),
-        receiptIds.length > 0 ? onRefreshGmail({ showErrorToast: false }) : Promise.resolve(),
-      ]);
-      notifyStageMoveResult(
-        updated.length,
-        [...statementResult.skipped, ...receiptResult.skipped],
-        {
-          movedCount: selectionText.movedCount.value,
-          movedPartial: selectionText.movedPartial.value,
-        },
-      );
-    } catch (error) {
-      console.error('Failed to move selected items:', error);
-      toast.error(selectionText.moveFailed.value);
-    }
   };
 
   const handleMarkSelectedAsDuplicate = () => {
@@ -563,10 +429,12 @@ export function useStatementSelection({
       return;
     }
 
-    const { statementsToDelete, receiptsToDelete, gmailToMark, skippedGmailCount } =
-      classifyDuplicatesForMerge(selectedDuplicateStatements, displayStatements, duplicateMetaById);
+    const { statementsToDelete, receiptsToDelete } = classifyDuplicatesForMerge(
+      selectedDuplicateStatements,
+      duplicateMetaById,
+    );
 
-    if (statementsToDelete.size === 0 && receiptsToDelete.size === 0 && gmailToMark.size === 0) {
+    if (statementsToDelete.size === 0 && receiptsToDelete.size === 0) {
       toast.error(selectionText.noMergeable.value);
       return;
     }
@@ -575,8 +443,6 @@ export function useStatementSelection({
     setMergePlan({
       statementIds: Array.from(statementsToDelete),
       receiptIds: Array.from(receiptsToDelete),
-      gmailEntries: Array.from(gmailToMark.entries()),
-      skippedGmailCount,
     });
   };
 
@@ -593,57 +459,39 @@ export function useStatementSelection({
       ...plan.receiptIds.map(id => ({ id, endpoint: `/receipts/${id}` })),
     ];
 
-    const [deleteResults, gmailMarkResults] = await Promise.all([
-      Promise.allSettled(deletions.map(item => apiClient.delete(item.endpoint))),
-      Promise.allSettled(
-        plan.gmailEntries.map(([receiptId, originalId]) =>
-          gmailReceiptsApi.markDuplicate(receiptId, originalId),
-        ),
-      ),
-    ]);
+    const deleteResults = await Promise.allSettled(
+      deletions.map(item => apiClient.delete(item.endpoint)),
+    );
 
     const deleteOutcome = tabulateDeleteResults(
       deleteResults,
       deletions.map(item => item.id),
     );
-    const markOutcome = tabulateMarkResults(gmailMarkResults, plan.gmailEntries);
     const deletedIds = deleteOutcome.succeeded;
-    const markedGmailIds = markOutcome.succeeded;
 
-    if (deletedIds.length === 0 && markedGmailIds.length === 0) {
+    if (deletedIds.length === 0) {
       toast.error(selectionText.mergeFailed.value);
       return;
     }
 
-    setDuplicateOverrides(prev => {
-      const next = { ...prev };
-      markedGmailIds.forEach(receiptId => {
-        next[receiptId] = { state: 'duplicate' };
-      });
-      return next;
-    });
-
-    const processedIds = new Set([...deletedIds, ...markedGmailIds]);
+    const processedIds = new Set(deletedIds);
     setSelectedStatementIds(prev => prev.filter(id => !processedIds.has(id)));
 
     await onRefreshStatements({ silent: true, search, showErrorToast: false });
-    if (stage === 'submit') {
-      await onRefreshGmail({ silent: true, showErrorToast: false });
-    }
+    await onRefreshReceipts({ silent: true, showErrorToast: false });
 
-    const skipHint = plan.skippedGmailCount
-      ? ` ${selectionText.mergeSkipHint.value.replace('{count}', String(plan.skippedGmailCount))}`
+    const receiptIds = new Set(plan.receiptIds);
+    const deletedReceipts = deletedIds.filter(id => receiptIds.has(id)).length;
+    const failedReceipts = plan.receiptIds.length - deletedReceipts;
+    const failureHint = deleteOutcome.failed
+      ? ` ${selectionText.mergeFailureHint.value
+          .replace('{receipts}', String(failedReceipts))
+          .replace('{items}', String(deleteOutcome.failed - failedReceipts))}`
       : '';
-    const failureHint =
-      deleteOutcome.failed || markOutcome.failed
-        ? ` ${selectionText.mergeFailureHint.value
-            .replace('{receipts}', String(markOutcome.failed))
-            .replace('{items}', String(deleteOutcome.failed))}`
-        : '';
     const mergedMessage = selectionText.merged.value
-      .replace('{receipts}', String(markedGmailIds.length))
-      .replace('{items}', String(deletedIds.length));
-    toast.success(`${mergedMessage}${skipHint}${failureHint}`);
+      .replace('{receipts}', String(deletedReceipts))
+      .replace('{items}', String(deletedIds.length - deletedReceipts));
+    toast.success(`${mergedMessage}${failureHint}`);
   };
 
   const confirmMergeSelectedDuplicates = async (): Promise<void> => {
@@ -667,7 +515,6 @@ export function useStatementSelection({
     setSelectedStatementIds,
     selectedActionsOpen,
     setSelectedActionsOpen,
-    selectedActionsRef,
     allVisibleSelected,
     selectedCount,
     selectedDuplicateCount,
@@ -677,7 +524,6 @@ export function useStatementSelection({
     handleToggleSelectAll,
     handleExportSelected,
     handleDeleteSelected,
-    handleMoveSelectedToStage,
     handleMarkSelectedAsDuplicate,
     handleDismissSelectedDuplicates,
     handleSelectDetectedDuplicates,

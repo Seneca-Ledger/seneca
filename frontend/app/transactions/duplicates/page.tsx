@@ -11,30 +11,12 @@ import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { DuplicateGroups } from '@/app/lib/contracts';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import DuplicateGroupCard from './components/DuplicateGroupCard';
 
-interface DuplicateTransaction {
-  id: string;
-  date: string;
-  amount: number;
-  counterparty: string;
-  purpose: string;
-  statementId: string;
-  similarity?: number;
-  matchType?: string;
-  matchedFields?: string[];
-}
-
-interface DuplicateGroup {
-  master: DuplicateTransaction;
-  duplicates: DuplicateTransaction[];
-  confidence: number;
-}
-
-interface DuplicatesResponse {
-  totalGroups: number;
-  groups: DuplicateGroup[];
-}
+type DuplicateGroup = DuplicateGroups['groups'][number];
 
 function DuplicateGroupCardSkeleton() {
   return (
@@ -110,12 +92,12 @@ export default function TransactionDuplicatesPage() {
     await (async () => {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get<DuplicatesResponse>('/transactions/duplicates/detect', {
-        params: {
-          threshold: 0.85,
-        },
+      const response = await apiQueryDecoded({
+        url: '/transactions/duplicates/detect',
+        params: { threshold: 0.85 },
+        contract: 'DuplicateGroups',
       });
-      setDuplicateGroups(response.data.groups);
+      setDuplicateGroups(response.groups);
     })()
       .catch(async (error: unknown) => {
         setError(getApiErrorMessage(error, t.loadFailed.value));
@@ -160,10 +142,17 @@ export default function TransactionDuplicatesPage() {
 
       const response = await apiClient.post('/transactions/duplicates/mark', {
         groups: groupsToMark,
-      });
+      } satisfies ContractInput<'MarkDuplicatesBody'>);
 
-      setSuccess(t.markSuccess.value.replace('{count}', String(response.data.markedCount)));
+      const { markedCount } = await checkContract(
+        'DuplicatesMarked',
+        response.data,
+        '/transactions/duplicates/mark',
+      );
+      setSuccess(t.markSuccess.value.replace('{count}', String(markedCount)));
       setSelectedGroups(new Set());
+      // A row marked as a duplicate stops counting in every figure.
+      invalidateFinancialData();
       await loadDuplicates(); // Reload to update the list
     })()
       .catch(async (error: unknown) => {
@@ -187,18 +176,10 @@ export default function TransactionDuplicatesPage() {
   }, []);
 
   return (
-    <Box sx={{ maxWidth: 1280, mx: 'auto', px: 2, py: 4 }}>
+    <Box sx={{ maxWidth: 1280, mx: 'auto', px: 2, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700 }}>
-              {t.title}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-              {t.subtitle}
-            </Typography>
-          </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 2 }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
               variant="outlined"

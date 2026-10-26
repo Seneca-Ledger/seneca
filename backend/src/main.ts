@@ -5,33 +5,22 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import type { RequestHandler } from 'express';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { APP_NAME } from './common/brand';
 import { AppLogger } from './common/observability/app-logger.service';
 import { requestContextMiddleware } from './common/observability/request-context.middleware';
 import { resolveAllowedOrigins } from './common/utils/cors-origins';
 import { resolveStaticAssetMounts } from './common/utils/static-assets.util';
+import { resolveTrustProxy } from './common/utils/trust-proxy.util';
 import { resolveUploadsDir } from './common/utils/uploads.util';
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value || value.trim() === '') {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
+// Required environment variables are checked by validateEnv when AppModule
+// loads its config (src/config/env.schema.ts).
 async function bootstrap() {
-  if (process.env.NODE_ENV === 'production') {
-    requireEnv('DATABASE_URL');
-    requireEnv('JWT_SECRET');
-    requireEnv('JWT_REFRESH_SECRET');
-    requireEnv('INTEGRATIONS_ENCRYPTION_KEY');
-  }
-
   const uploadsDir = resolveUploadsDir();
   // Ensure reports directory exists
   const reportsDir = path.join(uploadsDir, 'reports');
@@ -48,8 +37,9 @@ async function bootstrap() {
   // told to trust it, otherwise req.ip is the proxy's address: ThrottlerGuard
   // keys every request on it, collapsing the per-IP login limit into one shared
   // bucket. Handlers read req.ip rather than parsing X-Forwarded-For by hand,
-  // which is only safe once this is set.
-  app.set('trust proxy', 1);
+  // which is only safe once this is set. TRUST_PROXY says which peers count as
+  // the proxy (one hop unless set; see trust-proxy.util.ts).
+  app.set('trust proxy', resolveTrustProxy(process.env.TRUST_PROXY));
 
   const isProduction = process.env.NODE_ENV === 'production';
   const swaggerEnabled = !isProduction;
@@ -89,6 +79,9 @@ async function bootstrap() {
   // Serve only public frontend assets and explicitly public upload subtrees.
   const publicPath = path.join(__dirname, 'public');
   for (const mount of resolveStaticAssetMounts(uploadsDir, publicPath)) {
+    if (mount.ensure) {
+      fs.mkdirSync(mount.root, { recursive: true });
+    }
     if (fs.existsSync(mount.root)) {
       // biome-ignore lint/correctness/useHookAtTopLevel: NestJS app.use* methods are not React hooks
       app.useStaticAssets(mount.root, mount.prefix ? { prefix: mount.prefix } : undefined);
@@ -130,12 +123,14 @@ async function bootstrap() {
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
-    exposedHeaders: ['x-request-id', 'x-trace-id'],
+    // content-disposition: file downloads read the server's file name from it;
+    // hidden from cross-origin JS, every export fell back to a generic name.
+    exposedHeaders: ['x-request-id', 'x-trace-id', 'content-disposition'],
   });
 
   // Swagger / OpenAPI
   const config = new DocumentBuilder()
-    .setTitle('Lumio API')
+    .setTitle(`${APP_NAME} API`)
     .setDescription('REST API для загрузки выписок, классификации, отчётов и интеграций')
     .setVersion('1.0.0')
     .addBearerAuth(

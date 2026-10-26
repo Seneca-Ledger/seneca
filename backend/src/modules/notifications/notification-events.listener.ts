@@ -13,15 +13,23 @@ import type {
   MemberInvitedEvent,
   MemberJoinedEvent,
   NoteMentionedEvent,
+  OfficialVatRatesChangedEvent,
   ParsingErrorEvent,
   ReceiptUncategorizedEvent,
   StatementUploadedEvent,
+  TaxDeadlineResolvedEvent,
+  TaxDeadlineUpcomingEvent,
   TaxThresholdReachedEvent,
   TransactionsUncategorizedEvent,
   WorkspaceUpdatedEvent,
 } from './events/notification-events';
 import type { NotificationMessageKey } from './notification-translations';
 import { NotificationsService } from './notifications.service';
+
+const TAX_DEADLINE_TYPES = [
+  NotificationType.TAX_DEADLINE_UPCOMING,
+  NotificationType.TAX_DEADLINE_OVERDUE,
+];
 
 @Injectable()
 export class NotificationEventsListener {
@@ -294,6 +302,75 @@ export class NotificationEventsListener {
         periodStart: event.periodStart,
         periodEnd: event.periodEnd,
       },
+    });
+  }
+
+  @OnEvent('tax.rates.official_changed')
+  async onOfficialVatRatesChanged(event: OfficialVatRatesChangedEvent): Promise<void> {
+    await this.notificationsService.createForWorkspaceMembers({
+      workspaceId: event.workspaceId,
+      type: NotificationType.TAX_RATES_OFFICIAL_CHANGED,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      severity: NotificationSeverity.WARN,
+      messageKey: 'tax.rates.official',
+      messageParams: { country: { kind: 'region', code: event.country }, count: event.count },
+      entityType: 'workspace',
+      entityId: event.workspaceId,
+      meta: { country: event.country, count: event.count },
+    });
+  }
+
+  @OnEvent('tax.deadline.upcoming')
+  async onTaxDeadlineUpcoming(event: TaxDeadlineUpcomingEvent): Promise<void> {
+    const overdue = event.daysLeft < 0;
+    const messageKey = (
+      event.kind === 'vat_return'
+        ? overdue
+          ? 'tax.deadline.vat.overdue'
+          : 'tax.deadline.vat'
+        : 'tax.deadline.income'
+    ) as NotificationMessageKey;
+
+    // One live reminder per return: the "due in a week" one gives way to "due
+    // tomorrow", and that to "overdue", instead of contradicting each other.
+    await this.notificationsService.removeForWorkspace(event.workspaceId, TAX_DEADLINE_TYPES, {
+      kind: event.kind,
+      dueDate: event.dueDate,
+    });
+
+    await this.notificationsService.createForWorkspaceMembers({
+      workspaceId: event.workspaceId,
+      type: overdue
+        ? NotificationType.TAX_DEADLINE_OVERDUE
+        : NotificationType.TAX_DEADLINE_UPCOMING,
+      category: NotificationCategory.WORKSPACE_ACTIVITY,
+      severity:
+        overdue || event.daysLeft <= 1 ? NotificationSeverity.WARN : NotificationSeverity.INFO,
+      messageKey,
+      messageParams: {
+        returnName: event.returnName,
+        period: { kind: 'taxPeriod', start: event.periodStart, end: event.periodEnd },
+        range: { kind: 'dateRange', start: event.periodStart, end: event.periodEnd },
+        taxYear: event.periodStart.slice(0, 4),
+        dueDate: { kind: 'date', value: event.dueDate },
+      },
+      entityType: 'workspace',
+      entityId: event.workspaceId,
+      meta: {
+        kind: event.kind,
+        periodStart: event.periodStart,
+        periodEnd: event.periodEnd,
+        dueDate: event.dueDate,
+        daysLeft: event.daysLeft,
+      },
+    });
+  }
+
+  @OnEvent('tax.deadline.resolved')
+  async onTaxDeadlineResolved(event: TaxDeadlineResolvedEvent): Promise<void> {
+    await this.notificationsService.removeForWorkspace(event.workspaceId, TAX_DEADLINE_TYPES, {
+      kind: event.kind,
+      periodEnd: event.periodEnd,
     });
   }
 }

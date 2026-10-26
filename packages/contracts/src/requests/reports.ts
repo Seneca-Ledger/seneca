@@ -1,0 +1,196 @@
+import * as Effect from 'effect/Effect';
+import * as Schema from 'effect/Schema';
+import * as Struct from 'effect/Struct';
+import { Email, IsoDateString, NumericInput, optionalNullable } from '../common/requests';
+import type { Wire } from '../common/wire';
+
+const Uuid = Schema.String.check(Schema.isUUID());
+
+export const CustomTablesBaseQueryInput = Schema.Struct({
+  days: optionalNullable(
+    NumericInput.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(1),
+      Schema.isLessThanOrEqualTo(3650),
+    ),
+  ),
+  tableIds: optionalNullable(
+    Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isUnique()),
+  ),
+});
+export type CustomTablesBaseQueryInput = Wire<typeof CustomTablesBaseQueryInput>;
+
+export const CustomTablesSummaryBody = CustomTablesBaseQueryInput.mapFields(Struct.assign({}));
+export type CustomTablesSummaryBody = Wire<typeof CustomTablesSummaryBody>;
+
+export const CustomTablesReportBody = CustomTablesBaseQueryInput.mapFields(
+  Struct.assign({
+    flowType: optionalNullable(Schema.Literals(['all', 'expense', 'income'])),
+    sortBy: optionalNullable(Schema.Literals(['amount', 'average', 'operations'])),
+    search: optionalNullable(Schema.String),
+    limit: optionalNullable(
+      NumericInput.check(
+        Schema.isInt(),
+        Schema.isGreaterThanOrEqualTo(1),
+        Schema.isLessThanOrEqualTo(500),
+      ),
+    ),
+  }),
+);
+export type CustomTablesReportBody = Wire<typeof CustomTablesReportBody>;
+
+export const CustomTablesReportDrillDownBody = CustomTablesBaseQueryInput.mapFields(
+  Struct.assign({
+    counterparty: Schema.String,
+    flowType: optionalNullable(Schema.Literals(['all', 'expense', 'income'])),
+    limit: optionalNullable(
+      NumericInput.check(
+        Schema.isInt(),
+        Schema.isGreaterThanOrEqualTo(1),
+        Schema.isLessThanOrEqualTo(200),
+      ),
+    ),
+  }),
+);
+export type CustomTablesReportDrillDownBody = Wire<typeof CustomTablesReportDrillDownBody>;
+
+export const CustomReportBody = Schema.Struct({
+  dateFrom: IsoDateString,
+  dateTo: IsoDateString,
+  groupBy: optionalNullable(
+    Schema.Literals(['category', 'counterparty', 'branch', 'wallet', 'day', 'month']),
+  ),
+  categoryId: optionalNullable(Schema.String),
+  branchId: optionalNullable(Schema.String),
+  walletId: optionalNullable(Schema.String),
+  format: Schema.Literals(['json', 'excel', 'csv']).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed('json')),
+  ),
+});
+export type CustomReportBody = Wire<typeof CustomReportBody>;
+
+export const ExportReportBody = Schema.Struct({
+  dateFrom: optionalNullable(IsoDateString),
+  dateTo: optionalNullable(IsoDateString),
+  format: Schema.Literals(['excel', 'csv']).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed('excel')),
+  ),
+});
+export type ExportReportBody = Wire<typeof ExportReportBody>;
+
+/** The languages a generated report document can be printed in — the app's own set. */
+export const REPORT_LOCALES = [
+  'ru',
+  'en',
+  'kk',
+  'de',
+  'fr',
+  'es',
+  'pt',
+  'tr',
+  'uk',
+  'zh',
+  'pl',
+  'it',
+  'sk',
+  'ja',
+  'ko',
+  'hi',
+  'nl',
+  'sv',
+  'vi',
+  'id',
+  'da',
+  'nb',
+  'nn',
+  'fi',
+  'is',
+  'fo',
+  'cs',
+  'bg',
+  'hr',
+  'sr',
+  'sl',
+  'mk',
+  'be',
+  'bs',
+  'hsb',
+] as const;
+
+export const GenerateReportBody = Schema.Struct({
+  templateId: Schema.String,
+  dateFrom: IsoDateString,
+  dateTo: IsoDateString,
+  format: Schema.Literals(['pdf', 'excel', 'csv']),
+  /** Restrict to these wallets; empty or omitted means all of them. */
+  walletIds: optionalNullable(Schema.Array(Schema.String.check(Schema.isUUID()))),
+  /** Restrict to these categories; empty or omitted means all of them. */
+  categoryIds: optionalNullable(Schema.Array(Schema.String.check(Schema.isUUID()))),
+  /** Only Cash Flow uses this; defaults to daily buckets. */
+  groupBy: optionalNullable(Schema.Literals(['day', 'week', 'month'])),
+  /** Language of the document's titles and headers; English when omitted. */
+  locale: optionalNullable(Schema.Literals(REPORT_LOCALES)),
+});
+export type GenerateReportBody = Wire<typeof GenerateReportBody>;
+
+export const WorkspaceExportBody = Schema.Struct({
+  format: Schema.Literals(['excel', 'pdf', 'csv', 'docx']).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed('excel')),
+  ),
+});
+export type WorkspaceExportBody = Wire<typeof WorkspaceExportBody>;
+
+export const CreateReportScheduleBody = Schema.Struct({
+  templateId: Schema.String,
+  format: Schema.Literals(['pdf', 'excel', 'csv']),
+  cadence: Schema.Literals(['daily', 'weekly', 'monthly']),
+  /** Capped so a schedule cannot be turned into a bulk mailer. */
+  recipients: Schema.Array(Email).check(Schema.isMinLength(1), Schema.isMaxLength(20)),
+  walletIds: optionalNullable(Schema.Array(Schema.String.check(Schema.isUUID()))),
+  categoryIds: optionalNullable(Schema.Array(Schema.String.check(Schema.isUUID()))),
+  groupBy: optionalNullable(Schema.Literals(['day', 'week', 'month'])),
+  locale: optionalNullable(Schema.Literals(REPORT_LOCALES)),
+});
+export type CreateReportScheduleBody = Wire<typeof CreateReportScheduleBody>;
+
+export const UpdateReportScheduleActiveBody = Schema.Struct({
+  isActive: Schema.Boolean,
+});
+export type UpdateReportScheduleActiveBody = Wire<typeof UpdateReportScheduleActiveBody>;
+
+export const ReportHistoryParams = Schema.Struct({ reportId: Uuid });
+export type ReportHistoryParams = Wire<typeof ReportHistoryParams>;
+
+export const ReportScheduleParams = Schema.Struct({ scheduleId: Uuid });
+export type ReportScheduleParams = Wire<typeof ReportScheduleParams>;
+
+/** `GET /reports/statements/summary`: the last `days`, default 30. */
+export const StatementsSummaryQuery = Schema.Struct({
+  days: Schema.optional(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
+});
+export type StatementsSummaryQuery = Wire<typeof StatementsSummaryQuery>;
+
+/** `GET /reports/daily`: a day, or `latest` (also the default) for the last day with transactions. */
+export const DailyReportQuery = Schema.Struct({
+  date: Schema.optional(Schema.Union([Schema.Literal('latest'), IsoDateString])),
+});
+export type DailyReportQuery = Wire<typeof DailyReportQuery>;
+
+/** `GET /reports/monthly`: defaults to the latest month with transactions. */
+export const MonthlyReportQuery = Schema.Struct({
+  year: Schema.optional(
+    NumericInput.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(1900),
+      Schema.isLessThanOrEqualTo(2100),
+    ),
+  ),
+  month: Schema.optional(
+    NumericInput.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(1),
+      Schema.isLessThanOrEqualTo(12),
+    ),
+  ),
+});
+export type MonthlyReportQuery = Wire<typeof MonthlyReportQuery>;

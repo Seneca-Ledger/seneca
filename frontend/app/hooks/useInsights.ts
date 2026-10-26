@@ -9,28 +9,13 @@ import {
 import { useCallback } from 'react';
 import { useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { Insight, InsightList, InsightSeverity } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import { useWorkspaceId } from './useWorkspaceId';
 
-export type InsightSeverity = 'info' | 'warn' | 'critical';
-
-export interface Insight {
-  id: string;
-  type: string;
-  category: string;
-  severity: InsightSeverity;
-  title: string;
-  message: string;
-  messageKey: string | null;
-  messageParams: Record<string, string | number> | null;
-  data: Record<string, unknown> | null;
-  createdAt: string;
-}
-
-interface InsightsPayload {
-  items?: Insight[];
-}
+export type { Insight, InsightSeverity } from '@/app/lib/contracts';
 
 interface UseInsightsOptions {
   /** Which severities to keep. Alerts and advice are the same feed, split here. */
@@ -42,6 +27,26 @@ interface UseInsightsState {
   isPending: boolean;
   dismiss: (id: string) => void;
   refetch: () => void;
+}
+
+/**
+ * The server writes the stored category name into the text, and a system
+ * category is stored by its English name; the reader's language has its own.
+ */
+function withLocalCategoryName(item: Insight, locale: string): Insight {
+  const stored = item.messageParams?.category;
+  if (typeof stored !== 'string' || !stored) {
+    return item;
+  }
+  const shown = localizeStatementCategoryName(stored, locale);
+  if (shown === stored) {
+    return item;
+  }
+  return {
+    ...item,
+    title: item.title.replaceAll(stored, shown),
+    message: item.message.replaceAll(stored, shown),
+  };
 }
 
 /**
@@ -60,28 +65,39 @@ export function useInsights({ severities }: UseInsightsOptions): UseInsightsStat
   // select обязан быть референциально стабильным: инлайн-стрелка пересчитывала бы
   // фильтр на каждый рендер и отдавала новый массив, отменяя structural sharing.
   const selectBySeverity = useCallback(
-    (payload: InsightsPayload): Insight[] => {
+    (payload: InsightList): Insight[] => {
       const wanted = new Set(key.split(','));
-      return (payload?.items ?? []).filter(item => wanted.has(item.severity));
+      return payload.items
+        .filter(item => wanted.has(item.severity))
+        .map(item => withLocalCategoryName(item, locale));
     },
-    [key],
+    [key, locale],
   );
 
   const query = useQuery({
     queryKey: queryKeys.insights(workspaceId, locale),
     queryFn: ({ signal }) =>
-      apiQuery<InsightsPayload>({ url: '/insights', params: { limit: 50, locale }, signal }),
+      apiQueryDecoded({
+        url: '/insights',
+        params: { limit: 50, locale },
+        signal,
+        contract: 'InsightList',
+        drift: 'report',
+      }),
     select: selectBySeverity,
+    enabled: Boolean(workspaceId),
   });
 
   const dismissMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/insights/${id}/dismiss`),
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/insights/${id}/dismiss`);
+    },
     onMutate: async (id: string) => {
       const queryKey = queryKeys.insights(workspaceId, locale);
       await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<InsightsPayload>(queryKey);
-      queryClient.setQueryData<InsightsPayload>(queryKey, current =>
-        current ? { ...current, items: (current.items ?? []).filter(i => i.id !== id) } : current,
+      const previous = queryClient.getQueryData<InsightList>(queryKey);
+      queryClient.setQueryData<InsightList>(queryKey, current =>
+        current ? { ...current, items: current.items.filter(i => i.id !== id) } : current,
       );
       return { previous };
     },
@@ -126,8 +142,10 @@ export function useRefreshInsights(): UseMutationResult<unknown, Error, string> 
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (locale: string) =>
-      apiClient.post('/insights/refresh', null, { params: { locale } }),
+    mutationFn: async (locale: string) => {
+      // No body at all: a JSON `null` is rejected by the server's strict body parser (400).
+      await apiClient.post('/insights/refresh', undefined, { params: { locale } });
+    },
     // Пересчёт переписывает сами строки, а не их перевод, поэтому устаревает
     // кэш на всех языках сразу — инвалидация идёт по префиксу без локали.
     onSuccess: () =>

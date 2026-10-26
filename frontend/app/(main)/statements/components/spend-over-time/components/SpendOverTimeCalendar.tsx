@@ -1,20 +1,20 @@
 'use client';
-import type React from 'react';
+import clsx from 'clsx';
 import type { JSX } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import type { SpendOverTimeRecord } from '@/app/(main)/statements/components/spend-over-time.utils';
-import { ChevronLeft, ChevronRight } from '@/app/components/icons';
-import { useIntlayer, useLocale } from '@/app/i18n';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/analytics-common';
-import { tokens } from '@/lib/theme-tokens';
 
 type Props = {
   records: SpendOverTimeRecord[];
+  /** The month to render; the dashboard month strip owns it. */
+  month: Date;
   currency: string;
   onDayClick: (period: string) => void;
   labels: {
-    title: string;
     emptyMonth: string;
     operations: string;
   };
@@ -53,49 +53,33 @@ const toIso = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const parseIso = (iso: string): Date => {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
 const startOfMonth = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), 1);
-const addMonths = (date: Date, delta: number): Date =>
-  new Date(date.getFullYear(), date.getMonth() + delta, 1);
+
+/** Shades of the heat scale: one sage, five steps of strength. */
+const HEAT_LEVELS = 5;
+
+/**
+ * A day's step on the heat scale, by where its total ranks among the month's
+ * days (quantiles), not by its share of the largest: one day of €761 would
+ * otherwise leave every other day the same pale shade.
+ */
+export function heatLevel(total: number, sortedTotals: number[]): number {
+  if (sortedTotals.length === 0 || total <= 0) {
+    return 0;
+  }
+  const below = sortedTotals.filter(value => value < total).length;
+  const rank = sortedTotals.length > 1 ? below / (sortedTotals.length - 1) : 1;
+  return Math.min(HEAT_LEVELS, Math.floor(rank * HEAT_LEVELS) + 1);
+}
 const getGridStart = (monthStart: Date): Date => {
   const day = monthStart.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   return new Date(monthStart.getFullYear(), monthStart.getMonth(), monthStart.getDate() + diff);
-};
-
-const getInitialMonth = (records: SpendOverTimeRecord[]): Date => {
-  const latest = records
-    .map(record => toDateOnly(record.dateValue || record.createdAt || null))
-    .filter((value): value is Date => Boolean(value))
-    .sort((a, b) => b.getTime() - a.getTime())[0];
-  return startOfMonth(latest ?? new Date());
-};
-
-const calendarNavButtonStyle: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: tokens.radius.md,
-  border: '1px solid var(--border-color)',
-  background: 'var(--card-bg)',
-  color: 'var(--foreground)',
-  cursor: 'pointer',
-};
-
-const calendarTodayButtonStyle: React.CSSProperties = {
-  height: 36,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: tokens.radius.md,
-  border: '1px solid var(--border-color)',
-  background: 'var(--card-bg)',
-  color: 'var(--foreground)',
-  cursor: 'pointer',
-  padding: '0 12px',
-  fontSize: 13,
-  fontWeight: 600,
 };
 
 const buildDayMap = (records: SpendOverTimeRecord[]) => {
@@ -115,33 +99,44 @@ const buildDayMap = (records: SpendOverTimeRecord[]) => {
 
 export function SpendOverTimeCalendar({
   records,
+  month,
   currency,
   onDayClick,
   labels,
 }: Props): JSX.Element {
-  const spendT = useIntlayer('statementsSpendOverTime');
   const { locale } = useLocale();
-  const monthFormatter = useMemo(
-    () => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }),
+  const weekdayLabels = useMemo(() => getWeekdayLabels(locale), [locale]);
+  const agendaWeekdayFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { weekday: 'short' }),
     [locale],
   );
-  const weekdayLabels = useMemo(() => getWeekdayLabels(locale), [locale]);
-  const initialMonth = useMemo(() => getInitialMonth(records), [records]);
-  const [visibleMonth, setVisibleMonth] = useState(initialMonth);
-
-  useEffect(() => {
-    setVisibleMonth(initialMonth);
-  }, [initialMonth]);
+  const compactFormatter = useMemo(() => {
+    const cache = new Map<string, Intl.NumberFormat>();
+    return (code: string): Intl.NumberFormat => {
+      let formatter = cache.get(code);
+      if (!formatter) {
+        formatter = new Intl.NumberFormat(locale, {
+          style: 'currency',
+          currency: code,
+          notation: 'compact',
+          maximumFractionDigits: 1,
+        });
+        cache.set(code, formatter);
+      }
+      return formatter;
+    };
+  }, [locale]);
 
   const dayMap = useMemo(() => buildDayMap(records), [records]);
-  const goToPreviousMonth = () => setVisibleMonth(current => addMonths(current, -1));
-  const goToNextMonth = () => setVisibleMonth(current => addMonths(current, 1));
-  const goToLatestMonth = () => setVisibleMonth(initialMonth);
 
   const days = useMemo<CalendarDay[]>(() => {
-    const monthStart = startOfMonth(visibleMonth);
+    const monthStart = startOfMonth(month);
     const gridStart = getGridStart(monthStart);
-    return Array.from({ length: 42 }, (_, index) => {
+    const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+    const leadingDays = (monthStart.getDay() + 6) % 7;
+    // Only the weeks the month touches: no trailing row made entirely of next month.
+    const weeks = Math.ceil((leadingDays + daysInMonth) / 7);
+    return Array.from({ length: weeks * 7 }, (_, index) => {
       const date = new Date(
         gridStart.getFullYear(),
         gridStart.getMonth(),
@@ -156,216 +151,136 @@ export function SpendOverTimeCalendar({
         iso,
         dayNumber: date.getDate(),
         inCurrentMonth:
-          date.getMonth() === visibleMonth.getMonth() &&
-          date.getFullYear() === visibleMonth.getFullYear(),
+          date.getMonth() === monthStart.getMonth() &&
+          date.getFullYear() === monthStart.getFullYear(),
         records: dayRecords,
         total: Number(dayRecords.reduce((sum, record) => sum + record.amount, 0).toFixed(2)),
         currencies,
       };
     });
-  }, [dayMap, visibleMonth]);
+  }, [dayMap, month]);
 
   const hasRecordsInMonth = days.some(day => day.inCurrentMonth && day.records.length > 0);
+  // The heat scale only compares like with like: days spent in the workspace currency.
+  const inBaseCurrency = (day: CalendarDay) =>
+    day.currencies.length === 1 && day.currencies[0] === currency;
+  const sortedTotals = days
+    .filter(day => day.inCurrentMonth && day.records.length > 0 && inBaseCurrency(day))
+    .map(day => day.total)
+    .sort((a, b) => a - b);
+  const todayIso = toIso(new Date());
+  const money = (value: number, code: string) => formatMoney(value, code, locale);
+
+  const monthDaysWithItems = days.filter(day => day.inCurrentMonth && day.records.length > 0);
 
   return (
-    <section
-      style={{
-        border: '1px solid var(--border-color)',
-        background: 'var(--card-bg)',
-        borderRadius: tokens.radius.xl,
-        padding: 20,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          marginBottom: 18,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <h3 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: 'var(--foreground)' }}>
-            {labels.title}
-          </h3>
-          <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--muted-foreground)' }}>
-            {monthFormatter.format(visibleMonth)}
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            type="button"
-            onClick={goToPreviousMonth}
-            aria-label={spendT.previousMonth.value}
-            style={calendarNavButtonStyle}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button type="button" onClick={goToLatestMonth} style={calendarTodayButtonStyle}>
-            {spendT.latest}
-          </button>
-          <button
-            type="button"
-            onClick={goToNextMonth}
-            aria-label={spendT.nextMonth.value}
-            style={calendarNavButtonStyle}
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
+    <section className="seneca-spend-calendar">
+      <div className="seneca-spend-calendar__grid seneca-spend-calendar__grid--weekdays">
+        {weekdayLabels.map(label => (
+          <div key={label} className="seneca-spend-calendar__weekday">
+            {label}
+          </div>
+        ))}
       </div>
 
-      <div className="lumio-spend-calendar__scroll">
-        <div
-          className="lumio-spend-calendar__grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-            gap: 10,
-            marginBottom: 10,
-          }}
-        >
-          {weekdayLabels.map(label => (
-            <div
-              key={label}
-              style={{
-                padding: '0 4px',
-                fontSize: 12,
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--muted-foreground)',
-              }}
+      <div className="seneca-spend-calendar__grid">
+        {days.map(day => {
+          // Days of the neighbouring months are only a number: their spending
+          // belongs to another month's calendar.
+          const hasItems = day.inCurrentMonth && day.records.length > 0;
+          const singleCurrency = day.currencies.length === 1 ? day.currencies[0] || currency : null;
+          const totalLabel = singleCurrency
+            ? money(day.total, singleCurrency)
+            : `${day.records.length} ${labels.operations}`;
+          // Spent in another currency: not summed with the rest, so it is
+          // marked and left off the heat scale.
+          const foreign = hasItems && !inBaseCurrency(day);
+          const level = hasItems && !foreign ? heatLevel(day.total, sortedTotals) : 0;
+
+          return (
+            <button
+              key={day.iso}
+              type="button"
+              onClick={() => hasItems && onDayClick(day.iso)}
+              data-heat={level || undefined}
+              title={foreign ? day.currencies.join(', ') : undefined}
+              className={[
+                'seneca-spend-calendar__day',
+                hasItems ? 'seneca-spend-calendar__day--active' : '',
+                foreign ? 'seneca-spend-calendar__day--foreign' : '',
+                day.inCurrentMonth ? '' : 'seneca-spend-calendar__day--outside',
+                day.iso === todayIso ? 'seneca-spend-calendar__day--today' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
             >
-              {label}
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="lumio-spend-calendar__grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-            gap: 10,
-          }}
-        >
-          {days.map(day => {
-            const hasItems = day.records.length > 0;
-            const totalLabel =
-              day.currencies.length === 1
-                ? formatMoney(day.total, day.currencies[0] || currency)
-                : `${day.records.length} ${labels.operations}`;
-
-            return (
-              <button
-                key={day.iso}
-                type="button"
-                onClick={() => hasItems && onDayClick(day.iso)}
-                style={{
-                  minHeight: 156,
-                  padding: 12,
-                  borderRadius: tokens.radius.lg,
-                  border: day.inCurrentMonth
-                    ? '1px solid var(--border-color)'
-                    : '1px dashed rgba(255,255,255,0.06)',
-                  background: hasItems
-                    ? 'rgba(92,196,98,0.1)'
-                    : day.inCurrentMonth
-                      ? 'rgba(255,255,255,0.02)'
-                      : 'rgba(255,255,255,0.01)',
-                  color: 'var(--foreground)',
-                  textAlign: 'left',
-                  cursor: hasItems ? 'pointer' : 'default',
-                  opacity: day.inCurrentMonth ? 1 : 0.5,
-                }}
-              >
-                <div
-                  className="lumio-spend-calendar__day-head"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                    marginBottom: 10,
-                  }}
+              <span className="seneca-spend-calendar__day-number">{day.dayNumber}</span>
+              {hasItems ? (
+                <span
+                  className={clsx(
+                    'seneca-spend-calendar__day-total',
+                    singleCurrency && PRIVATE_CLASS,
+                  )}
                 >
-                  <span style={{ fontSize: 15, fontWeight: 700 }}>{day.dayNumber}</span>
-                  {hasItems ? (
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: 'var(--primary)',
-                      }}
-                    >
-                      {totalLabel}
-                    </span>
-                  ) : null}
-                </div>
+                  {totalLabel}
+                </span>
+              ) : null}
 
-                {hasItems ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {day.records.slice(0, 3).map(record => (
-                      <div
-                        key={record.id}
-                        style={{
-                          borderRadius: tokens.radius.md,
-                          background: 'rgba(255,255,255,0.04)',
-                          padding: '8px 10px',
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: 'var(--foreground)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {record.merchant || record.fileName}
-                        </div>
-                        <div
-                          style={{
-                            marginTop: 3,
-                            fontSize: 12,
-                            color: 'var(--muted-foreground)',
-                          }}
-                        >
-                          {formatMoney(record.amount, record.currencyValue || currency)}
-                        </div>
-                      </div>
-                    ))}
-                    {day.records.length > 3 ? (
-                      <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
-                        {spendT.moreCount.value.replace('{count}', String(day.records.length - 3))}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
+              {/* Phones: the cell is too narrow even for the plain total. */}
+              {hasItems ? (
+                <span
+                  className={clsx(
+                    'seneca-spend-calendar__day-compact',
+                    singleCurrency && PRIVATE_CLASS,
+                  )}
+                >
+                  {singleCurrency
+                    ? compactFormatter(singleCurrency).format(day.total)
+                    : day.records.length}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Phones: the month's days with spending as a list under the grid. */}
+      {monthDaysWithItems.length > 0 ? (
+        <ul className="seneca-spend-calendar__agenda">
+          {monthDaysWithItems.map(day => (
+            <li key={day.iso}>
+              <button
+                type="button"
+                className="seneca-spend-calendar__agenda-row"
+                onClick={() => onDayClick(day.iso)}
+              >
+                <span className="seneca-spend-calendar__agenda-date">
+                  <span className="seneca-spend-calendar__agenda-day">{day.dayNumber}</span>
+                  <span className="seneca-spend-calendar__agenda-weekday">
+                    {agendaWeekdayFormatter.format(parseIso(day.iso))}
+                  </span>
+                </span>
+                <span className="seneca-spend-calendar__agenda-merchants">
+                  {day.records.map(record => record.merchant || record.fileName).join(', ')}
+                </span>
+                <span
+                  className={clsx(
+                    'seneca-spend-calendar__agenda-total',
+                    day.currencies.length === 1 && PRIVATE_CLASS,
+                  )}
+                >
+                  {day.currencies.length === 1
+                    ? money(day.total, day.currencies[0] || currency)
+                    : `${day.records.length} ${labels.operations}`}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {!hasRecordsInMonth ? (
-        <div
-          style={{
-            marginTop: 16,
-            borderRadius: tokens.radius.lg,
-            border: '1px dashed var(--border-color)',
-            padding: 20,
-            textAlign: 'center',
-            color: 'var(--muted-foreground)',
-          }}
-        >
-          {labels.emptyMonth}
-        </div>
+        <div className="seneca-spend-calendar__empty">{labels.emptyMonth}</div>
       ) : null}
     </section>
   );

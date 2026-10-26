@@ -5,12 +5,18 @@ import {
   Logger,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository } from 'typeorm';
+import { In, IsNull, MoreThanOrEqual, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { assertFound } from '../../common/utils/assert-found.util';
+import { countedSql, flowsSql } from '../../common/utils/counted-transactions.util';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
+import type { BudgetImpactQuery, CreateBudgetBody, UpdateBudgetBody } from '../../contracts';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
-import { Budget, BudgetRolloverMode } from '../../entities/budget.entity';
+import { Budget, BudgetPeriodType, BudgetRolloverMode } from '../../entities/budget.entity';
 import { Category } from '../../entities/category.entity';
 import { Goal } from '../../entities/goal.entity';
 import {
@@ -18,22 +24,25 @@ import {
   NotificationSeverity,
   NotificationType,
 } from '../../entities/notification.entity';
+import { Subscription, SubscriptionStatus } from '../../entities/subscription.entity';
+import { SubscriptionCharge } from '../../entities/subscription-charge.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import type { BudgetExceededEvent } from '../notifications/events/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
+import { countChargesBetween } from '../subscriptions/charge-calendar.util';
+import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import {
   clampToWindow,
   computePeriodRange,
+  localDay,
   overlapsWindow,
   parseDateOnly,
 } from './budget-period.util';
 import { percentOf, resolveAvailable } from './budget-rollover.util';
-import type { BudgetImpactQueryDto } from './dto/budget-impact-query.dto';
-import type { CreateBudgetDto } from './dto/create-budget.dto';
-import type { UpdateBudgetDto } from './dto/update-budget.dto';
 
 export interface BudgetWithSpending extends Budget {
   spentAmount: number;
@@ -44,6 +53,39 @@ export interface BudgetWithSpending extends Budget {
   carriedAmount: number;
   /** Whether today falls inside the budget's window. Always true for open-ended ones. */
   isActive: boolean;
+  /** Spending in currencies with no rate to the budget's, left out of spentAmount. */
+  unconvertedSpending: UnconvertedSpending[];
+  /**
+   * The category's spending earlier in the current period than the budget's
+   * start date, per currency as booked: not counted, and said so on the card.
+   */
+  beforeStartSpending: UnconvertedSpending[];
+  /** Charges of active subscriptions paid from it still to come this period, in its currency. */
+  subscriptionReserve: SubscriptionReserve;
+}
+
+export interface SubscriptionReserve {
+  amount: number;
+  items: Array<{ subscriptionId: string; vendorName: string; amount: number }>;
+}
+
+/** Subscriptions paid from a set of budgets, with the charge days already paid ahead. */
+interface LinkedSubscriptions {
+  subscriptions: Subscription[];
+  paidAhead: Map<string, Set<string>>;
+}
+
+/** Spending left out of a budget's figure: no rate from its currency to the budget's. */
+export interface UnconvertedSpending {
+  currency: string;
+  amount: number;
+}
+
+/** One row a budget covers, as read: its own amount, currency and day. */
+interface SpendingRow {
+  date: string | Date;
+  currency: string | null;
+  amount: string;
 }
 
 @Injectable()
@@ -59,6 +101,7 @@ export class BudgetsService {
     private readonly goalRepository: Repository<Goal>,
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
+    private readonly workspaceCurrency: WorkspaceCurrencyService,
     @Optional()
     @InjectRepository(Category)
     private readonly categoryRepository?: Repository<Category>,
@@ -67,10 +110,19 @@ export class BudgetsService {
     private readonly walletRepository?: Repository<Wallet>,
     @Optional()
     private readonly exchangeRatesService?: ExchangeRatesService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
+    @Optional()
+    @InjectRepository(Subscription)
+    private readonly subscriptionRepository?: Repository<Subscription>,
+    @Optional()
+    @InjectRepository(SubscriptionCharge)
+    private readonly subscriptionChargeRepository?: Repository<SubscriptionCharge>,
   ) {}
 
-  async create(workspaceId: string, userId: string, dto: CreateBudgetDto): Promise<Budget> {
+  async create(workspaceId: string, userId: string, dto: CreateBudgetBody): Promise<Budget> {
     const goalId = dto.goalId ?? null;
+    const periodType = toEnum(BudgetPeriodType, dto.periodType);
 
     // Scoped by goal as well as category: the household grocery limit and the
     // "food during the move" limit are different intents over the same
@@ -79,21 +131,20 @@ export class BudgetsService {
       where: {
         workspaceId,
         categoryId: dto.categoryId,
-        periodType: dto.periodType,
-        goalId,
+        periodType,
+        goalId: goalId ?? IsNull(),
       },
     });
 
     if (existing) {
-      throw new ConflictException(
-        `Budget for this category with period "${dto.periodType}" already exists`,
-      );
+      throw new ConflictException(appError('BUDGET_ALREADY_EXISTS', { period: dto.periodType }));
     }
 
     assertWindowOrdered(dto.startsOn, dto.endsOn);
+    await this.assertCategoryInWorkspace(dto.categoryId, workspaceId);
     await this.assertGoalInWorkspace(dto.goalId, workspaceId);
 
-    const { start } = computePeriodRange(dto.periodType, new Date());
+    const { start } = computePeriodRange(periodType, new Date());
 
     const budget = this.budgetRepository.create({
       workspaceId,
@@ -101,9 +152,9 @@ export class BudgetsService {
       name: dto.name,
       categoryId: dto.categoryId,
       limitAmount: dto.limitAmount,
-      currency: dto.currency || 'KZT',
-      periodType: dto.periodType,
-      rolloverMode: dto.rolloverMode ?? BudgetRolloverMode.NONE,
+      currency: await this.workspaceCurrency.resolveFor(workspaceId, dto.currency),
+      periodType,
+      rolloverMode: toEnum(BudgetRolloverMode, dto.rolloverMode) ?? BudgetRolloverMode.NONE,
       currentPeriodStart: start,
       goalId,
       startsOn: dto.startsOn ?? null,
@@ -124,30 +175,37 @@ export class BudgetsService {
     return saved;
   }
 
-  async findAll(workspaceId: string): Promise<BudgetWithSpending[]> {
+  /** Every budget with its spending in the period `at` falls in: today unless asked for another day. */
+  async findAll(workspaceId: string, at: Date = new Date()): Promise<BudgetWithSpending[]> {
     const budgets = await this.budgetRepository.find({
       where: { workspaceId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
       order: { name: 'ASC' },
     });
 
-    return Promise.all(budgets.map(budget => this.attachSpending(budget)));
+    const linked = await this.linkedSubscriptions(workspaceId, budgets);
+    return Promise.all(budgets.map(budget => this.attachSpending(budget, at, linked)));
   }
 
   async findOne(id: string, workspaceId: string): Promise<BudgetWithSpending> {
     const budget = await this.budgetRepository.findOne({
       where: { id, workspaceId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
     assertFound(budget, 'Budget');
-    return this.attachSpending(budget);
+    const linked = await this.linkedSubscriptions(workspaceId, [budget]);
+    return this.attachSpending(budget, new Date(), linked);
   }
 
   async update(
     id: string,
     workspaceId: string,
     userId: string,
-    dto: UpdateBudgetDto,
+    dto: UpdateBudgetBody,
   ): Promise<Budget> {
     const budget = await this.budgetRepository.findOne({
       where: { id, workspaceId },
@@ -206,7 +264,9 @@ export class BudgetsService {
 
     const budgets = await this.budgetRepository.find({
       where: where as any,
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
 
     for (const budget of budgets) {
@@ -240,6 +300,16 @@ export class BudgetsService {
             percentUsed: Math.round(percentUsed),
           },
         });
+        this.eventEmitter?.emit('budget.exceeded', {
+          workspaceId,
+          budgetId: budget.id,
+          name: budget.name,
+          categoryId: budget.categoryId ?? null,
+          limitAmount: Number(budget.limitAmount),
+          spentAmount: Number(spentAmount),
+          percentUsed: Math.round(percentUsed),
+          currency: budget.currency,
+        } satisfies BudgetExceededEvent);
       } else if (percentUsed >= 80 && !budget.alertAt80Sent) {
         budget.alertAt80Sent = true;
         await this.budgetRepository.save(budget);
@@ -268,7 +338,10 @@ export class BudgetsService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async resetPeriodAlertFlags(): Promise<void> {
     const budgets = await this.budgetRepository.find({
-      where: [{ alertAt80Sent: true }, { alertAt100Sent: true }],
+      where: [
+        { alertAt80Sent: true, workspace: STANDARD_WORKSPACE },
+        { alertAt100Sent: true, workspace: STANDARD_WORKSPACE },
+      ],
     });
 
     const now = new Date();
@@ -313,6 +386,14 @@ export class BudgetsService {
    * Soft-deleted goals are excluded by TypeORM's default scope, so an archived
    * goal cannot be attached either.
    */
+  /** The id came from the request: another workspace's category is "not found". */
+  private async assertCategoryInWorkspace(categoryId: string, workspaceId: string): Promise<void> {
+    const category = await this.categoryRepository?.findOne({
+      where: { id: categoryId, workspaceId },
+    });
+    assertFound(category, 'Category');
+  }
+
   private async assertGoalInWorkspace(
     goalId: string | null | undefined,
     workspaceId: string,
@@ -324,13 +405,116 @@ export class BudgetsService {
     assertFound(goal, 'Goal');
   }
 
-  private async attachSpending(budget: Budget): Promise<BudgetWithSpending> {
-    const now = new Date();
+  private async attachSpending(
+    budget: Budget,
+    now: Date,
+    linked: LinkedSubscriptions,
+  ): Promise<BudgetWithSpending> {
     const measured = await this.measure(budget, now);
     return Object.assign(budget, {
       ...measured,
       isActive: overlapsWindow({ start: now, end: now }, budget),
+      subscriptionReserve: await this.subscriptionReserve(budget, now, linked),
     });
+  }
+
+  /**
+   * The active subscriptions paid from any of these budgets, and the charge
+   * days from today on that a payment made ahead of them already covers: a
+   * payment before its date leaves the next charge where it was.
+   */
+  private async linkedSubscriptions(
+    workspaceId: string,
+    budgets: Budget[],
+  ): Promise<LinkedSubscriptions> {
+    const linked: LinkedSubscriptions = { subscriptions: [], paidAhead: new Map() };
+    if (!this.subscriptionRepository || budgets.length === 0) return linked;
+    linked.subscriptions = await this.subscriptionRepository.find({
+      where: {
+        workspaceId,
+        status: SubscriptionStatus.ACTIVE,
+        budgetId: In(budgets.map(budget => budget.id)),
+      },
+      select: {
+        id: true,
+        budgetId: true,
+        vendorName: true,
+        amount: true,
+        currency: true,
+        frequency: true,
+        nextChargeDate: true,
+      },
+      order: { vendorName: 'ASC' },
+    });
+    if (!this.subscriptionChargeRepository || linked.subscriptions.length === 0) return linked;
+    const today = new Date();
+    const charges = await this.subscriptionChargeRepository.find({
+      where: {
+        workspaceId,
+        subscriptionId: In(linked.subscriptions.map(subscription => subscription.id)),
+        expectedDate: MoreThanOrEqual(localDay(today) as unknown as Date),
+      },
+      select: { subscriptionId: true, expectedDate: true },
+    });
+    for (const charge of charges) {
+      if (!charge.expectedDate) continue;
+      const days = linked.paidAhead.get(charge.subscriptionId) ?? new Set<string>();
+      days.add(String(charge.expectedDate).slice(0, 10));
+      linked.paidAhead.set(charge.subscriptionId, days);
+    }
+    return linked;
+  }
+
+  /**
+   * What the budget's subscriptions will still take this period: each charge
+   * from today (or the period's start, if later) to the period's end. Paid
+   * ones are behind today and their rows are in spentAmount already; a payment
+   * made early has moved the next charge past it. A subscription in a currency
+   * with no rate to the budget's is left out rather than counted one to one.
+   */
+  private async subscriptionReserve(
+    budget: Budget,
+    now: Date,
+    linked: LinkedSubscriptions,
+  ): Promise<SubscriptionReserve> {
+    const reserve: SubscriptionReserve = { amount: 0, items: [] };
+    const subscriptions = linked.subscriptions.filter(
+      subscription => subscription.budgetId === budget.id,
+    );
+    const period = clampToWindow(computePeriodRange(budget.periodType, now), budget);
+    if (!period || subscriptions.length === 0) return reserve;
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const from = period.start > startOfToday ? period.start : startOfToday;
+    if (from > period.end) return reserve;
+
+    let total = 0;
+    for (const subscription of subscriptions) {
+      const count = countChargesBetween(
+        subscription.nextChargeDate,
+        subscription.frequency,
+        from,
+        period.end,
+        linked.paidAhead.get(subscription.id),
+      );
+      if (count === 0) continue;
+      const rate = await this.rateOrNull(
+        subscription.currency,
+        budget.currency,
+        today,
+        budget.workspaceId,
+      );
+      if (rate === null) continue;
+      const amount = Number(subscription.amount) * count * rate;
+      total += amount;
+      reserve.items.push({
+        subscriptionId: subscription.id,
+        vendorName: subscription.vendorName,
+        amount: Math.round(amount * 100) / 100,
+      });
+    }
+    reserve.amount = Math.round(total * 100) / 100;
+    return reserve;
   }
 
   /**
@@ -345,17 +529,32 @@ export class BudgetsService {
     budget: Budget,
     now: Date,
   ): Promise<
-    Pick<BudgetWithSpending, 'spentAmount' | 'percentUsed' | 'availableAmount' | 'carriedAmount'>
+    Pick<
+      BudgetWithSpending,
+      | 'spentAmount'
+      | 'percentUsed'
+      | 'availableAmount'
+      | 'carriedAmount'
+      | 'unconvertedSpending'
+      | 'beforeStartSpending'
+    >
   > {
     const limitAmount = Number(budget.limitAmount);
     const range = computePeriodRange(budget.periodType, now);
     const period = clampToWindow(range, budget);
     if (!period) {
-      return { spentAmount: 0, percentUsed: 0, availableAmount: limitAmount, carriedAmount: 0 };
+      return {
+        spentAmount: 0,
+        percentUsed: 0,
+        availableAmount: limitAmount,
+        carriedAmount: 0,
+        unconvertedSpending: [],
+        beforeStartSpending: [],
+      };
     }
     const categoryIds = await this.categoryIdsFor(budget.workspaceId, budget.categoryId);
-    const spentAmount = await this.computeSpending(
-      budget.workspaceId,
+    const { spent: spentAmount, unconverted } = await this.computeSpending(
+      budget,
       categoryIds,
       period.start,
       period.end,
@@ -374,7 +573,40 @@ export class BudgetsService {
       percentUsed: percentOf(spentAmount, availableAmount),
       availableAmount,
       carriedAmount,
+      unconvertedSpending: unconverted,
+      beforeStartSpending:
+        period.start.getTime() > range.start.getTime()
+          ? await this.spendingBeforeStart(budget, categoryIds, range.start, period.start)
+          : [],
     };
+  }
+
+  /**
+   * The category's spending from the period's first day up to the day before
+   * the budget starts, per currency as booked. A budget started mid-period
+   * leaves it out, which reads as "nothing spent" unless the card says so.
+   */
+  private async spendingBeforeStart(
+    budget: Budget,
+    categoryIds: string[],
+    periodStart: Date,
+    budgetStart: Date,
+  ): Promise<UnconvertedSpending[]> {
+    const dayBefore = new Date(
+      budgetStart.getFullYear(),
+      budgetStart.getMonth(),
+      budgetStart.getDate() - 1,
+    );
+    const rows = await this.spendingRows(budget.workspaceId, categoryIds, periodStart, dayBefore);
+    const byCurrency = new Map<string, number>();
+    for (const row of rows) {
+      const currency = (row.currency || budget.currency).toUpperCase();
+      byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + Number.parseFloat(row.amount));
+    }
+    return [...byCurrency].map(([currency, amount]) => ({
+      currency,
+      amount: Math.round(amount * 100) / 100,
+    }));
   }
 
   /** How many settled periods rollover looks back on; a year of months, a quarter of weeks. */
@@ -384,7 +616,7 @@ export class BudgetsService {
    * Spending per previous period, oldest first, since the budget began (its
    * window start, else its creation) and at most ROLLOVER_LOOKBACK periods back.
    */
-  private async previousPeriodsSpent(
+  async previousPeriodsSpent(
     budget: Budget,
     categoryIds: string[],
     currentStart: Date,
@@ -412,30 +644,25 @@ export class BudgetsService {
       );
     }
     if (periods.length === 0) return [];
-    const rows = await this.transactionRepository
-      .createQueryBuilder('t')
-      .select('t.transaction_date', 'date')
-      .addSelect('ABS(t.amount)', 'amount')
-      .where('t.workspace_id = :workspaceId', { workspaceId: budget.workspaceId })
-      .andWhere('t.category_id IN (:...categoryIds)', { categoryIds })
-      .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
-      .andWhere('t.transaction_date >= :start', { start: periods[0].start })
-      .andWhere('t.transaction_date <= :end', { end: periods[periods.length - 1].end })
-      .andWhere('t.is_duplicate = false')
-      .andWhere('t.transfer_pair_id IS NULL')
-      .getRawMany<{ date: string | Date; amount: string }>();
+    const rows = await this.spendingRows(
+      budget.workspaceId,
+      categoryIds,
+      periods[0].start,
+      periods[periods.length - 1].end,
+    );
+    const converted = await this.inBudgetCurrency(budget, rows);
     return periods.map(period =>
-      rows.reduce((sum, row) => {
+      converted.reduce((sum, row) => {
         const at = parseDateOnly(row.date).getTime();
-        return at >= period.start.getTime() && at <= period.end.getTime()
-          ? sum + Number.parseFloat(row.amount)
+        return row.value !== null && at >= period.start.getTime() && at <= period.end.getTime()
+          ? sum + row.value
           : sum;
       }, 0),
     );
   }
 
   /** The category and every category under it; just the category when the tree is not available. */
-  private async categoryIdsFor(workspaceId: string, categoryId: string): Promise<string[]> {
+  async categoryIdsFor(workspaceId: string, categoryId: string): Promise<string[]> {
     if (!this.categoryRepository) return [categoryId];
     const ids = [categoryId];
     let frontier = [categoryId];
@@ -443,7 +670,9 @@ export class BudgetsService {
     for (let depth = 0; depth < 5 && frontier.length > 0; depth++) {
       const children = await this.categoryRepository.find({
         where: { workspaceId, parentId: In(frontier) },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
       frontier = children.map(child => child.id).filter(id => !ids.includes(id));
       ids.push(...frontier);
@@ -471,13 +700,15 @@ export class BudgetsService {
    * available amount, and whether it takes the default account below zero.
    * Advice, not a gate: the entry is still allowed.
    */
-  async getImpact(workspaceId: string, dto: BudgetImpactQueryDto): Promise<BudgetImpact> {
+  async getImpact(workspaceId: string, dto: BudgetImpactQuery): Promise<BudgetImpact> {
     const now = dto.date ? parseDateOnly(dto.date) : new Date();
     const currency = (dto.currency || '').toUpperCase();
     const chain = await this.categoryChainFor(workspaceId, dto.categoryId);
     const budgets = await this.budgetRepository.find({
       where: { workspaceId, categoryId: In(chain) },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
     const affected: BudgetImpactRow[] = [];
     for (const budget of budgets) {
@@ -524,6 +755,7 @@ export class BudgetsService {
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.wallet_id = :walletId', { walletId: wallet.id })
       .andWhere('t.is_duplicate = false')
+      .andWhere(countedSql('t'))
       .getRawOne<{ credit: string; debit: string }>();
     const balance =
       Number(wallet.initialBalance) +
@@ -538,6 +770,20 @@ export class BudgetsService {
       balanceAfter,
       overdraws: balanceAfter < 0,
     };
+  }
+
+  /** The rate from one currency to another on a day: 1 for the same one, null when none is known. */
+  async rateOrNull(
+    from: string,
+    to: string,
+    day: Date,
+    workspaceId: string,
+  ): Promise<number | null> {
+    if (!from || from.toUpperCase() === to.toUpperCase()) return 1;
+    if (!this.exchangeRatesService) return null;
+    return this.exchangeRatesService
+      .getRateOrNull(from.toUpperCase(), to.toUpperCase(), day, workspaceId)
+      .catch(() => null);
   }
 
   /** `amount` in `to`; null when the two currencies differ and no rate is at hand. */
@@ -564,15 +810,47 @@ export class BudgetsService {
     }
   }
 
-  private async computeSpending(
+  /**
+   * The period's spending in the budget's currency. Rows in another currency
+   * are converted at the rate of their own day; a row with no rate is left out
+   * and reported, never counted one to one (500 UAH is not 500 USD).
+   */
+  async computeSpending(
+    budget: Budget,
+    categoryIds: string[],
+    start: Date,
+    end: Date,
+  ): Promise<{ spent: number; unconverted: UnconvertedSpending[] }> {
+    const rows = await this.spendingRows(budget.workspaceId, categoryIds, start, end);
+    const converted = await this.inBudgetCurrency(budget, rows);
+    let spent = 0;
+    const missing = new Map<string, number>();
+    for (const row of converted) {
+      if (row.value !== null) {
+        spent += row.value;
+      } else {
+        missing.set(row.currency, (missing.get(row.currency) ?? 0) + row.amount);
+      }
+    }
+    const unconverted = [...missing].map(([currency, amount]) => ({
+      currency,
+      amount: Math.round(amount * 100) / 100,
+    }));
+    return { spent, unconverted };
+  }
+
+  /** The budget's rows between two days, summed per currency and day. */
+  private spendingRows(
     workspaceId: string,
     categoryIds: string[],
     start: Date,
     end: Date,
-  ): Promise<number> {
-    const result = await this.transactionRepository
+  ): Promise<SpendingRow[]> {
+    return this.transactionRepository
       .createQueryBuilder('t')
-      .select('COALESCE(SUM(ABS(t.amount)), 0)', 'total')
+      .select('t.transaction_date', 'date')
+      .addSelect('t.currency', 'currency')
+      .addSelect('SUM(ABS(t.amount))', 'amount')
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.category_id IN (:...categoryIds)', { categoryIds })
       .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
@@ -580,9 +858,38 @@ export class BudgetsService {
       .andWhere('t.transaction_date <= :end', { end })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
-      .getRawOne();
+      .andWhere(flowsSql('t'))
+      .groupBy('t.transaction_date')
+      .addGroupBy('t.currency')
+      .getRawMany<SpendingRow>();
+  }
 
-    return Number.parseFloat(result?.total ?? '0');
+  /**
+   * Each row's amount in the budget's currency (`value`), or null when no rate
+   * exists for its day. A row with no currency is taken to be in the budget's.
+   */
+  private async inBudgetCurrency(
+    budget: Budget,
+    rows: SpendingRow[],
+  ): Promise<
+    Array<{ date: string | Date; currency: string; amount: number; value: number | null }>
+  > {
+    const target = budget.currency.toUpperCase();
+    return Promise.all(
+      rows.map(async row => {
+        const amount = Number.parseFloat(row.amount);
+        const currency = (row.currency || target).toUpperCase();
+        if (currency === target) {
+          return { date: row.date, currency, amount, value: amount };
+        }
+        const rate = this.exchangeRatesService
+          ? await this.exchangeRatesService
+              .getRateOrNull(currency, target, row.date, budget.workspaceId)
+              .catch(() => null)
+          : null;
+        return { date: row.date, currency, amount, value: rate === null ? null : amount * rate };
+      }),
+    );
   }
 }
 
@@ -633,6 +940,6 @@ function assertWindowOrdered(
   endsOn: string | null | undefined,
 ): void {
   if (startsOn && endsOn && startsOn > endsOn) {
-    throw new BadRequestException('Budget "endsOn" must not be earlier than "startsOn"');
+    throw new BadRequestException(appError('BUDGET_WINDOW_INVALID'));
   }
 }

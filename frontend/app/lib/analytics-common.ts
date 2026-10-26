@@ -9,16 +9,18 @@ export { getNestedValue, getRecord, resolveLabel } from '@/app/lib/side-panel-ut
 
 import type { StatementFilterItem } from '@/app/(main)/statements/components/filters/statement-filters';
 import type {
-  GmailReceipt,
+  ReceiptDocument,
   StatementMeta,
   Transaction,
 } from '@/app/(main)/statements/types/statement-types';
-import { resolveGmailMerchantLabel } from '@/app/lib/gmail-merchant';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { resolveReceiptMerchantLabel } from '@/app/lib/receipt-merchant';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 
-/** Normalizes a raw currency string to a 3-letter ISO code, falling back to KZT. */
+/** Normalizes a raw currency string to a 3-letter ISO code, falling back to the installation default. */
 export const resolveCurrencyCode = (
   currency: string | null | undefined,
-  fallback = 'KZT',
+  fallback = FALLBACK_CURRENCY,
 ): string => {
   const normalized = String(currency || '')
     .trim()
@@ -29,9 +31,7 @@ export const resolveCurrencyCode = (
 
 /** Maps an Intlayer locale code to a BCP 47 locale string for Intl APIs. */
 export const resolveLocale = (locale?: string): string => {
-  if (locale === 'ru') return 'ru-RU';
-  if (locale === 'kk') return 'kk-KZ';
-  return 'en-US';
+  return resolveLocaleTag(locale);
 };
 
 /** Formats a monetary value as a localized currency string. */
@@ -85,25 +85,25 @@ export const getTransactionCurrency = (
   fallbackCurrency;
 
 /**
- * Maps a GmailReceipt to a StatementFilterItem shape for unified filtering.
+ * Maps a ReceiptDocument to a StatementFilterItem shape for unified filtering.
  * Pass a custom `fileName` to override the default merchant label resolution.
  */
-export const mapGmailReceiptToStatement = (
-  receipt: GmailReceipt,
+export const mapReceiptToStatement = (
+  receipt: ReceiptDocument,
   fallbackCurrency: string,
   fileName?: string,
 ): StatementFilterItem => {
-  const isLocalReceipt = !!receipt.source && receipt.source !== 'gmail';
   return {
     id: receipt.id,
-    source: 'gmail',
+    source: 'scan',
+    receiptSource: receipt.source,
     fileName:
       fileName ??
-      resolveGmailMerchantLabel({
+      resolveReceiptMerchantLabel({
         vendor: receipt.parsedData?.vendor,
         sender: receipt.sender,
         subject: receipt.subject,
-        fallback: 'Gmail receipt',
+        fallback: 'Receipt',
       }),
     subject: receipt.subject,
     sender: receipt.sender,
@@ -115,8 +115,8 @@ export const mapGmailReceiptToStatement = (
     createdAt: receipt.receivedAt,
     statementDateFrom: receipt.parsedData?.date || receipt.receivedAt,
     statementDateTo: null,
-    bankName: isLocalReceipt ? 'receipt' : 'gmail',
-    fileType: isLocalReceipt ? 'receipt' : 'gmail',
+    bankName: 'receipt',
+    fileType: 'receipt',
     currency: resolveCurrencyCode(receipt.parsedData?.currency, fallbackCurrency),
     user: null,
     receivedAt: receipt.receivedAt,
@@ -136,11 +136,9 @@ export const getSourceLabel = (
   labels: {
     sourceBank: string;
     sourceReceipt: string;
-    sourceGmailInbox: string;
     sourceCrypto: string;
   },
 ): string => {
-  if (channel === 'gmail') return labels.sourceGmailInbox;
   if (channel === 'receipt') return labels.sourceReceipt;
   if (channel === 'crypto') return labels.sourceCrypto;
   return labels.sourceBank;

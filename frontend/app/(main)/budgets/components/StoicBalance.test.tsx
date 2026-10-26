@@ -2,18 +2,22 @@ import { renderWithQuery } from '@/app/test/query-wrapper';
 import { selectOption } from '@/app/test/select';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StoicBalance as StoicBalanceData } from '../hooks/useStoicBalance';
+import type { StoicBalance as StoicBalanceData } from '@/app/lib/contracts';
 import { StoicBalance } from './StoicBalance';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
+const searchParams = vi.hoisted(() => ({ current: new URLSearchParams() }));
 
 vi.mock('@/app/lib/api', () => ({ default: apiMocks }));
+vi.mock('next/navigation', () => ({ useSearchParams: () => searchParams.current }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
 // Every dictionary entry renders as its own key, so the test reads the keys.
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () =>
     new Proxy({}, { get: (_, key: string) => ({ value: key, toString: () => key }) }),
+  // The month above the classes is formatted, not translated.
+  useLocale: () => ({ locale: 'en' }),
 }));
 
 const totals = (partial: Partial<StoicBalanceData['months'][number]['actual']>) => ({
@@ -25,7 +29,9 @@ const totals = (partial: Partial<StoicBalanceData['months'][number]['actual']>) 
   ...partial,
 });
 
+// The wire format (packages/contracts StoicBalance).
 const balance: StoicBalanceData = {
+  currency: 'EUR',
   months: [
     {
       month: '2026-09',
@@ -33,6 +39,17 @@ const balance: StoicBalanceData = {
       intended: totals({ necessity: 500, leisure: 100 }),
       actual: totals({ necessity: 300, leisure: 300, unclassified: 50 }),
       overBudgetCategoryIds: [],
+      spentByCategory: {},
+      limitByCategory: {},
+    },
+    {
+      month: '2026-08',
+      monthsAgo: 1,
+      intended: totals({ necessity: 500, leisure: 100 }),
+      actual: totals({ necessity: 900, leisure: 100 }),
+      overBudgetCategoryIds: [],
+      spentByCategory: {},
+      limitByCategory: {},
     },
   ],
   categories: [
@@ -91,6 +108,7 @@ describe('StoicBalance', () => {
   beforeEach(() => {
     apiMocks.get.mockReset().mockResolvedValue({ data: balance });
     apiMocks.put.mockReset().mockResolvedValue({ data: {} });
+    searchParams.current = new URLSearchParams();
   });
 
   it('shows plan and reality as shares, and asks about unjudged categories first', async () => {
@@ -119,6 +137,25 @@ describe('StoicBalance', () => {
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(2));
   });
 
+  it('reads the month an advice link names, not the running one', async () => {
+    // In the first days of a month the advice judges the month that ended;
+    // showing September here would ring a card the advice never weighed.
+    searchParams.current = new URLSearchParams('month=2026-08');
+    renderWithQuery(<StoicBalance />);
+
+    expect(await screen.findByRole('img', { name: /actual: classNecessity 90%/ })).toBeTruthy();
+  });
+
+  it('walks back to the month before it and forward again', async () => {
+    renderWithQuery(<StoicBalance />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'previousMonth' }));
+    expect(await screen.findByRole('img', { name: /actual: classNecessity 90%/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'nextMonth' }));
+    expect(await screen.findByRole('img', { name: /actual: .*classLeisure 46%/ })).toBeTruthy();
+  });
+
   it('lets a virtue category be marked as help given to others', async () => {
     renderWithQuery(<StoicBalance />);
 
@@ -130,5 +167,36 @@ describe('StoicBalance', () => {
     await waitFor(() =>
       expect(apiMocks.put).toHaveBeenCalledWith('/categories/gifts', { helpsOthers: true }),
     );
+  });
+
+  it('with no plan, says where the money went in words instead of a one-colour bar', async () => {
+    const unplanned = (actual: ReturnType<typeof totals>): StoicBalanceData => ({
+      ...balance,
+      months: [{ ...balance.months[0], intended: totals({}), actual }],
+    });
+    apiMocks.get.mockResolvedValue({ data: unplanned(totals({ leisure: 120 })) });
+    const { unmount } = renderWithQuery(<StoicBalance />);
+
+    expect(await screen.findByText('allSpendingIs')).toBeTruthy();
+    expect(screen.queryByRole('img', { name: /actual:/ })).toBeNull();
+    // Planned against actual is not shown on the class cards until there is a plan.
+    expect(screen.queryByText(/planned .* actual/)).toBeNull();
+    unmount();
+
+    apiMocks.get.mockResolvedValue({ data: unplanned(totals({ leisure: 75, work: 25 })) });
+    renderWithQuery(<StoicBalance />);
+    expect(await screen.findByText('mostSpendingIs')).toBeTruthy();
+  });
+
+  it('writes an empty share on a class card as a dash', async () => {
+    renderWithQuery(<StoicBalance />);
+
+    // September: work and virtue have neither plan nor spending.
+    // Each share is an element of its own (privacy mode): match the whole line.
+    expect(
+      await screen.findAllByText(
+        (_, element) => element?.tagName === 'P' && element.textContent === 'planned — · actual —',
+      ),
+    ).toHaveLength(2);
   });
 });

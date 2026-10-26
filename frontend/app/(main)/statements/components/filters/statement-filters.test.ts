@@ -222,14 +222,15 @@ describe('applyStatementsFilters', () => {
     expect(result.map(item => item.id)).toEqual(['stmt-2']);
   });
 
-  it('matches gmail receipts by sender and vendor keywords', () => {
+  it('matches emailed receipts by sender and vendor keywords', () => {
     const statements: StatementFilterItem[] = [
       {
         ...baseStatement,
-        id: 'gmail-1',
-        source: 'gmail',
-        fileType: 'gmail',
-        bankName: 'gmail',
+        id: 'imap-1',
+        source: 'scan',
+        receiptSource: 'imap',
+        fileType: 'receipt',
+        bankName: 'receipt',
         sender: 'GitHub <noreply@github.com>',
         subject: '[GitHub] Payment Receipt',
         parsedData: {
@@ -239,10 +240,11 @@ describe('applyStatementsFilters', () => {
       },
       {
         ...baseStatement,
-        id: 'gmail-2',
-        source: 'gmail',
-        fileType: 'gmail',
-        bankName: 'gmail',
+        id: 'imap-2',
+        source: 'scan',
+        receiptSource: 'imap',
+        fileType: 'receipt',
+        bankName: 'receipt',
         sender: 'Acme <billing@acme.com>',
         subject: 'Acme invoice',
       },
@@ -251,11 +253,11 @@ describe('applyStatementsFilters', () => {
     const result = applyStatementsFilters(statements, {
       ...defaultFilters,
       keywords: 'github',
-      type: 'gmail',
-      from: ['bank:gmail'],
+      type: 'receipt',
+      from: ['bank:receipt'],
     });
 
-    expect(result.map(item => item.id)).toEqual(['gmail-1']);
+    expect(result.map(item => item.id)).toEqual(['imap-1']);
   });
 
   it('matches only scanned and uploaded store receipts when type is receipt', () => {
@@ -282,16 +284,6 @@ describe('applyStatementsFilters', () => {
       },
       {
         ...baseStatement,
-        id: 'gmail-1',
-        source: 'gmail',
-        receiptSource: 'gmail',
-        fileType: 'gmail',
-        bankName: 'gmail',
-        sender: 'billing@example.com',
-        subject: 'Receipt email',
-      },
-      {
-        ...baseStatement,
         id: 'statement-1',
         source: 'statement',
         fileType: 'pdf',
@@ -307,66 +299,24 @@ describe('applyStatementsFilters', () => {
     expect(result.map(item => item.id)).toEqual(['scan-1', 'upload-1']);
   });
 
-  it('does not match scanned or uploaded receipts when type is gmail', () => {
+  it('uses receivedAt as fallback date for receipts', () => {
     const statements: StatementFilterItem[] = [
       {
         ...baseStatement,
-        id: 'scan-1',
+        id: 'receipt-1',
         source: 'scan',
-        receiptSource: 'scan',
-        fileType: 'image',
-        bankName: 'receipt-scan',
-        sender: 'camera-scan',
-        subject: 'Store receipt',
-      },
-      {
-        ...baseStatement,
-        id: 'upload-1',
-        source: 'scan',
-        receiptSource: 'upload',
-        fileType: 'pdf',
-        bankName: 'receipt-upload',
-        sender: 'manual-upload',
-        subject: 'Uploaded store receipt',
-      },
-      {
-        ...baseStatement,
-        id: 'gmail-1',
-        source: 'gmail',
-        receiptSource: 'gmail',
-        fileType: 'gmail',
-        bankName: 'gmail',
-        sender: 'billing@example.com',
-        subject: 'Receipt email',
-      },
-    ];
-
-    const result = applyStatementsFilters(statements, {
-      ...defaultFilters,
-      type: 'gmail',
-    });
-
-    expect(result.map(item => item.id)).toEqual(['gmail-1']);
-  });
-
-  it('uses receivedAt as fallback date for gmail receipts', () => {
-    const statements: StatementFilterItem[] = [
-      {
-        ...baseStatement,
-        id: 'gmail-1',
-        source: 'gmail',
-        fileType: 'gmail',
-        bankName: 'gmail',
+        fileType: 'receipt',
+        bankName: 'receipt',
         receivedAt: '2025-02-13T00:00:00.000Z',
         statementDateFrom: null,
         statementDateTo: null,
       },
       {
         ...baseStatement,
-        id: 'gmail-2',
-        source: 'gmail',
-        fileType: 'gmail',
-        bankName: 'gmail',
+        id: 'receipt-2',
+        source: 'scan',
+        fileType: 'receipt',
+        bankName: 'receipt',
         receivedAt: '2025-01-15T00:00:00.000Z',
         statementDateFrom: null,
         statementDateTo: null,
@@ -379,7 +329,7 @@ describe('applyStatementsFilters', () => {
       new Date('2025-02-20T00:00:00.000Z'),
     );
 
-    expect(result.map(item => item.id)).toEqual(['gmail-1']);
+    expect(result.map(item => item.id)).toEqual(['receipt-1']);
   });
 });
 
@@ -418,9 +368,9 @@ describe('resetSingleStatementFilter', () => {
   it('resets selected field and keeps other draft values', () => {
     const draft: StatementFilters = {
       ...DEFAULT_STATEMENT_FILTERS,
-      type: 'gmail',
+      type: 'pdf',
       statuses: ['processing'],
-      from: ['bank:gmail'],
+      from: ['bank:kaspi'],
       keywords: 'invoice',
     };
 
@@ -428,7 +378,7 @@ describe('resetSingleStatementFilter', () => {
 
     expect(next.type).toBeNull();
     expect(next.statuses).toEqual(['processing']);
-    expect(next.from).toEqual(['bank:gmail']);
+    expect(next.from).toEqual(['bank:kaspi']);
     expect(next.keywords).toBe('invoice');
   });
 

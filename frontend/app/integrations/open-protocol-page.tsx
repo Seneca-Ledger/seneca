@@ -1,7 +1,5 @@
 'use client';
 
-import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
-import ExtensionOutlinedIcon from '@mui/icons-material/ExtensionOutlined';
 import { Box, Stack, Typography } from '@mui/material';
 import { useTheme } from 'next-themes';
 import type React from 'react';
@@ -9,23 +7,13 @@ import { useEffect, useState } from 'react';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { IntegrationConnection, ProtocolFileList } from '@/app/lib/contracts';
+import { checkContract } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 
-type ProtocolStatus = {
-  connected: boolean;
-  status: 'connected' | 'disconnected' | 'needs_reauth';
-  source?: 'personal' | 'workspace' | 'env' | 'disabled';
-  settings?: Record<string, string | number | boolean | null | undefined>;
-};
-
-type ProtocolFile = {
-  id: string;
-  name: string;
-  path: string;
-  size: number;
-  mimeType: string;
-  modifiedAt: string | null;
-};
+type ProtocolStatus = IntegrationConnection;
+type ProtocolFile = ProtocolFileList['files'][number];
 
 export type ProtocolIntegrationPageProps = {
   title: string;
@@ -35,22 +23,13 @@ export type ProtocolIntegrationPageProps = {
   settingsMethod?: 'post' | 'put';
   disconnectPath: string;
   fields: ConfigField[];
-  presets?: ConfigPreset[];
   workflow: string;
   icon?: React.ReactNode;
   filesPath?: string;
   importPath?: string;
   syncPath?: string;
   embedded?: boolean;
-  /** Drops the icon and title block when the surrounding drawer already names it. */
-  hideHeading?: boolean;
   onConnectionStatusChange?: (connected: boolean) => void | Promise<void>;
-};
-
-/** One-click fill for the fields above — a known provider's endpoint and model. */
-export type ConfigPreset = {
-  label: string;
-  values: Record<string, string | number | boolean>;
 };
 
 export type ConfigField = {
@@ -67,21 +46,16 @@ export type ConfigField = {
 };
 
 export function ProtocolIntegrationPage({
-  title,
-  description,
   statusPath,
   settingsPath,
   settingsMethod = 'post',
   disconnectPath,
   fields,
-  presets,
   workflow,
-  icon,
   filesPath,
   importPath,
   syncPath,
   embedded = false,
-  hideHeading = false,
   onConnectionStatusChange,
 }: ProtocolIntegrationPageProps): React.JSX.Element {
   const { resolvedTheme } = useTheme();
@@ -100,12 +74,13 @@ export function ProtocolIntegrationPage({
     let mounted = true;
 
     apiClient
-      .get<ProtocolStatus>(statusPath)
-      .then(response => {
+      .get(statusPath)
+      .then(response => checkContract('IntegrationConnection', response.data, statusPath))
+      .then(next => {
         if (mounted) {
-          setStatus(response.data);
-          setForm(buildInitialForm(fields, response.data.settings || {}));
-          void onConnectionStatusChange?.(Boolean(response.data.connected));
+          setStatus(next);
+          setForm(buildInitialForm(fields, next.settings ?? {}));
+          void onConnectionStatusChange?.(next.connected);
         }
       })
       .catch(() => {
@@ -130,15 +105,18 @@ export function ProtocolIntegrationPage({
     await (async () => {
       const response =
         settingsMethod === 'put'
-          ? await apiClient.put<ProtocolStatus>(settingsPath, form)
-          : await apiClient.post<ProtocolStatus>(settingsPath, form);
-      setStatus(response.data);
-      setForm(buildInitialForm(fields, response.data.settings || {}));
-      void onConnectionStatusChange?.(Boolean(response.data.connected));
+          ? await apiClient.put(settingsPath, form)
+          : await apiClient.post(settingsPath, form);
+      const next = await checkContract('IntegrationConnection', response.data, settingsPath);
+      setStatus(next);
+      setForm(buildInitialForm(fields, next.settings ?? {}));
+      void onConnectionStatusChange?.(next.connected);
       setActionMessage(t.messages.connected.value);
     })()
-      .catch(async () => {
-        setActionMessage(t.messages.connectionFailed.value);
+      // The backend's reason (translated by its code) says what to fix: a
+      // refused key, a missing company id.
+      .catch(async (error: unknown) => {
+        setActionMessage(getApiErrorMessage(error, t.messages.connectionFailed.value));
       })
       .finally(async () => {
         setSaving(false);
@@ -151,9 +129,10 @@ export function ProtocolIntegrationPage({
 
     await (async () => {
       await apiClient.delete(disconnectPath);
-      const response = await apiClient.get<ProtocolStatus>(statusPath);
-      setStatus(response.data);
-      void onConnectionStatusChange?.(Boolean(response.data.connected));
+      const response = await apiClient.get(statusPath);
+      const next = await checkContract('IntegrationConnection', response.data, statusPath);
+      setStatus(next);
+      void onConnectionStatusChange?.(next.connected);
       setActionMessage(t.messages.disconnected.value);
     })()
       .catch(async () => {
@@ -170,8 +149,8 @@ export function ProtocolIntegrationPage({
     setActionMessage(null);
 
     await (async () => {
-      const response = await apiClient.get<{ files: ProtocolFile[] }>(filesPath);
-      setFiles(response.data.files || []);
+      const response = await apiClient.get(filesPath);
+      setFiles((await checkContract('ProtocolFileList', response.data, filesPath)).files);
     })()
       .catch(async () => {
         setActionMessage(t.messages.loadFilesFailed.value);
@@ -200,8 +179,9 @@ export function ProtocolIntegrationPage({
 
     await (async () => {
       const body = Object.fromEntries(browseAction.dependsOn.map(key => [key, form[key]]));
-      const response = await apiClient.post<string[]>(browseAction.endpoint, body);
-      setBrowseOptions(prev => ({ ...prev, [field.name]: response.data }));
+      const response = await apiClient.post(browseAction.endpoint, body);
+      const options = await checkContract('BrowseOptionList', response.data, browseAction.endpoint);
+      setBrowseOptions(prev => ({ ...prev, [field.name]: [...options] }));
     })()
       .catch(async () => {
         setActionMessage(t.messages.browseFailed.value);
@@ -216,8 +196,9 @@ export function ProtocolIntegrationPage({
     setActionMessage(null);
 
     await (async () => {
-      const response = await apiClient.post<{ uploaded?: number; imported?: number }>(syncPath);
-      const count = response.data.uploaded ?? response.data.imported ?? 0;
+      const response = await apiClient.post(syncPath);
+      const result = await checkContract('ProtocolSyncResult', response.data, syncPath);
+      const count = result.uploaded ?? result.imported ?? 0;
       setActionMessage(t.messages.syncComplete.value.replace('{count}', String(count)));
     })().catch(async () => {
       setActionMessage(t.messages.syncFailed.value);
@@ -234,37 +215,6 @@ export function ProtocolIntegrationPage({
       }}
     >
       <Stack spacing={3}>
-        {hideHeading ? null : (
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-            <Box
-              sx={{
-                width: 48,
-                height: 48,
-                borderRadius: tokens.radius.md,
-                bgcolor: connected ? c.successSoft : c.ink100,
-                color: connected ? c.success : c.ink600,
-                display: 'grid',
-                placeItems: 'center',
-                flexShrink: 0,
-              }}
-            >
-              {connected ? (
-                <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />
-              ) : (
-                (icon ?? <ExtensionOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />)
-              )}
-            </Box>
-            <Stack spacing={0.75}>
-              <Typography component="h1" sx={{ color: c.ink900, fontSize: 28, fontWeight: 700 }}>
-                {title}
-              </Typography>
-              <Typography sx={{ color: c.ink600, fontSize: 15, lineHeight: 1.6 }}>
-                {description}
-              </Typography>
-            </Stack>
-          </Box>
-        )}
-
         <Box
           sx={{
             border: `1px solid ${c.ink150}`,
@@ -337,24 +287,6 @@ export function ProtocolIntegrationPage({
                 )}
               </Box>
             </Box>
-
-            {presets?.length ? (
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Typography sx={{ color: c.ink600, fontSize: 13, fontWeight: 600 }}>
-                  {t.presets}
-                </Typography>
-                {presets.map(preset => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => setForm(prev => ({ ...prev, ...preset.values }))}
-                    style={buttonStyle(c.ink800, c.surface, c.ink150)}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </Box>
-            ) : null}
 
             <Box
               sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5 }}
@@ -526,7 +458,7 @@ export function ProtocolIntegrationPage({
 
 function buildInitialForm(
   fields: ConfigField[],
-  settings: Record<string, string | number | boolean | null | undefined>,
+  settings: Readonly<Record<string, unknown>>,
 ): Record<string, string | number | boolean> {
   const next: Record<string, string | number | boolean> = {};
   for (const field of fields) {
@@ -536,7 +468,8 @@ function buildInitialForm(
     } else if (field.type === 'password') {
       next[field.name] = '';
     } else {
-      next[field.name] = value ?? '';
+      // Only a scalar fills a field; a list or object belongs to another view.
+      next[field.name] = typeof value === 'string' || typeof value === 'number' ? value : '';
     }
   }
   return next;

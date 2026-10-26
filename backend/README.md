@@ -1,4 +1,4 @@
-# Lumio Backend
+# Seneca Backend
 
 Backend приложение для системы обработки банковских выписок на базе NestJS.
 
@@ -20,7 +20,6 @@ npm run setup:env
 
 Пользовательские интеграции настраиваются через UI на уровне workspace:
 
-- **Integrations → AI-compatible endpoint** для OpenAI-совместимых провайдеров. Адрес из UI должен быть публичным; локальный Ollama/LocalAI/vLLM задаётся через `AI_BASE_URL` и `AI_MODEL`.
 - **Integrations → SMTP email** для приглашений, ссылок сброса пароля и подтверждения смены email. Хост из UI должен быть публичным; SMTP-relay во внутренней сети — через `SMTP_HOST`/`SMTP_FROM`.
 - **Settings → Telegram** для bot token.
 - **Integrations → S3-compatible/WebDAV/IMAP** для storage и receipt import. Адреса из UI должны резолвиться в публичные IP — egress guard отклоняет приватные и loopback-хосты при сохранении и при каждом подключении.
@@ -40,9 +39,9 @@ Env оставлен для инфраструктуры и bootstrap/fallback: 
 
 ## Резервные копии workspace
 
-Backups в **Settings → Sync** создают переносимый файл `.lumio-backup`: открытый манифест не содержит пользовательских данных, а JSON-данные и оригиналы документов зашифрованы AES-256-GCM. Пароль восстановления обязателен и не хранится в открытом виде. Без него копию восстановить невозможно.
+Backups в **Settings → Sync** создают переносимый файл `.seneca-backup`: открытый манифест не содержит пользовательских данных, а JSON-данные и оригиналы документов зашифрованы AES-256-GCM. Пароль восстановления обязателен и не хранится в открытом виде. Без него копию восстановить невозможно.
 
-Для ежедневных запусков задайте `BACKUP_MASTER_KEY` (отдельный стабильный секрет длиной не менее 32 байт) и, если используется серверная папка, `BACKUP_LOCAL_ROOT` — выделенную writable-директорию. В конфигурации разрешены только относительные имена папок внутри этого root, поэтому backup не может записать файл в произвольный путь на сервере. Для Nextcloud сначала подключите WebDAV-интеграцию с app password, затем выберите Nextcloud в настройках backups. Lumio публикует завершённый файл атомарно и хранит последние семь версий по умолчанию.
+Для ежедневных запусков задайте `BACKUP_MASTER_KEY` (отдельный стабильный секрет длиной не менее 32 байт) и, если используется серверная папка, `BACKUP_LOCAL_ROOT` — выделенную writable-директорию. В конфигурации разрешены только относительные имена папок внутри этого root, поэтому backup не может записать файл в произвольный путь на сервере. Для Nextcloud сначала подключите WebDAV-интеграцию с app password, затем выберите Nextcloud в настройках backups. Seneca публикует завершённый файл атомарно и хранит последние семь версий по умолчанию.
 
 Импорт всегда создаёт новый workspace для текущего пользователя; merge и замена существующего workspace не выполняются. Пароли, сессии, OAuth/API-токены, участники, webhooks и история уведомлений не экспортируются.
 
@@ -69,7 +68,7 @@ npm run migration:run:dev
 npm run migration:run
 
 # в dev-контейнере backend
-docker exec -it finflow-backend npm run migration:run:dev
+docker exec -it seneca-backend npm run migration:run:dev
 ```
 
 ## Запуск приложения
@@ -90,7 +89,7 @@ npm run start:prod
 ## Тесты и проверки
 
 ```bash
-npm test                # unit-тесты (Jest)
+npm test                # unit-тесты (Vitest)
 npm run test:e2e        # e2e, нужны PostgreSQL и Redis
 npm run test:golden     # golden-тесты парсинга
 npm run lint:check      # Biome

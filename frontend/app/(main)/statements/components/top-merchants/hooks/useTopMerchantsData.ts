@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useMonthFilters } from '@/app/(main)/statements/components/analytics/flow/useMonthFilters';
 import {
   type TopMerchantsAggregationReturn,
   useTopMerchantsAggregation,
@@ -24,6 +25,7 @@ type Params = {
   workspaceCurrency: string;
   resolvedTheme: string | undefined;
   labels: Record<string, string>;
+  month: Date;
   state: ReturnType<typeof useTopMerchantsState>;
 };
 
@@ -57,12 +59,13 @@ export const useTopMerchantsData = ({
   workspaceCurrency,
   resolvedTheme,
   labels,
+  month,
   state,
 }: Params): TopMerchantsDataReturn => {
   const {
     statements: rawStatements,
     transactions: rawTransactions,
-    gmailReceipts,
+    receipts,
     loading,
   } = useAnalyticsData({
     user,
@@ -74,14 +77,15 @@ export const useTopMerchantsData = ({
     errorToastMessage: labels.loadError,
   });
   const statements = rawStatements as unknown[];
+  const monthFilters = useMonthFilters(month);
   const transactions = rawTransactions as unknown[];
   const { flowFilteredRecords, flowRecordsWithoutDateFilter, fromOptions, currencyOptions } =
     useTopMerchantsRecords({
       statements: statements as Parameters<typeof useTopMerchantsRecords>[0]['statements'],
       transactions: transactions as Parameters<typeof useTopMerchantsRecords>[0]['transactions'],
-      gmailReceipts,
+      receipts,
       workspaceCurrency,
-      appliedFilters: state.filterState.appliedFilters,
+      appliedFilters: monthFilters,
       searchInput: state.searchInput,
       activeFlowType: state.activeFlowType,
     });
@@ -94,7 +98,7 @@ export const useTopMerchantsData = ({
       workspaceCurrency,
       resolvedTheme,
       sourceStatementLabel: labels.sourceStatement,
-      sourceGmailLabel: labels.sourceGmail,
+      sourceReceiptLabel: labels.sourceReceipt,
       totalIncomeLabel: labels.totalIncome,
       totalSpendLabel: labels.totalSpend,
     });

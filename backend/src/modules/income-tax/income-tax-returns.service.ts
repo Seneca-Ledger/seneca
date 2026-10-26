@@ -1,12 +1,14 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { IncomeTaxReturn, IncomeTaxReturnStatus } from '../../entities/income-tax-return.entity';
 import { AuditService } from '../audit/audit.service';
 import type { IncomeTaxDraft } from './income-tax.types';
 import { IncomeTaxDisclaimerService } from './income-tax-disclaimer.service';
 import {
+  buildIncomeTaxCsv,
   buildIncomeTaxFileName,
   buildIncomeTaxPdf,
   buildIncomeTaxXlsx,
@@ -84,7 +86,7 @@ export class IncomeTaxReturnsService {
       where: { workspaceId, taxYear, formKey: pack.formKey },
     });
     if (existing?.status === IncomeTaxReturnStatus.FINALIZED) {
-      throw new ConflictException('This tax year has already been finalized');
+      throw new ConflictException(appError('INCOME_TAX_YEAR_FINALIZED'));
     }
 
     const draft = await this.draftService.compute(workspaceId, taxYear);
@@ -112,7 +114,7 @@ export class IncomeTaxReturnsService {
       // Two finalize requests racing for the same year: the unique index lets
       // exactly one through, and the other is the same conflict as above.
       if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
-        throw new ConflictException('This tax year has already been finalized');
+        throw new ConflictException(appError('INCOME_TAX_YEAR_FINALIZED'));
       }
       throw error;
     }
@@ -140,7 +142,7 @@ export class IncomeTaxReturnsService {
       where: { workspaceId, taxYear, formKey: pack.formKey },
     });
     if (existing?.status !== IncomeTaxReturnStatus.FINALIZED) {
-      throw new BadRequestException('This tax year is not finalized');
+      throw new BadRequestException(appError('INCOME_TAX_YEAR_NOT_FINALIZED'));
     }
 
     await this.returnRepository.save({
@@ -168,13 +170,20 @@ export class IncomeTaxReturnsService {
     workspaceId: string,
     userId: string,
     taxYear: number,
-    format: 'pdf' | 'xlsx',
+    format: 'pdf' | 'xlsx' | 'csv',
   ): Promise<{ buffer: Buffer; fileName: string; contentType: string }> {
     // A document leaves the app and can be handed on; it should not exist
     // without the user having acknowledged what it is and is not.
     await this.disclaimerService.assertAccepted(userId);
     const draft = await this.getDraft(workspaceId, taxYear);
 
+    if (format === 'csv') {
+      return {
+        buffer: buildIncomeTaxCsv(draft),
+        fileName: buildIncomeTaxFileName(draft, 'csv'),
+        contentType: 'text/csv; charset=utf-8',
+      };
+    }
     if (format === 'pdf') {
       return {
         buffer: await buildIncomeTaxPdf(draft),

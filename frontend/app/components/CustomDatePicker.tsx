@@ -24,6 +24,8 @@ interface CustomDatePickerProps {
   /** Earliest and latest selectable days, as `yyyy-MM-dd`. */
   minDate?: string;
   maxDate?: string;
+  /** A filter-sized field: "Sep 1, 2024" and a small calendar icon. */
+  compact?: boolean;
 }
 
 const DATE_VALUE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -46,7 +48,6 @@ const normalizeToDate = (value?: string | null): Date | null => {
   return parsed;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export default function CustomDatePicker({
   value,
   onChange,
@@ -60,12 +61,12 @@ export default function CustomDatePicker({
   error,
   minDate,
   maxDate,
+  compact,
 }: CustomDatePickerProps) {
   const dateValue = normalizeToDate(value);
   const { preferences } = useUserFormat();
   const displayFormat = resolvePickerFormat(preferences);
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleChange = (date: Date | null) => {
     if (date && isValid(date)) {
       onChange(format(date, 'yyyy-MM-dd'));
@@ -80,10 +81,11 @@ export default function CustomDatePicker({
         label={label}
         value={dateValue}
         onChange={handleChange}
-        format={displayFormat}
+        format={compact ? 'MMM d, yyyy' : displayFormat}
         minDate={normalizeToDate(minDate) ?? undefined}
         maxDate={normalizeToDate(maxDate) ?? undefined}
         slotProps={{
+          ...(compact ? { openPickerIcon: { fontSize: 'small' } } : {}),
           textField: {
             fullWidth: true,
             id,
@@ -92,7 +94,6 @@ export default function CustomDatePicker({
             sx: large ? { '& .MuiInputBase-root': FORM_CONTROL_SX } : undefined,
             helperText: helperText,
             placeholder: placeholder,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any,
         }}
       />

@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { TransactionType } from '@/entities/transaction.entity';
@@ -5,7 +6,7 @@ import { IncomeTaxDraftService } from '@/modules/income-tax/income-tax-draft.ser
 import { BadRequestException } from '@nestjs/common';
 
 function queryBuilder(result: { many?: unknown[]; raw?: unknown[] }) {
-  const builder: Record<string, jest.Mock> = {};
+  const builder: Record<string, Mock> = {};
   for (const method of [
     'leftJoin',
     'leftJoinAndSelect',
@@ -17,10 +18,10 @@ function queryBuilder(result: { many?: unknown[]; raw?: unknown[] }) {
     'addSelect',
     'groupBy',
   ]) {
-    builder[method] = jest.fn(() => builder);
+    builder[method] = vi.fn(() => builder);
   }
-  builder.getMany = jest.fn().mockResolvedValue(result.many ?? []);
-  builder.getRawMany = jest.fn().mockResolvedValue(result.raw ?? []);
+  builder.getMany = vi.fn().mockResolvedValue(result.many ?? []);
+  builder.getRawMany = vi.fn().mockResolvedValue(result.raw ?? []);
   return builder;
 }
 
@@ -29,15 +30,15 @@ describe('IncomeTaxDraftService', () => {
 
   let service: IncomeTaxDraftService;
   let profileRepo: ReturnType<typeof createRepoMock>;
-  let mappingRepo: ReturnType<typeof createRepoMock> & { manager: { transaction: jest.Mock } };
+  let mappingRepo: ReturnType<typeof createRepoMock> & { manager: { transaction: Mock } };
   let categoryRepo: ReturnType<typeof createRepoMock>;
   let transactionRepo: ReturnType<typeof createRepoMock>;
-  let adoption: { getCurrentJurisdiction: jest.Mock };
-  let exchangeRates: { getRateOrNull: jest.Mock };
-  let completeness: { check: jest.Mock };
-  let nbpRates: { getYearRates: jest.Mock };
-  let bdiRates: { getYearRates: jest.Mock };
-  let auditService: { createEvent: jest.Mock };
+  let adoption: { getCurrentJurisdiction: Mock };
+  let exchangeRates: { getRateOrNull: Mock };
+  let completeness: { check: Mock };
+  let nbpRates: { getYearRates: Mock };
+  let bdiRates: { getYearRates: Mock };
+  let auditService: { createEvent: Mock };
 
   const tx = (over: Record<string, unknown>) => ({
     id: 'tx',
@@ -53,17 +54,17 @@ describe('IncomeTaxDraftService', () => {
 
   beforeEach(() => {
     profileRepo = createRepoMock();
-    mappingRepo = Object.assign(createRepoMock(), { manager: { transaction: jest.fn() } });
+    mappingRepo = Object.assign(createRepoMock(), { manager: { transaction: vi.fn() } });
     categoryRepo = createRepoMock();
     transactionRepo = createRepoMock();
-    adoption = { getCurrentJurisdiction: jest.fn().mockResolvedValue(DE) };
+    adoption = { getCurrentJurisdiction: vi.fn().mockResolvedValue(DE) };
     exchangeRates = {
-      getRateOrNull: jest.fn(async (from: string) => (from === 'USD' ? 0.9 : null)),
+      getRateOrNull: vi.fn(async (from: string) => (from === 'USD' ? 0.9 : null)),
     };
-    completeness = { check: jest.fn().mockResolvedValue({ score: 77, issues: [] }) };
-    nbpRates = { getYearRates: jest.fn().mockResolvedValue(null) };
-    bdiRates = { getYearRates: jest.fn().mockResolvedValue(null) };
-    auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    completeness = { check: vi.fn().mockResolvedValue({ score: 77, issues: [] }) };
+    nbpRates = { getYearRates: vi.fn().mockResolvedValue(null) };
+    bdiRates = { getYearRates: vi.fn().mockResolvedValue(null) };
+    auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
 
     profileRepo.findOne.mockResolvedValue(null);
     mappingRepo.find.mockResolvedValue([
@@ -144,6 +145,41 @@ describe('IncomeTaxDraftService', () => {
       completeness: { score: 77 },
       disclaimerVersion: expect.any(String),
     });
+  });
+
+  it('counts a private row on its line without naming its counterparty', async () => {
+    transactionRepo.createQueryBuilder.mockReturnValue(
+      queryBuilder({
+        many: [
+          tx({ id: 'mine', isPrivate: true, ownerMemberId: 'member-1', counterpartyName: 'Clinic' }),
+          tx({ id: 'shared', counterpartyName: 'Landlord' }),
+        ],
+      }),
+    );
+
+    const draft = await service.compute('ws-1', 2025);
+
+    // The declaration is the workspace's document: the amount counts, the name stays out.
+    expect(draft.contributions.rent.map(c => [c.transactionId, c.counterparty])).toEqual([
+      ['mine', '—'],
+      ['shared', 'Landlord'],
+    ]);
+    expect(draft.figures.find(f => f.key === 'rent')?.amount).toBe(200);
+  });
+
+  it('builds the year from confirmed transactions only', async () => {
+    const builder = queryBuilder({});
+    transactionRepo.createQueryBuilder.mockReturnValue(builder);
+
+    await service.compute('ws-1', 2026);
+
+    // compute and countByCategory both go through yearTransactions.
+    const built = transactionRepo.createQueryBuilder.mock.calls.length;
+    const confirmed = builder.andWhere.mock.calls.filter(
+      ([sql]) => sql === 't.isVerified = true',
+    ).length;
+    expect(built).toBeGreaterThan(0);
+    expect(confirmed).toBe(built);
   });
 
   it('says so when the line numbers come from an earlier form edition', async () => {
@@ -303,7 +339,7 @@ describe('IncomeTaxDraftService', () => {
 
     it('upserts confirmations and deletes withdrawals in one transaction', async () => {
       categoryRepo.count.mockResolvedValue(2);
-      const manager = { delete: jest.fn(), upsert: jest.fn() };
+      const manager = { delete: vi.fn(), upsert: vi.fn() };
       mappingRepo.manager.transaction.mockImplementation(async (work: (m: unknown) => unknown) =>
         work(manager),
       );
@@ -330,7 +366,7 @@ describe('IncomeTaxDraftService', () => {
     it('audits only the assignments that changed', async () => {
       categoryRepo.count.mockResolvedValue(3);
       mappingRepo.manager.transaction.mockImplementation(async (work: (m: unknown) => unknown) =>
-        work({ delete: jest.fn(), upsert: jest.fn() }),
+        work({ delete: vi.fn(), upsert: vi.fn() }),
       );
       categoryRepo.find.mockResolvedValue([]);
       transactionRepo.createQueryBuilder.mockReturnValue(queryBuilder({}));
@@ -361,7 +397,7 @@ describe('IncomeTaxDraftService', () => {
     it('does not fail the save when the audit log fails', async () => {
       categoryRepo.count.mockResolvedValue(1);
       mappingRepo.manager.transaction.mockImplementation(async (work: (m: unknown) => unknown) =>
-        work({ delete: jest.fn(), upsert: jest.fn() }),
+        work({ delete: vi.fn(), upsert: vi.fn() }),
       );
       categoryRepo.find.mockResolvedValue([]);
       transactionRepo.createQueryBuilder.mockReturnValue(queryBuilder({}));
@@ -376,7 +412,7 @@ describe('IncomeTaxDraftService', () => {
   describe('saveProfile', () => {
     it('audits the profile change with before and after', async () => {
       profileRepo.findOne.mockResolvedValue({ taxpayerType: 'self_employed', details: {} });
-      profileRepo.upsert = jest.fn().mockResolvedValue(undefined);
+      profileRepo.upsert = vi.fn().mockResolvedValue(undefined);
 
       await service.saveProfile('ws-1', 2025, 'self_employed', { vatRegistered: true }, 'user-1');
 
@@ -397,7 +433,7 @@ describe('IncomeTaxDraftService', () => {
     });
 
     it('does not fail the save when the audit log fails', async () => {
-      profileRepo.upsert = jest.fn().mockResolvedValue(undefined);
+      profileRepo.upsert = vi.fn().mockResolvedValue(undefined);
       auditService.createEvent.mockRejectedValue(new Error('audit down'));
 
       await expect(

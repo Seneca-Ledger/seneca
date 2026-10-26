@@ -5,7 +5,7 @@
  * Usage:
  *   const t = useIntlayer('myPage');
  *   const tx = makeTx(t);
- *   const label = tx(['section', 'title'], 'Fallback');
+ *   const label = tx(['section', 'title']);
  */
 
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
@@ -17,7 +17,7 @@ import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
  */
 export const makeTx =
   (root: unknown) =>
-  (path: string[], fallback: string): string =>
-    resolveLabel(getNestedValue(root, path), fallback);
+  (path: string[]): string =>
+    resolveLabel(getNestedValue(root, path));
 
 export { getNestedValue, resolveLabel };

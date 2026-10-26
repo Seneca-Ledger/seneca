@@ -2,6 +2,6 @@
 
 import StatementsListView from '../components/StatementsListView';
 
-export default function StatementsSubmitPage() {
-  return <StatementsListView stage="submit" />;
+export default function StatementsDocumentsPage() {
+  return <StatementsListView />;
 }

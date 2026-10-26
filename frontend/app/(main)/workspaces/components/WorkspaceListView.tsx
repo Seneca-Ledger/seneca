@@ -3,7 +3,7 @@
 import Box from '@mui/material/Box';
 import { alpha } from '@mui/material/styles';
 import React from 'react';
-import { ChevronRight, MoreVertical } from '@/app/components/icons';
+import { ChevronRight, MoreVertical, Plus } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -17,8 +17,8 @@ function WorkspaceListRow({ workspace, isDefault, onClick }: ListRowProps): Reac
   const role = workspace.memberRole;
   const roleLabel =
     role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer'
-      ? t.roles[role]
-      : role || t.list.workspaceFallback;
+      ? t.roles[role].value
+      : role || t.list.workspaceFallback.value;
   return (
     <button
       type="button"
@@ -180,8 +180,8 @@ export function WorkspaceListView({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            padding: '12px 24px',
+            gap: 6,
+            padding: '12px 24px 12px 20px',
             background: 'var(--primary-fill)',
             color: '#fff',
             fontWeight: 500,
@@ -191,6 +191,7 @@ export function WorkspaceListView({
             borderRadius: tokens.radius.md,
           }}
         >
+          <Plus size={18} aria-hidden />
           {createLabel}
         </button>
       </Box>

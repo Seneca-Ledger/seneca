@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { forgetStoredUser } from '@/app/lib/theme-preference';
 import { getApiErrorMessage, type UserSession } from '@/app/settings/profile/profileHelpers';
 
 export type UseSessionsMessages = {
@@ -40,8 +42,7 @@ export function useSessions(
     await (async () => {
       setSessionsLoading(true);
       setSessionsError(null);
-      const response = await apiClient.get<UserSession[]>('/auth/sessions');
-      setSessions(Array.isArray(response.data) ? response.data : []);
+      setSessions(await apiQueryDecoded({ url: '/auth/sessions', contract: 'UserSessionList' }));
     })()
       .catch(async (error: unknown) => {
         setSessionsError(getApiErrorMessage(error, messages.loadError));
@@ -67,7 +68,7 @@ export function useSessions(
       })
       .finally(async () => {
         // Cookies are cleared by the server on logout-all.
-        localStorage.removeItem('user');
+        forgetStoredUser();
         router.push('/login');
       });
   }, [messages.logoutAllConfirm, router]);
@@ -87,7 +88,7 @@ export function useSessions(
         await apiClient.post(`/auth/sessions/${session.id}/logout`);
 
         if (session.isCurrent) {
-          localStorage.removeItem('user');
+          forgetStoredUser();
           router.push('/login');
           return;
         }

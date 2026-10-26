@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import * as yaml from 'js-yaml';
 import { basename, extname, join, resolve } from 'path';
+import { appDefaultCurrency } from '../../../common/utils/currency.util';
 import {
   createAmountFormat,
   createSharedProfileSections,
@@ -185,7 +186,10 @@ export class BankProfileService {
       return isoCurrency;
     }
 
-    return profile.country === 'US' ? 'USD' : 'KZT';
+    // Only the country the profile itself declares; anything else is the
+    // installation's own currency rather than a guess.
+    const byCountry: Record<string, string> = { KZ: 'KZT', US: 'USD' };
+    return byCountry[profile.country ?? ''] ?? appDefaultCurrency();
   }
 
   private normalizeColumnType(name: string): ColumnDefinition['type'] {
@@ -382,6 +386,12 @@ export class BankProfileService {
         ],
       },
 
+      ...createSharedProfileSections({
+        expectedColumns: 8,
+        useMLClassification: true,
+        fallbackMode: 'regex',
+      }),
+
       validation: {
         requiredFields: ['transactionDate', 'counterpartyName', 'paymentPurpose'],
         optionalFields: ['documentNumber', 'counterpartyBin', 'currency'],
@@ -395,12 +405,6 @@ export class BankProfileService {
           },
         ],
       },
-
-      ...createSharedProfileSections({
-        expectedColumns: 8,
-        useMLClassification: true,
-        fallbackMode: 'regex',
-      }),
     });
   }
 
@@ -434,6 +438,12 @@ export class BankProfileService {
         ],
       },
 
+      ...createSharedProfileSections({
+        expectedColumns: 6,
+        useMLClassification: true,
+        fallbackMode: 'heuristic',
+      }),
+
       validation: {
         requiredFields: ['transactionDate', 'counterpartyName', 'paymentPurpose'],
         businessRules: [
@@ -446,12 +456,6 @@ export class BankProfileService {
           },
         ],
       },
-
-      ...createSharedProfileSections({
-        expectedColumns: 6,
-        useMLClassification: true,
-        fallbackMode: 'heuristic',
-      }),
     });
   }
 
@@ -661,15 +665,10 @@ export class BankProfileService {
     format: 'json' | 'yaml' = 'json',
   ): { success: boolean; profile?: BankProfile; error?: string } {
     try {
-      let profile: BankProfile;
-
-      if (format === 'json') {
-        profile = this.normalizeLoadedProfile(JSON.parse(content), 'imported-profile');
-      }
-
-      if (format === 'yaml') {
-        profile = this.normalizeLoadedProfile(yaml.load(content), 'imported-profile');
-      }
+      const profile =
+        format === 'yaml'
+          ? this.normalizeLoadedProfile(yaml.load(content), 'imported-profile')
+          : this.normalizeLoadedProfile(JSON.parse(content), 'imported-profile');
 
       const validation = this.validateProfile(profile);
       if (!validation.isValid) {

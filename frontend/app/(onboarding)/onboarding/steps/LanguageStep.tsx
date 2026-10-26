@@ -1,16 +1,23 @@
 'use client';
 
 import Autocomplete from '@mui/material/Autocomplete';
+import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
-import { useTheme } from 'next-themes';
 import { useMemo } from 'react';
 import { FORM_CONTROL_SX } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
-import { SUPPORTED_LOCALES } from '@/app/lib/locale';
+import { makeTx } from '@/app/lib/intlayer-resolve';
 import { formatTimeZoneLabel } from '@/app/lib/timezone';
-import { tokens } from '@/lib/theme-tokens';
-import { getNestedOnboardingValue, resolveOnboardingText } from '../lib/resolveOnboardingText';
+import {
+  type DateFormatPreference,
+  dateFormatPreferences,
+  formatDate,
+} from '@/app/lib/user-format';
+import { LocaleField } from '../components/LocaleField';
+import { FieldLabel } from '../components/OnboardingField';
+import { StepHeading } from '../components/StepHeading';
+import { useOnboardingText } from '../lib/useOnboardingText';
 import type { SupportedLocale } from '../useOnboardingWizard';
 
 const COMMON_TIMEZONES = [
@@ -44,214 +51,156 @@ const resolveTimeZoneOptions = (): string[] => {
   return COMMON_TIMEZONES;
 };
 
+// Same wording and sample date as the profile settings, so the two screens agree.
+const SAMPLE_DATE = new Date(2026, 10, 5);
+const WEEKDAY_KEYS = ['sunday', 'monday'];
+
+type TimeZoneOption = { value: string; label: string };
+
 interface LanguageStepProps {
   locale: SupportedLocale;
   timeZone: string | null;
+  dateFormat: DateFormatPreference;
+  firstDayOfWeek: number | null;
+  /** The user's name for the greeting; omitted when unknown. */
+  name?: string | null;
   onLocaleChange: (locale: SupportedLocale) => void;
   onTimeZoneChange: (timeZone: string | null) => void;
+  onDateFormatChange: (dateFormat: DateFormatPreference) => void;
+  onFirstDayOfWeekChange: (firstDayOfWeek: number | null) => void;
 }
 
-type TimeZoneOption = {
-  value: string;
-  label: string;
-};
+export function LanguageStep({
+  locale,
+  timeZone,
+  dateFormat,
+  firstDayOfWeek,
+  name,
+  onLocaleChange,
+  onTimeZoneChange,
+  onDateFormatChange,
+  onFirstDayOfWeekChange,
+}: LanguageStepProps) {
+  const text = useOnboardingText(locale);
+  const settingsText = makeTx(useIntlayer('settingsProfilePage'));
 
-// eslint-disable-next-line max-params
-type TextFn = (path: string[], fallback?: string) => string;
-
-interface LanguageStepData {
-  text: TextFn;
-  timezoneSelectOptions: TimeZoneOption[];
-  selectedTimeZoneOption: TimeZoneOption | null;
-  languageOptions: Array<{ value: SupportedLocale; label: string }>;
-}
-
-function useLanguageStepData(props: LanguageStepProps): LanguageStepData {
-  const { locale, timeZone } = props;
-  const t = useIntlayer('onboardingPage');
-  // eslint-disable-next-line max-params
-  const text: TextFn = (path, fallback = '') =>
-    resolveOnboardingText(getNestedOnboardingValue(t, path), fallback, locale);
-
-  const timeZoneOptions = useMemo(() => resolveTimeZoneOptions(), []);
-  const timezoneSelectOptions = useMemo<TimeZoneOption[]>(
-    () => timeZoneOptions.map(zone => ({ value: zone, label: formatTimeZoneLabel(zone, locale) })),
-    [timeZoneOptions, locale],
+  const timeZoneOptions = useMemo<TimeZoneOption[]>(
+    () =>
+      resolveTimeZoneOptions().map(zone => ({
+        value: zone,
+        label: formatTimeZoneLabel(zone, locale),
+      })),
+    [locale],
   );
 
-  const selectedTimeZoneOption = useMemo<TimeZoneOption | null>(() => {
+  const selectedTimeZone = useMemo<TimeZoneOption | null>(() => {
     if (!timeZone) {
       return null;
     }
-    const match = timezoneSelectOptions.find(option => option.value === timeZone);
-    return match ?? { value: timeZone, label: formatTimeZoneLabel(timeZone, locale) };
-  }, [timeZone, timezoneSelectOptions, locale]);
-
-  const languageOptions: Array<{ value: SupportedLocale; label: string }> = SUPPORTED_LOCALES.map(
-    code => ({
-      value: code,
-      label: text(['language', 'localeOptions', code], code),
-    }),
-  );
-
-  return { text, timezoneSelectOptions, selectedTimeZoneOption, languageOptions };
-}
-
-const makeLabelStyle = (color: string) => ({
-  fontSize: 12,
-  fontWeight: 600,
-  textTransform: 'uppercase' as const,
-  letterSpacing: '0.14em',
-  color,
-});
-
-function LanguageHeader({ text }: { text: TextFn }): React.ReactElement {
-  const { resolvedTheme } = useTheme();
-  const textSecondary =
-    resolvedTheme === 'dark' ? tokens.dark.color.textSecondary : tokens.color.textSecondary;
-
-  return (
-    <div>
-      <h2 style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>
-        {text(['language', 'title'], 'Language and timezone')}
-      </h2>
-      <p style={{ marginTop: 8, fontSize: 14, color: textSecondary }}>
-        {text(
-          ['language', 'subtitle'],
-          'Choose your preferred interface language and timezone for accurate report timestamps.',
-        )}
-      </p>
-    </div>
-  );
-}
-
-interface LocaleSelectorProps {
-  locale: SupportedLocale;
-  onLocaleChange: (locale: SupportedLocale) => void;
-  languageOptions: Array<{ value: SupportedLocale; label: string }>;
-  label: string;
-}
-
-function LocaleSelector(props: LocaleSelectorProps): React.ReactElement {
-  const { locale, onLocaleChange, languageOptions, label } = props;
-  const { resolvedTheme } = useTheme();
-  const textSecondary =
-    resolvedTheme === 'dark' ? tokens.dark.color.textSecondary : tokens.color.textSecondary;
-
-  const handleChange = (value: string): void => {
-    onLocaleChange(value as SupportedLocale);
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <label style={makeLabelStyle(textSecondary)} htmlFor="onboarding-locale">
-        {label}
-      </label>
-      <Select
-        fullWidth
-        id="onboarding-locale"
-        value={locale}
-        onChange={handleChange}
-        options={languageOptions}
-        sx={FORM_CONTROL_SX}
-      />
-    </div>
-  );
-}
-
-interface TimeZoneSelectorProps {
-  selectedTimeZoneOption: TimeZoneOption | null;
-  timezoneSelectOptions: TimeZoneOption[];
-  onTimeZoneChange: (timeZone: string | null) => void;
-  label: string;
-  noOptionsText: string;
-  placeholder: string;
-  hint: string;
-}
-
-function buildRenderInput(placeholder: string): (params: object) => React.ReactElement {
-  return (params: object): React.ReactElement => {
-    const p = params as React.ComponentProps<typeof TextField>;
     return (
-      <TextField
-        {...p}
-        inputProps={{ ...(p.inputProps as object), id: 'onboarding-timezone-select' }}
-        size="small"
-        placeholder={placeholder}
-      />
+      timeZoneOptions.find(option => option.value === timeZone) ?? {
+        value: timeZone,
+        label: formatTimeZoneLabel(timeZone, locale),
+      }
     );
-  };
-}
+  }, [timeZone, timeZoneOptions, locale]);
 
-function TimeZoneSelector(props: TimeZoneSelectorProps): React.ReactElement {
-  const {
-    selectedTimeZoneOption,
-    timezoneSelectOptions,
-    onTimeZoneChange,
-    label,
-    noOptionsText,
-    placeholder,
-    hint,
-  } = props;
-  const { resolvedTheme } = useTheme();
-  const textSecondary =
-    resolvedTheme === 'dark' ? tokens.dark.color.textSecondary : tokens.color.textSecondary;
+  const dateFormatOptions = dateFormatPreferences.map(option => ({
+    value: option,
+    label: `${settingsText(['profileCard', 'dateFormats', option])} — ${formatDate(SAMPLE_DATE, { locale, dateFormat: option })}`,
+  }));
 
-  // eslint-disable-next-line max-params
-  const handleChange = (_event: React.SyntheticEvent, option: TimeZoneOption | null): void => {
-    onTimeZoneChange(option?.value ?? null);
-  };
+  const weekStartOptions = [
+    {
+      value: '',
+      label: settingsText(['profileCard', 'dateFormats', 'auto']),
+    },
+    ...WEEKDAY_KEYS.map((key, day) => ({
+      value: String(day),
+      label: settingsText(['profileCard', 'weekdays', key]),
+    })),
+  ];
 
-  const getOptionLabel = (option: TimeZoneOption): string => option.label;
-  // eslint-disable-next-line max-params
-  const isOptionEqualToValue = (a: TimeZoneOption, b: TimeZoneOption): boolean =>
-    a.value === b.value;
+  const greeting = name?.trim()
+    ? text(['language', 'greeting']).replace('{name}', name.trim())
+    : undefined;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <label style={makeLabelStyle(textSecondary)} htmlFor="onboarding-timezone-select">
-        {label}
-      </label>
-      <Autocomplete<TimeZoneOption, false>
-        options={timezoneSelectOptions}
-        value={selectedTimeZoneOption}
-        onChange={handleChange}
-        getOptionLabel={getOptionLabel}
-        isOptionEqualToValue={isOptionEqualToValue}
-        noOptionsText={noOptionsText}
-        renderInput={buildRenderInput(placeholder)}
+    <Box
+      component="section"
+      sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
+    >
+      <StepHeading
+        eyebrow={greeting}
+        title={text(['language', 'title'])}
+        subtitle={text(['language', 'subtitle'])}
       />
-      <p style={{ fontSize: 14, color: textSecondary, margin: 0 }}>{hint}</p>
-    </div>
-  );
-}
 
-export function LanguageStep(props: LanguageStepProps): React.ReactElement {
-  const { locale, onLocaleChange, onTimeZoneChange } = props;
-  const { text, timezoneSelectOptions, selectedTimeZoneOption, languageOptions } =
-    useLanguageStepData(props);
+      <LocaleField
+        label={text(['language', 'localeLabel'])}
+        value={locale}
+        onChange={onLocaleChange}
+      />
 
-  return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <LanguageHeader text={text} />
-      <LocaleSelector
-        locale={locale}
-        onLocaleChange={onLocaleChange}
-        languageOptions={languageOptions}
-        label={text(['language', 'localeLabel'], 'Language')}
-      />
-      <TimeZoneSelector
-        selectedTimeZoneOption={selectedTimeZoneOption}
-        timezoneSelectOptions={timezoneSelectOptions}
-        onTimeZoneChange={onTimeZoneChange}
-        label={text(['language', 'timeZoneLabel'], 'Timezone')}
-        noOptionsText={text(['language', 'timeZoneNoOptions'], 'No matching timezones found')}
-        placeholder={text(['language', 'timeZonePlaceholder'], 'Select timezone')}
-        hint={text(
-          ['language', 'timeZoneHint'],
-          'You can always change this later in profile settings.',
-        )}
-      />
-    </section>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <FieldLabel htmlFor="onboarding-timezone-select">
+          {text(['language', 'timeZoneLabel'])}
+        </FieldLabel>
+        <Autocomplete<TimeZoneOption, false>
+          options={timeZoneOptions}
+          value={selectedTimeZone}
+          onChange={(_event, option) => onTimeZoneChange(option?.value ?? null)}
+          getOptionLabel={option => option.label}
+          isOptionEqualToValue={(a, b) => a.value === b.value}
+          noOptionsText={text(['language', 'timeZoneNoOptions'])}
+          renderInput={params => (
+            <TextField
+              {...params}
+              placeholder={text(['language', 'timeZonePlaceholder'])}
+              sx={{ '& .MuiInputBase-root': { minHeight: 48, fontSize: 16 } }}
+              slotProps={{
+                ...params.slotProps,
+                htmlInput: { ...params.slotProps.htmlInput, id: 'onboarding-timezone-select' },
+              }}
+            />
+          )}
+        />
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+          <FieldLabel htmlFor="onboarding-date-format" id="onboarding-date-format-label">
+            {settingsText(['profileCard', 'dateFormatLabel'])}
+          </FieldLabel>
+          <Select
+            fullWidth
+            id="onboarding-date-format"
+            labelId="onboarding-date-format-label"
+            value={dateFormat}
+            onChange={value => onDateFormatChange(value as DateFormatPreference)}
+            options={dateFormatOptions}
+            sx={FORM_CONTROL_SX}
+          />
+        </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+          <FieldLabel htmlFor="onboarding-week-start" id="onboarding-week-start-label">
+            {settingsText(['profileCard', 'firstDayOfWeekLabel'])}
+          </FieldLabel>
+          <Select
+            fullWidth
+            id="onboarding-week-start"
+            labelId="onboarding-week-start-label"
+            value={firstDayOfWeek === null ? '' : String(firstDayOfWeek)}
+            onChange={value => onFirstDayOfWeekChange(value === '' ? null : Number(value))}
+            options={weekStartOptions}
+            sx={FORM_CONTROL_SX}
+          />
+        </Box>
+      </Box>
+
+      <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
+        {text(['language', 'timeZoneHint'])}
+      </Box>
+    </Box>
   );
 }

@@ -3,6 +3,8 @@ import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiResponse } from '@/app/test/api-response';
+import { walletItem } from '@/app/test/fixtures/contracts';
 
 const apiGet = vi.hoisted(() => vi.fn());
 const apiPost = vi.hoisted(() => vi.fn());
@@ -13,6 +15,8 @@ const reactActEnvironmentFlag = 'IS_REACT_ACT_ENVIRONMENT';
 vi.mock('@/app/lib/api', () => ({
   default: { get: apiGet, post: apiPost, patch: apiPatch, delete: apiDelete },
 }));
+
+import { BankSyncPanel } from './BankSyncPanel';
 
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -61,16 +65,15 @@ const providers = [
 function serveConnections(connections: unknown[]): void {
   apiGet.mockImplementation((url: string) => {
     if (url === '/wallets') {
-      return Promise.resolve({ data: [{ id: 'w1', name: 'Main', currency: 'USD' }] });
+      return Promise.resolve(apiResponse([walletItem({ id: 'w1', name: 'Main', currency: 'USD' })]));
     }
-    if (url.endsWith('/providers')) return Promise.resolve({ data: providers });
-    if (url.endsWith('/connections')) return Promise.resolve({ data: connections });
-    return Promise.resolve({ data: [] });
+    if (url.endsWith('/providers')) return Promise.resolve(apiResponse(providers));
+    if (url.endsWith('/connections')) return Promise.resolve(apiResponse(connections));
+    return Promise.resolve(apiResponse([]));
   });
 }
 
 async function mount(): Promise<{ container: HTMLElement; unmount: () => void }> {
-  const { BankSyncPanel } = await import('./BankSyncPanel');
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -105,7 +108,7 @@ describe('BankSyncPanel', () => {
 
   it('lists a connection with its accounts and saves an account change as it is made', async () => {
     serveConnections([connection()]);
-    apiPatch.mockResolvedValue({ data: {} });
+    apiPatch.mockResolvedValue(apiResponse(connection()));
     const { container, unmount } = await mount();
 
     expect(container.textContent).toContain('Bridge A');
@@ -130,9 +133,16 @@ describe('BankSyncPanel', () => {
 
   it('pulls a connection and reports what came in', async () => {
     serveConnections([connection()]);
-    apiPost.mockResolvedValue({
-      data: { imported: 2, statements: 1, accounts: [{ id: 'ACT-A', imported: 2, skipped: 0 }] },
-    });
+    apiPost.mockResolvedValue(
+      apiResponse({
+        ok: true,
+        imported: 2,
+        statements: 1,
+        accounts: [
+          { id: 'ACT-A', imported: 2, skipped: 0, statementId: 'stmt-1', health: 'ok' },
+        ],
+      }),
+    );
     const { container, unmount } = await mount();
 
     await act(async () => {
@@ -157,7 +167,12 @@ describe('BankSyncPanel', () => {
       connection({}, [account({ walletId: 'w1' })]),
       connection({ id: 'c2', label: 'Bridge B' }, [account({ id: 'ACT-B', name: 'Savings' })]),
     ]);
-    apiPost.mockResolvedValue({ data: { syncFrom: '2026-09-29T00:00:00.000Z' } });
+    apiPost.mockResolvedValue(
+      apiResponse({
+        from: { connectionId: 'c1', accountId: 'ACT-A' },
+        syncFrom: '2026-09-29T00:00:00.000Z',
+      }),
+    );
     const { container, unmount } = await mount();
 
     await act(async () => {

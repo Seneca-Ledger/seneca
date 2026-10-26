@@ -1,23 +1,26 @@
+import type { MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Cache } from 'cache-manager';
 import { MapsService } from '@/modules/maps/maps.service';
+import { EffectRuntime } from '@/common/effect/effect-runtime';
 
 const makeCache = () => {
   const store = new Map<string, unknown>();
   return {
-    get: jest.fn(async (key: string) => store.get(key)),
-    set: jest.fn(async (key: string, value: unknown) => {
+    get: vi.fn(async (key: string) => store.get(key)),
+    set: vi.fn(async (key: string, value: unknown) => {
       store.set(key, value);
     }),
   };
 };
 
 const makeConfig = (values: Record<string, string | undefined>) =>
-  ({ get: jest.fn((key: string) => values[key]) }) as unknown as ConfigService;
+  ({ get: vi.fn((key: string) => values[key]) }) as unknown as ConfigService;
 
+// Real Responses: the HTTP client reads headers and body the standard way.
 const jsonResponse = (body: unknown, status = 200) =>
-  ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 const STYLES = [
   { id: 'osm-bright', name: 'OSM Bright', url: 'http://tileserver:8080/styles/osm-bright/style.json' },
@@ -28,35 +31,40 @@ const STYLES = [
 
 describe('MapsService', () => {
   const originalFetch = global.fetch;
-  const fetchMock = jest.fn();
-  let warnSpy: jest.SpyInstance;
+  const fetchMock = vi.fn();
+  let warnSpy: MockInstance;
 
   const create = (
     values: Record<string, string | undefined> = { TILESERVER_URL: 'http://tileserver:8080/' },
     cache = makeCache(),
-  ) => ({ service: new MapsService(cache as unknown as Cache, makeConfig(values)), cache });
+  ) => ({
+    service: new MapsService(cache as unknown as Cache, makeConfig(values), new EffectRuntime()),
+    cache,
+  });
 
-  const routeFetch = (tile: Partial<Response> | Error = {}) =>
-    fetchMock.mockImplementation(async (url: string) => {
+  /** The style list, and a tile answering with `status`, or hanging until the timeout. */
+  const routeFetch = (tile: { status?: number } | 'hang' = {}) =>
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.endsWith('/styles.json')) {
         return jsonResponse(STYLES);
       }
-      if (tile instanceof Error) {
-        throw tile;
+      if (tile === 'hang') {
+        return new Promise((_resolve, reject) =>
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted'))),
+        );
       }
-      return {
-        ok: true,
-        status: 200,
-        headers: new Headers({ 'content-type': 'image/png' }),
-        arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer,
-        ...tile,
-      };
+      return new Response(new Uint8Array([137, 80, 78, 71]), {
+        status: tile.status ?? 200,
+        headers: { 'content-type': 'image/png' },
+      });
     });
 
   beforeEach(() => {
     fetchMock.mockReset();
-    global.fetch = fetchMock as unknown as typeof fetch;
-    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    // The HTTP client passes a URL object; the routes match on the string.
+    global.fetch = ((input: string | URL, init?: RequestInit) =>
+      fetchMock(String(input), init)) as unknown as typeof fetch;
+    warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -163,7 +171,7 @@ describe('MapsService', () => {
     });
 
     it('reports an upstream error as unavailable', async () => {
-      routeFetch({ ok: false, status: 500 });
+      routeFetch({ status: 500 });
       const { service } = create();
 
       await expect(service.fetchTile('osm-bright', '0', '0', '0.png')).resolves.toEqual({
@@ -173,8 +181,8 @@ describe('MapsService', () => {
     });
 
     it('reports a timeout as unavailable', async () => {
-      routeFetch(Object.assign(new Error('aborted'), { name: 'TimeoutError' }));
-      const { service } = create();
+      routeFetch('hang');
+      const { service } = create({ TILESERVER_URL: 'http://tileserver:8080/', TILESERVER_TIMEOUT_MS: '50' });
 
       await expect(service.fetchTile('osm-bright', '0', '0', '0.png')).resolves.toEqual({
         status: 'unavailable',

@@ -9,8 +9,6 @@ import {
   User,
   Workspace,
 } from '../../entities';
-import { ChatCompletionService } from '../ai-analysis/chat-completion.service';
-import { ApplicationSettingsModule } from '../application-settings/application-settings.module';
 import { StoicLedgerService } from '../budgets/stoic/stoic-ledger.service';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
@@ -23,13 +21,11 @@ import { InsightsController } from './insights.controller';
 import { InsightsService } from './insights.service';
 import { DailyQuoteService } from './quotes/daily-quote.service';
 import { StoicBehaviorService } from './stoic/stoic-behavior.service';
-import { StoicPhrasingService } from './stoic-phrasing.service';
 
 /**
- * StoicLedgerService and ChatCompletionService are provided here rather than
- * imported through their modules: BudgetsModule reaches InsightsModule back
- * through Notifications → Telegram, and AiAnalysisModule imports this one.
- * Both services are stateless, so a second instance costs nothing.
+ * StoicLedgerService is provided here rather than imported through its module:
+ * BudgetsModule reaches InsightsModule back through Notifications → Telegram.
+ * The service is stateless, so a second instance costs nothing.
  */
 @Module({
   imports: [
@@ -43,7 +39,6 @@ import { StoicPhrasingService } from './stoic-phrasing.service';
       Subscription,
     ]),
     NetWorthModule,
-    ApplicationSettingsModule,
     ExchangeRatesModule,
     GoalsModule,
     DashboardModule,
@@ -56,8 +51,6 @@ import { StoicPhrasingService } from './stoic-phrasing.service';
     StoicAnalyzer,
     StoicLedgerService,
     StoicBehaviorService,
-    ChatCompletionService,
-    StoicPhrasingService,
     DailyQuoteService,
   ],
   exports: [InsightsService],

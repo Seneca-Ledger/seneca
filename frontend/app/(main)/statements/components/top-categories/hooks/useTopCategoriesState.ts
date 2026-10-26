@@ -16,7 +16,7 @@ export type TopCategoriesStateReturn = TopAnalyticsStateReturn<
 
 export const useTopCategoriesState = (): TopCategoriesStateReturn =>
   useTopAnalyticsState<TopCategoryFlowType, CategorySortKey>(
-    'lumio-top-categories-filters',
+    'seneca-top-categories-filters',
     'spend',
     'amount',
   );

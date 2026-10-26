@@ -1,14 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, QueryFailedError, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
+import type {
+  CreateDataEntryBody,
+  CreateDataEntryCustomFieldBody,
+  UpdateDataEntryCustomFieldBody,
+} from '../../contracts';
 import { User, WorkspaceMember } from '../../entities';
-import { DataEntry, type DataEntryType } from '../../entities/data-entry.entity';
+import { DataEntry, DataEntryType } from '../../entities/data-entry.entity';
 import { DataEntryCustomField } from '../../entities/data-entry-custom-field.entity';
-import type { CreateDataEntryDto } from './dto/create-data-entry.dto';
-import type { CreateDataEntryCustomFieldDto } from './dto/create-data-entry-custom-field.dto';
-import type { UpdateDataEntryCustomFieldDto } from './dto/update-data-entry-custom-field.dto';
+import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 
 type DriverErrorLike = { driverError?: { code?: string } };
 
@@ -46,6 +50,7 @@ export class DataEntryService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    private readonly workspaceCurrency: WorkspaceCurrencyService,
   ) {}
 
   private async ensureCanEditDataEntry(workspaceId: string, userId: string): Promise<void> {
@@ -58,7 +63,7 @@ export class DataEntryService {
     );
   }
 
-  async create(workspaceId: string, userId: string, dto: CreateDataEntryDto): Promise<DataEntry> {
+  async create(workspaceId: string, userId: string, dto: CreateDataEntryBody): Promise<DataEntry> {
     await this.ensureCanEditDataEntry(workspaceId, userId);
     const customFieldName = dto.customFieldName?.trim() || null;
     const customFieldValue = dto.customFieldValue?.trim() || null;
@@ -82,17 +87,19 @@ export class DataEntryService {
     const entry = this.dataEntryRepository.create({
       userId,
       workspaceId,
-      type: dto.type,
+      type: toEnum(DataEntryType, dto.type),
       date: dto.date,
       amount: dto.amount,
       note: dto.note || null,
-      currency: dto.currency || 'KZT',
+      currency: await this.workspaceCurrency.resolveFor(workspaceId, dto.currency),
       customFieldName,
       customFieldIcon,
       customFieldValue,
       customTabId,
     });
-    return this.dataEntryRepository.save(entry);
+    const saved = await this.dataEntryRepository.save(entry);
+    // The stored form, as the list reads it: the decimal amount as a string, the date as a day.
+    return this.dataEntryRepository.findOneByOrFail({ id: saved.id, workspaceId });
   }
 
   async list(params: ListParams): Promise<ListResult> {
@@ -176,7 +183,10 @@ export class DataEntryService {
   async getHiddenBaseTabs(userId: string): Promise<DataEntryType[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'dataEntryHiddenBaseTabs'],
+      select: {
+        id: true,
+        dataEntryHiddenBaseTabs: true,
+      },
     });
     const hidden = user?.dataEntryHiddenBaseTabs;
     return Array.isArray(hidden) ? hidden : [];
@@ -187,7 +197,10 @@ export class DataEntryService {
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'dataEntryHiddenBaseTabs'],
+      select: {
+        id: true,
+        dataEntryHiddenBaseTabs: true,
+      },
     });
     if (!user) {
       throw new NotFoundException(appError('USER_NOT_FOUND'));
@@ -206,7 +219,7 @@ export class DataEntryService {
   async createCustomField(
     workspaceId: string,
     userId: string,
-    dto: CreateDataEntryCustomFieldDto,
+    dto: CreateDataEntryCustomFieldBody,
   ): Promise<DataEntryCustomField> {
     await this.ensureCanEditDataEntry(workspaceId, userId);
     const name = dto.name.trim();
@@ -238,14 +251,14 @@ export class DataEntryService {
     workspaceId: string,
     userId: string,
     id: string,
-    dto: UpdateDataEntryCustomFieldDto,
+    dto: UpdateDataEntryCustomFieldBody,
   ): Promise<DataEntryCustomField> {
     await this.ensureCanEditDataEntry(workspaceId, userId);
     const item = await this.dataEntryCustomFieldRepository.findOne({ where: { id, workspaceId } });
     if (!item) {
       throw new NotFoundException(appError('COLUMN_NOT_FOUND'));
     }
-    if (dto.name !== undefined) {
+    if (dto.name != null) {
       const name = dto.name.trim();
       if (!name.length) {
         throw new BadRequestException(appError('COLUMN_TITLE_REQUIRED'));

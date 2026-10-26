@@ -25,7 +25,10 @@ const data: ForecastData = {
   totalInflow: 2000,
   totalOutflow: 1800,
   totalEveryday: 500,
-  days: [{ date: '2026-10-01', inflow: 0, outflow: 0, everyday: 5, balance: 995 }],
+  totalIrregularIncome: 0,
+  days: [
+    { date: '2026-10-01', inflow: 0, outflow: 0, everyday: 5, irregularIncome: 0, balance: 995 },
+  ],
   events: [
     { date: '2026-10-05', label: 'Landlord', amount: -500, kind: 'payable', sourceId: 'p1' },
     { date: '2026-10-10', label: 'ACME', amount: 2000, kind: 'income', sourceId: 'income:0' },
@@ -35,11 +38,15 @@ const data: ForecastData = {
   shortfallDate: null,
   safeToSpend: { amount: 480, untilDate: '2026-10-09', nextIncomeDate: '2026-10-10' },
   runwayMonths: null,
+  runwayChange: 1200,
+  runwayDays: 365,
   everydayMonthly: 300,
+  irregularIncomeMonthly: 0,
   monthlyIncome: 2000,
   monthlyExpense: 1700,
   monthsObserved: 3,
   unscheduledCommitted: 0,
+  recurringIncome: [],
 };
 
 const setState = (overrides: Partial<ForecastData> = {}, extra: Record<string, unknown> = {}) => {
@@ -76,6 +83,16 @@ describe('ForecastContent', () => {
     expect(hookMock.toggleExcluded).toHaveBeenCalledWith('p1');
   });
 
+  it('lists an item once while the previous curve is still on screen after unticking it', () => {
+    setState();
+    const { rerender } = render(<ForecastContent />);
+
+    setState({}, { scenario: { incomeFactor: 1, expenseFactor: 1, exclude: ['p1'] } });
+    rerender(<ForecastContent />);
+
+    expect(screen.getAllByRole('checkbox', { name: 'Landlord' })).toHaveLength(1);
+  });
+
   it('shows the runway for a business and names the shortfall day', () => {
     setState({ profile: 'business', runwayMonths: 2.5, shortfallDate: '2026-11-20' });
     render(<ForecastContent />);
@@ -84,6 +101,50 @@ describe('ForecastContent', () => {
     expect(screen.getByText('2.5 months at the current burn')).toBeInTheDocument();
     expect(screen.getByText(/balance goes negative on/)).toBeInTheDocument();
     expect(screen.queryByText('Safe to spend')).not.toBeInTheDocument();
+  });
+
+  it('rounds the runway to one decimal', () => {
+    setState({ profile: 'business', runwayMonths: 18.09 });
+    render(<ForecastContent />);
+
+    expect(screen.getByText('18.1 months at the current burn')).toBeInTheDocument();
+  });
+
+  it('says what the averages hold, income beyond the paydays included', () => {
+    setState({ irregularIncomeMonthly: 450 });
+    render(<ForecastContent />);
+
+    // Income sits on its own line under the spending one, whole sums without ".00".
+    expect(screen.getByText(/everyday spending/)).not.toHaveTextContent(/other income/);
+    expect(screen.getByText(/other income beyond regular paydays/)).toHaveTextContent(
+      /\$450 a month of other income beyond regular paydays/,
+    );
+  });
+
+  it('says overdue bills are counted as paid today', () => {
+    setState({
+      events: [
+        {
+          date: '2026-10-01',
+          label: 'Tax office',
+          amount: -4120,
+          kind: 'payable',
+          sourceId: 'tax',
+          isOverdue: true,
+        },
+      ],
+    });
+    render(<ForecastContent />);
+
+    expect(screen.getByText(/Overdue bills are assumed paid today/)).toBeInTheDocument();
+    expect(screen.getByText('overdue').className).toBe('seneca-forecast-overdue');
+  });
+
+  it('fades an item left out of the scenario rather than hiding it', () => {
+    setState({}, { scenario: { incomeFactor: 1, expenseFactor: 1, exclude: ['p1'] } });
+    render(<ForecastContent />);
+
+    expect(screen.getByText('Landlord').closest('li')).toHaveStyle({ opacity: '0.45' });
   });
 
   it('offers an empty state when there is nothing to project', () => {

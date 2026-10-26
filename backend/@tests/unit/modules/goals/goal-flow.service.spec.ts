@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+import { flowsSql } from '@/common/utils/counted-transactions.util';
 import { NotFoundException } from '@nestjs/common';
 import { BudgetPeriodType } from '@/entities/budget.entity';
 import { GoalFlowService } from '@/modules/goals/goal-flow.service';
@@ -23,28 +25,36 @@ interface Rows {
  */
 function createTransactionRepo(rows: Rows) {
   const calls: string[][] = [];
+  /** Every condition each transaction query was given, one list per query. */
+  const conditions: string[][] = [];
 
-  const createQueryBuilder = jest.fn(() => {
+  const createQueryBuilder = vi.fn(() => {
     const aliases: string[] = [];
+    const clauses: string[] = [];
     calls.push(aliases);
+    conditions.push(clauses);
     const builder: Record<string, unknown> = {
-      select: jest.fn(() => builder),
-      addSelect: jest.fn((_expression: string, alias: string) => {
+      select: vi.fn(() => builder),
+      addSelect: vi.fn((_expression: string, alias: string) => {
         aliases.push(alias);
         return builder;
       }),
-      where: jest.fn(() => builder),
-      andWhere: jest.fn(() => builder),
-      groupBy: jest.fn(() => builder),
-      addGroupBy: jest.fn(() => builder),
-      getRawMany: jest.fn(async () =>
+      where: vi.fn(() => builder),
+      andWhere: vi.fn((clause: string) => {
+        clauses.push(clause);
+        return builder;
+      }),
+      groupBy: vi.fn(() => builder),
+      addGroupBy: vi.fn(() => builder),
+      setParameter: vi.fn(() => builder),
+      getRawMany: vi.fn(async () =>
         aliases.includes('merchant') ? (rows.merchants ?? []) : (rows.categories ?? []),
       ),
     };
     return builder;
   });
 
-  return { repo: { createQueryBuilder } as never, createQueryBuilder };
+  return { repo: { createQueryBuilder } as never, createQueryBuilder, conditions };
 }
 
 function createService(options: {
@@ -56,54 +66,58 @@ function createService(options: {
   workspaceCurrency?: string | null;
   rate?: number;
 }) {
-  const { repo: transactionRepository, createQueryBuilder } = createTransactionRepo(
+  const {
+    repo: transactionRepository,
+    createQueryBuilder,
+    conditions,
+  } = createTransactionRepo(
     options.rows ?? {},
   );
 
   const goalRepository = {
-    findOne: jest.fn(async () => options.goal ?? null),
+    findOne: vi.fn(async () => options.goal ?? null),
   } as never;
 
   const contributionRepository = {
-    createQueryBuilder: jest.fn(() => {
+    createQueryBuilder: vi.fn(() => {
       const builder: Record<string, unknown> = {
-        select: jest.fn(() => builder),
-        where: jest.fn(() => builder),
-        andWhere: jest.fn(() => builder),
-        getRawOne: jest.fn(async () => ({ total: options.contributed ?? '0' })),
+        select: vi.fn(() => builder),
+        where: vi.fn(() => builder),
+        andWhere: vi.fn(() => builder),
+        getRawOne: vi.fn(async () => ({ total: options.contributed ?? '0' })),
       };
       return builder;
     }),
   } as never;
 
   const budgetRepository = {
-    find: jest.fn(async () => options.budgets ?? []),
+    find: vi.fn(async () => options.budgets ?? []),
   } as never;
 
   const dataEntryRepository = {
-    createQueryBuilder: jest.fn(() => {
+    createQueryBuilder: vi.fn(() => {
       const builder: Record<string, unknown> = {
-        select: jest.fn(() => builder),
-        addSelect: jest.fn(() => builder),
-        where: jest.fn(() => builder),
-        andWhere: jest.fn(() => builder),
-        groupBy: jest.fn(() => builder),
-        getRawMany: jest.fn(async () => options.rows?.cash ?? []),
+        select: vi.fn(() => builder),
+        addSelect: vi.fn(() => builder),
+        where: vi.fn(() => builder),
+        andWhere: vi.fn(() => builder),
+        groupBy: vi.fn(() => builder),
+        getRawMany: vi.fn(async () => options.rows?.cash ?? []),
       };
       return builder;
     }),
   } as never;
 
   const workspaceRepository = {
-    findOne: jest.fn(async () => ({ currency: options.workspaceCurrency ?? 'KZT' })),
+    findOne: vi.fn(async () => ({ currency: options.workspaceCurrency ?? 'KZT' })),
   } as never;
 
   const categoriesService = {
-    findAll: jest.fn(async () => options.categories ?? []),
+    findAll: vi.fn(async () => options.categories ?? []),
   } as never;
 
   const exchangeRatesService = {
-    getRate: jest.fn(async () => options.rate ?? 1),
+    getRateOrNull: vi.fn(async () => options.rate ?? 1),
   } as never;
 
   return {
@@ -118,7 +132,8 @@ function createService(options: {
       exchangeRatesService,
     ),
     createQueryBuilder,
-    exchangeRatesService: exchangeRatesService as unknown as { getRate: jest.Mock },
+    conditions,
+    exchangeRatesService: exchangeRatesService as unknown as { getRateOrNull: Mock },
   };
 }
 
@@ -176,6 +191,21 @@ describe('GoalFlowService', () => {
     expect(result.nodes.some(node => node.id === 'category:category-1a')).toBe(true);
   });
 
+  it('counts only the spending the user confirmed', async () => {
+    const { service, conditions } = createService({
+      goal,
+      budgets: [budget()],
+      categories: [{ id: 'category-1', name: 'Home', parentId: null }],
+    });
+
+    await service.getFlow(GOAL_ID, WORKSPACE_ID, undefined, anchor);
+
+    expect(conditions.length).toBeGreaterThan(0);
+    for (const clauses of conditions) {
+      expect(clauses).toContain(flowsSql('t'));
+    }
+  });
+
   it('converts every currency into the workspace currency', async () => {
     const { service, exchangeRatesService } = createService({
       goal,
@@ -192,7 +222,7 @@ describe('GoalFlowService', () => {
     expect(result.actualTotal).toBe(5000);
     expect(result.plannedTotal).toBe(50000);
     // One lookup for the single distinct source currency, not one per row.
-    expect(exchangeRatesService.getRate).toHaveBeenCalledTimes(1);
+    expect(exchangeRatesService.getRateOrNull).toHaveBeenCalledTimes(1);
   });
 
   it('puts a weekly limit on the same monthly axis as a monthly one', async () => {

@@ -28,9 +28,9 @@ export function NotificationsTab({ user }: SettingsTabProps): React.JSX.Element 
     toggleNotificationChannel,
     updateDelivery,
   } = useNotifications(!!user, {
-    loadError: tx(['notificationsCard', 'errors', 'load'], ''),
-    saveError: tx(['notificationsCard', 'errors', 'save'], ''),
-    savedMessage: tx(['notificationsCard', 'messages', 'saved'], ''),
+    loadError: tx(['notificationsCard', 'errors', 'load']),
+    saveError: tx(['notificationsCard', 'errors', 'save']),
+    savedMessage: tx(['notificationsCard', 'messages', 'saved']),
   });
 
   return (
@@ -48,8 +48,8 @@ export function NotificationsTab({ user }: SettingsTabProps): React.JSX.Element 
 
       <SettingsAccordion
         id="push"
-        title={tx(['pushCard', 'title'], 'Push on this device')}
-        description={tx(['pushCard', 'description'], '')}
+        title={tx(['pushCard', 'title'])}
+        description={tx(['pushCard', 'description'])}
         icon={Smartphone}
         defaultExpanded
       >
@@ -64,7 +64,7 @@ export function NotificationsTab({ user }: SettingsTabProps): React.JSX.Element 
           icon={Bot}
           defaultExpanded
         >
-          <TelegramSettingsPanel user={user} />
+          <TelegramSettingsPanel isAdmin={user?.role === 'admin'} />
         </SettingsAccordion>
       ) : null}
     </Stack>

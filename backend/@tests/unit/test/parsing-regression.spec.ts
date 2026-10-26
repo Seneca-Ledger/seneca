@@ -25,26 +25,28 @@ import {
 
 // ── Mock pdfplumber extraction ───────────────────────────────────────────────
 
-jest.mock('@/common/utils/pdf-parser.util', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const mockData = require('../../fixtures/parsing/pdf-mock-data');
+vi.mock('@/common/utils/pdf-parser.util', async () => {
+  const mockData = await import('../../fixtures/parsing/pdf-mock-data');
 
   return {
-    extractTextFromPdf: jest.fn(async (filePath: string) => {
+    extractTextFromPdf: vi.fn(async (filePath: string) => {
       if (filePath.includes('kaspi')) return mockData.KASPI_MOCK_TEXT;
       if (filePath.includes('bereke')) return mockData.BEREKE_MOCK_TEXT;
       return '';
     }),
-    extractTablesFromPdf: jest.fn(async (filePath: string) => {
+    extractTablesFromPdf: vi.fn(async (filePath: string) => {
       if (filePath.includes('kaspi')) {
-        return { rows: mockData.KASPI_MOCK_TABLE_ROWS, structured: [] };
+        return { rowSets: [mockData.KASPI_MOCK_TABLE_ROWS], structured: [] };
       }
       if (filePath.includes('bereke')) {
-        return { rows: mockData.BEREKE_MOCK_TABLE_ROWS, structured: mockData.BEREKE_MOCK_STRUCTURED };
+        return {
+          rowSets: [mockData.BEREKE_MOCK_TABLE_ROWS],
+          structured: mockData.BEREKE_MOCK_STRUCTURED,
+        };
       }
-      return { rows: [], structured: [] };
+      return { rowSets: [], structured: [] };
     }),
-    extractTextAndLayoutFromPdf: jest.fn(async (filePath: string) => {
+    extractTextAndLayoutFromPdf: vi.fn(async (filePath: string) => {
       if (filePath.includes('bereke')) {
         return { text: mockData.BEREKE_MOCK_TEXT, rows: mockData.BEREKE_MOCK_TEXT_ROWS };
       }
@@ -53,9 +55,8 @@ jest.mock('@/common/utils/pdf-parser.util', () => {
   };
 });
 
-// Must import after mock
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { ParserFactoryService } = require('@/modules/parsing/services/parser-factory.service');
+// vi.mock is hoisted above this import, so the service sees the mock.
+import { ParserFactoryService } from '@/modules/parsing/services/parser-factory.service';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,7 +77,6 @@ let xlsxDateTypedFixture: ReturnType<typeof buildXlsxWithDateTypedCells>;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'parsing-regression-'));
   factory = new ParserFactoryService();
-  process.env.AI_PARSING_ENABLED = '0';
 
   csvFixture = buildGenericCsv(tmpDir);
   cyrillicCsvFixture = buildCyrillicCsv(tmpDir);

@@ -241,11 +241,12 @@ describe('filing info', () => {
     });
   });
 
-  it('has verified entries only, for 2025 only', () => {
+  it('has verified entries only: published dates, or the statutory rule for later years', () => {
     expect(filingInfoFor('SI', 2025, 'self_employed', {})?.authorityPreparation).toBe('becomes_final');
     expect(filingInfoFor('CZ', 2025, 'self_employed', {})?.deadlines).toHaveLength(3);
     expect(filingInfoFor('BE', 2025, 'self_employed', {})).toBeNull();
-    expect(filingInfoFor('AT', 2026, 'self_employed', {})).toBeNull();
+    expect(filingInfoFor('AT', 2027, 'self_employed', {})?.basis).toBe('statute');
+    expect(filingInfoFor('ES', 2027, 'self_employed', {})).toBeNull();
   });
 
   it('switches the Italian return and its dates for employees', () => {

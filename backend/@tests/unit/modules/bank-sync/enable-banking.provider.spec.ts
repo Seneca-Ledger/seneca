@@ -4,17 +4,23 @@ import {
   BankSyncAuthError,
   BankSyncTemporaryError,
 } from '../../../../src/modules/bank-sync/bank-sync-provider.interface';
+import { EffectRuntime } from '../../../../src/common/effect/effect-runtime';
+import { EnableBankingProvider } from '../../../../src/modules/bank-sync/enable-banking.provider';
 import {
-  EnableBankingProvider,
   normalizeTransaction,
   signJwt,
-} from '../../../../src/modules/bank-sync/enable-banking.provider';
+} from '../../../../src/modules/bank-sync/enable-banking.mapping';
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const secrets = {
   applicationId: 'app-1',
   privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
 };
+const effects = new EffectRuntime();
+afterAll(() => effects.onModuleDestroy());
+const providerWith = (fetchUrl: (url: string, init?: RequestInit) => Promise<Response>) =>
+  new EnableBankingProvider(fetchUrl, effects);
+
 const context = { secrets, links: [{ id: 'sess-1', institution: 'Nordea', country: 'FI' }] };
 
 const json = (body: unknown, status = 200) =>
@@ -26,7 +32,7 @@ function stubFetch(routes: Record<string, unknown | unknown[]>) {
   const queues = new Map<string, unknown[]>(
     Object.entries(routes).map(([key, value]) => [key, Array.isArray(value) ? [...value] : [value]]),
   );
-  const fetchUrl = jest.fn(async (url: string, init: RequestInit = {}) => {
+  const fetchUrl = vi.fn(async (url: string, init: RequestInit = {}) => {
     calls.push({ url, init });
     const path = url.replace('https://api.enablebanking.com', '');
     for (const [prefix, queue] of queues) {
@@ -82,7 +88,7 @@ describe('EnableBankingProvider linking', () => {
         ],
       },
     });
-    const banks = await new EnableBankingProvider(fetchUrl).listInstitutions(secrets, 'fi');
+    const banks = await providerWith(fetchUrl).listInstitutions(secrets, 'fi');
     expect(calls[0].url).toBe('https://api.enablebanking.com/aspsps?country=FI');
     expect(banks).toEqual([
       { name: 'Nordea', country: 'FI', maxConsentValiditySeconds: 7_776_000, beta: false },
@@ -92,7 +98,7 @@ describe('EnableBankingProvider linking', () => {
 
   it('asks for the longest consent the bank allows, capped at ninety days', async () => {
     const { fetchUrl, calls } = stubFetch({ '/auth': { url: 'https://bank.example/consent' } });
-    const provider = new EnableBankingProvider(fetchUrl);
+    const provider = providerWith(fetchUrl);
 
     await provider.beginLink(secrets, {
       institution: 'Nordea',
@@ -128,7 +134,7 @@ describe('EnableBankingProvider linking', () => {
         access: { valid_until: '2026-12-01T00:00:00.000Z' },
       },
     });
-    const link = await new EnableBankingProvider(fetchUrl).completeLink(secrets, 'code-1');
+    const link = await providerWith(fetchUrl).completeLink(secrets, 'code-1');
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ code: 'code-1' });
     expect(link).toEqual({
       id: 'sess-9',
@@ -140,17 +146,17 @@ describe('EnableBankingProvider linking', () => {
 
   it('reports a refused credential as an auth error and a rate limit as temporary', async () => {
     await expect(
-      new EnableBankingProvider(async () => new Response('', { status: 401 })).verifyCredentials(
+      providerWith(async () => new Response('', { status: 401 })).verifyCredentials(
         secrets,
       ),
     ).rejects.toBeInstanceOf(BankSyncAuthError);
     await expect(
-      new EnableBankingProvider(async () => new Response('', { status: 429 })).verifyCredentials(
+      providerWith(async () => new Response('', { status: 429 })).verifyCredentials(
         secrets,
       ),
     ).rejects.toBeInstanceOf(BankSyncTemporaryError);
     await expect(
-      new EnableBankingProvider(async () => json({ message: 'nope' }, 400)).verifyCredentials(
+      providerWith(async () => json({ message: 'nope' }, 400)).verifyCredentials(
         secrets,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -179,8 +185,8 @@ describe('EnableBankingProvider pulling', () => {
         ],
       },
     });
-    const accounts = await new EnableBankingProvider(fetchUrl).fetchAccounts(
-      { ...context, psu: { ipAddress: '203.0.113.7', userAgent: 'Lumio/1.0' } },
+    const accounts = await providerWith(fetchUrl).fetchAccounts(
+      { ...context, psu: { ipAddress: '203.0.113.7', userAgent: 'Seneca/1.0' } },
       { balancesOnly: true },
     );
     expect(accounts[0]).toMatchObject({
@@ -196,13 +202,13 @@ describe('EnableBankingProvider pulling', () => {
     expect(accounts[0].consentExpiresAt?.toISOString()).toBe('2026-12-01T00:00:00.000Z');
     const headers = calls.at(-1)?.init.headers as Record<string, string>;
     expect(headers['psu-ip-address']).toBe('203.0.113.7');
-    expect(headers['psu-user-agent']).toBe('Lumio/1.0');
+    expect(headers['psu-user-agent']).toBe('Seneca/1.0');
   });
 
   it('omits the PSU headers entirely when only one of them is known', async () => {
     // The API refuses a request that carries some but not all of them.
     const { fetchUrl, calls } = stubFetch({ '/sessions/': session, '/accounts/': { balances: [] } });
-    await new EnableBankingProvider(fetchUrl).fetchAccounts(
+    await providerWith(fetchUrl).fetchAccounts(
       { ...context, psu: { ipAddress: '203.0.113.7' } },
       { balancesOnly: true },
     );
@@ -245,7 +251,7 @@ describe('EnableBankingProvider pulling', () => {
       ],
     });
 
-    const accounts = await new EnableBankingProvider(fetchUrl).fetchAccounts(context, {
+    const accounts = await providerWith(fetchUrl).fetchAccounts(context, {
       since: new Date('2026-09-01T00:00:00Z'),
     });
 

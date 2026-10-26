@@ -1,6 +1,6 @@
 @use '../abstracts' as *;
 
-.lumio-mobile-drawer__backdrop {
+.seneca-mobile-drawer__backdrop {
   display: none;
 
   @media (max-width: 1023px) {
@@ -20,7 +20,7 @@
   }
 }
 
-.lumio-mobile-drawer {
+.seneca-mobile-drawer {
   display: none;
 
   @media (max-width: 1023px) {
@@ -32,14 +32,14 @@
     bottom: 0;
     width: 80vw;
     max-width: 320px;
-    background: $lumio-color-surface;
+    background: $seneca-color-surface;
     z-index: 50;
     transform: translateX(100%);
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: $lumio-shadow-lg;
+    box-shadow: $seneca-shadow-lg;
 
     @include dark {
-      background: $lumio-color-surface-dk;
+      background: $seneca-color-surface-dk;
     }
 
     &--open {
@@ -57,21 +57,21 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px;
-    border-bottom: 1px solid $lumio-color-border;
+    border-bottom: 1px solid $seneca-color-border;
     flex-shrink: 0;
 
     @include dark {
-      border-bottom-color: $lumio-color-border-dk;
+      border-bottom-color: $seneca-color-border-dk;
     }
   }
 
   &__title {
     font-size: 16px;
     font-weight: 700;
-    color: $lumio-color-text-primary;
+    color: $seneca-color-text-primary;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
   }
 
@@ -81,14 +81,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     border: none;
     background: transparent;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
     cursor: pointer;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -101,13 +101,13 @@
   &__section-label {
     font-size: 10.5px;
     font-weight: 600;
-    color: $lumio-color-ink-400;
+    color: $seneca-color-ink-400;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding: 8px 8px 4px;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
@@ -117,30 +117,30 @@
     gap: 10px;
     width: 100%;
     padding: 10px 8px;
-    border-radius: $lumio-radius-sm;
+    border-radius: $seneca-radius-sm;
     background: transparent;
     border: none;
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
-    color: $lumio-color-text-secondary;
+    color: $seneca-color-text-secondary;
     text-decoration: none;
     text-align: left;
     font-family: inherit;
     transition: background 0.1s, color 0.1s;
 
     @include dark {
-      color: $lumio-color-text-secondary-dk;
+      color: $seneca-color-text-secondary-dk;
     }
 
     &:hover,
     &:active {
-      background: $lumio-color-ink-50;
-      color: $lumio-color-text-primary;
+      background: $seneca-color-ink-50;
+      color: $seneca-color-text-primary;
 
       @include dark {
-        background: $lumio-color-ink-100-dk;
-        color: $lumio-color-text-primary-dk;
+        background: $seneca-color-ink-100-dk;
+        color: $seneca-color-text-primary-dk;
       }
     }
 
@@ -150,8 +150,8 @@
       font-weight: 600;
 
       @include dark {
-        background: $lumio-color-primary-100-dk;
-        color: $lumio-color-primary-dk;
+        background: $seneca-color-primary-100-dk;
+        color: $seneca-color-primary-dk;
       }
     }
 
@@ -166,10 +166,10 @@
   &__footer {
     flex-shrink: 0;
     padding: 8px;
-    border-top: 1px solid $lumio-color-border;
+    border-top: 1px solid $seneca-color-border;
 
     @include dark {
-      border-top-color: $lumio-color-border-dk;
+      border-top-color: $seneca-color-border-dk;
     }
   }
 }

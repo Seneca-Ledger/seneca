@@ -1,42 +1,30 @@
-import axios, { type AxiosResponse } from 'axios';
+import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import toast from 'react-hot-toast';
+import type {
+  PlaceSuggestions as ContractPlaceSuggestions,
+  ReceiptLocationSource as ContractReceiptLocationSource,
+  ReceiptPlace as ContractReceiptPlace,
+  ReceiptRecord as ContractReceiptRecord,
+  ReceiptSplitSuggestion as ContractReceiptSplitSuggestion,
+  ReceiptTransactionMatch as ContractReceiptTransactionMatch,
+  ReceiptApproval,
+  ReceiptListPage,
+  ReceiptRecordUpdate,
+  ReceiptSplitResult,
+  ReceiptTransactionMatches,
+  ReceiptUploadResult,
+} from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { getApiErrorMessage, isVersionReadOnlyError } from './api-error';
 import { CSRF_HEADER, clearCsrfCookie, getCsrfHeaders, getCsrfToken } from './csrf';
+import { isPublicPath } from './public-paths';
 import { getQueryClient } from './query-client';
-
-type GmailReceiptParsedDataUpdate = {
-  amount?: number;
-  currency?: string;
-  vendor?: string;
-  date?: string;
-  tax?: number;
-  paymentMethod?: string;
-  category?: string | null;
-  categoryId?: string | null;
-  lineItems?: Array<{ description: string; amount: number }>;
-  transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
-  confidence?: number;
-  validationIssues?: string[];
-};
-
-type ApproveReceiptPayload = {
-  description?: string;
-  categoryId?: string;
-  category?: string;
-  amount?: number;
-  currency?: string;
-  vendor?: string | null;
-  date?: string | null;
-  tax?: number;
-  paymentMethod?: string;
-  lineItems?: Array<{ description: string; amount: number }>;
-};
-
-type UpdateReceiptPayload = Partial<ReceiptRecord>;
 
 export const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api/v1' : '/api/v1');
 
-const apiClient = axios.create({
+const rawClient = axios.create({
   baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
@@ -44,10 +32,30 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
+/** An answer whose shape no contract has vouched for yet. */
+export type UncheckedResponse = AxiosResponse<unknown>;
+
+/**
+ * The API client as the app sees it. Every answer is `unknown` until a
+ * contract says what it is (`checkContract`, `apiQueryDecoded`): a type
+ * argument on `get<T>()` would only assert a shape nobody checked, so the
+ * methods take none.
+ */
+export interface ApiClient {
+  get(url: string, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  delete(url: string, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  post(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  put(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  patch(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<UncheckedResponse>;
+  defaults: AxiosInstance['defaults'];
+}
+
+const apiClient: ApiClient = rawClient;
+
 // Request interceptor for workspace context and CSRF.
 // Authentication itself rides on httpOnly cookies (withCredentials above), so
 // no token is read here — there is nothing in JS reach for an XSS to steal.
-apiClient.interceptors.request.use(
+rawClient.interceptors.request.use(
   config => {
     const csrfToken = getCsrfToken();
     if (csrfToken) {
@@ -91,7 +99,7 @@ async function requestNewAccessToken(): Promise<void> {
  * presents the cookie the first has just received. Where the API is missing,
  * the in-tab single flight below still holds.
  */
-const REFRESH_LOCK_NAME = 'lumio-auth-refresh';
+const REFRESH_LOCK_NAME = 'seneca-auth-refresh';
 
 function refreshAcrossTabs(): Promise<void> {
   const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
@@ -133,7 +141,7 @@ async function refreshAccessToken(originalRequest: Record<string, unknown>): Pro
   if (csrfToken) {
     (originalRequest.headers as Record<string, string>)[CSRF_HEADER] = csrfToken;
   }
-  return apiClient(originalRequest);
+  return rawClient(originalRequest);
 }
 
 const AUTH_RETRY_EXCLUDED_PATHS = new Set(['/auth/login', '/auth/register', '/auth/refresh']);
@@ -171,12 +179,22 @@ function isUnauthorizedRetryable(
   );
 }
 
+/** One id, so repeated refusals replace the note instead of stacking copies. */
+export const VERSION_READ_ONLY_TOAST_ID = 'version-read-only';
+
 // Response interceptor for handling errors
-apiClient.interceptors.response.use(
+rawClient.interceptors.response.use(
   response => response,
   async (error: unknown) => {
     const err = error as Record<string, unknown>;
     const originalRequest = err.config as Record<string, unknown>;
+
+    // Inside a past version every write is refused. One quiet note, not a
+    // lost-access reset: the version is still the workspace being looked at.
+    if (isVersionReadOnlyError(error)) {
+      toast(getApiErrorMessage(error), { id: VERSION_READ_ONLY_TOAST_ID });
+      return Promise.reject(error);
+    }
 
     if (isForbiddenWorkspaceError(err)) {
       return handleForbiddenError(error);
@@ -195,7 +213,9 @@ apiClient.interceptors.response.use(
         // Редирект не мгновенный: запросы в полёте успели бы отрезолвиться
         // в кэш уже разлогиненного пользователя.
         getQueryClient().clear();
-        if (window.location.pathname !== '/login') {
+        // Signed-out visitors on register, password reset or an invite get a
+        // 401 from any stray query; sending them to /login would break the page.
+        if (!isPublicPath(window.location.pathname)) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
@@ -206,37 +226,8 @@ apiClient.interceptors.response.use(
   },
 );
 
-// Gmail Receipts API
-export const gmailReceiptsApi = {
-  getReceipt: (id: string): Promise<AxiosResponse> =>
-    apiClient.get(`/integrations/gmail/receipts/${id}`),
-
-  updateReceiptParsedData: (
-    id: string,
-    data: GmailReceiptParsedDataUpdate,
-  ): Promise<AxiosResponse> =>
-    apiClient.patch(`/integrations/gmail/receipts/${id}/parsed-data`, data),
-
-  markDuplicate: (id: string, originalId: string): Promise<AxiosResponse> =>
-    apiClient.post(`/integrations/gmail/receipts/${id}/mark-duplicate`, {
-      originalReceiptId: originalId,
-    }),
-
-  unmarkDuplicate: (id: string): Promise<AxiosResponse> =>
-    apiClient.post(`/integrations/gmail/receipts/${id}/unmark-duplicate`),
-
-  bulkApproveReceipts: (receiptIds: string[], categoryId?: string): Promise<AxiosResponse> =>
-    apiClient.post('/integrations/gmail/receipts/bulk-approve', { receiptIds, categoryId }),
-
-  exportReceiptsToXlsx: (receiptIds: string[]): Promise<AxiosResponse> =>
-    apiClient.post('/integrations/gmail/receipts/export-xlsx', { receiptIds }),
-
-  exportReceiptToDraft: (receiptId: string): Promise<AxiosResponse> =>
-    apiClient.post(`/integrations/gmail/receipts/${receiptId}/export-draft`),
-
-  getReceiptPreview: (id: string): Promise<AxiosResponse> =>
-    apiClient.get(`/integrations/gmail/receipts/${id}/preview`),
-
+// Receipt documents API: receipts of every source as the statements list shows them.
+export const receiptDocumentsApi = {
   listReceipts: (params?: {
     status?: string;
     limit?: number;
@@ -245,173 +236,130 @@ export const gmailReceiptsApi = {
     includeLinkedScans?: boolean;
     hasAmount?: boolean;
     categoryId?: string;
-  }): Promise<AxiosResponse> => apiClient.get('/integrations/gmail/receipts', { params }),
-
-  approveReceipt: (id: string, data: ApproveReceiptPayload): Promise<AxiosResponse> =>
-    apiClient.post(`/integrations/gmail/receipts/${id}/approve`, data),
-
-  updateReceipt: (id: string, data: UpdateReceiptPayload): Promise<AxiosResponse> =>
-    apiClient.patch(`/integrations/gmail/receipts/${id}`, data),
-
-  getStatus: (): Promise<AxiosResponse> => apiClient.get('/integrations/gmail/status'),
+  }): Promise<AxiosResponse> => apiClient.get('/receipts/documents', { params }),
 };
 
-export type ReceiptLocationSource = 'merchant_address' | 'exif' | 'device' | 'manual' | 'fiscal_qr';
+export type ReceiptLocationSource = ContractReceiptLocationSource;
 
-export interface ReceiptTransactionMatch {
-  transactionIds: string[];
-  kind: 'single' | 'multi';
-  score: number;
-  computedAt: string;
-}
+/** An OpenStreetMap place the user picked for a receipt. */
+export type ReceiptPlace = ContractReceiptPlace;
 
-export interface ReceiptMatchCandidate {
-  id: string;
-  transactionDate: string;
-  counterpartyName: string;
-  amount: number;
-  currency: string;
-  score: number;
-  daysApart: number;
-}
+export type PlaceSuggestions = ContractPlaceSuggestions;
 
-export interface ReceiptSplitSuggestion {
-  transactionId: string;
-  total: number;
-  currency: string;
-  parts: Array<{
-    categoryId: string | null;
-    categoryName: string | null;
-    amount: number;
-    items: string[];
-  }>;
-  splittable: boolean;
-}
+export type PlaceCandidate = Extract<PlaceSuggestions, { needed: true }>['candidates'][number];
 
-export interface ReceiptRecord {
-  id: string;
-  statementId?: string | null;
-  transactionId?: string | null;
-  subject: string;
-  sender: string;
-  source: string;
-  status: string;
-  receivedAt: string;
-  language?: string | null;
-  metadata?: {
-    attachments?: Array<{
-      id?: string;
-      filename?: string;
-      mimeType?: string;
-      size?: number;
-    }>;
-    transactionMatch?: ReceiptTransactionMatch | null;
-  };
-  parsedData?: {
-    amount?: number;
-    currency?: string;
-    vendor?: string;
-    merchantAddress?: string;
-    date?: string;
-    tax?: number;
-    paymentMethod?: string;
-    category?: string;
-    categoryId?: string;
-    lineItems?: Array<{ description: string; amount: number }>;
-    transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
-    confidence?: number;
-    validationIssues?: string[];
-  };
-  locationLat?: number | null;
-  locationLng?: number | null;
-  locationSource?: ReceiptLocationSource | null;
-  locationAccuracyM?: number | null;
-  locationUpdatedAt?: string | null;
-}
+export type ReceiptTransactionMatch = ContractReceiptTransactionMatch;
 
-export interface ReceiptListFilters {
-  page?: number;
-  limit?: number;
-  status?: string;
-  source?: string;
-}
+export type ReceiptMatchCandidate = ReceiptTransactionMatches['data'][number];
 
-export interface ReceiptListResponse {
-  data: ReceiptRecord[];
-  total: number;
-  page: number;
-  limit: number;
-}
+export type ReceiptSplitSuggestion = ContractReceiptSplitSuggestion;
+
+/** A receipt as `GET /receipts/:id` sends it. */
+export type ReceiptRecord = ContractReceiptRecord;
+
+/** What a receipt keeps of a structured e-invoice's XML (XRechnung, ZUGFeRD / Factur-X). */
+export type { EInvoiceSummary } from '@/app/lib/contracts';
+
+export type ReceiptListFilters = ContractInput<'ReceiptsQuery'>;
+
+export type ReceiptListResponse = ReceiptListPage;
 
 export const receiptsApi = {
   listReceipts: async (params?: ReceiptListFilters): Promise<ReceiptListResponse> => {
     const response = await apiClient.get('/receipts', { params });
-    return response.data as ReceiptListResponse;
+    // The page has a `data` key: checked raw, not through apiQueryDecoded's unwrap.
+    return checkContract('ReceiptListPage', response.data, '/receipts');
   },
 
   getReceipt: async (id: string): Promise<ReceiptRecord> => {
-    const response = await apiClient.get(`/receipts/${id}`);
-    return response.data as ReceiptRecord;
+    return apiQueryDecoded({ url: `/receipts/${id}`, contract: 'ReceiptRecord' });
   },
 
-  updateReceipt: async (id: string, data: Partial<ReceiptRecord>): Promise<ReceiptRecord> => {
+  updateReceipt: async (
+    id: string,
+    data: ContractInput<'UpdateReceiptBody'>,
+  ): Promise<ReceiptRecordUpdate> => {
     const response = await apiClient.patch(`/receipts/${id}`, data);
-    return response.data as ReceiptRecord;
+    return checkContract('ReceiptRecordUpdate', response.data, '/receipts/:id');
   },
 
   updateReceiptLocation: async (
     id: string,
-    point: { latitude: number; longitude: number },
-  ): Promise<ReceiptRecord> => {
-    const response = await apiClient.patch(`/receipts/${id}/location`, point);
-    return (response.data?.data ?? response.data) as ReceiptRecord;
+    point: { latitude: number; longitude: number; place?: ReceiptPlace },
+  ): Promise<ReceiptRecordUpdate> => {
+    const response = await apiClient.patch(
+      `/receipts/${id}/location`,
+      point satisfies ContractInput<'UpdateReceiptLocationBody'>,
+    );
+    return checkContract('ReceiptRecordUpdate', response.data, '/receipts/:id/location');
   },
 
-  resetReceiptLocation: async (id: string): Promise<ReceiptRecord> => {
+  /** Shops near a fix taken after a scan that had none; the body keeps the position out of URLs. */
+  getPlaceSuggestions: async (fix: {
+    statementId: string;
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  }): Promise<PlaceSuggestions> => {
+    const response = await apiClient.post(
+      '/receipts/place-suggestions',
+      fix satisfies ContractInput<'PlaceSuggestionsBody'>,
+    );
+    return checkContract('PlaceSuggestions', response.data, '/receipts/place-suggestions');
+  },
+
+  resetReceiptLocation: async (id: string): Promise<ReceiptRecordUpdate> => {
     const response = await apiClient.delete(`/receipts/${id}/location`);
-    return (response.data?.data ?? response.data) as ReceiptRecord;
+    return checkContract('ReceiptRecordUpdate', response.data, '/receipts/:id/location');
   },
 
   approveReceipt: async (
     id: string,
     options: { transactionId?: string | null } = {},
-  ): Promise<{ receipt: ReceiptRecord; transaction: { id: string }; attached: boolean }> => {
-    const response = await apiClient.post(`/receipts/${id}/approve`, options);
-    return response.data as {
-      receipt: ReceiptRecord;
-      transaction: { id: string };
-      attached: boolean;
-    };
+  ): Promise<ReceiptApproval> => {
+    const response = await apiClient.post(
+      `/receipts/${id}/approve`,
+      options satisfies ContractInput<'ApproveReceiptBody'>,
+    );
+    return checkContract('ReceiptApproval', response.data, '/receipts/:id/approve');
   },
 
   transactionMatches: async (
     id: string,
   ): Promise<{ suggestion: ReceiptTransactionMatch | null; data: ReceiptMatchCandidate[] }> => {
     const response = await apiClient.get(`/receipts/${id}/transaction-matches`);
-    return response.data as {
-      suggestion: ReceiptTransactionMatch | null;
-      data: ReceiptMatchCandidate[];
-    };
+    return checkContract(
+      'ReceiptTransactionMatches',
+      response.data,
+      '/receipts/:id/transaction-matches',
+    );
   },
 
   splitSuggestion: async (id: string): Promise<ReceiptSplitSuggestion> => {
-    const response = await apiClient.get(`/receipts/${id}/split-suggestion`);
-    return response.data as ReceiptSplitSuggestion;
+    return apiQueryDecoded({
+      url: `/receipts/${id}/split-suggestion`,
+      contract: 'ReceiptSplitSuggestion',
+    });
   },
 
-  splitByLineItems: async (id: string): Promise<{ suggestion: ReceiptSplitSuggestion }> => {
-    const response = await apiClient.post(`/receipts/${id}/split`);
-    return response.data as { suggestion: ReceiptSplitSuggestion };
+  /** `items`: the preview as the user corrected it; the receipt's lines with their categories. */
+  splitByLineItems: async (
+    id: string,
+    items?: ReceiptSplitSuggestion['items'],
+  ): Promise<ReceiptSplitResult> => {
+    const body = (items ? { items } : {}) satisfies ContractInput<'ApplyReceiptSplitBody'>;
+    const response = await apiClient.post(`/receipts/${id}/split`, body);
+    return checkContract('ReceiptSplitResult', response.data, '/receipts/:id/split');
   },
 
-  uploadReceipts: async (formData: FormData): Promise<{ receipts: ReceiptRecord[] }> => {
+  uploadReceipts: async (formData: FormData): Promise<ReceiptUploadResult> => {
     const response = await apiClient.post('/receipts/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data as { receipts: ReceiptRecord[] };
+    return checkContract('ReceiptUploadResult', response.data, '/receipts/upload');
   },
 
-  scanReceipt: async (file: File, language?: string): Promise<ReceiptRecord> => {
+  scanReceipt: async (file: File, language?: string): Promise<ReceiptRecordUpdate> => {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -422,7 +370,7 @@ export const receiptsApi = {
     const response = await apiClient.post('/receipts/scan', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data as ReceiptRecord;
+    return checkContract('ReceiptRecordUpdate', response.data, '/receipts/scan');
   },
 };
 

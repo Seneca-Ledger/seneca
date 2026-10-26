@@ -4,45 +4,63 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Branch } from '../../../../../src/entities/branch.entity';
 import { CategorizationRule } from '../../../../../src/entities/categorization-rule.entity';
 import { Category } from '../../../../../src/entities/category.entity';
-import { CategoryLearning } from '../../../../../src/entities/category-learning.entity';
+import { Payee } from '../../../../../src/entities/payee.entity';
+import { PayeeAlias } from '../../../../../src/entities/payee-alias.entity';
 import {
-  type Transaction,
+  Transaction,
   TransactionCategorySource,
   TransactionType,
 } from '../../../../../src/entities/transaction.entity';
 import { Wallet } from '../../../../../src/entities/wallet.entity';
 import { Workspace } from '../../../../../src/entities/workspace.entity';
-import { ApplicationSettingsService } from '../../../../../src/modules/application-settings/application-settings.service';
 import { AuditService } from '../../../../../src/modules/audit/audit.service';
-import { CategoriesService } from '../../../../../src/modules/categories/categories.service';
 import { ClassificationService } from '../../../../../src/modules/classification/services/classification.service';
 
 /**
- * Where a category came from, and the switches that decide which steps may run:
- * the behaviour Monarch and YNAB users complained about in 2026 — a model that
- * overrides rules, learning that flips on one correction, no way to turn it off.
+ * Where a category came from, and the switches that decide which steps may run.
  */
 describe('ClassificationService provenance and switches', () => {
   let service: ClassificationService;
   let module: TestingModule;
 
-  const learningRepository = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn((payload: Partial<CategoryLearning>) => payload as CategoryLearning),
-    save: jest.fn(async (payload: unknown) => payload),
+  const payeeHistory = {
+    rows: [] as Array<{ categoryId: string }>,
+    seen: [] as string[],
   };
-  const workspaceRepository = { findOne: jest.fn() };
-  const ruleRepository = { find: jest.fn(async () => []) };
+  const transactionRepository = {
+    createQueryBuilder: vi.fn(() => {
+      const builder = {
+        select: () => builder,
+        where: (condition: string) => {
+          payeeHistory.seen.push(condition);
+          return builder;
+        },
+        andWhere: (condition: string) => {
+          payeeHistory.seen.push(condition);
+          return builder;
+        },
+        orderBy: () => builder,
+        addOrderBy: () => builder,
+        take: () => builder,
+        getMany: async () => payeeHistory.rows,
+      };
+      return builder;
+    }),
+  };
+  // Every descriptor in these tests is the one payee, "Magnum".
+  const aliasRepository = { findOne: vi.fn(async () => ({ payeeId: 'payee-1' })) };
+  const payeeRepository = {
+    findOne: vi.fn(async () => ({ id: 'payee-1', name: 'Magnum', mode: 'auto', categoryId: null })),
+  };
+  const workspaceRepository = { findOne: vi.fn() };
+  const ruleRepository = { find: vi.fn(async () => []), update: vi.fn() };
   const categoryRepository = {
-    find: jest.fn(async () => []),
-    findOne: jest.fn(async () => null),
-    create: jest.fn(),
-    save: jest.fn(),
+    find: vi.fn(async () => []),
+    findOne: vi.fn(async () => null),
+    create: vi.fn(),
+    save: vi.fn(),
   };
-  const cache = { get: jest.fn(async () => undefined), set: jest.fn(), del: jest.fn() };
-  const applicationSettings = { getAiSettingsForWorkspaceId: jest.fn(async () => null) };
-  const categoriesService = { findAll: jest.fn(async () => []) };
+  const cache = { get: vi.fn(async () => undefined), set: vi.fn(), del: vi.fn() };
 
   const tx = (overrides: Partial<Transaction> = {}): Transaction =>
     ({
@@ -66,18 +84,23 @@ describe('ClassificationService provenance and switches', () => {
       providers: [
         ClassificationService,
         { provide: getRepositoryToken(Category), useValue: categoryRepository },
-        { provide: getRepositoryToken(CategoryLearning), useValue: learningRepository },
-        { provide: getRepositoryToken(Branch), useValue: { find: jest.fn(async () => []) } },
+        { provide: getRepositoryToken(Transaction), useValue: transactionRepository },
+        { provide: getRepositoryToken(Payee), useValue: payeeRepository },
+        { provide: getRepositoryToken(PayeeAlias), useValue: aliasRepository },
+        { provide: getRepositoryToken(Branch), useValue: { find: vi.fn(async () => []) } },
         {
           provide: getRepositoryToken(Wallet),
-          useValue: { find: jest.fn(async () => []), findOne: jest.fn(async () => null) },
+          useValue: {
+            find: vi.fn(async () => []),
+            findOne: vi.fn(async () => null),
+            // A matched rule's targets are checked through it; here they are the workspace's.
+            manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
+          },
         },
         { provide: getRepositoryToken(CategorizationRule), useValue: ruleRepository },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepository },
         { provide: CACHE_MANAGER, useValue: cache },
-        { provide: AuditService, useValue: { createEvent: jest.fn() } },
-        { provide: CategoriesService, useValue: categoriesService },
-        { provide: ApplicationSettingsService, useValue: applicationSettings },
+        { provide: AuditService, useValue: { createEvent: vi.fn() } },
       ],
     }).compile();
     service = module.get(ClassificationService);
@@ -88,18 +111,17 @@ describe('ClassificationService provenance and switches', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     cache.get.mockResolvedValue(undefined);
-    categoriesService.findAll.mockResolvedValue([]);
     ruleRepository.find.mockResolvedValue([]);
-    learningRepository.find.mockResolvedValue([]);
-    learningRepository.findOne.mockResolvedValue(null);
+    payeeHistory.rows = [];
+    payeeHistory.seen = [];
     settings({});
   });
 
   describe('category source', () => {
     it('names the rule that matched', async () => {
-      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([
         {
           id: 'rule-1',
           name: 'Magnum is groceries',
@@ -119,10 +141,9 @@ describe('ClassificationService provenance and switches', () => {
       });
     });
 
-    it('marks the uncategorised fallback as default so the model may still step in', async () => {
-      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
-      jest.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
-      jest.spyOn<any, any>(service as any, 'findCategoryByHistory').mockResolvedValue(null);
+    it('marks the uncategorised fallback as default', async () => {
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      vi.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
 
       const result = await service.classifyTransaction(tx({ counterpartyName: 'Zzz' }), 'u1');
 
@@ -130,148 +151,31 @@ describe('ClassificationService provenance and switches', () => {
       expect(result.categoryReason).toBeNull();
     });
 
-    it('reports the learned payee and whether the user or the model taught it', async () => {
-      jest.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
-      learningRepository.find.mockResolvedValue([
-        {
-          categoryId: 'cat-ai',
-          paymentPurpose: 'Groceries',
-          counterpartyName: 'Magnum',
-          learnedFrom: 'ai_classification',
-          confidence: 1,
-        },
-        {
-          categoryId: 'cat-user',
-          paymentPurpose: 'Groceries',
-          counterpartyName: 'Magnum',
-          learnedFrom: 'manual_correction',
-          confidence: 0.8,
-        },
-      ]);
+    it('names the payee whose history decided it', async () => {
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      payeeHistory.rows = [{ categoryId: 'cat-groceries' }];
 
-      const result = await (service as any).autoClassifyCategory(
-        tx(),
-        'u1',
-        TransactionType.EXPENSE,
-        'ws-1',
-      );
+      const result = await service.classifyTransaction(tx(), 'u1');
 
-      // The user's pattern wins over the model's despite the lower confidence.
-      expect(result).toEqual({
-        categoryId: 'cat-user',
-        source: TransactionCategorySource.LEARNED,
-        reason: 'Magnum',
+      expect(result).toMatchObject({
+        categoryId: 'cat-groceries',
+        categorySource: TransactionCategorySource.HISTORY,
+        categoryReason: 'Magnum',
       });
     });
   });
 
   describe('switches', () => {
-    it('skips the model entirely when AI categorisation is off', async () => {
-      settings({ aiCategorization: false });
-
-      const result = await service.classifyTransactionsBatch(
-        [
-          {
-            index: 0,
-            counterpartyName: 'Magnum',
-            paymentPurpose: 'Groceries',
-            transactionType: TransactionType.EXPENSE,
-          },
-        ],
-        'ws-1',
-        'u1',
-      );
-
-      expect(result.size).toBe(0);
-      expect(applicationSettings.getAiSettingsForWorkspaceId).not.toHaveBeenCalled();
-    });
-
-    it('ignores what the model taught when AI categorisation is off', async () => {
-      settings({ aiCategorization: false });
-      learningRepository.find.mockResolvedValue([
-        {
-          categoryId: 'cat-ai',
-          paymentPurpose: 'Groceries',
-          counterpartyName: 'Magnum',
-          learnedFrom: 'ai_classification',
-          confidence: 1,
-        },
-      ]);
-
-      const result = await (service as any).matchByLearnedPatterns(
-        tx(),
-        'u1',
-        TransactionType.EXPENSE,
-        'ws-1',
-      );
-
-      expect(result).toBeUndefined();
-    });
-
-    it('neither reads nor writes learned patterns when learning is off', async () => {
+    it('does not read the payee history when learning is off', async () => {
       settings({ merchantLearning: false });
+      payeeHistory.rows = [{ categoryId: 'cat-groceries' }];
+      vi.spyOn<any, any>(service as any, 'getClassificationRules').mockResolvedValue([]);
+      vi.spyOn(service, 'ensureCategory').mockResolvedValue('cat-none');
 
-      await service.learnFromCorrection(tx(), 'cat-new', 'u1');
-      const match = await (service as any).matchByLearnedPatterns(
-        tx(),
-        'u1',
-        TransactionType.EXPENSE,
-        'ws-1',
-      );
+      const result = await service.classifyTransaction(tx(), 'u1');
 
-      expect(learningRepository.save).not.toHaveBeenCalled();
-      expect(learningRepository.find).not.toHaveBeenCalled();
-      expect(match).toBeUndefined();
-    });
-  });
-
-  describe('two corrections before a payee flips', () => {
-    const established = () => ({
-      id: 'p-groceries',
-      categoryId: 'cat-groceries',
-      paymentPurpose: 'Groceries',
-      counterpartyName: 'Magnum',
-      learnedFrom: 'manual_correction',
-      confidence: 1,
-      occurrences: 3,
-    });
-
-    it('keeps a one-off correction provisional while the old pattern stands', async () => {
-      learningRepository.find.mockResolvedValue([established()]);
-
-      await service.learnFromCorrection(tx(), 'cat-gifts', 'u1');
-
-      const saved = learningRepository.save.mock.calls.map(call => call[0]);
-      expect(saved).toHaveLength(1);
-      expect(saved[0]).toMatchObject({ categoryId: 'cat-gifts', confidence: 0.6, occurrences: 1 });
-    });
-
-    it('promotes the second correction and demotes the pattern it replaces', async () => {
-      const old = established();
-      learningRepository.find.mockResolvedValue([old]);
-      learningRepository.findOne.mockResolvedValue({
-        id: 'p-gifts',
-        categoryId: 'cat-gifts',
-        paymentPurpose: 'Groceries',
-        counterpartyName: 'Magnum',
-        learnedFrom: 'manual_correction',
-        confidence: 0.6,
-        occurrences: 1,
-      });
-
-      await service.learnFromCorrection(tx(), 'cat-gifts', 'u1');
-
-      const saved = learningRepository.save.mock.calls.map(call => call[0]);
-      expect(saved[0]).toMatchObject({ categoryId: 'cat-gifts', confidence: 1, occurrences: 2 });
-      expect(saved[1]).toEqual([expect.objectContaining({ id: 'p-groceries', confidence: 0.6 })]);
-    });
-
-    it('trusts the first correction for a payee nobody taught before', async () => {
-      await service.learnFromCorrection(tx(), 'cat-groceries', 'u1');
-
-      const saved = learningRepository.save.mock.calls.map(call => call[0]);
-      expect(saved).toHaveLength(1);
-      expect(saved[0]).toMatchObject({ categoryId: 'cat-groceries', confidence: 1, occurrences: 1 });
+      expect(transactionRepository.createQueryBuilder).not.toHaveBeenCalled();
+      expect(result.categorySource).toBe(TransactionCategorySource.DEFAULT);
     });
   });
 });

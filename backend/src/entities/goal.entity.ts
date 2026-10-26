@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
@@ -27,7 +28,7 @@ export class Goal {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -38,21 +39,39 @@ export class Goal {
   @Column({ name: 'target_amount', type: 'decimal', precision: 15, scale: 2 })
   targetAmount: number;
 
-  @Column({ default: 'KZT' })
+  @Column()
   currency: string;
 
   @Column({ name: 'target_date', type: 'date', nullable: true })
   targetDate: string | null;
 
+  /**
+   * The goal's picture. Exactly one of these is set: `coverPreset` names a
+   * bundled tile the client draws itself, `coverFile` names a photo copied
+   * into the uploads directory. The attribution pair belongs to the photo —
+   * a CC-BY image may not be shown without naming its author and licence.
+   */
+  @Column({ name: 'cover_preset', type: 'varchar', length: 40, nullable: true })
+  coverPreset: string | null;
+
+  @Column({ name: 'cover_file', type: 'varchar', length: 120, nullable: true })
+  coverFile: string | null;
+
+  @Column({ name: 'cover_attribution', type: 'varchar', length: 400, nullable: true })
+  coverAttribution: string | null;
+
+  @Column({ name: 'cover_source_url', type: 'varchar', length: 500, nullable: true })
+  coverSourceUrl: string | null;
+
   @OneToMany(
     () => GoalContribution,
     contribution => contribution.goal,
   )
-  contributions: GoalContribution[];
+  contributions: Relation<GoalContribution[]>;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;
@@ -84,14 +103,14 @@ export class GoalContribution {
     { onDelete: 'CASCADE' },
   )
   @JoinColumn({ name: 'goal_id' })
-  goal: Goal;
+  goal: Relation<Goal>;
 
   @Column({ name: 'goal_id', type: 'uuid' })
   goalId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -107,7 +126,7 @@ export class GoalContribution {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;

@@ -5,8 +5,9 @@ import type React from 'react';
 import { useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { Panel } from './BankSyncPanel';
-import { BANK_SYNC_BASE, type BankSyncProviderInfo, type Message } from './types';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { Panel } from './Panel';
+import { BANK_SYNC_BASE, type BankSyncProviderInfo, type RunAction } from './types';
 
 const BRIDGE_URL = 'https://bridge.simplefin.org';
 const ENABLE_BANKING_URL = 'https://enablebanking.com/cp';
@@ -25,7 +26,7 @@ export function AddConnectionForm({
 }: {
   providers: BankSyncProviderInfo[];
   busy: string | null;
-  onRun: (key: string, action: () => Promise<Message | null>, failure: string) => Promise<void>;
+  onRun: RunAction;
   onReload: () => Promise<void>;
   onConnectionChange?: () => void;
 }): React.JSX.Element | null {
@@ -55,7 +56,7 @@ export function AddConnectionForm({
           provider,
           setupToken: token.trim(),
           ...(label.trim() ? { label: label.trim() } : {}),
-        });
+        } satisfies ContractInput<'ConnectBankSyncTokenBody'>);
         await onReload();
         reset();
         onConnectionChange?.();
@@ -72,7 +73,7 @@ export function AddConnectionForm({
           provider,
           secrets: { applicationId: applicationId.trim(), privateKey },
           ...(label.trim() ? { label: label.trim() } : {}),
-        });
+        } satisfies ContractInput<'CreateBankSyncRedirectBody'>);
         await onReload();
         reset();
         onConnectionChange?.();

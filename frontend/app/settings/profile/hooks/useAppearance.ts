@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import {
+  DEFAULT_THEME_PREFERENCE,
   resolveThemePreference,
   THEME_STORAGE_EVENT,
   type ThemePreference,
@@ -38,7 +40,7 @@ export function useAppearance(
   setUser: (user: User) => void,
   messages: UseAppearanceMessages,
 ): UseAppearanceReturn {
-  const [themePreference, setThemePreference] = useState<ThemePreference>('auto');
+  const [themePreference, setThemePreference] = useState<ThemePreference>(DEFAULT_THEME_PREFERENCE);
   const [density, setDensityState] = useState<UiDensity>('comfortable');
   const [reduceMotion, setReduceMotionState] = useState(false);
   const [showDailyQuote, setShowDailyQuoteState] = useState(true);
@@ -64,13 +66,21 @@ export function useAppearance(
 
     await (async () => {
       setAppearanceLoading(true);
-      const response = await apiClient.patch('/users/me/preferences', patch);
-      const nextUser = { ...(user || {}), ...(response.data?.user || {}), ...patch };
+      const response = await apiClient.patch(
+        '/users/me/preferences',
+        patch satisfies ContractInput<'UpdateMyPreferencesBody'>,
+      );
+      const { user: updatedUser } = await checkContract(
+        'UserUpdateResponse',
+        response.data,
+        '/users/me/preferences',
+      );
+      const nextUser = { ...(user || {}), ...updatedUser, ...patch };
 
       setUser(nextUser as User);
       localStorage.setItem('user', JSON.stringify(nextUser));
       notifyUserFormatChanged();
-      setAppearanceMessage(response.data?.message || messages.successFallback);
+      setAppearanceMessage(messages.successFallback);
     })()
       .catch(async (error: unknown) => {
         setAppearanceError(getApiErrorMessage(error, messages.errorFallback));
@@ -103,9 +113,14 @@ export function useAppearance(
       setAppearanceLoading(true);
       const response = await apiClient.patch('/users/me/preferences', {
         themePreference: nextThemePreference,
-      });
+      } satisfies ContractInput<'UpdateMyPreferencesBody'>);
+      const { user: updatedUser } = await checkContract(
+        'UserUpdateResponse',
+        response.data,
+        '/users/me/preferences',
+      );
 
-      const responseUser = response.data?.user;
+      const responseUser = updatedUser;
       const nextUser = responseUser
         ? { ...(user || {}), ...responseUser, themePreference: nextThemePreference }
         : user
@@ -124,7 +139,7 @@ export function useAppearance(
         );
       }
 
-      setAppearanceMessage(response.data?.message || messages.successFallback);
+      setAppearanceMessage(messages.successFallback);
     })()
       .catch(async (error: unknown) => {
         setAppearanceError(getApiErrorMessage(error, messages.errorFallback));

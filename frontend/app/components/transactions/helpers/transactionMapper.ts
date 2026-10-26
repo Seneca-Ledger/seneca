@@ -1,3 +1,4 @@
+import type { StatementTransaction } from '@/app/lib/contracts';
 import type { Transaction } from '../types';
 
 export type TransactionApiRecord = Partial<Transaction> & {
@@ -8,6 +9,34 @@ export type TransactionApiRecord = Partial<Transaction> & {
   debit?: number | null;
   credit?: number | null;
 };
+
+const decimal = (value: string | null): number | undefined =>
+  value === null ? undefined : Number(value);
+
+type Relations = 'category' | 'branch' | 'wallet';
+
+/** A transaction row off the wire; candidate lists come without the relations. */
+type WireTransactionRow = Omit<StatementTransaction, Relations | 'amount'> &
+  Partial<Pick<StatementTransaction, Relations | 'amount'>>;
+
+/** A row off the wire (money as decimal strings, nulls) in the shape the mapper takes. */
+export function fromStatementTransaction(tx: WireTransactionRow): TransactionApiRecord {
+  return {
+    ...tx,
+    documentNumber: tx.documentNumber ?? undefined,
+    counterpartyBin: tx.counterpartyBin ?? undefined,
+    article: tx.article ?? undefined,
+    debit: decimal(tx.debit),
+    credit: decimal(tx.credit),
+    // Recomputed from debit and credit by the mapper.
+    amount: undefined,
+    exchangeRate: decimal(tx.exchangeRate),
+    amountForeign: decimal(tx.amountForeign),
+    category: tx.category ?? undefined,
+    branch: tx.branch ?? undefined,
+    wallet: tx.wallet ?? undefined,
+  };
+}
 
 export function mapApiRecordToTransaction(tx: TransactionApiRecord): Transaction {
   return {
@@ -31,6 +60,8 @@ export function mapApiRecordToTransaction(tx: TransactionApiRecord): Transaction
     category: tx.category,
     branch: tx.branch,
     wallet: tx.wallet,
+    ownerMemberId: tx.ownerMemberId ?? null,
+    isPrivate: tx.isPrivate ?? false,
     splitGroupId: tx.splitGroupId,
     splitIndex: tx.splitIndex,
     categorySource: tx.categorySource,
@@ -40,5 +71,6 @@ export function mapApiRecordToTransaction(tx: TransactionApiRecord): Transaction
     transferPairKind: tx.transferPairKind,
     reimbursementOfId: tx.reimbursementOfId,
     reimbursementOf: tx.reimbursementOf,
+    isVerified: tx.isVerified,
   };
 }

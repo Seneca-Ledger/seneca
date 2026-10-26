@@ -69,7 +69,6 @@ export function SidePanelProvider({
   const [config, setConfig] = useState<SidePanelPageConfig | null>(null);
 
   // Restore persisted state on client after mount.
-  // eslint-disable-next-line complexity
   useEffect(() => {
     if (typeof window === 'undefined' || !persistState) return;
 

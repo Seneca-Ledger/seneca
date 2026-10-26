@@ -1,11 +1,4 @@
-import { api } from '@/app/lib/api';
-
-type ExchangeRateResponse = {
-  from: string;
-  to: string;
-  rate: number;
-  date: string | null;
-};
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
 const buildPublicCurrencyApiUrls = (from: string): string[] => {
   const fromCode = from.toLowerCase();
@@ -52,10 +45,12 @@ const fetchPublicExchangeRate = async (from: string, to: string): Promise<number
 /** Fetches a currency conversion rate, falling back to a public mirror if the server call fails. */
 export const fetchExchangeRate = async (from: string, to: string): Promise<number | null> => {
   try {
-    const response = await api.get<ExchangeRateResponse>('/exchange-rates', {
+    const quote = await apiQueryDecoded({
+      url: '/exchange-rates',
       params: { from, to },
+      contract: 'ExchangeRateQuote',
     });
-    const rate = Number(response.data.rate);
+    const rate = quote.rate;
     if (Number.isFinite(rate)) {
       return rate;
     }

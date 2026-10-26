@@ -4,6 +4,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import {
+  accessTokenOf,
   deleteUserByEmail,
   type E2eAccount,
   e2eTestingModule,
@@ -24,6 +25,9 @@ describe('Workspaces (e2e)', () => {
     member: `ws-member-${stamp}@example.com`,
     outsider: `ws-outsider-${stamp}@example.com`,
     pending: `ws-pending-${stamp}@example.com`,
+    squatter: `ws-squatter-${stamp}@example.com`,
+    invitee: `ws-invitee-${stamp}@example.com`,
+    cfo: `ws-cfo-${stamp}@example.com`,
   };
   let owner: E2eAccount;
   let member: E2eAccount;
@@ -218,6 +222,39 @@ describe('Workspaces (e2e)', () => {
       expect(workspace.body.memberRole).toBe('member');
     });
 
+    it('lets an accepted invitation be accepted again while still a member', async () => {
+      await as(
+        member,
+        request(server()).post(`/workspaces/invitations/${invitationToken}/accept`),
+      ).expect(200);
+    });
+
+    it('refuses to invite anyone as owner: ownership moves only by transfer', async () => {
+      await as(owner, request(server()).post(`/workspaces/${owner.workspaceId}/invitations`))
+        .send({ email: emails.squatter, role: 'owner' })
+        .expect(400);
+    });
+
+    it('never makes an owner out of an owner-role invitation already stored', async () => {
+      const squatter = await registerAccount(app, emails.squatter, 'Would-be Owner');
+      const invite = await as(
+        owner,
+        request(server()).post(`/workspaces/${owner.workspaceId}/invitations`),
+      )
+        .send({ email: emails.squatter, role: 'admin' })
+        .expect(201);
+      // An invitation written before the contract refused `owner`.
+      await dataSource.query(`UPDATE workspace_invitations SET role = 'owner' WHERE id = $1`, [
+        invite.body.invitation.id,
+      ]);
+
+      await as(
+        squatter,
+        request(server()).post(`/workspaces/invitations/${invite.body.invitation.token}/accept`),
+      ).expect(400);
+      await as(squatter, request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(403);
+    });
+
     it('rejects inviting someone who is already a member', () => {
       return as(owner, request(server()).post(`/workspaces/${owner.workspaceId}/invitations`))
         .send({ email: member.email })
@@ -279,6 +316,119 @@ describe('Workspaces (e2e)', () => {
     });
   });
 
+  /**
+   * The toggles are the whole point of the `member` role, and the viewer role
+   * is worth nothing if it can still write. Both used to be broken: a missing
+   * toggle read as "allowed", so a viewer could edit, and the category toggle
+   * was never consulted because the guard asked for an admin first.
+   */
+  describe('member permissions', () => {
+    const asWorkspace = (account: E2eAccount, req: request.Test) =>
+      as(account, req).set('x-workspace-id', owner.workspaceId);
+
+    beforeAll(async () => {
+      await as(
+        owner,
+        request(server()).patch(`/workspaces/${owner.workspaceId}/members/${member.userId}/role`),
+      )
+        .send({ role: 'member' })
+        .expect(200);
+    });
+
+    it('gives a member nothing until a toggle says so', async () => {
+      await as(
+        owner,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditStatements: true } })
+        .expect(200);
+
+      await asWorkspace(member, request(server()).post('/categories'))
+        .send({ name: `no-toggle-${stamp}`, type: 'expense' })
+        .expect(403);
+    });
+
+    it('lets the member create a category once canEditCategories is on', async () => {
+      const res = await as(
+        owner,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditStatements: true, canEditCategories: true } })
+        .expect(200);
+      expect(res.body.permissions).toMatchObject({ canEditCategories: true });
+
+      await asWorkspace(member, request(server()).post('/categories'))
+        .send({ name: `with-toggle-${stamp}`, type: 'expense' })
+        .expect(201);
+    });
+
+    it('refuses permission changes from the member themselves', () => {
+      return as(
+        member,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditCategories: true } })
+        .expect(403);
+    });
+
+    it('keeps a viewer read-only even with every toggle in the row', async () => {
+      await as(
+        owner,
+        request(server()).patch(`/workspaces/${owner.workspaceId}/members/${member.userId}/role`),
+      )
+        .send({ role: 'viewer' })
+        .expect(200);
+
+      // Changing the role clears the toggles, so put them back behind the API's
+      // back: the rule under test is that the role wins over the column, not
+      // that the column happens to be empty.
+      await dataSource.query(
+        `UPDATE workspace_members
+         SET permissions = '{"canEditStatements":true,"canEditCategories":true}'::jsonb
+         WHERE workspace_id = $1 AND user_id = $2`,
+        [owner.workspaceId, member.userId],
+      );
+
+      await asWorkspace(member, request(server()).get('/categories')).expect(200);
+      await asWorkspace(member, request(server()).post('/categories'))
+        .send({ name: `viewer-${stamp}`, type: 'expense' })
+        .expect(403);
+    });
+
+    it('has no toggles to set on a viewer', () => {
+      return as(
+        owner,
+        request(server()).patch(
+          `/workspaces/${owner.workspaceId}/members/${member.userId}/permissions`,
+        ),
+      )
+        .send({ permissions: { canEditCategories: true } })
+        .expect(400);
+    });
+
+    it('lets the owner create a goal and export a report', async () => {
+      await asWorkspace(owner, request(server()).post('/goals'))
+        .send({ name: `goal-${stamp}`, targetAmount: 1000, currency: 'EUR' })
+        .expect(201);
+
+      // Only the guard is under test here; the export itself may still fail on
+      // an empty workspace, and that is not a permission problem.
+      await asWorkspace(owner, request(server()).post('/reports/workspace-export'))
+        .send({ format: 'csv' })
+        .expect(res => {
+          if (res.status === 403) {
+            throw new Error('report export is forbidden for the workspace owner');
+          }
+        });
+    });
+  });
+
   describe('removing members', () => {
     it('refuses to remove the owner', () => {
       return as(
@@ -294,6 +444,90 @@ describe('Workspaces (e2e)', () => {
       ).expect(200);
 
       await as(member, request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(403);
+    });
+
+    it('does not let a removed member back in with the invitation they accepted', async () => {
+      await as(
+        member,
+        request(server()).post(`/workspaces/invitations/${invitationToken}/accept`),
+      ).expect(400);
+      await as(member, request(server()).post('/workspaces/invitations/accept'))
+        .send({ token: invitationToken })
+        .expect(400);
+
+      await as(member, request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(403);
+    });
+  });
+
+  /**
+   * `GET /workspaces/me` answers about the caller's home workspace. A viewer
+   * who joined by invitation has the inviter's workspace as home, so the open
+   * invitation links there must not reach them: with one in hand, and an
+   * account renamed to the invitee's address, they could accept it.
+   */
+  describe('open invitations of the home workspace', () => {
+    let invitee: E2eAccount;
+    let cfoToken: string;
+
+    beforeAll(async () => {
+      const invite = await as(
+        owner,
+        request(server()).post(`/workspaces/${owner.workspaceId}/invitations`),
+      )
+        .send({ email: emails.invitee, role: 'viewer' })
+        .expect(201);
+      const registered = await request(server())
+        .post('/auth/register')
+        .send({
+          email: emails.invitee,
+          password: 'Test123!@#',
+          name: 'Invited Viewer',
+          invitationToken: invite.body.invitation.token,
+        })
+        .expect(201);
+      invitee = {
+        email: emails.invitee,
+        token: accessTokenOf(registered),
+        userId: registered.body.user.id,
+        workspaceId: owner.workspaceId,
+      };
+      await as(
+        invitee,
+        request(server()).post(`/workspaces/invitations/${invite.body.invitation.token}/accept`),
+      ).expect(200);
+
+      const cfoInvite = await as(
+        owner,
+        request(server()).post(`/workspaces/${owner.workspaceId}/invitations`),
+      )
+        .send({ email: emails.cfo, role: 'admin' })
+        .expect(201);
+      cfoToken = cfoInvite.body.invitation.token;
+    });
+
+    it('lists them, with their links, to the owner', async () => {
+      const res = await as(owner, request(server()).get('/workspaces/me')).expect(200);
+      const cfo = res.body.invitations.find(
+        (invitation: { email: string }) => invitation.email === emails.cfo,
+      );
+      expect(cfo).toMatchObject({ token: cfoToken, link: expect.stringContaining(cfoToken) });
+    });
+
+    it('keeps them from a viewer whose home it is', async () => {
+      const res = await as(invitee, request(server()).get('/workspaces/me')).expect(200);
+      expect(res.body.workspace.id).toBe(owner.workspaceId);
+      expect(res.body.invitations).toEqual([]);
+      expect(JSON.stringify(res.body)).not.toContain(cfoToken);
+    });
+
+    it('does not let the viewer take the invitee’s address to accept it', async () => {
+      await as(invitee, request(server()).put(`/users/${invitee.userId}`))
+        .send({ email: emails.cfo })
+        .expect(400);
+      await as(
+        invitee,
+        request(server()).post(`/workspaces/invitations/${cfoToken}/accept`),
+      ).expect(403);
     });
   });
 });

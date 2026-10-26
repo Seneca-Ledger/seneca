@@ -1,4 +1,4 @@
-# Docker инструкции для Lumio
+# Docker инструкции для Seneca
 
 Все команды выполняются из корня репозитория и требуют Docker Compose v2 (`docker compose`).
 
@@ -27,7 +27,7 @@ INTEGRATIONS_ENCRYPTION_KEY=<openssl rand -base64 32>
 ### 2. Запуск всех сервисов
 
 ```bash
-# Готовые образы из GHCR (LUMIO_IMAGE_TAG в .env фиксирует версию)
+# Готовые образы из GHCR (IMAGE_TAG в .env фиксирует версию)
 docker compose pull
 docker compose up -d
 
@@ -119,14 +119,14 @@ docker compose down -v
 
 ## Работа с базой данных
 
-Контейнеры называются `finflow-postgres`, `finflow-redis`, `finflow-backend`, `finflow-frontend`.
+Контейнеры называются `seneca-postgres`, `seneca-redis`, `seneca-backend`, `seneca-frontend`.
 
 ### Подключение к PostgreSQL
 
 ```bash
 make db-shell
 # или
-docker exec -it finflow-postgres psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-finflow}"
+docker exec -it seneca-postgres psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-finflow}"
 ```
 
 ### Выполнение миграций
@@ -210,7 +210,7 @@ docker compose ps postgres
 docker compose logs postgres
 
 # Проверьте подключение
-docker exec -it finflow-postgres psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-finflow}" -c "SELECT 1;"
+docker exec -it seneca-postgres psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-finflow}" -c "SELECT 1;"
 ```
 
 ### Проблема: Порты заняты
@@ -255,7 +255,7 @@ docker system prune -a --volumes
 
 Для production:
 
-1. Используйте готовые образы `ghcr.io/symonbaikov/lumio-backend` и `lumio-frontend` с фиксированным `LUMIO_IMAGE_TAG`
+1. Используйте готовые образы `ghcr.io/seneca-ledger/seneca-backend` и `seneca-frontend` с фиксированным `IMAGE_TAG`
 2. Настройте HTTPS через reverse proxy (nginx, Caddy, Traefik)
 3. Задайте `CORS_ORIGINS` (или `FRONTEND_URL`); без него backend не стартует
 4. Используйте внешнюю БД (не в Docker)
@@ -316,5 +316,5 @@ curl http://localhost:3000
 
 ```bash
 docker volume ls
-docker volume inspect lumio_postgres_data
+docker volume inspect seneca_postgres_data
 ```

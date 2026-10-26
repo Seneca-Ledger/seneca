@@ -2,7 +2,7 @@
 @use 'variables' as *;
 
 // Dark mode mixin — wraps content with .dark ancestor selector.
-// Usage: @include dark { color: $lumio-color-text-primary-dk; }
+// Usage: @include dark { color: $seneca-color-text-primary-dk; }
 @mixin dark {
   .dark & {
     @content;
@@ -25,12 +25,17 @@
 // Visually hidden (accessibility)
 @mixin visually-hidden {
   position: absolute;
+  // Pinned to its containing block's corner. Left at its static place, a hidden
+  // header in the last column of a scrolling table sat past the scroller (whose
+  // overflow does not clip it) and widened the whole page on a phone.
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }
@@ -48,16 +53,16 @@
 // $axis: both | inline | block.
 @mixin focus-room($axis: both) {
   @if $axis == inline {
-    padding-inline: $lumio-focus-ring-reach;
-    margin-inline: -$lumio-focus-ring-reach;
-    scroll-padding-inline: $lumio-focus-ring-reach;
+    padding-inline: $seneca-focus-ring-reach;
+    margin-inline: -$seneca-focus-ring-reach;
+    scroll-padding-inline: $seneca-focus-ring-reach;
   } @else if $axis == block {
-    padding-block: $lumio-focus-ring-reach;
-    margin-block: -$lumio-focus-ring-reach;
-    scroll-padding-block: $lumio-focus-ring-reach;
+    padding-block: $seneca-focus-ring-reach;
+    margin-block: -$seneca-focus-ring-reach;
+    scroll-padding-block: $seneca-focus-ring-reach;
   } @else {
-    padding: $lumio-focus-ring-reach;
-    margin: -$lumio-focus-ring-reach;
-    scroll-padding: $lumio-focus-ring-reach;
+    padding: $seneca-focus-ring-reach;
+    margin: -$seneca-focus-ring-reach;
+    scroll-padding: $seneca-focus-ring-reach;
   }
 }

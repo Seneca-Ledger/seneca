@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { Clock } from '@/app/components/icons';
+import { ResetPageHintsButton } from '@/app/components/page-hints/ResetPageHintsButton';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useLocale } from '@/app/i18n';
 import { isExperimentalModeEnabled, setExperimentalModeEnabled } from '@/app/lib/experimental-mode';
@@ -14,6 +15,7 @@ import { ChangelogSection } from '@/app/settings/profile/components/ChangelogSec
 import { ExperimentalSection } from '@/app/settings/profile/components/ExperimentalSection';
 import { SettingsAccordion } from '@/app/settings/profile/components/SettingsAccordion';
 import { SettingsElsewhereLinks } from '@/app/settings/profile/components/SettingsElsewhereLinks';
+import { UpdateSection } from '@/app/settings/profile/components/UpdateSection';
 import { useChangelog } from '@/app/settings/profile/hooks/useChangelog';
 import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
 
@@ -50,27 +52,31 @@ export function AdvancedTab({ user }: SettingsTabProps): React.JSX.Element {
 
       <SettingsAccordion
         id="changelog"
-        title={tx(['changelogCard', 'title'], 'Changelog')}
-        description={tx(['changelogCard', 'description'], '')}
+        title={tx(['changelogCard', 'title'])}
+        description={tx(['changelogCard', 'description'])}
         icon={Clock}
         defaultExpanded
       >
-        <ChangelogSection
-          tx={tx}
-          locale={locale}
-          changelogEntries={changelogEntries}
-          changelogLoading={changelogLoading}
-          changelogSelectedEntry={changelogSelectedEntry}
-          setChangelogSelectedEntry={setChangelogSelectedEntry}
-        />
+        <Stack spacing={2}>
+          <UpdateSection isAdmin={user.role === 'admin'} />
+          <ChangelogSection
+            tx={tx}
+            locale={locale}
+            changelogEntries={changelogEntries}
+            changelogLoading={changelogLoading}
+            changelogSelectedEntry={changelogSelectedEntry}
+            setChangelogSelectedEntry={setChangelogSelectedEntry}
+          />
+        </Stack>
       </SettingsAccordion>
 
       <Card variant="outlined">
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, px: 1.5, pt: 0.5, pb: 1 }}>
-            {tx(['navigation', 'elsewhere'], 'Elsewhere')}
+            {tx(['navigation', 'elsewhere'])}
           </Typography>
           <SettingsElsewhereLinks tx={tx} />
+          <ResetPageHintsButton />
         </CardContent>
       </Card>
     </Stack>

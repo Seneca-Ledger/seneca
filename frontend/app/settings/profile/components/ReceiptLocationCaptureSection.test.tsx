@@ -8,11 +8,15 @@ const mocks = vi.hoisted(() => ({
   choice: null as 'on' | 'off' | null,
   requestLocationAccess: vi.fn(),
   setReceiptLocationCapture: vi.fn(),
+  promptOn: true,
+  setReceiptPlacePrompt: vi.fn(),
   text: {
     toggleLabel: 'Save where receipts are photographed',
     toggleHelp: 'Only on this device and only for photos taken with the camera.',
     unsupported: 'Location is not available in this browser.',
     browserBlocked: 'Your browser blocks location for this site.',
+    placePromptLabel: 'Ask for the shop when there was no GPS',
+    placePromptHelp: 'Seneca asks which shop it was once GPS is back.',
   } as Record<string, string>,
 }));
 
@@ -31,13 +35,53 @@ vi.mock('@/app/lib/receipt-location-capture', () => ({
   setReceiptLocationCapture: (on: boolean) => mocks.setReceiptLocationCapture(on),
 }));
 
-const toggle = () => screen.getByRole('switch') as HTMLInputElement;
+vi.mock('@/app/lib/receipt-place-followup', () => ({
+  useReceiptPlaceFollowups: () => ({ promptOn: mocks.promptOn, pending: [] }),
+  setReceiptPlacePrompt: (on: boolean) => mocks.setReceiptPlacePrompt(on),
+}));
+
+const toggle = () => screen.getAllByRole('switch')[0] as HTMLInputElement;
+const placeToggle = () =>
+  screen.getByRole('switch', { name: /ask for the shop/i }) as HTMLInputElement;
 
 describe('ReceiptLocationCaptureSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.supported = true;
     mocks.choice = null;
+    mocks.promptOn = true;
+  });
+
+  it('follows the capture switch with the shop question switch', () => {
+    mocks.choice = 'off';
+    const { rerender } = render(<ReceiptLocationCaptureSection />);
+
+    expect(placeToggle().checked).toBe(false);
+    expect(placeToggle().disabled).toBe(true);
+
+    mocks.choice = 'on';
+    rerender(<ReceiptLocationCaptureSection />);
+    expect(placeToggle().checked).toBe(true);
+    expect(placeToggle().disabled).toBe(false);
+  });
+
+  it('turns the shop question off and back on', () => {
+    mocks.choice = 'on';
+    render(<ReceiptLocationCaptureSection />);
+
+    fireEvent.click(placeToggle());
+    expect(mocks.setReceiptPlacePrompt).toHaveBeenCalledWith(false);
+    expect(mocks.requestLocationAccess).not.toHaveBeenCalled();
+  });
+
+  it('shows the shop question as off after "don’t show again"', () => {
+    mocks.choice = 'on';
+    mocks.promptOn = false;
+    render(<ReceiptLocationCaptureSection />);
+
+    expect(placeToggle().checked).toBe(false);
+    fireEvent.click(placeToggle());
+    expect(mocks.setReceiptPlacePrompt).toHaveBeenCalledWith(true);
   });
 
   it('shows the current choice of this device', () => {

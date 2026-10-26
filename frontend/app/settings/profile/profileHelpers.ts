@@ -110,14 +110,6 @@ export const getApiErrorMessage = (error: unknown, fallback: string) => {
   );
 };
 
-export const getInitials = (value: string) => {
-  if (!value) return '—';
-  const tokens = value.trim().split(/\s+/).filter(Boolean);
-  if (!tokens.length) return '—';
-  if (tokens.length === 1) return tokens[0].slice(0, 2).toUpperCase();
-  return (tokens[0][0] + tokens[1][0]).toUpperCase();
-};
-
 export const getSessionIcon = (device: string): React.ComponentType<LucideProps> => {
   const normalized = device.toLowerCase();
   if (normalized.includes('mobile')) return Smartphone;

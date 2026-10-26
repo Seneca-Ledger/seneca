@@ -3,13 +3,27 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import * as xlsx from 'xlsx';
+import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
+import { onlyCounted } from '../../common/utils/counted-transactions.util';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import type {
+  BalanceAccountNode,
+  BalanceSheetResponse,
+  CreateBalanceAccountBody,
+  ExportBalanceQuery,
+  UpdateAccountClassificationBody,
+  UpdateBalanceSnapshotBody,
+} from '../../contracts';
 import {
   ActorType,
   AuditAction,
   BalanceAccount,
   BalanceAccountType,
   BalanceSnapshot,
+  CapitalRole,
   EntityType,
+  RiskLevel,
   Statement,
   StatementStatus,
   Transaction,
@@ -26,46 +40,12 @@ import {
 } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { loadPdfMake } from '../reports/report-document.util';
+import { balanceAccountName } from './balance-account-name';
 import { DEFAULT_BALANCE_ACCOUNTS } from './balance-default-accounts';
-import type { CreateBalanceAccountDto } from './dto/create-balance-account.dto';
-import { BalanceExportFormat, type ExportBalanceDto } from './dto/export-balance.dto';
-import type { UpdateAccountClassificationDto } from './dto/update-account-classification.dto';
-import type { UpdateBalanceSnapshotDto } from './dto/update-balance-snapshot.dto';
+import { BalanceExportFormat } from './dto/export-balance.dto';
 
 /** The one line whose risk is fixed rather than chosen. */
 export const CASH_ACCOUNT_CODE = 'ASSET_CASH';
-
-type BalanceAccountNode = {
-  id: string;
-  code: string;
-  name: string;
-  nameEn: string | null;
-  nameKk: string | null;
-  accountType: BalanceAccountType;
-  isEditable: boolean;
-  isAutoComputed: boolean;
-  isExpandable: boolean;
-  amount: number;
-  children: BalanceAccountNode[];
-  position: number;
-};
-
-type BalanceSheetResponse = {
-  date: string;
-  currency: string;
-  assets: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  liabilities: {
-    total: number;
-    sections: BalanceAccountNode[];
-  };
-  difference: number;
-  isBalanced: boolean;
-  /** Currencies left out of the totals because no rate to `currency` was found. */
-  missingRates: string[];
-};
 
 const LIVE_STATEMENT_STATUSES = [
   StatementStatus.PARSED,
@@ -95,16 +75,15 @@ export class BalanceService {
   ) {}
 
   private normalizeCurrency(currency: string | null | undefined): string {
-    const normalized = String(currency || '')
-      .trim()
-      .toUpperCase();
-    return /^[A-Z]{3}$/.test(normalized) ? normalized : 'KZT';
+    return currencyCodeOrDefault(currency);
   }
 
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return this.normalizeCurrency(workspace?.currency);
   }
@@ -116,7 +95,7 @@ export class BalanceService {
 
     const asDate = new Date(date);
     if (Number.isNaN(asDate.getTime())) {
-      throw new BadRequestException('Invalid date format');
+      throw new BadRequestException(appError('BALANCE_DATE_INVALID'));
     }
 
     return asDate.toISOString().split('T')[0];
@@ -142,15 +121,7 @@ export class BalanceService {
   }
 
   private resolveAccountName(node: BalanceAccountNode, locale?: string): string {
-    if (locale === 'en' && node.nameEn) {
-      return node.nameEn;
-    }
-
-    if (locale === 'kk' && node.nameKk) {
-      return node.nameKk;
-    }
-
-    return node.name;
+    return balanceAccountName(node, locale);
   }
 
   private localizeTree(nodes: BalanceAccountNode[], locale?: string): void {
@@ -256,13 +227,16 @@ export class BalanceService {
   }
 
   private async getRetainedEarnings(workspaceId: string, date: string): Promise<CurrencyAmounts> {
-    const rows = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .leftJoin('transaction.statement', 'statement')
-      .select('transaction.currency', 'currency')
-      .addSelect('COALESCE(SUM(transaction.credit), 0)', 'totalCredit')
-      .addSelect('COALESCE(SUM(transaction.debit), 0)', 'totalDebit')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
+    const rows = await onlyCounted(
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .leftJoin('transaction.statement', 'statement')
+        .select('transaction.currency', 'currency')
+        .addSelect('COALESCE(SUM(transaction.credit), 0)', 'totalCredit')
+        .addSelect('COALESCE(SUM(transaction.debit), 0)', 'totalDebit')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+      'transaction',
+    )
       .andWhere('transaction.transactionDate <= :date', { date })
       // Rows of a statement in the trash are not part of the books.
       .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
@@ -303,7 +277,9 @@ export class BalanceService {
   async getCashSeries(workspaceId: string, dates: string[]): Promise<Map<string, CurrencyAmounts>> {
     const members = await this.workspaceMemberRepository.find({
       where: { workspaceId },
-      select: ['userId'],
+      select: {
+        userId: true,
+      },
     });
 
     const memberIds = [...new Set(members.map(member => member.userId))];
@@ -314,7 +290,11 @@ export class BalanceService {
       memberIds.length > 0
         ? await this.walletRepository.find({
             where: { workspaceId, userId: In(memberIds), isActive: true },
-            select: ['id', 'initialBalance', 'currency'],
+            select: {
+              id: true,
+              initialBalance: true,
+              currency: true,
+            },
           })
         : [];
 
@@ -331,14 +311,17 @@ export class BalanceService {
     const walletIds = wallets.map(wallet => wallet.id);
     const to = dates[dates.length - 1];
 
-    const rows = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .leftJoin('transaction.statement', 'statement')
-      .select('transaction.transactionDate', 'date')
-      .addSelect('transaction.currency', 'currency')
-      .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
-      .addSelect('COALESCE(SUM(transaction.debit), 0)', 'debit')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
+    const rows = await onlyCounted(
+      this.transactionRepository
+        .createQueryBuilder('transaction')
+        .leftJoin('transaction.statement', 'statement')
+        .select('transaction.transactionDate', 'date')
+        .addSelect('transaction.currency', 'currency')
+        .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
+        .addSelect('COALESCE(SUM(transaction.debit), 0)', 'debit')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+      'transaction',
+    )
       .andWhere('transaction.walletId IN (:...walletIds)', { walletIds })
       .andWhere('transaction.transactionDate <= :to', { to })
       .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
@@ -439,27 +422,27 @@ export class BalanceService {
     userId: string,
     workspaceId: string,
     accountId: string,
-    dto: UpdateAccountClassificationDto,
+    dto: UpdateAccountClassificationBody,
   ) {
     const account = await this.balanceAccountRepository.findOne({
       where: { id: accountId, workspaceId },
     });
 
     if (!account) {
-      throw new NotFoundException('Balance account not found');
+      throw new NotFoundException(appError('BALANCE_ACCOUNT_NOT_FOUND'));
     }
 
     if (account.code === CASH_ACCOUNT_CODE) {
-      throw new BadRequestException('Cash is always low risk and cannot be classified');
+      throw new BadRequestException(appError('BALANCE_CASH_NOT_CLASSIFIABLE'));
     }
 
     const before = { capitalRole: account.capitalRole, riskLevel: account.riskLevel };
 
     if (dto.capitalRole !== undefined) {
-      account.capitalRole = dto.capitalRole;
+      account.capitalRole = toEnum(CapitalRole, dto.capitalRole);
     }
     if (dto.riskLevel !== undefined) {
-      account.riskLevel = dto.riskLevel;
+      account.riskLevel = toEnum(RiskLevel, dto.riskLevel);
     }
 
     await this.balanceAccountRepository.save(account);
@@ -499,17 +482,17 @@ export class BalanceService {
    * `LIABILITY_BORROWED` is seeded as expandable today, which is what scopes
    * this to debts without hardcoding a debt-specific concept.
    */
-  async createCustomAccount(userId: string, workspaceId: string, dto: CreateBalanceAccountDto) {
+  async createCustomAccount(userId: string, workspaceId: string, dto: CreateBalanceAccountBody) {
     const parent = await this.balanceAccountRepository.findOne({
       where: { id: dto.parentId, workspaceId },
     });
 
     if (!parent) {
-      throw new NotFoundException('Balance account not found');
+      throw new NotFoundException(appError('BALANCE_ACCOUNT_NOT_FOUND'));
     }
 
     if (!parent.isExpandable) {
-      throw new BadRequestException('This balance section does not accept custom accounts');
+      throw new BadRequestException(appError('BALANCE_SECTION_NO_CUSTOM_ACCOUNTS'));
     }
 
     const siblingCount = await this.balanceAccountRepository.count({
@@ -573,7 +556,7 @@ export class BalanceService {
     }
 
     if (account.isSystem) {
-      throw new BadRequestException('System accounts cannot be deleted');
+      throw new BadRequestException(appError('BALANCE_SYSTEM_ACCOUNT_LOCKED'));
     }
 
     await this.balanceAccountRepository.remove(account);
@@ -795,8 +778,8 @@ export class BalanceService {
     };
   }
 
-  async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotDto) {
-    const snapshotDate = this.resolveDate(dto.date);
+  async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotBody) {
+    const snapshotDate = this.resolveDate(dto.date ?? undefined);
     const account = await this.balanceAccountRepository.findOne({
       where: {
         id: dto.accountId,
@@ -805,11 +788,11 @@ export class BalanceService {
     });
 
     if (!account) {
-      throw new NotFoundException('Balance account not found');
+      throw new NotFoundException(appError('BALANCE_ACCOUNT_NOT_FOUND'));
     }
 
     if (!account.isEditable) {
-      throw new BadRequestException('This balance line is auto-calculated and cannot be edited');
+      throw new BadRequestException(appError('BALANCE_LINE_AUTO_CALCULATED'));
     }
 
     const amount = this.round(dto.amount);
@@ -990,7 +973,7 @@ export class BalanceService {
 
   async exportBalanceSheet(
     workspaceId: string,
-    dto: ExportBalanceDto,
+    dto: ExportBalanceQuery,
     locale?: string,
   ): Promise<{
     fileName: string;

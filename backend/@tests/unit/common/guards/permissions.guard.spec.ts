@@ -18,7 +18,7 @@ describe('PermissionsGuard', () => {
         {
           provide: Reflector,
           useValue: {
-            getAllAndOverride: jest.fn(),
+            getAllAndOverride: vi.fn(),
           },
         },
       ],
@@ -29,7 +29,7 @@ describe('PermissionsGuard', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -37,7 +37,7 @@ describe('PermissionsGuard', () => {
   });
 
   it('refuses a scoped API key outside its scopes, even for an admin, and allows inside them', () => {
-    jest
+    vi
       .spyOn(reflector, 'getAllAndOverride')
       .mockReturnValue([PermissionEnum.STATEMENT_UPLOAD] as Permission[]);
 
@@ -73,7 +73,7 @@ describe('PermissionsGuard', () => {
       workspaceRole: WorkspaceRole.OWNER,
       workspaceMemberPermissions: null,
     });
-    jest
+    vi
       .spyOn(reflector, 'getAllAndOverride')
       .mockReturnValue([PermissionEnum.STATEMENT_UPLOAD] as Permission[]);
 
@@ -88,7 +88,7 @@ describe('PermissionsGuard', () => {
       workspaceRole: WorkspaceRole.MEMBER,
       workspaceMemberPermissions: { canEditStatements: true },
     });
-    jest
+    vi
       .spyOn(reflector, 'getAllAndOverride')
       .mockReturnValue([PermissionEnum.STATEMENT_UPLOAD] as Permission[]);
 
@@ -103,7 +103,7 @@ describe('PermissionsGuard', () => {
       workspaceRole: WorkspaceRole.OWNER,
       workspaceMemberPermissions: null,
     });
-    jest
+    vi
       .spyOn(reflector, 'getAllAndOverride')
       .mockReturnValue([PermissionEnum.AUDIT_VIEW] as Permission[]);
 
@@ -118,7 +118,7 @@ describe('PermissionsGuard', () => {
       workspaceRole: WorkspaceRole.ADMIN,
       workspaceMemberPermissions: null,
     });
-    jest
+    vi
       .spyOn(reflector, 'getAllAndOverride')
       .mockReturnValue([PermissionEnum.AUDIT_VIEW] as Permission[]);
 
@@ -133,7 +133,7 @@ describe('PermissionsGuard', () => {
       workspaceRole: WorkspaceRole.OWNER,
       workspaceMemberPermissions: null,
     });
-    jest
+    vi
       .spyOn(reflector, 'getAllAndOverride')
       .mockReturnValue([PermissionEnum.BUDGET_CREATE] as Permission[]);
 
@@ -148,12 +148,69 @@ describe('PermissionsGuard', () => {
       workspaceRole: WorkspaceRole.MEMBER,
       workspaceMemberPermissions: null,
     });
-    jest
+    vi
       .spyOn(reflector, 'getAllAndOverride')
       .mockReturnValue([PermissionEnum.BUDGET_CREATE] as Permission[]);
 
     expect(() => guard.canActivate(context)).toThrow();
   });
+
+  it.each([
+    PermissionEnum.TRANSACTION_EDIT,
+    PermissionEnum.STATEMENT_DELETE,
+    PermissionEnum.CATEGORY_CREATE,
+  ])('denies a workspace viewer %s even with every toggle set', permission => {
+    // A viewer used to pass every edit branch: the UI never sends toggles for
+    // the role, and a missing toggle was read as "not forbidden".
+    const context = createMockExecutionContext({
+      user: { id: 'viewer-1', role: UserRole.USER, permissions: null },
+      workspaceRole: WorkspaceRole.VIEWER,
+      workspaceMemberPermissions: {
+        canEditStatements: true,
+        canEditCustomTables: true,
+        canEditCategories: true,
+        canEditDataEntry: true,
+        canShareFiles: true,
+      },
+    });
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue([permission] as Permission[]);
+
+    expect(() => guard.canActivate(context)).toThrow(/Insufficient permissions/);
+  });
+
+  it('lets a member create categories once canEditCategories is on, and not before', () => {
+    vi
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue([PermissionEnum.CATEGORY_CREATE] as Permission[]);
+
+    const withoutToggle = createMockExecutionContext({
+      user: { id: 'member-1', role: UserRole.USER, permissions: null },
+      workspaceRole: WorkspaceRole.MEMBER,
+      workspaceMemberPermissions: { canEditStatements: true },
+    });
+    expect(() => guard.canActivate(withoutToggle)).toThrow();
+
+    const withToggle = createMockExecutionContext({
+      user: { id: 'member-1', role: UserRole.USER, permissions: null },
+      workspaceRole: WorkspaceRole.MEMBER,
+      workspaceMemberPermissions: { canEditCategories: true },
+    });
+    expect(guard.canActivate(withToggle)).toBe(true);
+  });
+
+  it.each([PermissionEnum.GOAL_CREATE, PermissionEnum.REPORT_EXPORT])(
+    'lets a workspace owner use %s',
+    permission => {
+      const context = createMockExecutionContext({
+        user: { id: 'owner-1', role: UserRole.USER, permissions: null },
+        workspaceRole: WorkspaceRole.OWNER,
+        workspaceMemberPermissions: null,
+      });
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue([permission] as Permission[]);
+
+      expect(guard.canActivate(context)).toBe(true);
+    },
+  );
 
   it.each([PermissionEnum.WORKSPACE_SETTINGS_MANAGE, PermissionEnum.INTEGRATION_MANAGE])(
     'allows workspace owner to use workspace admin permission %s',
@@ -163,7 +220,7 @@ describe('PermissionsGuard', () => {
         workspaceRole: WorkspaceRole.OWNER,
         workspaceMemberPermissions: null,
       });
-      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([permission] as Permission[]);
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue([permission] as Permission[]);
 
       const result = guard.canActivate(context);
 

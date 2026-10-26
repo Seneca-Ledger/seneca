@@ -44,14 +44,19 @@ function ofxTag(block: string, tag: string): string | undefined {
   return match ? decodeEntities(match[1].trim()) : undefined;
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+};
+
+/** One pass, so '&amp;lt;' becomes the text '&lt;' rather than being decoded twice into '<'. */
 function decodeEntities(value: string): string {
-  return value
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+  return value.replace(/&(?:#(\d+)|(amp|lt|gt|quot|apos));/g, (_, code, name) =>
+    code ? String.fromCharCode(Number(code)) : NAMED_ENTITIES[name],
+  );
 }
 
 export function parseOfx(text: string): ParsedStatement {

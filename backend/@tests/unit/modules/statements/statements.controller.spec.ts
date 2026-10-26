@@ -1,4 +1,5 @@
-jest.mock('franc', () => ({
+import type { Mock } from 'vitest';
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -6,50 +7,54 @@ import type { IdempotencyService } from '@/common/services/idempotency.service';
 import { buildContentDisposition } from '@/common/utils/http-file.util';
 import { StatementStatus } from '@/entities/statement.entity';
 import type { User } from '@/entities/user.entity';
-import type { ConvertDroppedSampleDto } from '@/modules/statements/dto/convert-dropped-sample.dto';
-import { FilterStatementsDto } from '@/modules/statements/dto/filter-statements.dto';
-import type { UploadReceiptScanDto } from '@/modules/statements/dto/upload-receipt-scan.dto';
-import type { UploadStatementDto } from '@/modules/statements/dto/upload-statement.dto';
+import type { StatementsQuery } from '@/contracts';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
+import type { StatementStageService } from '@/modules/statements/services/statement-stage.service';
+import { StatementUploadsController } from '@/modules/statements/statement-uploads.controller';
 import { StatementsController } from '@/modules/statements/statements.controller';
 import type { StatementsService } from '@/modules/statements/statements.service';
 import type { Response } from 'express';
+import type { ConvertDroppedSampleBody, UploadReceiptScanBody, UploadStatementBody } from '../../../../src/contracts';
 
 type MockResponse = {
   headersSent: boolean;
-  setHeader: jest.Mock;
-  status: jest.Mock;
-  json: jest.Mock;
-  destroy: jest.Mock;
+  setHeader: Mock;
+  status: Mock;
+  json: Mock;
+  destroy: Mock;
 };
 
 describe('StatementsController', () => {
   const statementsService = {
-    create: jest.fn(),
-    createFromReceiptScan: jest.fn(),
-    createManualExpense: jest.fn(),
-    findAll: jest.fn(),
-    convertDroppedSampleToTransaction: jest.fn(),
-    getFileStream: jest.fn(),
+    create: vi.fn(),
+    createFromReceiptScan: vi.fn(),
+    createManualExpense: vi.fn(),
+    findAll: vi.fn(),
+    convertDroppedSampleToTransaction: vi.fn(),
+    getFileStream: vi.fn(),
   };
 
   const idempotencyService = {
-    checkKey: jest.fn(),
-    storeKey: jest.fn(),
+    checkKey: vi.fn(),
+    storeKey: vi.fn(),
   };
 
   const receiptStatementService = {
-    createFromReceiptScan: jest.fn(),
+    createFromReceiptScan: vi.fn(),
   };
 
   const controller = new StatementsController(
+    statementsService as unknown as StatementsService,
+    {} as unknown as StatementStageService,
+  );
+  const uploads = new StatementUploadsController(
     statementsService as unknown as StatementsService,
     receiptStatementService as unknown as ReceiptStatementService,
     idempotencyService as unknown as IdempotencyService,
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     idempotencyService.checkKey.mockResolvedValue(null);
     idempotencyService.storeKey.mockResolvedValue(undefined);
   });
@@ -70,9 +75,9 @@ describe('StatementsController', () => {
     };
     const currentUser = { id: 'user-1' } as User;
 
-    const result = await controller.upload(
+    const result = await uploads.upload(
       [file as Express.Multer.File],
-      {} as UploadStatementDto,
+      {} as UploadStatementBody,
       currentUser,
       'ws-1',
     );
@@ -96,13 +101,13 @@ describe('StatementsController', () => {
     const currentUser = { id: 'user-1' } as User;
     const payload = { amount: 5000, description: 'Такси' } as any;
 
-    const first = await controller.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
+    const first = await uploads.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
     expect(first).toEqual(created);
     expect(idempotencyService.checkKey).toHaveBeenCalledWith('key-1', 'user-1', 'ws-1');
     expect(idempotencyService.storeKey).toHaveBeenCalledWith('key-1', 'user-1', 'ws-1', created);
 
     idempotencyService.checkKey.mockResolvedValueOnce({ data: created, cached: true });
-    const second = await controller.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
+    const second = await uploads.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
     expect(second).toMatchObject({ id: 'stmt-manual-1', cached: true });
     expect(statementsService.createManualExpense).toHaveBeenCalledTimes(1);
   });
@@ -111,7 +116,7 @@ describe('StatementsController', () => {
     statementsService.createManualExpense.mockResolvedValue({ id: 'stmt-manual-2' });
     const currentUser = { id: 'user-1' } as User;
 
-    await controller.createManualExpense([], {} as any, currentUser, 'ws-1');
+    await uploads.createManualExpense([], {} as any, currentUser, 'ws-1');
 
     expect(idempotencyService.checkKey).not.toHaveBeenCalled();
     expect(idempotencyService.storeKey).not.toHaveBeenCalled();
@@ -132,12 +137,12 @@ describe('StatementsController', () => {
       categoryId: 'cat-1',
       type: 'pdf',
       statuses: ['processing', 'error'],
-    } as FilterStatementsDto;
+    } as StatementsQuery;
     const currentUser = { id: 'user-1' } as User;
 
     const result = await controller.findAll(currentUser, 'ws-1', filters);
 
-    expect(statementsService.findAll).toHaveBeenCalledWith('ws-1', filters);
+    expect(statementsService.findAll).toHaveBeenCalledWith('ws-1', filters, null);
     expect(result).toEqual({
       data: [{ id: 'stmt-1' }],
       items: [{ id: 'stmt-1' }],
@@ -152,7 +157,7 @@ describe('StatementsController', () => {
       statement: { id: 'stmt-1' },
       transaction: { id: 'tx-1' },
     };
-    const payload: ConvertDroppedSampleDto = {
+    const payload: ConvertDroppedSampleBody = {
       index: 0,
       transaction: {
         transactionDate: '2026-03-17',
@@ -163,7 +168,7 @@ describe('StatementsController', () => {
 
     statementsService.convertDroppedSampleToTransaction.mockResolvedValue(response);
 
-    const result = await controller.convertDroppedSample('stmt-1', payload, currentUser, 'ws-1');
+    const result = await controller.convertDroppedSample({ id: 'stmt-1' }, payload, currentUser, 'ws-1');
 
     expect(statementsService.convertDroppedSampleToTransaction).toHaveBeenCalledWith(
       'stmt-1',
@@ -189,9 +194,9 @@ describe('StatementsController', () => {
     };
     const currentUser = { id: 'user-1' } as User;
 
-    const result = await controller.uploadReceipt(
+    const result = await uploads.uploadReceipt(
       [file as Express.Multer.File],
-      { language: 'ru' } as UploadReceiptScanDto,
+      { language: 'ru' } as UploadReceiptScanBody,
       currentUser,
       'ws-1',
     );
@@ -217,9 +222,9 @@ describe('StatementsController', () => {
     };
     const currentUser = { id: 'user-1' } as User;
 
-    const result = await controller.uploadReceipt(
+    const result = await uploads.uploadReceipt(
       [file as Express.Multer.File],
-      {} as UploadReceiptScanDto,
+      {} as UploadReceiptScanBody,
       currentUser,
       'ws-1',
     );
@@ -236,17 +241,17 @@ describe('StatementsController', () => {
   it('streams statement downloads with shared file response handling', async () => {
     const handlers: Record<string, (error: NodeJS.ErrnoException) => void> = {};
     const stream = {
-      on: jest.fn((event: string, handler: (error: NodeJS.ErrnoException) => void) => {
+      on: vi.fn((event: string, handler: (error: NodeJS.ErrnoException) => void) => {
         handlers[event] = handler;
       }),
-      pipe: jest.fn(),
+      pipe: vi.fn(),
     };
     const response: MockResponse = {
       headersSent: false,
-      setHeader: jest.fn(),
-      status: jest.fn(),
-      json: jest.fn(),
-      destroy: jest.fn(),
+      setHeader: vi.fn(),
+      status: vi.fn(),
+      json: vi.fn(),
+      destroy: vi.fn(),
     };
     const currentUser = { id: 'user-1' } as User;
 
@@ -258,7 +263,7 @@ describe('StatementsController', () => {
       mimeType: 'application/pdf',
     });
 
-    await controller.getFile('stmt-1', currentUser, 'ws-1', response as unknown as Response);
+    await controller.getFile({ id: 'stmt-1' }, currentUser, 'ws-1', response as unknown as Response);
 
     expect(statementsService.getFileStream).toHaveBeenCalledWith('stmt-1', 'ws-1');
     expect(response.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');

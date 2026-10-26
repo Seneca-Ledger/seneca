@@ -1,3 +1,4 @@
+import { countedSql } from '@/common/utils/counted-transactions.util';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotificationType } from '../../../../src/entities/notification.entity';
@@ -24,18 +25,18 @@ const charge = (date: string, amount: number) => ({
 describe('SubscriptionDetectionService price changes', () => {
   let service: SubscriptionDetectionService;
   let transactions: ReturnType<typeof queryBuilderMock>;
-  const subscriptionRepository = { findOne: jest.fn(), create: jest.fn(), save: jest.fn() };
-  const notificationsService = { createForWorkspaceMembers: jest.fn() };
+  const subscriptionRepository = { findOne: vi.fn(), create: vi.fn(), save: vi.fn() };
+  const notificationsService = { createForWorkspaceMembers: vi.fn() };
 
   function queryBuilderMock(rows: unknown[]) {
     const qb = {
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue(rows),
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue(rows),
     };
-    return { createQueryBuilder: jest.fn(() => qb) };
+    return { createQueryBuilder: vi.fn(() => qb) };
   }
 
   async function build(rows: unknown[]) {
@@ -52,7 +53,7 @@ describe('SubscriptionDetectionService price changes', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     subscriptionRepository.save.mockImplementation(async (row: Subscription) => row);
   });
 
@@ -94,6 +95,15 @@ describe('SubscriptionDetectionService price changes', () => {
         entityId: 'sub-1',
       }),
     );
+  });
+
+  it('detects subscriptions from confirmed charges only', async () => {
+    await build([]);
+
+    await service.runDetection('ws-1');
+
+    const qb = transactions.createQueryBuilder.mock.results[0].value;
+    expect(qb.andWhere).toHaveBeenCalledWith(countedSql('t'));
   });
 
   it('stays quiet while only the latest charge differs, and never repeats a known change', async () => {

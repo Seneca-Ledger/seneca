@@ -9,20 +9,21 @@ import ConfirmModal from '@/app/components/ConfirmModal';
 import { GitMerge, RefreshCcw } from '@/app/components/icons';
 import { NoteCountsProvider } from '@/app/components/notes/NoteCountsContext';
 import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
-import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
 import { useLockBodyScroll } from '@/app/hooks/useLockBodyScroll';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
+import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { DeviceLocation } from '@/app/lib/device-location';
-import { resolveLabel } from '@/app/lib/side-panel-utils';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type {
   CreateTaxRatePayload,
   ManualExpenseDraft,
   TaxRateOption,
 } from '@/app/lib/statement-expense-drawer';
-import type { StatementStage } from '@/app/lib/statement-workflow';
+import { useDocumentSelectionCommands } from './hooks/useDocumentSelectionCommands';
 import type { MergeDuplicatesPlan } from './hooks/useStatementSelection';
 import { useStatementsView } from './hooks/useStatementsView';
 import {
@@ -32,10 +33,9 @@ import {
 } from './pending-uploads-store';
 import { StatementsListHeader } from './StatementsListHeader';
 import { StatementsListTable } from './StatementsListTable';
-import { isGmailStatement, resolveStatementViewAction } from './StatementsListView.utils';
+import { resolveStatementViewAction } from './StatementsListView.utils';
+import { StatementsTableToolbar } from './StatementsTableToolbar';
 import { uploadScanDrawerFiles as runUploadScanDrawerFiles } from './statement-upload';
-
-type Props = { stage: StatementStage };
 
 // A created row normally replaces its placeholder within one refetch. The
 // fallback covers a row the list never shows (hidden by search or a filter) or
@@ -127,14 +127,14 @@ function PullToRefreshIndicator({
 }: PullIndicatorProps): React.JSX.Element | null {
   const listText = useIntlayer('statementsListUi');
   if (!isMobile || (pullDistance <= 0 && !pullRefreshing)) return null;
-  const badgeClass = `lumio-stmt-list-view__pull-badge${isReadyToRefresh || pullRefreshing ? ' lumio-stmt-list-view__pull-badge--ready' : ''}`;
+  const badgeClass = `seneca-stmt-list-view__pull-badge${isReadyToRefresh || pullRefreshing ? ' seneca-stmt-list-view__pull-badge--ready' : ''}`;
   const label = pullRefreshing
     ? listText.refreshing
     : isReadyToRefresh
       ? listText.releaseToRefresh
       : listText.pullToRefresh;
   return (
-    <div className="lumio-stmt-list-view__pull-indicator">
+    <div className="seneca-stmt-list-view__pull-indicator">
       <div className={badgeClass}>
         <RefreshCcw
           size={14}
@@ -157,11 +157,6 @@ function MergeDuplicatesSummary({
   }
   const trashCount = plan.statementIds.length + plan.receiptIds.length;
   const lines: string[] = [];
-  if (plan.gmailEntries.length > 0) {
-    lines.push(
-      listText.mergeGmailMarked.value.replace('{count}', String(plan.gmailEntries.length)),
-    );
-  }
   if (plan.receiptIds.length > 0) {
     lines.push(
       listText.mergeReceiptsTrash.value.replace('{count}', String(plan.receiptIds.length)),
@@ -171,9 +166,6 @@ function MergeDuplicatesSummary({
     lines.push(
       listText.mergeStatementsTrash.value.replace('{count}', String(plan.statementIds.length)),
     );
-  }
-  if (plan.skippedGmailCount > 0) {
-    lines.push(listText.mergeGmailSkipped.value.replace('{count}', String(plan.skippedGmailCount)));
   }
 
   return (
@@ -192,47 +184,33 @@ function MergeDuplicatesSummary({
 
 // ---- Main component ----
 
-export default function StatementsListView({ stage }: Props): React.JSX.Element {
+export default function StatementsListView(): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const listScrollRef = useRef<HTMLDivElement | null>(null);
-  const v = useStatementsView({ stage, router, searchParams, listScrollRef });
+  const v = useStatementsView({ router, searchParams, listScrollRef });
   const queryClient = useQueryClient();
   const workspaceId = useWorkspaceId();
   const listText = useIntlayer('statementsListUi');
 
   useLockBodyScroll(v.expenseDrawerOpen);
 
-  useKeyboardShortcuts({
-    'Shift+x': () => v.handleToggleSelectAll(true),
-    'Shift+Delete': () => {
-      void v.handleDeleteSelected();
-    },
-  });
+  const selectionActions = useDocumentSelectionCommands(v, router.push);
 
   const { t, filterState, listHeaderLabels, paginationLabels, uploadLabels } = v;
-
-  // Pay is left out: moving to Pay creates a payable from each statement's
-  // transactions, which the statement page does one statement at a time.
-  const bulkStageMove =
-    stage === 'submit'
-      ? { label: listText.submit.value, onMove: () => void v.handleMoveSelectedToStage('approve') }
-      : stage === 'approve'
-        ? {
-            label: listText.unapprove.value,
-            onMove: () => void v.handleMoveSelectedToStage('submit'),
-          }
-        : undefined;
 
   // Опции загрузчика растворились: search — часть ключа запроса, ошибку
   // рапортует сам хук данных. Остаётся только сбросить страницу и перезапросить.
   const refreshAfterCreate = async (): Promise<void> => {
     v.setPage(1);
     v.refetchStatements();
+    // A new expense counts on the dashboard and in reports right away.
+    invalidateFinancialData();
   };
 
   const refreshAfterAttach = (): void => {
     v.refetchStatements();
+    invalidateFinancialData();
   };
 
   const onUploadSuccess = (msg: string): void => {
@@ -243,7 +221,7 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
   // refetched too, not only statements.
   const refreshListsAfterScan = async (): Promise<void> => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['gmail-receipts', workspaceId] }),
+      queryClient.invalidateQueries({ queryKey: ['receipt-documents', workspaceId] }),
       queryClient.invalidateQueries({ queryKey: ['statements', workspaceId] }),
     ]);
   };
@@ -295,13 +273,16 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
   };
 
   const handleCreateTaxRate = async (payload: CreateTaxRatePayload): Promise<TaxRateOption> => {
-    const response = await apiClient.post('/tax-rates', payload);
-    const created = response.data as TaxRateOption & { rate: number | string };
+    const response = await apiClient.post(
+      '/tax-rates',
+      payload satisfies ContractInput<'CreateTaxRateBody'>,
+    );
+    const created = await checkContract('TaxRateItem', response.data, '/tax-rates');
     await v.loadManualExpenseOptions();
     return {
       ...created,
-      rate: Number(created.rate ?? payload.rate),
-      isEnabled: created.isEnabled !== false,
+      rate: Number(created.rate),
+      isEnabled: created.isEnabled,
     };
   };
 
@@ -313,14 +294,14 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
     id: string;
     source?: string;
     fileName: string;
-    parsingDetails?: { importPreview?: { attachments?: number } };
+    parsingDetails?: StatementParsingDetails | null;
   }): void => {
-    const isReceipt = statement.source === 'gmail' || statement.source === 'scan';
+    const isReceipt = statement.source === 'scan';
     if (isReceipt) {
       v.openPreview({
         fileId: statement.id,
         fileName: statement.fileName || 'receipt.pdf',
-        source: isGmailStatement(statement) ? 'gmail' : 'receipt',
+        source: 'receipt',
         allowAttachFile: false,
       });
       return;
@@ -335,22 +316,16 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
     });
   };
 
-  const reviewDuplicateLabel = resolveLabel(v.t.actions?.reviewDuplicate, 'Review');
-  const markDuplicateLabel = resolveLabel(v.t.actions?.markDuplicate, 'Mark as duplicate');
-  const markNotDuplicateLabel = resolveLabel(
-    v.t.actions?.markNotDuplicate,
-    'Mark as not duplicate',
-  );
-  const dismissDuplicateLabel = resolveLabel(
-    v.t.actions?.dismissDuplicate,
-    markNotDuplicateLabel || 'Dismiss',
-  );
-  const mergeDuplicatesLabel = resolveLabel(v.t.actions?.mergeDuplicates, 'Merge duplicates');
-  const selectDuplicatesLabel = resolveLabel(v.t.actions?.selectDuplicates, 'Select duplicates');
-  const viewLabel = resolveLabel(v.t.actions?.view, 'View');
+  const reviewDuplicateLabel = v.t.actions.reviewDuplicate.value;
+  const markDuplicateLabel = v.t.actions.markDuplicate.value;
+  const markNotDuplicateLabel = v.t.actions.markNotDuplicate.value;
+  const dismissDuplicateLabel = v.t.actions.dismissDuplicate.value;
+  const mergeDuplicatesLabel = v.t.actions.mergeDuplicates.value;
+  const selectDuplicatesLabel = v.t.actions.selectDuplicates.value;
+  const viewLabel = v.t.actions.view.value;
 
   return (
-    <div className="container-shared lumio-stmt-list-view" {...v.pullToRefreshHandlers}>
+    <div className="container-shared seneca-stmt-list-view" {...v.pullToRefreshHandlers}>
       <PullToRefreshIndicator
         isMobile={v.isMobile}
         pullDistance={v.pullDistance}
@@ -358,18 +333,16 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
         isReadyToRefresh={v.isReadyToRefresh}
       />
       <StatementsListHeader
-        searchInput={v.searchInput}
-        searchPlaceholder={resolveLabel(t.searchPlaceholder, 'Search statements')}
         selectedCount={v.selectedCount}
         selectedActionsOpen={v.selectedActionsOpen}
+        selectionActions={selectionActions}
         hasSelectedDuplicates={v.hasSelectedDuplicates}
-        loading={v.isPending}
         draftFilters={filterState.draftFilters}
+        appliedFilters={filterState.appliedFilters}
         activeFilterCount={v.activeFilterCount}
-        typeDropdownOpen={filterState.typeDropdownOpen}
-        statusDropdownOpen={filterState.statusDropdownOpen}
+        search={v.search}
+        onSearchApply={v.applySearch}
         dateDropdownOpen={filterState.dateDropdownOpen}
-        fromDropdownOpen={filterState.fromDropdownOpen}
         filtersDrawerOpen={filterState.filtersDrawerOpen}
         filtersDrawerScreen={filterState.filtersDrawerScreen}
         columnsDrawerOpen={filterState.columnsDrawerOpen}
@@ -377,7 +350,6 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
         visibleFilterScreens={v.visibleFilterScreens}
         routeFilterLabel={v.routeFilterLabel}
         onResetRouteFilter={v.resetRouteFilters}
-        duplicateStatementIds={v.duplicateStatementIds}
         typeOptions={v.typeOptions}
         statusOptions={v.statusOptions}
         datePresets={v.datePresets}
@@ -392,20 +364,13 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
         mergeDuplicatesLabel={mergeDuplicatesLabel}
         dismissDuplicateLabel={dismissDuplicateLabel}
         markDuplicateLabel={markDuplicateLabel}
-        selectDuplicatesLabel={selectDuplicatesLabel}
-        onSearchChange={v.setSearchInput}
-        onToggleActionsOpen={() => v.setSelectedActionsOpen(prev => !prev)}
+        onActionsOpenChange={v.setSelectedActionsOpen}
         onMerge={v.handleMergeSelectedDuplicates}
         onDismiss={v.handleDismissSelectedDuplicates}
         onMarkDuplicate={v.handleMarkSelectedAsDuplicate}
         onExport={v.handleExportSelected}
         onDelete={v.handleDeleteSelected}
-        stageMove={bulkStageMove}
-        onSelectDetectedDuplicates={v.handleSelectDetectedDuplicates}
-        onTypeDropdownChange={filterState.setTypeDropdownOpen}
-        onStatusDropdownChange={filterState.setStatusDropdownOpen}
         onDateDropdownChange={filterState.setDateDropdownOpen}
-        onFromDropdownChange={filterState.setFromDropdownOpen}
         onFiltersDrawerClose={() => filterState.setFiltersDrawerOpen(false)}
         onFiltersDrawerOpen={() => {
           filterState.setDraftFilters(filterState.appliedFilters);
@@ -420,26 +385,11 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
           filterState.applyFilterChanges();
           filterState.setFiltersDrawerOpen(false);
         }}
-        onApplyType={() => filterState.applyAndClose(() => filterState.setTypeDropdownOpen(false))}
-        onResetType={() =>
-          filterState.resetAndClose('type', () => filterState.setTypeDropdownOpen(false))
-        }
-        onApplyStatus={() =>
-          filterState.applyAndClose(() => filterState.setStatusDropdownOpen(false))
-        }
-        onResetStatus={() =>
-          filterState.resetAndClose('statuses', () => filterState.setStatusDropdownOpen(false))
-        }
         onApplyDate={() => filterState.applyAndClose(() => filterState.setDateDropdownOpen(false))}
         onResetDate={() =>
           filterState.resetAndClose('date', () => filterState.setDateDropdownOpen(false))
         }
-        onApplyFrom={() => filterState.applyAndClose(() => filterState.setFromDropdownOpen(false))}
-        onResetFrom={() =>
-          filterState.resetAndClose('from', () => filterState.setFromDropdownOpen(false))
-        }
         onColumnsClose={() => filterState.setColumnsDrawerOpen(false)}
-        onColumnsOpen={filterState.handleColumnsOpen}
         onColumnsToggle={filterState.updateColumnsToggle}
         onColumnsReorder={filterState.handleReorderColumns}
         onColumnsSave={filterState.handleSaveColumns}
@@ -447,7 +397,7 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
       <div
         ref={listScrollRef}
         data-tour-id="statements-table"
-        className="lumio-stmt-list-view__body"
+        className="seneca-stmt-list-view__body"
         style={{ paddingBottom: v.selectedCount > 0 ? 96 : 0 }}
       >
         <NoteCountsProvider
@@ -455,10 +405,36 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
           entityIds={v.paginatedDisplayStatements.map(statement => statement.id)}
         >
           <StatementsListTable
+            toolbar={
+              <StatementsTableToolbar
+                loading={v.isPending}
+                draftFilters={filterState.draftFilters}
+                fromOptions={v.fromOptions}
+                fromDropdownOpen={filterState.fromDropdownOpen}
+                duplicateStatementIds={v.duplicateStatementIds}
+                labels={{
+                  from: v.filterLabels.from,
+                  columns: v.filterLabels.columns,
+                  apply: v.filterOptionLabels.apply,
+                  reset: v.filterOptionLabels.reset,
+                  selectDuplicates: selectDuplicatesLabel,
+                }}
+                onFromDropdownChange={filterState.setFromDropdownOpen}
+                onUpdateFilters={filterState.updateFilter}
+                onApplyFrom={() =>
+                  filterState.applyAndClose(() => filterState.setFromDropdownOpen(false))
+                }
+                onResetFrom={() =>
+                  filterState.resetAndClose('from', () => filterState.setFromDropdownOpen(false))
+                }
+                onSelectDetectedDuplicates={v.handleSelectDetectedDuplicates}
+                onColumnsOpen={filterState.handleColumnsOpen}
+              />
+            }
             loading={v.isPending}
             displayStatements={v.displayStatements}
             paginatedStatements={v.paginatedDisplayStatements}
-            gmailSyncSkeletonKeys={v.listSkeletonKeys}
+            skeletonKeys={v.listSkeletonKeys}
             allVisibleSelected={v.allVisibleSelected}
             selectedCount={v.selectedCount}
             selectedStatementIds={v.selectedStatementIds}
@@ -469,6 +445,7 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
             rangeEnd={v.rangeEnd}
             total={v.total}
             duplicateMetaById={v.duplicateMetaById}
+            statementReviewCounts={v.statementReviewCounts}
             columns={v.appliedColumnsWithLabels}
             currentExchangeRateLabels={v.currentExchangeRateLabels}
             workspaceCurrency={v.currentWorkspace?.currency}
@@ -481,11 +458,8 @@ export default function StatementsListView({ stage }: Props): React.JSX.Element 
               action: listHeaderLabels.action,
               receipt: listHeaderLabels.receipt,
               scanning: listHeaderLabels.scanning,
-              emptyTitle: resolveLabel(t.empty?.title, 'No statements yet'),
-              emptyDescription: resolveLabel(
-                t.empty?.description,
-                'Upload your first statement to get started',
-              ),
+              emptyTitle: t.empty.title.value,
+              emptyDescription: t.empty.description.value,
               paginationShown: paginationLabels.shown,
               paginationPageOf: paginationLabels.pageOf,
             }}

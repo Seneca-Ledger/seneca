@@ -5,6 +5,7 @@ import { User, WorkspaceMember } from '../../entities';
 import { DataEntry } from '../../entities/data-entry.entity';
 import { DataEntryCustomField } from '../../entities/data-entry-custom-field.entity';
 import { IdempotencyKey } from '../../entities/idempotency-key.entity';
+import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { DataEntryController } from './data-entry.controller';
 import { DataEntryService } from './data-entry.service';
 
@@ -17,6 +18,7 @@ import { DataEntryService } from './data-entry.service';
       WorkspaceMember,
       IdempotencyKey,
     ]),
+    WorkspaceCurrencyModule,
   ],
   controllers: [DataEntryController],
   providers: [DataEntryService, IdempotencyService],

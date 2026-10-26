@@ -26,8 +26,29 @@ describe('insightHref', () => {
     );
 
     expect(href).toBe(
-      '/statements/top-categories?focus=category%3Amarketing%20and%20advertising',
+      '/reports?tab=cash-flow&focus=category%3Amarketing%20and%20advertising',
     );
+  });
+
+  it('opens the leaderboard on the month the rise was measured in', () => {
+    // Without it the page aggregates every month it has, and the ringed row
+    // would show a total the advice never mentioned.
+    expect(
+      insightHref(
+        makeInsight({
+          type: 'trend.spending_up',
+          data: { month: '2026-09', categoryName: 'Travel' },
+        }),
+      ),
+    ).toBe('/reports?tab=cash-flow&month=2026-09&focus=category%3Atravel');
+  });
+
+  it('ignores a month that is not one', () => {
+    expect(
+      insightHref(
+        makeInsight({ type: 'trend.spending_up', data: { month: 'none', categoryName: 'Travel' } }),
+      ),
+    ).toBe('/reports?tab=cash-flow&focus=category%3Atravel');
   });
 
   it('leaves a rising category unlinked when the name is missing', () => {
@@ -54,28 +75,22 @@ describe('insightHref', () => {
   it('points the savings rate at the tab that actually shows it', () => {
     // The KPI lives on Overview; the Trends tab has no savings-rate widget.
     expect(insightHref(makeInsight({ type: 'trend.savings_rate' }))).toBe(
-      '/dashboard?tab=overview&focus=kpi:savings-rate',
+      '/dashboard?focus=kpi%3Asavings-rate',
     );
-  });
-
-  it('sends an AI summary to the month it was written about', () => {
-    expect(
-      insightHref(
-        makeInsight({ type: 'ai.summary', data: { periodKey: '2026-08', modelId: 'local' } }),
-      ),
-    ).toBe('/dashboard?tab=overview&month=2026-08');
-    expect(insightHref(makeInsight({ type: 'ai.summary', data: null }))).toBeNull();
+    expect(insightHref(makeInsight({ type: 'trend.savings_rate', data: { month: '2026-09' } }))).toBe(
+      '/dashboard?month=2026-09&focus=kpi%3Asavings-rate',
+    );
   });
 
   it('sends the operational backlogs to the queue that clears them', () => {
     expect(insightHref(makeInsight({ type: 'operational.unapproved_count' }))).toBe(
-      '/statements/approve',
+      '/review',
     );
     expect(insightHref(makeInsight({ type: 'operational.uncategorized_count' }))).toBe(
       '/statements/submit?missingCategory=true',
     );
     expect(insightHref(makeInsight({ type: 'operational.duplicate_detected' }))).toBe(
-      '/statements/unapproved-cash',
+      '/review',
     );
   });
 
@@ -83,7 +98,7 @@ describe('insightHref', () => {
     expect(insightHref(makeInsight({ type: 'pattern.risky_allocation' }))).toBe(
       '/net-worth?focus=card:risk',
     );
-    expect(insightHref(makeInsight({ type: 'forecast.monthly' }))).toBe('/dashboard?tab=overview');
+    expect(insightHref(makeInsight({ type: 'forecast.monthly' }))).toBe('/dashboard');
     expect(insightHref(makeInsight({ type: 'pattern.detected' }))).toBe('/subscriptions');
   });
 
@@ -95,11 +110,25 @@ describe('insightHref', () => {
   it('sends Stoic advice about a class to that class in Budgets', () => {
     expect(
       insightHref(makeInsight({ type: 'stoic.intent_gap', data: { stoicClass: 'leisure' } })),
-    ).toBe('/budgets?focus=stoic:leisure');
+    ).toBe('/budgets?focus=stoic%3Aleisure');
     expect(
       insightHref(makeInsight({ type: 'stoic.virtue_neglected', data: { stoicClass: 'virtue' } })),
-    ).toBe('/budgets?focus=stoic:virtue');
+    ).toBe('/budgets?focus=stoic%3Avirtue');
     expect(insightHref(makeInsight({ type: 'stoic.praise', data: {} }))).toBe('/budgets');
+  });
+
+  it('carries the judged month to Budgets, which otherwise shows the running one', () => {
+    // Early in a month the advice is about the month that just ended.
+    expect(
+      insightHref(
+        makeInsight({ type: 'stoic.intent_gap', data: { month: '2026-08', stoicClass: 'leisure' } }),
+      ),
+    ).toBe('/budgets?month=2026-08&focus=stoic%3Aleisure');
+    expect(
+      insightHref(
+        makeInsight({ type: 'stoic.repeated', data: { month: '2026-08', categoryId: 'cat-1' } }),
+      ),
+    ).toBe('/budgets?month=2026-08&focus=budget%3Acat-1');
   });
 
   it('sends a repeated overrun to its budget card, and a leisure habit to leisure', () => {
@@ -108,7 +137,7 @@ describe('insightHref', () => {
     ).toBe('/budgets?focus=budget%3Acat-1');
     expect(
       insightHref(makeInsight({ type: 'stoic.repeated', data: { stoicClass: 'leisure' } })),
-    ).toBe('/budgets?focus=stoic:leisure');
+    ).toBe('/budgets?focus=stoic%3Aleisure');
   });
 
   it('sends unjudged categories to the list where they are judged', () => {
@@ -122,14 +151,14 @@ describe('insightHref', () => {
       '/budgets?focus=budget%3Ac1',
     );
     expect(insightHref(makeInsight({ type: 'stoic.plan', data: { stoicClass: 'virtue' } }))).toBe(
-      '/budgets?focus=stoic:virtue',
+      '/budgets?focus=stoic%3Avirtue',
     );
   });
 
   it('sends the generosity hint to the virtue class', () => {
     expect(
       insightHref(makeInsight({ type: 'stoic.generosity', data: { stoicClass: 'virtue' } })),
-    ).toBe('/budgets?focus=stoic:virtue');
+    ).toBe('/budgets?focus=stoic%3Avirtue');
   });
 
   it('sends goal advice and goal praise to the goal', () => {
@@ -141,10 +170,36 @@ describe('insightHref', () => {
   });
 
   it('sends habits, fortune, commitments and subscriptions to where they are seen', () => {
-    expect(insightHref(makeInsight({ type: 'stoic.habit' }))).toBe('/statements/top-merchants');
-    expect(insightHref(makeInsight({ type: 'stoic.fortune' }))).toBe('/dashboard?tab=overview');
-    expect(insightHref(makeInsight({ type: 'stoic.commitments' }))).toBe('/dashboard?tab=overview');
+    expect(insightHref(makeInsight({ type: 'stoic.habit' }))).toBe('/reports?tab=cash-flow');
+    expect(insightHref(makeInsight({ type: 'stoic.fortune' }))).toBe('/dashboard');
+    expect(insightHref(makeInsight({ type: 'stoic.commitments' }))).toBe('/dashboard');
     expect(insightHref(makeInsight({ type: 'stoic.subscriptions' }))).toBe('/subscriptions');
+  });
+
+  it('rings the merchant a habit is about, in the month it counted visits', () => {
+    expect(
+      insightHref(
+        makeInsight({ type: 'stoic.habit', data: { month: '2026-09', merchant: ' Café Einstein ' } }),
+      ),
+    ).toBe('/reports?tab=cash-flow&month=2026-09&focus=merchant%3Acaf%C3%A9%20einstein');
+  });
+
+  it('sends the weekend habit, which names no merchant, to its class', () => {
+    expect(
+      insightHref(
+        makeInsight({ type: 'stoic.habit', data: { month: '2026-09', stoicClass: 'leisure' } }),
+      ),
+    ).toBe('/budgets?month=2026-09&focus=stoic%3Aleisure');
+  });
+
+  it('pins the dashboard to the judged month for fortune and commitments', () => {
+    // With no month the dashboard shows the latest one that has data.
+    expect(insightHref(makeInsight({ type: 'stoic.fortune', data: { month: '2026-08' } }))).toBe(
+      '/dashboard?month=2026-08',
+    );
+    expect(
+      insightHref(makeInsight({ type: 'stoic.commitments', data: { month: '2026-08' } })),
+    ).toBe('/dashboard?month=2026-08');
   });
 
   it('sends an expert principle to where its numbers live', () => {
@@ -153,6 +208,6 @@ describe('insightHref', () => {
     ).toBe('/budgets');
     expect(
       insightHref(makeInsight({ type: 'expert.principle', data: { target: 'merchants' } })),
-    ).toBe('/statements/top-merchants');
+    ).toBe('/reports?tab=cash-flow');
   });
 });

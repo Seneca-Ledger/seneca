@@ -1,13 +1,18 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { ReviewInboxView } from './components/ReviewInboxView';
 import { useReviewInbox } from './hooks/useReviewInbox';
 
 function ReviewInboxPageContent() {
   const state = useReviewInbox();
-  return <ReviewInboxView state={state} />;
+  // Rendered after mount only: content inside Suspense hydrates once the
+  // providers have switched MUI to the dark palette, so server HTML (light)
+  // and client markup would disagree and React keeps the light classes.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? <ReviewInboxView state={state} /> : null;
 }
 
 export default function ReviewInboxPage() {

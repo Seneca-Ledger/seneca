@@ -38,6 +38,21 @@ const CURRENCY_ALIASES: Record<string, string> = {
 
 const AMOUNT_PATTERN = /(?<![\d.,])(\d{1,9}(?:[.,]\d{1,2})?)(?![\d.,])/u;
 const CURRENCY_PATTERN = /^(€|\$|£|₸|₽|₴|₺|[a-zа-яё]{2,5})$/iu;
+const SEPARATOR_PATTERN = /[\s\-–—:,;]/u;
+
+// A loop rather than /[…]+$/: an anchored run of separators backtracks
+// quadratically on long user text.
+function trimSeparators(value: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && SEPARATOR_PATTERN.test(value[start])) {
+    start++;
+  }
+  while (end > start && SEPARATOR_PATTERN.test(value[end - 1])) {
+    end--;
+  }
+  return value.slice(start, end);
+}
 
 export function parseExpenseText(input: string): ParsedExpenseText | null {
   const text = input.trim();
@@ -73,12 +88,7 @@ export function parseExpenseText(input: string): ParsedExpenseText | null {
     merchantParts = [beforeTokens.slice(0, -1).join(' '), after];
   }
 
-  const merchant = merchantParts
-    .join(' ')
-    .replace(/[\s\-–—:,;]+$/u, '')
-    .replace(/^[\s\-–—:,;]+/u, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const merchant = trimSeparators(merchantParts.join(' ')).replace(/\s+/g, ' ');
 
   return { amount: Math.round(amount * 100) / 100, currency, merchant };
 }

@@ -4,6 +4,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import WebhookIcon from '@mui/icons-material/Webhook';
 import Box from '@mui/material/Box';
 import Switch from '@mui/material/Switch';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { ChevronRight, Cpu } from '@/app/components/icons';
@@ -16,6 +17,7 @@ import {
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
+import { AiAssistantDrawer } from '../ai-assistant/AiAssistantDrawer';
 import { usePluginState } from '../hooks/usePluginState';
 import { McpServerDrawer } from '../mcp-server/McpServerDrawer';
 import type { PluginKey } from '../types';
@@ -41,7 +43,7 @@ function usePlugins(): PluginRowItem[] {
       name: t.cards.aiAssistant.name.value,
       description: t.cards.aiAssistant.description,
       icon: <SmartToyIcon sx={{ fontSize: 22 }} />,
-      configurable: false,
+      configurable: true,
     },
     {
       key: 'webhooks',
@@ -63,15 +65,21 @@ function usePlugins(): PluginRowItem[] {
 function PluginRow({
   plugin,
   active,
+  canToggle,
+  pending,
   onToggle,
   onOpen,
 }: {
   plugin: PluginRowItem;
   active: boolean;
-  onToggle: () => void;
+  canToggle: boolean;
+  pending: boolean;
+  onToggle: (enabled: boolean) => void;
   onOpen: () => void;
 }): React.JSX.Element {
   const t = useIntlayer('pluginsPage');
+  // The assistant has nothing to configure while off; the others open to set up first.
+  const openable = plugin.configurable && (active || plugin.key !== 'ai-assistant');
 
   return (
     <Box
@@ -87,7 +95,7 @@ function PluginRow({
         component="button"
         type="button"
         onClick={onOpen}
-        disabled={!plugin.configurable}
+        disabled={!openable}
         sx={{
           display: 'flex',
           flex: 1,
@@ -100,7 +108,7 @@ function PluginRow({
           bgcolor: 'transparent',
           textAlign: 'left',
           color: 'text.primary',
-          cursor: plugin.configurable ? 'pointer' : 'default',
+          cursor: openable ? 'pointer' : 'default',
         }}
       >
         <Box
@@ -131,17 +139,20 @@ function PluginRow({
             {plugin.description}
           </Typography>
         </Box>
-        {plugin.configurable ? (
-          <ChevronRight size={16} style={{ flexShrink: 0, opacity: 0.5 }} />
-        ) : null}
+        {openable ? <ChevronRight size={16} style={{ flexShrink: 0, opacity: 0.5 }} /> : null}
       </Box>
-      <Switch
-        checked={active}
-        onChange={onToggle}
-        size="small"
-        inputProps={{ 'aria-label': t.toggle.value.replace('{name}', plugin.name) }}
-        sx={{ mr: 0.5 }}
-      />
+      <Tooltip title={canToggle ? '' : t.adminOnlyToggle.value}>
+        <span>
+          <Switch
+            checked={active}
+            onChange={(_event, checked) => onToggle(checked)}
+            disabled={!canToggle || pending}
+            size="small"
+            slotProps={{ input: { 'aria-label': t.toggle.value.replace('{name}', plugin.name) } }}
+            sx={{ mr: 0.5 }}
+          />
+        </span>
+      </Tooltip>
     </Box>
   );
 }
@@ -150,7 +161,7 @@ export function PluginsPanel(): React.JSX.Element {
   const { panel, item } = useAppPanelState();
   const open = panel === 'plugins';
   const plugins = usePlugins();
-  const { isEnabled, toggle } = usePluginState();
+  const { isEnabled, setEnabled, canToggle, pending } = usePluginState();
   const t = useIntlayer('pluginsPage');
 
   return (
@@ -171,7 +182,9 @@ export function PluginsPanel(): React.JSX.Element {
                 key={plugin.key}
                 plugin={plugin}
                 active={isEnabled(plugin.key)}
-                onToggle={() => toggle(plugin.key)}
+                canToggle={canToggle}
+                pending={pending === plugin.key}
+                onToggle={enabled => void setEnabled(plugin.key, enabled)}
                 onOpen={() => openAppPanelItem(plugin.key)}
               />
             ))}
@@ -179,6 +192,12 @@ export function PluginsPanel(): React.JSX.Element {
         </Box>
       </DrawerShell>
 
+      <AiAssistantDrawer
+        isOpen={open && item === 'ai-assistant' && isEnabled('ai-assistant')}
+        onClose={closeAppPanel}
+        onBack={closeAppPanelItem}
+        zIndex={1400}
+      />
       <WebhooksDrawer
         isOpen={open && item === 'webhooks'}
         onClose={closeAppPanel}

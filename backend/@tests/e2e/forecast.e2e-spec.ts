@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -115,6 +115,26 @@ describe('Forecast (e2e)', () => {
     expect(sources).not.toContain(payableId);
     expect(res.body.events.find((event: { label: string }) => event.label === 'Netflix').amount).toBe(
       -30,
+    );
+  });
+
+  it('expects the money a client owes on its due date', async () => {
+    await as(owner, request(server()).post('/payables'))
+      .send({
+        direction: 'receivable',
+        vendor: 'Client Co',
+        amount: 800,
+        currency: 'USD',
+        dueDate: inDays(7),
+      })
+      .expect(201);
+
+    const res = await as(owner, request(server()).get('/forecast?days=30')).expect(200);
+
+    expect(res.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'invoice', label: 'Client Co', amount: 800 }),
+      ]),
     );
   });
 

@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
 } from 'typeorm';
 import { Subscription } from './subscription.entity';
@@ -27,24 +28,25 @@ export class SubscriptionCharge {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Subscription, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'subscription_id' })
-  subscription: Subscription;
+  subscription: Relation<Subscription>;
 
   @Column({ name: 'subscription_id', type: 'uuid' })
   subscriptionId: string;
 
-  @ManyToOne(() => Transaction, { onDelete: 'CASCADE' })
+  /** Null for a payment recorded by hand and not linked to its bank row yet. */
+  @ManyToOne(() => Transaction, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'transaction_id' })
-  transaction: Transaction;
+  transaction: Relation<Transaction | null>;
 
-  @Column({ name: 'transaction_id', type: 'uuid' })
-  transactionId: string;
+  @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
+  transactionId: string | null;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount: number;
@@ -61,7 +63,12 @@ export class SubscriptionCharge {
   @Column({ name: 'expected_date', type: 'date', nullable: true })
   expectedDate: Date | null;
 
-  @Column({ type: 'enum', enum: SubscriptionChargeMatchStatus })
+  @Column({
+    name: 'match_status',
+    type: 'enum',
+    enum: SubscriptionChargeMatchStatus,
+    enumName: 'subscription_charges_match_status_enum',
+  })
   matchStatus: SubscriptionChargeMatchStatus;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

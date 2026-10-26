@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -22,6 +24,10 @@ describe('ParsingWarningsPanel', () => {
     root = createRoot(container);
   });
 
+  // DroppedSampleForm держит MUI-пикер даты: в приложении его контекст даёт providers.tsx.
+  const renderPanel = (ui: React.ReactElement) =>
+    root.render(<LocalizationProvider dateAdapter={AdapterDateFns}>{ui}</LocalizationProvider>);
+
   afterEach(() => {
     act(() => {
       root.unmount();
@@ -31,7 +37,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('shows each parsing warning as an actionable visible list item', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={[
             'Row 14: amount could not be matched confidently',
@@ -53,7 +59,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('renders nothing when there are no warnings', async () => {
     await act(async () => {
-      root.render(<ParsingWarningsPanel warnings={[]} />);
+      renderPanel(<ParsingWarningsPanel warnings={[]} />);
     });
 
     expect(container.textContent).toBe('');
@@ -73,7 +79,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('enables convert action only after required dropped-row fields are filled', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['tx#207: skipped (no debit/credit amount)']}
           droppedSamples={[
@@ -110,7 +116,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('opens dropped-row editor in a modal after clicking the row', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['tx#207: skipped (no debit/credit amount)']}
           droppedSamples={[
@@ -151,7 +157,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('opens editor for negative amount warnings too', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['tx#189: skipped (negative amount)']}
           droppedSamples={[
@@ -185,7 +191,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('opens currency picker drawer when currency field is clicked in dropped-row modal', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['tx#203: skipped (negative amount)']}
           droppedSamples={[
@@ -228,18 +234,17 @@ describe('ParsingWarningsPanel', () => {
     expect(document.body.textContent).toContain('Recents');
     expect(document.body.textContent).toContain('All');
 
-    const drawer = document.body.querySelector('.bg-white');
+    // Тёмная тема у CurrencyDrawer теперь из токенов (sx + CSS-переменные), а не из
+    // dark:bg-[#…] классов — проверяем, что поиск в шторке есть.
     const searchInput = Array.from(document.body.querySelectorAll('input')).find(
       input => input.getAttribute('placeholder') === 'Search',
     );
-
-    expect(drawer?.className).toContain('dark:bg-[#111827]');
-    expect(searchInput?.className).toContain('dark:bg-[#0f172a]');
+    expect(searchInput).toBeTruthy();
   });
 
   it('matches editable warning rows by transaction number, not only full reason text', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['tx#209: skipped (negative amount) [review]']}
           droppedSamples={[
@@ -273,7 +278,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('opens editor for repairable warning rows even when dropped sample payload is missing', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={[
             'tx#243: skipped (negative amount)',
@@ -299,7 +304,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('renders balance mismatch warning as an actionable item', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['Balance mismatch: expected 1000.00 got 800.00 (diff 200.00)']}
           fixTooltipLabel="Fix"
@@ -316,7 +321,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('shows balance-specific tooltip for balance mismatch warnings', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['Balance mismatch: expected 1000.00 got 800.00 (diff 200.00)']}
           resolveBalanceTooltipLabel="Check balance"
@@ -335,7 +340,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('shows localized fix tooltip on hoverable dropped warning rows', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['tx#207: skipped (no debit/credit amount)']}
           droppedSamples={[
@@ -363,7 +368,7 @@ describe('ParsingWarningsPanel', () => {
 
   it('does not render a separate dropped-rows list under warnings', async () => {
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['tx#207: skipped (no debit/credit amount)']}
           droppedSamples={[
@@ -391,7 +396,7 @@ describe('ParsingWarningsPanel', () => {
     const onConvertDroppedSample = vi.fn();
 
     await act(async () => {
-      root.render(
+      renderPanel(
         <ParsingWarningsPanel
           warnings={['tx#207: skipped (no debit/credit amount)']}
           droppedSamples={[
@@ -445,8 +450,10 @@ describe('ParsingWarningsPanel', () => {
       convertButton?.click();
     });
 
-    expect(onConvertDroppedSample).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(onConvertDroppedSample).toHaveBeenCalledWith({
+      index: 0,
+      warning: 'tx#207: skipped (no debit/credit amount)',
+      sample: expect.objectContaining({
         reason: 'tx#207: skipped (no debit/credit amount)',
         transaction: expect.objectContaining({
           transactionDate: '2026-03-17',
@@ -455,7 +462,6 @@ describe('ParsingWarningsPanel', () => {
           paymentPurpose: 'Service payment',
         }),
       }),
-      0,
-    );
+    });
   });
 });

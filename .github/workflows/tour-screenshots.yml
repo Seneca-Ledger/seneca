@@ -1,0 +1,147 @@
+name: Tour screenshots
+
+# Regenerates the guide's screenshots (frontend/public/tour/<locale>/) from a demo workspace
+# with fixed data, in every language and both themes, on a stack started the way self-hosters
+# start it. On main the changed images are committed back; elsewhere they are uploaded as an
+# artifact to look at.
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/app/**"
+      - "!frontend/public/tour/**"
+      - "frontend/scripts/capture-tutorial-screenshots.mjs"
+      - "frontend/scripts/tour-shots-setup.mjs"
+      - "frontend/scripts/tour-shots/**"
+      - "backend/src/modules/workspaces/demo-workspace/**"
+      - ".github/workflows/tour-screenshots.yml"
+
+concurrency:
+  group: tour-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The day the demo data ends on; the browser's and the backend's clocks are set to it too.
+  DEMO_DATA_ANCHOR_DATE: "2026-09-28"
+  TUTORIAL_SHOTS_BASE_URL: http://localhost:3000
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    steps:
+      - name: Harden runner (audit egress)
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Write the stack's .env
+        run: |
+          {
+            echo "POSTGRES_USER=seneca"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
+            echo "POSTGRES_DB=seneca"
+            echo "JWT_SECRET=$(openssl rand -base64 32)"
+            echo "JWT_REFRESH_SECRET=$(openssl rand -base64 32)"
+            echo "INTEGRATIONS_ENCRYPTION_KEY=$(openssl rand -base64 32)"
+            # One login serves the whole run; a refresh would rotate the shared session.
+            echo "JWT_EXPIRES_IN=6h"
+            echo "DEMO_DATA_ANCHOR_DATE=${DEMO_DATA_ANCHOR_DATE}"
+            # The browser talks to the API through the frontend's /api rewrite.
+            echo "NEXT_PUBLIC_API_URL=/api/v1"
+            echo "NEXT_PUBLIC_APP_URL=${TUTORIAL_SHOTS_BASE_URL}"
+            echo "FRONTEND_URL=${TUTORIAL_SHOTS_BASE_URL}"
+            echo "APP_URL=${TUTORIAL_SHOTS_BASE_URL}"
+          } > .env
+
+      - name: Start the stack
+        run: |
+          docker compose -f docker-compose.yml -f frontend/scripts/tour-shots/compose.yml \
+            up -d --build postgres redis backend frontend
+
+      # Not `--wait`: the frontend's healthcheck wants 200 on `/`, which redirects.
+      - name: Wait for the backend and the frontend
+        run: |
+          for _ in $(seq 1 120); do
+            curl -fsS -o /dev/null http://localhost:3001/api/v1/health/ready && break
+            sleep 5
+          done
+          curl -fsS -o /dev/null http://localhost:3001/api/v1/health/ready
+          for _ in $(seq 1 60); do
+            curl -fsS -o /dev/null "${TUTORIAL_SHOTS_BASE_URL}/login" && break
+            sleep 5
+          done
+          curl -fsS -o /dev/null "${TUTORIAL_SHOTS_BASE_URL}/login"
+
+      # Only what the scripts import, at the frontend's locked versions; the runner's Chrome.
+      - name: Install playwright-core and sharp
+        run: |
+          lock=frontend/package-lock.json
+          playwright=$(node -p "require('./${lock}').packages['node_modules/playwright-core'].version")
+          sharp=$(node -p "require('./${lock}').packages['node_modules/sharp'].version")
+          mkdir -p "${RUNNER_TEMP}/tour-shots"
+          npm install --prefix "${RUNNER_TEMP}/tour-shots" --no-audit --no-fund \
+            "playwright-core@${playwright}" "sharp@${sharp}"
+          ln -s "${RUNNER_TEMP}/tour-shots/node_modules" frontend/node_modules
+
+      # Chinese, Japanese, Korean and Hindi need their scripts' fonts, or the text is boxes.
+      - name: Install fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-core fonts-noto-cjk
+
+      - name: Make the demo account and workspace
+        run: node frontend/scripts/tour-shots-setup.mjs >> "$GITHUB_ENV"
+
+      - name: Capture every language in both themes
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node frontend/scripts/capture-tutorial-screenshots.mjs --locale=all --concurrency=3
+
+      - name: Stack logs
+        if: failure()
+        run: docker compose logs --tail 200 backend frontend
+
+      - name: Upload the screenshots
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: tour-screenshots
+          path: frontend/public/tour
+
+      - name: Commit and push changed screenshots
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rm frontend/node_modules
+          if [ -z "$(git status --porcelain frontend/public/tour)" ]; then
+            echo "Screenshots unchanged"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A frontend/public/tour
+          git commit -m "chore(tour): regenerate guide screenshots [skip ci]"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # main may have moved on while the screenshots were taken.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

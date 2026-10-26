@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Client } from './client.entity';
@@ -17,6 +18,11 @@ import { Workspace } from './workspace.entity';
 export enum InvoiceStatus {
   DRAFT = 'draft',
   SENT = 'sent',
+  /**
+   * Derived, never stored: part of the money has arrived. The column holds
+   * 'sent' and the receivable's payments decide the rest.
+   */
+  PARTIALLY_PAID = 'partially_paid',
   PAID = 'paid',
   OVERDUE = 'overdue',
   VOID = 'void',
@@ -49,14 +55,14 @@ export class Invoice {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Client, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'client_id' })
-  client: Client;
+  client: Relation<Client>;
 
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
@@ -78,9 +84,21 @@ export class Invoice {
   @Column({ name: 'due_date', type: 'date' })
   dueDate: string;
 
-  @Column({ type: 'varchar', length: 3, default: 'KZT' })
+  @Column({ type: 'varchar', length: 3 })
   currency: string;
 
+  /**
+   * Whether a line's unit price already contains its tax.
+   *
+   * Off by default: a seller quoting a unit price normally means the net
+   * amount, and `subtotal` stays the figure the tax is added to. On, the price
+   * is the gross figure and the tax is extracted from it — which is how retail
+   * prices and most consumer invoices are written.
+   */
+  @Column({ name: 'prices_include_tax', type: 'boolean', default: false })
+  pricesIncludeTax: boolean;
+
+  /** Net of tax, whichever way the prices are quoted. */
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   subtotal: number;
 
@@ -89,6 +107,14 @@ export class Invoice {
 
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   total: number;
+
+  /** The buyer's reference for this invoice (BT-10); empty falls back to the client's. */
+  @Column({ name: 'buyer_reference', type: 'varchar', length: 255, nullable: true })
+  buyerReference: string | null;
+
+  /** When the goods or service were delivered (BT-72, § 14 Abs. 4 Nr. 6 UStG). */
+  @Column({ name: 'delivery_date', type: 'date', nullable: true })
+  deliveryDate: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
@@ -100,6 +126,20 @@ export class Invoice {
   /** The accrual entry booked at `sent`. */
   @Column({ name: 'journal_entry_id', type: 'uuid', nullable: true })
   journalEntryId: string | null;
+
+  /**
+   * The secret in the link the client opens. Minted when the invoice is sent;
+   * NULL on a draft, which has nothing to show yet.
+   */
+  @Column({ name: 'share_token', type: 'varchar', length: 64, nullable: true, unique: true })
+  shareToken: string | null;
+
+  /** When the client first opened the link — "did they even see it". */
+  @Column({ name: 'viewed_at', type: 'timestamptz', nullable: true })
+  viewedAt: Date | null;
+
+  @Column({ name: 'view_count', type: 'int', default: 0 })
+  viewCount: number;
 
   @Column({ name: 'file_data', type: 'bytea', nullable: true, select: false })
   fileData: Buffer | null;
@@ -143,7 +183,16 @@ export class Invoice {
     () => InvoiceLineItem,
     lineItem => lineItem.invoice,
   )
-  lineItems: InvoiceLineItem[];
+  lineItems: Relation<InvoiceLineItem[]>;
+
+  /**
+   * Read models only, filled from the receivable's payments: what has arrived
+   * and what is still open. Never columns — the payment log is the truth.
+   */
+  amountPaid?: number;
+  /** Taken back by credit notes; not owed and never paid. */
+  amountCredited?: number;
+  amountDue?: number;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

@@ -11,19 +11,22 @@ interface NetWorthChartProps {
   /** Colours the line: growth reads as success, decline as danger. */
   positive: boolean;
   formatValue: (value: number) => string;
+  /** Labels for three value lines; left out on small charts, which go without a scale. */
+  formatTick?: (value: number) => string;
 }
 
-export function NetWorthChart({ points, positive, formatValue }: NetWorthChartProps) {
+export function NetWorthChart({ points, positive, formatValue, formatTick }: NetWorthChartProps) {
   const { locale } = useLocale();
 
   return (
     <>
-      <div className="lumio-chart__box">
+      <div className="seneca-chart__box">
         <LazyNetWorthArea
           points={points}
           positive={positive}
           locale={locale}
           formatValue={formatValue}
+          formatTick={formatTick}
         />
       </div>
       {points.length > 1 && (

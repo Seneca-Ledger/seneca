@@ -6,10 +6,13 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { appError } from '../../common/errors/app-error';
+import { RequestContext } from '../../common/observability/request-context';
 import { BankSyncAuthError, BankSyncTemporaryError } from './bank-sync-provider.interface';
 
 /**
- * Turns the two provider failures into answers the user can act on.
+ * Turns the two provider failures into answers the user can act on, in the
+ * same shape the global filter uses.
  *
  * Keeping them apart is the point: a rejected credential means "link again",
  * while a rate limit or a connection the provider is still repairing means
@@ -25,24 +28,22 @@ export class BankSyncErrorFilter implements ExceptionFilter {
     const response = context.getResponse<Response>();
     const request = context.getRequest<{ url?: string }>();
     const temporary = exception instanceof BankSyncTemporaryError;
-    const status = temporary ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_REQUEST;
+    const retryAfterSeconds = temporary ? exception.retryAfterSeconds : undefined;
+    const body = appError(temporary ? 'BANK_SYNC_UNAVAILABLE' : 'BANK_SYNC_NEEDS_REAUTH');
 
     this.logger.warn(`${request.url ?? 'bank-sync'}: ${exception.message}`);
-    if (temporary && exception.retryAfterSeconds) {
-      response.setHeader('Retry-After', String(exception.retryAfterSeconds));
-    }
-    response.status(status).json({
+    if (retryAfterSeconds) response.setHeader('Retry-After', String(retryAfterSeconds));
+    response.status(temporary ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_REQUEST).json({
       error: {
-        code: temporary ? 'BANK_SYNC_UNAVAILABLE' : 'BANK_SYNC_NEEDS_REAUTH',
-        message: exception.message,
+        ...body,
         details: {
           /** False means the credential is fine and the call is worth repeating later. */
           needsRelink: !temporary,
-          ...(temporary && exception.retryAfterSeconds
-            ? { retryAfterSeconds: exception.retryAfterSeconds }
-            : {}),
+          ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
         },
       },
+      requestId: RequestContext.getRequestId(),
+      traceId: RequestContext.getTraceId(),
       timestamp: new Date().toISOString(),
       path: request.url ?? null,
     });

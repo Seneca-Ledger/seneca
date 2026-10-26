@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from '@/app/hooks/useAuth';
 import apiClient from '@/app/lib/api';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import type { DateFormatPreference } from '@/app/lib/user-format';
 import { notifyUserFormatChanged } from '@/app/lib/user-format-store';
 import { getApiErrorMessage } from '@/app/settings/profile/profileHelpers';
@@ -83,9 +84,13 @@ export function useProfileForm(
         timeZone: profileTimeZone ? profileTimeZone : null,
         dateFormat: profileDateFormat,
         firstDayOfWeek: profileFirstDayOfWeek,
-      });
+      } satisfies ContractInput<'UpdateMyPreferencesBody'>);
+      const { user: responseUser } = await checkContract(
+        'UserUpdateResponse',
+        response.data,
+        '/users/me/preferences',
+      );
 
-      const responseUser = response.data?.user;
       const nextUser = responseUser
         ? { ...(user || {}), ...responseUser }
         : user
@@ -104,7 +109,7 @@ export function useProfileForm(
         notifyUserFormatChanged();
       }
 
-      setProfileMessage(response.data?.message || messages.successFallback);
+      setProfileMessage(messages.successFallback);
     })()
       .catch(async (error: unknown) => {
         setProfileError(getApiErrorMessage(error, messages.errorFallback));

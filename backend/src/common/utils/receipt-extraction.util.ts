@@ -166,6 +166,33 @@ export const extractAmountFragments = (
   return Array.from(fragments);
 };
 
+/** How far the line items may be off the document's figures: rounding, deposits, a tip. */
+export const LINE_ITEMS_TOLERANCE = 0.05;
+
+/**
+ * Whether line items add up to what the document states: the subtotal, the
+ * total, or the total less tax, within {@link LINE_ITEMS_TOLERANCE}. Lines read
+ * as "any text ending in a number" also catch page numbers, dates and postcodes;
+ * those never sum to the total, so this is what tells real items from them.
+ * A document with no figure to compare against cannot confirm anything.
+ */
+export const lineItemsReconcile = (
+  items: Array<{ amount: number }>,
+  figures: { totalAmount?: number | null; subtotal?: number | null; tax?: number | null },
+): boolean => {
+  if (items.length === 0) {
+    return false;
+  }
+  const sum = items.reduce((acc, item) => acc + item.amount, 0);
+  const { totalAmount, subtotal, tax } = figures;
+  const targets = [
+    subtotal,
+    totalAmount,
+    totalAmount && tax ? totalAmount - tax : undefined,
+  ].filter((value): value is number => typeof value === 'number' && value > 0);
+  return targets.some(target => Math.abs(sum - target) <= target * LINE_ITEMS_TOLERANCE);
+};
+
 export const extractLineItemsFromLines = async (args: {
   lines: string[];
   currencyTokenPattern: string;

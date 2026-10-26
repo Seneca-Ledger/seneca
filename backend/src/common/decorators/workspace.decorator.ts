@@ -6,7 +6,17 @@ export const CurrentWorkspace = createParamDecorator((_data: unknown, ctx: Execu
   return request.workspace;
 });
 
-export const WorkspaceId = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
-  const request = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
-  return request.workspace?.id;
-});
+export const WorkspaceId = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): string | undefined => {
+    const request = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
+    return request.workspace?.id;
+  },
+);
+
+/** The caller's own membership id in the current workspace; what `owner=me` resolves to. */
+export const WorkspaceMemberId = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): string | null => {
+    const request = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
+    return request.workspaceMemberId ?? null;
+  },
+);

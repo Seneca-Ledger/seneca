@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiGet = vi.hoisted(() => vi.fn());
 const apiPost = vi.hoisted(() => vi.fn());
+const uiLocale = vi.hoisted(() => ({ value: 'kk' }));
 
 vi.mock('../../../lib/api', () => ({
   default: {
@@ -15,6 +16,7 @@ vi.mock('../../../lib/api', () => ({
 
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
+    loading: { value: 'Loading' },
     labels: {
       assets: { value: 'Actifs' },
       liabilities: { value: 'Passifs' },
@@ -34,17 +36,47 @@ vi.mock('@/app/i18n', () => ({
       loadReport: { value: 'Erreur de chargement' },
     },
   }),
-  useLocale: () => ({ locale: 'kk' }),
+  useLocale: () => ({ locale: uiLocale.value }),
 }));
 
 vi.mock('@/app/contexts/WorkspaceContext', () => ({
   useWorkspace: () => ({ currentWorkspace: { id: 'w1' } }),
 }));
 
+// Imported once at collection: a dynamic import inside a test spends its
+// timeout on the module graph and, timing out, renders into the next test.
+import BalanceSheet from './BalanceSheet';
+
 describe('BalanceSheet', () => {
   beforeEach(() => {
     apiGet.mockReset();
     apiPost.mockReset();
+    uiLocale.value = 'kk';
+  });
+
+  it('asks for the sheet in a language the report has, not the UI locale as is', async () => {
+    // The API takes ru, en or kk and answers 400 to anything else.
+    uiLocale.value = 'de';
+    apiGet.mockResolvedValueOnce({
+      data: {
+        date: '2026-04-02',
+        currency: 'EUR',
+        assets: { total: 0, sections: [] },
+        liabilities: { total: 0, sections: [] },
+        difference: 0,
+        isBalanced: true,
+        missingRates: [],
+      },
+    });
+
+    renderWithQuery(<BalanceSheet />);
+
+    await waitFor(() => {
+      expect(apiGet).toHaveBeenCalledWith('/reports/balance/sheet', {
+        params: { locale: 'en' },
+        signal: expect.any(AbortSignal),
+      });
+    });
   });
 
   it('passes locale to sheet and export API calls', async () => {
@@ -56,6 +88,7 @@ describe('BalanceSheet', () => {
         liabilities: { total: 100, sections: [] },
         difference: 0,
         isBalanced: true,
+        missingRates: [],
       },
     });
     apiPost.mockResolvedValueOnce({
@@ -68,10 +101,9 @@ describe('BalanceSheet', () => {
 
     const createObjectUrl = vi.fn(() => 'blob:balance');
     const revokeObjectUrl = vi.fn();
-    Object.defineProperty(window, 'URL', {
-      value: { createObjectURL: createObjectUrl, revokeObjectURL: revokeObjectUrl },
-      writable: true,
-    });
+    // Only the two statics: replacing URL itself breaks everything that constructs one.
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectUrl, configurable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectUrl, configurable: true });
 
     const originalCreateElement = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
@@ -82,7 +114,6 @@ describe('BalanceSheet', () => {
       return element;
     }) as typeof document.createElement);
 
-    const { default: BalanceSheet } = await import('./BalanceSheet');
     renderWithQuery(<BalanceSheet />);
 
     await waitFor(() => {

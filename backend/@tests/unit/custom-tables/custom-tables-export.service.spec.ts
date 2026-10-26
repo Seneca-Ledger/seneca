@@ -1,15 +1,16 @@
+import type { Mock } from 'vitest';
 import * as xlsx from 'xlsx';
 import { CustomTableColumnType } from '../../../src/entities/custom-table-column.entity';
 import { CustomTablesService } from '../../../src/modules/custom-tables/custom-tables.service';
 
 const createRepositoryMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  save: jest.fn(),
-  create: jest.fn((value?: unknown) => value),
-  delete: jest.fn(),
-  update: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  findOne: vi.fn(),
+  find: vi.fn(),
+  save: vi.fn(),
+  create: vi.fn((value?: unknown) => value),
+  delete: vi.fn(),
+  update: vi.fn(),
+  createQueryBuilder: vi.fn(),
 });
 
 const TABLE_ID = '11111111-1111-4111-8111-111111111111';
@@ -34,34 +35,37 @@ const ROWS = [
   },
 ];
 
-function buildService(): {
+function buildService(
+  columns: Array<Record<string, unknown>> = COLUMNS,
+  table: Record<string, unknown> = { id: TABLE_ID, name: 'Отчёт' },
+): {
   service: CustomTablesService;
-  rowQueryBuilder: { skip: jest.Mock; take: jest.Mock };
+  rowQueryBuilder: { skip: Mock; take: Mock };
 } {
   const customTableRepository = createRepositoryMock();
   const customTableColumnRepository = createRepositoryMock();
   const customTableRowRepository = createRepositoryMock();
 
   customTableRepository.createQueryBuilder.mockReturnValue({
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getOne: jest.fn().mockResolvedValue({ id: TABLE_ID, name: 'Отчёт' }),
+    leftJoinAndSelect: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getOne: vi.fn().mockResolvedValue(table),
   });
 
-  customTableColumnRepository.find.mockResolvedValue(COLUMNS);
+  customTableColumnRepository.find.mockResolvedValue(columns);
 
   const rowQueryBuilder = {
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    addOrderBy: jest.fn().mockReturnThis(),
-    setParameter: jest.fn().mockReturnThis(),
-    skip: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    getCount: jest.fn().mockResolvedValue(ROWS.length),
-    getMany: jest.fn().mockResolvedValue(ROWS),
-    clone: jest.fn(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    addOrderBy: vi.fn().mockReturnThis(),
+    setParameter: vi.fn().mockReturnThis(),
+    skip: vi.fn().mockReturnThis(),
+    take: vi.fn().mockReturnThis(),
+    getCount: vi.fn().mockResolvedValue(ROWS.length),
+    getMany: vi.fn().mockResolvedValue(ROWS),
+    clone: vi.fn(),
   };
   rowQueryBuilder.clone.mockReturnValue(rowQueryBuilder);
   customTableRowRepository.createQueryBuilder.mockReturnValue(rowQueryBuilder);
@@ -79,7 +83,7 @@ function buildService(): {
     createRepositoryMock() as never,
     createRepositoryMock() as never,
     createRepositoryMock() as never,
-    { createEvent: jest.fn(), createBatchEvents: jest.fn() } as never,
+    { createEvent: vi.fn(), createBatchEvents: vi.fn() } as never,
   );
 
   return { service, rowQueryBuilder };
@@ -126,6 +130,27 @@ describe('CustomTablesService.exportRows', () => {
     rowQueryBuilder.getCount.mockResolvedValue(100_001);
 
     await expect(service.exportRows('workspace-1', TABLE_ID, { format: 'csv' })).rejects.toMatchObject({ response: { code: 'EXPORT_TOO_MANY_ROWS' } });
+  });
+
+  it('neutralises formula-looking column and summary titles in CSV', async () => {
+    const { service } = buildService(
+      [{ key: 'date', title: '=HYPERLINK("http://evil.example","x")', type: CustomTableColumnType.DATE, position: 0 }],
+      {
+        id: TABLE_ID,
+        name: 'Отчёт',
+        viewSettings: { summaries: [{ id: 's1', title: '@total', expression: 'SUM(1)' }] },
+      },
+    );
+    vi.spyOn(service, 'getSummaries').mockResolvedValue({
+      items: [{ id: 's1', title: '@total', expression: 'SUM(1)', value: '-1+cmd' }],
+    } as never);
+
+    const result = await service.exportRows('workspace-1', TABLE_ID, { format: 'csv' });
+    const csv = result.buffer.toString('utf-8');
+
+    expect(csv).toContain(`"'=HYPERLINK(""http://evil.example"",""x"")"`);
+    expect(csv).toContain("'@total,'-1+cmd");
+    expect(csv).not.toMatch(/(^|\n|,)"?=HYPERLINK/);
   });
 
   it('prefixes CSV with a BOM so Excel reads Cyrillic correctly', async () => {

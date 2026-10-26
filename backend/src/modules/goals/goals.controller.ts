@@ -1,16 +1,42 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { Controller, Delete, Get, Patch, Post, Put, Res, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
+import type { Response } from 'express';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { deletedResponse } from '../../common/utils/responses.util';
+import {
+  CreateContributionBody,
+  CreateGoalBody,
+  CreateGoalItemBody,
+  GoalContributionParams,
+  GoalCoverPresets,
+  GoalCoverPreviewParams,
+  GoalCoverSearchPage,
+  GoalDetail,
+  GoalFlowResponse,
+  GoalItemParams,
+  GoalItemsResponse,
+  GoalListAnswer,
+  GoalMonthQuery,
+  GoalParams,
+  GoalPlanResponse,
+  GoalWithProgress,
+  MessageResult,
+  SearchCoversQuery,
+  SetGoalCoverBody,
+  UpdateGoalBody,
+  UpdateGoalItemBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateContributionDto } from './dto/create-contribution.dto';
-import { CreateGoalDto } from './dto/create-goal.dto';
-import { CreateGoalItemDto } from './dto/create-goal-item.dto';
-import { GoalFlowQueryDto } from './dto/goal-flow-query.dto';
-import { UpdateGoalDto } from './dto/update-goal.dto';
-import { UpdateGoalItemDto } from './dto/update-goal-item.dto';
+import { GOAL_COVER_PRESETS } from './goal-cover.constants';
+import { GoalCoversService } from './goal-covers.service';
 import { GoalFlowService } from './goal-flow.service';
 import { GoalItemsService } from './goal-items.service';
 import { GoalPlanService } from './goal-plan.service';
@@ -23,12 +49,65 @@ export class GoalsController {
     private readonly goalFlowService: GoalFlowService,
     private readonly goalItemsService: GoalItemsService,
     private readonly goalPlanService: GoalPlanService,
+    private readonly goalCoversService: GoalCoversService,
   ) {}
+
+  /**
+   * The bundled covers, so the picker has something to show before anyone
+   * types — and still has something to show when the photo search is out of
+   * allowance. Declared before every `:id` route so "covers" is never read as
+   * a goal id.
+   */
+  @Get('covers/presets')
+  @WorkspaceAuth(Permission.GOAL_VIEW)
+  @ApiOperation({ summary: 'Bundled goal cover ids' })
+  @ApiResponse({ status: 200, description: 'The preset ids the client can draw' })
+  @SchemaResponse(GoalCoverPresets)
+  listCoverPresets() {
+    return { presets: GOAL_COVER_PRESETS };
+  }
+
+  @Get('covers/search')
+  @WorkspaceAuth(Permission.GOAL_VIEW)
+  @ApiOperation({ summary: 'Search Openverse for a goal cover photo' })
+  @ApiResponse({ status: 200, description: 'A page of results with their credit lines' })
+  @ApiResponse({ status: 502, description: 'The image search did not answer' })
+  @ApiResponse({ status: 503, description: 'The daily search allowance is used up' })
+  @SchemaResponse(GoalCoverSearchPage)
+  async searchCovers(@SchemaQuery(SearchCoversQuery) query: SearchCoversQuery) {
+    return this.goalCoversService.search(query.q, query.page ?? 1);
+  }
+
+  /**
+   * A search result's thumbnail, proxied. One grid of results is 18 image
+   * requests, which the API-wide limit is not sized for.
+   */
+  // Signed-in users only, but no workspace scope: an Openverse thumbnail is a
+  // public picture and carries no tenant data. It also cannot have one — an
+  // <img> tag cannot send the x-workspace-id header the workspace guard reads.
+  @Get('covers/preview/:photoId')
+  @UseGuards(JwtAuthGuard)
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Thumbnail for a search result' })
+  @ApiResponse({ status: 200, description: 'A raster image' })
+  @ApiResponse({ status: 404, description: 'No such image upstream' })
+  async getCoverPreview(
+    @SchemaParams(GoalCoverPreviewParams) { photoId }: GoalCoverPreviewParams,
+    @Res() res: Response,
+  ) {
+    const image = await this.goalCoversService.getThumbnail(photoId);
+    // private: the response sits behind the session cookie.
+    res.setHeader('Cache-Control', 'private, max-age=604800');
+    res.setHeader('Content-Type', image.contentType);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    return res.send(image.body);
+  }
 
   @Post()
   @WorkspaceAuth(Permission.GOAL_CREATE)
+  @SchemaResponse(GoalWithProgress)
   async create(
-    @Body() createDto: CreateGoalDto,
+    @SchemaBody(CreateGoalBody) createDto: CreateGoalBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -37,8 +116,12 @@ export class GoalsController {
 
   @Get()
   @WorkspaceAuth(Permission.GOAL_VIEW)
-  async findAll(@WorkspaceId() workspaceId: string) {
-    return this.goalsService.findAll(workspaceId);
+  @SchemaResponse(GoalListAnswer)
+  async findAll(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(GoalMonthQuery) query: GoalMonthQuery,
+  ) {
+    return this.goalsService.findAll(workspaceId, query.month);
   }
 
   /**
@@ -47,12 +130,14 @@ export class GoalsController {
    */
   @Get(':id/flow')
   @WorkspaceAuth(Permission.GOAL_VIEW, Permission.BUDGET_VIEW)
+  @SchemaResponse(GoalFlowResponse)
   async getFlow(
-    @Param('id') id: string,
+    @SchemaParams(GoalParams) { id }: GoalParams,
     @WorkspaceId() workspaceId: string,
-    @Query() query: GoalFlowQueryDto,
+    @WorkspaceMemberId() selfMemberId: string | null,
+    @SchemaQuery(GoalMonthQuery) query: GoalMonthQuery,
   ) {
-    return this.goalFlowService.getFlow(id, workspaceId, query.month);
+    return this.goalFlowService.getFlow(id, workspaceId, query.month, new Date(), selfMemberId);
   }
 
   /**
@@ -61,22 +146,28 @@ export class GoalsController {
    */
   @Get(':id/plan')
   @WorkspaceAuth(Permission.GOAL_VIEW, Permission.BUDGET_VIEW)
-  async getPlan(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(GoalPlanResponse)
+  async getPlan(@SchemaParams(GoalParams) { id }: GoalParams, @WorkspaceId() workspaceId: string) {
     return this.goalPlanService.getPlan(id, workspaceId);
   }
 
   /** The goal's cost breakdown: what the move is made of, line by line. */
   @Get(':id/items')
   @WorkspaceAuth(Permission.GOAL_VIEW)
-  async listItems(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(GoalItemsResponse)
+  async listItems(
+    @SchemaParams(GoalParams) { id }: GoalParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.goalItemsService.list(id, workspaceId);
   }
 
   @Post(':id/items')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalItemsResponse)
   async createItem(
-    @Param('id') id: string,
-    @Body() itemDto: CreateGoalItemDto,
+    @SchemaParams(GoalParams) { id }: GoalParams,
+    @SchemaBody(CreateGoalItemBody) itemDto: CreateGoalItemBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -85,10 +176,10 @@ export class GoalsController {
 
   @Patch(':id/items/:itemId')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalItemsResponse)
   async updateItem(
-    @Param('id') id: string,
-    @Param('itemId') itemId: string,
-    @Body() itemDto: UpdateGoalItemDto,
+    @SchemaParams(GoalItemParams) { id, itemId }: GoalItemParams,
+    @SchemaBody(UpdateGoalItemBody) itemDto: UpdateGoalItemBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -97,26 +188,59 @@ export class GoalsController {
 
   @Delete(':id/items/:itemId')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalItemsResponse)
   async removeItem(
-    @Param('id') id: string,
-    @Param('itemId') itemId: string,
+    @SchemaParams(GoalItemParams) { id, itemId }: GoalItemParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.goalItemsService.remove(id, itemId, workspaceId, user.id);
   }
 
+  /** Full replacement of the cover: one preset id, or one photo id, never both. */
+  @Put(':id/cover')
+  @WorkspaceAuth(Permission.GOAL_EDIT)
+  @ApiOperation({ summary: "Set a goal's cover" })
+  @ApiResponse({ status: 200, description: 'The goal, with its new cover' })
+  @ApiResponse({ status: 400, description: 'Neither or both of preset and photoId were sent' })
+  @SchemaResponse(GoalDetail)
+  async setCover(
+    @SchemaParams(GoalParams) { id }: GoalParams,
+    @SchemaBody(SetGoalCoverBody) coverDto: SetGoalCoverBody,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    const goal = await this.goalCoversService.setCover(id, workspaceId, user.id, coverDto);
+    return this.goalsService.findOne(goal.id, workspaceId);
+  }
+
+  @Delete(':id/cover')
+  @WorkspaceAuth(Permission.GOAL_EDIT)
+  @ApiOperation({ summary: "Remove a goal's cover" })
+  @ApiResponse({ status: 200, description: 'The goal, with no cover' })
+  @SchemaResponse(GoalDetail)
+  async removeCover(
+    @SchemaParams(GoalParams) { id }: GoalParams,
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    const goal = await this.goalCoversService.clearCover(id, workspaceId, user.id);
+    return this.goalsService.findOne(goal.id, workspaceId);
+  }
+
   @Get(':id')
   @WorkspaceAuth(Permission.GOAL_VIEW)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(GoalDetail)
+  async findOne(@SchemaParams(GoalParams) { id }: GoalParams, @WorkspaceId() workspaceId: string) {
     return this.goalsService.findOne(id, workspaceId);
   }
 
   @Put(':id')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalWithProgress)
   async update(
-    @Param('id') id: string,
-    @Body() updateDto: UpdateGoalDto,
+    @SchemaParams(GoalParams) { id }: GoalParams,
+    @SchemaBody(UpdateGoalBody) updateDto: UpdateGoalBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -125,8 +249,9 @@ export class GoalsController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.GOAL_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(GoalParams) { id }: GoalParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -136,9 +261,10 @@ export class GoalsController {
 
   @Post(':id/contributions')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalDetail)
   async addContribution(
-    @Param('id') id: string,
-    @Body() contributionDto: CreateContributionDto,
+    @SchemaParams(GoalParams) { id }: GoalParams,
+    @SchemaBody(CreateContributionBody) contributionDto: CreateContributionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -147,9 +273,9 @@ export class GoalsController {
 
   @Delete(':id/contributions/:contributionId')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalDetail)
   async removeContribution(
-    @Param('id') id: string,
-    @Param('contributionId') contributionId: string,
+    @SchemaParams(GoalContributionParams) { id, contributionId }: GoalContributionParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {

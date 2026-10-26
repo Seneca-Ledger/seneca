@@ -34,7 +34,14 @@ function EmptyWorkspacesState({
   return (
     <Box sx={{ textAlign: 'center', py: 6 }}>
       <EmptyStateIllustration name="workspaces" size="lg" />
-      <Typography variant="h6" fontWeight={600} sx={{ mb: 1, color: 'var(--foreground)' }}>
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: 600,
+          mb: 1,
+          color: 'var(--foreground)',
+        }}
+      >
         {noWorkspacesLabel}
       </Typography>
       <Typography variant="body2" sx={{ mb: 3, color: 'var(--text-secondary)' }}>
@@ -44,7 +51,10 @@ function EmptyWorkspacesState({
         type="button"
         onClick={onCreateClick}
         style={{
-          padding: '12px 24px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '12px 24px 12px 20px',
           background: 'var(--primary-fill)',
           color: '#fff',
           fontWeight: 500,
@@ -54,6 +64,7 @@ function EmptyWorkspacesState({
           borderRadius: tokens.radius.md,
         }}
       >
+        <Plus size={18} aria-hidden />
         {createLabel}
       </button>
     </Box>
@@ -65,7 +76,14 @@ function NoResultsState(): React.JSX.Element {
   return (
     <Box sx={{ textAlign: 'center', py: 6 }}>
       <EmptyStateIllustration name="no-results" size="md" />
-      <Typography variant="h6" fontWeight={600} sx={{ mb: 1, color: 'var(--foreground)' }}>
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: 600,
+          mb: 1,
+          color: 'var(--foreground)',
+        }}
+      >
         {t.noResults.title}
       </Typography>
       <Typography variant="body2" sx={{ mb: 3, color: 'var(--text-secondary)' }}>
@@ -110,6 +128,7 @@ export function WorkspaceGridView({
   }
   return (
     <Box
+      data-tour-shot="workspaces-list"
       sx={{
         display: 'grid',
         gridTemplateColumns: {

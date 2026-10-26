@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const composeFiles = ['-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml'];
-const demoEmail = 'demo@lumio.dev';
+const demoEmail = 'demo@seneca.dev';
 const demoPassword = 'demo123';
 
 export function parseEnv(content) {
@@ -301,7 +301,7 @@ async function runDockerMode() {
   const rootEnv = parseEnv(await readFile(path.join(rootDir, '.env'), 'utf8'));
   const backendPort = rootEnv.BACKEND_PORT || '3001';
   await waitForHealth(`http://localhost:${backendPort}/api/v1/health/ready`, 'Backend');
-  await run('docker', ['exec', 'finflow-backend', 'sh', '-lc', 'NODE_OPTIONS=--max-old-space-size=2048 npm run seed:demo:dev']);
+  await run('docker', ['exec', 'seneca-backend', 'sh', '-lc', 'NODE_OPTIONS=--max-old-space-size=2048 npm run seed:demo:dev']);
   printReady();
 }
 
@@ -441,7 +441,7 @@ async function runNativeMode() {
 
 function printReady() {
   console.log('');
-  console.log('Lumio is ready:');
+  console.log('Seneca is ready:');
   console.log('  Frontend: http://localhost:3000');
   console.log('  Backend:  http://localhost:3001/api/v1');
   console.log('  Swagger:  http://localhost:3001/api/docs');

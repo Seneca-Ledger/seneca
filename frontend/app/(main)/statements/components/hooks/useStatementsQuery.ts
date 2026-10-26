@@ -2,22 +2,19 @@
 
 import { keepPreviousData, type UseQueryResult, useQuery } from '@tanstack/react-query';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
-import { apiQuery } from '@/app/lib/query-fn';
+import type { StatementListItem } from '@/app/lib/contracts';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { hasProcessingStatements } from '@/app/lib/statement-status';
-import { migrateLocalStatementStages } from '@/app/lib/statement-workflow';
 import type { StatementFilters } from '../filters/statement-filters';
 import {
   buildStatementRequestParams,
   isReceiptDerivedStatement,
+  type RowsFilter,
 } from '../StatementsListView.utils';
 
-/** Minimal shape required by the data-loading hook. */
-export interface StatementRecord {
-  id: string;
-  fileName: string;
-  status: string;
-}
+/** A row of `GET /statements`, with the file kind the list shows. */
+export type StatementRecord = StatementListItem & { fileType: 'pdf' | 'file' };
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -42,18 +39,25 @@ export function statementsRefetchInterval(data: unknown): number | false {
 export interface UseStatementsQueryParams {
   appliedFilters: StatementFilters;
   categoryId?: string | null;
+  rowsFilter?: RowsFilter | null;
   search: string;
   enabled: boolean;
 }
 
-export function useStatementsQuery<T extends StatementRecord = StatementRecord>({
+export function useStatementsQuery({
   appliedFilters,
   categoryId,
+  rowsFilter,
   search,
   enabled,
-}: UseStatementsQueryParams): UseQueryResult<T[], Error> {
+}: UseStatementsQueryParams): UseQueryResult<StatementRecord[], Error> {
   const workspaceId = useWorkspaceId();
-  const params = buildStatementRequestParams({ appliedFilters, categoryId, search });
+  const params = buildStatementRequestParams({
+    appliedFilters,
+    categoryId,
+    rowsFilter,
+    search,
+  });
 
   return useQuery({
     queryKey: queryKeys.statements({ workspaceId, params }),
@@ -61,21 +65,20 @@ export function useStatementsQuery<T extends StatementRecord = StatementRecord>(
     // применяться к уже производному массиву, иначе каждый опрос отдаёт новые
     // референсы и перерисовывает весь список.
     queryFn: async ({ signal }) => {
-      // The list is filtered by each row's server-side stage, so this browser's
-      // pre-server stages must land there before the first fetch.
-      await migrateLocalStatementStages();
-      const payload = await apiQuery<StatementRecord[] | null>({
+      const rows = await apiQueryDecoded({
         url: '/statements',
         params,
         signal,
+        contract: 'StatementList',
       });
-      const rows = Array.isArray(payload) ? payload : [];
-      return rows.map(stmt => ({
-        ...stmt,
-        fileType: stmt.fileName?.toLowerCase().includes('pdf') ? 'pdf' : 'file',
-      })) as unknown as T[];
+      return rows.map(
+        (stmt): StatementRecord => ({
+          ...stmt,
+          fileType: stmt.fileName.toLowerCase().includes('pdf') ? 'pdf' : 'file',
+        }),
+      );
     },
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
     refetchInterval: query => statementsRefetchInterval(query.state.data),
     // Смена фильтра или поиска не должна ронять список в скелетон.
     placeholderData: keepPreviousData,

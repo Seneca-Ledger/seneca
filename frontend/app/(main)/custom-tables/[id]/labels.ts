@@ -4,6 +4,7 @@ import type { CellLabels } from './components/cells/EditableCell';
 import type { FilterBarLabels } from './components/FilterBar';
 import type { ImportPreviewLabels } from './components/ImportPreviewDialog';
 import type { SendToStatementsLabels } from './components/SendToStatementsDialog';
+import type { SummariesLabels } from './components/SummariesBar';
 import type { TableGridLabels } from './components/TableGrid';
 import type { TablePageHeaderLabels } from './components/TablePageHeader';
 import type { TableToolbarLabels } from './components/TableToolbar';
@@ -63,6 +64,7 @@ export interface DetailLabels {
     fileTooLarge: string;
     fileEmpty: string;
     inserted: string;
+    insertedWithIssues: string;
     undo: string;
     defaults: Record<
       'date' | 'type' | 'amount' | 'currency' | 'comment' | 'paid' | 'columnPrefix',
@@ -70,6 +72,7 @@ export interface DetailLabels {
     >;
   };
   convert: SendToStatementsLabels & { failed: string };
+  summaries: SummariesLabels;
   toasts: Record<
     | 'loadTableFailed'
     | 'loadRowsFailed'
@@ -84,9 +87,17 @@ export interface DetailLabels {
     | 'rowsDeleteFailed'
     | 'renamed'
     | 'renameFailed'
-    | 'exportFailed',
+    | 'exportFailed'
+    | 'refreshed'
+    | 'refreshFailed'
+    | 'cellSaveFailed'
+    | 'restored'
+    | 'restoredSkipped'
+    | 'restoredFailed'
+    | 'restoreFailed',
     string
   >;
+  restore: Record<'title' | 'message' | 'confirm' | 'cancel', string>;
   notFound: { title: string; back: string };
 }
 
@@ -97,30 +108,51 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
     no: t.grid.no.value,
     clear: t.grid.clear.value,
     edit: t.grid.edit.value,
+    readOnlySource: t.grid.readOnlySource.value,
   };
   return {
     header: {
       back: t.header.back.value,
+      balanceMissingRates: t.header.balanceMissingRates.value,
       rename: t.header.rename.value,
       rows: t.header.rows.value,
       untitled: t.header.untitled.value,
       sources: record(t.header.sources, ['manual']),
+      sourceKinds: record(t.header.sourceKinds, [
+        'transactions',
+        'subscriptions',
+        'payables',
+        'invoices',
+        'budgets',
+      ]),
+      syncedAt: t.header.syncedAt.value,
     },
-    toolbar: record(t.toolbar, [
-      'search',
-      'addRow',
-      'addColumn',
-      'columns',
-      'showAllColumns',
-      'groupBy',
-      'groupNone',
-      'importFile',
-      'export',
-      'exportXlsx',
-      'exportCsv',
-      'sendToStatements',
-      'deleteSelected',
-    ]),
+    toolbar: {
+      ...record(t.toolbar, [
+        'addRow',
+        'addColumn',
+        'columns',
+        'showAllColumns',
+        'groupBy',
+        'groupNone',
+        'importFile',
+        'export',
+        'exportXlsx',
+        'exportCsv',
+        'sendToStatements',
+        'refreshSource',
+        'deleteSelected',
+        'view',
+        'more',
+        'fullscreen',
+        'exitFullscreen',
+        'clearSelection',
+        'searchHint',
+      ]),
+      apply: t.filters.apply.value,
+      addSummary: t.summaries.add.value,
+      restoreDefault: t.toolbar.restoreDefault.value,
+    },
     filters: {
       ...record(t.filters, [
         'filter',
@@ -170,12 +202,14 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'formatPercent',
         'expression',
         'expressionHint',
+        'formulaPreview',
+        'formulaNoRows',
+        'formulaChecking',
         'options',
         'optionPlaceholder',
         'addOption',
         'removeOption',
         'relationTarget',
-        'prompt',
         'required',
         'unique',
         'save',
@@ -192,9 +226,21 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'ignore',
         'newColumn',
         'newColumnTitle',
+        'newColumnType',
+        'sheet',
         'rowsSummary',
         'extraRows',
         'errors',
+        'issuesKept',
+        'requiredUnmapped',
+        'requiredBlank',
+        'totalsExcluded',
+        'applyTotals',
+        'optionsCount',
+        'formulasSummary',
+        'formulaCarried',
+        'formulaSkipped',
+        'progress',
         'add',
         'cancel',
         'source',
@@ -208,6 +254,7 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'fileTooLarge',
         'fileEmpty',
         'inserted',
+        'insertedWithIssues',
         'undo',
       ]),
       defaults: record(t.import.defaults, [
@@ -219,6 +266,25 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
         'paid',
         'columnPrefix',
       ]),
+    },
+    summaries: {
+      ...record(t.summaries, [
+        'title',
+        'add',
+        'edit',
+        'remove',
+        'name',
+        'namePlaceholder',
+        'save',
+        'cancel',
+        'loadFailed',
+        'saveFailed',
+      ]),
+      expression: t.columnDialog.expression.value,
+      expressionHint: t.summaries.expressionHint.value,
+      formulaPreview: t.summaries.formulaPreview.value,
+      formulaNoRows: t.columnDialog.formulaNoRows.value,
+      formulaChecking: t.columnDialog.formulaChecking.value,
     },
     convert: record(t.convert, [
       'title',
@@ -249,7 +315,15 @@ export function buildDetailLabels(t: Dictionary): DetailLabels {
       'renamed',
       'renameFailed',
       'exportFailed',
+      'refreshed',
+      'refreshFailed',
+      'cellSaveFailed',
+      'restored',
+      'restoredSkipped',
+      'restoredFailed',
+      'restoreFailed',
     ]),
+    restore: record(t.restore, ['title', 'message', 'confirm', 'cancel']),
     notFound: record(t.notFound, ['title', 'back']),
   };
 }

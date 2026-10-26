@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -141,6 +141,11 @@ describe('Small-business pack (e2e)', () => {
       .expect(201);
     // Draft: nothing to remind about yet.
     await as(owner, request(server()).post(`/invoices/${invoice.body.id}/remind`)).expect(400);
+
+    // An invoice is only sent once the seller's details are on it.
+    await as(owner, request(server()).put('/business-profile'))
+      .send({ legalName: 'Owner Studio', addressLines: '1 Main St' })
+      .expect(200);
 
     await as(owner, request(server()).put(`/invoices/${invoice.body.id}/send`)).expect(200);
     // No mail server in the test environment: told so, not silently skipped.

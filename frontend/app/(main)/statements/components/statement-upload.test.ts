@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { listPlaceFollowups, setReceiptPlacePrompt } from '@/app/lib/receipt-place-followup';
 import {
   extractUploadErrorMessage,
   uploadReceiptScanFiles,
@@ -296,4 +297,50 @@ describe('statement-upload helpers', () => {
     }
     localStorage.clear();
   });
+
+  describe('asking for the shop later', () => {
+    const scan = (deviceLocationRequest: Promise<{ latitude: number; longitude: number; accuracy: number } | null> | null) =>
+      uploadScanDrawerFiles({
+        payload: {
+          files: [new File(['receipt'], 'receipt.jpg', { type: 'image/jpeg' })],
+          allowDuplicates: true,
+          requireManualCategorySelection: false,
+          deviceLocationRequest,
+        },
+        labels,
+        onUploadSuccess: vi.fn(),
+        refreshAfterCreate: vi.fn().mockResolvedValue(undefined),
+      });
+
+    beforeEach(() => {
+      localStorage.clear();
+      localStorage.setItem('currentWorkspaceId', 'ws-1');
+      apiMocks.post.mockResolvedValue({ data: { data: [{ id: 'statement-1' }] } });
+    });
+
+    it('queues a camera shot that got no fix', async () => {
+      await scan(Promise.resolve(null));
+
+      expect(listPlaceFollowups()).toEqual([
+        expect.objectContaining({ statementId: 'statement-1', workspaceId: 'ws-1' }),
+      ]);
+    });
+
+    it('queues a camera shot with a rough fix, and still sends that fix', async () => {
+      await scan(Promise.resolve({ latitude: 43.2, longitude: 76.9, accuracy: 800 }));
+
+      expect(listPlaceFollowups()).toHaveLength(1);
+      expect((apiMocks.post.mock.calls[0]?.[1] as FormData).get('accuracy')).toBe('800');
+    });
+
+    it('does not queue a good fix, a gallery photo or when turned off', async () => {
+      await scan(Promise.resolve({ latitude: 43.2, longitude: 76.9, accuracy: 20 }));
+      await scan(null);
+      setReceiptPlacePrompt(false);
+      await scan(Promise.resolve(null));
+
+      expect(listPlaceFollowups()).toEqual([]);
+    });
+  });
 });
+

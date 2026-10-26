@@ -1,17 +1,21 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxRuleDirection } from '@/entities/tax-rule.entity';
-import { TaxSource, TransactionType } from '@/entities/transaction.entity';
+import { TaxSource, type Transaction, TransactionType } from '@/entities/transaction.entity';
+import { VatStatus } from '@/entities/workspace.entity';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
 
 describe('TaxAssignmentService', () => {
   let service: TaxAssignmentService;
   let ruleRepo: ReturnType<typeof createRepoMock>;
   let ratesService: {
-    findOne: jest.Mock;
-    findByCodeForDate: jest.Mock;
-    findDefaultForDate: jest.Mock;
+    findOne: Mock;
+    findByCodeForDate: Mock;
+    findDefaultForDate: Mock;
   };
-  let adoption: { getCurrentJurisdiction: jest.Mock };
+  let workspaceRepo: ReturnType<typeof createRepoMock> & { manager: { query: Mock } };
+  let transactionRepo: ReturnType<typeof createRepoMock>;
+  let workspace: { id: string; vatStatus: VatStatus; taxJurisdiction: { code: string; isEu: boolean } };
 
   const STANDARD_RATE = {
     id: 'rate-standard',
@@ -50,18 +54,30 @@ describe('TaxAssignmentService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     ruleRepo = createRepoMock();
     ruleRepo.find.mockResolvedValue([]);
     ratesService = {
-      findOne: jest.fn(),
-      findByCodeForDate: jest.fn(),
-      findDefaultForDate: jest.fn().mockResolvedValue(null),
+      findOne: vi.fn(),
+      findByCodeForDate: vi.fn(),
+      findDefaultForDate: vi.fn().mockResolvedValue(null),
     };
-    adoption = {
-      getCurrentJurisdiction: jest.fn().mockResolvedValue({ code: 'DE', isEu: true }),
+    workspace = {
+      id: 'ws-1',
+      vatStatus: VatStatus.REGISTERED,
+      taxJurisdiction: { code: 'DE', isEu: true },
     };
-    service = new TaxAssignmentService(ruleRepo, ratesService as never, adoption as never);
+    workspaceRepo = Object.assign(createRepoMock(), {
+      manager: { query: vi.fn().mockResolvedValue([]) },
+    });
+    workspaceRepo.findOne.mockImplementation(async () => workspace);
+    transactionRepo = createRepoMock();
+    service = new TaxAssignmentService(
+      ruleRepo,
+      workspaceRepo as never,
+      transactionRepo as never,
+      ratesService as never,
+    );
   });
 
   // ─── operations that are never a taxable supply ────────────
@@ -346,7 +362,7 @@ describe('TaxAssignmentService', () => {
     });
 
     it('does not apply when the workspace itself is outside the EU', async () => {
-      adoption.getCurrentJurisdiction.mockResolvedValue({ code: 'KZ', isEu: false });
+      workspace.taxJurisdiction = { code: 'KZ', isEu: false };
 
       const result = await service.resolve(b2bInPoland);
       expect(result.taxReverseCharge).toBe(false);
@@ -373,14 +389,323 @@ describe('TaxAssignmentService', () => {
       expect(result.taxAmount).toBe(0);
     });
 
-    it('skips the lookup entirely when the counterparty is unknown', async () => {
+    it('skips the payee lookup when nothing names the counterparty', async () => {
       await service.resolve(base);
-      expect(adoption.getCurrentJurisdiction).not.toHaveBeenCalled();
+      const sql = workspaceRepo.manager.query.mock.calls.map(([text]) => String(text));
+      expect(sql.some(text => text.includes('payee'))).toBe(false);
+    });
+
+    it("uses the payee's country and VAT id when the row has none", async () => {
+      ratesService.findDefaultForDate.mockResolvedValue({ ...STANDARD_RATE, rate: 19 });
+      workspaceRepo.manager.query.mockImplementation(async (text: string) =>
+        text.includes('FROM payees') ? [{ country_code: 'PL', vat_id: 'PL123' }] : [],
+      );
+
+      const result = await service.resolve({ ...base, payeeId: 'payee-1', amountMinor: 119000 });
+
+      expect(workspaceRepo.manager.query).toHaveBeenCalledWith(expect.stringContaining('payees'), [
+        'payee-1',
+        'ws-1',
+      ]);
+      expect(result.taxReverseCharge).toBe(true);
+      expect(result.taxAmount).toBe(0);
+    });
+
+    it('does not reverse-charge a payee whose VAT id VIES called invalid', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue({ ...STANDARD_RATE, rate: 19 });
+      workspaceRepo.manager.query.mockImplementation(async (text: string) =>
+        text.includes('FROM payees')
+          ? [{ country_code: 'PL', vat_id: 'PL123', vat_id_status: 'invalid' }]
+          : [],
+      );
+
+      const result = await service.resolve({ ...base, payeeId: 'payee-1', amountMinor: 119000 });
+
+      expect(result.taxReverseCharge).toBe(false);
+      expect(result.taxAmount).toBe(190);
+    });
+
+    it('still reverse-charges a VAT id VIES could not answer for', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue({ ...STANDARD_RATE, rate: 19 });
+      workspaceRepo.manager.query.mockImplementation(async (text: string) =>
+        text.includes('FROM payees')
+          ? [{ country_code: 'PL', vat_id: 'PL123', vat_id_status: null }]
+          : [],
+      );
+
+      const result = await service.resolve({ ...base, payeeId: 'payee-1', amountMinor: 119000 });
+
+      expect(result.taxReverseCharge).toBe(true);
+    });
+
+    it('finds the payee by the descriptor when the row has no payee yet', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue({ ...STANDARD_RATE, rate: 19 });
+      workspaceRepo.manager.query.mockImplementation(async (text: string) =>
+        text.includes('payee_aliases')
+          ? [{ payee_id: 'payee-9' }]
+          : text.includes('FROM payees')
+            ? [{ country_code: 'PL', vat_id: 'PL123' }]
+            : [],
+      );
+
+      const result = await service.resolve({ ...base, counterpartyName: 'Acme Sp. z o.o.' });
+
+      const payeeCall = workspaceRepo.manager.query.mock.calls.find(([text]) =>
+        String(text).includes('FROM payees'),
+      );
+      expect(payeeCall?.[1]).toEqual(['payee-9', 'ws-1']);
+      expect(result.taxReverseCharge).toBe(true);
+    });
+
+    it("prefers the row's own counterparty over the payee's", async () => {
+      ratesService.findDefaultForDate.mockResolvedValue({ ...STANDARD_RATE, rate: 19 });
+
+      const result = await service.resolve({
+        ...base,
+        payeeId: 'payee-1',
+        counterpartyCountry: 'DE',
+        counterpartyVatId: 'DE999',
+      });
+
+      const sql = workspaceRepo.manager.query.mock.calls.map(([text]) => String(text));
+      expect(sql.some(text => text.includes('FROM payees'))).toBe(false);
+      expect(result.taxReverseCharge).toBe(false);
     });
 
     it('fills the notional figure on ordinary supplies too', async () => {
       const result = await service.resolve({ ...base, amountMinor: 10000 });
       expect(result.taxNotionalAmount).toBe(result.taxAmount);
+    });
+  });
+
+  // ─── outside VAT ───────────────────────────────────────────
+
+  describe('system categories outside VAT', () => {
+    const categorySql = (rows: Array<{ name: string; is_system: boolean }>) => async (text: string) =>
+      text.includes('c.is_system') ? rows : [];
+
+    it.each(['Interest income', 'Interest', 'Payroll', 'Benefits and compensation', 'Insurance'])(
+      'assesses no default VAT on %s',
+      async name => {
+        ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+        workspaceRepo.manager.query.mockImplementation(categorySql([{ name, is_system: true }]));
+
+        expect((await service.resolve(base)).taxAmount).toBeNull();
+      },
+    );
+
+    it('nor on a subcategory of one', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      workspaceRepo.manager.query.mockImplementation(
+        categorySql([
+          { name: 'Bank interest', is_system: false },
+          { name: 'Interest', is_system: true },
+        ]),
+      );
+
+      expect((await service.resolve(base)).taxAmount).toBeNull();
+    });
+
+    it('charges VAT on insurance in the UAE, where general insurance is taxable', async () => {
+      workspace.taxJurisdiction = { code: 'AE', isEu: false };
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      workspaceRepo.manager.query.mockImplementation(categorySql([{ name: 'Insurance', is_system: true }]));
+
+      expect((await service.resolve(base)).taxSource).toBe(TaxSource.DEFAULT);
+    });
+
+    it('goes by system categories only: a user category of the same name is taxed', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      workspaceRepo.manager.query.mockImplementation(categorySql([{ name: 'Interest', is_system: false }]));
+
+      expect((await service.resolve(base)).taxSource).toBe(TaxSource.DEFAULT);
+    });
+
+    it("lets the user's own rule for the category win", async () => {
+      ruleRepo.find.mockResolvedValue([rule()]);
+      ratesService.findByCodeForDate.mockResolvedValue(STANDARD_RATE);
+      workspaceRepo.manager.query.mockImplementation(categorySql([{ name: 'Insurance', is_system: true }]));
+
+      expect((await service.resolve(base)).taxSource).toBe(TaxSource.RULE);
+    });
+  });
+
+  // ─── tax payments ──────────────────────────────────────────
+
+  describe('payments to the tax office', () => {
+    const settingsSql = (config: unknown) => async (text: string) =>
+      text.includes('workspace_service_settings') ? [{ config }] : [];
+
+    it('assesses no VAT on the configured tax payments category', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      workspaceRepo.manager.query.mockImplementation(settingsSql({ paymentsCategoryId: 'cat-1' }));
+
+      const result = await service.resolve(base);
+
+      expect(result.taxAmount).toBeNull();
+    });
+
+    it('nor on its subcategories', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      workspaceRepo.manager.query.mockImplementation(async (text: string) =>
+        text.includes('workspace_service_settings')
+          ? [{ config: { paymentsCategoryId: 'cat-taxes' } }]
+          : text.includes('parent_id FROM categories')
+            ? [{ parent_id: 'cat-taxes' }]
+            : [],
+      );
+
+      expect((await service.resolve(base)).taxAmount).toBeNull();
+    });
+
+    it('falls back to the seeded "Taxes" category until one is chosen', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      workspaceRepo.manager.query.mockImplementation(async (text: string) =>
+        text.includes("LOWER(name) = 'taxes'") ? [{ id: 'cat-1' }] : [],
+      );
+
+      expect((await service.resolve(base)).taxAmount).toBeNull();
+    });
+
+    it('still taxes other categories', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      workspaceRepo.manager.query.mockImplementation(settingsSql({ paymentsCategoryId: 'cat-9' }));
+
+      expect((await service.resolve(base)).taxSource).toBe(TaxSource.DEFAULT);
+    });
+
+    it('taxes everything when the user cleared the payments category', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      workspaceRepo.manager.query.mockImplementation(async (text: string) =>
+        text.includes('workspace_service_settings')
+          ? [{ config: { paymentsCategoryId: null } }]
+          : text.includes("LOWER(name) = 'taxes'")
+            ? [{ id: 'cat-1' }]
+            : [],
+      );
+
+      expect((await service.resolve(base)).taxSource).toBe(TaxSource.DEFAULT);
+    });
+  });
+
+  // ─── VAT status ────────────────────────────────────────────
+
+  describe('workspaces that do not charge VAT', () => {
+    it.each([VatStatus.NOT_REGISTERED, VatStatus.SMALL_BUSINESS])(
+      'assesses nothing for %s, not even a hand-picked rate',
+      async status => {
+        workspace.vatStatus = status;
+        ratesService.findOne.mockResolvedValue(STANDARD_RATE);
+        ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+
+        const byDefault = await service.resolve(base);
+        const byHand = await service.resolve({ ...base, explicitTaxRateId: 'rate-standard' });
+
+        expect(byDefault.taxAmount).toBeNull();
+        expect(byHand.taxAmount).toBeNull();
+        expect(byHand.taxRateId).toBeNull();
+      },
+    );
+  });
+
+  // ─── reassess ──────────────────────────────────────────────
+
+  describe('reassess', () => {
+    const stored = (over: Partial<Transaction> = {}): Transaction =>
+      ({
+        id: 'tx-1',
+        workspaceId: 'ws-1',
+        transactionDate: '2025-06-01',
+        amount: 112,
+        debit: 112,
+        credit: null,
+        categoryId: 'cat-1',
+        transactionType: TransactionType.EXPENSE,
+        transactionNature: null,
+        counterpartyCountry: null,
+        counterpartyVatId: null,
+        payeeId: null,
+        counterpartyName: '',
+        paymentPurpose: '',
+        taxRateId: null,
+        taxRuleId: null,
+        taxSource: null,
+        taxAmount: null,
+        taxNetAmount: null,
+        taxReverseCharge: false,
+        taxNotionalAmount: null,
+        taxLocked: false,
+        ...over,
+      }) as unknown as Transaction;
+
+    it('writes the new figures, and only for rows that change', async () => {
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      transactionRepo.find.mockResolvedValueOnce([
+        stored({ id: 'tx-new' }),
+        stored({
+          id: 'tx-same',
+          taxRateId: 'rate-standard',
+          taxSource: TaxSource.DEFAULT,
+          taxAmount: '12.00' as never,
+          taxNetAmount: '100.00' as never,
+          taxNotionalAmount: '12.00' as never,
+        }),
+      ]);
+
+      const changed = await service.reassess('ws-1');
+
+      expect(changed).toBe(1);
+      expect(transactionRepo.update).toHaveBeenCalledTimes(1);
+      expect(transactionRepo.update).toHaveBeenCalledWith(
+        { id: 'tx-new', workspaceId: 'ws-1', taxLocked: false },
+        expect.objectContaining({ taxRateId: 'rate-standard', taxAmount: 12, taxNetAmount: 100 }),
+      );
+    });
+
+    it('only ever reads unlocked rows of the workspace', async () => {
+      transactionRepo.find.mockResolvedValueOnce([]);
+
+      await service.reassess('ws-1', { payeeId: 'payee-1' });
+
+      expect(transactionRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ workspaceId: 'ws-1', taxLocked: false, payeeId: 'payee-1' }),
+        }),
+      );
+    });
+
+    it('clears figures once the workspace stops charging VAT', async () => {
+      workspace.vatStatus = VatStatus.NOT_REGISTERED;
+      transactionRepo.find.mockResolvedValueOnce([
+        stored({ taxRateId: 'rate-standard', taxSource: TaxSource.DEFAULT, taxAmount: 12 as never }),
+      ]);
+
+      await service.reassess('ws-1');
+
+      expect(transactionRepo.update).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ taxRateId: null, taxAmount: null }),
+      );
+    });
+
+    it('keeps a rate the user picked by hand', async () => {
+      ratesService.findOne.mockResolvedValue({ ...REDUCED_RATE, id: 'rate-hand', rate: 7 });
+      ratesService.findDefaultForDate.mockResolvedValue(STANDARD_RATE);
+      transactionRepo.find.mockResolvedValueOnce([
+        stored({ taxRateId: 'rate-hand', taxSource: TaxSource.MANUAL, amount: 107 as never }),
+      ]);
+
+      await service.reassess('ws-1');
+
+      expect(transactionRepo.update).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ taxRateId: 'rate-hand', taxSource: TaxSource.MANUAL, taxAmount: 7 }),
+      );
+    });
+
+    it('does nothing for an empty id list', async () => {
+      expect(await service.reassess('ws-1', { ids: [] })).toBe(0);
+      expect(transactionRepo.find).not.toHaveBeenCalled();
     });
   });
 });

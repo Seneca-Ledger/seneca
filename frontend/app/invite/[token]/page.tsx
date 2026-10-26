@@ -3,12 +3,15 @@ import { Alert, Box, Button, Card, CardContent, Container, Stack, Typography } f
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from '@/app/components/icons';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { hasSessionCookie } from '@/app/lib/csrf';
+import { checkContract, reportContractDrift } from '@/app/lib/query-fn-schema';
 import { safeInternalPath } from '@/app/lib/safe-path';
+import { forgetStoredUser } from '@/app/lib/theme-preference';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
 type InvitationStatus = 'pending' | 'accepted' | 'cancelled' | 'expired';
@@ -56,8 +59,11 @@ export default function AcceptInvitePage() {
 
     apiClient
       .get(`/workspaces/invitations/${token}`)
-      .then(response => {
-        setInvitation(response.data);
+      .then(response =>
+        checkContract('InvitationPreview', response.data, '/workspaces/invitations/:token'),
+      )
+      .then(preview => {
+        setInvitation(preview);
       })
       .catch((err: unknown) => {
         setInvitationError(getApiErrorMessage(err, t.errors.loadFailed.value));
@@ -73,11 +79,12 @@ export default function AcceptInvitePage() {
     setAuthLoading(true);
     apiClient
       .get('/auth/me')
-      .then(response => {
-        setUser(response.data);
+      .then(response => reportContractDrift('CurrentUser', response.data, '/auth/me'))
+      .then(currentUser => {
+        setUser(currentUser);
       })
       .catch(() => {
-        localStorage.removeItem('user');
+        forgetStoredUser();
         setUser(null);
       })
       .finally(() => {
@@ -113,10 +120,14 @@ export default function AcceptInvitePage() {
     await (async () => {
       const response = await apiClient.post(`/workspaces/invitations/${token}/accept`);
 
-      const message = response.data?.message || t.messages.acceptedFallback.value;
-      const workspaceId = response.data?.workspaceId || null;
+      const { workspaceId } = await checkContract(
+        'InvitationAccepted',
+        response.data,
+        '/workspaces/invitations/:token/accept',
+      );
 
-      setAcceptSuccess(message);
+      // The server's sentence is English only.
+      setAcceptSuccess(t.messages.acceptedFallback.value);
 
       await (async () => {
         const storedUser = localStorage.getItem('user');
@@ -144,7 +155,7 @@ export default function AcceptInvitePage() {
     // Session cookies are httpOnly — only the server can drop them, so a local
     // cleanup is no longer enough to switch accounts.
     await apiClient.post('/auth/logout').catch(() => undefined);
-    localStorage.removeItem('user');
+    forgetStoredUser();
     router.push(loginHref);
   };
 
@@ -161,51 +172,72 @@ export default function AcceptInvitePage() {
       <Card variant="outlined">
         <CardContent>
           <Stack spacing={2}>
-            <Box display="flex" alignItems="center" gap={1}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
               <ShieldCheck size={24} />
-              <Typography variant="h5" fontWeight={700}>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 700,
+                }}
+              >
                 {t.title}
               </Typography>
             </Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.subtitle}
             </Typography>
 
             {invitationError && <Alert severity="error">{invitationError}</Alert>}
 
-            {invitationLoading && (
-              <Box display="flex" justifyContent="center" py={2}>
-                <Spinner size={40} />
-              </Box>
-            )}
+            {invitationLoading && <SnapshotSkeleton id="invite" loading fallback="lines" />}
 
             {invitation && (
-              <Stack spacing={1}>
-                <Typography variant="body2">
-                  {t.details.workspace.value}: <b>{invitation.workspace?.name}</b>
-                </Typography>
-                <Typography variant="body2">
-                  {t.details.role.value}: <b>{invitation.role}</b>
-                </Typography>
-                {invitation.expiresAt && (
+              <SnapshotSkeleton id="invite" loading={false}>
+                <Stack spacing={1}>
                   <Typography variant="body2">
-                    {t.details.expiresAt.value}: <b>{formatStoredDateTime(invitation.expiresAt)}</b>
+                    {t.details.workspace.value}: <b>{invitation.workspace?.name}</b>
                   </Typography>
-                )}
-                <Typography variant="body2">
-                  {t.details.email.value}: <b>{invitation.email}</b>
-                </Typography>
+                  <Typography variant="body2">
+                    {t.details.role.value}: <b>{invitation.role}</b>
+                  </Typography>
+                  {invitation.expiresAt && (
+                    <Typography variant="body2">
+                      {t.details.expiresAt.value}:{' '}
+                      <b>{formatStoredDateTime(invitation.expiresAt)}</b>
+                    </Typography>
+                  )}
+                  <Typography variant="body2">
+                    {t.details.email.value}: <b>{invitation.email}</b>
+                  </Typography>
 
-                {invitation.status !== 'pending' && (
-                  <Alert severity="info">{t.statusMessages[invitation.status].value}</Alert>
-                )}
-              </Stack>
+                  {invitation.status !== 'pending' && (
+                    <Alert severity="info">{t.statusMessages[invitation.status].value}</Alert>
+                  )}
+                </Stack>
+              </SnapshotSkeleton>
             )}
 
             {acceptError && <Alert severity="error">{acceptError}</Alert>}
             {acceptSuccess && <Alert severity="success">{acceptSuccess}</Alert>}
 
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                justifyContent: 'flex-end',
+              }}
+            >
               {authLoading ? (
                 <Spinner size={20} />
               ) : !user ? (

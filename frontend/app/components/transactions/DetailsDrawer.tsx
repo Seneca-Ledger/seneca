@@ -1,16 +1,30 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
-
 import { AuditEventDrawer } from '@/app/audit/components/AuditEventDrawer';
-import { useIntlayer } from '@/app/i18n';
+import { FileText } from '@/app/components/icons';
+import { NotesPanel } from '@/app/components/notes/NotesPanel';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
+import { formatMoney } from '@/app/lib/format-money';
 
 import { DrawerShell } from '../ui/drawer-shell';
+import { PRIVATE_CLASS } from '../ui/private-amount';
+import { TextTabs } from '../ui/text-tabs';
+import { formatDate } from './helpers/transactionFormatters';
 import { useTransactionHistory } from './hooks/useTransactionHistory';
+import { useTransactionReviewActions } from './hooks/useTransactionReviewActions';
 import { TransactionDetailsTab } from './TransactionDetailsTab';
-import { TransactionFilesTab } from './TransactionFilesTab';
 import { TransactionHistoryTab } from './TransactionHistoryTab';
 import type { Category, Transaction } from './types';
+
+/** The document a row was read from: where to open it, and the account it is a statement of. */
+export interface TransactionSource {
+  href: string;
+  name: string;
+  account?: string | null;
+}
 
 interface DetailsDrawerProps {
   open: boolean;
@@ -20,11 +34,151 @@ interface DetailsDrawerProps {
   onUpdateCategory?: (txId: string, categoryId: string) => Promise<void>;
   onMarkIgnored?: (txId: string) => Promise<void>;
   onSplitDone?: () => void | Promise<void>;
+  source?: TransactionSource;
+  /** Refreshes the list and closes the drawer after the row is confirmed or deleted. */
+  onChanged?: () => void;
+}
+
+type TabId = 'details' | 'notes' | 'history';
+
+const EMPTY = '—';
+
+/** Which transaction this is, before anything is done to it. */
+function TransactionSummary({
+  transaction,
+  source,
+}: {
+  transaction: Transaction;
+  source?: TransactionSource;
+}): React.JSX.Element {
+  const t = useIntlayer('transactionsDrawer');
+  const { locale } = useLocale();
+  const isIncome = transaction.credit > 0 && !(transaction.debit > 0);
+  const amount = transaction.debit || transaction.credit;
+  const account = transaction.wallet?.name ?? transaction.branch?.name ?? source?.account ?? null;
+  const facts: Array<{ label: string; value: React.ReactNode }> = [
+    { label: t.sheet.date.value, value: formatDate(transaction.transactionDate, locale) },
+    ...(account ? [{ label: t.sheet.account.value, value: account }] : []),
+    ...(source ? [{ label: t.sheet.document.value, value: source.name }] : []),
+    ...(transaction.isVerified === undefined
+      ? []
+      : [
+          {
+            label: t.sheet.status.value,
+            // A status is text with a small dot; ochre only where attention is due.
+            value: (
+              <span
+                className={`seneca-tx-summary__status${transaction.isVerified ? '' : ' seneca-tx-summary__status--pending'}`}
+              >
+                {transaction.isVerified ? t.sheet.confirmed.value : t.sheet.unconfirmed.value}
+              </span>
+            ),
+          },
+        ]),
+  ];
+
+  return (
+    <div className="seneca-tx-summary">
+      <div className="seneca-tx-summary__merchant">
+        {transaction.isPrivate ? EMPTY : transaction.counterpartyName || EMPTY}
+      </div>
+      {/* Ink, like every figure: spending is not an alarm. The sign says which way it went. */}
+      <div className={`seneca-tx-summary__amount ${PRIVATE_CLASS}`}>
+        {isIncome ? '+' : '−'}
+        {formatMoney(amount, transaction.currency ?? FALLBACK_CURRENCY, locale)}
+      </div>
+      <dl className="seneca-tx-summary__facts">
+        {facts.map(fact => (
+          <div key={fact.label}>
+            <dt>{fact.label}</dt>
+            <dd>{fact.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+/** The drawer's main actions, pinned under the tabs: open the source, delete, confirm. */
+function TransactionFooter({
+  transaction,
+  source,
+  onChanged,
+}: {
+  transaction: Transaction;
+  source?: TransactionSource;
+  onChanged?: () => void;
+}): React.JSX.Element {
+  const t = useIntlayer('transactionsDrawer');
+  const [askingDelete, setAskingDelete] = useState(false);
+  const { confirm, remove, busy } = useTransactionReviewActions(
+    {
+      confirmed: t.sheet.confirmedToast.value,
+      confirmFailed: t.sheet.confirmFailed.value,
+      deleted: t.sheet.deletedToast.value,
+      deleteFailed: t.sheet.deleteFailed.value,
+    },
+    onChanged,
+  );
+
+  // Deleting is final, so it asks once more, in place, rather than in a blocking dialog.
+  if (askingDelete) {
+    return (
+      <div className="seneca-tx-footer">
+        <span className="seneca-tx-footer__question">{t.sheet.deleteQuestion}</span>
+        <button
+          type="button"
+          className="seneca-tx-footer__text-btn"
+          onClick={() => setAskingDelete(false)}
+          disabled={busy}
+        >
+          {t.transfer.cancel}
+        </button>
+        <button
+          type="button"
+          className="seneca-tx-footer__danger-btn"
+          onClick={() => remove(transaction.id)}
+          disabled={busy}
+        >
+          {t.sheet.delete}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="seneca-tx-footer">
+      {source && (
+        <Link href={source.href} className="seneca-tx-footer__text-btn">
+          <FileText size={15} />
+          {t.sheet.openDocument}
+        </Link>
+      )}
+      <button
+        type="button"
+        className="seneca-tx-footer__text-btn seneca-tx-footer__text-btn--muted"
+        onClick={() => setAskingDelete(true)}
+        disabled={busy}
+      >
+        {t.sheet.delete}
+      </button>
+      {transaction.isVerified === false && (
+        <button
+          type="button"
+          className="seneca-tx-footer__primary-btn"
+          onClick={() => confirm(transaction.id)}
+          disabled={busy}
+        >
+          {t.sheet.confirm}
+        </button>
+      )}
+    </div>
+  );
 }
 
 /**
  * Drawer component for displaying full transaction details and actions.
- * Composes TransactionDetailsTab + TransactionHistoryTab behind a tab switcher.
+ * Composes the actions, notes and history of a transaction behind a tab switcher.
  */
 export default function DetailsDrawer({
   open,
@@ -34,21 +188,13 @@ export default function DetailsDrawer({
   onUpdateCategory,
   onMarkIgnored,
   onSplitDone,
+  source,
+  onChanged,
 }: DetailsDrawerProps) {
   const t = useIntlayer('transactionsDrawer');
-  const [activeTab, setActiveTab] = useState<'details' | 'files' | 'history'>('details');
-  const filesLabels = {
-    tabTitle: t.filesTabTitle.value,
-    tagsTitle: t.filesTagsTitle.value,
-    tagsEmpty: t.filesTagsEmpty.value,
-    attachmentsTitle: t.filesAttachmentsTitle.value,
-    attachmentsEmpty: t.filesAttachmentsEmpty.value,
-    upload: t.filesUpload.value,
-    loadFailed: t.filesLoadFailed.value,
-    saveFailed: t.filesSaveFailed.value,
-    uploadFailed: t.filesUploadFailed.value,
-    deleteFailed: t.filesDeleteFailed.value,
-  };
+  const notes = useIntlayer('notes');
+  const [activeTab, setActiveTab] = useState<TabId>('details');
+
   const {
     historyEvents,
     historyLoading,
@@ -60,38 +206,36 @@ export default function DetailsDrawer({
 
   if (!transaction) return null;
 
+  const tabs: Array<{ value: TabId; label: React.ReactNode }> = [
+    { value: 'details', label: t.tabDetails },
+    { value: 'notes', label: notes.title },
+    { value: 'history', label: t.tabHistory },
+  ];
+
   return (
     <DrawerShell
       isOpen={open}
       onClose={onClose}
-      title={t.title.value}
+      title={<span className="seneca-tx-drawer__title">{t.title.value}</span>}
       position="right"
       width="md"
       lockScroll={false}
+      footer={
+        onChanged ? (
+          <TransactionFooter transaction={transaction} source={source} onChanged={onChanged} />
+        ) : undefined
+      }
     >
-      <div className="lumio-tx-drawer">
-        <div className="lumio-tx-drawer__tabs">
-          <button
-            type="button"
-            onClick={() => setActiveTab('details')}
-            className={`lumio-tx-drawer__tab${activeTab === 'details' ? ' lumio-tx-drawer__tab--active' : ''}`}
-          >
-            {t.tabDetails}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('files')}
-            className={`lumio-tx-drawer__tab${activeTab === 'files' ? ' lumio-tx-drawer__tab--active' : ''}`}
-          >
-            {filesLabels.tabTitle}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('history')}
-            className={`lumio-tx-drawer__tab${activeTab === 'history' ? ' lumio-tx-drawer__tab--active' : ''}`}
-          >
-            {t.tabHistory}
-          </button>
+      <div className="seneca-tx-drawer">
+        <TransactionSummary transaction={transaction} source={source} />
+
+        <div className="seneca-tx-drawer__tabs">
+          <TextTabs<TabId>
+            value={activeTab}
+            onChange={setActiveTab}
+            options={tabs}
+            ariaLabel={t.title.value}
+          />
         </div>
 
         {activeTab === 'details' && (
@@ -103,8 +247,14 @@ export default function DetailsDrawer({
             onSplitDone={onSplitDone}
           />
         )}
-        {activeTab === 'files' && (
-          <TransactionFilesTab transactionId={transaction.id} labels={filesLabels} />
+        {activeTab === 'notes' && (
+          <NotesPanel
+            // One panel per row, so an unsent note is saved on the row it was written for.
+            key={transaction.id}
+            entityType="transaction"
+            entityId={transaction.id}
+            showTitle={false}
+          />
         )}
         {activeTab === 'history' && (
           <TransactionHistoryTab

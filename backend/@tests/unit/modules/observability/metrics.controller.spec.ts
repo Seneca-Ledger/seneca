@@ -3,8 +3,8 @@ import { ForbiddenException } from '@nestjs/common';
 
 describe('MetricsController', () => {
   const metricsService = {
-    contentType: jest.fn(() => 'text/plain'),
-    metrics: jest.fn(async () => 'ok'),
+    contentType: vi.fn(() => 'text/plain'),
+    metrics: vi.fn(async () => 'ok'),
   };
 
   afterEach(() => {
@@ -23,7 +23,7 @@ describe('MetricsController', () => {
   it('returns metrics when token is absent outside production', async () => {
     process.env.METRICS_AUTH_TOKEN = '';
     process.env.NODE_ENV = 'test';
-    const res = { setHeader: jest.fn(), send: jest.fn() } as any;
+    const res = { setHeader: vi.fn(), send: vi.fn() } as any;
     const controller = new MetricsController(metricsService as any);
 
     await controller.getMetrics(res, undefined);

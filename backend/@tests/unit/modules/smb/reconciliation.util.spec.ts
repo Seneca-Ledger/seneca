@@ -44,6 +44,27 @@ describe('matchOpenItems', () => {
     );
     expect(matches).toEqual([expect.objectContaining({ itemId: 'a', transactionId: 't1' })]);
   });
+
+  it("never offers an earlier month's payment for a recurring bill", () => {
+    const row = (id: string, date: string) => ({
+      id,
+      type: 'expense' as const,
+      amount: 500,
+      currency: 'USD',
+      date,
+      counterpartyName: 'Landlord',
+      paymentPurpose: null,
+    });
+    const due = item({ id: 'rent', dueDate: '2026-10-01' });
+
+    expect(matchOpenItems([due], [row('jul', '2026-07-01'), row('sep', '2026-09-01')])).toEqual([]);
+    expect(matchOpenItems([due], [row('early', '2026-09-15')])).toEqual([
+      expect.objectContaining({ transactionId: 'early' }),
+    ]);
+    expect(matchOpenItems([due], [row('late', '2026-11-10')])).toEqual([
+      expect.objectContaining({ transactionId: 'late' }),
+    ]);
+  });
 });
 
 describe('ageing', () => {

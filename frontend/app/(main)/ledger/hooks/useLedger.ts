@@ -4,21 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import type {
-  AccountCard,
-  AccountType,
-  JournalEntry,
-  JournalEntrySummary,
-  LedgerAccount,
-  LedgerIntegrity,
-  LedgerSettings,
-  Paginated,
-  RevaluationResult,
-  Side,
-  TrialBalance,
-} from '../ledger.types';
+import type { AccountType, EntrySource, EntryStatus, Side } from '../ledger.types';
 
 /** While the worker books the backlog, poll so the page fills in by itself. */
 const CATCH_UP_POLL_MS = 3000;
@@ -36,7 +24,9 @@ export function useLedgerSettings() {
   const workspaceId = useWorkspaceId();
   return useQuery({
     queryKey: queryKeys.ledgerSettings(workspaceId),
-    queryFn: ({ signal }) => apiQuery<LedgerSettings>({ url: '/ledger/settings', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/ledger/settings', signal, contract: 'LedgerSettings' }),
+    enabled: Boolean(workspaceId),
   });
 }
 
@@ -44,8 +34,9 @@ export function useLedgerIntegrity(enabled: boolean) {
   const workspaceId = useWorkspaceId();
   return useQuery({
     queryKey: queryKeys.ledgerIntegrity(workspaceId),
-    queryFn: ({ signal }) => apiQuery<LedgerIntegrity>({ url: '/ledger/integrity', signal }),
-    enabled,
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/ledger/integrity', signal, contract: 'LedgerIntegrity' }),
+    enabled: enabled && Boolean(workspaceId),
     refetchInterval: query =>
       query.state.data &&
       query.state.data.pendingTransactions > query.state.data.failingTransactions
@@ -58,14 +49,17 @@ export function useLedgerAccounts(enabled = true) {
   const workspaceId = useWorkspaceId();
   return useQuery({
     queryKey: queryKeys.ledgerAccounts(workspaceId),
-    queryFn: ({ signal }) => apiQuery<LedgerAccount[]>({ url: '/ledger/accounts', signal }),
-    enabled,
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/ledger/accounts', signal, contract: 'LedgerAccountList' }),
+    enabled: enabled && Boolean(workspaceId),
   });
 }
 
 export interface EntryFilters {
-  status?: string;
-  source?: string;
+  /** Empty: every status. */
+  status?: EntryStatus | '';
+  /** Empty: every source. */
+  source?: EntrySource | '';
   page: number;
 }
 
@@ -76,16 +70,20 @@ export function useJournalEntries(filters: EntryFilters) {
     limit: 25,
     ...(filters.status ? { status: filters.status } : {}),
     ...(filters.source ? { source: filters.source } : {}),
-  };
+  } satisfies ContractInput<'JournalEntriesQuery'>;
   return useQuery({
     queryKey: queryKeys.ledgerEntries({ workspaceId, params }),
     // Not apiQuery: its envelope unwrapping would strip the list down to `data` and lose `total`.
     queryFn: async ({ signal }) =>
-      (await apiClient.get<Paginated<JournalEntrySummary>>('/ledger/entries', { params, signal }))
-        .data,
+      checkContract(
+        'JournalEntryPage',
+        (await apiClient.get('/ledger/entries', { params, signal })).data,
+        '/ledger/entries',
+      ),
     // Keeps the page visible while paging, but never across a workspace switch.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
+    enabled: Boolean(workspaceId),
   });
 }
 
@@ -93,7 +91,8 @@ export function useJournalEntry(id: string | null) {
   const workspaceId = useWorkspaceId();
   return useQuery({
     queryKey: queryKeys.ledgerEntry({ workspaceId, id }),
-    queryFn: ({ signal }) => apiQuery<JournalEntry>({ url: `/ledger/entries/${id}`, signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: `/ledger/entries/${id}`, signal, contract: 'JournalEntryDetail' }),
     enabled: Boolean(id),
   });
 }
@@ -109,12 +108,13 @@ export function useTrialBalance(params: PeriodParams, enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.ledgerTrialBalance({ workspaceId, params: { ...params } }),
     queryFn: ({ signal }) =>
-      apiQuery<TrialBalance>({
+      apiQueryDecoded({
         url: '/ledger/reports/trial-balance',
-        params: { ...params },
+        params: { ...params } satisfies ContractInput<'LedgerPeriodQuery'>,
         signal,
+        contract: 'TrialBalance',
       }),
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
   });
 }
 
@@ -123,12 +123,12 @@ export function useAccountCard(accountId: string | null, params: PeriodParams & 
   return useQuery({
     queryKey: queryKeys.ledgerAccountCard({ workspaceId, accountId, params: { ...params } }),
     queryFn: async ({ signal }) =>
-      (
-        await apiClient.get<AccountCard>(`/ledger/reports/accounts/${accountId}`, {
-          params: { ...params, limit: 50 },
-          signal,
-        })
-      ).data,
+      await apiQueryDecoded({
+        url: `/ledger/reports/accounts/${accountId}`,
+        params: { ...params, limit: 50 } satisfies ContractInput<'AccountLedgerQuery'>,
+        signal,
+        contract: 'AccountLedger',
+      }),
     enabled: Boolean(accountId),
   });
 }
@@ -160,47 +160,78 @@ export function useLedgerMutations() {
   const invalidate = useInvalidateLedger();
 
   const enable = useMutation({
-    mutationFn: (baseCurrency: string) => apiClient.put('/ledger/settings', { baseCurrency }),
+    mutationFn: async (baseCurrency: string) => {
+      await apiClient.put('/ledger/settings', {
+        baseCurrency,
+      } satisfies ContractInput<'EnableLedgerBody'>);
+    },
     onSuccess: invalidate,
   });
   const createAccount = useMutation({
-    mutationFn: (input: NewAccountInput) => apiClient.post('/ledger/accounts', input),
+    mutationFn: async (input: NewAccountInput) => {
+      await apiClient.post(
+        '/ledger/accounts',
+        input satisfies ContractInput<'CreateLedgerAccountBody'>,
+      );
+    },
     onSuccess: invalidate,
   });
   const deleteAccount = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/ledger/accounts/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/ledger/accounts/${id}`);
+    },
     onSuccess: invalidate,
   });
   const saveDraft = useMutation({
     mutationFn: async (variables: { id: string | null; input: EntryInput }) => {
       const response = variables.id
-        ? await apiClient.patch<JournalEntry>(`/ledger/entries/${variables.id}`, variables.input)
-        : await apiClient.post<JournalEntry>('/ledger/entries', variables.input);
-      return response.data;
+        ? await apiClient.patch(
+            `/ledger/entries/${variables.id}`,
+            variables.input satisfies ContractInput<'UpdateJournalEntryBody'>,
+          )
+        : await apiClient.post(
+            '/ledger/entries',
+            variables.input satisfies ContractInput<'CreateJournalEntryBody'>,
+          );
+      return checkContract('JournalEntryDetail', response.data, '/ledger/entries');
     },
     onSuccess: invalidate,
   });
   const postEntry = useMutation({
     mutationFn: async (id: string) =>
-      (await apiClient.post<JournalEntry>(`/ledger/entries/${id}/post`)).data,
+      checkContract(
+        'JournalEntryDetail',
+        (await apiClient.post(`/ledger/entries/${id}/post`)).data,
+        '/ledger/entries/:id/post',
+      ),
     onSuccess: invalidate,
   });
   const reverseEntry = useMutation({
     mutationFn: async (variables: { id: string; date?: string }) =>
-      (
-        await apiClient.post<JournalEntry>(`/ledger/entries/${variables.id}/reverse`, {
-          ...(variables.date ? { date: variables.date } : {}),
-        })
-      ).data,
+      checkContract(
+        'JournalEntryDetail',
+        (
+          await apiClient.post(`/ledger/entries/${variables.id}/reverse`, {
+            ...(variables.date ? { date: variables.date } : {}),
+          } satisfies ContractInput<'ReverseJournalEntryBody'>)
+        ).data,
+        '/ledger/entries/:id/reverse',
+      ),
     onSuccess: invalidate,
   });
   const deleteDraft = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/ledger/entries/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/ledger/entries/${id}`);
+    },
     onSuccess: invalidate,
   });
   const revalue = useMutation({
-    mutationFn: async (date: string) =>
-      (await apiClient.post<RevaluationResult>('/ledger/revaluations', { date })).data,
+    mutationFn: async (date: string) => {
+      const response = await apiClient.post('/ledger/revaluations', {
+        date,
+      } satisfies ContractInput<'RevalueLedgerBody'>);
+      return checkContract('RevaluationResult', response.data, '/ledger/revaluations');
+    },
     onSuccess: invalidate,
   });
 

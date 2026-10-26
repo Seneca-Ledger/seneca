@@ -81,8 +81,10 @@ function DroppedSampleFields({
             onOpenCurrencyPicker();
           }
         }}
-        InputProps={{ readOnly: true }}
         sx={{ '& .MuiInputBase-input': { cursor: 'pointer' } }}
+        slotProps={{
+          input: { readOnly: true },
+        }}
       />
       <TextField
         size="small"
@@ -119,7 +121,13 @@ export function DroppedSampleForm({
   return (
     <>
       <DialogContent dividers>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 2,
+          }}
+        >
           {selectedWarning}
         </Typography>
         <DroppedSampleFields
@@ -128,7 +136,14 @@ export function DroppedSampleForm({
           onUpdateDraft={onUpdateDraft}
           onOpenCurrencyPicker={onOpenCurrencyPicker}
         />
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            mt: 2,
+            display: 'block',
+          }}
+        >
           {t.hint}
         </Typography>
       </DialogContent>

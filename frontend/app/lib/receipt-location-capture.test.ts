@@ -7,7 +7,7 @@ import {
   useReceiptLocationCapture,
 } from './receipt-location-capture';
 
-const STORAGE_KEY = 'lumio-receipt-location-capture';
+const STORAGE_KEY = 'seneca-receipt-location-capture';
 
 describe('receipt location capture preference', () => {
   beforeEach(() => {

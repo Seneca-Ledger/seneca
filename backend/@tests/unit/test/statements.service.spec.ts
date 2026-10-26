@@ -1,68 +1,70 @@
+import type { Mock } from 'vitest';
 import * as fs from 'fs';
 import { calculateFileHash } from '@/common/utils/file-hash.util';
 import { FileType } from '@/entities/statement.entity';
 import { StatementsService } from '@/modules/statements/statements.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { workspaceCurrencyStub } from '../../helpers/workspace-currency-stub';
 
-jest.mock('@/common/utils/file-hash.util', () => ({
-  calculateFileHash: jest.fn(),
+vi.mock('@/common/utils/file-hash.util', () => ({
+  calculateFileHash: vi.fn(),
 }));
 
 describe('StatementsService', () => {
   // create() оборачивает проверку дубликатов и вставку в транзакцию с advisory-lock;
   // менеджер прокидывает вызовы в тот же мок-репозиторий, чтобы ассерты не менялись.
   const statementRepository: Record<string, any> = {
-    create: jest.fn(data => data),
-    save: jest.fn(),
-    findOne: jest.fn(),
-    update: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    create: vi.fn(data => data),
+    save: vi.fn(),
+    findOne: vi.fn(),
+    update: vi.fn(),
+    createQueryBuilder: vi.fn(),
   };
   const statementManager = {
-    query: jest.fn(),
-    getRepository: jest.fn(() => statementRepository),
-    transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(statementManager)),
+    query: vi.fn(),
+    getRepository: vi.fn(() => statementRepository),
+    transaction: vi.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(statementManager)),
   };
   statementRepository.manager = statementManager;
 
-  const auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+  const auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
   const userRepository = {
-    findOne: jest.fn(),
+    findOne: vi.fn(),
   };
   const workspaceMemberRepository = {
-    findOne: jest.fn(),
+    findOne: vi.fn(),
   };
   const statementProcessingService = {
-    processStatement: jest.fn().mockResolvedValue(undefined),
+    processStatement: vi.fn().mockResolvedValue(undefined),
   };
   const receiptStatementService = {
-    createFromReceiptScan: jest.fn(),
+    createFromReceiptScan: vi.fn(),
   };
   const fileStorageService = {};
   const transactionRepository = {};
   const categoryRepository = {};
   const taxRateRepository = {};
-  const cacheManager = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
-  const eventEmitter = { emit: jest.fn() };
+  const cacheManager = { get: vi.fn(), set: vi.fn(), del: vi.fn() };
+  const eventEmitter = { emit: vi.fn() };
 
   let service: StatementsService;
   let qb: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.spyOn(fs.promises, 'readFile').mockResolvedValue(Buffer.from('test'));
-    jest.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined);
+    vi.clearAllMocks();
+    vi.spyOn(fs.promises, 'readFile').mockResolvedValue(Buffer.from('test'));
+    vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined);
 
     qb = {
-      leftJoinAndSelect: jest.fn(() => qb),
-      orderBy: jest.fn(() => qb),
-      skip: jest.fn(() => qb),
-      take: jest.fn(() => qb),
-      where: jest.fn(() => qb),
-      andWhere: jest.fn(() => qb),
-      getManyAndCount: jest.fn(async () => [[], 0]),
+      leftJoinAndSelect: vi.fn(() => qb),
+      orderBy: vi.fn(() => qb),
+      skip: vi.fn(() => qb),
+      take: vi.fn(() => qb),
+      where: vi.fn(() => qb),
+      andWhere: vi.fn(() => qb),
+      getManyAndCount: vi.fn(async () => [[], 0]),
     };
-    statementRepository.createQueryBuilder = jest.fn(() => qb);
+    statementRepository.createQueryBuilder = vi.fn(() => qb);
 
     service = new StatementsService(
       statementRepository as any,
@@ -71,20 +73,22 @@ describe('StatementsService', () => {
       categoryRepository as any,
       taxRateRepository as any,
       workspaceMemberRepository as any,
+      { findOne: vi.fn(async () => null) } as any,
       fileStorageService as any,
       statementProcessingService as any,
-      { enqueue: jest.fn() } as any,
+      { enqueue: vi.fn() } as any,
       receiptStatementService as any,
       cacheManager as any,
       auditService as any,
-      { resolve: jest.fn(async () => ({})) } as any,
+      { resolve: vi.fn(async () => ({})) } as any,
+      workspaceCurrencyStub() as never,
       eventEmitter as any,
     );
-    jest.spyOn(service as any, 'ensureCanEditStatements').mockResolvedValue(undefined);
+    vi.spyOn(service as any, 'ensureCanEditStatements').mockResolvedValue(undefined);
   });
 
   it('orders by createdAt when listing statements', async () => {
-    qb.getManyAndCount = jest.fn(async () => [[], 0]);
+    qb.getManyAndCount = vi.fn(async () => [[], 0]);
 
     const result = await service.findAll('ws-1', { page: 1, limit: 20 });
 
@@ -98,7 +102,7 @@ describe('StatementsService', () => {
   });
 
   it('filters by workspace when user is in workspace', async () => {
-    qb.getManyAndCount = jest.fn(async () => [[], 0]);
+    qb.getManyAndCount = vi.fn(async () => [[], 0]);
 
     await service.findAll('ws-1', { page: 1, limit: 20 });
 
@@ -109,16 +113,16 @@ describe('StatementsService', () => {
   });
 
   it('creates a new statement even when file hash is duplicated', async () => {
-    (calculateFileHash as jest.Mock).mockResolvedValue('same-hash');
+    (calculateFileHash as Mock).mockResolvedValue('same-hash');
     statementRepository.save
       .mockImplementationOnce(async entity => ({ ...entity, id: 'stmt-1' }))
       .mockImplementationOnce(async entity => ({ ...entity, id: 'stmt-2' }));
     statementRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'stmt-1' });
 
-    statementRepository.createQueryBuilder = jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
+    statementRepository.createQueryBuilder = vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue([]),
     }));
 
     const file = {
@@ -135,18 +139,18 @@ describe('StatementsService', () => {
 
   it('falls back to qlmanage when python thumbnail generation fails on darwin', async () => {
     const originalPlatform = process.platform;
-    const pythonSpy = jest
+    const pythonSpy = vi
       .spyOn(service as any, 'generateThumbnailWithPython')
       .mockRejectedValue(new Error('python failed'));
-    const quickLookSpy = jest
+    const quickLookSpy = vi
       .spyOn(service as any, 'generateThumbnailWithQuickLook')
       .mockResolvedValue('/tmp/statement.pdf.png');
 
-    statementRepository.createQueryBuilder = jest.fn(() => ({
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getOne: jest.fn().mockResolvedValue({
+    statementRepository.createQueryBuilder = vi.fn(() => ({
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getOne: vi.fn().mockResolvedValue({
         id: 'stmt-thumb',
         workspaceId: 'ws-1',
         fileType: FileType.PDF,
@@ -155,7 +159,7 @@ describe('StatementsService', () => {
         updatedAt: new Date('2026-03-17T00:00:00.000Z'),
       }),
     }));
-    (fileStorageService as any).getFileAvailability = jest.fn().mockResolvedValue({
+    (fileStorageService as any).getFileAvailability = vi.fn().mockResolvedValue({
       onDisk: true,
       inDb: false,
     });
@@ -169,9 +173,9 @@ describe('StatementsService', () => {
       updatedAt: new Date('2026-03-17T00:00:00.000Z'),
     } as any);
 
-    jest.spyOn(fs.promises, 'writeFile').mockResolvedValue(undefined as any);
+    vi.spyOn(fs.promises, 'writeFile').mockResolvedValue(undefined as any);
     cacheManager.get.mockResolvedValue(null);
-    (fs.promises.readFile as jest.Mock).mockResolvedValue(Buffer.from('png-data'));
+    (fs.promises.readFile as Mock).mockResolvedValue(Buffer.from('png-data'));
     Object.defineProperty(process, 'platform', { value: 'darwin' });
 
     try {

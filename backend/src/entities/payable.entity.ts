@@ -5,10 +5,14 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
+import { Tag } from './tag.entity';
 import { Transaction } from './transaction.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -16,6 +20,8 @@ import { Workspace } from './workspace.entity';
 export enum PayableStatus {
   TO_PAY = 'to_pay',
   SCHEDULED = 'scheduled',
+  /** Some money has arrived, but not all of it. */
+  PARTIALLY_PAID = 'partially_paid',
   PAID = 'paid',
   OVERDUE = 'overdue',
   ARCHIVED = 'archived',
@@ -42,14 +48,14 @@ export class Payable {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;
@@ -68,7 +74,7 @@ export class Payable {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount: number;
 
-  @Column({ type: 'varchar', length: 3, default: 'KZT' })
+  @Column({ type: 'varchar', length: 3 })
   currency: string;
 
   @Column({ name: 'due_date', type: 'date', nullable: true })
@@ -83,7 +89,7 @@ export class Payable {
 
   @ManyToOne(() => Transaction, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'linked_transaction_id' })
-  linkedTransaction: Transaction | null;
+  linkedTransaction: Relation<Transaction | null>;
 
   @Column({ name: 'linked_transaction_id', type: 'uuid', nullable: true })
   linkedTransactionId: string | null;
@@ -104,8 +110,30 @@ export class Payable {
   @Column({ name: 'statement_id', type: 'uuid', nullable: true })
   statementId: string | null;
 
+  /** Tags from the workspace's shared vocabulary; loaded by the list and single reads. */
+  @ManyToMany(() => Tag)
+  @JoinTable({
+    name: 'payable_tags',
+    joinColumn: { name: 'payable_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
+  })
+  tags?: Relation<Tag[]>;
+
   @Column({ name: 'paid_at', type: 'timestamptz', nullable: true })
   paidAt: Date | null;
+
+  /**
+   * Sum of the payments against it, kept alongside them so a list does not
+   * have to aggregate to show what is still outstanding.
+   */
+  @Column({ name: 'paid_amount', type: 'decimal', precision: 15, scale: 2, default: 0 })
+  paidAmount: number;
+
+  /**
+   * Not a column: of what was received (or paid), how much has no transaction
+   * yet — marked without a wallet or a bank row. Filled in by the list.
+   */
+  unbookedAmount?: string;
 
   @Column({ name: 'due_soon_notified_at', type: 'timestamptz', nullable: true })
   dueSoonNotifiedAt: Date | null;

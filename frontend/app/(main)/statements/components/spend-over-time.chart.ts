@@ -4,15 +4,16 @@ type ViewType = 'bar' | 'line' | 'stacked';
 
 type TrendChartRow = { label: string; income: number; expense: number };
 
-type SourceChartTotals = { statementAmount: number; gmailAmount: number };
+type SourceChartTotals = { statementAmount: number; receiptAmount: number };
 
-// eslint-disable-next-line max-lines-per-function, max-params, complexity
 export function buildSpendOverTimeTrendChart(
   points: SpendOverTimePoint[],
   viewType: ViewType,
   activeFlowType: SpendOverTimeFlowType,
   labels: { totalIncome: string; totalSpend: string },
   resolvedTheme: string | undefined,
+  // Privacy mode: the canvas is out of reach of the CSS redaction, so the value axes drop their figures.
+  privacy = false,
 ): unknown {
   const labelsList = points.map(point => point.label);
 
@@ -23,7 +24,7 @@ export function buildSpendOverTimeTrendChart(
       legend: { top: 0 },
       grid: { left: 30, right: 30, bottom: 30, top: 38 },
       xAxis: { type: 'category', data: labelsList },
-      yAxis: { type: 'value' },
+      yAxis: { type: 'value', axisLabel: { show: !privacy } },
       series: [
         {
           name: labels.totalIncome,
@@ -60,7 +61,7 @@ export function buildSpendOverTimeTrendChart(
     tooltip: { trigger: 'axis' },
     grid: { left: 30, right: 30, bottom: 30, top: 30 },
     xAxis: { type: 'category', data: labelsList },
-    yAxis: { type: 'value' },
+    yAxis: { type: 'value', axisLabel: { show: !privacy } },
     series: [
       viewType === 'bar'
         ? {
@@ -109,7 +110,7 @@ export function buildSpendOverTimeSourceChart(
         radius: ['35%', '72%'],
         data: [
           { name: labels.statementsAmount, value: Number(totals.statementAmount.toFixed(2)) },
-          { name: labels.receiptsAmount, value: Number(totals.gmailAmount.toFixed(2)) },
+          { name: labels.receiptsAmount, value: Number(totals.receiptAmount.toFixed(2)) },
         ],
       },
     ],
@@ -120,13 +121,14 @@ export function buildSpendOverTimePeriodsChart(
   rows: TrendChartRow[],
   activeFlowType: SpendOverTimeFlowType,
   resolvedTheme: string | undefined,
+  privacy = false,
 ): unknown {
   const top = rows.slice(0, 12).reverse();
   return {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: 120, right: 20, top: 20, bottom: 20 },
-    xAxis: { type: 'value' },
+    xAxis: { type: 'value', axisLabel: { show: !privacy } },
     yAxis: {
       type: 'category',
       data: top.map(item => item.label),

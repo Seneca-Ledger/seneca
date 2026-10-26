@@ -13,7 +13,7 @@ export function MissingRatesBanner({
   const t = useIntlayer('dashboardHeader');
   if (currencies.length === 0) return null;
   return (
-    <div className="lumio-dashboard__rates-banner" role="status">
+    <div className="seneca-dashboard__rates-banner" role="status">
       <span>{t.missingRates.value.replace('{{currencies}}', currencies.join(', '))}</span>{' '}
       <Link href="/settings/profile?tab=data&section=exchange-rates">{t.missingRatesAction}</Link>
     </div>

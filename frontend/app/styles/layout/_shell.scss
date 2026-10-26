@@ -1,33 +1,46 @@
 // _shell.scss — BEM block for the vertical sidebar shell
 @use '../abstracts' as *;
 
-// Height of the logo block atop the main sidebar, top margin included. Fixed, so
-// the second sidebar can put its first heading level with "Workspace" in CSS alone.
-$lumio-sidebar-brand-height: 92px;
-// The logo-lockup.svg viewBox, cropped to the artwork, so the lockup can be sized by height alone.
-// Quoted: it is a CSS `aspect-ratio` value, not a division for Sass to fold.
-$lumio-logo-lockup-ratio: '1716 / 370';
-// Vertical centre of the logo text inside that block.
-$lumio-sidebar-brand-center: $lumio-focus-ring-reach +
-  ($lumio-sidebar-brand-height - $lumio-focus-ring-reach) * 0.5;
+// Height of the brand row atop the sidebar; the same in every state, so nothing
+// shifts when the rail opens.
+$seneca-sidebar-brand-height: 44px;
 
 // ── Layout shell ──
-.lumio-shell {
-  // Shared with the logo, which centres itself on the sidebar's right edge.
-  --lumio-sidebar-width: 192px;
-  // Top padding of the sidebar section label, which the panel heading lines up to.
-  --lumio-nav-label-pad-top: 8px;
+.seneca-shell {
+  // Desktop has no top bar. The page starts on the brand row's line instead, so a
+  // page whose first row is a tab strip puts those tabs level with the logo.
+  --global-nav-height: #{$seneca-focus-ring-reach};
+  // Top gutter a page adds on its own: none on desktop, where the brand row above
+  // is the gutter. Below 1024px, with no sidebar and nothing above the page, it
+  // comes back.
+  --seneca-page-top: 0px;
+  // Side gutter of a page, the one `px: { xs: 2, md: 4 }` gives: 16px, 32px from
+  // MUI's md (900px). Whatever runs above a page (the banners) uses it too, so
+  // their edges line up with the page's.
+  --seneca-page-x: 16px;
+  --seneca-sidebar-width-full: 192px;
+  // Collapsed rail: room around the nav pills and their focus ring, so the icons
+  // do not sit against the page.
+  --seneca-sidebar-width-rail: 80px;
+  --seneca-sidebar-width: var(--seneca-sidebar-width-full);
 
   display: flex;
   min-height: 100vh;
 
+  @media (min-width: 900px) {
+    --seneca-page-x: 32px;
+  }
+
   &__sidebar {
-    width: var(--lumio-sidebar-width);
+    width: var(--seneca-sidebar-width);
+    transition: width 0.18s ease;
     flex-shrink: 0;
+    // Without this the flex item's automatic minimum size keeps it at the width
+    // of its widest label, so the collapsed rail would never narrow.
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    background: $lumio-color-surface;
-    // No divider: the second sidebar (ShellSidePanel) sits right next to it.
+    background: $seneca-color-surface;
     position: sticky;
     top: 0;
     height: 100vh;
@@ -36,45 +49,7 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
     z-index: 40;
 
     @include dark {
-      background: $lumio-color-surface-dk;
-    }
-  }
-
-  // Second sidebar (ShellSidePanel): full height, beside the main one. Hidden in
-  // CSS rather than JS so the server HTML already has it on desktop; phones use
-  // the drawer from MainSidePanelLayout.
-  &__side-panel {
-    display: none;
-    flex-shrink: 0;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    z-index: 35;
-
-    @media (min-width: 1200px) {
-      display: block;
-    }
-
-    // First heading on the same line as the main sidebar's "Workspace" label;
-    // 6px is the heading's own top padding.
-    [data-side-panel-sections] {
-      padding-top: calc(#{$lumio-sidebar-brand-height} + var(--lumio-nav-label-pad-top) - 6px);
-    }
-  }
-
-  // The side panel's upload menu, portaled out of the panel column so it can rise
-  // over the page backdrop (StatementsCircularUploadMenu). Pinned where the panel
-  // footer puts it: the column starts at the sidebar's edge and fills the viewport
-  // height; 16px/12px are the footer's padding.
-  &__panel-fab {
-    display: none;
-    position: fixed;
-    left: calc(var(--lumio-sidebar-width) + 16px);
-    bottom: 12px;
-    pointer-events: none;
-
-    @media (min-width: 1200px) {
-      display: block;
+      background: $seneca-color-surface-dk;
     }
   }
 
@@ -83,111 +58,375 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
     display: flex;
     flex-direction: column;
     min-width: 0;
-    background: $lumio-color-bg;
+    background: $seneca-color-bg;
+
+    // The top bar used to be this gutter. Declared through --global-nav-height,
+    // which is what the full-height pages subtract from 100vh, so they still fit.
+    > main {
+      padding-top: var(--global-nav-height, 0px);
+    }
 
     @include dark {
-      background: $lumio-color-bg-dk;
+      background: $seneca-color-bg-dk;
     }
+  }
+}
+
+// The attention banner and the daily quote, above every page: one gutter with
+// the page, 8px between them, and at least 16px down to the page, counting the
+// top padding the page adds itself (none on desktop, 24px on phones and tablets).
+// Gone when neither has anything to show.
+.seneca-page-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px var(--seneca-page-x) max(0px, calc(16px - var(--seneca-page-top)));
+
+  &:empty {
+    display: none;
+  }
+}
+
+// ── Collapsed rail ──
+// The pin button narrows the sidebar, and the page beside it reflows once. Nothing
+// else opens it: not hovering, and not the account menu, which opens beside the
+// rail as a menu of its own. Wide pills around the icons, labels folded away.
+.seneca-shell__sidebar--rail {
+  --seneca-sidebar-width: var(--seneca-sidebar-width-rail);
+
+  // Only the emblem fits across the rail: search, the one action kept, goes on a
+  // row under it. Its own side padding goes too, or the emblem sits off the rail's
+  // centre line.
+  .seneca-sidebar__brand {
+    flex-direction: column;
+    gap: 2px;
+    height: auto;
+    padding: 6px 0 2px;
+  }
+
+  .seneca-sidebar__brand-link {
+    padding: 0;
+  }
+
+  // Inset like the nav below (8px from the rail's edges, less the brand's own
+  // focus-ring margin), so the search pill lines up with the nav pills.
+  .seneca-sidebar__brand-actions {
+    align-self: stretch;
+    margin-left: 0;
+    padding: 0 (8px - $seneca-focus-ring-reach);
+  }
+
+  // Privacy, help, notifications and settings live in the full sidebar only.
+  .seneca-sidebar__brand-action:not(.seneca-sidebar__brand-action--search) {
+    display: none;
+  }
+
+  // Search as a nav row: same height, width, radius, colour, hover and icon.
+  .seneca-sidebar__brand-action--search {
+    width: 100%;
+    height: var(--seneca-sidebar-row, 40px);
+    border-radius: $seneca-radius-md;
+    color: $seneca-color-text-secondary;
+
+    @include dark { color: $seneca-color-text-secondary-dk; }
+
+    &:hover {
+      background: $seneca-color-ink-50;
+      color: $seneca-color-text-primary;
+
+      @include dark {
+        background: $seneca-color-ink-100-dk;
+        color: $seneca-color-text-primary-dk;
+      }
+    }
+
+    .MuiSvgIcon-root {
+      font-size: var(--seneca-sidebar-icon);
+      opacity: 0.7;
+    }
+  }
+
+  .seneca-sidebar__nav-item,
+  .seneca-sidebar__support-link,
+  .seneca-account__trigger {
+    // A wide pill across the rail, the icon centred in it.
+    justify-content: center;
+    gap: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  // An open group on the rail: its icons sit on a soft tile, so they read as the
+  // group's and not as rows of their own.
+  .seneca-sidebar__group-items {
+    margin-left: 0;
+    padding: 2px 0;
+    border-left: 0;
+    border-radius: $seneca-radius-md;
+    background: var(--surface-soft);
+  }
+
+  // Kept in the DOM so links keep their accessible names.
+  .seneca-sidebar__nav-label,
+  .seneca-sidebar__group-caret,
+  .seneca-sidebar__support-label,
+  .seneca-account__name,
+  .seneca-account__caret {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+}
+
+// ── Pin button ──
+// Outside the sidebar, on the seam between it and the page, level with the emblem;
+// it follows the sidebar's edge as the width animates.
+.seneca-shell__sidebar-pin {
+  position: fixed;
+  top: calc(#{$seneca-focus-ring-reach} + #{0.5 * ($seneca-sidebar-brand-height - 24px)});
+  left: calc(var(--seneca-sidebar-width-full) + 4px);
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: $seneca-radius-full;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: left 0.18s ease, background 0.1s, color 0.1s;
+
+  &:hover {
+    background: var(--surface-soft);
+    color: var(--foreground);
+  }
+
+  &--rail {
+    left: calc(var(--seneca-sidebar-width-rail) + 4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seneca-shell__sidebar,
+  .seneca-shell__sidebar-pin {
+    transition: none;
   }
 }
 
 // ── Brand ──
 // Inset from the sidebar edges by the focus-ring reach: the sidebar clips overflow.
-.lumio-sidebar__brand {
+// The wordmark is gone: the emblem alone heads the sidebar and the room it used to
+// take now carries help, search, notifications, settings and the collapse toggle.
+.seneca-sidebar__brand {
   display: flex;
   align-items: center;
-  // The logo alone heads the sidebar now (no workspace switcher or CTA under it),
-  // so it is larger and given the room those two used to take.
-  margin: $lumio-focus-ring-reach $lumio-focus-ring-reach 0;
-  height: $lumio-sidebar-brand-height - $lumio-focus-ring-reach;
-  padding: 0 16px - $lumio-focus-ring-reach;
+  gap: 2px;
+  margin: $seneca-focus-ring-reach $seneca-focus-ring-reach 0;
+  height: clamp(32px, calc(var(--seneca-sidebar-row, 40px) * 1.1), #{$seneca-sidebar-brand-height});
+  padding: 0 8px - $seneca-focus-ring-reach;
   box-sizing: border-box;
   flex-shrink: 0;
-  width: calc(100% - #{2 * $lumio-focus-ring-reach});
+  width: calc(100% - #{2 * $seneca-focus-ring-reach});
   text-decoration: none;
 
-  // An SVG loaded as a background cannot reach `currentColor`, so dark mode swaps
-  // in a variant whose wording is white and whose emblem stays green.
-  &-mark {
-    flex: 0 0 auto;
-    height: 33px;
-    aspect-ratio: #{$lumio-logo-lockup-ratio};
-    background: url('/images/logo-lockup.svg') no-repeat center / contain;
-
-    @include dark { background-image: url('/images/logo-lockup-dark.svg'); }
+  &-link {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 0 6px;
+    text-decoration: none;
   }
 
-  &-meta {
-    font-size: 10px;
-    font-weight: 600;
-    color: $lumio-color-ink-400;
-    background: $lumio-color-ink-100;
-    border-radius: $lumio-radius-xs;
-    padding: 1px 5px;
-    letter-spacing: 0.02em;
+  &-emblem {
+    display: block;
+    width: 24px;
+    height: 24px;
+    background: url('/images/logo-mark.svg') no-repeat center / contain;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
-      background: $lumio-color-ink-200-dk;
+      background-image: url('/images/logo-mark-dark.svg');
+    }
+  }
+
+  &-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    // Fades rather than blinks when the rail opens and closes.
+    transition: opacity 0.2s ease;
+  }
+
+  &-action {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: $seneca-radius-full;
+    background: transparent;
+    color: $seneca-color-ink-500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.1s, color 0.1s;
+
+    @include dark { color: $seneca-color-ink-500-dk; }
+
+    &:hover {
+      background: $seneca-color-ink-100;
+      color: $seneca-color-text-primary;
+
+      @include dark {
+        background: $seneca-color-ink-100-dk;
+        color: $seneca-color-text-primary-dk;
+      }
+    }
+
+    // Unread notifications: the count itself is in the panel the bell opens.
+    &-dot {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 7px;
+      height: 7px;
+      border-radius: $seneca-radius-full;
+      background: var(--destructive);
+      border: 1.5px solid $seneca-color-surface;
+
+      @include dark { border-color: $seneca-color-surface-dk; }
     }
   }
 }
 
+// ── Row scale ──
+// On a short window — a laptop, more so at 125% display scaling — the sidebar
+// shrinks as a whole instead of growing a scrollbar: the brand row, every nav row
+// and the two footer rows share the height (Sidebar.tsx sets the row count), and
+// type and icons keep their proportion to the row. The brand counts as 1.1 rows;
+// the fixed part is the focus-ring insets, the footer's padding and border, and
+// room for the brand's own floor. Only below the 20px floor does the nav scroll.
+$seneca-sidebar-fixed: 2 * $seneca-focus-ring-reach + 17px + 14px;
+
+.seneca-sidebar__brand,
+.seneca-sidebar__nav,
+.seneca-sidebar__footer {
+  --seneca-sidebar-row: clamp(
+    20px,
+    calc((100vh - #{$seneca-sidebar-fixed}) / (var(--seneca-sidebar-rows, 18) + 1.1) - 2px),
+    40px
+  );
+  --seneca-sidebar-type: max(10px, calc(var(--seneca-sidebar-row) * 0.3125));
+  --seneca-sidebar-icon: max(12px, calc(var(--seneca-sidebar-row) * 0.45));
+}
+
+.seneca-sidebar__nav-item,
+.seneca-sidebar__support-link,
+.seneca-sidebar__footer .seneca-account__trigger {
+  min-height: var(--seneca-sidebar-row);
+  max-height: var(--seneca-sidebar-row);
+  font-size: var(--seneca-sidebar-type);
+}
+
+.seneca-sidebar__nav-icon .MuiSvgIcon-root {
+  font-size: var(--seneca-sidebar-icon);
+}
+
+.seneca-sidebar__footer .seneca-account__avatar {
+  width: calc(var(--seneca-sidebar-row) * 0.6);
+  height: calc(var(--seneca-sidebar-row) * 0.6);
+}
+
+.seneca-sidebar__support-icon {
+  display: flex;
+  flex-shrink: 0;
+
+  .MuiSvgIcon-root {
+    font-size: var(--seneca-sidebar-icon);
+  }
+}
+
 // ── Navigation ──
-.lumio-sidebar__nav {
+.seneca-sidebar__nav {
   flex: 1;
-  // Column so the items can share the spare height (see __nav-item).
   display: flex;
   flex-direction: column;
+  gap: 2px;
   // Bottom room keeps the last item's focus ring inside the scroll area.
-  padding: 0 10px $lumio-focus-ring-reach;
+  padding: 0 8px $seneca-focus-ring-reach;
+  // Without it the nav grows to its content and the whole sidebar scrolls; with it
+  // only the nav does, and the brand row and the footer stay in place.
+  min-height: 0;
   overflow-y: auto;
+
+  // A 4px thumb that shows only while the pointer is over the nav (or focus is in
+  // it). Chromium gets the -webkit- rules alone: once scrollbar-width or
+  // scrollbar-color is set it drops them, and its own "thin" is wider than this.
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border: 0;
+    border-radius: $seneca-radius-full;
+  }
+
+  &:hover::-webkit-scrollbar-thumb,
+  &:focus-within::-webkit-scrollbar-thumb {
+    background: $seneca-color-ink-200;
+
+    @include dark { background: $seneca-color-ink-300-dk; }
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+
+    &:hover,
+    &:focus-within {
+      scrollbar-color: var(--border) transparent;
+    }
+  }
 }
 
-.lumio-sidebar__section-label {
-  flex-shrink: 0;
-  font-size: 10.5px;
-  font-weight: 600;
-  // Same token as the statements panel's section titles ("Work queue"), so the
-  // two sidebars' headings read as one level in both themes.
-  color: var(--muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: var(--lumio-nav-label-pad-top) 8px 4px;
-}
-
-.lumio-sidebar__nav-item {
+// One size for the whole sidebar: pinned open, peeked open or collapsed, the rows
+// and their type are identical — only the labels fold away. Rows that grew into
+// the spare height are what used to make the pinned sidebar look oversized next
+// to the peeked rail.
+.seneca-sidebar__nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  // Rows grow into the height left under the menu instead of leaving it empty
-  // on tall screens, and shrink back to 36px (then scroll) on short ones.
-  flex: 1 1 auto;
-  min-height: 36px;
-  max-height: 56px;
-  padding: 7px 10px;
-  border-radius: $lumio-radius-full;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  border-radius: $seneca-radius-md;
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 13.5px;
   font-weight: 500;
-  color: $lumio-color-text-secondary;
+  color: $seneca-color-text-secondary;
   text-align: left;
   text-decoration: none;
   transition: background 0.1s, color 0.1s;
   font-family: inherit;
 
-  @include dark { color: $lumio-color-text-secondary-dk; }
+  @include dark { color: $seneca-color-text-secondary-dk; }
 
   &:hover {
-    background: $lumio-color-ink-50;
-    color: $lumio-color-text-primary;
+    background: $seneca-color-ink-50;
+    color: $seneca-color-text-primary;
 
     @include dark {
-      background: $lumio-color-ink-100-dk;
-      color: $lumio-color-text-primary-dk;
+      background: $seneca-color-ink-100-dk;
+      color: $seneca-color-text-primary-dk;
     }
   }
 
@@ -197,19 +436,19 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
     font-weight: 600;
 
     @include dark {
-      background: $lumio-color-primary-100-dk;
-      color: $lumio-color-primary-dk;
+      background: $seneca-color-primary-100-dk;
+      color: $seneca-color-primary-dk;
     }
 
     &:hover {
       background: var(--primary-100);
 
       @include dark {
-        background: $lumio-color-primary-200-dk;
+        background: $seneca-color-primary-200-dk;
       }
     }
 
-    .lumio-sidebar__nav-icon {
+    .seneca-sidebar__nav-icon {
       opacity: 1;
     }
   }
@@ -220,74 +459,121 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
     flex-shrink: 0;
     opacity: 0.7;
   }
+}
 
-  &-label {
-    flex: 1;
+// ── Groups ──
+// A header row like the items, with a caret; its items hang under it on a hairline.
+.seneca-sidebar__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.seneca-sidebar__group-caret {
+  display: flex;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+
+  .seneca-sidebar__group-toggle[aria-expanded='true'] & {
+    transform: rotate(180deg);
   }
+}
+
+.seneca-sidebar__group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 18px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+
+// The Review icon with its waiting dot; a slot of its own because the icon is dimmed.
+.seneca-sidebar__nav-icon-slot {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+}
+
+// Something waits in Review. Smaller than the bell's dot and without a ring, so it
+// sits on the active item's tint as well as on the plain sidebar.
+.seneca-sidebar__nav-dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: $seneca-radius-full;
+  background: var(--destructive);
+}
+
+// Top level, not `&-label` under the item: that compiles to `__nav-item-label`,
+// which no markup carries, so the labels used to wrap while the width animated.
+.seneca-sidebar__nav-label {
+  flex: 1;
+  // The sidebar clips its overflow, so the labels slide out of view instead of
+  // re-wrapping while the width animates.
+  white-space: nowrap;
 }
 
 // ── Footer / Storage widget ──
-.lumio-sidebar__footer {
+// Search, the account entry and the support link, stacked under the nav.
+.seneca-sidebar__footer {
   flex-shrink: 0;
-  padding: 10px;
-  border-top: 1px solid $lumio-color-border;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border-top: 1px solid $seneca-color-border;
 
-  @include dark { border-top-color: $lumio-color-border-dk; }
+  @include dark { border-top-color: $seneca-color-border-dk; }
 }
 
-.lumio-sidebar__support-link {
+.seneca-sidebar__support-link {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 14px;
-  border-radius: $lumio-radius-full;
-  border: 1px solid var(--primary-100);
-  background: var(--primary-50);
-  color: var(--primary-strong);
-  font-size: 13px;
-  font-weight: 600;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  border-radius: $seneca-radius-md;
+  // A plain row with a grey line heart, like the nav above it: no green tile.
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-
-  @include dark {
-    border-color: $lumio-color-primary-100-dk;
-    background: $lumio-color-primary-50-dk;
-    color: $lumio-color-primary-dk;
-  }
+  transition: background 0.2s, color 0.2s;
 
   &:hover {
-    border-color: var(--primary-200);
-    background: var(--primary-100);
-
-    @include dark {
-      border-color: $lumio-color-primary-200-dk;
-      background: $lumio-color-primary-100-dk;
-    }
+    background: var(--surface-soft);
+    color: var(--foreground);
   }
 }
 
-.lumio-sidebar__support-icon {
-  font-size: 16px;
+.seneca-sidebar__support-label {
+  white-space: nowrap;
 }
 
-.lumio-sidebar__storage {
+.seneca-sidebar__storage {
   padding: 10px;
-  border-radius: $lumio-radius-md;
-  background: $lumio-color-ink-50;
+  border-radius: $seneca-radius-md;
+  background: $seneca-color-ink-50;
 
-  @include dark { background: $lumio-color-ink-100-dk; }
+  @include dark { background: $seneca-color-ink-100-dk; }
 
   &-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 12px;
-    color: $lumio-color-text-secondary;
+    color: $seneca-color-text-secondary;
     margin-bottom: 6px;
 
-    @include dark { color: $lumio-color-text-secondary-dk; }
+    @include dark { color: $seneca-color-text-secondary-dk; }
   }
 
   &-label {
@@ -300,194 +586,84 @@ $lumio-sidebar-brand-center: $lumio-focus-ring-reach +
 
   &-bar {
     height: 4px;
-    border-radius: $lumio-radius-full;
-    background: $lumio-color-border;
+    border-radius: $seneca-radius-full;
+    background: $seneca-color-border;
     overflow: hidden;
     margin-bottom: 8px;
 
-    @include dark { background: $lumio-color-border-dk; }
+    @include dark { background: $seneca-color-border-dk; }
   }
 
   &-fill {
     height: 100%;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     background: var(--primary-fill);
     transition: width 0.3s;
   }
 }
 
-// ── TopBar ──
-.lumio-topbar {
-  height: 52px;
-  display: flex;
+// ── Brand lockup (BrandLockup.tsx) ──
+// The emblem and the product name as text, so APP_NAME can rename it. Sized by
+// font-size alone: the mark follows the text.
+.seneca-lockup {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 20px;
-  // Same colour as the page behind it, no divider: the bar blends into the page.
-  background: $lumio-color-bg;
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  flex-shrink: 0;
+  gap: 0.35em;
+  color: var(--foreground);
+  font-weight: $seneca-font-weight-medium;
+  line-height: 1;
+  white-space: nowrap;
 
-  @include dark {
-    background: $lumio-color-bg-dk;
-  }
-
-  &__mobile-logo {
-    display: none;
-    align-items: center;
-    gap: 8px;
+  &__mark {
     flex-shrink: 0;
-    text-decoration: none;
+    width: 1.3em;
+    height: 1.3em;
+    background: url('/images/logo-mark.svg') no-repeat center / contain;
 
-    // Same lockup as the desktop sidebar brand, sized for the top bar.
-    &-mark {
-      height: 16px;
-      aspect-ratio: #{$lumio-logo-lockup-ratio};
-      background: url('/images/logo-lockup.svg') no-repeat center / contain;
-
-      @include dark { background-image: url('/images/logo-lockup-dark.svg'); }
-    }
-  }
-
-  &__right {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-    margin-left: auto;
-  }
-
-  &__icon-btn {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: $lumio-radius-full;
-    border: none;
-    background: transparent;
-    color: $lumio-color-ink-500;
-    cursor: pointer;
-    transition: background 0.1s, color 0.1s;
-    font-family: inherit;
-
-    @include dark { color: $lumio-color-ink-500-dk; }
-
-    &:hover {
-      background: $lumio-color-ink-100;
-      color: $lumio-color-text-primary;
-
-      @include dark {
-        background: $lumio-color-ink-100-dk;
-        color: $lumio-color-text-primary-dk;
-      }
-    }
-  }
-
-  &__update {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 12px;
-    border-radius: $lumio-radius-full;
-    font-size: 13px;
-    font-weight: 600;
-    color: #fff;
-    text-decoration: none;
-    white-space: nowrap;
-    background: linear-gradient(100deg, #10b981, #06b6d4, #3b82f6, #10b981);
-    background-size: 300% 100%;
-    animation: lumio-topbar-update-shimmer 4s linear infinite;
-
-    &:hover {
-      filter: brightness(1.08);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      animation: none;
-      background-position: 0 0;
-    }
+    @include dark { background-image: url('/images/logo-mark-dark.svg'); }
   }
 }
 
-@keyframes lumio-topbar-update-shimmer {
-  to { background-position: -300% 0; }
+// ── Auth pages ──
+// The same lockup heading the sign-in forms. A class of its own: the sidebar's
+// mark turns `position: fixed` on wide screens to sit on the column seam.
+.seneca-auth-logo {
+  display: flex;
+  width: fit-content;
+  // Smaller than the wordmark's natural weight: the form, not the logo, leads.
+  font-size: $seneca-font-size-xl;
+  margin: 0 auto 24px;
+
+  // Onboarding: it marks the page beside the progress, it does not head it.
+  &--inline {
+    margin: 0;
+  }
 }
 
 // ── Responsive ──
-// With the second sidebar showing (ShellSidePanel, same 1200px breakpoint) the
-// logo sits centred on the seam between the two columns. Fixed positioning lets it
-// out of the sidebar's overflow clip; the brand block keeps its fixed height, so
-// the room it took in the sidebar stays.
-@media (min-width: 1200px) {
-  .lumio-sidebar__brand-mark {
-    position: fixed;
-    top: $lumio-sidebar-brand-center;
-    left: var(--lumio-sidebar-width);
-    z-index: 45;
-    transform: translate(-50%, -50%);
-  }
-}
-
 // Wide screens: a wider sidebar and larger type, so it doesn't look tiny.
+// Wide screens get a wider sidebar, but not bigger rows: the collapsed rail keeps
+// its own size, and the two states have to match.
 @media (min-width: 1600px) {
-  .lumio-shell {
-    --lumio-sidebar-width: 220px;
-    --lumio-nav-label-pad-top: 12px;
-  }
-
-  .lumio-sidebar__nav-item {
-    gap: 12px;
-    padding: 8px 12px;
-    font-size: 14.5px;
-  }
-
-  .lumio-sidebar__section-label {
-    font-size: 11px;
-    padding: var(--lumio-nav-label-pad-top) 12px 6px;
+  .seneca-shell {
+    --seneca-sidebar-width-full: 220px;
   }
 }
 
 @media (max-width: 1023px) {
-  .lumio-shell__sidebar {
+  // No sidebar and no top bar here: the page starts at the top of the screen and
+  // keeps a gutter of its own, since there is no brand row beside it to line up with.
+  .seneca-shell {
+    --global-nav-height: 0px;
+    --seneca-page-top: 24px;
+  }
+
+  .seneca-shell__sidebar,
+  .seneca-shell__sidebar-pin {
     display: none;
   }
 
-  .lumio-topbar__mobile-logo {
-    display: flex;
-    flex: 1;
-  }
-
-  // Strip container to avatar-only on mobile (.lumio-topbar parent raises specificity)
-  .lumio-topbar .lumio-navigation__user-menu-trigger {
-    min-width: 0;
-    width: 32px;
-    max-width: 32px;
-    height: 32px;
-    padding: 0;
-    gap: 0;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    border-radius: $lumio-radius-sm;
-    justify-content: center;
-    overflow: hidden;
-  }
-
-  .lumio-topbar .lumio-navigation__user-menu-label {
-    display: none;
-  }
-
-  .lumio-topbar .lumio-navigation__trigger-avatar {
-    width: 28px;
-    height: 28px;
-    flex-shrink: 0;
-  }
-
-  .lumio-shell__content > main {
+  .seneca-shell__content > main {
     padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   }
 }

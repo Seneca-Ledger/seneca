@@ -8,6 +8,18 @@ export interface SparklineProps {
   w?: number;
 }
 
+// Keeps the stroke inside the box so neither edge clips it; a flat series sits mid-height.
+function linePath(points: number[], w: number, h: number): string {
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const range = max - min;
+  const step = w / (points.length - 1);
+  const pad = 2;
+  const y = (p: number): number =>
+    range === 0 ? h / 2 : pad + (1 - (p - min) / range) * (h - pad * 2);
+  return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${i * step} ${y(p)}`).join(' ');
+}
+
 /**
  * Tiny inline SVG line used inside KPI cards. Renders nothing for fewer than two
  * points. Defaults to `currentColor` so the theme decides the hue via CSS and
@@ -23,14 +35,8 @@ export function Sparkline({
   if (points.length < 2) {
     return null;
   }
-  const max = Math.max(...points);
-  const min = Math.min(...points);
-  const range = max - min || 1;
-  const step = w / (points.length - 1);
-  const d = points
-    // eslint-disable-next-line max-params
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${i * step} ${h - ((p - min) / range) * h}`)
-    .join(' ');
+  const flat = Math.max(...points) === Math.min(...points);
+  const d = linePath(points, w, h);
   const fillD = `${d} L ${w} ${h} L 0 ${h} Z`;
   return (
     <svg
@@ -40,7 +46,8 @@ export function Sparkline({
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      {fill && <path d={fillD} fill={color} opacity="0.08" />}
+      {/* A flat series gets no fill: under a mid-height line it is only a murky band. */}
+      {fill && !flat && <path d={fillD} fill={color} opacity="0.08" />}
       <path
         d={d}
         fill="none"

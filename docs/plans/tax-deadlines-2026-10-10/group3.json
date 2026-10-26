@@ -1,0 +1,350 @@
+{
+  "SE": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 2, "day": 12, "plusDays": null, "exceptions": [
+          { "periodEndMonth": 6,  "monthsAfterPeriodEnd": 2, "day": 17 },
+          { "periodEndMonth": 11, "monthsAfterPeriodEnd": 2, "day": 17 }
+        ] },
+        "quarterly": { "monthsAfterPeriodEnd": 2, "day": 12, "plusDays": null, "exceptions": [
+          { "periodEndMonth": 6, "monthsAfterPeriodEnd": 2, "day": 17 }
+        ] },
+        "annual":    { "monthsAfterPeriodEnd": 5, "day": 12, "plusDays": null, "exceptions": [] }
+      },
+      "frequencyRule": "Choice depends on the VAT taxable base (turnover): up to SEK 1 million you may apply for annual, quarterly or monthly; up to SEK 40 million quarterly or monthly; above SEK 40 million monthly only. The 'monthly' rule above is the one for turnover up to SEK 40 million (12th of the second month after the period; 17th when that falls in January or August). Above SEK 40 million the monthly return is due on the 26th of the month after the period (27 December instead of 26 December).",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Momsdeklaration",
+      "sources": [
+        "https://www.skatteverket.se/foretagochorganisationer/moms/deklareramoms/narskajagdeklareramoms.4.6d02084411db6e252fe80008988.html",
+        "https://www.skatteverket.se/download/18.70685bee19c85dd5dd0325b/1774273676580/Skattekontobroschyren-skv408-utgava13.pdf",
+        "https://www.riksdagen.se/sv/dokument-och-lagar/dokument/svensk-forfattningssamling/lag-1930173-om-beräkning-av-lagstadgad-tid_sfs-1930-173/"
+      ],
+      "unsure": "The schema allows only one monthly rule, so the over-SEK 40 million monthly rule (26th of the next month, 27 December for the November period) is given only in frequencyRule. The annual rule (12 May of the following year) is for sole traders (enskilda näringsidkare) without EU trade. Sole traders with EU trade file by 26 February. Companies follow other dates. Weekend/holiday shift: Skatteverket's brochure SKV 408 says due dates on a holiday move to the next weekday, and lag (1930:173) § 2 says the same for statutory deadlines."
+    },
+    "incomeTax2026": {
+      "formName": "Inkomstdeklaration 1 (with NE appendix for enskild näringsverksamhet)",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-05-03" }
+      ],
+      "sources": [
+        "https://lagen.nu/2011:1244",
+        "https://www.riksdagen.se/sv/dokument-och-lagar/dokument/svensk-forfattningssamling/lag-1930173-om-beräkning-av-lagstadgad-tid_sfs-1930-173/",
+        "https://www.skatteverket.se/privat/deklaration/datumfordeklarationen2026.4.1997e70d1848dabbac95d72.html",
+        "https://www.skatteverket.se/foretag/inkomstdeklaration/forredovisningsbyraer/byraanstand.4.5c1163881590be297b51a80.html"
+      ],
+      "unsure": "Computed from statute. The statutory deadline is 2 May (skatteförfarandelagen 2011:1244, ch. 32). 2027-05-02 is a Sunday, so lag (1930:173) § 2 moves it to Monday 2027-05-03. This matches 2026, when 2 May was a Saturday and Skatteverket published 4 May. Skatteverket has not yet published its 2027 dates. In 2026 the extension dates were 1 June (individual anstånd) and 15 June (byråanstånd through an accounting firm). The 2027 equivalents are not published, so they are left out. The filing opening date (17 March in 2026) is not published for 2027."
+    }
+  },
+  "DK": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [
+          { "periodEndMonth": 6, "monthsAfterPeriodEnd": 2, "day": 17 }
+        ] },
+        "quarterly": { "monthsAfterPeriodEnd": 3, "day": 1, "plusDays": null, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "Set by Skattestyrelsen from VAT-taxable turnover: above DKK 50 million monthly; DKK 5-50 million quarterly (also new businesses and anyone who asks); below DKK 5 million half-yearly, provided filing and payment have been on time (momsloven § 57).",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Momsangivelse",
+      "sources": [
+        "https://info.skat.dk/data.aspx?oid=2062862",
+        "https://skat.dk/en-us/businesses/vat/deadlines-filing-vat-returns-and-paying-vat",
+        "https://www.retsinformation.dk/eli/lta/2024/1040"
+      ],
+      "unsure": "HALF-YEARLY is the default period for businesses under DKK 5 million and does not fit the schema. Its rule is the same as quarterly: 1st of the third month after the half-year, i.e. 1 September and 1 March (ML § 57). Monthly: 25th of the following month, but for June 1 month and 17 days, i.e. 17 August. Weekend shift: opkrævningsloven § 2, stk. 3 says that if the last timely filing day is a bank closing day, the next bank day counts. skat.dk's calendar is consistent (2 March 2026, because 1 March 2026 was a Sunday). skat.dk also lists 2 September 2025 for the first half of 2025, although 1 September 2025 was a Monday; this was not explained."
+    },
+    "incomeTax2026": {
+      "formName": "Oplysningsskema (selvangivelse) for selvstændigt erhvervsdrivende, via TastSelv",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-07-01" }
+      ],
+      "sources": [
+        "https://info.skat.dk/data.aspx?oid=2284485",
+        "https://skat.dk/en-us/businesses/own-business/bookkeeping-accounts-and-tax-return/how-you-report-your-resultfile-your-tax-return"
+      ],
+      "unsure": "Computed from the rule '1 July in the year after the income year' (skatteindberetningsloven, per Den juridiske vejledning A.C.2.1.2.1.6.1.2). 2027-07-01 is a Thursday. The return opens mid-March when the årsopgørelse is published, but the exact 2027 date is not published. Persons without business income only correct their årsopgørelse, normally by 1 May; that date is not included here."
+    }
+  },
+  "FI": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 2, "day": 12, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 2, "day": 12, "plusDays": null, "exceptions": [] },
+        "annual":    { "monthsAfterPeriodEnd": 2, "day": 28, "plusDays": null, "exceptions": [] }
+      },
+      "frequencyRule": "The VAT period is a calendar month by default. With annual turnover of at most EUR 100,000 it can be a quarter, and with at most EUR 30,000 a quarter or a calendar year. Primary producers and visual artists always have a calendar year. A changed period must stay for at least 12 months.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Kausiveroilmoitus (arvonlisävero) / VAT return in MyTax (OmaVero)",
+      "sources": [
+        "https://www.vero.fi/en/businesses-and-corporations/taxes-and-charges/vat/when-to-file-and-pay/",
+        "https://www.vero.fi/en/businesses-and-corporations/taxes-and-charges/vat/when-to-file-and-pay/tax-period/"
+      ],
+      "unsure": "The annual rule is 'the end of February' of the following year, which is the 29th in leap years. Day 28 is used here. For tax year 2026 the deadline is 2027-02-28, a Sunday, so it moves to 2027-03-01. Vero states that VAT return due dates cannot be extended."
+    },
+    "incomeTax2026": {
+      "formName": "Elinkeinotoiminnan veroilmoitus (lomake 5) + esitäytetty veroilmoitus",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-04-01" }
+      ],
+      "sources": [
+        "https://www.vero.fi/syventavat-vero-ohjeet/paatokset/60350/verohallinnon-paatos-veroilmoituksen-ja-kiinteistotietojen-ilmoituksen-antamisesta5/",
+        "https://www.vero.fi/en/businesses-and-corporations/taxes-and-charges/taxation-of-self-employed-individuals/instructions-for-filing/"
+      ],
+      "unsure": "Computed from the Tax Administration decision VH/7393/00.01.00/2024 (§ 6): a sole trader or professional practitioner files by 1 April of the year after the tax year. The decision has applied since 1 January 2025 with no end date. A newer decision could change it before 2027, but none was found. 2027-04-01 is a Thursday. Individuals without business income have personal May deadlines printed on their pre-completed return; those are not included."
+    }
+  },
+  "EE": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 20, "plusDays": null, "exceptions": [] },
+        "quarterly": null,
+        "annual":    null
+      },
+      "frequencyRule": "Every VAT-registered person has a calendar-month period; there is no quarterly or annual option for the domestic return (käibemaksuseadus § 27).",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Käibedeklaratsioon (KMD) with annex KMD INF",
+      "sources": [
+        "https://www.emta.ee/en/business-client/taxes-and-payment/value-added-tax/filing-vat-returns-and-reports",
+        "https://www.emta.ee/node/330/handbook/20/pdf",
+        "https://www.emta.ee/node/125/handbook/7/pdf"
+      ],
+      "unsure": "The weekend shift comes from the general rule in TsÜS § 136(8): a deadline on a rest day or public holiday moves to the next working day. EMTA's handbooks apply it to tax due dates. The VAT page itself does not repeat it."
+    },
+    "incomeTax2026": {
+      "formName": "Tuludeklaratsioon vorm A + vorm E (FIE ettevõtlustulu)",
+      "filingOpens": "2027-02-15",
+      "deadlines": [
+        { "kind": "standard", "date": "2027-04-30" }
+      ],
+      "sources": [
+        "https://www.emta.ee/node/125/handbook/7/pdf",
+        "https://www.emta.ee/en/news/income-tax-return-filing-period-begins"
+      ],
+      "unsure": "Computed from the rule: by 30 April of the year after the tax period, with e-MTA filing from 15 February, or the next working day if 15 February is a rest day (EMTA 'Füüsilisest isikust ettevõtja ABC'). 2027-02-15 is a Monday and 2027-04-30 a Friday. EMTA has not yet announced the 2027 campaign."
+    }
+  },
+  "LV": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 0, "day": null, "plusDays": 20, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 0, "day": null, "plusDays": 20, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "Monthly if taxable supplies in the previous or current year exceed EUR 50,000, or if the taxpayer makes intra-EU supplies of goods or services taxed in another member state. New registrants are monthly for their first 6 months. Everyone else is quarterly (PVN likums, Art. 115).",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "PVN deklarācija (taksācijas perioda deklarācija)",
+      "sources": [
+        "https://likumi.lv/ta/id/253451-pievienotas-vertibas-nodokla-likums"
+      ],
+      "unsure": "Art. 118(1): within 20 days after the end of the period, i.e. the 20th of the following month. Art. 118(7): if that day is a day off or holiday, the next working day. Payment is due within 23 days (Art. 119). The half-year period no longer exists. In some cases (e.g. a changed deduction proportion or adjustments) an additional annual return is due by 1 May of the next year (Art. 117(5), 118(5)). That return is not a filing frequency, so 'annual' is null."
+    },
+    "incomeTax2026": {
+      "formName": "Gada ienākumu deklarācija (saimnieciskās darbības veicējs)",
+      "filingOpens": "2027-03-01",
+      "deadlines": [
+        { "kind": "standard", "date": "2027-06-01" }
+      ],
+      "sources": [
+        "https://likumi.lv/ta/id/56880-par-iedzivotaju-ienakuma-nodokli"
+      ],
+      "unsure": "Computed from the statute (likums 'Par iedzīvotāju ienākuma nodokli', Art. 19(5)): from 1 March to 1 June of the following year. The exception is when income taxed at the Art. 15(2) rate exceeds the maximum object of mandatory social contributions: then the window is 1 April to 1 July, i.e. 2027-07-01 (a Thursday). The schema has no kind for that case, so it is only described here. 2027-03-01 is a Monday and 2027-06-01 a Tuesday. VID's own deadline pages could not be read (JavaScript site)."
+    }
+  },
+  "LT": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "The period is a calendar month by default. A VAT payer other than a natural person whose previous-year economic income did not exceed EUR 300,000 may ask for a calendar quarter. For a natural person (individual activity) the period is a calendar HALF-YEAR unless they ask for monthly (PVMĮ Art. 84).",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "PVM deklaracija FR0600",
+      "sources": [
+        "https://e-seimas.lrs.lt/rs/actualedition/TAIS.163423/rGwdIQGCEj/format/ISO_PDF/",
+        "https://e-seimas.lrs.lt/rs/actualedition/TAIS.231855/KmfpmGgVyx/format/ISO_PDF/"
+      ],
+      "unsure": "HALF-YEAR is the default for natural persons and does not fit the schema. Its rule is the 25th of the first month of the next half-year, i.e. 25 July and 25 January (PVMĮ Art. 85(2)), the same shape as the quarterly rule. Monthly: by the 25th of the next month (Art. 85(1)). Quarterly: by the 25th of the first month of the next quarter (Art. 85(1^1)). Weekend shift: Mokesčių administravimo įstatymas Art. 162(6). Read from the consolidated versions valid in the second half of 2026. vmi.lt pages were blocked by a bot challenge, so VMI's own guidance was not read."
+    },
+    "incomeTax2026": {
+      "formName": "Metinė pajamų mokesčio deklaracija GPM311",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-05-03" }
+      ],
+      "sources": [
+        "https://e-seimas.lrs.lt/rs/actualedition/TAIS.171369/QTlvfEvkKY/format/ISO_PDF/",
+        "https://e-seimas.lrs.lt/rs/actualedition/TAIS.231855/KmfpmGgVyx/format/ISO_PDF/"
+      ],
+      "unsure": "Computed from statute. GPMĮ Art. 27(1) sets 1 May of the following year. 2027-05-01 is a Saturday and a public holiday, so MAĮ Art. 162(6) moves it to Monday 2027-05-03. This is the same mechanism as 2026: 1 May 2026 was a Friday holiday, and VMI's deadline was 4 May 2026, seen in search results only. The filing opening date was not verified."
+    }
+  },
+  "RO": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [
+          { "periodEndMonth": 11, "monthsAfterPeriodEnd": 1, "day": 21 }
+        ] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] },
+        "annual":    { "monthsAfterPeriodEnd": 1, "day": 25, "plusDays": null, "exceptions": [] }
+      },
+      "frequencyRule": "The fiscal period is the calendar month. It is the calendar quarter if prior-year turnover did not exceed EUR 100,000 and the business made no intra-community acquisitions of goods in the prior year (Codul fiscal art. 322). The semester and calendar year exist only by special ANAF approval.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Decont de TVA (formular 300)",
+      "sources": [
+        "https://static.anaf.ro/static/3/Cluj/20260220114126_cj_d300_20feb2026.pdf",
+        "https://static.anaf.ro/static/10/Anaf/cod_procedura/Cod_Procedura_Fiscala_2016.htm",
+        "https://static.anaf.ro/static/10/Anaf/legislatie/Cod_fiscal_norme_2023.htm",
+        "https://legislatie.just.ro/Public/DetaliiDocument/303767"
+      ],
+      "unsure": "The deadline is the 25th of the month after the period, for all periods (ANAF note on form 300 for 2026). Exception: a deadline that would fall on 25 December moves EARLIER to 21 December, or to the last working day before 21 December if that is a non-working day (Cod procedură fiscală art. 155(2)). The 'annual' rule is filled only because ANAF lists the calendar year as a possible period with the same 25th rule; it needs special approval and is not a normal option. Semester (25 July / 25 January) is not representable. Weekend shift: Cod procedură fiscală art. 75 refers to the Civil Procedure Code, under which a term ending on a non-working day extends to the next working day. Art. 322 was read in the ANAF 2023 consolidated text; Order OPANAF 2420/2025 still refers to the EUR 100,000 ceiling."
+    },
+    "incomeTax2026": {
+      "formName": "Declarația unică privind impozitul pe venit și contribuțiile sociale (formular 212)",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-05-25" }
+      ],
+      "sources": [
+        "https://static.anaf.ro/static/10/Cluj/cj_DU_activ_indep_22apr2026.pdf",
+        "https://static.anaf.ro/static/3/Anaf/20251121135714_com%201215%20proiect%2021nov2025.pdf"
+      ],
+      "unsure": "Computed from Codul fiscal art. 122: by 25 May of the year after the income year. 2027-05-25 is a Tuesday. In 2026 there was an extra 3% tax-bonus deadline of 15 April, set for that year by OUG 8/2026. Any 2027 bonus date is not known."
+    }
+  },
+  "BG": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": 14, "plusDays": null, "exceptions": [] },
+        "quarterly": null,
+        "annual":    null
+      },
+      "frequencyRule": "The tax period is one calendar month for all VAT-registered persons (ZDDS art. 87); there is no quarterly or annual option for the VAT return.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Справка-декларация по ЗДДС (with дневник на покупките/продажбите)",
+      "sources": [
+        "https://new.nra.bg/wps/wcm/connect/agency/site/uslugi/spravka.deklaraciq",
+        "https://nra.bg/wps/portal/nra/payment/pravila-na-pogasyavane",
+        "https://kik-info.com/novini/novini-i-akcenti/ZDDS-2026-Noviyat-prag-novite-rezhimi-novite-srokove.205367.php"
+      ],
+      "unsure": "nra.bg, minfin.bg and lex.bg could not be fetched directly (Cloudflare challenge or connection reset). The 14th-of-next-month rule (ZDDS art. 125(5)) and the next-working-day rule were confirmed only through search-engine extracts of nra.bg pages. The 2026 ZDDS amendments (ДВ 115/2025) were checked through a secondary source: they change the registration threshold and the SME scheme, not the deadline for the monthly return."
+    },
+    "incomeTax2026": {
+      "formName": "Годишна данъчна декларация по чл. 50 ЗДДФЛ",
+      "filingOpens": "2027-01-10",
+      "deadlines": [
+        { "kind": "standard", "date": "2027-04-30" }
+      ],
+      "sources": [
+        "https://nra.bg/wps/portal/nra/taxes/godishen-danak-varhu-dohdite/danak-vurhu-dohodite-na-fizicheskite-lica",
+        "https://new.nra.bg/wps/portal/nra/taxes/godishen-danak-deynost-ednolichni-targovtsi/godishen-danak-deynost-ednolichni-targovtsi"
+      ],
+      "unsure": "Computed from the statutory window: 10 January to 30 April of the following year for self-employed persons who are not traders. Sole traders (ЕТ) file from 1 March to 30 June, i.e. 2027-06-30 (a Wednesday); the schema has no kind for that, so it is only noted here. Confirmed only through search-engine extracts of nra.bg pages, because the sites block direct fetching. 2027-01-10 is a Sunday; whether e-filing opens that day or on Monday 11 January was not verified. 2027-04-30 is a Friday."
+    }
+  },
+  "GB": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 1, "day": null, "plusDays": 7, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 1, "day": null, "plusDays": 7, "exceptions": [] },
+        "annual":    { "monthsAfterPeriodEnd": 2, "day": null, "plusDays": 0, "exceptions": [] }
+      },
+      "frequencyRule": "Quarterly (3-month periods in one of three staggers) is the standard. Monthly periods are allowed on request, normally for businesses that regularly receive repayments. The Annual Accounting Scheme (one return a year, due 2 months after the year end, with advance interim payments) is open to businesses with estimated VAT-taxable turnover of GBP 1.35 million or less. Businesses with annual VAT liability over GBP 2.3 million must also make payments on account.",
+      "shiftsToNextBusinessDay": false,
+      "extension": null,
+      "returnName": "VAT Return (Making Tax Digital)",
+      "sources": [
+        "https://www.gov.uk/vat-returns/deadlines",
+        "https://www.gov.uk/guidance/how-to-fill-in-and-submit-your-vat-return-vat-notice-70012",
+        "https://www.gov.uk/vat-annual-accounting-scheme/return-and-payment-deadlines",
+        "https://www.gov.uk/vat-annual-accounting-scheme"
+      ],
+      "unsure": "GOV.UK: you must file and pay on or before the deadline 'even if it's on a weekend or bank holiday', so there is no shift (payments must clear in time). HMRC counts '1 calendar month and 7 days' month-end to month-end: a period ending 30 April is due 7 June. For calendar-month periods this means the 7th of the second month after the period end. Direct Debit is collected about 3 working days after the deadline, which is not a filing extension. Annual accounting: due 2 months after the end of the accounting period, expressed as monthsAfterPeriodEnd 2, plusDays 0."
+    },
+    "incomeTax2026": {
+      "formName": "Self Assessment tax return SA100 (tax year 2025/26: 6 April 2025 - 5 April 2026)",
+      "filingOpens": "2026-04-06",
+      "deadlines": [
+        { "kind": "paper", "date": "2026-10-31" },
+        { "kind": "online", "date": "2027-01-31" }
+      ],
+      "sources": [
+        "https://www.gov.uk/self-assessment-tax-returns/deadlines"
+      ],
+      "unsure": "The UK income-tax year runs 6 April to 5 April. These are the Self Assessment deadlines for the 2025/26 tax year (the return filed in the 2026/27 cycle), not for calendar year 2026. Payment of the balance is also due 31 January 2027. To have the bill collected through the PAYE tax code, the online return must be filed by 30 December 2026; the schema has no kind for this. GOV.UK gives the dates as stated; 2026-10-31 (Saturday) and 2027-01-31 (Sunday) are not moved."
+    }
+  },
+  "KZ": {
+    "vat": {
+      "frequencies": {
+        "monthly":   null,
+        "quarterly": { "monthsAfterPeriodEnd": 2, "day": 15, "plusDays": null, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "Under the new Tax Code in force from 1 January 2026 the VAT period is always the calendar quarter (Art. 504). VAT registration is mandatory once turnover exceeds 10,000 MRP (Art. 99). From 2026, taxpayers on special tax regimes cannot be VAT payers (KGD).",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "Декларация по НДС (форма 300.00)",
+      "sources": [
+        "https://adilet.zan.kz/rus/docs/K2500000214",
+        "https://www.gov.kz/memleket/entities/kgd/press/news/details/1096207?lang=ru"
+      ],
+      "unsure": "Checked against the 2026 Tax Code (K2500000214, read from the old.adilet.zan.kz text). Art. 505(1): the return is filed NOT EARLIER than the 15th of the first month and not later than the 15th of the second month after the quarter. Art. 506: payment by the 25th of the second month. Art. 64(2): a deadline on a non-working day moves to the next working day. The form number 300.00 comes from KGD pages; the 2026 list of form numbers was not opened. Amendments to the Code after its publication were not checked."
+    },
+    "incomeTax2026": {
+      "formName": "Декларация по ИПН по предпринимательской деятельности (форма 220.00) — ИП на общеустановленном режиме",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-03-31" }
+      ],
+      "sources": [
+        "https://adilet.zan.kz/rus/docs/K2500000214",
+        "https://kgd.gov.kz/ru/content/deklaraciya-po-individualnomu-podohodnomu-nalogu-22000-1"
+      ],
+      "unsure": "Computed from the 2026 Tax Code Art. 420(2): by 31 March of the year after the tax period. 2027-03-31 is a Wednesday; payment is due within 10 calendar days after (Art. 421). Other cases: an IP on the simplified-declaration regime (form 910.00) has HALF-YEAR periods (Art. 723(3)), filed by the 15th of the second month after the half-year (Art. 727). For the second half of 2026 that is 2027-02-15 (a Monday). Non-IP individuals file the income and property declaration (form 270.00) by 15 September (Art. 418), i.e. 2027-09-15. The form numbers under the new Code were not checked against the 2026 list of forms."
+    }
+  },
+  "AE": {
+    "vat": {
+      "frequencies": {
+        "monthly":   { "monthsAfterPeriodEnd": 0, "day": null, "plusDays": 28, "exceptions": [] },
+        "quarterly": { "monthsAfterPeriodEnd": 0, "day": null, "plusDays": 28, "exceptions": [] },
+        "annual":    null
+      },
+      "frequencyRule": "Quarterly for businesses with annual turnover below AED 150 million; monthly at AED 150 million or more. The FTA can assign other periods, including quarters with staggered start months or half-years.",
+      "shiftsToNextBusinessDay": true,
+      "extension": null,
+      "returnName": "VAT Return (VAT 201) via EmaraTax",
+      "sources": [
+        "https://tax.gov.ae/en/taxes/Vat/vat.topics/filing.vat.returns.and.making.payments.aspx",
+        "https://tax.gov.ae/DataFolder/Files/Guides/VAT/Awareness/Get%20to%20know%20your%20Tax%20Obligations.pdf",
+        "https://u.ae/en/information-and-services/finance-and-investment/taxation/vat/filing-a-tax-return-for-vat"
+      ],
+      "unsure": "The FTA guide 'Get to know your Tax Obligations' says the return is due no later than the 28th day from the end of the tax period, 'or on the following working day if the corresponding date falls on an official holiday or a weekend'. The FTA may assign non-standard periods (e.g. March-May quarters or half-years) with the same 28-day rule."
+    },
+    "incomeTax2026": {
+      "formName": "Corporate Tax Return — natural person conducting Business with turnover above AED 1 million (UAE has no personal income tax)",
+      "filingOpens": null,
+      "deadlines": [
+        { "kind": "standard", "date": "2027-09-30" }
+      ],
+      "sources": [
+        "https://tax.gov.ae/en/taxes/corporate.tax/corporate.tax.topics/basis.of.taxation.natural.person.aspx",
+        "https://tax.gov.ae/en/media.centre/news/federal.tax.authority.urges.submission.of.corporate.tax.returns.and.settlement.of.corporate.tax.liabilities.within.nine.months.from.the.end.of.the.tax.period.aspx"
+      ],
+      "unsure": "The UAE has no personal income tax. A natural person is subject to Corporate Tax only if business turnover in the UAE exceeds AED 1 million in the calendar year. Employment income, personal investments and real-estate rental do not count. The tax period is the calendar year, and the return is due within 9 months of its end (FTA example: tax year 2025 due 30 September 2026). Calendar year 2026 is therefore due 2027-09-30, a Thursday. Below AED 1 million there is no return at all."
+    }
+  }
+}

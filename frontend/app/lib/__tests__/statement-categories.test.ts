@@ -30,14 +30,17 @@ describe('statement categories helpers', () => {
       {
         id: '1',
         name: 'Equipment',
+        baseName: 'Equipment',
       },
       {
         id: '1-1',
         name: 'Equipment / Laptop',
+        baseName: 'Laptop',
       },
       {
         id: '2',
         name: 'Advertising',
+        baseName: 'Advertising',
       },
     ]);
   });
@@ -47,6 +50,7 @@ describe('statement categories helpers', () => {
       {
         id: '1-1',
         name: 'Equipment / Laptop',
+        baseName: 'Laptop',
       },
     ]);
   });
@@ -87,8 +91,14 @@ describe('statement categories helpers', () => {
         'en',
       ),
     ).toEqual([
-      { id: 'sys-1', name: 'Rent', source: 'system', isSystem: undefined },
-      { id: 'parsing-1', name: 'Аренда', source: 'parsing', isSystem: undefined },
+      { id: 'sys-1', name: 'Rent', source: 'system', isSystem: undefined, baseName: 'Аренда' },
+      {
+        id: 'parsing-1',
+        name: 'Аренда',
+        source: 'parsing',
+        isSystem: undefined,
+        baseName: 'Аренда',
+      },
     ]);
   });
 

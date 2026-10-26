@@ -30,6 +30,7 @@ const i18nMocks = vi.hoisted(() => ({
     sourceDevice: 'From device',
     sourceManual: 'Set manually',
     sourceFiscalQr: 'From tax receipt',
+    sourcePlace: 'Picked shop',
     unsavedPoint: 'Unsaved point',
     noLocation: 'No location yet',
     cancel: 'Cancel',
@@ -215,6 +216,30 @@ describe('ReceiptLocationSection', () => {
     expect(onReceiptChange).toHaveBeenCalledWith(
       expect.objectContaining({ locationSource: 'device' }),
     );
+  });
+
+  it('names a picked shop and lets the user undo it', async () => {
+    mocks.resetReceiptLocation.mockResolvedValue({ id: 'receipt-1', locationSource: null });
+    render(
+      <ReceiptLocationSection
+        receipt={{
+          ...baseReceipt,
+          parsedData: { merchantAddress: 'printed address' },
+          metadata: {
+            place: { name: 'Carrefour', category: 'shop', osmType: 'node', osmId: '274497719' },
+          },
+          locationLat: 43.7308,
+          locationLng: 7.417,
+          locationSource: 'place',
+        }}
+        onReceiptChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Picked shop · Carrefour')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /reset to automatic/i }));
+
+    await waitFor(() => expect(mocks.resetReceiptLocation).toHaveBeenCalledWith('receipt-1'));
   });
 
   it('switches the map style in one click', () => {

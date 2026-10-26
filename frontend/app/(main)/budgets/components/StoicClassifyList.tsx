@@ -2,13 +2,14 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Select } from '@/app/components/ui/select';
+import { useLocale } from '@/app/i18n';
+import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import {
   type CategoryJudgment,
   STOIC_CLASSES,
@@ -27,6 +28,8 @@ function CategoryRow({
   onJudge: (changes: Omit<CategoryJudgment, 'categoryId'>) => void;
 }): React.JSX.Element {
   const { t, names } = useClassText();
+  const { locale } = useLocale();
+  const name = localizeStatementCategoryName(category.name, locale);
   const options = [
     ...(category.stoicClass === null ? [{ value: '', label: t.chooseClass.value }] : []),
     ...STOIC_CLASSES.map(stoicClass => ({ value: stoicClass, label: names[stoicClass] })),
@@ -46,10 +49,13 @@ function CategoryRow({
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
         <Typography variant="body2" noWrap>
-          {category.name}
+          {name}
         </Typography>
+        {/* A quiet note, gone once the user picks a class themselves. */}
         {category.source === 'suggested' && (
-          <Chip label={t.suggested.value} size="small" variant="outlined" />
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {t.suggested.value}
+          </Typography>
         )}
       </Box>
       {/* Only virtue can be help given to others; the Stoic advice reads this
@@ -65,7 +71,7 @@ function CategoryRow({
                 disabled={busy}
                 onChange={event => onJudge({ helpsOthers: event.target.checked })}
                 slotProps={{
-                  input: { 'aria-label': `${t.helpsOthers.value}: ${category.name}` },
+                  input: { 'aria-label': `${t.helpsOthers.value}: ${name}` },
                 }}
               />
             }
@@ -78,7 +84,7 @@ function CategoryRow({
         value={category.stoicClass ?? ''}
         options={options}
         disabled={busy}
-        inputProps={{ 'aria-label': `${t.classLabel.value}: ${category.name}` }}
+        inputProps={{ 'aria-label': `${t.classLabel.value}: ${name}` }}
         onChange={value => {
           if (value) {
             onJudge({ stoicClass: value as StoicClass });
@@ -118,8 +124,14 @@ export function StoicClassifyList({
   const hiddenCount = categories.filter(category => !category.active).length;
 
   return (
-    <Box data-attention="stoic:unclassified">
-      <Typography variant="subtitle2" fontWeight={600}>
+    // Kept narrow so each class picker sits near its category name, not across the card.
+    <Box data-attention="stoic:unclassified" sx={{ maxWidth: 720 }}>
+      <Typography
+        variant="subtitle2"
+        sx={{
+          fontWeight: 600,
+        }}
+      >
         {t.classifyTitle.value}
       </Typography>
       <Typography variant="caption" component="p" sx={{ color: 'text.secondary', mb: 1 }}>
@@ -134,7 +146,17 @@ export function StoicClassifyList({
         />
       ))}
       {hiddenCount > 0 && (
-        <Button size="small" onClick={() => setShowInactive(value => !value)} sx={{ mt: 1 }}>
+        <Button
+          size="small"
+          onClick={() => setShowInactive(value => !value)}
+          sx={{
+            mt: 1,
+            p: 0,
+            minWidth: 0,
+            fontWeight: 400,
+            '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+          }}
+        >
           {showInactive ? t.hideInactive.value : `${t.showInactive.value} (${hiddenCount})`}
         </Button>
       )}

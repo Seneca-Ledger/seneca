@@ -170,21 +170,6 @@ const zh: InvitationMap = {
   footer: '该链接 7 天内有效。如果您并未预期收到此邮件，请忽略它。',
 };
 
-const ar: InvitationMap = {
-  subject: 'دعوة إلى مساحة العمل {{workspace}}',
-  preview: 'دعوة إلى مساحة العمل {{workspace}}',
-  heading: 'دعوة إلى مساحة عمل',
-  invitedBy: 'يدعوك {{inviter}} للانضمام إلى',
-  invitedAnon: 'أنت مدعو للانضمام إلى',
-  role: 'الدور: {{role}}',
-  roleOwner: 'المالك',
-  roleAdmin: 'مسؤول',
-  roleMember: 'عضو',
-  cta: 'قبول الدعوة',
-  linkHint: 'إذا لم يعمل الزر، استخدم هذا الرابط:',
-  footer: 'الرابط صالح لمدة 7 أيام. إذا لم تكن تتوقع هذه الرسالة، تجاهلها ببساطة.',
-};
-
 const pl: InvitationMap = {
   subject: 'Zaproszenie do przestrzeni roboczej {{workspace}}',
   preview: 'Zaproszenie do przestrzeni roboczej {{workspace}}',
@@ -336,6 +321,234 @@ const id: InvitationMap = {
   footer: 'Tautan berlaku selama 7 hari. Jika Anda tidak mengharapkan email ini, abaikan saja.',
 };
 
+const da: InvitationMap = {
+  subject: 'Invitation til arbejdsområdet {{workspace}}',
+  preview: 'Invitation til arbejdsområdet {{workspace}}',
+  heading: 'Invitation til et arbejdsområde',
+  invitedBy: '{{inviter}} inviterer dig til at være med i',
+  invitedAnon: 'Du er inviteret til at være med i',
+  role: 'Rolle: {{role}}',
+  roleOwner: 'Ejer',
+  roleAdmin: 'Administrator',
+  roleMember: 'Medlem',
+  cta: 'Acceptér invitationen',
+  linkHint: 'Hvis knappen ikke virker, brug dette link:',
+  footer: 'Linket er gyldigt i 7 dage. Hvis du ikke forventede denne e-mail, så ignorér den blot.',
+};
+
+const nb: InvitationMap = {
+  subject: 'Invitasjon til arbeidsområdet {{workspace}}',
+  preview: 'Invitasjon til arbeidsområdet {{workspace}}',
+  heading: 'Invitasjon til et arbeidsområde',
+  invitedBy: '{{inviter}} inviterer deg til å bli med i',
+  invitedAnon: 'Du er invitert til å bli med i',
+  role: 'Rolle: {{role}}',
+  roleOwner: 'Eier',
+  roleAdmin: 'Administrator',
+  roleMember: 'Medlem',
+  cta: 'Godta invitasjonen',
+  linkHint: 'Hvis knappen ikke virker, bruk denne lenken:',
+  footer:
+    'Lenken er gyldig i 7 dager. Hvis du ikke ventet denne e-posten, kan du bare se bort fra den.',
+};
+
+const nn: InvitationMap = {
+  subject: 'Invitasjon til arbeidsområdet {{workspace}}',
+  preview: 'Invitasjon til arbeidsområdet {{workspace}}',
+  heading: 'Invitasjon til eit arbeidsområde',
+  invitedBy: '{{inviter}} inviterer deg til å bli med i',
+  invitedAnon: 'Du er invitert til å bli med i',
+  role: 'Rolle: {{role}}',
+  roleOwner: 'Eigar',
+  roleAdmin: 'Administrator',
+  roleMember: 'Medlem',
+  cta: 'Godta invitasjonen',
+  linkHint: 'Dersom knappen ikkje verkar, bruk denne lenkja:',
+  footer:
+    'Lenkja er gyldig i 7 dagar. Dersom du ikkje venta denne e-posten, kan du berre sjå bort frå han.',
+};
+
+const fi: InvitationMap = {
+  subject: 'Kutsu työtilaan {{workspace}}',
+  preview: 'Kutsu työtilaan {{workspace}}',
+  heading: 'Kutsu työtilaan',
+  invitedBy: '{{inviter}} kutsuu sinut liittymään',
+  invitedAnon: 'Sinut on kutsuttu liittymään',
+  role: 'Rooli: {{role}}',
+  roleOwner: 'Omistaja',
+  roleAdmin: 'Ylläpitäjä',
+  roleMember: 'Jäsen',
+  cta: 'Hyväksy kutsu',
+  linkHint: 'Jos painike ei toimi, käytä tätä linkkiä:',
+  footer: 'Linkki on voimassa 7 päivää. Jos et odottanut tätä viestiä, voit jättää sen huomiotta.',
+};
+
+const is: InvitationMap = {
+  subject: 'Boð á vinnusvæðið {{workspace}}',
+  preview: 'Boð á vinnusvæðið {{workspace}}',
+  heading: 'Boð á vinnusvæði',
+  invitedBy: '{{inviter}} býður þér að ganga til liðs við',
+  invitedAnon: 'Þér er boðið að ganga til liðs við',
+  role: 'Hlutverk: {{role}}',
+  roleOwner: 'Eigandi',
+  roleAdmin: 'Stjórnandi',
+  roleMember: 'Meðlimur',
+  cta: 'Taka boðinu',
+  linkHint: 'Ef hnappurinn virkar ekki, notaðu þennan hlekk:',
+  footer: 'Hlekkurinn gildir í 7 daga. Ef þú áttir ekki von á þessum pósti máttu hunsa hann.',
+};
+
+const fo: InvitationMap = {
+  subject: 'Innbjóðing til arbeiðsøkið {{workspace}}',
+  preview: 'Innbjóðing til arbeiðsøkið {{workspace}}',
+  heading: 'Innbjóðing til eitt arbeiðsøki',
+  invitedBy: '{{inviter}} bjóðar tær at verða við í',
+  invitedAnon: 'Tú ert bodin at verða við í',
+  role: 'Rolla: {{role}}',
+  roleOwner: 'Eigari',
+  roleAdmin: 'Umsitari',
+  roleMember: 'Limur',
+  cta: 'Tak við innbjóðingini',
+  linkHint: 'Um knappurin ikki virkar, brúka hetta leinki:',
+  footer:
+    'Leinkið er gildigt í 7 dagar. Um tú ikki vænti hetta brævið, so síggj bert burtur frá tí.',
+};
+
+const cs: InvitationMap = {
+  subject: 'Pozvánka do pracovního prostoru {{workspace}}',
+  preview: 'Pozvánka do pracovního prostoru {{workspace}}',
+  heading: 'Pozvánka do pracovního prostoru',
+  invitedBy: '{{inviter}} vás zve do',
+  invitedAnon: 'Jste zváni do',
+  role: 'Role: {{role}}',
+  roleOwner: 'Vlastník',
+  roleAdmin: 'Správce',
+  roleMember: 'Člen',
+  cta: 'Přijmout pozvánku',
+  linkHint: 'Pokud tlačítko nefunguje, použijte tento odkaz:',
+  footer: 'Odkaz je platný 7 dní. Pokud jste tento e-mail nečekali, jednoduše jej ignorujte.',
+};
+
+const bg: InvitationMap = {
+  subject: 'Покана за работното пространство {{workspace}}',
+  preview: 'Покана за работното пространство {{workspace}}',
+  heading: 'Покана за работно пространство',
+  invitedBy: '{{inviter}} ви кани да се присъедините към',
+  invitedAnon: 'Поканени сте да се присъедините към',
+  role: 'Роля: {{role}}',
+  roleOwner: 'Собственик',
+  roleAdmin: 'Администратор',
+  roleMember: 'Участник',
+  cta: 'Приеми поканата',
+  linkHint: 'Ако бутонът не работи, използвайте тази връзка:',
+  footer: 'Връзката е валидна 7 дни. Ако не сте очаквали този имейл, просто го игнорирайте.',
+};
+
+const hr: InvitationMap = {
+  subject: 'Pozivnica u radni prostor {{workspace}}',
+  preview: 'Pozivnica u radni prostor {{workspace}}',
+  heading: 'Pozivnica u radni prostor',
+  invitedBy: '{{inviter}} vas poziva da se pridružite',
+  invitedAnon: 'Pozvani ste da se pridružite',
+  role: 'Uloga: {{role}}',
+  roleOwner: 'Vlasnik',
+  roleAdmin: 'Administrator',
+  roleMember: 'Član',
+  cta: 'Prihvati pozivnicu',
+  linkHint: 'Ako gumb ne radi, koristite ovu vezu:',
+  footer: 'Veza je važeća 7 dana. Ako niste očekivali ovu e-poštu, jednostavno je ignorirajte.',
+};
+
+const sr: InvitationMap = {
+  subject: 'Позивница у радни простор {{workspace}}',
+  preview: 'Позивница у радни простор {{workspace}}',
+  heading: 'Позивница у радни простор',
+  invitedBy: '{{inviter}} вас позива да се придружите',
+  invitedAnon: 'Позвани сте да се придружите',
+  role: 'Улога: {{role}}',
+  roleOwner: 'Власник',
+  roleAdmin: 'Администратор',
+  roleMember: 'Члан',
+  cta: 'Прихвати позивницу',
+  linkHint: 'Ако дугме не радi, користите ову везу:',
+  footer: 'Веза важи 7 дана. Ако нисте очекивали ову е-пошту, једноставно је игноришите.',
+};
+
+const sl: InvitationMap = {
+  subject: 'Vabilo v delovni prostor {{workspace}}',
+  preview: 'Vabilo v delovni prostor {{workspace}}',
+  heading: 'Vabilo v delovni prostor',
+  invitedBy: '{{inviter}} vas vabi, da se pridružite',
+  invitedAnon: 'Vabljeni ste, da se pridružite',
+  role: 'Vloga: {{role}}',
+  roleOwner: 'Lastnik',
+  roleAdmin: 'Skrbnik',
+  roleMember: 'Član',
+  cta: 'Sprejmi vabilo',
+  linkHint: 'Če gumb ne deluje, uporabite to povezavo:',
+  footer: 'Povezava velja 7 dni. Če tega e-sporočila niste pričakovali, ga preprosto prezrite.',
+};
+
+const mk: InvitationMap = {
+  subject: 'Покана за работниот простор {{workspace}}',
+  preview: 'Покана за работниот простор {{workspace}}',
+  heading: 'Покана за работен простор',
+  invitedBy: '{{inviter}} ве повикува да се придружите на',
+  invitedAnon: 'Повикани сте да се придружите на',
+  role: 'Улога: {{role}}',
+  roleOwner: 'Сопственик',
+  roleAdmin: 'Администратор',
+  roleMember: 'Член',
+  cta: 'Прифати ја поканата',
+  linkHint: 'Ако копчето не работи, користете ја оваа врска:',
+  footer: 'Врската важи 7 дена. Ако не сте ја очекувале оваа е-пошта, едноставно игнорирајте ја.',
+};
+
+const be: InvitationMap = {
+  subject: 'Запрашэнне ў працоўную прастору {{workspace}}',
+  preview: 'Запрашэнне ў працоўную прастору {{workspace}}',
+  heading: 'Запрашэнне ў працоўную прастору',
+  invitedBy: '{{inviter}} запрашае вас далучыцца да',
+  invitedAnon: 'Вас запрашаюць далучыцца да',
+  role: 'Роля: {{role}}',
+  roleOwner: 'Уладальнік',
+  roleAdmin: 'Адміністратар',
+  roleMember: 'Удзельнік',
+  cta: 'Прыняць запрашэнне',
+  linkHint: 'Калі кнопка не працуе, скарыстайце гэтую спасылку:',
+  footer: 'Спасылка дзейсная 7 дзён. Калі вы не чакалі гэтага ліста — проста праігнаруйце яго.',
+};
+
+const bs: InvitationMap = {
+  subject: 'Pozivnica u radni prostor {{workspace}}',
+  preview: 'Pozivnica u radni prostor {{workspace}}',
+  heading: 'Pozivnica u radni prostor',
+  invitedBy: '{{inviter}} vas poziva da se pridružite',
+  invitedAnon: 'Pozvani ste da se pridružite',
+  role: 'Uloga: {{role}}',
+  roleOwner: 'Vlasnik',
+  roleAdmin: 'Administrator',
+  roleMember: 'Član',
+  cta: 'Prihvati pozivnicu',
+  linkHint: 'Ako dugme ne radi, koristite ovaj link:',
+  footer: 'Link je važeći 7 dana. Ako niste očekivali ovu e-poštu, jednostavno je ignorišite.',
+};
+
+const hsb: InvitationMap = {
+  subject: 'Přeprošenje do dźěłoweho ruma {{workspace}}',
+  preview: 'Přeprošenje do dźěłoweho ruma {{workspace}}',
+  heading: 'Přeprošenje do dźěłoweho ruma',
+  invitedBy: '{{inviter}} was přeprošuje, zo byšće so přizamknył',
+  invitedAnon: 'Sće přeprošeni, zo byšće so přizamknyli',
+  role: 'Rola: {{role}}',
+  roleOwner: 'Wobsedźer',
+  roleAdmin: 'Administrator',
+  roleMember: 'Čłon',
+  cta: 'Přeprošenje přiwzać',
+  linkHint: 'Jeli tastka njefunguje, wužiwajće tutón wotkaz:',
+  footer: 'Wotkaz płaći 7 dnjow. Jeli sće tutu e-mejlku njewočakował, ignorujće ju prosće.',
+};
+
 const INVITATION_TRANSLATIONS: Record<string, InvitationMap> = {
   ru,
   en,
@@ -347,7 +560,6 @@ const INVITATION_TRANSLATIONS: Record<string, InvitationMap> = {
   tr,
   uk,
   zh,
-  ar,
   pl,
   it,
   sk,
@@ -358,6 +570,21 @@ const INVITATION_TRANSLATIONS: Record<string, InvitationMap> = {
   sv,
   vi,
   id,
+  da,
+  nb,
+  nn,
+  fi,
+  is,
+  fo,
+  cs,
+  bg,
+  hr,
+  sr,
+  sl,
+  mk,
+  be,
+  bs,
+  hsb,
 };
 
 export function renderInvitation(

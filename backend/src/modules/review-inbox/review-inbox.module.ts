@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Receipt } from '../../entities/receipt.entity';
+import { Statement } from '../../entities/statement.entity';
 import { Subscription } from '../../entities/subscription.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
@@ -12,7 +13,7 @@ import { ReviewInboxService } from './review-inbox.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Transaction, Receipt, Subscription, Workspace]),
+    TypeOrmModule.forFeature([Transaction, Receipt, Subscription, Statement, Workspace]),
     TransactionsModule,
     NotificationsModule,
   ],

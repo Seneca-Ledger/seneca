@@ -3,7 +3,7 @@ title: Database Architecture
 description: Entities, migrations, and data safety
 ---
 
-Lumio uses PostgreSQL through TypeORM, with migration-driven schema changes and explicit entity definitions.
+Seneca uses PostgreSQL through TypeORM, with migration-driven schema changes and explicit entity definitions.
 
 ## Entity model
 

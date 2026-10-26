@@ -37,10 +37,18 @@ export interface ReconciliationMatch {
 }
 
 const DATE_WINDOW_DAYS = 14;
+/**
+ * A row only counts as the payment of a bill when it lands between three weeks
+ * before and about six weeks after the due date. Wider, and a monthly bill
+ * would be offered last month's (or last quarter's) payment of the same amount.
+ */
+const PAID_EARLY_MAX_DAYS = 21;
+const PAID_LATE_MAX_DAYS = 45;
 
 /**
  * One bank row per open item, best confidence first: the amount must match to
- * the cent in the same currency and the direction must agree; a vendor name
+ * the cent in the same currency, the direction must agree and the row must
+ * fall in the payment window around the due date; a vendor name
  * found in the row's text and a date near the due date raise the confidence.
  */
 export function matchOpenItems(items: OpenItem[], rows: BankRow[]): ReconciliationMatch[] {
@@ -53,6 +61,8 @@ export function matchOpenItems(items: OpenItem[], rows: BankRow[]): Reconciliati
       if (row.type !== wanted) continue;
       if (row.currency.toUpperCase() !== item.currency.toUpperCase()) continue;
       if (Math.abs(Math.abs(row.amount) - Math.abs(item.amount)) > 0.01) continue;
+      const offset = daysBetween(anchor, row.date);
+      if (offset < -PAID_EARLY_MAX_DAYS || offset > PAID_LATE_MAX_DAYS) continue;
       const reasons: ReconciliationMatch['reasons'] = ['amount'];
       let confidence = 0.5;
       const haystack = normalize(`${row.counterpartyName ?? ''} ${row.paymentPurpose ?? ''}`);
@@ -60,7 +70,7 @@ export function matchOpenItems(items: OpenItem[], rows: BankRow[]): Reconciliati
         reasons.push('vendor');
         confidence += 0.3;
       }
-      const distance = Math.abs(daysBetween(anchor, row.date));
+      const distance = Math.abs(offset);
       if (distance <= DATE_WINDOW_DAYS) {
         reasons.push('date');
         confidence += 0.2 * (1 - distance / (DATE_WINDOW_DAYS + 1));

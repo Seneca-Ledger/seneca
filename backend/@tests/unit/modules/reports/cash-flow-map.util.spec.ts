@@ -14,8 +14,10 @@ const categories = [
 const labels = {
   uncategorised: 'Uncategorised',
   otherSources: 'Other sources',
-  total: 'Income',
+  total: 'Money flow',
   transfers: 'Transfers',
+  fromBalance: 'From your balance',
+  leftOver: 'Left over',
 };
 const row = (partial: Partial<CashFlowRow> & { amount: number }): CashFlowRow => ({
   type: 'expense',
@@ -105,6 +107,28 @@ describe('buildCashFlowMap', () => {
     expect(map.sankey.links).toContainEqual({ source: 'total', target: 'transfers', value: 500 });
   });
 
+  it('draws spending beyond income as coming from the balance', () => {
+    const map = buildCashFlowMap([row({ amount: 300, categoryId: 'rent' })], null, categories, { labels });
+    expect(map.sankey.nodes).toContainEqual({ id: 'balance', name: 'From your balance', kind: 'balance' });
+    expect(map.sankey.links).toContainEqual({ source: 'balance', target: 'total', value: 300 });
+    expect(map.sankey.nodes.find(node => node.id === 'saved')).toBeUndefined();
+  });
+
+  it('draws what income left unspent as left over', () => {
+    const map = buildCashFlowMap(
+      [
+        row({ type: 'income', amount: 1000, counterpartyName: 'ACME' }),
+        row({ amount: 300, categoryId: 'rent' }),
+        row({ amount: 200, isTransfer: true }),
+      ],
+      null,
+      categories,
+      { labels },
+    );
+    expect(map.sankey.links).toContainEqual({ source: 'total', target: 'saved', value: 500 });
+    expect(map.sankey.nodes.find(node => node.id === 'balance')).toBeUndefined();
+  });
+
   it('rolls the long tail of payers into one node', () => {
     const rows = ['a', 'b', 'c', 'd'].map(name => row({ type: 'income', amount: 10, counterpartyName: name }));
     const map = buildCashFlowMap(rows, null, categories, { labels, maxSources: 2 });
@@ -117,9 +141,28 @@ describe('buildCashFlowMap', () => {
 });
 
 describe('previousPeriod', () => {
-  it('is the same number of days right before the period', () => {
-    expect(previousPeriod('2026-09-01', '2026-09-30')).toEqual({ from: '2026-08-02', to: '2026-08-31' });
+  it('compares a whole month with the whole month before', () => {
+    expect(previousPeriod('2026-09-01', '2026-09-30')).toEqual({ from: '2026-08-01', to: '2026-08-31' });
+    expect(previousPeriod('2026-10-01', '2026-10-31')).toEqual({ from: '2026-09-01', to: '2026-09-30' });
+  });
+
+  it('compares a quarter with the quarter before', () => {
+    expect(previousPeriod('2026-07-01', '2026-09-30')).toEqual({ from: '2026-04-01', to: '2026-06-30' });
+  });
+
+  it('compares part of a month with the same days of the month before', () => {
+    expect(previousPeriod('2026-10-01', '2026-10-15')).toEqual({ from: '2026-09-01', to: '2026-09-15' });
+    expect(previousPeriod('2026-03-01', '2026-03-31')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+    expect(previousPeriod('2026-03-01', '2026-03-30')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+  });
+
+  it('compares year to date with last year to the same date', () => {
+    expect(previousPeriod('2026-01-01', '2026-10-15')).toEqual({ from: '2025-01-01', to: '2025-10-15' });
+  });
+
+  it('falls back to the same number of days right before', () => {
     expect(previousPeriod('2026-03-01', '2026-03-01')).toEqual({ from: '2026-02-28', to: '2026-02-28' });
+    expect(previousPeriod('2026-03-10', '2026-03-19')).toEqual({ from: '2026-02-28', to: '2026-03-09' });
   });
 });
 

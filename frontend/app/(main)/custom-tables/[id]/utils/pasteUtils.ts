@@ -21,6 +21,7 @@ export {
 } from './pasteParser';
 export { buildRowData } from './pasteRowBuilder';
 export type {
+  ImportedFormula,
   PasteColumn,
   PasteColumnMapping,
   PasteErrorKey,
@@ -29,7 +30,9 @@ export type {
   PastePreviewCell,
   PastePreviewData,
   PastePreviewRow,
+  PasteRowStyles,
   PasteSourceColumn,
+  PasteTotals,
 } from './pasteTypes';
 export { PASTE_FIELD_ALIASES } from './pasteTypes';
 
@@ -38,29 +41,31 @@ export { PASTE_FIELD_ALIASES } from './pasteTypes';
 // ---------------------------------------------------------------------------
 
 import {
+  decideColumnFormula,
+  type TranslationScope,
+  translateTotalsFormula,
+} from './excelFormulaTranslator';
+import { classifyRows, isHeaderRow, type TotalsAggregate } from './importRows';
+import { inferColumnType } from './importTypes';
+import {
   buildColumnMaps,
   buildMappedColumns,
-  inferNewColumnType,
   tryMapByHeaderMatch,
   tryMapByValueInference,
 } from './pasteMappingBuilder';
-import {
-  matchFieldByName,
-  normalizeToken,
-  parseCurrencyCell,
-  parseDateCell,
-  parseNumberCell,
-  parsePaidCell,
-} from './pasteParser';
 import { buildRowData } from './pasteRowBuilder';
 import type {
+  ImportedFormula,
   PasteColumn,
   PasteErrorKey,
   PasteFieldKey,
   PasteMappingSelection,
   PastePreviewData,
+  PasteRowStyles,
   PasteSourceColumn,
+  PasteTotals,
 } from './pasteTypes';
+import type { SheetLayout } from './tabularFileReader';
 import type { CustomTableRowPatch } from './types';
 
 // ---------------------------------------------------------------------------
@@ -91,82 +96,33 @@ export const isAbortError = (error: unknown): boolean => {
 // Header detection
 // ---------------------------------------------------------------------------
 
-const isHeaderCell = (cell: string, fieldByColumnName: Map<string, PasteFieldKey>): boolean => {
-  const normalized = normalizeToken(cell || '');
-  if (!normalized) {
-    return false;
-  }
-  return fieldByColumnName.has(normalized) || Boolean(matchFieldByName(normalized));
-};
-
+/** Первая строка — шапка? Полный поиск по файлу делает findHeaderRow при загрузке. */
 export const detectHeaderRow = (
   rows: string[][],
   fieldByColumnName: Map<string, PasteFieldKey>,
-): boolean => {
-  if (!rows.length) {
-    return false;
-  }
-  const cells = (rows[0] || []).map(c => normalizeToken(c || '')).filter(Boolean);
-  if (!cells.length) {
-    return false;
-  }
-  const hits = cells.filter(c => isHeaderCell(c, fieldByColumnName)).length;
-  return hits >= Math.max(1, Math.ceil(cells.length / 2));
-};
-
-// ---------------------------------------------------------------------------
-// Value inference
-// ---------------------------------------------------------------------------
-
-const inferScores = (sample: string[]): Record<string, number> => ({
-  date: sample.reduce((acc, v) => acc + (parseDateCell(v).error ? 0 : 1), 0),
-  amount: sample.reduce((acc, v) => acc + (parseNumberCell(v).error ? 0 : 1), 0),
-  currency: sample.reduce((acc, v) => acc + (parseCurrencyCell(v).error ? 0 : 1), 0),
-  paid: sample.reduce((acc, v) => acc + (parsePaidCell(v).error ? 0 : 1), 0),
-});
-
-export const inferFieldFromValues = (values: string[]): PasteFieldKey | null => {
-  const sample = values
-    .map(v => v.trim())
-    .filter(Boolean)
-    .slice(0, 20);
-  if (!sample.length) {
-    return null;
-  }
-  const scores = inferScores(sample);
-  const entries = Object.entries(scores) as Array<[PasteFieldKey, number]>;
-  entries.sort((a, b) => b[1] - a[1]);
-  const [bestField, bestScore] = entries[0] || [];
-  if (!bestField) {
-    return null;
-  }
-  if (bestScore / sample.length < 0.6) {
-    return null;
-  }
-  return bestField;
-};
+): boolean => rows.length > 0 && isHeaderRow(rows, 0, fieldByColumnName);
 
 // ---------------------------------------------------------------------------
 // Source column builder
 // ---------------------------------------------------------------------------
 
+const SAMPLE_ROWS = 50;
+
 export const buildSourceColumns = (
-  rawRows: string[][],
-  useHeaders: boolean,
-): { columns: PasteSourceColumn[]; dataRows: string[][] } => {
-  const headerRow = useHeaders ? rawRows[0] || [] : [];
-  const dataRows = useHeaders ? rawRows.slice(1) : rawRows;
+  headerRow: string[],
+  dataRows: string[][],
+): PasteSourceColumn[] => {
   const maxLen = Math.max(headerRow.length, ...dataRows.map(row => row.length), 0);
   const columns: PasteSourceColumn[] = [];
   for (let index = 0; index < maxLen; index += 1) {
     const header = String(headerRow[index] ?? '').trim();
     const sampleValues = dataRows
-      .slice(0, 20)
+      .slice(0, SAMPLE_ROWS)
       .map(row => String(row[index] ?? ''))
       .filter(value => value.trim() !== '');
     columns.push({ index, header, sampleValues });
   }
-  return { columns, dataRows };
+  return columns;
 };
 
 // ---------------------------------------------------------------------------
@@ -180,30 +136,39 @@ type AutoMappingArgs = {
   defaults: Record<PasteFieldKey | 'columnPrefix', string>;
 };
 
+/**
+ * Куда положить исходную колонку: в существующую с тем же названием или
+ * ролью, иначе в новую с типом и настройками, угаданными по значениям.
+ */
 const mapSourceColumn = (
   sourceColumn: PasteSourceColumn,
   ctx: Parameters<typeof tryMapByHeaderMatch>[1],
   defaults: Record<PasteFieldKey | 'columnPrefix', string>,
-  // eslint-disable-next-line complexity
 ): PasteMappingSelection => {
   const { index, header, sampleValues } = sourceColumn;
   if (!(header || sampleValues.length)) {
     return { mode: 'ignore' };
   }
+  const inferred = inferColumnType(sampleValues, { header });
   const headerResult = tryMapByHeaderMatch(sourceColumn, ctx);
   if (headerResult) {
-    return headerResult;
+    return headerResult.mode === 'new' && inferred.type !== 'text'
+      ? { ...headerResult, newType: inferred.type, newConfig: inferred.config }
+      : headerResult;
   }
-  const valueResult = tryMapByValueInference(sourceColumn, inferFieldFromValues(sampleValues), ctx);
-  if (valueResult) {
+  const valueResult =
+    inferred.field && inferred.field !== 'comment'
+      ? tryMapByValueInference(sourceColumn, inferred.field, ctx)
+      : null;
+  if (valueResult?.mode === 'existing') {
     return valueResult;
   }
-  const field = matchFieldByName(header) ?? null;
   return {
     mode: 'new',
-    field,
+    field: inferred.field,
     newTitle: header || `${defaults.columnPrefix} ${index + 1}`,
-    newType: inferNewColumnType(field),
+    newType: inferred.type,
+    newConfig: inferred.config,
   };
 };
 
@@ -240,6 +205,7 @@ type DataPayloadArgs = {
 
 type DataPayloadResult = {
   dataPayload: CustomTableRowPatch[];
+  rowStyles: Array<PasteRowStyles | null>;
   previewRows: PastePreviewData['previewRows'];
   errors: Record<PasteErrorKey, number>;
   hasErrors: boolean;
@@ -251,6 +217,7 @@ const buildDataPayload = ({
   edits,
 }: DataPayloadArgs): DataPayloadResult => {
   const dataPayload: CustomTableRowPatch[] = [];
+  const rowStyles: Array<PasteRowStyles | null> = [];
   const previewRows: PastePreviewData['previewRows'] = [];
   const errors: Record<PasteErrorKey, number> = { date: 0, amount: 0, currency: 0, paid: 0 };
   let hasErrors = false;
@@ -267,12 +234,182 @@ const buildDataPayload = ({
       hasErrors = true;
     }
     dataPayload.push(result.rowData);
+    rowStyles.push(result.styles);
     if (previewRows.length < 50) {
       previewRows.push({ id: rowIndex, rowIndex, cells: result.cells });
     }
   });
 
-  return { dataPayload, previewRows, errors, hasErrors };
+  return { dataPayload, rowStyles, previewRows, errors, hasErrors };
+};
+
+// ---------------------------------------------------------------------------
+// Totals
+// ---------------------------------------------------------------------------
+
+/** Агрегаты итоговой строки переводятся с индексов исходных колонок на ключи целевых. */
+const mapTotals = (
+  classification: ReturnType<typeof classifyRows>,
+  mappedColumns: ReturnType<typeof buildMappedColumns>,
+): PasteTotals => {
+  const aggregates: PasteTotals['aggregates'] = {};
+  for (const column of mappedColumns) {
+    if (column.sourceIndex === null || !column.columnKey) {
+      continue;
+    }
+    const aggregate = classification.totals.aggregates[column.sourceIndex];
+    const numeric =
+      column.field === 'amount' || column.newType === 'number' || column.newType === 'currency';
+    if (aggregate && numeric) {
+      aggregates[column.columnKey] = aggregate;
+    }
+  }
+  return { excludedRows: classification.totals.rowIndexes.length, aggregates };
+};
+
+// ---------------------------------------------------------------------------
+// Excel formulas
+// ---------------------------------------------------------------------------
+
+type FormulaCarryArgs = {
+  headerRow: string[];
+  bodyRows: string[][];
+  bodyFormulas: (string | undefined)[][] | undefined;
+  /** Sheet rows aligned with bodyRows; undefined for pasted text. */
+  bodySheetRows: number[] | undefined;
+  originCol: number;
+  classification: ReturnType<typeof classifyRows>;
+  mapping: Record<number, PasteMappingSelection>;
+  columnByKey: Map<string, PasteColumn>;
+};
+
+type FormulaCarryResult = {
+  formulas: PastePreviewData['formulas'];
+  summaries: PastePreviewData['summaries'];
+};
+
+const NO_FORMULAS: FormulaCarryResult = { formulas: { carried: 0, total: 0 }, summaries: [] };
+
+const targetTitle = (
+  selection: PasteMappingSelection | undefined,
+  header: string,
+  columnByKey: Map<string, PasteColumn>,
+): string | null => {
+  if (!selection || selection.mode === 'ignore') {
+    return null;
+  }
+  if (selection.mode === 'existing') {
+    const column = selection.columnKey ? columnByKey.get(selection.columnKey) : null;
+    return column ? column.title || column.key : null;
+  }
+  return selection.newTitle?.trim() || header || null;
+};
+
+/**
+ * Формулы из файла: колонка, в которой одна формула протянута вниз, становится
+ * формульной колонкой; формулы строки «Итого» — сводками. Что перенести нельзя,
+ * получает причину и остаётся значениями.
+ */
+const carryExcelFormulas = ({
+  headerRow,
+  bodyRows,
+  bodyFormulas,
+  bodySheetRows,
+  originCol,
+  classification,
+  mapping,
+  columnByKey,
+}: FormulaCarryArgs): FormulaCarryResult => {
+  if (!(bodyFormulas && bodySheetRows && bodyFormulas.some(row => row?.some(Boolean)))) {
+    return NO_FORMULAS;
+  }
+  const dataIndexes = classification.kinds
+    .map((kind, index) => (kind === 'data' ? index : -1))
+    .filter(index => index >= 0);
+  if (!dataIndexes.length) {
+    return NO_FORMULAS;
+  }
+  const dataSheetRows = dataIndexes.map(index => bodySheetRows[index]);
+  const dataRows = { first: Math.min(...dataSheetRows), last: Math.max(...dataSheetRows) };
+  const totalsSheetRows = new Map<number, Record<number, TotalsAggregate>>();
+  for (const index of classification.totals.rowIndexes) {
+    totalsSheetRows.set(bodySheetRows[index], classification.totals.aggregates);
+  }
+  const scopeFor = (cellRow: number): TranslationScope => ({
+    cellRow,
+    dataRows,
+    columnAt: sheetCol => {
+      const sourceIndex = sheetCol - originCol;
+      const title = targetTitle(mapping[sourceIndex], headerRow[sourceIndex] ?? '', columnByKey);
+      return title ? { title } : null;
+    },
+    totalsAggregateAt: (sheetRow, sheetCol) => {
+      const aggregate = totalsSheetRows.get(sheetRow)?.[sheetCol - originCol];
+      return aggregate ?? null;
+    },
+  });
+
+  let total = 0;
+  let carried = 0;
+  const maxLen = Math.max(headerRow.length, ...bodyRows.map(row => row.length), 0);
+  for (let sourceIndex = 0; sourceIndex < maxLen; sourceIndex += 1) {
+    const selection = mapping[sourceIndex];
+    if (selection?.mode !== 'new') {
+      continue;
+    }
+    const decision = decideColumnFormula(
+      dataIndexes.map(index => ({
+        formula: bodyFormulas[index]?.[sourceIndex],
+        text: String(bodyRows[index]?.[sourceIndex] ?? ''),
+      })),
+      position => dataSheetRows[position],
+      position => scopeFor(dataSheetRows[position]),
+    );
+    if (!decision) {
+      continue;
+    }
+    total += 1;
+    const formula: ImportedFormula = {
+      excel: decision.excel,
+      overriddenCells: decision.overriddenCells,
+      ...(decision.translation.kind === 'unsupported'
+        ? { reason: decision.translation.reason }
+        : { expression: decision.translation.expression }),
+    };
+    selection.formula = formula;
+    if (decision.translation.kind === 'row') {
+      carried += 1;
+      selection.newType = 'formula';
+      selection.newConfig = { expression: decision.translation.expression };
+    } else {
+      selection.newConfig = { ...(selection.newConfig ?? {}), importedFormula: formula.excel };
+    }
+  }
+
+  const summaries: PastePreviewData['summaries'] = [];
+  const firstTotals = classification.totals.rowIndexes[0];
+  if (firstTotals !== undefined) {
+    const sheetRow = bodySheetRows[firstTotals];
+    (bodyFormulas[firstTotals] ?? []).forEach((formula, sourceIndex) => {
+      // Простые SUM/AVERAGE строки «Итого» уже стали итогами футера.
+      if (!formula || classification.totals.aggregates[sourceIndex]) {
+        return;
+      }
+      total += 1;
+      const translation = translateTotalsFormula(formula, scopeFor(sheetRow));
+      if (translation.kind === 'summary') {
+        carried += 1;
+        summaries.push({
+          title:
+            headerRow[sourceIndex]?.trim() ||
+            String(bodyRows[firstTotals]?.[0] ?? '').trim() ||
+            'Total',
+          expression: translation.expression,
+        });
+      }
+    });
+  }
+  return { formulas: { carried, total }, summaries };
 };
 
 // ---------------------------------------------------------------------------
@@ -281,6 +418,10 @@ const buildDataPayload = ({
 
 export type BuildPastePreviewArgs = {
   rawRows: string[][];
+  /** Формулы ячеек той же формы, что rawRows; есть только у файлов. */
+  formulas?: (string | undefined)[][];
+  /** Геометрия листа для перевода A1-ссылок; есть только у файлов. */
+  layout?: SheetLayout;
   useHeaders: boolean;
   orderedColumns: PasteColumn[];
   mappingSelection: Record<number, PasteMappingSelection> | null;
@@ -292,6 +433,21 @@ type PreviewResult = {
   preview: PastePreviewData;
   mapping: Record<number, PasteMappingSelection>;
   sourceColumns: PasteSourceColumn[];
+};
+
+const NO_TOTALS: PasteTotals = { excludedRows: 0, aggregates: {} };
+
+/** После правок маппинга счётчик формул берётся из самих колонок. */
+const countFormulas = (
+  mappedColumns: ReturnType<typeof buildMappedColumns>,
+): PastePreviewData['formulas'] => {
+  const withFormula = mappedColumns.filter(column => column.formula);
+  return {
+    total: withFormula.length,
+    carried: withFormula.filter(
+      column => column.formula?.expression && column.newType === 'formula',
+    ).length,
+  };
 };
 
 type EmptyPreviewArgs = {
@@ -313,6 +469,10 @@ const makeEmptyPreview = ({
     columns: [],
     errors: { date: 0, amount: 0, currency: 0, paid: 0 },
     hasErrors: false,
+    rowStyles: [],
+    totals: NO_TOTALS,
+    formulas: { carried: 0, total: 0 },
+    summaries: [],
     extraRowsCount: 0,
     hasHeadersToggle,
     headersDetected,
@@ -323,6 +483,8 @@ const makeEmptyPreview = ({
 
 export const buildPastePreview = ({
   rawRows,
+  formulas,
+  layout,
   useHeaders,
   orderedColumns,
   mappingSelection,
@@ -332,9 +494,27 @@ export const buildPastePreview = ({
   const maps = buildColumnMaps(orderedColumns);
   const headersDetected = detectHeaderRow(rawRows, maps.columnNameToField);
   const hasHeadersToggle = headersDetected || rawRows.length > 1;
-  const { columns: sourceColumns, dataRows } = buildSourceColumns(rawRows, useHeaders);
+  const headerRow = useHeaders ? (rawRows[0] ?? []) : [];
+  const bodyRows = useHeaders ? rawRows.slice(1) : rawRows;
+  const bodyFormulas = useHeaders ? formulas?.slice(1) : formulas;
+  const classification = classifyRows(bodyRows, bodyFormulas);
+  const dataRows = bodyRows.filter((_row, index) => classification.kinds[index] === 'data');
+  const sourceColumns = buildSourceColumns(headerRow, dataRows);
   const mapping =
     mappingSelection ?? buildAutoMapping({ sourceColumns, maps, useHeaders, defaults });
+  // Формулы решаются один раз, на первичном маппинге: дальше пользователь правит сам.
+  const carried = mappingSelection
+    ? null
+    : carryExcelFormulas({
+        headerRow,
+        bodyRows,
+        bodyFormulas,
+        bodySheetRows: layout ? layout.sheetRows.slice(useHeaders ? 1 : 0) : undefined,
+        originCol: layout?.originCol ?? 0,
+        classification,
+        mapping,
+        columnByKey: maps.columnByKey,
+      });
   const mappedColumns = buildMappedColumns({
     sourceColumns,
     mapping,
@@ -346,7 +526,7 @@ export const buildPastePreview = ({
     return makeEmptyPreview({ headersDetected, hasHeadersToggle, mapping, sourceColumns });
   }
 
-  const { dataPayload, previewRows, errors, hasErrors } = buildDataPayload({
+  const { dataPayload, rowStyles, previewRows, errors, hasErrors } = buildDataPayload({
     dataRows,
     mappedColumns,
     edits,
@@ -360,6 +540,10 @@ export const buildPastePreview = ({
       columns: mappedColumns,
       errors,
       hasErrors,
+      rowStyles,
+      totals: mapTotals(classification, mappedColumns),
+      formulas: carried?.formulas ?? countFormulas(mappedColumns),
+      summaries: carried?.summaries ?? [],
       extraRowsCount: totalRows > 50 ? totalRows - 50 : 0,
       hasHeadersToggle,
       headersDetected,

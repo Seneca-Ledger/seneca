@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useMonthFilters } from '@/app/(main)/statements/components/analytics/flow/useMonthFilters';
 import {
   type TopCategoriesAggregationReturn,
   useTopCategoriesAggregation,
@@ -24,6 +25,7 @@ type Params = {
   workspaceCurrency: string;
   resolvedTheme: string | undefined;
   labels: Record<string, string>;
+  month: Date;
   state: ReturnType<typeof useTopCategoriesState>;
 };
 
@@ -36,7 +38,8 @@ export type TopCategoriesDataReturn = TopCategoriesAggregationReturn & {
   drillDownRecords: TopCategoryRecord[];
 };
 
-const filterDrillDownRecords = (
+/** The records behind one leaderboard row, newest first. */
+export const filterDrillDownRecords = (
   selectedRow: TopCategoryAggregateRow,
   records: TopCategoryRecord[],
 ): TopCategoryRecord[] => {
@@ -57,12 +60,13 @@ export const useTopCategoriesData = ({
   workspaceCurrency,
   resolvedTheme,
   labels,
+  month,
   state,
 }: Params): TopCategoriesDataReturn => {
   const {
     statements: rawStatements,
     transactions: rawTransactions,
-    gmailReceipts,
+    receipts,
     loading,
   } = useAnalyticsData({
     user,
@@ -74,14 +78,15 @@ export const useTopCategoriesData = ({
     errorToastMessage: labels.loadError,
   });
   const statements = rawStatements as unknown[];
+  const monthFilters = useMonthFilters(month);
   const transactions = rawTransactions as unknown[];
   const { flowFilteredRecords, flowRecordsWithoutDateFilter, fromOptions, currencyOptions } =
     useTopCategoriesRecords({
       statements: statements as Parameters<typeof useTopCategoriesRecords>[0]['statements'],
       transactions: transactions as Parameters<typeof useTopCategoriesRecords>[0]['transactions'],
-      gmailReceipts,
+      receipts,
       workspaceCurrency,
-      appliedFilters: state.filterState.appliedFilters,
+      appliedFilters: monthFilters,
       searchInput: state.searchInput,
       activeFlowType: state.activeFlowType,
     });
@@ -94,7 +99,7 @@ export const useTopCategoriesData = ({
       workspaceCurrency,
       resolvedTheme,
       sourceStatementLabel: labels.sourceStatement,
-      sourceGmailLabel: labels.sourceGmail,
+      sourceReceiptLabel: labels.sourceReceipt,
       totalIncomeLabel: labels.totalIncome,
       totalSpendLabel: labels.totalSpend,
     });

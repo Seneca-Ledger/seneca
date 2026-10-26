@@ -1,6 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
+import { countedSql } from '../../common/utils/counted-transactions.util';
+import type {
+  CreateInvestmentAccountBody,
+  InvestmentHolding as HoldingView,
+  InvestmentAccount as InvestmentAccountView,
+  UpsertHoldingBody,
+} from '../../contracts';
 import { BalanceAccount, BalanceAccountKind } from '../../entities/balance-account.entity';
 import {
   InvestmentAssetClass,
@@ -15,39 +24,13 @@ import {
 } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { BalanceService } from '../balance/balance.service';
-import { CryptoPriceService } from '../crypto/crypto-price.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import type { CreateInvestmentAccountDto } from './dto/create-investment-account.dto';
-import type { UpsertHoldingDto } from './dto/upsert-holding.dto';
+import { pricedUnits } from './metal-weight.util';
 import { normalizeStockSymbol, StockPriceService } from './stock-price.service';
 
 const INVESTMENTS_SECTION_CODE = 'ASSET_INVESTMENTS';
 
-export interface HoldingView {
-  id: string;
-  symbol: string | null;
-  name: string;
-  assetClass: InvestmentAssetClass;
-  quantity: number;
-  price: number;
-  priceCurrency: string;
-  priceSource: InvestmentPriceSource;
-  pricedAt: Date | null;
-  /** quantity × price in the workspace currency. */
-  value: number;
-}
-
-export interface InvestmentAccountView {
-  id: string;
-  name: string;
-  kind: BalanceAccountKind;
-  currency: string;
-  value: number;
-  /** Sum of the expenses linked to this account as contributions. */
-  contributed: number;
-  gain: number;
-  holdings: HoldingView[];
-}
+export type { HoldingView, InvestmentAccountView };
 
 /**
  * Investment and retirement accounts: sub-accounts of the balance sheet's
@@ -69,7 +52,6 @@ export class InvestmentsService {
     private readonly balanceService: BalanceService,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly stockPriceService: StockPriceService,
-    private readonly cryptoPriceService: CryptoPriceService,
   ) {}
 
   async listAccounts(workspaceId: string): Promise<InvestmentAccountView[]> {
@@ -103,7 +85,8 @@ export class InvestmentsService {
       views.push({
         id: account.id,
         name: account.name,
-        kind: account.accountKind as BalanceAccountKind,
+        // The query above reads only these two kinds.
+        kind: account.accountKind as BalanceAccountKind.INVESTMENT | BalanceAccountKind.RETIREMENT,
         currency,
         value,
         contributed: round2(paidIn),
@@ -117,23 +100,23 @@ export class InvestmentsService {
   async createAccount(
     userId: string,
     workspaceId: string,
-    dto: CreateInvestmentAccountDto,
+    dto: CreateInvestmentAccountBody,
   ): Promise<InvestmentAccountView> {
     await this.balanceService.seedDefaultAccounts(workspaceId);
     const section = await this.accountRepository.findOne({
       where: { workspaceId, code: INVESTMENTS_SECTION_CODE },
     });
-    if (!section) throw new NotFoundException('Investments section not found');
+    if (!section) throw new NotFoundException(appError('INVESTMENTS_SECTION_NOT_FOUND'));
     const created = await this.balanceService.createCustomAccount(userId, workspaceId, {
       name: dto.name,
       parentId: section.id,
     });
     await this.accountRepository.update(
       { id: created.id, workspaceId },
-      { accountKind: dto.kind ?? BalanceAccountKind.INVESTMENT },
+      { accountKind: toEnum(BalanceAccountKind, dto.kind) ?? BalanceAccountKind.INVESTMENT },
     );
     const view = (await this.listAccounts(workspaceId)).find(account => account.id === created.id);
-    if (!view) throw new NotFoundException('Investment account not found');
+    if (!view) throw new NotFoundException(appError('INVESTMENTS_ACCOUNT_NOT_FOUND'));
     return view;
   }
 
@@ -156,19 +139,19 @@ export class InvestmentsService {
     userId: string,
     workspaceId: string,
     accountId: string,
-    dto: UpsertHoldingDto,
+    dto: UpsertHoldingBody,
   ): Promise<HoldingView> {
     await this.requireAccount(workspaceId, accountId);
     if (!(dto.name || dto.symbol)) {
-      throw new BadRequestException('A holding needs a name or a symbol');
+      throw new BadRequestException(appError('INVESTMENTS_HOLDING_NAME_REQUIRED'));
     }
-    const symbol = dto.symbol ? this.normalizeSymbol(dto.symbol, dto.assetClass) : null;
+    const symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     const holding = this.holdingRepository.create({
       workspaceId,
       accountId,
       symbol,
       name: dto.name ?? symbol ?? '',
-      assetClass: dto.assetClass ?? InvestmentAssetClass.OTHER,
+      assetClass: toEnum(InvestmentAssetClass, dto.assetClass) ?? InvestmentAssetClass.OTHER,
       quantity: dto.quantity ?? 0,
       price: dto.price ?? 0,
       priceCurrency: (dto.priceCurrency ?? 'USD').toUpperCase(),
@@ -190,23 +173,21 @@ export class InvestmentsService {
     userId: string,
     workspaceId: string,
     holdingId: string,
-    dto: UpsertHoldingDto,
+    dto: UpsertHoldingBody,
   ): Promise<HoldingView> {
     const holding = await this.requireHolding(workspaceId, holdingId);
     if (dto.symbol !== undefined) {
-      holding.symbol = dto.symbol
-        ? this.normalizeSymbol(dto.symbol, dto.assetClass ?? holding.assetClass)
-        : null;
+      holding.symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     }
-    if (dto.name !== undefined) holding.name = dto.name;
-    if (dto.assetClass !== undefined) holding.assetClass = dto.assetClass;
-    if (dto.quantity !== undefined) holding.quantity = dto.quantity;
-    if (dto.price !== undefined) {
+    if (dto.name != null) holding.name = dto.name;
+    if (dto.assetClass != null) holding.assetClass = toEnum(InvestmentAssetClass, dto.assetClass);
+    if (dto.quantity != null) holding.quantity = dto.quantity;
+    if (dto.price != null) {
       holding.price = dto.price;
       holding.priceSource = InvestmentPriceSource.MANUAL;
       holding.pricedAt = new Date();
     }
-    if (dto.priceCurrency !== undefined) holding.priceCurrency = dto.priceCurrency.toUpperCase();
+    if (dto.priceCurrency != null) holding.priceCurrency = dto.priceCurrency.toUpperCase();
     await this.holdingRepository.save(holding);
     await this.writeSnapshot(userId, workspaceId, holding.accountId);
     return this.holdingView(holding, await this.workspaceCurrency(workspaceId));
@@ -220,8 +201,8 @@ export class InvestmentsService {
 
   /**
    * Fetches a price for every holding with a symbol (stocks and funds from
-   * Stooq, crypto from CoinGecko) and rewrites the snapshots of the accounts
-   * that changed. Returns how many holdings got a price.
+   * Stooq) and rewrites the snapshots of the accounts that changed. Returns how
+   * many holdings got a price. Coins are not here: they live in `crypto_wallets`.
    */
   async refreshPrices(userId: string, workspaceId: string, onlyIds?: string[]): Promise<number> {
     const holdings = await this.holdingRepository.find({
@@ -230,32 +211,17 @@ export class InvestmentsService {
     const priced = holdings.filter(holding => holding.symbol);
     if (priced.length === 0) return 0;
 
-    const cryptoSymbols = priced
-      .filter(holding => holding.assetClass === InvestmentAssetClass.CRYPTO)
-      .map(holding => holding.symbol as string);
-    const stockSymbols = priced
-      .filter(holding => holding.assetClass !== InvestmentAssetClass.CRYPTO)
-      .map(holding => holding.symbol as string);
-    const [stocks, crypto] = await Promise.all([
-      stockSymbols.length ? this.stockPriceService.getPrices(stockSymbols) : new Map(),
-      cryptoSymbols.length ? this.cryptoPriceService.getCurrentUsdPrices(cryptoSymbols) : {},
-    ]);
+    const stocks = await this.stockPriceService.getPrices(
+      priced.map(holding => holding.symbol as string),
+    );
 
     let updated = 0;
     const touched = new Set<string>();
     for (const holding of priced) {
-      const symbol = holding.symbol as string;
-      if (holding.assetClass === InvestmentAssetClass.CRYPTO) {
-        const price = (crypto as Record<string, number>)[symbol.toUpperCase()];
-        if (typeof price !== 'number') continue;
-        holding.price = price;
-        holding.priceCurrency = 'USD';
-      } else {
-        const quote = stocks.get(normalizeStockSymbol(symbol));
-        if (!quote) continue;
-        holding.price = quote.price;
-        holding.priceCurrency = quote.currency;
-      }
+      const quote = stocks.get(normalizeStockSymbol(holding.symbol as string));
+      if (!quote) continue;
+      holding.price = quote.price;
+      holding.priceCurrency = quote.currency;
       holding.priceSource = InvestmentPriceSource.AUTO;
       holding.pricedAt = new Date();
       await this.holdingRepository.save(holding);
@@ -282,15 +248,15 @@ export class InvestmentsService {
     const transaction = await this.transactionRepository.findOne({
       where: { id: transactionId, workspaceId },
     });
-    if (!transaction) throw new NotFoundException('Transaction not found');
+    if (!transaction) throw new NotFoundException(appError('INVESTMENTS_TRANSACTION_NOT_FOUND'));
     if (transaction.transactionType !== TransactionType.EXPENSE) {
-      throw new BadRequestException('Only an expense can be a contribution');
+      throw new BadRequestException(appError('INVESTMENTS_CONTRIBUTION_NOT_EXPENSE'));
     }
     if (
       transaction.transferPairId &&
       transaction.transferPairKind !== TransferPairKind.INVESTMENT
     ) {
-      throw new BadRequestException('This row is already linked as a transfer');
+      throw new BadRequestException(appError('INVESTMENTS_ROW_ALREADY_TRANSFER'));
     }
     transaction.investmentAccountId = accountId;
     transaction.transferPairId = transaction.id;
@@ -303,9 +269,9 @@ export class InvestmentsService {
     const transaction = await this.transactionRepository.findOne({
       where: { id: transactionId, workspaceId },
     });
-    if (!transaction) throw new NotFoundException('Transaction not found');
+    if (!transaction) throw new NotFoundException(appError('INVESTMENTS_TRANSACTION_NOT_FOUND'));
     if (transaction.transferPairKind !== TransferPairKind.INVESTMENT) {
-      throw new BadRequestException('This row is not a contribution');
+      throw new BadRequestException(appError('INVESTMENTS_ROW_NOT_CONTRIBUTION'));
     }
     transaction.investmentAccountId = null;
     transaction.transferPairId = null;
@@ -326,17 +292,16 @@ export class InvestmentsService {
     return totals;
   }
 
-  private normalizeSymbol(symbol: string, assetClass?: InvestmentAssetClass): string {
-    return assetClass === InvestmentAssetClass.CRYPTO
-      ? symbol.trim().toUpperCase()
-      : normalizeStockSymbol(symbol);
+  private normalizeSymbol(symbol: string): string {
+    return normalizeStockSymbol(symbol);
   }
 
   private async holdingView(holding: InvestmentHolding, currency: string): Promise<HoldingView> {
     const quantity = Number(holding.quantity);
     const price = Number(holding.price);
+    // A metal lot is priced per fine troy ounce, not per piece.
     const value = await this.convert(
-      quantity * price,
+      pricedUnits(holding) * price,
       holding.priceCurrency,
       currency,
       holding.workspaceId,
@@ -350,17 +315,16 @@ export class InvestmentsService {
       price,
       priceCurrency: holding.priceCurrency,
       priceSource: holding.priceSource,
-      pricedAt: holding.pricedAt,
+      pricedAt: holding.pricedAt?.toISOString() ?? null,
       value: round2(value),
     };
   }
 
-  /** The account's value today, written where the balance sheet and net worth read it. */
-  private async writeSnapshot(
-    userId: string,
-    workspaceId: string,
-    accountId: string,
-  ): Promise<void> {
+  /**
+   * The account's value today, written where the balance sheet and net worth
+   * read it. Public because the metals service keeps its own account the same way.
+   */
+  async writeSnapshot(userId: string, workspaceId: string, accountId: string): Promise<void> {
     const currency = await this.workspaceCurrency(workspaceId);
     const holdings = await this.holdingRepository.find({ where: { workspaceId, accountId } });
     let total = 0;
@@ -387,6 +351,7 @@ export class InvestmentsService {
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.investment_account_id IN (:...accountIds)', { accountIds })
       .andWhere('t.is_duplicate = false')
+      .andWhere(countedSql('t'))
       .groupBy('t.investment_account_id')
       .addGroupBy('t.currency')
       .getRawMany<{ accountId: string; currency: string; total: string }>();
@@ -406,21 +371,24 @@ export class InvestmentsService {
   private async requireAccount(workspaceId: string, accountId: string): Promise<BalanceAccount> {
     const account = await this.accountRepository.findOne({ where: { id: accountId, workspaceId } });
     if (!account?.accountKind) {
-      throw new NotFoundException('Investment account not found');
+      throw new NotFoundException(appError('INVESTMENTS_ACCOUNT_NOT_FOUND'));
     }
     return account;
   }
 
   private async requireHolding(workspaceId: string, holdingId: string): Promise<InvestmentHolding> {
     const holding = await this.holdingRepository.findOne({ where: { id: holdingId, workspaceId } });
-    if (!holding) throw new NotFoundException('Holding not found');
+    if (!holding) throw new NotFoundException(appError('INVESTMENTS_HOLDING_NOT_FOUND'));
     return holding;
   }
 
-  private async workspaceCurrency(workspaceId: string): Promise<string> {
+  /** Public for the metals service, which prices lots in the same currency. */
+  async workspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     const normalized = String(workspace?.currency || '')
       .trim()

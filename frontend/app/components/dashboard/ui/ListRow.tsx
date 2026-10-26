@@ -24,15 +24,15 @@ export function ListRow({
 }: ListRowProps): React.JSX.Element {
   const content = (
     <>
-      {leading && <div className="lumio-dashboard__row-leading">{leading}</div>}
-      <div className="lumio-dashboard__row-body">
-        <div className="lumio-dashboard__row-primary">{primary}</div>
-        {secondary && <div className="lumio-dashboard__row-secondary">{secondary}</div>}
+      {leading && <div className="seneca-dashboard__row-leading">{leading}</div>}
+      <div className="seneca-dashboard__row-body">
+        <div className="seneca-dashboard__row-primary">{primary}</div>
+        {secondary && <div className="seneca-dashboard__row-secondary">{secondary}</div>}
       </div>
-      {trailing && <div className="lumio-dashboard__row-trailing">{trailing}</div>}
+      {trailing && <div className="seneca-dashboard__row-trailing">{trailing}</div>}
     </>
   );
-  const rowClass = clsx('lumio-dashboard__row', href && 'lumio-dashboard__row--link', className);
+  const rowClass = clsx('seneca-dashboard__row', href && 'seneca-dashboard__row--link', className);
   if (href) {
     return (
       <Link href={href} className={rowClass}>

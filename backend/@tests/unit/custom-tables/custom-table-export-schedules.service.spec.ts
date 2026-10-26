@@ -1,18 +1,18 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ExportScheduleFormat } from '../../../src/entities/custom-table-export-schedule.entity';
 import { CustomTableExportSchedulesService } from '../../../src/modules/custom-tables/custom-table-export-schedules.service';
 
 const createRepositoryMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  save: jest.fn(async (v: unknown) => v),
-  create: jest.fn((v?: unknown) => v),
-  update: jest.fn(),
-  delete: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  findOne: vi.fn(),
+  find: vi.fn(),
+  save: vi.fn(async (v: unknown) => v),
+  create: vi.fn((v?: unknown) => v),
+  update: vi.fn(),
+  delete: vi.fn(),
+  createQueryBuilder: vi.fn(),
 });
 
 const TABLE_ID = '11111111-1111-4111-8111-111111111111';
@@ -24,10 +24,10 @@ function buildService(schedule?: Record<string, unknown>) {
   const workspaceMemberRepository = createRepositoryMock();
 
   tableRepository.createQueryBuilder.mockReturnValue({
-    leftJoin: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getOne: jest.fn().mockResolvedValue({ id: TABLE_ID, name: 'Отчёт' }),
+    leftJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getOne: vi.fn().mockResolvedValue({ id: TABLE_ID, name: 'Отчёт' }),
   });
   scheduleRepository.findOne.mockResolvedValue(
     schedule ?? {
@@ -41,7 +41,7 @@ function buildService(schedule?: Record<string, unknown>) {
   );
 
   const customTablesService = {
-    exportRows: jest.fn().mockResolvedValue({
+    exportRows: vi.fn().mockResolvedValue({
       buffer: Buffer.from('file-bytes'),
       fileName: 'report.xlsx',
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -59,7 +59,7 @@ function buildService(schedule?: Record<string, unknown>) {
 }
 
 describe('CustomTableExportSchedulesService', () => {
-  const tmp = path.join(os.tmpdir(), `lumio-sched-${Date.now()}`);
+  const tmp = path.join(os.tmpdir(), `seneca-sched-${Date.now()}`);
 
   beforeAll(() => {
     process.env.UPLOADS_DIR = tmp;
@@ -150,6 +150,41 @@ describe('CustomTableExportSchedulesService', () => {
 
     await expect(service.readLastFile('ws-1', SCHEDULE_ID)).rejects.toBeInstanceOf(
       NotFoundException,
+    );
+  });
+
+  it('keeps the file inside the export directory when the table name holds a path', async () => {
+    const { service, scheduleRepository, customTablesService } = buildService();
+    customTablesService.exportRows.mockResolvedValue({
+      buffer: Buffer.from('file-bytes'),
+      fileName: 'a/../../../../tmp/pwn.xlsx',
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const result = await service.runSchedule(SCHEDULE_ID);
+
+    const saved = scheduleRepository.save.mock.calls.at(-1)?.[0] as {
+      lastFilePath: string;
+      lastFileName: string;
+    };
+    expect(path.dirname(saved.lastFilePath)).toBe(path.resolve(tmp, 'scheduled-exports'));
+    expect(path.basename(saved.lastFilePath)).toMatch(
+      new RegExp(`^${SCHEDULE_ID}-\\d{4}-\\d{2}-\\d{2}\\.xlsx$`),
+    );
+    expect(result.fileName).toMatch(/^\d{4}-\d{2}-\d{2}-pwn\.xlsx$/);
+    expect(saved.lastFileName).toBe(result.fileName);
+  });
+
+  it('refuses a stored file path outside the export directory', async () => {
+    const { service } = buildService({
+      id: SCHEDULE_ID,
+      workspaceId: 'ws-1',
+      lastFilePath: __filename,
+      lastFileName: 'report.xlsx',
+    });
+
+    await expect(service.readLastFile('ws-1', SCHEDULE_ID)).rejects.toBeInstanceOf(
+      BadRequestException,
     );
   });
 });

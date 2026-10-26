@@ -6,8 +6,9 @@ import {
 } from '@/app/(main)/statements/components/filters/statement-filters';
 import {
   getBankDisplayName,
-  mapGmailReceiptToSpendRecord,
+  mapReceiptToSpendRecord,
   mapTransactionToSpendRecord,
+  receiptHref,
 } from '@/app/(main)/statements/components/spend-over-time/helpers/spend-over-time-mappers';
 import type {
   SpendOverTimeFlowType,
@@ -15,7 +16,7 @@ import type {
 } from '@/app/(main)/statements/components/spend-over-time.utils';
 import { dedupeSpendOverTimeReceiptRecords } from '@/app/(main)/statements/components/spend-over-time.utils';
 import type {
-  GmailReceipt,
+  ReceiptDocument,
   StatementMeta,
   Transaction,
 } from '@/app/(main)/statements/types/statement-types';
@@ -26,7 +27,7 @@ type StatementWithWorkspace = StatementMeta & StatementFilterItem;
 type Params = {
   statements: StatementWithWorkspace[];
   transactions: Transaction[];
-  gmailReceipts: GmailReceipt[];
+  receipts: ReceiptDocument[];
   workspaceCurrency: string;
   appliedFilters: StatementFilters;
   searchInput: string;
@@ -94,7 +95,7 @@ const buildUserOption = (
 
 const buildBankOption = (bank: string): SpendFromOption => ({
   id: `bank:${bank}`,
-  label: bank === 'gmail' ? 'Gmail' : getBankDisplayName(bank),
+  label: getBankDisplayName(bank),
   description: null,
   bankName: bank,
 });
@@ -120,31 +121,41 @@ const buildFromOptions = (
 type BuildAllParams = {
   statements: StatementWithWorkspace[];
   transactions: Transaction[];
-  gmailReceipts: GmailReceipt[];
+  receipts: ReceiptDocument[];
   workspaceCurrency: string;
 };
 
 const buildAllSpendRecords = ({
   statements,
   transactions,
-  gmailReceipts,
+  receipts,
   workspaceCurrency,
 }: BuildAllParams): SpendOverTimeRecord[] => {
   const statementById = new Map(statements.map(s => [s.id, s]));
+  // A receipt and the transaction it booked are one spend, and the receipt is
+  // dropped below in favour of the transaction; the link still goes to the
+  // receipt, as it does in the Documents list, not to its scan's statement.
+  const receiptByTransactionId = new Map(
+    receipts.flatMap(receipt =>
+      receipt.transactionId ? [[receipt.transactionId, receipt] as const] : [],
+    ),
+  );
   const mappedTransactions = transactions
     .map(item => {
       const meta = item.statementId ? statementById.get(item.statementId) : undefined;
-      return mapTransactionToSpendRecord(
+      const record = mapTransactionToSpendRecord(
         item,
         meta as StatementMeta | undefined,
         workspaceCurrency,
       );
+      const receipt = receiptByTransactionId.get(item.id);
+      return record && receipt ? { ...record, href: receiptHref(receipt) } : record;
     })
     .filter((r): r is SpendOverTimeRecord => r !== null);
   const existingTransactionIds = new Set(transactions.map(t => t.id).filter(Boolean));
   const mappedReceipts = dedupeSpendOverTimeReceiptRecords(
-    gmailReceipts
-      .map(r => mapGmailReceiptToSpendRecord(r, workspaceCurrency))
+    receipts
+      .map(r => mapReceiptToSpendRecord(r, workspaceCurrency))
       .filter((r): r is SpendOverTimeRecord => r !== null),
     existingTransactionIds,
   );
@@ -154,15 +165,15 @@ const buildAllSpendRecords = ({
 export const useSpendOverTimeRecords = ({
   statements,
   transactions,
-  gmailReceipts,
+  receipts,
   workspaceCurrency,
   appliedFilters,
   searchInput,
   activeFlowType,
 }: Params): SpendRecordsReturn => {
   const allRecords = useMemo<SpendOverTimeRecord[]>(
-    () => buildAllSpendRecords({ statements, transactions, gmailReceipts, workspaceCurrency }),
-    [statements, transactions, gmailReceipts, workspaceCurrency],
+    () => buildAllSpendRecords({ statements, transactions, receipts, workspaceCurrency }),
+    [statements, transactions, receipts, workspaceCurrency],
   );
 
   const filteredRecords = useMemo(

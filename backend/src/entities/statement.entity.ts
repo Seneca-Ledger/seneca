@@ -9,12 +9,14 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 
 type JsonObject = Record<string, unknown>;
 
 import { normalizeFilename } from '../common/utils/filename.util';
+import { nulFreeTransformer } from '../common/utils/nul-chars.util';
 import { Category } from './category.entity';
 import { Folder } from './folder.entity';
 import { Tag } from './tag.entity';
@@ -66,6 +68,8 @@ export enum FileType {
   QIF = 'qif',
   CAMT = 'camt',
   MT940 = 'mt940',
+  /** A structured e-invoice (XRechnung, UBL or CII) uploaded as the XML itself. */
+  XML = 'xml',
 }
 
 @Entity('statements')
@@ -78,21 +82,21 @@ export class Statement {
     user => user.statements,
   )
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Folder, { nullable: true })
   @JoinColumn({ name: 'folder_id' })
-  folder: Folder | null;
+  folder: Relation<Folder | null>;
 
   @Column({ name: 'folder_id', type: 'uuid', nullable: true })
   folderId: string | null;
@@ -126,7 +130,7 @@ export class Statement {
   })
   bankName: BankName;
 
-  @Column({ name: 'account_number', nullable: true })
+  @Column({ type: 'varchar', name: 'account_number', nullable: true })
   accountNumber: string | null;
 
   @Column({ name: 'statement_date_from', type: 'date', nullable: true })
@@ -150,7 +154,8 @@ export class Statement {
   })
   stage: StatementStage;
 
-  @Column({ name: 'error_message', type: 'text', nullable: true })
+  // Both carry text read out of the file, which may hold a NUL Postgres refuses.
+  @Column({ name: 'error_message', type: 'text', nullable: true, transformer: nulFreeTransformer })
   errorMessage: string | null;
 
   @Column({ name: 'total_transactions', default: 0 })
@@ -192,12 +197,12 @@ export class Statement {
   })
   balanceEnd: number | null;
 
-  @Column({ default: 'KZT' })
+  @Column()
   currency: string;
 
   @ManyToOne(() => Category, { nullable: true })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
@@ -208,7 +213,7 @@ export class Statement {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @Column({ name: 'processed_at', nullable: true })
+  @Column({ type: 'timestamp', name: 'processed_at', nullable: true })
   processedAt: Date | null;
 
   @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
@@ -217,7 +222,12 @@ export class Statement {
   @Column({ name: 'parsing_attempts', default: 0 })
   parsingAttempts: number;
 
-  @Column({ name: 'parsing_details', type: 'jsonb', nullable: true })
+  @Column({
+    name: 'parsing_details',
+    type: 'jsonb',
+    nullable: true,
+    transformer: nulFreeTransformer,
+  })
   parsingDetails: {
     detectedBank?: string;
     detectedFormat?: string;
@@ -285,7 +295,7 @@ export class Statement {
     () => Transaction,
     transaction => transaction.statement,
   )
-  transactions: Transaction[];
+  transactions: Relation<Transaction[]>;
 
   @ManyToMany(
     () => Tag,
@@ -297,7 +307,7 @@ export class Statement {
     joinColumn: { name: 'statement_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
   })
-  tags: Tag[];
+  tags: Relation<Tag[]>;
 
   @AfterLoad()
   normalizeFileNameAfterLoad() {

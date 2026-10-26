@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import {
   Integration,
@@ -73,7 +74,7 @@ export class BankSyncService {
   async list(workspaceId: string): Promise<BankSyncConnection[]> {
     const integrations = await this.integrationRepository.find({
       where: { workspaceId, provider: In(this.providers.map(item => item.key)) },
-      relations: ['openProtocolSettings'],
+      relations: { openProtocolSettings: true },
       order: { createdAt: 'ASC' },
     });
     return integrations
@@ -87,7 +88,7 @@ export class BankSyncService {
     workspaceId: string,
     providerKey: string,
     setupToken: string,
-    label?: string,
+    label?: string | null,
   ): Promise<BankSyncConnection> {
     const provider = this.tokenProvider(providerKey);
     const secrets = await provider.claim(setupToken);
@@ -96,7 +97,7 @@ export class BankSyncService {
     const accounts = await provider.fetchAccounts({ secrets, links: [] }, { balancesOnly: true });
     config.accounts = accounts.map(account => accountSettingOf(account, undefined, true));
     await this.persist(integration, config, this.encryptSecrets(secrets));
-    return this.present(await this.reload(integration.id));
+    return this.present(await this.reload(integration));
   }
 
   /**
@@ -108,14 +109,14 @@ export class BankSyncService {
     workspaceId: string,
     providerKey: string,
     secrets: Record<string, string>,
-    label?: string,
+    label?: string | null,
   ): Promise<BankSyncConnection> {
     const provider = this.redirectProvider(providerKey);
     await provider.verifyCredentials(secrets);
     const integration = await this.createIntegration(user, workspaceId, providerKey);
     const config = normalizeConfig({ label: label || providerKey }, providerKey);
     await this.persist(integration, config, this.encryptSecrets(secrets));
-    return this.present(await this.reload(integration.id));
+    return this.present(await this.reload(integration));
   }
 
   async listInstitutions(
@@ -169,7 +170,7 @@ export class BankSyncService {
     const provider = this.redirectProvider(integration.provider);
     const config = this.configOf(integration);
     if (!config.pendingLink || config.pendingLink.state !== state) {
-      throw new BadRequestException('This authorization was not started here, or has expired');
+      throw new BadRequestException(appError('BANK_SYNC_LINK_STATE_MISMATCH'));
     }
     const secrets = this.secretsOf(integration);
     const link = await provider.completeLink(secrets, code);
@@ -187,7 +188,7 @@ export class BankSyncService {
     integration.status = IntegrationStatus.CONNECTED;
     await this.integrationRepository.save(integration);
     await this.saveConfig(settings, config);
-    return this.present(await this.reload(integration.id));
+    return this.present(await this.reload(integration));
   }
 
   /** Asks the provider for the account list again; accounts seen for the first time start off. */
@@ -204,20 +205,20 @@ export class BankSyncService {
       accountSettingOf(account, known.get(account.id), false),
     );
     await this.saveConfig(settings, config);
-    return this.present(await this.reload(integration.id));
+    return this.present(await this.reload(integration));
   }
 
   async updateConnection(
     workspaceId: string,
     connectionId: string,
-    changes: { label?: string; autoSync?: boolean },
+    changes: { label?: string | null; autoSync?: boolean | null },
   ): Promise<BankSyncConnection> {
     const { integration, settings } = await this.require(workspaceId, connectionId);
     const config = this.configOf(integration);
-    if (changes.label !== undefined) config.label = changes.label;
-    if (changes.autoSync !== undefined) config.autoSync = changes.autoSync;
+    if (changes.label != null) config.label = changes.label;
+    if (changes.autoSync != null) config.autoSync = changes.autoSync;
     await this.saveConfig(settings, config);
-    return this.present(await this.reload(integration.id));
+    return this.present(await this.reload(integration));
   }
 
   /**
@@ -229,12 +230,14 @@ export class BankSyncService {
     workspaceId: string,
     connectionId: string,
     accountId: string,
-    changes: { enabled?: boolean; walletId?: string | null },
+    changes: { enabled?: boolean | null; walletId?: string | null },
   ): Promise<BankSyncConnection> {
     const { integration, settings } = await this.require(workspaceId, connectionId);
     const config = this.configOf(integration);
     const account = config.accounts.find(item => item.id === accountId);
-    if (!account) throw new NotFoundException(`Account ${accountId} is not in this connection`);
+    if (!account) {
+      throw new NotFoundException(appError('BANK_SYNC_ACCOUNT_UNKNOWN', { id: accountId }));
+    }
     if (changes.walletId !== undefined) {
       if (changes.walletId !== null) {
         await this.requireWallet(workspaceId, changes.walletId);
@@ -242,9 +245,9 @@ export class BankSyncService {
       }
       account.walletId = changes.walletId;
     }
-    if (changes.enabled !== undefined) account.enabled = changes.enabled;
+    if (changes.enabled != null) account.enabled = changes.enabled;
     await this.saveConfig(settings, config);
-    return this.present(await this.reload(integration.id));
+    return this.present(await this.reload(integration));
   }
 
   /**
@@ -268,10 +271,10 @@ export class BankSyncService {
     const targetConfig = this.configOf(target.integration);
     const targetAccount = targetConfig.accounts.find(item => item.id === input.toAccountId);
     if (!targetAccount) {
-      throw new NotFoundException(`Account ${input.toAccountId} is not in this connection`);
+      throw new NotFoundException(appError('BANK_SYNC_ACCOUNT_UNKNOWN', { id: input.toAccountId }));
     }
     if (targetAccount.walletId && targetAccount.walletId !== input.walletId) {
-      throw new BadRequestException('That provider account already feeds another wallet');
+      throw new BadRequestException(appError('BANK_SYNC_ACCOUNT_FEEDS_OTHER_WALLET'));
     }
 
     const previous = await this.feedOf(workspaceId, input.walletId);
@@ -335,20 +338,22 @@ export class BankSyncService {
   async require(workspaceId: string, connectionId: string) {
     const integration = await this.integrationRepository.findOne({
       where: { id: connectionId, workspaceId },
-      relations: ['openProtocolSettings'],
+      relations: { openProtocolSettings: true },
     });
     if (!integration?.openProtocolSettings) {
-      throw new NotFoundException('Bank-sync connection not found');
+      throw new NotFoundException(appError('BANK_SYNC_CONNECTION_NOT_FOUND'));
     }
     if (integration.status === IntegrationStatus.DISCONNECTED) {
-      throw new BadRequestException('This connection is disconnected');
+      throw new BadRequestException(appError('BANK_SYNC_CONNECTION_DISCONNECTED'));
     }
     return { integration, settings: integration.openProtocolSettings };
   }
 
   providerOf(key: string): BankSyncProvider {
     const provider = this.providers.find(item => item.key === key);
-    if (!provider) throw new BadRequestException(`Unknown bank-sync provider "${key}"`);
+    if (!provider) {
+      throw new BadRequestException(appError('BANK_SYNC_PROVIDER_UNKNOWN', { provider: key }));
+    }
     return provider;
   }
 
@@ -359,7 +364,7 @@ export class BankSyncService {
   secretsOf(integration: Integration): Record<string, string> {
     const stored = integration.openProtocolSettings?.encryptedSecrets ?? {};
     const entries = Object.entries(stored);
-    if (entries.length === 0) throw new BadRequestException('This connection has no credentials');
+    if (entries.length === 0) throw new BadRequestException(appError('BANK_SYNC_NO_CREDENTIALS'));
     return Object.fromEntries(entries.map(([key, value]) => [key, decryptText(value)]));
   }
 
@@ -388,7 +393,7 @@ export class BankSyncService {
   private tokenProvider(key: string): TokenBankSyncProvider {
     const provider = this.providerOf(key);
     if (isRedirectProvider(provider)) {
-      throw new BadRequestException(`${key} is authorized in the browser, not with a token`);
+      throw new BadRequestException(appError('BANK_SYNC_PROVIDER_NOT_TOKEN', { provider: key }));
     }
     return provider;
   }
@@ -396,7 +401,7 @@ export class BankSyncService {
   private redirectProvider(key: string): RedirectBankSyncProvider {
     const provider = this.providerOf(key);
     if (!isRedirectProvider(provider)) {
-      throw new BadRequestException(`${key} is connected with a setup token, not in the browser`);
+      throw new BadRequestException(appError('BANK_SYNC_PROVIDER_NOT_REDIRECT', { provider: key }));
     }
     return provider;
   }
@@ -438,21 +443,21 @@ export class BankSyncService {
     await this.settingsRepository.save(settings);
   }
 
-  private async reload(connectionId: string): Promise<Integration> {
+  private async reload({ id, workspaceId }: Integration): Promise<Integration> {
     const integration = await this.integrationRepository.findOne({
-      where: { id: connectionId },
-      relations: ['openProtocolSettings'],
+      where: { id, workspaceId },
+      relations: { openProtocolSettings: true },
     });
-    if (!integration) throw new NotFoundException('Bank-sync connection not found');
+    if (!integration) throw new NotFoundException(appError('BANK_SYNC_CONNECTION_NOT_FOUND'));
     return integration;
   }
 
   private async requireWallet(workspaceId: string, walletId: string): Promise<void> {
     const wallet = await this.walletRepository.findOne({
       where: { workspaceId, id: walletId },
-      select: ['id'],
+      select: { id: true },
     });
-    if (!wallet) throw new BadRequestException('Wallet does not belong to this workspace');
+    if (!wallet) throw new BadRequestException(appError('BANK_SYNC_WALLET_NOT_IN_WORKSPACE'));
   }
 
   private async requireWalletFree(
@@ -463,9 +468,7 @@ export class BankSyncService {
   ): Promise<void> {
     const feed = await this.feedOf(workspaceId, walletId);
     if (feed && !(feed.connectionId === connectionId && feed.accountId === accountId)) {
-      throw new BadRequestException(
-        'That wallet already has a bank feed: switch it instead of adding a second one',
-      );
+      throw new BadRequestException(appError('BANK_SYNC_WALLET_HAS_FEED'));
     }
   }
 
@@ -473,7 +476,7 @@ export class BankSyncService {
     const row = await this.transactionRepository.findOne({
       where: { workspaceId, walletId },
       order: { transactionDate: 'DESC' },
-      select: ['transactionDate'],
+      select: { transactionDate: true },
     });
     return row?.transactionDate ? new Date(row.transactionDate) : null;
   }

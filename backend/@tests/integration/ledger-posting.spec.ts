@@ -16,6 +16,7 @@ import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
 import { DataSource, type Repository } from 'typeorm';
 
+import { EffectRuntime } from '../../src/common/effect/effect-runtime';
 import * as entityIndex from '../../src/entities';
 import {
   BankName,
@@ -51,7 +52,7 @@ import { LedgerPostingService } from '../../src/modules/ledger/ledger-posting.se
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_ledger_posting_${process.pid}`;
+const SCRATCH_DB = `seneca_ledger_posting_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -63,15 +64,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -81,7 +82,7 @@ const USD_EUR = 0.9137;
 const IBAN = 'DE89 3704 0044 0532 0130 00';
 
 describe('ledger posting engine (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let posting: LedgerPostingService;
@@ -100,7 +101,7 @@ describe('ledger posting engine (real Postgres)', () => {
   /** Called by the posting service; a test may swap the behaviour. */
   let onRateLookup: (from: string, to: string, date: string) => Promise<number | null>;
   const exchangeStub = {
-    getRateQuote: jest.fn(
+    getRateQuote: vi.fn(
       async (from: string, to: string, date: string, _options?: RateQuoteOptions) => {
         const rate = await onRateLookup(from, to, date);
         return rate === null ? null : { rate, rateDate: date, stale: false };
@@ -122,6 +123,8 @@ describe('ledger posting engine (real Postgres)', () => {
         paymentPurpose: 'Purpose',
         currency: 'EUR',
         transactionType: TransactionType.EXPENSE,
+        // Booked rows are confirmed ones; a test about unconfirmed rows overrides it.
+        isVerified: true,
         ...fields,
       }),
     );
@@ -185,7 +188,7 @@ describe('ledger posting engine (real Postgres)', () => {
     entryRepo = dataSource.getRepository(JournalEntry);
     onRateLookup = defaultRates;
 
-    const workspace = await dataSource.getRepository(Workspace).save({ name: 'Ledger WS' });
+    const workspace = await dataSource.getRepository(Workspace).save({ name: 'Ledger WS', currency: 'USD' });
     workspaceId = workspace.id;
     const user = await dataSource.getRepository(User).save(
       dataSource.getRepository(User).create({
@@ -454,10 +457,11 @@ describe('ledger posting engine (real Postgres)', () => {
     // The real lookup over the scratch database; no API key and no network.
     const realRates = new ExchangeRatesService(
       dataSource.getRepository(ExchangeRate),
-      { get: jest.fn().mockResolvedValue(undefined), set: jest.fn() } as never,
-      { get: jest.fn().mockReturnValue(undefined) } as never,
+      { get: vi.fn().mockResolvedValue(undefined), set: vi.fn() } as never,
+      { get: vi.fn().mockReturnValue(undefined) } as never,
+      new EffectRuntime(),
     );
-    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({ ok: false } as Response);
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({ ok: false } as Response);
     exchangeStub.getRateQuote.mockImplementation((from, to, date, options) =>
       realRates.getRateQuote(from, to, date, options),
     );

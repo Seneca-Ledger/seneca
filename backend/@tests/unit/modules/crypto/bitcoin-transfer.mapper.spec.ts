@@ -24,7 +24,7 @@ function tx(
 }
 
 function map(transactions: MempoolTx[], ownAddresses = [ME]) {
-  return mapBitcoinTransfers({ address: ME, ownAddresses, transactions });
+  return mapBitcoinTransfers({ addresses: [ME], ownAddresses, transactions });
 }
 
 describe('mapBitcoinTransfers', () => {

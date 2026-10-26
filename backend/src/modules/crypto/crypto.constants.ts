@@ -22,7 +22,7 @@ export const ARBITRUM_CHAIN_ID = 42161;
  */
 export const TRON_CHAIN_ID = 728126428;
 /**
- * Bitcoin and Solana have no EVM chain id. These are Lumio's own, parked in a range
+ * Bitcoin and Solana have no EVM chain id. These are Seneca's own, parked in a range
  * no live EVM chain uses so they can share the `chain_id` column. Never send them
  * to anything that expects a real EVM chain id.
  */
@@ -30,7 +30,7 @@ export const BITCOIN_CHAIN_ID = 2_000_000_000;
 export const SOLANA_CHAIN_ID = 2_000_000_501;
 
 /**
- * Every chain Lumio syncs and the provider it syncs from (see crypto-sync.service.ts).
+ * Every chain Seneca syncs and the provider it syncs from (see crypto-sync.service.ts).
  * Adding a chain here is NOT enough on its own: an EVM chain needs its own explorer
  * host, and any other family needs a reader of its own, or the sync would pull
  * another chain's transactions into it.
@@ -86,6 +86,9 @@ export const CHAIN_NAMES: Record<number, string> = Object.fromEntries(
   SUPPORTED_CHAIN_IDS.map(id => [id, CHAINS[id].name]),
 );
 
+/** xpub, ypub or zpub: the account key a Bitcoin wallet exports. */
+export const EXTENDED_KEY_PATTERN = /^[xyz]pub[1-9A-HJ-NP-Za-km-z]{95,115}$/;
+
 export const EVM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 /** Base58check, always starting with `T`. Case-sensitive, unlike an EVM address. */
 export const TRON_ADDRESS_PATTERN = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
@@ -106,6 +109,10 @@ const BASE58_PATTERN = /^[1-9A-HJ-NP-Za-km-z]+$/;
 export function familyForAddress(address: string): ChainFamily | null {
   if (EVM_ADDRESS_PATTERN.test(address)) {
     return 'evm';
+  }
+  // An extended public key is a whole Bitcoin wallet rather than one address.
+  if (EXTENDED_KEY_PATTERN.test(address) && hasBase58Checksum(address)) {
+    return 'bitcoin';
   }
   if (TRON_ADDRESS_PATTERN.test(address) && hasBase58Checksum(address)) {
     return 'tron';

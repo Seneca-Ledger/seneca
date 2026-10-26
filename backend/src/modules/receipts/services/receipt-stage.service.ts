@@ -50,7 +50,13 @@ export class ReceiptStageService {
     const ids = [...new Set(receiptIds)];
     const receipts: StagedReceipt[] = await this.receiptRepository.find({
       where: { id: In(ids), workspaceId },
-      select: ['id', 'userId', 'stage', 'statementId', 'parsedData'],
+      select: {
+        id: true,
+        userId: true,
+        stage: true,
+        statementId: true,
+        parsedData: true,
+      },
     });
     const byId = new Map(receipts.map(receipt => [receipt.id, receipt]));
     const canEditOthers = await this.isWorkspaceAdmin(userId, workspaceId);
@@ -108,7 +114,9 @@ export class ReceiptStageService {
   private async isWorkspaceAdmin(userId: string, workspaceId: string): Promise<boolean> {
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      select: ['role'],
+      select: {
+        role: true,
+      },
     });
     return Boolean(
       membership && [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role),
@@ -171,7 +179,11 @@ export class ReceiptStageService {
     }
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'name', 'email'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
     });
     const actorLabel = user?.email || user?.name || 'User';
     await this.auditService.createBatchEvents(

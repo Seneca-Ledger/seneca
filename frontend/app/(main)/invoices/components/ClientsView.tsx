@@ -3,12 +3,15 @@
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { ChevronLeft } from '@/app/components/icons';
+import { ChevronLeft, Plus } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { Button } from '@/app/components/ui/button';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { PeopleLineIcon } from '@/app/components/ui/empty-state-icons';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import {
   type Client,
   type CreateClientInput,
@@ -16,12 +19,14 @@ import {
   type UpdateClientInput,
 } from '@/app/lib/invoices-api';
 import { ClientDrawer } from './ClientDrawer';
+import { ClientsListSkeleton } from './InvoicesSkeletons';
 
 export function ClientsView(): React.JSX.Element {
   const router = useRouter();
   const t = useIntlayer('invoicesPage');
+  const invoiceSettings = useIntlayer('invoiceSettings');
   const { currentWorkspace } = useWorkspace();
-  const defaultCurrency = currentWorkspace?.currency?.toUpperCase() || 'KZT';
+  const defaultCurrency = currentWorkspace?.currency?.toUpperCase() || FALLBACK_CURRENCY;
 
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,12 +79,20 @@ export function ClientsView(): React.JSX.Element {
       .finally(() => setDeletingId(null));
   };
 
+  const openNewClient = (): void => {
+    setEditingClient(null);
+    setDrawerOpen(true);
+  };
+  useQuickActions([
+    { id: 'new-client', label: t.clients.newClient.value, icon: Plus, run: openNewClient },
+  ]);
+
   if (loading) {
-    return <div style={{ padding: 40 }}>—</div>;
+    return <ClientsListSkeleton />;
   }
 
   return (
-    <div className="container-shared lumio-stmt-list">
+    <div className="container-shared seneca-stmt-list">
       <div
         style={{
           marginBottom: 24,
@@ -96,46 +109,48 @@ export function ClientsView(): React.JSX.Element {
         >
           <ChevronLeft size={20} />
         </button>
-        <h1 style={{ fontSize: 22, fontWeight: 600, flex: 1 }}>{t.clients.title}</h1>
-        <Button
-          onClick={() => {
-            setEditingClient(null);
-            setDrawerOpen(true);
-          }}
-        >
-          {t.clients.newClient}
-        </Button>
+        <div style={{ flex: 1 }} />
+        {/* With no clients the empty state's button is the one action. */}
+        {clients.length === 0 ? null : (
+          <Button className="seneca-bottom-bar-source" onClick={openNewClient}>
+            <Plus size={18} aria-hidden />
+            {t.clients.newClient}
+          </Button>
+        )}
       </div>
 
       {clients.length === 0 ? (
-        <div className="lumio-payable-list__empty">
-          <EmptyStateIllustration name="clients" size="md" />
-          <h3 style={{ fontSize: 18, fontWeight: 600 }}>{t.clients.empty}</h3>
-        </div>
+        <EmptyState
+          fill
+          icon={<PeopleLineIcon />}
+          title={t.clients.empty}
+          description={t.clients.emptyHint}
+          action={<Button onClick={openNewClient}>{t.clients.newClient}</Button>}
+        />
       ) : (
-        <div className="lumio-payable-list">
-          <div className="lumio-payable-list__table-wrap">
-            <table className="lumio-payable-list__table">
-              <thead className="lumio-payable-list__thead">
+        <div className="seneca-payable-list">
+          <div className="seneca-payable-list__table-wrap">
+            <table className="seneca-payable-list__table">
+              <thead className="seneca-payable-list__thead">
                 <tr>
-                  <th className="lumio-payable-list__th">{t.clients.name.value}</th>
-                  <th className="lumio-payable-list__th">{t.clients.email.value}</th>
-                  <th className="lumio-payable-list__th">{t.detail.currency.value}</th>
-                  <th className="lumio-payable-list__th lumio-payable-list__th--right">
+                  <th className="seneca-payable-list__th">{t.clients.name.value}</th>
+                  <th className="seneca-payable-list__th">{t.clients.email.value}</th>
+                  <th className="seneca-payable-list__th">{t.detail.currency.value}</th>
+                  <th className="seneca-payable-list__th seneca-payable-list__th--right">
                     {t.columns.actions.value}
                   </th>
                 </tr>
               </thead>
-              <tbody className="lumio-payable-list__tbody">
+              <tbody className="seneca-payable-list__tbody">
                 {clients.map(client => (
                   <tr key={client.id}>
-                    <td className="lumio-payable-list__td" style={{ fontWeight: 500 }}>
+                    <td className="seneca-payable-list__td" style={{ fontWeight: 500 }}>
                       {client.name}
                     </td>
-                    <td className="lumio-payable-list__td">{client.email || '—'}</td>
-                    <td className="lumio-payable-list__td">{client.currency}</td>
-                    <td className="lumio-payable-list__td">
-                      <div className="lumio-payable-list__actions">
+                    <td className="seneca-payable-list__td">{client.email || '—'}</td>
+                    <td className="seneca-payable-list__td">{client.currency}</td>
+                    <td className="seneca-payable-list__td">
+                      <div className="seneca-payable-list__actions">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -182,6 +197,9 @@ export function ClientsView(): React.JSX.Element {
           billingAddress: t.clients.billingAddress.value,
           taxId: t.clients.taxId.value,
           currency: t.detail.currency.value,
+          locale: t.clients.locale.value,
+          reminders: invoiceSettings.clientReminders.value,
+          paymentTerms: invoiceSettings.clientPaymentTerms.value,
           save: t.actions.save.value,
           saving: t.actions.saving.value,
           cancel: t.actions.cancel.value,

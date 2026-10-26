@@ -41,7 +41,7 @@ function Stack({ childOpen }: { childOpen: boolean }): React.JSX.Element {
   );
 }
 
-const isCovered = (text: string): boolean => modalRoot(text).hasAttribute('data-lumio-covered');
+const isCovered = (text: string): boolean => modalRoot(text).hasAttribute('data-seneca-covered');
 
 describe('DrawerShell stacking', () => {
   it('hides the drawer underneath while another one is open on top', () => {
@@ -59,12 +59,12 @@ describe('DrawerShell stacking', () => {
   it('hides a dialog underneath as well', () => {
     const { rerender } = render(<DialogUnder drawerOpen={false} />);
     const dialogRoot = (): Element | null => screen.getByText('dialog').closest('.MuiDialog-root');
-    expect(dialogRoot()?.hasAttribute('data-lumio-covered')).toBe(false);
+    expect(dialogRoot()?.hasAttribute('data-seneca-covered')).toBe(false);
 
     rerender(<DialogUnder drawerOpen />);
-    expect(dialogRoot()?.hasAttribute('data-lumio-covered')).toBe(true);
+    expect(dialogRoot()?.hasAttribute('data-seneca-covered')).toBe(true);
 
     rerender(<DialogUnder drawerOpen={false} />);
-    expect(dialogRoot()?.hasAttribute('data-lumio-covered')).toBe(false);
+    expect(dialogRoot()?.hasAttribute('data-seneca-covered')).toBe(false);
   });
 });

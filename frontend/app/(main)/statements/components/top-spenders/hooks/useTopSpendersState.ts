@@ -11,7 +11,7 @@ export type TopSpendersStateReturn = TopAnalyticsStateReturn<TopSpenderFlowType,
 
 export const useTopSpendersState = (): TopSpendersStateReturn =>
   useTopAnalyticsState<TopSpenderFlowType, AggregateSortKey>(
-    'lumio-top-spenders-filters',
+    'seneca-top-spenders-filters',
     'spend',
     'amount',
   );

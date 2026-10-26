@@ -16,15 +16,8 @@ export const parseNumber = (value?: number | string | null): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-export const isGmailReceipt = (statement: StatementFilterItem): boolean =>
-  statement.source === 'gmail';
-
-export const isStoreReceipt = (statement: StatementFilterItem): boolean => {
-  if (statement.source !== 'scan') {
-    return false;
-  }
-  return statement.receiptSource !== 'gmail';
-};
+export const isStoreReceipt = (statement: StatementFilterItem): boolean =>
+  statement.source === 'scan';
 
 export const resolveStatementAmount = (statement: StatementFilterItem): number => {
   const debit = parseNumber(statement.totalDebit);
@@ -33,8 +26,7 @@ export const resolveStatementAmount = (statement: StatementFilterItem): number =
   return resolved ?? 0;
 };
 
-const isReceiptDateSource = (source?: string | null): boolean =>
-  source === 'gmail' || source === 'scan';
+const isReceiptDateSource = (source?: string | null): boolean => source === 'scan';
 
 const resolveReceiptDate = (s: StatementFilterItem): string =>
   s.parsedData?.date || s.receivedAt || s.createdAt || '';
@@ -205,7 +197,6 @@ const matchesDateMode = ({ dateValue, mode, filterDate, filterDateTo }: DateMode
 export const applyTypeFilter = <T extends StatementFilterItem>(result: T[], type: string): T[] => {
   const typeValue = type.toLowerCase();
   const typeCheckers: Record<string, (s: T) => boolean> = {
-    gmail: isGmailReceipt,
     receipt: isStoreReceipt,
   };
   const checker = typeCheckers[typeValue];

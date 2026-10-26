@@ -59,12 +59,12 @@ describe('notificationHref', () => {
     expect(notificationHref(make({ type: 'subscription.detected' }))).toBe('/subscriptions');
   });
 
-  it('opens the tax tab on the threshold card, not the workspace overview', () => {
+  it('opens the tax year tab on the threshold card, not the workspace overview', () => {
     expect(
       notificationHref(
         make({ type: 'tax.threshold.reached', entityType: 'workspace', entityId: 'w-1' }),
       ),
-    ).toBe('/reports?tab=tax&focus=tax%3Athreshold');
+    ).toBe('/reports?tab=tax-year&focus=tax%3Athreshold');
   });
 
   it('keeps statement notifications on the statement editor', () => {
@@ -73,7 +73,15 @@ describe('notificationHref', () => {
     );
     expect(
       notificationHref(make({ type: 'receipt.uncategorized', entityType: 'receipt', entityId: 'r-1' })),
-    ).toBe('/storage/gmail-receipts/r-1');
+    ).toBe('/storage/receipts/r-1');
+  });
+
+  it('opens the review queue for the weekly digest, not a statement named by the workspace id', () => {
+    expect(
+      notificationHref(
+        make({ type: 'transaction.uncategorized', entityType: 'review-inbox', entityId: 'ws-1' }),
+      ),
+    ).toBe('/review');
   });
 
   it('sends deleted statements to the trash and membership changes to members', () => {

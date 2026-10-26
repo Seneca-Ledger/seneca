@@ -57,74 +57,74 @@ describe('WorkspacesService', () => {
         {
           provide: getRepositoryToken(Workspace),
           useValue: {
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            delete: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            delete: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(WorkspaceInvitation),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(User),
           useValue: {
-            findOne: jest.fn(),
-            update: jest.fn(),
+            findOne: vi.fn(),
+            update: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(Integration),
           useValue: {
-            count: jest.fn(),
+            count: vi.fn(),
           },
         },
         {
           provide: AuditService,
           useValue: {
-            createEvent: jest.fn(),
+            createEvent: vi.fn(),
           },
         },
         {
           provide: BalanceService,
           useValue: {
-            seedDefaultAccounts: jest.fn(),
+            seedDefaultAccounts: vi.fn(),
           },
         },
         {
           provide: CategoriesService,
           useValue: {
-            createSystemCategories: jest.fn(),
+            createSystemCategories: vi.fn(),
           },
         },
         {
           provide: TaxRatesService,
           useValue: {
-            createDefaultTaxRates: jest.fn(),
+            createDefaultTaxRates: vi.fn(),
           },
         },
         {
           provide: EventEmitter2,
           useValue: {
-            emit: jest.fn(),
+            emit: vi.fn(),
           },
         },
       ],
@@ -143,7 +143,7 @@ describe('WorkspacesService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -156,7 +156,7 @@ describe('WorkspacesService', () => {
 
   describe('ensureUserWorkspace', () => {
     it('should return existing workspace', async () => {
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
 
       const result = await service.ensureUserWorkspace(mockUser as User);
 
@@ -165,11 +165,11 @@ describe('WorkspacesService', () => {
 
     it('should create workspace if not exists', async () => {
       const userWithoutWorkspace = { ...mockUser, workspaceId: null };
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(workspaceRepository, 'create').mockReturnValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceRepository, 'save').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
-      jest.spyOn(userRepository, 'update').mockResolvedValue({} as any);
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(workspaceRepository, 'create').mockReturnValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceRepository, 'save').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
+      vi.spyOn(userRepository, 'update').mockResolvedValue({} as any);
 
       const result = await service.ensureUserWorkspace(userWithoutWorkspace as User);
 
@@ -179,11 +179,11 @@ describe('WorkspacesService', () => {
 
     it('should add user as owner in new workspace', async () => {
       const userWithoutWorkspace = { ...mockUser, workspaceId: null };
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(workspaceRepository, 'create').mockReturnValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceRepository, 'save').mockResolvedValue(mockWorkspace as Workspace);
-      const memberSpy = jest.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
-      jest.spyOn(userRepository, 'update').mockResolvedValue({} as any);
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(workspaceRepository, 'create').mockReturnValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceRepository, 'save').mockResolvedValue(mockWorkspace as Workspace);
+      const memberSpy = vi.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
+      vi.spyOn(userRepository, 'update').mockResolvedValue({} as any);
 
       await service.ensureUserWorkspace(userWithoutWorkspace as User);
 
@@ -197,11 +197,11 @@ describe('WorkspacesService', () => {
 
     it('should update user with workspace id', async () => {
       const userWithoutWorkspace = { ...mockUser, workspaceId: null };
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(workspaceRepository, 'create').mockReturnValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceRepository, 'save').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
-      const updateSpy = jest.spyOn(userRepository, 'update').mockResolvedValue({} as any);
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(workspaceRepository, 'create').mockReturnValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceRepository, 'save').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
+      const updateSpy = vi.spyOn(userRepository, 'update').mockResolvedValue({} as any);
 
       await service.ensureUserWorkspace(userWithoutWorkspace as User);
 
@@ -213,11 +213,11 @@ describe('WorkspacesService', () => {
 
   describe('createWorkspace', () => {
     it('should emit audit event on create', async () => {
-      jest.spyOn(workspaceRepository, 'create').mockReturnValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceRepository, 'save').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
-      jest.spyOn(userRepository, 'update').mockResolvedValue({} as any);
-      jest.spyOn(service as any, 'getWorkspaceStats').mockResolvedValue({});
+      vi.spyOn(workspaceRepository, 'create').mockReturnValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceRepository, 'save').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
+      vi.spyOn(userRepository, 'update').mockResolvedValue({} as any);
+      vi.spyOn(service as any, 'getWorkspaceStats').mockResolvedValue({});
 
       const result = await service.createWorkspace(
         mockUser.id as string,
@@ -239,15 +239,15 @@ describe('WorkspacesService', () => {
 
   describe('getWorkspaceOverview', () => {
     it('should return workspace with members', async () => {
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'find').mockResolvedValue([
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'find').mockResolvedValue([
         {
           workspaceId: 'ws-1',
           userId: '1',
           role: WorkspaceRole.OWNER,
         } as WorkspaceMember,
       ]);
-      jest.spyOn(invitationRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(invitationRepository, 'find').mockResolvedValue([]);
 
       const result = await service.getWorkspaceOverview(mockUser as User);
 
@@ -256,9 +256,9 @@ describe('WorkspacesService', () => {
     });
 
     it('should include pending invitations', async () => {
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'find').mockResolvedValue([] as WorkspaceMember[]);
-      jest.spyOn(invitationRepository, 'find').mockResolvedValue([
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'find').mockResolvedValue([] as WorkspaceMember[]);
+      vi.spyOn(invitationRepository, 'find').mockResolvedValue([
         {
           email: 'invited@example.com',
           status: WorkspaceInvitationStatus.PENDING,
@@ -271,15 +271,15 @@ describe('WorkspacesService', () => {
     });
 
     it('should show user role and permissions', async () => {
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'find').mockResolvedValue([
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'find').mockResolvedValue([
         {
           userId: '1',
           role: WorkspaceRole.ADMIN,
           permissions: { canEditStatements: true },
         } as WorkspaceMember,
       ]);
-      jest.spyOn(invitationRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(invitationRepository, 'find').mockResolvedValue([]);
 
       const result = await service.getWorkspaceOverview(mockUser as User);
 
@@ -288,8 +288,8 @@ describe('WorkspacesService', () => {
     });
 
     it('should include member avatar and timezone', async () => {
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'find').mockResolvedValue([
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'find').mockResolvedValue([
         {
           userId: '1',
           role: WorkspaceRole.MEMBER,
@@ -302,7 +302,7 @@ describe('WorkspacesService', () => {
           } as User,
         } as WorkspaceMember,
       ]);
-      jest.spyOn(invitationRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(invitationRepository, 'find').mockResolvedValue([]);
 
       const result = await service.getWorkspaceOverview(mockUser as User);
 
@@ -320,21 +320,21 @@ describe('WorkspacesService', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.OWNER,
       } as WorkspaceMember);
-      jest.spyOn(invitationRepository, 'find').mockResolvedValue([]);
-      jest.spyOn(service as any, 'sendInvitationEmail').mockResolvedValue(undefined);
+      vi.spyOn(invitationRepository, 'find').mockResolvedValue([]);
+      vi.spyOn(service as any, 'sendInvitationEmail').mockResolvedValue(undefined);
     });
 
     it('should create invitation', async () => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
-      const createSpy = jest
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
+      const createSpy = vi
         .spyOn(invitationRepository, 'create')
         .mockReturnValue({} as WorkspaceInvitation);
-      jest.spyOn(invitationRepository, 'save').mockResolvedValue({} as WorkspaceInvitation);
+      vi.spyOn(invitationRepository, 'save').mockResolvedValue({} as WorkspaceInvitation);
 
       await service.inviteMember(mockWorkspace.id as string, mockUser as User, inviteDto);
 
@@ -347,7 +347,7 @@ describe('WorkspacesService', () => {
     });
 
     it('should check inviter permissions', async () => {
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue({
         role: WorkspaceRole.MEMBER,
       } as WorkspaceMember);
 
@@ -357,13 +357,13 @@ describe('WorkspacesService', () => {
     });
 
     it('should reject duplicate invitation', async () => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(null);
       const existingInvitation = {
         status: WorkspaceInvitationStatus.PENDING,
         token: 'old-token',
       } as WorkspaceInvitation;
-      jest.spyOn(invitationRepository, 'findOne').mockResolvedValue(existingInvitation);
-      const saveSpy = jest
+      vi.spyOn(invitationRepository, 'findOne').mockResolvedValue(existingInvitation);
+      const saveSpy = vi
         .spyOn(invitationRepository, 'save')
         .mockResolvedValue(existingInvitation);
 
@@ -378,7 +378,7 @@ describe('WorkspacesService', () => {
     });
 
     it('should reject if user already member', async () => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue({
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue({
         workspaceId: mockWorkspace.id,
       } as User);
 
@@ -388,10 +388,10 @@ describe('WorkspacesService', () => {
     });
 
     it('should send invitation email', async () => {
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(invitationRepository, 'create').mockReturnValue({} as WorkspaceInvitation);
-      jest.spyOn(invitationRepository, 'save').mockResolvedValue({} as WorkspaceInvitation);
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(invitationRepository, 'create').mockReturnValue({} as WorkspaceInvitation);
+      vi.spyOn(invitationRepository, 'save').mockResolvedValue({} as WorkspaceInvitation);
 
       // Mock email sending would be tested here
       await service.inviteMember(mockWorkspace.id as string, mockUser as User, inviteDto);
@@ -405,12 +405,12 @@ describe('WorkspacesService', () => {
         role: WorkspaceRole.MEMBER,
       };
 
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
-      const createSpy = jest
+      vi.spyOn(userRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
+      const createSpy = vi
         .spyOn(invitationRepository, 'create')
         .mockReturnValue({} as WorkspaceInvitation);
-      jest.spyOn(invitationRepository, 'save').mockResolvedValue({} as WorkspaceInvitation);
+      vi.spyOn(invitationRepository, 'save').mockResolvedValue({} as WorkspaceInvitation);
 
       await service.inviteMember(mockWorkspace.id as string, mockUser as User, upperCaseInvite);
 
@@ -428,10 +428,10 @@ describe('WorkspacesService', () => {
       process.env.FRONTEND_URL = 'http://localhost:3000';
 
       try {
-        jest.spyOn(userRepository, 'findOne').mockResolvedValue(null);
-        jest.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
-        jest.spyOn(invitationRepository, 'create').mockReturnValue({} as WorkspaceInvitation);
-        jest
+        vi.spyOn(userRepository, 'findOne').mockResolvedValue(null);
+        vi.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
+        vi.spyOn(invitationRepository, 'create').mockReturnValue({} as WorkspaceInvitation);
+        vi
           .spyOn(invitationRepository, 'save')
           .mockResolvedValue({ token: 'tok-1' } as WorkspaceInvitation);
 
@@ -461,16 +461,16 @@ describe('WorkspacesService', () => {
     };
 
     it('should accept valid invitation', async () => {
-      jest
+      vi
         .spyOn(invitationRepository, 'findOne')
         .mockResolvedValue({ ...mockInvitation } as WorkspaceInvitation);
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
-      const saveInvitationSpy = jest
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
+      const saveInvitationSpy = vi
         .spyOn(invitationRepository, 'save')
         .mockResolvedValue(mockInvitation as WorkspaceInvitation);
-      jest.spyOn(userRepository, 'update').mockResolvedValue({} as any);
+      vi.spyOn(userRepository, 'update').mockResolvedValue({} as any);
 
       await service.acceptInvitation(mockUser as User, 'valid-token');
 
@@ -479,7 +479,7 @@ describe('WorkspacesService', () => {
     });
 
     it('should throw if invitation not found', async () => {
-      jest.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(invitationRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.acceptInvitation(mockUser as User, 'invalid-token')).rejects.toThrow(
         NotFoundException,
@@ -492,13 +492,13 @@ describe('WorkspacesService', () => {
         expiresAt: new Date('2020-01-01'),
         status: WorkspaceInvitationStatus.PENDING,
       };
-      jest
+      vi
         .spyOn(invitationRepository, 'findOne')
         .mockResolvedValue({ ...expiredInvitation } as WorkspaceInvitation);
-      jest
+      vi
         .spyOn(invitationRepository, 'save')
         .mockResolvedValue(expiredInvitation as WorkspaceInvitation);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.acceptInvitation(mockUser as User, 'valid-token')).rejects.toThrow(
         BadRequestException,
@@ -507,7 +507,7 @@ describe('WorkspacesService', () => {
 
     it('should throw if email mismatch', async () => {
       const wrongUser = { ...mockUser, email: 'wrong@example.com' };
-      jest
+      vi
         .spyOn(invitationRepository, 'findOne')
         .mockResolvedValue(mockInvitation as WorkspaceInvitation);
 
@@ -517,16 +517,16 @@ describe('WorkspacesService', () => {
     });
 
     it('should mark invitation as accepted', async () => {
-      jest
+      vi
         .spyOn(invitationRepository, 'findOne')
         .mockResolvedValue({ ...mockInvitation } as WorkspaceInvitation);
-      jest.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
-      jest.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
-      const saveSpy = jest
+      vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue(mockWorkspace as Workspace);
+      vi.spyOn(workspaceMemberRepository, 'findOne').mockResolvedValue(null);
+      vi.spyOn(workspaceMemberRepository, 'save').mockResolvedValue({} as any);
+      const saveSpy = vi
         .spyOn(invitationRepository, 'save')
         .mockResolvedValue(mockInvitation as WorkspaceInvitation);
-      jest.spyOn(userRepository, 'update').mockResolvedValue({} as any);
+      vi.spyOn(userRepository, 'update').mockResolvedValue({} as any);
 
       await service.acceptInvitation(mockUser as User, 'valid-token');
 

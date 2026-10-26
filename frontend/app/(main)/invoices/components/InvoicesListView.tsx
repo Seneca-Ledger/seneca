@@ -3,17 +3,26 @@
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { Plus } from '@/app/components/icons';
+import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
-import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { InvoiceLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
+import { PageTitle } from '@/app/components/ui/page-title';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
+import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { formatMoney } from '@/app/lib/format-money';
 import { type Invoice, type InvoiceStatus, invoicesApi } from '@/app/lib/invoices-api';
+import { InvoiceAgeingPanel } from './InvoiceAgeingPanel';
+import { InvoicesListSkeleton } from './InvoicesSkeletons';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
 
 const PAGE_SIZE = 20;
@@ -24,6 +33,14 @@ export function InvoicesListView(): React.JSX.Element {
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const { locale } = useLocale();
   const t = useIntlayer('invoicesPage');
+  useQuickActions([
+    {
+      id: 'new-invoice',
+      label: t.newInvoice.value,
+      icon: Plus,
+      run: () => router.push('/invoices/new'),
+    },
+  ]);
 
   const [items, setItems] = useState<Invoice[]>([]);
   const [total, setTotal] = useState(0);
@@ -121,16 +138,25 @@ export function InvoicesListView(): React.JSX.Element {
       });
   };
 
+  // Read one key at a time: indexing an intlayer dictionary with a variable
+  // types as `any` and silently loses a missing status.
+  const statusLabels: Record<InvoiceStatus, string> = {
+    draft: String(t.statusLabels.draft.value),
+    sent: String(t.statusLabels.sent.value),
+    partially_paid: String(t.statusLabels.partially_paid.value),
+    paid: String(t.statusLabels.paid.value),
+    overdue: String(t.statusLabels.overdue.value),
+    void: String(t.statusLabels.void.value),
+  };
+
   if (authLoading || workspaceLoading || loading) {
-    return (
-      <div className="container-shared lumio-stmt-list" style={{ padding: '40px 16px' }}>
-        —
-      </div>
-    );
+    return <InvoicesListSkeleton />;
   }
 
+  const noInvoices = items.length === 0 && status === 'all';
+
   return (
-    <div className="container-shared lumio-stmt-list">
+    <div className="container-shared seneca-stmt-list">
       <div
         style={{
           marginBottom: 24,
@@ -144,100 +170,168 @@ export function InvoicesListView(): React.JSX.Element {
             display: 'flex',
             flexWrap: 'wrap',
             gap: 16,
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
           }}
         >
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--foreground)' }}>{t.title}</h1>
-            <p
-              style={{ marginTop: 8, maxWidth: 640, fontSize: 14, color: 'var(--text-secondary)' }}
-            >
-              {t.subtitle}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <PageTitle
+            path="/invoices"
+            summary={
+              status === 'all' ? undefined : `${t.columns.status.value}: ${statusLabels[status]}`
+            }
+          />
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+              gap: 8,
+              alignItems: 'center',
+            }}
+          >
             <Button variant="outline" onClick={() => router.push('/invoices/clients')}>
               {t.clientsNav}
             </Button>
-            <Button onClick={() => router.push('/invoices/new')}>
-              {t.newInvoice}
-            </Button>
+            <ImportFromFileButton
+              target="invoices"
+              onImported={() => void load()}
+              renderTrigger={(open, label) => (
+                <Button variant="outline" onClick={open}>
+                  {label}
+                </Button>
+              )}
+            />
+            {/* With no invoices at all the empty state's button is the one action. */}
+            {noInvoices ? null : (
+              <ReadOnlyHint>
+                <Button
+                  className="seneca-bottom-bar-source"
+                  onClick={() => router.push('/invoices/new')}
+                >
+                  <Plus size={18} aria-hidden />
+                  {t.newInvoice}
+                </Button>
+              </ReadOnlyHint>
+            )}
           </div>
         </div>
 
-        <Select
-          size="small"
-          value={status}
-          onChange={next => {
-            setStatus(next as InvoiceStatus | 'all');
-            setPage(1);
-          }}
-          options={[
-            { value: 'all', label: t.columns.status.value },
-            { value: 'draft', label: t.statusLabels.draft.value },
-            { value: 'sent', label: t.statusLabels.sent.value },
-            { value: 'paid', label: t.statusLabels.paid.value },
-            { value: 'overdue', label: t.statusLabels.overdue.value },
-            { value: 'void', label: t.statusLabels.void.value },
-          ]}
-          sx={{ maxWidth: 220 }}
-        />
+        {/* Nothing to filter until there is an invoice; an active filter stays so it can be reset. */}
+        {total > 0 || status !== 'all' ? (
+          <Select
+            size="small"
+            value={status}
+            onChange={next => {
+              setStatus(next as InvoiceStatus | 'all');
+              setPage(1);
+            }}
+            options={[
+              { value: 'all', label: t.columns.status.value },
+              { value: 'draft', label: statusLabels.draft },
+              { value: 'sent', label: statusLabels.sent },
+              { value: 'partially_paid', label: statusLabels.partially_paid },
+              { value: 'paid', label: statusLabels.paid },
+              { value: 'overdue', label: statusLabels.overdue },
+              { value: 'void', label: statusLabels.void },
+            ]}
+            sx={{ maxWidth: 220 }}
+          />
+        ) : null}
       </div>
 
-      {items.length === 0 ? (
-        <div className="lumio-payable-list__empty">
-          <EmptyStateIllustration name="receivables" size="md" />
-          <h3 style={{ fontSize: 18, fontWeight: 600 }}>{t.empty.title}</h3>
-          <p style={{ marginTop: 8, fontSize: 14, color: 'var(--text-secondary)' }}>
-            {t.empty.description}
-          </p>
-        </div>
+      <InvoiceAgeingPanel />
+
+      {items.length === 0 && status !== 'all' ? (
+        <EmptyState
+          icon={<SearchLineIcon />}
+          title={t.empty.noMatchesTitle}
+          action={
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setStatus('all');
+                setPage(1);
+              }}
+            >
+              {t.empty.clearFilter}
+            </Button>
+          }
+        />
+      ) : items.length === 0 ? (
+        <EmptyState
+          fill
+          icon={<InvoiceLineIcon />}
+          title={t.empty.title}
+          description={t.empty.description}
+          action={
+            <ReadOnlyHint>
+              <Button onClick={() => router.push('/invoices/new')}>{t.newInvoice}</Button>
+            </ReadOnlyHint>
+          }
+        />
       ) : (
-        <div className="lumio-payable-list">
-          <div className="lumio-payable-list__table-wrap">
-            <table className="lumio-payable-list__table">
-              <thead className="lumio-payable-list__thead">
+        <div className="seneca-payable-list">
+          <div className="seneca-payable-list__table-wrap">
+            <table className="seneca-payable-list__table">
+              <thead className="seneca-payable-list__thead">
                 <tr>
-                  <th className="lumio-payable-list__th">{t.columns.number.value}</th>
-                  <th className="lumio-payable-list__th">{t.columns.client.value}</th>
-                  <th className="lumio-payable-list__th">{t.columns.issueDate.value}</th>
-                  <th className="lumio-payable-list__th">{t.columns.dueDate.value}</th>
-                  <th className="lumio-payable-list__th">{t.columns.status.value}</th>
-                  <th className="lumio-payable-list__th lumio-payable-list__th--right">
+                  <th className="seneca-payable-list__th">{t.columns.number.value}</th>
+                  <th className="seneca-payable-list__th">{t.columns.client.value}</th>
+                  <th className="seneca-payable-list__th">{t.columns.issueDate.value}</th>
+                  <th className="seneca-payable-list__th">{t.columns.dueDate.value}</th>
+                  <th className="seneca-payable-list__th">{t.columns.status.value}</th>
+                  <th className="seneca-payable-list__th seneca-payable-list__th--right">
                     {t.columns.total.value}
                   </th>
-                  <th className="lumio-payable-list__th lumio-payable-list__th--right">
+                  <th className="seneca-payable-list__th seneca-payable-list__th--right">
                     {t.columns.actions.value}
                   </th>
                 </tr>
               </thead>
-              <tbody className="lumio-payable-list__tbody">
+              <tbody className="seneca-payable-list__tbody">
                 {items.map(invoice => (
                   <tr key={invoice.id}>
-                    <td className="lumio-payable-list__td" style={{ fontWeight: 500 }}>
+                    <td className="seneca-payable-list__td" style={{ fontWeight: 500 }}>
                       {invoice.invoiceNumber ?? t.statusLabels.draft.value}
                     </td>
-                    <td className="lumio-payable-list__td">{invoice.client?.name ?? '—'}</td>
-                    <td className="lumio-payable-list__td">
+                    <td className="seneca-payable-list__td">{invoice.client?.name ?? '—'}</td>
+                    <td className="seneca-payable-list__td">
                       {formatInvoiceDate(invoice.issueDate, locale)}
                     </td>
-                    <td className="lumio-payable-list__td">
+                    <td className="seneca-payable-list__td">
                       {formatInvoiceDate(invoice.dueDate, locale)}
                     </td>
-                    <td className="lumio-payable-list__td">
+                    <td className="seneca-payable-list__td">
                       <Badge variant={getInvoiceStatusVariant(invoice.status)}>
-                        {t.statusLabels[invoice.status]?.value ?? invoice.status}
+                        {statusLabels[invoice.status] ?? invoice.status}
                       </Badge>
                     </td>
                     <td
-                      className="lumio-payable-list__td"
+                      className="seneca-payable-list__td"
                       style={{ textAlign: 'right', fontWeight: 600 }}
                     >
-                      {formatMoney(Number(invoice.total), invoice.currency, locale)}
+                      <PrivateAmount>
+                        {formatMoney(Number(invoice.total), invoice.currency, locale)}
+                      </PrivateAmount>
+                      {/* A part-paid invoice is neither unpaid nor settled. */}
+                      {Number(invoice.amountPaid ?? 0) > 0 &&
+                        Number(invoice.amountDue ?? 0) > 0 && (
+                          <div
+                            style={{
+                              fontWeight: 400,
+                              fontSize: 13,
+                              color: 'var(--text-secondary)',
+                            }}
+                          >
+                            {t.detail.amountDue.value}{' '}
+                            <PrivateAmount>
+                              {formatMoney(Number(invoice.amountDue), invoice.currency, locale)}
+                            </PrivateAmount>
+                          </div>
+                        )}
                     </td>
-                    <td className="lumio-payable-list__td">
-                      <div className="lumio-payable-list__actions">
+                    <td className="seneca-payable-list__td">
+                      <div className="seneca-payable-list__actions">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -292,7 +386,7 @@ export function InvoicesListView(): React.JSX.Element {
             </table>
           </div>
 
-          <div className="lumio-payable-list__pagination-row">
+          <div className="seneca-payable-list__pagination-row">
             <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{total}</div>
             <AppPagination page={page} total={totalPages} onChange={setPage} />
           </div>

@@ -2,6 +2,7 @@ import {
   addDecimals,
   type EtherscanTokenTx,
   type EtherscanTx,
+  finalizeTransfers,
   formatUnits,
   mapChainTransfers,
 } from '../../../../src/modules/crypto/crypto-transfer.mapper';
@@ -72,7 +73,7 @@ describe('mapChainTransfers', () => {
     });
   });
 
-  it('books an outgoing native transfer as an expense and gas separately', () => {
+  it('keeps the gas of an outgoing native transfer off the amount that was sent', () => {
     const transfers = map({
       transactions: [
         tx({
@@ -85,9 +86,17 @@ describe('mapChainTransfers', () => {
       ],
     });
 
-    // Value and gas share a hash, asset and direction, so they merge into one row.
-    expect(transfers).toHaveLength(1);
-    expect(transfers[0]).toMatchObject({ direction: 'out', amount: '1.000021' });
+    // The sent amount is the sent amount; the fee rides along as its own leg until
+    // `finalizeTransfers` folds it onto the transfer.
+    expect(transfers).toHaveLength(2);
+    expect(transfers.find(transfer => transfer.leg === 'fee')).toMatchObject({
+      direction: 'out',
+      amount: '0.000021',
+    });
+    expect(transfers.find(transfer => transfer.leg !== 'fee')).toMatchObject({
+      direction: 'out',
+      amount: '1',
+    });
   });
 
   it('drops a transfer between two wallets the workspace owns', () => {
@@ -114,7 +123,7 @@ describe('mapChainTransfers', () => {
     });
 
     expect(transfers).toEqual([
-      expect.objectContaining({ direction: 'out', amount: '0.000021', asset: 'ETH' }),
+      expect.objectContaining({ direction: 'out', amount: '0.000021', asset: 'ETH', leg: 'fee' }),
     ]);
   });
 
@@ -132,7 +141,9 @@ describe('mapChainTransfers', () => {
       ],
     });
 
-    expect(transfers).toEqual([expect.objectContaining({ amount: '0.000021', direction: 'out' })]);
+    expect(transfers).toEqual([
+      expect.objectContaining({ amount: '0.000021', direction: 'out', leg: 'fee' }),
+    ]);
   });
 
   it('honours each token’s own decimal count', () => {
@@ -161,6 +172,102 @@ describe('mapChainTransfers', () => {
 
   it('ignores zero-value rows such as bare contract calls', () => {
     expect(map({ transactions: [tx({ value: '0' })] })).toEqual([]);
+  });
+});
+
+describe('finalizeTransfers', () => {
+  const SWAP_HASH = '0xswap';
+
+  function swap() {
+    return mapChainTransfers({
+      address: ME,
+      nativeAsset: 'ETH',
+      ownAddresses: [ME],
+      tickerByContract: TICKER_BY_CONTRACT[1],
+      // One transaction: ETH out, USDC in — a sale of ETH, not spending.
+      transactions: [
+        tx({
+          hash: SWAP_HASH,
+          from: ME,
+          to: STRANGER,
+          value: '1000000000000000000',
+          gasUsed: '21000',
+          gasPrice: '1000000000',
+        }),
+      ],
+      tokenTransfers: [tokenTx({ hash: SWAP_HASH, value: '3000000' })],
+    });
+  }
+
+  it('folds the fee onto the transfer it paid for', () => {
+    const finalized = finalizeTransfers(
+      map({
+        transactions: [
+          tx({
+            from: ME,
+            to: STRANGER,
+            value: '1000000000000000000',
+            gasUsed: '21000',
+            gasPrice: '1000000000',
+          }),
+        ],
+      }),
+    );
+
+    expect(finalized).toEqual([
+      expect.objectContaining({
+        direction: 'out',
+        amount: '1',
+        leg: 'value',
+        fee: { asset: 'ETH', amount: '0.000021' },
+      }),
+    ]);
+  });
+
+  it('marks both legs of a swap as a trade', () => {
+    const finalized = finalizeTransfers(swap());
+    const legs = finalized.filter(transfer => transfer.leg === 'value');
+
+    expect(legs).toHaveLength(2);
+    expect(legs.every(leg => leg.isTrade)).toBe(true);
+  });
+
+  it('leaves a swap’s fee as its own leg, since the swap itself nets out', () => {
+    const finalized = finalizeTransfers(swap());
+
+    expect(finalized.filter(transfer => transfer.leg === 'fee')).toEqual([
+      expect.objectContaining({ asset: 'ETH', amount: '0.000021', direction: 'out' }),
+    ]);
+    const sold = finalized.find(
+      transfer => transfer.leg === 'value' && transfer.direction === 'out',
+    );
+    expect(sold).toMatchObject({ amount: '1' });
+    expect(sold).not.toHaveProperty('fee');
+  });
+
+  it('keeps a fee with no transfer to ride on', () => {
+    const finalized = finalizeTransfers(
+      map({
+        transactions: [
+          tx({
+            from: ME,
+            to: STRANGER,
+            value: '1000000000000000000',
+            gasUsed: '21000',
+            gasPrice: '1000000000',
+            isError: '1',
+          }),
+        ],
+      }),
+    );
+
+    expect(finalized).toEqual([expect.objectContaining({ leg: 'fee', amount: '0.000021' })]);
+  });
+
+  it('does not call an ordinary receipt a trade', () => {
+    const finalized = finalizeTransfers(map({ tokenTransfers: [tokenTx({ value: '1000000' })] }));
+
+    expect(finalized[0].isTrade).toBeUndefined();
   });
 });
 

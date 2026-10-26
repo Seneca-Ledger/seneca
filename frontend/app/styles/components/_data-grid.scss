@@ -1,15 +1,15 @@
-// lumio-grid — shared TanStack Table v9 grid (app/components/data-grid)
+// seneca-grid — shared TanStack Table v9 grid (app/components/data-grid)
 @use '../abstracts' as *;
 
-.lumio-grid {
+.seneca-grid {
   overflow: hidden;
-  border: 1px solid $lumio-color-ink-150;
-  border-radius: $lumio-radius-lg;
-  background-color: $lumio-color-surface;
+  border: 1px solid $seneca-color-ink-150;
+  border-radius: $seneca-radius-lg;
+  background-color: $seneca-color-surface;
 
   @include dark {
-    border-color: $lumio-color-ink-150-dk;
-    background-color: $lumio-color-surface-dk;
+    border-color: $seneca-color-ink-150-dk;
+    background-color: $seneca-color-surface-dk;
   }
 
   &__scroll {
@@ -22,11 +22,11 @@
     border-collapse: separate;
     border-spacing: 0;
     table-layout: fixed;
-    font-size: $lumio-font-size-sm;
-    color: $lumio-color-text-primary;
+    font-size: $seneca-font-size-sm;
+    color: $seneca-color-text-primary;
 
     @include dark {
-      color: $lumio-color-text-primary-dk;
+      color: $seneca-color-text-primary-dk;
     }
   }
 
@@ -38,29 +38,28 @@
     position: sticky;
     top: 0;
     z-index: 2;
-    background-color: $lumio-color-ink-50;
+    background-color: $seneca-color-ink-50;
 
     @include dark {
-      background-color: $lumio-color-ink-50-dk;
+      background-color: $seneca-color-ink-50-dk;
     }
   }
 
   &__th {
     padding: 10px 12px;
-    border-bottom: 1px solid $lumio-color-ink-150;
+    border-bottom: 1px solid $seneca-color-hairline;
     text-align: left;
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-semibold;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: $lumio-color-ink-500;
+    // Sentence case, small and grey: the rule for every table in the app.
+    font-size: 13px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 
     @include dark {
-      border-bottom-color: $lumio-color-ink-150-dk;
-      color: $lumio-color-ink-500-dk;
+      border-bottom-color: $seneca-color-ink-150-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -80,17 +79,17 @@
 
     &:hover,
     &--active {
-      color: $lumio-color-ink-800;
+      color: $seneca-color-ink-800;
 
       @include dark {
-        color: $lumio-color-ink-800-dk;
+        color: $seneca-color-ink-800-dk;
       }
     }
 
     &:focus-visible {
       outline: 2px solid var(--primary);
       outline-offset: 2px;
-      border-radius: $lumio-radius-xs;
+      border-radius: $seneca-radius-xs;
     }
   }
 
@@ -117,33 +116,33 @@
   &__td {
     padding: 0 12px;
     height: 44px;
-    border-bottom: 1px solid $lumio-color-ink-100;
+    border-bottom: 1px solid $seneca-color-hairline;
     vertical-align: middle;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 
     @include dark {
-      border-bottom-color: $lumio-color-ink-100-dk;
+      border-bottom-color: $seneca-color-ink-100-dk;
     }
   }
 
   &__tr {
     transition: background-color 120ms ease;
 
-    &:hover > .lumio-grid__td {
-      background-color: $lumio-color-ink-50;
+    &:hover > .seneca-grid__td {
+      background-color: $seneca-color-slot-bg;
 
       @include dark {
-        background-color: $lumio-color-ink-50-dk;
+        background-color: $seneca-color-ink-50-dk;
       }
     }
 
-    &--selected > .lumio-grid__td {
+    &--selected > .seneca-grid__td {
       background-color: var(--primary-50);
 
       @include dark {
-        background-color: $lumio-color-primary-50-dk;
+        background-color: $seneca-color-primary-50-dk;
       }
     }
 
@@ -152,7 +151,7 @@
     }
   }
 
-  &__tbody > tr:last-child > .lumio-grid__td {
+  &__tbody > tr:last-child > .seneca-grid__td {
     border-bottom: 0;
   }
 
@@ -170,40 +169,41 @@
 
   &__cell--numeric {
     font-variant-numeric: tabular-nums;
+    font-weight: $seneca-font-weight-medium;
   }
 
   &__tfoot {
     position: sticky;
     bottom: 0;
     z-index: 1;
-    background-color: $lumio-color-ink-50;
+    background-color: $seneca-color-ink-50;
 
     @include dark {
-      background-color: $lumio-color-ink-50-dk;
+      background-color: $seneca-color-ink-50-dk;
     }
   }
 
   &__tf {
     padding: 6px 12px;
-    border-top: 1px solid $lumio-color-ink-150;
-    font-size: $lumio-font-size-xs;
-    font-weight: $lumio-font-weight-medium;
-    color: $lumio-color-ink-600;
+    border-top: 1px solid $seneca-color-ink-150;
+    font-size: $seneca-font-size-xs;
+    font-weight: $seneca-font-weight-medium;
+    color: $seneca-color-ink-600;
     white-space: nowrap;
 
     @include dark {
-      border-top-color: $lumio-color-ink-150-dk;
-      color: $lumio-color-ink-600-dk;
+      border-top-color: $seneca-color-ink-150-dk;
+      color: $seneca-color-ink-600-dk;
     }
   }
 
   &__empty {
     padding: 48px 16px;
     text-align: center;
-    color: $lumio-color-ink-500;
+    color: $seneca-color-ink-500;
 
     @include dark {
-      color: $lumio-color-ink-500-dk;
+      color: $seneca-color-ink-500-dk;
     }
   }
 
@@ -212,7 +212,7 @@
     text-align: center;
   }
 
-  &__skeleton-row:hover > .lumio-grid__td {
+  &__skeleton-row:hover > .seneca-grid__td {
     background-color: transparent;
   }
 
@@ -221,12 +221,12 @@
     width: 60%;
     max-width: 160px;
     height: 10px;
-    border-radius: $lumio-radius-full;
-    background-color: $lumio-color-ink-100;
-    animation: lumio-grid-skeleton-pulse 1.4s ease-in-out infinite;
+    border-radius: $seneca-radius-full;
+    background-color: $seneca-color-ink-100;
+    animation: seneca-grid-skeleton-pulse 1.4s ease-in-out infinite;
 
     @include dark {
-      background-color: $lumio-color-ink-150-dk;
+      background-color: $seneca-color-ink-150-dk;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -246,36 +246,36 @@
   &__menu-count {
     margin-left: 6px;
     padding: 0 6px;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     background-color: var(--primary-50);
     color: var(--primary);
-    font-size: $lumio-font-size-xs;
+    font-size: $seneca-font-size-xs;
 
     @include dark {
-      background-color: $lumio-color-primary-50-dk;
-      color: $lumio-color-primary-dk;
+      background-color: $seneca-color-primary-50-dk;
+      color: $seneca-color-primary-dk;
     }
   }
 }
 
-.lumio-grid__th-inner {
+.seneca-grid__th-inner {
   display: flex;
   align-items: center;
   gap: 4px;
   min-width: 0;
 }
 
-.lumio-grid__cell--end .lumio-grid__th-inner {
+.seneca-grid__cell--end .seneca-grid__th-inner {
   justify-content: flex-end;
 }
 
 // th-inner is a flex row, so the cell's text-align: center never reaches it;
 // without this the select-all checkbox sat left of the row checkboxes.
-.lumio-grid__cell--center .lumio-grid__th-inner {
+.seneca-grid__cell--center .seneca-grid__th-inner {
   justify-content: center;
 }
 
-@keyframes lumio-grid-skeleton-pulse {
+@keyframes seneca-grid-skeleton-pulse {
   50% {
     opacity: 0.45;
   }

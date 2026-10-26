@@ -1,19 +1,22 @@
 'use client';
 
-import { Alert, Box, Button, TextField, Typography } from '@mui/material';
+import { Box, Button, TextField, Typography } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
-import MuiLink from '@mui/material/Link';
 import NextLink from 'next/link';
 import React, { useState } from 'react';
 import { AuthLanguageSwitcher } from '@/app/components/AuthLanguageSwitcher';
+import { BrandLockup } from '@/app/components/BrandLockup';
+import { Check } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { tokens } from '@/lib/theme-tokens';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { AuthHero } from '../AuthHero';
 import AuthLayout from '../AuthLayout';
 
 export default function ForgotPasswordPage(): React.JSX.Element {
   const t = useIntlayer('forgotPasswordPage');
+  const tl = useIntlayer('loginPage');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -25,7 +28,7 @@ export default function ForgotPasswordPage(): React.JSX.Element {
     setError(null);
 
     await apiClient
-      .post('/auth/forgot-password', { email })
+      .post('/auth/forgot-password', { email } satisfies ContractInput<'ForgotPasswordBody'>)
       .then(() => {
         // The backend answers the same way for known and unknown addresses, so
         // this screen must not distinguish them either.
@@ -39,68 +42,59 @@ export default function ForgotPasswordPage(): React.JSX.Element {
       });
   };
 
-  const sideContent = (
-    <Box sx={{ color: 'white' }}>
-      <Typography
-        variant="h2"
-        fontWeight="bold"
-        gutterBottom
-        sx={{
-          fontFamily: 'var(--font-nunito), "Nunito", sans-serif',
-          textShadow: '0 4px 20px rgba(0,0,0,0.3)',
-        }}
-      >
-        Lumio
-      </Typography>
-      <Typography variant="h5" sx={{ opacity: 0.9, lineHeight: 1.6 }}>
-        {t.subtitle}
-      </Typography>
-    </Box>
-  );
+  // The same right half as sign-in: what Seneca is for, not this form's text again.
+  const sideContent = <AuthHero tagline={tl.rightTagline} />;
 
   return (
     <AuthLayout sideContent={sideContent} topRightAction={<AuthLanguageSwitcher />}>
-      <Typography variant="h4" fontWeight="bold" align="center" sx={{ mb: 1 }}>
+      <BrandLockup className="seneca-auth-logo" />
+      <Typography component="h1" className="seneca-auth-title seneca-auth-title--with-lead">
         {t.title}
       </Typography>
-      <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
-        {t.subtitle}
-      </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      <p className="seneca-auth-lead">{t.subtitle}</p>
 
       {sent ? (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          {t.sent}
-        </Alert>
+        <p role="status" className="seneca-auth-notice">
+          <Check size={18} aria-hidden />
+          <span>{t.sent}</span>
+        </p>
       ) : (
-        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label={t.emailLabel.value}
-            name="email"
-            type="email"
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            InputProps={{ sx: { borderRadius: tokens.radius.md } }}
-            sx={{ mb: 2 }}
-          />
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          className="seneca-auth-form"
+          sx={{ width: '100%' }}
+        >
+          <div className="seneca-auth-field">
+            <label htmlFor="email" className="seneca-auth-field__label">
+              {t.emailLabel}
+            </label>
+            <TextField
+              required
+              fullWidth
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              error={Boolean(error)}
+              slotProps={{ htmlInput: { 'aria-describedby': error ? 'forgot-error' : undefined } }}
+            />
+            {error ? (
+              <p id="forgot-error" role="alert" className="seneca-auth-error">
+                {error}
+              </p>
+            ) : null}
+          </div>
           <Button
             type="submit"
             fullWidth
             variant="contained"
             size="large"
+            className="seneca-auth-submit"
             disabled={loading}
-            sx={{ mt: 1, mb: 3, borderRadius: tokens.radius.md, py: 1.5 }}
           >
             {loading ? (
               <>
@@ -114,11 +108,11 @@ export default function ForgotPasswordPage(): React.JSX.Element {
         </Box>
       )}
 
-      <Typography variant="body2" align="center">
-        <MuiLink component={NextLink} href="/login" underline="hover">
+      <p className="seneca-auth-footnote">
+        <NextLink href="/login" className="seneca-auth-link seneca-auth-link--accent">
           {t.backToLogin}
-        </MuiLink>
-      </Typography>
+        </NextLink>
+      </p>
     </AuthLayout>
   );
 }

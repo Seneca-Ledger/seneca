@@ -666,8 +666,7 @@ export class UniversalAmountParser {
     return value
       .replace(/[٠-٩]/g, digit => String(arabicIndicDigits.indexOf(digit)))
       .replace(/[۰-۹]/g, digit => String(easternArabicIndicDigits.indexOf(digit)))
-      .replace(/٬/g, ',')
-      .replace(/٫/g, '٫');
+      .replace(/٬/g, ',');
   }
 
   detectCurrencyFromContext(text: string): string | null {

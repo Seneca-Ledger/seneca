@@ -8,6 +8,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { FormEvent } from 'react';
 import { Alert } from '@/app/components/ui/alert';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { Spinner } from '@/app/components/ui/spinner';
 
 type Passwords = { current: string; next: string; confirm: string };
@@ -22,7 +23,7 @@ type Props = {
       submit: { value: string };
     };
   };
-  tx: (path: string[], fallback: string) => string;
+  tx: (path: string[]) => string;
   passwordMessage: string | null;
   passwordError: string | null;
   passwordLoading: boolean;
@@ -47,17 +48,20 @@ export function PasswordSection({
       sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}
       onSubmit={handlePasswordSubmit}
     >
+      <EmptyStateIllustration name="password" size="sm" />
       {passwordMessage && <Alert variant="success">{passwordMessage}</Alert>}
       {passwordError && <Alert variant="error">{passwordError}</Alert>}
-      <Alert variant="warning">
-        {tx(
-          ['passwordCard', 'securityHint'],
-          'Use a unique password and keep your account email secure. Confirm before applying password changes.',
-        )}
-      </Alert>
+      <Alert variant="warning">{tx(['passwordCard', 'securityHint'])}</Alert>
 
       <Stack spacing={0.5}>
-        <Typography component="label" htmlFor="password-current" variant="body2" fontWeight={600}>
+        <Typography
+          component="label"
+          htmlFor="password-current"
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.passwordCard.currentPasswordLabel.value}
         </Typography>
         <TextField
@@ -74,7 +78,14 @@ export function PasswordSection({
       <Divider />
 
       <Stack spacing={0.5}>
-        <Typography component="label" htmlFor="password-next" variant="body2" fontWeight={600}>
+        <Typography
+          component="label"
+          htmlFor="password-next"
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.passwordCard.newPasswordLabel.value}
         </Typography>
         <TextField
@@ -86,13 +97,25 @@ export function PasswordSection({
           required
           fullWidth
         />
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {t.passwordCard.newPasswordHelp.value}
         </Typography>
       </Stack>
 
       <Stack spacing={0.5}>
-        <Typography component="label" htmlFor="password-confirm" variant="body2" fontWeight={600}>
+        <Typography
+          component="label"
+          htmlFor="password-confirm"
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.passwordCard.confirmPasswordLabel.value}
         </Typography>
         <TextField

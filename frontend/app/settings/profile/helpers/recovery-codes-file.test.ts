@@ -2,12 +2,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as XLSX from 'xlsx';
 import { downloadRecoveryCodes, type RecoveryCodesFileContent } from './recovery-codes-file';
+import { APP_NAME } from '@/app/lib/brand';
 
 const codes = ['SV4EA-ZYFTP', 'F3DYA-87KRK', 'TNMFB-PCAVV'];
 
 const content: RecoveryCodesFileContent = {
   locale: 'ru',
-  title: 'Lumio — Резервные коды',
+  title: `${APP_NAME} — Резервные коды`,
   details: ['Аккаунт: user@example.com', 'Дата создания: 26.09.2026, 12:00'],
   hint: 'Каждый код срабатывает один раз.',
   codes,
@@ -15,17 +16,17 @@ const content: RecoveryCodesFileContent = {
 
 const chinese: RecoveryCodesFileContent = {
   locale: 'zh',
-  title: 'Lumio — 恢复码',
+  title: `${APP_NAME} — 恢复码`,
   details: ['账户: user@example.com', 'Generated: Sep 26, 2026'],
   hint: '每个恢复码可代替身份验证器应用中的验证码使用一次。',
   codes,
 };
 
-const arabic: RecoveryCodesFileContent = {
-  locale: 'ar',
-  title: 'Lumio — رموز الاسترداد',
-  details: ['الحساب: user@example.com'],
-  hint: 'يعمل كل رمز مرة واحدة بدلاً من رمز تطبيق المصادقة. احتفظ بهذا الملف في مكان آمن ولا تشاركه مع أحد.',
+const hindi: RecoveryCodesFileContent = {
+  locale: 'hi',
+  title: `${APP_NAME} — रिकवरी कोड`,
+  details: ['खाता: user@example.com'],
+  hint: 'हर कोड ऑथेंटिकेटर ऐप के कोड की जगह एक बार काम करता है। इस फ़ाइल को सुरक्षित जगह रखें और किसी के साथ साझा न करें।',
   codes,
 };
 
@@ -33,8 +34,8 @@ const ONE_PIXEL_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 let saved: { blob: Blob; fileName: string } | null = null;
-/** Lines the browser drew onto a canvas, with the context state at that moment. */
-let drawn: Array<{ text: string; direction: string; textAlign: string }> = [];
+/** Lines the browser drew onto a canvas. */
+let drawn: Array<{ text: string }> = [];
 
 beforeEach(() => {
   saved = null;
@@ -46,13 +47,11 @@ beforeEach(() => {
       font: '',
       fillStyle: '',
       textBaseline: '',
-      direction: 'inherit',
-      textAlign: 'start',
       measureText: (text: string) => ({
         width: text.length * Number.parseFloat(ctx.font.split(' ')[1]) * 0.6,
       }),
       fillText: (text: string) => {
-        drawn.push({ text, direction: ctx.direction, textAlign: ctx.textAlign });
+        drawn.push({ text });
       },
     };
     return ctx;
@@ -105,7 +104,7 @@ describe('downloadRecoveryCodes', () => {
   it('saves a PDF with the title, details, hint and every code as real text', async () => {
     await downloadRecoveryCodes('pdf', content);
 
-    expect(saved?.fileName).toMatch(/^lumio-recovery-codes-\d{4}-\d{2}-\d{2}\.pdf$/);
+    expect(saved?.fileName).toMatch(/^seneca-recovery-codes-\d{4}-\d{2}-\d{2}\.pdf$/);
     const text = await pdfText(await savedBytes());
     for (const line of [content.title, ...content.details, content.hint, ...content.codes]) {
       expect(text).toContain(line);
@@ -133,30 +132,18 @@ describe('downloadRecoveryCodes', () => {
     expect(raw).toContain('/Subtype /Image');
   }, 30_000);
 
-  it('draws Arabic right to left and wraps a long line without losing words', async () => {
-    await downloadRecoveryCodes('pdf', arabic);
+  it('wraps a long drawn line without losing words', async () => {
+    await downloadRecoveryCodes('pdf', hindi);
 
-    expect(drawn.every(line => line.direction === 'rtl' && line.textAlign === 'right')).toBe(true);
     const hintLines = drawn.slice(2).map(line => line.text);
     expect(hintLines.length).toBeGreaterThan(1);
-    expect(hintLines.join(' ')).toBe(arabic.hint);
+    expect(hintLines.join(' ')).toBe(hindi.hint);
   }, 30_000);
-
-  it('marks Arabic DOCX paragraphs right to left but leaves the codes left to right', async () => {
-    await downloadRecoveryCodes('docx', arabic);
-
-    const xml = docxXml(await savedBytes());
-    const runWith = (text: string) => xml.split('<w:r>').find(run => run.includes(text)) ?? '';
-    expect(xml).toContain('<w:bidi/>');
-    expect(runWith(arabic.title)).toContain('<w:rtl/>');
-    expect(runWith(arabic.hint)).toContain('<w:rtl/>');
-    expect(runWith(codes[0])).not.toContain('<w:rtl/>');
-  });
 
   it('saves a DOCX with the title, details, hint and every code', async () => {
     await downloadRecoveryCodes('docx', content);
 
-    expect(saved?.fileName).toMatch(/^lumio-recovery-codes-\d{4}-\d{2}-\d{2}\.docx$/);
+    expect(saved?.fileName).toMatch(/^seneca-recovery-codes-\d{4}-\d{2}-\d{2}\.docx$/);
     const xml = docxXml(await savedBytes());
     for (const line of [content.title, ...content.details, content.hint, ...content.codes]) {
       expect(xml).toContain(line);
@@ -176,6 +163,6 @@ describe('downloadRecoveryCodes', () => {
       process.env.TZ = previousTz;
     }
 
-    expect(saved?.fileName).toBe('lumio-recovery-codes-2026-09-26.docx');
+    expect(saved?.fileName).toBe('seneca-recovery-codes-2026-09-26.docx');
   });
 });

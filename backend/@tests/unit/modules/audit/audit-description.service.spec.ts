@@ -67,6 +67,65 @@ describe('AuditDescriptionService', () => {
     expect(renderAuditDescriptionEnglish(descriptor)).toBe('Rolled back: change to category');
   });
 
+  it('does not report a field the row simply never loaded', () => {
+    // `select: false` columns — the ledger bookkeeping ones — are `undefined` on
+    // a loaded row and so vanish from the stored snapshot, while the saved copy
+    // carries them as `null`. That is not an edit, and a rename used to read
+    // "changed: paymentPurpose, ledgerPostedAt, ledgerError".
+    const descriptor = service.generate({
+      entityType: EntityType.TRANSACTION,
+      entityId: 'tx-1',
+      action: AuditAction.UPDATE,
+      diff: {
+        before: { paymentPurpose: 'Bakery' },
+        after: {
+          paymentPurpose: 'Bread',
+          ledgerPostedAt: null,
+          ledgerError: null,
+          ledgerAttemptedAt: null,
+        },
+      },
+    } as CreateAuditEventDto);
+
+    expect(descriptor).toEqual({
+      key: 'updateOneField',
+      params: { entity: EntityType.TRANSACTION, field: 'paymentPurpose' },
+    });
+  });
+
+  it('still reports a field that was really cleared', () => {
+    const descriptor = service.generate({
+      entityType: EntityType.TRANSACTION,
+      entityId: 'tx-1',
+      action: AuditAction.UPDATE,
+      diff: { before: { comments: 'check this' }, after: { comments: null } },
+    } as CreateAuditEventDto);
+
+    expect(descriptor.params.field).toBe('comments');
+  });
+
+  it('still reports a field that was really filled in', () => {
+    const descriptor = service.generate({
+      entityType: EntityType.TRANSACTION,
+      entityId: 'tx-1',
+      action: AuditAction.UPDATE,
+      diff: { before: { comments: null }, after: { comments: 'check this' } },
+    } as CreateAuditEventDto);
+
+    expect(descriptor.params.field).toBe('comments');
+  });
+
+  it('treats an absent key and an explicit null as the same nothing', () => {
+    const descriptor = service.generate({
+      entityType: EntityType.TRANSACTION,
+      entityId: 'tx-1',
+      action: AuditAction.UPDATE,
+      diff: { before: {}, after: { comments: null } },
+    } as CreateAuditEventDto);
+
+    expect(descriptor.key).toBe('update');
+  });
+
   it('truncates a long field list and reports the remainder', () => {
     const descriptor = service.generate({
       entityType: EntityType.CUSTOM_TABLE,

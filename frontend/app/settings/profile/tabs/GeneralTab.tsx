@@ -7,9 +7,13 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Palette, UserCircle } from '@/app/components/icons';
+import { useLanguageSelection } from '@/app/components/navigation/hooks/useLanguageSelection';
+import { LanguageDrawer } from '@/app/components/navigation/LanguageDrawer';
 import { Alert } from '@/app/components/ui/alert';
-import { useLocale } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
+import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { formatTimeZoneLabel } from '@/app/lib/timezone';
 import {
   AppearanceSection,
@@ -24,18 +28,22 @@ import { useAppearance } from '@/app/settings/profile/hooks/useAppearance';
 import { useAvatarUpload } from '@/app/settings/profile/hooks/useAvatarUpload';
 import { useProfileForm } from '@/app/settings/profile/hooks/useProfileForm';
 import { useSettingsText } from '@/app/settings/profile/hooks/useSettingsText';
-import {
-  getInitials,
-  resolveTimeZoneOptions,
-  type TimeZoneOption,
-} from '@/app/settings/profile/profileHelpers';
+import { resolveTimeZoneOptions, type TimeZoneOption } from '@/app/settings/profile/profileHelpers';
 
 import type { SettingsTabProps } from './types';
 
-// eslint-disable-next-line max-lines-per-function
 export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.JSX.Element {
-  const { locale } = useLocale();
+  const { locale, availableLocales, setLocale } = useLocale();
   const { t, tx } = useSettingsText();
+  const { userMenu, languageModal } = useIntlayer('navigation');
+
+  const language = useLanguageSelection({
+    locale,
+    availableLocales,
+    setLocale,
+    languageModal,
+    setMobileMenuOpen: () => {},
+  });
   const openSection = resolveOpenSection('general', section);
 
   const [isTimeZoneModalOpen, setIsTimeZoneModalOpen] = useState(false);
@@ -72,9 +80,9 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
     avatarInputRef,
     handleAvatarSelect,
   } = useAvatarUpload(user, setUser, {
-    sizeError: tx(['profileCard', 'avatarSizeError'], 'Avatar file is too large'),
-    updated: tx(['profileCard', 'avatarUpdated'], 'Avatar updated'),
-    errorFallback: tx(['profileCard', 'avatarError'], 'Failed to update avatar'),
+    sizeError: tx(['profileCard', 'avatarSizeError']),
+    updated: tx(['profileCard', 'avatarUpdated']),
+    errorFallback: tx(['profileCard', 'avatarError']),
   });
 
   const {
@@ -141,7 +149,6 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
   );
 
   const displayName = profileName || user?.name || user?.email?.split('@')[0] || '—';
-  const initials = getInitials(displayName);
   const avatarUrl = normalizeAvatarUrl(user?.avatarUrl);
 
   return (
@@ -151,13 +158,16 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={2}
-            alignItems="center"
-            sx={{ textAlign: { xs: 'center', sm: 'left' } }}
+            sx={{
+              alignItems: 'center',
+              textAlign: { xs: 'center', sm: 'left' },
+            }}
           >
             <AvatarUploadButton
               avatarUrl={avatarUrl}
               displayName={displayName}
-              initials={initials}
+              initial={avatarInitial(displayName)}
+              tone={avatarTone(user?.email)}
               showImage={!avatarError}
               disabled={avatarUploading}
               inputRef={avatarInputRef}
@@ -169,7 +179,13 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
                 {displayName}
               </Typography>
               {user?.email ? (
-                <Typography variant="body2" color="text.secondary" noWrap>
+                <Typography
+                  variant="body2"
+                  noWrap
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {user.email}
                 </Typography>
               ) : null}
@@ -216,6 +232,10 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
           setProfileError={setProfileError}
           hasProfileChanges={hasProfileChanges}
           handleProfileSubmit={handleProfileSubmit}
+          languageLabel={language.languageLabel}
+          languageFieldLabel={resolveLabel(userMenu.language)}
+          isLanguageDrawerOpen={language.languageModalOpen}
+          onOpenLanguageDrawer={language.openLanguageMenu}
           isTimeZoneModalOpen={isTimeZoneModalOpen}
           setIsTimeZoneModalOpen={setIsTimeZoneModalOpen}
           setTimeZoneSearch={setTimeZoneSearch}
@@ -230,7 +250,7 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
 
       <SettingsAccordion
         id="appearance"
-        title={tx(['appearanceCard', 'detailsTitle'], 'Density & motion')}
+        title={tx(['appearanceCard', 'detailsTitle'])}
         description={t.appearanceCard.description.value}
         icon={Palette}
         defaultExpanded={openSection === 'appearance'}
@@ -245,6 +265,17 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
           setShowDailyQuote={setShowDailyQuote}
         />
       </SettingsAccordion>
+
+      <LanguageDrawer
+        isOpen={language.languageModalOpen}
+        onClose={language.closeLanguageMenu}
+        languageModal={languageModal}
+        languageSearch={language.languageSearch}
+        setLanguageSearch={language.setLanguageSearch}
+        filteredLanguages={language.filteredLanguages}
+        normalizedLocale={language.normalizedLocale}
+        handleLanguageSelect={language.handleLanguageSelect as (code: string) => void}
+      />
 
       <TimeZoneDrawer
         isOpen={isTimeZoneModalOpen}

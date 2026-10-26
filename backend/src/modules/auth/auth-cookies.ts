@@ -13,10 +13,10 @@ export const CSRF_TOKEN_HEADER = 'x-csrf-token';
 const isProduction = () => process.env.NODE_ENV === 'production';
 
 /**
- * `lax`, not `strict`, despite .claude/rules/security.md §1: the OAuth callbacks
- * (Google, Dropbox, Drive, Gmail) come back as a top-level cross-site redirect,
- * and `strict` withholds the cookie on exactly that navigation — the user would
- * land back on the app logged out. `lax` still blocks the cross-site
+ * `lax`, not `strict`, despite .claude/rules/security.md §1: a link to the app
+ * followed from another site (an e-mail, a chat) is a top-level cross-site
+ * navigation, and `strict` withholds the cookie on exactly that navigation — the
+ * user would land on the app logged out. `lax` still blocks the cross-site
  * POST/PUT/DELETE that CSRF relies on. Override with AUTH_COOKIE_SAMESITE when a
  * deployment puts the frontend on a different registrable domain, which needs
  * `none` (and therefore HTTPS).
@@ -49,7 +49,7 @@ const UNIT_MS: Record<string, number> = {
  * Parses the same duration strings the JWT options use ("30m", "30d") into
  * milliseconds for the cookie's Max-Age, so a cookie never outlives its token.
  * Hand-rolled rather than pulling in `ms`: that package is CommonJS and its
- * interop shape differs between the app's transform and Jest's, which made the
+ * interop shape differs between the app's transform and the test runner's, which made the
  * call site throw under test while working at runtime.
  */
 const parseDurationMs = (value: string, fallbackMs: number): number => {

@@ -9,8 +9,9 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 
-type Tx = (path: string[], fallback: string) => string;
+type Tx = (path: string[]) => string;
 
 interface Coverage {
   currency: string;
@@ -34,9 +35,8 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
     new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(rate);
 
   const load = async () => {
-    await apiClient
-      .get<Coverage>('/exchange-rates/coverage')
-      .then(response => setCoverage(response?.data ?? null))
+    await apiQueryDecoded({ url: '/exchange-rates/coverage', contract: 'ExchangeRateCoverage' })
+      .then(setCoverage)
       .catch(() => setCoverage(null));
   };
   useEffect(() => {
@@ -52,12 +52,12 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
         from: currency,
         to: coverage.currency,
         rate,
-      });
-      toast.success(tx(['exchangeRatesCard', 'saved'], 'Rate saved'));
+      } satisfies ContractInput<'ManualRateBody'>);
+      toast.success(tx(['exchangeRatesCard', 'saved']));
       setDrafts(current => ({ ...current, [currency]: '' }));
       await load();
     } catch {
-      toast.error(tx(['exchangeRatesCard', 'failed'], 'Could not save the rate'));
+      toast.error(tx(['exchangeRatesCard', 'failed']));
     } finally {
       setSaving(null);
     }
@@ -66,8 +66,13 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
   if (!Array.isArray(coverage?.currencies)) return null;
   if (coverage.currencies.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary">
-        {tx(['exchangeRatesCard', 'empty'], 'Every row is in the workspace currency')}
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
+        {tx(['exchangeRatesCard', 'empty'])}
       </Typography>
     );
   }
@@ -80,11 +85,23 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
           data-testid={`rate-row-${item.currency}`}
           sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}
         >
-          <Typography variant="body2" fontWeight={600} sx={{ width: 56 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 600,
+              width: 56,
+            }}
+          >
             {item.currency}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ width: 90 }}>
-            {item.rows} {tx(['exchangeRatesCard', 'colRows'], 'rows')}
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              width: 90,
+            }}
+          >
+            {item.rows} {tx(['exchangeRatesCard', 'colRows'])}
           </Typography>
           <Typography
             variant="body2"
@@ -95,25 +112,24 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
             }}
           >
             {item.rate === null
-              ? tx(['exchangeRatesCard', 'missing'], 'no rate')
+              ? tx(['exchangeRatesCard', 'missing'])
               : `1 ${item.currency} = ${formatRate(item.rate)} ${coverage.currency}${
                   item.rateDate && item.stale
-                    ? ` · ${tx(['exchangeRatesCard', 'stale'], 'rate from {{date}}').replace('{{date}}', item.rateDate)}`
+                    ? ` · ${tx(['exchangeRatesCard', 'stale']).replace('{{date}}', item.rateDate)}`
                     : ''
                 }`}
           </Typography>
           <TextField
             size="small"
-            label={tx(['exchangeRatesCard', 'colRate'], 'Rate to {{currency}}').replace(
-              '{{currency}}',
-              coverage.currency,
-            )}
+            label={tx(['exchangeRatesCard', 'colRate']).replace('{{currency}}', coverage.currency)}
             value={drafts[item.currency] ?? ''}
             onChange={event =>
               setDrafts(current => ({ ...current, [item.currency]: event.target.value }))
             }
-            inputProps={{ inputMode: 'decimal' }}
             sx={{ width: 160 }}
+            slotProps={{
+              htmlInput: { inputMode: 'decimal' },
+            }}
           />
           <Button
             size="small"
@@ -121,7 +137,7 @@ export function ExchangeRatesSection({ tx }: { tx: Tx }) {
             disabled={saving === item.currency || !drafts[item.currency]}
             onClick={() => void save(item.currency)}
           >
-            {tx(['exchangeRatesCard', 'setRate'], 'Set')}
+            {tx(['exchangeRatesCard', 'setRate'])}
           </Button>
         </Box>
       ))}

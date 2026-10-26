@@ -1,9 +1,15 @@
 import type { INestApplication, ModuleMetadata } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import request, { type Response } from 'supertest';
 import type { DataSource } from 'typeorm';
 import { ACCESS_TOKEN_COOKIE } from '../../../src/modules/auth/auth-cookies';
+import {
+  REFERENCE_FETCH,
+  type ReferenceFetch,
+} from '../../../src/modules/reference-data/reference-fetch';
+import { LeakGuardInterceptor } from './leak-guard';
 
 /**
  * A throttler store that never counts. Every e2e suite reaches the API from the
@@ -20,10 +26,48 @@ const unlimitedStorage: ThrottlerStorage = {
   }),
 };
 
+/**
+ * What reference data (holidays, EU VAT rates, VIES) gets instead of the
+ * internet. By default every call fails, as on an instance without network,
+ * so no suite depends on outside services; a suite that needs an answer sets
+ * `referenceFetch.handler` and resets it afterwards.
+ */
+export const referenceFetch: { handler: ReferenceFetch | null } = { handler: null };
+
+const offlineFetch: ReferenceFetch = async (input, init) => {
+  if (referenceFetch.handler) {
+    return referenceFetch.handler(input, init);
+  }
+  throw new Error('No network in e2e tests');
+};
+
+/**
+ * @nestjs/schedule's module options (its own string token). Cron jobs stay off in
+ * e2e apps: a suite that crosses the hour otherwise has the hourly jobs run in
+ * the middle of it — the scheduled table export rewrote another workspace's
+ * schedule and failed the isolation sweep. Suites call the jobs' methods
+ * themselves when they test them.
+ */
+const SCHEDULE_MODULE_OPTIONS = 'SCHEDULE_MODULE_OPTIONS';
+
+/**
+ * Every e2e app also runs the leak guard, outermost: a suite's request fails
+ * when its answer hands out an account detail, a credential or a file's path.
+ */
 export function e2eTestingModule(metadata: ModuleMetadata): TestingModuleBuilder {
-  return Test.createTestingModule(metadata)
+  return Test.createTestingModule({
+    ...metadata,
+    providers: [
+      { provide: APP_INTERCEPTOR, useClass: LeakGuardInterceptor },
+      ...(metadata.providers ?? []),
+    ],
+  })
     .overrideProvider(ThrottlerStorage)
-    .useValue(unlimitedStorage);
+    .useValue(unlimitedStorage)
+    .overrideProvider(REFERENCE_FETCH)
+    .useValue(offlineFetch)
+    .overrideProvider(SCHEDULE_MODULE_OPTIONS)
+    .useValue({ cronJobs: false, intervals: true, timeouts: true });
 }
 
 /** A cookie the response set. Tokens travel only as HttpOnly cookies, never in the body. */

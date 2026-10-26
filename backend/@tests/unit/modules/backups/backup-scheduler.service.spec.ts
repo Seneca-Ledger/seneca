@@ -11,9 +11,9 @@ describe('BackupSchedulerService', () => {
       enabled: true,
       destinationKind: BackupDestinationKind.LOCAL,
     };
-    const configurations = { find: jest.fn().mockResolvedValue([configuration]) };
-    const workspaces = { findOne: jest.fn().mockResolvedValue({ id: 'workspace-1' }) };
-    const backups = { runConfiguration: jest.fn().mockResolvedValue(undefined) };
+    const configurations = { find: vi.fn().mockResolvedValue([configuration]) };
+    const workspaces = { findOne: vi.fn().mockResolvedValue({ id: 'workspace-1' }) };
+    const backups = { runConfiguration: vi.fn().mockResolvedValue(undefined) };
     const scheduler = new BackupSchedulerService(configurations as never, workspaces as never, backups as never);
     const now = new Date('2026-01-01T01:00:00.000Z');
 
@@ -30,13 +30,13 @@ describe('BackupSchedulerService', () => {
 
   it('skips disabled configurations and configurations outside their local scheduled minute', async () => {
     const configurations = {
-      find: jest.fn().mockResolvedValue([
+      find: vi.fn().mockResolvedValue([
         { id: 'disabled', workspaceId: 'one', dailyTime: '03:00', timeZone: 'Asia/Jerusalem', enabled: false },
         { id: 'later', workspaceId: 'two', dailyTime: '04:00', timeZone: 'Asia/Jerusalem', enabled: true },
       ]),
     };
-    const workspaces = { findOne: jest.fn() };
-    const backups = { runConfiguration: jest.fn() };
+    const workspaces = { findOne: vi.fn() };
+    const backups = { runConfiguration: vi.fn() };
     const scheduler = new BackupSchedulerService(configurations as never, workspaces as never, backups as never);
 
     await scheduler.runDueBackups(new Date('2026-01-01T01:00:00.000Z'));

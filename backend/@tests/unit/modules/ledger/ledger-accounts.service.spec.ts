@@ -11,16 +11,16 @@ import {
 const WS = 'workspace-1';
 
 const createRepoMock = () => ({
-  create: jest.fn((data: unknown) => ({ ...(data as object) })),
-  save: jest.fn(async (data: { code?: string; id?: string }) => ({
+  create: vi.fn((data: unknown) => ({ ...(data as object) })),
+  save: vi.fn(async (data: { code?: string; id?: string }) => ({
     ...data,
     id: data.id ?? `id-${data.code}`,
   })),
-  find: jest.fn(),
-  findOne: jest.fn(),
-  count: jest.fn(),
-  update: jest.fn(),
-  softDelete: jest.fn(),
+  find: vi.fn(),
+  findOne: vi.fn(),
+  count: vi.fn(),
+  update: vi.fn(),
+  softDelete: vi.fn(),
 });
 
 /** The seeded chart as it would come back from the database. */
@@ -41,16 +41,16 @@ describe('LedgerAccountsService', () => {
   const txAccountRepository = createRepoMock();
   const txCategoryRepository = createRepoMock();
   const manager = {
-    getRepository: jest.fn((entity: unknown) =>
+    getRepository: vi.fn((entity: unknown) =>
       entity === Category ? txCategoryRepository : txAccountRepository,
     ),
   };
-  const transaction = jest.fn(async (work: (m: typeof manager) => Promise<void>) => work(manager));
+  const transaction = vi.fn(async (work: (m: typeof manager) => Promise<void>) => work(manager));
 
   let service: LedgerAccountsService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     Object.assign(accountRepository, { manager: { transaction } });
     service = new LedgerAccountsService(
       accountRepository as any,
@@ -168,7 +168,7 @@ describe('LedgerAccountsService', () => {
 
   describe('create', () => {
     beforeEach(() => {
-      jest.spyOn(service, 'ensureChart').mockResolvedValue();
+      vi.spyOn(service, 'ensureChart').mockResolvedValue();
     });
 
     it('derives the normal balance from the type and normalises code and currency', async () => {
@@ -314,7 +314,7 @@ describe('LedgerAccountsService', () => {
 
   describe('categoryAccountId', () => {
     beforeEach(() => {
-      jest.spyOn(service, 'ensureChart').mockResolvedValue();
+      vi.spyOn(service, 'ensureChart').mockResolvedValue();
     });
 
     it('walks up to the nearest ancestor with an account', async () => {
@@ -326,7 +326,7 @@ describe('LedgerAccountsService', () => {
       await expect(service.categoryAccountId(WS, 'child')).resolves.toBe('acc-root');
       expect(accountRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'acc-root', workspaceId: WS, isPostable: true },
-        select: ['id'],
+        select: { id: true },
       });
       expect(service.ensureChart).not.toHaveBeenCalled();
     });

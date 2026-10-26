@@ -32,7 +32,7 @@ import { LedgerSyncQueue } from '../../src/modules/ledger/queue/ledger-sync.queu
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_ledger_reports_${process.pid}`;
+const SCRATCH_DB = `seneca_ledger_reports_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -44,15 +44,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -71,7 +71,7 @@ async function httpError(promise: Promise<unknown>): Promise<{ status: number; c
 }
 
 describe('ledger reports (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let reports: LedgerReportsService;
@@ -103,9 +103,9 @@ describe('ledger reports (real Postgres)', () => {
         LedgerEntriesService,
         LedgerPostingService,
         LedgerAccountsService,
-        { provide: LedgerSyncQueue, useValue: { enqueue: jest.fn() } },
-        { provide: AuditService, useValue: { createEvent: jest.fn().mockResolvedValue(undefined) } },
-        { provide: ExchangeRatesService, useValue: { getRateQuote: jest.fn().mockResolvedValue(null) } },
+        { provide: LedgerSyncQueue, useValue: { enqueue: vi.fn() } },
+        { provide: AuditService, useValue: { createEvent: vi.fn().mockResolvedValue(undefined) } },
+        { provide: ExchangeRatesService, useValue: { getRateQuote: vi.fn().mockResolvedValue(null) } },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
           useValue: dataSource.getRepository(entity),
@@ -117,7 +117,9 @@ describe('ledger reports (real Postgres)', () => {
     const accounts = moduleRef.get(LedgerAccountsService);
 
     workspaceId = (
-      await dataSource.getRepository(Workspace).save({ name: 'Reports WS', ledgerBaseCurrency: 'EUR' })
+      await dataSource
+        .getRepository(Workspace)
+        .save({ name: 'Reports WS', currency: 'EUR', ledgerBaseCurrency: 'EUR' })
     ).id;
     const userId = (
       await dataSource.getRepository(User).save(
@@ -304,11 +306,13 @@ describe('ledger reports (real Postgres)', () => {
   });
 
   it('refuses a workspace without the ledger, and another workspace account', async () => {
-    const off = (await dataSource.getRepository(Workspace).save({ name: 'Off' })).id;
+    const off = (await dataSource.getRepository(Workspace).save({ name: 'Off', currency: 'USD' })).id;
     expect(await httpError(reports.profitAndLoss(off, {}))).toEqual({ status: 409, code: 'LEDGER_DISABLED' });
 
     const other = (
-      await dataSource.getRepository(Workspace).save({ name: 'Other', ledgerBaseCurrency: 'EUR' })
+      await dataSource
+        .getRepository(Workspace)
+        .save({ name: 'Other', currency: 'EUR', ledgerBaseCurrency: 'EUR' })
     ).id;
     expect(await httpError(reports.accountLedger(other, ids.bank, {}))).toEqual({
       status: 404,

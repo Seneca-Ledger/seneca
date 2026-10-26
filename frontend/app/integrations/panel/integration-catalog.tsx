@@ -1,30 +1,21 @@
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import AlternateEmailOutlinedIcon from '@mui/icons-material/AlternateEmailOutlined';
-import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
 import CloudQueueOutlinedIcon from '@mui/icons-material/CloudQueueOutlined';
 import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined';
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import MarkEmailUnreadOutlinedIcon from '@mui/icons-material/MarkEmailUnreadOutlined';
-import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import type React from 'react';
 import { useMemo } from 'react';
 import { useIntlayer } from '@/app/i18n';
-import type {
-  ConfigField,
-  ConfigPreset,
-  ProtocolIntegrationPageProps,
-} from '../open-protocol-page';
+import { APP_NAME } from '@/app/lib/brand';
+import type { ProtocolIntegrationPageProps } from '../open-protocol-page';
 
-export type IntegrationCategoryKey =
-  | 'ai'
-  | 'application'
-  | 'bank'
-  | 'storage'
-  | 'email'
-  | 'messaging';
+export type IntegrationCategoryKey = 'application' | 'bank' | 'storage' | 'email' | 'messaging';
 
 type CatalogText = ReturnType<typeof useIntlayer<'integrationCatalog'>>;
+type PeppolText = ReturnType<typeof useIntlayer<'peppol'>>;
 
 type ProtocolConfig = Omit<ProtocolIntegrationPageProps, 'embedded' | 'onConnectionStatusChange'>;
 
@@ -33,8 +24,7 @@ type ProtocolConfig = Omit<ProtocolIntegrationPageProps, 'embedded' | 'onConnect
  * panel of its own for the one entry that is not a credentials form.
  */
 export type IntegrationDetail =
-  | { kind: 'protocol'; config: ProtocolConfig; secondary?: ProtocolConfig }
-  | { kind: 'local-categorization' }
+  | { kind: 'protocol'; config: ProtocolConfig }
   | { kind: 'bank-sync' };
 
 export type IntegrationEntry = {
@@ -52,101 +42,14 @@ export type IntegrationEntry = {
 };
 
 /**
- * Every endpoint here is called as `<base URL>/v1/chat/completions`, except
- * api.anthropic.com which is routed through Anthropic's own protocol. Base URLs
- * carry no path of their own for that reason.
- */
-const AI_PRESETS: ConfigPreset[] = [
-  { label: 'OpenAI', values: { baseUrl: 'https://api.openai.com', model: 'gpt-4.1-mini' } },
-  {
-    label: 'Anthropic',
-    values: { baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet-5' },
-  },
-  {
-    label: 'OpenRouter',
-    values: { baseUrl: 'https://openrouter.ai/api', model: 'openai/gpt-4.1-mini' },
-  },
-];
-
-function buildAiFields(f: CatalogText['fields']): ConfigField[] {
-  return [
-    { name: 'enabled', label: f.enabled.value, type: 'checkbox' },
-    {
-      name: 'baseUrl',
-      label: f.baseUrl.value,
-      placeholder: 'https://api.openai.com',
-      required: true,
-    },
-    { name: 'model', label: f.model.value, placeholder: 'gpt-4.1-mini', required: true },
-    {
-      name: 'apiKey',
-      label: f.apiKey.value,
-      type: 'password',
-      placeholder: f.apiKeyPlaceholder.value,
-    },
-    { name: 'timeoutMs', label: f.timeoutMs.value, type: 'number', placeholder: '20000' },
-  ];
-}
-
-/**
  * The integrations offered in the panel, in list order. Each entry carries the
  * settings its second layer renders, so there is one place to add a service.
  */
-function buildIntegrationCatalog(t: CatalogText): IntegrationEntry[] {
+function buildIntegrationCatalog(t: CatalogText, peppol: PeppolText): IntegrationEntry[] {
   const f = t.fields;
   const e = t.entries;
-  const aiFields = buildAiFields(f);
 
   return [
-    {
-      key: 'ai-compatible',
-      name: e.aiCompatible.name.value,
-      description: e.aiCompatible.description.value,
-      badge: 'Open protocol',
-      category: 'ai',
-      recommended: true,
-      icon: <SmartToyOutlinedIcon sx={{ fontSize: 22 }} aria-hidden="true" />,
-      statusPath: '/settings/integrations/ai',
-      docsUrl: 'https://github.com/ollama/ollama/blob/main/docs/api.md',
-      detail: {
-        kind: 'protocol',
-        config: {
-          title: e.aiCompatible.name.value,
-          description: e.aiCompatible.detailDescription.value,
-          statusPath: '/settings/integrations/ai',
-          settingsPath: '/settings/integrations/ai',
-          settingsMethod: 'put',
-          disconnectPath: '/settings/integrations/ai',
-          icon: <SmartToyOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />,
-          workflow: e.aiCompatible.workflow.value,
-          fields: aiFields,
-          presets: AI_PRESETS,
-        },
-        secondary: {
-          title: e.aiPersonal.title.value,
-          description: e.aiPersonal.description.value,
-          statusPath: '/settings/integrations/ai/personal',
-          settingsPath: '/settings/integrations/ai/personal',
-          settingsMethod: 'put',
-          disconnectPath: '/settings/integrations/ai/personal',
-          icon: <SmartToyOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />,
-          workflow: e.aiPersonal.workflow.value,
-          fields: aiFields,
-          presets: AI_PRESETS,
-        },
-      },
-    },
-    {
-      key: 'local-categorization',
-      name: e.localCategorization.name.value,
-      description: e.localCategorization.description.value,
-      badge: 'Local model',
-      category: 'ai',
-      recommended: true,
-      icon: <CategoryOutlinedIcon sx={{ fontSize: 22 }} aria-hidden="true" />,
-      statusPath: '/settings/local-categorization',
-      detail: { kind: 'local-categorization' },
-    },
     {
       key: 'smtp',
       name: e.smtp.name.value,
@@ -178,12 +81,12 @@ function buildIntegrationCatalog(t: CatalogText): IntegrationEntry[] {
               required: true,
             },
             { name: 'secure', label: f.useTls.value, type: 'checkbox' },
-            { name: 'user', label: f.username.value, placeholder: 'lumio@example.com' },
+            { name: 'user', label: f.username.value, placeholder: 'seneca@example.com' },
             { name: 'pass', label: f.password.value, type: 'password' },
             {
               name: 'from',
               label: f.from.value,
-              placeholder: 'Lumio <noreply@example.com>',
+              placeholder: `${APP_NAME} <noreply@example.com>`,
               required: true,
             },
             { name: 'replyTo', label: f.replyTo.value, placeholder: 'support@example.com' },
@@ -253,7 +156,7 @@ function buildIntegrationCatalog(t: CatalogText): IntegrationEntry[] {
               required: true,
             },
             { name: 'region', label: f.region.value, placeholder: 'us-east-1' },
-            { name: 'bucket', label: f.bucket.value, placeholder: 'lumio', required: true },
+            { name: 'bucket', label: f.bucket.value, placeholder: 'seneca', required: true },
             { name: 'prefix', label: f.prefix.value, placeholder: 'statements' },
             { name: 'accessKeyId', label: f.accessKeyId.value, type: 'password' },
             { name: 'secretAccessKey', label: f.secretAccessKey.value, type: 'password' },
@@ -289,7 +192,7 @@ function buildIntegrationCatalog(t: CatalogText): IntegrationEntry[] {
           fields: [
             {
               name: 'url',
-              label: 'WebDAV URL',
+              label: f.webdavUrl.value,
               placeholder: 'https://cloud.example.com/remote.php/dav/files/user',
               required: true,
             },
@@ -354,6 +257,51 @@ function buildIntegrationCatalog(t: CatalogText): IntegrationEntry[] {
       detail: { kind: 'bank-sync' },
     },
     {
+      key: 'peppol',
+      name: peppol.integrationName.value,
+      description: peppol.integrationDescription.value,
+      badge: 'Peppol',
+      category: 'messaging',
+      recommended: false,
+      icon: <ReceiptLongOutlinedIcon sx={{ fontSize: 22 }} aria-hidden="true" />,
+      statusPath: '/integrations/peppol/status',
+      docsUrl: 'https://docs.recommand.eu',
+      detail: {
+        kind: 'protocol',
+        config: {
+          title: peppol.integrationName.value,
+          description: peppol.integrationDetail.value,
+          statusPath: '/integrations/peppol/status',
+          settingsPath: '/integrations/peppol/settings',
+          disconnectPath: '/integrations/peppol',
+          syncPath: '/integrations/peppol/sync',
+          icon: <ReceiptLongOutlinedIcon sx={{ fontSize: 24 }} aria-hidden="true" />,
+          // The form shows the workflow text, not the description: the sign-up steps go first.
+          workflow: `${peppol.integrationDetail.value} ${peppol.integrationWorkflow.value}`,
+          fields: [
+            {
+              name: 'apiKeyId',
+              label: peppol.apiKeyId.value,
+              placeholder: 'key_…',
+              required: true,
+            },
+            {
+              name: 'apiSecret',
+              label: peppol.apiSecret.value,
+              type: 'password',
+              placeholder: peppol.apiSecretPlaceholder.value,
+            },
+            { name: 'companyId', label: peppol.companyId.value, placeholder: 'c_…' },
+            {
+              name: 'senderPeppolId',
+              label: peppol.senderPeppolId.value,
+              placeholder: '9930:DE123456789',
+            },
+          ],
+        },
+      },
+    },
+    {
       key: 'telegram',
       name: 'Telegram',
       description: e.telegram.description.value,
@@ -392,7 +340,8 @@ function buildIntegrationCatalog(t: CatalogText): IntegrationEntry[] {
 /** The catalog with its names, descriptions and field labels in the active locale. */
 export function useIntegrationCatalog(): IntegrationEntry[] {
   const t = useIntlayer('integrationCatalog');
-  return useMemo(() => buildIntegrationCatalog(t), [t]);
+  const peppol = useIntlayer('peppol');
+  return useMemo(() => buildIntegrationCatalog(t, peppol), [t, peppol]);
 }
 
 export function findIntegrationEntry(

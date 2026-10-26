@@ -1,6 +1,5 @@
 import { AuditEvent } from '@/entities/audit-event.entity';
 import { CategorizationRule } from '@/entities/categorization-rule.entity';
-import { CategoryLearning } from '@/entities/category-learning.entity';
 import { Category } from '@/entities/category.entity';
 import { CustomTable } from '@/entities/custom-table.entity';
 import { DataEntryCustomField } from '@/entities/data-entry-custom-field.entity';
@@ -10,6 +9,8 @@ import { IdempotencyKey } from '@/entities/idempotency-key.entity';
 import { Insight } from '@/entities/insight.entity';
 import { Integration } from '@/entities/integration.entity';
 import { Notification } from '@/entities/notification.entity';
+import { Payee } from '@/entities/payee.entity';
+import { PayeeAlias } from '@/entities/payee-alias.entity';
 import { Statement } from '@/entities/statement.entity';
 import { StorageView } from '@/entities/storage-view.entity';
 import { TaxRate } from '@/entities/tax-rate.entity';
@@ -106,7 +107,8 @@ describe('Batch 2 workspace entity scoping', () => {
     [TaxRate, 'tax rate'],
     [Integration, 'integration'],
     [CategorizationRule, 'categorization rule'],
-    [CategoryLearning, 'category learning'],
+    [Payee, 'payee'],
+    [PayeeAlias, 'payee alias'],
     [IdempotencyKey, 'idempotency key'],
   ])('makes workspaceId non-nullable for %s', (entity, label) => {
     const column = metadata.columns.find(
@@ -128,35 +130,18 @@ describe('Batch 2 workspace entity scoping', () => {
     expect(column?.options.nullable).toBe(true);
   });
 
-  it('maps CategoryLearning columns to explicit snake_case names and workspace relation', () => {
-    const workspaceColumn = metadata.columns.find(
-      entry => entry.target === CategoryLearning && entry.propertyName === 'workspaceId',
-    );
-    const userColumn = metadata.columns.find(
-      entry => entry.target === CategoryLearning && entry.propertyName === 'userId',
-    );
-    const categoryColumn = metadata.columns.find(
-      entry => entry.target === CategoryLearning && entry.propertyName === 'categoryId',
-    );
-    const paymentPurposeColumn = metadata.columns.find(
-      entry => entry.target === CategoryLearning && entry.propertyName === 'paymentPurpose',
-    );
-    const counterpartyNameColumn = metadata.columns.find(
-      entry => entry.target === CategoryLearning && entry.propertyName === 'counterpartyName',
-    );
-    const learnedFromColumn = metadata.columns.find(
-      entry => entry.target === CategoryLearning && entry.propertyName === 'learnedFrom',
-    );
+  it('maps Payee columns to explicit snake_case names and workspace relation', () => {
+    const column = (target: unknown, propertyName: string) =>
+      metadata.columns.find(entry => entry.target === target && entry.propertyName === propertyName);
     const workspaceRelation = metadata.relations.find(
-      entry => entry.target === CategoryLearning && entry.propertyName === 'workspace',
+      entry => entry.target === Payee && entry.propertyName === 'workspace',
     );
 
-    expect(workspaceColumn?.options.name).toBe('workspace_id');
-    expect(userColumn?.options.name).toBe('user_id');
-    expect(categoryColumn?.options.name).toBe('category_id');
-    expect(paymentPurposeColumn?.options.name).toBe('payment_purpose');
-    expect(counterpartyNameColumn?.options.name).toBe('counterparty_name');
-    expect(learnedFromColumn?.options.name).toBe('learned_from');
+    expect(column(Payee, 'workspaceId')?.options.name).toBe('workspace_id');
+    expect(column(Payee, 'categoryId')?.options.name).toBe('category_id');
+    expect(column(PayeeAlias, 'workspaceId')?.options.name).toBe('workspace_id');
+    expect(column(PayeeAlias, 'payeeKey')?.options.name).toBe('payee_key');
+    expect(column(PayeeAlias, 'payeeId')?.options.name).toBe('payee_id');
     expect(workspaceRelation).toBeDefined();
     expect(resolveRelationType(workspaceRelation?.type as RelationTypeResolver)).toBe(Workspace);
   });

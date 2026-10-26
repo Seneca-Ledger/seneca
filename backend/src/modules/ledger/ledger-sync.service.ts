@@ -2,7 +2,9 @@ import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, type Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
+import { countedSql } from '../../common/utils/counted-transactions.util';
 import { fromMinor, toMinor } from '../../common/utils/money.util';
+import { notInVersionWorkspace } from '../../common/workspaces/version-workspaces';
 import {
   ActorType,
   AuditAction,
@@ -12,6 +14,7 @@ import {
   JournalEntryStatus,
   Statement,
   Workspace,
+  WorkspaceKind,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
 import { statementCashKey } from './ledger-accounts.service';
@@ -106,11 +109,13 @@ export class LedgerSyncService {
 
   /**
    * Workspaces with the ledger on and something to do: dirty rows, orphaned
-   * entries, or opening balances queued by a wallet change.
+   * entries, or opening balances queued by a wallet change. A past version
+   * keeps the ledger it was copied with, dirty flags and all.
    */
   async workspacesNeedingSync(): Promise<string[]> {
     const rows: Array<{ workspace_id: string }> = await this.workspaceRepository.query(
-      `SELECT DISTINCT t."workspace_id"
+      `SELECT needing."workspace_id" FROM (
+       SELECT DISTINCT t."workspace_id"
          FROM "transactions" t JOIN "workspaces" w ON w."id" = t."workspace_id"
         WHERE t."ledger_dirty" AND w."ledger_base_currency" IS NOT NULL
           AND (t."ledger_attempted_at" IS NULL OR t."ledger_attempted_at" < now() - $1::interval)
@@ -122,7 +127,9 @@ export class LedgerSyncService {
        SELECT "id" FROM "workspaces"
         WHERE "ledger_openings_dirty" AND "ledger_base_currency" IS NOT NULL
           AND ("ledger_openings_attempted_at" IS NULL
-               OR "ledger_openings_attempted_at" < now() - $1::interval)`,
+               OR "ledger_openings_attempted_at" < now() - $1::interval)
+       ) needing(workspace_id)
+       WHERE ${notInVersionWorkspace('needing."workspace_id"')}`,
       [LEDGER_RETRY_AFTER],
     );
     return rows.map(row => row.workspace_id);
@@ -145,9 +152,14 @@ export class LedgerSyncService {
     };
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'ledgerBaseCurrency'],
+      select: {
+        id: true,
+        ledgerBaseCurrency: true,
+        kind: true,
+      },
     });
-    if (!workspace?.ledgerBaseCurrency) {
+    // A job queued for a past version is dropped: its ledger stays as copied.
+    if (!workspace?.ledgerBaseCurrency || workspace.kind === WorkspaceKind.VERSION) {
       return report;
     }
     report.enabled = true;
@@ -254,7 +266,10 @@ export class LedgerSyncService {
     const [workspace, suggested, pending] = await Promise.all([
       this.workspaceRepository.findOne({
         where: { id: workspaceId },
-        select: ['id', 'ledgerBaseCurrency'],
+        select: {
+          id: true,
+          ledgerBaseCurrency: true,
+        },
       }),
       this.workspaceRepository.query(
         `SELECT upper("currency") AS "currency" FROM "transactions"
@@ -411,9 +426,9 @@ export class LedgerSyncService {
       wallet_balance: string | null;
     }> = await this.workspaceRepository.query(
       // A wallet's own rows book to it unless they sit on a statement, and
-      // duplicates are not booked at all; its opening balance is booked only
-      // for an active wallet with no statement rows. The expected balance
-      // follows the same rules.
+      // duplicates and unconfirmed rows are not booked at all; its opening
+      // balance is booked only for an active wallet with no statement rows.
+      // The expected balance follows the same rules.
       `SELECT a."id", a."code", a."name", a."currency", a."statement_account_key",
               -- NULL for a statement account, which has no wallet.
               (CASE WHEN w."id" IS NULL THEN NULL
@@ -426,7 +441,8 @@ export class LedgerSyncService {
                             * coalesce(t."amount", t."debit", t."credit"))
                    FROM "transactions" t
                   WHERE t."wallet_id" = w."id" AND t."statement_id" IS NULL
-                    AND NOT t."is_duplicate" AND upper(t."currency") = upper(w."currency")
+                    AND NOT t."is_duplicate" AND ${countedSql('t')}
+                    AND upper(t."currency") = upper(w."currency")
                ), 0))::numeric(15,2) AS "wallet_balance",
               coalesce((SELECT sum(l."debit" - l."credit")
                           FROM "journal_lines" l JOIN "journal_entries" e ON e."id" = l."entry_id"
@@ -447,15 +463,15 @@ export class LedgerSyncService {
 
     const statements = await this.statementRepository.find({
       where: { workspaceId, deletedAt: IsNull() },
-      select: [
-        'id',
-        'bankName',
-        'accountNumber',
-        'currency',
-        'balanceEnd',
-        'statementDateTo',
-        'createdAt',
-      ],
+      select: {
+        id: true,
+        bankName: true,
+        accountNumber: true,
+        currency: true,
+        balanceEnd: true,
+        statementDateTo: true,
+        createdAt: true,
+      },
       order: { statementDateTo: 'DESC', createdAt: 'DESC' },
     });
     const latest = new Map<string, Statement>();

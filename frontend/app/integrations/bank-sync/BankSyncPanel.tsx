@@ -4,24 +4,28 @@ import { Box, Stack, Typography } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
 import { AddConnectionForm } from './AddConnectionForm';
 import { ConnectionCard } from './ConnectionCard';
+import { Panel } from './Panel';
 import { SwitchFeedDialog } from './SwitchFeedDialog';
 import {
   BANK_SYNC_BASE,
   type BankSyncConnection,
   type BankSyncProviderInfo,
+  type FeedRef,
   type Message,
+  type RunAction,
   UNHEALTHY,
   type WalletOption,
 } from './types';
 
-export type FeedRef = { connectionId: string; accountId: string; walletId: string };
+const CONNECTIONS_URL = `${BANK_SYNC_BASE}/connections`;
 
 /**
- * Bank sync through the user's own provider account. Lumio holds no bank
+ * Bank sync through the user's own provider account. Seneca holds no bank
  * integration and no provider contract of its own, which is also the only
  * arrangement in which this is free: every provider's free tier covers the
  * accounts of the person who linked them and nothing else.
@@ -44,8 +48,9 @@ export function BankSyncPanel({
   const [switching, setSwitching] = useState<FeedRef | null>(null);
 
   const reload = useCallback(async (): Promise<void> => {
-    const response = await apiClient.get<BankSyncConnection[]>(`${BANK_SYNC_BASE}/connections`);
-    setConnections(Array.isArray(response.data) ? response.data : []);
+    setConnections([
+      ...(await apiQueryDecoded({ url: CONNECTIONS_URL, contract: 'BankSyncConnectionList' })),
+    ]);
   }, []);
 
   useEffect(() => {
@@ -53,14 +58,14 @@ export function BankSyncPanel({
     void (async () => {
       try {
         const [providerList, connectionList, walletList] = await Promise.all([
-          apiClient.get<BankSyncProviderInfo[]>(`${BANK_SYNC_BASE}/providers`),
-          apiClient.get<BankSyncConnection[]>(`${BANK_SYNC_BASE}/connections`),
-          apiClient.get<WalletOption[]>('/wallets').catch(() => ({ data: [] })),
+          apiQueryDecoded({ url: `${BANK_SYNC_BASE}/providers`, contract: 'BankSyncProviderList' }),
+          apiQueryDecoded({ url: CONNECTIONS_URL, contract: 'BankSyncConnectionList' }),
+          apiQueryDecoded({ url: '/wallets', contract: 'WalletList' }).catch(() => []),
         ]);
         if (!mounted) return;
-        setProviders(Array.isArray(providerList.data) ? providerList.data : []);
-        setConnections(Array.isArray(connectionList.data) ? connectionList.data : []);
-        setWallets(Array.isArray(walletList.data) ? walletList.data : []);
+        setProviders([...providerList]);
+        setConnections([...connectionList]);
+        setWallets(walletList.map(({ id, name, currency }) => ({ id, name, currency })));
       } catch {
         if (mounted) setMessage({ tone: 'error', text: t.loadFailed.value });
       }
@@ -71,20 +76,17 @@ export function BankSyncPanel({
   }, [t.loadFailed.value]);
 
   /** Runs one action, turning whatever the server says into something readable. */
-  const run = useCallback(
-    async (key: string, action: () => Promise<Message | null>, failure: string): Promise<void> => {
-      setBusy(key);
-      setMessage(null);
-      try {
-        setMessage(await action());
-      } catch (error) {
-        setMessage({ tone: 'error', text: `${failure}${explain(error)}` });
-      } finally {
-        setBusy(null);
-      }
-    },
-    [],
-  );
+  const run = useCallback<RunAction>(async (key, action, failure) => {
+    setBusy(key);
+    setMessage(null);
+    try {
+      setMessage(await action());
+    } catch (error) {
+      setMessage({ tone: 'error', text: `${failure}: ${getApiErrorMessage(error)}` });
+    } finally {
+      setBusy(null);
+    }
+  }, []);
 
   const feeds = useMemo(
     () =>
@@ -222,35 +224,5 @@ export function BankSyncPanel({
         </Typography>
       ) : null}
     </Stack>
-  );
-}
-
-/** Pulls the server's own words out, including the re-link hint the API sends. */
-function explain(error: unknown): string {
-  const data = (
-    error as {
-      response?: {
-        data?: { message?: string | string[]; error?: { message?: string } };
-      };
-    }
-  )?.response?.data;
-  const detail = data?.error?.message ?? data?.message;
-  const text = Array.isArray(detail) ? detail.join(', ') : detail;
-  return text ? `: ${text}` : '';
-}
-
-export function Panel({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return (
-    <Box
-      sx={{
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: tokens.radius.md,
-        bgcolor: 'background.paper',
-        p: 2.5,
-      }}
-    >
-      {children}
-    </Box>
   );
 }

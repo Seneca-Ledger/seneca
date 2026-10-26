@@ -17,13 +17,7 @@ import type {
 } from '@/app/settings/profile/hooks/useProcessing';
 import { duplicateResolutions } from '@/app/settings/profile/hooks/useProcessing';
 
-type Tx = (path: string[], fallback: string) => string;
-
-const RESOLUTION_FALLBACKS: Record<DuplicateResolution, string> = {
-  skip: 'Skip the row',
-  mark_duplicate: 'Import and mark as duplicate',
-  force_import: 'Import as a separate transaction',
-};
+type Tx = (path: string[]) => string;
 
 function ThresholdField({
   tx,
@@ -42,14 +36,21 @@ function ThresholdField({
 
   return (
     <Stack spacing={0.5}>
-      <Typography variant="body2" fontWeight={600}>
-        {tx(['processingCard', 'thresholdLabel'], 'Categorisation confidence')}
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 600,
+        }}
+      >
+        {tx(['processingCard', 'thresholdLabel'])}
       </Typography>
-      <Typography variant="caption" color="text.secondary">
-        {tx(
-          ['processingCard', 'thresholdHelp'],
-          'Lower categorises more transactions automatically but guesses more often.',
-        )}
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+        }}
+      >
+        {tx(['processingCard', 'thresholdHelp'])}
       </Typography>
       <Box sx={{ px: 1, pt: 1, maxWidth: 360 }}>
         <Slider
@@ -62,57 +63,24 @@ function ThresholdField({
           valueLabelDisplay="auto"
           onChange={(_event, next) => setDraft(next as number)}
           onChangeCommitted={(_event, next) => onCommit(next as number)}
-          aria-label={tx(['processingCard', 'thresholdLabel'], 'Categorisation confidence')}
+          aria-label={tx(['processingCard', 'thresholdLabel'])}
         />
       </Box>
     </Stack>
   );
 }
 
-type SwitchKey =
-  | 'aiCategorization'
-  | 'aiMerchantNormalization'
-  | 'merchantLearning'
-  | 'autoApproveAiPicks';
+type SwitchKey = 'merchantLearning';
 
 const SWITCHES: Array<{
   key: SwitchKey;
   label: string;
   help: string;
-  labelFallback: string;
-  helpFallback: string;
 }> = [
-  {
-    key: 'aiCategorization',
-    label: 'aiCategorizationLabel',
-    help: 'aiCategorizationHelp',
-    labelFallback: 'AI categorisation',
-    helpFallback:
-      'Ask the model during import when rules and your corrections found nothing. Off means no AI influence at all.',
-  },
-  {
-    key: 'aiMerchantNormalization',
-    label: 'aiMerchantLabel',
-    help: 'aiMerchantHelp',
-    labelFallback: 'AI merchant names',
-    helpFallback:
-      'Keep a normalised name next to the raw statement text. The raw text is always kept.',
-  },
   {
     key: 'merchantLearning',
     label: 'learningLabel',
     help: 'learningHelp',
-    labelFallback: 'Learn from my corrections',
-    helpFallback:
-      'Reuse a category you picked for the same payee on later imports. One correction does not replace an established category; the second one does.',
-  },
-  {
-    key: 'autoApproveAiPicks',
-    label: 'autoApproveLabel',
-    help: 'autoApproveHelp',
-    labelFallback: 'Trust AI picks',
-    helpFallback:
-      'Keep transactions the model categorised out of the review inbox. Off means every AI pick waits for a look.',
   },
 ];
 
@@ -130,19 +98,37 @@ function ProcessingSwitch({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <Stack direction="row" spacing={1} alignItems="flex-start">
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{
+        alignItems: 'flex-start',
+      }}
+    >
       <Switch
         checked={checked}
         disabled={saving}
         onChange={event => onChange(event.target.checked)}
-        inputProps={{ 'aria-label': tx(['processingCard', entry.label], entry.labelFallback) }}
+        slotProps={{
+          input: { 'aria-label': tx(['processingCard', entry.label]) },
+        }}
       />
       <Stack spacing={0.25} sx={{ pt: 0.75 }}>
-        <Typography variant="body2" fontWeight={600}>
-          {tx(['processingCard', entry.label], entry.labelFallback)}
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
+          {tx(['processingCard', entry.label])}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {tx(['processingCard', entry.help], entry.helpFallback)}
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
+          {tx(['processingCard', entry.help])}
         </Typography>
       </Stack>
     </Stack>
@@ -155,9 +141,7 @@ export function ProcessingSection({ tx, processing }: Props) {
   const { settings, loading, saving, error, message } = processing;
 
   if (loading) {
-    return (
-      <Typography variant="body2">{tx(['notificationsCard', 'loading'], 'Loading...')}</Typography>
-    );
+    return <Typography variant="body2">{tx(['notificationsCard', 'loading'])}</Typography>;
   }
 
   return (
@@ -167,27 +151,41 @@ export function ProcessingSection({ tx, processing }: Props) {
 
       <Card variant="outlined">
         <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
-            {tx(['processingCard', 'title'], 'Processing defaults')}
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
+            {tx(['processingCard', 'title'])}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {tx(
-              ['processingCard', 'description'],
-              'Applies to this workspace when statements and receipts are imported.',
-            )}
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {tx(['processingCard', 'description'])}
           </Typography>
         </Box>
         <CardContent>
           <Stack spacing={3}>
             <Stack spacing={0.5}>
-              <Typography variant="body2" fontWeight={600}>
-                {tx(['processingCard', 'orderLabel'], 'Categorisation order')}
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
+                {tx(['processingCard', 'orderLabel'])}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {tx(
-                  ['processingCard', 'orderHelp'],
-                  'Your pick → rules → keywords → your corrections → payee history → AI → “Uncategorised”. A category you picked by hand is never overwritten.',
-                )}
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
+                {tx(['processingCard', 'orderHelp'])}
               </Typography>
             </Stack>
 
@@ -210,14 +208,21 @@ export function ProcessingSection({ tx, processing }: Props) {
             />
 
             <Stack spacing={0.5}>
-              <Typography variant="body2" fontWeight={600}>
-                {tx(['processingCard', 'duplicatesLabel'], 'When a row looks like a duplicate')}
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
+                {tx(['processingCard', 'duplicatesLabel'])}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {tx(
-                  ['processingCard', 'duplicatesHelp'],
-                  'Used when the import is confirmed without choosing per row.',
-                )}
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
+                {tx(['processingCard', 'duplicatesHelp'])}
               </Typography>
               <TextField
                 select
@@ -233,7 +238,7 @@ export function ProcessingSection({ tx, processing }: Props) {
               >
                 {duplicateResolutions.map(option => (
                   <MenuItem key={option} value={option}>
-                    {tx(['processingCard', 'duplicates', option], RESOLUTION_FALLBACKS[option])}
+                    {tx(['processingCard', 'duplicates', option])}
                   </MenuItem>
                 ))}
               </TextField>

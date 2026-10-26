@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Statement } from './statement.entity';
@@ -103,21 +104,21 @@ export class ImportSession {
 
   @ManyToOne(() => Workspace, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'user_id' })
-  user: User | null;
+  user: Relation<User | null>;
 
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string | null;
 
   @ManyToOne(() => Statement, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'statement_id' })
-  statement: Statement | null;
+  statement: Relation<Statement | null>;
 
   @Column({ name: 'statement_id', type: 'uuid', nullable: true })
   statementId: string | null;

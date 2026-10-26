@@ -8,11 +8,8 @@ const noData = { data: undefined, isPending: true, isFetching: true, isError: fa
 
 vi.mock('react-hot-toast', () => ({ default: { error: vi.fn() } }));
 vi.mock('./useStatementsQuery', () => ({ useStatementsQuery: () => noData }));
-vi.mock('./useGmailReceiptsQuery', () => ({ useGmailReceiptsQuery: () => noData }));
+vi.mock('./useReceiptDocumentsQuery', () => ({ useReceiptDocumentsQuery: () => noData }));
 vi.mock('./useAutoOpenParsedStatement', () => ({ useAutoOpenParsedStatement: vi.fn() }));
-vi.mock('./useGmailSyncSkeletons', () => ({
-  useGmailSyncSkeletons: () => ({ gmailSyncSkeletonKeys: [], setGmailSyncSkeletonKeys: vi.fn() }),
-}));
 
 describe('useStatementsListData', () => {
   // Regression: `data ?? []` minted a new empty array per render while the
@@ -23,7 +20,6 @@ describe('useStatementsListData', () => {
       useStatementsListData({
         appliedFilters: DEFAULT_STATEMENT_FILTERS,
         search: '',
-        stage: 'submit',
         user: { id: 'u1' },
         page: 1,
         pageSize: 20,
@@ -37,6 +33,6 @@ describe('useStatementsListData', () => {
     rerender();
 
     expect(result.current.statements).toBe(first.statements);
-    expect(result.current.gmailReceipts).toBe(first.gmailReceipts);
+    expect(result.current.receipts).toBe(first.receipts);
   });
 });

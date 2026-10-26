@@ -43,7 +43,7 @@ describe('isTutorialRoute', () => {
     },
   );
 
-  it.each(['/onboarding', '/invite/token', '/settings/workspace', '/login', '/shared/abc', '/chat', '/'])(
+  it.each(['/onboarding', '/invite/token', '/settings/workspace', '/login', '/shared/abc', '/'])(
     'rejects %s',
     pathname => {
       expect(isTutorialRoute(pathname)).toBe(false);

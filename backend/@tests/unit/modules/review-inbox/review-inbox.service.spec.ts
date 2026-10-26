@@ -1,10 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Receipt } from '../../../../src/entities/receipt.entity';
 import { Subscription } from '../../../../src/entities/subscription.entity';
 import { Transaction } from '../../../../src/entities/transaction.entity';
-import { Workspace } from '../../../../src/entities/workspace.entity';
+import { Statement } from '../../../../src/entities/statement.entity';
 import { DuplicateDecision } from '../../../../src/modules/review-inbox/dto/review-inbox.dto';
 import { ReviewInboxService } from '../../../../src/modules/review-inbox/review-inbox.service';
 import { CrossStatementDeduplicationService } from '../../../../src/modules/transactions/services/cross-statement-deduplication.service';
@@ -12,21 +13,29 @@ import { TransactionsService } from '../../../../src/modules/transactions/transa
 
 describe('ReviewInboxService', () => {
   let service: ReviewInboxService;
-  const transactionRepository = { findOne: jest.fn(), update: jest.fn(), createQueryBuilder: jest.fn() };
-  const transactionsService = { bulkUpdate: jest.fn() };
-  const deduplicationService = { unmarkDuplicate: jest.fn() };
+  const transactionRepository = { findOne: vi.fn(), update: vi.fn(), createQueryBuilder: vi.fn() };
+  const transactionsService = { bulkUpdate: vi.fn() };
+  const deduplicationService = { unmarkDuplicate: vi.fn() };
+  const receiptRepository = {
+    count: vi.fn(),
+    findAndCount: vi.fn(),
+    find: vi.fn(async () => []),
+    update: vi.fn(),
+  };
+  const eventEmitter = { emit: vi.fn() };
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
         ReviewInboxService,
         { provide: getRepositoryToken(Transaction), useValue: transactionRepository },
-        { provide: getRepositoryToken(Receipt), useValue: { count: jest.fn(), findAndCount: jest.fn() } },
-        { provide: getRepositoryToken(Subscription), useValue: { count: jest.fn(), findAndCount: jest.fn() } },
-        { provide: getRepositoryToken(Workspace), useValue: { findOne: jest.fn(async () => null) } },
+        { provide: getRepositoryToken(Receipt), useValue: receiptRepository },
+        { provide: getRepositoryToken(Subscription), useValue: { count: vi.fn(), findAndCount: vi.fn() } },
+        { provide: getRepositoryToken(Statement), useValue: { findOne: vi.fn(async () => null) } },
         { provide: TransactionsService, useValue: transactionsService },
         { provide: CrossStatementDeduplicationService, useValue: deduplicationService },
+        { provide: EventEmitter2, useValue: eventEmitter },
       ],
     }).compile();
     service = module.get(ReviewInboxService);
@@ -42,6 +51,24 @@ describe('ReviewInboxService', () => {
       { id: 'a', updates: { isVerified: true, categoryId: 'cat-1' } },
       { id: 'b', updates: { isVerified: true, categoryId: 'cat-1' } },
     ]);
+  });
+
+  it('settles the receipt of a confirmed scan row and announces it', async () => {
+    transactionsService.bulkUpdate.mockResolvedValue([{ id: 'row-1', statementId: 'scan-1' }]);
+    receiptRepository.find.mockResolvedValueOnce([{ id: 'receipt-1', statementId: 'scan-1' }]);
+
+    await service.approveTransactions('ws-1', 'u1', ['row-1']);
+
+    expect(receiptRepository.update).toHaveBeenCalledWith(
+      { id: 'receipt-1', workspaceId: 'ws-1' },
+      expect.objectContaining({ transactionId: 'row-1' }),
+    );
+    expect(eventEmitter.emit).toHaveBeenCalledWith('receipt.approved', {
+      workspaceId: 'ws-1',
+      receiptId: 'receipt-1',
+      transactionId: 'row-1',
+      mode: 'confirmed_scan',
+    });
   });
 
   it('approves as is without touching the category', async () => {

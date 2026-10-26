@@ -106,19 +106,19 @@ export function fakeStore(connections: FakeConnection[] = []) {
 
   let nextId = rows.size + 1;
   const integrationRepository = {
-    findOne: jest.fn(async (query: { where: { id?: string; workspaceId?: string } }) => {
+    findOne: vi.fn(async (query: { where: { id?: string; workspaceId?: string } }) => {
       const row = query.where.id ? rows.get(query.where.id) : undefined;
       if (!row) return null;
       if (query.where.workspaceId && row.workspaceId !== query.where.workspaceId) return null;
       return entityOf(row);
     }),
-    find: jest.fn(async (query?: { where?: { workspaceId?: string } }) =>
+    find: vi.fn(async (query?: { where?: { workspaceId?: string } }) =>
       [...rows.values()]
         .filter(row => !query?.where?.workspaceId || row.workspaceId === query.where.workspaceId)
         .map(entityOf),
     ),
-    create: jest.fn((data: Record<string, unknown>) => ({ id: `int-${nextId++}`, ...data })),
-    save: jest.fn(async (entity: Record<string, unknown>) => {
+    create: vi.fn((data: Record<string, unknown>) => ({ id: `int-${nextId++}`, ...data })),
+    save: vi.fn(async (entity: Record<string, unknown>) => {
       const id = String(entity.id);
       const existing = rows.get(id);
       rows.set(id, {
@@ -135,8 +135,8 @@ export function fakeStore(connections: FakeConnection[] = []) {
   };
 
   const settingsRepository = {
-    create: jest.fn((data: Record<string, unknown>) => ({ ...data })),
-    save: jest.fn(async (entity: Record<string, unknown>) => {
+    create: vi.fn((data: Record<string, unknown>) => ({ ...data })),
+    save: vi.fn(async (entity: Record<string, unknown>) => {
       const id = String(entity.integrationId);
       const row = rows.get(id);
       if (row) {
@@ -167,8 +167,8 @@ export function fakeTokenProvider(accounts: BankSyncAccount[] = [remoteAccount()
   return {
     key: 'simplefin',
     linkStyle: 'token' as const,
-    claim: jest.fn(async () => ({ accessUrl })),
-    fetchAccounts: jest.fn(
+    claim: vi.fn(async () => ({ accessUrl })),
+    fetchAccounts: vi.fn(
       async (_context: BankSyncContext, _options?: BankSyncFetchOptions) => accounts,
     ),
   };

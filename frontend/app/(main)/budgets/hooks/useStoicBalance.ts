@@ -3,9 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 
 export const STOIC_CLASSES = ['necessity', 'work', 'virtue', 'leisure'] as const;
@@ -71,17 +72,24 @@ export function useStoicBalance(): {
   classifying: string | null;
 } {
   const workspaceId = useWorkspaceId();
+  const t = useIntlayer('budgetsPage');
   const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: queryKeys.stoicBalance(workspaceId),
-    queryFn: ({ signal }) => apiQuery<StoicBalance>({ url: '/budgets/stoic-balance', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/budgets/stoic-balance', signal, contract: 'StoicBalance' }),
+    enabled: Boolean(workspaceId),
   });
 
   const classify = useMutation({
-    mutationFn: ({ categoryId, ...changes }: CategoryJudgment) =>
-      apiClient.put(`/categories/${categoryId}`, changes),
-    onError: error => toast.error(getApiErrorMessage(error, 'Failed to save')),
+    mutationFn: async ({ categoryId, ...changes }: CategoryJudgment) => {
+      await apiClient.put(
+        `/categories/${categoryId}`,
+        changes satisfies ContractInput<'UpdateCategoryBody'>,
+      );
+    },
+    onError: error => toast.error(getApiErrorMessage(error, t.toastClassifyFailed.value)),
     onSettled: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.stoicBalance(workspaceId) }),

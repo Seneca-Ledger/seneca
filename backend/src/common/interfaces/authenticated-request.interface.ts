@@ -10,6 +10,8 @@ export interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
   workspace?: Workspace;
   workspaceRole?: WorkspaceRole;
+  /** The caller's membership row in `workspace`, so `owner=me` needs no extra query. */
+  workspaceMemberId?: string;
   workspaceMemberPermissions?: WorkspaceMemberPermissions | null;
   apiKeyWorkspaceId?: string;
   /** Set when the request authenticated with an API key; `scopes` null = unrestricted (legacy key). */

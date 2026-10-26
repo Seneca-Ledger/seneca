@@ -2,10 +2,12 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Transaction } from './transaction.entity';
@@ -36,6 +38,16 @@ export enum StoicClass {
 }
 
 @Entity('categories')
+// One fallback category per workspace and type (migration 1786810000000).
+@Index('UQ_categories_uncategorized', ['workspaceId', 'type'], {
+  unique: true,
+  where: "name = 'Uncategorized' AND parent_id IS NULL",
+})
+// Where private rows are counted, one per workspace and type (migration 1787010000000).
+@Index('UQ_categories_private', ['workspaceId', 'type'], {
+  unique: true,
+  where: "name = 'Private' AND parent_id IS NULL",
+})
 export class Category {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -46,14 +58,14 @@ export class Category {
     { nullable: true },
   )
   @JoinColumn({ name: 'user_id' })
-  user: User | null;
+  user: Relation<User | null>;
 
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string | null;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -73,7 +85,7 @@ export class Category {
     { nullable: true },
   )
   @JoinColumn({ name: 'parent_id' })
-  parent: Category | null;
+  parent: Relation<Category | null>;
 
   @Column({ name: 'parent_id', type: 'uuid', nullable: true })
   parentId: string | null;
@@ -90,7 +102,7 @@ export class Category {
   @Column({ nullable: true })
   color: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   icon: string | null;
 
   /**
@@ -107,6 +119,14 @@ export class Category {
    */
   @Column({ name: 'helps_others', type: 'boolean', nullable: true })
   helpsOthers: boolean | null;
+
+  /**
+   * Spending here matters for the tax return: deductible, or a record the
+   * user wants at hand when filing. Drives the tax-year report and the
+   * "relevant only" tax pack; it does not decide any figure on a return.
+   */
+  @Column({ name: 'tax_relevant', type: 'boolean', default: false })
+  taxRelevant: boolean;
 
   /**
    * The income or expense account this category books to. Set on root
@@ -127,11 +147,11 @@ export class Category {
     () => Category,
     category => category.parent,
   )
-  children: Category[];
+  children: Relation<Category[]>;
 
   @OneToMany(
     () => Transaction,
     transaction => transaction.category,
   )
-  transactions: Transaction[];
+  transactions: Relation<Transaction[]>;
 }

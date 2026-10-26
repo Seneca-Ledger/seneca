@@ -1,7 +1,8 @@
-import { IntegrationStatus } from '../../../../src/entities';
+import { IntegrationStatus, WorkspaceKind } from '../../../../src/entities';
 import { IntelligentDeduplicationService } from '../../../../src/modules/parsing/services/intelligent-deduplication.service';
 import { BankSyncPullService } from '../../../../src/modules/bank-sync/bank-sync-pull.service';
 import { BankSyncService } from '../../../../src/modules/bank-sync/bank-sync.service';
+import { BankSyncDedupeService } from '../../../../src/modules/bank-sync/bank-sync-dedupe.service';
 import { BankSyncAuthError } from '../../../../src/modules/bank-sync/bank-sync-provider.interface';
 import {
   accountConfig,
@@ -47,7 +48,7 @@ interface Harness {
   pull: BankSyncPullService;
   store: ReturnType<typeof fakeStore>;
   provider: ReturnType<typeof fakeTokenProvider>;
-  statements: { create: jest.Mock };
+  statements: { create: ReturnType<typeof vi.fn> };
   imported: () => string[];
 }
 
@@ -68,11 +69,11 @@ function harness(options: {
     },
   ]);
   const provider = fakeTokenProvider(options.accounts);
-  if (options.claim) provider.fetchAccounts = jest.fn(options.claim) as never;
+  if (options.claim) provider.fetchAccounts = vi.fn(options.claim) as never;
 
   const transactionRepository = {
-    findOne: jest.fn(async () => null),
-    find: jest.fn(async (query: { where: Record<string, unknown> }) => {
+    findOne: vi.fn(async () => null),
+    find: vi.fn(async (query: { where: Record<string, unknown> }) => {
       if ('documentNumber' in query.where) {
         return (options.knownIds ?? []).map(documentNumber => ({ documentNumber }));
       }
@@ -84,18 +85,20 @@ function harness(options: {
     store.integrationRepository as never,
     store.settingsRepository as never,
     transactionRepository as never,
-    { findOne: jest.fn(async () => ({ id: 'wallet-1' })) } as never,
+    { findOne: vi.fn(async () => ({ id: 'wallet-1' })) } as never,
     [provider] as never,
   );
 
-  const statements = { create: jest.fn(async () => ({ id: 'stmt-1' })) };
+  const statements = { create: vi.fn(async () => ({ id: 'stmt-1' })) };
   const pull = new BankSyncPullService(
     store.integrationRepository as never,
-    transactionRepository as never,
     connections,
     statements as never,
-    new IntelligentDeduplicationService(importConfigStub),
-    importConfigStub,
+    new BankSyncDedupeService(
+      transactionRepository as never,
+      new IntelligentDeduplicationService(importConfigStub),
+      importConfigStub,
+    ),
   );
 
   return {
@@ -337,5 +340,16 @@ describe('BankSyncPullService health', () => {
     });
     const result = await second.pull.sync(user, workspaceId, 'c1');
     expect(result.accounts[0].health).toBe('incomplete');
+  });
+
+  it('auto-syncs connections of ordinary workspaces only, never a past version', async () => {
+    const h = harness({});
+    await h.pull.autoSync();
+
+    expect(h.store.integrationRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ workspace: { kind: WorkspaceKind.STANDARD } }),
+      }),
+    );
   });
 });

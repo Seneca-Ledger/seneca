@@ -44,6 +44,8 @@ function createService(options: {
   cash?: Record<string, number>;
   /** Rate to KZT by currency; absent means no rate. */
   rates?: Record<string, number | ((date: string) => number)>;
+  /** Spot price of one ounce, by day; absent means that day has no quote. */
+  metalRate?: number | ((date: string) => number | null);
 }) {
   const accounts = (options.accounts ?? ACCOUNTS).map(account => ({
     parentId: null,
@@ -59,46 +61,52 @@ function createService(options: {
   const snapshots = (options.snapshots ?? []).map(snapshot => ({ currency: 'KZT', ...snapshot }));
 
   const snapshotQueryBuilder: any = {
-    select: jest.fn(() => snapshotQueryBuilder),
-    where: jest.fn(() => snapshotQueryBuilder),
-    andWhere: jest.fn(() => snapshotQueryBuilder),
-    orderBy: jest.fn(() => snapshotQueryBuilder),
-    addOrderBy: jest.fn(() => snapshotQueryBuilder),
-    getMany: jest.fn(async () => snapshots),
-    getRawOne: jest.fn(async () => ({ earliest: snapshots[0]?.snapshotDate ?? null })),
+    select: vi.fn(() => snapshotQueryBuilder),
+    where: vi.fn(() => snapshotQueryBuilder),
+    andWhere: vi.fn(() => snapshotQueryBuilder),
+    orderBy: vi.fn(() => snapshotQueryBuilder),
+    addOrderBy: vi.fn(() => snapshotQueryBuilder),
+    getMany: vi.fn(async () => snapshots),
+    getRawOne: vi.fn(async () => ({ earliest: snapshots[0]?.snapshotDate ?? null })),
   };
 
   const transactionQueryBuilder: any = {
-    select: jest.fn(() => transactionQueryBuilder),
-    where: jest.fn(() => transactionQueryBuilder),
-    getRawOne: jest.fn(async () => ({ earliest: null })),
+    select: vi.fn(() => transactionQueryBuilder),
+    where: vi.fn(() => transactionQueryBuilder),
+    andWhere: vi.fn(() => transactionQueryBuilder),
+    getRawOne: vi.fn(async () => ({ earliest: null })),
   };
 
   const balanceService = {
-    seedDefaultAccounts: jest.fn(async () => undefined),
-    getCashSeries: jest.fn(
+    seedDefaultAccounts: vi.fn(async () => undefined),
+    getCashSeries: vi.fn(
       async (_workspaceId: string, dates: string[]) =>
         new Map(dates.map(date => [date, new Map(Object.entries(options.cash ?? {}))])),
     ),
   } as any;
 
   const exchangeRates = {
-    getRateOrNull: jest.fn(async (from: string, _to: string, date: string) => {
+    getRateOrNull: vi.fn(async (from: string, _to: string, date: string) => {
       const rate = options.rates?.[from];
       return typeof rate === 'function' ? rate(date) : (rate ?? null);
+    }),
+    getRateQuote: vi.fn(async (_from: string, _to: string, date: string) => {
+      const spot =
+        typeof options.metalRate === 'function' ? options.metalRate(date) : (options.metalRate ?? null);
+      return spot ? { rate: spot, rateDate: date, stale: false } : null;
     }),
   } as any;
 
   const service = new NetWorthService(
-    { find: jest.fn(async () => accounts) } as any,
-    { createQueryBuilder: jest.fn(() => snapshotQueryBuilder) } as any,
-    { createQueryBuilder: jest.fn(() => transactionQueryBuilder) } as any,
-    { findOne: jest.fn(async () => ({ currency: 'KZT' })) } as any,
+    { find: vi.fn(async () => accounts) } as any,
+    { createQueryBuilder: vi.fn(() => snapshotQueryBuilder) } as any,
+    { createQueryBuilder: vi.fn(() => transactionQueryBuilder) } as any,
+    { findOne: vi.fn(async () => ({ currency: 'KZT' })) } as any,
     balanceService,
     exchangeRates,
   );
 
-  return { service, balanceService, exchangeRates };
+  return { service, balanceService, exchangeRates, transactionQueryBuilder };
 }
 
 describe('NetWorthService', () => {
@@ -135,6 +143,32 @@ describe('NetWorthService', () => {
     expect(values[0]).toBe(0); // before the first snapshot
     expect(values).toContain(500); // held between the two
     expect(values[values.length - 1]).toBe(900);
+  });
+
+  it('ends the window on a past day when asked, ignoring what came later', async () => {
+    const { service } = createService({
+      snapshots: [
+        { accountId: 'a-fixed', snapshotDate: daysAgo(80), amount: 500 },
+        { accountId: 'a-fixed', snapshotDate: daysAgo(10), amount: 900 },
+      ],
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d', undefined, undefined, daysAgo(40));
+
+    expect(result.series[result.series.length - 1].date).toBe(daysAgo(40));
+    expect(result.current).toBe(500);
+    expect(result.byAssetClass).toEqual([]);
+  });
+
+  it('reads a day after today as today', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(10), amount: 900 }],
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d', undefined, undefined, '2999-01-31');
+
+    expect(result.series[result.series.length - 1].date).toBe(daysAgo(0));
+    expect(result.current).toBe(900);
   });
 
   it('reads cash for every sample date from the balance sheet', async () => {
@@ -307,6 +341,24 @@ describe('NetWorthService', () => {
     ]);
   });
 
+  it('starts the all-time chart at the first confirmed transaction', async () => {
+    const { service, transactionQueryBuilder } = createService({});
+
+    await service.getNetWorth(WORKSPACE_ID, 'all');
+
+    expect(transactionQueryBuilder.andWhere).toHaveBeenCalledWith('transaction.isVerified = true');
+  });
+
+  it('starts the year-to-date chart on the first of January', async () => {
+    const { service } = createService({});
+
+    const result = await service.getNetWorth(WORKSPACE_ID, 'ytd');
+
+    const today = new Date().toISOString().split('T')[0];
+    expect(result.series[0].date).toBe(`${today.slice(0, 4)}-01-01`);
+    expect(result.series[result.series.length - 1].date).toBe(today);
+  });
+
   it('returns a flat zero series for a workspace with nothing in it', async () => {
     const { service } = createService({});
 
@@ -315,5 +367,41 @@ describe('NetWorthService', () => {
     expect(result.current).toBe(0);
     expect(result.breakdown).toEqual([]);
     expect(result.series.every(point => point.value === 0)).toBe(true);
+  });
+
+  it('measures the same net worth in ounces, each point at its own day', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 80_000 }],
+      // Gold doubles over the window: the same money is worth half the ounces.
+      metalRate: (date: string) => (date < daysAgo(15) ? 2_000 : 4_000),
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d', undefined, 'XAU' as never);
+
+    expect(result.current).toBe(80_000);
+    expect(result.denominated).toMatchObject({ metal: 'XAU', unit: 'ozt' });
+    expect(result.denominated?.series[0]?.value).toBe(40);
+    expect(result.denominated?.current).toBe(20);
+    expect(result.denominated?.change).toBe(-20);
+  });
+
+  it('offers no ounce figures at all when no day has a quote', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 80_000 }],
+      metalRate: () => null,
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d', undefined, 'XAU' as never);
+    expect(result.denominated).toBeNull();
+  });
+
+  it('says nothing about metal unless it is asked to', async () => {
+    const { service } = createService({
+      snapshots: [{ accountId: 'a-fixed', snapshotDate: daysAgo(200), amount: 80_000 }],
+      metalRate: 4_000,
+    });
+
+    const result = await service.getNetWorth(WORKSPACE_ID, '30d');
+    expect(result.denominated).toBeNull();
   });
 });

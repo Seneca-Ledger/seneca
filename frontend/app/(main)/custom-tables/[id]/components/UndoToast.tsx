@@ -13,13 +13,13 @@ export function showUndoToast(message: string, undoLabel: string, onUndo: () => 
   const id = toast.custom(
     current => (
       <div
-        className={`lumio-ct__toast${current.visible ? '' : ' lumio-ct__toast--hidden'}`}
+        className={`seneca-ct__toast${current.visible ? '' : ' seneca-ct__toast--hidden'}`}
         role="status"
       >
         <span>{message}</span>
         <button
           type="button"
-          className="lumio-ct__toast-undo"
+          className="seneca-ct__toast-undo"
           onClick={() => {
             if (expired) {
               return;

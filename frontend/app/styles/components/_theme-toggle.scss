@@ -3,7 +3,7 @@
 // Segmented theme picker (Settings → General → Theme).
 // A green thumb slides under the selected option; the index comes from the
 // `--theme-toggle-index` custom property set on the track.
-.lumio-theme-toggle {
+.seneca-theme-toggle {
   --theme-toggle-pad: 4px;
 
   position: relative;
@@ -13,7 +13,7 @@
   max-width: 360px;
   padding: var(--theme-toggle-pad);
   border: 1px solid rgba(var(--primary-rgb), 0.22);
-  border-radius: $lumio-radius-full;
+  border-radius: $seneca-radius-full;
   background: rgba(var(--primary-rgb), 0.07);
   isolation: isolate;
 
@@ -23,7 +23,7 @@
     left: var(--theme-toggle-pad);
     z-index: 0;
     width: calc((100% - 2 * var(--theme-toggle-pad)) / 3);
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     background: linear-gradient(135deg, var(--primary-fill-hover), var(--primary-fill));
     box-shadow:
       0 4px 14px -4px rgba(var(--primary-rgb), 0.55),
@@ -42,7 +42,7 @@
     min-height: 2.5rem;
     padding: 0 0.875rem 0 0.375rem;
     border: 0;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     background: transparent;
     color: var(--muted-foreground);
     font: inherit;
@@ -73,7 +73,7 @@
     width: 1.75rem;
     height: 1.75rem;
     flex-shrink: 0;
-    border-radius: $lumio-radius-full;
+    border-radius: $seneca-radius-full;
     background: var(--primary-fill);
     color: #fff;
     transition:

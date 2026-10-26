@@ -6,8 +6,13 @@ import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDra
 import { Button } from '@/app/components/ui/button';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { Input } from '@/app/components/ui/input';
+import { Select } from '@/app/components/ui/select';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
+import { useIntlayer } from '@/app/i18n';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type { Client, CreateClientInput, UpdateClientInput } from '@/app/lib/invoices-api';
+import { LOCALE_DISPLAY_ORDER, LOCALE_ENDONYMS } from '@/app/lib/locale';
+import { PeppolIdField } from './PeppolIdField';
 
 interface ClientDrawerProps {
   open: boolean;
@@ -25,11 +30,23 @@ interface ClientDrawerProps {
     billingAddress: string;
     taxId: string;
     currency: string;
+    locale: string;
+    reminders: string;
+    paymentTerms: string;
     save: string;
     saving: string;
     cancel: string;
   };
 }
+
+/**
+ * Languages a document can be written in, each named in itself — the client
+ * reads the invoice, not the person filling this form in.
+ */
+const DOCUMENT_LOCALES = [
+  { value: 'default', label: '—' },
+  ...LOCALE_DISPLAY_ORDER.map(locale => ({ value: locale, label: LOCALE_ENDONYMS[locale] })),
+];
 
 interface ClientFormState {
   name: string;
@@ -37,6 +54,16 @@ interface ClientFormState {
   billingAddress: string;
   taxId: string;
   currency: string;
+  locale: string;
+  remindersEnabled: boolean;
+  paymentTermsDays: string;
+  street: string;
+  postalCode: string;
+  city: string;
+  countryCode: string;
+  buyerReference: string;
+  supplyType: '' | 'goods' | 'services';
+  peppolId: string;
 }
 
 const emptyState = (defaultCurrency: string): ClientFormState => ({
@@ -45,17 +72,28 @@ const emptyState = (defaultCurrency: string): ClientFormState => ({
   billingAddress: '',
   taxId: '',
   currency: defaultCurrency,
+  locale: '',
+  remindersEnabled: true,
+  paymentTermsDays: '',
+  street: '',
+  postalCode: '',
+  city: '',
+  countryCode: '',
+  buyerReference: '',
+  supplyType: '',
+  peppolId: '',
 });
 
 export function ClientDrawer({
   open,
   client,
-  defaultCurrency = 'KZT',
+  defaultCurrency = FALLBACK_CURRENCY,
   saving,
   onClose,
   onSubmit,
   labels,
 }: ClientDrawerProps): React.JSX.Element {
+  const einvoice = useIntlayer('einvoiceFields');
   const [form, setForm] = useState<ClientFormState>(() => emptyState(defaultCurrency));
   const {
     currencyDrawerOpen,
@@ -84,6 +122,17 @@ export function ClientDrawer({
             billingAddress: client.billingAddress || '',
             taxId: client.taxId || '',
             currency: client.currency || defaultCurrency,
+            locale: client.locale || '',
+            remindersEnabled: client.remindersEnabled ?? true,
+            paymentTermsDays:
+              client.paymentTermsDays === null ? '' : String(client.paymentTermsDays),
+            street: client.street || '',
+            postalCode: client.postalCode || '',
+            city: client.city || '',
+            countryCode: client.countryCode || '',
+            buyerReference: client.buyerReference || '',
+            supplyType: client.supplyType || '',
+            peppolId: client.peppolId || '',
           }
         : emptyState(defaultCurrency),
     );
@@ -101,6 +150,19 @@ export function ClientDrawer({
       billingAddress: form.billingAddress.trim() || undefined,
       taxId: form.taxId.trim() || undefined,
       currency: form.currency.trim().toUpperCase() || defaultCurrency,
+      locale: form.locale.trim().toLowerCase() || undefined,
+      remindersEnabled: form.remindersEnabled,
+      paymentTermsDays: form.paymentTermsDays.trim() ? Number(form.paymentTermsDays) : undefined,
+      // Sent even when emptied, so a cleared field is cleared on the server.
+      street: form.street.trim(),
+      postalCode: form.postalCode.trim(),
+      city: form.city.trim(),
+      ...(/^[A-Za-z]{2}$/.test(form.countryCode.trim())
+        ? { countryCode: form.countryCode.trim().toUpperCase() }
+        : {}),
+      buyerReference: form.buyerReference.trim(),
+      supplyType: form.supplyType || null,
+      peppolId: form.peppolId.trim(),
     });
   };
 
@@ -118,11 +180,11 @@ export function ClientDrawer({
         width="md"
         showCloseButton={false}
         title={
-          <div className="lumio-payable-drawer__title-wrap">
+          <div className="seneca-payable-drawer__title-wrap">
             <button
               type="button"
               onClick={onClose}
-              className="lumio-payable-drawer__back-btn"
+              className="seneca-payable-drawer__back-btn"
               aria-label={labels.cancel}
             >
               <ChevronLeft size={20} />
@@ -133,10 +195,10 @@ export function ClientDrawer({
           </div>
         }
       >
-        <div className="lumio-payable-drawer__body">
+        <div className="seneca-payable-drawer__body">
           <div style={{ display: 'grid', gap: 16 }}>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-name">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-name">
                 {labels.name}
               </label>
               <Input
@@ -145,8 +207,8 @@ export function ClientDrawer({
                 onChange={event => setForm(prev => ({ ...prev, name: event.target.value }))}
               />
             </div>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-email">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-email">
                 {labels.email}
               </label>
               <Input
@@ -156,9 +218,9 @@ export function ClientDrawer({
                 onChange={event => setForm(prev => ({ ...prev, email: event.target.value }))}
               />
             </div>
-            <div className="lumio-payable-drawer__2col">
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="client-tax-id">
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-tax-id">
                   {labels.taxId}
                 </label>
                 <Input
@@ -167,14 +229,14 @@ export function ClientDrawer({
                   onChange={event => setForm(prev => ({ ...prev, taxId: event.target.value }))}
                 />
               </div>
-              <div className="lumio-payable-drawer__field-group">
-                <label className="lumio-payable-drawer__field-label" htmlFor="client-currency">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-currency">
                   {labels.currency}
                 </label>
                 <button
                   id="client-currency"
                   type="button"
-                  className="lumio-payable-drawer__currency-trigger"
+                  className="seneca-payable-drawer__currency-trigger"
                   onClick={() => setCurrencyDrawerOpen(true)}
                   aria-label={labels.currency}
                 >
@@ -182,13 +244,161 @@ export function ClientDrawer({
                 </button>
               </div>
             </div>
-            <div className="lumio-payable-drawer__field-group">
-              <label className="lumio-payable-drawer__field-label" htmlFor="client-billing-address">
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-terms">
+                {labels.paymentTerms}
+              </label>
+              <Input
+                id="client-terms"
+                inputMode="numeric"
+                value={form.paymentTermsDays}
+                onChange={event =>
+                  setForm(prev => ({
+                    ...prev,
+                    paymentTermsDays: event.target.value.replace(/\D/g, ''),
+                  }))
+                }
+              />
+            </div>
+            <label
+              className="seneca-payable-drawer__field-group"
+              style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}
+            >
+              {/* Off for the clients who always pay on time. */}
+              <input
+                type="checkbox"
+                checked={form.remindersEnabled}
+                onChange={event =>
+                  setForm(prev => ({ ...prev, remindersEnabled: event.target.checked }))
+                }
+              />
+              <span className="seneca-payable-drawer__field-label">{labels.reminders}</span>
+            </label>
+            <div className="seneca-payable-drawer__field-group">
+              {/* The language this client's invoices are written in. */}
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-locale">
+                {labels.locale}
+              </label>
+              <Select
+                fullWidth
+                id="client-locale"
+                value={form.locale || 'default'}
+                onChange={next =>
+                  setForm(prev => ({ ...prev, locale: next === 'default' ? '' : String(next) }))
+                }
+                options={DOCUMENT_LOCALES.map(option => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+              />
+            </div>
+            <fieldset
+              className="seneca-payable-drawer__field-group"
+              style={{ border: 0, padding: 0, margin: 0 }}
+            >
+              <legend className="seneca-payable-drawer__field-label">
+                {einvoice.clientSection}
+              </legend>
+              <span style={{ fontSize: 12, opacity: 0.7 }}>{einvoice.clientSectionHint}</span>
+            </fieldset>
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-street">
+                {einvoice.street}
+              </label>
+              <Input
+                id="client-street"
+                value={form.street}
+                onChange={event => setForm(prev => ({ ...prev, street: event.target.value }))}
+              />
+            </div>
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-postal-code">
+                  {einvoice.postalCode}
+                </label>
+                <Input
+                  id="client-postal-code"
+                  value={form.postalCode}
+                  onChange={event => setForm(prev => ({ ...prev, postalCode: event.target.value }))}
+                />
+              </div>
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-city">
+                  {einvoice.city}
+                </label>
+                <Input
+                  id="client-city"
+                  value={form.city}
+                  onChange={event => setForm(prev => ({ ...prev, city: event.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="seneca-payable-drawer__2col">
+              <div className="seneca-payable-drawer__field-group">
+                <label className="seneca-payable-drawer__field-label" htmlFor="client-country">
+                  {einvoice.countryCode}
+                </label>
+                <Input
+                  id="client-country"
+                  maxLength={2}
+                  value={form.countryCode}
+                  onChange={event =>
+                    setForm(prev => ({ ...prev, countryCode: event.target.value.toUpperCase() }))
+                  }
+                />
+              </div>
+              <div className="seneca-payable-drawer__field-group">
+                <label
+                  className="seneca-payable-drawer__field-label"
+                  htmlFor="client-buyer-reference"
+                >
+                  {einvoice.buyerReference}
+                </label>
+                <Input
+                  id="client-buyer-reference"
+                  value={form.buyerReference}
+                  onChange={event =>
+                    setForm(prev => ({ ...prev, buyerReference: event.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="seneca-payable-drawer__field-group">
+              <label className="seneca-payable-drawer__field-label" htmlFor="client-supply-type">
+                {einvoice.supplyType}
+              </label>
+              <Select
+                fullWidth
+                id="client-supply-type"
+                value={form.supplyType || 'unset'}
+                onChange={next =>
+                  setForm(prev => ({
+                    ...prev,
+                    supplyType: next === 'unset' ? '' : (next as 'goods' | 'services'),
+                  }))
+                }
+                options={[
+                  { value: 'unset', label: einvoice.supplyUnset.value },
+                  { value: 'services', label: einvoice.supplyServices.value },
+                  { value: 'goods', label: einvoice.supplyGoods.value },
+                ]}
+              />
+            </div>
+            <PeppolIdField
+              value={form.peppolId}
+              vatId={form.taxId}
+              onChange={peppolId => setForm(prev => ({ ...prev, peppolId }))}
+            />
+            <div className="seneca-payable-drawer__field-group">
+              <label
+                className="seneca-payable-drawer__field-label"
+                htmlFor="client-billing-address"
+              >
                 {labels.billingAddress}
               </label>
               <textarea
                 id="client-billing-address"
-                className="lumio-payable-drawer__textarea"
+                className="seneca-payable-drawer__textarea"
                 value={form.billingAddress}
                 onChange={event =>
                   setForm(prev => ({ ...prev, billingAddress: event.target.value }))
@@ -197,7 +407,7 @@ export function ClientDrawer({
             </div>
           </div>
 
-          <div className="lumio-payable-drawer__footer">
+          <div className="seneca-payable-drawer__footer">
             <Button variant="outline" style={{ flex: 1 }} onClick={onClose}>
               {labels.cancel}
             </Button>

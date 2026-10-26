@@ -1,12 +1,10 @@
 {
   "mcpServers": {
-    "lumio": {
-      "command": "node",
-      "args": ["mcp-server/dist/index.js"],
-      "env": {
-        "LUMIO_BASE_URL": "http://localhost:3001/api/v1",
-        "LUMIO_API_KEY": "lum_<your-api-key>",
-        "LUMIO_WORKSPACE_ID": "<your-workspace-uuid>"
+    "seneca": {
+      "type": "http",
+      "url": "http://localhost:3001/api/v1/mcp",
+      "headers": {
+        "X-Api-Key": "lum_<your-api-key>"
       }
     }
   }

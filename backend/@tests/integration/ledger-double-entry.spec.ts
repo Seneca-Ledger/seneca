@@ -20,7 +20,7 @@ import { CreateLedger1786420000000 } from '../../src/migrations/1786420000000-Cr
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_ledger_${process.pid}`;
+const SCRATCH_DB = `seneca_ledger_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -28,15 +28,15 @@ function scratchUrl(database: string): string {
   return url.toString();
 }
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -45,7 +45,7 @@ function loadMigrations(): Function[] {
 type Leg = { account: string; debit?: number; credit?: number };
 
 describe('ledger double-entry invariant (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let db: Client;
@@ -59,7 +59,7 @@ describe('ledger double-entry invariant (real Postgres)', () => {
 
   async function createWorkspace(): Promise<string> {
     const { rows } = await db.query(
-      `INSERT INTO "workspaces" ("name") VALUES ('ledger test') RETURNING "id"`,
+      `INSERT INTO "workspaces" ("name", "currency") VALUES ('ledger test', 'USD') RETURNING "id"`,
     );
     return rows[0].id;
   }
@@ -428,8 +428,9 @@ describe('ledger double-entry invariant (real Postgres)', () => {
   it('keeps one live entry per transaction, but lets a reversal share the source', async () => {
     const { rows } = await db.query(
       `INSERT INTO "transactions"
-         ("workspace_id", "transaction_date", "counterparty_name", "payment_purpose", "transaction_type")
-       VALUES ($1, '2026-09-01', 'Shop', 'Groceries', 'expense') RETURNING "id"`,
+         ("workspace_id", "transaction_date", "counterparty_name", "payment_purpose",
+          "transaction_type", "currency")
+       VALUES ($1, '2026-09-01', 'Shop', 'Groceries', 'expense', 'USD') RETURNING "id"`,
       [workspaceId],
     );
     const transactionId = rows[0].id;

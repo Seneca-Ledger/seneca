@@ -2,9 +2,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
+import { Schema } from 'effect';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { StatementList } from '../../src/contracts';
+import { Category, CategoryType, Note, Transaction, TransactionType } from '../../src/entities';
+import { StatementParsingProcessor } from '../../src/modules/parsing/queue/statement-parsing.processor';
 import { accessTokenOf, deleteUserByEmail, e2eTestingModule } from './helpers/e2e-app';
 
 describe('StatementsController (e2e)', () => {
@@ -48,6 +52,10 @@ describe('StatementsController (e2e)', () => {
   });
 
   afterAll(async () => {
+    // Uploads are parsed in the background, and a parse still running would
+    // insert categories for the user this cleanup deletes. Closing the worker
+    // waits for its active jobs.
+    await app?.get(StatementParsingProcessor).worker.close();
     // Cleanup test data
     if (dataSource) {
       await dataSource.query(
@@ -139,6 +147,8 @@ describe('StatementsController (e2e)', () => {
         .expect(res => {
           expect(Array.isArray(res.body.data)).toBe(true);
           expect(res.body.data.length).toBeGreaterThan(0);
+          // The frontend checks this list against the same contract in dev.
+          Schema.decodeUnknownSync(StatementList)(res.body.data);
         });
     });
 
@@ -172,6 +182,8 @@ describe('StatementsController (e2e)', () => {
         .set('x-workspace-id', workspaceId)
         .expect(200);
       expect(ids(completed)).toContain(manual.body.id);
+      // A manual expense has a category and totals, so it exercises more of the contract.
+      Schema.decodeUnknownSync(StatementList)(completed.body.data);
       for (const statement of completed.body.data) {
         expect(statement.status).toBe('completed');
       }
@@ -184,12 +196,132 @@ describe('StatementsController (e2e)', () => {
       expect(ids(uploaded)).not.toContain(manual.body.id);
     });
 
-    it('should filter by search text', () => {
-      return request(app.getHttpServer())
-        .get('/statements?search=test-statement')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .set('x-workspace-id', workspaceId)
-        .expect(200);
+    it('should search by file, merchant, description, category, amount and notes', async () => {
+      const category = await dataSource.getRepository(Category).save({
+        workspaceId,
+        name: 'Quokka Supplies',
+        type: CategoryType.EXPENSE,
+      });
+      const txRepo = dataSource.getRepository(Transaction);
+      const base = {
+        workspaceId,
+        statementId,
+        currency: 'EUR',
+        transactionDate: new Date('2026-06-15'),
+        transactionType: TransactionType.EXPENSE,
+      };
+      const [visible] = await txRepo.save([
+        txRepo.create({
+          ...base,
+          counterpartyName: 'Zephyr Coffee Roasters',
+          paymentPurpose: 'Beans for the office',
+          amount: 42.37,
+          debit: 42.37,
+          categoryId: category.id,
+        }),
+        txRepo.create({
+          ...base,
+          counterpartyName: 'Hidden Clinic',
+          paymentPurpose: 'Private visit',
+          amount: 999.99,
+          debit: 999.99,
+          isPrivate: true,
+        }),
+      ]);
+      await dataSource
+        .getRepository(Note)
+        .save({ workspaceId, transactionId: visible.id, body: 'reimburse via Vera' });
+
+      const found = async (search: string): Promise<boolean> => {
+        const res = await request(app.getHttpServer())
+          .get('/statements')
+          .query({ search })
+          .set('Authorization', `Bearer ${accessToken}`)
+          .set('x-workspace-id', workspaceId)
+          .expect(200);
+        return res.body.data.some((statement: { id: string }) => statement.id === statementId);
+      };
+
+      for (const hit of [
+        'test-statement',
+        'zephyr',
+        'for the office',
+        'quokka',
+        'vera',
+        '42',
+        '42.3',
+        '42,37',
+      ]) {
+        expect([hit, await found(hit)]).toEqual([hit, true]);
+      }
+      // A private transaction must not reveal itself through search.
+      for (const miss of ['hidden clinic', '999.99', '42.38', 'no-such-term']) {
+        expect([miss, await found(miss)]).toEqual([miss, false]);
+      }
+
+      await txRepo.delete({ statementId });
+      await dataSource.getRepository(Category).delete({ id: category.id });
+    });
+
+    it('should filter by a category with its subcategories or a merchant within a transaction window', async () => {
+      const categoryRepo = dataSource.getRepository(Category);
+      const parent = await categoryRepo.save({
+        workspaceId,
+        name: 'Quokka Household',
+        type: CategoryType.EXPENSE,
+      });
+      const child = await categoryRepo.save({
+        workspaceId,
+        name: 'Quokka Cleaning',
+        type: CategoryType.EXPENSE,
+        parentId: parent.id,
+      });
+      const txRepo = dataSource.getRepository(Transaction);
+      const inWindow = '2026-06-15';
+      await txRepo.save(
+        txRepo.create({
+          workspaceId,
+          statementId,
+          currency: 'EUR',
+          transactionDate: new Date(inWindow),
+          transactionType: TransactionType.EXPENSE,
+          counterpartyName: 'ACME Store - Mop',
+          paymentPurpose: 'Floor mop',
+          amount: 12.5,
+          debit: 12.5,
+          categoryId: child.id,
+        }),
+      );
+
+      const found = async (query: Record<string, string>): Promise<boolean> => {
+        const res = await request(app.getHttpServer())
+          .get('/statements')
+          .query(query)
+          .set('Authorization', `Bearer ${accessToken}`)
+          .set('x-workspace-id', workspaceId)
+          .expect(200);
+        return res.body.data.some((statement: { id: string }) => statement.id === statementId);
+      };
+
+      expect(await found({ categoryId: parent.id })).toBe(true);
+      expect(await found({ categoryId: child.id })).toBe(true);
+      expect(
+        await found({ categoryId: parent.id, transactionsFrom: inWindow, transactionsTo: inWindow }),
+      ).toBe(true);
+      expect(
+        await found({
+          categoryId: parent.id,
+          transactionsFrom: '2026-07-01',
+          transactionsTo: '2026-07-31',
+        }),
+      ).toBe(false);
+      // The merchant key the charts use: trimmed, lower-cased counterparty.
+      expect(await found({ merchant: 'acme store - mop', transactionsFrom: inWindow })).toBe(true);
+      expect(await found({ merchant: 'acme store', transactionsFrom: inWindow })).toBe(false);
+
+      await txRepo.delete({ statementId });
+      await categoryRepo.delete({ id: child.id });
+      await categoryRepo.delete({ id: parent.id });
     });
 
     it('should reject request without authentication', () => {

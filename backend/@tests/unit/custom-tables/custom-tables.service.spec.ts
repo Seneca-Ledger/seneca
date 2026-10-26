@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
 	AuditAction,
 	EntityType,
@@ -7,197 +8,23 @@ import { CustomTableSource } from "../../../src/entities/custom-table.entity";
 import { CustomTableColumnType } from "../../../src/entities/custom-table-column.entity";
 import { TransactionType } from "../../../src/entities/transaction.entity";
 import { CustomTablesService } from "../../../src/modules/custom-tables/custom-tables.service";
+import { workspaceCurrencyStub } from '../../helpers/workspace-currency-stub';
 
 const createRepositoryMock = () => ({
-	findOne: jest.fn(),
-	find: jest.fn(),
-	save: jest.fn(),
-	create: jest.fn((value?: unknown) => value),
-	delete: jest.fn(),
-	update: jest.fn(),
-	createQueryBuilder: jest.fn(),
+	findOne: vi.fn(),
+	find: vi.fn(),
+	save: vi.fn(),
+	create: vi.fn((value?: unknown) => value),
+	delete: vi.fn(),
+	update: vi.fn(),
+	count: vi.fn().mockResolvedValue(0),
+	createQueryBuilder: vi.fn(),
 });
 
 const TABLE_ID = "11111111-1111-4111-8111-111111111111";
 
-describe("CustomTablesService.createFromStatements", () => {
-	it("creates a custom table from a single statement without throwing", async () => {
-		const customTableRepository = createRepositoryMock();
-		const categoryRepository = createRepositoryMock();
-		const customTableColumnRepository = createRepositoryMock();
-		const customTableRowRepository = createRepositoryMock();
-		const customTableColumnStyleRepository = createRepositoryMock();
-		const customTableCellStyleRepository = createRepositoryMock();
-		const dataEntryRepository = createRepositoryMock();
-		const dataEntryCustomFieldRepository = createRepositoryMock();
-		const statementRepository = createRepositoryMock();
-		const transactionRepository = createRepositoryMock();
-		const userRepository = createRepositoryMock();
-		const workspaceMemberRepository = createRepositoryMock();
-		const auditService = {
-			createEvent: jest.fn().mockResolvedValue(undefined),
-			createBatchEvents: jest.fn().mockResolvedValue(undefined),
-		};
-
-		const statementQueryBuilder = {
-			leftJoin: jest.fn().mockReturnThis(),
-			where: jest.fn().mockReturnThis(),
-			andWhere: jest.fn().mockReturnThis(),
-			orderBy: jest.fn().mockReturnThis(),
-			getMany: jest.fn().mockResolvedValue([
-				{
-					id: "statement-1",
-					fileName: "receipt-scan.pdf",
-					createdAt: new Date("2026-03-29T00:00:00.000Z"),
-				},
-			]),
-		};
-
-		statementRepository.createQueryBuilder.mockReturnValue(
-			statementQueryBuilder,
-		);
-		workspaceMemberRepository.findOne.mockResolvedValue({
-			role: "owner",
-			permissions: {},
-		});
-		transactionRepository.find.mockResolvedValue([
-			{
-				id: "tx-1",
-				statementId: "statement-1",
-				transactionDate: new Date("2026-03-29T00:00:00.000Z"),
-				counterpartyName: "Magnum",
-				paymentPurpose: "Magnum",
-				debit: 500,
-				credit: null,
-				currency: "KZT",
-				transactionType: TransactionType.EXPENSE,
-				createdAt: new Date("2026-03-29T00:00:00.000Z"),
-			},
-		]);
-
-		customTableRepository.save.mockResolvedValue({
-			id: "table-1",
-			userId: "user-1",
-			workspaceId: "workspace-1",
-			name: "Receipt export",
-			description: "Exported from receipt scan",
-			source: CustomTableSource.MANUAL,
-			categoryId: null,
-		});
-
-		customTableColumnRepository.save.mockImplementation(
-			async (values) => values,
-		);
-		customTableRowRepository.save.mockImplementation(async (values) => values);
-
-		const service = new CustomTablesService(
-			customTableRepository as never,
-			categoryRepository as never,
-			customTableColumnRepository as never,
-			customTableRowRepository as never,
-			customTableColumnStyleRepository as never,
-			customTableCellStyleRepository as never,
-			dataEntryRepository as never,
-			dataEntryCustomFieldRepository as never,
-			statementRepository as never,
-			transactionRepository as never,
-			userRepository as never,
-			workspaceMemberRepository as never,
-			auditService as never,
-		);
-
-		const result = await service.createFromStatements("user-1", "workspace-1", {
-			statementIds: ["statement-1"],
-			name: "Receipt export",
-			description: "Exported from receipt scan",
-		});
-
-		expect(result).toEqual({
-			tableId: "table-1",
-			columnsCreated: 7,
-			rowsCreated: 1,
-		});
-		expect(customTableRepository.save).toHaveBeenCalledWith({
-			userId: "user-1",
-			workspaceId: "workspace-1",
-			name: "Receipt export",
-			description: "Exported from receipt scan",
-			source: CustomTableSource.MANUAL,
-			categoryId: null,
-		});
-		expect(customTableColumnRepository.save).toHaveBeenCalledWith([
-			expect.objectContaining({
-				title: "Дата",
-				type: CustomTableColumnType.DATE,
-				position: 0,
-			}),
-			expect.objectContaining({
-				title: "Контрагент",
-				type: CustomTableColumnType.TEXT,
-				position: 1,
-			}),
-			expect.objectContaining({
-				title: "Назначение",
-				type: CustomTableColumnType.TEXT,
-				position: 2,
-			}),
-			expect.objectContaining({
-				title: "Дебет",
-				type: CustomTableColumnType.NUMBER,
-				position: 3,
-			}),
-			expect.objectContaining({
-				title: "Кредит",
-				type: CustomTableColumnType.NUMBER,
-				position: 4,
-			}),
-			expect.objectContaining({
-				title: "Валюта",
-				type: CustomTableColumnType.TEXT,
-				position: 5,
-			}),
-			expect.objectContaining({
-				title: "Тип",
-				type: CustomTableColumnType.TEXT,
-				position: 6,
-			}),
-		]);
-		expect(customTableRowRepository.save).toHaveBeenCalledWith([
-			expect.objectContaining({
-				tableId: "table-1",
-				rowNumber: 1,
-				data: expect.any(Object),
-			}),
-		]);
-		const savedRows = customTableRowRepository.save.mock
-			.calls[0]?.[0] as Array<{
-			data: Record<string, unknown>;
-		}>;
-		expect(Object.values(savedRows[0]?.data || {})).toEqual(
-			expect.arrayContaining([
-				"2026-03-29",
-				"Magnum",
-				500,
-				null,
-				"KZT",
-				"Списание",
-			]),
-		);
-		expect(auditService.createEvent).toHaveBeenCalledWith(
-			expect.objectContaining({
-				workspaceId: "workspace-1",
-				actorId: "user-1",
-				entityType: EntityType.CUSTOM_TABLE,
-				action: AuditAction.CREATE,
-				severity: Severity.INFO,
-			}),
-		);
-		expect(auditService.createBatchEvents).toHaveBeenCalled();
-	});
-});
-
 const buildCustomTablesService = (classificationService?: {
-	classifyTransactionsBatch: jest.Mock;
+	classifyTransaction: Mock;
 }) => {
 	const customTableRepository = createRepositoryMock();
 	const categoryRepository = createRepositoryMock();
@@ -212,8 +39,8 @@ const buildCustomTablesService = (classificationService?: {
 	const userRepository = createRepositoryMock();
 	const workspaceMemberRepository = createRepositoryMock();
 	const auditService = {
-		createEvent: jest.fn().mockResolvedValue(undefined),
-		createBatchEvents: jest.fn().mockResolvedValue(undefined),
+		createEvent: vi.fn().mockResolvedValue(undefined),
+		createBatchEvents: vi.fn().mockResolvedValue(undefined),
 	};
 
 	const service = new CustomTablesService(
@@ -231,6 +58,9 @@ const buildCustomTablesService = (classificationService?: {
 		workspaceMemberRepository as never,
 		auditService as never,
 		classificationService as never,
+		undefined,
+		undefined,
+		workspaceCurrencyStub('EUR') as never,
 	);
 
 	return {
@@ -251,10 +81,10 @@ const mockRequireTable = (
 	table: Record<string, unknown> = {},
 ) => {
 	const queryBuilder = {
-		leftJoinAndSelect: jest.fn().mockReturnThis(),
-		where: jest.fn().mockReturnThis(),
-		andWhere: jest.fn().mockReturnThis(),
-		getOne: jest.fn().mockResolvedValue({
+		leftJoinAndSelect: vi.fn().mockReturnThis(),
+		where: vi.fn().mockReturnThis(),
+		andWhere: vi.fn().mockReturnThis(),
+		getOne: vi.fn().mockResolvedValue({
 			id: TABLE_ID,
 			userId: "user-1",
 			workspaceId: "workspace-1",
@@ -273,10 +103,10 @@ const mockMissingTable = (
 	customTableRepository: ReturnType<typeof createRepositoryMock>,
 ) => {
 	const queryBuilder = {
-		leftJoinAndSelect: jest.fn().mockReturnThis(),
-		where: jest.fn().mockReturnThis(),
-		andWhere: jest.fn().mockReturnThis(),
-		getOne: jest.fn().mockResolvedValue(null),
+		leftJoinAndSelect: vi.fn().mockReturnThis(),
+		where: vi.fn().mockReturnThis(),
+		andWhere: vi.fn().mockReturnThis(),
+		getOne: vi.fn().mockResolvedValue(null),
 	};
 	customTableRepository.createQueryBuilder.mockReturnValue(queryBuilder);
 	return queryBuilder;
@@ -369,24 +199,24 @@ describe("CustomTablesService.convertToStatement", () => {
 	const originalUploadsDir = process.env.UPLOADS_DIR;
 
 	beforeEach(() => {
-		process.env.UPLOADS_DIR = "/tmp/lumio-custom-table-tests";
+		process.env.UPLOADS_DIR = "/tmp/seneca-custom-table-tests";
 	});
 
 	afterEach(() => {
-		process.env.UPLOADS_DIR = originalUploadsDir;
-		jest.clearAllMocks();
+		if (originalUploadsDir === undefined) {
+			delete process.env.UPLOADS_DIR;
+		} else {
+			process.env.UPLOADS_DIR = originalUploadsDir;
+		}
+		vi.clearAllMocks();
 	});
 
 	it("categorizes converted transactions through the workspace classifier", async () => {
 		const classificationService = {
-			classifyTransactionsBatch: jest
-				.fn()
-				.mockResolvedValue(new Map([[0, { categoryId: "cat-food" }]])),
-			// Rules and learning find nothing, so the model's answer is taken.
-			classifyTransaction: jest.fn().mockResolvedValue({
-				categoryId: "cat-none",
-				categorySource: "default",
-				categoryReason: null,
+			classifyTransaction: vi.fn().mockResolvedValue({
+				categoryId: "cat-food",
+				categorySource: "history",
+				categoryReason: "Magnum",
 			}),
 		};
 		const {
@@ -419,9 +249,9 @@ describe("CustomTablesService.convertToStatement", () => {
 			},
 		]);
 		statementRepository.createQueryBuilder.mockReturnValue({
-			where: jest.fn().mockReturnThis(),
-			andWhere: jest.fn().mockReturnThis(),
-			getOne: jest.fn().mockResolvedValue(null),
+			where: vi.fn().mockReturnThis(),
+			andWhere: vi.fn().mockReturnThis(),
+			getOne: vi.fn().mockResolvedValue(null),
 		});
 		statementRepository.create.mockImplementation((value?: unknown) => value);
 		statementRepository.save.mockImplementation(async (value) => ({
@@ -429,6 +259,7 @@ describe("CustomTablesService.convertToStatement", () => {
 			...(value as Record<string, unknown>),
 		}));
 		transactionRepository.create.mockImplementation((value?: unknown) => value);
+		transactionRepository.find.mockResolvedValue([]);
 		transactionRepository.save.mockImplementation(async (values) =>
 			(values as Array<Record<string, unknown>>).map((value, index) => ({
 				id: `tx-${index}`,
@@ -438,23 +269,17 @@ describe("CustomTablesService.convertToStatement", () => {
 
 		await service.convertToStatement("user-1", "workspace-1", TABLE_ID);
 
-		expect(
-			classificationService.classifyTransactionsBatch,
-		).toHaveBeenCalledWith(
-			[
-				{
-					index: 0,
-					counterpartyName: "Magnum",
-					paymentPurpose: "Magnum",
-					transactionType: "expense",
-				},
-			],
-			"workspace-1",
+		expect(classificationService.classifyTransaction).toHaveBeenCalledWith(
+			expect.objectContaining({ counterpartyName: "Magnum" }),
 			"user-1",
 		);
 		expect(transactionRepository.update).toHaveBeenCalledWith(
 			{ id: "tx-0" },
-			{ categoryId: "cat-food", categorySource: "ai", categoryReason: null },
+			{
+				categoryId: "cat-food",
+				categorySource: "history",
+				categoryReason: "Magnum",
+			},
 		);
 	});
 
@@ -502,9 +327,9 @@ describe("CustomTablesService.convertToStatement", () => {
 		]);
 
 		statementRepository.createQueryBuilder.mockReturnValue({
-			where: jest.fn().mockReturnThis(),
-			andWhere: jest.fn().mockReturnThis(),
-			getOne: jest.fn().mockResolvedValue(null),
+			where: vi.fn().mockReturnThis(),
+			andWhere: vi.fn().mockReturnThis(),
+			getOne: vi.fn().mockResolvedValue(null),
 		});
 		statementRepository.create.mockImplementation((value?: unknown) => value);
 		statementRepository.save.mockImplementation(async (value) => ({
@@ -512,6 +337,7 @@ describe("CustomTablesService.convertToStatement", () => {
 			...(value as Record<string, unknown>),
 		}));
 		transactionRepository.create.mockImplementation((value?: unknown) => value);
+		transactionRepository.find.mockResolvedValue([]);
 		transactionRepository.save.mockImplementation(async (values) => values);
 
 		const result = await service.convertToStatement(
@@ -548,7 +374,7 @@ describe("CustomTablesService.convertToStatement", () => {
 				currency: "KZT",
 				transactionType: TransactionType.EXPENSE,
 				article: "Office supplies",
-				isVerified: true,
+				isVerified: false,
 				fingerprint: expect.any(String),
 			}),
 		]);
@@ -587,14 +413,14 @@ describe("CustomTablesService.convertToStatement", () => {
 			},
 		]);
 		statementRepository.createQueryBuilder.mockReturnValue({
-			where: jest.fn().mockReturnThis(),
-			andWhere: jest.fn().mockReturnThis(),
-			getOne: jest.fn().mockResolvedValue({
+			where: vi.fn().mockReturnThis(),
+			andWhere: vi.fn().mockReturnThis(),
+			getOne: vi.fn().mockResolvedValue({
 				id: "generated-statement-1",
 				userId: "user-1",
 				workspaceId: "workspace-1",
 				fileName: "old.csv",
-				filePath: "/tmp/lumio-custom-table-tests/old.csv",
+				filePath: "/tmp/seneca-custom-table-tests/old.csv",
 				parsingDetails: {
 					importPreview: {
 						source: "custom-table-conversion",
@@ -605,6 +431,7 @@ describe("CustomTablesService.convertToStatement", () => {
 		});
 		statementRepository.save.mockImplementation(async (value) => value);
 		transactionRepository.create.mockImplementation((value?: unknown) => value);
+		transactionRepository.find.mockResolvedValue([]);
 		transactionRepository.save.mockImplementation(async (values) => values);
 
 		const result = await service.convertToStatement(
@@ -616,6 +443,14 @@ describe("CustomTablesService.convertToStatement", () => {
 		expect(result.statementId).toBe("generated-statement-1");
 		expect(transactionRepository.delete).toHaveBeenCalledWith({
 			statementId: "generated-statement-1",
+		});
+		// Rows on a filed tax return would be replaced too, so they are looked for first.
+		expect(transactionRepository.count).toHaveBeenCalledWith({
+			where: {
+				statementId: "generated-statement-1",
+				workspaceId: "workspace-1",
+				taxLocked: true,
+			},
 		});
 		expect(transactionRepository.save).toHaveBeenCalledTimes(1);
 	});
@@ -654,9 +489,9 @@ describe("CustomTablesService.convertToStatement", () => {
 		]);
 
 		statementRepository.createQueryBuilder.mockReturnValue({
-			where: jest.fn().mockReturnThis(),
-			andWhere: jest.fn().mockReturnThis(),
-			getOne: jest.fn().mockResolvedValue(null),
+			where: vi.fn().mockReturnThis(),
+			andWhere: vi.fn().mockReturnThis(),
+			getOne: vi.fn().mockResolvedValue(null),
 		});
 		statementRepository.create.mockImplementation((value?: unknown) => value);
 		statementRepository.save.mockImplementation(async (value) => ({
@@ -664,6 +499,7 @@ describe("CustomTablesService.convertToStatement", () => {
 			...(value as Record<string, unknown>),
 		}));
 		transactionRepository.create.mockImplementation((value?: unknown) => value);
+		transactionRepository.find.mockResolvedValue([]);
 		transactionRepository.save.mockImplementation(async (values) => values);
 
 		await service.convertToStatement("user-1", "workspace-1", TABLE_ID);
@@ -674,7 +510,7 @@ describe("CustomTablesService.convertToStatement", () => {
 				paymentPurpose: "Hosting",
 				debit: 1234.5,
 				amount: 1234.5,
-				currency: "KZT",
+				currency: "EUR",
 				transactionType: TransactionType.EXPENSE,
 				article: "Infrastructure",
 			}),

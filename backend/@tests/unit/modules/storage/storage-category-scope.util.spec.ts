@@ -1,3 +1,4 @@
+import { IsNull } from 'typeorm';
 import { buildStorageCategoryWhere } from '@/modules/storage/storage-category-scope.util';
 
 describe('buildStorageCategoryWhere', () => {
@@ -18,8 +19,8 @@ describe('buildStorageCategoryWhere', () => {
       },
       {
         id: 'cat-1',
-        userId: null,
-        workspaceId: null,
+        userId: IsNull(),
+        workspaceId: IsNull(),
       },
     ]);
   });

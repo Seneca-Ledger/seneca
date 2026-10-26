@@ -34,4 +34,15 @@ describe('parseExpenseText', () => {
   it('does not mistake a date for an amount when a proper amount follows', () => {
     expect(parseExpenseText('parking 12.50')).toEqual({ amount: 12.5, currency: null, merchant: 'parking' });
   });
+
+  it('strips separators around the merchant', () => {
+    expect(parseExpenseText('— coffee: 4.50')).toEqual({ amount: 4.5, currency: null, merchant: 'coffee' });
+  });
+
+  it('stays linear on a long run of separators inside the merchant', () => {
+    const text = `coffee${' -'.repeat(50_000)}x 4.50`;
+    const startedAt = Date.now();
+    expect(parseExpenseText(text)?.amount).toBe(4.5);
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+  });
 });

@@ -14,6 +14,7 @@ import {
   setReceiptLocationCapture,
   useReceiptLocationCapture,
 } from '@/app/lib/receipt-location-capture';
+import { setReceiptPlacePrompt, useReceiptPlaceFollowups } from '@/app/lib/receipt-place-followup';
 
 /**
  * The same per-device choice the consent screen makes before the first camera
@@ -22,9 +23,11 @@ import {
 export function ReceiptLocationCaptureSection(): React.JSX.Element {
   const t = useIntlayer('receiptLocationConsent');
   const choice = useReceiptLocationCapture();
+  const { promptOn } = useReceiptPlaceFollowups();
   const [supported, setSupported] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const captureOn = supported && choice === 'on';
 
   // Read after mount: the check touches window, which the server render lacks.
   useEffect(() => {
@@ -57,18 +60,59 @@ export function ReceiptLocationCaptureSection(): React.JSX.Element {
           <FormControlLabel
             control={
               <Switch
-                checked={supported && choice === 'on'}
+                checked={captureOn}
                 disabled={!supported || requesting}
                 onChange={(_event, value) => void handleChange(value)}
               />
             }
             label={
               <Stack spacing={0.25}>
-                <Typography variant="body2" fontWeight={500}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                  }}
+                >
                   {t.toggleLabel.value}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
                   {t.toggleHelp.value}
+                </Typography>
+              </Stack>
+            }
+          />
+          {/* The question needs the fix that capture asks for, so it follows that switch. */}
+          <FormControlLabel
+            sx={{ mt: 2 }}
+            control={
+              <Switch
+                checked={captureOn && promptOn}
+                disabled={!captureOn}
+                onChange={(_event, value) => setReceiptPlacePrompt(value)}
+              />
+            }
+            label={
+              <Stack spacing={0.25}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                  }}
+                >
+                  {t.placePromptLabel.value}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
+                  {t.placePromptHelp.value}
                 </Typography>
               </Stack>
             }

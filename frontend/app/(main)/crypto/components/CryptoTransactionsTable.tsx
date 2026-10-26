@@ -8,12 +8,13 @@ import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { ArrowDownRight, ArrowUpRight } from '@/app/components/icons';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { formatMoney } from '@/app/lib/format-money';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { type CryptoTransaction, isSupportedAddress } from '../hooks/useCrypto';
-import { shortenAddress } from './CryptoWalletCard';
-import { TokenIcon } from './TokenIcon';
+import { shortenAddress } from './address';
 
-type CryptoTransactionsTableLabels = {
+export type CryptoTransactionsTableLabels = {
   title: string;
   empty: string;
   date: string;
@@ -23,123 +24,157 @@ type CryptoTransactionsTableLabels = {
   worth: string;
   received: string;
   sent: string;
+  /** "Received from {counterparty}". */
+  receivedFrom: string;
+  /** "Sent to {counterparty}". */
+  sentTo: string;
 };
 
 type CryptoTransactionsTableProps = {
   transactions: CryptoTransaction[];
   labels: CryptoTransactionsTableLabels;
   locale: string;
+  /** Inside another card: no frame of its own and no title. */
+  embedded?: boolean;
 };
 
 const numberCell = { fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' } as const;
+const DAY_FORMAT: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+
+function counterpartyText(
+  transaction: CryptoTransaction,
+  labels: CryptoTransactionsTableLabels,
+): string {
+  const incoming = transaction.direction === 'in';
+  if (!transaction.counterparty) {
+    return incoming ? labels.received : labels.sent;
+  }
+  const party = isSupportedAddress(transaction.counterparty)
+    ? shortenAddress(transaction.counterparty)
+    : transaction.counterparty;
+  return (incoming ? labels.receivedFrom : labels.sentTo).replace('{counterparty}', party);
+}
+
+/** The wallet's name alone: its network would only repeat it ("Tron · Tron"). */
+function walletName(transaction: CryptoTransaction): string {
+  if (transaction.walletLabel) {
+    return transaction.walletLabel;
+  }
+  return transaction.walletAddress ? shortenAddress(transaction.walletAddress) : '—';
+}
+
+function coinAmount(transaction: CryptoTransaction, format: Intl.NumberFormat): string {
+  const amount = transaction.cryptoAmount ? format.format(Number(transaction.cryptoAmount)) : '—';
+  return transaction.asset ? `${amount} ${transaction.asset}` : amount;
+}
 
 export function CryptoTransactionsTable({
   transactions,
   labels,
   locale,
+  embedded = false,
 }: CryptoTransactionsTableProps): React.JSX.Element {
   const amountFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 6 });
-  const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
+  const edge = embedded ? 0 : 2;
+
+  const body =
+    transactions.length === 0 ? (
+      <Typography
+        variant="body2"
+        sx={{
+          px: edge,
+          pb: embedded ? 0 : 3,
+          pt: embedded ? 0 : 1,
+          color: 'var(--muted-foreground)',
+        }}
+      >
+        {labels.empty}
+      </Typography>
+    ) : (
+      <Box sx={{ overflowX: 'auto' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>{labels.date}</TableCell>
+              <TableCell>{labels.counterparty}</TableCell>
+              <TableCell>{labels.wallet}</TableCell>
+              <TableCell align="right">{labels.amount}</TableCell>
+              <TableCell align="right">{labels.worth}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {transactions.map(transaction => {
+              const incoming = transaction.direction === 'in';
+              const sign = incoming ? '+' : '−';
+              return (
+                <TableRow key={transaction.id} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                  <TableCell sx={{ ...numberCell, color: 'var(--muted-foreground)' }}>
+                    {formatStoredDateWithOptions(transaction.date, DAY_FORMAT, locale)}
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        component="span"
+                        sx={{ display: 'inline-flex', color: 'var(--muted-foreground)' }}
+                      >
+                        {incoming ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />}
+                      </Box>
+                      <Typography
+                        variant="body2"
+                        component="span"
+                        title={transaction.counterparty ?? undefined}
+                      >
+                        {counterpartyText(transaction, labels)}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>
+                    {walletName(transaction)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      ...numberCell,
+                      fontWeight: 500,
+                      color: incoming ? 'var(--money-up)' : 'var(--foreground)',
+                    }}
+                  >
+                    {sign}
+                    {coinAmount(transaction, amountFormat)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    className={PRIVATE_CLASS}
+                    sx={{ ...numberCell, fontWeight: 400, color: 'var(--foreground)' }}
+                  >
+                    {formatMoney(transaction.amount, transaction.currency, locale)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Box>
+    );
+
+  if (embedded) {
+    return body;
+  }
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ px: 2, pt: 2, pb: 1 }}>
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 600,
+          px: 2,
+          pt: 2,
+          pb: 1,
+        }}
+      >
         {labels.title}
       </Typography>
-
-      {transactions.length === 0 ? (
-        <Typography variant="body2" sx={{ px: 2, pb: 3, pt: 1, color: 'text.secondary' }}>
-          {labels.empty}
-        </Typography>
-      ) : (
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>{labels.date}</TableCell>
-                <TableCell>{labels.counterparty}</TableCell>
-                <TableCell>{labels.wallet}</TableCell>
-                <TableCell align="right">{labels.amount}</TableCell>
-                <TableCell align="right">{labels.worth}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {transactions.map(transaction => {
-                const incoming = transaction.direction === 'in';
-                const sign = incoming ? '+' : '−';
-                return (
-                  <TableRow key={transaction.id} sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                    <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.secondary' }}>
-                      {dateFormat.format(new Date(transaction.date))}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box
-                          component="span"
-                          sx={{
-                            display: 'inline-flex',
-                            color: incoming ? 'success.main' : 'text.secondary',
-                          }}
-                        >
-                          {incoming ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />}
-                        </Box>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="body2">
-                            {incoming ? labels.received : labels.sent}
-                          </Typography>
-                          {transaction.counterparty && (
-                            <Typography
-                              variant="caption"
-                              sx={{ color: 'text.secondary', fontFamily: 'monospace' }}
-                            >
-                              {isSupportedAddress(transaction.counterparty)
-                                ? shortenAddress(transaction.counterparty)
-                                : transaction.counterparty}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                      <Typography variant="body2" component="span" sx={{ display: 'block' }}>
-                        {transaction.walletLabel ??
-                          (transaction.walletAddress
-                            ? shortenAddress(transaction.walletAddress)
-                            : '—')}
-                      </Typography>
-                      {transaction.walletChainName && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          {transaction.walletChainName}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="right" sx={numberCell}>
-                      <Box
-                        sx={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 0.75,
-                          color: incoming ? 'success.main' : 'text.primary',
-                        }}
-                      >
-                        {transaction.asset && <TokenIcon asset={transaction.asset} size={16} />}
-                        {sign}
-                        {transaction.cryptoAmount
-                          ? amountFormat.format(Number(transaction.cryptoAmount))
-                          : '—'}{' '}
-                        {transaction.asset}
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right" sx={{ ...numberCell, fontWeight: 600 }}>
-                      {formatMoney(transaction.amount, transaction.currency, locale)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Box>
-      )}
+      {body}
     </Paper>
   );
 }

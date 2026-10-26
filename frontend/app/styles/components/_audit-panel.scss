@@ -1,7 +1,7 @@
 @use '../abstracts' as *;
 
 /* ── Legacy classes used by AdminAuditTab ─────────────────────── */
-.lumio-audit-panel {
+.seneca-audit-panel {
   min-height: 0;
 
   &__header {
@@ -33,7 +33,7 @@
 /* ── Activity log page layout ─────────────────────────────────── */
 .audit-page {
   max-width: 900px;
-  padding: 32px 24px;
+  padding: var(--seneca-page-top, 32px) 24px 32px;
 }
 
 .audit-page__head {
@@ -47,22 +47,22 @@
 .audit-page__title {
   font-size: 22px;
   font-weight: 700;
-  color: $lumio-color-ink-900;
+  color: $seneca-color-ink-900;
   letter-spacing: -0.02em;
   margin: 0;
 
   @include dark {
-    color: $lumio-color-ink-900-dk;
+    color: $seneca-color-ink-900-dk;
   }
 }
 
 .audit-page__subtitle {
   font-size: 13px;
-  color: $lumio-color-ink-500;
+  color: $seneca-color-ink-500;
   margin: 4px 0 0;
 
   @include dark {
-    color: $lumio-color-ink-500-dk;
+    color: $seneca-color-ink-500-dk;
   }
 }
 
@@ -85,11 +85,11 @@
   svg {
     position: absolute;
     left: 10px;
-    color: $lumio-color-ink-400;
+    color: $seneca-color-ink-400;
     pointer-events: none;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 }
@@ -99,28 +99,28 @@
   height: 32px;
   padding: 0 10px 0 32px;
   font-size: 13px;
-  color: $lumio-color-ink-900;
+  color: $seneca-color-ink-900;
   background: $color-card-bg;
-  border: 1px solid $lumio-color-ink-150;
-  border-radius: $lumio-radius-md;
-  outline: none;
+  border: 1px solid $seneca-color-ink-150;
+  border-radius: $seneca-radius-md;
   transition: border-color 0.12s;
 
   @include dark {
     background: $color-card-bg-dk;
-    color: $lumio-color-ink-900-dk;
-    border-color: $lumio-color-border-dk;
+    color: $seneca-color-ink-900-dk;
+    border-color: $seneca-color-border-dk;
   }
 
   &::placeholder {
-    color: $lumio-color-ink-400;
+    color: $seneca-color-ink-400;
 
     @include dark {
-      color: $lumio-color-ink-400-dk;
+      color: $seneca-color-ink-400-dk;
     }
   }
 
   &:focus {
+    outline: none;
     border-color: var(--primary);
   }
 }
@@ -128,13 +128,13 @@
 /* ── Timeline card ────────────────────────────────────────────── */
 .audit-timeline-card {
   background: $color-card-bg;
-  border: 1px solid $lumio-color-ink-150;
-  border-radius: $lumio-radius-lg;
+  border: 1px solid $seneca-color-ink-150;
+  border-radius: $seneca-radius-lg;
   padding: 20px 24px;
 
   @include dark {
     background: $color-card-bg-dk;
-    border-color: $lumio-color-border-dk;
+    border-color: $seneca-color-border-dk;
   }
 
   // AuditTimeline decides emptiness, so the card drops its box from CSS.
@@ -161,10 +161,10 @@
     bottom: 16px;
     left: 15px;
     width: 1px;
-    background: $lumio-color-ink-150;
+    background: $seneca-color-ink-150;
 
     @include dark {
-      background: $lumio-color-ink-300-dk;
+      background: $seneca-color-ink-300-dk;
     }
   }
 }
@@ -178,10 +178,10 @@
   position: relative;
 
   & + & {
-    border-top: 1px solid $lumio-color-ink-100;
+    border-top: 1px solid $seneca-color-ink-100;
 
     @include dark {
-      border-top-color: $lumio-color-ink-200-dk;
+      border-top-color: $seneca-color-ink-200-dk;
     }
   }
 }
@@ -192,19 +192,19 @@
   height: 32px;
   border-radius: 999px;
   background: $color-card-bg;
-  border: 1px solid $lumio-color-ink-150;
+  border: 1px solid $seneca-color-ink-150;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: $lumio-color-ink-500;
+  color: $seneca-color-ink-500;
   position: relative;
   z-index: 1;
   flex: none;
 
   @include dark {
     background: $color-card-bg-dk;
-    border-color: $lumio-color-border-dk;
-    color: $lumio-color-ink-500-dk;
+    border-color: $seneca-color-border-dk;
+    color: $seneca-color-ink-500-dk;
   }
 }
 
@@ -215,10 +215,10 @@
   cursor: pointer;
 
   &:hover .audit-line {
-    color: $lumio-color-ink-900;
+    color: $seneca-color-ink-900;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 }
@@ -230,36 +230,36 @@
   gap: 6px;
   font-size: 13px;
   flex-wrap: wrap;
-  color: $lumio-color-ink-700;
+  color: $seneca-color-ink-700;
 
   @include dark {
-    color: $lumio-color-ink-700-dk;
+    color: $seneca-color-ink-700-dk;
   }
 }
 
 .audit-actor {
   font-weight: 600;
-  color: $lumio-color-ink-900;
+  color: $seneca-color-ink-900;
 
   @include dark {
-    color: $lumio-color-ink-900-dk;
+    color: $seneca-color-ink-900-dk;
   }
 }
 
 .audit-verb {
-  color: $lumio-color-ink-500;
+  color: $seneca-color-ink-500;
 
   @include dark {
-    color: $lumio-color-ink-500-dk;
+    color: $seneca-color-ink-500-dk;
   }
 }
 
 .audit-what {
-  color: $lumio-color-ink-800;
+  color: $seneca-color-ink-800;
   font-weight: 500;
 
   @include dark {
-    color: $lumio-color-ink-800-dk;
+    color: $seneca-color-ink-800-dk;
   }
 }
 
@@ -270,24 +270,24 @@
   font-weight: 500;
   padding: 1px 7px;
   border-radius: 999px;
-  background: $lumio-color-ink-100;
-  color: $lumio-color-ink-600;
+  background: $seneca-color-ink-100;
+  color: $seneca-color-ink-600;
   margin-left: 2px;
 
   @include dark {
-    background: $lumio-color-ink-300-dk;
-    color: $lumio-color-ink-600-dk;
+    background: $seneca-color-ink-300-dk;
+    color: $seneca-color-ink-600-dk;
   }
 }
 
 /* ── Timestamp ────────────────────────────────────────────────── */
 .audit-when {
   font-size: 11.5px;
-  color: $lumio-color-ink-400;
+  color: $seneca-color-ink-400;
   margin-top: 3px;
 
   @include dark {
-    color: $lumio-color-ink-400-dk;
+    color: $seneca-color-ink-400-dk;
   }
 }
 
@@ -313,21 +313,21 @@
   gap: 6px;
   font-size: 12.5px;
   font-weight: 600;
-  color: $lumio-color-ink-700;
+  color: $seneca-color-ink-700;
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
 
   @include dark {
-    color: $lumio-color-ink-700-dk;
+    color: $seneca-color-ink-700-dk;
   }
 
   &:hover {
-    color: $lumio-color-ink-900;
+    color: $seneca-color-ink-900;
 
     @include dark {
-      color: $lumio-color-ink-900-dk;
+      color: $seneca-color-ink-900-dk;
     }
   }
 }
@@ -339,29 +339,29 @@
   padding: 0 10px;
   font-size: 12px;
   font-weight: 500;
-  color: $lumio-color-ink-600;
+  color: $seneca-color-ink-600;
   background: $color-card-bg;
-  border: 1px solid $lumio-color-ink-200;
-  border-radius: $lumio-radius-md;
+  border: 1px solid $seneca-color-ink-200;
+  border-radius: $seneca-radius-md;
   cursor: pointer;
   transition: border-color 0.12s, color 0.12s, background 0.12s;
   white-space: nowrap;
 
   @include dark {
     background: $color-card-bg-dk;
-    color: $lumio-color-ink-600-dk;
-    border-color: $lumio-color-border-dk;
+    color: $seneca-color-ink-600-dk;
+    border-color: $seneca-color-border-dk;
   }
 
   &:hover {
-    border-color: $lumio-color-danger;
-    color: $lumio-color-danger;
+    border-color: $seneca-color-danger;
+    color: $seneca-color-danger;
     background: #fff1f2;
 
     @include dark {
-      border-color: $lumio-color-danger-dk;
-      color: $lumio-color-danger-dk;
-      background: rgba($lumio-color-danger-dk, 0.1);
+      border-color: $seneca-color-danger-dk;
+      color: $seneca-color-danger-dk;
+      background: rgba($seneca-color-danger-dk, 0.1);
     }
   }
 }
@@ -370,11 +370,11 @@
 .audit-empty {
   padding: 40px 0;
   text-align: center;
-  color: $lumio-color-ink-400;
+  color: $seneca-color-ink-400;
   font-size: 13.5px;
 
   @include dark {
-    color: $lumio-color-ink-400-dk;
+    color: $seneca-color-ink-400-dk;
   }
 }
 
@@ -385,12 +385,12 @@
   justify-content: space-between;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid $lumio-color-ink-150;
+  border-top: 1px solid $seneca-color-ink-150;
   font-size: 13px;
-  color: $lumio-color-ink-500;
+  color: $seneca-color-ink-500;
 
   @include dark {
-    border-top-color: $lumio-color-border-dk;
-    color: $lumio-color-ink-500-dk;
+    border-top-color: $seneca-color-border-dk;
+    color: $seneca-color-ink-500-dk;
   }
 }

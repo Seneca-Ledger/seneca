@@ -1,0 +1,4 @@
+# The API schemas live in packages/contracts; each app commits a generated copy.
+node scripts/sync-contracts.mjs --check
+# No source file over 300 lines of code may be added or grow (see the script).
+node scripts/check-file-size.mjs --staged

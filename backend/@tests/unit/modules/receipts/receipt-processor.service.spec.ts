@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import {
@@ -13,15 +15,15 @@ import { ReceiptCategoryService } from '../../../../src/modules/receipts/service
 import { ReceiptDuplicateService } from '../../../../src/modules/receipts/services/receipt-duplicate.service';
 import { ReceiptLocationService } from '../../../../src/modules/receipts/services/receipt-location.service';
 
-const mockReadFile = jest.fn().mockResolvedValue(Buffer.from('receipt-binary'));
+const mockReadFile = vi.fn().mockResolvedValue(Buffer.from('receipt-binary'));
 
-jest.mock('fs/promises', () => ({
+vi.mock('fs/promises', () => ({
   readFile: (...args: unknown[]) => mockReadFile(...args),
 }));
 
-const mockReadExifGps = jest.fn();
+const mockReadExifGps = vi.fn();
 
-jest.mock('../../../../src/common/utils/exif-gps.util', () => ({
+vi.mock('../../../../src/common/utils/exif-gps.util', () => ({
   readExifGps: (...args: unknown[]) => mockReadExifGps(...args),
 }));
 
@@ -39,26 +41,29 @@ const minimalParse = {
   lineItems: [],
 };
 
+const eventEmitter = { emit: vi.fn() };
+
 describe('ReceiptProcessorService', () => {
   let service: ReceiptProcessorService;
-  let receiptRepository: { findOne: jest.Mock; save: jest.Mock };
-  let jobRepository: { save: jest.Mock };
-  let extractor: { extractFromImage: jest.Mock; extractFromPdf: jest.Mock };
-  let locationService: { applyAutoLocation: jest.Mock };
+  let receiptRepository: { findOne: Mock; save: Mock };
+  let jobRepository: { save: Mock };
+  let extractor: { extractFromImage: Mock; extractFromPdf: Mock };
+  let locationService: { applyAutoLocation: Mock };
 
   beforeEach(async () => {
     receiptRepository = {
-      findOne: jest.fn(),
-      save: jest.fn().mockImplementation(async payload => payload),
+      findOne: vi.fn(),
+      save: vi.fn().mockImplementation(async payload => payload),
     };
     jobRepository = {
-      save: jest.fn().mockResolvedValue(undefined),
+      save: vi.fn().mockResolvedValue(undefined),
     };
     extractor = {
-      extractFromImage: jest.fn(),
-      extractFromPdf: jest.fn(),
+      extractFromImage: vi.fn(),
+      extractFromPdf: vi.fn(),
     };
-    locationService = { applyAutoLocation: jest.fn().mockResolvedValue(undefined) };
+    locationService = { applyAutoLocation: vi.fn().mockResolvedValue(undefined) };
+    eventEmitter.emit.mockReset();
     mockReadExifGps.mockReset().mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -69,13 +74,14 @@ describe('ReceiptProcessorService', () => {
         { provide: UniversalExtractorService, useValue: extractor },
         {
           provide: ReceiptDuplicateService,
-          useValue: { findPotentialDuplicates: jest.fn().mockResolvedValue([]) },
+          useValue: { findPotentialDuplicates: vi.fn().mockResolvedValue([]) },
         },
         {
           provide: ReceiptCategoryService,
-          useValue: { suggestCategory: jest.fn().mockResolvedValue(null) },
+          useValue: { categorize: vi.fn().mockResolvedValue(null) },
         },
         { provide: ReceiptLocationService, useValue: locationService },
+        { provide: EventEmitter2, useValue: eventEmitter },
       ],
     }).compile();
 
@@ -99,7 +105,7 @@ describe('ReceiptProcessorService', () => {
       receiptId: 'receipt-1',
       status: ReceiptJobStatus.PENDING,
       progress: 0,
-      payload: { integrationId: 'manual-upload', gmailMessageId: 'receipt-1', historyId: 'eng' },
+      payload: { integrationId: 'manual-upload', messageId: 'receipt-1', historyId: 'eng' },
     } as ReceiptProcessingJob;
 
     receiptRepository.findOne.mockResolvedValue(receipt);
@@ -145,6 +151,8 @@ describe('ReceiptProcessorService', () => {
       receiptRepository.save.mock.invocationCallOrder[0],
     );
     expect(job.status).toBe(ReceiptJobStatus.COMPLETED);
+    // A readable receipt with no duplicate needs nobody: no review event.
+    expect(eventEmitter.emit).not.toHaveBeenCalledWith('receipt.needs_review', expect.anything());
   });
 
   it('marks receipt as needs_review when amount is missing', async () => {
@@ -164,7 +172,7 @@ describe('ReceiptProcessorService', () => {
       receiptId: 'receipt-2',
       status: ReceiptJobStatus.PENDING,
       progress: 0,
-      payload: { integrationId: 'manual-scan', gmailMessageId: 'receipt-2', historyId: 'auto' },
+      payload: { integrationId: 'manual-scan', messageId: 'receipt-2', historyId: 'auto' },
     } as ReceiptProcessingJob;
 
     receiptRepository.findOne.mockResolvedValue(receipt);
@@ -189,6 +197,10 @@ describe('ReceiptProcessorService', () => {
         status: ReceiptStatus.NEEDS_REVIEW,
       }),
     );
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'receipt.needs_review',
+      expect.objectContaining({ receiptId: 'receipt-2', reasons: ['missing_amount'] }),
+    );
   });
 
   it('records the photo GPS tag as the capture location, replacing the device point', async () => {
@@ -211,7 +223,7 @@ describe('ReceiptProcessorService', () => {
       receiptId: 'receipt-3',
       status: ReceiptJobStatus.PENDING,
       progress: 0,
-      payload: { integrationId: 'manual-scan', gmailMessageId: 'receipt-3', historyId: 'auto' },
+      payload: { integrationId: 'manual-scan', messageId: 'receipt-3', historyId: 'auto' },
     } as ReceiptProcessingJob;
 
     receiptRepository.findOne.mockResolvedValue(receipt);
@@ -245,7 +257,7 @@ describe('ReceiptProcessorService', () => {
       receiptId: 'receipt-4',
       status: ReceiptJobStatus.PENDING,
       progress: 0,
-      payload: { integrationId: 'manual-upload', gmailMessageId: 'receipt-4', historyId: 'auto' },
+      payload: { integrationId: 'manual-upload', messageId: 'receipt-4', historyId: 'auto' },
     } as ReceiptProcessingJob;
 
     receiptRepository.findOne.mockResolvedValue(receipt);

@@ -14,6 +14,7 @@ import {
 import React, { useState } from 'react';
 import { Copy, Trash2 } from '@/app/components/icons';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import api from '../lib/api';
 
@@ -37,10 +38,8 @@ interface ShareDialogProps {
   onLinksUpdate: () => void;
 }
 
-const DATE_LOCALE_MAP: Record<string, string> = { ru: 'ru-RU', kk: 'kk-KZ' };
-
 function resolveDateLocale(locale: string): string {
-  return DATE_LOCALE_MAP[locale] ?? 'en-US';
+  return resolveLocaleTag(locale);
 }
 
 interface LinkPrimaryProps {
@@ -121,11 +120,21 @@ function LinkRow({
         secondary={
           <Box>
             {link.description && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {link.description}
               </Typography>
             )}
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {createdPrefix}: {formatDate(link.createdAt)} • {visitsPrefix}: {link.accessCount}
             </Typography>
           </Box>
@@ -253,7 +262,13 @@ export default function ShareDialog({
           {t.activeLinks.value} ({sharedLinks.length})
         </Typography>
         {sharedLinks.length === 0 ? (
-          <Typography color="text.secondary">{t.noLinks}</Typography>
+          <Typography
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {t.noLinks}
+          </Typography>
         ) : (
           <LinkList
             links={sharedLinks}

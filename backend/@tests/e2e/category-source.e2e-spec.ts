@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -7,7 +7,11 @@ import type { TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
-import { Transaction } from '../../src/entities/transaction.entity';
+import {
+  Transaction,
+  TransactionCategorySource,
+  TransactionType,
+} from '../../src/entities/transaction.entity';
 import {
   deleteUserByEmail,
   type E2eAccount,
@@ -18,6 +22,10 @@ import {
 /**
  * A category the user picks by hand is recorded as such, survives a bulk
  * re-classification, and the workspace switches round-trip through the API.
+ *
+ * Plus the two claims about the payee model that only real SQL can settle: the
+ * payee key is derived on insert whichever path books the row, and the history
+ * reads confirmed rows only.
  */
 describe('Category source (e2e)', () => {
   let app: INestApplication;
@@ -90,20 +98,174 @@ describe('Category source (e2e)', () => {
 
   it('round-trips the processing switches', async () => {
     await as(request(server()).patch(`/workspaces/${owner.workspaceId}`))
-      .send({ processing: { aiCategorization: false, merchantLearning: false } })
+      .send({ processing: { merchantLearning: false } })
       .expect(200);
 
     const workspace = await as(request(server()).get(`/workspaces/${owner.workspaceId}`)).expect(
       200,
     );
     expect(workspace.body.settings.processing).toMatchObject({
-      aiCategorization: false,
-      aiMerchantNormalization: true,
       merchantLearning: false,
     });
 
     await as(request(server()).patch(`/workspaces/${owner.workspaceId}`))
-      .send({ processing: { aiCategorization: 'no' } })
+      .send({ processing: { merchantLearning: 'no' } })
       .expect(400);
+  });
+
+  // Its own workspace: the switches test above leaves merchantLearning off, and
+  // the service caches that answer for a minute.
+  describe('categorising from the payee history', () => {
+    const payeeEmail = `payee-history-${Date.now()}@example.com`;
+    let payeeOwner: E2eAccount;
+    let payeeCategoryIds: string[];
+
+    const asPayee = (req: request.Test) =>
+      req
+        .set('Authorization', `Bearer ${payeeOwner.token}`)
+        .set('x-workspace-id', payeeOwner.workspaceId);
+
+    beforeAll(async () => {
+      payeeOwner = await registerAccount(app, payeeEmail, 'Payee History Owner');
+      const categories = await asPayee(request(server()).get('/categories?type=expense')).expect(
+        200,
+      );
+      payeeCategoryIds = categories.body.map((category: { id: string }) => category.id);
+    });
+
+    afterAll(async () => {
+      if (dataSource) {
+        await deleteUserByEmail(dataSource, payeeEmail);
+      }
+    });
+
+    const book = async (counterpartyName: string, fields: Partial<Transaction>) =>
+      dataSource.getRepository(Transaction).save(
+        dataSource.getRepository(Transaction).create({
+          workspaceId: payeeOwner.workspaceId,
+          transactionDate: new Date('2026-05-02'),
+          counterpartyName,
+          paymentPurpose: counterpartyName,
+          debit: 10,
+          amount: 10,
+          currency: 'KZT',
+          transactionType: TransactionType.EXPENSE,
+          isVerified: false,
+          ...fields,
+        }),
+      );
+
+    const classify = async (id: string) => {
+      await asPayee(request(server()).post(`/classification/transaction/${id}`)).expect(200);
+      return dataSource.getRepository(Transaction).findOneByOrFail({ id });
+    };
+
+    it('derives the payee key on insert, whichever path books the row', async () => {
+      const row = await book('SQ *BLUE BOTTLE COFFEE 8821 OAKLAND CA', {});
+
+      const stored = await dataSource.getRepository(Transaction).findOneByOrFail({ id: row.id });
+
+      expect(stored.payeeKey).toBe('blue bottle coffee oakland ca');
+    });
+
+    it('files a new row the way the payee was filed before', async () => {
+      for (const terminal of ['1111', '2222', '3333']) {
+        await book(`REWE SAGT DANKE ${terminal} //ALMATY/KZ`, {
+          categoryId: payeeCategoryIds[2],
+          isVerified: true,
+        });
+      }
+      const fresh = await book('REWE SAGT DANKE 4444 //ALMATY/KZ', {});
+
+      const classified = await classify(fresh.id);
+
+      expect(classified.categoryId).toBe(payeeCategoryIds[2]);
+      expect(classified.categorySource).toBe('history');
+    });
+
+    it('does not learn from rows nobody has confirmed', async () => {
+      for (const terminal of ['5555', '6666', '7777']) {
+        await book(`MAGNUM CASH AND CARRY ${terminal}`, {
+          categoryId: payeeCategoryIds[3],
+          isVerified: false,
+        });
+      }
+      const fresh = await book('MAGNUM CASH AND CARRY 8888', {});
+
+      const classified = await classify(fresh.id);
+
+      expect(classified.categorySource).toBe('default');
+    });
+
+    it('learns from a category picked by hand on a row still waiting for approval', async () => {
+      await book('KAFE NOMAD 1001', {
+        categoryId: payeeCategoryIds[1],
+        categorySource: TransactionCategorySource.MANUAL,
+        isVerified: false,
+      });
+      const fresh = await book('KAFE NOMAD 1002', {});
+
+      const classified = await classify(fresh.id);
+
+      expect(classified.categoryId).toBe(payeeCategoryIds[1]);
+      expect(classified.categorySource).toBe('history');
+    });
+
+    it('does not learn "Uncategorized", nor the importer fallback, from approved rows', async () => {
+      const [uncategorized] = await dataSource.query(
+        `INSERT INTO categories (name, type, workspace_id, user_id)
+         VALUES ('Uncategorized', 'expense', $1, $2)
+         ON CONFLICT DO NOTHING RETURNING id`,
+        [payeeOwner.workspaceId, payeeOwner.userId],
+      );
+      const uncategorizedId =
+        uncategorized?.id ??
+        (
+          await dataSource.query(
+            `SELECT id FROM categories WHERE workspace_id = $1 AND type = 'expense'
+               AND name = 'Uncategorized' AND parent_id IS NULL`,
+            [payeeOwner.workspaceId],
+          )
+        )[0].id;
+      // Approved "as is" while still in the fallback category.
+      for (const terminal of ['2001', '2002', '2003']) {
+        await book(`CORNER KIOSK ${terminal}`, { categoryId: uncategorizedId, isVerified: true });
+      }
+      // Approved with a category the importer only fell back to.
+      for (const terminal of ['3001', '3002', '3003']) {
+        await book(`LAUNDRY POINT ${terminal}`, {
+          categoryId: payeeCategoryIds[2],
+          categorySource: TransactionCategorySource.DEFAULT,
+          isVerified: true,
+        });
+      }
+
+      const kiosk = await classify((await book('CORNER KIOSK 2004', {})).id);
+      const laundry = await classify((await book('LAUNDRY POINT 3004', {})).id);
+
+      expect(kiosk.categorySource).toBe('default');
+      expect(laundry.categorySource).toBe('default');
+    });
+
+    it('obeys a standing instruction for one payee', async () => {
+      for (const terminal of ['1212', '1313', '1414']) {
+        await book(`SMALL BAKERY ${terminal}`, {
+          categoryId: payeeCategoryIds[2],
+          isVerified: true,
+        });
+      }
+      const bakery = await dataSource.getRepository(Transaction).findOneByOrFail({
+        workspaceId: payeeOwner.workspaceId,
+        counterpartyName: 'SMALL BAKERY 1212',
+      });
+      await asPayee(request(server()).patch(`/payees/${bakery.payeeId}`))
+        .send({ mode: 'never' })
+        .expect(200);
+      const fresh = await book('SMALL BAKERY 1515', {});
+
+      const classified = await classify(fresh.id);
+
+      expect(classified.categorySource).toBe('default');
+    });
   });
 });

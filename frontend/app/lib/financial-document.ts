@@ -11,15 +11,6 @@ export interface ReceiptParsedDataLike {
   lineItems?: ReceiptLineItem[] | null;
 }
 
-const parseAmount = (value?: number | string | null): number | null => {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-
-  const parsed = typeof value === 'string' ? Number(value) : value;
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
 export const toFinancialDocumentStatus = (rawStatus?: string | null): FinancialDocumentStatus => {
   const normalized = (rawStatus || '').trim().toLowerCase();
 
@@ -72,23 +63,10 @@ export const isLowConfidenceDocument = (confidence?: number | null, threshold = 
   return confidence < threshold;
 };
 
+/** The receipt's own line items. A total is not an item, so none means an empty list. */
 export const normalizeReceiptLineItems = (
   parsedData?: ReceiptParsedDataLike | null,
 ): ReceiptLineItem[] => {
   const lineItems = parsedData?.lineItems;
-  if (Array.isArray(lineItems) && lineItems.length > 0) {
-    return lineItems.filter(item => Number.isFinite(item.amount));
-  }
-
-  const amount = parseAmount(parsedData?.amount ?? null);
-  if (amount === null) {
-    return [];
-  }
-
-  return [
-    {
-      description: parsedData?.vendor?.trim() || 'Receipt total',
-      amount,
-    },
-  ];
+  return Array.isArray(lineItems) ? lineItems.filter(item => Number.isFinite(item.amount)) : [];
 };

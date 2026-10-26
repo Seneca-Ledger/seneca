@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useEffect, useState } from 'react';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { PageTitle } from '@/app/components/ui/page-title';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import { getWorkspaceTabItems, type WorkspaceTabId } from '@/app/lib/workspace-tabs';
@@ -22,7 +23,8 @@ type Props = {
 const BLOCK_SKELETON_KEYS = ['block-0', 'block-1', 'block-2', 'block-3'];
 
 // The tab views size themselves to calc(100vh - var(--global-nav-height)); the
-// shell hands them this height so the tab row doesn't push them past the fold.
+// shell hands them the height of the title and tab rows so neither pushes them past the fold.
+const TITLE_ROW_HEIGHT = '52px';
 const TAB_ROW_HEIGHT = '56px';
 const ALL_WORKSPACES_TAB = 'all-workspaces';
 
@@ -31,7 +33,7 @@ function WorkspaceTabShellSkeleton(): React.JSX.Element {
     <Box
       sx={{
         minHeight: 'calc(100vh - var(--global-nav-height, 0px))',
-        px: 3,
+        px: { xs: 2, md: 4 },
         py: 4,
         display: 'flex',
         flexDirection: 'column',
@@ -71,9 +73,24 @@ export default function WorkspaceTabShell({ activeItem, children }: Props) {
   const tabItems = getWorkspaceTabItems(activeItem, currentWorkspace.stats?.memberCount ?? 0);
 
   return (
-    <Box sx={{ '--global-nav-height': TAB_ROW_HEIGHT }}>
+    <Box sx={{ '--global-nav-height': `calc(${TITLE_ROW_HEIGHT} + ${TAB_ROW_HEIGHT})` }}>
       <Box
-        sx={{ height: TAB_ROW_HEIGHT, px: 3, display: 'flex', alignItems: 'flex-end' }}
+        sx={{
+          height: TITLE_ROW_HEIGHT,
+          px: { xs: 2, md: 4 },
+          display: 'flex',
+          alignItems: 'flex-end',
+        }}
+      >
+        <PageTitle path="/workspaces" />
+      </Box>
+      <Box
+        sx={{
+          height: TAB_ROW_HEIGHT,
+          px: { xs: 2, md: 4 },
+          display: 'flex',
+          alignItems: 'flex-start',
+        }}
         data-testid="workspace-tabs"
       >
         <Tabs

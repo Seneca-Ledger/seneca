@@ -13,12 +13,15 @@ import { AppPagination } from '@/app/components/ui/pagination';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import {
   areAllVisibleSelected,
   toggleSelectAllVisible,
   toggleStatementSelection,
 } from '@/app/lib/statement-selection';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import { TrashListItem, type TrashListItemModel } from './TrashListItem';
@@ -86,7 +89,7 @@ export default function TrashListView() {
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
-  const localeCode = locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US';
+  const localeCode = resolveLocaleTag(locale);
   const trashTtlDays = useMemo(() => {
     const parsed = Number.parseInt(process.env.NEXT_PUBLIC_STORAGE_TRASH_TTL_DAYS || '', 10);
     if (Number.isFinite(parsed) && parsed > 0) {
@@ -95,128 +98,45 @@ export default function TrashListView() {
     return DEFAULT_TRASH_TTL_DAYS;
   }, []);
 
+  const tx = (path: string[]): string => resolveLabel(getNestedValue(t, path));
   const labels = {
-    title: resolveLabel(getNestedValue(t, ['trash', 'title']), 'Trash'),
-    retentionPolicy: resolveLabel(
-      getNestedValue(t, ['trash', 'retentionPolicy']),
-      `Deleted items are permanently removed after ${trashTtlDays} days.`,
-    ),
-    searchPlaceholder: resolveLabel(
-      getNestedValue(t, ['trash', 'searchPlaceholder']),
-      'Search in trash...',
-    ),
-    selectedCountTemplate: resolveLabel(
-      getNestedValue(t, ['trash', 'selectedCount']) ??
-        getNestedValue(t, ['trash', 'selectedLabel']),
-      'Selected: {count}',
-    ),
-    restore: resolveLabel(getNestedValue(t, ['trash', 'restore']), 'Restore'),
-    delete: resolveLabel(getNestedValue(t, ['trash', 'delete']), 'Delete'),
-    emptyTrash: resolveLabel(
-      getNestedValue(t, ['trash', 'emptyTrash']) ?? getNestedValue(t, ['trash', 'emptyAction']),
-      'Empty trash',
-    ),
-    emptyTitle: resolveLabel(
-      getNestedValue(t, ['trash', 'empty', 'title']) ?? getNestedValue(t, ['trash', 'emptyTitle']),
-      'Trash is empty',
-    ),
-    emptyDescription: resolveLabel(
-      getNestedValue(t, ['trash', 'empty', 'subtitle']) ??
-        getNestedValue(t, ['trash', 'emptyDescription']),
-      'Deleted files will appear here',
-    ),
-    typeHeader: resolveLabel(getNestedValue(t, ['trash', 'listHeader', 'type']), 'Type'),
-    deletedAtHeader: resolveLabel(
-      getNestedValue(t, ['trash', 'listHeader', 'deletedAt']) ??
-        getNestedValue(t, ['trash', 'listHeader', 'deleted']),
-      'Deleted at',
-    ),
-    autoDeleteHeader: resolveLabel(
-      getNestedValue(t, ['trash', 'listHeader', 'willDeleteAt']),
-      'Will be permanently deleted on',
-    ),
-    nameHeader: resolveLabel(getNestedValue(t, ['trash', 'listHeader', 'name']), 'Name'),
-    actionsHeader: resolveLabel(getNestedValue(t, ['trash', 'listHeader', 'actions']), 'Actions'),
-    entityTypeStatement: resolveLabel(
-      getNestedValue(t, ['trash', 'entityTypes', 'statement']),
-      'Statement',
-    ),
-    entityTypeTable: resolveLabel(getNestedValue(t, ['trash', 'entityTypes', 'table']), 'Table'),
-    entityTypeWorkspace: resolveLabel(
-      getNestedValue(t, ['trash', 'entityTypes', 'workspace']),
-      'Workspace',
-    ),
-    selectAll: resolveLabel(getNestedValue(t, ['trash', 'selectAll']), 'Select all in trash'),
-    restoreLoading: resolveLabel(getNestedValue(t, ['trash', 'restoreLoading']), 'Restoring...'),
-    restoreSuccess: resolveLabel(getNestedValue(t, ['trash', 'restoreSuccess']), 'File restored'),
-    restoreFailed: resolveLabel(
-      getNestedValue(t, ['trash', 'restoreFailed']),
-      'Failed to restore file',
-    ),
-    deleteLoading: resolveLabel(
-      getNestedValue(t, ['trash', 'deleteLoading']),
-      'Deleting forever...',
-    ),
-    deleteSuccess: resolveLabel(
-      getNestedValue(t, ['trash', 'deleteSuccess']),
-      'File deleted permanently',
-    ),
-    deleteFailed: resolveLabel(
-      getNestedValue(t, ['trash', 'deleteFailed']),
-      'Failed to delete file permanently',
-    ),
-    loadError: resolveLabel(
-      getNestedValue(t, ['trash', 'loadError']) ?? getNestedValue(t, ['loadListError']),
-      'Failed to load trash',
-    ),
-    confirmDeleteTitle: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmDeleteTitle']) ??
-        getNestedValue(t, ['trash', 'bulkDeleteTitle']),
-      'Delete permanently?',
-    ),
-    confirmDeleteMessage: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmDeleteMessage']) ??
-        getNestedValue(t, ['trash', 'bulkDeleteMessage']),
-      'Selected files will be permanently deleted.',
-    ),
-    confirmDelete: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmDelete']) ??
-        getNestedValue(t, ['trash', 'bulkDeleteConfirm']),
-      'Delete',
-    ),
-    confirmCancel: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmCancel']) ??
-        getNestedValue(t, ['trash', 'bulkDeleteCancel']),
-      'Cancel',
-    ),
-    confirmEmptyTitle: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmEmptyTitle']) ??
-        getNestedValue(t, ['trash', 'emptyTitle']),
-      'Empty trash?',
-    ),
-    confirmEmptyMessage: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmEmptyMessage']) ??
-        getNestedValue(t, ['trash', 'emptyMessage']),
-      'All files in trash will be deleted permanently.',
-    ),
-    confirmEmpty: resolveLabel(
-      getNestedValue(t, ['trash', 'confirmEmpty']) ?? getNestedValue(t, ['trash', 'emptyConfirm']),
-      'Empty',
-    ),
-    irreversibleWarning: resolveLabel(
-      getNestedValue(t, ['trash', 'irreversibleWarning']),
-      'This action is irreversible',
-    ),
-    paginationShown: resolveLabel(
-      getNestedValue(t, ['pagination', 'shown']),
-      'Showing {from}–{to} of {count}',
-    ),
-    paginationPrevious: resolveLabel(getNestedValue(t, ['pagination', 'previous']), 'Previous'),
-    paginationNext: resolveLabel(getNestedValue(t, ['pagination', 'next']), 'Next'),
-    paginationPageOf: resolveLabel(
-      getNestedValue(t, ['pagination', 'pageOf']),
-      'Page {page} of {count}',
-    ),
+    title: tx(['trash', 'title']),
+    retentionPolicy: tx(['trash', 'retentionPolicy']),
+    searchPlaceholder: tx(['trash', 'searchPlaceholder']),
+    selectedCountTemplate: tx(['trash', 'selectedCount']),
+    restore: tx(['trash', 'restore']),
+    delete: tx(['trash', 'delete']),
+    emptyTrash: tx(['trash', 'emptyTrash']),
+    emptyTitle: tx(['trash', 'empty', 'title']),
+    emptyDescription: tx(['trash', 'empty', 'subtitle']),
+    typeHeader: tx(['trash', 'listHeader', 'type']),
+    deletedAtHeader: tx(['trash', 'listHeader', 'deletedAt']),
+    autoDeleteHeader: tx(['trash', 'listHeader', 'willDeleteAt']),
+    nameHeader: tx(['trash', 'listHeader', 'name']),
+    actionsHeader: tx(['trash', 'listHeader', 'actions']),
+    entityTypeStatement: tx(['trash', 'entityTypes', 'statement']),
+    entityTypeTable: tx(['trash', 'entityTypes', 'table']),
+    entityTypeWorkspace: tx(['trash', 'entityTypes', 'workspace']),
+    selectAll: tx(['trash', 'selectAll']),
+    restoreLoading: tx(['trash', 'restoreLoading']),
+    restoreSuccess: tx(['trash', 'restoreSuccess']),
+    restoreFailed: tx(['trash', 'restoreFailed']),
+    deleteLoading: tx(['trash', 'deleteLoading']),
+    deleteSuccess: tx(['trash', 'deleteSuccess']),
+    deleteFailed: tx(['trash', 'deleteFailed']),
+    loadError: tx(['trash', 'loadError']),
+    confirmDeleteTitle: tx(['trash', 'confirmDeleteTitle']),
+    confirmDeleteMessage: tx(['trash', 'confirmDeleteMessage']),
+    confirmDelete: tx(['trash', 'confirmDelete']),
+    confirmCancel: tx(['trash', 'confirmCancel']),
+    confirmEmptyTitle: tx(['trash', 'confirmEmptyTitle']),
+    confirmEmptyMessage: tx(['trash', 'confirmEmptyMessage']),
+    confirmEmpty: tx(['trash', 'confirmEmpty']),
+    irreversibleWarning: tx(['trash', 'irreversibleWarning']),
+    paginationShown: tx(['pagination', 'shown']),
+    paginationPrevious: tx(['pagination', 'previous']),
+    paginationNext: tx(['pagination', 'next']),
+    paginationPageOf: tx(['pagination', 'pageOf']),
   };
 
   const [files, setFiles] = useState<TrashFile[]>([]);
@@ -244,17 +164,13 @@ export default function TrashListView() {
   const loadTrashFiles = async () => {
     await (async () => {
       setLoading(true);
-      const response = await apiClient.get('/storage/files', {
-        params: { deleted: 'only' },
-      });
-      const payload = response.data;
-      const nextFiles = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.data)
-          ? payload.data
-          : [];
-
-      setFiles(nextFiles);
+      setFiles(
+        await apiQueryDecoded({
+          url: '/storage/files',
+          params: { deleted: 'only' },
+          contract: 'StorageFileList',
+        }),
+      );
     })()
       .catch(async error => {
         console.error('Failed to load trash files:', error);
@@ -344,7 +260,8 @@ export default function TrashListView() {
     await (async () => {
       await apiClient.post(`/storage/files/${id}/trash/restore`);
       removeFilesFromState([id]);
-      await queryClient.invalidateQueries({ queryKey: ['statements'] });
+      // A restored statement's rows count again in every figure.
+      invalidateFinancialData();
       toast.success(labels.restoreSuccess, { id: toastId });
     })().catch(async error => {
       console.error('Failed to restore trash file:', error);
@@ -361,9 +278,10 @@ export default function TrashListView() {
     await (async () => {
       await apiClient.post('/storage/files/trash/bulk/restore', {
         statementIds: selectedIds,
-      });
+      } satisfies ContractInput<'BulkFileActionBody'>);
       removeFilesFromState(selectedIds);
-      await queryClient.invalidateQueries({ queryKey: ['statements'] });
+      // A restored statement's rows count again in every figure.
+      invalidateFinancialData();
       toast.success(labels.restoreSuccess, { id: toastId });
     })().catch(async error => {
       console.error('Failed to bulk restore trash files:', error);
@@ -394,7 +312,7 @@ export default function TrashListView() {
       } else {
         await apiClient.post('/storage/files/bulk/trash/delete', {
           statementIds: ids,
-        });
+        } satisfies ContractInput<'BulkFileActionBody'>);
       }
 
       removeFilesFromState(ids);
@@ -424,7 +342,7 @@ export default function TrashListView() {
     await (async () => {
       await apiClient.post('/storage/files/bulk/trash/delete', {
         statementIds: ids,
-      });
+      } satisfies ContractInput<'BulkFileActionBody'>);
       removeFilesFromState(ids);
       setEmptyConfirmOpen(false);
       toast.success(labels.deleteSuccess, { id: toastId });
@@ -481,34 +399,29 @@ export default function TrashListView() {
   );
 
   return (
-    <div className="container-shared lumio-trash-list">
-      <div className="lumio-trash-list__header">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: c.ink900 }}>{labels.title}</h1>
-          <p style={{ fontSize: 14, color: c.ink500 }}>{labels.retentionPolicy}</p>
-        </div>
-
-        <div className="lumio-trash-list__search-row">
-          <div className="lumio-trash-list__search">
-            <Search className="lumio-trash-list__search-icon" size={16} />
+    <div className="container-shared seneca-trash-list">
+      <div className="seneca-trash-list__header">
+        <div className="seneca-trash-list__search-row">
+          <div className="seneca-trash-list__search">
+            <Search className="seneca-trash-list__search-icon" size={16} />
             <input
               type="text"
               value={searchInput}
               onChange={event => setSearchInput(event.target.value)}
               placeholder={labels.searchPlaceholder}
               aria-label={labels.searchPlaceholder}
-              className="lumio-trash-list__search-input"
+              className="seneca-trash-list__search-input"
             />
           </div>
         </div>
 
-        <div className="lumio-trash-list__actions-row">
+        <div className="seneca-trash-list__actions-row">
           <span style={{ fontSize: 12, fontWeight: 500, color: c.ink500 }}>{selectedLabel}</span>
           <button
             type="button"
             onClick={() => void handleBulkRestore()}
             disabled={selectedCount === 0}
-            className="lumio-trash-list__restore-btn"
+            className="seneca-trash-list__restore-btn"
           >
             <RotateCcw size={14} />
             {labels.restore}
@@ -518,7 +431,7 @@ export default function TrashListView() {
             type="button"
             onClick={() => openDeleteConfirm(selectedIds)}
             disabled={selectedCount === 0}
-            className="lumio-trash-list__delete-btn"
+            className="seneca-trash-list__delete-btn"
           >
             <Trash2 size={14} />
             {labels.delete}
@@ -528,7 +441,7 @@ export default function TrashListView() {
             type="button"
             onClick={() => setEmptyConfirmOpen(true)}
             disabled={files.length === 0}
-            className="lumio-trash-list__empty-btn"
+            className="seneca-trash-list__empty-btn"
           >
             <Trash2 size={14} />
             {labels.emptyTrash}
@@ -536,23 +449,23 @@ export default function TrashListView() {
         </div>
       </div>
 
-      <div className="lumio-trash-list__body">
+      <div className="seneca-trash-list__body">
         {loading ? (
-          <div className="lumio-trash-list__items">
+          <div className="seneca-trash-list__items">
             {TRASH_ROW_SKELETON_KEYS.map(key => (
               <TrashListRowSkeleton key={key} />
             ))}
           </div>
         ) : filteredFiles.length === 0 ? (
-          <div className="lumio-trash-list__empty-state">
+          <div className="seneca-trash-list__empty-state">
             <EmptyStateIllustration name="trash" size="lg" />
             <h3 style={{ fontSize: 18, fontWeight: 500, color: c.ink900 }}>{labels.emptyTitle}</h3>
             <p style={{ marginTop: 4, color: c.ink500 }}>{labels.emptyDescription}</p>
           </div>
         ) : (
           <>
-            <div className="lumio-trash-list__items">
-              <div className="lumio-trash-list__select-all-mobile">
+            <div className="seneca-trash-list__items">
+              <div className="seneca-trash-list__select-all-mobile">
                 <Checkbox
                   checked={allVisibleSelected}
                   indeterminate={selectedIds.length > 0 && !allVisibleSelected}
@@ -567,7 +480,7 @@ export default function TrashListView() {
                 </span>
               </div>
 
-              <div className="lumio-trash-list__thead">
+              <div className="seneca-trash-list__thead">
                 <div style={{ width: 16 }}>
                   <Checkbox
                     checked={allVisibleSelected}
@@ -625,9 +538,9 @@ export default function TrashListView() {
               })}
             </div>
 
-            <div className="lumio-trash-list__pagination">
+            <div className="seneca-trash-list__pagination">
               <div style={{ fontSize: 14, color: c.ink500 }}>{shownLabel}</div>
-              <div className="lumio-trash-list__pagination-info">
+              <div className="seneca-trash-list__pagination-info">
                 <span style={{ fontSize: 14, color: c.ink700, minWidth: 120, textAlign: 'center' }}>
                   {pageOfLabel}
                 </span>

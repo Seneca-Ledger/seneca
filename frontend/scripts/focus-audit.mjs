@@ -3,7 +3,7 @@
 // focus stops that are invisible, whose focus ring is clipped by an overflow ancestor or the
 // viewport, or whose ring is painted over by another positioned element.
 //
-//   FOCUS_AUDIT_EMAIL=demo@lumio.dev FOCUS_AUDIT_PASSWORD=... npm run audit:focus
+//   FOCUS_AUDIT_EMAIL=demo@seneca.dev FOCUS_AUDIT_PASSWORD=... npm run audit:focus
 //
 // Env: FOCUS_AUDIT_BASE_URL (default http://localhost:3002), FOCUS_AUDIT_ROUTES (comma list),
 // FOCUS_AUDIT_VIEWPORTS (desktop,mobile), FOCUS_AUDIT_MAX_TABS (default 120),
@@ -46,8 +46,8 @@ function inspectActiveElement() {
     return { kind: 'body' };
   }
   // The app has no shadow DOM of its own: a focused shadow host is dev tooling
-  // (Next.js dev indicator, react-scan toolbar with its closed shadow root).
-  if (active.shadowRoot || active.tagName.includes('-') || active.id === 'react-scan-root') {
+  // (the Next.js dev indicator).
+  if (active.shadowRoot || active.tagName.includes('-')) {
     return { kind: 'devtool', label: active.tagName.toLowerCase() };
   }
   window.__focusAuditSeen ??= new WeakSet();
@@ -345,7 +345,7 @@ async function main() {
       await context.addInitScript(() => {
         const getItem = Storage.prototype.getItem;
         Storage.prototype.getItem = function (key) {
-          return String(key).startsWith('lumio_tour_last_shown:')
+          return String(key).startsWith('seneca_tour_last_shown:')
             ? String(Date.now())
             : getItem.call(this, key);
         };

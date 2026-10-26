@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Statement } from './statement.entity';
@@ -36,14 +37,14 @@ export class SharedLink {
 
   @ManyToOne(() => Statement, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'statement_id' })
-  statement: Statement;
+  statement: Relation<Statement>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   // Unique token for accessing the shared file
   @Column({ unique: true, length: 64 })
@@ -62,7 +63,7 @@ export class SharedLink {
   expiresAt: Date | null;
 
   // Password protection (optional, hashed)
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   password: string | null;
 
   // Link status

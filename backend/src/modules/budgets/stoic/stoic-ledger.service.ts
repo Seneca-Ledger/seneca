@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { flowsSql } from '../../../common/utils/counted-transactions.util';
 import { Budget } from '../../../entities/budget.entity';
 import { Category, CategoryType, StoicClass } from '../../../entities/category.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
@@ -112,7 +113,13 @@ export class StoicLedgerService {
     const [categories, budgets, spending] = await Promise.all([
       this.categoryRepository.find({
         where: { workspaceId, type: CategoryType.EXPENSE },
-        select: ['id', 'name', 'parentId', 'stoicClass', 'helpsOthers'],
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+          stoicClass: true,
+          helpsOthers: true,
+        },
       }),
       this.budgetRepository.find({ where: { workspaceId } }),
       this.loadSpending(
@@ -240,7 +247,10 @@ export class StoicLedgerService {
   private async workspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'currency'],
+      select: {
+        id: true,
+        currency: true,
+      },
     });
     return normalizeCurrency(workspace?.currency);
   }
@@ -268,6 +278,7 @@ export class StoicLedgerService {
       .andWhere('t.transaction_date <= :end', { end })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(flowsSql('t'))
       .groupBy('t.category_id')
       .addGroupBy("to_char(t.transaction_date, 'YYYY-MM')")
       .addGroupBy('t.currency')

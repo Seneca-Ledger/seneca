@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { rememberRowCount } from '../rowCountMemory';
 
@@ -23,6 +23,12 @@ export interface TableListItem {
   description: string | null;
   source: string;
   sourceDetails?: string | null;
+  /** Set when the table was filled from app data and can be refreshed. */
+  sourceBinding?: {
+    kind: string;
+    filters: Record<string, unknown>;
+    syncedAt: string | null;
+  } | null;
   categoryId?: string | null;
   category?: TableCategory | null;
   createdAt: string;
@@ -36,14 +42,6 @@ export type SourceFilter = 'all' | 'manual';
 const PAGE_SIZE = 20;
 
 /** The list endpoints answer either with a bare array or with `{ items }`. */
-const readList = <T>(payload: unknown): T[] => {
-  if (Array.isArray(payload)) {
-    return payload as T[];
-  }
-  const items = (payload as { items?: unknown } | null)?.items;
-  return Array.isArray(items) ? (items as T[]) : [];
-};
-
 interface UseTablesListParams {
   enabled: boolean;
   messages: { loadFailed: string; deleted: string; deleteFailed: string };
@@ -61,13 +59,13 @@ export function useTablesList({ enabled, messages }: UseTablesListParams) {
   const tablesQuery = useQuery({
     queryKey: queryKeys.customTables(workspaceId),
     queryFn: async ({ signal }) =>
-      readList<TableListItem>(await apiQuery<unknown>({ url: '/custom-tables', signal })),
+      (await apiQueryDecoded({ url: '/custom-tables', signal, contract: 'CustomTableList' })).items,
     enabled: enabled && Boolean(workspaceId),
   });
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
     queryFn: async ({ signal }) =>
-      readList<TableCategory>(await apiQuery<unknown>({ url: '/categories', signal })),
+      apiQueryDecoded({ url: '/categories', signal, contract: 'CategoryList' }),
     enabled: enabled && Boolean(workspaceId),
   });
 
@@ -117,8 +115,11 @@ export function useTablesList({ enabled, messages }: UseTablesListParams) {
       missing.map(item =>
         apiClient
           .get(`/custom-tables/${item.id}/rows`, { params: { limit: 1 } })
-          .then(response => {
-            const total = Number(response.data?.meta?.total) || 0;
+          .then(response =>
+            checkContract('CustomTableRowPage', response.data, '/custom-tables/:id/rows'),
+          )
+          .then(page => {
+            const total = page.meta.total;
             // Seeds the table page's skeleton, so even a first open draws the right rows.
             rememberRowCount(item.id, total);
             return [item.id, total] as const;
@@ -157,6 +158,8 @@ export function useTablesList({ enabled, messages }: UseTablesListParams) {
 
   return {
     items: pageItems,
+    // Every table, unpaged: the create dialog checks names and sources against them.
+    allTables: items,
     totalCount: filtered.length,
     loading: tablesQuery.isPending,
     categories: categoriesQuery.data ?? [],

@@ -1,22 +1,21 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { TokenIcon } from '@/app/(main)/crypto/components/TokenIcon';
 import { ChevronRight } from '@/app/components/icons';
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
-import { useIntlayer } from '@/app/i18n';
-import apiClient from '@/app/lib/api';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
+import { useIsWideSection } from './section-span';
 
-interface CryptoSummary {
-  currency: string;
-  portfolioValue: number;
-  /** Booked value of transfers in and out during the requested month. */
-  income: number;
-  expense: number;
-  walletCount: number;
-  holdings: Array<{ asset: string; amount: string; value: number }>;
-}
+/** Holdings the card lists with the row to itself; the rest are on the crypto page. */
+const WIDE_HOLDINGS = 8;
+/** Holdings listed under the value when the card shares its row. */
+const HALF_HOLDINGS = 5;
 
 type CryptoPortfolioCardProps = {
   formatAmount: (value: number) => string;
@@ -36,57 +35,133 @@ export function CryptoPortfolioCard({
   month,
   monthLabel,
 }: CryptoPortfolioCardProps): React.JSX.Element | null {
-  const { currentWorkspace } = useWorkspace();
+  const workspaceId = useWorkspaceId();
   const t = useIntlayer('cryptoPage');
-  const [summary, setSummary] = useState<CryptoSummary | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    apiClient
-      .get('/crypto/summary', { params: { month } })
-      .then(response => {
-        if (!cancelled) {
-          setSummary(response.data?.data ?? response.data ?? null);
-        }
-      })
-      // The dashboard must render without crypto: a failure here is not the
-      // user's problem and the card simply stays hidden.
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentWorkspace?.id, month]);
+  const { locale } = useLocale();
+  const wide = useIsWideSection();
+  // Cached, so the card is drawn at once when Overview is opened again. The
+  // dashboard must render without crypto: a failed request just leaves it hidden.
+  const { data: summary } = useQuery({
+    queryKey: queryKeys.cryptoMonthSummary(workspaceId, month),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: '/crypto/summary',
+        params: { month },
+        signal,
+        contract: 'CryptoSummary',
+      }),
+    enabled: Boolean(workspaceId),
+    // Another month keeps the card in place until its figures arrive.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === workspaceId ? previous : undefined,
+  });
 
   if (!summary || summary.walletCount === 0) {
     return null;
   }
 
-  return (
-    <Link href="/crypto" className="lumio-dashboard__card" style={CARD_STYLE}>
-      <div>
-        <div className="lumio-dashboard__card-sub">{t.portfolio}</div>
-        <div className="lumio-dashboard__stat-value" style={VALUE_STYLE}>
-          {formatAmount(summary.portfolioValue)}
-        </div>
-        <div className="lumio-dashboard__card-sub">
-          {monthLabel} ·{' '}
-          <span className="lumio-dashboard__amount--positive">+{formatAmount(summary.income)}</span>{' '}
-          ·{' '}
-          <span className="lumio-dashboard__amount--negative">
-            −{formatAmount(summary.expense)}
-          </span>
-        </div>
-        {summary.holdings.length > 0 && (
-          <div className="lumio-dashboard__card-sub">
-            {summary.holdings
-              .slice(0, 4)
-              .map(holding => holding.asset)
-              .join(' · ')}
-          </div>
-        )}
+  const change = summary.portfolioChangeSinceYesterday;
+  const coins = new Intl.NumberFormat(locale, { maximumFractionDigits: 6 });
+  const percent = (value: number) => `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(1)}%`;
+
+  const holdings = summary.holdings.slice(0, wide ? WIDE_HOLDINGS : HALF_HOLDINGS);
+
+  const overview = (
+    <div>
+      <div className="seneca-dashboard__card-sub">{t.portfolio}</div>
+      <div className={`seneca-dashboard__stat-value ${PRIVATE_CLASS}`} style={VALUE_STYLE}>
+        {formatAmount(summary.portfolioValue)}
       </div>
+      {change !== null && (
+        <div className="seneca-dashboard__card-sub">
+          <span
+            className={
+              change >= 0
+                ? 'seneca-dashboard__amount--positive'
+                : 'seneca-dashboard__amount--negative'
+            }
+          >
+            {percent(change)}
+          </span>{' '}
+          {t.sinceYesterday}
+        </div>
+      )}
+      <div className="seneca-dashboard__card-sub">
+        {monthLabel} ·{' '}
+        <PrivateAmount className="seneca-dashboard__amount--positive">
+          +{formatAmount(summary.income)}
+        </PrivateAmount>{' '}
+        ·{' '}
+        <PrivateAmount className="seneca-dashboard__amount--negative">
+          −{formatAmount(summary.expense)}
+        </PrivateAmount>
+      </div>
+    </div>
+  );
+
+  // What is held, and how each coin is doing.
+  const table = holdings.length > 0 && (
+    <table
+      className={
+        wide
+          ? 'seneca-dashboard__holdings'
+          : 'seneca-dashboard__holdings seneca-dashboard__holdings--stacked'
+      }
+    >
+      <thead>
+        <tr>
+          <th>{t.asset}</th>
+          <th>{t.amount}</th>
+          <th>{t.worth}</th>
+          <th>{t.unrealized}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {holdings.map(holding => (
+          <tr key={holding.asset}>
+            <td>
+              <span className="seneca-dashboard__holdings-asset">
+                <TokenIcon asset={holding.asset} size={16} />
+                {holding.asset}
+              </span>
+            </td>
+            <td>{coins.format(Number(holding.amount))}</td>
+            <td className={PRIVATE_CLASS}>{formatAmount(holding.value)}</td>
+            <td
+              className={
+                holding.unrealizedPercent === null
+                  ? undefined
+                  : holding.unrealizedPercent >= 0
+                    ? 'seneca-dashboard__amount--positive'
+                    : 'seneca-dashboard__amount--negative'
+              }
+            >
+              {holding.unrealizedPercent === null ? '—' : percent(holding.unrealizedPercent)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  // With the row to itself the table sits beside the value; sharing a row it
+  // goes underneath, so the card fills the height its neighbour gives it.
+  if (!wide) {
+    return (
+      <Link href="/crypto" className="seneca-dashboard__card" style={STACKED_CARD_STYLE}>
+        <div style={HEAD_STYLE}>
+          {overview}
+          <ChevronRight size={18} />
+        </div>
+        {table}
+      </Link>
+    );
+  }
+
+  return (
+    <Link href="/crypto" className="seneca-dashboard__card" style={CARD_STYLE}>
+      {overview}
+      {table}
       <ChevronRight size={18} />
     </Link>
   );
@@ -101,6 +176,15 @@ const CARD_STYLE = {
   justifyContent: 'space-between',
   gap: 16,
   textDecoration: 'none',
+} as const;
+
+const STACKED_CARD_STYLE = { gap: 16, textDecoration: 'none' } as const;
+
+const HEAD_STYLE = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 16,
 } as const;
 
 const VALUE_STYLE = { fontSize: 22 } as const;

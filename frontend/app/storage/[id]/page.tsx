@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 import { resolveBankLogo } from '@bank-logos';
 import { Box, Chip, Typography } from '@mui/material';
@@ -14,84 +13,24 @@ import {
   Shield,
   ShieldCheck,
 } from '@/app/components/icons';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage, getApiErrorStatus } from '@/app/lib/api-error';
+import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import PermissionsPanel from '../../components/PermissionsPanel';
 import ShareDialog from '../../components/ShareDialog';
-import TransactionsView, {
-  type Transaction as StatementTransaction,
-} from '../../components/TransactionsView';
+import TransactionsView from '../../components/TransactionsView';
 import api from '../../lib/api';
+import { blobOf } from '../../lib/blob-of';
+import type { StorageFileDetails } from '../../lib/contracts';
+import { checkContract } from '../../lib/query-fn-schema';
 
-type FileAvailabilityStatus = 'both' | 'disk' | 'db' | 'missing';
-
-type FileAvailability = {
-  onDisk: boolean;
-  inDb: boolean;
-  status: FileAvailabilityStatus;
-};
-
-interface StatementCategory {
-  id: string;
-  name: string;
-  color?: string;
-}
-
-interface StatementDetails {
-  id: string;
-  fileName: string;
-  bankName: string;
-  status: string;
-  fileSize: number;
-  createdAt: string;
-  metadata?: {
-    accountNumber?: string;
-  };
-  category?: StatementCategory | null;
-  categoryId?: string | null;
-}
-
-interface FileDetails {
-  statement: StatementDetails;
-  transactions: StatementTransaction[];
-  sharedLinks: SharedLink[];
-  permissions: FilePermission[];
-  isOwner: boolean;
-  userPermission?: string;
-  fileAvailability?: FileAvailability;
-}
-
-interface SharedLink {
-  id: string;
-  token: string;
-  permission: string;
-  expiresAt: string | null;
-  allowAnonymous: boolean;
-  description: string | null;
-  status: string;
-  accessCount: number;
-  createdAt: string;
-}
-
-interface FilePermission {
-  id: string;
-  user: {
-    id: string;
-    email: string;
-  };
-  grantedBy: {
-    id: string;
-    email: string;
-  };
-  permissionType: string;
-  canReshare: boolean;
-  expiresAt: string | null;
-  isActive: boolean;
-  createdAt: string;
-}
+type FileDetails = StorageFileDetails;
+type FileAvailability = FileDetails['fileAvailability'];
+type FileAvailabilityStatus = FileAvailability['status'];
 
 const getBankDisplayName = (bankName: string): string => {
   const resolved = resolveBankLogo(bankName);
@@ -169,7 +108,6 @@ function FileDetailsSkeleton(): React.JSX.Element {
 /**
  * File details page with transactions, sharing, and permissions
  */
-// eslint-disable-next-line max-lines-per-function, complexity, @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export default function FileDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -211,8 +149,9 @@ export default function FileDetailsPage() {
     return await (async () => {
       setLoading(true);
       const response = await api.get(`/storage/files/${fileId}`);
-      setDetails(response.data);
-      return response.data;
+      const loaded = await checkContract('StorageFileDetails', response.data, '/storage/files/:id');
+      setDetails(loaded);
+      return loaded;
     })()
       .catch(async error => {
         console.error('Failed to load file details:', error);
@@ -224,7 +163,6 @@ export default function FileDetailsPage() {
       });
   };
 
-  // eslint-disable-next-line max-lines-per-function
   const loadPreview = async (
     availabilityStatusOverride?: FileAvailabilityStatus,
   ): Promise<void> => {
@@ -247,7 +185,7 @@ export default function FileDetailsPage() {
         responseType: 'blob',
       });
 
-      const url = URL.createObjectURL(response.data);
+      const url = URL.createObjectURL(blobOf(response));
       previewUrlRef.current = url;
       setPreviewUrl(url);
     })()
@@ -265,7 +203,6 @@ export default function FileDetailsPage() {
       });
   };
 
-  // eslint-disable-next-line complexity
   const loadDetailsAndPreview = useEffectEvent(async (isCancelled: () => boolean) => {
     const loadedDetails = await loadFileDetails();
     if (isCancelled()) {
@@ -301,7 +238,7 @@ export default function FileDetailsPage() {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', details.statement.fileName);
@@ -318,7 +255,7 @@ export default function FileDetailsPage() {
     return formatStoredDateWithOptions(
       date,
       { year: 'numeric', month: 'long', day: 'numeric' },
-      locale === 'kk' ? 'kk-KZ' : locale === 'ru' ? 'ru-RU' : 'en-US',
+      resolveLocaleTag(locale),
     );
   };
 
@@ -656,9 +593,8 @@ export default function FileDetailsPage() {
             { label: t.cards.uploadedAt, value: formatDate(statement.createdAt) },
             {
               label: t.cards.account,
-              value: statement.metadata?.accountNumber || t.cards.dash.value,
+              value: statement.accountNumber || t.cards.dash.value,
             },
-            // eslint-disable-next-line max-params
           ].map((card, idx) => (
             <Box
               key={idx}
@@ -774,17 +710,7 @@ export default function FileDetailsPage() {
             }}
           >
             {previewLoading && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  minHeight: 360,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--muted-foreground)',
-                }}
-              >
-                <Spinner className="h-6 w-6" />
-              </Box>
+              <SnapshotSkeleton id="storage-file-preview" loading fallback="panel" />
             )}
 
             {!previewLoading && previewError && (
@@ -978,7 +904,6 @@ export default function FileDetailsPage() {
                 </Box>
               ) : (
                 <Box sx={{ display: 'grid', gap: 1.5 }}>
-                  {/* eslint-disable-next-line max-lines-per-function */}
                   {sharedLinks.map(link => (
                     <Box
                       key={link.id}

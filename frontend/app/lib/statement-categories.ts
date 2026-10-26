@@ -1,4 +1,4 @@
-import { getIntlayer } from 'react-intlayer';
+import { getCachedIntlayer } from '@/app/lib/locale-packs';
 import { normalizeLocale } from './locale';
 export type StatementCategorySource = 'system' | 'user' | 'parsing';
 
@@ -7,6 +7,8 @@ export interface StatementCategoryNode {
   name: string;
   source?: StatementCategorySource;
   isSystem?: boolean;
+  /** The glyph picked in the category editor (`mdi:…`), when the list carries it. */
+  icon?: string | null;
   children?: StatementCategoryNode[];
 }
 
@@ -15,6 +17,9 @@ export interface StatementCategoryOption {
   name: string;
   source?: StatementCategorySource;
   isSystem?: boolean;
+  icon?: string | null;
+  /** The stored name, before localising and the parent prefix: default icons go by it. */
+  baseName?: string;
 }
 
 /**
@@ -171,9 +176,9 @@ const getCategoryDictionary = (locale: string): CategoryDictionary | null => {
   if (cached !== undefined) {
     return cached;
   }
-  let dictionary: CategoryDictionary | null = null;
+  let dictionary: CategoryDictionary | null;
   try {
-    dictionary = getIntlayer('systemCategories', locale) as CategoryDictionary;
+    dictionary = getCachedIntlayer('systemCategories', locale) as CategoryDictionary;
   } catch {
     dictionary = null;
   }
@@ -230,6 +235,8 @@ export const flattenStatementCategories = (
         name: currentName,
         source: category.source,
         isSystem: category.isSystem,
+        icon: category.icon,
+        baseName: category.name,
       },
       ...(category.children
         ? flattenStatementCategories(category.children, currentName, locale)

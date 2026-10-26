@@ -18,6 +18,7 @@ import {
   useBrowserWallets,
   WalletUnavailableError,
 } from '@/app/lib/browser-wallets';
+import type { SupportedChainId } from '@/app/lib/contracts';
 import { addressFamily, type CryptoNetwork } from '../hooks/useCrypto';
 
 type ConnectWalletDrawerLabels = {
@@ -52,7 +53,7 @@ type ConnectWalletDrawerProps = {
   labels: ConnectWalletDrawerLabels;
   networks: CryptoNetwork[];
   onClose: () => void;
-  onSubmit: (address: string, label: string, chainIds?: number[]) => Promise<boolean>;
+  onSubmit: (address: string, label: string, chainIds?: SupportedChainId[]) => Promise<boolean>;
 };
 
 export function ConnectWalletDrawer({
@@ -142,11 +143,11 @@ export function ConnectWalletDrawer({
         '@media (min-width:600px)': { maxWidth: 512 },
       }}
       title={
-        <div className="lumio-payable-drawer__title-wrap">
+        <div className="seneca-payable-drawer__title-wrap">
           <button
             type="button"
             onClick={close}
-            className="lumio-payable-drawer__back-btn"
+            className="seneca-payable-drawer__back-btn"
             aria-label={labels.cancel}
           >
             <ChevronLeft size={20} />
@@ -157,10 +158,17 @@ export function ConnectWalletDrawer({
         </div>
       }
     >
-      <div className="lumio-payable-drawer__body">
+      <div className="seneca-payable-drawer__body">
         <div style={{ display: 'grid', gap: 16 }}>
           <Box component="fieldset" sx={{ border: 0, m: 0, p: 0 }}>
-            <Typography component="legend" variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+            <Typography
+              component="legend"
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                mb: 1,
+              }}
+            >
               {labels.walletsLabel}
             </Typography>
             <Box
@@ -207,7 +215,13 @@ export function ConnectWalletDrawer({
                     }}
                   />
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" fontWeight={600} noWrap>
+                    <Typography
+                      variant="body2"
+                      noWrap
+                      sx={{
+                        fontWeight: 600,
+                      }}
+                    >
                       {wallet.name}
                     </Typography>
                     <Typography
@@ -253,7 +267,14 @@ export function ConnectWalletDrawer({
 
           {family === 'evm' && evmNetworks.length > 0 && (
             <Box component="fieldset" sx={{ border: 0, m: 0, p: 0 }}>
-              <Typography component="legend" variant="body2" fontWeight={600} sx={{ mb: 1.25 }}>
+              <Typography
+                component="legend"
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.25,
+                }}
+              >
                 {labels.networksLabel}
               </Typography>
               <Box
@@ -304,7 +325,7 @@ export function ConnectWalletDrawer({
             onChange={event => setLabel(event.target.value)}
             fullWidth
             autoComplete="off"
-            slotProps={{ htmlInput: { maxLength: 100 } }}
+            slotProps={{ htmlInput: { maxLength: 120 } }}
           />
 
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -316,7 +337,7 @@ export function ConnectWalletDrawer({
           </Typography>
         </div>
 
-        <div className="lumio-payable-drawer__footer">
+        <div className="seneca-payable-drawer__footer">
           <Button variant="outlined" sx={{ flex: 1 }} onClick={close} disabled={saving}>
             {labels.cancel}
           </Button>

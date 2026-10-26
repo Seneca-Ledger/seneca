@@ -1,9 +1,4 @@
 import type {
-  StatementStage,
-  StatementStageAction,
-  StatementStageActionId,
-} from '@/app/lib/statement-workflow';
-import type {
   BranchOption,
   CategoryOption,
   Statement,
@@ -43,8 +38,6 @@ export interface UseStatementEditFormReturn {
   statementCategoryDrawerOpen: boolean;
   setStatementCategoryDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   statementCategorySaving: boolean;
-  stageActionLoadingId: StatementStageActionId | null;
-  currentStage: StatementStage;
   bulkCategoryId: string;
   setBulkCategoryId: React.Dispatch<React.SetStateAction<string>>;
   metadataForm: MetaForm;
@@ -78,14 +71,7 @@ export interface UseStatementEditFormReturn {
   handleBulkUpdate: () => Promise<void>;
   handleBulkDelete: (confirmMessage: string) => Promise<void>;
   handleOpenBulkCategory: () => void;
-  handleApplyBulkCategory: () => Promise<void>;
-  handleStageAction: (
-    action: StatementStageAction,
-    stageActionToasts: Record<StatementStageActionId, string>,
-    missingCategoryCount: number,
-  ) => Promise<void>;
-  handleStatementCategorySelect: (
-    categoryId: string,
-    flattenedStatementCategories: { id: string; name: string }[],
-  ) => Promise<void>;
+  /** Applies `categoryId` (picked in the drawer) to every selected row. */
+  handleApplyBulkCategory: (categoryId: string) => Promise<void>;
+  handleStatementCategorySelect: (categoryId: string) => Promise<void>;
 }

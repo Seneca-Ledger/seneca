@@ -1,9 +1,3 @@
-import { createHash } from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
-
-import archiver = require('archiver');
-
 import { randomUUID } from 'node:crypto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
@@ -17,37 +11,58 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ZipArchive } from 'archiver';
 import { Cache } from 'cache-manager';
+import { createHash } from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { calculateFileHash } from '../../common/utils/file-hash.util';
 import { resolveFileType, validateFile } from '../../common/utils/file-validator.util';
 import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/filename.util';
 import { toMinor } from '../../common/utils/money.util';
+import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
+import {
+  PRIVACY_VIEWER_PARAM,
+  readablePrivateSql,
+} from '../../common/utils/transaction-privacy.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
-import { Category, WorkspaceMember, WorkspaceRole } from '../../entities';
+import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
+import type {
+  ConvertDroppedSampleBody,
+  CreateManualExpenseBody,
+  StatementsQuery,
+  UpdateStatementBody,
+} from '../../contracts';
+import { Category, Wallet, WorkspaceMember, WorkspaceRole } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { CategoryType } from '../../entities/category.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../entities/statement.entity';
 import { TaxRate } from '../../entities/tax-rate.entity';
-import { Transaction, TransactionType } from '../../entities/transaction.entity';
+import {
+  Transaction,
+  TransactionCategorySource,
+  TransactionType,
+} from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
 import { AuditService } from '../audit/audit.service';
-import type {
-  DataDeletedEvent,
-  StatementUploadedEvent,
+import {
+  type DataDeletedEvent,
+  type StatementUploadedEvent,
+  transactionCreatedEvent,
 } from '../notifications/events/notification-events';
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
+import { reviewHoldsStatementRows } from '../review-inbox/review-queue.queries';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
-import type { ConvertDroppedSampleDto } from './dto/convert-dropped-sample.dto';
-import type { CreateManualExpenseDto } from './dto/create-manual-expense.dto';
-import type { FilterStatementsDto } from './dto/filter-statements.dto';
-import type { UpdateStatementDto } from './dto/update-statement.dto';
+import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
+import { buildStatementSearchClause } from './statement-search.util';
 
 type StatementFileAvailability = Awaited<ReturnType<FileStorageService['getFileAvailability']>>;
 type StatementWithFileAvailability = Statement & {
@@ -77,12 +92,6 @@ const APPROVED_STATUSES = [
   StatementStatus.VALIDATED,
   StatementStatus.COMPLETED,
   StatementStatus.PARSED,
-];
-const NOT_APPROVED_STATUSES = [
-  StatementStatus.UPLOADED,
-  StatementStatus.PROCESSING,
-  StatementStatus.ERROR,
-  StatementStatus.NEEDS_REVIEW,
 ];
 
 const toDateOnlyString = (value: Date) => {
@@ -170,6 +179,8 @@ export class StatementsService {
     private readonly taxRateRepository: Repository<TaxRate>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    @InjectRepository(Wallet)
+    private readonly walletRepository: Repository<Wallet>,
     private readonly fileStorageService: FileStorageService,
     private statementProcessingService: StatementProcessingService,
     private readonly statementParsingQueue: StatementParsingQueue,
@@ -177,6 +188,7 @@ export class StatementsService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
     private readonly taxAssignmentService: TaxAssignmentService,
+    private readonly workspaceCurrency: WorkspaceCurrencyService,
     private readonly eventEmitter?: EventEmitter2,
   ) {}
 
@@ -194,6 +206,7 @@ export class StatementsService {
   private async loadTransactionSummaries(
     workspaceId: string,
     statementIds: string[],
+    viewerMemberId: string | null,
   ): Promise<Map<string, StatementTransactionSummary>> {
     if (statementIds.length === 0) {
       return new Map();
@@ -212,7 +225,9 @@ export class StatementsService {
       .leftJoin('transaction.wallet', 'wallet')
       .select('transaction.statementId', 'statementId')
       .addSelect(
-        "(ARRAY_REMOVE(ARRAY_AGG(NULLIF(transaction.paymentPurpose, '') ORDER BY transaction.transactionDate ASC, transaction.createdAt ASC), NULL))[1]",
+        // The first purpose the viewer may read: another member's private row
+        // does not get to describe the whole document.
+        `(ARRAY_REMOVE(ARRAY_AGG(NULLIF(transaction.paymentPurpose, '') ORDER BY transaction.transactionDate ASC, transaction.createdAt ASC) FILTER (WHERE ${readablePrivateSql('transaction')}), NULL))[1]`,
         'description',
       )
       .addSelect(
@@ -230,6 +245,7 @@ export class StatementsService {
       .where('transaction.workspaceId = :workspaceId', { workspaceId })
       .andWhere('transaction.statementId IN (:...statementIds)', { statementIds })
       .groupBy('transaction.statementId')
+      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
       .getRawMany<StatementTransactionSummaryRow>();
 
     return new Map(
@@ -267,7 +283,9 @@ export class StatementsService {
     if (workspaceId && statement.workspaceId === workspaceId) {
       const membership = await this.workspaceMemberRepository.findOne({
         where: { workspaceId, userId },
-        select: ['role'],
+        select: {
+          role: true,
+        },
       });
       if (membership && [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role)) {
         return;
@@ -281,6 +299,17 @@ export class StatementsService {
       return `"${value.replaceAll('"', '""')}"`;
     }
     return value;
+  }
+
+  /** Who owns the wallet, or null when it is shared. */
+  private async walletOwnerMemberId(walletId: string, workspaceId: string): Promise<string | null> {
+    const wallet = await this.walletRepository.findOne({
+      where: { id: walletId, workspaceId },
+      select: {
+        ownerMemberId: true,
+      },
+    });
+    return wallet?.ownerMemberId ?? null;
   }
 
   private normalizePositiveAmount(value: number | string | null | undefined): number | null {
@@ -317,7 +346,7 @@ export class StatementsService {
   async createManualExpense(params: {
     user: User;
     workspaceId: string;
-    payload: CreateManualExpenseDto;
+    payload: CreateManualExpenseBody;
     files: Express.Multer.File[];
   }): Promise<Statement> {
     const { user, workspaceId, payload, files } = params;
@@ -329,29 +358,29 @@ export class StatementsService {
         .trim(),
     );
     if (!Number.isFinite(amountValue) || amountValue <= 0) {
-      throw new BadRequestException('Amount must be a positive number');
+      throw new BadRequestException(appError('EXPENSE_AMOUNT_INVALID'));
     }
 
     const merchant = payload.merchant?.trim();
     if (!merchant) {
-      throw new BadRequestException('Merchant is required');
+      throw new BadRequestException(appError('EXPENSE_MERCHANT_REQUIRED'));
     }
 
-    const currency = (payload.currency || 'KZT').trim().toUpperCase();
+    const currency = await this.workspaceCurrency.resolveFor(workspaceId, payload.currency);
     if (!currency) {
-      throw new BadRequestException('Currency is required');
+      throw new BadRequestException(appError('EXPENSE_CURRENCY_REQUIRED'));
     }
 
     const parsedDate = new Date(payload.date);
     if (Number.isNaN(parsedDate.getTime())) {
-      throw new BadRequestException('Date is invalid');
+      throw new BadRequestException(appError('EXPENSE_DATE_INVALID'));
     }
 
     const allowDuplicates = payload.allowDuplicates ?? false;
     const description = payload.description?.trim() || '';
     const categoryId = payload.categoryId?.trim();
     if (!categoryId) {
-      throw new BadRequestException('Category is required');
+      throw new BadRequestException(appError('EXPENSE_CATEGORY_REQUIRED'));
     }
 
     const category = await this.categoryRepository.findOne({
@@ -359,15 +388,15 @@ export class StatementsService {
     });
 
     if (!category) {
-      throw new BadRequestException('Category not found');
+      throw new BadRequestException(appError('CATEGORY_NOT_FOUND'));
     }
 
     if (category.isEnabled === false) {
-      throw new BadRequestException('Category is disabled');
+      throw new BadRequestException(appError('EXPENSE_CATEGORY_DISABLED'));
     }
 
     if (category.type !== CategoryType.EXPENSE) {
-      throw new BadRequestException('Category must be an expense category');
+      throw new BadRequestException(appError('EXPENSE_CATEGORY_NOT_EXPENSE'));
     }
 
     const taxRateId = payload.taxRateId?.trim();
@@ -383,7 +412,7 @@ export class StatementsService {
       });
 
       if (!taxRate) {
-        throw new BadRequestException('Tax rate not found');
+        throw new BadRequestException(appError('EXPENSE_TAX_RATE_NOT_FOUND'));
       }
     } else {
       taxRate = await this.taxRateRepository.findOne({
@@ -403,7 +432,9 @@ export class StatementsService {
     // explicit type check rather than truthiness keeps that guarantee from
     // ever being taken on faith for this parameter.
     const normalizedFiles = Array.isArray(files) ? files : [];
-    normalizedFiles.forEach(validateFile);
+    for (const file of normalizedFiles) {
+      validateFile(file);
+    }
 
     let fileName: string;
     let filePath: string;
@@ -456,6 +487,7 @@ export class StatementsService {
     // Проверка дубликата и обе вставки — в одной транзакции под advisory-lock:
     // иначе double-submit формы проходил check-then-act дважды и создавал два
     // одинаковых расхода (тот же паттерн, что в create() для выписок).
+    let createdTransaction: Transaction | null = null;
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
         `manual-expense:${workspaceId}:${payload.date}:${merchant}:${amountValue}:${currency}`,
@@ -536,6 +568,8 @@ export class StatementsService {
         currency,
         transactionType: TransactionType.EXPENSE,
         categoryId: category.id,
+        // The person filling the form picked it, so the payee learns from it.
+        categorySource: TransactionCategorySource.MANUAL,
         taxRateId: taxAssignment.taxRateId ?? taxRate?.id ?? null,
         taxRuleId: taxAssignment.taxRuleId,
         taxSource: taxAssignment.taxSource,
@@ -546,7 +580,7 @@ export class StatementsService {
         isVerified: true,
       });
 
-      await manager.getRepository(Transaction).save(transaction);
+      createdTransaction = await manager.getRepository(Transaction).save(transaction);
       return created;
     });
 
@@ -579,6 +613,14 @@ export class StatementsService {
       isUndoable: false,
     });
 
+    // After the commit: a listener must never see a row that rolled back.
+    if (createdTransaction) {
+      this.eventEmitter?.emit(
+        'transaction.created',
+        transactionCreatedEvent(createdTransaction, 'manual_expense'),
+      );
+    }
+
     return savedStatement;
   }
 
@@ -595,7 +637,7 @@ export class StatementsService {
     id: string,
     userId: string,
     workspaceId: string,
-    payload: ConvertDroppedSampleDto,
+    payload: ConvertDroppedSampleBody,
   ): Promise<{ statement: Statement; transaction: Transaction }> {
     const statement = await this.findOne(id, workspaceId);
     await this.ensureCanModify(statement, userId, workspaceId);
@@ -611,19 +653,19 @@ export class StatementsService {
     const sample = sampleIndex >= 0 ? droppedSamples[sampleIndex] : null;
 
     if (!(sample || warning)) {
-      throw new NotFoundException('Dropped sample not found');
+      throw new NotFoundException(appError('STATEMENT_SAMPLE_NOT_FOUND'));
     }
 
     const transactionDate = new Date(payload.transaction.transactionDate);
     if (Number.isNaN(transactionDate.getTime())) {
-      throw new BadRequestException('Transaction date is invalid');
+      throw new BadRequestException(appError('STATEMENT_TRANSACTION_DATE_INVALID'));
     }
 
     const debit = this.normalizePositiveAmount(payload.transaction.debit);
     const credit = this.normalizePositiveAmount(payload.transaction.credit);
 
     if (!(debit || credit)) {
-      throw new BadRequestException('Either debit or credit amount is required');
+      throw new BadRequestException(appError('STATEMENT_AMOUNT_REQUIRED'));
     }
 
     const transactionType = debit ? TransactionType.EXPENSE : TransactionType.INCOME;
@@ -631,6 +673,18 @@ export class StatementsService {
     const originalTransaction = sample?.transaction as
       | Record<string, string | number | null | undefined>
       | undefined;
+
+    const walletId =
+      payload.transaction.walletId || (originalTransaction?.walletId as string) || null;
+    const categoryId =
+      payload.transaction.categoryId || (originalTransaction?.categoryId as string) || null;
+    const branchId =
+      payload.transaction.branchId || (originalTransaction?.branchId as string) || null;
+    await assertWorkspaceRefs(this.transactionRepository.manager, workspaceId, {
+      categoryId,
+      branchId,
+      walletId,
+    });
 
     const transaction = this.transactionRepository.create({
       workspaceId,
@@ -659,19 +713,20 @@ export class StatementsService {
       debit: debit ?? null,
       credit: credit ?? null,
       amount,
-      currency:
-        payload.transaction.currency?.trim() ||
-        String(originalTransaction?.currency || '').trim() ||
-        statement.currency ||
-        'KZT',
+      currency: currencyCodeOrDefault(
+        payload.transaction.currency || String(originalTransaction?.currency || ''),
+        statement.currency,
+      ),
       paymentPurpose:
         payload.transaction.paymentPurpose?.trim() ||
         String(originalTransaction?.paymentPurpose || '').trim() ||
         'Не указано',
-      categoryId:
-        payload.transaction.categoryId || (originalTransaction?.categoryId as string) || null,
-      branchId: payload.transaction.branchId || (originalTransaction?.branchId as string) || null,
-      walletId: payload.transaction.walletId || (originalTransaction?.walletId as string) || null,
+      categoryId,
+      categorySource: payload.transaction.categoryId ? TransactionCategorySource.MANUAL : null,
+      branchId,
+      walletId,
+      // Same rule as the import path: the row starts on whoever owns the wallet.
+      ownerMemberId: walletId ? await this.walletOwnerMemberId(walletId, workspaceId) : null,
       article: payload.transaction.article || (originalTransaction?.article as string) || null,
       comments: payload.transaction.comments || (originalTransaction?.comments as string) || null,
       transactionType,
@@ -716,6 +771,10 @@ export class StatementsService {
       severity: Severity.INFO,
       isUndoable: false,
     });
+    this.eventEmitter?.emit(
+      'transaction.created',
+      transactionCreatedEvent(savedTransaction, 'dropped_sample'),
+    );
 
     return {
       statement: savedStatement,
@@ -749,6 +808,10 @@ export class StatementsService {
     // без него два одновременных аплоада одного файла (double-submit, retry)
     // оба проходили check-then-act и создавали дубль выписки с транзакциями.
     // Уникальный индекс тут не подходит — allowDuplicates легально обходит проверку.
+    // Parsing replaces it with the currency the file states; until then the
+    // statement carries the workspace's own (the column has no default).
+    const currency = await this.workspaceCurrency.resolve(workspaceId);
+
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       const statements = manager.getRepository(Statement);
       await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
@@ -792,6 +855,7 @@ export class StatementsService {
         fileSize: file.size,
         fileHash,
         bankName: BankName.OTHER, // Will be determined during parsing
+        currency,
         status: StatementStatus.UPLOADED,
         parsingDetails: requireManualCategorySelection
           ? {
@@ -850,7 +914,8 @@ export class StatementsService {
 
   async findAll(
     workspaceId: string,
-    filters: FilterStatementsDto = {},
+    filters: StatementsQuery = {},
+    viewerMemberId: string | null = null,
   ): Promise<{
     data: Statement[];
     total: number;
@@ -878,10 +943,9 @@ export class StatementsService {
       qb.take(limit);
     }
 
-    if (filters.search) {
-      qb.andWhere('statement.fileName ILIKE :search', {
-        search: `%${filters.search}%`,
-      });
+    const search = filters.search ? buildStatementSearchClause(filters.search) : null;
+    if (search) {
+      qb.andWhere(search.clause, search.params);
     }
 
     if (filters.type) {
@@ -899,15 +963,13 @@ export class StatementsService {
     }
 
     if (typeof filters.approved === 'boolean') {
-      if (filters.approved) {
-        qb.andWhere('statement.status IN (:...approvedStatuses)', {
-          approvedStatuses: APPROVED_STATUSES,
-        });
-      } else {
-        qb.andWhere('statement.status IN (:...notApprovedStatuses)', {
-          notApprovedStatuses: NOT_APPROVED_STATUSES,
-        });
-      }
+      // As the Approved column says it: parsed, and Review holds none of its rows.
+      const review = reviewHoldsStatementRows(this.transactionRepository, workspaceId, 'statement');
+      const approved = `(statement.status IN (:...approvedStatuses) AND NOT ${review.clause})`;
+      qb.andWhere(filters.approved ? approved : `NOT ${approved}`, {
+        approvedStatuses: APPROVED_STATUSES,
+        ...review.params,
+      });
     }
 
     if (typeof filters.billable === 'boolean') {
@@ -1074,23 +1136,41 @@ export class StatementsService {
       );
     }
 
-    if (filters.categoryId) {
-      const categorySubQuery = this.transactionRepository
+    if (filters.categoryId || filters.merchant) {
+      // Documents holding a row of this category and/or merchant, dated in the window if given.
+      const rowSubQuery = this.transactionRepository
         .createQueryBuilder('transaction')
         .select('DISTINCT transaction.statementId')
         .where('transaction.workspaceId = :workspaceId', { workspaceId })
         .andWhere('transaction.statementId IS NOT NULL');
 
       if (filters.categoryId === 'uncategorized') {
-        categorySubQuery.andWhere('transaction.categoryId IS NULL');
-      } else {
-        categorySubQuery.andWhere('transaction.categoryId = :categoryId', {
-          categoryId: filters.categoryId,
+        rowSubQuery.andWhere('transaction.categoryId IS NULL');
+      } else if (filters.categoryId) {
+        // A parent's figure in the reports includes its subcategories; so does its list.
+        const categoryIds = await this.categoryWithDescendants(workspaceId, filters.categoryId);
+        rowSubQuery.andWhere('transaction.categoryId IN (:...categoryIds)', { categoryIds });
+      }
+      if (filters.merchant) {
+        // The merchant key the analytics charts group by.
+        rowSubQuery.andWhere(
+          'LOWER(TRIM(COALESCE(transaction.vendorNormalized, transaction.counterpartyName))) = :merchant',
+          { merchant: filters.merchant.trim().toLowerCase() },
+        );
+      }
+      if (filters.transactionsFrom) {
+        rowSubQuery.andWhere('transaction.transactionDate >= :transactionsFrom', {
+          transactionsFrom: filters.transactionsFrom,
+        });
+      }
+      if (filters.transactionsTo) {
+        rowSubQuery.andWhere('transaction.transactionDate <= :transactionsTo', {
+          transactionsTo: filters.transactionsTo,
         });
       }
 
-      qb.andWhere(`statement.id IN (${categorySubQuery.getQuery()})`).setParameters(
-        categorySubQuery.getParameters(),
+      qb.andWhere(`statement.id IN (${rowSubQuery.getQuery()})`).setParameters(
+        rowSubQuery.getParameters(),
       );
     }
 
@@ -1112,6 +1192,7 @@ export class StatementsService {
     const transactionSummaries = await this.loadTransactionSummaries(
       workspaceId,
       dataRaw.map(statement => statement.id),
+      viewerMemberId,
     );
     const data = await Promise.all(
       dataRaw.map(async st => {
@@ -1137,6 +1218,24 @@ export class StatementsService {
     };
   }
 
+  /** The category and every category below it, within the workspace. */
+  private async categoryWithDescendants(
+    workspaceId: string,
+    categoryId: string,
+  ): Promise<string[]> {
+    const categories = await this.categoryRepository.find({
+      where: { workspaceId },
+      select: { id: true, parentId: true },
+    });
+    const ids = [categoryId];
+    for (let index = 0; index < ids.length; index++) {
+      for (const category of categories) {
+        if (category.parentId === ids[index] && !ids.includes(category.id)) ids.push(category.id);
+      }
+    }
+    return ids;
+  }
+
   async findOne(id: string, workspaceId: string): Promise<Statement> {
     const statementRepository = this
       .statementRepository as StatementRepositoryWithOptionalQueryBuilder;
@@ -1144,11 +1243,14 @@ export class StatementsService {
     if (typeof statementRepository.createQueryBuilder !== 'function') {
       const statement = await this.statementRepository.findOne({
         where: { id, workspaceId },
-        relations: ['transactions', 'user'],
+        relations: {
+          transactions: true,
+          user: true,
+        },
       });
 
       if (!statement) {
-        throw new NotFoundException('Statement not found');
+        throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
       }
 
       const availability = await this.fileStorageService.getFileAvailability(statement);
@@ -1167,7 +1269,7 @@ export class StatementsService {
     const statement = await qb.getOne();
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
 
     const availability = await this.fileStorageService.getFileAvailability(statement);
@@ -1180,7 +1282,7 @@ export class StatementsService {
     id: string,
     userId: string,
     workspaceId: string,
-    updateDto: UpdateStatementDto,
+    updateDto: UpdateStatementBody,
   ): Promise<Statement> {
     const statement = await this.findOne(id, workspaceId);
     await this.ensureCanModify(statement, userId, workspaceId);
@@ -1289,6 +1391,12 @@ export class StatementsService {
   async moveToTrash(id: string, userId: string, workspaceId: string): Promise<Statement> {
     const statement = await this.findOne(id, workspaceId);
     await this.ensureCanModify(statement, userId, workspaceId);
+    // A trashed statement's rows drop out of every total, including the
+    // filed return they were reported on.
+    await assertNoTaxLockedTransactions(this.transactionRepository, {
+      statementId: statement.id,
+      workspaceId,
+    });
 
     // Mark as deleted (soft delete)
     const beforeState = { ...statement };
@@ -1326,12 +1434,18 @@ export class StatementsService {
   async permanentDelete(id: string, userId: string, workspaceId: string): Promise<void> {
     const statement = await this.statementRepository.findOne({
       where: { id, workspaceId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
+    await assertNoTaxLockedTransactions(this.transactionRepository, {
+      statementId: statement.id,
+      workspaceId,
+    });
 
     await this.ensureCanModify(statement, userId, workspaceId);
 
@@ -1400,6 +1514,10 @@ export class StatementsService {
 
     if (mode === 'replace') {
       // Full delete mode - clear all transactions
+      await assertNoTaxLockedTransactions(this.transactionRepository, {
+        statementId: statement.id,
+        workspaceId,
+      });
       await this.transactionRepository.delete({ statementId: statement.id });
     } else {
       // Merge mode - keep user-modified transactions, soft-delete others
@@ -1413,7 +1531,8 @@ export class StatementsService {
 
       for (const tx of existingTransactions) {
         const timeDiff = tx.updatedAt.getTime() - tx.createdAt.getTime();
-        if (timeDiff > 1000) {
+        // A row on a filed tax return stays whatever its timestamps say.
+        if (timeDiff > 1000 || tx.taxLocked) {
           // Modified more than 1 second after creation
           userModified.push(tx.id);
         } else {
@@ -1467,7 +1586,11 @@ export class StatementsService {
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'name', 'email'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
     });
     const actorLabel = user?.email || user?.name || 'User';
 
@@ -1520,11 +1643,13 @@ export class StatementsService {
   async restoreFile(id: string, userId: string, workspaceId: string) {
     const statement = await this.statementRepository.findOne({
       where: { id, workspaceId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
 
     await this.ensureCanModify(statement, userId, workspaceId);
@@ -1556,7 +1681,7 @@ export class StatementsService {
     // Otherwise, restore file from database if it's missing from disk
     const restored = await this.fileStorageService.restoreFile(statement);
     if (!restored) {
-      throw new NotFoundException('File data is unavailable for restore');
+      throw new NotFoundException(appError('STATEMENT_FILE_RESTORE_UNAVAILABLE'));
     }
     return { status: 'restored', source: restored.source };
   }
@@ -1578,7 +1703,7 @@ export class StatementsService {
 
     // Check if file is PDF
     if (statement.fileType !== 'pdf' && !statement.fileName.toLowerCase().endsWith('.pdf')) {
-      throw new BadRequestException('Thumbnails are only available for PDF files');
+      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_PDF_ONLY'));
     }
 
     // Determine source file path
@@ -1596,7 +1721,7 @@ export class StatementsService {
     }
 
     if (!pdfPath) {
-      throw new NotFoundException('File data not available');
+      throw new NotFoundException(appError('STATEMENT_FILE_DATA_UNAVAILABLE'));
     }
 
     try {
@@ -1645,14 +1770,14 @@ export class StatementsService {
       }
 
       this.logger.error('Error generating thumbnail:', error);
-      throw new BadRequestException('Failed to generate thumbnail');
+      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_FAILED'));
     }
   }
 
   async exportZip(workspaceId: string, outputStream: NodeJS.WritableStream): Promise<void> {
     const { data: statements } = await this.findAll(workspaceId, {});
 
-    const archive = archiver('zip', { zlib: { level: 5 } });
+    const archive = new ZipArchive({ zlib: { level: 5 } });
     archive.pipe(outputStream);
 
     for (const statement of statements) {

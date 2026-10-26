@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, IsNull, Not, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { toMinor } from '../../common/utils/money.util';
 import {
   CryptoWallet,
@@ -133,6 +134,7 @@ function factsOf(tx: Transaction): TransactionFacts {
     taxReverseCharge: tx.taxReverseCharge,
     taxNotionalAmount: tx.taxNotionalAmount,
     isDuplicate: tx.isDuplicate,
+    isVerified: tx.isVerified,
     cryptoWalletId: tx.cryptoWalletId,
     categoryId: tx.categoryId,
     branchId: tx.branchId,
@@ -183,7 +185,10 @@ export class LedgerPostingService {
   async baseCurrencyOf(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'ledgerBaseCurrency'],
+      select: {
+        id: true,
+        ledgerBaseCurrency: true,
+      },
     });
     if (!workspace?.ledgerBaseCurrency) {
       throw new LedgerPostingError(
@@ -293,7 +298,7 @@ export class LedgerPostingService {
       });
     }
     if (grossMinor === 0) {
-      throw new BadRequestException('Cannot post a zero-amount invoice to the ledger');
+      throw new BadRequestException(appError('LEDGER_INVOICE_ZERO_AMOUNT'));
     }
     legs.push({ accountId: receivablesAccountId, side: 'debit', amountMinor: grossMinor });
 
@@ -318,6 +323,74 @@ export class LedgerPostingService {
   }
 
   /**
+   * Books a credit note: the mirror of `postInvoice`. Dr each line's income
+   * account for its net amount and Dr VAT payable for the tax — revenue that
+   * was recognised is taken back — and Cr Accounts Receivable for the gross,
+   * so the client's debt falls by exactly what the note credits.
+   */
+  async postCreditNote(manager: EntityManager, params: PostInvoiceParams): Promise<JournalEntry> {
+    const baseCurrency = await this.baseCurrencyOf(params.workspaceId);
+    const system = await this.accountsService.systemAccountIds(params.workspaceId);
+    const receivablesAccountId = system[LEDGER_ACCOUNT_CODES.RECEIVABLES];
+    const salesRevenueAccountId = system[LEDGER_ACCOUNT_CODES.SALES_REVENUE];
+
+    const legs: Leg[] = [];
+    let grossMinor = 0;
+    let taxMinor = 0;
+    for (const line of params.lines) {
+      const netLineMinor = toMinor(line.amount);
+      const taxLineMinor = toMinor(line.taxAmount || 0);
+      if (netLineMinor === 0 && taxLineMinor === 0) {
+        continue;
+      }
+      const counterpartAccountId = line.categoryId
+        ? ((await this.accountsService.categoryAccountId(params.workspaceId, line.categoryId)) ??
+          salesRevenueAccountId)
+        : salesRevenueAccountId;
+      if (netLineMinor !== 0) {
+        legs.push({
+          accountId: counterpartAccountId,
+          side: 'debit',
+          amountMinor: netLineMinor,
+          categoryId: line.categoryId ?? null,
+        });
+      }
+      grossMinor += netLineMinor + taxLineMinor;
+      taxMinor += taxLineMinor;
+    }
+    if (taxMinor !== 0) {
+      legs.push({
+        accountId: system[LEDGER_ACCOUNT_CODES.VAT_PAYABLE],
+        side: 'debit',
+        amountMinor: taxMinor,
+      });
+    }
+    if (grossMinor === 0) {
+      throw new BadRequestException(appError('LEDGER_CREDIT_NOTE_ZERO_AMOUNT'));
+    }
+    legs.push({ accountId: receivablesAccountId, side: 'credit', amountMinor: grossMinor });
+
+    const currency = params.currency.toUpperCase();
+    const lines = await this.convert(
+      legs,
+      currency,
+      baseCurrency,
+      params.entryDate,
+      params.workspaceId,
+    );
+
+    return this.book(manager, {
+      workspaceId: params.workspaceId,
+      entryDate: params.entryDate,
+      baseCurrency,
+      memo: params.memo ?? null,
+      source: JournalEntrySource.CREDIT_NOTE,
+      lines,
+      userId: params.userId ?? null,
+    });
+  }
+
+  /**
    * Reverses a posted entry with a mirror entry, dated like the original
    * unless a date is given. A reversal is not itself reversible: post the
    * correction as a new entry instead.
@@ -333,7 +406,7 @@ export class LedgerPostingService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!entry) {
-        throw new NotFoundException('Journal entry not found');
+        throw new NotFoundException(appError('LEDGER_ENTRY_NOT_FOUND'));
       }
       if (entry.status !== JournalEntryStatus.POSTED) {
         throw new LedgerPostingError('NOT_REVERSIBLE', 'Only a posted entry can be reversed');
@@ -365,7 +438,9 @@ export class LedgerPostingService {
         reversalOfId: IsNull(),
         sourceTransactionId: IsNull(),
       },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     let reversed = 0;
     for (const orphan of orphans) {
@@ -397,15 +472,15 @@ export class LedgerPostingService {
     const system = await this.accountsService.systemAccountIds(workspaceId);
     const statements = await this.statementRepository.find({
       where: { workspaceId, deletedAt: IsNull() },
-      select: [
-        'id',
-        'bankName',
-        'accountNumber',
-        'currency',
-        'balanceStart',
-        'statementDateFrom',
-        'createdAt',
-      ],
+      select: {
+        id: true,
+        bankName: true,
+        accountNumber: true,
+        currency: true,
+        balanceStart: true,
+        statementDateFrom: true,
+        createdAt: true,
+      },
       order: { statementDateFrom: 'ASC', createdAt: 'ASC' },
     });
 
@@ -428,7 +503,13 @@ export class LedgerPostingService {
 
     const wallets = await this.walletRepository.find({
       where: { workspaceId, isActive: true, initialBalance: Not(0) },
-      select: ['id', 'name', 'currency', 'initialBalance', 'createdAt'],
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        initialBalance: true,
+        createdAt: true,
+      },
     });
     for (const wallet of wallets) {
       results.push(
@@ -535,7 +616,10 @@ export class LedgerPostingService {
     }
     const first = await this.transactionRepository.findOne({
       where: { workspaceId, walletId: wallet.id },
-      select: ['id', 'transactionDate'],
+      select: {
+        id: true,
+        transactionDate: true,
+      },
       order: { transactionDate: 'ASC' },
     });
     const entryDate = toDateOnly(first?.transactionDate ?? wallet.createdAt);
@@ -722,7 +806,12 @@ export class LedgerPostingService {
     const statement = tx.statementId
       ? await this.statementRepository.findOne({
           where: { id: tx.statementId, workspaceId: tx.workspaceId },
-          select: ['id', 'bankName', 'accountNumber', 'deletedAt'],
+          select: {
+            id: true,
+            bankName: true,
+            accountNumber: true,
+            deletedAt: true,
+          },
         })
       : null;
     if (statement?.deletedAt) {
@@ -734,13 +823,22 @@ export class LedgerPostingService {
     // Settling an invoice-sourced receivable clears Accounts Receivable rather
     // than booking new income: the revenue was already booked when the
     // invoice was sent, and booking it again here would count it twice.
-    const settlesInvoice = await this.payableRepository.exists({
-      where: {
-        workspaceId: tx.workspaceId,
-        linkedTransactionId: tx.id,
-        source: PayableSource.INVOICE,
-      },
-    });
+    // Either the bill's single legacy link or any payment row pointing at this
+    // transaction: one wire can settle four invoices, and each of those is a
+    // payment, not a link.
+    const [{ settles }]: Array<{ settles: boolean }> = await this.payableRepository.query(
+      `SELECT EXISTS (
+         SELECT 1
+           FROM "payables" p
+           LEFT JOIN "payable_payments" pp ON pp."payable_id" = p."id"
+          WHERE p."workspace_id" = $1
+            AND p."source" = $2
+            AND p."deleted_at" IS NULL
+            AND (p."linked_transaction_id" = $3 OR pp."transaction_id" = $3)
+       ) AS "settles"`,
+      [tx.workspaceId, PayableSource.INVOICE, tx.id],
+    );
+    const settlesInvoice = settles;
     const counterpart = settlesInvoice
       ? system[LEDGER_ACCOUNT_CODES.RECEIVABLES]
       : tx.categoryId
@@ -791,7 +889,11 @@ export class LedgerPostingService {
     if (tx.walletId) {
       const wallet = await this.walletRepository.findOne({
         where: { id: tx.walletId, workspaceId: tx.workspaceId },
-        select: ['id', 'name', 'currency'],
+        select: {
+          id: true,
+          name: true,
+          currency: true,
+        },
       });
       if (wallet) {
         return this.accountsService.walletCashAccountId(tx.workspaceId, wallet, currency);
@@ -800,10 +902,17 @@ export class LedgerPostingService {
     if (tx.cryptoWalletId) {
       const cryptoWallet = await this.cryptoWalletRepository.findOne({
         where: { id: tx.cryptoWalletId, workspaceId: tx.workspaceId },
-        select: ['id', 'label', 'address'],
+        select: {
+          id: true,
+          label: true,
+          address: true,
+        },
       });
       if (cryptoWallet) {
-        return this.accountsService.cryptoAccountId(tx.workspaceId, cryptoWallet);
+        return this.accountsService.cryptoAccountId(tx.workspaceId, {
+          ...cryptoWallet,
+          address: cryptoWallet.address ?? '',
+        });
       }
     }
     return null;

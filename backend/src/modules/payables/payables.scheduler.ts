@@ -6,9 +6,23 @@ import {
   NotificationSeverity,
   NotificationType,
 } from '../../entities/notification.entity';
-import { PayableDirection } from '../../entities/payable.entity';
+import { type Payable, PayableDirection } from '../../entities/payable.entity';
+import type { NotificationParams } from '../notifications/notification-params';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PayablesService } from './payables.service';
+
+/** What is still owed, to whom and by when — formatted in each recipient's locale. */
+function payableParams(payable: Payable): NotificationParams {
+  return {
+    vendor: payable.vendor,
+    amount: {
+      kind: 'money',
+      amount: Math.max(Number(payable.amount) - Number(payable.paidAmount ?? 0), 0),
+      currency: payable.currency,
+    },
+    dueDate: payable.dueDate ? { kind: 'date', value: payable.dueDate } : '',
+  };
+}
 
 @Injectable()
 export class PayablesScheduler {
@@ -36,7 +50,7 @@ export class PayablesScheduler {
             category: NotificationCategory.WORKSPACE_ACTIVITY,
             severity: NotificationSeverity.WARN,
             messageKey: 'payable.overdue',
-            messageParams: { vendor: payable.vendor },
+            messageParams: payableParams(payable),
             entityType: EntityType.PAYABLE,
             entityId: payable.id,
             meta: { payableId: payable.id, direction: payable.direction },
@@ -58,7 +72,7 @@ export class PayablesScheduler {
             category: NotificationCategory.WORKSPACE_ACTIVITY,
             severity: NotificationSeverity.INFO,
             messageKey: 'payable.due_soon',
-            messageParams: { vendor: payable.vendor },
+            messageParams: payableParams(payable),
             entityType: EntityType.PAYABLE,
             entityId: payable.id,
             meta: { payableId: payable.id, direction: payable.direction },

@@ -1,7 +1,7 @@
 /**
  * A bank-sync provider is an account the user holds with a data aggregator.
- * Lumio never talks to a bank itself and holds no provider contract of its
- * own: the user brings their own provider account, Lumio keeps the credential
+ * Seneca never talks to a bank itself and holds no provider contract of its
+ * own: the user brings their own provider account, Seneca keeps the credential
  * encrypted and pulls what the aggregator exposes.
  *
  * Providers link in one of two styles, because the free tiers differ:

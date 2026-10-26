@@ -4,9 +4,19 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
+import { unwrapEnvelope } from '@/app/lib/query-fn';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import {
+  buildSourcePayload,
+  EMPTY_SOURCE_FILTERS,
+  findSource,
+  type SourceFilters,
+  type SourceKind,
+} from '../sources';
 import {
   applyTemplate,
   buildTemplateColumnPayloads,
@@ -19,20 +29,40 @@ export interface CreateTableForm {
   description: string;
   categoryId: string;
   templateId: TableTemplateId | null;
+  /** App data to fill the table from; exclusive with `templateId`. */
+  sourceKind: SourceKind | null;
+  sourceFilters: SourceFilters;
 }
 
-const EMPTY_FORM: CreateTableForm = { name: '', description: '', categoryId: '', templateId: null };
+const EMPTY_FORM: CreateTableForm = {
+  name: '',
+  description: '',
+  categoryId: '',
+  templateId: null,
+  sourceKind: null,
+  sourceFilters: EMPTY_SOURCE_FILTERS,
+};
 
 interface UseCreateTableParams {
   /** Translated column titles per template column key. */
   columnTitles: Record<string, string>;
-  messages: { created: string; createFailed: string; applying: string; partialFailed: string };
+  messages: {
+    created: string;
+    createdFromSource: string;
+    createFailed: string;
+    applying: string;
+    partialFailed: string;
+  };
 }
 
-/** "New table" dialog: creates the table, then applies the template columns one by one. */
+/**
+ * "New table" dialog: creates the table, then applies the template columns one
+ * by one; or, for an app data source, lets the server build columns and rows.
+ */
 export function useCreateTable({ columnTitles, messages }: UseCreateTableParams) {
   const router = useRouter();
   const { currentWorkspace } = useWorkspace();
+  const templateOptions = useIntlayer('customTableTemplateOptions');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CreateTableForm>(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
@@ -49,24 +79,51 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
     }
     setCreating(true);
     const template = TABLE_TEMPLATES.find(item => item.id === form.templateId) ?? null;
+    const source = findSource(form.sourceKind);
     await (async () => {
+      if (source) {
+        const response = await apiClient.post(
+          '/custom-tables/from-source',
+          buildSourcePayload({
+            source,
+            filters: form.sourceFilters,
+            name,
+            description: form.description,
+            categoryId: form.categoryId,
+            currency: resolveCurrencyCode(currentWorkspace?.currency),
+            titles: columnTitles,
+          }) satisfies ContractInput<'CreateCustomTableFromSourceBody'>,
+        );
+        const created = await checkContract(
+          'CreatedFromSource',
+          response.data,
+          '/custom-tables/from-source',
+        );
+        toast.success(messages.createdFromSource);
+        close();
+        router.push(`/custom-tables/${created.tableId}`);
+        return;
+      }
       const response = await apiClient.post('/custom-tables', {
         name,
         description: form.description.trim() || undefined,
         categoryId: form.categoryId || undefined,
-      });
-      const created = (response.data?.data ?? response.data) as { id?: string } | null;
-      if (created?.id && template) {
+      } satisfies ContractInput<'CreateCustomTableBody'>);
+      const created = await checkContract('CreatedCustomTable', response.data, '/custom-tables');
+      if (created.id && template) {
         const toastId = toast.loading(messages.applying);
         const { failed } = await applyTemplate({
           tableId: created.id,
           payloads: buildTemplateColumnPayloads(template, {
             titles: columnTitles,
+            options: Object.fromEntries(
+              Object.entries(templateOptions).map(([key, node]) => [key, node.value]),
+            ),
             currency: resolveCurrencyCode(currentWorkspace?.currency),
           }),
           post: async (url, body) => {
             const columnResponse = await apiClient.post(url, body);
-            return columnResponse.data?.data ?? columnResponse.data ?? null;
+            return checkContract('CustomTableColumnItem', unwrapEnvelope(columnResponse.data), url);
           },
         });
         if (failed.length) {
@@ -89,7 +146,16 @@ export function useCreateTable({ columnTitles, messages }: UseCreateTableParams)
       .finally(async () => {
         setCreating(false);
       });
-  }, [form, creating, columnTitles, currentWorkspace?.currency, messages, router, close]);
+  }, [
+    form,
+    creating,
+    columnTitles,
+    templateOptions,
+    currentWorkspace?.currency,
+    messages,
+    router,
+    close,
+  ]);
 
   return { open, setOpen, form, setForm, creating, close, submit };
 }

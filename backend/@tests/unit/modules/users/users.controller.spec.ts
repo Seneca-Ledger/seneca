@@ -3,7 +3,7 @@ import { UsersController } from '@/modules/users/users.controller';
 describe('UsersController', () => {
   it('returns timezones list from service', async () => {
     const timezonesService = {
-      listTimeZones: jest.fn(() => [{ value: 'UTC', label: '(GMT+00:00) UTC' }]),
+      listTimeZones: vi.fn(() => [{ value: 'UTC', label: '(GMT+00:00) UTC' }]),
     };
     const controller = new UsersController(
       {} as any,

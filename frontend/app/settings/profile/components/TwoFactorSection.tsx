@@ -8,7 +8,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Alert } from '@/app/components/ui/alert';
-import { Spinner } from '@/app/components/ui/spinner';
+import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import type { UserFormatPreferences } from '@/app/lib/user-format';
 import {
   PasswordPrompt,
@@ -32,14 +33,21 @@ function EnabledPanel({ tx, remaining, busy, onDisable, onRegenerate }: EnabledP
   return (
     <Card variant="outlined">
       <CardContent sx={{ display: 'grid', gap: 1.5 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Chip
-            size="small"
-            color="success"
-            label={tx(['securityCard', 'statusEnabled'], 'Enabled')}
-          />
-          <Typography variant="body2" color="text.secondary">
-            {tx(['securityCard', 'recoveryRemaining'], 'Recovery codes left')}: {remaining}
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
+          <Chip size="small" color="success" label={tx(['securityCard', 'statusEnabled'])} />
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {tx(['securityCard', 'recoveryRemaining'])}: {remaining}
           </Typography>
         </Stack>
 
@@ -50,8 +58,8 @@ function EnabledPanel({ tx, remaining, busy, onDisable, onRegenerate }: EnabledP
             destructive={pending === 'disable'}
             submitLabel={
               pending === 'disable'
-                ? tx(['securityCard', 'disableButton'], 'Disable 2FA')
-                : tx(['securityCard', 'regenerateButton'], 'Generate new codes')
+                ? tx(['securityCard', 'disableButton'])
+                : tx(['securityCard', 'regenerateButton'])
             }
             onCancel={() => setPending(null)}
             onSubmit={password => {
@@ -60,12 +68,18 @@ function EnabledPanel({ tx, remaining, busy, onDisable, onRegenerate }: EnabledP
             }}
           />
         ) : (
-          <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              justifyContent: 'flex-end',
+            }}
+          >
             <Button variant="outlined" onClick={() => setPending('regenerate')}>
-              {tx(['securityCard', 'regenerateButton'], 'Generate new codes')}
+              {tx(['securityCard', 'regenerateButton'])}
             </Button>
             <Button color="error" onClick={() => setPending('disable')}>
-              {tx(['securityCard', 'disableButton'], 'Disable 2FA')}
+              {tx(['securityCard', 'disableButton'])}
             </Button>
           </Stack>
         )}
@@ -87,10 +101,11 @@ function DisabledPanel({
     <Card variant="outlined">
       {/* The section header already carries the description — no need to repeat it here. */}
       <CardContent sx={{ display: 'grid', gap: 1.5 }}>
+        <EmptyStateIllustration name="security" size="sm" />
         <PasswordPrompt
           tx={tx}
           busy={busy}
-          submitLabel={tx(['securityCard', 'enableButton'], 'Enable 2FA')}
+          submitLabel={tx(['securityCard', 'enableButton'])}
           onSubmit={onStart}
         />
       </CardContent>
@@ -123,31 +138,31 @@ export function TwoFactorSection({ tx, twoFactor, email, formatPreferences }: Pr
         />
       ) : null}
 
-      {loading && !status ? <Spinner size={20} /> : null}
+      <SnapshotSkeleton id="settings-two-factor" loading={loading && !status} fallback="lines">
+        {setup ? (
+          <SetupPanel
+            tx={tx}
+            setup={setup}
+            busy={busy}
+            onConfirm={twoFactor.confirmSetup}
+            onCancel={twoFactor.cancelSetup}
+          />
+        ) : null}
 
-      {setup ? (
-        <SetupPanel
-          tx={tx}
-          setup={setup}
-          busy={busy}
-          onConfirm={twoFactor.confirmSetup}
-          onCancel={twoFactor.cancelSetup}
-        />
-      ) : null}
+        {!setup && status?.enabled ? (
+          <EnabledPanel
+            tx={tx}
+            remaining={status.recoveryCodesRemaining}
+            busy={busy}
+            onDisable={twoFactor.disable}
+            onRegenerate={twoFactor.regenerateRecoveryCodes}
+          />
+        ) : null}
 
-      {!setup && status?.enabled ? (
-        <EnabledPanel
-          tx={tx}
-          remaining={status.recoveryCodesRemaining}
-          busy={busy}
-          onDisable={twoFactor.disable}
-          onRegenerate={twoFactor.regenerateRecoveryCodes}
-        />
-      ) : null}
-
-      {!setup && status && !status.enabled ? (
-        <DisabledPanel tx={tx} busy={busy} onStart={twoFactor.startSetup} />
-      ) : null}
+        {!setup && status && !status.enabled ? (
+          <DisabledPanel tx={tx} busy={busy} onStart={twoFactor.startSetup} />
+        ) : null}
+      </SnapshotSkeleton>
     </Stack>
   );
 }

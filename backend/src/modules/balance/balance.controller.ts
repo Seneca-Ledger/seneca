@@ -1,40 +1,44 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  Patch,
-  Post,
-  Put,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch, Post, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
+import {
+  BalanceAccountClassification,
+  BalanceAccountCreated,
+  BalanceAccountParams,
+  BalanceAccountsTree,
+  BalanceQuery,
+  BalanceSheetResponse,
+  BalanceSnapshotSaved,
+  CreateBalanceAccountBody,
+  ExportBalanceQuery,
+  UpdateAccountClassificationBody,
+  UpdateBalanceSnapshotBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BalanceService } from './balance.service';
-import { BalanceQueryDto } from './dto/balance-query.dto';
-import { CreateBalanceAccountDto } from './dto/create-balance-account.dto';
-import { ExportBalanceDto } from './dto/export-balance.dto';
-import { UpdateAccountClassificationDto } from './dto/update-account-classification.dto';
-import { UpdateBalanceSnapshotDto } from './dto/update-balance-snapshot.dto';
 
+/**
+ * Reading the balance sheet is a report; changing it changes what the workspace owns and owes, so the
+ * writes take the wallet permissions, like crypto holdings (owner and admins).
+ */
 @Controller('reports/balance')
 export class BalanceController {
   constructor(private readonly balanceService: BalanceService) {}
 
   @Get('sheet')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(BalanceSheetResponse)
   async getSheet(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: BalanceQueryDto,
+    @SchemaQuery(BalanceQuery) query: BalanceQuery,
   ): Promise<unknown> {
     return this.balanceService.getBalanceSheet(
       workspaceId,
@@ -45,10 +49,11 @@ export class BalanceController {
 
   @Get('accounts')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(BalanceAccountsTree)
   async getAccounts(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() query: BalanceQueryDto,
+    @SchemaQuery(BalanceQuery) query: BalanceQuery,
   ): Promise<unknown> {
     return this.balanceService.getAccountsTree(
       workspaceId,
@@ -58,43 +63,46 @@ export class BalanceController {
   }
 
   @Put('snapshot')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceSnapshotSaved)
   async updateSnapshot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: UpdateBalanceSnapshotDto,
+    @SchemaBody(UpdateBalanceSnapshotBody) dto: UpdateBalanceSnapshotBody,
   ) {
     return this.balanceService.updateSnapshot(user.id, workspaceId, dto);
   }
 
   @Post('accounts')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(BalanceAccountCreated)
   async createAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateBalanceAccountDto,
+    @SchemaBody(CreateBalanceAccountBody) dto: CreateBalanceAccountBody,
   ) {
     return this.balanceService.createCustomAccount(user.id, workspaceId, dto);
   }
 
   @Delete('accounts/:id')
   @HttpCode(204)
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_DELETE)
   async deleteAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(BalanceAccountParams) { id }: BalanceAccountParams,
   ): Promise<void> {
     await this.balanceService.deleteCustomAccount(user.id, workspaceId, id);
   }
 
   @Patch('accounts/:id/classification')
-  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceAccountClassification)
   async updateClassification(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
-    @Body() dto: UpdateAccountClassificationDto,
+    @SchemaParams(BalanceAccountParams) { id }: BalanceAccountParams,
+    @SchemaBody(UpdateAccountClassificationBody) dto: UpdateAccountClassificationBody,
   ) {
     return this.balanceService.updateAccountClassification(user.id, workspaceId, id, dto);
   }
@@ -104,7 +112,7 @@ export class BalanceController {
   async exportBalance(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query() dto: ExportBalanceDto,
+    @SchemaQuery(ExportBalanceQuery) dto: ExportBalanceQuery,
     @Res() res: Response,
   ) {
     const payload = await this.balanceService.exportBalanceSheet(

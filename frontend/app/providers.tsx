@@ -8,22 +8,28 @@ import { useTheme as useNextTheme } from 'next-themes';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { IntlayerProviderContent } from 'react-intlayer';
+import { LocalePackGate, loadLocalePack } from '@/app/i18n';
 import { useAppearancePreferences } from '@/app/lib/appearance-preferences';
+import { migrateLegacyStorageKeys } from '@/app/lib/legacy-storage-keys';
 import {
   type AppLocale,
   isSupportedLocale,
   persistLocaleToCookie,
   readLocaleFromCookie,
 } from '@/app/lib/locale';
+import { usePickerLocale } from '@/app/lib/picker-locale';
 import { getQueryClient } from '@/app/lib/query-client';
 import {
   getStoredThemePreference,
+  persistPaletteModeCookie,
+  type ResolvedAppTheme,
   resolveThemePreference,
   THEME_STORAGE_EVENT,
 } from '@/app/lib/theme-preference';
 import { KeyboardShortcutsProvider } from './components/keyboard-shortcuts-provider';
 import { OfflineBanner } from './components/pwa/OfflineBanner';
 import { ServiceWorkerRegistrar } from './components/pwa/ServiceWorkerRegistrar';
+import { VersionBanner } from './components/versions/VersionBanner';
 import { AuthProvider } from './contexts/AuthContext';
 import { CurrencyDisplayProvider } from './contexts/CurrencyDisplayContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -31,6 +37,15 @@ import { useWorkspace, WorkspaceProvider } from './contexts/WorkspaceContext';
 import { useAutoTheme } from './hooks/useAutoTheme';
 import { useHTMLLanguage } from './hooks/useHTMLLanguage';
 import { createAppTheme } from './theme';
+
+// Before anything below reads its saved preferences.
+if (typeof window !== 'undefined') {
+  try {
+    migrateLegacyStorageKeys(window.localStorage);
+  } catch {
+    // Storage blocked (private mode, disabled cookies): nothing to move.
+  }
+}
 
 const TOASTER_OPTS = {
   duration: 3000,
@@ -97,6 +112,7 @@ function WorkspaceScopedProviders({
             <>
               <ServiceWorkerRegistrar />
               <OfflineBanner />
+              <VersionBanner />
             </>
           ) : null}
           <React.Fragment key={scopeKey}>{children}</React.Fragment>
@@ -109,14 +125,20 @@ function WorkspaceScopedProviders({
 export function Providers({
   children,
   initialLocale,
+  initialPaletteMode = 'light',
 }: {
   children: React.ReactNode;
   initialLocale: AppLocale;
+  initialPaletteMode?: ResolvedAppTheme;
 }): React.JSX.Element {
   const { resolvedTheme } = useNextTheme();
   const [mounted, setMounted] = useState(false);
   const [locale, setLocale] = useState<AppLocale>(() => readLocaleFromCookie() ?? initialLocale);
-  const paletteMode = mounted && resolvedTheme === 'dark' ? 'dark' : 'light';
+  // Without it every date picker spoke English: month names, placeholders, labels.
+  const pickerLocale = usePickerLocale(locale);
+  // Before mount, the server's guess from the cookie, so hydration matches the SSR markup.
+  const paletteMode: ResolvedAppTheme =
+    mounted && resolvedTheme ? (resolvedTheme === 'dark' ? 'dark' : 'light') : initialPaletteMode;
   const { density, reduceMotion } = useAppearancePreferences();
   const muiTheme = useMemo(
     () => createAppTheme(paletteMode, { density, reduceMotion }),
@@ -126,7 +148,11 @@ export function Providers({
     setMounted(true);
   }, []);
   useEffect(() => {
-    setLocale(readLocaleFromCookie() ?? initialLocale);
+    if (mounted && resolvedTheme) persistPaletteModeCookie(paletteMode);
+  }, [mounted, resolvedTheme, paletteMode]);
+  useEffect(() => {
+    const cookieLocale = readLocaleFromCookie() ?? initialLocale;
+    void loadLocalePack(cookieLocale).then(() => setLocale(cookieLocale));
   }, [initialLocale]);
   useEffect(() => {
     persistLocaleToCookie(locale);
@@ -134,28 +160,35 @@ export function Providers({
   const handleLocaleChange = useCallback((nextLocale: string): void => {
     if (!isSupportedLocale(nextLocale)) return;
     persistLocaleToCookie(nextLocale);
-    setLocale(nextLocale);
+    // Switch once the language's pack is in, so the UI never renders without texts.
+    void loadLocalePack(nextLocale).then(() => setLocale(nextLocale));
   }, []);
   return (
     <IntlayerProviderContent locale={locale} setLocale={handleLocaleChange}>
-      <HtmlLanguageSync />
-      <ThemePreferenceSync />
-      <ThemeProvider theme={muiTheme}>
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
-          {/* Выше AuthProvider и WorkspaceProvider: их собственные запросы —
-              следующие цели миграции, а NotificationProvider внутри
-              WorkspaceScopedProviders уже использует кэш. Строго вне
-              WorkspaceScopedProviders: внутри время жизни кэша привязалось бы к
-              идентичности воркспейса вместо сегмента workspaceId в ключе. */}
-          <QueryClientProvider client={getQueryClient()}>
-            <AuthProvider>
-              <WorkspaceProvider>
-                <WorkspaceScopedProviders mounted={mounted}>{children}</WorkspaceScopedProviders>
-              </WorkspaceProvider>
-            </AuthProvider>
-          </QueryClientProvider>
-        </LocalizationProvider>
-      </ThemeProvider>
+      <LocalePackGate locale={locale}>
+        <HtmlLanguageSync />
+        <ThemePreferenceSync />
+        <ThemeProvider theme={muiTheme}>
+          <LocalizationProvider
+            dateAdapter={AdapterDateFns}
+            adapterLocale={pickerLocale?.dateLocale}
+            localeText={pickerLocale?.localeText}
+          >
+            {/* Выше AuthProvider и WorkspaceProvider: их собственные запросы —
+                следующие цели миграции, а NotificationProvider внутри
+                WorkspaceScopedProviders уже использует кэш. Строго вне
+                WorkspaceScopedProviders: внутри время жизни кэша привязалось бы к
+                идентичности воркспейса вместо сегмента workspaceId в ключе. */}
+            <QueryClientProvider client={getQueryClient()}>
+              <AuthProvider>
+                <WorkspaceProvider>
+                  <WorkspaceScopedProviders mounted={mounted}>{children}</WorkspaceScopedProviders>
+                </WorkspaceProvider>
+              </AuthProvider>
+            </QueryClientProvider>
+          </LocalizationProvider>
+        </ThemeProvider>
+      </LocalePackGate>
     </IntlayerProviderContent>
   );
 }

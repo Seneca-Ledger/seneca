@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { ChevronDown, Download, FileText } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useLocale } from '@/app/i18n';
+import { APP_NAME } from '@/app/lib/brand';
 import { formatDateTime, type UserFormatPreferences } from '@/app/lib/user-format';
 import {
   downloadRecoveryCodes,
@@ -30,7 +31,6 @@ type Props = {
   formatPreferences: UserFormatPreferences;
 };
 
-// eslint-disable-next-line max-lines-per-function
 export function RecoveryCodesDownloadButton({
   tx,
   codes,
@@ -46,25 +46,17 @@ export function RecoveryCodesDownloadButton({
     setDownloading(true);
     downloadRecoveryCodes(format, {
       locale,
-      title: `Lumio — ${tx(['securityCard', 'recoveryTitle'], 'Recovery codes')}`,
+      title: `${APP_NAME} — ${tx(['securityCard', 'recoveryTitle'])}`,
       details: [
-        `${tx(['securityCard', 'fileAccount'], 'Account')}: ${email}`,
-        `${tx(['securityCard', 'fileGenerated'], 'Generated')}: ${formatDateTime(new Date(), formatPreferences)}`,
+        `${tx(['securityCard', 'fileAccount'])}: ${email}`,
+        `${tx(['securityCard', 'fileGenerated'])}: ${formatDateTime(new Date(), formatPreferences)}`,
       ],
-      hint: tx(
-        ['securityCard', 'fileHint'],
-        "Each code works once instead of a code from your authenticator app. Keep this file somewhere safe and don't share it.",
-      ),
+      hint: tx(['securityCard', 'fileHint']),
       codes,
     })
       .catch(error => {
         console.error('Failed to build the recovery codes file', error);
-        toast.error(
-          tx(
-            ['securityCard', 'downloadError'],
-            "Couldn't create the file — copy the codes instead.",
-          ),
-        );
+        toast.error(tx(['securityCard', 'downloadError']));
       })
       .finally(() => setDownloading(false));
   };
@@ -80,7 +72,7 @@ export function RecoveryCodesDownloadButton({
         startIcon={downloading ? <Spinner size={16} /> : <Download size={16} />}
         endIcon={<ChevronDown size={16} />}
       >
-        {tx(['securityCard', 'downloadButton'], 'Download')}
+        {tx(['securityCard', 'downloadButton'])}
       </Button>
       <Menu
         anchorEl={menuAnchor}

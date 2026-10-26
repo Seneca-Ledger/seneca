@@ -28,6 +28,10 @@ export interface Transaction {
   };
   branch?: { name: string };
   wallet?: { name: string };
+  /** Membership id of whoever this belongs to; null means the household shares it. */
+  ownerMemberId?: string | null;
+  /** Hidden from the rest of the household: merchant and purpose read as "—". */
+  isPrivate?: boolean;
   // Currency conversion (populated when convert_to query param is passed to the API)
   convertedAmount?: number;
   conversionRate?: number;
@@ -38,6 +42,8 @@ export interface Transaction {
   // Which classification step picked the category, and its "why"
   categorySource?: 'manual' | 'rule' | 'keyword' | 'learned' | 'history' | 'ai' | 'default' | null;
   categoryReason?: string | null;
+  /** Who the row is filed under; null when its descriptor names nobody. */
+  payee?: { id: string; name: string } | null;
   // Transfer between the user's own accounts (both legs share the id)
   transferPairId?: string | null;
   transferPairSource?: 'auto' | 'manual' | 'rejected' | null;
@@ -53,6 +59,8 @@ export interface Transaction {
     debit?: number | null;
     currency?: string;
   } | null;
+  // Confirmed by a person in Review; only confirmed rows count in any figure
+  isVerified?: boolean;
   // Parsing metadata (optional, might not exist yet)
   parsingConfidence?: number;
   rawExtract?: string;
@@ -60,12 +68,13 @@ export interface Transaction {
   hasErrors?: boolean;
 }
 
+/** A category as the UI uses it: a row of `GET /categories` (contract CategoryItem) or less. */
 export interface Category {
   id: string;
   name: string;
   type: 'income' | 'expense';
-  color?: string;
-  icon?: string;
+  color?: string | null;
+  icon?: string | null;
   isEnabled?: boolean;
   source?: StatementCategorySource;
   isSystem?: boolean;

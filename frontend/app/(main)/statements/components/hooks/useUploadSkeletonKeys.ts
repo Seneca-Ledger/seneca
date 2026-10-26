@@ -8,7 +8,6 @@ type ListedStatement = Parameters<typeof isReceiptDerivedStatement>[0] & { id: s
 
 interface UseUploadSkeletonKeysParams {
   workspaceId: string | null;
-  enabled: boolean;
   /** Receipts merged into the list; a scan upload's row comes only from here. */
   receiptRows: Array<{ statementId?: string | null }>;
   /** Raw statements query data. */
@@ -27,7 +26,6 @@ interface UseUploadSkeletonKeysParams {
  */
 export function useUploadSkeletonKeys({
   workspaceId,
-  enabled,
   receiptRows,
   statements,
   limit,
@@ -73,5 +71,5 @@ export function useUploadSkeletonKeys({
     }
   }, [listedKeys]);
 
-  return useMemo(() => (enabled ? pendingKeys.slice(0, limit) : []), [enabled, pendingKeys, limit]);
+  return useMemo(() => pendingKeys.slice(0, limit), [pendingKeys, limit]);
 }

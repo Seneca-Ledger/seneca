@@ -1,37 +1,39 @@
 'use client';
 
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import {
-  Building2,
-  ChevronDown,
-  ChevronLeft,
-  ImageIcon,
-  Save,
-  Trash2,
-} from '@/app/components/icons';
+import { ChevronDown, ChevronLeft, ImageIcon, Save, Trash2 } from '@/app/components/icons';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
 } from '@/app/lib/statement-expense-drawer';
 import { tokens } from '@/lib/theme-tokens';
-import { AVAILABLE_BACKGROUNDS } from '../constants';
+import { AVAILABLE_BACKGROUNDS, PLAIN_BACKGROUND } from '../constants';
+import { BackgroundPhotoSearch } from './BackgroundPhotoSearch';
+import { BackgroundPreviewCard } from './BackgroundPreviewCard';
 import { BackgroundSelector } from './BackgroundSelector';
+import { BusinessProfileSection } from './BusinessProfileSection';
+import { InvoiceSettingsSection } from './InvoiceSettingsSection';
 import { SettingsSection } from './SettingsSection';
 import { TaxJurisdictionSection } from './TaxJurisdictionSection';
 import { TaxRulesSection } from './TaxRulesSection';
+import { TaxStatusSection } from './TaxStatusSection';
 
 const resolveBackgroundSrc = (backgroundImage: string | null) => {
-  if (!backgroundImage) {
+  if (!backgroundImage || backgroundImage === PLAIN_BACKGROUND) {
     return null;
   }
 
@@ -45,14 +47,6 @@ const resolveBackgroundSrc = (backgroundImage: string | null) => {
 
   return `/workspace-backgrounds/${backgroundImage}`;
 };
-
-const getInitials = (value: string) =>
-  value
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase() ?? '')
-    .join('');
 
 /** Inputs are outlined, not filled: a hole cut into the page reads heavier than a line. */
 const FIELD_STYLE: React.CSSProperties = {
@@ -80,8 +74,13 @@ export default function WorkspaceOverviewView() {
   const router = useRouter();
   const t = useIntlayer('workspaceOverview');
   const tc = useIntlayer('workspaceCurrencySelector');
-  const { currentWorkspace, refreshWorkspaces, clearWorkspace, updateWorkspaceBackground } =
-    useWorkspace();
+  const {
+    currentWorkspace,
+    refreshWorkspaces,
+    clearWorkspace,
+    updateWorkspaceBackground,
+    setWorkspaceBackgroundPhoto,
+  } = useWorkspace();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -90,6 +89,7 @@ export default function WorkspaceOverviewView() {
   const [deleting, setDeleting] = useState(false);
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const [savingBackground, setSavingBackground] = useState(false);
+  const [backgroundTab, setBackgroundTab] = useState<'gallery' | 'search'>('gallery');
   const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -166,7 +166,7 @@ export default function WorkspaceOverviewView() {
         name: name.trim(),
         description: description.trim() || undefined,
         currency: currency || undefined,
-      });
+      } satisfies ContractInput<'UpdateWorkspaceBody'>);
       await refreshWorkspaces();
       toast.success(t.toasts.updated.value);
     })()
@@ -234,26 +234,39 @@ export default function WorkspaceOverviewView() {
     setCurrencyDrawerOpen(false);
   };
 
-  const handleBackgroundChange = async (background: string) => {
-    if (!currentWorkspace) {
-      return;
-    }
+  const saveBackground = async (save: () => Promise<void>) => {
     setSavingBackground(true);
 
     await (async () => {
-      await updateWorkspaceBackground({
-        workspaceId: currentWorkspace.id,
-        backgroundImage: background,
-      });
-      toast.success(t.toasts.backgroundUpdated.value);
-      setShowBackgroundPicker(false);
+      // The drawer stays open: the preview card at its top is the confirmation,
+      // and the next tile can be tried right away.
+      await save();
     })()
-      .catch(async () => {
-        toast.error(t.toasts.backgroundFailed.value);
+      // The server says why (Openverse slow or out of allowance); say that, not just "failed".
+      .catch(async (error: unknown) => {
+        toast.error(getApiErrorMessage(error, t.toasts.backgroundFailed.value));
       })
       .finally(async () => {
         setSavingBackground(false);
       });
+  };
+
+  const handleBackgroundChange = async (background: string) => {
+    if (!currentWorkspace) {
+      return;
+    }
+    await saveBackground(() =>
+      updateWorkspaceBackground({ workspaceId: currentWorkspace.id, backgroundImage: background }),
+    );
+  };
+
+  const handleBackgroundPhotoPick = async (photoId: string) => {
+    if (!currentWorkspace) {
+      return;
+    }
+    await saveBackground(() =>
+      setWorkspaceBackgroundPhoto({ workspaceId: currentWorkspace.id, photoId }),
+    );
   };
 
   if (!currentWorkspace) {
@@ -263,8 +276,6 @@ export default function WorkspaceOverviewView() {
   return (
     <Box
       sx={{
-        height: 'calc(100vh - var(--global-nav-height, 0px))',
-        overflowY: 'auto',
         bgcolor: 'var(--background)',
       }}
     >
@@ -272,38 +283,6 @@ export default function WorkspaceOverviewView() {
         sx={{ maxWidth: 1120, px: { xs: 2.5, sm: 4 }, py: 3 }}
         data-tour-id="workspace-side-panel"
       >
-        {/* Page header: no card, just the workspace mark and a line of context. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 3 }}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 40,
-              height: 40,
-              borderRadius: tokens.radius.sm,
-              bgcolor: 'rgba(var(--primary-rgb,22,129,24),0.1)',
-              color: 'var(--primary)',
-              fontSize: 16,
-              fontWeight: 600,
-              flexShrink: 0,
-            }}
-          >
-            {getInitials(currentWorkspace.name) || <Building2 size={22} />}
-          </Box>
-          <Box>
-            <Typography
-              component="h1"
-              sx={{ fontSize: 20, fontWeight: 600, color: 'var(--foreground)' }}
-            >
-              {t.title}
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
-              {t.subtitle}
-            </Typography>
-          </Box>
-        </Box>
-
         <SettingsSection
           title={t.background.title}
           description={t.background.description}
@@ -342,6 +321,8 @@ export default function WorkspaceOverviewView() {
                 alt={t.background.currentAlt.value}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
+            ) : currentWorkspace.backgroundImage === PLAIN_BACKGROUND ? (
+              <Box sx={{ height: '100%', bgcolor: 'var(--icon-badge-bg)' }} />
             ) : (
               <Box
                 sx={{
@@ -381,6 +362,28 @@ export default function WorkspaceOverviewView() {
               {t.background.change}
             </Box>
           </Box>
+          {/* A searched photo is shown only with its credit — the CC licence asks for it. */}
+          {currentWorkspace.backgroundAttribution && (
+            <Typography
+              variant="caption"
+              data-testid="workspace-background-credit"
+              sx={{ display: 'block', maxWidth: 360, mt: 1, color: 'var(--muted-foreground)' }}
+            >
+              {currentWorkspace.backgroundAttribution}
+              {currentWorkspace.backgroundSourceUrl && (
+                <>
+                  {' '}
+                  <Link
+                    href={currentWorkspace.backgroundSourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {t.background.source}
+                  </Link>
+                </>
+              )}
+            </Typography>
+          )}
         </SettingsSection>
 
         <SettingsSection title={t.details.title} description={t.details.description}>
@@ -467,13 +470,23 @@ export default function WorkspaceOverviewView() {
               </button>
 
               {isDirty && (
-                <Typography variant="body2" fontWeight={500} sx={{ color: 'warning.main' }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    color: 'warning.main',
+                  }}
+                >
                   {t.details.unsaved}
                 </Typography>
               )}
             </Box>
           </Box>
         </SettingsSection>
+
+        <BusinessProfileSection />
+
+        <InvoiceSettingsSection />
 
         <TaxJurisdictionSection
           labels={{
@@ -493,6 +506,8 @@ export default function WorkspaceOverviewView() {
             reportError: t.tax.reportError.value,
           }}
         />
+
+        <TaxStatusSection />
 
         <TaxRulesSection />
 
@@ -548,27 +563,57 @@ export default function WorkspaceOverviewView() {
             >
               <ChevronLeft size={20} />
             </button>
-            <Typography variant="h6" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 500,
+                color: 'var(--foreground)',
+              }}
+            >
               {t.background.drawerTitle}
             </Typography>
           </Box>
         }
       >
         <Box sx={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
-          <Box sx={{ flex: 1, overflowY: 'auto', pb: 2 }}>
-            <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', mb: 1.5 }}>
+          <Box className="seneca-thin-scroll" sx={{ flex: 1, overflowY: 'auto', pb: 2 }}>
+            <Typography sx={{ fontSize: 14, color: 'var(--text-muted)', mb: 2 }}>
               {t.background.drawerHint}
             </Typography>
+            <BackgroundPreviewCard
+              src={resolveBackgroundSrc(currentWorkspace.backgroundImage)}
+              name={currentWorkspace.name}
+              description={currentWorkspace.description}
+            />
+            <Box sx={{ mb: 2 }}>
+              <TextTabs
+                value={backgroundTab}
+                onChange={setBackgroundTab}
+                ariaLabel={t.background.drawerTitle.value}
+                options={[
+                  { value: 'gallery', label: t.background.tabGallery },
+                  { value: 'search', label: t.background.tabSearch },
+                ]}
+              />
+            </Box>
             {savingBackground && (
               <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
                 {t.details.saving}
               </Typography>
             )}
-            <BackgroundSelector
-              selectedBackground={currentWorkspace.backgroundImage}
-              onSelect={handleBackgroundChange}
-              backgrounds={AVAILABLE_BACKGROUNDS}
-            />
+            {backgroundTab === 'gallery' ? (
+              <BackgroundSelector
+                selectedBackground={currentWorkspace.backgroundImage}
+                onSelect={handleBackgroundChange}
+                backgrounds={AVAILABLE_BACKGROUNDS}
+                plainLabel={t.background.plain.value}
+              />
+            ) : (
+              <BackgroundPhotoSearch
+                disabled={savingBackground}
+                onPick={handleBackgroundPhotoPick}
+              />
+            )}
           </Box>
         </Box>
       </DrawerShell>

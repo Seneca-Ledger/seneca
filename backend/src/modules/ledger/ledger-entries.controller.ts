@@ -1,35 +1,30 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Headers,
-  HttpCode,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Headers, HttpCode, Patch, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
+import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { deletedResponse } from '../../common/utils/responses.util';
+import {
+  CreateJournalEntryBody,
+  JournalEntriesQuery,
+  JournalEntryDetail,
+  JournalEntryPage,
+  LedgerRecordParams,
+  MessageResult,
+  ReverseJournalEntryBody,
+  UpdateJournalEntryBody,
+} from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import {
-  CreateJournalEntryDto,
-  ReverseJournalEntryDto,
-  UpdateJournalEntryDto,
-} from './dto/journal-entry-input.dto';
 import type {
   JournalEntryResponseDto,
   PaginatedJournalEntriesDto,
 } from './dto/journal-entry-response.dto';
-import { ListJournalEntriesDto } from './dto/list-journal-entries.dto';
 import { LedgerEntriesService } from './ledger-entries.service';
 
 /**
@@ -45,18 +40,20 @@ export class LedgerEntriesController {
 
   @Get()
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(JournalEntryPage)
   async list(
     @WorkspaceId() workspaceId: string,
-    @Query() query: ListJournalEntriesDto,
+    @SchemaQuery(JournalEntriesQuery) query: JournalEntriesQuery,
   ): Promise<PaginatedJournalEntriesDto> {
     return this.entriesService.list(workspaceId, query);
   }
 
   @Get(':id')
   @WorkspaceAuth(Permission.LEDGER_VIEW)
+  @SchemaResponse(JournalEntryDetail)
   async findOne(
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.findOne(workspaceId, id);
   }
@@ -65,10 +62,11 @@ export class LedgerEntriesController {
   @Post()
   @WorkspaceAuth(Permission.LEDGER_POST)
   @Audit({ entityType: EntityType.JOURNAL_ENTRY, includeDiff: true })
+  @SchemaResponse(JournalEntryDetail)
   async create(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Body() dto: CreateJournalEntryDto,
+    @SchemaBody(CreateJournalEntryBody) dto: CreateJournalEntryBody,
     @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<JournalEntryResponseDto> {
     // Namespaced: the key table is shared by every endpoint that takes one.
@@ -89,10 +87,11 @@ export class LedgerEntriesController {
   @Patch(':id')
   @WorkspaceAuth(Permission.LEDGER_POST)
   @Audit({ entityType: EntityType.JOURNAL_ENTRY, includeDiff: true, includeBody: true })
+  @SchemaResponse(JournalEntryDetail)
   async update(
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateJournalEntryDto,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
+    @SchemaBody(UpdateJournalEntryBody) dto: UpdateJournalEntryBody,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.updateDraft(workspaceId, id, dto);
   }
@@ -100,7 +99,11 @@ export class LedgerEntriesController {
   @Delete(':id')
   @WorkspaceAuth(Permission.LEDGER_POST)
   @Audit({ entityType: EntityType.JOURNAL_ENTRY })
-  async remove(@WorkspaceId() workspaceId: string, @Param('id', ParseUUIDPipe) id: string) {
+  @SchemaResponse(MessageResult)
+  async remove(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
+  ) {
     await this.entriesService.removeDraft(workspaceId, id);
     return deletedResponse('Journal entry');
   }
@@ -109,10 +112,11 @@ export class LedgerEntriesController {
   @Post(':id/post')
   @HttpCode(200)
   @WorkspaceAuth(Permission.LEDGER_POST)
+  @SchemaResponse(JournalEntryDetail)
   async post(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.post(workspaceId, id, user.id);
   }
@@ -121,11 +125,12 @@ export class LedgerEntriesController {
   @Post(':id/reverse')
   @HttpCode(200)
   @WorkspaceAuth(Permission.LEDGER_POST)
+  @SchemaResponse(JournalEntryDetail)
   async reverse(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ReverseJournalEntryDto,
+    @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
+    @SchemaBody(ReverseJournalEntryBody) dto: ReverseJournalEntryBody,
   ): Promise<JournalEntryResponseDto> {
     return this.entriesService.reverse(workspaceId, id, user.id, dto);
   }

@@ -13,11 +13,19 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { render } from '@react-email/render';
 import nodemailer from 'nodemailer';
 import * as React from 'react';
-import type { Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
+import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
-import { retry, TimeoutError, withTimeout } from '../../common/utils/async.util';
+import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import { mergePluginSettings } from '../../common/utils/workspace-plugins.util';
 import { mergeProcessingSettings } from '../../common/utils/workspace-processing.util';
-import { mergeWorkspaceProfile } from '../../common/utils/workspace-profile.util';
+import {
+  mergeWorkspaceProfile,
+  readWorkspaceProfile,
+} from '../../common/utils/workspace-profile.util';
+import type { CreateWorkspaceBody, InviteMemberBody, UpdateWorkspaceBody } from '../../contracts';
 import {
   invitationRoleKey,
   renderInvitation,
@@ -33,7 +41,11 @@ import {
   WorkspaceRole,
 } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
-import { ApplicationSettingsService } from '../application-settings/application-settings.service';
+import { VatStatus, WorkspaceKind } from '../../entities/workspace.entity';
+import {
+  ApplicationSettingsService,
+  smtpConnectTarget,
+} from '../application-settings/application-settings.service';
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { BalanceService } from '../balance/balance.service';
@@ -44,9 +56,7 @@ import type {
   WorkspaceUpdatedEvent,
 } from '../notifications/events/notification-events';
 import { TaxRatesService } from '../tax/tax-rates.service';
-import type { CreateWorkspaceDto } from './dto/create-workspace.dto';
-import type { InviteMemberDto } from './dto/invite-member.dto';
-import type { UpdateWorkspaceDto } from './dto/update-workspace.dto';
+import { WorkspaceTaxSettingsService } from '../tax/workspace-tax-settings.service';
 import type { WorkspaceResponseDto, WorkspaceStatsDto } from './dto/workspace-response.dto';
 
 const INVITATION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
@@ -73,12 +83,17 @@ export class WorkspacesService {
     private readonly eventEmitter?: EventEmitter2,
     @Optional()
     private readonly applicationSettingsService?: ApplicationSettingsService,
+    @Optional()
+    private readonly taxSettingsService?: WorkspaceTaxSettingsService,
   ) {}
 
   private async resolveActorName(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
 
     return user?.name || user?.email || 'User';
@@ -146,6 +161,9 @@ export class WorkspacesService {
 
     const workspace = this.workspaceRepository.create({
       name: `${user.name || user.email} workspace`,
+      // No one picks a currency on sign-up, and a workspace without one is how
+      // a hardcoded default used to end up on every amount in it.
+      currency: currencyCodeOrDefault(null),
       ownerId: user.id,
     });
     const savedWorkspace = await this.workspaceRepository.save(workspace);
@@ -170,14 +188,23 @@ export class WorkspacesService {
 
     const members = await this.workspaceMemberRepository.find({
       where: { workspaceId: workspace.id },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
       order: { createdAt: 'ASC' },
     });
 
-    const invitations = await this.invitationRepository.find({
-      where: { workspaceId: workspace.id, status: WorkspaceInvitationStatus.PENDING },
-      order: { createdAt: 'DESC' },
-    });
+    // Open invitations carry their tokens, so only those who may invite see
+    // them: the home workspace of someone who joined by invitation is the
+    // inviter's, and a viewer there must not get links meant for others.
+    const callerRole = members.find(member => member.userId === currentUser.id)?.role;
+    const invitations =
+      callerRole === WorkspaceRole.OWNER || callerRole === WorkspaceRole.ADMIN
+        ? await this.invitationRepository.find({
+            where: { workspaceId: workspace.id, status: WorkspaceInvitationStatus.PENDING },
+            order: { createdAt: 'DESC' },
+          })
+        : [];
 
     const invitationResponses = await Promise.all(
       invitations.map(async invite => ({
@@ -189,7 +216,7 @@ export class WorkspacesService {
         token: invite.token,
         expiresAt: invite.expiresAt,
         createdAt: invite.createdAt,
-        link: await this.buildInvitationLink(invite.token, requestAppOrigin, currentUser),
+        link: await this.buildInvitationLink(invite.token, workspace.id, requestAppOrigin),
       })),
     );
 
@@ -202,6 +229,8 @@ export class WorkspacesService {
       },
       members: members.map(member => ({
         id: member.userId,
+        /** The membership row, which is what owns transactions and wallets. */
+        memberId: member.id,
         email: member.user?.email,
         name: member.user?.name,
         avatarUrl: member.user?.avatarUrl,
@@ -225,12 +254,16 @@ export class WorkspacesService {
 
     const members = await this.workspaceMemberRepository.find({
       where: { workspaceId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
       order: { createdAt: 'ASC' },
     });
 
     return members.map(member => ({
       id: member.userId,
+      /** The membership row, which is what owns transactions and wallets. */
+      memberId: member.id,
       email: member.user?.email,
       name: member.user?.name,
       avatarUrl: member.user?.avatarUrl,
@@ -276,12 +309,65 @@ export class WorkspacesService {
     return membership;
   }
 
+  /**
+   * Replaces the toggles on one member. Only the `member` role carries them:
+   * owners and admins are unrestricted, viewers never write, so for both the
+   * column stays NULL rather than holding values nothing reads.
+   */
+  async updateMemberPermissions(
+    workspaceId: string,
+    requestingUserId: string,
+    targetUserId: string,
+    permissions: WorkspaceMemberPermissions,
+  ) {
+    await this.assertWritable(workspaceId);
+    await this.requireAdminMembership(workspaceId, requestingUserId);
+
+    if (!targetUserId || targetUserId.trim().length === 0) {
+      throw new BadRequestException(appError('USER_INVALID'));
+    }
+
+    const member = await this.workspaceMemberRepository.findOne({
+      where: { workspaceId, userId: targetUserId },
+      relations: {
+        user: true,
+      },
+    });
+
+    if (!member) {
+      throw new NotFoundException(appError('MEMBER_NOT_FOUND'));
+    }
+
+    if (member.role !== WorkspaceRole.MEMBER) {
+      throw new BadRequestException(appError('MEMBER_PERMISSIONS_ROLE_INVALID'));
+    }
+
+    const before = member.permissions;
+    member.permissions = permissions;
+    await this.workspaceMemberRepository.save(member);
+
+    await this.recordMemberAudit({
+      workspaceId,
+      actorType: ActorType.USER,
+      actorId: requestingUserId,
+      entityType: EntityType.WORKSPACE_MEMBER,
+      entityId: member.id,
+      action: AuditAction.UPDATE,
+      diff: { before: { permissions: before }, after: { permissions: member.permissions } },
+      meta: { userId: member.userId, email: member.user?.email ?? null },
+      severity: Severity.WARN,
+    });
+
+    return { message: 'Member permissions updated', permissions: member.permissions };
+  }
+
   async updateMemberRole(
     workspaceId: string,
     requestingUserId: string,
     targetUserId: string,
     role: WorkspaceRole,
   ) {
+    await this.assertWritable(workspaceId);
     const currentMembership = await this.requireAdminMembership(workspaceId, requestingUserId);
 
     if (!targetUserId || targetUserId.trim().length === 0) {
@@ -298,7 +384,9 @@ export class WorkspacesService {
 
     const member = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId: targetUserId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!member) {
@@ -371,6 +459,7 @@ export class WorkspacesService {
   }
 
   async cancelInvitation(workspaceId: string, requestingUserId: string, invitationId: string) {
+    await this.assertWritable(workspaceId);
     await this.requireAdminMembership(workspaceId, requestingUserId);
 
     if (!invitationId || invitationId.trim().length === 0) {
@@ -406,6 +495,7 @@ export class WorkspacesService {
   }
 
   async removeMember(workspaceId: string, requestingUserId: string, targetUserId: string) {
+    await this.assertWritable(workspaceId);
     const currentMembership = await this.requireAdminMembership(workspaceId, requestingUserId);
 
     if (!targetUserId || targetUserId.trim().length === 0) {
@@ -422,7 +512,9 @@ export class WorkspacesService {
 
     const member = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId: targetUserId },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
     if (!member) {
@@ -438,6 +530,18 @@ export class WorkspacesService {
     }
 
     await this.workspaceMemberRepository.delete(member.id);
+
+    // The links that let them in stop working with the membership.
+    if (member.user?.email) {
+      await this.invitationRepository.update(
+        {
+          workspaceId,
+          email: member.user.email.trim().toLowerCase(),
+          status: In([WorkspaceInvitationStatus.PENDING, WorkspaceInvitationStatus.ACCEPTED]),
+        },
+        { status: WorkspaceInvitationStatus.CANCELLED },
+      );
+    }
 
     if (member.user?.workspaceId === workspaceId) {
       await this.userRepository.update(member.userId, { workspaceId: null });
@@ -468,9 +572,10 @@ export class WorkspacesService {
   async inviteMember(
     workspaceId: string,
     currentUser: User,
-    dto: InviteMemberDto,
+    dto: InviteMemberBody,
     requestAppOrigin?: string,
   ) {
+    await this.assertWritable(workspaceId);
     await this.requireAdminMembership(workspaceId, currentUser.id);
 
     const workspace = await this.workspaceRepository.findOne({
@@ -482,7 +587,12 @@ export class WorkspacesService {
     }
 
     const email = dto.email.trim().toLowerCase();
-    const role = dto.role || WorkspaceRole.MEMBER;
+    const role = toEnum(WorkspaceRole, dto.role) || WorkspaceRole.MEMBER;
+    // Ownership moves only by transfer: an owner-role member can be neither
+    // removed nor demoted, so an admin could plant one for good.
+    if (role === WorkspaceRole.OWNER) {
+      throw new BadRequestException(appError('INVITATION_INVALID'));
+    }
     const permissions: WorkspaceMemberPermissions | null =
       role === WorkspaceRole.MEMBER
         ? ((dto.permissions as WorkspaceMemberPermissions | undefined) ?? null)
@@ -490,7 +600,10 @@ export class WorkspacesService {
 
     const existingUser = await this.userRepository.findOne({
       where: { email },
-      select: ['id', 'workspaceId'],
+      select: {
+        id: true,
+        workspaceId: true,
+      },
     });
 
     if (existingUser) {
@@ -517,10 +630,11 @@ export class WorkspacesService {
       await this.auditInvitationCreated(workspaceId, currentUser.id, updated);
       const invitationLink = await this.buildInvitationLink(
         updated.token,
+        workspaceId,
         requestAppOrigin,
-        currentUser,
       );
       await this.sendInvitationEmail({
+        workspaceId,
         email,
         workspaceName: workspace.name,
         invitationLink,
@@ -555,10 +669,11 @@ export class WorkspacesService {
     await this.auditInvitationCreated(workspaceId, currentUser.id, savedInvitation);
     const invitationLink = await this.buildInvitationLink(
       savedInvitation.token,
+      workspaceId,
       requestAppOrigin,
-      currentUser,
     );
     await this.sendInvitationEmail({
+      workspaceId,
       email,
       workspaceName: workspace.name,
       invitationLink,
@@ -578,14 +693,15 @@ export class WorkspacesService {
     return { invitation: savedInvitation, invitationLink };
   }
 
-  async inviteMemberLegacy(currentUser: User, dto: InviteMemberDto, requestAppOrigin?: string) {
+  async inviteMemberLegacy(currentUser: User, dto: InviteMemberBody, requestAppOrigin?: string) {
     const workspace = await this.ensureUserWorkspace(currentUser);
     return this.inviteMember(workspace.id, currentUser, dto, requestAppOrigin);
   }
 
-  private async buildInvitationLink(token: string, requestAppOrigin?: string, user?: User) {
+  /** The link is to `workspaceId`, so its public URL is the one that counts. */
+  private async buildInvitationLink(token: string, workspaceId: string, requestAppOrigin?: string) {
     const settingsOrigin = this.normalizeToOrigin(
-      (await this.applicationSettingsService?.getAppSettings(user))?.publicUrl,
+      (await this.applicationSettingsService?.getAppSettings(workspaceId))?.publicUrl,
     );
     const envOrigin = this.normalizeToOrigin(process.env.APP_URL || process.env.FRONTEND_URL);
     const requestOrigin = this.normalizeToOrigin(requestAppOrigin);
@@ -634,7 +750,9 @@ export class WorkspacesService {
 
     const invitation = await this.invitationRepository.findOne({
       where: { token: trimmedToken },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
 
     if (!invitation) {
@@ -670,6 +788,33 @@ export class WorkspacesService {
     };
   }
 
+  /** Refuses an expired, revoked or otherwise unusable invitation. */
+  private async assertInvitationUsable(invitation: WorkspaceInvitation): Promise<void> {
+    if (
+      invitation.status === WorkspaceInvitationStatus.PENDING &&
+      invitation.expiresAt &&
+      invitation.expiresAt.getTime() < Date.now()
+    ) {
+      invitation.status = WorkspaceInvitationStatus.EXPIRED;
+      await this.invitationRepository.save(invitation);
+      throw new BadRequestException(appError('INVITATION_EXPIRED'));
+    }
+
+    if (invitation.status === WorkspaceInvitationStatus.CANCELLED) {
+      throw new BadRequestException(appError('INVITATION_REVOKED'));
+    }
+
+    if (
+      ![WorkspaceInvitationStatus.PENDING, WorkspaceInvitationStatus.ACCEPTED].includes(
+        invitation.status,
+      ) ||
+      // Written before invitations refused `owner`: ownership moves only by transfer.
+      invitation.role === WorkspaceRole.OWNER
+    ) {
+      throw new BadRequestException(appError('INVITATION_UNAVAILABLE'));
+    }
+  }
+
   async acceptInvitation(currentUser: User, token: string) {
     const trimmedToken = token?.trim();
     if (!trimmedToken) {
@@ -691,27 +836,7 @@ export class WorkspacesService {
       throw new ForbiddenException(appError('INVITATION_WRONG_ACCOUNT', { email: expectedEmail }));
     }
 
-    if (
-      invitation.status === WorkspaceInvitationStatus.PENDING &&
-      invitation.expiresAt &&
-      invitation.expiresAt.getTime() < Date.now()
-    ) {
-      invitation.status = WorkspaceInvitationStatus.EXPIRED;
-      await this.invitationRepository.save(invitation);
-      throw new BadRequestException(appError('INVITATION_EXPIRED'));
-    }
-
-    if (invitation.status === WorkspaceInvitationStatus.CANCELLED) {
-      throw new BadRequestException(appError('INVITATION_REVOKED'));
-    }
-
-    if (
-      ![WorkspaceInvitationStatus.PENDING, WorkspaceInvitationStatus.ACCEPTED].includes(
-        invitation.status,
-      )
-    ) {
-      throw new BadRequestException(appError('INVITATION_UNAVAILABLE'));
-    }
+    await this.assertInvitationUsable(invitation);
 
     const workspace = await this.workspaceRepository.findOne({
       where: { id: invitation.workspaceId },
@@ -724,6 +849,12 @@ export class WorkspacesService {
     const existingMembership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId: workspace.id, userId: currentUser.id },
     });
+
+    // Accepting twice is harmless while the membership lasts. Once the member
+    // is removed, the link they accepted must not bring them back.
+    if (!existingMembership && invitation.status !== WorkspaceInvitationStatus.PENDING) {
+      throw new BadRequestException(appError('INVITATION_UNAVAILABLE'));
+    }
 
     let memberAdded = false;
     if (!existingMembership) {
@@ -779,13 +910,63 @@ export class WorkspacesService {
     };
   }
 
+  /** For each opened version among these workspaces: its version, source and date. */
+  private async openedVersions(
+    workspaces: Workspace[],
+  ): Promise<Map<string, { id: string; takenAt: Date; sourceWorkspaceId: string }>> {
+    const opened = workspaces.filter(
+      workspace => workspace.kind === WorkspaceKind.VERSION && workspace.versionId,
+    );
+    if (opened.length === 0) return new Map();
+    const rows: Array<{ id: string; taken_at: Date; workspace_id: string }> =
+      await this.workspaceRepository.query(
+        'SELECT id, taken_at, workspace_id FROM workspace_versions WHERE id = ANY($1::uuid[])',
+        [opened.map(workspace => workspace.versionId)],
+      );
+    const byId = new Map(rows.map(row => [row.id, row]));
+    return new Map(
+      opened.flatMap(workspace => {
+        const row = byId.get(workspace.versionId as string);
+        return row
+          ? [
+              [
+                workspace.id,
+                { id: row.id, takenAt: row.taken_at, sourceWorkspaceId: row.workspace_id },
+              ],
+            ]
+          : [];
+      }),
+    );
+  }
+
+  /**
+   * Settings and membership of a past version do not change: it is a copy of
+   * the books as they were. These routes name the workspace in their path, so
+   * the workspace guard, which reads the header, does not see them.
+   */
+  private async assertWritable(workspaceId: string): Promise<void> {
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: {
+        id: true,
+        kind: true,
+      },
+    });
+    if (workspace?.kind === WorkspaceKind.VERSION) {
+      throw new ForbiddenException(appError('VERSION_READ_ONLY'));
+    }
+  }
+
   async getUserWorkspaces(userId: string): Promise<WorkspaceResponseDto[]> {
     const memberships = await this.workspaceMemberRepository.find({
       where: { userId },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
       order: { lastAccessedAt: 'DESC' },
     });
 
+    const versions = await this.openedVersions(memberships.map(membership => membership.workspace));
     const workspaces = await Promise.all(
       memberships.map(async membership => {
         const workspace = membership.workspace;
@@ -798,8 +979,12 @@ export class WorkspacesService {
           icon: workspace.icon,
           color: workspace.color,
           backgroundImage: workspace.backgroundImage,
+          backgroundAttribution: workspace.backgroundAttribution,
+          backgroundSourceUrl: workspace.backgroundSourceUrl,
           currency: workspace.currency,
           isFavorite: workspace.isFavorite,
+          kind: workspace.kind,
+          version: versions.get(workspace.id) ?? null,
           settings: workspace.settings,
           ownerId: workspace.ownerId,
           createdAt: workspace.createdAt,
@@ -820,7 +1005,9 @@ export class WorkspacesService {
   ): Promise<WorkspaceResponseDto | null> {
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
-      relations: ['workspace'],
+      relations: {
+        workspace: true,
+      },
     });
 
     if (!membership) {
@@ -837,8 +1024,11 @@ export class WorkspacesService {
       icon: workspace.icon,
       color: workspace.color,
       backgroundImage: workspace.backgroundImage,
+      backgroundAttribution: workspace.backgroundAttribution,
+      backgroundSourceUrl: workspace.backgroundSourceUrl,
       currency: workspace.currency,
       isFavorite: workspace.isFavorite,
+      kind: workspace.kind,
       settings: workspace.settings,
       ownerId: workspace.ownerId,
       createdAt: workspace.createdAt,
@@ -849,16 +1039,18 @@ export class WorkspacesService {
     };
   }
 
-  async createWorkspace(userId: string, dto: CreateWorkspaceDto): Promise<WorkspaceResponseDto> {
+  async createWorkspace(userId: string, dto: CreateWorkspaceBody): Promise<WorkspaceResponseDto> {
     const workspace = this.workspaceRepository.create({
       name: dto.name,
       description: dto.description || null,
       icon: dto.icon || null,
       color: dto.color || null,
       backgroundImage: dto.backgroundImage || null,
-      currency: dto.currency || null,
+      currency: currencyCodeOrDefault(dto.currency),
       ownerId: userId,
       settings: dto.profile ? mergeWorkspaceProfile(null, dto.profile) : null,
+      // A household does not charge VAT; a business says so in its tax settings.
+      ...(dto.profile === 'home' && { vatStatus: VatStatus.NOT_REGISTERED }),
     });
 
     const savedWorkspace = await this.workspaceRepository.save(workspace);
@@ -897,8 +1089,11 @@ export class WorkspacesService {
       icon: savedWorkspace.icon,
       color: savedWorkspace.color,
       backgroundImage: savedWorkspace.backgroundImage,
+      backgroundAttribution: savedWorkspace.backgroundAttribution,
+      backgroundSourceUrl: savedWorkspace.backgroundSourceUrl,
       currency: savedWorkspace.currency,
       isFavorite: savedWorkspace.isFavorite,
+      kind: savedWorkspace.kind,
       settings: savedWorkspace.settings,
       ownerId: savedWorkspace.ownerId,
       createdAt: savedWorkspace.createdAt,
@@ -912,8 +1107,9 @@ export class WorkspacesService {
   async updateWorkspace(
     workspaceId: string,
     userId: string,
-    dto: UpdateWorkspaceDto,
+    dto: UpdateWorkspaceBody,
   ): Promise<WorkspaceResponseDto> {
+    await this.assertWritable(workspaceId);
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
     });
@@ -943,19 +1139,36 @@ export class WorkspacesService {
       ...(dto.description !== undefined && { description: dto.description }),
       ...(dto.icon !== undefined && { icon: dto.icon }),
       ...(dto.color !== undefined && { color: dto.color }),
-      ...(dto.backgroundImage !== undefined && { backgroundImage: dto.backgroundImage }),
-      ...(dto.currency !== undefined && { currency: dto.currency }),
+      // A credit line belongs to one picture; any other choice drops it.
+      ...(dto.backgroundImage !== undefined && {
+        backgroundImage: dto.backgroundImage,
+        backgroundAttribution: null,
+        backgroundSourceUrl: null,
+      }),
+      ...(dto.currency !== undefined && {
+        currency: currencyCodeOrDefault(dto.currency, workspace.currency),
+      }),
       ...(dto.isFavorite !== undefined && { isFavorite: dto.isFavorite }),
       // Merged, not replaced: `settings` is a shared blob.
-      ...(dto.processing !== undefined && {
-        settings: mergeProcessingSettings(workspace.settings, dto.processing),
+      ...(dto.processing != null && {
+        settings: mergeProcessingSettings(workspace.settings, withoutNulls(dto.processing)),
       }),
     });
-    if (dto.profile !== undefined) {
+    const becameHome = dto.profile === 'home' && readWorkspaceProfile(workspace) !== 'home';
+    if (dto.profile != null) {
       workspace.settings = mergeWorkspaceProfile(workspace.settings, dto.profile);
+    }
+    if (dto.plugins != null) {
+      workspace.settings = mergePluginSettings(workspace.settings, withoutNulls(dto.plugins));
     }
 
     const updated = await this.workspaceRepository.save(workspace);
+    // Turning a workspace into household money stops VAT being assessed on it.
+    // Switching back to business leaves the status alone: whether the business
+    // is VAT-registered is a separate answer, given in the tax settings.
+    if (becameHome) {
+      await this.taxSettingsService?.setVatStatus(updated.id, VatStatus.NOT_REGISTERED, userId);
+    }
     const stats = await this.getWorkspaceStats(updated.id);
 
     // Audit: record workspace updates for traceability and rollback.
@@ -984,8 +1197,11 @@ export class WorkspacesService {
       icon: updated.icon,
       color: updated.color,
       backgroundImage: updated.backgroundImage,
+      backgroundAttribution: updated.backgroundAttribution,
+      backgroundSourceUrl: updated.backgroundSourceUrl,
       currency: updated.currency,
       isFavorite: updated.isFavorite,
+      kind: updated.kind,
       settings: updated.settings,
       ownerId: updated.ownerId,
       createdAt: updated.createdAt,
@@ -1005,7 +1221,17 @@ export class WorkspacesService {
       throw new ForbiddenException(appError('WORKSPACE_NOT_A_MEMBER'));
     }
 
-    await this.userRepository.update(userId, { lastWorkspaceId: workspaceId });
+    // A past version is looked at, not worked in: signing in again lands in a real workspace.
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: {
+        id: true,
+        kind: true,
+      },
+    });
+    if (workspace?.kind !== WorkspaceKind.VERSION) {
+      await this.userRepository.update(userId, { lastWorkspaceId: workspaceId });
+    }
 
     await this.workspaceMemberRepository.update(membership.id, {
       lastAccessedAt: new Date(),
@@ -1043,12 +1269,18 @@ export class WorkspacesService {
   }
 
   async toggleFavorite(workspaceId: string, userId: string): Promise<{ isFavorite: boolean }> {
+    await this.assertWritable(workspaceId);
     const membership = await this.workspaceMemberRepository.findOne({
       where: { workspaceId, userId },
     });
 
     if (!membership) {
       throw new ForbiddenException(appError('WORKSPACE_NOT_A_MEMBER'));
+    }
+
+    // The flag lives on the workspace, so every member sees it: a setting, not a preference.
+    if (![WorkspaceRole.OWNER, WorkspaceRole.ADMIN].includes(membership.role)) {
+      throw new ForbiddenException(appError('WORKSPACE_ADMIN_REQUIRED_TO_EDIT_SETTINGS'));
     }
 
     const workspace = await this.workspaceRepository.findOne({
@@ -1093,6 +1325,8 @@ export class WorkspacesService {
   }
 
   private async sendInvitationEmail(params: {
+    /** The workspace invited to; its SMTP server sends the mail. */
+    workspaceId: string;
     email: string;
     workspaceName: string;
     invitationLink: string;
@@ -1100,7 +1334,7 @@ export class WorkspacesService {
     role?: WorkspaceRole | null;
     user?: User;
   }) {
-    const smtp = await this.applicationSettingsService?.getSmtpSettings(params.user);
+    const smtp = await this.applicationSettingsService?.getSmtpSettings(params.workspaceId);
     // The invitee usually has no account yet, so the inviter's locale is the
     // only signal we have for which language to write in.
     const locale = params.user?.locale ?? 'en';
@@ -1127,51 +1361,48 @@ export class WorkspacesService {
       locale,
     });
 
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: Number.isFinite(smtpPort) ? smtpPort : 587,
-      secure: smtp?.secure ?? process.env.SMTP_SECURE === 'true',
-      auth:
-        (smtp?.user && smtp?.pass) || (process.env.SMTP_USER && process.env.SMTP_PASS)
-          ? {
-              user: smtp?.user || process.env.SMTP_USER,
-              pass: smtp?.pass || process.env.SMTP_PASS,
-            }
-          : undefined,
-    });
-
     try {
+      // Inside the try: a host that no longer resolves publicly is a failed mail.
+      const transporter = nodemailer.createTransport({
+        ...(await smtpConnectTarget(smtp, smtpHost)),
+        port: Number.isFinite(smtpPort) ? smtpPort : 587,
+        secure: smtp?.secure ?? process.env.SMTP_SECURE === 'true',
+        auth:
+          (smtp?.user && smtp?.pass) || (process.env.SMTP_USER && process.env.SMTP_PASS)
+            ? {
+                user: smtp?.user || process.env.SMTP_USER,
+                pass: smtp?.pass || process.env.SMTP_PASS,
+              }
+            : undefined,
+      });
       const html = await render(emailReact);
       const timeoutMs =
         smtp?.timeoutMs || Number.parseInt(process.env.SMTP_TIMEOUT_MS || '10000', 10);
 
-      await retry(
+      await attemptWithRetry(
         () =>
-          withTimeout(
-            transporter.sendMail({
-              from: smtpFrom,
-              to: params.email,
-              subject: renderInvitation(locale, 'subject', { workspace: params.workspaceName }),
-              html,
-              text: workspaceInvitationEmailText({
-                workspaceName: params.workspaceName,
-                invitationLink: params.invitationLink,
-                invitedBy: params.invitedBy,
-                roleLabel: params.role
-                  ? renderInvitation(locale, invitationRoleKey(params.role))
-                  : null,
-                locale,
-              }),
-              replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
+          transporter.sendMail({
+            from: smtpFrom,
+            to: params.email,
+            subject: renderInvitation(locale, 'subject', { workspace: params.workspaceName }),
+            html,
+            text: workspaceInvitationEmailText({
+              workspaceName: params.workspaceName,
+              invitationLink: params.invitationLink,
+              invitedBy: params.invitedBy,
+              roleLabel: params.role
+                ? renderInvitation(locale, invitationRoleKey(params.role))
+                : null,
+              locale,
             }),
-            Number.isFinite(timeoutMs) ? timeoutMs : 10000,
-            'SMTP request timed out',
-          ),
+            replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
+          }),
         {
+          timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 10000,
+          timeoutMessage: 'SMTP request timed out',
           retries: 1,
           baseDelayMs: 300,
           maxDelayMs: 2000,
-          isRetryable: err => err instanceof TimeoutError,
         },
       );
     } catch (error) {

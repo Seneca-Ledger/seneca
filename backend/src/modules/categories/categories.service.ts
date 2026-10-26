@@ -1,5 +1,6 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -11,14 +12,18 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import type { FindOptionsWhere, Repository } from 'typeorm';
+import { toEnum } from '../../common/effect/to-enum';
+import { withoutNulls } from '../../common/effect/without-nulls';
+import { appError } from '../../common/errors/app-error';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
+import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
+import type { CreateCategoryBody, UpdateCategoryBody } from '../../contracts';
 import { Statement, Transaction, User, WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
-import { Category, CategorySource, CategoryType } from '../../entities/category.entity';
+import { Category, CategorySource, CategoryType, StoicClass } from '../../entities/category.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CategoryChangedEvent } from '../notifications/events/notification-events';
-import type { CreateCategoryDto } from './dto/create-category.dto';
-import type { UpdateCategoryDto } from './dto/update-category.dto';
+import { type CategoryUsage, mergeCategoryUsage } from './category-usage';
 
 const DEFAULT_SYSTEM_CATEGORIES: ReadonlyArray<{
   name: string;
@@ -51,6 +56,14 @@ const DEFAULT_SYSTEM_CATEGORIES: ReadonlyArray<{
   { name: 'Utilities', type: CategoryType.EXPENSE },
 ];
 
+/** Columns an update may not empty: a null sent for them leaves them as they are. */
+const REQUIRED_CATEGORY_FIELDS: ReadonlySet<string> = new Set([
+  'name',
+  'type',
+  'isEnabled',
+  'taxRelevant',
+]);
+
 @Injectable()
 export class CategoriesService {
   private readonly logger = new Logger(CategoriesService.name);
@@ -82,6 +95,7 @@ export class CategoriesService {
       isSystem: category.isSystem,
       source: category.source,
       isEnabled: category.isEnabled,
+      taxRelevant: category.taxRelevant,
       color: category.color,
       icon: category.icon,
       createdAt: category.createdAt,
@@ -92,7 +106,10 @@ export class CategoriesService {
   private async resolveActorName(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
     return user?.name || user?.email || 'User';
   }
@@ -110,22 +127,26 @@ export class CategoriesService {
   async create(
     workspaceId: string,
     userId: string,
-    createDto: CreateCategoryDto,
+    createDto: CreateCategoryBody,
   ): Promise<Category> {
     await this.ensureCanEditCategories(workspaceId, userId);
+    const type = toEnum(CategoryType, createDto.type);
     // Check for duplicate name
     const existing = await this.categoryRepository.findOne({
-      where: { workspaceId, name: createDto.name, type: createDto.type },
+      where: { workspaceId, name: createDto.name, type },
     });
 
     if (existing) {
-      throw new ConflictException('Category with this name already exists');
+      throw new ConflictException(appError('CATEGORY_NAME_TAKEN'));
     }
+    await this.assertParentInWorkspace(workspaceId, createDto.parentId);
 
     const category = this.categoryRepository.create({
       workspaceId,
       userId,
-      ...createDto,
+      ...withoutNulls(createDto),
+      type,
+      stoicClass: toEnum(StoicClass, createDto.stoicClass),
       isSystem: false,
       source: CategorySource.USER,
       isEnabled: createDto.isEnabled ?? true,
@@ -174,7 +195,10 @@ export class CategoriesService {
 
     const categories = await this.categoryRepository.find({
       where,
-      relations: ['children', 'parent'],
+      relations: {
+        children: true,
+        parent: true,
+      },
       order: { name: 'ASC' },
     });
 
@@ -182,14 +206,27 @@ export class CategoriesService {
     return categories;
   }
 
+  /** The parent comes from the request: another workspace's category is "not found". */
+  private async assertParentInWorkspace(
+    workspaceId: string,
+    parentId: string | null | undefined,
+  ): Promise<void> {
+    if (!parentId) return;
+    const parent = await this.categoryRepository.findOne({ where: { id: parentId, workspaceId } });
+    if (!parent) throw new NotFoundException(appError('CATEGORY_PARENT_NOT_FOUND'));
+  }
+
   async findOne(id: string, workspaceId: string): Promise<Category> {
     const category = await this.categoryRepository.findOne({
       where: { id, workspaceId },
-      relations: ['children', 'parent'],
+      relations: {
+        children: true,
+        parent: true,
+      },
     });
 
     if (!category) {
-      throw new NotFoundException('Category not found');
+      throw new NotFoundException(appError('CATEGORY_NOT_FOUND'));
     }
 
     return category;
@@ -197,14 +234,16 @@ export class CategoriesService {
 
   async getWorkspaceCategoryUsageCounts(
     workspaceId: string,
-  ): Promise<Record<string, { transactions: number; statements: number; total: number }>> {
+  ): Promise<Record<string, CategoryUsage>> {
     const [transactionsRaw, statementsRaw] = await Promise.all([
       this.transactionRepository
         .createQueryBuilder('transaction')
         .select('transaction.categoryId', 'categoryId')
         .addSelect('COUNT(transaction.id)', 'count')
-        .innerJoin('transaction.statement', 'statement')
-        .where('statement.workspaceId = :workspaceId', { workspaceId })
+        // A date column: formatted in SQL so no time zone shifts the day.
+        .addSelect("TO_CHAR(MAX(transaction.transactionDate), 'YYYY-MM-DD')", 'lastUsedAt')
+        // Every row of the workspace, a receipt's or a cash payment's too.
+        .where('transaction.workspaceId = :workspaceId', { workspaceId })
         .andWhere('transaction.categoryId IS NOT NULL')
         .groupBy('transaction.categoryId')
         .getRawMany(),
@@ -218,28 +257,7 @@ export class CategoriesService {
         .getRawMany(),
     ]);
 
-    const result: Record<string, { transactions: number; statements: number; total: number }> = {};
-
-    for (const row of transactionsRaw) {
-      const catId = row.categoryId;
-      result[catId] = { transactions: Number(row.count), statements: 0, total: Number(row.count) };
-    }
-
-    for (const row of statementsRaw) {
-      const catId = row.categoryId;
-      if (!result[catId]) {
-        result[catId] = {
-          transactions: 0,
-          statements: Number(row.count),
-          total: Number(row.count),
-        };
-      } else {
-        result[catId].statements = Number(row.count);
-        result[catId].total += Number(row.count);
-      }
-    }
-
-    return result;
+    return mergeCategoryUsage(transactionsRaw, statementsRaw);
   }
 
   async getCategoryUsageCount(
@@ -251,9 +269,8 @@ export class CategoriesService {
     const [transactions, statements] = await Promise.all([
       this.transactionRepository
         .createQueryBuilder('transaction')
-        .innerJoin('transaction.statement', 'statement')
         .where('transaction.categoryId = :categoryId', { categoryId })
-        .andWhere('statement.workspaceId = :workspaceId', { workspaceId })
+        .andWhere('transaction.workspaceId = :workspaceId', { workspaceId })
         .getCount(),
       this.statementRepository.count({
         where: { categoryId, workspaceId },
@@ -271,7 +288,7 @@ export class CategoriesService {
     id: string,
     workspaceId: string,
     userId: string,
-    updateDto: UpdateCategoryDto,
+    updateDto: UpdateCategoryBody,
   ): Promise<Category> {
     await this.ensureCanEditCategories(workspaceId, userId);
     const category = await this.findOne(id, workspaceId);
@@ -285,11 +302,12 @@ export class CategoriesService {
           key !== 'isEnabled' &&
           key !== 'stoicClass' &&
           key !== 'helpsOthers' &&
+          key !== 'taxRelevant' &&
           value !== undefined,
       );
 
       if (nonToggleUpdates.length > 0) {
-        throw new ForbiddenException('Cannot modify system category');
+        throw new ForbiddenException(appError('CATEGORY_SYSTEM_READ_ONLY'));
       }
     }
 
@@ -300,18 +318,33 @@ export class CategoriesService {
       });
 
       if (existing) {
-        throw new ConflictException('Category with this name already exists');
+        throw new ConflictException(appError('CATEGORY_NAME_TAKEN'));
       }
+    }
+
+    // null clears what may be empty (parent, colour, icon, the judgements); on a
+    // required column it can only mean "leave it", and saving it failed NOT NULL.
+    const changes = Object.fromEntries(
+      Object.entries(updateDto).filter(
+        ([key, value]) => !(value === null && REQUIRED_CATEGORY_FIELDS.has(key)),
+      ),
+    ) as UpdateCategoryBody;
+
+    if (changes.parentId) {
+      if (changes.parentId === id) {
+        throw new BadRequestException(appError('CATEGORY_OWN_PARENT'));
+      }
+      await this.assertParentInWorkspace(workspaceId, changes.parentId);
     }
 
     // A save that changes nothing (the editor re-submitting unchanged fields) is not an
     // event: logging it filled the audit log with identical "updated" rows.
-    const changed = Object.entries(updateDto).some(
+    const changed = Object.entries(changes).some(
       ([key, value]) =>
         value !== undefined &&
         JSON.stringify(value) !== JSON.stringify(category[key as keyof Category] ?? null),
     );
-    Object.assign(category, updateDto);
+    Object.assign(category, changes);
     const saved = await this.categoryRepository.save(category);
     await this.invalidateCache(workspaceId);
     const after = this.snapshotCategory(saved);
@@ -356,8 +389,13 @@ export class CategoriesService {
     const category = await this.findOne(id, workspaceId);
 
     if (category.isSystem) {
-      throw new ForbiddenException('Cannot delete system category');
+      throw new ForbiddenException(appError('CATEGORY_SYSTEM_UNDELETABLE'));
     }
+    // Deleting the category would clear it on rows a filed return was built from.
+    await assertNoTaxLockedTransactions(this.transactionRepository, {
+      categoryId: category.id,
+      workspaceId,
+    });
 
     await this.categoryRepository.remove(category);
     await this.invalidateCache(workspaceId);
@@ -368,7 +406,8 @@ export class CategoriesService {
       actorType: ActorType.USER,
       actorId: userId,
       entityType: EntityType.CATEGORY,
-      entityId: category.id,
+      // `remove` clears the entity's id: the event had none, and every delete was a 400.
+      entityId: id,
       action: AuditAction.DELETE,
       diff: { before: category, after: null },
       meta: {
@@ -382,7 +421,7 @@ export class CategoriesService {
       actorId: userId,
       actorName: await this.resolveActorName(userId),
       action: 'deleted',
-      categoryId: category.id,
+      categoryId: id,
       categoryName: category.name,
     } satisfies CategoryChangedEvent);
   }

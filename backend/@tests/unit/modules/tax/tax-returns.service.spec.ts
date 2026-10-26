@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+import { IsNull, Not } from 'typeorm';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { TaxReturnStatus } from '@/entities/tax-return.entity';
@@ -9,9 +11,11 @@ describe('TaxReturnsService', () => {
   let service: TaxReturnsService;
   let returnRepo: ReturnType<typeof createRepoMock>;
   let transactionRepo: ReturnType<typeof createRepoMock>;
-  let adoption: { getCurrentJurisdiction: jest.Mock };
-  let exchangeRates: { getRate: jest.Mock };
-  let auditService: { createEvent: jest.Mock };
+  let adoption: { getCurrentJurisdiction: Mock };
+  let exchangeRates: { getRateOrNull: Mock };
+  let auditService: { createEvent: Mock };
+  // What the last save wrote: the service answers the row read back after saving.
+  let stored: unknown = null;
 
   const KZ = { id: 'j-kz', code: 'KZ', currency: 'KZT' };
 
@@ -27,16 +31,17 @@ describe('TaxReturnsService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     returnRepo = createRepoMock();
     transactionRepo = createRepoMock();
     transactionRepo.find.mockResolvedValue([]);
     returnRepo.findOne.mockResolvedValue(null);
     returnRepo.create.mockImplementation((input: unknown) => input);
-    returnRepo.save.mockImplementation(async (input: unknown) => input);
-    adoption = { getCurrentJurisdiction: jest.fn().mockResolvedValue(KZ) };
-    exchangeRates = { getRate: jest.fn().mockResolvedValue(1) };
-    auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    returnRepo.save.mockImplementation(async (input: unknown) => (stored = input));
+    Object.assign(returnRepo, { findOneByOrFail: vi.fn(async () => stored) });
+    adoption = { getCurrentJurisdiction: vi.fn().mockResolvedValue(KZ) };
+    exchangeRates = { getRateOrNull: vi.fn().mockResolvedValue(1) };
+    auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
 
     service = new TaxReturnsService(
       returnRepo,
@@ -45,6 +50,7 @@ describe('TaxReturnsService', () => {
       exchangeRates as never,
       {} as never,
       auditService as never,
+      { emit: vi.fn() } as never,
     );
   });
 
@@ -55,6 +61,23 @@ describe('TaxReturnsService', () => {
       await expect(service.computeTotals('ws-1', '2026-01-01', '2026-03-31')).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('counts only counted (confirmed, not duplicate, not transfer, not trashed) transactions', async () => {
+      await service.computeTotals('ws-1', '2026-01-01', '2026-03-31');
+
+      // Both alternatives (no statement / statement not trashed) count confirmed,
+      // non-duplicate, non-transfer rows of this workspace only.
+      const where = transactionRepo.find.mock.calls[0][0].where;
+      expect(where).toHaveLength(2);
+      for (const branch of where) {
+        expect(branch).toMatchObject({ isVerified: true, isDuplicate: false, workspaceId: 'ws-1' });
+        expect(branch.transferPairId).toEqual(IsNull());
+        // `Not(null)` compiles to `!= NULL`, which matches nothing.
+        expect(branch.taxAmount).toEqual(Not(IsNull()));
+      }
+      expect(where[0].statementId).toEqual(IsNull());
+      expect(where[1].statement).toEqual({ deletedAt: IsNull() });
     });
 
     it('splits income into output tax and expense into input tax', async () => {
@@ -94,13 +117,13 @@ describe('TaxReturnsService', () => {
         transactionRepo.find.mockResolvedValue([
           tx({ currency: 'USD', taxAmount: '10.00', transactionDate: new Date('2026-02-10') }),
         ]);
-        exchangeRates.getRate.mockResolvedValue(500);
+        exchangeRates.getRateOrNull.mockResolvedValue(500);
 
         await service.computeTotals('ws-1', '2026-01-01', '2026-03-31');
 
         // Converting at today's rate would make a filed return drift with the
         // market and answer differently every time it was opened.
-        const [from, to, date] = exchangeRates.getRate.mock.calls[0];
+        const [from, to, date] = exchangeRates.getRateOrNull.mock.calls[0];
         expect(from).toBe('USD');
         expect(to).toBe('KZT');
         expect(date).toEqual(new Date('2026-02-10'));
@@ -111,7 +134,7 @@ describe('TaxReturnsService', () => {
           tx({ id: 'a', currency: 'USD', taxAmount: '10.00' }),
           tx({ id: 'b', currency: 'KZT', taxAmount: '1000.00' }),
         ]);
-        exchangeRates.getRate.mockResolvedValue(500);
+        exchangeRates.getRateOrNull.mockResolvedValue(500);
 
         const totals = await service.computeTotals('ws-1', '2026-01-01', '2026-03-31');
 
@@ -123,7 +146,7 @@ describe('TaxReturnsService', () => {
 
         await service.computeTotals('ws-1', '2026-01-01', '2026-03-31');
 
-        expect(exchangeRates.getRate).not.toHaveBeenCalled();
+        expect(exchangeRates.getRateOrNull).not.toHaveBeenCalled();
       });
 
       it('rounds each converted line once so lines and totals agree', async () => {
@@ -131,7 +154,7 @@ describe('TaxReturnsService', () => {
           tx({ id: 'a', currency: 'USD', taxAmount: '10.01' }),
           tx({ id: 'b', currency: 'USD', taxAmount: '10.01' }),
         ]);
-        exchangeRates.getRate.mockResolvedValue(1.115);
+        exchangeRates.getRateOrNull.mockResolvedValue(1.115);
 
         const totals = await service.computeTotals('ws-1', '2026-01-01', '2026-03-31');
         const lineSum = totals.lines.reduce((sum, line) => sum + line.taxAmountConverted, 0);
@@ -140,9 +163,26 @@ describe('TaxReturnsService', () => {
       });
     });
 
+      it('leaves out a row with no rate for its day, and says so', async () => {
+        transactionRepo.find.mockResolvedValue([
+          tx({ id: 'usd', currency: 'USD', taxAmount: '10.00' }),
+          tx({ id: 'kzt', currency: 'KZT', taxAmount: '1000.00' }),
+        ]);
+        exchangeRates.getRateOrNull.mockResolvedValue(null);
+
+        const totals = await service.computeTotals('ws-1', '2026-01-01', '2026-03-31');
+
+        // Taking 1 for a missing rate would book $10 of tax as 10 tenge.
+        expect(totals.inputTax).toBe(1000);
+        expect(totals.lines.map(line => line.transactionId)).toEqual(['kzt']);
+        expect(totals.missingRates).toEqual([
+          { transactionId: 'usd', date: '2026-02-10', currency: 'USD' },
+        ]);
+      });
+
     it('records the rate used on every line', async () => {
       transactionRepo.find.mockResolvedValue([tx({ currency: 'USD', taxAmount: '10.00' })]);
-      exchangeRates.getRate.mockResolvedValue(500);
+      exchangeRates.getRateOrNull.mockResolvedValue(500);
 
       const [line] = (await service.computeTotals('ws-1', '2026-01-01', '2026-03-31')).lines;
 
@@ -192,22 +232,32 @@ describe('TaxReturnsService', () => {
 
   describe('file', () => {
     const manager = {
-      save: jest.fn(async (_entity: unknown, row: unknown) => row),
-      createQueryBuilder: jest.fn(),
+      save: vi.fn(async (_entity: unknown, row: unknown) => (stored = row)),
+      createQueryBuilder: vi.fn(),
     };
 
     beforeEach(() => {
       const update = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        whereInIds: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+        update: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        whereInIds: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue({ affected: 1 }),
       };
       manager.save.mockClear();
       manager.createQueryBuilder.mockReturnValue(update);
       returnRepo.manager = {
-        transaction: jest.fn(async (cb: (m: unknown) => unknown) => cb(manager)),
+        transaction: vi.fn(async (cb: (m: unknown) => unknown) => cb(manager)),
       } as never;
+    });
+
+    it('refuses to file while a row has no exchange rate', async () => {
+      transactionRepo.find.mockResolvedValue([tx({ currency: 'USD' })]);
+      exchangeRates.getRateOrNull.mockResolvedValue(null);
+
+      await expect(service.file('ws-1', '2026-01-01', '2026-03-31')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(returnRepo.manager.transaction).not.toHaveBeenCalled();
     });
 
     it('refuses to file a period twice', async () => {
@@ -300,20 +350,20 @@ describe('TaxReturnsService', () => {
 
   describe('reopen', () => {
     const manager = {
-      save: jest.fn(async (_entity: unknown, row: unknown) => row),
-      createQueryBuilder: jest.fn(),
+      save: vi.fn(async (_entity: unknown, row: unknown) => (stored = row)),
+      createQueryBuilder: vi.fn(),
     };
 
     beforeEach(() => {
       const update = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        whereInIds: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+        update: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        whereInIds: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue({ affected: 1 }),
       };
       manager.createQueryBuilder.mockReturnValue(update);
       returnRepo.manager = {
-        transaction: jest.fn(async (cb: (m: unknown) => unknown) => cb(manager)),
+        transaction: vi.fn(async (cb: (m: unknown) => unknown) => cb(manager)),
       } as never;
     });
 

@@ -11,9 +11,14 @@ import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cloud, Download, FileUp, Lock, RefreshCw } from '@/app/components/icons';
 import { Alert } from '@/app/components/ui/alert';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
+import { APP_SLUG } from '@/app/lib/brand';
+import type { BackupImportPreview } from '@/app/lib/contracts';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
 
 type BackupConfig = {
@@ -39,7 +44,7 @@ type BackupRun = {
 
 const defaultConfig: BackupConfig = {
   destinationKind: 'local',
-  destinationPath: 'lumio-backups',
+  destinationPath: `${APP_SLUG}-backups`,
   dailyTime: '03:00',
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   retentionCount: 7,
@@ -59,11 +64,7 @@ export function BackupSection() {
   const [password, setPassword] = useState('');
   const [importPassword, setImportPassword] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<{
-    importId: string;
-    workspaceName: string;
-    fileCount: number;
-  } | null>(null);
+  const [preview, setPreview] = useState<BackupImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,14 +74,20 @@ export function BackupSection() {
     setLoading(true);
 
     await (async () => {
-      const [configResponse, runsResponse] = await Promise.all([
-        apiClient.get<BackupConfig | null>('/backups/config'),
-        apiClient.get<BackupRun[]>('/backups/runs'),
+      const [configResponse, runs] = await Promise.all([
+        apiClient.get('/backups/config'),
+        apiQueryDecoded({ url: '/backups/runs', contract: 'BackupRunList' }),
       ]);
-      if (configResponse.data) {
-        setConfig(configResponse.data);
+      // Not set up yet: the null arrives as an empty body.
+      const stored = await checkContract(
+        'BackupConfiguration',
+        configResponse.data || null,
+        '/backups/config',
+      );
+      if (stored) {
+        setConfig(stored);
       }
-      setRuns(runsResponse.data ?? []);
+      setRuns(runs);
       setError(null);
     })()
       .catch(async () => {
@@ -105,11 +112,21 @@ export function BackupSection() {
     setError(null);
 
     await (async () => {
-      const response = await apiClient.put<BackupConfig>('/backups/config', {
-        ...config,
+      // The writable settings only: id, passwordConfigured and the last run are
+      // the server's, and the API rejects fields it does not take.
+      const response = await apiClient.put('/backups/config', {
+        destinationKind: config.destinationKind,
+        destinationPath: config.destinationPath,
+        dailyTime: config.dailyTime,
+        timeZone: config.timeZone,
+        retentionCount: config.retentionCount,
+        enabled: config.enabled,
         password: password || undefined,
-      });
-      setConfig(response.data);
+      } satisfies ContractInput<'UpdateBackupConfigurationBody'>);
+      const saved = await checkContract('BackupConfiguration', response.data, '/backups/config');
+      if (saved) {
+        setConfig(saved);
+      }
       setPassword('');
       setMessage(t.messages.saved.value);
     })()
@@ -145,10 +162,10 @@ export function BackupSection() {
       const response = await apiClient.get(`/backups/runs/${run.id}/download`, {
         responseType: 'blob',
       });
-      const url = URL.createObjectURL(response.data as Blob);
+      const url = URL.createObjectURL(blobOf(response));
       const link = document.createElement('a');
       link.href = url;
-      link.download = `lumio-${run.id}.lumio-backup`;
+      link.download = `${APP_SLUG}-${run.id}.seneca-backup`;
       link.click();
       URL.revokeObjectURL(url);
     })().catch(async () => {
@@ -168,21 +185,24 @@ export function BackupSection() {
       const body = new FormData();
       body.append('file', importFile);
       body.append('password', importPassword);
-      const response = await apiClient.post<{
-        importId: string;
-        workspaceName: string;
-        fileCount: number;
-      }>(
+      const response = await apiClient.post(
         restore ? `/backups/imports/${preview?.importId}/restore` : '/backups/import/preview',
         body,
       );
       if (restore) {
-        setMessage(t.messages.restored.value.replace('{name}', response.data.workspaceName));
+        const restored = await checkContract(
+          'BackupRestoreResult',
+          response.data,
+          '/backups/imports/:id/restore',
+        );
+        setMessage(t.messages.restored.value.replace('{name}', restored.workspaceName));
         setPreview(null);
         setImportFile(null);
         setImportPassword('');
       } else {
-        setPreview(response.data);
+        setPreview(
+          await checkContract('BackupImportPreview', response.data, '/backups/import/preview'),
+        );
       }
     })()
       .catch(async () => {
@@ -209,10 +229,22 @@ export function BackupSection() {
               }}
             >
               <Box>
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 600,
+                  }}
+                >
                   {t.title.value}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 680 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                    mt: 0.5,
+                    maxWidth: 680,
+                  }}
+                >
                   {t.intro.value}
                 </Typography>
               </Box>
@@ -227,10 +259,8 @@ export function BackupSection() {
               </Button>
             </Box>
 
-            {loading ? (
-              <Spinner size={20} />
-            ) : (
-              <>
+            <SnapshotSkeleton id="settings-backup" loading={loading} fallback="panel">
+              <Stack spacing={2}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                   <TextField
                     select
@@ -263,10 +293,12 @@ export function BackupSection() {
                     type="time"
                     label={t.dailyTime.value}
                     value={config.dailyTime}
-                    InputLabelProps={{ shrink: true }}
                     onChange={event =>
                       setConfig(current => ({ ...current, dailyTime: event.target.value }))
                     }
+                    slotProps={{
+                      inputLabel: { shrink: true },
+                    }}
                   />
                   <TextField
                     fullWidth
@@ -279,7 +311,6 @@ export function BackupSection() {
                   <TextField
                     fullWidth
                     type="number"
-                    inputProps={{ min: 1, max: 365 }}
                     label={t.versionsToKeep.value}
                     value={config.retentionCount}
                     onChange={event =>
@@ -288,6 +319,9 @@ export function BackupSection() {
                         retentionCount: Number(event.target.value) || 1,
                       }))
                     }
+                    slotProps={{
+                      htmlInput: { min: 1, max: 365 },
+                    }}
                   />
                 </Stack>
                 <TextField
@@ -322,7 +356,12 @@ export function BackupSection() {
                     {t.createNow.value}
                   </Button>
                   {config.lastSuccessfulAt ? (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       {t.lastSuccessful.value.replace(
                         '{date}',
                         formatStoredDateTime(config.lastSuccessfulAt),
@@ -330,20 +369,30 @@ export function BackupSection() {
                     </Typography>
                   ) : null}
                 </Box>
-              </>
-            )}
+              </Stack>
+            </SnapshotSkeleton>
           </Stack>
         </CardContent>
       </Card>
 
       <Card variant="outlined">
         <CardContent>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {t.recentBackups.value}
           </Typography>
           <Stack spacing={1} sx={{ mt: 1.5 }}>
             {runs.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.noBackups.value}
               </Typography>
             ) : (
@@ -370,7 +419,13 @@ export function BackupSection() {
                       </Typography>
                     ) : null}
                   </Box>
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      alignItems: 'center',
+                    }}
+                  >
                     <Chip
                       size="small"
                       label={t.status[run.status].value}
@@ -403,17 +458,28 @@ export function BackupSection() {
         <CardContent>
           <Stack spacing={1.5}>
             <Box>
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {t.importTitle.value}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                  mt: 0.5,
+                }}
+              >
                 {t.importIntro.value}
               </Typography>
             </Box>
             <input
               ref={importInput}
               type="file"
-              accept=".lumio-backup,application/octet-stream"
+              accept=".seneca-backup,.lumio-backup,application/octet-stream"
               hidden
               onChange={event => {
                 setImportFile(event.target.files?.[0] ?? null);
@@ -453,14 +519,19 @@ export function BackupSection() {
                 >
                   {importing
                     ? t.restoring.value
-                    : t.restoreAs.value.replace('{name}', preview.workspaceName)}
+                    : t.restoreAs.value.replace('{name}', preview.workspaceName ?? '—')}
                 </Button>
               ) : null}
             </Box>
             {preview ? (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                }}
+              >
                 {t.verified.value
-                  .replace('{name}', preview.workspaceName)
+                  .replace('{name}', preview.workspaceName ?? '—')
                   .replace('{count}', String(preview.fileCount))}
               </Typography>
             ) : null}

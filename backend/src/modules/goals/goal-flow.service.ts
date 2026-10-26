@@ -2,8 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { assertFound } from '../../common/utils/assert-found.util';
+import { flowsSql } from '../../common/utils/counted-transactions.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
+import type {
+  GoalFlowBudget,
+  GoalFlowLink,
+  GoalFlowNode,
+  GoalFlowNodeKind,
+  GoalFlowResponse,
+} from '../../contracts';
 import { Goal, GoalContribution } from '../../entities';
-import { Budget, type BudgetPeriodType } from '../../entities/budget.entity';
+import { Budget } from '../../entities/budget.entity';
 import type { Category } from '../../entities/category.entity';
 import { DataEntry, DataEntryType } from '../../entities/data-entry.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
@@ -20,6 +29,7 @@ import {
 import { CategoriesService } from '../categories/categories.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import {
+  addMissingRates,
   buildRateMap,
   convertWith,
   normalizeCurrency,
@@ -34,68 +44,7 @@ import {
  */
 const MERCHANTS_PER_CATEGORY = 5;
 
-export type GoalFlowNodeKind = 'goal' | 'budget' | 'category' | 'merchant' | 'other';
-
-export interface GoalFlowNode {
-  /** `<kind>:<id>` — sankey links address nodes by name, so it must be unique. */
-  id: string;
-  kind: GoalFlowNodeKind;
-  name: string;
-  /** Declared intent. Null below the budget level, where nothing was declared. */
-  planned: number | null;
-  actual: number;
-  color: string | null;
-  /** Set on the rolled-up tail only: how many merchants it stands for. */
-  mergedCount?: number;
-}
-
-export interface GoalFlowLink {
-  source: string;
-  target: string;
-  value: number;
-}
-
-export interface GoalFlowBudget {
-  id: string;
-  name: string;
-  periodType: BudgetPeriodType;
-  /** The limit as the user typed it, in the budget's own currency. */
-  limitAmount: number;
-  limitCurrency: string;
-  /** That limit converted and scaled to one month, which is what the tree sums. */
-  plannedMonthly: number;
-  actualMonthly: number;
-  /** The budget's native window, so these figures reconcile with the budgets page. */
-  nativePeriod: { start: string; end: string; actual: number };
-  percentUsed: number;
-  category: { id: string; name: string; color: string | null; icon: string | null } | null;
-}
-
-export interface GoalFlowResponse {
-  goal: {
-    id: string;
-    name: string;
-    targetAmount: number;
-    currentAmount: number;
-    remaining: number;
-    targetDate: string | null;
-  };
-  month: string;
-  /** Workspace currency. Every amount below is already converted into it. */
-  currency: string;
-  plannedTotal: number;
-  actualTotal: number;
-  /** Positive means overspending against the declared plan. */
-  variance: number;
-  nodes: GoalFlowNode[];
-  links: GoalFlowLink[];
-  budgets: GoalFlowBudget[];
-  /**
-   * Spending the tree cannot place. Cash entries carry no category, so they are
-   * counted but never drawn — showing the number beats a silently low total.
-   */
-  excluded: { cashAmount: number; cashEntryCount: number };
-}
+export type { GoalFlowBudget, GoalFlowLink, GoalFlowNode, GoalFlowNodeKind, GoalFlowResponse };
 
 interface CategoryTotalRow {
   categoryId: string;
@@ -151,6 +100,7 @@ export class GoalFlowService {
     workspaceId: string,
     month: string | undefined,
     now = new Date(),
+    viewerMemberId: string | null = null,
   ): Promise<GoalFlowResponse> {
     const goal = await this.goalRepository.findOne({ where: { id: goalId, workspaceId } });
     assertFound(goal, 'Goal');
@@ -162,7 +112,9 @@ export class GoalFlowService {
     const [allBudgets, contributed] = await Promise.all([
       this.budgetRepository.find({
         where: { workspaceId, goalId },
-        relations: ['category'],
+        relations: {
+          category: true,
+        },
         order: { name: 'ASC' },
       }),
       this.sumContributions(workspaceId, goalId),
@@ -181,7 +133,7 @@ export class GoalFlowService {
 
     const [categoryRows, merchantRows, cash] = await Promise.all([
       this.loadCategoryTotals(workspaceId, everyCategoryId, window),
-      this.loadMerchantTotals(workspaceId, everyCategoryId, window),
+      this.loadMerchantTotals(workspaceId, everyCategoryId, window, viewerMemberId),
       this.loadCashTotal(workspaceId, window),
     ]);
 
@@ -205,6 +157,7 @@ export class GoalFlowService {
       descendants,
       anchor,
       rates,
+      currency,
     );
 
     const targetAmount = toNumber(goal.targetAmount);
@@ -490,14 +443,19 @@ export class GoalFlowService {
     workspaceId: string,
     categoryIds: string[],
     window: { start: Date; end: Date },
+    viewerMemberId: string | null,
   ): Promise<MerchantTotalRow[]> {
     if (categoryIds.length === 0) {
       return [];
     }
 
     // Same merchant key as subscription detection: the normalized vendor when
-    // enrichment produced one, the raw counterparty otherwise.
-    const merchant = 'LOWER(TRIM(COALESCE(t.vendor_normalized, t.counterparty_name)))';
+    // enrichment produced one, the raw counterparty otherwise. Another member's
+    // private rows still count, under the placeholder rather than their merchant.
+    const merchant = redactedSql(
+      't',
+      'LOWER(TRIM(COALESCE(t.vendor_normalized, t.counterparty_name)))',
+    );
 
     return this.expenseQuery(workspaceId, categoryIds, window)
       .select('t.category_id', 'categoryId')
@@ -507,6 +465,7 @@ export class GoalFlowService {
       .groupBy('t.category_id')
       .addGroupBy(merchant)
       .addGroupBy('t.currency')
+      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
       .getRawMany<MerchantTotalRow>();
   }
 
@@ -524,6 +483,7 @@ export class GoalFlowService {
     descendants: Map<string, string[]>,
     anchor: Date,
     rates: Map<string, number>,
+    currency: string,
   ): Promise<Map<string, { start: Date; end: Date; actual: number }>> {
     const result = new Map<string, { start: Date; end: Date; actual: number }>();
 
@@ -550,16 +510,20 @@ export class GoalFlowService {
           ),
         ];
         const rows = await this.loadCategoryTotals(workspaceId, categoryIds, period);
+        // A budget's own period can reach rows in currencies the goal's window had none of.
+        await addMissingRates(
+          this.exchangeRatesService,
+          rates,
+          rows.map(row => row.currency),
+          currency,
+          workspaceId,
+        );
 
         for (const budget of group) {
           const wanted = new Set(descendants.get(budget.categoryId) ?? [budget.categoryId]);
           const actual = rows
             .filter(row => wanted.has(row.categoryId))
-            .reduce(
-              (sum, row) =>
-                sum + Number(row.total) * (rates.get(normalizeCurrency(row.currency)) ?? 1),
-              0,
-            );
+            .reduce((sum, row) => sum + convertWith(rates, row.total, row.currency), 0);
           result.set(budget.id, { ...period, actual });
         }
       }),
@@ -608,7 +572,8 @@ export class GoalFlowService {
       .andWhere('t.transaction_date >= :start', { start: window.start })
       .andWhere('t.transaction_date <= :end', { end: window.end })
       .andWhere('t.is_duplicate = false')
-      .andWhere('t.transfer_pair_id IS NULL');
+      .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(flowsSql('t'));
   }
 
   private async sumContributions(workspaceId: string, goalId: string): Promise<number> {
@@ -625,7 +590,9 @@ export class GoalFlowService {
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return normalizeCurrency(workspace?.currency);
   }

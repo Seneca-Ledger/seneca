@@ -76,6 +76,11 @@ describe('statement formats', () => {
     expect(parsed.transactions[1]).toMatchObject({ credit: 3000, counterpartyName: 'ACME PAYROLL' });
   });
 
+  it('decodes an entity once: &amp;lt; stays a literal &lt;', () => {
+    const parsed = parseOfx(OFX.replace('COFFEE &amp; CO', 'A &amp;lt;B&amp;gt; &#38; C'));
+    expect(parsed.transactions[0].counterpartyName).toBe('A &lt;B&gt; & C');
+  });
+
   it('parses QIF, picking the date order that makes every date valid', () => {
     const parsed = parseQif(QIF);
     expect(parsed.transactions).toHaveLength(2);

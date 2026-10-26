@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Subscription } from './subscription.entity';
 import { User } from './user.entity';
@@ -28,21 +29,21 @@ export class SubscriptionDecision {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Subscription, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'subscription_id' })
-  subscription: Subscription;
+  subscription: Relation<Subscription>;
 
   @Column({ name: 'subscription_id', type: 'uuid' })
   subscriptionId: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'actor_id' })
-  actor: User | null;
+  actor: Relation<User | null>;
 
   @Column({ name: 'actor_id', type: 'uuid', nullable: true })
   actorId: string | null;

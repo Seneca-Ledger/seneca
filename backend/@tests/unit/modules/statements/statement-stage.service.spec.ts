@@ -52,8 +52,8 @@ function buildService(options: {
   };
 
   const statementRepository = {
-    find: jest.fn(async () => options.statements.map(row => ({ deletedAt: null, ...row }))),
-    createQueryBuilder: jest.fn(updateBuilder),
+    find: vi.fn(async () => options.statements.map(row => ({ deletedAt: null, ...row }))),
+    createQueryBuilder: vi.fn(updateBuilder),
   };
 
   const uncategorizedRows = Object.entries(options.uncategorized ?? {}).map(
@@ -68,15 +68,20 @@ function buildService(options: {
     groupBy: () => countBuilder,
     getRawMany: async () => uncategorizedRows,
   };
-  const transactionRepository = { createQueryBuilder: jest.fn(() => countBuilder) };
+  const transactionRepository = { createQueryBuilder: vi.fn(() => countBuilder) };
 
   const membership =
     options.role === null
       ? null
-      : { role: options.role ?? WorkspaceRole.MEMBER, permissions: options.permissions ?? {} };
-  const workspaceMemberRepository = { findOne: jest.fn(async () => membership) };
-  const userRepository = { findOne: jest.fn(async () => ({ id: ME, email: 'me@example.com' })) };
-  const auditService = { createBatchEvents: jest.fn(async () => ({ batchId: 'b', events: [] })) };
+      : {
+          role: options.role ?? WorkspaceRole.MEMBER,
+          // A member writes only where a toggle says so; these cases are about
+          // stage movement, so the toggle is on unless a case sets it.
+          permissions: options.permissions ?? { canEditStatements: true },
+        };
+  const workspaceMemberRepository = { findOne: vi.fn(async () => membership) };
+  const userRepository = { findOne: vi.fn(async () => ({ id: ME, email: 'me@example.com' })) };
+  const auditService = { createBatchEvents: vi.fn(async () => ({ batchId: 'b', events: [] })) };
 
   const service = new StatementStageService(
     statementRepository as never,

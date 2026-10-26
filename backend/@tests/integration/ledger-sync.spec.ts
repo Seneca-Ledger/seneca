@@ -38,7 +38,7 @@ import { LedgerSyncQueue } from '../../src/modules/ledger/queue/ledger-sync.queu
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_ledger_sync_${process.pid}`;
+const SCRATCH_DB = `seneca_ledger_sync_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -50,27 +50,27 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
 }
 
 describe('ledger sync (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let sync: LedgerSyncService;
   let txRepo: Repository<Transaction>;
-  const queue = { enqueue: jest.fn().mockResolvedValue(undefined) };
+  const queue = { enqueue: vi.fn().mockResolvedValue(undefined) };
   const rates: Record<string, number> = { USD: 0.9 };
 
   let workspaceId: string;
@@ -108,6 +108,8 @@ describe('ledger sync (real Postgres)', () => {
         transactionType: TransactionType.EXPENSE,
         categoryId: foodId,
         statementId,
+        // Booked rows are confirmed ones; a test about unconfirmed rows overrides it.
+        isVerified: true,
         ...fields,
       }),
     );
@@ -138,11 +140,11 @@ describe('ledger sync (real Postgres)', () => {
         LedgerPostingService,
         LedgerAccountsService,
         { provide: LedgerSyncQueue, useValue: queue },
-        { provide: AuditService, useValue: { createEvent: jest.fn().mockResolvedValue(undefined) } },
+        { provide: AuditService, useValue: { createEvent: vi.fn().mockResolvedValue(undefined) } },
         {
           provide: ExchangeRatesService,
           useValue: {
-            getRateQuote: jest.fn(async (from: string, to: string, date: string) =>
+            getRateQuote: vi.fn(async (from: string, to: string, date: string) =>
               to === 'EUR' && rates[from] !== undefined
                 ? { rate: rates[from], rateDate: date, stale: false }
                 : null,
@@ -158,7 +160,7 @@ describe('ledger sync (real Postgres)', () => {
     sync = moduleRef.get(LedgerSyncService);
     txRepo = dataSource.getRepository(Transaction);
 
-    workspaceId = (await dataSource.getRepository(Workspace).save({ name: 'Sync WS' })).id;
+    workspaceId = (await dataSource.getRepository(Workspace).save({ name: 'Sync WS', currency: 'USD' })).id;
     userId = (
       await dataSource.getRepository(User).save(
         dataSource.getRepository(User).create({
@@ -272,6 +274,28 @@ describe('ledger sync (real Postgres)', () => {
     expect((await flags(first)).ledger_dirty).toBe(false);
   });
 
+  it('books a row only while it is confirmed, re-queueing it when that changes', async () => {
+    const liveEntries = async () =>
+      (
+        await query<{ count: number }>(
+          `SELECT count(*)::int AS "count" FROM "journal_entries"
+            WHERE "source_transaction_id" = $1 AND "status" = 'posted' AND "reversal_of_id" IS NULL`,
+          [first],
+        )
+      )[0].count;
+    expect(await liveEntries()).toBe(1);
+
+    await dataSource.query(`UPDATE "transactions" SET "is_verified" = false WHERE "id" = $1`, [first]);
+    expect((await flags(first)).ledger_dirty).toBe(true);
+    await sync.syncWorkspace(workspaceId);
+    expect(await liveEntries()).toBe(0);
+
+    await dataSource.query(`UPDATE "transactions" SET "is_verified" = true WHERE "id" = $1`, [first]);
+    expect((await flags(first)).ledger_dirty).toBe(true);
+    await sync.syncWorkspace(workspaceId);
+    expect(await liveEntries()).toBe(1);
+  });
+
   it('re-queues the rows of a statement that is trashed, and of a category that moves', async () => {
     await dataSource.getRepository(Statement).update(statementId, { deletedAt: new Date() });
     expect((await flags(first)).ledger_dirty).toBe(true);
@@ -366,7 +390,7 @@ describe('ledger sync (real Postgres)', () => {
     expect({ status, code }).toEqual({ status: 409, code: 'LEDGER_BASE_CURRENCY_LOCKED' });
 
     // A workspace with nothing booked may still change its mind.
-    const fresh = (await dataSource.getRepository(Workspace).save({ name: 'Fresh WS' })).id;
+    const fresh = (await dataSource.getRepository(Workspace).save({ name: 'Fresh WS', currency: 'USD' })).id;
     await sync.enable(fresh, userId, 'EUR');
     await expect(sync.enable(fresh, userId, 'USD')).resolves.toMatchObject({ baseCurrency: 'USD' });
   });
@@ -506,7 +530,7 @@ describe('ledger sync (real Postgres)', () => {
     });
 
     it('lets a workspace with wallets be deleted', async () => {
-      const doomed = (await dataSource.getRepository(Workspace).save({ name: 'Doomed WS' })).id;
+      const doomed = (await dataSource.getRepository(Workspace).save({ name: 'Doomed WS', currency: 'USD' })).id;
       const wallets = dataSource.getRepository(Wallet);
       await wallets.save(
         wallets.create({ userId, workspaceId: doomed, name: 'W', currency: 'EUR', initialBalance: 1 }),

@@ -11,6 +11,7 @@ import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import { type ReceiptLocationSource, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ReceiptRecordUpdate } from '@/app/lib/contracts';
 import { tokens } from '@/lib/theme-tokens';
 import { LazyReceiptLocationMap } from './LazyReceiptLocationMap';
 import { MapStylePicker } from './MapStylePicker';
@@ -100,6 +101,8 @@ export function ReceiptLocationSection({
   const position = draft ?? toSavedPoint(receipt);
   const styleId = resolveMapStyleId(stylesQuery.data, preference, isDark);
   const merchantAddress = receipt.parsedData?.merchantAddress;
+  const placeName = receipt.locationSource === 'place' ? receipt.metadata?.place?.name : undefined;
+  const detail = placeName ?? merchantAddress;
 
   const sourceLabels: Record<ReceiptLocationSource, string> = {
     merchant_address: t.sourceMerchantAddress.value,
@@ -107,6 +110,7 @@ export function ReceiptLocationSection({
     device: t.sourceDevice.value,
     manual: t.sourceManual.value,
     fiscal_qr: t.sourceFiscalQr.value,
+    place: t.sourcePlace.value,
   };
 
   const describeLocation = (): string => {
@@ -117,7 +121,8 @@ export function ReceiptLocationSection({
   };
 
   const applyUpdate = async (
-    request: () => Promise<ReceiptRecord>,
+    // The update answers the stored row without its display category: merged below.
+    request: () => Promise<ReceiptRecordUpdate>,
     failure: string,
   ): Promise<void> => {
     setSaving(true);
@@ -249,14 +254,14 @@ export function ReceiptLocationSection({
           </Typography>
           <Typography style={{ marginTop: 4, fontSize: 14, color: c.ink500 }}>
             {describeLocation()}
-            {merchantAddress ? ` · ${merchantAddress}` : ''}
+            {detail ? ` · ${detail}` : ''}
           </Typography>
         </Box>
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           <LocationActions
             hasDraft={draft !== null}
-            isManual={receipt.locationSource === 'manual'}
+            isManual={receipt.locationSource === 'manual' || receipt.locationSource === 'place'}
             saving={saving}
             labels={{
               cancel: t.cancel.value,

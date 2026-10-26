@@ -1,5 +1,14 @@
-import { createSign } from 'node:crypto';
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { type Cause, Data, Effect, Option, Schema } from 'effect';
+import {
+  FetchHttpClient,
+  HttpClient,
+  type HttpClientError,
+  HttpClientRequest,
+  HttpClientResponse,
+} from 'effect/http';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { appError } from '../../common/errors/app-error';
 import {
   BANK_SYNC_FETCH,
   type BankSyncAccount,
@@ -13,6 +22,16 @@ import {
   type BankSyncTransaction,
   type RedirectBankSyncProvider,
 } from './bank-sync-provider.interface';
+import {
+  EnableBankingBalances,
+  EnableBankingInstitution,
+  EnableBankingInstitutions,
+  EnableBankingSession,
+  EnableBankingTransaction,
+  EnableBankingTransactionPage,
+  normalizeTransaction,
+  signJwt,
+} from './enable-banking.mapping';
 
 const BASE_URL = 'https://api.enablebanking.com';
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -22,45 +41,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** A runaway continuation key must not loop forever. */
 const MAX_PAGES = 100;
 
-type EnableBankingTransaction = {
-  entry_reference?: string;
-  transaction_id?: string;
-  transaction_amount?: { currency?: string; amount?: string };
-  creditor?: { name?: string };
-  debtor?: { name?: string };
-  credit_debit_indicator?: 'CRDT' | 'DBIT';
-  status?: 'BOOK' | 'PDNG';
-  booking_date?: string;
-  value_date?: string;
-  transaction_date?: string;
-  remittance_information?: string[];
-};
+/** Enable Banking answered, but not with what was asked. */
+class EnableBankingRefused extends Data.TaggedError('EnableBankingRefused')<{
+  readonly status: number;
+  readonly retryAfterSeconds?: number;
+}> {}
 
-type EnableBankingAccount = {
-  uid: string;
-  name?: string;
-  currency?: string;
-  account_id?: { iban?: string };
-  account_servicer?: { name?: string };
-};
+const decodeInstitution = Schema.decodeUnknownOption(EnableBankingInstitution);
+const decodeTransaction = Schema.decodeUnknownOption(EnableBankingTransaction);
 
-type EnableBankingSession = {
-  session_id?: string;
-  accounts?: EnableBankingAccount[];
-  aspsp?: { name?: string; country?: string };
-  access?: { valid_until?: string };
-};
-
-/**
- * SEPA structured remittance prefixes (`EREF+invoice-42`). They address
- * clearing systems, not people, so they are stripped off the front of each
- * line. An allowlist rather than `[A-Z]{3,}\+`, so a merchant that genuinely
- * starts with `BMW+` keeps its name.
- */
-const SEPA_PREFIX_RE =
-  /^(?:EREF|KREF|MREF|CRED|DBTR|CDTR|SVWZ|SVCL|PURP|RTRN|REJT|REFE|SDVA|INDA|NTAV|ULTC|ULTD|ULTB|ABWA|ABWE|IBAN|BIC|COAM|OAMT|REMI|SQTP|ROC)\+/;
-
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+type PsuHeaders = { ipAddress?: string; userAgent?: string };
 
 /**
  * Enable Banking: the user holds the application credentials (an application id
@@ -74,36 +64,38 @@ export class EnableBankingProvider implements RedirectBankSyncProvider {
   readonly key = 'enablebanking';
   readonly linkStyle = 'redirect' as const;
 
-  constructor(@Inject(BANK_SYNC_FETCH) private readonly fetchUrl: BankSyncFetch) {}
+  constructor(
+    @Inject(BANK_SYNC_FETCH) private readonly fetchUrl: BankSyncFetch,
+    private readonly effects: EffectRuntime,
+  ) {}
 
   async verifyCredentials(secrets: Record<string, string>): Promise<void> {
-    await this.request('GET', '/application', secrets);
+    await this.request('GET', '/application', secrets, Schema.Unknown);
   }
 
   async listInstitutions(
     secrets: Record<string, string>,
     country: string,
   ): Promise<BankSyncInstitution[]> {
-    const body = await this.request<{ aspsps?: unknown } | unknown[]>(
+    const body = await this.request(
       'GET',
       `/aspsps?country=${encodeURIComponent(country.toUpperCase())}`,
       secrets,
+      EnableBankingInstitutions,
     );
-    const list = Array.isArray(body)
-      ? body
-      : Array.isArray((body as { aspsps?: unknown }).aspsps)
-        ? ((body as { aspsps: unknown[] }).aspsps as unknown[])
-        : [];
-    return list
-      .map(raw => raw as Record<string, unknown>)
-      .filter(raw => typeof raw.name === 'string')
-      .map(raw => ({
-        name: String(raw.name),
-        country: String(raw.country ?? country).toUpperCase(),
-        maxConsentValiditySeconds:
-          typeof raw.maximum_consent_validity === 'number' ? raw.maximum_consent_validity : null,
-        beta: raw.beta === true,
-      }));
+    const list = Array.isArray(body) ? body : (('aspsps' in body ? body.aspsps : null) ?? []);
+    return list.flatMap(item => {
+      const raw = Option.getOrUndefined(decodeInstitution(item));
+      if (!raw) return [];
+      return [
+        {
+          name: raw.name,
+          country: (raw.country ?? country).toUpperCase(),
+          maxConsentValiditySeconds: raw.maximum_consent_validity ?? null,
+          beta: raw.beta === true,
+        },
+      ];
+    });
   }
 
   async beginLink(
@@ -124,7 +116,7 @@ export class EnableBankingProvider implements RedirectBankSyncProvider {
       allowed && allowed > 0
         ? Math.min(allowed * 1000, DEFAULT_CONSENT_DAYS * DAY_MS)
         : DEFAULT_CONSENT_DAYS * DAY_MS;
-    const body = await this.request<{ url?: string }>('POST', '/auth', secrets, {
+    const body = await this.request('POST', '/auth', secrets, AuthStarted, {
       body: {
         aspsp: { name: input.institution, country: input.country.toUpperCase() },
         redirect_url: input.redirectUrl,
@@ -134,17 +126,17 @@ export class EnableBankingProvider implements RedirectBankSyncProvider {
       },
     });
     if (!body.url) {
-      throw new BadRequestException('Enable Banking did not return an authorization URL');
+      throw new BadRequestException(appError('BANK_SYNC_ENABLEBANKING_NO_AUTH_URL'));
     }
     return { url: body.url };
   }
 
   async completeLink(secrets: Record<string, string>, code: string): Promise<BankSyncLink> {
-    const session = await this.request<EnableBankingSession>('POST', '/sessions', secrets, {
+    const session = await this.request('POST', '/sessions', secrets, EnableBankingSession, {
       body: { code },
     });
     if (!session.session_id) {
-      throw new BadRequestException('Enable Banking did not return a session');
+      throw new BadRequestException(appError('BANK_SYNC_ENABLEBANKING_NO_SESSION'));
     }
     return {
       id: session.session_id,
@@ -160,10 +152,11 @@ export class EnableBankingProvider implements RedirectBankSyncProvider {
   ): Promise<BankSyncAccount[]> {
     const accounts: BankSyncAccount[] = [];
     for (const link of context.links) {
-      const session = await this.request<EnableBankingSession>(
+      const session = await this.request(
         'GET',
         `/sessions/${encodeURIComponent(link.id)}`,
         context.secrets,
+        EnableBankingSession,
         { psu: context.psu },
       );
       const consentExpiresAt = session.access?.valid_until
@@ -192,25 +185,22 @@ export class EnableBankingProvider implements RedirectBankSyncProvider {
     accountUid: string,
     context: BankSyncContext,
   ): Promise<{ balance: number | null; balanceDate: Date | null }> {
-    const body = await this.request<{ balances?: Array<Record<string, unknown>> }>(
+    const body = await this.request(
       'GET',
       `/accounts/${encodeURIComponent(accountUid)}/balances`,
       context.secrets,
+      EnableBankingBalances,
       { psu: context.psu },
     );
-    const balances = Array.isArray(body.balances) ? body.balances : [];
+    const balances = body.balances ?? [];
     // Prefer the closing booked balance; it is the one that matches the rows.
     const chosen =
-      balances.find(item => String(item.balance_type ?? '').toUpperCase() === 'CLBD') ??
-      balances[0];
+      balances.find(item => (item.balance_type ?? '').toUpperCase() === 'CLBD') ?? balances[0];
     if (!chosen) return { balance: null, balanceDate: null };
-    const amount = Number(
-      (chosen.balance_amount as { amount?: string } | undefined)?.amount ?? Number.NaN,
-    );
-    const referenceDate = chosen.reference_date;
+    const amount = Number(chosen.balance_amount?.amount ?? Number.NaN);
     return {
       balance: Number.isFinite(amount) ? amount : null,
-      balanceDate: typeof referenceDate === 'string' ? new Date(referenceDate) : null,
+      balanceDate: chosen.reference_date ? new Date(chosen.reference_date) : null,
     };
   }
 
@@ -221,22 +211,20 @@ export class EnableBankingProvider implements RedirectBankSyncProvider {
   ): Promise<BankSyncTransaction[]> {
     const from = (since ?? new Date(Date.now() - 90 * DAY_MS)).toISOString().slice(0, 10);
     const to = new Date().toISOString().slice(0, 10);
-    const raw: EnableBankingTransaction[] = [];
+    const raw: unknown[] = [];
     let continuationKey: string | undefined;
 
     for (let page = 0; page < MAX_PAGES; page += 1) {
       const query = new URLSearchParams({ date_from: from, date_to: to });
       if (continuationKey) query.set('continuation_key', continuationKey);
-      const body = await this.request<{
-        transactions?: EnableBankingTransaction[];
-        continuation_key?: string;
-      }>(
+      const body = await this.request(
         'GET',
         `/accounts/${encodeURIComponent(accountUid)}/transactions?${query.toString()}`,
         context.secrets,
+        EnableBankingTransactionPage,
         { psu: context.psu },
       );
-      const next = body.continuation_key;
+      const next = body.continuation_key ?? undefined;
       // Some banks echo the key they were given. Stopping before taking the page
       // matters: taking it first duplicates every row on the page.
       if (next && next === continuationKey) break;
@@ -245,18 +233,26 @@ export class EnableBankingProvider implements RedirectBankSyncProvider {
       continuationKey = next;
     }
 
-    return raw.map(normalizeTransaction).filter((row): row is BankSyncTransaction => row !== null);
+    return raw.flatMap(item => {
+      const decoded = Option.getOrUndefined(decodeTransaction(item));
+      const row = decoded ? normalizeTransaction(decoded) : null;
+      return row ? [row] : [];
+    });
   }
 
-  private async request<T>(
+  /**
+   * One call, signed with a fresh JWT. Never retried: several banks allow only
+   * a handful of calls a day, and a retry would spend them.
+   */
+  private request<A>(
     method: 'GET' | 'POST',
     path: string,
     secrets: Record<string, string>,
-    options: { body?: unknown; psu?: { ipAddress?: string; userAgent?: string } } = {},
-  ): Promise<T> {
+    schema: Schema.Codec<A, unknown>,
+    options: { body?: unknown; psu?: PsuHeaders } = {},
+  ): Promise<A> {
     const headers: Record<string, string> = {
       authorization: `Bearer ${signJwt(secrets)}`,
-      'content-type': 'application/json',
       accept: 'application/json',
     };
     // Either every PSU header or none, otherwise the API refuses the call. They
@@ -266,111 +262,73 @@ export class EnableBankingProvider implements RedirectBankSyncProvider {
       headers['psu-ip-address'] = options.psu.ipAddress;
       headers['psu-user-agent'] = options.psu.userAgent;
     }
-    const response = await this.fetchUrl(`${BASE_URL}${path}`, {
-      method,
-      headers,
-      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (response.status === 401 || response.status === 403) {
-      throw new BankSyncAuthError('Enable Banking rejected the application credentials or consent');
-    }
-    if (response.status === 429 || response.status >= 500) {
-      throw new BankSyncTemporaryError(`Enable Banking answered HTTP ${response.status}`);
-    }
-    if (!response.ok) {
-      throw new BadRequestException(
-        `Enable Banking answered HTTP ${response.status}: ${await errorTextOf(response)}`,
-      );
-    }
-    return (await response.json()) as T;
-  }
-}
+    const url = `${BASE_URL}${path}`;
+    const request = (
+      method === 'GET'
+        ? HttpClientRequest.get(url)
+        : HttpClientRequest.post(url).pipe(HttpClientRequest.bodyJsonUnsafe(options.body ?? {}))
+    ).pipe(HttpClientRequest.setHeaders(headers));
 
-/** The JWT every call carries: RS256 over the application's own key. */
-export function signJwt(secrets: Record<string, string>, now = Date.now()): string {
-  const applicationId = secrets.applicationId;
-  const privateKey = secrets.privateKey;
-  if (!(applicationId && privateKey)) {
-    throw new BadRequestException(
-      'Enable Banking needs the application id and the private key of its registered certificate',
+    const exchange = Effect.gen(function* () {
+      const response = yield* (yield* HttpClient.HttpClient).execute(request);
+      if (response.status < 200 || response.status >= 300) {
+        const retryAfter = Number(response.headers['retry-after']);
+        return yield* Effect.fail(
+          new EnableBankingRefused({
+            status: response.status,
+            retryAfterSeconds:
+              Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+          }),
+        );
+      }
+      return yield* HttpClientResponse.schemaBodyJson(schema)(response);
+    }).pipe(
+      Effect.timeout(REQUEST_TIMEOUT_MS),
+      Effect.mapError(toProviderError),
+      // Through the egress-guarded fetch from DI, never the global one.
+      Effect.provideService(FetchHttpClient.Fetch, (input, init) =>
+        this.fetchUrl(String(input), init),
+      ),
     );
-  }
-  const issued = Math.floor(now / 1000);
-  const header = base64url(JSON.stringify({ typ: 'JWT', alg: 'RS256', kid: applicationId }));
-  const payload = base64url(
-    JSON.stringify({
-      iss: 'enablebanking.com',
-      aud: 'api.enablebanking.com',
-      iat: issued,
-      exp: issued + 3600,
-    }),
-  );
-  let signature: Buffer;
-  try {
-    signature = createSign('RSA-SHA256').update(`${header}.${payload}`).sign(privateKey);
-  } catch {
-    throw new BadRequestException('That private key is not a usable RSA key');
-  }
-  return `${header}.${payload}.${base64url(signature)}`;
-}
-
-function base64url(value: string | Buffer): string {
-  return Buffer.from(value).toString('base64url');
-}
-
-async function errorTextOf(response: Response): Promise<string> {
-  try {
-    return JSON.stringify(await response.json()).slice(0, 300);
-  } catch {
-    return (await response.text().catch(() => '')).slice(0, 300) || 'no body';
+    return this.effects.run(exchange);
   }
 }
 
-function stripSepaPrefix(line: string): string {
-  return line.replace(SEPA_PREFIX_RE, '').trim();
-}
+const AuthStarted = Schema.Struct({ url: Schema.optional(Schema.NullOr(Schema.String)) });
 
-/**
- * Maps one ISO 20022 entry onto a provider row.
- *
- * The payee is whichever party is not the account holder, which is why the
- * credit/debit indicator decides: reading `creditor` for a card payment that
- * has none would label the row with the account holder's own name.
- */
-export function normalizeTransaction(raw: EnableBankingTransaction): BankSyncTransaction | null {
-  const id = raw.entry_reference || raw.transaction_id;
-  const posted = raw.booking_date || raw.value_date || raw.transaction_date;
-  const rawAmount = (raw.transaction_amount?.amount ?? '').trim();
-  // A row with no date or a non-numeric amount cannot be imported, and must not
-  // take the rest of the account down with it.
-  if (!id || !posted || !ISO_DATE_RE.test(posted) || rawAmount === '') return null;
-  const magnitude = Number(rawAmount.replace(/^[+-]/, ''));
-  if (!Number.isFinite(magnitude)) return null;
-
-  const lines = (raw.remittance_information ?? []).map(stripSepaPrefix).filter(Boolean);
-  let payee = '';
-  if (raw.credit_debit_indicator === 'CRDT' && raw.debtor?.name) payee = raw.debtor.name;
-  else if (raw.credit_debit_indicator === 'DBIT' && raw.creditor?.name) payee = raw.creditor.name;
-  else payee = raw.creditor?.name || raw.debtor?.name || lines[0] || '';
-
-  const signed =
-    raw.credit_debit_indicator === 'DBIT'
-      ? -magnitude
-      : raw.credit_debit_indicator === 'CRDT'
-        ? magnitude
-        : Number(rawAmount);
-
-  const description = lines.join(' ') || payee;
-  return {
-    id,
-    posted: new Date(`${posted}T00:00:00.000Z`),
-    amount: signed,
-    description,
-    payee: payee || undefined,
-    memo: description !== payee ? description : undefined,
-    // A bank that does not say treats everything as booked; the booked/pending
-    // split is the bank's, not ours to guess.
-    pending: raw.status === 'PDNG',
-  };
+/** What the bank-sync services expect: auth errors flip the connection to re-auth, the rest say "wait". */
+function toProviderError(
+  error:
+    | EnableBankingRefused
+    | HttpClientError.HttpClientError
+    | Schema.SchemaError
+    | Cause.TimeoutError,
+): Error {
+  switch (error._tag) {
+    case 'EnableBankingRefused':
+      if (error.status === 401 || error.status === 403) {
+        return new BankSyncAuthError(
+          'Enable Banking rejected the application credentials or consent',
+        );
+      }
+      if (error.status === 429 || error.status >= 500) {
+        return new BankSyncTemporaryError(
+          `Enable Banking answered HTTP ${error.status}`,
+          error.retryAfterSeconds,
+        );
+      }
+      return new BadRequestException(
+        appError('BANK_SYNC_ENABLEBANKING_HTTP_ERROR', { status: error.status }),
+      );
+    case 'TimeoutError':
+      return new BadGatewayException(appError('BANK_SYNC_ENABLEBANKING_TIMEOUT'));
+    case 'SchemaError':
+      return new BadGatewayException(appError('BANK_SYNC_ENABLEBANKING_UNREADABLE'));
+    case 'HttpClientError':
+      return new BadGatewayException(
+        error.reason._tag === 'DecodeError'
+          ? appError('BANK_SYNC_ENABLEBANKING_UNREADABLE')
+          : appError('BANK_SYNC_ENABLEBANKING_UNREACHABLE'),
+      );
+  }
 }

@@ -14,23 +14,14 @@ export type WorkspaceProcessingSettings = {
   categorizationThreshold: number;
   /** What to do with a row that looks like an existing transaction. */
   duplicateResolution: DuplicateResolution;
-  /** Ask the configured model for categories during import, and reuse what it taught. */
-  aiCategorization: boolean;
-  /** Keep the model's normalised merchant name next to the raw one. */
-  aiMerchantNormalization: boolean;
   /** Remember manual corrections and reuse them on later imports. */
   merchantLearning: boolean;
-  /** Keep the model's category picks out of the review inbox. */
-  autoApproveAiPicks: boolean;
 };
 
 export const DEFAULT_PROCESSING_SETTINGS: WorkspaceProcessingSettings = {
   categorizationThreshold: 0.7,
   duplicateResolution: 'skip',
-  aiCategorization: true,
-  aiMerchantNormalization: true,
   merchantLearning: true,
-  autoApproveAiPicks: false,
 };
 
 const PROCESSING_KEY = 'processing';
@@ -67,21 +58,9 @@ export const readProcessingSettings = (
     duplicateResolution: duplicateResolutions.includes(resolution as DuplicateResolution)
       ? (resolution as DuplicateResolution)
       : DEFAULT_PROCESSING_SETTINGS.duplicateResolution,
-    aiCategorization: readFlag(
-      stored.aiCategorization,
-      DEFAULT_PROCESSING_SETTINGS.aiCategorization,
-    ),
-    aiMerchantNormalization: readFlag(
-      stored.aiMerchantNormalization,
-      DEFAULT_PROCESSING_SETTINGS.aiMerchantNormalization,
-    ),
     merchantLearning: readFlag(
       stored.merchantLearning,
       DEFAULT_PROCESSING_SETTINGS.merchantLearning,
-    ),
-    autoApproveAiPicks: readFlag(
-      stored.autoApproveAiPicks,
-      DEFAULT_PROCESSING_SETTINGS.autoApproveAiPicks,
     ),
   };
 };

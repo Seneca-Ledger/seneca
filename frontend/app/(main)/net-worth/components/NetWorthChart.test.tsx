@@ -48,8 +48,8 @@ describe('NetWorthChart', () => {
     expect(screen.queryByText('Dec 20, 2025')).not.toBeInTheDocument();
   });
 
-  it('colours growth as success and decline as danger', () => {
-    expect(trendColor(true)).toBe('var(--ff-dash-success)');
-    expect(trendColor(false)).toBe('var(--ff-dash-critical)');
+  it('colours growth sage and decline terracotta', () => {
+    expect(trendColor(true)).toBe('var(--money-up)');
+    expect(trendColor(false)).toBe('var(--money-down)');
   });
 });

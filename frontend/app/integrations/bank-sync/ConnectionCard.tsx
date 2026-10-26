@@ -1,23 +1,20 @@
 'use client';
 
-import { Box, Button, FormControlLabel, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Box, Button, FormControlLabel, Stack, Switch, Typography } from '@mui/material';
 import type React from 'react';
 import { useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { tokens } from '@/lib/theme-tokens';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { AccountRow } from './AccountRow';
 import { AddBankForm } from './AddBankForm';
-import type { FeedRef } from './BankSyncPanel';
-import { Panel } from './BankSyncPanel';
+import { Panel } from './Panel';
 import {
   BANK_SYNC_BASE,
   type BankSyncAccount,
   type BankSyncConnection,
-  type BankSyncResult,
-  CONSENT_WARNING_DAYS,
-  daysUntil,
-  type Message,
-  UNHEALTHY,
+  type FeedRef,
+  type RunAction,
   type WalletOption,
 } from './types';
 
@@ -36,7 +33,7 @@ export function ConnectionCard({
   wallets: WalletOption[];
   busy: string | null;
   canSwitch: boolean;
-  onRun: (key: string, action: () => Promise<Message | null>, failure: string) => Promise<void>;
+  onRun: RunAction;
   onReload: () => Promise<void>;
   onConnectionChange?: () => void;
   onSwitchFeed: (feed: FeedRef) => void;
@@ -51,16 +48,17 @@ export function ConnectionCard({
     onRun(
       `sync:${connection.id}`,
       async () => {
-        const response = await apiClient.post<BankSyncResult>(`${base}/sync`);
+        const response = await apiClient.post(`${base}/sync`);
+        const result = await checkContract('BankSyncResult', response.data, `${base}/sync`);
         await onReload();
-        const failed = response.data.accounts.find(account => account.error);
+        const failed = result.accounts.find(account => account.error);
         if (failed) return { tone: 'error', text: `${t.syncFailed.value}: ${failed.error}` };
-        if (response.data.imported === 0) return { tone: 'ok', text: t.nothingNew.value };
+        if (result.imported === 0) return { tone: 'ok', text: t.nothingNew.value };
         return {
           tone: 'ok',
           text: t.synced.value
-            .replace('{rows}', String(response.data.imported))
-            .replace('{statements}', String(response.data.statements)),
+            .replace('{rows}', String(result.imported))
+            .replace('{statements}', String(result.statements)),
         };
       },
       t.syncFailed.value,
@@ -93,7 +91,9 @@ export function ConnectionCard({
     onRun(
       `autosync:${connection.id}`,
       async () => {
-        await apiClient.patch(base, { autoSync });
+        await apiClient.patch(base, {
+          autoSync,
+        } satisfies ContractInput<'UpdateBankSyncConnectionBody'>);
         await onReload();
         return { tone: 'ok', text: t.saved.value };
       },
@@ -101,7 +101,10 @@ export function ConnectionCard({
     );
 
   /** Account changes save as they are made: a separate save button only loses them. */
-  const patchAccount = (account: BankSyncAccount, changes: Partial<BankSyncAccount>) =>
+  const patchAccount = (
+    account: BankSyncAccount,
+    changes: ContractInput<'UpdateBankSyncAccountBody'>,
+  ) =>
     onRun(
       `account:${account.id}`,
       async () => {
@@ -222,127 +225,5 @@ export function ConnectionCard({
         </Box>
       </Stack>
     </Panel>
-  );
-}
-
-function AccountRow({
-  account,
-  wallets,
-  busy,
-  canSwitch,
-  onPatch,
-  onSwitch,
-}: {
-  account: BankSyncAccount;
-  wallets: WalletOption[];
-  busy: string | null;
-  canSwitch: boolean;
-  onPatch: (changes: Partial<BankSyncAccount>) => void;
-  onSwitch: () => void;
-}): React.JSX.Element {
-  const t = useIntlayer('bankSyncPanel');
-  const consentDays = daysUntil(account.consentExpiresAt);
-  const health = UNHEALTHY.includes(account.health) ? account.health : null;
-
-  return (
-    <Box
-      component="li"
-      data-testid={`bank-sync-account-${account.id}`}
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', sm: '1fr auto' },
-        gap: 1,
-        alignItems: 'center',
-        border: '1px solid',
-        borderColor: health ? 'warning.main' : 'divider',
-        borderRadius: tokens.radius.sm,
-        p: 1.5,
-      }}
-    >
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 14, fontWeight: 650, color: 'text.primary' }}>
-          {account.name}
-          {account.org ? (
-            <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary', ml: 1 }}>
-              {account.org}
-            </Typography>
-          ) : null}
-        </Typography>
-        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-          {account.balance !== null
-            ? `${t.balance.value}: ${account.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${account.currency}`
-            : account.currency}
-          {' · '}
-          {t.lastSync}:{' '}
-          {account.lastSyncAt ? new Date(account.lastSyncAt).toLocaleDateString() : t.never}
-        </Typography>
-
-        {health ? (
-          <Typography
-            data-testid={`bank-sync-health-${account.id}`}
-            sx={{ fontSize: 12, color: 'warning.main', fontWeight: 650 }}
-          >
-            {health === 'stale' ? t.healthStale : null}
-            {health === 'incomplete'
-              ? t.healthIncomplete.value.replace('{amount}', String(account.balanceDrift ?? 0))
-              : null}
-            {health === 'needs_reauth' ? t.healthNeedsReauth : null}
-          </Typography>
-        ) : null}
-
-        {consentDays !== null && consentDays <= CONSENT_WARNING_DAYS ? (
-          <Typography
-            data-testid={`bank-sync-consent-${account.id}`}
-            sx={{ fontSize: 12, color: consentDays < 0 ? 'error.main' : 'warning.main' }}
-          >
-            {consentDays < 0
-              ? t.consentExpired
-              : t.consentExpiring.value.replace('{days}', String(consentDays))}
-          </Typography>
-        ) : null}
-
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', flexWrap: 'wrap', mt: 1 }}>
-          <TextField
-            select
-            size="small"
-            label={t.wallet.value}
-            value={account.walletId ?? ''}
-            onChange={event => onPatch({ walletId: event.target.value || null })}
-            disabled={busy !== null}
-            sx={{ minWidth: 220 }}
-            slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
-          >
-            <option value="">{t.noWallet.value}</option>
-            {wallets.map(wallet => (
-              <option key={wallet.id} value={wallet.id}>
-                {wallet.name} ({wallet.currency})
-              </option>
-            ))}
-          </TextField>
-          {account.walletId && canSwitch ? (
-            <Button
-              size="small"
-              onClick={onSwitch}
-              disabled={busy !== null}
-              data-testid={`bank-sync-switch-${account.id}`}
-            >
-              {t.switchFeed}
-            </Button>
-          ) : null}
-        </Box>
-      </Box>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={account.enabled}
-            onChange={event => onPatch({ enabled: event.target.checked })}
-            disabled={busy !== null}
-            inputProps={{ 'aria-label': `${t.pull.value}: ${account.name}` }}
-          />
-        }
-        label={<Typography sx={{ fontSize: 13 }}>{t.pull}</Typography>}
-        sx={{ m: 0 }}
-      />
-    </Box>
   );
 }

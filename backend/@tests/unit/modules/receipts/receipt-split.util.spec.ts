@@ -1,7 +1,7 @@
 import { groupLineItemsIntoParts } from '../../../../src/modules/receipts/services/receipt-split.util';
 
 describe('groupLineItemsIntoParts', () => {
-  it('groups by category and gives the uncovered rest to the largest group', () => {
+  it('groups by category and spreads the uncovered rest (tax, tip) in proportion', () => {
     const parts = groupLineItemsIntoParts(
       [
         { description: 'Milk', amount: 2, categoryId: 'food' },
@@ -12,8 +12,8 @@ describe('groupLineItemsIntoParts', () => {
       'misc',
     );
     expect(parts).toEqual([
-      { categoryId: 'food', amount: 6, items: ['Milk', 'Bread'] },
-      { categoryId: 'household', amount: 4, items: ['Shampoo'] },
+      { categoryId: 'food', amount: 5.56, items: ['Milk', 'Bread'] },
+      { categoryId: 'household', amount: 4.44, items: ['Shampoo'] },
     ]);
   });
 

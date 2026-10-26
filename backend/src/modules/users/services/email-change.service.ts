@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, type Repository } from 'typeorm';
+import { IsNull, Not, type Repository } from 'typeorm';
+import { APP_NAME } from '../../../common/brand';
+import { appError } from '../../../common/errors/app-error';
 import { requireSecret } from '../../../common/utils/required-secret.util';
 import {
   createVerificationToken,
@@ -41,19 +43,21 @@ export class EmailChangeService {
     const normalized = newEmail.trim().toLowerCase();
 
     if (normalized === user.email.toLowerCase()) {
-      throw new BadRequestException('That is already your email address');
+      throw new BadRequestException(appError('USER_EMAIL_UNCHANGED'));
     }
 
     const taken = await this.userRepository.findOne({
       where: { email: normalized, id: Not(user.id) },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (taken) {
-      throw new ConflictException('Email already in use');
+      throw new ConflictException(appError('USER_EMAIL_IN_USE'));
     }
 
     // One pending change at a time.
-    await this.tokenRepository.delete({ userId: user.id, usedAt: null });
+    await this.tokenRepository.delete({ userId: user.id, usedAt: IsNull() });
 
     const token = createVerificationToken();
     await this.tokenRepository.save(
@@ -82,16 +86,16 @@ export class EmailChangeService {
     try {
       const sent = await this.mailerService.send({
         to: normalized,
-        subject: 'Confirm your new Lumio email address',
+        subject: `Confirm your new ${APP_NAME} email address`,
         text: [
           `Hello${user.name ? ` ${user.name}` : ''},`,
           '',
-          `A request was made to change the Lumio account email to ${normalized}.`,
+          `A request was made to change the ${APP_NAME} account email to ${normalized}.`,
           `Open this link to confirm it (valid for 24 hours): ${confirmUrl}`,
           '',
           'If this was not you, you can ignore this email — the account keeps its current address.',
         ].join('\n'),
-        user,
+        accountOf: user,
       });
 
       if (!sent) {
@@ -112,22 +116,24 @@ export class EmailChangeService {
     });
 
     if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Confirmation link is invalid or has expired');
+      throw new BadRequestException(appError('USER_EMAIL_CONFIRM_LINK_INVALID'));
     }
 
     // Re-check at confirmation time: the address may have been claimed by
     // someone else between the request and the click.
     const taken = await this.userRepository.findOne({
       where: { email: record.newEmail, id: Not(record.userId) },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (taken) {
-      throw new ConflictException('Email already in use');
+      throw new ConflictException(appError('USER_EMAIL_IN_USE'));
     }
 
     const user = await this.userRepository.findOne({ where: { id: record.userId } });
     if (!user) {
-      throw new BadRequestException('Confirmation link is invalid or has expired');
+      throw new BadRequestException(appError('USER_EMAIL_CONFIRM_LINK_INVALID'));
     }
 
     const oldEmail = user.email;

@@ -1,19 +1,33 @@
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
+import type {
+  AgeingReport,
+  Client,
+  Invoice,
+  InvoiceDelivery,
+  InvoiceListPage,
+  InvoiceRecurrenceInterval,
+  InvoiceReminderResult,
+  InvoiceSettings,
+  LateFeeQuote,
+  XRechnungCheck,
+} from '@/app/lib/contracts';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import { checkContract } from '@/app/lib/query-fn-schema';
 
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void';
-export type InvoiceRecurrenceInterval = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
-
-export interface Client {
-  id: string;
-  workspaceId: string;
-  name: string;
-  email: string | null;
-  billingAddress: string | null;
-  taxId: string | null;
-  currency: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type {
+  AgeingReport,
+  AgeingRow,
+  Client,
+  Invoice,
+  InvoiceDelivery,
+  InvoiceLineItem,
+  InvoiceListPage as ListInvoicesResponse,
+  InvoiceRecurrenceInterval,
+  InvoiceSettings,
+  InvoiceStatus,
+  LateFeeQuote,
+} from '@/app/lib/contracts';
 
 export interface CreateClientInput {
   name: string;
@@ -21,20 +35,20 @@ export interface CreateClientInput {
   billingAddress?: string;
   taxId?: string;
   currency?: string;
+  locale?: string;
+  remindersEnabled?: boolean;
+  paymentTermsDays?: number;
+  street?: string;
+  postalCode?: string;
+  city?: string;
+  countryCode?: string;
+  buyerReference?: string;
+  supplyType?: 'goods' | 'services' | null;
+  /** Peppol participant id, `scheme:value`; an empty string clears it. */
+  peppolId?: string;
 }
 
 export type UpdateClientInput = Partial<CreateClientInput>;
-
-export interface InvoiceLineItem {
-  id: string;
-  invoiceId: string;
-  description: string;
-  quantity: number | string;
-  unitPrice: number | string;
-  taxRateId: string | null;
-  categoryId: string | null;
-  sortOrder: number;
-}
 
 export interface InvoiceLineItemInput {
   description: string;
@@ -42,31 +56,8 @@ export interface InvoiceLineItemInput {
   unitPrice: number;
   taxRateId?: string;
   categoryId?: string;
-}
-
-export interface Invoice {
-  id: string;
-  workspaceId: string;
-  clientId: string;
-  client?: Client;
-  invoiceNumber: string | null;
-  status: InvoiceStatus;
-  issueDate: string;
-  dueDate: string;
-  currency: string;
-  subtotal: number | string;
-  taxTotal: number | string;
-  total: number | string;
-  notes: string | null;
-  payableId: string | null;
-  journalEntryId: string | null;
-  isRecurring: boolean;
-  recurrenceInterval: InvoiceRecurrenceInterval | null;
-  nextIssueDate: string | null;
-  recurrenceEndDate: string | null;
-  lineItems?: InvoiceLineItem[];
-  createdAt: string;
-  updatedAt: string;
+  unitCode?: string;
+  adjustmentPercent?: number;
 }
 
 export interface CreateInvoiceInput {
@@ -75,101 +66,162 @@ export interface CreateInvoiceInput {
   dueDate: string;
   currency?: string;
   notes?: string;
+  pricesIncludeTax?: boolean;
   lineItems: InvoiceLineItemInput[];
   recurrenceInterval?: InvoiceRecurrenceInterval;
   recurrenceEndDate?: string;
+  buyerReference?: string;
+  deliveryDate?: string;
 }
 
 export type UpdateInvoiceInput = Partial<CreateInvoiceInput>;
 
-export interface ListInvoicesParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: InvoiceStatus;
-  clientId?: string;
+export type InvoiceSettingsInput = Partial<InvoiceSettings>;
+
+export interface SendInvoiceEmailInput {
+  to?: string;
+  subject?: string;
+  message?: string;
 }
 
-export interface ListInvoicesResponse {
-  data: Invoice[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+export type ListInvoicesParams = ContractInput<'InvoicesQuery'>;
 
 const unwrapData = <T>(response: { data: T }) => response.data;
 
 export const clientsApi = {
   async list(): Promise<Client[]> {
-    const response = await apiClient.get<Client[]>('/clients');
-    return unwrapData(response);
+    const response = await apiClient.get('/clients');
+    return checkContract('ClientList', unwrapData(response), '/clients');
   },
   async getOne(id: string): Promise<Client> {
-    const response = await apiClient.get<Client>(`/clients/${id}`);
-    return unwrapData(response);
+    const response = await apiClient.get(`/clients/${id}`);
+    return checkContract('Client', unwrapData(response), '/clients/:id');
   },
   async create(payload: CreateClientInput): Promise<Client> {
-    const response = await apiClient.post<Client>('/clients', payload);
-    return unwrapData(response);
+    const response = await apiClient.post(
+      '/clients',
+      payload satisfies ContractInput<'CreateClientBody'>,
+    );
+    return checkContract('Client', unwrapData(response), '/clients');
   },
   async update(id: string, payload: UpdateClientInput): Promise<Client> {
-    const response = await apiClient.put<Client>(`/clients/${id}`, payload);
-    return unwrapData(response);
+    const response = await apiClient.put(
+      `/clients/${id}`,
+      payload satisfies ContractInput<'UpdateClientBody'>,
+    );
+    return checkContract('Client', unwrapData(response), '/clients/:id');
   },
-  async delete(id: string): Promise<{ message: string }> {
-    const response = await apiClient.delete<{ message: string }>(`/clients/${id}`);
-    return unwrapData(response);
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/clients/${id}`);
   },
 };
 
 export const invoicesApi = {
-  async list(params: ListInvoicesParams = {}): Promise<ListInvoicesResponse> {
-    const response = await apiClient.get<ListInvoicesResponse>('/invoices', { params });
-    return unwrapData(response);
+  async list(params: ListInvoicesParams = {}): Promise<InvoiceListPage> {
+    const response = await apiClient.get('/invoices', { params });
+    return checkContract('InvoiceListPage', unwrapData(response), '/invoices');
   },
   async getOne(id: string): Promise<Invoice> {
-    const response = await apiClient.get<Invoice>(`/invoices/${id}`);
-    return unwrapData(response);
+    const response = await apiClient.get(`/invoices/${id}`);
+    return checkContract('Invoice', unwrapData(response), '/invoices/:id');
   },
+  // A write answers with the bare row: no client, nothing paid or credited yet
+  // filled in. The invoice is read back whole, so the page never shows half of it.
   async create(payload: CreateInvoiceInput): Promise<Invoice> {
-    const response = await apiClient.post<Invoice>('/invoices', payload);
-    return unwrapData(response);
+    const response = await apiClient.post(
+      '/invoices',
+      payload satisfies ContractInput<'CreateInvoiceBody'>,
+    );
+    const { id } = await checkContract('InvoiceCreated', unwrapData(response), '/invoices');
+    return invoicesApi.getOne(id);
   },
   async update(id: string, payload: UpdateInvoiceInput): Promise<Invoice> {
-    const response = await apiClient.put<Invoice>(`/invoices/${id}`, payload);
-    return unwrapData(response);
+    await apiClient.put(`/invoices/${id}`, payload satisfies ContractInput<'UpdateInvoiceBody'>);
+    return invoicesApi.getOne(id);
   },
   async send(id: string): Promise<Invoice> {
-    const response = await apiClient.put<Invoice>(`/invoices/${id}/send`);
-    return unwrapData(response);
+    await apiClient.put(`/invoices/${id}/send`);
+    return invoicesApi.getOne(id);
   },
   async void(id: string): Promise<Invoice> {
-    const response = await apiClient.put<Invoice>(`/invoices/${id}/void`);
-    return unwrapData(response);
+    await apiClient.put(`/invoices/${id}/void`);
+    return invoicesApi.getOne(id);
   },
   /** Emails the client a reminder about a sent or overdue invoice. */
-  async remind(id: string): Promise<{ sent: boolean; to: string; reminderCount: number }> {
-    const response = await apiClient.post<{ sent: boolean; to: string; reminderCount: number }>(
-      `/invoices/${id}/remind`,
+  async remind(id: string): Promise<InvoiceReminderResult> {
+    const response = await apiClient.post(`/invoices/${id}/remind`);
+    return checkContract('InvoiceReminderResult', unwrapData(response), '/invoices/:id/remind');
+  },
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/invoices/${id}`);
+  },
+  async ageing(): Promise<AgeingReport> {
+    const response = await apiClient.get('/invoices/ageing');
+    return checkContract('AgeingReport', unwrapData(response), '/invoices/ageing');
+  },
+  async lateFeeQuote(clientId: string): Promise<LateFeeQuote> {
+    const response = await apiClient.get(`/invoices/clients/${clientId}/late-fee`);
+    return checkContract('LateFeeQuote', unwrapData(response), '/invoices/clients/:id/late-fee');
+  },
+  async getSettings(): Promise<InvoiceSettings> {
+    const response = await apiClient.get('/invoices/settings');
+    return checkContract('InvoiceSettings', unwrapData(response), '/invoices/settings');
+  },
+  async updateSettings(payload: InvoiceSettingsInput): Promise<InvoiceSettings> {
+    const response = await apiClient.put(
+      '/invoices/settings',
+      payload satisfies ContractInput<'UpdateInvoiceSettingsBody'>,
     );
-    return unwrapData(response);
+    return checkContract('InvoiceSettings', unwrapData(response), '/invoices/settings');
   },
-  async delete(id: string): Promise<{ message: string }> {
-    const response = await apiClient.delete<{ message: string }>(`/invoices/${id}`);
-    return unwrapData(response);
+  async sendEmail(id: string, payload: SendInvoiceEmailInput = {}): Promise<InvoiceDelivery> {
+    const response = await apiClient.post(
+      `/invoices/${id}/deliveries`,
+      payload satisfies ContractInput<'SendInvoiceEmailBody'>,
+    );
+    return checkContract('InvoiceDelivery', unwrapData(response), '/invoices/:id/deliveries');
   },
-  async getSettings(): Promise<{ prefix: string }> {
-    const response = await apiClient.get<{ prefix: string }>('/invoices/settings');
-    return unwrapData(response);
+  async deliveries(id: string): Promise<InvoiceDelivery[]> {
+    const response = await apiClient.get(`/invoices/${id}/deliveries`);
+    return checkContract('InvoiceDeliveryList', unwrapData(response), '/invoices/:id/deliveries');
   },
-  async updateSettings(prefix: string): Promise<{ prefix: string }> {
-    const response = await apiClient.put<{ prefix: string }>('/invoices/settings', { prefix });
-    return unwrapData(response);
+  /** Opens the draft as the client would see it; nothing is stored, no number taken. */
+  async openPreview(id: string): Promise<void> {
+    const response = await apiClient.get(`/invoices/${id}/preview`, {
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(
+      new Blob([blobOf(response)], { type: 'application/pdf' }),
+    );
+    window.open(url, '_blank', 'noopener');
+    // Revoked late: the new tab needs the url to still resolve when it loads.
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
   },
+  /** What the invoice, its client or the business profile still lack for an XRechnung. */
+  async checkXRechnung(id: string): Promise<XRechnungCheck> {
+    const response = await apiClient.get(`/invoices/${id}/xrechnung/check`);
+    return checkContract('XRechnungCheck', response.data, '/invoices/:id/xrechnung/check');
+  },
+
+  async downloadXRechnung(id: string, fileName: string): Promise<void> {
+    const response = await apiClient.get(`/invoices/${id}/xrechnung`, {
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(
+      new Blob([blobOf(response)], { type: 'application/xml' }),
+    );
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   async downloadPdf(id: string, fileName: string): Promise<void> {
-    const response = await apiClient.get<Blob>(`/invoices/${id}/pdf`, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const response = await apiClient.get(`/invoices/${id}/pdf`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([blobOf(response)]));
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', fileName);

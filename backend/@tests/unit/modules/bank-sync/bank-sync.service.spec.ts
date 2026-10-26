@@ -31,9 +31,9 @@ const build = (
   new BankSyncService(
     store.integrationRepository as never,
     store.settingsRepository as never,
-    (overrides.transactionRepository ?? { findOne: jest.fn(async () => null) }) as never,
+    (overrides.transactionRepository ?? { findOne: vi.fn(async () => null) }) as never,
     (overrides.walletRepository ?? {
-      findOne: jest.fn(async () => ({ id: 'wallet-1' })),
+      findOne: vi.fn(async () => ({ id: 'wallet-1' })),
     }) as never,
     [provider] as never,
   );
@@ -75,7 +75,7 @@ describe('BankSyncService connections', () => {
       { id: 'c1', provider: 'simplefin', status: IntegrationStatus.CONNECTED, workspaceId, config: connectionConfig() },
     ]);
     const service = build(store, fakeTokenProvider(), {
-      walletRepository: { findOne: jest.fn(async () => null) },
+      walletRepository: { findOne: vi.fn(async () => null) },
     });
     await expect(
       service.updateAccount(workspaceId, 'c1', 'ACT-1', { walletId: 'wallet-elsewhere' }),
@@ -163,7 +163,7 @@ describe('BankSyncService.switchFeed', () => {
     const store = twoConnections();
     const service = build(store, fakeTokenProvider(), {
       transactionRepository: {
-        findOne: jest.fn(async () => ({ transactionDate: new Date('2026-09-28T00:00:00Z') })),
+        findOne: vi.fn(async () => ({ transactionDate: new Date('2026-09-28T00:00:00Z') })),
       },
     });
 

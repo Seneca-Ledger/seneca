@@ -1,0 +1,201 @@
+'use client';
+
+import clsx from 'clsx';
+import { useRouter } from 'next/navigation';
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronDown } from '@/app/components/icons';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/app/components/ui/dropdown-menu';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import type { CategoryList } from '@/app/lib/contracts';
+import { formatMoney } from '@/app/lib/format-money';
+import { useCategoryName } from '@/app/lib/use-category-name';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
+import {
+  type Direction,
+  directionOf,
+  type ListedRow,
+  rowSides,
+  signedAmount,
+} from '../all-transactions';
+
+const DIRECTION_ICONS: Record<Direction, typeof ArrowUpRight> = {
+  expense: ArrowUpRight,
+  income: ArrowDownLeft,
+  transfer: ArrowLeftRight,
+};
+
+const LONG_DATE: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+
+export function AllTransactionsTable({
+  rows,
+  categories,
+  budgetByCategory,
+  selected,
+  onToggle,
+  onToggleAll,
+  onSetCategory,
+  onOpen,
+}: {
+  rows: readonly ListedRow[];
+  categories: CategoryList;
+  /** The budget's name for a category id, when one has a budget. */
+  budgetByCategory: ReadonlyMap<string, string>;
+  selected: ReadonlySet<string>;
+  onToggle: (id: string) => void;
+  onToggleAll: (checked: boolean) => void;
+  onSetCategory: (ids: string[], categoryId: string) => void;
+  onOpen: (row: ListedRow) => void;
+}): React.JSX.Element {
+  const t = useIntlayer('allTransactionsPage');
+  const tTable = useIntlayer('transactionsTable');
+  const { locale } = useLocale();
+  const router = useRouter();
+  const categoryName = useCategoryName();
+  const allSelected = rows.length > 0 && rows.every(row => selected.has(row.id));
+  const someSelected = !allSelected && rows.some(row => selected.has(row.id));
+  const choices = categories.filter(category => category.isEnabled);
+  const money = (value: number, currency: string) => formatMoney(value, currency, locale);
+
+  return (
+    <div className="seneca-all-tx__table-wrap">
+      {selected.size > 0 ? (
+        <div className="seneca-all-tx__bulk" role="status">
+          <span>{t.selected.value.replace('{count}', String(selected.size))}</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="seneca-all-tx__menu-button">
+                {t.setCategory}
+                <ChevronDown size={16} aria-hidden />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="seneca-all-tx__category-menu">
+              {choices.map(category => (
+                <DropdownMenuItem
+                  key={category.id}
+                  onClick={() => onSetCategory([...selected], category.id)}
+                >
+                  {categoryName(category.name)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ) : null}
+      <table className="seneca-all-tx__table">
+        <thead>
+          <tr>
+            <th className="seneca-all-tx__col-direction" />
+            <th>{t.description}</th>
+            <th className="seneca-all-tx__num">{t.amount}</th>
+            <th className="seneca-all-tx__num">{t.runningBalance}</th>
+            <th className="seneca-all-tx__col-date">{tTable.columnDate}</th>
+            <th>{t.sourceAccount}</th>
+            <th>{t.destinationAccount}</th>
+            <th>{tTable.columnCategory}</th>
+            <th>{t.budget}</th>
+            <th className="seneca-all-tx__col-actions">
+              <span className="u-visually-hidden">{t.actions}</span>
+            </th>
+            <th className="seneca-all-tx__col-check">
+              <Checkbox
+                checked={allSelected}
+                indeterminate={someSelected}
+                onCheckedChange={onToggleAll}
+                aria-label={tTable.selectAllRows.value}
+              />
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(row => {
+            const direction = directionOf(row);
+            const Icon = DIRECTION_ICONS[direction];
+            const amount = signedAmount(row);
+            const { source, destination } = rowSides(row);
+            const description = row.paymentPurpose?.trim() || row.counterpartyName;
+            const budget = row.categoryId ? budgetByCategory.get(row.categoryId) : undefined;
+            return (
+              <tr key={row.id} className={clsx(selected.has(row.id) && 'is-selected')}>
+                <td className="seneca-all-tx__col-direction">
+                  <Icon size={16} aria-label={t[direction].value} />
+                </td>
+                <td className="seneca-all-tx__description" data-label={t.description.value}>
+                  <button
+                    type="button"
+                    className={clsx('seneca-all-tx__link', PRIVATE_CLASS)}
+                    onClick={() => onOpen(row)}
+                  >
+                    {description}
+                  </button>
+                </td>
+                <td
+                  className={clsx(
+                    'seneca-all-tx__num seneca-all-tx__figure',
+                    amount > 0 && 'seneca-all-tx__income',
+                    amount < 0 && 'seneca-all-tx__spend',
+                    PRIVATE_CLASS,
+                  )}
+                  data-label={t.amount.value}
+                >
+                  {money(amount, row.currency)}
+                </td>
+                <td
+                  className={clsx('seneca-all-tx__num seneca-all-tx__figure', PRIVATE_CLASS)}
+                  data-label={t.runningBalance.value}
+                >
+                  {row.runningBalance ? money(Number(row.runningBalance), row.currency) : '–'}
+                </td>
+                <td data-label={tTable.columnDate.value}>
+                  {formatStoredDateWithOptions(row.transactionDate, LONG_DATE, locale)}
+                </td>
+                <td className="seneca-all-tx__party" data-label={t.sourceAccount.value}>
+                  {source ?? '–'}
+                </td>
+                <td className="seneca-all-tx__party" data-label={t.destinationAccount.value}>
+                  {destination ?? '–'}
+                </td>
+                <td data-label={tTable.columnCategory.value}>
+                  {row.category ? categoryName(row.category.name) : t.uncategorized}
+                </td>
+                <td data-label={t.budget.value}>{budget ?? ''}</td>
+                <td className="seneca-all-tx__col-actions">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="seneca-all-tx__menu-button">
+                        {t.actions}
+                        <ChevronDown size={16} aria-hidden />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onOpen(row)}>{t.details}</DropdownMenuItem>
+                      {row.statementId ? (
+                        <DropdownMenuItem
+                          onClick={() => router.push(`/statements/${row.statementId}/edit`)}
+                        >
+                          {t.openDocument}
+                        </DropdownMenuItem>
+                      ) : null}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
+                <td className="seneca-all-tx__col-check">
+                  <Checkbox
+                    checked={selected.has(row.id)}
+                    onCheckedChange={() => onToggle(row.id)}
+                    aria-label={tTable.selectTransaction.value}
+                  />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}

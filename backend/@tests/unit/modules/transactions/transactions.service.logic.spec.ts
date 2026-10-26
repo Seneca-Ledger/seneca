@@ -12,10 +12,10 @@ import type { Repository } from 'typeorm';
 
 function createRepoMock<T>() {
   return {
-    findOne: jest.fn(),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    delete: jest.fn(async () => ({ affected: 1 })),
-    createQueryBuilder: jest.fn(),
+    findOne: vi.fn(),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    delete: vi.fn(async () => ({ affected: 1 })),
+    createQueryBuilder: vi.fn(),
   } as unknown as Repository<T> & Record<string, any>;
 }
 
@@ -24,29 +24,30 @@ describe('TransactionsService', () => {
   const statementRepository = createRepoMock<Statement>();
   const userRepository = createRepoMock<User>();
   const workspaceMemberRepository = createRepoMock<WorkspaceMember>();
-  const cacheManager = { get: jest.fn(), set: jest.fn() };
-  const auditService = { createEvent: jest.fn(), createBatchEvents: jest.fn() } as AuditService;
+  const cacheManager = { get: vi.fn(), set: vi.fn() };
+  const auditService = { createEvent: vi.fn(), createBatchEvents: vi.fn() } as AuditService;
 
   let service: TransactionsService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new TransactionsService(
       transactionRepository as any,
       statementRepository as any,
       userRepository as any,
       workspaceMemberRepository as any,
+      { findOne: vi.fn(async () => null), create: vi.fn(x => x), save: vi.fn(async x => x) } as any,
       cacheManager as any,
       auditService as any,
     );
   });
 
   it('denies update when member has canEditStatements=false', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       workspaceId: 'w1',
     }));
-    workspaceMemberRepository.findOne = jest.fn(async () => ({
+    workspaceMemberRepository.findOne = vi.fn(async () => ({
       role: WorkspaceRole.MEMBER,
       permissions: { canEditStatements: false },
     }));
@@ -58,22 +59,22 @@ describe('TransactionsService', () => {
   });
 
   it('recalculates amount and transactionType when debit/credit changes', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       workspaceId: 'w1',
     }));
-    workspaceMemberRepository.findOne = jest.fn(async () => ({
+    workspaceMemberRepository.findOne = vi.fn(async () => ({
       role: WorkspaceRole.OWNER,
       permissions: null,
     }));
-    transactionRepository.findOne = jest.fn(async () => ({
+    transactionRepository.findOne = vi.fn(async () => ({
       id: 't1',
       debit: null,
       credit: null,
       amount: 0,
       statement: { userId: 'u1' },
     }));
-    transactionRepository.save = jest.fn(async (tx: any) => tx);
+    transactionRepository.save = vi.fn(async (tx: any) => tx);
 
     const updated = await service.update('t1', 'w1', 'u1', { debit: 100 } as any);
 
@@ -82,22 +83,22 @@ describe('TransactionsService', () => {
   });
 
   it('calculates amount from amountForeign*exchangeRate when amount not provided', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       workspaceId: 'w1',
     }));
-    workspaceMemberRepository.findOne = jest.fn(async () => ({
+    workspaceMemberRepository.findOne = vi.fn(async () => ({
       role: WorkspaceRole.ADMIN,
       permissions: null,
     }));
-    transactionRepository.findOne = jest.fn(async () => ({
+    transactionRepository.findOne = vi.fn(async () => ({
       id: 't1',
       amount: 0,
       debit: null,
       credit: null,
       statement: { userId: 'u1' },
     }));
-    transactionRepository.save = jest.fn(async (tx: any) => tx);
+    transactionRepository.save = vi.fn(async (tx: any) => tx);
 
     const updated = await service.update('t1', 'w1', 'u1', {
       amountForeign: 10,
@@ -108,7 +109,7 @@ describe('TransactionsService', () => {
   });
 
   it('returns transaction when found', async () => {
-    transactionRepository.findOne = jest.fn(async () => ({
+    transactionRepository.findOne = vi.fn(async () => ({
       id: 't1',
       workspaceId: 'w1',
     }));
@@ -119,20 +120,20 @@ describe('TransactionsService', () => {
   });
 
   it('throws NotFoundException if transaction does not exist', async () => {
-    transactionRepository.findOne = jest.fn(async () => null);
+    transactionRepository.findOne = vi.fn(async () => null);
     await expect(service.findOne('missing', 'w1')).rejects.toThrow(NotFoundException);
   });
 
   it('bulkUpdate returns only successfully updated transactions', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       workspaceId: null,
     }));
-    const updateSpy = jest
+    const updateSpy = vi
       .spyOn(service, 'update')
       .mockResolvedValueOnce({ id: 't-ok' } as any)
       .mockRejectedValueOnce(new Error('boom'));
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     const result = await service.bulkUpdate('w1', 'u1', [
       { id: 't-ok', updates: { amount: 1 } as any },
@@ -147,11 +148,11 @@ describe('TransactionsService', () => {
   });
 
   it('remove deletes transaction after ownership check', async () => {
-    userRepository.findOne = jest.fn(async () => ({
+    userRepository.findOne = vi.fn(async () => ({
       id: 'u1',
       workspaceId: null,
     }));
-    transactionRepository.findOne = jest.fn(async () => ({
+    transactionRepository.findOne = vi.fn(async () => ({
       id: 't1',
       statement: { userId: 'u1' },
     }));

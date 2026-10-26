@@ -1,15 +1,30 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /** How long the ring stays before it fades out. */
 const HIGHLIGHT_MS = 3000;
-/** Give up waiting for the target rather than observing the DOM forever. */
-const WAIT_MS = 5000;
+/**
+ * Give up waiting for the target rather than observing the DOM forever. Long
+ * enough for the slowest destination: the Cash flow tab draws its rows only
+ * once it has paged through every statement and transaction, which on a real
+ * workspace lands well past five seconds. Waiting costs one idle
+ * MutationObserver, so erring long is cheaper than a link that does nothing.
+ */
+const WAIT_MS = 20000;
 
-const ATTENTION_CLASS = 'lumio-attention';
+const ATTENTION_CLASS = 'seneca-attention';
 const FOCUS_PARAM = 'focus';
+
+/**
+ * The one element tagged `data-attention="<id>"`, or every member of the group
+ * `<id>`: `data-attention-group` holds space-separated names, so a row can be
+ * in several ("every subscription whose price changed").
+ */
+const singleSelector = (targetId: string): string => `[data-attention="${CSS.escape(targetId)}"]`;
+const groupSelector = (targetId: string): string =>
+  `[data-attention-group~="${CSS.escape(targetId)}"]`;
 
 /**
  * Some lists render a desktop table and mobile cards side by side and hide one
@@ -51,22 +66,76 @@ function whenPresent(selector: string, onFound: (element: Element) => void): () 
   };
 }
 
+/** How long to keep the target centred while the page is still growing. */
+const FOLLOW_MS = 6000;
+/** Re-centring any closer than this is the scroll still settling, not a miss. */
+const CENTRED_SLACK_PX = 8;
+
 /**
- * Scrolls to the element a deep link points at and rings it in green.
+ * Keeps the scroll on `element` while the page is still growing. A destination
+ * that stacks several sections (Reports → Cash flow) draws them one after the
+ * other, and every one that appears above the target pushes it down again, so
+ * the single scroll that follows the ring lands nowhere. Polling beats
+ * observing the body: the sections grow inside it without changing its box.
+ * The first deliberate scroll, wheel or key hands control back to the reader.
+ */
+function keepCentred(element: Element): () => void {
+  let stopped = false;
+  const stop = (): void => {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+    window.clearInterval(timer);
+    window.clearTimeout(expiry);
+    window.removeEventListener('wheel', stop);
+    window.removeEventListener('touchmove', stop);
+    window.removeEventListener('keydown', stop);
+  };
+  const timer = window.setInterval(() => {
+    const box = element.getBoundingClientRect();
+    const offCentre = Math.abs(box.top + box.height / 2 - window.innerHeight / 2);
+    if (offCentre > CENTRED_SLACK_PX) {
+      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, 250);
+  const expiry = window.setTimeout(stop, FOLLOW_MS);
+  window.addEventListener('wheel', stop, { passive: true });
+  window.addEventListener('touchmove', stop, { passive: true });
+  window.addEventListener('keydown', stop);
+  return stop;
+}
+
+/**
+ * Scrolls to the element a deep link points at and rings it in green, and
+ * returns the target's id so a list can make sure it is drawn at all.
  *
  * The link carries `?focus=<id>` and the target marks itself with
  * `data-attention="<id>"`, so pages opt in by tagging one element instead of
- * each one growing its own deep-link plumbing. Producers are insight links
+ * each one growing its own deep-link plumbing. Several elements can answer one
+ * link through `data-attention-group="<id>"`: all of them ring, and the first
+ * one drawn is scrolled to. Producers are insight links
  * (app/components/insights/insight-href.ts) and the notification bell
  * (app/components/notifications/notification-href.ts).
+ *
+ * The returned id outlives the parameter, which is cleared below as soon as
+ * the page arrives: a leaderboard mounts only once its data has loaded, long
+ * after that, and it needs the id to keep the row the link is about.
  *
  * Call it from the destination page, not from the layout: a layout is not
  * remounted on soft navigation, so arriving at the page you are already on
  * with a different target would do nothing.
  */
-export function useAttentionFocus(): void {
-  const targetId = useSearchParams().get(FOCUS_PARAM);
+export function useAttentionFocus(): string | null {
+  const targetId = useSearchParams()?.get(FOCUS_PARAM) ?? null;
+  const [lastTargetId, setLastTargetId] = useState<string | null>(targetId);
   const cleanupRef = useRef<() => void>(() => undefined);
+
+  useEffect(() => {
+    if (targetId !== null) {
+      setLastTargetId(targetId);
+    }
+  }, [targetId]);
 
   // Tearing down belongs to the page's lifetime, not to the parameter's: the
   // effect below deliberately returns nothing, so React cannot undo a
@@ -90,26 +159,41 @@ export function useAttentionFocus(): void {
     url.searchParams.delete(FOCUS_PARAM);
     window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
 
-    let highlighted: Element | null = null;
+    let highlighted: Element[] = [];
     let fadeTimer: number | undefined;
+
+    let stopFollowing = (): void => undefined;
 
     // First match in document order. One category can produce several
     // leaderboard rows (per source and currency); sorted by amount, the first
     // is the largest, which is the one the insight was about.
-    const stopWaiting = whenPresent(`[data-attention="${CSS.escape(targetId)}"]`, element => {
-      highlighted = element;
+    const single = singleSelector(targetId);
+    const group = groupSelector(targetId);
+    const unring = (): void => {
+      for (const element of highlighted) element.classList.remove(ATTENTION_CLASS);
+    };
+    const stopWaiting = whenPresent(`${single}, ${group}`, element => {
+      // One target rings alone, even where it repeats (a category over several
+      // rows); a group rings every member, drawn together with the first.
+      highlighted = element.matches(single)
+        ? [element]
+        : Array.from(document.querySelectorAll(group));
       // Ring first, scroll second: starting the smooth scroll in the same tick
       // before the class lands leaves the outline transition stuck at its
       // transparent start value, so the ring never appears.
-      element.classList.add(ATTENTION_CLASS);
+      for (const member of highlighted) member.classList.add(ATTENTION_CLASS);
       element.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      fadeTimer = window.setTimeout(() => element.classList.remove(ATTENTION_CLASS), HIGHLIGHT_MS);
+      stopFollowing = keepCentred(element);
+      fadeTimer = window.setTimeout(unring, HIGHLIGHT_MS);
     });
 
     cleanupRef.current = () => {
       stopWaiting();
+      stopFollowing();
       window.clearTimeout(fadeTimer);
-      highlighted?.classList.remove(ATTENTION_CLASS);
+      unring();
     };
   }, [targetId]);
+
+  return lastTargetId;
 }

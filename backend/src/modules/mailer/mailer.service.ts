@@ -1,17 +1,41 @@
 import { Injectable, Logger } from '@nestjs/common';
 import nodemailer from 'nodemailer';
-import { retry, TimeoutError, withTimeout } from '../../common/utils/async.util';
+import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import type { User } from '../../entities/user.entity';
-import { ApplicationSettingsService } from '../application-settings/application-settings.service';
+import {
+  ApplicationSettingsService,
+  smtpConnectTarget,
+} from '../application-settings/application-settings.service';
 
-export interface SendMailParams {
+export interface MailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
+
+interface MailContent {
   to: string;
   subject: string;
   text: string;
   html?: string;
-  /** Whose workspace SMTP settings to use; falls back to the SMTP_* env vars. */
-  user?: User | null;
+  attachments?: MailAttachment[];
 }
+
+/**
+ * Whose SMTP server sends the mail; without workspace SMTP settings the SMTP_*
+ * env vars do. Required, so no caller can fall back to someone's home workspace.
+ */
+export type SendMailParams = MailContent &
+  (
+    | {
+        /** The workspace the mail is about. */
+        workspaceId: string;
+      }
+    | {
+        /** Mail about the account itself: password reset, e-mail change. */
+        accountOf: Pick<User, 'id' | 'workspaceId'>;
+      }
+  );
 
 /**
  * Thin wrapper over the workspace SMTP settings so callers do not each rebuild a
@@ -24,13 +48,13 @@ export class MailerService {
 
   constructor(private readonly applicationSettingsService: ApplicationSettingsService) {}
 
-  async isConfigured(user?: User | null): Promise<boolean> {
-    const smtp = await this.applicationSettingsService.getSmtpSettings(user);
+  async isConfigured(workspaceId: string): Promise<boolean> {
+    const smtp = await this.applicationSettingsService.getSmtpSettings(workspaceId);
     return Boolean((smtp?.host || process.env.SMTP_HOST) && (smtp?.from || process.env.SMTP_FROM));
   }
 
   async send(params: SendMailParams): Promise<boolean> {
-    const smtp = await this.applicationSettingsService.getSmtpSettings(params.user);
+    const smtp = await this.smtpFor(params);
     const host = smtp?.host || process.env.SMTP_HOST;
     const from = smtp?.from || process.env.SMTP_FROM;
 
@@ -46,34 +70,38 @@ export class MailerService {
       smtp?.timeoutMs || Number.parseInt(process.env.SMTP_TIMEOUT_MS || '10000', 10);
 
     const transporter = nodemailer.createTransport({
-      host,
+      ...(await smtpConnectTarget(smtp, host)),
       port: Number.isFinite(port) ? port : 587,
       secure: smtp?.secure ?? process.env.SMTP_SECURE === 'true',
       auth: user && pass ? { user, pass } : undefined,
     });
 
-    await retry(
+    await attemptWithRetry(
       () =>
-        withTimeout(
-          transporter.sendMail({
-            from,
-            to: params.to,
-            subject: params.subject,
-            text: params.text,
-            html: params.html,
-            replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
-          }),
-          Number.isFinite(timeoutMs) ? timeoutMs : 10000,
-          'SMTP request timed out',
-        ),
+        transporter.sendMail({
+          from,
+          to: params.to,
+          subject: params.subject,
+          text: params.text,
+          html: params.html,
+          attachments: params.attachments,
+          replyTo: smtp?.replyTo || process.env.SMTP_REPLY_TO || undefined,
+        }),
       {
+        timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 10000,
+        timeoutMessage: 'SMTP request timed out',
         retries: 1,
         baseDelayMs: 300,
         maxDelayMs: 2000,
-        isRetryable: error => error instanceof TimeoutError,
       },
     );
 
     return true;
+  }
+
+  private smtpFor(params: SendMailParams) {
+    return 'accountOf' in params
+      ? this.applicationSettingsService.getAccountSmtpSettings(params.accountOf)
+      : this.applicationSettingsService.getSmtpSettings(params.workspaceId);
   }
 }

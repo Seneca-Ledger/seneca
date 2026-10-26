@@ -23,6 +23,7 @@ import { GeneralTab } from '@/app/settings/profile/tabs/GeneralTab';
 import { NotificationsTab } from '@/app/settings/profile/tabs/NotificationsTab';
 import { SecurityTab } from '@/app/settings/profile/tabs/SecurityTab';
 import type { SettingsTabProps } from '@/app/settings/profile/tabs/types';
+import { VersionsTab } from '@/app/settings/profile/tabs/VersionsTab';
 
 const TAB_COMPONENT: Record<SettingsTabId, ComponentType<SettingsTabProps>> = {
   general: GeneralTab,
@@ -30,6 +31,7 @@ const TAB_COMPONENT: Record<SettingsTabId, ComponentType<SettingsTabProps>> = {
   notifications: NotificationsTab,
   data: DataTab,
   advanced: AdvancedTab,
+  versions: VersionsTab,
 };
 
 /**
@@ -85,7 +87,7 @@ function ProfileSettingsPageInner(): React.JSX.Element {
 
   if (!user) {
     return (
-      <Box className="container-shared" sx={{ px: 2, py: 5 }}>
+      <Box className="container-shared" sx={{ px: { xs: 2, md: 4 }, py: 5 }}>
         <Alert style={{ maxWidth: 576 }} variant="default">
           {t.authRequired.value}
         </Alert>
@@ -94,15 +96,19 @@ function ProfileSettingsPageInner(): React.JSX.Element {
   }
 
   const labels: SettingsTabsLabels = {
-    general: tx(['tabs', 'general'], 'General'),
-    security: tx(['tabs', 'security'], 'Security'),
-    notifications: tx(['tabs', 'notifications'], 'Notifications'),
-    data: tx(['tabs', 'data'], 'Data'),
-    advanced: tx(['tabs', 'advanced'], 'Advanced'),
+    general: tx(['tabs', 'general']),
+    security: tx(['tabs', 'security']),
+    notifications: tx(['tabs', 'notifications']),
+    data: tx(['tabs', 'data']),
+    advanced: tx(['tabs', 'advanced']),
+    versions: tx(['tabs', 'versions']),
   };
 
   return (
-    <Box className="container-shared" sx={{ px: 2, py: 4 }}>
+    <Box
+      className="container-shared"
+      sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 32px)', pb: 4 }}
+    >
       <Box>
         <SettingsTabs activeTab={activeTab} onTabChange={setActiveTab} labels={labels} />
         {/* The selected tab already names the section on screen; the heading stays

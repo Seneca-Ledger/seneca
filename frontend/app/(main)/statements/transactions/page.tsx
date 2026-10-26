@@ -1,27 +1,17 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { AllTransactionsView } from './components/AllTransactionsView';
 
-import { TransactionTab } from '@/app/components/dashboard/TransactionTab';
-import { useIntlayer } from '@/app/i18n';
+const MONTH_START = /^(\d{4}-\d{2})-\d{2}$/;
 
-export default function StatementTransactionsPage() {
-  const t = useIntlayer('statementTransactionsPage');
-  return (
-    // The /statements shell clips its last child, so every page there scrolls itself.
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 24,
-        padding: 32,
-        height: '100%',
-        overflowY: 'auto',
-      }}
-    >
-      <div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--foreground)' }}>{t.title}</h1>
-        <p style={{ fontSize: 14, color: 'var(--muted-foreground)', marginTop: 4 }}>{t.subtitle}</p>
-      </div>
-      <TransactionTab />
-    </div>
-  );
+// Old links (bookmarks, ?startDate from the dashboard) open on their month.
+export default async function AllTransactionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ startDate?: string }>;
+}): Promise<React.JSX.Element> {
+  const month = MONTH_START.exec((await searchParams).startDate ?? '')?.[1];
+  if (month) {
+    redirect(`/statements/transactions?month=${month}`);
+  }
+  return <AllTransactionsView />;
 }

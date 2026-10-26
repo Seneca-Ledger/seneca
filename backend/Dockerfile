@@ -1,11 +1,18 @@
+# Bun only installs packages (from package-lock.json); Node runs the app.
+FROM oven/bun:1.4.4-debian AS bun
+
 # --- Base: runtime OS deps shared by every stage ---
-FROM node:20-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
 
 # Pinned explicitly (not just relying on the base image's default) so a date
 # built from local Date parts (new Date(year, month, day), used throughout
 # statement parsing) round-trips through toISOString()/Postgres without a
 # timezone-dependent day shift.
 ENV TZ=UTC
+
+# onnxruntime-node fetches its CUDA providers (~260 MB) at install on linux/x64.
+# The categorizer runs on the CPU, so the image never loads them.
+ENV ONNXRUNTIME_NODE_INSTALL=skip
 
 WORKDIR /app
 
@@ -22,11 +29,14 @@ RUN apt-get update && \
 # --- Deps: node_modules keyed only by the lockfile ---
 FROM base AS deps
 
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY package*.json ./
 
-# The marker lets scripts/dev-entrypoint.sh detect a lockfile change and refresh
-# the node_modules volume without rebuilding the image.
-RUN npm ci && md5sum package-lock.json > node_modules/.lockfile-hash
+# The marker lets scripts/dev-entrypoint.sh detect a lockfile or Node change and
+# refresh the node_modules volume without rebuilding the image.
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  bun install --frozen-lockfile --network-concurrency=16 && \
+  echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
 
 # --- Dev stage (used by docker-compose.dev.yml) ---
 # Source is bind-mounted at runtime, so nothing is copied or compiled here.
@@ -41,7 +51,13 @@ FROM deps AS builder
 
 COPY . .
 
-RUN npm run build && npm run build:scripts && npm prune --omit=dev
+RUN npm run build && npm run build:scripts
+# A fresh production-only install rather than pruning the dev tree.
+# onnxruntime-node ships binaries for every OS; keep only this one (~245 MB less).
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  rm -rf node_modules && bun install --frozen-lockfile --network-concurrency=16 --production && \
+  find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 2 -maxdepth 2 \
+    ! -path "*/linux/$(node -p process.arch)" -exec rm -rf {} +
 
 # --- Production stage ---
 FROM base
@@ -52,13 +68,16 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
   /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 RUN groupadd --system app && useradd --system --gid app app && \
-  mkdir -p uploads/reports && chown -R app:app /app
+  mkdir -p uploads/reports update && chown -R app:app /app
 
 # Pruned in the builder so the runtime image carries only production deps.
 COPY --chown=app:app --from=builder /app/package*.json ./
 COPY --chown=app:app --from=builder /app/node_modules ./node_modules
 COPY --chown=app:app --from=builder /app/dist ./dist
 COPY --chown=app:app --from=builder /app/scripts ./scripts
+# Release tag (vX.Y.Z) the Settings page compares with the newest GitHub release.
+ARG APP_VERSION=""
+ENV APP_VERSION=${APP_VERSION}
 
 USER app
 

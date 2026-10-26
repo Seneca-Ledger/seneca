@@ -3,7 +3,7 @@ title: CI/CD Pipeline
 description: Continuous integration and release publishing
 ---
 
-Lumio's pipelines live in `.github/workflows`.
+Seneca's pipelines live in `.github/workflows`.
 
 ## CI pipeline
 
@@ -12,7 +12,7 @@ Lumio's pipelines live in `.github/workflows`.
 - `sensitive-changes` - label gate on pull requests (see below)
 - `policy-as-code` - Conftest policies for the Compose files and workflows
 - `shellcheck`, `hadolint`, `trivy-config` - shell script, Dockerfile, and config scanning
-- `lint` - Biome for the backend, Biome + ESLint for the frontend
+- `lint` - Biome for both apps
 - `typecheck` - TypeScript checks for both apps
 - `tests` - backend unit + e2e tests against PostgreSQL 16 and Redis 7, with migrations applied twice to check
   idempotency
@@ -33,7 +33,7 @@ On pull requests, the `sensitive-changes` job requires labels:
 
 ## CD pipeline
 
-Lumio is self-hosted: `cd.yml` builds, scans, signs, and publishes images, then stops. There are no deployment
+Seneca is self-hosted: `cd.yml` builds, scans, signs, and publishes images, then stops. There are no deployment
 environments and no smoke tests. It runs on `v*.*.*` tags or manual dispatch:
 
 1. Conftest policies

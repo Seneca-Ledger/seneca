@@ -1,11 +1,13 @@
 'use client';
 
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { getApiErrorMessage } from '@/app/lib/api-error';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { BANK_SYNC_BASE } from '../types';
 
 /**
@@ -13,7 +15,7 @@ import { BANK_SYNC_BASE } from '../types';
  * only worth anything together with the state we handed out before the
  * redirect, which the server checks as well.
  */
-export default function BankSyncCallbackPage(): React.JSX.Element {
+function BankSyncCallback(): React.JSX.Element {
   const t = useIntlayer('bankSyncPanel');
   const router = useRouter();
   const params = useSearchParams();
@@ -34,34 +36,38 @@ export default function BankSyncCallbackPage(): React.JSX.Element {
       .post(`${BANK_SYNC_BASE}/connections/${pending.connectionId}/links/complete`, {
         code,
         state,
-      })
+      } satisfies ContractInput<'CompleteBankSyncLinkBody'>)
       .then(() => {
         window.sessionStorage.removeItem('bankSyncPendingLink');
         router.replace('/integrations');
       })
       .catch((caught: unknown) => {
-        const detail = (caught as { response?: { data?: { error?: { message?: string } } } })
-          ?.response?.data?.error?.message;
-        setError(detail ?? t.authorizeFailed.value);
+        setError(`${t.authorizeFailed.value}: ${getApiErrorMessage(caught)}`);
       });
   }, [params, router, t.authorizeFailed.value, t.callbackMismatch.value]);
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
-      <Stack spacing={2} alignItems="center" data-testid="bank-sync-callback">
+      <Stack spacing={2} sx={{ alignItems: 'center' }} data-testid="bank-sync-callback">
         {error ? (
           <Typography role="alert" sx={{ fontSize: 14, color: 'error.main' }}>
             {error}
           </Typography>
         ) : (
-          <>
-            <CircularProgress size={28} />
-            <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-              {t.finishingAuthorization}
-            </Typography>
-          </>
+          <Typography role="status" sx={{ fontSize: 14, color: 'text.secondary' }}>
+            {t.finishingAuthorization}
+          </Typography>
         )}
       </Stack>
     </Box>
+  );
+}
+
+/** `useSearchParams` needs a Suspense boundary so the static shell can prerender. */
+export default function BankSyncCallbackPage(): React.JSX.Element {
+  return (
+    <Suspense fallback={null}>
+      <BankSyncCallback />
+    </Suspense>
   );
 }

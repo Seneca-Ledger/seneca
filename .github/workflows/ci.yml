@@ -2,6 +2,8 @@ name: CI
 
 "on":
   pull_request:
+  # The merge queue tests each group of queued pull requests before it lands.
+  merge_group:
   push:
     branches:
       - main
@@ -15,6 +17,43 @@ permissions:
   contents: read
 
 jobs:
+  # Which half of the app a pull request or queue group touches. Pushes to main
+  # and develop always run everything.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+      frontend: ${{ steps.diff.outputs.frontend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed areas
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+          QUEUE_HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          case "$EVENT" in
+            pull_request) files=$(git diff --name-only "${PR_BASE}...${PR_HEAD}") ;;
+            merge_group) files=$(git diff --name-only "${QUEUE_BASE}" "${QUEUE_HEAD}") ;;
+            *) echo "backend=true" >> "$GITHUB_OUTPUT"; echo "frontend=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          # Shared code, tooling and CI itself affect both halves.
+          shared='^(packages/|scripts/|\.github/|package(-lock)?\.json$|Dockerfile$|docker-compose)'
+          backend=false; frontend=false
+          if echo "$files" | grep -qE "$shared|^backend/"; then backend=true; fi
+          if echo "$files" | grep -qE "$shared|^frontend/"; then frontend=true; fi
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend frontend=$frontend"
+
   sensitive-changes:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
@@ -22,14 +61,14 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Detect sensitive paths
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             db:
@@ -46,7 +85,7 @@ jobs:
               - 'backend/src/**/roles/**'
 
       - name: Require approvals for sensitive changes
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           DB_CHANGED: ${{ steps.changes.outputs.db }}
           AUTH_CHANGED: ${{ steps.changes.outputs.auth }}
@@ -89,7 +128,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -99,7 +138,7 @@ jobs:
             -v "$GITHUB_WORKSPACE":/project \
             -w /project \
             openpolicyagent/conftest:v0.56.0 \
-            test -p policy/docker-compose \
+            test -p infra/policy/docker-compose \
             docker-compose.yml docker-compose.dev.yml
 
       - name: Conftest (GitHub workflows)
@@ -108,14 +147,14 @@ jobs:
             -v "$GITHUB_WORKSPACE":/project \
             -w /project \
             openpolicyagent/conftest:v0.56.0 \
-            test -p policy/github-actions \
+            test -p infra/policy/github-actions \
             .github/workflows/*.yml
 
   shellcheck:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -126,13 +165,13 @@ jobs:
             -w /mnt \
             koalaman/shellcheck:stable \
             --format=gcc \
-            scripts/*.sh backend/scripts/*.sh
+            scripts/*.sh backend/scripts/*.sh infra/updater/*.sh
 
   hadolint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -152,7 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -179,25 +218,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # The file-size check compares the branch with its merge base.
+          fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+          node-version: "24"
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
-        run: npm ci --prefix backend
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Install frontend deps
-        run: npm ci --prefix frontend
+        working-directory: frontend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Backend lint (check-only)
         run: npm --prefix backend run lint:check
@@ -205,40 +256,110 @@ jobs:
       - name: Frontend lint (check-only)
         run: npm --prefix frontend run lint:check
 
+      - name: API contracts in sync
+        run: |
+          node scripts/sync-contracts.mjs --check
+          node --test scripts/sync-contracts.test.mjs
+
+      # Same rule as the pre-commit hook, which --no-verify skips: no source file over
+      # 300 lines of code is added, and none already over it grows.
+      - name: File size
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          node --test scripts/check-file-size.test.mjs
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            node scripts/check-file-size.mjs --base "origin/$BASE_REF"
+          fi
+
+  # Deliberately not behind `lint`. Everything downstream used to wait on it, so a
+  # single misformatted line skipped typecheck, tests and build and reported one
+  # failure while real type errors reached main unseen.
   typecheck:
     runs-on: ubuntu-latest
-    needs: [lint, shellcheck, hadolint, trivy-config]
+    needs: [changes, shellcheck, hadolint, trivy-config]
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+          node-version: "24"
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
-        run: npm ci --prefix backend
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Install frontend deps
-        run: npm ci --prefix frontend
+        working-directory: frontend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Backend typecheck
+        if: needs.changes.outputs.backend == 'true'
         run: npm --prefix backend run typecheck
 
       - name: Frontend typecheck
+        if: needs.changes.outputs.frontend == 'true'
         run: npm --prefix frontend run type-check
 
+  # Frontend Vitest. It was never run in CI, so 132 tests went red unnoticed.
+  frontend-tests:
+    runs-on: ubuntu-latest
+    needs: [changes, typecheck]
+    if: needs.changes.outputs.frontend == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: bun install --frozen-lockfile --network-concurrency=16
+
+      - name: Frontend tests
+        run: npm --prefix frontend test
+
+  # Backend unit and integration specs, with the coverage gate. e2e runs in its own job.
   tests:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [changes, typecheck]
+    if: needs.changes.outputs.backend == 'true'
     services:
       postgres:
         image: postgres:16
@@ -280,22 +401,31 @@ jobs:
       QLTY_COVERAGE_TOKEN: ${{ secrets.QLTY_COVERAGE_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+          node-version: "24"
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
-        run: npm ci --prefix backend
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Wait for Postgres
         run: |
@@ -311,107 +441,212 @@ jobs:
           npm --prefix backend run migration:run
           npm --prefix backend run migration:run
 
-      - name: Backend tests (unit + e2e with coverage gate)
-        run: npm --prefix backend run test:ci
+      - name: Backend tests (unit with coverage gate)
+        run: npm --prefix backend run test:ci:unit
 
       - name: Upload coverage to Qlty
-        # !cancelled(): unit coverage is written before the e2e stage runs, so
-        # upload it even when e2e fails — otherwise the badge never updates
-        # while e2e is red.
         if: ${{ !cancelled() && env.QLTY_COVERAGE_TOKEN != '' }}
         uses: qltysh/qlty-action/coverage@v2
         with:
           token: ${{ secrets.QLTY_COVERAGE_TOKEN }}
           files: backend/coverage/lcov.info
+          # lcov paths are relative to backend/ (src/...); map them to
+          # repo-root paths so Qlty can match files
+          add-prefix: backend/
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
           path: backend/coverage
 
+  # Every e2e suite boots AppModule against one database, so the files run one at
+  # a time. Four shards, each with its own Postgres, cut the wait by about four.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [changes, typecheck]
+    if: needs.changes.outputs.backend == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: finflow
+          POSTGRES_PASSWORD: finflow
+          POSTGRES_DB: finflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U finflow -d finflow"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://finflow:finflow@localhost:5432/finflow
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-jwt-secret
+      JWT_REFRESH_SECRET: test-jwt-refresh
+      JWT_EXPIRES_IN: 1h
+      JWT_REFRESH_EXPIRES_IN: 30d
+      RESEND_API_KEY: test-api-key
+      RESEND_FROM: noreply@example.com
+      NODE_ENV: test
+      RUN_MIGRATIONS: "true"
+      CI: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install backend deps
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
+
+      - name: Run migrations
+        run: npm --prefix backend run migration:run
+
+      - name: Backend e2e (shard ${{ matrix.shard }}/4)
+        run: npm --prefix backend run test:e2e -- --shard=${{ matrix.shard }}/4
+
   sonarcloud:
     runs-on: ubuntu-latest
     needs: [tests]
+    # Secrets cannot gate a job, so the steps check the token: without one the
+    # scan is skipped instead of failing every run (and with it the release).
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
+      - name: No SONAR_TOKEN, scan skipped
+        if: env.SONAR_TOKEN == ''
+        run: echo "::notice::SONAR_TOKEN is not set; SonarCloud scan skipped."
+
       - name: Checkout
-        uses: actions/checkout@v4
+        if: env.SONAR_TOKEN != ''
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Download coverage
-        uses: actions/download-artifact@v4
+        if: env.SONAR_TOKEN != ''
+        uses: actions/download-artifact@v8
         with:
           name: backend-coverage
           path: backend/coverage
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        if: env.SONAR_TOKEN != ''
+        # sonarcloud-github-action is archived; this is its replacement and reads
+        # the same sonar-project.properties (SonarQube Cloud needs no host URL).
+        uses: SonarSource/sonarqube-scan-action@v8
 
   build:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, tests]
+    needs: [changes, typecheck, tests, e2e, frontend-tests]
+    # Runs when nothing it waits on failed: a half the change skips leaves its jobs skipped.
+    if: >-
+      !cancelled() && !failure() &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true')
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+          node-version: "24"
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
-        run: npm ci --prefix backend
+        if: needs.changes.outputs.backend == 'true'
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Install frontend deps
-        run: npm ci --prefix frontend
+        if: needs.changes.outputs.frontend == 'true'
+        working-directory: frontend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Frontend build
+        if: needs.changes.outputs.frontend == 'true'
         run: npm --prefix frontend run build
 
       - name: Backend build
+        if: needs.changes.outputs.backend == 'true'
         run: npm --prefix backend run build
 
   dependency-scan:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
-    env:
-      ALLOWED_LICENSES: >-
-        MIT;MIT*;MIT-0;Apache-2.0;ISC;BSD;BSD*;BSD-2-Clause;BSD-3-Clause;0BSD;Unlicense;
-        Python-2.0;BlueOak-1.0.0;LGPL;LGPL-2.1;LGPL-3.0;LGPL-3.0-or-later;MPL-2.0;CC0-1.0;CC-BY-4.0;WTFPL;
-        (MIT OR Apache-2.0);(MIT OR CC0-1.0);(MIT OR EUPL-1.1+);(WTFPL OR MIT);(WTFPL OR ISC);
-        (BSD-2-Clause OR MIT OR Apache-2.0);(MIT AND Zlib);(MIT AND BSD-3-Clause);(MIT OR GPL-3.0-or-later);
-        (BSD-3-Clause OR GPL-2.0);(AFL-2.1 OR BSD-3-Clause);(Apache-2.0 AND LGPL-3.0-or-later);
-        (Apache-2.0 AND LGPL-3.0-or-later AND MIT)
+    needs: [typecheck]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+          node-version: "24"
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
             website/package-lock.json
-            mcp-server/package-lock.json
 
       - name: Install root deps (no scripts)
         run: npm ci --ignore-scripts
@@ -425,16 +660,15 @@ jobs:
       - name: Install website deps (no scripts)
         run: npm ci --prefix website --ignore-scripts
 
-      - name: Install mcp-server deps (no scripts)
-        run: npm ci --prefix mcp-server --ignore-scripts
-
       # --directory, not --path: audit-ci silently ignores unknown flags, and
       # `--path backend` made this step audit the repo root instead.
       - name: Backend audit (moderate and above)
         run: npx audit-ci@7.1.0 --config backend/audit-ci.json --package-manager npm --directory backend
 
+      # audit-ci for the allowlist in frontend/audit-ci.json: findings that only
+      # a major intlayer upgrade fixes, in its build-time CLI.
       - name: Frontend audit (high/critical)
-        run: npm audit --audit-level=high --prefix frontend
+        run: npx audit-ci@7.1.0 --config frontend/audit-ci.json --package-manager npm --directory frontend
 
       # Phase 1 of the Dependabot cleanup covers root/backend/frontend only.
       # These still carry known findings, so they report without failing
@@ -447,52 +681,70 @@ jobs:
         continue-on-error: true
         run: npm audit --audit-level=high --prefix website
 
-      - name: MCP server audit (high/critical)
-        continue-on-error: true
-        run: npm audit --audit-level=high --prefix mcp-server
-
-      - name: Root license compliance
-        run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start .
-
-      - name: Backend license compliance
-        run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start backend
-
-      - name: Frontend license compliance
-        run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start frontend
-
-      - name: Website license compliance
-        run: npx license-checker@25.0.1 --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --start website
+      # Every tree's dependencies against the allowlist in scripts/check-licenses.mjs.
+      - name: License compliance
+        run: npm run test:licenses && npm run licenses:check
 
   secrets-scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+      # The gitleaks CLI, not gitleaks-action: the action needs a paid licence for
+      # repositories owned by an organisation. Like the action, it scans only the
+      # commits this pull request or push brings in.
+      - name: Install Gitleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: detect --source=. --verbose --redact
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum -c -
+          tar -xzf "${archive}" gitleaks
 
+      - name: Run Gitleaks
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+          QUEUE_HEAD: ${{ github.event.merge_group.head_sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            range="${PR_BASE}..${PR_HEAD}"
+          elif [ "$EVENT" = merge_group ]; then
+            range="${QUEUE_BASE}..${QUEUE_HEAD}"
+          elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != 0000000000000000000000000000000000000000 ]; then
+            range="${PUSH_BEFORE}..${PUSH_AFTER}"
+          else
+            range="-1 ${PUSH_AFTER}"
+          fi
+          ./gitleaks git --redact --verbose --log-opts="${range}" .
+
+  # The image build and its Trivy scan take about eight minutes, so they run after
+  # a merge, on the push to main, rather than on every pull request.
   docker:
     runs-on: ubuntu-latest
     needs: [build, dependency-scan, secrets-scan]
+    if: github.event_name == 'push'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build Docker image (no push)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -509,7 +761,7 @@ jobs:
           hide-progress: true
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0.24.0
+        uses: anchore/sbom-action@v0.24.3
         with:
           image: parse-ledger:ci
           format: spdx-json
@@ -517,7 +769,37 @@ jobs:
           upload-artifact: false
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom.spdx.json
+
+  # The one check the merge queue requires. Jobs a change skips (the other half of
+  # the app, docker outside a push) count as passed; a failed or cancelled one does not.
+  ci-ok:
+    runs-on: ubuntu-latest
+    needs:
+      - sensitive-changes
+      - policy-as-code
+      - shellcheck
+      - hadolint
+      - trivy-config
+      - lint
+      - typecheck
+      - frontend-tests
+      - tests
+      - e2e
+      - build
+      - dependency-scan
+      - secrets-scan
+      - docker
+    if: always()
+    steps:
+      - name: All required jobs passed or were skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          case " $RESULTS " in
+            *" failure "*|*" cancelled "*) exit 1 ;;
+          esac

@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "accountNumber": "KZ23843328790KZ03CKM",
+    "dateFrom": "2025-11-20T00:00:00",
+    "dateTo": "2025-11-20T00:00:00",
+    "balanceStart": 1574.82,
+    "balanceEnd": 0,
+    "currency": "KZT"
+  },
+  "transactions": [
+    {
+      "transactionDate": "2025-11-20T23:00:00",
+      "documentNumber": "ПОГ12",
+      "counterpartyName": "ИП Ирма",
+      "counterpartyBin": "871570539501",
+      "counterpartyAccount": "KZ89719812832KZ00GFL",
+      "counterpartyBank": "АО \"Bereke Bank\" (ДБ Lesha Bank LLC (Public)) по Актюбинской области BRKEKZKA",
+      "debit": 1574.82,
+      "paymentPurpose": "Погашение основного долга по кредиту № 23-118340-04-КЛ 8. Ссудный счет № KZ89719812832KZ00GFL Ирма БИН:871570539501. Счет погашения: KZ95200979470KZ039LY . Счет погашения: KZ23843328790KZ03CKM",
+      "currency": "KZT"
+    }
+  ]
+}

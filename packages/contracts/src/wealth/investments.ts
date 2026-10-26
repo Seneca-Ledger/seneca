@@ -1,0 +1,63 @@
+import * as Schema from 'effect/Schema';
+import { Timestamp, type Wire } from '../common/wire';
+
+/** Crypto is deliberately absent: coins live in crypto wallets, nowhere else. */
+export const InvestmentAssetClass = Schema.Literals([
+  'stock',
+  'etf',
+  'fund',
+  'bond',
+  'cash',
+  'real_estate',
+  'metal',
+  'other',
+]);
+export type InvestmentAssetClass = Wire<typeof InvestmentAssetClass>;
+
+/** Whether a price was typed in or fetched from a quote. */
+export const InvestmentPriceSource = Schema.Literals(['manual', 'auto']);
+export type InvestmentPriceSource = Wire<typeof InvestmentPriceSource>;
+
+export const InvestmentHolding = Schema.Struct({
+  id: Schema.String,
+  symbol: Schema.NullOr(Schema.String),
+  name: Schema.String,
+  assetClass: InvestmentAssetClass,
+  quantity: Schema.Number,
+  price: Schema.Number,
+  priceCurrency: Schema.String,
+  priceSource: InvestmentPriceSource,
+  pricedAt: Schema.NullOr(Timestamp),
+  /** quantity × price in the workspace currency. */
+  value: Schema.Number,
+});
+export type InvestmentHolding = Wire<typeof InvestmentHolding>;
+
+/** One row of `GET /investments`. */
+export const InvestmentAccount = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  kind: Schema.Literals(['investment', 'retirement']),
+  currency: Schema.String,
+  value: Schema.Number,
+  /** Sum of the expenses linked to this account as contributions. */
+  contributed: Schema.Number,
+  gain: Schema.Number,
+  holdings: Schema.Array(InvestmentHolding),
+});
+export type InvestmentAccount = Wire<typeof InvestmentAccount>;
+
+export const InvestmentAccountList = Schema.Array(InvestmentAccount);
+export type InvestmentAccountList = Wire<typeof InvestmentAccountList>;
+
+/**
+ * `POST /investments/contributions` and `DELETE /investments/contributions/:transactionId`:
+ * the expense row with its link to the account, set or cleared.
+ */
+export const InvestmentContribution = Schema.Struct({
+  id: Schema.String,
+  investmentAccountId: Schema.NullOr(Schema.String),
+  transferPairId: Schema.NullOr(Schema.String),
+  transferPairKind: Schema.NullOr(Schema.Literals(['transfer', 'reimbursement', 'investment'])),
+});
+export type InvestmentContribution = Wire<typeof InvestmentContribution>;

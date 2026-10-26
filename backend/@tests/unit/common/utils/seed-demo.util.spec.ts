@@ -7,11 +7,11 @@ import {
 
 function createRepoMock<T>() {
   return {
-    findOne: jest.fn(),
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => ({ ...data }) as T),
-    update: jest.fn(async () => ({ affected: 1 })),
-    count: jest.fn(async () => 0),
+    findOne: vi.fn(),
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => ({ ...data }) as T),
+    update: vi.fn(async () => ({ affected: 1 })),
+    count: vi.fn(async () => 0),
   };
 }
 

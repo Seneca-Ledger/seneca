@@ -16,13 +16,33 @@ import {
   Typography,
 } from '@mui/material';
 import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
+import { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
 
-import { Pencil, Trash2 } from '@/app/components/icons';
+import { Pencil, Plus, Trash2 } from '@/app/components/icons';
+import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { CalendarLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
+import { LoadError } from '@/app/components/ui/load-error';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
+import {
+  fillTemplateNodes,
+  PRIVATE_CLASS,
+  PrivateAmount,
+} from '@/app/components/ui/private-amount';
 import { VendorIcon } from '@/app/components/VendorIcon';
-import { useIntlayer } from '@/app/i18n';
+import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
+import { blobOf } from '@/app/lib/blob-of';
+import {
+  AlarmClock,
+  Calendar,
+  Copy,
+  PiggyBank,
+  Repeat,
+  TrendingUp,
+} from '@/app/lib/category-line-icons';
+import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import {
   formatStoredDateWithOptions,
@@ -35,7 +55,7 @@ import type {
   SubscriptionSummary,
   SubscriptionWorkspaceMember,
 } from '../hooks/useSubscriptionsPage';
-import { RISK_LABELS, STATUS_LABELS, SubscriptionCard } from './SubscriptionCard';
+import { attentionGroups, RISK_LABELS, STATUS_LABELS, SubscriptionCard } from './SubscriptionCard';
 import { SubscriptionDetailsDrawer } from './SubscriptionDetailsDrawer';
 import { SubscriptionFormDrawer } from './SubscriptionFormDrawer';
 import { filterSubscriptions } from './subscription-filter.utils';
@@ -65,21 +85,22 @@ interface SubscriptionsContentProps {
   dialogOpen: boolean;
   editingSubscription: SubscriptionItem | null;
   formData: SubscriptionFormData;
-  setFormData: (data: SubscriptionFormData) => void;
+  setFormData: Dispatch<SetStateAction<SubscriptionFormData>>;
   saving: boolean;
   openCreate: () => void;
+  invalidate: () => Promise<void>;
   openEdit: (subscription: SubscriptionItem) => void;
   closeDialog: () => void;
   handleSave: () => void;
   handleDelete: (id: string) => void;
   handleConfirm: (id: string) => void;
   handleDismiss: (id: string) => void;
-  assignOwner: (id: string, ownerId: string) => Promise<void>;
   recordDecision: (
     id: string,
     decision: 'keep' | 'review' | 'cancelled' | 'price_reduced',
     values?: { note?: string; reviewAt?: string; realizedAnnualSavings?: number },
   ) => Promise<void>;
+  setStatus: (id: string, status: 'active' | 'paused') => Promise<void>;
   recordUsage?: (id: string) => Promise<void>;
   createSinkingFund?: (id: string) => Promise<void>;
   duplicateIds?: Set<string>;
@@ -146,12 +167,40 @@ const formatDate = (date: string | null) =>
 
 export function SubscriptionsContent(props: SubscriptionsContentProps) {
   const t = useIntlayer('subscriptionsPage');
+  const { locale } = useLocale();
+  useQuickActions([
+    {
+      id: 'add-subscription',
+      label: t.addSubscription.value,
+      icon: Plus,
+      run: props.openCreate,
+    },
+  ]);
   const [search, setSearch] = useState('');
   const [ownerId, setOwnerId] = useState('');
   const [category, setCategory] = useState('');
   const [riskStatus, setRiskStatus] = useState('');
   const [selected, setSelected] = useState<SubscriptionItem | null>(null);
+  // Rows carry only the owner's user id; the name comes from the member list.
+  const ownerLabel = (userId: string | null): string | null => {
+    const member = userId ? props.workspaceMembers.find(m => m.id === userId) : undefined;
+    return member ? member.name || member.email || null : null;
+  };
   const [view, setView] = useState<'list' | 'matrix'>('list');
+  // Nothing in this tab at all, as opposed to filters that found nothing: the
+  // first gets "No subscriptions yet" and no filters, the second "No matches".
+  const hasSubscriptions = props.subscriptions.length > 0;
+  // None in the workspace: the summary would be a row of zeros.
+  const noneYet = !(props.isPending || hasSubscriptions) && props.statusFilter === 'all';
+  // The summary covers the whole workspace, whatever the tab: with nothing in it
+  // every card shows a dash rather than a row of zeros, on every tab alike.
+  const summaryEmpty = Object.values(props.summary).every(value => value === 0);
+  const clearFilters = (): void => {
+    setSearch('');
+    setOwnerId('');
+    setCategory('');
+    setRiskStatus('');
+  };
   const visibleSubscriptions = useMemo(
     () =>
       filterSubscriptions(props.subscriptions, {
@@ -162,13 +211,14 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
       }),
     [props.subscriptions, search, ownerId, category, riskStatus],
   );
+  // The filter matches on the stored name; only the option label is translated.
   const categories = useMemo(
     () => [
-      ...new Set(
-        props.subscriptions
-          .map(item => item.category?.name)
-          .filter((name): name is string => Boolean(name)),
-      ),
+      ...new Map(
+        props.subscriptions.flatMap(item =>
+          item.category ? [[item.category.name, item.category] as const] : [],
+        ),
+      ).values(),
     ],
     [props.subscriptions],
   );
@@ -196,115 +246,53 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
     };
   }, [props.chargeCalendar, visibleSubscriptions]);
 
+  const statusLabels: Record<string, string> = {
+    all: t.tabAll.value,
+    detected: t.tabDetected.value,
+    active: t.tabActive.value,
+    paused: t.tabPaused.value,
+    cancelled: t.tabCancelled.value,
+  };
+  const riskLabels: Record<string, string> = {
+    price_changed: t.riskPriceChanged.value,
+    date_shifted: t.riskDateShifted.value,
+    missing_charge: t.riskMissingCharge.value,
+  };
+  const titleSummary = joinSummary([
+    statusLabels[props.statusFilter],
+    search.trim() && `${t.searchLabel.value}: “${search.trim()}”`,
+    ownerId && ownerLabel(ownerId),
+    category,
+    riskStatus && riskLabels[riskStatus],
+    view === 'matrix' && t.upcomingCharges.value,
+  ]);
+
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, flex: 1 }}>
+    <Box
+      sx={{
+        px: { xs: 2, md: 4 },
+        pt: 'var(--seneca-page-top, 16px)',
+        pb: { xs: 2, md: 3 },
+        flex: 1,
+      }}
+    >
+      <Box sx={{ mb: 2 }}>
+        <PageTitle path="/subscriptions" summary={titleSummary} />
+      </Box>
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'space-between',
+          flexWrap: { xs: 'wrap', md: 'nowrap' },
           alignItems: 'center',
           gap: 2,
           mb: 3,
+          // On a phone the tabs take their own line; squeezed beside the actions they vanished.
+          '& > .MuiTabs-root': { flexBasis: { xs: '100%', md: 'auto' }, minWidth: 0 },
         }}
       >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            {t.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t.subtitle}
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          onClick={() => {
-            void apiClient
-              .get<Blob>('/subscriptions/business-report', {
-                params: { format: 'csv' },
-                responseType: 'blob',
-              })
-              .then(response => {
-                const url = URL.createObjectURL(response.data);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = 'business-subscriptions.csv';
-                link.click();
-                URL.revokeObjectURL(url);
-              });
-          }}
-        >
-          {t.businessReport}
-        </Button>
-        <Button variant="contained" onClick={props.openCreate}>
-          {t.addSubscription}
-        </Button>
-      </Box>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        {[
-          {
-            label: t.kpiMonthlyCost.value,
-            value: formatAmount(props.summary.totalMonthlyCost, props.workspaceCurrency),
-          },
-          { label: t.kpiForecast.value, value: String(props.summary.upcoming30DaysCount) },
-          {
-            label: t.kpiPriceChanges.value,
-            // The yearly effect is the number people actually ask for.
-            value: props.summary.priceChangeYearlyEffect
-              ? `${props.summary.priceChangeCount} · ${t.yearlyEffect.value.replace(
-                  '{{amount}}',
-                  formatAmount(props.summary.priceChangeYearlyEffect, props.workspaceCurrency),
-                )}`
-              : String(props.summary.priceChangeCount),
-            // Only a count that needs attention gets a colour.
-            accent: props.summary.priceChangeCount > 0 ? 'warning.main' : undefined,
-          },
-          {
-            label: t.kpiDuplicates.value,
-            value: String(props.summary.duplicateCount ?? 0),
-            accent: props.summary.duplicateCount ? 'warning.main' : undefined,
-          },
-          {
-            label: t.kpiReviewsOverdue.value,
-            value: String(props.summary.overdueReviewCount),
-            accent: props.summary.overdueReviewCount > 0 ? 'error.main' : undefined,
-          },
-          {
-            label: t.realizedAnnualSavings.value,
-            value: formatAmount(props.summary.realizedAnnualSavings, props.workspaceCurrency),
-          },
-        ].map(({ label, value, accent }) => (
-          <Card key={label} variant="outlined">
-            <CardContent sx={{ py: 1.75, '&:last-child': { pb: 1.75 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                {label}
-              </Typography>
-              <Typography
-                sx={{
-                  mt: 0.5,
-                  fontSize: 26,
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                  fontVariantNumeric: 'tabular-nums',
-                  color: accent ?? 'text.primary',
-                }}
-              >
-                {value}
-              </Typography>
-            </CardContent>
-          </Card>
-        ))}
-      </Box>
-      {/* The MuiTabs root itself gets a negative margin from the theme's
-          scrollable-tabs focus-ring override, which cancels an sx margin
-          set directly on it — so the spacing lives on this wrapper instead. */}
-      <Box sx={{ mt: 3, mb: 4 }}>
+        {/* The MuiTabs root itself gets a negative margin from the theme's
+            scrollable-tabs focus-ring override, which cancels an sx margin
+            set directly on it — so the spacing lives on this row instead. */}
         <Tabs
           value={props.statusFilter}
           onChange={(_, value) => props.setStatusFilter(value)}
@@ -317,10 +305,181 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           <Tab value="paused" label={t.tabPaused.value} />
           <Tab value="cancelled" label={t.tabCancelled.value} />
         </Tabs>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            ml: 'auto',
+            flexShrink: { xs: 1, md: 0 },
+            minWidth: 0,
+          }}
+        >
+          <ImportFromFileButton
+            target="subscriptions"
+            onImported={() => void props.invalidate()}
+            renderTrigger={(open, label) => (
+              <Button variant="outlined" onClick={open}>
+                {label}
+              </Button>
+            )}
+          />
+          <Button
+            variant="outlined"
+            onClick={() => {
+              void apiClient
+                .get('/subscriptions/business-report', {
+                  params: { format: 'csv' },
+                  responseType: 'blob',
+                })
+                .then(response => {
+                  const url = URL.createObjectURL(blobOf(response));
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = 'business-subscriptions.csv';
+                  link.click();
+                  URL.revokeObjectURL(url);
+                });
+            }}
+          >
+            {t.businessReport}
+          </Button>
+          {/* With nothing yet the empty state's own button is the one to press. */}
+          <Button
+            variant={noneYet ? 'outlined' : 'contained'}
+            className="seneca-bottom-bar-source"
+            onClick={props.openCreate}
+          >
+            <Plus size={18} aria-hidden />
+            {t.addSubscription}
+          </Button>
+        </Box>
       </Box>
       <Box
+        data-tour-shot="subscriptions-kpis"
         sx={{
-          display: 'flex',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        {[
+          {
+            label: t.kpiMonthlyCost.value,
+            icon: Repeat,
+            value: (
+              <PrivateAmount>
+                {formatAmount(props.summary.totalMonthlyCost, props.workspaceCurrency)}
+              </PrivateAmount>
+            ),
+          },
+          {
+            label: t.kpiForecast.value,
+            icon: Calendar,
+            // The money that leaves first; how many charges that is, under it.
+            value: (
+              <PrivateAmount>
+                {formatAmount(props.summary.upcoming30DaysAmount, props.workspaceCurrency)}
+              </PrivateAmount>
+            ),
+            detail: props.summary.upcoming30DaysCount
+              ? t.kpiForecastCharges.value.replace(
+                  '{count}',
+                  String(props.summary.upcoming30DaysCount),
+                )
+              : undefined,
+          },
+          {
+            label: t.kpiPriceChanges.value,
+            icon: TrendingUp,
+            value: String(props.summary.priceChangeCount),
+            // What the changes cost over a year, signed, on a quiet line of its own.
+            detail: props.summary.priceChangeYearlyEffect ? (
+              <PrivateAmount>
+                {fillTemplateNodes(t.yearlyEffect.value, {
+                  amount: `${props.summary.priceChangeYearlyEffect > 0 ? '+' : '−'}${formatAmount(
+                    Math.abs(props.summary.priceChangeYearlyEffect),
+                    props.workspaceCurrency,
+                  )}`,
+                })}
+              </PrivateAmount>
+            ) : undefined,
+            // Only a count that needs attention gets a colour.
+            accent: props.summary.priceChangeCount > 0 ? 'warning.main' : undefined,
+          },
+          {
+            label: t.kpiDuplicates.value,
+            icon: Copy,
+            value: String(props.summary.duplicateCount ?? 0),
+            accent: props.summary.duplicateCount ? 'warning.main' : undefined,
+          },
+          {
+            label: t.kpiReviewsOverdue.value,
+            icon: AlarmClock,
+            value: String(props.summary.overdueReviewCount),
+            accent: props.summary.overdueReviewCount > 0 ? 'error.main' : undefined,
+          },
+          {
+            label: t.realizedAnnualSavings.value,
+            icon: PiggyBank,
+            value: (
+              <PrivateAmount>
+                {formatAmount(props.summary.realizedAnnualSavings, props.workspaceCurrency)}
+              </PrivateAmount>
+            ),
+          },
+        ].map(({ label, icon: Icon, value, accent, detail }) => (
+          // Its own stacking context, so the icon sits under the text.
+          <Card key={label} variant="outlined" sx={{ position: 'relative', isolation: 'isolate' }}>
+            {/* The dashboard tile's faint icon, smaller: these cards are half as tall. */}
+            <Icon
+              className="seneca-dashboard__stat-icon"
+              aria-hidden="true"
+              style={{ width: 64, height: 64 }}
+            />
+            <CardContent sx={{ py: 1.75, '&:last-child': { pb: 1.75 } }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  display: 'block',
+                }}
+              >
+                {label}
+              </Typography>
+              <Typography
+                sx={{
+                  mt: 0.5,
+                  fontSize: 26,
+                  fontWeight: 500,
+                  lineHeight: 1.2,
+                  fontVariantNumeric: 'tabular-nums',
+                  color: summaryEmpty ? 'var(--muted-foreground)' : (accent ?? 'text.primary'),
+                }}
+              >
+                {summaryEmpty ? '—' : value}
+              </Typography>
+              {!summaryEmpty && detail && (
+                <Typography
+                  sx={{
+                    mt: 0.25,
+                    fontSize: 13,
+                    color: 'text.secondary',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {detail}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
+      {/* Nothing to filter in an empty tab. */}
+      <Box
+        sx={{
+          display: hasSubscriptions ? 'flex' : 'none',
           flexWrap: 'wrap',
           alignItems: 'center',
           gap: 1.5,
@@ -356,9 +515,9 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           onChange={event => setCategory(event.target.value)}
         >
           <MenuItem value="">{t.allCategories}</MenuItem>
-          {categories.map(name => (
-            <MenuItem key={name} value={name}>
-              {name}
+          {categories.map(item => (
+            <MenuItem key={item.name} value={item.name}>
+              {getCategoryDisplayName(item, locale)}
             </MenuItem>
           ))}
         </Select>
@@ -440,19 +599,31 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
           </Box>
         </>
       ) : props.error ? (
-        <Typography color="error" sx={{ py: 4, textAlign: 'center' }}>
-          {props.error}
-        </Typography>
+        <LoadError spacing={4}>{props.error}</LoadError>
       ) : visibleSubscriptions.length === 0 || (matrixView && visibleCalendar.rows.length === 0) ? (
-        <EmptyState
-          illustration="subscriptions"
-          description={t.emptyFiltered}
-          action={
-            <Button variant="outlined" onClick={props.openCreate}>
-              {t.addSubscription}
-            </Button>
-          }
-        />
+        hasSubscriptions ? (
+          <EmptyState
+            icon={<SearchLineIcon />}
+            title={t.noMatchesTitle}
+            description={t.emptyFiltered}
+            action={
+              <Button variant="text" onClick={clearFilters}>
+                {t.clearFilters}
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={<CalendarLineIcon />}
+            title={t.emptyTitle}
+            description={t.emptyHint}
+            action={
+              <Button variant="contained" onClick={props.openCreate}>
+                {t.addSubscription}
+              </Button>
+            }
+          />
+        )
       ) : matrixView ? (
         <LazyChargeCalendar
           calendar={visibleCalendar}
@@ -468,6 +639,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
         // Фоновое обновление после действия в строке не гасит список скелетоном.
         <Box sx={{ opacity: props.isFetching ? 0.6 : 1, transition: 'opacity 150ms ease' }}>
           <Box
+            data-tour-shot="subscriptions-list"
             sx={{
               display: { xs: 'none', md: 'block' },
               overflowX: 'auto',
@@ -504,6 +676,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                   <tr
                     key={subscription.id}
                     data-attention={`subscription:${subscription.id}`}
+                    data-attention-group={attentionGroups(subscription)}
                     onClick={() => setSelected(subscription)}
                   >
                     <td>
@@ -513,17 +686,30 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                           vendorDomain={subscription.vendorDomain}
                         />
                         <Box>
-                          <Typography fontWeight={600}>{subscription.vendorName}</Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography
+                            sx={{
+                              fontWeight: 600,
+                            }}
+                          >
+                            {subscription.vendorName}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: 'text.secondary',
+                            }}
+                          >
                             {t[STATUS_LABELS[subscription.status]]}
                             {props.duplicateIds?.has(subscription.id) && <> · {t.duplicateChip}</>}
                           </Typography>
                         </Box>
                       </Box>
                     </td>
-                    <td>{formatAmount(subscription.amount, subscription.currency)}</td>
+                    <td className={PRIVATE_CLASS}>
+                      {formatAmount(subscription.amount, subscription.currency)}
+                    </td>
                     <td>{formatDate(subscription.nextChargeDate)}</td>
-                    <td>{subscription.owner?.name || subscription.owner?.email || t.unassigned}</td>
+                    <td>{ownerLabel(subscription.ownerId) ?? t.unassigned}</td>
                     <td>
                       {subscription.riskStatus === 'none'
                         ? '—'
@@ -568,10 +754,15 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
       )}
       <SubscriptionDetailsDrawer
         subscription={selected}
-        members={props.workspaceMembers}
         onClose={() => setSelected(null)}
-        onAssignOwner={props.assignOwner}
+        // The form takes the card's place; saving refreshes the list it reopens from.
+        onEdit={() => {
+          if (!selected) return;
+          setSelected(null);
+          props.openEdit(selected);
+        }}
         onDecision={props.recordDecision}
+        onStatusChange={props.setStatus}
       />
       <SubscriptionFormDrawer
         open={props.dialogOpen}

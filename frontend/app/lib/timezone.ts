@@ -44,9 +44,7 @@ export const formatTimeZoneLabel = (zone: string, locale: string): string => {
   // У зон без собственного имени ICU возвращает вместо него тот же самый
   // сдвиг — печатать его дважды незачем.
   const named = name && name !== offset ? name : null;
-  const label = offset
-    ? `${zone}${named ? ` — ${named}` : ''} (${offset})`
-    : (named ?? zone);
+  const label = offset ? `${zone}${named ? ` — ${named}` : ''} (${offset})` : (named ?? zone);
 
   timeZoneLabelCache.set(cacheKey, label);
   return label;

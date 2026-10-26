@@ -43,7 +43,7 @@ import { LedgerSyncQueue } from '../../src/modules/ledger/queue/ledger-sync.queu
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_ledger_revaluation_${process.pid}`;
+const SCRATCH_DB = `seneca_ledger_revaluation_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -55,15 +55,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -78,7 +78,7 @@ const USD_EUR: Record<string, number> = {
 };
 
 describe('ledger FX revaluation (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let revaluation: LedgerRevaluationService;
@@ -108,6 +108,7 @@ describe('ledger FX revaluation (real Postgres)', () => {
         categoryId: salesId,
         amount,
         credit: amount,
+        isVerified: true,
       }),
     );
 
@@ -166,12 +167,12 @@ describe('ledger FX revaluation (real Postgres)', () => {
         LedgerPostingService,
         LedgerAccountsService,
         LedgerReportsService,
-        { provide: LedgerSyncQueue, useValue: { enqueue: jest.fn() } },
-        { provide: AuditService, useValue: { createEvent: jest.fn().mockResolvedValue(undefined) } },
+        { provide: LedgerSyncQueue, useValue: { enqueue: vi.fn() } },
+        { provide: AuditService, useValue: { createEvent: vi.fn().mockResolvedValue(undefined) } },
         {
           provide: ExchangeRatesService,
           useValue: {
-            getRateQuote: jest.fn(async (from: string, to: string, date: string) => {
+            getRateQuote: vi.fn(async (from: string, to: string, date: string) => {
               const known = Object.keys(USD_EUR).filter(day => day <= date).sort();
               const day = known[known.length - 1];
               return from === 'USD' && to === 'EUR' && day
@@ -193,7 +194,9 @@ describe('ledger FX revaluation (real Postgres)', () => {
     txRepo = dataSource.getRepository(Transaction);
 
     workspaceId = (
-      await dataSource.getRepository(Workspace).save({ name: 'FX WS', ledgerBaseCurrency: 'EUR' })
+      await dataSource
+        .getRepository(Workspace)
+        .save({ name: 'FX WS', currency: 'EUR', ledgerBaseCurrency: 'EUR' })
     ).id;
     userId = (
       await dataSource.getRepository(User).save(

@@ -3,37 +3,29 @@
 import { Skeleton } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { StatementsSearchPopover } from '@/app/(main)/statements/components/filters/StatementsSearchPopover';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import { DataGrid, type GridColumnDef, useDataGrid } from '@/app/components/data-grid';
-import { ExternalLink, Search, Trash2 } from '@/app/components/icons';
+import { ExternalLink, Plus, Trash2 } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { Button } from '@/app/components/ui/button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { Select } from '@/app/components/ui/select';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
+import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
-import { CreateFromStatementsModal } from './components/CreateFromStatementsModal';
 import { CreateTableDialog } from './components/CreateTableDialog';
-import { useCreateFromStatements } from './hooks/useCreateFromStatements';
 import { useCreateTable } from './hooks/useCreateTable';
 import { type SourceFilter, type TableListItem, useTablesList } from './hooks/useTablesList';
 import { buildListLabels, type ListLabels } from './labels';
-
-const formatLabel = ({
-  template,
-  values,
-}: {
-  template: string;
-  values: Record<string, string | number>;
-}) =>
-  Object.entries(values).reduce(
-    (acc, [key, value]) => acc.replace(`{${key}}`, String(value)),
-    template,
-  );
+import type { SourceKind } from './sources';
 
 function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => void) {
   const router = useRouter();
+  const categoryName = useCategoryName();
   return useMemo<GridColumnDef<TableListItem, unknown>[]>(
     () => [
       {
@@ -42,11 +34,11 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         header: labels.columns.name,
         size: 320,
         cell: ({ row }) => (
-          <span className="lumio-ct__cell">
-            <span className="lumio-ct__cell-text">
-              <span className="lumio-ct__list-name">{row.original.name}</span>
+          <span className="seneca-ct__cell">
+            <span className="seneca-ct__cell-text">
+              <span className="seneca-ct__list-name">{row.original.name}</span>
               {row.original.description ? (
-                <span className="lumio-ct__list-sub">{row.original.description}</span>
+                <span className="seneca-ct__list-sub">{row.original.description}</span>
               ) : null}
             </span>
           </span>
@@ -57,18 +49,23 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         accessorFn: row => row.source,
         header: labels.columns.source,
         size: 150,
-        cell: ({ row }) => (
-          <span className="lumio-ct__badge lumio-ct__badge--neutral">
-            {row.original.source === 'manual' ? labels.actions.sourceManual : row.original.source}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const kind = row.original.sourceBinding?.kind as SourceKind | undefined;
+          let label = row.original.source;
+          if (kind) {
+            label = labels.create.sources[kind]?.name ?? kind;
+          } else if (row.original.source === 'manual') {
+            label = labels.actions.sourceManual;
+          }
+          return <span className="seneca-ct__badge seneca-ct__badge--neutral">{label}</span>;
+        },
       },
       {
         id: 'category',
         accessorFn: row => row.category?.name ?? '',
         header: labels.columns.category,
         size: 160,
-        cell: ({ row }) => row.original.category?.name ?? '—',
+        cell: ({ row }) => (row.original.category ? categoryName(row.original.category.name) : '—'),
       },
       {
         id: 'rows',
@@ -76,7 +73,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         header: labels.columns.rows,
         size: 90,
         sortFn: 'basic',
-        meta: { align: 'end', className: 'lumio-grid__cell--numeric' },
+        meta: { align: 'end', className: 'seneca-grid__cell--numeric' },
         cell: ({ row }) => (row.original.rowsCount === undefined ? '…' : row.original.rowsCount),
       },
       {
@@ -95,7 +92,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         enableHiding: false,
         meta: { align: 'end', label: labels.actions.rowActions },
         cell: ({ row }) => (
-          <span className="lumio-ct__list-actions">
+          <span className="seneca-ct__list-actions">
             <Button
               variant="ghost"
               size="icon"
@@ -124,7 +121,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         ),
       },
     ],
-    [labels, router, onDelete],
+    [labels, router, onDelete, categoryName],
   );
 }
 
@@ -145,20 +142,20 @@ export default function CustomTablesPage() {
     columnTitles: labels.create.columnTitles,
     messages: {
       created: labels.toasts.created,
+      createdFromSource: labels.toasts.createdFromSource,
       createFailed: labels.toasts.createFailed,
       applying: labels.create.applying,
       partialFailed: labels.create.partialFailed,
     },
   });
-  const fromStatements = useCreateFromStatements({
-    loadTables: list.reload,
-    messages: {
-      loadStatementsFailed: labels.toasts.loadStatementsFailed,
-      selectAtLeastOne: labels.toasts.selectAtLeastOneStatement,
-      createdFromStatement: labels.toasts.createdFromStatement,
-      createFromStatementFailed: labels.toasts.createFromStatementFailed,
+  useQuickActions([
+    {
+      id: 'new-table',
+      label: labels.actions.newTable,
+      icon: Plus,
+      run: () => create.setOpen(true),
     },
-  });
+  ]);
   const [deleteTarget, setDeleteTarget] = useState<TableListItem | null>(null);
   const columns = useListColumns(labels, setDeleteTarget);
   const table = useDataGrid<TableListItem>({
@@ -170,7 +167,7 @@ export default function CustomTablesPage() {
 
   if (authLoading || (list.loading && !list.items.length)) {
     return (
-      <div className="lumio-ct" aria-busy>
+      <div className="seneca-ct" aria-busy>
         <Skeleton variant="text" width={200} height={36} />
         <Skeleton variant="rounded" height={40} />
         <Skeleton variant="rounded" height={320} />
@@ -179,28 +176,25 @@ export default function CustomTablesPage() {
   }
 
   return (
-    <div className="lumio-ct">
-      <header className="lumio-ct__header">
-        <div className="lumio-ct__title-row">
-          <h1 className="lumio-ct__title">{labels.header.title}</h1>
-          <p className="lumio-ct__description">{labels.header.subtitle}</p>
-        </div>
-      </header>
-      <div className="lumio-ct__toolbar">
-        <label className="lumio-ct__search" data-tour-id="search-bar">
-          <Search size={16} aria-hidden className="lumio-ct__search-icon" />
-          <input
-            type="search"
-            className="lumio-ct__search-input"
-            placeholder={labels.actions.search}
-            aria-label={labels.actions.search}
+    <div className="seneca-ct">
+      <PageTitle
+        path="/custom-tables"
+        summary={joinSummary([
+          list.searchQuery.trim() && `“${list.searchQuery.trim()}”`,
+          list.sourceFilter === 'manual' && labels.actions.sourceManual,
+        ])}
+      />
+      <div className="seneca-ct__toolbar">
+        <span data-tour-id="search-bar">
+          <StatementsSearchPopover
             value={list.searchQuery}
-            onChange={event => list.setSearchQuery(event.target.value)}
+            onApply={list.setSearchQuery}
+            applyLabel={labels.actions.apply}
+            hint={labels.actions.searchHint}
           />
-        </label>
-        <div className="lumio-ct__actions">
+        </span>
+        <div className="seneca-ct__actions">
           <Select
-            size="small"
             data-tour-id="custom-tables-source-filter"
             inputProps={{ 'aria-label': labels.columns.source }}
             value={list.sourceFilter}
@@ -211,20 +205,13 @@ export default function CustomTablesPage() {
             ]}
           />
           <Button
-            variant="outline"
             size="sm"
             type="button"
-            data-tour-id="custom-tables-create-dropdown"
-            onClick={() => void fromStatements.openCreateFromStatements()}
-          >
-            {labels.actions.fromStatements}
-          </Button>
-          <Button
-            size="sm"
-            type="button"
+            className="seneca-bottom-bar-source"
             data-tour-id="custom-tables-create-export"
             onClick={() => create.setOpen(true)}
           >
+            <Plus size={18} aria-hidden />
             {labels.actions.newTable}
           </Button>
         </div>
@@ -237,12 +224,13 @@ export default function CustomTablesPage() {
           onRowClick={row => router.push(`/custom-tables/${row.original.id}`)}
           emptyState={
             <EmptyState
-              illustration="statements"
+              illustration="tables"
               size="sm"
               title={labels.empty.title}
               description={labels.empty.description}
               action={
                 <Button size="sm" type="button" onClick={() => create.setOpen(true)}>
+                  <Plus size={18} aria-hidden />
                   {labels.actions.newTable}
                 </Button>
               }
@@ -262,45 +250,10 @@ export default function CustomTablesPage() {
         setForm={create.setForm}
         creating={create.creating}
         categories={list.categories}
+        existingTables={list.allTables}
         onSubmit={() => void create.submit()}
         onClose={create.close}
         labels={labels.create}
-      />
-      <CreateFromStatementsModal
-        open={fromStatements.createFromStatementsOpen}
-        step={fromStatements.createFromStatementsStep}
-        form={fromStatements.createFromStatementsForm}
-        selectedStatementIds={fromStatements.selectedStatementIds}
-        statementsSearchQuery={fromStatements.statementsSearchQuery}
-        statementsSourceFilter={fromStatements.statementsSourceFilter}
-        statementsGroupBy={fromStatements.statementsGroupBy}
-        statementSourceOptions={fromStatements.statementSourceOptions}
-        statementsLoading={fromStatements.statementsLoading}
-        statementSelectionOptions={fromStatements.statementSelectionOptions}
-        groupedStatementSelectionOptions={fromStatements.groupedStatementSelectionOptions}
-        selectedStatementSummary={fromStatements.selectedStatementSummary}
-        selectedStatementPayloadIds={fromStatements.selectedStatementPayloadIds}
-        selectedStatementPreviewItems={fromStatements.selectedStatementPreviewItems}
-        creatingFromStatements={fromStatements.creatingFromStatements}
-        namingHintLabel={labels.createFromStatements.namingHint}
-        labels={labels.createFromStatements}
-        formatLabel={formatLabel}
-        onClose={fromStatements.closeCreateFromStatements}
-        onStepChange={fromStatements.setCreateFromStatementsStep}
-        onFormChange={patch =>
-          fromStatements.setCreateFromStatementsForm(prev => ({ ...prev, ...patch }))
-        }
-        onToggleStatement={({ representativeId, checked }) =>
-          fromStatements.setSelectedStatementIds(prev =>
-            checked
-              ? [...new Set([...prev, representativeId])]
-              : prev.filter(id => id !== representativeId),
-          )
-        }
-        onSearchChange={fromStatements.setStatementsSearchQuery}
-        onSourceFilterChange={fromStatements.setStatementsSourceFilter}
-        onGroupByChange={fromStatements.setStatementsGroupBy}
-        onSubmit={() => void fromStatements.handleCreateFromStatements()}
       />
       <ConfirmModal
         isOpen={deleteTarget !== null}

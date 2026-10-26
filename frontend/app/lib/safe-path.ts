@@ -21,7 +21,7 @@ export function safeInternalPath(nextPath: string | null): string | null {
     return null;
   }
 
-  const base = 'https://lumio.local';
+  const base = 'https://seneca.local';
   const parsed = new URL(decodedPath, base);
   if (parsed.origin !== base) {
     return null;

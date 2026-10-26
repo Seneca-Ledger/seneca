@@ -37,8 +37,8 @@ describe('POST /statements/stage (e2e)', () => {
   async function insertStatement(account: E2eAccount, name: string): Promise<string> {
     const [row] = await dataSource.query(
       `INSERT INTO statements
-         (user_id, workspace_id, file_name, file_path, file_type, file_size, file_hash, bank_name, status)
-       VALUES ($1, $2, $3::text, '/dev/null', 'csv', 1, md5($3::text), 'other', 'completed')
+         (user_id, workspace_id, file_name, file_path, file_type, file_size, file_hash, bank_name, status, currency)
+       VALUES ($1, $2, $3::text, '/dev/null', 'csv', 1, md5($3::text), 'other', 'completed', 'USD')
        RETURNING id`,
       [account.userId, account.workspaceId, name],
     );
@@ -53,8 +53,8 @@ describe('POST /statements/stage (e2e)', () => {
     await dataSource.query(
       `INSERT INTO transactions
          (transaction_date, counterparty_name, payment_purpose, transaction_type,
-          workspace_id, statement_id, category_id)
-       VALUES ('2026-09-01', 'Probe vendor', 'Probe purchase', 'expense', $1, $2, $3)`,
+          workspace_id, statement_id, category_id, currency)
+       VALUES ('2026-09-01', 'Probe vendor', 'Probe purchase', 'expense', $1, $2, $3, 'USD')`,
       [account.workspaceId, statementId, categoryId],
     );
   }

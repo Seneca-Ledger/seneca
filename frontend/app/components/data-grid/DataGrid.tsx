@@ -45,7 +45,7 @@ export interface DataGridProps<TData extends RowData> {
 }
 
 const alignClass = (meta: GridColumnMeta | undefined): string =>
-  meta?.align ? ` lumio-grid__cell--${meta.align}` : '';
+  meta?.align ? ` seneca-grid__cell--${meta.align}` : '';
 
 const cellClass = (base: string, meta: GridColumnMeta | undefined): string =>
   `${base}${alignClass(meta)}${meta?.className ? ` ${meta.className}` : ''}`;
@@ -69,23 +69,23 @@ function HeaderCell<TData extends RowData>({
   return (
     <th
       scope="col"
-      className={cellClass('lumio-grid__th', meta)}
+      className={cellClass('seneca-grid__th', meta)}
       style={cellStyle(header.getSize())}
       aria-sort={canSort ? ariaSort(sorted) : undefined}
     >
-      <span className="lumio-grid__th-inner">
+      <span className="seneca-grid__th-inner">
         {canSort ? (
           <button
             type="button"
-            className={`lumio-grid__sort${sorted ? ' lumio-grid__sort--active' : ''}`}
+            className={`seneca-grid__sort${sorted ? ' seneca-grid__sort--active' : ''}`}
             onClick={header.column.getToggleSortingHandler()}
           >
-            <span className="lumio-grid__sort-label">{content}</span>
+            <span className="seneca-grid__sort-label">{content}</span>
             {sorted === 'desc' ? (
-              <ArrowDown className="lumio-grid__sort-icon" aria-hidden />
+              <ArrowDown className="seneca-grid__sort-icon" aria-hidden />
             ) : (
               <ArrowUp
-                className={`lumio-grid__sort-icon${sorted ? '' : ' lumio-grid__sort-icon--idle'}`}
+                className={`seneca-grid__sort-icon${sorted ? '' : ' seneca-grid__sort-icon--idle'}`}
                 aria-hidden
               />
             )}
@@ -108,7 +108,7 @@ function BodyCell<TData extends RowData>({
 }) {
   const meta = cell.column.columnDef.meta;
   return (
-    <td className={cellClass('lumio-grid__td', meta)} style={cellStyle(cell.column.getSize())}>
+    <td className={cellClass('seneca-grid__td', meta)} style={cellStyle(cell.column.getSize())}>
       <table.FlexRender cell={cell} />
     </td>
   );
@@ -129,8 +129,8 @@ function BodyRow<TData extends RowData>({
 }) {
   const selected = row.getIsSelected();
   const extra = rowClassName?.(row);
-  const className = `lumio-grid__tr${selected ? ' lumio-grid__tr--selected' : ''}${
-    onRowClick ? ' lumio-grid__tr--clickable' : ''
+  const className = `seneca-grid__tr${selected ? ' seneca-grid__tr--selected' : ''}${
+    onRowClick ? ' seneca-grid__tr--clickable' : ''
   }${extra ? ` ${extra}` : ''}`;
   return (
     <tr
@@ -173,13 +173,13 @@ function SkeletonRows({
       // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity
       key={rowIndex}
       aria-hidden
-      className="lumio-grid__tr lumio-grid__skeleton-row"
+      className="seneca-grid__tr seneca-grid__skeleton-row"
       style={rowHeight ? { height: rowHeight } : undefined}
     >
       {Array.from({ length: columns }, (_, cellIndex) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity
-        <td key={cellIndex} className="lumio-grid__td">
-          <span className="lumio-grid__skeleton" />
+        <td key={cellIndex} className="seneca-grid__td">
+          <span className="seneca-grid__skeleton" />
         </td>
       ))}
     </tr>
@@ -202,20 +202,20 @@ export function DataGridSkeleton({
   className?: string;
 }): React.JSX.Element {
   return (
-    <div className={`lumio-grid${className ? ` ${className}` : ''}`} aria-hidden>
-      <div className="lumio-grid__scroll">
-        <table className="lumio-grid__table" style={{ width: '100%' }}>
-          <thead className="lumio-grid__thead">
+    <div className={`seneca-grid${className ? ` ${className}` : ''}`} aria-hidden>
+      <div className="seneca-grid__scroll">
+        <table className="seneca-grid__table" style={{ width: '100%' }}>
+          <thead className="seneca-grid__thead">
             <tr>
               {Array.from({ length: columns }, (_, index) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity
-                <th key={index} className="lumio-grid__th">
-                  <span className="lumio-grid__skeleton" />
+                <th key={index} className="seneca-grid__th">
+                  <span className="seneca-grid__skeleton" />
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="lumio-grid__tbody">
+          <tbody className="seneca-grid__tbody">
             <SkeletonRows count={rows} columns={columns} rowHeight={rowHeight} />
           </tbody>
         </table>
@@ -226,7 +226,7 @@ export function DataGridSkeleton({
 
 function SpacerRow({ height, colSpan }: { height: number; colSpan: number }) {
   return height > 0 ? (
-    <tr aria-hidden className="lumio-grid__spacer">
+    <tr aria-hidden className="seneca-grid__spacer">
       <td colSpan={colSpan} style={{ height, padding: 0, border: 0 }} />
     </tr>
   ) : null;
@@ -253,13 +253,13 @@ function useEndReached(
 
 function GridFooter<TData extends RowData>({ table }: { table: DataGridTable<TData> }) {
   return (
-    <tfoot className="lumio-grid__tfoot">
+    <tfoot className="seneca-grid__tfoot">
       {table.getFooterGroups().map(group => (
-        <tr key={group.id} className="lumio-grid__tr">
+        <tr key={group.id} className="seneca-grid__tr">
           {group.headers.map(header => (
             <td
               key={header.id}
-              className={cellClass('lumio-grid__tf', header.column.columnDef.meta)}
+              className={cellClass('seneca-grid__tf', header.column.columnDef.meta)}
               style={cellStyle(header.getSize())}
             >
               {header.isPlaceholder ? null : <table.FlexRender footer={header} />}
@@ -311,15 +311,15 @@ export function DataGrid<TData extends RowData>({
   const indicator = loadingIndicator(loading, rows.length, skeletonRows);
 
   return (
-    <div className={`lumio-grid${className ? ` ${className}` : ''}`}>
+    <div className={`seneca-grid${className ? ` ${className}` : ''}`}>
       <div
-        className="lumio-grid__scroll"
+        className="seneca-grid__scroll"
         ref={scrollRef}
         style={maxHeight ? { maxHeight } : undefined}
       >
-        <table className="lumio-grid__table" style={{ width: table.getTotalSize() }}>
-          <caption className="lumio-grid__caption">{caption}</caption>
-          <thead className="lumio-grid__thead">
+        <table className="seneca-grid__table" style={{ width: table.getTotalSize() }}>
+          <caption className="seneca-grid__caption">{caption}</caption>
+          <thead className="seneca-grid__thead">
             {table.getHeaderGroups().map(group => (
               <tr key={group.id}>
                 {group.headers.map(header => (
@@ -328,7 +328,7 @@ export function DataGrid<TData extends RowData>({
               </tr>
             ))}
           </thead>
-          <tbody className="lumio-grid__tbody" aria-busy={loading || undefined}>
+          <tbody className="seneca-grid__tbody" aria-busy={loading || undefined}>
             <SpacerRow height={topGap} colSpan={colSpan} />
             {visibleRows.map(row =>
               row ? (
@@ -350,15 +350,15 @@ export function DataGrid<TData extends RowData>({
             />
             {trailing}
             {isEmpty && emptyState ? (
-              <tr className="lumio-grid__empty-row">
-                <td colSpan={colSpan} className="lumio-grid__empty">
+              <tr className="seneca-grid__empty-row">
+                <td colSpan={colSpan} className="seneca-grid__empty">
                   {emptyState}
                 </td>
               </tr>
             ) : null}
             {indicator.spinner ? (
-              <tr className="lumio-grid__loading-row">
-                <td colSpan={colSpan} className="lumio-grid__loading">
+              <tr className="seneca-grid__loading-row">
+                <td colSpan={colSpan} className="seneca-grid__loading">
                   <Spinner size={20} />
                 </td>
               </tr>

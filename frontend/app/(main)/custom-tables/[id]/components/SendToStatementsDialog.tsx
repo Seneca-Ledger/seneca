@@ -74,13 +74,13 @@ export function SendToStatementsDialog(props: SendToStatementsDialogProps) {
       }
     >
       {result ? (
-        <div className="lumio-ct__convert">
+        <div className="seneca-ct__convert">
           <p>{fill(labels.imported, result.importedRows)}</p>
           {result.skippedRows ? (
-            <p className="lumio-ct__hint">{fill(labels.skipped, result.skippedRows)}</p>
+            <p className="seneca-ct__hint">{fill(labels.skipped, result.skippedRows)}</p>
           ) : null}
           {result.warnings.length ? (
-            <ul className="lumio-ct__warnings">
+            <ul className="seneca-ct__warnings">
               {result.warnings.slice(0, 5).map(warning => (
                 <li key={warning}>{warning}</li>
               ))}
@@ -88,9 +88,9 @@ export function SendToStatementsDialog(props: SendToStatementsDialogProps) {
           ) : null}
         </div>
       ) : (
-        <div className="lumio-ct__convert">
+        <div className="seneca-ct__convert">
           <p>{labels.message}</p>
-          <p className="lumio-ct__hint">{labels.requirements}</p>
+          <p className="seneca-ct__hint">{labels.requirements}</p>
         </div>
       )}
     </ModalShell>

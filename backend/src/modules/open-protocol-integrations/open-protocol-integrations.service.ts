@@ -16,6 +16,7 @@ import { simpleParser } from 'mailparser';
 import type { Repository } from 'typeorm';
 import { Like } from 'typeorm';
 import type { FileStat, WebDAVClient } from 'webdav';
+import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import {
   assertPublicEgressHost,
@@ -42,10 +43,10 @@ import {
   User,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
-import { GmailReceiptCategoryService } from '../gmail/services/gmail-receipt-category.service';
-import { GmailReceiptDuplicateService } from '../gmail/services/gmail-receipt-duplicate.service';
-import { GmailReceiptParserService } from '../gmail/services/gmail-receipt-parser.service';
 import { sniffStatementFormat } from '../parsing/parsers/statement-formats.util';
+import { EmailReceiptParserService } from '../receipts/services/email-receipt-parser.service';
+import { ReceiptCategoryService } from '../receipts/services/receipt-category.service';
+import { ReceiptDuplicateService } from '../receipts/services/receipt-duplicate.service';
 import { StatementsService } from '../statements/statements.service';
 
 type ProtocolStatusResponse = {
@@ -139,9 +140,9 @@ export class OpenProtocolIntegrationsService {
     private readonly receiptRepository: Repository<Receipt>,
     private readonly statementsService: StatementsService,
     private readonly fileStorageService: FileStorageService,
-    private readonly receiptParserService: GmailReceiptParserService,
-    private readonly receiptDuplicateService: GmailReceiptDuplicateService,
-    private readonly receiptCategoryService: GmailReceiptCategoryService,
+    private readonly receiptParserService: EmailReceiptParserService,
+    private readonly receiptDuplicateService: ReceiptDuplicateService,
+    private readonly receiptCategoryService: ReceiptCategoryService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -397,7 +398,9 @@ export class OpenProtocolIntegrationsService {
   async autoBackupStatementToS3(workspaceId: string, statementId: string): Promise<void> {
     const integration = await this.integrationRepository.findOne({
       where: { workspaceId, provider: IntegrationProvider.S3_COMPATIBLE },
-      relations: ['openProtocolSettings'],
+      relations: {
+        openProtocolSettings: true,
+      },
     });
     if (!integration?.openProtocolSettings) {
       return;
@@ -571,7 +574,7 @@ export class OpenProtocolIntegrationsService {
     const syntheticId = `imap:${config.host}:${config.mailbox}:${messageId}`;
     // Per workspace: the same inbox may be set up in several workspaces.
     const existing = await this.receiptRepository.findOne({
-      where: { workspaceId, gmailMessageId: syntheticId },
+      where: { workspaceId, messageId: syntheticId },
     });
     if (existing) {
       return null;
@@ -621,8 +624,7 @@ export class OpenProtocolIntegrationsService {
         userId: user.id,
         workspaceId,
         source: ReceiptSource.IMAP,
-        gmailMessageId: syntheticId,
-        gmailThreadId: null,
+        messageId: syntheticId,
         subject: parsed.subject || '(no subject)',
         sender: parsed.from?.text || '',
         receivedAt: parsed.date || new Date(),
@@ -632,7 +634,8 @@ export class OpenProtocolIntegrationsService {
           labels: ['imap'],
           snippet: parsed.text?.slice(0, 500),
         },
-        parsedData,
+        // Saving turns the omitted column into null, as before.
+        parsedData: parsedData ?? undefined,
         attachmentPaths,
         taxAmount: parsedData?.tax || null,
         isDuplicate: false,
@@ -653,14 +656,7 @@ export class OpenProtocolIntegrationsService {
     }
 
     if (parsedData && receipt.status !== ReceiptStatus.FAILED) {
-      const category = await this.receiptCategoryService.suggestCategory(receipt);
-      if (category) {
-        receipt.parsedData = {
-          ...receipt.parsedData,
-          category: category.name,
-          categoryId: category.id,
-        };
-      }
+      await this.receiptCategoryService.categorize(receipt);
     }
 
     const saved = await this.receiptRepository.save(receipt);
@@ -681,7 +677,9 @@ export class OpenProtocolIntegrationsService {
   ): Promise<string | null> {
     const existing = await this.statementRepository.findOne({
       where: { workspaceId, fileName: Like(`%${syntheticId.slice(-24)}%`) },
-      select: ['id'],
+      select: {
+        id: true,
+      },
     });
     if (existing) {
       return null;
@@ -811,7 +809,7 @@ export class OpenProtocolIntegrationsService {
     }
     const config = this.getS3ConfigFromEnv(true);
     if (!config) {
-      throw new BadRequestException('S3-compatible storage is not configured');
+      throw new BadRequestException(appError('OPEN_PROTOCOL_S3_NOT_CONFIGURED'));
     }
     return config;
   }
@@ -823,7 +821,7 @@ export class OpenProtocolIntegrationsService {
     const bucket = process.env.S3_BUCKET;
     if (!(endpoint && bucket)) {
       if (required) {
-        throw new BadRequestException('S3-compatible storage is not configured');
+        throw new BadRequestException(appError('OPEN_PROTOCOL_S3_NOT_CONFIGURED'));
       }
       return null;
     }
@@ -845,7 +843,7 @@ export class OpenProtocolIntegrationsService {
     const endpoint = this.stringValue(config.endpoint);
     const bucket = this.stringValue(config.bucket);
     if (!(endpoint && bucket)) {
-      throw new BadRequestException('S3-compatible storage is not configured');
+      throw new BadRequestException(appError('OPEN_PROTOCOL_S3_NOT_CONFIGURED'));
     }
     return {
       endpoint,
@@ -878,7 +876,7 @@ export class OpenProtocolIntegrationsService {
     }
     const config = this.getWebdavConfigFromEnv(true);
     if (!config) {
-      throw new BadRequestException('WebDAV storage is not configured');
+      throw new BadRequestException(appError('OPEN_PROTOCOL_WEBDAV_NOT_CONFIGURED'));
     }
     return config;
   }
@@ -889,7 +887,7 @@ export class OpenProtocolIntegrationsService {
     const url = process.env.WEBDAV_URL;
     if (!url) {
       if (required) {
-        throw new BadRequestException('WebDAV storage is not configured');
+        throw new BadRequestException(appError('OPEN_PROTOCOL_WEBDAV_NOT_CONFIGURED'));
       }
       return null;
     }
@@ -906,7 +904,7 @@ export class OpenProtocolIntegrationsService {
     const secrets = settings.encryptedSecrets || {};
     const url = this.stringValue(config.url);
     if (!url) {
-      throw new BadRequestException('WebDAV storage is not configured');
+      throw new BadRequestException(appError('OPEN_PROTOCOL_WEBDAV_NOT_CONFIGURED'));
     }
     return {
       url,
@@ -925,7 +923,7 @@ export class OpenProtocolIntegrationsService {
     }
     const config = this.getImapConfigFromEnv(true);
     if (!config) {
-      throw new BadRequestException('IMAP inbox is not configured');
+      throw new BadRequestException(appError('OPEN_PROTOCOL_IMAP_NOT_CONFIGURED'));
     }
     return config;
   }
@@ -938,7 +936,7 @@ export class OpenProtocolIntegrationsService {
     const pass = process.env.IMAP_PASS;
     if (!(host && user && pass)) {
       if (required) {
-        throw new BadRequestException('IMAP inbox is not configured');
+        throw new BadRequestException(appError('OPEN_PROTOCOL_IMAP_NOT_CONFIGURED'));
       }
       return null;
     }
@@ -959,7 +957,7 @@ export class OpenProtocolIntegrationsService {
     const user = secrets.user ? decryptText(secrets.user) : '';
     const pass = secrets.pass ? decryptText(secrets.pass) : '';
     if (!(host && user && pass)) {
-      throw new BadRequestException('IMAP inbox is not configured');
+      throw new BadRequestException(appError('OPEN_PROTOCOL_IMAP_NOT_CONFIGURED'));
     }
     return {
       host,
@@ -979,7 +977,9 @@ export class OpenProtocolIntegrationsService {
   private async findProtocolIntegration(workspaceId: string, provider: IntegrationProvider) {
     const integration = await this.integrationRepository.findOne({
       where: { workspaceId, provider },
-      relations: ['openProtocolSettings'],
+      relations: {
+        openProtocolSettings: true,
+      },
     });
 
     return {
@@ -1038,7 +1038,7 @@ export class OpenProtocolIntegrationsService {
     const endpoint = input.endpoint?.trim() || current?.endpoint;
     const bucket = input.bucket?.trim() || current?.bucket;
     if (!(endpoint && bucket)) {
-      throw new BadRequestException('S3 endpoint and bucket are required');
+      throw new BadRequestException(appError('OPEN_PROTOCOL_S3_FIELDS_REQUIRED'));
     }
     return {
       endpoint,
@@ -1072,7 +1072,7 @@ export class OpenProtocolIntegrationsService {
       : this.getWebdavConfigFromEnv(false);
     const url = input.url?.trim() || current?.url;
     if (!url) {
-      throw new BadRequestException('WebDAV URL is required');
+      throw new BadRequestException(appError('OPEN_PROTOCOL_WEBDAV_URL_REQUIRED'));
     }
     return {
       url,
@@ -1093,7 +1093,7 @@ export class OpenProtocolIntegrationsService {
     const user = input.user?.trim() || current?.user;
     const pass = input.pass || current?.pass;
     if (!(host && user && pass)) {
-      throw new BadRequestException('IMAP host, user, and password are required');
+      throw new BadRequestException(appError('OPEN_PROTOCOL_IMAP_FIELDS_REQUIRED'));
     }
     return {
       host,
@@ -1106,10 +1106,14 @@ export class OpenProtocolIntegrationsService {
   }
 
   private async assertS3Connection(config: S3Config): Promise<void> {
+    // The same pinned-lookup agents as the runtime client: the endpoint was just
+    // checked, and the probe must not connect wherever it resolves next (DNS rebinding).
+    const { httpAgent, httpsAgent } = createPublicEgressHttpAgents();
     const client = new S3Client({
       endpoint: config.endpoint,
       region: config.region,
       forcePathStyle: config.forcePathStyle,
+      requestHandler: new NodeHttpHandler({ httpAgent, httpsAgent }),
       credentials:
         config.accessKeyId && config.secretAccessKey
           ? {
@@ -1123,7 +1127,7 @@ export class OpenProtocolIntegrationsService {
       await client.send(new HeadBucketCommand({ Bucket: config.bucket }));
     } catch (error) {
       throw new BadRequestException(
-        `Failed to connect S3-compatible storage: ${this.getErrorMessage(error)}`,
+        appError('OPEN_PROTOCOL_S3_CONNECT_FAILED', { reason: this.getErrorMessage(error) }),
       );
     }
   }
@@ -1134,7 +1138,7 @@ export class OpenProtocolIntegrationsService {
       await client.getDirectoryContents(config.rootPath);
     } catch (error) {
       throw new BadRequestException(
-        `Failed to connect WebDAV storage: ${this.getErrorMessage(error)}`,
+        appError('OPEN_PROTOCOL_WEBDAV_CONNECT_FAILED', { reason: this.getErrorMessage(error) }),
       );
     }
   }
@@ -1175,7 +1179,9 @@ export class OpenProtocolIntegrationsService {
       await client.connect();
       await client.mailboxOpen(config.mailbox);
     } catch (error) {
-      throw new BadRequestException(`Failed to connect IMAP inbox: ${this.getErrorMessage(error)}`);
+      throw new BadRequestException(
+        appError('OPEN_PROTOCOL_IMAP_CONNECT_FAILED', { reason: this.getErrorMessage(error) }),
+      );
     } finally {
       await client.logout().catch(() => undefined);
     }
@@ -1242,18 +1248,25 @@ export class OpenProtocolIntegrationsService {
     provider: IntegrationProvider,
     uploaded: number,
   ): Promise<void> {
-    await this.auditService
-      .createEvent({
+    try {
+      const { integration } = await this.findProtocolIntegration(workspaceId, provider);
+      // Storage configured from the environment has no integration row to log against.
+      if (!integration) {
+        return;
+      }
+      await this.auditService.createEvent({
         workspaceId,
         actorType: ActorType.INTEGRATION,
         actorId: user.id,
         actorLabel: `${provider} Sync`,
         entityType: EntityType.INTEGRATION,
-        entityId: null,
+        entityId: integration.id,
         action: AuditAction.EXPORT,
         meta: { provider, uploaded },
-      })
-      .catch(error => this.logger.warn(`Audit event failed: ${this.getErrorMessage(error)}`));
+      });
+    } catch (error) {
+      this.logger.warn(`Audit event failed: ${this.getErrorMessage(error)}`);
+    }
   }
 
   private async auditReceiptImport(
@@ -1273,7 +1286,7 @@ export class OpenProtocolIntegrationsService {
         diff: { before: null, after: receipt },
         meta: {
           provider: IntegrationProvider.IMAP,
-          messageId: receipt.gmailMessageId,
+          messageId: receipt.messageId,
         },
       })
       .catch(error => this.logger.warn(`Audit event failed: ${this.getErrorMessage(error)}`));

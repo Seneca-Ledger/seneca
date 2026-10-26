@@ -1,19 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type Repository } from 'typeorm';
+import { onlyFlows } from '../../common/utils/counted-transactions.util';
+import {
+  applyOwnerFilter,
+  type OwnerFilter,
+  parseOwnerFilter,
+} from '../../common/utils/transaction-owner.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
+import type { CashFlowMapQuery } from '../../contracts';
 import { Category } from '../../entities/category.entity';
-import { StatementStatus } from '../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import {
   buildCashFlowMap,
   type CashFlowMap,
+  type CashFlowMapOptions,
   type CashFlowRow,
   type CategoryNode,
   previousPeriod,
 } from './cash-flow-map.util';
-import type { CashFlowMapQueryDto } from './dto/cash-flow-map-query.dto';
 
 export interface CashFlowMapResponse extends CashFlowMap {
   currency: string;
@@ -24,21 +31,22 @@ export interface CashFlowMapResponse extends CashFlowMap {
   availableCategories: CategoryNode[];
 }
 
-const LABELS: Record<
-  string,
-  { uncategorised: string; otherSources: string; total: string; transfers: string }
-> = {
+const LABELS: Record<string, CashFlowMapOptions['labels']> = {
   en: {
     uncategorised: 'Uncategorised',
     otherSources: 'Other sources',
-    total: 'Income',
+    total: 'Money flow',
     transfers: 'Transfers & investments',
+    fromBalance: 'From your balance',
+    leftOver: 'Left over',
   },
   ru: {
     uncategorised: 'Без категории',
     otherSources: 'Другие источники',
-    total: 'Доход',
+    total: 'Денежный поток',
     transfers: 'Переводы и инвестиции',
+    fromBalance: 'Из остатка',
+    leftOver: 'Осталось',
   },
 };
 
@@ -60,8 +68,9 @@ export class CashFlowMapService {
 
   async getMap(
     workspaceId: string,
-    query: CashFlowMapQueryDto,
+    query: CashFlowMapQuery,
     locale?: string,
+    selfMemberId: string | null = null,
   ): Promise<CashFlowMapResponse> {
     const to = query.dateTo ?? today();
     const from = query.dateFrom ?? shiftDays(to, -29);
@@ -69,10 +78,20 @@ export class CashFlowMapService {
     const includeTransfers = query.includeTransfers === true;
 
     const [workspace, categories] = await Promise.all([
-      this.workspaceRepository.findOne({ where: { id: workspaceId }, select: ['currency'] }),
+      this.workspaceRepository.findOne({
+        where: { id: workspaceId },
+        select: {
+          currency: true,
+        },
+      }),
       this.categoryRepository.find({
         where: { workspaceId },
-        select: ['id', 'name', 'parentId', 'type'],
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+          type: true,
+        },
       }),
     ]);
     const currency = normalizeCurrency(workspace?.currency);
@@ -83,7 +102,17 @@ export class CashFlowMapService {
     }));
     const allowed = this.allowedCategoryIds(nodes, query.categories);
 
-    const rows = await this.loadRows(workspaceId, from, to, currency, includeTransfers, allowed);
+    const owner = parseOwnerFilter(query.owner, selfMemberId);
+    const rows = await this.loadRows(
+      workspaceId,
+      from,
+      to,
+      currency,
+      includeTransfers,
+      allowed,
+      owner,
+      selfMemberId,
+    );
     const previousRows = previous
       ? await this.loadRows(
           workspaceId,
@@ -92,6 +121,8 @@ export class CashFlowMapService {
           currency,
           includeTransfers,
           allowed,
+          owner,
+          selfMemberId,
         )
       : null;
 
@@ -134,27 +165,28 @@ export class CashFlowMapService {
     currency: string,
     includeTransfers: boolean,
     allowed: Set<string> | null,
+    owner: OwnerFilter,
+    selfMemberId: string | null,
   ): Promise<CashFlowRow[]> {
     const qb = this.transactionRepository
       .createQueryBuilder('t')
-      .innerJoin('t.statement', 's')
       .select([
         't.transactionType AS "type"',
         't.currency AS currency',
         't.credit AS credit',
         't.debit AS debit',
         't.categoryId AS "categoryId"',
-        't.counterpartyName AS "counterpartyName"',
+        // Another member's private rows count under the placeholder, not their merchant.
+        `${redactedSql('t', 't.counterparty_name')} AS "counterpartyName"`,
         't.transferPairId AS "transferPairId"',
       ])
-      .where('s.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('s.deletedAt IS NULL')
-      .andWhere('s.status NOT IN (:...excluded)', {
-        excluded: [StatementStatus.ERROR, StatementStatus.PROCESSING],
-      })
+      .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.isDuplicate = false')
       .andWhere('t.transactionDate >= :from', { from })
-      .andWhere('t.transactionDate <= :to', { to });
+      .andWhere('t.transactionDate <= :to', { to })
+      .setParameter(PRIVACY_VIEWER_PARAM, selfMemberId);
+    onlyFlows(qb, 't');
+    applyOwnerFilter(qb, 't', owner);
     if (!includeTransfers) {
       qb.andWhere('t.transferPairId IS NULL');
     }

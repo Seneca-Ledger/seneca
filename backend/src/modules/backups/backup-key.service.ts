@@ -44,6 +44,7 @@ export class BackupKeyService {
   }
 
   private masterKey(): Buffer {
+    // The fallback predates the rename; changing it would make existing dev backups unreadable.
     return crypto
       .createHash('sha256')
       .update(this.masterSecret || 'lumio-development-backup-key')

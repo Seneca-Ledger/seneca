@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxRatesService } from '@/modules/tax/tax-rates.service';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
@@ -6,7 +7,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 describe('TaxRatesService', () => {
   let service: TaxRatesService;
   let repo: ReturnType<typeof createRepoMock>;
-  let auditService: { createEvent: jest.Mock };
+  let auditService: { createEvent: Mock };
 
   /**
    * Default clearing is period-scoped, so it runs through a query builder
@@ -15,22 +16,22 @@ describe('TaxRatesService', () => {
    */
   const mockUpdateQueryBuilder = () => {
     const qb = {
-      update: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      update: vi.fn().mockReturnThis(),
+      set: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue({ affected: 0 }),
     };
     repo.createQueryBuilder.mockReturnValue(qb);
     return qb;
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     repo = createRepoMock();
     repo.create.mockImplementation((input: unknown) => input);
     repo.save.mockImplementation(async (input: unknown) => input);
-    auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
     service = new TaxRatesService(repo, auditService as never);
   });
 
@@ -125,7 +126,8 @@ describe('TaxRatesService', () => {
       const existing = { id: 'rate-1', workspaceId: 'ws-1', name: 'Old', rate: 10 };
       repo.findOne
         .mockResolvedValueOnce(existing) // findOne in update
-        .mockResolvedValueOnce(null); // duplicate check
+        .mockResolvedValueOnce(null) // duplicate check
+        .mockResolvedValueOnce(existing); // read back after saving
 
       await service.update('rate-1', 'ws-1', { name: 'New Name', rate: 25 });
       expect(repo.save).toHaveBeenCalledWith(
@@ -160,7 +162,8 @@ describe('TaxRatesService', () => {
       const existing = { id: 'rate-1', workspaceId: 'ws-1', name: 'Same' };
       repo.findOne
         .mockResolvedValueOnce(existing) // findOne
-        .mockResolvedValueOnce({ id: 'rate-1', name: 'Same' }); // same record
+        .mockResolvedValueOnce({ id: 'rate-1', name: 'Same' }) // same record
+        .mockResolvedValueOnce(existing); // read back after saving
 
       await expect(service.update('rate-1', 'ws-1', { name: 'Same' })).resolves.toBeDefined();
     });
@@ -230,7 +233,8 @@ describe('TaxRatesService', () => {
     it('records an UPDATE with before and after', async () => {
       repo.findOne
         .mockResolvedValueOnce({ id: 'rate-1', workspaceId: 'ws-1', name: 'Old', rate: 10 })
-        .mockResolvedValueOnce(null);
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'rate-1' });
 
       await service.update('rate-1', 'ws-1', { name: 'New', rate: 25 }, 'user-1');
 
@@ -301,6 +305,64 @@ describe('TaxRatesService', () => {
       repo.count.mockResolvedValue(3);
       await service.createDefaultTaxRates('ws-1');
       expect(repo.save).not.toHaveBeenCalled();
+    });
+  });
+  // ─── startNewVersion ───────────────────────────────────────
+
+  describe('startNewVersion', () => {
+    const current = {
+      id: 'rate-19',
+      workspaceId: 'ws-1',
+      jurisdictionId: 'de',
+      code: 'DE_STANDARD',
+      kind: 'standard',
+      name: 'MwSt 19%',
+      rate: '19.00',
+      isDefault: true,
+      isEnabled: true,
+      isInclusive: true,
+      isReverseCharge: false,
+      validFrom: '1900-01-01',
+      validTo: null,
+    };
+    let saved: Array<Record<string, unknown>>;
+
+    beforeEach(() => {
+      saved = [];
+      repo.findOne.mockResolvedValue({ ...current });
+      const txRepo = {
+        save: vi.fn(async (row: Record<string, unknown>) => {
+          saved.push(row);
+          return { id: `saved-${saved.length}`, ...row };
+        }),
+        create: vi.fn((row: unknown) => row),
+      };
+      (repo as unknown as { manager: unknown }).manager = {
+        transaction: async (work: (manager: unknown) => unknown) =>
+          work({ getRepository: () => txRepo }),
+      };
+    });
+
+    it('ends the version in force the day before and starts a copy at the new rate', async () => {
+      await service.startNewVersion('ws-1', 'rate-19', 20, '2027-01-01', 'user-1');
+      expect(saved[0]).toMatchObject({ id: 'rate-19', validTo: '2026-12-31' });
+      expect(saved[1]).toMatchObject({
+        code: 'DE_STANDARD',
+        name: 'MwSt 20%',
+        rate: 20,
+        isDefault: true,
+        validFrom: '2027-01-01',
+        validTo: null,
+      });
+      expect(auditService.createEvent).toHaveBeenCalledTimes(2);
+    });
+
+    it('refuses a date the rate is not in force on', async () => {
+      repo.findOne.mockResolvedValue({ ...current, validTo: '2026-06-30' });
+      await expect(
+        service.startNewVersion('ws-1', 'rate-19', 20, '2027-01-01'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(saved).toEqual([]);
     });
   });
 });

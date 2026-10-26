@@ -4,58 +4,23 @@ import * as path from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, type Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
-import { Integration, IntegrationStatus, Transaction, User } from '../../entities';
-import { ImportConfigService } from '../import/config/import.config';
-import type { ParsedTransaction } from '../parsing/interfaces/parsed-statement.interface';
-import { IntelligentDeduplicationService } from '../parsing/services/intelligent-deduplication.service';
+import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
+import { Integration, IntegrationStatus, User } from '../../entities';
 import { StatementsService } from '../statements/statements.service';
 import type { BankSyncAccountSetting, BankSyncHealth } from './bank-sync.config';
 import { linksOf } from './bank-sync.config';
 import { BankSyncService } from './bank-sync.service';
-import { buildOfxStatement, ofxFileName, providerRowKey } from './bank-sync-ofx.util';
+import { BankSyncDedupeService } from './bank-sync-dedupe.service';
+import { healthOf, recordDrift, sinceOf } from './bank-sync-health';
+import { buildOfxStatement, ofxFileName } from './bank-sync-ofx.util';
 import {
   type BankSyncAccount,
   BankSyncAuthError,
   BankSyncTemporaryError,
   type BankSyncTransaction,
 } from './bank-sync-provider.interface';
-
-/** How far back the first pull of an account reaches. */
-const FIRST_SYNC_DAYS = 90;
-/** Later pulls start this far before the previous one: posted dates settle late. */
-const OVERLAP_DAYS = 7;
-/** A balance this old means the provider stopped hearing from the bank. */
-const STALE_BALANCE_DAYS = 14;
-/** Money differences below this are rounding, not a missing row. */
-const DRIFT_EPSILON = 0.01;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Postgres hands back `date` columns as strings and `decimal` columns as
- * strings, so a stored row has to be coerced before it can be compared with a
- * freshly parsed one. Skipping this is a silent failure: the comparison throws
- * on the date, or quietly scores every amount as different.
- */
-function asComparable(row: Transaction): ParsedTransaction {
-  const toNumber = (value: number | string | null): number | undefined => {
-    if (value === null || value === '') return undefined;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  };
-  return {
-    transactionDate: new Date(row.transactionDate),
-    counterpartyName: row.counterpartyName ?? '',
-    paymentPurpose: row.paymentPurpose ?? '',
-    debit: toNumber(row.debit),
-    credit: toNumber(row.credit),
-    currency: row.currency,
-  };
-}
-
-/** Whether the balance gap is new this pull or was already there last time. */
-type DriftState = 'none' | 'new' | 'persisting';
 
 export interface BankSyncAccountResult {
   id: string;
@@ -86,12 +51,9 @@ export class BankSyncPullService {
   constructor(
     @InjectRepository(Integration)
     private readonly integrationRepository: Repository<Integration>,
-    @InjectRepository(Transaction)
-    private readonly transactionRepository: Repository<Transaction>,
     private readonly connections: BankSyncService,
     private readonly statementsService: StatementsService,
-    private readonly deduplication: IntelligentDeduplicationService,
-    private readonly importConfig: ImportConfigService,
+    private readonly dedupe: BankSyncDedupeService,
   ) {}
 
   async sync(user: User, workspaceId: string, connectionId: string): Promise<BankSyncResult> {
@@ -103,9 +65,7 @@ export class BankSyncPullService {
     if (enabled.length === 0) return result;
 
     const now = new Date();
-    const since = new Date(
-      Math.min(...enabled.map(account => this.sinceOf(account, now).getTime())),
-    );
+    const since = new Date(Math.min(...enabled.map(account => sinceOf(account, now).getTime())));
 
     let pulled: BankSyncAccount[];
     try {
@@ -137,8 +97,13 @@ export class BankSyncPullService {
   async autoSync(): Promise<void> {
     const keys = this.connections.catalogue().map(item => item.key);
     const integrations = await this.integrationRepository.find({
-      where: { provider: In(keys), status: IntegrationStatus.CONNECTED },
-      relations: ['openProtocolSettings', 'connectedByUser'],
+      // A past version pulls nothing new, whatever its copied settings say.
+      where: {
+        provider: In(keys),
+        status: IntegrationStatus.CONNECTED,
+        workspace: STANDARD_WORKSPACE,
+      },
+      relations: { openProtocolSettings: true, connectedByUser: true },
     });
     for (const integration of integrations) {
       const config = this.connections.configOf(integration);
@@ -184,11 +149,16 @@ export class BankSyncPullService {
       };
     }
 
-    const floor = this.sinceOf(account, now).getTime();
+    const floor = sinceOf(account, now).getTime();
     const candidates = remote.transactions.filter(
       item => !item.pending && item.posted.getTime() >= floor,
     );
-    const fresh = await this.withoutKnownRows(workspaceId, account, candidates, remote.currency);
+    const fresh = await this.dedupe.withoutKnownRows(
+      workspaceId,
+      account,
+      candidates,
+      remote.currency,
+    );
     let statementId: string | null = null;
     let error: string | undefined;
     if (fresh.length > 0) {
@@ -209,14 +179,14 @@ export class BankSyncPullService {
     }
 
     if (!error) {
-      const drift = this.recordDrift(account, remote, candidates, now);
+      const drift = recordDrift(account, remote, candidates, now);
       account.lastSyncAt = now.toISOString();
       account.balance = remote.balance;
       account.balanceDate = remote.balanceDate?.toISOString() ?? null;
       account.name = remote.name;
       account.consentExpiresAt = remote.consentExpiresAt?.toISOString() ?? account.consentExpiresAt;
       account.lastError = null;
-      account.health = this.healthOf(account, drift, now);
+      account.health = healthOf(account, drift, now);
       // The floor only ever applies to the pull right after a switch.
       account.syncFrom = null;
     } else {
@@ -231,147 +201,6 @@ export class BankSyncPullService {
       health: account.health,
       ...(error ? { error } : {}),
     };
-  }
-
-  /**
-   * The window this account is pulled over. `syncFrom` wins when it is set: a
-   * feed that has just moved to another provider must not replay history the
-   * wallet already holds.
-   */
-  private sinceOf(account: BankSyncAccountSetting, now: Date): Date {
-    if (account.syncFrom) return new Date(account.syncFrom);
-    if (account.lastSyncAt) {
-      return new Date(new Date(account.lastSyncAt).getTime() - OVERLAP_DAYS * DAY_MS);
-    }
-    return new Date(now.getTime() - FIRST_SYNC_DAYS * DAY_MS);
-  }
-
-  /**
-   * Drops rows the workspace already holds, in two passes.
-   *
-   * The provider's own id catches a re-pull of the same feed. It does not catch
-   * the two cases that actually corrupt data: a feed moved to another provider,
-   * which numbers the same purchase differently, and a bank that renumbers a
-   * row when it moves from pending to booked. Those need the same tolerant
-   * comparison a re-uploaded statement gets, so this reuses it rather than
-   * inventing a second notion of "same transaction".
-   */
-  private async withoutKnownRows(
-    workspaceId: string,
-    account: BankSyncAccountSetting,
-    rows: BankSyncTransaction[],
-    currency: string,
-  ): Promise<BankSyncTransaction[]> {
-    if (rows.length === 0) return rows;
-    const byId = await this.withoutKnownIds(workspaceId, account.id, rows);
-    // Without a wallet there is nothing to scope the comparison to, and matching
-    // across the whole workspace would drop honest look-alikes from other accounts.
-    if (byId.length === 0 || !account.walletId) return byId;
-    return this.withoutTolerantMatches(workspaceId, account.walletId, byId, currency);
-  }
-
-  private async withoutKnownIds(
-    workspaceId: string,
-    accountId: string,
-    rows: BankSyncTransaction[],
-  ): Promise<BankSyncTransaction[]> {
-    const known = new Set<string>();
-    const ids = rows.map(row => providerRowKey(accountId, row.id));
-    for (let offset = 0; offset < ids.length; offset += 500) {
-      const existing = await this.transactionRepository.find({
-        where: { workspaceId, documentNumber: In(ids.slice(offset, offset + 500)) },
-        select: ['documentNumber'],
-      });
-      for (const row of existing) {
-        if (row.documentNumber) known.add(row.documentNumber);
-      }
-    }
-    return rows.filter(row => !known.has(providerRowKey(accountId, row.id)));
-  }
-
-  private async withoutTolerantMatches(
-    workspaceId: string,
-    walletId: string,
-    rows: BankSyncTransaction[],
-    currency: string,
-  ): Promise<BankSyncTransaction[]> {
-    const tolerance = this.importConfig.getDedupDateToleranceDays();
-    const times = rows.map(row => row.posted.getTime());
-    const from = new Date(Math.min(...times) - tolerance * DAY_MS);
-    const to = new Date(Math.max(...times) + tolerance * DAY_MS);
-    const existing = await this.transactionRepository.find({
-      where: { workspaceId, walletId, transactionDate: Between(from, to) },
-    });
-    if (existing.length === 0) return rows;
-    const stored = existing.map(row => ({ id: row.id, parsed: asComparable(row) }));
-
-    const claimed = new Set<string>();
-    return rows.filter(row => {
-      const parsed = this.asParsedTransaction(row, currency);
-      const match = stored.find(candidate => {
-        if (claimed.has(candidate.id)) return false;
-        return this.deduplication.applyTolerantRules(parsed, candidate.parsed).isMatch;
-      });
-      if (!match) return true;
-      // One stored row can only account for one incoming row.
-      claimed.add(match.id);
-      return false;
-    });
-  }
-
-  /** The provider's row in the shape the tolerant comparison expects. */
-  private asParsedTransaction(row: BankSyncTransaction, currency: string): ParsedTransaction {
-    const name = row.payee || row.description || row.memo || '';
-    return {
-      transactionDate: row.posted,
-      counterpartyName: name,
-      paymentPurpose: row.memo || row.description || name,
-      debit: row.amount < 0 ? Math.abs(row.amount) : undefined,
-      credit: row.amount >= 0 ? row.amount : undefined,
-      currency,
-    };
-  }
-
-  /**
-   * Compares how far the provider's balance moved against the rows that arrived
-   * to explain the move. A gap that is still there on the next pull is a row
-   * that never came: the failure that otherwise hides behind a green dot.
-   */
-  private recordDrift(
-    account: BankSyncAccountSetting,
-    remote: BankSyncAccount,
-    candidates: BankSyncTransaction[],
-    now: Date,
-  ): DriftState {
-    const carriedOver = account.driftSince !== null;
-    const previousBalance = account.balance;
-    const previousBalanceDate = account.balanceDate ? new Date(account.balanceDate) : null;
-    if (previousBalance === null || remote.balance === null || !previousBalanceDate) {
-      account.balanceDrift = null;
-      account.driftSince = null;
-      return 'none';
-    }
-    const explained = candidates
-      .filter(row => row.posted.getTime() > previousBalanceDate.getTime())
-      .reduce((sum, row) => sum + row.amount, 0);
-    const drift = Number((remote.balance - previousBalance - explained).toFixed(2));
-    if (Math.abs(drift) <= DRIFT_EPSILON) {
-      account.balanceDrift = null;
-      account.driftSince = null;
-      return 'none';
-    }
-    account.balanceDrift = drift;
-    account.driftSince = account.driftSince ?? now.toISOString();
-    return carriedOver ? 'persisting' : 'new';
-  }
-
-  private healthOf(account: BankSyncAccountSetting, drift: DriftState, now: Date): BankSyncHealth {
-    if (drift === 'persisting') return 'incomplete';
-    if (account.balanceDate) {
-      const age = now.getTime() - new Date(account.balanceDate).getTime();
-      if (age > STALE_BALANCE_DAYS * DAY_MS) return 'stale';
-    }
-    return 'ok';
   }
 
   private async importAsStatement(

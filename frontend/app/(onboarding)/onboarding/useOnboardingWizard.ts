@@ -1,55 +1,57 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
+import type { WorkspaceProfile } from '@/app/components/navigation/helpers/navigation-config';
 import type { AppLocale as SupportedLocale } from '@/app/lib/locale';
+import type { DateFormatPreference } from '@/app/lib/user-format';
 
 export type { AppLocale as SupportedLocale } from '@/app/lib/locale';
+
+export type TaxpayerType = 'self_employed' | 'employee' | 'company';
+
+export interface OnboardingBusinessDetails {
+  legalName: string;
+  taxId: string;
+  registrationId: string;
+  addressLines: string;
+}
+
+export const EMPTY_BUSINESS_DETAILS: OnboardingBusinessDetails = {
+  legalName: '',
+  taxId: '',
+  registrationId: '',
+  addressLines: '',
+};
 
 export interface OnboardingData {
   locale: SupportedLocale;
   timeZone: string | null;
+  dateFormat: DateFormatPreference;
+  firstDayOfWeek: number | null;
   workspaceName: string;
   workspaceCurrency: string;
+  /** Not asked: the workspace's own, or one picked at random so a new card is never blank. */
   workspaceBackgroundImage: string | null;
-  integrationsToSetup: string[];
+  /** Null until answered: the question has no default. */
+  profile: WorkspaceProfile | null;
+  /** ISO 3166-1 alpha-2; null for "not listed / decide later". */
+  taxCountry: string | null;
+  taxpayerType: TaxpayerType | null;
+  business: OnboardingBusinessDetails;
 }
 
-export function useOnboardingWizard(initialData: OnboardingData, totalSteps = 5, initialStep = 0) {
-  const [currentStep, setCurrentStep] = useState(initialStep);
+/**
+ * The answers and the step index. Which steps exist depends on the answers (the
+ * business step follows the profile), so the page owns the step list and the
+ * bounds; this only holds state.
+ */
+export function useOnboardingWizard(initialData: OnboardingData) {
+  const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData>(initialData);
-  const lastStepIndex = totalSteps - 1;
-
-  const goNext = useCallback(() => {
-    setCurrentStep(prev => Math.min(prev + 1, lastStepIndex));
-  }, [lastStepIndex]);
-
-  const goBack = useCallback(() => {
-    setCurrentStep(prev => Math.max(prev - 1, 0));
-  }, []);
-
-  const skipAll = useCallback(() => {
-    setCurrentStep(lastStepIndex);
-  }, [lastStepIndex]);
 
   const updateData = useCallback((patch: Partial<OnboardingData>) => {
     setData(prev => ({ ...prev, ...patch }));
   }, []);
 
-  const isLastStep = currentStep === lastStepIndex;
-
-  return useMemo(
-    () => ({
-      currentStep,
-      data,
-      setCurrentStep,
-      setData,
-      updateData,
-      goNext,
-      goBack,
-      skipAll,
-      totalSteps,
-      isLastStep,
-    }),
-    [currentStep, data, goBack, goNext, isLastStep, skipAll, totalSteps, updateData],
-  );
+  return { currentStep, setCurrentStep, data, updateData };
 }

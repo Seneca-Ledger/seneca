@@ -6,8 +6,11 @@ import toast from 'react-hot-toast';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import { apiQuery } from '@/app/lib/query-fn';
+import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
+
+/** The events a webhook subscription can listen to. */
+export type WebhookEventName = ContractInput<'CreateWebhookSubscriptionBody'>['events'][number];
 
 export interface WebhookEndpoint {
   id: string;
@@ -17,6 +20,13 @@ export interface WebhookEndpoint {
   defaultWalletId: string | null;
   defaultBranchId: string | null;
   createdAt: string;
+}
+
+/** A new inbound endpoint: its name and where its statements land unless the sender says. */
+export interface NewEndpointInput {
+  name: string;
+  defaultWalletId?: string | null;
+  defaultBranchId?: string | null;
 }
 
 export interface WebhookEndpointFull extends WebhookEndpoint {
@@ -40,7 +50,9 @@ export function useWebhookEndpoints() {
 
   const query = useQuery({
     queryKey: queryKeys.webhookEndpoints(workspaceId),
-    queryFn: ({ signal }) => apiQuery<WebhookEndpoint[]>({ url: '/webhook-endpoints', signal }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: '/webhook-endpoints', signal, contract: 'WebhookEndpointList' }),
+    enabled: Boolean(workspaceId),
   });
 
   const invalidate = useCallback((): Promise<void> => {
@@ -48,9 +60,15 @@ export function useWebhookEndpoints() {
   }, [queryClient, workspaceId]);
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => apiClient.post('/webhook-endpoints', { name }),
-    onSuccess: response => {
-      setNewToken((response.data as WebhookEndpointFull).token);
+    mutationFn: async (input: NewEndpointInput) => {
+      const response = await apiClient.post(
+        '/webhook-endpoints',
+        input satisfies ContractInput<'CreateWebhookEndpointBody'>,
+      );
+      return checkContract('CreatedWebhookEndpoint', response.data, '/webhook-endpoints');
+    },
+    onSuccess: endpoint => {
+      setNewToken(endpoint.token);
       toast.success(t.toasts.endpointCreated.value);
     },
     onError: () => toast.error(t.toasts.endpointCreateFailed.value),
@@ -58,15 +76,20 @@ export function useWebhookEndpoints() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/webhook-endpoints/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/webhook-endpoints/${id}`);
+    },
     onSuccess: () => toast.success(t.toasts.endpointDeleted.value),
     onError: () => toast.error(t.toasts.endpointDeleteFailed.value),
     onSettled: invalidate,
   });
 
   const toggleMutation = useMutation({
-    mutationFn: (variables: { id: string; isActive: boolean }) =>
-      apiClient.patch(`/webhook-endpoints/${variables.id}`, { isActive: !variables.isActive }),
+    mutationFn: async (variables: { id: string; isActive: boolean }) => {
+      await apiClient.patch(`/webhook-endpoints/${variables.id}`, {
+        isActive: !variables.isActive,
+      } satisfies ContractInput<'UpdateWebhookEndpointBody'>);
+    },
     onError: () => toast.error(t.toasts.endpointUpdateFailed.value),
     onSettled: invalidate,
   });
@@ -76,8 +99,8 @@ export function useWebhookEndpoints() {
   }, [invalidate]);
 
   const create = useCallback(
-    async (name: string) => {
-      createMutation.mutate(name);
+    async (input: NewEndpointInput) => {
+      createMutation.mutate(input);
     },
     [createMutation.mutate],
   );
@@ -116,7 +139,12 @@ export function useWebhookSubscriptions() {
   const query = useQuery({
     queryKey: queryKeys.webhookSubscriptions(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<WebhookSubscription[]>({ url: '/webhook-subscriptions', signal }),
+      apiQueryDecoded({
+        url: '/webhook-subscriptions',
+        signal,
+        contract: 'WebhookSubscriptionList',
+      }),
+    enabled: Boolean(workspaceId),
   });
 
   const invalidate = useCallback((): Promise<void> => {
@@ -126,15 +154,26 @@ export function useWebhookSubscriptions() {
   }, [queryClient, workspaceId]);
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; url: string; secret: string; events: string[] }) =>
-      apiClient.post('/webhook-subscriptions', data),
+    mutationFn: async (data: {
+      name: string;
+      url: string;
+      secret: string;
+      events: WebhookEventName[];
+    }) => {
+      await apiClient.post(
+        '/webhook-subscriptions',
+        data satisfies ContractInput<'CreateWebhookSubscriptionBody'>,
+      );
+    },
     onSuccess: () => toast.success(t.toasts.subscriptionCreated.value),
     onError: () => toast.error(t.toasts.subscriptionCreateFailed.value),
     onSettled: invalidate,
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/webhook-subscriptions/${id}`),
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/webhook-subscriptions/${id}`);
+    },
     onSuccess: () => toast.success(t.toasts.subscriptionDeleted.value),
     onError: () => toast.error(t.toasts.subscriptionDeleteFailed.value),
     onSettled: invalidate,
@@ -145,7 +184,7 @@ export function useWebhookSubscriptions() {
   }, [invalidate]);
 
   const create = useCallback(
-    async (data: { name: string; url: string; secret: string; events: string[] }) => {
+    async (data: { name: string; url: string; secret: string; events: WebhookEventName[] }) => {
       createMutation.mutate(data);
     },
     [createMutation.mutate],
@@ -177,5 +216,40 @@ export function useWebhookSubscriptions() {
     create,
     remove,
     testPing,
+  };
+}
+
+/** The delivery log of one subscription, read when it is opened, and a way to send one again. */
+export function useWebhookDeliveries(subscriptionId: string) {
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
+  const t = useIntlayer('webhooksDrawer');
+  const queryKey = queryKeys.webhookDeliveries(workspaceId, subscriptionId);
+
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: `/webhook-subscriptions/${subscriptionId}/deliveries`,
+        signal,
+        contract: 'WebhookDeliveryList',
+      }),
+    enabled: Boolean(workspaceId),
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: async (deliveryId: string) => {
+      await apiClient.post(`/webhook-deliveries/${deliveryId}/retry`);
+    },
+    onSuccess: () => toast.success(t.toasts.retryQueued.value),
+    onError: () => toast.error(t.toasts.retryFailed.value),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  return {
+    deliveries: query.data ?? [],
+    loading: query.isPending,
+    retry: retryMutation.mutate,
+    retrying: retryMutation.isPending ? retryMutation.variables : null,
   };
 }

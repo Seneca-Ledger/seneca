@@ -8,7 +8,7 @@ describe('ImportConfigService', () => {
 
   const createConfigService = (overrides: Record<string, string> = {}) => {
     return {
-      get: jest.fn((key: string) => overrides[key] || null),
+      get: vi.fn((key: string) => overrides[key] || null),
     } as unknown as ConfigService;
   };
 

@@ -16,7 +16,6 @@ type WorkspaceLike = { id: string; name?: string | null };
 type SourceLabels = {
   sourceBank: string;
   sourceReceipt: string;
-  sourceGmailInbox: string;
   sourceCrypto: string;
 };
 type DrillLabels = {
@@ -29,7 +28,7 @@ type DrillLabels = {
   amount: string;
 };
 
-type TxFn = (path: string[], fallback: string) => string;
+type TxFn = (path: string[]) => string;
 
 type DataParams<TState> = {
   user: unknown;
@@ -39,6 +38,8 @@ type DataParams<TState> = {
   resolvedTheme: string | undefined;
   labels: Record<string, string>;
   state: TState;
+  /** The month this view is showing; its own header owns it. */
+  month: Date;
 };
 
 export type TopAnalyticsViewModelConfig<TState, TData> = {
@@ -62,6 +63,7 @@ export type TopAnalyticsViewModelReturn<TState, TData> = TState &
 
 export function useTopAnalyticsViewModel<TState, TData>(
   config: TopAnalyticsViewModelConfig<TState, TData>,
+  month: Date,
 ): TopAnalyticsViewModelReturn<TState, TData> {
   const { user } = useAuth();
   const { currentWorkspace, workspaces } = useWorkspace();
@@ -84,12 +86,12 @@ export function useTopAnalyticsViewModel<TState, TData>(
     resolvedTheme,
     labels,
     state,
+    month,
   });
   const sourceLabels = useMemo(
     () => ({
       sourceBank: labels.sourceBank,
       sourceReceipt: labels.sourceReceipt,
-      sourceGmailInbox: labels.sourceGmailInbox,
       sourceCrypto: labels.sourceCrypto,
     }),
     [labels],

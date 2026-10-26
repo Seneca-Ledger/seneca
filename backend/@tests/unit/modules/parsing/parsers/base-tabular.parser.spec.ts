@@ -1,3 +1,4 @@
+import { appDefaultCurrency } from '@/common/utils/currency.util';
 import { BaseTabularParser } from '@/modules/parsing/parsers/base-tabular.parser';
 
 class TestTabularParser extends BaseTabularParser {
@@ -79,7 +80,7 @@ describe('BaseTabularParser', () => {
       debit: 1200.5,
       credit: undefined,
       paymentPurpose: 'Invoice payment',
-      currency: 'KZT',
+      currency: appDefaultCurrency(),
     });
   });
 

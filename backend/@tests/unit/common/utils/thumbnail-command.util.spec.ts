@@ -1,19 +1,20 @@
+import type { Mock } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { runExecutable } from '@/common/utils/thumbnail-command.util';
 
-jest.mock('node:util', () => ({
-  promisify: jest.fn(() => jest.fn().mockResolvedValue({ stdout: '', stderr: '' })),
+vi.mock('node:util', () => ({
+  promisify: vi.fn(() => vi.fn().mockResolvedValue({ stdout: '', stderr: '' })),
 }));
 
-jest.mock('node:child_process', () => ({
-  execFile: jest.fn(),
+vi.mock('node:child_process', () => ({
+  execFile: vi.fn(),
 }));
 
 describe('thumbnail command execution', () => {
   it('uses execFile arguments so shell metacharacters in paths are not interpreted', async () => {
-    const execFileAsync = jest.fn().mockResolvedValue({ stdout: '', stderr: '' });
-    (promisify as unknown as jest.Mock).mockReturnValue(execFileAsync);
+    const execFileAsync = vi.fn().mockResolvedValue({ stdout: '', stderr: '' });
+    (promisify as unknown as Mock).mockReturnValue(execFileAsync);
 
     await runExecutable('python3', [
       '/app/scripts/generate-thumbnail.py',

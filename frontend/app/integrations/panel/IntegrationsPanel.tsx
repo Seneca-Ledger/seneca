@@ -24,9 +24,13 @@ async function readConnected(statusPath: string): Promise<boolean> {
   return apiClient
     .get(statusPath)
     .then(response => {
-      const data = response.data ?? {};
+      const data = response.data;
       if (Array.isArray(data)) return data.length > 0;
-      return Boolean(data?.connected) || String(data?.status).toLowerCase() === 'connected';
+      if (typeof data !== 'object' || data === null) return false;
+      return (
+        ('connected' in data && data.connected === true) ||
+        ('status' in data && String(data.status).toLowerCase() === 'connected')
+      );
     })
     .catch(() => false);
 }
@@ -42,7 +46,7 @@ function useConnectionStatuses(enabled: boolean): {
 
   const query = useQuery({
     queryKey,
-    enabled,
+    enabled: enabled && Boolean(workspaceId),
     queryFn: async () => {
       const entries = catalog.filter(entry => entry.statusPath);
       const pairs = await Promise.all(

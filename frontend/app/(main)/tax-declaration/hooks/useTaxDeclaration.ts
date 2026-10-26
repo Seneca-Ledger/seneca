@@ -5,17 +5,11 @@ import { saveBlob } from '@/app/(main)/reports/components/tax-return.helpers';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
-import { apiQuery } from '@/app/lib/query-fn';
+import { blobOf } from '@/app/lib/blob-of';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { exportFileName } from '../tax-declaration.helpers';
-import type {
-  IncomeTaxDraft,
-  IncomeTaxProfile,
-  MappingEntry,
-  MappingsResponse,
-  TaxDisclaimerStatus,
-  TaxpayerType,
-} from '../tax-declaration.types';
+import type { MappingEntry, TaxpayerType } from '../tax-declaration.types';
 
 /** 403 is worth its own message: the user can do nothing about it but ask an owner. */
 export type ActionError = 'forbidden' | 'failed' | null;
@@ -36,11 +30,14 @@ export function useTaxDeclaration(taxYear: number) {
   const disclaimer = useQuery({
     queryKey: queryKeys.incomeTaxDisclaimer(workspaceId),
     queryFn: ({ signal }) =>
-      apiQuery<TaxDisclaimerStatus>({ url: '/income-tax/disclaimer', signal }),
+      apiQueryDecoded({ url: '/income-tax/disclaimer', signal, contract: 'IncomeTaxDisclaimer' }),
+    enabled: Boolean(workspaceId),
   });
 
   const acceptDisclaimer = useMutation({
-    mutationFn: () => apiClient.post('/income-tax/disclaimer'),
+    mutationFn: async () => {
+      await apiClient.post('/income-tax/disclaimer');
+    },
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.incomeTaxDisclaimer(workspaceId) }),
   });
@@ -50,7 +47,12 @@ export function useTaxDeclaration(taxYear: number) {
   const profile = useQuery({
     queryKey: queryKeys.incomeTaxProfile({ workspaceId, taxYear }),
     queryFn: ({ signal }) =>
-      apiQuery<IncomeTaxProfile>({ url: '/income-tax/profile', params: { taxYear }, signal }),
+      apiQueryDecoded({
+        url: '/income-tax/profile',
+        params: { taxYear },
+        signal,
+        contract: 'IncomeTaxProfile',
+      }),
     enabled: accepted,
   });
 
@@ -60,47 +62,68 @@ export function useTaxDeclaration(taxYear: number) {
   const mappings = useQuery({
     queryKey: queryKeys.incomeTaxMappings({ workspaceId, taxYear }),
     queryFn: ({ signal }) =>
-      apiQuery<MappingsResponse>({ url: '/income-tax/mappings', params: { taxYear }, signal }),
+      apiQueryDecoded({
+        url: '/income-tax/mappings',
+        params: { taxYear },
+        signal,
+        contract: 'IncomeTaxMappings',
+      }),
     enabled: accepted && hasCountry,
   });
 
   const draft = useQuery({
     queryKey: queryKeys.incomeTaxDraft({ workspaceId, taxYear }),
     queryFn: ({ signal }) =>
-      apiQuery<IncomeTaxDraft>({ url: `/income-tax/returns/${taxYear}`, signal }),
+      apiQueryDecoded({
+        url: `/income-tax/returns/${taxYear}`,
+        signal,
+        contract: 'IncomeTaxDraft',
+      }),
     enabled: accepted && hasCountry,
   });
 
   const saveProfile = useMutation({
-    mutationFn: (body: { taxpayerType: TaxpayerType; details: Record<string, unknown> }) =>
-      apiClient.put('/income-tax/profile', { taxYear, ...body }),
+    mutationFn: async (body: { taxpayerType: TaxpayerType; details: Record<string, unknown> }) => {
+      await apiClient.put('/income-tax/profile', {
+        taxYear,
+        ...body,
+      } satisfies ContractInput<'UpdateIncomeTaxProfileBody'>);
+    },
     onSuccess: invalidateAll,
   });
 
   const saveMappings = useMutation({
-    mutationFn: (entries: MappingEntry[]) =>
-      apiClient.put('/income-tax/mappings', { taxYear, entries }),
+    mutationFn: async (entries: MappingEntry[]) => {
+      await apiClient.put('/income-tax/mappings', {
+        taxYear,
+        entries,
+      } satisfies ContractInput<'SaveIncomeTaxMappingsBody'>);
+    },
     onSuccess: invalidateAll,
   });
 
   const finalize = useMutation({
-    mutationFn: () => apiClient.post(`/income-tax/returns/${taxYear}/finalize`),
+    mutationFn: async () => {
+      await apiClient.post(`/income-tax/returns/${taxYear}/finalize`);
+    },
     onSuccess: invalidateAll,
   });
 
   const reopen = useMutation({
-    mutationFn: () => apiClient.post(`/income-tax/returns/${taxYear}/reopen`),
+    mutationFn: async () => {
+      await apiClient.post(`/income-tax/returns/${taxYear}/reopen`);
+    },
     onSuccess: invalidateAll,
   });
 
   const download = useMutation({
-    mutationFn: async (format: 'pdf' | 'xlsx') => {
+    mutationFn: async (format: 'pdf' | 'xlsx' | 'csv') => {
       const response = await apiClient.get(`/income-tax/returns/${taxYear}/export`, {
         params: { format },
         responseType: 'blob',
       });
       saveBlob(
-        response.data as Blob,
+        blobOf(response),
         exportFileName(profile.data?.country?.code ?? 'xx', taxYear, format),
       );
     },

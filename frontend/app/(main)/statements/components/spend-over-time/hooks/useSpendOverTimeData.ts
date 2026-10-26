@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { DEFAULT_STATEMENT_FILTERS } from '@/app/(main)/statements/components/filters/statement-filters';
 import {
   type SpendOverTimeAggregationReturn,
   useSpendOverTimeAggregation,
@@ -51,18 +52,17 @@ export const useSpendOverTimeData = ({
   state,
   sortKey,
   selectedPeriod,
-  searchInput,
 }: Params): SpendOverTimeDataReturn => {
   const {
     statements: rawStatements,
     transactions: rawTransactions,
-    gmailReceipts,
+    receipts,
     loading,
   } = useAnalyticsData({
     user,
     currentWorkspace,
     workspaces,
-    workspaceFilter: state.workspaceFilter,
+    workspaceFilter: 'current',
     currentWorkspaceLabel: labels.currentWorkspace,
     includeTransactions: true,
     errorToastMessage: labels.loadError,
@@ -73,19 +73,21 @@ export const useSpendOverTimeData = ({
     useSpendOverTimeRecords({
       statements: statements as Parameters<typeof useSpendOverTimeRecords>[0]['statements'],
       transactions: transactions as Parameters<typeof useSpendOverTimeRecords>[0]['transactions'],
-      gmailReceipts,
+      receipts,
       workspaceCurrency,
-      appliedFilters: state.appliedFilters,
-      searchInput,
-      activeFlowType: state.activeFlowType,
+      // The page is the calendar alone, with no controls: filters, flow,
+      // workspace and view saved by its older versions must not apply invisibly.
+      appliedFilters: DEFAULT_STATEMENT_FILTERS,
+      searchInput: '',
+      activeFlowType: 'expense',
     });
   const { report, rows, comparison, trendChart, sourceChart, periodsChart } =
     useSpendOverTimeAggregation({
       flowFilteredRecords,
       flowRecordsWithoutDateFilter,
-      activeFlowType: state.activeFlowType,
+      activeFlowType: 'expense',
       groupBy: state.groupBy,
-      viewType: state.viewType,
+      viewType: 'calendar',
       sortKey,
       workspaceCurrency,
       resolvedTheme,
@@ -94,10 +96,7 @@ export const useSpendOverTimeData = ({
       statementsAmountLabel: labels.statementsAmount,
       receiptsAmountLabel: labels.receiptsAmount,
     });
-  const drillDownGroupBy =
-    state.viewType === 'calendar' && isSpendOverTimeDayPeriod(selectedPeriod)
-      ? 'day'
-      : state.groupBy;
+  const drillDownGroupBy = isSpendOverTimeDayPeriod(selectedPeriod) ? 'day' : state.groupBy;
   const drillDownRecords = useMemo(
     () =>
       selectedPeriod

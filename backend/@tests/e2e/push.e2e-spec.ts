@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -23,7 +23,9 @@ describe('Push subscriptions (e2e)', () => {
   const emails = { owner: `push-owner-${stamp}@example.com`, other: `push-other-${stamp}@example.com` };
   let owner: E2eAccount;
   let other: E2eAccount;
-  const endpoint = `https://push.example.org/send/${stamp}`;
+  // An address literal: subscribing checks where the endpoint resolves, and a
+  // made-up push host would not resolve at all.
+  const endpoint = `https://93.184.215.14/send/${stamp}`;
 
   const as = (account: E2eAccount, req: request.Test) =>
     req.set('Authorization', `Bearer ${account.token}`).set('x-workspace-id', account.workspaceId);
@@ -95,6 +97,30 @@ describe('Push subscriptions (e2e)', () => {
     await as(owner, request(server()).delete('/push/subscriptions')).send({ endpoint }).expect(204);
     const after = await as(owner, request(server()).get('/push/subscriptions')).expect(200);
     expect(after.body).toEqual([]);
+  });
+
+  // The server POSTs to the endpoint on every notification.
+  it('refuses an endpoint inside the server network', () => {
+    return as(owner, request(server()).post('/push/subscriptions'))
+      .send({ endpoint: 'https://10.0.0.5:8443/admin', keys: { p256dh: 'p', auth: 'a' } })
+      .expect(400);
+  });
+
+  it("does not hand one user's device to another who only knows its endpoint", async () => {
+    const device = `${endpoint}/device`;
+    await as(owner, request(server()).post('/push/subscriptions'))
+      .send({ endpoint: device, keys: { p256dh: 'BPd', auth: 'auth' } })
+      .expect(201);
+
+    await as(other, request(server()).post('/push/subscriptions'))
+      .send({ endpoint: device, keys: { p256dh: 'theirs', auth: 'theirs' } })
+      .expect(409);
+
+    const mine = await as(owner, request(server()).get('/push/subscriptions')).expect(200);
+    expect(mine.body).toEqual([expect.objectContaining({ endpoint: device })]);
+    await as(owner, request(server()).delete('/push/subscriptions'))
+      .send({ endpoint: device })
+      .expect(204);
   });
 
   it('refuses an endpoint that is not https', () => {

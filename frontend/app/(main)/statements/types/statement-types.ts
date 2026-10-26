@@ -3,8 +3,11 @@
  * (TopMerchantsView, TopSpendersView, TopCategoriesView).
  */
 
+import type { StatementParsingDetails } from '@/app/lib/contracts';
+
 export type StatementMeta = {
   id: string;
+  fileName: string;
   status?: string;
   createdAt?: string | null;
   statementDateFrom?: string | null;
@@ -16,14 +19,7 @@ export type StatementMeta = {
   paid?: boolean | null;
   workspaceId?: string;
   workspaceName?: string;
-  parsingDetails?: {
-    metadataExtracted?: {
-      currency?: string;
-      headerDisplay?: {
-        currencyDisplay?: string;
-      };
-    };
-  } | null;
+  parsingDetails?: StatementParsingDetails | null;
   user?: {
     id: string;
     name?: string | null;
@@ -45,6 +41,8 @@ export type Transaction = {
   currency?: string | null;
   paymentPurpose?: string | null;
   transactionType?: 'income' | 'expense' | null;
+  /** Confirmed by a person in Review; only confirmed rows count in any number. */
+  isVerified?: boolean;
   createdAt?: string | null;
   workspaceId?: string;
   workspaceName?: string;
@@ -58,13 +56,13 @@ export type Transaction = {
   } | null;
 };
 
-export type GmailReceipt = {
+export type ReceiptDocument = {
   id: string;
   subject: string;
   sender: string;
   receivedAt: string;
   status: string;
-  /** 'gmail' | 'upload' | 'telegram' | 'scan' | 'imap' — where the receipt originated. */
+  /** 'upload' | 'telegram' | 'scan' | 'imap' | 'peppol' — where the receipt originated. */
   source?: string;
   /** Present in category-aware views */
   transactionId?: string | null;
@@ -77,8 +75,9 @@ export type GmailReceipt = {
     category?: string;
     categoryId?: string;
     transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
-  };
-  gmailMessageId?: string;
+  } | null;
   workspaceId?: string;
   workspaceName?: string;
+  /** The receipt's own tags, as the receipts list returns them. */
+  tags?: Array<{ id: string; name: string; color: string | null }>;
 };

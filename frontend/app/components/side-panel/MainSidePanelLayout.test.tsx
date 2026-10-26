@@ -59,7 +59,9 @@ describe('MainSidePanelLayout mobile panel', () => {
     pathnameRef.current = '/statements';
   });
 
-  it('renders a mobile side panel trigger and opens mobile panel', async () => {
+  // The floating open button was removed (3c284588): on mobile only the page's
+  // footer floats, with the floating placement, and no panel dialog is shown.
+  it('floats the panel footer on mobile without an open trigger', async () => {
     const container = document.createElement('div');
     const root = createRoot(container);
 
@@ -72,10 +74,7 @@ describe('MainSidePanelLayout mobile panel', () => {
       );
     });
 
-    const openButton = container.querySelector(
-      '[data-testid="mobile-side-panel-open"]',
-    ) as HTMLButtonElement | null;
-    expect(openButton).toBeTruthy();
+    expect(container.querySelector('[data-testid="mobile-side-panel-open"]')).toBeNull();
     const floatingFooterContainer = container.querySelector(
       '[data-testid="mobile-side-panel-floating-footer"]',
     ) as HTMLDivElement | null;
@@ -86,17 +85,6 @@ describe('MainSidePanelLayout mobile panel', () => {
     expect(mobileFooterProbe).toBeTruthy();
     expect(mobileFooterProbe?.dataset.placement).toBe('floating');
     expect(container.querySelector('[data-testid="mobile-side-panel-dialog"]')).toBeNull();
-
-    await act(async () => {
-      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-
-    const mobileDialog = container.querySelector(
-      '[data-testid="mobile-side-panel-dialog"]',
-    ) as HTMLDivElement | null;
-    expect(mobileDialog).toBeTruthy();
-    expect(mobileDialog?.querySelector('[data-testid="mobile-footer-probe"]')).toBeNull();
-    expect(container.querySelector('[data-testid="mobile-side-panel-floating-footer"]')).toBeNull();
   });
 
   it('does not render trigger when side panel config is missing', async () => {
@@ -114,7 +102,7 @@ describe('MainSidePanelLayout mobile panel', () => {
     expect(container.querySelector('[data-testid="mobile-side-panel-open"]')).toBeNull();
   });
 
-  it('hides mobile sections trigger and floating footer when global mobile menu is open', async () => {
+  it('hides the floating footer when global mobile menu is open', async () => {
     const container = document.createElement('div');
     const root = createRoot(container);
 
@@ -127,18 +115,16 @@ describe('MainSidePanelLayout mobile panel', () => {
       );
     });
 
-    expect(container.querySelector('[data-testid="mobile-side-panel-open"]')).toBeTruthy();
     expect(
       container.querySelector('[data-testid="mobile-side-panel-floating-footer"]'),
     ).toBeTruthy();
 
     await act(async () => {
       window.dispatchEvent(
-        new CustomEvent('lumio-mobile-menu-visibility', { detail: { open: true } }),
+        new CustomEvent('seneca-mobile-menu-visibility', { detail: { open: true } }),
       );
     });
 
-    expect(container.querySelector('[data-testid="mobile-side-panel-open"]')).toBeNull();
     expect(container.querySelector('[data-testid="mobile-side-panel-floating-footer"]')).toBeNull();
   });
 });

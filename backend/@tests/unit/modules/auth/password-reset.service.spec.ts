@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { PasswordResetService } from '@/modules/auth/password-reset.service';
 import { BadRequestException } from '@nestjs/common';
@@ -7,18 +8,18 @@ const SECRET = 'test-reset-secret';
 
 describe('PasswordResetService', () => {
   let userRepository: {
-    findOne: jest.Mock;
-    save: jest.Mock;
+    findOne: Mock;
+    save: Mock;
   };
   let tokenRepository: {
-    findOne: jest.Mock;
-    save: jest.Mock;
-    create: jest.Mock;
-    delete: jest.Mock;
+    findOne: Mock;
+    save: Mock;
+    create: Mock;
+    delete: Mock;
   };
-  let authSessionRepository: { update: jest.Mock };
-  let mailerService: { send: jest.Mock };
-  let auditService: { createEvent: jest.Mock };
+  let authSessionRepository: { update: Mock };
+  let mailerService: { send: Mock };
+  let auditService: { createEvent: Mock };
   let service: PasswordResetService;
 
   const activeUser = {
@@ -31,16 +32,16 @@ describe('PasswordResetService', () => {
   };
 
   beforeEach(() => {
-    userRepository = { findOne: jest.fn(), save: jest.fn(async u => u) };
+    userRepository = { findOne: vi.fn(), save: vi.fn(async u => u) };
     tokenRepository = {
-      findOne: jest.fn(),
-      save: jest.fn(async t => t),
-      create: jest.fn(t => t),
-      delete: jest.fn(),
+      findOne: vi.fn(),
+      save: vi.fn(async t => t),
+      create: vi.fn(t => t),
+      delete: vi.fn(),
     };
-    authSessionRepository = { update: jest.fn() };
-    mailerService = { send: jest.fn().mockResolvedValue(true) };
-    auditService = { createEvent: jest.fn().mockResolvedValue({}) };
+    authSessionRepository = { update: vi.fn() };
+    mailerService = { send: vi.fn().mockResolvedValue(true) };
+    auditService = { createEvent: vi.fn().mockResolvedValue({}) };
 
     service = new PasswordResetService(
       userRepository as never,
@@ -69,6 +70,8 @@ describe('PasswordResetService', () => {
       expect(stored.tokenHash).not.toBe(tokenInEmail);
       expect(stored.tokenHash).toHaveLength(64);
       expect(stored.expiresAt.getTime()).toBeGreaterThan(Date.now());
+      // Account mail: the mailer picks a server the user controls (getAccountSmtpSettings).
+      expect(mailerService.send.mock.calls[0][0].accountOf).toBe(activeUser);
     });
 
     it('supersedes any outstanding request for the same user', async () => {
@@ -76,7 +79,7 @@ describe('PasswordResetService', () => {
 
       await service.requestReset('user@example.com');
 
-      expect(tokenRepository.delete).toHaveBeenCalledWith({ userId: 'user-1', usedAt: null });
+      expect(tokenRepository.delete).toHaveBeenCalledWith({ userId: 'user-1', usedAt: IsNull() });
     });
 
     it('does nothing and still resolves for an unknown address', async () => {

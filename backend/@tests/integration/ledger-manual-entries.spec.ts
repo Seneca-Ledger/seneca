@@ -17,15 +17,15 @@ import * as entityIndex from '../../src/entities';
 import { Branch, Category, CategoryType, User, Workspace } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
-import type { JournalLineInputDto } from '../../src/modules/ledger/dto/journal-entry-input.dto';
 import { LedgerAccountsService } from '../../src/modules/ledger/ledger-accounts.service';
 import { LEDGER_ACCOUNT_CODES } from '../../src/modules/ledger/ledger-default-accounts';
 import { LedgerEntriesService } from '../../src/modules/ledger/ledger-entries.service';
 import { LedgerPostingService } from '../../src/modules/ledger/ledger-posting.service';
+import type { JournalLineInput } from '../../src/contracts';
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
-const SCRATCH_DB = `lumio_ledger_manual_${process.pid}`;
+const SCRATCH_DB = `seneca_ledger_manual_${process.pid}`;
 
 function scratchUrl(database: string): string {
   const url = new URL(BASE_URL);
@@ -37,15 +37,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -66,12 +66,12 @@ async function httpError(promise: Promise<unknown>): Promise<{ status: number; c
 }
 
 describe('manual journal entries (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let entries: LedgerEntriesService;
   let accounts: LedgerAccountsService;
-  const audit = { createEvent: jest.fn().mockResolvedValue(undefined) };
+  const audit = { createEvent: vi.fn().mockResolvedValue(undefined) };
 
   let workspaceId: string;
   let otherWorkspaceId: string;
@@ -84,8 +84,8 @@ describe('manual journal entries (real Postgres)', () => {
     accountId: string,
     side: 'debit' | 'credit',
     amount: string,
-    extra: Partial<JournalLineInputDto> = {},
-  ): JournalLineInputDto => ({ accountId, side, amount, ...extra });
+    extra: Partial<JournalLineInput> = {},
+  ): JournalLineInput => ({ accountId, side, amount, ...extra });
 
   beforeAll(async () => {
     const admin = new Client({ connectionString: scratchUrl('postgres') });
@@ -114,7 +114,7 @@ describe('manual journal entries (real Postgres)', () => {
         {
           provide: ExchangeRatesService,
           useValue: {
-            getRateQuote: jest.fn(async (from: string, to: string, date: string) =>
+            getRateQuote: vi.fn(async (from: string, to: string, date: string) =>
               from === 'USD' && to === 'EUR' ? { rate: 0.9137, rateDate: date, stale: false } : null,
             ),
           },
@@ -129,8 +129,8 @@ describe('manual journal entries (real Postgres)', () => {
     accounts = moduleRef.get(LedgerAccountsService);
 
     const workspaces = dataSource.getRepository(Workspace);
-    workspaceId = (await workspaces.save({ name: 'Manual WS', ledgerBaseCurrency: 'EUR' })).id;
-    otherWorkspaceId = (await workspaces.save({ name: 'Other WS', ledgerBaseCurrency: 'EUR' })).id;
+    workspaceId = (await workspaces.save({ name: 'Manual WS', currency: 'EUR', ledgerBaseCurrency: 'EUR' })).id;
+    otherWorkspaceId = (await workspaces.save({ name: 'Other WS', currency: 'EUR', ledgerBaseCurrency: 'EUR' })).id;
     userId = (
       await dataSource.getRepository(User).save(
         dataSource.getRepository(User).create({
@@ -368,7 +368,7 @@ describe('manual journal entries (real Postgres)', () => {
   });
 
   it('refuses everything while the ledger is off', async () => {
-    const off = (await dataSource.getRepository(Workspace).save({ name: 'Off WS' })).id;
+    const off = (await dataSource.getRepository(Workspace).save({ name: 'Off WS', currency: 'USD' })).id;
     expect(
       await httpError(entries.createDraft(off, userId, { entryDate: '2026-09-01', lines: [] })),
     ).toEqual({ status: 409, code: 'LEDGER_DISABLED' });

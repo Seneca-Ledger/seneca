@@ -6,7 +6,9 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { StatementParsingDetails } from '../editHelpers';
 
 export const NEEDS_REVIEW_STATUS = 'needs_review';
@@ -45,8 +47,9 @@ function BalanceFigures({
   }
   return (
     <Typography variant="body2" sx={{ mt: 0.5, fontVariantNumeric: 'tabular-nums' }}>
-      {labels.expected}: {formatNumber(check.expectedEnd)} · {labels.actual}:{' '}
-      {formatNumber(check.actualEnd)} · {labels.difference}: {formatNumber(check.difference)}
+      {labels.expected}: <PrivateAmount>{formatNumber(check.expectedEnd)}</PrivateAmount> ·{' '}
+      {labels.actual}: <PrivateAmount>{formatNumber(check.actualEnd)}</PrivateAmount> ·{' '}
+      {labels.difference}: <PrivateAmount>{formatNumber(check.difference)}</PrivateAmount>
     </Typography>
   );
 }
@@ -94,6 +97,8 @@ function useConfirmBalance({
 
     await (async () => {
       await apiClient.post(`/statements/${statementId}/confirm-balance`);
+      // A confirmed statement's rows start counting.
+      invalidateFinancialData();
       onConfirmed();
     })()
       .catch(async () => {
@@ -153,7 +158,7 @@ export function BalanceReviewAlert({
       <AlertTitle sx={{ fontWeight: 600 }}>{labels.title}</AlertTitle>
       <Typography variant="body2">{labels.description}</Typography>
       <BalanceFigures
-        check={parsingDetails?.validation?.balanceCheck}
+        check={parsingDetails?.validation?.balanceCheck ?? undefined}
         labels={labels}
         formatNumber={formatNumber}
       />

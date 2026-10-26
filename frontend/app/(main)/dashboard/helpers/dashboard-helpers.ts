@@ -1,11 +1,7 @@
+import { resolveLocaleTag } from '@/app/lib/user-format';
+
 export function resolveLocale(locale: string): string {
-  if (locale === 'ru') {
-    return 'ru-RU';
-  }
-  if (locale === 'kk') {
-    return 'kk-KZ';
-  }
-  return 'en-US';
+  return resolveLocaleTag(locale);
 }
 
 export const statusHeadingFallback: Record<string, string> = {

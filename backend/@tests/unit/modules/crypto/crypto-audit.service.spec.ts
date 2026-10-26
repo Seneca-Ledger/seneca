@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { ActorType, AuditAction, EntityType } from '../../../../src/entities/audit-event.entity';
 import { CryptoService } from '../../../../src/modules/crypto/crypto.service';
 
@@ -7,42 +8,43 @@ const EVM_ADDRESS = '0x1111111111111111111111111111111111111111';
 function build(options: { imported?: number; existing?: Record<string, unknown> | null } = {}) {
   const stored: Record<string, unknown>[] = [];
   const walletRepo = {
-    findOne: jest.fn(async ({ where }: { where: { id?: string } }) =>
+    findOne: vi.fn(async ({ where }: { where: { id?: string } }) =>
       where.id ? (options.existing ?? null) : null,
     ),
-    create: jest.fn((row: Record<string, unknown>) => row),
-    save: jest.fn(async (row: Record<string, unknown>) => {
+    create: vi.fn((row: Record<string, unknown>) => row),
+    save: vi.fn(async (row: Record<string, unknown>) => {
       const saved = { id: `w-${stored.length + 1}`, ...row };
       stored.push(saved);
       return saved;
     }),
-    find: jest.fn(async () => stored),
-    delete: jest.fn(async () => ({ affected: 1 })),
+    find: vi.fn(async () => stored),
+    delete: vi.fn(async () => ({ affected: 1 })),
   };
-  const queryBuilder: Record<string, jest.Mock> = {};
+  const queryBuilder: Record<string, Mock> = {};
   for (const method of ['select', 'addSelect', 'where', 'andWhere', 'groupBy']) {
-    queryBuilder[method] = jest.fn(() => queryBuilder);
+    queryBuilder[method] = vi.fn(() => queryBuilder);
   }
-  queryBuilder.getRawMany = jest.fn(async () => []);
+  queryBuilder.getRawMany = vi.fn(async () => []);
   const transactionRepo = {
-    createQueryBuilder: jest.fn(() => queryBuilder),
-    count: jest.fn(async () => 7),
+    createQueryBuilder: vi.fn(() => queryBuilder),
+    count: vi.fn(async () => 7),
   };
   const syncService = {
-    syncWallet: jest.fn(async () => ({ imported: options.imported ?? 0, skipped: 2 })),
+    syncWallet: vi.fn(async () => ({ imported: options.imported ?? 0, skipped: 2 })),
   };
   const auditService = {
-    createEvent: jest.fn().mockResolvedValue({}),
-    createBatchEvents: jest.fn().mockResolvedValue({ batchId: 'b', events: [] }),
+    createEvent: vi.fn().mockResolvedValue({}),
+    createBatchEvents: vi.fn().mockResolvedValue({ batchId: 'b', events: [] }),
   };
   const service = new CryptoService(
     walletRepo as never,
     transactionRepo as never,
-    {} as never,
     syncService as never,
     {} as never,
     {} as never,
     auditService as never,
+    {} as never,
+    { writePortfolioSnapshot: vi.fn() } as never,
   );
   return { service, auditService, walletRepo, transactionRepo };
 }

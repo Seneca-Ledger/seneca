@@ -9,7 +9,7 @@ export const sharedMuiTabsSx: SxProps<Theme> = {
   minWidth: 0,
   overflow: 'hidden',
   '& .MuiTabs-scroller': { overflowX: 'auto !important' },
-  '& .MuiTabs-flexContainer': { width: 'max-content' },
+  '& .MuiTabs-list': { width: 'max-content' },
   '& .MuiTab-root': {
     minWidth: { xs: 104, md: 90 },
     px: { xs: 1.5, md: 2 },

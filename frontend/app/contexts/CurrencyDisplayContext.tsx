@@ -5,13 +5,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { resolveCurrencyCode } from '@/app/lib/format-money';
 import { useWorkspace } from './WorkspaceContext';
 
-const STORAGE_KEY = 'lumio:currencyDisplay';
+const STORAGE_KEY = 'seneca:currencyDisplay';
 
 interface CurrencyDisplayContextType {
   /** When true, show amounts converted to workspaceCurrency. */
   showConverted: boolean;
   toggleShowConverted: () => void;
-  /** Resolved workspace currency code (e.g. 'KZT'). */
+  /** Resolved workspace currency code (e.g. 'EUR'). */
   workspaceCurrency: string;
 }
 

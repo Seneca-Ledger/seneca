@@ -9,6 +9,8 @@ import { Workspace } from '../../entities/workspace.entity';
 import { AuditModule } from '../audit/audit.module';
 import { CategoriesModule } from '../categories/categories.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
+import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
+import { GoalCoversService } from './goal-covers.service';
 import { GoalFlowService } from './goal-flow.service';
 import { GoalItemsService } from './goal-items.service';
 import { GoalPlanService } from './goal-plan.service';
@@ -29,9 +31,10 @@ import { GoalsService } from './goals.service';
     CategoriesModule,
     ExchangeRatesModule,
     AuditModule,
+    WorkspaceCurrencyModule,
   ],
   controllers: [GoalsController],
-  providers: [GoalsService, GoalFlowService, GoalItemsService, GoalPlanService],
-  exports: [GoalsService, GoalFlowService, GoalItemsService, GoalPlanService],
+  providers: [GoalsService, GoalFlowService, GoalItemsService, GoalPlanService, GoalCoversService],
+  exports: [GoalsService, GoalFlowService, GoalItemsService, GoalPlanService, GoalCoversService],
 })
 export class GoalsModule {}

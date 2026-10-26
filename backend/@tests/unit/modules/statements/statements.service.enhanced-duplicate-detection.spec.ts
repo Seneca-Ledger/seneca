@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -9,6 +10,7 @@ import { User } from '../../../../src/entities/user.entity';
 import { WorkspaceMember } from '../../../../src/entities/workspace-member.entity';
 import { Category } from '../../../../src/entities/category.entity';
 import { TaxRate } from '../../../../src/entities/tax-rate.entity';
+import { Wallet } from '../../../../src/entities/wallet.entity';
 import { AuditService } from '../../../../src/modules/audit/audit.service';
 import { StatementParsingQueue } from '../../../../src/modules/parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../../../../src/modules/parsing/services/statement-processing.service';
@@ -16,14 +18,15 @@ import { ReceiptStatementService } from '../../../../src/modules/statements/serv
 import { StatementsService } from '../../../../src/modules/statements/statements.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
+import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
 // Mock the file hash calculation
-jest.mock('../../../../src/common/utils/file-hash.util', () => ({
-  calculateFileHash: jest.fn().mockResolvedValue('mock-file-hash-123'),
+vi.mock('../../../../src/common/utils/file-hash.util', () => ({
+  calculateFileHash: vi.fn().mockResolvedValue('mock-file-hash-123'),
 }));
 
-jest.mock('../../../../src/common/utils/filename.util', () => ({
-  normalizeFilename: jest.fn(name => name),
+vi.mock('../../../../src/common/utils/filename.util', () => ({
+  normalizeFilename: vi.fn(name => name),
 }));
 
 describe('StatementsService - Enhanced Duplicate Detection', () => {
@@ -46,33 +49,34 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
 
   // create() оборачивает проверку дубликатов и вставку в транзакцию с advisory-lock;
   // менеджер прокидывает вызовы в тот же мок-репозиторий, чтобы ассерты не менялись.
-  const mockStatementRepository: Record<string, jest.Mock | unknown> = {
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    createQueryBuilder: jest.fn(),
+  const mockStatementRepository: Record<string, Mock | unknown> = {
+    findOne: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    createQueryBuilder: vi.fn(),
   };
   const mockManager = {
-    query: jest.fn(),
-    getRepository: jest.fn(() => mockStatementRepository),
-    transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(mockManager)),
+    query: vi.fn(),
+    getRepository: vi.fn(() => mockStatementRepository),
+    transaction: vi.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(mockManager)),
   };
   mockStatementRepository.manager = mockManager;
 
   const mockRepositories = {
     statement: mockStatementRepository,
     transaction: {},
-    auditService: { createEvent: jest.fn() },
+    auditService: { createEvent: vi.fn() },
     user: {},
     category: {},
     taxRate: {},
-    workspaceMember: { findOne: jest.fn() },
+    workspaceMember: { findOne: vi.fn() },
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StatementsService,
+        workspaceCurrencyProvider(),
         {
           provide: getRepositoryToken(Statement),
           useValue: mockRepositories.statement,
@@ -83,7 +87,7 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
         },
         {
           provide: TaxAssignmentService,
-          useValue: { resolve: jest.fn(async () => ({})) },
+          useValue: { resolve: vi.fn(async () => ({})) },
         },
         {
           provide: AuditService,
@@ -102,32 +106,36 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
           useValue: mockRepositories.taxRate,
         },
         {
+          provide: getRepositoryToken(Wallet),
+          useValue: { findOne: vi.fn(async () => null) },
+        },
+        {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: mockRepositories.workspaceMember,
         },
         {
           provide: FileStorageService,
-          useValue: { getFileAvailability: jest.fn() },
+          useValue: { getFileAvailability: vi.fn() },
         },
         {
           provide: StatementProcessingService,
-          useValue: { processStatement: jest.fn() },
+          useValue: { processStatement: vi.fn() },
         },
         {
           provide: StatementParsingQueue,
-          useValue: { enqueue: jest.fn() },
+          useValue: { enqueue: vi.fn() },
         },
         {
           provide: ReceiptStatementService,
-          useValue: { createFromReceiptScan: jest.fn() },
+          useValue: { createFromReceiptScan: vi.fn() },
         },
         {
           provide: 'CACHE_MANAGER',
-          useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() },
+          useValue: { get: vi.fn(), set: vi.fn(), del: vi.fn() },
         },
         {
           provide: EventEmitter2,
-          useValue: { emit: jest.fn() },
+          useValue: { emit: vi.fn() },
         },
       ],
     }).compile();
@@ -137,7 +145,7 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('create - hash-based duplicate detection', () => {
@@ -183,9 +191,9 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
 
       // Mock createQueryBuilder for near-duplicate check
       const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getMany: vi.fn().mockResolvedValue([]),
       };
       mockRepositories.statement.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -228,9 +236,9 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
       };
 
       const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([recentStatement]),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getMany: vi.fn().mockResolvedValue([recentStatement]),
       };
 
       mockRepositories.statement.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -269,9 +277,9 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
       };
 
       const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]), // No recent duplicates
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getMany: vi.fn().mockResolvedValue([]), // No recent duplicates
       };
 
       mockRepositories.statement.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -304,9 +312,9 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
       mockRepositories.workspaceMember.findOne.mockResolvedValue(null);
 
       const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getMany: vi.fn().mockResolvedValue([]),
       };
 
       mockRepositories.statement.createQueryBuilder.mockReturnValue(mockQueryBuilder);

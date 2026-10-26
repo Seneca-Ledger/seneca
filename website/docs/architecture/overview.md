@@ -3,12 +3,12 @@ title: Architecture Overview
 description: Service topology and request flow
 ---
 
-Lumio runs as four services: a Next.js frontend, a NestJS API, PostgreSQL, and Redis. Two optional Docker Compose
+Seneca runs as four services: a Next.js frontend, a NestJS API, PostgreSQL, and Redis. Two optional Docker Compose
 profiles add self-hosted receipt maps: `maps` (`map-assets`, `map-tiles-init`, `tileserver`) and `geocoder`
 (`nominatim`). Background work — the statement parsing queue and scheduled jobs — runs inside the backend
 process; there are no separate worker services.
 
-![Lumio architecture diagram](/img/architecture.svg)
+![Seneca architecture diagram](/img/architecture.svg)
 
 ## Core services
 
@@ -47,13 +47,13 @@ process; there are no separate worker services.
 5. A quality gate rates the result `ready`, `review`, or `blocked`.
 6. An import session previews the transactions and flags conflicts with existing ones; committing the import
    resolves each conflict.
-7. Categories are assigned from learning rules and, when configured, AI classification.
+7. Categories are assigned from your rules, then payee history.
 
 ## Observability
 
 The backend exposes Prometheus-format metrics at `GET /api/v1/metrics` (requires `METRICS_AUTH_TOKEN` in
 production), health checks at `GET /api/v1/health` and `GET /api/v1/health/ready`, and structured JSON logs with
-request and trace IDs. Lumio does not ship a monitoring stack — point your own collector at the endpoint. See
+request and trace IDs. Seneca does not ship a monitoring stack — point your own collector at the endpoint. See
 [Observability](../guides/observability).
 
 Next: [Backend Architecture](backend)

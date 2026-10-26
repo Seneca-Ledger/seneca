@@ -15,15 +15,19 @@ vi.mock('@/app/lib/api', () => ({
 vi.mock('@/app/i18n', () => ({
   useLocale: () => ({ locale: 'en' }),
   useIntlayer: () => ({
-    subtitle: 'Join Lumio',
-    fullNameLabel: { value: 'Full name' },
-    emailLabel: { value: 'Email localized' },
-    passwordLabel: { value: 'Password' },
-    passwordHelper: { value: 'At least 8 characters' },
-    companyLabel: { value: 'Company (optional)' },
+    title: 'Create an account',
+    // AuthHero reads its own `authHero` dictionary through the same mock.
+    features: {},
+    fullNameLabel: 'Full name',
+    emailLabel: 'Email localized',
+    passwordLabel: 'Password',
+    passwordHelper: Object.assign(['At least 8 characters'], { value: 'At least 8 characters' }),
+    companyLabel: 'Company (optional)',
+    showPassword: { value: 'Show password' },
+    hidePassword: { value: 'Hide password' },
     submit: 'Sign up',
-    haveAccount: 'Already have an account? Log in',
-    rightTitle: 'Join Lumio',
+    haveAccountPrompt: 'Already have an account?',
+    logIn: 'Log in',
     rightTagline: 'Automate your finances today',
     registerFailed: { value: 'Failed to sign up. Please try again.' },
     inviteLoadFailed: { value: 'Failed to load invitation.' },
@@ -39,6 +43,10 @@ vi.mock('next/navigation', () => ({
     get: () => null,
   }),
 }));
+
+// Imported once at collection: a dynamic import inside a test spends its
+// timeout on the module graph and, timing out, renders into the next test.
+import RegisterPage from './page';
 
 describe('RegisterPage validation', () => {
   let container: HTMLDivElement;
@@ -60,8 +68,6 @@ describe('RegisterPage validation', () => {
   });
 
   it('does not submit when password is shorter than 8 characters', async () => {
-    const { default: RegisterPage } = await import('./page');
-
     await act(async () => {
       root.render(<RegisterPage />);
       await Promise.resolve();

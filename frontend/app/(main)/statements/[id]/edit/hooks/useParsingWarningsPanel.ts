@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
 import type { CurrencySearchItem } from '@/app/lib/statement-expense-drawer';
 import { buildCurrencySearchIndex } from '@/app/lib/statement-expense-drawer';
 import {
@@ -30,8 +31,6 @@ export interface SelectedWarning {
 
 const isCurrencySearchItem = (item: CurrencySearchItem | undefined): item is CurrencySearchItem =>
   item !== undefined;
-
-const DEFAULT_RECENT_CURRENCIES = ['KZT', 'USD', 'EUR', 'RUB'] as const;
 
 interface EntryMaps {
   byKey: Map<string, EditableWarningEntry>;
@@ -105,7 +104,11 @@ function useEntryState(editableEntries: EditableWarningEntry[]): {
       editableEntries.forEach(entry => {
         next[entry.key] = current[entry.key] ?? toDraft(entry.sample);
       });
-      return next;
+      // Same drafts: keep the old object so this effect does not re-render.
+      const unchanged =
+        Object.keys(next).length === Object.keys(current).length &&
+        Object.keys(next).every(key => next[key] === current[key]);
+      return unchanged ? current : next;
     });
   }, [editableEntries]);
   return { draftsByKey, setDraftsByKey, entryMaps };

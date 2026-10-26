@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { BalanceAccountSubType, BalanceAccountType, type BalanceSnapshot } from '@/entities';
 import { DEFAULT_BALANCE_ACCOUNTS } from '@/modules/balance/balance-default-accounts';
 import { BalanceService } from '@/modules/balance/balance.service';
@@ -17,9 +18,9 @@ function queryBuilderReturning(rows: unknown[]) {
     'orderBy',
     'addOrderBy',
   ]) {
-    builder[method] = jest.fn(() => builder);
+    builder[method] = vi.fn(() => builder);
   }
-  builder.getRawMany = jest.fn(async () => rows);
+  builder.getRawMany = vi.fn(async () => rows);
   return builder;
 }
 
@@ -27,17 +28,17 @@ function createRepoMock() {
   // seedDefaultAccounts() сидит в транзакции; менеджер прокидывает вызовы
   // в тот же мок-репозиторий, чтобы ассерты не менялись.
   const repo: any = {
-    count: jest.fn(),
-    find: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn((input: unknown) => input),
-    save: jest.fn(async (input: unknown) => input),
-    createQueryBuilder: jest.fn(),
+    count: vi.fn(),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    create: vi.fn((input: unknown) => input),
+    save: vi.fn(async (input: unknown) => input),
+    createQueryBuilder: vi.fn(),
   };
   const manager = {
-    query: jest.fn(),
-    getRepository: jest.fn(() => repo),
-    transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(manager)),
+    query: vi.fn(),
+    getRepository: vi.fn(() => repo),
+    transaction: vi.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(manager)),
   };
   repo.manager = manager;
   return repo;
@@ -52,11 +53,11 @@ describe('BalanceService', () => {
   const statementRepository = createRepoMock();
   const workspaceMemberRepository = createRepoMock();
   const workspaceRepository = createRepoMock();
-  const auditService = { createEvent: jest.fn() } as any;
-  const exchangeRatesService = { getRateOrNull: jest.fn() } as any;
+  const auditService = { createEvent: vi.fn() } as any;
+  const exchangeRatesService = { getRateOrNull: vi.fn() } as any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // getWorkspaceCurrency() reads the workspace on every balance sheet build.
     workspaceRepository.findOne.mockResolvedValue({ currency: 'KZT' });
 
@@ -164,13 +165,13 @@ describe('BalanceService', () => {
       },
     ]);
 
-    jest
+    vi
       .spyOn(service as any, 'getLatestSnapshotMap')
       .mockResolvedValue(new Map([['asset-fixed', { amount: 100 } as BalanceSnapshot]]));
-    jest
+    vi
       .spyOn(service as any, 'getAutoComputedCashBalance')
       .mockResolvedValue(new Map([['KZT', 300]]));
-    jest.spyOn(service as any, 'getRetainedEarnings').mockResolvedValue(new Map([['KZT', 400]]));
+    vi.spyOn(service as any, 'getRetainedEarnings').mockResolvedValue(new Map([['KZT', 400]]));
 
     const result = await service.getBalanceSheet('ws-1', '2026-02-15');
 
@@ -200,11 +201,11 @@ describe('BalanceService', () => {
       },
     ]);
 
-    jest.spyOn(service as any, 'getLatestSnapshotMap').mockResolvedValue(new Map());
-    jest
+    vi.spyOn(service as any, 'getLatestSnapshotMap').mockResolvedValue(new Map());
+    vi
       .spyOn(service as any, 'getAutoComputedCashBalance')
       .mockResolvedValue(new Map([['KZT', 1000]]));
-    jest.spyOn(service as any, 'getRetainedEarnings').mockResolvedValue(new Map());
+    vi.spyOn(service as any, 'getRetainedEarnings').mockResolvedValue(new Map());
 
     const resultEn = await service.getBalanceSheet('ws-1', '2026-04-02', 'en');
     expect(resultEn.assets.sections[0].name).toBe('III. Cash');
@@ -236,11 +237,11 @@ describe('BalanceService', () => {
       },
     ]);
 
-    jest.spyOn(service as any, 'getLatestSnapshotMap').mockResolvedValue(new Map());
-    jest
+    vi.spyOn(service as any, 'getLatestSnapshotMap').mockResolvedValue(new Map());
+    vi
       .spyOn(service as any, 'getAutoComputedCashBalance')
       .mockResolvedValue(new Map([['KZT', 1000]]));
-    jest.spyOn(service as any, 'getRetainedEarnings').mockResolvedValue(new Map());
+    vi.spyOn(service as any, 'getRetainedEarnings').mockResolvedValue(new Map());
 
     const payload = await service.exportBalanceSheet(
       'ws-1',
@@ -248,8 +249,8 @@ describe('BalanceService', () => {
       'en',
     );
 
-    const workbook = require('xlsx').read(payload.buffer, { type: 'buffer' });
-    const rows = require('xlsx').utils.sheet_to_json(workbook.Sheets.Balance, { header: 1 });
+    const workbook = XLSX.read(payload.buffer, { type: 'buffer' });
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Balance, { header: 1 });
 
     expect(rows[0][0]).toBe('Balance sheet as of 2026-04-02');
     expect(rows[2][0]).toContain('Assets');
@@ -286,14 +287,14 @@ describe('BalanceService', () => {
     beforeEach(() => {
       balanceAccountRepository.count.mockResolvedValue(2);
       balanceAccountRepository.find.mockResolvedValue([cashLeaf, fixedLeaf]);
-      jest.spyOn(service as any, 'getRetainedEarnings').mockResolvedValue(new Map());
+      vi.spyOn(service as any, 'getRetainedEarnings').mockResolvedValue(new Map());
     });
 
     it('converts cash and snapshots into the workspace currency at the report date', async () => {
-      jest
+      vi
         .spyOn(service as any, 'getAutoComputedCashBalance')
         .mockResolvedValue(new Map([['KZT', 1000], ['USD', 10]]));
-      jest
+      vi
         .spyOn(service as any, 'getLatestSnapshotMap')
         .mockResolvedValue(new Map([['asset-fixed', { amount: '20', currency: 'EUR' }]]));
       exchangeRatesService.getRateOrNull.mockImplementation(async (from: string) =>
@@ -309,10 +310,10 @@ describe('BalanceService', () => {
     });
 
     it('leaves out an amount without a rate instead of counting it 1:1', async () => {
-      jest
+      vi
         .spyOn(service as any, 'getAutoComputedCashBalance')
         .mockResolvedValue(new Map([['KZT', 1000], ['CHF', 10]]));
-      jest.spyOn(service as any, 'getLatestSnapshotMap').mockResolvedValue(new Map());
+      vi.spyOn(service as any, 'getLatestSnapshotMap').mockResolvedValue(new Map());
       exchangeRatesService.getRateOrNull.mockResolvedValue(null);
 
       const result = await service.getBalanceSheet('ws-1', '2026-02-15');
@@ -320,6 +321,16 @@ describe('BalanceService', () => {
       expect(result.assets.total).toBe(1000);
       expect(result.missingRates).toEqual(['CHF']);
     });
+  });
+
+  it('counts only confirmed transactions in retained earnings', async () => {
+    const builder = queryBuilderReturning([{ currency: 'KZT', totalCredit: '500', totalDebit: '100' }]);
+    transactionRepository.createQueryBuilder.mockReturnValue(builder);
+
+    const earnings = await (service as any).getRetainedEarnings('ws-1', '2026-02-28');
+
+    expect(earnings).toEqual(new Map([['KZT', 400]]));
+    expect(builder.andWhere).toHaveBeenCalledWith('transaction.isVerified = true');
   });
 
   describe('getCashSeries', () => {
@@ -345,6 +356,8 @@ describe('BalanceService', () => {
       expect(builder.andWhere).toHaveBeenCalledWith(
         '(transaction.statementId IS NULL OR statement.deletedAt IS NULL)',
       );
+      // Unconfirmed rows wait in Review and move no balance.
+      expect(builder.andWhere).toHaveBeenCalledWith('transaction.isVerified = true');
     });
 
     it('sums the latest live statement of each bank account', async () => {

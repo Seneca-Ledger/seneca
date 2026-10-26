@@ -15,8 +15,14 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
-import type { FeedRef } from './BankSyncPanel';
-import { BANK_SYNC_BASE, type BankSyncConnection, type Message, type WalletOption } from './types';
+import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import {
+  BANK_SYNC_BASE,
+  type BankSyncConnection,
+  type FeedRef,
+  type RunAction,
+  type WalletOption,
+} from './types';
 
 /**
  * Moves a wallet's feed to another provider. Nothing is deleted: the new feed
@@ -35,7 +41,7 @@ export function SwitchFeedDialog({
   connections: BankSyncConnection[];
   wallets: WalletOption[];
   onClose: () => void;
-  onRun: (key: string, action: () => Promise<Message | null>, failure: string) => Promise<void>;
+  onRun: RunAction;
   onReload: () => Promise<void>;
 }): React.JSX.Element {
   const t = useIntlayer('bankSyncPanel');
@@ -66,19 +72,19 @@ export function SwitchFeedDialog({
       'switch',
       async () => {
         const [toConnectionId, toAccountId] = target.split('::');
-        const response = await apiClient.post<{ syncFrom: string | null }>(
-          `${BANK_SYNC_BASE}/feeds/switch`,
-          { walletId: feed.walletId, toConnectionId, toAccountId },
-        );
+        const url = `${BANK_SYNC_BASE}/feeds/switch`;
+        const response = await apiClient.post(url, {
+          walletId: feed.walletId,
+          toConnectionId,
+          toAccountId,
+        } satisfies ContractInput<'SwitchBankSyncFeedBody'>);
+        const { syncFrom } = await checkContract('BankSyncFeedSwitched', response.data, url);
         await onReload();
         onClose();
         return {
           tone: 'ok',
-          text: response.data.syncFrom
-            ? t.switchDoneFrom.value.replace(
-                '{date}',
-                new Date(response.data.syncFrom).toLocaleDateString(),
-              )
+          text: syncFrom
+            ? t.switchDoneFrom.value.replace('{date}', new Date(syncFrom).toLocaleDateString())
             : t.switchDone.value,
         };
       },

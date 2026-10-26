@@ -17,13 +17,13 @@ export function OfflineBanner(): React.JSX.Element | null {
   return (
     <div
       role="status"
-      className={`lumio-offline-banner${online ? '' : ' lumio-offline-banner--offline'}`}
+      className={`seneca-offline-banner${online ? '' : ' seneca-offline-banner--offline'}`}
     >
       <span>{text}</span>
       {online && count > 0 && (
         <button
           type="button"
-          className="lumio-offline-banner__action"
+          className="seneca-offline-banner__action"
           disabled={replaying}
           onClick={() => void flush()}
         >

@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { flowsSql } from '../../../common/utils/counted-transactions.util';
 import { Budget } from '../../../entities/budget.entity';
 import { InsightCategory, InsightSeverity, InsightType } from '../../../entities/insight.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
+import { Workspace } from '../../../entities/workspace.entity';
+import { ExchangeRatesService } from '../../exchange-rates/exchange-rates.service';
+import { buildRateMap, convertWith, normalizeCurrency } from '../../goals/goal-money.util';
 import { NetWorthService } from '../../net-worth/net-worth.service';
 import type { AnalysisContext, InsightAnalyzer, InsightCandidate } from './analyzer.interface';
 
@@ -11,6 +15,13 @@ import type { AnalysisContext, InsightAnalyzer, InsightCandidate } from './analy
 const TRAILING_MONTHS = 3;
 /** A category has to beat its own trailing average by this much to be worth a word. */
 const RISING_CATEGORY_THRESHOLD_PERCENT = 25;
+/**
+ * ...and by at least this much money. A rise from a small base looks dramatic
+ * in percent (2.88 to 6.61 is +129%) while being a few coins. The floor is set
+ * in US dollars and converted to the workspace currency, so it means the same
+ * in a KZT workspace as in a USD one.
+ */
+const RISING_CATEGORY_MIN_INCREASE = { currency: 'USD', amount: 50 } as const;
 /** Savings rate moves a few points every month; only a real swing is reported. */
 const SAVINGS_RATE_THRESHOLD_POINTS = 5;
 /**
@@ -45,7 +56,36 @@ export class FinancialAnalyzer implements InsightAnalyzer {
     @InjectRepository(Budget)
     private readonly budgetRepository: Repository<Budget>,
     private readonly netWorthService: NetWorthService,
+    private readonly exchangeRatesService: ExchangeRatesService,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepository: Repository<Workspace>,
   ) {}
+
+  /**
+   * Sums `rows` per key in the workspace currency. Rows come per currency, so
+   * 500 UAH is never read as 500 of the workspace's money; a currency with no
+   * rate counts as nothing (see `convertWith`).
+   */
+  private async inWorkspaceCurrency<T extends { currency: string | null }>(
+    workspaceId: string,
+    rows: T[],
+  ): Promise<(row: T, amount: string | number) => number> {
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: {
+        id: true,
+        currency: true,
+      },
+    });
+    const currency = normalizeCurrency(workspace?.currency);
+    const rates = await buildRateMap(
+      this.exchangeRatesService,
+      rows.map(row => row.currency ?? currency),
+      currency,
+      workspaceId,
+    );
+    return (row, amount) => convertWith(rates, amount, row.currency ?? currency);
+  }
 
   async analyze(context: AnalysisContext): Promise<InsightCandidate[]> {
     // Every signal below compares categories and totals across a whole
@@ -62,7 +102,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
     ]);
 
     const candidates = await Promise.all([
-      this.risingCategoryAdvice(context.workspaceId, categoryTotals),
+      this.risingCategoryAdvice(context.workspaceId, categoryTotals, now),
       this.unbudgetedTopCategoryAdvice(context.workspaceId, categoryTotals),
     ]);
 
@@ -121,6 +161,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       .select('t.category_id', 'categoryId')
       .addSelect('category.name', 'categoryName')
       .addSelect("date_trunc('month', t.transaction_date)", 'month')
+      .addSelect('t.currency', 'currency')
       .addSelect('COALESCE(SUM(ABS(t.amount)), 0)', 'total')
       .where('t.workspace_id = :workspaceId', { workspaceId })
       .andWhere('t.transaction_type = :type', { type: TransactionType.EXPENSE })
@@ -128,17 +169,34 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       .andWhere('t.transaction_date <= :end', { end })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(flowsSql('t'))
       .groupBy('t.category_id')
       .addGroupBy('category.name')
       .addGroupBy("date_trunc('month', t.transaction_date)")
-      .getRawMany<{ categoryId: string; categoryName: string; month: string; total: string }>();
+      .addGroupBy('t.currency')
+      .getRawMany<{
+        categoryId: string;
+        categoryName: string;
+        month: string;
+        currency: string | null;
+        total: string;
+      }>();
 
-    return rows.map(row => ({
-      categoryId: row.categoryId,
-      categoryName: row.categoryName,
-      monthIndex: monthsBetween(new Date(row.month), now),
-      total: Number.parseFloat(row.total) || 0,
-    }));
+    const convert = await this.inWorkspaceCurrency(workspaceId, rows);
+    const totals = new Map<string, CategoryMonthTotal>();
+    for (const row of rows) {
+      const monthIndex = monthsBetween(new Date(row.month), now);
+      const key = `${row.categoryId}:${monthIndex}`;
+      const entry = totals.get(key) ?? {
+        categoryId: row.categoryId,
+        categoryName: row.categoryName,
+        monthIndex,
+        total: 0,
+      };
+      entry.total += convert(row, row.total);
+      totals.set(key, entry);
+    }
+    return [...totals.values()];
   }
 
   /**
@@ -149,6 +207,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
   private async risingCategoryAdvice(
     workspaceId: string,
     totals: CategoryMonthTotal[],
+    now: Date,
   ): Promise<InsightCandidate | null> {
     const trailingByCategory = new Map<string, number>();
     for (const row of totals.filter(item => item.monthIndex !== 0)) {
@@ -158,6 +217,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       );
     }
 
+    const minIncrease = await this.risingCategoryMinIncrease(workspaceId);
     const rises = totals
       .filter(row => row.monthIndex === 0)
       .map(row => ({
@@ -170,6 +230,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
         increasePercent: ((item.row.total - item.average) / item.average) * 100,
       }))
       .filter(item => item.increasePercent >= RISING_CATEGORY_THRESHOLD_PERCENT)
+      .filter(item => item.row.total - item.average >= minIncrease)
       .sort((a, b) => b.increasePercent - a.increasePercent);
 
     const best = rises[0] ?? null;
@@ -189,6 +250,9 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       },
       deduplicationKey: `financial:category_rising:${workspaceId}:${best.row.categoryId}`,
       data: {
+        // The month the comparison is about: the link carries it so the
+        // leaderboard it opens shows this month's total, not an all-time one.
+        month: monthKey(now),
         categoryId: best.row.categoryId,
         categoryName: best.row.categoryName,
         current: round2(best.row.total),
@@ -205,6 +269,19 @@ export class FinancialAnalyzer implements InsightAnalyzer {
     };
   }
 
+  /**
+   * The money floor for a rising category, in the workspace currency. With no
+   * rate for the floor's currency it falls back to the same number of
+   * workspace units: a lower floor, but still one.
+   */
+  private async risingCategoryMinIncrease(workspaceId: string): Promise<number> {
+    const floor = { currency: RISING_CATEGORY_MIN_INCREASE.currency };
+    const convert = await this.inWorkspaceCurrency(workspaceId, [floor]);
+    return (
+      convert(floor, RISING_CATEGORY_MIN_INCREASE.amount) || RISING_CATEGORY_MIN_INCREASE.amount
+    );
+  }
+
   /** This month's largest expense category that no budget is watching. */
   private async unbudgetedTopCategoryAdvice(
     workspaceId: string,
@@ -219,7 +296,9 @@ export class FinancialAnalyzer implements InsightAnalyzer {
 
     const budgets = await this.budgetRepository.find({
       where: { workspaceId },
-      select: ['categoryId'],
+      select: {
+        categoryId: true,
+      },
     });
     const budgetedIds = new Set(budgets.map(budget => budget.categoryId));
 
@@ -281,6 +360,7 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       messageParams: { rate: Math.round(currentRate), diff: Math.abs(Math.round(diff)) },
       deduplicationKey: `financial:savings_rate:${workspaceId}:${monthKey(now)}`,
       data: {
+        month: monthKey(now),
         currentRate: Math.round(currentRate),
         previousRate: Math.round(previousRate),
         income: round2(current.income),
@@ -297,9 +377,10 @@ export class FinancialAnalyzer implements InsightAnalyzer {
   ): Promise<{ income: number; spent: number }> {
     const { start, end } = monthBounds(now, monthsAgo);
 
-    const row = await this.transactionRepository
+    const rows = await this.transactionRepository
       .createQueryBuilder('t')
-      .select(
+      .select('t.currency', 'currency')
+      .addSelect(
         'COALESCE(SUM(CASE WHEN t.transaction_type = :income THEN ABS(t.amount) ELSE 0 END), 0)',
         'income',
       )
@@ -312,13 +393,19 @@ export class FinancialAnalyzer implements InsightAnalyzer {
       .andWhere('t.transaction_date <= :end', { end })
       .andWhere('t.is_duplicate = false')
       .andWhere('t.transfer_pair_id IS NULL')
+      .andWhere(flowsSql('t'))
       .setParameters({ income: TransactionType.INCOME, expense: TransactionType.EXPENSE })
-      .getRawOne<{ income: string; spent: string }>();
+      .groupBy('t.currency')
+      .getRawMany<{ currency: string | null; income: string; spent: string }>();
 
-    return {
-      income: Number.parseFloat(row?.income ?? '0') || 0,
-      spent: Number.parseFloat(row?.spent ?? '0') || 0,
-    };
+    const convert = await this.inWorkspaceCurrency(workspaceId, rows);
+    return rows.reduce(
+      (sum, row) => ({
+        income: sum.income + convert(row, row.income),
+        spent: sum.spent + convert(row, row.spent),
+      }),
+      { income: 0, spent: 0 },
+    );
   }
 }
 

@@ -13,6 +13,8 @@ import path from 'node:path';
 const ALLOWED = new Set([
   // Registration, the dev admin bootstrap and the login response.
   'modules/auth/auth.service.ts',
+  // GET /auth/me reports the registration workspace, as the login response does.
+  'modules/auth/current-user.view.ts',
   // ensureUserWorkspace and clearing it when the member is removed.
   'modules/workspaces/workspaces.service.ts',
   // Onboarding edits the registration workspace.
@@ -21,7 +23,14 @@ const ALLOWED = new Set([
   'modules/application-settings/application-settings.service.ts',
   // Chats connected before telegram_workspace_id was recorded.
   'modules/telegram/telegram.service.ts',
+  'modules/telegram/telegram-connection.util.ts',
   'common/utils/seed-demo.util.ts',
+  // Account security events (password, 2FA, email, data export) belong to the
+  // user rather than a workspace; the audit log files them under the home one.
+  'modules/auth/password-reset.service.ts',
+  'modules/auth/two-factor.service.ts',
+  'modules/users/services/account-data.service.ts',
+  'modules/users/services/email-change.service.ts',
 ]);
 
 const SRC = path.join(process.cwd(), 'src');

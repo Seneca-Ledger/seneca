@@ -1,13 +1,27 @@
+import { currencyOr } from './currency';
+
+export { DEFAULT_RECENT_CURRENCIES } from './currency';
 export type StatementExpenseMode = 'scan' | 'manual';
 export type ManualStep = 'amount' | 'details';
 
 export const STATEMENTS_OPEN_EXPENSE_DRAWER_EVENT = 'statements:open-expense-drawer';
 export const ALWAYS_ALLOW_STATEMENT_DUPLICATES = true;
-export const DEFAULT_RECENT_CURRENCIES = ['KZT', 'USD', 'EUR', 'RUB'] as const;
-
 export type OpenExpenseDrawerEventDetail = {
   mode?: StatementExpenseMode | string | null;
 };
+
+/**
+ * The scan drawer lives on the Documents list, so only that page hears the
+ * event. From anywhere else, go there and let `?openExpenseDrawer` open it.
+ */
+export function openScanUpload(push: (href: string) => void): void {
+  if (window.location.pathname.startsWith('/statements/submit')) {
+    const detail: OpenExpenseDrawerEventDetail = { mode: 'scan' };
+    window.dispatchEvent(new CustomEvent(STATEMENTS_OPEN_EXPENSE_DRAWER_EVENT, { detail }));
+    return;
+  }
+  push('/statements/submit?openExpenseDrawer=scan');
+}
 
 export type ManualExpenseDraft = {
   amount: string;
@@ -164,10 +178,7 @@ export function resolveExpenseDrawerMode(mode: string | null | undefined): State
 }
 
 export function resolveDefaultCurrency(currency: string | null | undefined): string {
-  const normalized = String(currency || '')
-    .trim()
-    .toUpperCase();
-  return normalized.length > 0 ? normalized : 'KZT';
+  return currencyOr(currency);
 }
 
 export function createDefaultManualDraft(currency: string): ManualExpenseDraft {

@@ -19,7 +19,7 @@ export function selectionColumn<TData extends RowData>(labels: {
     size: 44,
     enableSorting: false,
     enableHiding: false,
-    meta: { align: 'center', className: 'lumio-grid__cell--select' },
+    meta: { align: 'center', className: 'seneca-grid__cell--select' },
     header: ({ table }) => (
       <Checkbox
         aria-label={labels.selectAll}
