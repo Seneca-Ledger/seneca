@@ -46,8 +46,8 @@ function inspectActiveElement() {
     return { kind: 'body' };
   }
   // The app has no shadow DOM of its own: a focused shadow host is dev tooling
-  // (Next.js dev indicator, react-scan toolbar with its closed shadow root).
-  if (active.shadowRoot || active.tagName.includes('-') || active.id === 'react-scan-root') {
+  // (the Next.js dev indicator).
+  if (active.shadowRoot || active.tagName.includes('-')) {
     return { kind: 'devtool', label: active.tagName.toLowerCase() };
   }
   window.__focusAuditSeen ??= new WeakSet();

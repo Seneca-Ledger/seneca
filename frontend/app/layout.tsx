@@ -9,7 +9,6 @@ import AppChrome from './components/AppChrome';
 import DynamicPageTitle from './components/DynamicPageTitle';
 import MobileBottomBar from './components/mobile/MobileBottomBar';
 import { AppPanels } from './components/panels/AppPanels';
-import { ReactScan } from './components/ReactScan';
 import { ReceiptPlaceFollowupHost } from './components/receipts/place-followup/ReceiptPlaceFollowupHost';
 import { SidePanelProvider } from './components/side-panel/SidePanelContext';
 import { WelcomeTutorialHost } from './components/welcome-tutorial/WelcomeTutorialHost';
@@ -69,7 +68,6 @@ export default async function RootLayout({
           crossOrigin=""
         />
       </head>
-      {process.env.NODE_ENV === 'development' ? <ReactScan /> : null}
       <body style={BODY_STYLE} suppressHydrationWarning>
         {/* First Tab stop: jumps past the sidebar; shown only while focused. */}
         <a href="#main-content" className="seneca-skip-link">
