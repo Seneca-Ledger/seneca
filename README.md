@@ -5,19 +5,19 @@
 <h1>Stoic Budget</h1>
 
 <p align="center">
-  :globe_with_meridians: <a href="https://github.com/Seneca-Ledger/seneca/releases/latest">Download</a> · :book: <a href="https://symonbaikov.github.io/seneca/">Documentation</a>
+  :globe_with_meridians: <a href="https://github.com/stoic-budget/stoic-budget/releases/latest">Download</a> · :book: <a href="https://stoic-budget.github.io/stoic-budget/">Documentation</a>
 </p>
 
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](.github/CONTRIBUTING.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%20%7C%206.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Release](https://img.shields.io/github/v/release/Seneca-Ledger/seneca?style=for-the-badge)](https://github.com/Seneca-Ledger/seneca/releases/latest)
+[![Release](https://img.shields.io/github/v/release/stoic-budget/stoic-budget?style=for-the-badge)](https://github.com/stoic-budget/stoic-budget/releases/latest)
 
 **Open-source financial data platform for importing, processing, and analyzing bank statements**
 
 
-[Quick Start](#quick-start) • [Docs](https://symonbaikov.github.io/seneca/) • [Features](#features) • [Tech Stack](#tech-stack) • [Architecture](#architecture) • [Contributing](.github/CONTRIBUTING.md)
+[Quick Start](#quick-start) • [Docs](https://stoic-budget.github.io/stoic-budget/) • [Features](#features) • [Tech Stack](#tech-stack) • [Architecture](#architecture) • [Contributing](.github/CONTRIBUTING.md)
 
 </div>
 
@@ -55,9 +55,9 @@
 
 [![Maintainability](https://qlty.sh/gh/symonbaikov/projects/seneca/maintainability.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
 [![Code Coverage](https://qlty.sh/gh/symonbaikov/projects/seneca/coverage.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
-[![GitHub Stars](https://img.shields.io/github/stars/Seneca-Ledger/seneca?style=flat-square&logo=github)](https://github.com/Seneca-Ledger/seneca/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/Seneca-Ledger/seneca?style=flat-square&logo=github)](https://github.com/Seneca-Ledger/seneca/network/members)
-[![GitHub Issues](https://img.shields.io/github/issues/Seneca-Ledger/seneca?style=flat-square&logo=github)](https://github.com/Seneca-Ledger/seneca/issues)
+[![GitHub Stars](https://img.shields.io/github/stars/stoic-budget/stoic-budget?style=flat-square&logo=github)](https://github.com/stoic-budget/stoic-budget/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/stoic-budget/stoic-budget?style=flat-square&logo=github)](https://github.com/stoic-budget/stoic-budget/network/members)
+[![GitHub Issues](https://img.shields.io/github/issues/stoic-budget/stoic-budget?style=flat-square&logo=github)](https://github.com/stoic-budget/stoic-budget/issues)
 
 ---
 
@@ -299,7 +299,7 @@ Your bank is missing or parses badly? See [Wanted: real bank statements](#-wante
 ## Repository Structure
 
 ```
-seneca/
+stoic-budget/
 ├── backend/                         # NestJS API server
 │   ├── src/
 │   │   ├── modules/                 # Feature modules
@@ -448,8 +448,8 @@ Choose the startup mode that matches your machine:
 ### One-command development startup
 
 ```bash
-git clone https://github.com/Seneca-Ledger/seneca.git
-cd seneca
+git clone https://github.com/stoic-budget/stoic-budget.git
+cd stoic-budget
 npm run setup:dev
 ```
 
@@ -506,7 +506,7 @@ If native prerequisites are missing, the command stops before starting the app a
 
 ### Run prebuilt images (no local build)
 
-CD publishes `ghcr.io/seneca-ledger/seneca-backend` and `ghcr.io/seneca-ledger/seneca-frontend` for every release. To start the production stack without building anything locally:
+CD publishes `ghcr.io/stoic-budget/stoic-budget-backend` and `ghcr.io/stoic-budget/stoic-budget-frontend` for every release. To start the production stack without building anything locally:
 
 ```bash
 npm run setup:env
@@ -993,7 +993,7 @@ CD builds, scans, signs and publishes the images on version tags and stops there
 
 | Document | Description |
 |---|---|
-| [symonbaikov.github.io/seneca](https://symonbaikov.github.io/seneca/) | Documentation site, built from `website/` |
+| [stoic-budget.github.io/stoic-budget](https://stoic-budget.github.io/stoic-budget/) | Documentation site, built from `website/` |
 | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | How to contribute — workflow, code style, PR process |
 | [.github/SECURITY.md](.github/SECURITY.md) | Security policy, vulnerability reporting, disclosure process |
 | [.github/CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) | Community guidelines |

@@ -1263,7 +1263,7 @@ describe('API contracts (e2e)', () => {
         new Response(
           JSON.stringify({
             tag_name: 'v1.3.0',
-            html_url: 'https://github.com/Seneca-Ledger/seneca/releases/tag/v1.3.0',
+            html_url: 'https://github.com/stoic-budget/stoic-budget/releases/tag/v1.3.0',
           }),
           { status: 200, headers: { 'content-type': 'application/json' } },
         )) as typeof fetch;
