@@ -101,24 +101,24 @@ export function SubscriptionDetailsDrawer({
       title={subscription.vendorName}
       width="lg"
     >
-      <div className="lumio-sub-detail">
-        <div className="lumio-sub-detail__status">
+      <div className="seneca-sub-detail">
+        <div className="seneca-sub-detail__status">
           <VendorIcon
             vendorName={subscription.vendorName}
             vendorDomain={subscription.vendorDomain}
             size={28}
           />
-          <span className="lumio-sub-detail__dot" data-tone={STATUS_TONE[status]}>
+          <span className="seneca-sub-detail__dot" data-tone={STATUS_TONE[status]}>
             {t[STATUS_LABELS[status]].value}
           </span>
           {subscription.riskStatus !== 'none' && (
-            <span className="lumio-sub-detail__dot" data-tone="attention">
+            <span className="seneca-sub-detail__dot" data-tone="attention">
               {t[RISK_LABELS[subscription.riskStatus]].value}
             </span>
           )}
           <IconButton
             size="small"
-            className="lumio-sub-detail__edit"
+            className="seneca-sub-detail__edit"
             aria-label={t.editSubscription.value}
             title={t.editSubscription.value}
             onClick={onEdit}
@@ -126,10 +126,10 @@ export function SubscriptionDetailsDrawer({
             <Pencil size={16} />
           </IconButton>
         </div>
-        <div className={`lumio-sub-detail__amount ${PRIVATE_CLASS}`}>
+        <div className={`seneca-sub-detail__amount ${PRIVATE_CLASS}`}>
           {money(subscription.amount, subscription.currency, locale)}
         </div>
-        <dl className="lumio-sub-detail__facts">
+        <dl className="seneca-sub-detail__facts">
           <div>
             <dt>{t.expectedCharge.value}</dt>
             <dd>{formatDate(subscription.nextChargeDate)}</dd>
@@ -184,12 +184,12 @@ export function SubscriptionDetailsDrawer({
           onRemove={chargeId => savePayment(() => apiClient.delete(`${chargesUrl}/${chargeId}`))}
         />
 
-        <div className="lumio-sub-detail__actions">
+        <div className="seneca-sub-detail__actions">
           {/* Moving between running and stopped: quiet sage text. */}
           {status === 'active' && (
             <Button
               variant="text"
-              className="lumio-sub-detail__link"
+              className="seneca-sub-detail__link"
               onClick={() => void onStatusChange(subscription.id, 'paused')}
             >
               {t.pauseSubscription.value}
@@ -198,7 +198,7 @@ export function SubscriptionDetailsDrawer({
           {status === 'paused' && (
             <Button
               variant="text"
-              className="lumio-sub-detail__link"
+              className="seneca-sub-detail__link"
               onClick={() => void onStatusChange(subscription.id, 'active')}
             >
               {t.resumeSubscription.value}
@@ -207,7 +207,7 @@ export function SubscriptionDetailsDrawer({
           {status === 'cancelled' && (
             <Button
               variant="text"
-              className="lumio-sub-detail__link"
+              className="seneca-sub-detail__link"
               onClick={() => void onStatusChange(subscription.id, 'active')}
             >
               {t.reactivateSubscription.value}
@@ -217,7 +217,7 @@ export function SubscriptionDetailsDrawer({
           {status !== 'cancelled' && (
             <Button
               variant="text"
-              className="lumio-sub-detail__destructive"
+              className="seneca-sub-detail__destructive"
               onClick={() => void onDecision(subscription.id, 'cancelled')}
             >
               {t.recordCancellation.value}
