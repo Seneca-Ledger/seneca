@@ -67,7 +67,9 @@ export class TransferPairingService {
       .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.isDuplicate = false')
       .andWhere('t.splitGroupId IS NULL')
-      .andWhere('t.transferPairId IS NULL')
+      // A dividend is linked to its investment account without a pair: it is
+      // income, and pairing it with some transfer would make it vanish.
+      .andWhere('t.transferPairId IS NULL AND t.investmentAccountId IS NULL')
       .andWhere('t.reimbursementOfId IS NULL')
       .andWhere('(t.statementId IS NULL OR s.deletedAt IS NULL)');
     if (!options.includeRejected) {

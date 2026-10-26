@@ -42,6 +42,13 @@ export const InvestmentAccount = Schema.Struct({
   value: Schema.Number,
   /** Sum of the expenses linked to this account as contributions. */
   contributed: Schema.Number,
+  /** Money taken back out of the account to the user's own cash. */
+  withdrawn: Schema.Number,
+  /** Dividends and interest the account paid out. */
+  income: Schema.Number,
+  /** Contributed less withdrawn: what the user still has in it. */
+  netInvested: Schema.Number,
+  /** Value less net invested, plus what it paid out. */
   gain: Schema.Number,
   holdings: Schema.Array(InvestmentHolding),
 });

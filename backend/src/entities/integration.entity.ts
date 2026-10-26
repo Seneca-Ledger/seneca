@@ -20,6 +20,8 @@ export enum IntegrationProvider {
   IMAP = 'imap',
   /** Bank sync through the user's own SimpleFIN Bridge account. */
   SIMPLEFIN = 'simplefin',
+  /** Bank sync through the user's own Enable Banking application. */
+  ENABLEBANKING = 'enablebanking',
 }
 
 export enum IntegrationStatus {
@@ -42,6 +44,14 @@ export class Integration {
 
   @Column({ type: 'varchar' })
   provider: IntegrationProvider;
+
+  /**
+   * Which instance of this provider, for the ones a workspace may hold several
+   * of. NULL means the single connection of that provider, which is what cloud
+   * storage and mail are, and keeps them unique per workspace.
+   */
+  @Column({ name: 'instance_key', type: 'varchar', length: 64, nullable: true })
+  instanceKey: string | null;
 
   @Column({ type: 'varchar', default: IntegrationStatus.CONNECTED })
   status: IntegrationStatus;

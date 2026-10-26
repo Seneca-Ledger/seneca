@@ -13,6 +13,8 @@ import { AuditModule } from '../audit/audit.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { BalanceController } from './balance.controller';
 import { BalanceService } from './balance.service';
+import { BalanceHistoryService } from './balance-history.service';
+import { BalancePersonalLayoutService } from './balance-personal-layout.service';
 
 @Module({
   imports: [
@@ -29,7 +31,7 @@ import { BalanceService } from './balance.service';
     ExchangeRatesModule,
   ],
   controllers: [BalanceController],
-  providers: [BalanceService],
-  exports: [BalanceService],
+  providers: [BalanceService, BalanceHistoryService, BalancePersonalLayoutService],
+  exports: [BalanceService, BalanceHistoryService],
 })
 export class BalanceModule {}

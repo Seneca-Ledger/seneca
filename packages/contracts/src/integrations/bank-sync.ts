@@ -1,0 +1,116 @@
+import * as Schema from 'effect/Schema';
+import type { Wire } from '../common/wire';
+
+const LinkStyle = Schema.Literals(['token', 'redirect']);
+
+/** How a feed is doing; `stale` and `incomplete` are the failures that otherwise look fine. */
+export const BankSyncHealth = Schema.Literals([
+  'ok',
+  'never_synced',
+  'stale',
+  'incomplete',
+  'needs_reauth',
+]);
+export type BankSyncHealth = Wire<typeof BankSyncHealth>;
+
+/** `GET /integrations/bank-sync/providers`: what this install can connect to. */
+export const BankSyncProviderList = Schema.Array(
+  Schema.Struct({ key: Schema.String, linkStyle: LinkStyle }),
+);
+export type BankSyncProviderList = Wire<typeof BankSyncProviderList>;
+
+export const BankSyncAccountState = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  org: Schema.String,
+  currency: Schema.String,
+  enabled: Schema.Boolean,
+  walletId: Schema.NullOr(Schema.String),
+  linkId: Schema.NullOr(Schema.String),
+  lastSyncAt: Schema.NullOr(Schema.String),
+  balance: Schema.NullOr(Schema.Number),
+  balanceDate: Schema.NullOr(Schema.String),
+  consentExpiresAt: Schema.NullOr(Schema.String),
+  /** The first day the next pull imports, after a feed moved here from another provider. */
+  syncFrom: Schema.NullOr(Schema.String),
+  health: BankSyncHealth,
+  lastError: Schema.NullOr(Schema.String),
+  /** How far the provider's balance moved beyond the rows that arrived. */
+  balanceDrift: Schema.NullOr(Schema.Number),
+});
+export type BankSyncAccountState = Wire<typeof BankSyncAccountState>;
+
+/**
+ * One connection with a bank-data provider. Never the credentials, and never
+ * the state of an authorization in progress.
+ */
+export const BankSyncConnection = Schema.Struct({
+  id: Schema.String,
+  provider: Schema.String,
+  linkStyle: LinkStyle,
+  label: Schema.String,
+  status: Schema.Literals(['connected', 'disconnected', 'needs_reauth']),
+  config: Schema.Struct({
+    label: Schema.String,
+    autoSync: Schema.Boolean,
+    links: Schema.Array(
+      Schema.Struct({
+        id: Schema.String,
+        institution: Schema.String,
+        country: Schema.NullOr(Schema.String),
+        consentExpiresAt: Schema.NullOr(Schema.String),
+      }),
+    ),
+    accounts: Schema.Array(BankSyncAccountState),
+    lastSyncAt: Schema.NullOr(Schema.String),
+    lastError: Schema.NullOr(Schema.String),
+  }),
+});
+export type BankSyncConnection = Wire<typeof BankSyncConnection>;
+
+/** `GET /integrations/bank-sync/connections`. */
+export const BankSyncConnectionList = Schema.Array(BankSyncConnection);
+export type BankSyncConnectionList = Wire<typeof BankSyncConnectionList>;
+
+/** `GET /integrations/bank-sync/connections/:id/institutions`. */
+export const BankSyncInstitutionList = Schema.Array(
+  Schema.Struct({
+    name: Schema.String,
+    country: Schema.String,
+    maxConsentValiditySeconds: Schema.NullOr(Schema.Number),
+    beta: Schema.Boolean,
+  }),
+);
+export type BankSyncInstitutionList = Wire<typeof BankSyncInstitutionList>;
+
+/** `POST /integrations/bank-sync/connections/:id/links/begin`: where to send the user. */
+export const BankSyncLinkStarted = Schema.Struct({ url: Schema.String, state: Schema.String });
+export type BankSyncLinkStarted = Wire<typeof BankSyncLinkStarted>;
+
+/** `POST /integrations/bank-sync/connections/:id/sync`: rows and statements made, per account. */
+export const BankSyncResult = Schema.Struct({
+  ok: Schema.Boolean,
+  imported: Schema.Number,
+  statements: Schema.Number,
+  accounts: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      imported: Schema.Number,
+      /** Rows the provider sent that the workspace already had. */
+      skipped: Schema.Number,
+      statementId: Schema.NullOr(Schema.String),
+      health: BankSyncHealth,
+      /** Why this account could not be read; the others still are. */
+      error: Schema.optional(Schema.String),
+    }),
+  ),
+});
+export type BankSyncResult = Wire<typeof BankSyncResult>;
+
+/** `POST /integrations/bank-sync/feeds/switch`. */
+export const BankSyncFeedSwitched = Schema.Struct({
+  from: Schema.NullOr(Schema.Struct({ connectionId: Schema.String, accountId: Schema.String })),
+  /** The day the new feed starts from: the day after the wallet's last row. */
+  syncFrom: Schema.NullOr(Schema.String),
+});
+export type BankSyncFeedSwitched = Wire<typeof BankSyncFeedSwitched>;

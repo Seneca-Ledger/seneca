@@ -1,70 +1,186 @@
-import { Controller, Delete, Get, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post, UseFilters } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
+  BankSyncAccountParams,
+  BankSyncConnection,
+  BankSyncConnectionList,
+  BankSyncConnectionParams,
+  BankSyncFeedSwitched,
+  BankSyncInstitutionList,
+  BankSyncInstitutionsQuery,
+  BankSyncLinkStarted,
+  BankSyncProviderList,
   BankSyncResult,
-  BankSyncStatus,
-  ConnectBankSyncBody,
+  BeginBankSyncLinkBody,
+  CompleteBankSyncLinkBody,
+  ConnectBankSyncTokenBody,
+  CreateBankSyncRedirectBody,
   IntegrationDisconnected,
-  UpdateBankSyncSettingsBody,
+  SwitchBankSyncFeedBody,
+  UpdateBankSyncAccountBody,
+  UpdateBankSyncConnectionBody,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BankSyncService } from './bank-sync.service';
+import { BankSyncErrorFilter } from './bank-sync-error.filter';
+import { BankSyncPullService } from './bank-sync-pull.service';
 
-@Controller('integrations/simplefin')
+@Controller('integrations/bank-sync')
+@UseFilters(BankSyncErrorFilter)
 export class BankSyncController {
-  constructor(private readonly bankSyncService: BankSyncService) {}
+  constructor(
+    private readonly connections: BankSyncService,
+    private readonly pull: BankSyncPullService,
+  ) {}
 
-  @Get('status')
+  @Get('providers')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  @SchemaResponse(BankSyncStatus)
-  status(@WorkspaceId() workspaceId: string) {
-    return this.bankSyncService.status(workspaceId);
+  @SchemaResponse(BankSyncProviderList)
+  providers() {
+    return this.connections.catalogue();
   }
 
-  @Post('connect')
+  @Get('connections')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  @SchemaResponse(BankSyncStatus)
-  connect(
+  @SchemaResponse(BankSyncConnectionList)
+  list(@WorkspaceId() workspaceId: string) {
+    return this.connections.list(workspaceId);
+  }
+
+  @Post('connections/token')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(BankSyncConnection)
+  connectWithToken(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @SchemaBody(ConnectBankSyncBody) body: ConnectBankSyncBody,
+    @SchemaBody(ConnectBankSyncTokenBody) body: ConnectBankSyncTokenBody,
   ) {
-    return this.bankSyncService.connect(user, workspaceId, body.setupToken);
+    return this.connections.connectWithToken(
+      user,
+      workspaceId,
+      body.provider,
+      body.setupToken,
+      body.label,
+    );
   }
 
-  @Post('settings')
+  @Post('connections/redirect')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  @SchemaResponse(BankSyncStatus)
-  updateSettings(
+  @SchemaResponse(BankSyncConnection)
+  createRedirectConnection(
+    @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @SchemaBody(UpdateBankSyncSettingsBody) body: UpdateBankSyncSettingsBody,
+    @SchemaBody(CreateBankSyncRedirectBody) body: CreateBankSyncRedirectBody,
   ) {
-    return this.bankSyncService.updateSettings(workspaceId, body);
+    return this.connections.createRedirectConnection(
+      user,
+      workspaceId,
+      body.provider,
+      { ...body.secrets },
+      body.label,
+    );
   }
 
-  @Post('accounts/refresh')
+  @Get('connections/:id/institutions')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  @SchemaResponse(BankSyncStatus)
-  refreshAccounts(@WorkspaceId() workspaceId: string) {
-    return this.bankSyncService.refreshAccounts(workspaceId);
+  @SchemaResponse(BankSyncInstitutionList)
+  institutions(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BankSyncConnectionParams) params: BankSyncConnectionParams,
+    @SchemaQuery(BankSyncInstitutionsQuery) query: BankSyncInstitutionsQuery,
+  ) {
+    return this.connections.listInstitutions(workspaceId, params.id, query.country);
   }
 
-  @Post('sync')
+  @Post('connections/:id/links/begin')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(BankSyncLinkStarted)
+  beginLink(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BankSyncConnectionParams) params: BankSyncConnectionParams,
+    @SchemaBody(BeginBankSyncLinkBody) body: BeginBankSyncLinkBody,
+  ) {
+    return this.connections.beginLink(workspaceId, params.id, body);
+  }
+
+  @Post('connections/:id/links/complete')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(BankSyncConnection)
+  completeLink(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BankSyncConnectionParams) params: BankSyncConnectionParams,
+    @SchemaBody(CompleteBankSyncLinkBody) body: CompleteBankSyncLinkBody,
+  ) {
+    return this.connections.completeLink(workspaceId, params.id, body.code, body.state);
+  }
+
+  @Post('connections/:id/accounts/refresh')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(BankSyncConnection)
+  refreshAccounts(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BankSyncConnectionParams) params: BankSyncConnectionParams,
+  ) {
+    return this.connections.refreshAccounts(workspaceId, params.id);
+  }
+
+  @Patch('connections/:id')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(BankSyncConnection)
+  updateConnection(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BankSyncConnectionParams) params: BankSyncConnectionParams,
+    @SchemaBody(UpdateBankSyncConnectionBody) body: UpdateBankSyncConnectionBody,
+  ) {
+    return this.connections.updateConnection(workspaceId, params.id, body);
+  }
+
+  @Patch('connections/:id/accounts/:accountId')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(BankSyncConnection)
+  updateAccount(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BankSyncAccountParams) params: BankSyncAccountParams,
+    @SchemaBody(UpdateBankSyncAccountBody) body: UpdateBankSyncAccountBody,
+  ) {
+    return this.connections.updateAccount(workspaceId, params.id, params.accountId, body);
+  }
+
+  @Post('connections/:id/sync')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   @SchemaResponse(BankSyncResult)
-  sync(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
-    return this.bankSyncService.sync(user, workspaceId);
+  sync(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BankSyncConnectionParams) params: BankSyncConnectionParams,
+  ) {
+    return this.pull.sync(user, workspaceId, params.id);
   }
 
-  @Delete()
+  /** Moves a wallet's feed to another provider without losing its history. */
+  @Post('feeds/switch')
+  @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(BankSyncFeedSwitched)
+  switchFeed(
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SwitchBankSyncFeedBody) body: SwitchBankSyncFeedBody,
+  ) {
+    return this.connections.switchFeed(workspaceId, body);
+  }
+
+  @Delete('connections/:id')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
   @SchemaResponse(IntegrationDisconnected)
-  disconnect(@WorkspaceId() workspaceId: string) {
-    return this.bankSyncService.disconnect(workspaceId);
+  disconnect(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BankSyncConnectionParams) params: BankSyncConnectionParams,
+  ) {
+    return this.connections.disconnect(workspaceId, params.id);
   }
 }

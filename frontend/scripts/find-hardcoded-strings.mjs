@@ -47,7 +47,7 @@ const DICTIONARY_REF = /^(t|labels|content|messages|texts|dict|copy)(\?\.|\.)/;
 // biome-ignore format: grouped by kind, one group per line
 export const ALLOWED = new Set([
   // brands and products
-  'Openverse', 'Telegram', 'Excel', 'Deutsche Telekom', 'Google Drive', 'Nextcloud (WebDAV)', 'bridge.simplefin.org',
+  'Openverse', 'Telegram', 'Excel', 'Deutsche Telekom', 'Google Drive', 'Nextcloud (WebDAV)', 'bridge.simplefin.org', 'enablebanking.com',
   // file formats and units of a format
   'PDF', 'XLSX', 'CSV', 'Excel (.xlsx)', 'PDF (.pdf)', 'CSV (.csv)', 'Word (.docx)', 'Excel / CSV',
   // official form codes (German DATEV / UStVA)

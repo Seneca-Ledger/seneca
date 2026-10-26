@@ -164,6 +164,8 @@ export const ACCOUNTING_ERRORS = {
   INVESTMENTS_CONTRIBUTION_NOT_EXPENSE: 'Only an expense can be a contribution',
   INVESTMENTS_ROW_ALREADY_TRANSFER: 'This row is already linked as a transfer',
   INVESTMENTS_ROW_NOT_CONTRIBUTION: 'This row is not a contribution',
+  INVESTMENTS_EXPENSE_ONLY_CONTRIBUTION: 'An expense can only be a contribution',
+  INVESTMENTS_INCOME_ROLE_REQUIRED: 'Say whether this income is a withdrawal or a dividend',
   INVESTMENTS_HOLDING_NOT_FOUND: 'Holding not found',
   // ── metals ──────────────────────────────────────────────────────
   METALS_LOT_METAL_REQUIRED: 'A lot needs a metal',

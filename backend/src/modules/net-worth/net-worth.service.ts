@@ -5,6 +5,7 @@ import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import type {
   NetWorthAssetLine,
+  NetWorthAttribution,
   NetWorthBreakdownItem,
   NetWorthClassificationItem,
   NetWorthDenominated,
@@ -23,14 +24,29 @@ import {
 import type { InvestmentMetal } from '../../entities/investment-holding.entity';
 import { BalanceService, CASH_ACCOUNT_CODE } from '../balance/balance.service';
 import { balanceAccountName } from '../balance/balance-account-name';
+import {
+  decimate,
+  everyDay,
+  groupSnapshots,
+  isoDate,
+  latestOnOrBefore,
+  maxDate,
+  minDate,
+  presetWindowStart,
+  shiftDays,
+} from '../balance/snapshot-series';
 import { CurrencyConverter, normalizeCurrencyCode } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { InvestmentFlowsService } from '../investments/investment-flows.service';
 import { InvestmentsService } from '../investments/investments.service';
-import { computedValue, currencyDates, loadComputedLines } from './computed-lines';
+import { computedCurrencyCodes, computedValue, loadComputedLines } from './computed-lines';
 import type { NetWorthRange } from './dto/net-worth-query.dto';
+import { buildAttribution, buildSavings } from './net-worth-attribution';
+import { round2, round4, toNumber } from './net-worth-math';
 
 export type {
   NetWorthAssetLine,
+  NetWorthAttribution,
   NetWorthBreakdownItem,
   NetWorthClassificationItem,
   NetWorthDenominated,
@@ -38,26 +54,28 @@ export type {
   NetWorthResponse,
 };
 
-/** Days back from today for each range. `all` and `ytd` come from elsewhere. */
-const RANGE_DAYS: Record<Exclude<NetWorthRange, 'all' | 'ytd'>, number> = {
-  '30d': 30,
-  '90d': 90,
-  '180d': 180,
-  '1y': 365,
-  '3y': 365 * 3,
-  '5y': 365 * 5,
-};
-
-/** Points sampled over the whole history to find the all-time high. */
-const ALL_TIME_HIGH_POINTS = 37;
+/** The window to chart: a preset, or dates the user picked. */
+export interface NetWorthWindow {
+  range?: NetWorthRange;
+  from?: string;
+  to?: string;
+  /** Account ids to leave out of every figure on the page. */
+  exclude?: readonly string[];
+}
 
 /**
- * How many points a series carries. Net worth moves when a snapshot is
- * entered or money moves — not continuously — so a readable line needs far
- * fewer points than it needs days, and every extra point costs a walk over
- * the snapshot history.
+ * How many points a series carries at most. The value is computed for every
+ * single day and only thinned down for the wire, so the cap bounds the
+ * payload, not the truth: see `decimate`.
  */
-const SERIES_POINTS = 13;
+const MAX_SERIES_POINTS = 200;
+
+/**
+ * How far back the daily walk may start. A workspace with a longer history
+ * still gets its whole window charted — only the all-time high is then taken
+ * over the last 25 years rather than over everything.
+ */
+const MAX_HISTORY_DAYS = 365 * 25;
 
 /** Nothing to chart yet: `all` on an empty workspace falls back to a year. */
 const EMPTY_WORKSPACE_DAYS = 365;
@@ -86,22 +104,35 @@ export class NetWorthService {
     private readonly exchangeRatesService: ExchangeRatesService,
     @Optional()
     private readonly investmentsService?: InvestmentsService,
+    @Optional()
+    private readonly investmentFlowsService?: InvestmentFlowsService,
   ) {}
 
   async getNetWorth(
     workspaceId: string,
-    range: NetWorthRange = '90d',
+    query: NetWorthWindow = {},
     locale?: string,
     denominate?: InvestmentMetal,
-    asOf?: string,
   ): Promise<NetWorthResponse> {
     await this.balanceService.seedDefaultAccounts(workspaceId);
 
+    const range = query.range ?? '90d';
     const today = isoDate(new Date());
-    // Net worth as it stood at the end of a past day; nothing is known about later ones.
-    const to = asOf && asOf < today ? asOf : today;
-    const from = await this.resolveFrom(workspaceId, range, to);
-    const dates = samplePoints(from, to, SERIES_POINTS);
+    // A window the user picked wins over the preset; it never runs past today,
+    // because there is nothing to the right of today to chart. A `to` alone is
+    // net worth as it stood at the end of that past day.
+    const to = query.to && query.to < today ? isoDate(new Date(query.to)) : today;
+    const windowFrom = query.from
+      ? isoDate(new Date(query.from))
+      : await this.resolveFrom(workspaceId, range, to);
+    // The walk starts at whichever is earlier, the window or the first day the
+    // workspace has data: the window is what the user asked to see, the history
+    // is what the all-time high has to be taken over.
+    const historyFrom = await this.resolveFrom(workspaceId, 'all', to);
+    const dates = everyDay(
+      maxDate(minDate(windowFrom, historyFrom), shiftDays(to, -MAX_HISTORY_DAYS)),
+      to,
+    );
 
     const [accounts, snapshots, computedByCode, currency] = await Promise.all([
       this.balanceAccountRepository.find({ where: { workspaceId } }),
@@ -110,17 +141,23 @@ export class NetWorthService {
       this.resolveCurrency(workspaceId),
     ]);
 
-    const leaves = findLeaves(accounts);
+    // A line left out is left out of everything — the curve, the totals, the
+    // allocation — or the page would contradict itself.
+    const excluded = new Set(query.exclude ?? []);
+    const leaves = findLeaves(accounts).filter(leaf => !excluded.has(leaf.id));
     const snapshotsByAccount = groupSnapshots(snapshots);
 
-    // Each point is converted at the rate of its own day.
-    const snapshotCurrencies = [
-      ...new Set(snapshots.map(snapshot => normalizeCurrencyCode(snapshot.currency || currency))),
+    // Each day is converted at the rate of that day, read off one curve per
+    // currency — a lookup per day would be thousands of round trips.
+    const currencies = [
+      ...snapshots.map(snapshot => normalizeCurrencyCode(snapshot.currency || currency)),
+      ...computedCurrencyCodes(computedByCode),
     ];
-    const converter = await CurrencyConverter.load(
+    const converter = await CurrencyConverter.loadRange(
       this.exchangeRatesService,
       currency,
-      currencyDates(computedByCode, dates, snapshotCurrencies),
+      currencies,
+      dates,
       workspaceId,
     );
 
@@ -137,7 +174,19 @@ export class NetWorthService {
         : 0;
     };
 
-    const series = dates.map(date => {
+    /** What the line holds on a day, in the currency it is held in. */
+    const nativeAt = (leaf: BalanceAccount, date: string): Map<string, number> => {
+      const computed = computedByCode.get(leaf.code);
+      if (computed) return computed.get(date) ?? new Map();
+      const snapshot = latestOnOrBefore(snapshotsByAccount.get(leaf.id), date);
+      return snapshot
+        ? new Map([
+            [normalizeCurrencyCode(snapshot.currency || currency), toNumber(snapshot.amount)],
+          ])
+        : new Map();
+    };
+
+    const daily = dates.map(date => {
       let assets = 0;
       let liabilities = 0;
       for (const leaf of leaves) {
@@ -147,8 +196,16 @@ export class NetWorthService {
           liabilities += valueAt(leaf.id, leaf.code, date);
         }
       }
-      return { date, value: round2(assets - liabilities) };
+      return {
+        date,
+        value: round2(assets - liabilities),
+        assets: round2(assets),
+        liabilities: round2(liabilities),
+      };
     });
+
+    const window = daily.filter(point => point.date >= windowFrom);
+    const series = decimate(window, MAX_SERIES_POINTS);
 
     const assetsTotal = round2(
       leaves
@@ -161,24 +218,39 @@ export class NetWorthService {
         .reduce((sum, leaf) => sum + valueAt(leaf.id, leaf.code, to), 0),
     );
 
-    const current = series[series.length - 1]?.value ?? 0;
-    const previous = series[0]?.value ?? 0;
+    const current = window[window.length - 1]?.value ?? 0;
+    const previous = window[0]?.value ?? 0;
     const change = round2(current - previous);
 
-    // The high is a property of the whole history, not of the window shown.
-    const allTimeHigh = await this.findAllTimeHigh(
-      workspaceId,
-      to,
-      range === 'all' ? series : null,
+    const attribution = buildAttribution({
+      contributions: this.investmentFlowsService
+        ? await this.investmentFlowsService.contributionsBetween(workspaceId, windowFrom, to)
+        : new Map<string, Map<string, number>>(),
       leaves,
-      snapshotsByAccount,
-      currency,
-    );
+      nativeAt,
+      converter,
+      from: windowFrom,
+      to,
+      change,
+      locale,
+    });
+
+    const savings = await buildSavings({
+      transactionRepository: this.transactionRepository,
+      workspaceId,
+      converter,
+      from: windowFrom,
+      to,
+      kept: attribution.byKind.find(row => row.kind === 'money')?.amount ?? 0,
+    });
+
+    // The high is a property of the whole history, not of the window shown.
+    const allTimeHigh = highestPoint(daily);
     // The split by asset class prices holdings as they are now, which says
     // nothing true about a past day; it is left out rather than made up.
     const byAssetClass =
       to === today
-        ? await this.buildAssetClasses(workspaceId, leaves, valueAt, to, assetsTotal)
+        ? await this.buildAssetClasses(workspaceId, leaves, valueAt, to, assetsTotal, excluded)
         : [];
 
     const assetLines = leaves
@@ -200,6 +272,8 @@ export class NetWorthService {
 
     return {
       range,
+      from: windowFrom,
+      to,
       currency,
       current,
       previous,
@@ -224,75 +298,15 @@ export class NetWorthService {
       ),
       assetLines,
       missingRates: converter.missing,
+      excluded: [...excluded],
+      attribution,
+      savings,
       denominated: denominate
         ? await this.denominate(workspaceId, denominate, currency, series)
         : null,
       allTimeHigh,
       byAssetClass,
     };
-  }
-
-  /** Samples the whole history (unless the `all` series is already at hand) and keeps the peak. */
-  private async findAllTimeHigh(
-    workspaceId: string,
-    to: string,
-    allSeries: NetWorthPoint[] | null,
-    leaves: BalanceAccount[],
-    snapshotsByAccount: Map<string, BalanceSnapshot[]>,
-    currency: string,
-  ): Promise<NetWorthResponse['allTimeHigh']> {
-    let series = allSeries;
-    if (!series) {
-      const from = await this.resolveFrom(workspaceId, 'all', to);
-      const dates = samplePoints(from, to, ALL_TIME_HIGH_POINTS);
-      const computedByCode = await loadComputedLines(this.balanceService, workspaceId, dates);
-      const snapshotCurrencies = [
-        ...new Set(
-          [...snapshotsByAccount.values()]
-            .flat()
-            .map(snapshot => normalizeCurrencyCode(snapshot.currency || currency)),
-        ),
-      ];
-      const converter = await CurrencyConverter.load(
-        this.exchangeRatesService,
-        currency,
-        currencyDates(computedByCode, dates, snapshotCurrencies),
-        workspaceId,
-      );
-      series = dates.map(date => {
-        let value = 0;
-        for (const leaf of leaves) {
-          const sign =
-            leaf.accountType === BalanceAccountType.ASSET
-              ? 1
-              : leaf.accountType === BalanceAccountType.LIABILITY
-                ? -1
-                : 0;
-          if (sign === 0) continue;
-          const computed = computedValue(computedByCode, converter, leaf.code, date);
-          if (computed !== null) {
-            value += sign * computed;
-            continue;
-          }
-          const snapshot = latestOnOrBefore(snapshotsByAccount.get(leaf.id), date);
-          if (snapshot) {
-            value +=
-              sign *
-              converter.convert(
-                toNumber(snapshot.amount),
-                normalizeCurrencyCode(snapshot.currency || currency),
-                date,
-              );
-          }
-        }
-        return { date, value: round2(value) };
-      });
-    }
-    let best: NetWorthPoint | null = null;
-    for (const point of series) {
-      if (!best || point.value > best.value) best = point;
-    }
-    return best && best.value > 0 ? { value: best.value, date: best.date } : null;
   }
 
   /**
@@ -313,7 +327,12 @@ export class NetWorthService {
         workspaceId,
       });
       if (!(quote && quote.rate > 0)) continue;
-      points.push({ date: point.date, value: round4(point.value / quote.rate) });
+      points.push({
+        date: point.date,
+        value: round4(point.value / quote.rate),
+        assets: round4(point.assets / quote.rate),
+        liabilities: round4(point.liabilities / quote.rate),
+      });
     }
     if (points.length === 0) return null;
     const current = points[points.length - 1]?.value ?? 0;
@@ -342,13 +361,16 @@ export class NetWorthService {
     valueAt: (accountId: string, code: string, date: string) => number,
     to: string,
     assetsTotal: number,
+    excluded: Set<string>,
   ): Promise<NetWorthClassificationItem[]> {
     const totals = new Map<string, number>();
     const add = (key: string, amount: number) => totals.set(key, (totals.get(key) ?? 0) + amount);
     const holdings = this.investmentsService
-      ? await this.investmentsService.valueByAssetClass(workspaceId)
+      ? await this.investmentsService.valueByAssetClass(workspaceId, excluded)
       : new Map<string, number>();
-    for (const [assetClass, amount] of holdings) add(assetClass, amount);
+    for (const [assetClass, amount] of holdings) {
+      add(assetClass, amount);
+    }
     for (const leaf of leaves) {
       if (leaf.accountType !== BalanceAccountType.ASSET) continue;
       // The crypto line is one account holding many coins; its class is known
@@ -385,9 +407,7 @@ export class NetWorthService {
     const totals = new Map<string, number>();
 
     for (const leaf of leaves) {
-      if (leaf.accountType !== BalanceAccountType.ASSET) {
-        continue;
-      }
+      if (leaf.accountType !== BalanceAccountType.ASSET) continue;
       const root = findRoot(leaf, byId);
       totals.set(root.id, (totals.get(root.id) ?? 0) + valueAt(leaf.id, leaf.code, date));
     }
@@ -428,11 +448,8 @@ export class NetWorthService {
     range: NetWorthRange,
     to: string,
   ): Promise<string> {
-    if (range === 'ytd') {
-      return `${to.slice(0, 4)}-01-01`;
-    }
     if (range !== 'all') {
-      return shiftDays(to, -RANGE_DAYS[range]);
+      return presetWindowStart(range, to);
     }
 
     const [snapshot, transaction] = await Promise.all([
@@ -524,71 +541,11 @@ function findRoot(account: BalanceAccount, byId: Map<string, BalanceAccount>): B
   return current;
 }
 
-function groupSnapshots(snapshots: BalanceSnapshot[]): Map<string, BalanceSnapshot[]> {
-  const byAccount = new Map<string, BalanceSnapshot[]>();
-  for (const snapshot of snapshots) {
-    const bucket = byAccount.get(snapshot.accountId);
-    if (bucket) {
-      bucket.push(snapshot);
-    } else {
-      byAccount.set(snapshot.accountId, [snapshot]);
-    }
+/** The peak of a series, or null when it never rose above zero. */
+function highestPoint(points: NetWorthPoint[]): { value: number; date: string } | null {
+  let best: NetWorthPoint | null = null;
+  for (const point of points) {
+    if (!best || point.value > best.value) best = point;
   }
-  return byAccount;
-}
-
-/** Forward fill: an account holds its last entered value until the next one. */
-function latestOnOrBefore(
-  snapshots: BalanceSnapshot[] | undefined,
-  date: string,
-): BalanceSnapshot | null {
-  let latest: BalanceSnapshot | null = null;
-  for (const snapshot of snapshots ?? []) {
-    if (isoDate(new Date(snapshot.snapshotDate)) > date) {
-      break;
-    }
-    latest = snapshot;
-  }
-  return latest;
-}
-
-/** `count` evenly spaced dates from `from` to `to`, inclusive of both ends. */
-function samplePoints(from: string, to: string, count: number): string[] {
-  const start = Date.parse(from);
-  const end = Date.parse(to);
-  if (!(end > start)) {
-    return [to];
-  }
-
-  const step = (end - start) / (count - 1);
-  const dates = Array.from({ length: count }, (_, index) =>
-    isoDate(new Date(start + step * index)),
-  );
-
-  // Even spacing can land twice on the same day on very short histories.
-  return [...new Set(dates)];
-}
-
-function isoDate(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
-function shiftDays(date: string, days: number): string {
-  const shifted = new Date(date);
-  shifted.setDate(shifted.getDate() + days);
-  return isoDate(shifted);
-}
-
-function toNumber(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-/** Ounces are small numbers: two decimals would round a silver stack to noise. */
-function round4(value: number): number {
-  return Math.round(value * 10000) / 10000;
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+  return best && best.value > 0 ? { value: best.value, date: best.date } : null;
 }

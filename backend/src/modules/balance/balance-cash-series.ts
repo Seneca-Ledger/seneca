@@ -6,6 +6,7 @@ import {
   type CurrencyAmounts,
   normalizeCurrencyCode,
 } from '../exchange-rates/currency-converter';
+import { alignTransferLegs, loadTransferLegs } from './balance-transfer-legs';
 
 /** Cash over time for the balance sheet and net worth: from accounts, and from bank statements. */
 
@@ -58,24 +59,35 @@ export async function walletCashSeries(
   const walletIds = wallets.map(wallet => wallet.id);
   const to = dates[dates.length - 1];
 
-  const rows = await onlyCounted(
-    transactionRepository
-      .createQueryBuilder('transaction')
-      .leftJoin('transaction.statement', 'statement')
-      .select('transaction.transactionDate', 'date')
-      .addSelect('transaction.currency', 'currency')
-      .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
-      .addSelect('COALESCE(SUM(transaction.debit), 0)', 'debit')
-      .where('transaction.workspaceId = :workspaceId', { workspaceId }),
-    'transaction',
-  )
-    .andWhere('transaction.walletId IN (:...walletIds)', { walletIds })
-    .andWhere('transaction.transactionDate <= :to', { to })
-    .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
-    .groupBy('transaction.transactionDate')
-    .addGroupBy('transaction.currency')
-    .orderBy('transaction.transactionDate', 'ASC')
-    .getRawMany<{ date: string; currency: string; credit: string; debit: string }>();
+  const [rows, transferLegs] = await Promise.all([
+    onlyCounted(
+      transactionRepository
+        .createQueryBuilder('transaction')
+        .leftJoin('transaction.statement', 'statement')
+        .select('transaction.transactionDate', 'date')
+        .addSelect('transaction.currency', 'currency')
+        .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
+        .addSelect('COALESCE(SUM(transaction.debit), 0)', 'debit')
+        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
+      'transaction',
+    )
+      .andWhere('transaction.walletId IN (:...walletIds)', { walletIds })
+      .andWhere('transaction.transactionDate <= :to', { to })
+      .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
+      .groupBy('transaction.transactionDate')
+      .addGroupBy('transaction.currency')
+      .orderBy('transaction.transactionDate', 'ASC')
+      .getRawMany<{ date: string; currency: string; credit: string; debit: string }>(),
+    loadTransferLegs(transactionRepository, workspaceId, walletIds, to),
+  ]);
+
+  const movements = rows.map(row => ({
+    date: toDateOnly(row.date),
+    currency: normalizeCurrencyCode(row.currency),
+    amount: toNumber(row.credit) - toNumber(row.debit),
+  }));
+  movements.push(...alignTransferLegs(transferLegs));
+  movements.sort((left, right) => left.date.localeCompare(right.date));
 
   const running: CurrencyAmounts = new Map();
   for (const wallet of wallets) {
@@ -85,13 +97,8 @@ export async function walletCashSeries(
   const series = new Map<string, CurrencyAmounts>();
   let index = 0;
   for (const date of dates) {
-    while (index < rows.length && toDateOnly(rows[index].date) <= date) {
-      const row = rows[index];
-      addAmount(
-        running,
-        normalizeCurrencyCode(row.currency),
-        toNumber(row.credit) - toNumber(row.debit),
-      );
+    while (index < movements.length && movements[index].date <= date) {
+      addAmount(running, movements[index].currency, movements[index].amount);
       index += 1;
     }
     series.set(date, new Map(running));

@@ -53,6 +53,10 @@ export const BalanceSheetResponse = Schema.Struct({
   isBalanced: Schema.Boolean,
   /** Currencies left out of the totals because no rate to `currency` was found. */
   missingRates: Schema.Array(Schema.String),
+  /** True when this household sheet is still laid out as a company's. */
+  personalLayoutAvailable: Schema.Boolean,
+  /** Whose books these are: a household's difference is its net worth, not an error. */
+  profile: Schema.Literals(['home', 'business']),
 });
 export type BalanceSheetResponse = Wire<typeof BalanceSheetResponse>;
 
@@ -101,3 +105,27 @@ export const BalanceAccountClassification = Schema.Struct({
   riskLevel: Schema.NullOr(Schema.Literals(['low', 'medium', 'high'])),
 });
 export type BalanceAccountClassification = Wire<typeof BalanceAccountClassification>;
+
+/** One value entered against an account on one day. */
+export const BalanceHistoryPoint = Schema.Struct({
+  date: DateOnly,
+  amount: Schema.Number,
+  currency: Schema.String,
+});
+export type BalanceHistoryPoint = Wire<typeof BalanceHistoryPoint>;
+
+/** `GET /reports/balance/accounts/:id/history`: every value entered, oldest first. */
+export const BalanceAccountHistory = Schema.Array(BalanceHistoryPoint);
+export type BalanceAccountHistory = Wire<typeof BalanceAccountHistory>;
+
+/** `DELETE /reports/balance/accounts/:id/history/:date`: false when the day held nothing. */
+export const BalanceHistoryPointDeleted = Schema.Struct({ deleted: Schema.Boolean });
+export type BalanceHistoryPointDeleted = Wire<typeof BalanceHistoryPointDeleted>;
+
+/** `POST /reports/balance/accounts/:id/history`: how many days the file wrote. */
+export const BalanceHistoryImported = Schema.Struct({ imported: Schema.Number });
+export type BalanceHistoryImported = Wire<typeof BalanceHistoryImported>;
+
+/** `POST /reports/balance/personal-layout`: how many lines moved onto the household chart. */
+export const BalancePersonalLayoutApplied = Schema.Struct({ moved: Schema.Number });
+export type BalancePersonalLayoutApplied = Wire<typeof BalancePersonalLayoutApplied>;

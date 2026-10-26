@@ -2,11 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, type Repository } from 'typeorm';
-import * as xlsx from 'xlsx';
 import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import {
+  readWorkspaceProfile,
+  type WorkspaceProfile,
+} from '../../common/utils/workspace-profile.util';
 import type {
   BalanceAccountNode,
   BalanceSheetResponse,
@@ -39,7 +42,6 @@ import {
   normalizeCurrencyCode,
 } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import { loadPdfMake } from '../reports/report-document.util';
 import { balanceAccountName } from './balance-account-name';
 import {
   negateSeries,
@@ -47,7 +49,9 @@ import {
   sumSeries,
   walletCashSeries,
 } from './balance-cash-series';
-import { DEFAULT_BALANCE_ACCOUNTS } from './balance-default-accounts';
+import { defaultAccountsFor } from './balance-default-accounts';
+import { exportBalanceAsExcel, exportBalanceAsPdf } from './balance-export';
+import { ACCOUNTING_ONLY_SECTIONS } from './balance-personal-accounts';
 import { BalanceExportFormat } from './dto/export-balance.dto';
 
 /** The one line whose risk is fixed rather than chosen. */
@@ -119,10 +123,6 @@ export class BalanceService {
     return Math.round(value * 100) / 100;
   }
 
-  private formatAmount(value: number, currency: string): string {
-    return `${this.round(value).toFixed(2)} ${currency}`;
-  }
-
   private resolveAccountName(node: BalanceAccountNode, locale?: string): string {
     return balanceAccountName(node, locale);
   }
@@ -134,67 +134,6 @@ export class BalanceService {
         this.localizeTree(node.children, locale);
       }
     }
-  }
-
-  private getExportLabels(locale?: string): Record<string, string> {
-    const resolvedLocale = locale === 'en' || locale === 'kk' || locale === 'ru' ? locale : 'en';
-    const labels = {
-      ru: {
-        balanceAsOf: 'Баланс на',
-        assets: 'Активы',
-        liabilities: 'Пассивы',
-        total: 'Итого',
-        difference: 'Разница',
-        balanced: 'Сходится',
-        yes: 'Да',
-        no: 'Нет',
-        notBalanced: 'не сходится',
-      },
-      en: {
-        balanceAsOf: 'Balance sheet as of',
-        assets: 'Assets',
-        liabilities: 'Liabilities',
-        total: 'Total',
-        difference: 'Difference',
-        balanced: 'Balanced',
-        yes: 'Yes',
-        no: 'No',
-        notBalanced: 'not balanced',
-      },
-      kk: {
-        balanceAsOf: 'Баланс',
-        assets: 'Активтер',
-        liabilities: 'Пассивтер',
-        total: 'Барлығы',
-        difference: 'Айырма',
-        balanced: 'Сәйкес',
-        yes: 'Иә',
-        no: 'Жоқ',
-        notBalanced: 'сәйкес емес',
-      },
-    };
-
-    return labels[resolvedLocale];
-  }
-
-  private flattenForExport(
-    accounts: BalanceAccountNode[],
-    level = 0,
-  ): Array<{ label: string; amount: number }> {
-    const rows: Array<{ label: string; amount: number }> = [];
-
-    for (const account of accounts) {
-      rows.push({
-        label: `${'  '.repeat(level)}${account.name}`,
-        amount: this.round(account.amount),
-      });
-
-      if (account.children.length > 0) {
-        rows.push(...this.flattenForExport(account.children, level + 1));
-      }
-    }
-
-    return rows;
   }
 
   private async ensureSeeded(workspaceId: string): Promise<void> {
@@ -502,11 +441,22 @@ export class BalanceService {
     });
   }
 
+  /**
+   * Gives a workspace its chart of accounts the first time anything reads it.
+   * Which chart depends on the profile: a household gets the one written in
+   * its own words, a business the one it files with.
+   */
   async seedDefaultAccounts(workspaceId: string): Promise<void> {
     const existing = await this.balanceAccountRepository.count({ where: { workspaceId } });
     if (existing > 0) {
       return;
     }
+
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: { id: true, settings: true },
+    });
+    const definitions = defaultAccountsFor(readWorkspaceProfile(workspace));
 
     // Сидим в одной транзакции: два одновременных первых захода в новый воркспейс
     // оба проходили count===0, и проигравший падал на UQ_balance_accounts_workspace_code
@@ -516,7 +466,7 @@ export class BalanceService {
         const accounts = manager.getRepository(BalanceAccount);
         const parentByCode = new Map<string, BalanceAccount>();
 
-        for (const definition of DEFAULT_BALANCE_ACCOUNTS) {
+        for (const definition of definitions) {
           const parentId = definition.parentCode
             ? (parentByCode.get(definition.parentCode)?.id ?? null)
             : null;
@@ -563,22 +513,24 @@ export class BalanceService {
 
     const snapshotDate = this.resolveDate(date);
 
-    const [accounts, snapshotsMap, cash, debts, retainedEarnings, currency] = await Promise.all([
-      this.balanceAccountRepository.find({
-        where: { workspaceId },
-        order: {
-          position: 'ASC',
-          createdAt: 'ASC',
-        },
-      }),
-      this.getLatestSnapshotMap(workspaceId, snapshotDate),
-      this.getAutoComputedCashBalance(workspaceId, snapshotDate),
-      this.getDebtSeries(workspaceId, [snapshotDate]).then(
-        series => series.get(snapshotDate) ?? new Map<string, number>(),
-      ),
-      this.getRetainedEarnings(workspaceId, snapshotDate),
-      this.getWorkspaceCurrency(workspaceId),
-    ]);
+    const [accounts, snapshotsMap, cash, debts, retainedEarnings, currency, profile] =
+      await Promise.all([
+        this.balanceAccountRepository.find({
+          where: { workspaceId },
+          order: {
+            position: 'ASC',
+            createdAt: 'ASC',
+          },
+        }),
+        this.getLatestSnapshotMap(workspaceId, snapshotDate),
+        this.getAutoComputedCashBalance(workspaceId, snapshotDate),
+        this.getDebtSeries(workspaceId, [snapshotDate]).then(
+          series => series.get(snapshotDate) ?? new Map<string, number>(),
+        ),
+        this.getRetainedEarnings(workspaceId, snapshotDate),
+        this.getWorkspaceCurrency(workspaceId),
+        this.getWorkspaceProfile(workspaceId),
+      ]);
 
     const snapshotCurrency = (snapshot: BalanceSnapshot) =>
       normalizeCurrencyCode(snapshot.currency || currency);
@@ -696,7 +648,21 @@ export class BalanceService {
       difference,
       isBalanced: Math.abs(difference) < 0.01,
       missingRates: converter.missing,
+      // A household still filed under the accounting chart can be moved onto
+      // the one written in its own words; the page offers it, nothing forces it.
+      personalLayoutAvailable:
+        profile === 'home' &&
+        accounts.some(account => ACCOUNTING_ONLY_SECTIONS.includes(account.code)),
+      profile,
     };
+  }
+
+  private async getWorkspaceProfile(workspaceId: string): Promise<WorkspaceProfile> {
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: { id: true, settings: true },
+    });
+    return readWorkspaceProfile(workspace);
   }
 
   async getAccountsTree(workspaceId: string, date?: string, locale?: string) {
@@ -709,7 +675,12 @@ export class BalanceService {
     };
   }
 
-  async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotBody) {
+  /**
+   * Writes one value for one day. `userId` is null when nothing but a schedule
+   * is behind it, and the audit says system rather than naming someone who
+   * was not there.
+   */
+  async updateSnapshot(userId: string | null, workspaceId: string, dto: UpdateBalanceSnapshotBody) {
     const snapshotDate = this.resolveDate(dto.date ?? undefined);
     const account = await this.balanceAccountRepository.findOne({
       where: {
@@ -758,7 +729,7 @@ export class BalanceService {
 
     await this.auditService.createEvent({
       workspaceId,
-      actorType: ActorType.USER,
+      actorType: userId ? ActorType.USER : ActorType.SYSTEM,
       actorId: userId,
       entityType: EntityType.WORKSPACE,
       entityId: workspaceId,
@@ -783,125 +754,6 @@ export class BalanceService {
     };
   }
 
-  private async exportAsExcel(data: BalanceSheetResponse, locale?: string): Promise<Buffer> {
-    const labels = this.getExportLabels(locale);
-    const leftRows = this.flattenForExport(data.assets.sections);
-    const rightRows = this.flattenForExport(data.liabilities.sections);
-    const maxRows = Math.max(leftRows.length, rightRows.length);
-
-    const rows: Array<Array<string | number>> = [
-      [`${labels.balanceAsOf} ${data.date}`, '', '', ''],
-      ['', '', '', ''],
-      [
-        `${labels.assets} (${this.formatAmount(data.assets.total, data.currency)})`,
-        '',
-        `${labels.liabilities} (${this.formatAmount(data.liabilities.total, data.currency)})`,
-        '',
-      ],
-      ['', '', '', ''],
-    ];
-
-    for (let i = 0; i < maxRows; i++) {
-      const left = leftRows[i];
-      const right = rightRows[i];
-      rows.push([
-        left?.label || '',
-        left ? this.round(left.amount) : '',
-        right?.label || '',
-        right ? this.round(right.amount) : '',
-      ]);
-    }
-
-    rows.push(['', '', '', '']);
-    rows.push([
-      labels.total,
-      this.round(data.assets.total),
-      labels.total,
-      this.round(data.liabilities.total),
-    ]);
-    rows.push([
-      labels.difference,
-      this.round(data.difference),
-      labels.balanced,
-      data.isBalanced ? labels.yes : labels.no,
-    ]);
-
-    const worksheet = xlsx.utils.aoa_to_sheet(rows);
-    worksheet['!cols'] = [{ wch: 46 }, { wch: 16 }, { wch: 46 }, { wch: 16 }];
-
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Balance');
-
-    return xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
-  }
-
-  /**
-   * Rendered with pdfmake rather than pdf-lib: pdf-lib's standard fonts are
-   * WinAnsi-encoded and throw on Cyrillic, which broke every ru/kk export.
-   * pdfmake's bundled Roboto covers those alphabets and paginates on its own,
-   * so long sheets are no longer silently cut off at one page.
-   */
-  private async exportAsPdf(data: BalanceSheetResponse, locale?: string): Promise<Buffer> {
-    const labels = this.getExportLabels(locale);
-    const leftRows = this.flattenForExport(data.assets.sections);
-    const rightRows = this.flattenForExport(data.liabilities.sections);
-    const maxRows = Math.max(leftRows.length, rightRows.length);
-
-    const body: unknown[][] = [
-      [
-        { text: labels.assets, style: 'th' },
-        { text: this.formatAmount(data.assets.total, data.currency), style: 'thAmount' },
-        { text: labels.liabilities, style: 'th' },
-        { text: this.formatAmount(data.liabilities.total, data.currency), style: 'thAmount' },
-      ],
-    ];
-
-    for (let i = 0; i < maxRows; i++) {
-      const left = leftRows[i];
-      const right = rightRows[i];
-      body.push([
-        { text: left?.label ?? '' },
-        { text: left ? this.formatAmount(left.amount, data.currency) : '', alignment: 'right' },
-        { text: right?.label ?? '' },
-        { text: right ? this.formatAmount(right.amount, data.currency) : '', alignment: 'right' },
-      ]);
-    }
-
-    const pdfMake = await loadPdfMake();
-    const docDefinition = {
-      pageSize: 'A4',
-      pageOrientation: 'landscape',
-      pageMargins: [40, 40, 40, 40],
-      content: [
-        { text: `${labels.balanceAsOf} ${data.date}`, style: 'title' },
-        {
-          table: { headerRows: 1, widths: ['*', 'auto', '*', 'auto'], body },
-          layout: 'lightHorizontalLines',
-        },
-        {
-          text: `${labels.difference}: ${this.formatAmount(data.difference, data.currency)} (${
-            data.isBalanced ? labels.balanced : labels.notBalanced
-          })`,
-          color: data.isBalanced ? '#1f8033' : '#b33333',
-          bold: true,
-          margin: [0, 16, 0, 0],
-        },
-      ],
-      styles: {
-        title: { bold: true, fontSize: 16, margin: [0, 0, 0, 14] },
-        th: { bold: true, fontSize: 11 },
-        thAmount: { bold: true, fontSize: 11, alignment: 'right' },
-      },
-      defaultStyle: { font: 'Roboto', fontSize: 9 },
-    };
-
-    return new Promise<Buffer>(resolve => {
-      pdfMake.createPdf(docDefinition).getBuffer((buffer: Uint8Array) => {
-        resolve(Buffer.from(buffer));
-      });
-    });
-  }
-
   async exportBalanceSheet(
     workspaceId: string,
     dto: ExportBalanceQuery,
@@ -916,7 +768,7 @@ export class BalanceService {
     const dateKey = balanceSheet.date;
 
     if (dto.format === BalanceExportFormat.PDF) {
-      const buffer = await this.exportAsPdf(balanceSheet, effectiveLocale);
+      const buffer = await exportBalanceAsPdf(balanceSheet, effectiveLocale);
       return {
         fileName: `balance-sheet-${dateKey}.pdf`,
         contentType: 'application/pdf',
@@ -924,7 +776,7 @@ export class BalanceService {
       };
     }
 
-    const buffer = await this.exportAsExcel(balanceSheet, effectiveLocale);
+    const buffer = await exportBalanceAsExcel(balanceSheet, effectiveLocale);
     return {
       fileName: `balance-sheet-${dateKey}.xlsx`,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

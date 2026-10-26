@@ -55,10 +55,8 @@ export function moneyTools(deps: {
       run: (ctx, args) =>
         deps.netWorth.getNetWorth(
           ctx.workspaceId,
-          args.range ?? '90d',
+          { range: args.range ?? '90d', to: args.to },
           ctx.user.locale,
-          undefined,
-          args.to,
         ),
     }),
     defineTool({

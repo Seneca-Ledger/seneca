@@ -5,6 +5,7 @@ import { DateOnly, type Wire } from '../common/wire';
 import { Metal } from './metals';
 
 export const NetWorthRange = Schema.Literals([
+  '1d',
   '30d',
   '90d',
   '180d',
@@ -25,6 +26,9 @@ export type RiskLevel = Wire<typeof RiskLevel>;
 export const NetWorthPoint = Schema.Struct({
   date: DateOnly,
   value: Schema.Number,
+  /** The two sides of the day, so the chart can show what the net hides. */
+  assets: Schema.Number,
+  liabilities: Schema.Number,
 });
 export type NetWorthPoint = Wire<typeof NetWorthPoint>;
 
@@ -57,6 +61,40 @@ export const NetWorthAssetLine = Schema.Struct({
 });
 export type NetWorthAssetLine = Wire<typeof NetWorthAssetLine>;
 
+/** What one line, or the rates, did to the number over the window. */
+export const NetWorthAttributionRow = Schema.Struct({
+  id: Schema.String,
+  code: Schema.String,
+  name: Schema.String,
+  amount: Schema.Number,
+});
+export type NetWorthAttributionRow = Wire<typeof NetWorthAttributionRow>;
+
+export const NetWorthChangeKind = Schema.Literals(['money', 'revaluation', 'fx']);
+export type NetWorthChangeKind = Wire<typeof NetWorthChangeKind>;
+
+/**
+ * Where the change over the window came from. Both lists add up to `change`
+ * exactly: one answers "which of my things moved", the other "was it me or
+ * was it the market".
+ */
+export const NetWorthAttribution = Schema.Struct({
+  byAccount: Schema.Array(NetWorthAttributionRow),
+  byKind: Schema.Array(Schema.Struct({ kind: NetWorthChangeKind, amount: Schema.Number })),
+});
+export type NetWorthAttribution = Wire<typeof NetWorthAttribution>;
+
+/**
+ * What came in over the window and what share of it was kept. `rate` is null
+ * when nothing came in: a share of nothing is not zero, it is nothing to say.
+ */
+export const NetWorthSavings = Schema.Struct({
+  income: Schema.Number,
+  kept: Schema.Number,
+  rate: Schema.NullOr(Schema.Number),
+});
+export type NetWorthSavings = Wire<typeof NetWorthSavings>;
+
 /**
  * The same net worth measured in troy ounces of a metal: the money figures
  * divided by the spot price of the day each point belongs to, never by today's.
@@ -75,6 +113,9 @@ export type NetWorthDenominated = Wire<typeof NetWorthDenominated>;
 /** `GET /reports/net-worth`. */
 export const NetWorthResponse = Schema.Struct({
   range: NetWorthRange,
+  /** The window actually charted, which a custom `from`/`to` decides. */
+  from: DateOnly,
+  to: DateOnly,
   currency: Schema.String,
   current: Schema.Number,
   previous: Schema.Number,
@@ -91,6 +132,11 @@ export const NetWorthResponse = Schema.Struct({
   assetLines: Schema.Array(NetWorthAssetLine),
   /** Currencies left out of the figures because no rate to `currency` was found. */
   missingRates: Schema.Array(Schema.String),
+  /** The account ids left out, echoed back so the page can show what is hidden. */
+  excluded: Schema.Array(Schema.String),
+  /** What made the change over the window, by line and by cause. */
+  attribution: NetWorthAttribution,
+  savings: NetWorthSavings,
   /** Present only when the caller asked to see the figures in metal. */
   denominated: Schema.optional(Schema.NullOr(NetWorthDenominated)),
   /** The highest sampled net worth over the whole history, and when. */

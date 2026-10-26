@@ -152,7 +152,7 @@ describe('Write permissions (e2e)', () => {
     });
 
     it.each([
-      '/integrations/simplefin/status',
+      '/integrations/bank-sync/connections',
       '/settings/email/smtp',
       '/settings/app',
     ])('reading the configuration at %s', async url => {
@@ -191,7 +191,7 @@ describe('Write permissions (e2e)', () => {
     });
 
     it('reads the configuration and stars the workspace', async () => {
-      for (const url of ['/integrations/simplefin/status', '/settings/email/smtp', '/settings/app']) {
+      for (const url of ['/integrations/bank-sync/connections', '/settings/email/smtp', '/settings/app']) {
         await as(owner, request(server()).get(url)).expect(200);
       }
       const starred = await as(

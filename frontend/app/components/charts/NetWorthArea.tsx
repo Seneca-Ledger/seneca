@@ -43,6 +43,8 @@ export interface NetWorthAreaProps {
   floor?: number;
   /** More tooltip lines for a day, e.g. what was paid on it. */
   describeDay?: (date: string) => ChartTooltipRow[];
+  /** Start the value axis at zero, which is what puts a move in proportion. */
+  zeroBaseline?: boolean;
 }
 
 const MARKER_LABEL = { fontSize: 11, fill: 'var(--muted-foreground)' } as const;
@@ -60,6 +62,7 @@ export function NetWorthArea({
   markers = [],
   floor,
   describeDay,
+  zeroBaseline = false,
 }: NetWorthAreaProps): React.JSX.Element {
   const color = trendColor(positive);
   const yearTicks = computeYearTicks(points.map(point => point.date));
@@ -75,7 +78,7 @@ export function NetWorthArea({
         )}
         <YAxis
           hide={!formatTick}
-          domain={['auto', 'auto']}
+          domain={zeroBaseline ? [0, 'auto'] : ['auto', 'auto']}
           tickCount={3}
           tickFormatter={formatTick}
           axisLine={false}

@@ -96,6 +96,9 @@ export const queryKeys = {
   stoicBalance: (workspaceId: string | null) => ['budgets', workspaceId, 'stoic-balance'] as const,
   balanceSheet: (o: { workspaceId: string | null; date: string | null; locale: string }) =>
     ['balance-sheet', o.workspaceId, o.date, o.locale] as const,
+  // Under the balance-sheet prefix: editing a day refreshes the sheet with it.
+  balanceAccountHistory: (o: { workspaceId: string | null; accountId: string }) =>
+    ['balance-sheet', o.workspaceId, 'history', o.accountId] as const,
   tablesReport: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['tables-report', o.workspaceId, o.params] as const,
   storageFiles: (o: { workspaceId: string | null; listMode: 'active' | 'trash' }) =>
@@ -163,6 +166,9 @@ export const queryKeys = {
   forecast: (o: { workspaceId: string | null; days: number; scenario: string }) =>
     ['forecast', o.workspaceId, o.days, o.scenario] as const,
   investments: (workspaceId: string | null) => ['investments', workspaceId] as const,
+  // Under investments, so a holding or contribution change refreshes the returns page too.
+  investmentReturns: (o: { workspaceId: string | null; range: string }) =>
+    ['investments', o.workspaceId, 'returns', o.range] as const,
   metals: (workspaceId: string | null) => ['metals', workspaceId] as const,
   reconciliation: (workspaceId: string | null) => ['reconciliation', workspaceId] as const,
   cashFlowMap: (o: { workspaceId: string | null; params: string }) =>

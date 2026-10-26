@@ -2,7 +2,7 @@ import { Controller, Delete, Get, HttpCode, Patch, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
@@ -13,12 +13,16 @@ import {
   InvestmentContributionParams,
   InvestmentHolding,
   InvestmentParams,
+  InvestmentReturnsQuery,
   LinkContributionBody,
   PriceRefreshResult,
+  ReturnsResponse,
   UpsertHoldingBody,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { InvestmentFlowsService } from './investment-flows.service';
+import { InvestmentReturnsService } from './investment-returns.service';
 import { InvestmentsService } from './investments.service';
 
 /**
@@ -27,13 +31,27 @@ import { InvestmentsService } from './investments.service';
  */
 @Controller('investments')
 export class InvestmentsController {
-  constructor(private readonly investmentsService: InvestmentsService) {}
+  constructor(
+    private readonly investmentsService: InvestmentsService,
+    private readonly flowsService: InvestmentFlowsService,
+    private readonly returnsService: InvestmentReturnsService,
+  ) {}
 
   @Get()
   @WorkspaceAuth(Permission.REPORT_VIEW)
   @SchemaResponse(InvestmentAccountList)
   async list(@WorkspaceId() workspaceId: string) {
     return this.investmentsService.listAccounts(workspaceId);
+  }
+
+  @Get('returns')
+  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(ReturnsResponse)
+  async returns(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(InvestmentReturnsQuery) query: InvestmentReturnsQuery,
+  ) {
+    return this.returnsService.getReturns(workspaceId, query.range ?? '1y');
   }
 
   @Post('accounts')
@@ -111,7 +129,12 @@ export class InvestmentsController {
     @WorkspaceId() workspaceId: string,
     @SchemaBody(LinkContributionBody) dto: LinkContributionBody,
   ) {
-    return this.investmentsService.linkContribution(workspaceId, dto.transactionId, dto.accountId);
+    return this.flowsService.linkContribution(
+      workspaceId,
+      dto.transactionId,
+      dto.accountId,
+      dto.role ?? undefined,
+    );
   }
 
   @Delete('contributions/:transactionId')
@@ -121,6 +144,6 @@ export class InvestmentsController {
     @WorkspaceId() workspaceId: string,
     @SchemaParams(InvestmentContributionParams) { transactionId }: InvestmentContributionParams,
   ) {
-    return this.investmentsService.unlinkContribution(workspaceId, transactionId);
+    return this.flowsService.unlinkContribution(workspaceId, transactionId);
   }
 }

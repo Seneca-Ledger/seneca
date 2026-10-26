@@ -13,10 +13,12 @@ import {
   BANK_SYNC_FETCH,
   type BankSyncAccount,
   BankSyncAuthError,
+  type BankSyncContext,
   type BankSyncFetch,
   type BankSyncFetchOptions,
-  type BankSyncProvider,
+  BankSyncTemporaryError,
   type BankSyncTransaction,
+  type TokenBankSyncProvider,
 } from './bank-sync-provider.interface';
 
 /** SimpleFIN answers a claim with an access URL that carries the credentials: `https://user:pass@host/simplefin`. */
@@ -72,15 +74,16 @@ const decodeTransaction = Schema.decodeUnknownOption(SimpleFinTransaction);
  * access URL are user-controlled destinations like any other integration host.
  */
 @Injectable()
-export class SimpleFinProvider implements BankSyncProvider {
+export class SimpleFinProvider implements TokenBankSyncProvider {
   readonly key = 'simplefin';
+  readonly linkStyle = 'token' as const;
 
   constructor(
     @Inject(BANK_SYNC_FETCH) private readonly fetchUrl: BankSyncFetch,
     private readonly effects: EffectRuntime,
   ) {}
 
-  async claim(setupToken: string): Promise<string> {
+  async claim(setupToken: string): Promise<Record<string, string>> {
     const claimUrl = decodeSetupToken(setupToken);
     const response = await this.fetchUrl(claimUrl, {
       method: 'POST',
@@ -96,14 +99,14 @@ export class SimpleFinProvider implements BankSyncProvider {
     }
     const accessUrl = (await response.text()).trim();
     parseAccessUrl(accessUrl);
-    return accessUrl;
+    return { accessUrl };
   }
 
   async fetchAccounts(
-    credential: string,
+    context: BankSyncContext,
     options: BankSyncFetchOptions = {},
   ): Promise<BankSyncAccount[]> {
-    const { url, authorization } = parseAccessUrl(credential);
+    const { url, authorization } = parseAccessUrl(context.secrets.accessUrl ?? '');
     const target = new URL(`${url.pathname.replace(/\/$/, '')}/accounts`, url);
     if (options.since) {
       target.searchParams.set('start-date', String(Math.floor(options.since.getTime() / 1000)));
@@ -140,9 +143,15 @@ export class SimpleFinProvider implements BankSyncProvider {
 
     const body = await this.effects.run(listing);
     const accounts = body.accounts ?? [];
-    if (accounts.length === 0 && body.errors?.length) {
+    const errors = body.errors ?? [];
+    if (accounts.length === 0 && errors.length > 0) {
+      // "We are upgrading this connection" can sit here for weeks. It is not an
+      // auth problem, so it must not read as one.
+      if (errors.some(isTemporaryError)) {
+        throw new BankSyncTemporaryError(`SimpleFIN: ${errors.join('; ')}`);
+      }
       throw new BadRequestException(
-        appError('BANK_SYNC_SIMPLEFIN_ERRORS', { errors: body.errors.join('; ') }),
+        appError('BANK_SYNC_SIMPLEFIN_ERRORS', { errors: errors.join('; ') }),
       );
     }
     return accounts.map(mapAccount).filter((account): account is BankSyncAccount => !!account);
@@ -159,11 +168,14 @@ function toListingException(
 ): Error {
   switch (error._tag) {
     case 'SimpleFinRefused':
-      return error.status === 401 || error.status === 403
-        ? new BankSyncAuthError()
-        : new BadRequestException(
-            appError('BANK_SYNC_SIMPLEFIN_HTTP_ERROR', { status: error.status }),
-          );
+      if (error.status === 401 || error.status === 403) return new BankSyncAuthError();
+      // Still refused after the retries: the bridge's own rate limit or outage, not the credential.
+      if (error.status === 429 || error.status >= 500) {
+        return new BankSyncTemporaryError(`SimpleFIN answered HTTP ${error.status}`);
+      }
+      return new BadRequestException(
+        appError('BANK_SYNC_SIMPLEFIN_HTTP_ERROR', { status: error.status }),
+      );
     case 'TimeoutError':
       return new BadGatewayException(appError('BANK_SYNC_SIMPLEFIN_TIMEOUT'));
     case 'SchemaError':
@@ -175,6 +187,11 @@ function toListingException(
           : appError('BANK_SYNC_SIMPLEFIN_UNREACHABLE'),
       );
   }
+}
+
+/** Errors SimpleFIN clears by itself; re-linking would be the wrong advice. */
+function isTemporaryError(message: string): boolean {
+  return /upgrad|try again|temporar|in progress|please wait/i.test(message);
 }
 
 /** A setup token is the base64 of the claim URL; anything else is a paste error, not a bug. */

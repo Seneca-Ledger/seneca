@@ -14,15 +14,19 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { isPrivateCategory, pickableCategories } from '@/app/lib/private-category';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
-import { AccountPickSection } from './AccountPickSection';
 import { formatAmount, formatDate } from './helpers/transactionFormatters';
 import { useBulkUpdateOwner } from './hooks/useBulkUpdateOwner';
 import { useContributionLink } from './hooks/useContributionLink';
 import { useTransactionSplit } from './hooks/useTransactionSplit';
 import { useTransferLink } from './hooks/useTransferLink';
-import { useTransferToAccount } from './hooks/useTransferToAccount';
 import { useWorkspaceMembers } from './hooks/useWorkspaceMembers';
+import {
+  InvestmentAccountPicker,
+  InvestmentLinkActions,
+  isInvestmentIncome as linkedAsIncome,
+} from './InvestmentLinkActions';
 import { OWNER_SHARED, ownerValueToMemberId } from './OwnerFilterDropdown';
+import { OwnTransferActions } from './OwnTransferActions';
 import { SplitTransactionDialog } from './SplitTransactionDialog';
 import { ActionRow } from './TransactionActionRow';
 import type { Category, Transaction } from './types';
@@ -77,8 +81,9 @@ export function TransactionDetailsTab({
   } = useTransferLink(handleSplitDone);
   const isReimbursementPair = transaction.transferPairKind === 'reimbursement';
   const isInvestmentPair = transaction.transferPairKind === 'investment';
+  const isInvestmentIncome = linkedAsIncome(transaction);
+  const isIncome = transaction.transactionType === 'income';
   const contribution = useContributionLink(handleSplitDone);
-  const toAccount = useTransferToAccount(transaction, handleSplitDone);
 
   // The pre-split total the backend validates against: the positive side of the
   // row, not `transaction.amount`, which the mappers sign for display.
@@ -166,10 +171,17 @@ export function TransactionDetailsTab({
       {transaction.transferPairId && (
         <div className="seneca-tx-detail__cat-badge" data-testid="transfer-badge">
           {isInvestmentPair
-            ? t.investment.badge.value
+            ? isIncome
+              ? t.investment.withdrawalBadge.value
+              : t.investment.badge.value
             : isReimbursementPair
               ? t.reimbursement.badge.value
               : t.transfer.badge.value}
+        </div>
+      )}
+      {isInvestmentIncome && (
+        <div className="seneca-tx-detail__cat-badge" data-testid="investment-income-badge">
+          {t.investment.incomeBadge.value}
         </div>
       )}
       {transaction.reimbursementOf && (
@@ -288,7 +300,8 @@ export function TransactionDetailsTab({
 
           {/* Reimbursement of an expense (incoming rows only) */}
           {onSplitDone &&
-            transaction.transactionType === 'income' &&
+            isIncome &&
+            !isInvestmentIncome &&
             (transaction.reimbursementOfId ? (
               <ActionRow
                 label={t.reimbursement.unlink.value}
@@ -306,33 +319,16 @@ export function TransactionDetailsTab({
               )
             ))}
 
-          {/* Money moved into an investment account (outgoing rows only) */}
-          {onSplitDone &&
-            transaction.transactionType === 'expense' &&
-            !transaction.reimbursementOfId &&
-            (isInvestmentPair ? (
-              <ActionRow
-                label={t.investment.unlink.value}
-                onClick={() => contribution.unlink(transaction.id)}
-                disabled={contribution.saving}
-              />
-            ) : (
-              !transaction.transferPairId && (
-                <ActionRow
-                  label={t.investment.link.value}
-                  hint={t.sheet.contributionHint}
-                  onClick={() => void contribution.loadAccounts()}
-                  disabled={
-                    contribution.saving || contribution.loading || Boolean(transaction.splitGroupId)
-                  }
-                />
-              )
-            ))}
+          {/* Money moved into or out of an investment account, or what it paid */}
+          {onSplitDone && (
+            <InvestmentLinkActions transaction={transaction} contribution={contribution} />
+          )}
 
           {/* Transfer between own accounts */}
           {onSplitDone &&
             !isReimbursementPair &&
             !isInvestmentPair &&
+            !isInvestmentIncome &&
             !transaction.reimbursementOfId &&
             (transaction.transferPairId ? (
               <ActionRow
@@ -341,20 +337,12 @@ export function TransactionDetailsTab({
                 disabled={transferSaving}
               />
             ) : (
-              <>
-                <ActionRow
-                  label={t.transfer.link.value}
-                  hint={t.sheet.transferHint}
-                  onClick={() => void loadTransferCandidates(transaction.id)}
-                  disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
-                />
-                <ActionRow
-                  label={t.transfer.toAccount.value}
-                  hint={t.sheet.toAccountHint}
-                  onClick={() => toAccount.setOpen(true)}
-                  disabled={toAccount.saving || Boolean(transaction.splitGroupId)}
-                />
-              </>
+              <OwnTransferActions
+                transaction={transaction}
+                onLink={() => void loadTransferCandidates(transaction.id)}
+                linkDisabled={transferSaving || transferLoading}
+                onDone={handleSplitDone}
+              />
             ))}
 
           {/* Mark as Ignored */}
@@ -367,31 +355,7 @@ export function TransactionDetailsTab({
         </div>
       </div>
 
-      {toAccount.open && !toAccount.loading && (
-        <AccountPickSection
-          testId="transfer-accounts"
-          title={t.transfer.pickAccount.value}
-          empty={t.transfer.noAccounts.value.replace('{{currency}}', transaction.currency ?? '')}
-          accounts={toAccount.options}
-          saving={toAccount.saving}
-          onPick={id => void toAccount.move(id)}
-          onCancel={() => toAccount.setOpen(false)}
-          cancelLabel={t.transfer.cancel.value}
-        />
-      )}
-
-      {contribution.accounts && (
-        <AccountPickSection
-          testId="contribution-accounts"
-          title={t.investment.pick.value}
-          empty={t.investment.none.value}
-          accounts={contribution.accounts}
-          saving={contribution.saving}
-          onPick={id => contribution.link(transaction.id, id)}
-          onCancel={contribution.clearAccounts}
-          cancelLabel={t.transfer.cancel.value}
-        />
-      )}
+      <InvestmentAccountPicker transaction={transaction} contribution={contribution} />
 
       {transferCandidates && (
         <div className="seneca-tx-detail__section" data-testid="transfer-candidates">

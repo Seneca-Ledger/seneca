@@ -6,8 +6,8 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
  * from the accounts' rows like cash is. New workspaces get it from the default
  * chart; this adds it to the ones seeded before.
  */
-export class AddAccountDebtsBalanceLine1787410000000 implements MigrationInterface {
-  name = 'AddAccountDebtsBalanceLine1787410000000';
+export class AddAccountDebtsBalanceLine1787430000000 implements MigrationInterface {
+  name = 'AddAccountDebtsBalanceLine1787430000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

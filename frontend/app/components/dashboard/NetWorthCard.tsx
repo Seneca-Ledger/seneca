@@ -4,7 +4,7 @@ import AccountBalanceOutlined from '@mui/icons-material/AccountBalanceOutlined';
 import type React from 'react';
 import { ASSET_CLASS_KEYS } from '@/app/(main)/net-worth/components/InvestmentsCard';
 import { NetWorthChart } from '@/app/(main)/net-worth/components/NetWorthChart';
-import { type NetWorthRange, useNetWorth } from '@/app/(main)/net-worth/hooks/useNetWorth';
+import { type NetWorthRange, useNetWorthPreset } from '@/app/(main)/net-worth/hooks/useNetWorth';
 import { formatSignedAmount } from '@/app/components/charts/chart-format';
 import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
@@ -43,7 +43,7 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
   const netWorthText = useIntlayer('netWorthPage');
   const { locale } = useLocale();
   const asOf = monthEndOrToday(month);
-  const { data, isFetching, range, setRange } = useNetWorth('30d', asOf);
+  const { data, isFetching, range, setRange } = useNetWorthPreset('30d', asOf);
   const wide = useIsWideSection();
 
   // Until the first answer is in there is nothing honest to draw; a failed

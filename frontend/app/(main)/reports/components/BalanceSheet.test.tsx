@@ -66,6 +66,8 @@ describe('BalanceSheet', () => {
         difference: 0,
         isBalanced: true,
         missingRates: [],
+        personalLayoutAvailable: false,
+        profile: 'business',
       },
     });
 
@@ -89,6 +91,8 @@ describe('BalanceSheet', () => {
         difference: 0,
         isBalanced: true,
         missingRates: [],
+        personalLayoutAvailable: false,
+        profile: 'business',
       },
     });
     apiPost.mockResolvedValueOnce({

@@ -54,6 +54,8 @@ vi.mock('next/link', () => ({
 function netWorth(overrides: Partial<NetWorthData> = {}): NetWorthData {
   return {
     range: '30d',
+    from: '2026-09-05',
+    to: '2026-10-05',
     currency: 'USD',
     current: 1000,
     previous: 800,
@@ -62,8 +64,8 @@ function netWorth(overrides: Partial<NetWorthData> = {}): NetWorthData {
     assetsTotal: 1200,
     liabilitiesTotal: 200,
     series: [
-      { date: '2026-09-05', value: 800 },
-      { date: '2026-10-05', value: 1000 },
+      { date: '2026-09-05', value: 800, assets: 1000, liabilities: 200 },
+      { date: '2026-10-05', value: 1000, assets: 1200, liabilities: 200 },
     ],
     breakdown: [],
     byRisk: [],
@@ -71,6 +73,9 @@ function netWorth(overrides: Partial<NetWorthData> = {}): NetWorthData {
     riskyPercent: 0,
     assetLines: [],
     missingRates: [],
+    excluded: [],
+    attribution: { byAccount: [], byKind: [] },
+    savings: { income: 0, kept: 0, rate: null },
     allTimeHigh: null,
     byAssetClass: [],
     ...overrides,

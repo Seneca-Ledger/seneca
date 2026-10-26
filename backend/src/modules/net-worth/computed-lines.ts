@@ -24,17 +24,10 @@ export async function loadComputedLines(
   ]);
 }
 
-/** Every currency the computed lines hold on each date, plus `others`, for the converter to load. */
-export function currencyDates(
-  lines: ComputedLines,
-  dates: string[],
-  others: string[],
-): Array<{ currency: string; date: string }> {
-  return dates.flatMap(date =>
-    [
-      ...[...lines.values()].flatMap(series => [...(series.get(date)?.keys() ?? [])]),
-      ...others,
-    ].map(currency => ({ currency, date })),
+/** Every currency the computed lines hold on any date. */
+export function computedCurrencyCodes(lines: ComputedLines): string[] {
+  return [...lines.values()].flatMap(series =>
+    [...series.values()].flatMap(amounts => [...amounts.keys()]),
   );
 }
 

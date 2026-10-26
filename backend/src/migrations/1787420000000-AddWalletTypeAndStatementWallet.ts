@@ -10,8 +10,8 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
  * own account number. Row wallets are left as they are; the Accounts page offers
  * the rest for linking instead of moving them behind the user's back.
  */
-export class AddWalletTypeAndStatementWallet1787400000000 implements MigrationInterface {
-  name = 'AddWalletTypeAndStatementWallet1787400000000';
+export class AddWalletTypeAndStatementWallet1787420000000 implements MigrationInterface {
+  name = 'AddWalletTypeAndStatementWallet1787420000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
