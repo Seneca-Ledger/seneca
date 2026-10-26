@@ -104,7 +104,6 @@ import {
   LedgerAccountList,
   LedgerIntegrity,
   LedgerSettings,
-  LocalCategorizationStatus,
   LoginResponse,
   MapStyles,
   MetalReceiptList,
@@ -1175,7 +1174,6 @@ describe('API contracts (e2e)', () => {
       const preferences = await get('/notifications/preferences');
       matches(NotificationPreferences, preferences.body);
       expect(Object.keys(preferences.body.channels).length).toBeGreaterThan(0);
-      matches(LocalCategorizationStatus, (await get('/settings/local-categorization')).body);
       matches(TelegramBotStatus, (await get('/settings/notifications/telegram')).body);
       matches(TelegramReportPage, (await get('/telegram/reports')).body);
       matches(PushPublicKey, (await get('/push/public-key')).body);

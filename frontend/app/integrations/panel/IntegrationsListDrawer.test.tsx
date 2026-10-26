@@ -26,7 +26,6 @@ vi.mock('@/app/i18n', async () => {
     setUp: { value: 'Set up' },
     nothingMatches: { value: 'Nothing matches "{query}".' },
     categories: {
-      ai: 'AI',
       application: 'Application',
       storage: 'Storage',
       email: 'Email',

@@ -135,7 +135,7 @@ When deploying Seneca, please follow these security best practices:
 
 - Requests to user-supplied URLs (webhooks, S3/WebDAV/IMAP integrations) go through an egress guard that rejects private and loopback addresses, including after DNS resolution
 - The optional geocoder and tile server are reached by the backend on the internal network only; the tile server needs no public port
-- No external LLM is ever contacted: statement parsing and categorization are deterministic, and local categorization loads its model from uploaded files with remote model loading disabled
+- No external LLM is ever contacted: statement parsing and categorization are deterministic
 
 ### Open Protocol Integrations
 

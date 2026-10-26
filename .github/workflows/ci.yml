@@ -16,11 +16,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # onnxruntime-node downloads the CUDA providers on linux/x64 at install time.
-  # CI runs on CPU, and that download is what timed out installs.
-  ONNXRUNTIME_NODE_INSTALL: skip
-
 jobs:
   # Which half of the app a pull request or queue group touches. Pushes to main
   # and develop always run everything.
