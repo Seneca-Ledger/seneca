@@ -4,10 +4,6 @@ FROM oven/bun:1.4.4-alpine AS bun
 # Build stage
 FROM node:24-alpine AS builder
 
-# onnxruntime-node fetches its CUDA providers (~260 MB) at install on linux/x64.
-# The categorizer runs on the CPU, so the image never loads them.
-ENV ONNXRUNTIME_NODE_INSTALL=skip
-
 WORKDIR /app
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
@@ -43,12 +39,9 @@ RUN npm run build --prefix frontend
 RUN npm run build --prefix backend
 
 # Reinstall backend with production deps only for the runtime image
-# onnxruntime-node ships binaries for every OS; keep only this one (~245 MB less).
 WORKDIR /app/backend
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-  rm -rf node_modules && bun install --frozen-lockfile --network-concurrency=16 --production && \
-  find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 2 -maxdepth 2 \
-    ! -path "*/linux/$(node -p process.arch)" -exec rm -rf {} +
+  rm -rf node_modules && bun install --frozen-lockfile --network-concurrency=16 --production
 WORKDIR /app
 
 # Runtime image
