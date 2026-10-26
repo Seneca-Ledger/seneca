@@ -255,7 +255,7 @@ docker system prune -a --volumes
 
 Для production:
 
-1. Используйте готовые образы `ghcr.io/symonbaikov/seneca-backend` и `seneca-frontend` с фиксированным `IMAGE_TAG`
+1. Используйте готовые образы `ghcr.io/seneca-ledger/seneca-backend` и `seneca-frontend` с фиксированным `IMAGE_TAG`
 2. Настройте HTTPS через reverse proxy (nginx, Caddy, Traefik)
 3. Задайте `CORS_ORIGINS` (или `FRONTEND_URL`); без него backend не стартует
 4. Используйте внешнюю БД (не в Docker)
