@@ -10,11 +10,13 @@ const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
     <Typography
       component="label"
       variant="body2"
-      fontWeight={600}
       ref={ref as React.Ref<HTMLLabelElement>}
       className={className}
       style={style}
       {...(props as object)}
+      sx={{
+        fontWeight: 600,
+      }}
     >
       {children}
     </Typography>

@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
@@ -30,14 +31,14 @@ export class ViewPreference {
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;

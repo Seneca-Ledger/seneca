@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import { Box, IconButton, Typography } from '@mui/material';
@@ -107,7 +106,6 @@ export interface ReceiptParsedDataFormProps {
   receiptId?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function ReceiptParsedDataForm({
   value,
   categories,
@@ -163,12 +161,10 @@ export function ReceiptParsedDataForm({
     return source.filter(item => item.code !== value.currency);
   }, [currencyItems, currencyQuery, value.currency]);
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const pushRecentCurrency = (currencyCode: string) => {
     setRecentCurrencies(prev => [currencyCode, ...prev.filter(item => item !== currencyCode)]);
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const handleSelectCurrency = (currencyCode: string) => {
     const nextValue = { ...value, currency: currencyCode };
 
@@ -439,7 +435,6 @@ export function ReceiptParsedDataForm({
                 gap: compact ? 0.25 : 1.5,
               }}
             >
-              {/* eslint-disable-next-line max-lines-per-function, max-params */}
               {value.lineItems.map((lineItem, index) => (
                 <Box
                   key={lineItem.id}

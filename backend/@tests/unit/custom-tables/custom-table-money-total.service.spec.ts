@@ -25,8 +25,8 @@ const build = (opts: {
   rates?: Record<string, number | null>;
 }) => {
   const tables = {
-    getTable: jest.fn().mockResolvedValue({ id: TABLE_ID, columns: opts.columns }),
-    groupRows: jest.fn().mockResolvedValue({
+    getTable: vi.fn().mockResolvedValue({ id: TABLE_ID, columns: opts.columns }),
+    groupRows: vi.fn().mockResolvedValue({
       items: (opts.groups ?? []).map(g => ({
         key: g.key,
         count: 1,
@@ -34,15 +34,15 @@ const build = (opts: {
       })),
       groupCount: opts.groups?.length ?? 0,
     }),
-    aggregateRows: jest.fn().mockResolvedValue({
+    aggregateRows: vi.fn().mockResolvedValue({
       items: [{ col: amountColumn.key, fn: 'sum', value: opts.sum ?? null }],
       total: 1,
     }),
   };
   const rates = {
-    getRateOrNull: jest.fn(async (from: string) => opts.rates?.[from] ?? null),
+    getRateOrNull: vi.fn(async (from: string) => opts.rates?.[from] ?? null),
   };
-  const workspaceCurrency = { resolve: jest.fn().mockResolvedValue('USD') };
+  const workspaceCurrency = { resolve: vi.fn().mockResolvedValue('USD') };
   const service = new CustomTableMoneyTotalService(
     tables as never,
     rates as never,

@@ -1,4 +1,6 @@
-import { promises as dns } from 'node:dns';
+import { lookup as dnsLookup, promises as dns } from 'node:dns';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { BadRequestException } from '@nestjs/common';
 import {
   assertPublicEgressHost,
@@ -8,6 +10,7 @@ import {
   isBlockedEgressAddress,
   pinPublicEgressHost,
 } from '@/common/utils/egress-url.util';
+import { Agent } from 'undici';
 
 describe('egress-url.util', () => {
   it.each(['127.0.0.1', '10.0.0.5', '172.16.1.1', '192.168.1.20', '169.254.169.254', '::1'])(
@@ -51,7 +54,7 @@ describe('egress-url.util', () => {
   it('rejects resolved private DNS addresses', async () => {
     await expect(
       assertPublicEgressHost('metadata.google.internal', {
-        lookup: jest.fn().mockResolvedValue([{ address: '169.254.169.254' }]),
+        lookup: vi.fn().mockResolvedValue([{ address: '169.254.169.254' }]),
       }),
     ).rejects.toThrow(BadRequestException);
   });
@@ -71,7 +74,7 @@ describe('fetchPublicUrl', () => {
     }) as unknown as Response;
 
   it('refuses a destination that resolves to a private address', async () => {
-    global.fetch = jest.fn() as unknown as typeof fetch;
+    global.fetch = vi.fn() as unknown as typeof fetch;
 
     await expect(fetchPublicUrl('http://169.254.169.254/latest/meta-data')).rejects.toThrow(
       BadRequestException,
@@ -80,7 +83,7 @@ describe('fetchPublicUrl', () => {
   });
 
   it('refuses a non-http protocol', async () => {
-    global.fetch = jest.fn() as unknown as typeof fetch;
+    global.fetch = vi.fn() as unknown as typeof fetch;
 
     await expect(fetchPublicUrl('file:///etc/passwd')).rejects.toThrow(BadRequestException);
     expect(global.fetch).not.toHaveBeenCalled();
@@ -89,7 +92,7 @@ describe('fetchPublicUrl', () => {
   // The bypass this function exists for: the destination passes validation and
   // then redirects somewhere private.
   it('does not follow a redirect to a blocked address', async () => {
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValue(
         respond(302, 'http://169.254.169.254/latest/meta-data'),
@@ -100,7 +103,7 @@ describe('fetchPublicUrl', () => {
   });
 
   it('never lets plain fetch follow redirects on its own', async () => {
-    const spy = jest.fn().mockResolvedValue(respond(200));
+    const spy = vi.fn().mockResolvedValue(respond(200));
     global.fetch = spy as unknown as typeof fetch;
 
     await fetchPublicUrl('http://8.8.8.8/ok');
@@ -111,7 +114,7 @@ describe('fetchPublicUrl', () => {
   // Validation and connection resolve separately; the dispatcher makes the
   // connection repeat the check so DNS rebinding cannot slip between them.
   it('connects through a dispatcher that re-checks resolved addresses', async () => {
-    const spy = jest.fn().mockResolvedValue(respond(200));
+    const spy = vi.fn().mockResolvedValue(respond(200));
     global.fetch = spy as unknown as typeof fetch;
 
     await fetchPublicUrl('http://8.8.8.8/ok');
@@ -120,7 +123,7 @@ describe('fetchPublicUrl', () => {
   });
 
   it('stops after too many redirects instead of looping', async () => {
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValue(respond(302, 'http://8.8.8.8/next')) as unknown as typeof fetch;
 
@@ -130,7 +133,7 @@ describe('fetchPublicUrl', () => {
   });
 
   it('drops the body when a redirect changes the method to GET', async () => {
-    const spy = jest
+    const spy = vi
       .fn()
       .mockResolvedValueOnce(respond(302, 'http://1.1.1.1/next'))
       .mockResolvedValueOnce(respond(200));
@@ -146,7 +149,7 @@ describe('fetchPublicUrl', () => {
   // A credential meant for the first host must not be replayed to whatever host
   // that one redirects to.
   it('drops Authorization and Cookie when a redirect leaves the origin', async () => {
-    const spy = jest
+    const spy = vi
       .fn()
       .mockResolvedValueOnce(respond(302, 'http://1.1.1.1/next'))
       .mockResolvedValueOnce(respond(200));
@@ -164,7 +167,7 @@ describe('fetchPublicUrl', () => {
   });
 
   it('keeps Authorization on a redirect within the same origin', async () => {
-    const spy = jest
+    const spy = vi
       .fn()
       .mockResolvedValueOnce(respond(302, '/next'))
       .mockResolvedValueOnce(respond(200));
@@ -176,7 +179,7 @@ describe('fetchPublicUrl', () => {
   });
 
   it('keeps the method and body for a 308, which preserves them by spec', async () => {
-    const spy = jest
+    const spy = vi
       .fn()
       .mockResolvedValueOnce(respond(308, 'http://1.1.1.1/next'))
       .mockResolvedValueOnce(respond(200));
@@ -192,7 +195,7 @@ describe('fetchPublicUrl', () => {
 
 describe('createPublicEgressLookup', () => {
   const lookupOnce = (records: Array<{ address: string; family: number }>, all: boolean) => {
-    jest.spyOn(dns, 'lookup').mockResolvedValueOnce(records as never);
+    vi.spyOn(dns, 'lookup').mockResolvedValueOnce(records as never);
     return new Promise<{ error: NodeJS.ErrnoException | null; address: unknown }>(resolve => {
       createPublicEgressLookup()('example.test', { all }, (error, address) =>
         resolve({ error, address }),
@@ -201,7 +204,7 @@ describe('createPublicEgressLookup', () => {
   };
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('answers with the first address for a single-address lookup', async () => {
@@ -232,11 +235,11 @@ describe('createPublicEgressLookup', () => {
 
 describe('pinPublicEgressHost', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('connects to the checked address and keeps the name for TLS', async () => {
-    jest.spyOn(dns, 'lookup').mockResolvedValueOnce([
+    vi.spyOn(dns, 'lookup').mockResolvedValueOnce([
       { address: '2a00:1450:4001:c02::6c', family: 6 },
       { address: '142.250.102.108', family: 4 },
     ] as never);
@@ -248,7 +251,7 @@ describe('pinPublicEgressHost', () => {
   });
 
   it('refuses a name that resolves to a private address', async () => {
-    jest
+    vi
       .spyOn(dns, 'lookup')
       .mockResolvedValueOnce([{ address: '10.0.0.25', family: 4 }] as never);
 
@@ -258,5 +261,25 @@ describe('pinPublicEgressHost', () => {
   it('passes a public IP literal through and refuses a private one', async () => {
     await expect(pinPublicEgressHost('8.8.8.8')).resolves.toEqual({ host: '8.8.8.8' });
     await expect(pinPublicEgressHost('127.0.0.1')).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('the undici dependency', () => {
+  // fetchPublicUrl hands an undici Agent to Node's own fetch, which only takes
+  // a dispatcher of the undici major Node bundles (undici 8 on Node 24 fails
+  // every request with "invalid onRequestStart method"). The other tests mock
+  // fetch, so this one goes through the real thing.
+  it("is a dispatcher Node's fetch accepts", async () => {
+    const server = createServer((_request, response) => response.end('ok'));
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/`, {
+        dispatcher: new Agent({ connect: { lookup: dnsLookup } }),
+      } as RequestInit);
+      expect(await response.text()).toBe('ok');
+    } finally {
+      server.close();
+    }
   });
 });

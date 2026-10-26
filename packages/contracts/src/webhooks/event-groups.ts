@@ -1,0 +1,16 @@
+import type { WebhookEventName } from './webhooks';
+
+/**
+ * The events grouped as the webhooks settings show them.
+ *
+ * Plain data on purpose: no effect import, so the frontend may import this
+ * module as a value without pulling the schema runtime into its bundle.
+ */
+export const WEBHOOK_EVENT_GROUPS = {
+  transactions: ['transaction.created', 'transactions.imported'],
+  statements: ['statement.uploaded', 'statement.processed', 'statement.failed'],
+  review: ['transactions.uncategorized', 'receipt.needs_review', 'receipt.approved'],
+  payables: ['invoice.paid', 'invoice.overdue', 'bill.paid', 'bill.overdue'],
+  budgets: ['budget.exceeded'],
+  taxes: ['tax.deadline.upcoming', 'tax.threshold.reached'],
+} as const satisfies Record<string, readonly WebhookEventName[]>;

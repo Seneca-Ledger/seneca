@@ -5,7 +5,6 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
-  Param,
   Post,
   Put,
 } from '@nestjs/common';
@@ -15,15 +14,24 @@ import { AllowInVersion } from '../../common/decorators/allow-in-version.decorat
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
 import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import {
+  CategorizationRuleParams,
   CreateCategorizationRuleBody,
   TestCategorizationRuleBody,
   UpdateCategorizationRuleBody,
 } from '../../contracts';
+import {
+  CategorizationRule as CategorizationRuleContract,
+  CategorizationRuleList,
+  CategorizationRuleTestResult,
+} from '../../contracts/classification/categorization-rules';
 import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.entity';
 import { CategorizationRule } from '../../entities/categorization-rule.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -65,6 +73,7 @@ export class CategorizationRulesController {
 
   @Get()
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategorizationRuleList)
   async findAll(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const rules = await this.categorizationRuleRepository.find({
       where: {
@@ -85,21 +94,18 @@ export class CategorizationRulesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategorizationRuleContract)
   async findOne(
-    @Param('id') id: string,
+    @SchemaParams(CategorizationRuleParams) { id }: CategorizationRuleParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
     const rule = await this.categorizationRuleRepository.findOne({
-      where: {
-        id,
-        userId: user.id,
-        workspaceId,
-      },
+      where: { id, userId: user.id, workspaceId },
     });
 
     if (!rule) {
-      throw new NotFoundException('Categorization rule not found');
+      throw new NotFoundException(appError('CATEGORIZATION_RULE_NOT_FOUND'));
     }
 
     return rule;
@@ -108,6 +114,7 @@ export class CategorizationRulesController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(CategorizationRuleContract)
   async create(
     @SchemaBody(CreateCategorizationRuleBody) dto: CreateCategorizationRuleBody,
     @CurrentUser() user: User,
@@ -153,8 +160,9 @@ export class CategorizationRulesController {
   @Put(':id')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(CategorizationRuleContract)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(CategorizationRuleParams) { id }: CategorizationRuleParams,
     @SchemaBody(UpdateCategorizationRuleBody) dto: UpdateCategorizationRuleBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -168,7 +176,7 @@ export class CategorizationRulesController {
     });
 
     if (!rule) {
-      throw new NotFoundException('Categorization rule not found');
+      throw new NotFoundException(appError('CATEGORIZATION_RULE_NOT_FOUND'));
     }
 
     const before = this.toAuditSnapshot(rule);
@@ -218,7 +226,7 @@ export class CategorizationRulesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @WorkspaceAuth(Permission.CATEGORY_DELETE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(CategorizationRuleParams) { id }: CategorizationRuleParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -231,7 +239,7 @@ export class CategorizationRulesController {
     });
 
     if (!rule) {
-      throw new NotFoundException('Categorization rule not found');
+      throw new NotFoundException(appError('CATEGORIZATION_RULE_NOT_FOUND'));
     }
 
     await this.categorizationRuleRepository.remove(rule);
@@ -254,6 +262,7 @@ export class CategorizationRulesController {
   @AllowInVersion()
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategorizationRuleTestResult)
   async testRule(
     @SchemaBody(TestCategorizationRuleBody) dto: TestCategorizationRuleBody,
     @CurrentUser() _user: User,

@@ -5,21 +5,41 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # Typings follow the runtime (Node 24 in Docker and CI), not the latest Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/backend"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # Typings follow the runtime (Node 24 in Docker and CI), not the latest Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # fetch takes only a dispatcher of the undici major Node bundles (7 on Node 24);
+      # see the "undici dependency" test in egress-url.util.spec.ts.
+      - dependency-name: "undici"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # Typings follow the runtime (Node 24 in Docker and CI), not the latest Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/website"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # Typings follow the runtime (Node 24 in Docker and CI), not the latest Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   # backend/requirements.txt is the source of truth for the Python deps baked
   # into both production images (see Dockerfile and backend/Dockerfile).
   - package-ecosystem: "pip"

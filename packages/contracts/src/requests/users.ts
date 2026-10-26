@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { Email, optionalNullable } from '../common/requests';
+import { Email, NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 /** Everything a custom grant can name; mirrors the backend `Permission` enum. */
@@ -225,3 +225,17 @@ export const PageHintsSeenBody = Schema.Struct({
   version: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(1000)),
 });
 export type PageHintsSeenBody = Wire<typeof PageHintsSeenBody>;
+
+/** `GET /users`: how many accounts of the workspace to list (20 when absent). */
+export const UsersQuery = Schema.Struct({
+  limit: Schema.optional(NumericInput.check(Schema.isInt())),
+});
+export type UsersQuery = Wire<typeof UsersQuery>;
+
+/** `/users/:id` and its permissions: a user's uuid. */
+export const UserIdParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type UserIdParams = Wire<typeof UserIdParams>;
+
+/** `GET /users/avatars/:fileName`: only the base name is ever used. */
+export const AvatarFileParams = Schema.Struct({ fileName: Schema.String });
+export type AvatarFileParams = Wire<typeof AvatarFileParams>;

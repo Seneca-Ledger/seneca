@@ -223,14 +223,12 @@ export const dedupeSpendOverTimeReceiptRecords = (
   });
 };
 
-// eslint-disable-next-line max-lines-per-function
 export const buildSpendOverTimeReport = (
   records: SpendOverTimeRecord[],
   groupBy: SpendOverTimeGroupBy,
 ): SpendOverTimeReport => {
   const pointsMap = new Map<string, SpendOverTimePoint>();
 
-  // eslint-disable-next-line complexity
   records.forEach(record => {
     const date = toDateOnly(record.dateValue || record.createdAt || null);
     if (!date || record.amount <= 0) {

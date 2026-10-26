@@ -27,7 +27,6 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
 import { setPrivacyMode, usePrivacyMode } from '@/app/lib/privacy-mode';
-import { resolveLabel } from '@/app/lib/side-panel-utils';
 import { useThemePreference } from './hooks/useThemePreference';
 
 /**
@@ -36,7 +35,6 @@ import { useThemePreference } from './hooks/useThemePreference';
  * own (notifications, plugins, integrations, what's new) open the right-hand
  * panel the rest of the app already uses, so nothing escapes the sidebar.
  */
-// eslint-disable-next-line max-lines-per-function
 export function AccountMenu({
   variant = 'sidebar',
   onAction,
@@ -60,8 +58,6 @@ export function AccountMenu({
     user,
     setUser,
     setTheme,
-    resolveLabel,
-    navTheme: undefined,
   });
 
   const privacy = usePrivacyMode();

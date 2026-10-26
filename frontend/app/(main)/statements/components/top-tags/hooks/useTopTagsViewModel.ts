@@ -13,16 +13,16 @@ import {
   useTopAnalyticsViewModel,
 } from '@/app/(main)/statements/hooks/useTopAnalyticsViewModel';
 
-type TxFn = (path: string[], fallback: string) => string;
+type TxFn = (path: string[]) => string;
 
 /** The category labels, with the ones that name what a row is said for tags. */
 export const buildTopTagsLabels = (tx: TxFn): Record<string, string> => ({
   ...buildTopCategoriesLabels(tx),
-  title: tx(['topTagsAnalytics', 'title'], 'Top tags'),
-  leaderboard: tx(['topTagsAnalytics', 'leaderboard'], 'Top tags list'),
-  incomeLeaderboard: tx(['topTagsAnalytics', 'incomeLeaderboard'], 'Top income tags list'),
-  category: tx(['topTagsAnalytics', 'tag'], 'Tag'),
-  loadError: 'Failed to load tag data',
+  title: tx(['topTagsAnalytics', 'title']),
+  leaderboard: tx(['topTagsAnalytics', 'leaderboard']),
+  incomeLeaderboard: tx(['topTagsAnalytics', 'incomeLeaderboard']),
+  category: tx(['topTagsAnalytics', 'tag']),
+  loadError: tx(['topTagsAnalytics', 'loadError']),
 });
 
 export type TopTagsViewModelReturn = TopAnalyticsViewModelReturn<

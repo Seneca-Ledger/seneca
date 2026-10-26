@@ -415,7 +415,7 @@ export function StatementsListItem({
         <span style={{ display: 'flex', minWidth: 0, overflow: 'hidden' }}>
           {tagNames.map((name, index) => (
             <React.Fragment key={name}>
-              {index > 0 ? <span style={{ flexShrink: 0 }}>,&nbsp;</span> : null}
+              {index > 0 ? <span style={{ flexShrink: 0 }}>{',\u00A0'}</span> : null}
               <TagLink
                 name={name}
                 month={month}

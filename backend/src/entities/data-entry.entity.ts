@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { DataEntryCustomField } from './data-entry-custom-field.entity';
@@ -28,14 +29,14 @@ export class DataEntry {
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -69,7 +70,7 @@ export class DataEntry {
 
   @ManyToOne(() => DataEntryCustomField, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'custom_tab_id' })
-  customTab: DataEntryCustomField | null;
+  customTab: Relation<DataEntryCustomField | null>;
 
   @Column({ name: 'custom_tab_id', type: 'uuid', nullable: true })
   customTabId: string | null;

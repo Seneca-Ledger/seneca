@@ -9,10 +9,10 @@ describe('CrossStatementDeduplicationService', () => {
   let repository: Repository<Transaction>;
 
   const mockRepository = {
-    find: jest.fn(),
-    findBy: jest.fn(),
-    findOneBy: jest.fn(),
-    update: jest.fn(),
+    find: vi.fn(),
+    findBy: vi.fn(),
+    findOneBy: vi.fn(),
+    update: vi.fn(),
   };
 
   const createMockTransaction = (
@@ -56,7 +56,7 @@ describe('CrossStatementDeduplicationService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('findDuplicates', () => {

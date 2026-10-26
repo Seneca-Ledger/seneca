@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Workspace } from './workspace.entity';
@@ -40,7 +41,7 @@ export class WebhookSubscription {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ type: 'varchar', length: 255 })
   name: string;

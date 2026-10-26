@@ -1,5 +1,6 @@
 import * as crypto from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { appError } from '../../common/errors/app-error';
 import { AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { AuditService } from '../audit/audit.service';
@@ -45,9 +46,7 @@ export class BackupImportService {
     this.removeExpired();
     const pending = this.imports.get(importId);
     if (!pending || pending.userId !== user.id || pending.archiveSha256 !== this.hash(archive)) {
-      throw new BadRequestException(
-        'Import preview has expired. Preview this backup again before restoring.',
-      );
+      throw new BadRequestException(appError('BACKUP_IMPORT_PREVIEW_EXPIRED'));
     }
     this.imports.delete(importId);
     const workspace = await this.restoreService.restore(archive, password, user, workspaceName);

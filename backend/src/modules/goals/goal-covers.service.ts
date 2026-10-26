@@ -8,6 +8,7 @@ import type { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
 import { APP_NAME } from '../../common/brand';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { appError } from '../../common/errors/app-error';
 import { assertFound } from '../../common/utils/assert-found.util';
 import {
   asHttpsUrl,
@@ -149,7 +150,7 @@ export class GoalCoversService {
     const hasPreset = Boolean(dto.preset);
     const hasPhoto = Boolean(dto.photoId);
     if (hasPreset === hasPhoto) {
-      throw new BadRequestException('Send exactly one of preset or photoId');
+      throw new BadRequestException(appError('GOAL_COVER_ONE_SOURCE'));
     }
 
     const goal = await this.goalRepository.findOne({ where: { id: goalId, workspaceId } });

@@ -81,21 +81,21 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
 }
 
-const quietLogger = { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
+const quietLogger = { log: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
 /** A job with only the named collaborators; see the header. */
 function job<T extends object>(type: { prototype: T }, fields: Record<string, unknown>): T {
@@ -106,7 +106,7 @@ const isoDay = (offsetDays: number) =>
   new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
 
 describe('background jobs leave a past version alone (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let standardId: string;
@@ -215,7 +215,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
     await admin.end();
   });
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('issues recurring invoices from the live workspace only', async () => {
     const templates = await inBoth(async workspaceId => {
@@ -232,7 +232,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
       });
       return template;
     });
-    const invoicesService = { cloneAsDraft: jest.fn(async () => undefined) };
+    const invoicesService = { cloneAsDraft: vi.fn(async () => undefined) };
 
     await new InvoicesScheduler(
       repo(Invoice),
@@ -258,7 +258,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
     const reminders = job(InvoiceRemindersService, {
       settingsService: new InvoiceSettingsService(repo(InvoiceSettings)),
     });
-    const runForWorkspace = jest.spyOn(reminders, 'runForWorkspace').mockResolvedValue([]);
+    const runForWorkspace = vi.spyOn(reminders, 'runForWorkspace').mockResolvedValue([]);
 
     await reminders.sendDueReminders();
 
@@ -297,8 +297,8 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
       repo(NotificationPreference),
       repo(User),
       repo(WorkspaceMember),
-      { emit: jest.fn() } as never,
-      { isDeferred: () => false, deliver: jest.fn(async () => []) } as never,
+      { emit: vi.fn() } as never,
+      { isDeferred: () => false, deliver: vi.fn(async () => []) } as never,
     );
     const payload = {
       type: NotificationType.PAYABLE_OVERDUE,
@@ -329,7 +329,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
   });
 
   it('sends the weekly review digest for the live workspace only', async () => {
-    const notifications = { createForWorkspaceMembers: jest.fn(async () => 1) };
+    const notifications = { createForWorkspaceMembers: vi.fn(async () => 1) };
 
     await new ReviewInboxScheduler(
       repo(Workspace),
@@ -347,7 +347,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
     const trashed = await inBoth(workspaceId =>
       statement(workspaceId, { deleted_at: new Date(Date.now() - 90 * 86_400_000) }),
     );
-    const statementsService = { remove: jest.fn(async () => undefined) };
+    const statementsService = { remove: vi.fn(async () => undefined) };
 
     await new StorageTrashScheduler(
       repo(Statement),
@@ -365,7 +365,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
         updated_at: new Date(Date.now() - 86_400_000),
       }),
     );
-    const queue = { enqueue: jest.fn(async () => undefined) };
+    const queue = { enqueue: vi.fn(async () => undefined) };
 
     await new StaleStatementReaper(repo(Statement), queue as never).reap();
 
@@ -373,7 +373,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
     const version = await repo(Statement).findOneByOrFail({ id: stale.version });
     expect(version.status).toBe(StatementStatus.PROCESSING);
 
-    const processing = { processStatement: jest.fn(async () => undefined) };
+    const processing = { processStatement: vi.fn(async () => undefined) };
     await new StatementParsingProcessor(repo(Statement), processing as never).process({
       data: { statementId: stale.version },
       attemptsMade: 0,
@@ -412,9 +412,9 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
   it('checks tax thresholds, deadlines and official VAT rates for the live workspace only', async () => {
     await dataSource.query(`UPDATE workspaces SET vat_status = 'small_business'`);
     const threshold = job(TaxThresholdService, { workspaceRepository: repo(Workspace) });
-    const checkWorkspace = jest.spyOn(threshold, 'checkWorkspace').mockResolvedValue(null);
+    const checkWorkspace = vi.spyOn(threshold, 'checkWorkspace').mockResolvedValue(null);
     const deadlines = job(TaxDeadlinesService, { workspaceRepository: repo(Workspace) });
-    const remindWorkspace = jest.spyOn(deadlines, 'remindWorkspace').mockResolvedValue(0);
+    const remindWorkspace = vi.spyOn(deadlines, 'remindWorkspace').mockResolvedValue(0);
 
     await threshold.checkAll();
     await deadlines.remindAll();
@@ -424,10 +424,10 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
 
     await dataSource.query(`UPDATE workspaces SET vat_status = 'registered'`);
     const official = job(OfficialVatRatesService, { workspaceRepository: repo(Workspace) });
-    const check = jest
+    const check = vi
       .spyOn(official, 'check')
       .mockResolvedValue({ country: 'AT', differences: [] } as never);
-    jest.spyOn(official as never, 'announce').mockResolvedValue(undefined as never);
+    vi.spyOn(official as never, 'announce').mockResolvedValue(undefined as never);
 
     await official.checkAll();
 
@@ -450,7 +450,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
       userRepository: repo(User),
       workspaceMemberRepository: repo(WorkspaceMember),
     });
-    const runSchedule = jest
+    const runSchedule = vi
       .spyOn(reportSchedules as never, 'runSchedule')
       .mockResolvedValue(undefined as never);
 
@@ -493,7 +493,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
         time_zone: 'UTC',
       }),
     );
-    const backups = { runConfiguration: jest.fn(async () => undefined) };
+    const backups = { runConfiguration: vi.fn(async () => undefined) };
     await new BackupSchedulerService(
       repo(BackupConfiguration),
       repo(Workspace),
@@ -521,7 +521,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
       });
     await inBoth(workspaceId => subscription(workspaceId, 'Streaming', isoDay(1)));
     const pastDue = await inBoth(workspaceId => subscription(workspaceId, 'Cloud', isoDay(-5)));
-    const notifications = { createForWorkspaceMembers: jest.fn(async () => 1) };
+    const notifications = { createForWorkspaceMembers: vi.fn(async () => 1) };
     const service = job(SubscriptionsService, {
       subscriptionRepository: repo(Subscription),
       notificationsService: notifications,
@@ -549,7 +549,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
       }),
     );
     const crypto = job(CryptoSyncService, { walletRepo: repo(CryptoWallet) });
-    const syncWallet = jest.spyOn(crypto, 'syncWallet').mockResolvedValue({} as never);
+    const syncWallet = vi.spyOn(crypto, 'syncWallet').mockResolvedValue({} as never);
     await crypto.syncAllWallets();
     expect(syncWallet.mock.calls.map(([wallet]) => wallet.workspaceId)).toEqual([standardId]);
 
@@ -562,7 +562,7 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
       }),
     );
     const payees = job(PayeesService, { payeeRepository: repo(Payee) });
-    const recheckVatId = jest
+    const recheckVatId = vi
       .spyOn(payees, 'recheckVatId')
       .mockResolvedValue({ vatIdStatus: 'valid' } as never);
     await payees.recheckUnansweredVatIds();
@@ -591,10 +591,10 @@ describe('background jobs leave a past version alone (real Postgres)', () => {
       transmissions: repo(PeppolTransmission),
       connections: repo(PeppolConnection),
     });
-    const refreshWorkspace = jest
+    const refreshWorkspace = vi
       .spyOn(peppol as never, 'refreshWorkspace')
       .mockResolvedValue(undefined as never);
-    const poll = jest.spyOn(peppol, 'poll').mockResolvedValue({ imported: 0 });
+    const poll = vi.spyOn(peppol, 'poll').mockResolvedValue({ imported: 0 });
     await peppol.refreshPending();
     await peppol.pollAll();
     expect((refreshWorkspace.mock.calls as unknown[][]).map(([id]) => id)).toEqual([standardId]);

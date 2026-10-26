@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -46,7 +45,6 @@ interface InvoiceDetailViewProps {
   invoiceId: string;
 }
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.JSX.Element {
   const router = useRouter();
   const { currentWorkspace } = useWorkspace();

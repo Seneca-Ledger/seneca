@@ -215,3 +215,7 @@ export const GoalCoverSearchPage = Schema.Struct({
   hasMore: Schema.Boolean,
 });
 export type GoalCoverSearchPage = Wire<typeof GoalCoverSearchPage>;
+
+/** `GET /goals/covers/presets`: the bundled cover ids the client can draw. */
+export const GoalCoverPresets = Schema.Struct({ presets: Schema.Array(Schema.String) });
+export type GoalCoverPresets = Wire<typeof GoalCoverPresets>;

@@ -6,11 +6,11 @@ import * as bcrypt from 'bcrypt';
 
 const createRepoMock = () =>
   ({
-    find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn().mockResolvedValue(null),
-    count: jest.fn().mockResolvedValue(0),
-    update: jest.fn().mockResolvedValue({ affected: 1 }),
-    softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
+    find: vi.fn().mockResolvedValue([]),
+    findOne: vi.fn().mockResolvedValue(null),
+    count: vi.fn().mockResolvedValue(0),
+    update: vi.fn().mockResolvedValue({ affected: 1 }),
+    softDelete: vi.fn().mockResolvedValue({ affected: 1 }),
   }) as any;
 
 describe('AccountDataService', () => {
@@ -20,12 +20,12 @@ describe('AccountDataService', () => {
   const preferenceRepo = createRepoMock();
   const notificationRepo = createRepoMock();
   const auditRepo = createRepoMock();
-  const auditService = { createEvent: jest.fn() };
+  const auditService = { createEvent: vi.fn() };
 
   let service: AccountDataService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     userRepo.find.mockResolvedValue([]);
     memberRepo.find.mockResolvedValue([]);
     sessionRepo.find.mockResolvedValue([]);

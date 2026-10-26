@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Category } from './category.entity';
@@ -41,14 +42,14 @@ export class CustomTable {
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -70,7 +71,7 @@ export class CustomTable {
 
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
@@ -79,13 +80,13 @@ export class CustomTable {
     () => CustomTableColumn,
     column => column.table,
   )
-  columns: CustomTableColumn[];
+  columns: Relation<CustomTableColumn[]>;
 
   @OneToMany(
     () => CustomTableRow,
     row => row.table,
   )
-  rows: CustomTableRow[];
+  rows: Relation<CustomTableRow[]>;
 
   @Column({ name: 'view_settings', type: 'jsonb', default: () => "'{}'::jsonb" })
   viewSettings: JsonObject;

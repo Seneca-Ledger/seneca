@@ -6,13 +6,13 @@ import { ExportScheduleFormat } from '../../../src/entities/custom-table-export-
 import { CustomTableExportSchedulesService } from '../../../src/modules/custom-tables/custom-table-export-schedules.service';
 
 const createRepositoryMock = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  save: jest.fn(async (v: unknown) => v),
-  create: jest.fn((v?: unknown) => v),
-  update: jest.fn(),
-  delete: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  findOne: vi.fn(),
+  find: vi.fn(),
+  save: vi.fn(async (v: unknown) => v),
+  create: vi.fn((v?: unknown) => v),
+  update: vi.fn(),
+  delete: vi.fn(),
+  createQueryBuilder: vi.fn(),
 });
 
 const TABLE_ID = '11111111-1111-4111-8111-111111111111';
@@ -24,10 +24,10 @@ function buildService(schedule?: Record<string, unknown>) {
   const workspaceMemberRepository = createRepositoryMock();
 
   tableRepository.createQueryBuilder.mockReturnValue({
-    leftJoin: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getOne: jest.fn().mockResolvedValue({ id: TABLE_ID, name: 'Отчёт' }),
+    leftJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getOne: vi.fn().mockResolvedValue({ id: TABLE_ID, name: 'Отчёт' }),
   });
   scheduleRepository.findOne.mockResolvedValue(
     schedule ?? {
@@ -41,7 +41,7 @@ function buildService(schedule?: Record<string, unknown>) {
   );
 
   const customTablesService = {
-    exportRows: jest.fn().mockResolvedValue({
+    exportRows: vi.fn().mockResolvedValue({
       buffer: Buffer.from('file-bytes'),
       fileName: 'report.xlsx',
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

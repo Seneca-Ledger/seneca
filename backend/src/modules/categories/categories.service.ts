@@ -14,6 +14,7 @@ import { Cache } from 'cache-manager';
 import type { FindOptionsWhere, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
+import { appError } from '../../common/errors/app-error';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import type { CreateCategoryBody, UpdateCategoryBody } from '../../contracts';
@@ -112,7 +113,10 @@ export class CategoriesService {
   private async resolveActorName(userId: string): Promise<string> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['name', 'email'],
+      select: {
+        name: true,
+        email: true,
+      },
     });
     return user?.name || user?.email || 'User';
   }
@@ -140,7 +144,7 @@ export class CategoriesService {
     });
 
     if (existing) {
-      throw new ConflictException('Category with this name already exists');
+      throw new ConflictException(appError('CATEGORY_NAME_TAKEN'));
     }
     await this.assertParentInWorkspace(workspaceId, createDto.parentId);
 
@@ -198,7 +202,10 @@ export class CategoriesService {
 
     const categories = await this.categoryRepository.find({
       where,
-      relations: ['children', 'parent'],
+      relations: {
+        children: true,
+        parent: true,
+      },
       order: { name: 'ASC' },
     });
 
@@ -213,17 +220,20 @@ export class CategoriesService {
   ): Promise<void> {
     if (!parentId) return;
     const parent = await this.categoryRepository.findOne({ where: { id: parentId, workspaceId } });
-    if (!parent) throw new NotFoundException('Parent category not found');
+    if (!parent) throw new NotFoundException(appError('CATEGORY_PARENT_NOT_FOUND'));
   }
 
   async findOne(id: string, workspaceId: string): Promise<Category> {
     const category = await this.categoryRepository.findOne({
       where: { id, workspaceId },
-      relations: ['children', 'parent'],
+      relations: {
+        children: true,
+        parent: true,
+      },
     });
 
     if (!category) {
-      throw new NotFoundException('Category not found');
+      throw new NotFoundException(appError('CATEGORY_NOT_FOUND'));
     }
 
     return category;
@@ -331,7 +341,7 @@ export class CategoriesService {
       );
 
       if (nonToggleUpdates.length > 0) {
-        throw new ForbiddenException('Cannot modify system category');
+        throw new ForbiddenException(appError('CATEGORY_SYSTEM_READ_ONLY'));
       }
     }
 
@@ -342,7 +352,7 @@ export class CategoriesService {
       });
 
       if (existing) {
-        throw new ConflictException('Category with this name already exists');
+        throw new ConflictException(appError('CATEGORY_NAME_TAKEN'));
       }
     }
 
@@ -356,7 +366,7 @@ export class CategoriesService {
 
     if (changes.parentId) {
       if (changes.parentId === id) {
-        throw new BadRequestException('A category cannot be its own parent');
+        throw new BadRequestException(appError('CATEGORY_OWN_PARENT'));
       }
       await this.assertParentInWorkspace(workspaceId, changes.parentId);
     }
@@ -413,7 +423,7 @@ export class CategoriesService {
     const category = await this.findOne(id, workspaceId);
 
     if (category.isSystem) {
-      throw new ForbiddenException('Cannot delete system category');
+      throw new ForbiddenException(appError('CATEGORY_SYSTEM_UNDELETABLE'));
     }
     // Deleting the category would clear it on rows a filed return was built from.
     await assertNoTaxLockedTransactions(this.transactionRepository, {
@@ -430,7 +440,8 @@ export class CategoriesService {
       actorType: ActorType.USER,
       actorId: userId,
       entityType: EntityType.CATEGORY,
-      entityId: category.id,
+      // `remove` clears the entity's id: the event had none, and every delete was a 400.
+      entityId: id,
       action: AuditAction.DELETE,
       diff: { before: category, after: null },
       meta: {
@@ -444,7 +455,7 @@ export class CategoriesService {
       actorId: userId,
       actorName: await this.resolveActorName(userId),
       action: 'deleted',
-      categoryId: category.id,
+      categoryId: id,
       categoryName: category.name,
     } satisfies CategoryChangedEvent);
   }

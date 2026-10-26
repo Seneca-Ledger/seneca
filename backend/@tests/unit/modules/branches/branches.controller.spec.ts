@@ -3,11 +3,11 @@ import { BranchesController } from '@/modules/branches/branches.controller';
 describe('BranchesController', () => {
   it('proxies calls to BranchesService with workspaceId', async () => {
     const branchesService = {
-      create: jest.fn(async () => ({ id: 'b1' })),
-      findAll: jest.fn(async () => [{ id: 'b1' }]),
-      findOne: jest.fn(async () => ({ id: 'b1' })),
-      update: jest.fn(async () => ({ id: 'b1', name: 'X' })),
-      remove: jest.fn(async () => undefined),
+      create: vi.fn(async () => ({ id: 'b1' })),
+      findAll: vi.fn(async () => [{ id: 'b1' }]),
+      findOne: vi.fn(async () => ({ id: 'b1' })),
+      update: vi.fn(async () => ({ id: 'b1', name: 'X' })),
+      remove: vi.fn(async () => undefined),
     };
     const controller = new BranchesController(branchesService as any);
     const user = { id: 'u1' } as any;
@@ -15,12 +15,11 @@ describe('BranchesController', () => {
 
     expect(await controller.create({ name: 'A' } as any, user, workspaceId)).toEqual({ id: 'b1' });
     expect(await controller.findAll(user, workspaceId)).toEqual([{ id: 'b1' }]);
-    expect(await controller.findOne('b1', user, workspaceId)).toEqual({ id: 'b1' });
-    expect(await controller.update('b1', { name: 'X' } as any, user, workspaceId)).toEqual({
+    expect(await controller.findOne({ id: 'b1' }, user, workspaceId)).toEqual({ id: 'b1' });
+    expect(await controller.update({ id: 'b1' }, { name: 'X' } as any, user, workspaceId)).toEqual({
       id: 'b1',
-      name: 'X',
-    });
-    expect(await controller.remove('b1', user, workspaceId)).toEqual({
+    }); // read back as stored, not the saved entity
+    expect(await controller.remove({ id: 'b1' }, user, workspaceId)).toEqual({
       message: 'Branch deleted successfully',
     });
 

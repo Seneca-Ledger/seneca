@@ -157,8 +157,10 @@ export function AdminStatementsTab({
           label={labels.search}
           value={searchTerm}
           onChange={e => onSearchChange(e.target.value)}
-          inputProps={{ 'data-tour-id': 'admin-statements-search' }}
           sx={{ flexGrow: 1 }}
+          slotProps={{
+            htmlInput: { 'data-tour-id': 'admin-statements-search' },
+          }}
         />
         <Button variant="outlined" startIcon={<RefreshCw size={16} />} onClick={onRefresh}>
           {labels.refresh}

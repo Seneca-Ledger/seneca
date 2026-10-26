@@ -67,7 +67,6 @@ interface PayablesListProps {
   onDelete: (payable: Payable) => void;
 }
 
-// eslint-disable-next-line max-params
 const fillTemplate = (template: string, values: Record<string, string | number>): string =>
   Object.entries(values).reduce(
     (result, [key, value]) => result.replace(`{${key}}`, String(value)),
@@ -98,7 +97,6 @@ function toneOf(payable: Payable, overdue: boolean): StatusTone {
   return payable.status === 'partially_paid' ? 'partial' : 'neutral';
 }
 
-// eslint-disable-next-line max-lines-per-function, complexity
 function PayablesList({
   items,
   locale = 'en',

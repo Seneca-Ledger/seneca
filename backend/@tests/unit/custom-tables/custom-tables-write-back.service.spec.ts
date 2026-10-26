@@ -45,20 +45,20 @@ const setup = (options: {
 		data: { c_amount: -650, c_type: "expense", c_category: "Rent", c_statement: "a.csv", c_note: "" },
 		styles: null,
 	};
-	const qb = { leftJoinAndSelect: jest.fn(), where: jest.fn(), andWhere: jest.fn(), getOne: jest.fn().mockResolvedValue(table) };
+	const qb = { leftJoinAndSelect: vi.fn(), where: vi.fn(), andWhere: vi.fn(), getOne: vi.fn().mockResolvedValue(table) };
 	qb.leftJoinAndSelect.mockReturnValue(qb);
 	qb.where.mockReturnValue(qb);
 	qb.andWhere.mockReturnValue(qb);
-	const customTableRepository = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-	const customTableColumnRepository = { find: jest.fn().mockResolvedValue(COLUMNS) };
+	const customTableRepository = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+	const customTableColumnRepository = { find: vi.fn().mockResolvedValue(COLUMNS) };
 	const customTableRowRepository = {
-		findOne: jest.fn().mockResolvedValue(row),
-		save: jest.fn(async (value: unknown) => value),
+		findOne: vi.fn().mockResolvedValue(row),
+		save: vi.fn(async (value: unknown) => value),
 	};
-	const workspaceMemberRepository = { findOne: jest.fn().mockResolvedValue(null) };
-	const auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+	const workspaceMemberRepository = { findOne: vi.fn().mockResolvedValue(null) };
+	const auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
 	const sourceWriteBack = {
-		apply: jest.fn(async () => {
+		apply: vi.fn(async () => {
 			if (options.writeBack instanceof Error) {
 				throw options.writeBack;
 			}

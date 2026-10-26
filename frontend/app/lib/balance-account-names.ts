@@ -67,7 +67,7 @@ const dictionaryFor = (locale: string): Dictionary | null => {
   if (cached !== undefined) {
     return cached;
   }
-  let dictionary: Dictionary | null = null;
+  let dictionary: Dictionary | null;
   try {
     dictionary = getCachedIntlayer('balanceAccountNames', locale) as Dictionary;
   } catch {

@@ -75,7 +75,7 @@ export type ReceiptDocument = {
     category?: string;
     categoryId?: string;
     transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
-  };
+  } | null;
   workspaceId?: string;
   workspaceName?: string;
   /** The receipt's own tags, as the receipts list returns them. */

@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+import * as nodeFs from 'node:fs';
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -20,59 +22,59 @@ import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-s
 describe('ReceiptsService', () => {
   let service: ReceiptsService;
   let receiptRepository: {
-    create: jest.Mock;
-    save: jest.Mock;
-    findAndCount: jest.Mock;
-    findOne: jest.Mock;
-    delete: jest.Mock;
+    create: Mock;
+    save: Mock;
+    findAndCount: Mock;
+    findOne: Mock;
+    delete: Mock;
   };
-  let jobRepository: { create: jest.Mock; save: jest.Mock };
+  let jobRepository: { create: Mock; save: Mock };
   let transactionRepository: {
-    create: jest.Mock;
-    save: jest.Mock;
-    update: jest.Mock;
-    findOne: jest.Mock;
+    create: Mock;
+    save: Mock;
+    update: Mock;
+    findOne: Mock;
   };
   let statementRepository: {
-    findOne: jest.Mock;
-    save: jest.Mock;
-    remove: jest.Mock;
-    update: jest.Mock;
+    findOne: Mock;
+    save: Mock;
+    remove: Mock;
+    update: Mock;
   };
-  let categoryRepository: { find: jest.Mock; findOne: jest.Mock };
-  let processorService: { processReceipt: jest.Mock };
-  let mockEventEmitter: { emit: jest.Mock; emitAsync: jest.Mock };
-  let auditService: { createEvent: jest.Mock; createBatchEvents: jest.Mock };
+  let categoryRepository: { find: Mock; findOne: Mock };
+  let processorService: { processReceipt: Mock };
+  let mockEventEmitter: { emit: Mock; emitAsync: Mock };
+  let auditService: { createEvent: Mock; createBatchEvents: Mock };
 
   beforeEach(async () => {
     receiptRepository = {
-      create: jest.fn().mockImplementation(payload => payload),
-      save: jest.fn().mockImplementation(async payload => ({ id: 'receipt-1', ...payload })),
-      findAndCount: jest.fn().mockResolvedValue([[{ id: 'receipt-1' }], 1]),
-      findOne: jest.fn().mockResolvedValue({
+      create: vi.fn().mockImplementation(payload => payload),
+      save: vi.fn().mockImplementation(async payload => ({ id: 'receipt-1', ...payload })),
+      findAndCount: vi.fn().mockResolvedValue([[{ id: 'receipt-1' }], 1]),
+      findOne: vi.fn().mockResolvedValue({
         id: 'receipt-1',
         status: ReceiptStatus.DRAFT,
         source: ReceiptSource.UPLOAD,
       }),
-      delete: jest.fn().mockResolvedValue({ affected: 1 }),
+      delete: vi.fn().mockResolvedValue({ affected: 1 }),
     };
 
     jobRepository = {
-      create: jest.fn().mockImplementation(payload => payload),
-      save: jest.fn().mockImplementation(async payload => ({ id: 'job-1', ...payload })),
+      create: vi.fn().mockImplementation(payload => payload),
+      save: vi.fn().mockImplementation(async payload => ({ id: 'job-1', ...payload })),
     };
 
     transactionRepository = {
-      create: jest.fn().mockImplementation(payload => payload),
-      save: jest.fn().mockImplementation(async payload => ({ id: 'tx-1', ...payload })),
-      update: jest.fn().mockResolvedValue({ affected: 1 }),
-      findOne: jest.fn().mockResolvedValue(null),
+      create: vi.fn().mockImplementation(payload => payload),
+      save: vi.fn().mockImplementation(async payload => ({ id: 'tx-1', ...payload })),
+      update: vi.fn().mockResolvedValue({ affected: 1 }),
+      findOne: vi.fn().mockResolvedValue(null),
     };
     // approveOnce runs inside a DB transaction; the fake manager hands back the same mocks.
     // Categories are looked up through it too; every one the tests name is the workspace's.
     Object.assign(receiptRepository, {
       manager: {
-        transaction: jest.fn(async (work: (manager: unknown) => unknown) =>
+        transaction: vi.fn(async (work: (manager: unknown) => unknown) =>
           work({
             getRepository: (entity: unknown) =>
               entity === Receipt
@@ -87,10 +89,10 @@ describe('ReceiptsService', () => {
     });
 
     statementRepository = {
-      findOne: jest.fn().mockResolvedValue(null),
-      save: jest.fn().mockImplementation(async payload => payload),
-      remove: jest.fn().mockResolvedValue(undefined),
-      update: jest.fn().mockResolvedValue({ affected: 1 }),
+      findOne: vi.fn().mockResolvedValue(null),
+      save: vi.fn().mockImplementation(async payload => payload),
+      remove: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue({ affected: 1 }),
     };
     // An edit finds a draft scan's row through the transaction repository's manager.
     Object.assign(transactionRepository, {
@@ -105,18 +107,18 @@ describe('ReceiptsService', () => {
     });
 
     categoryRepository = {
-      find: jest.fn().mockResolvedValue([]),
-      findOne: jest.fn().mockResolvedValue(null),
-      countBy: jest.fn(async ({ id }: any) => id.value.length),
+      find: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn().mockResolvedValue(null),
+      countBy: vi.fn(async ({ id }: any) => id.value.length),
     };
 
     processorService = {
-      processReceipt: jest.fn().mockResolvedValue(undefined),
+      processReceipt: vi.fn().mockResolvedValue(undefined),
     };
 
     auditService = {
-      createEvent: jest.fn().mockResolvedValue({}),
-      createBatchEvents: jest.fn().mockResolvedValue({ batchId: 'batch-1', events: [] }),
+      createEvent: vi.fn().mockResolvedValue({}),
+      createBatchEvents: vi.fn().mockResolvedValue({ batchId: 'batch-1', events: [] }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -132,7 +134,7 @@ describe('ReceiptsService', () => {
         { provide: AuditService, useValue: auditService },
         {
           provide: EventEmitter2,
-          useValue: (mockEventEmitter = { emit: jest.fn(), emitAsync: jest.fn().mockResolvedValue([]) }),
+          useValue: (mockEventEmitter = { emit: vi.fn(), emitAsync: vi.fn().mockResolvedValue([]) }),
         },
       ],
     }).compile();
@@ -441,7 +443,7 @@ describe('ReceiptsService', () => {
       transactionId: null,
     });
     transactionRepository.findOne.mockResolvedValue({ id: 'bank-row', workspaceId: 'workspace-1' });
-    jest
+    vi
       .spyOn(service as any, 'copyFileToTransaction')
       .mockResolvedValue(undefined);
 
@@ -593,7 +595,7 @@ describe('ReceiptsService', () => {
   });
 
   it('cascades scan receipt deletion to linked statement and attached files', async () => {
-    const unlinkSpy = jest.spyOn(require('node:fs').promises, 'unlink').mockResolvedValue(undefined);
+    const unlinkSpy = vi.spyOn(nodeFs.promises, 'unlink').mockResolvedValue(undefined);
     receiptRepository.findOne.mockResolvedValue({
       id: 'receipt-scan-1',
       workspaceId: 'workspace-1',

@@ -20,6 +20,7 @@ import { StatementsModule } from '../statements/statements.module';
 import { TagsModule } from '../tags/tags.module';
 import { StorageController } from './storage.controller';
 import { StorageService } from './storage.service';
+import { StorageSharingController } from './storage-sharing.controller';
 import { StorageTrashScheduler } from './storage-trash.scheduler';
 
 /**
@@ -44,7 +45,7 @@ import { StorageTrashScheduler } from './storage-trash.scheduler';
     StatementsModule,
     TagsModule,
   ],
-  controllers: [StorageController],
+  controllers: [StorageController, StorageSharingController],
   providers: [StorageService, StorageTrashScheduler, FileStorageService, MetricsService],
   exports: [StorageService],
 })

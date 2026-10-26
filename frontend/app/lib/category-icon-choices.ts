@@ -1,3 +1,4 @@
+import type categoryIcons from '@/app/components/categories/categoryIcons.content';
 import type { LucideIcon } from '@/app/components/icons';
 import {
   Banknote,
@@ -35,49 +36,51 @@ import {
   Zap,
 } from './category-line-icons';
 
+export type CategoryIconLabelKey = keyof typeof categoryIcons.content;
+
 /**
  * Icons offered in the category editor. `value` is what the category row stores
  * (legacy `mdi:*` names), so existing categories keep their choice.
  */
 export const CATEGORY_ICON_CHOICES: ReadonlyArray<{
   value: string;
-  /** What the icon stands for, as its tooltip and accessible name. */
-  label: string;
+  /** What the icon stands for (`categoryIcons` dictionary), as its tooltip and accessible name. */
+  labelKey: CategoryIconLabelKey;
   Icon: LucideIcon;
 }> = [
-  { value: 'mdi:home', label: 'Home', Icon: Home },
-  { value: 'mdi:food', label: 'Food', Icon: Utensils },
-  { value: 'mdi:coffee', label: 'Coffee', Icon: Coffee },
-  { value: 'mdi:cart', label: 'Groceries', Icon: ShoppingCart },
-  { value: 'mdi:shopping', label: 'Shopping', Icon: ShoppingBag },
-  { value: 'mdi:car', label: 'Car', Icon: Car },
-  { value: 'mdi:gas-station', label: 'Fuel', Icon: Fuel },
-  { value: 'mdi:airplane', label: 'Travel', Icon: Plane },
-  { value: 'mdi:medical-bag', label: 'Health', Icon: Stethoscope },
-  { value: 'mdi:dumbbell', label: 'Fitness', Icon: Dumbbell },
-  { value: 'mdi:school', label: 'Education', Icon: GraduationCap },
-  { value: 'mdi:book', label: 'Books', Icon: BookOpen },
-  { value: 'mdi:gift', label: 'Gifts', Icon: Gift },
-  { value: 'mdi:gamepad-variant', label: 'Games', Icon: Gamepad2 },
-  { value: 'mdi:music', label: 'Music', Icon: Music },
-  { value: 'mdi:paw', label: 'Pets', Icon: PawPrint },
-  { value: 'mdi:monitor', label: 'Electronics', Icon: Monitor },
-  { value: 'mdi:cloud', label: 'Cloud services', Icon: Cloud },
-  { value: 'mdi:autorenew', label: 'Subscriptions', Icon: Repeat },
-  { value: 'mdi:phone', label: 'Phone', Icon: Smartphone },
-  { value: 'mdi:lightning-bolt', label: 'Utilities', Icon: Zap },
-  { value: 'mdi:wrench', label: 'Repairs', Icon: Wrench },
-  { value: 'mdi:shield-check', label: 'Insurance', Icon: ShieldCheck },
-  { value: 'mdi:receipt', label: 'Bills', Icon: ReceiptText },
-  { value: 'mdi:wallet', label: 'Wallet', Icon: Wallet },
-  { value: 'mdi:cash', label: 'Cash', Icon: Banknote },
-  { value: 'mdi:bank', label: 'Bank', Icon: Landmark },
-  { value: 'mdi:credit-card', label: 'Card', Icon: CreditCard },
-  { value: 'mdi:piggy-bank', label: 'Savings', Icon: PiggyBank },
-  { value: 'mdi:chart-line', label: 'Investments', Icon: TrendingUp },
-  { value: 'mdi:briefcase', label: 'Work', Icon: Briefcase },
-  { value: 'mdi:heart', label: 'Charity', Icon: Heart },
-  { value: 'mdi:tag', label: 'Other', Icon: Tag },
+  { value: 'mdi:home', labelKey: 'home', Icon: Home },
+  { value: 'mdi:food', labelKey: 'food', Icon: Utensils },
+  { value: 'mdi:coffee', labelKey: 'coffee', Icon: Coffee },
+  { value: 'mdi:cart', labelKey: 'groceries', Icon: ShoppingCart },
+  { value: 'mdi:shopping', labelKey: 'shopping', Icon: ShoppingBag },
+  { value: 'mdi:car', labelKey: 'car', Icon: Car },
+  { value: 'mdi:gas-station', labelKey: 'fuel', Icon: Fuel },
+  { value: 'mdi:airplane', labelKey: 'travel', Icon: Plane },
+  { value: 'mdi:medical-bag', labelKey: 'health', Icon: Stethoscope },
+  { value: 'mdi:dumbbell', labelKey: 'fitness', Icon: Dumbbell },
+  { value: 'mdi:school', labelKey: 'education', Icon: GraduationCap },
+  { value: 'mdi:book', labelKey: 'books', Icon: BookOpen },
+  { value: 'mdi:gift', labelKey: 'gifts', Icon: Gift },
+  { value: 'mdi:gamepad-variant', labelKey: 'games', Icon: Gamepad2 },
+  { value: 'mdi:music', labelKey: 'music', Icon: Music },
+  { value: 'mdi:paw', labelKey: 'pets', Icon: PawPrint },
+  { value: 'mdi:monitor', labelKey: 'electronics', Icon: Monitor },
+  { value: 'mdi:cloud', labelKey: 'cloudServices', Icon: Cloud },
+  { value: 'mdi:autorenew', labelKey: 'subscriptions', Icon: Repeat },
+  { value: 'mdi:phone', labelKey: 'phone', Icon: Smartphone },
+  { value: 'mdi:lightning-bolt', labelKey: 'utilities', Icon: Zap },
+  { value: 'mdi:wrench', labelKey: 'repairs', Icon: Wrench },
+  { value: 'mdi:shield-check', labelKey: 'insurance', Icon: ShieldCheck },
+  { value: 'mdi:receipt', labelKey: 'bills', Icon: ReceiptText },
+  { value: 'mdi:wallet', labelKey: 'wallet', Icon: Wallet },
+  { value: 'mdi:cash', labelKey: 'cash', Icon: Banknote },
+  { value: 'mdi:bank', labelKey: 'bank', Icon: Landmark },
+  { value: 'mdi:credit-card', labelKey: 'card', Icon: CreditCard },
+  { value: 'mdi:piggy-bank', labelKey: 'savings', Icon: PiggyBank },
+  { value: 'mdi:chart-line', labelKey: 'investments', Icon: TrendingUp },
+  { value: 'mdi:briefcase', labelKey: 'work', Icon: Briefcase },
+  { value: 'mdi:heart', labelKey: 'charity', Icon: Heart },
+  { value: 'mdi:tag', labelKey: 'other', Icon: Tag },
 ];
 
 const ICON_BY_VALUE = new Map(CATEGORY_ICON_CHOICES.map(choice => [choice.value, choice.Icon]));

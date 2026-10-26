@@ -17,6 +17,8 @@ vi.mock('@/app/lib/api', () => ({
   },
 }));
 
+import { LocalCategorizationPanel } from './LocalCategorizationPanel';
+
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('LocalCategorizationPanel', () => {
@@ -74,7 +76,6 @@ describe('LocalCategorizationPanel', () => {
       });
     });
 
-    const { LocalCategorizationPanel } = await import('./LocalCategorizationPanel');
     const container = document.createElement('div');
     const root = createRoot(container);
 

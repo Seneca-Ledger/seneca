@@ -163,7 +163,12 @@ export class SpendFlowService {
         .getRawMany<MerchantTotalRow>(),
       this.categoryRepository.find({
         where: { workspaceId },
-        select: ['id', 'name', 'parentId', 'color'],
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+          color: true,
+        },
       }),
     ]);
 
@@ -245,7 +250,10 @@ export class SpendFlowService {
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['id', 'currency'],
+      select: {
+        id: true,
+        currency: true,
+      },
     });
     return normalizeCurrency(workspace?.currency);
   }

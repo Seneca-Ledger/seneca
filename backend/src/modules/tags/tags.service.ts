@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import type { CreateTagBody, UpdateTagBody } from '../../contracts';
 import { Folder } from '../../entities/folder.entity';
 import { Tag } from '../../entities/tag.entity';
@@ -107,7 +108,7 @@ export class TagsService {
   private async requireTag(tagId: string, workspaceId: string): Promise<Tag> {
     const tag = await this.tagRepository.findOne({ where: { id: tagId, workspaceId } });
     if (!tag) {
-      throw new NotFoundException('Tag not found');
+      throw new NotFoundException(appError('STORAGE_TAG_NOT_FOUND'));
     }
     return tag;
   }
@@ -115,7 +116,7 @@ export class TagsService {
   private requireName(name: string): string {
     const trimmed = name.trim();
     if (!trimmed) {
-      throw new BadRequestException('Tag name is required');
+      throw new BadRequestException(appError('TAG_NAME_REQUIRED'));
     }
     return trimmed;
   }

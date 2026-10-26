@@ -1,6 +1,7 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const documentTypeIconSpy = vi.hoisted(() => vi.fn());
@@ -1023,8 +1024,10 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.textContent).toContain('1 USD = 512.34 KZT');
   });
 
-  it('uses the current USD exchange rate when workspace currency is missing', () => {
+  it('falls back to the default target currency when workspace currency is missing', () => {
     const root = createRoot(container);
+    // Цель без валюты воркспейса — FALLBACK_CURRENCY (USD или NEXT_PUBLIC_DEFAULT_CURRENCY).
+    const fallbackRateLabel = `1 KZT = 0.002 ${FALLBACK_CURRENCY}`;
 
     const statement = {
       id: 'column-usd-rate-default-currency',
@@ -1052,7 +1055,7 @@ describe('StatementsListItem', () => {
           onView={() => undefined}
           onIconClick={() => undefined}
           onToggleSelect={() => undefined}
-          currentExchangeRateLabels={{ 'USD:KZT': '1 USD = 512.34 KZT' }}
+          currentExchangeRateLabels={{ [`KZT:${FALLBACK_CURRENCY}`]: fallbackRateLabel }}
           workspaceCurrency={null}
           columns={[{ id: 'exchangeRate', label: 'Exchange rate', visible: true, order: 0 }]}
         />,
@@ -1062,7 +1065,7 @@ describe('StatementsListItem', () => {
     const desktopContainer = container.querySelector(
       '[data-testid="statement-item-desktop-column-usd-rate-default-currency"]',
     ) as HTMLDivElement | null;
-    expect(desktopContainer?.textContent).toContain('1 USD = 512.34 KZT');
+    expect(desktopContainer?.textContent).toContain(fallbackRateLabel);
   });
 
   it('normalizes NIS workspace currency to ILS for current exchange rates', () => {

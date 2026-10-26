@@ -80,7 +80,6 @@ function flattenCategories(items: CategoryOption[]): CategoryOption[] {
  * commands drives both, so a key and its palette row can never disagree.
  * The "N selected" menu shows the same actions, which this hook hands back.
  */
-// eslint-disable-next-line max-lines-per-function
 export function useDocumentSelectionCommands(
   v: DocumentSelectionView,
   push: (href: string) => void,

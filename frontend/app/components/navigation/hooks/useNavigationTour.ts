@@ -26,15 +26,12 @@ interface UseNavigationTourParams {
   getText: (token: unknown) => string;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function
 export function useNavigationTour({ tour, isMobile, getText }: UseNavigationTourParams) {
-  // eslint-disable-next-line max-lines-per-function
   const buildTourSteps = useCallback<() => DriveStep[]>(() => {
     if (typeof document === 'undefined') {
       return [];
     }
 
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const isElementVisible = (element: Element) => {
       const rect = element.getClientRects();
       if (!rect.length) return false;

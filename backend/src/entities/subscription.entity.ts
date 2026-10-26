@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
@@ -51,7 +52,7 @@ export class Subscription {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -81,7 +82,7 @@ export class Subscription {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'owner_id' })
-  owner: User | null;
+  owner: Relation<User | null>;
 
   @Column({ name: 'owner_id', type: 'uuid', nullable: true })
   ownerId: string | null;
@@ -122,7 +123,7 @@ export class Subscription {
 
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })
-  category: Category | null;
+  category: Relation<Category | null>;
 
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
@@ -130,7 +131,7 @@ export class Subscription {
   /** The budget its money comes out of: new payments take that budget's category. */
   @ManyToOne(() => Budget, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'budget_id' })
-  budget: Budget | null;
+  budget: Relation<Budget | null>;
 
   @Column({ name: 'budget_id', type: 'uuid', nullable: true })
   budgetId: string | null;
@@ -154,7 +155,7 @@ export class Subscription {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;

@@ -88,8 +88,10 @@ function TourMenuItem(props: {
       <ListItemText
         primary={tour.name}
         secondary={tour.description}
-        primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
-        secondaryTypographyProps={{ fontSize: 12, noWrap: true }}
+        slotProps={{
+          primary: { sx: { fontSize: 14, fontWeight: 500 } },
+          secondary: { noWrap: true, sx: { fontSize: 12 } },
+        }}
       />
     </MenuItem>
   );
@@ -171,7 +173,7 @@ export function TourMenu({ trigger, className = '' }: TourMenuProps): ReactEleme
         onClose={handleClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{ sx: { minWidth: 250, mt: 1 } }}
+        slotProps={{ paper: { sx: { minWidth: 250, mt: 1 } } }}
       >
         {tours.length === 0 && (
           <MenuItem disabled>

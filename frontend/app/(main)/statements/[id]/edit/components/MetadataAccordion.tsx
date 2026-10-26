@@ -10,11 +10,11 @@ import type { RefObject } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronDown } from '@/app/components/icons';
 import type { MetadataHints, StatementParsingDetails } from '../editHelpers';
-import { buildHints, ignoreEventArg, labelValue } from '../editHelpers';
+import { buildHints, ignoreEventArg } from '../editHelpers';
 import type { ConvertDroppedSamplePayload, ResolveWarningPayload } from '../ParsingWarningsPanel';
 import { ParsingDetailsPanel } from './ParsingDetailsPanel';
 
-type Labels = Record<string, { value?: string } | undefined>;
+type Labels = Record<string, { value: string }>;
 type MetaForm = {
   balanceStart: string;
   balanceEnd: string;
@@ -51,14 +51,14 @@ function MetadataFields({
     >
       <CustomDatePicker
         containerTestId="statement-metadata-field-start-date"
-        label={labelValue(labels.startDate, 'Start date')}
+        label={labels.startDate.value}
         value={form.statementDateFrom}
         onChange={value => onChange({ field: 'statementDateFrom', value })}
         helperText={hints.startDate}
       />
       <CustomDatePicker
         containerTestId="statement-metadata-field-end-date"
-        label={labelValue(labels.endDate, 'End date')}
+        label={labels.endDate.value}
         value={form.statementDateTo}
         onChange={value => onChange({ field: 'statementDateTo', value })}
         helperText={hints.endDate}
@@ -74,7 +74,7 @@ function MetadataFields({
             marginLeft: 4,
           }}
         >
-          {labelValue(labels.openingBalance, 'Opening balance')}
+          {labels.openingBalance.value}
         </span>
         <TextField
           type="number"
@@ -101,7 +101,7 @@ function MetadataFields({
             marginLeft: 4,
           }}
         >
-          {labelValue(labels.balanceEnd, 'Closing balance')}
+          {labels.balanceEnd.value}
         </span>
         <TextField
           type="number"
@@ -178,7 +178,7 @@ export function MetadataAccordion({
         }}
       >
         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-          {labelValue(labels.parsingDetails, 'Parsing details')}
+          {labels.parsingDetails.value}
         </Typography>
       </AccordionSummary>
       <AccordionDetails sx={{ p: 3 }}>

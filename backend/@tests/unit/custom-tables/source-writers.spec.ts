@@ -18,19 +18,19 @@ const USER = "user-1";
 const MEMBER = "member-1";
 
 const services = () => ({
-	transactions: { update: jest.fn().mockResolvedValue({}) },
-	subscriptions: { update: jest.fn().mockResolvedValue({}) },
+	transactions: { update: vi.fn().mockResolvedValue({}) },
+	subscriptions: { update: vi.fn().mockResolvedValue({}) },
 	payables: {
-		findOne: jest.fn().mockResolvedValue({ status: "to_pay", paidAmount: 0 }),
-		update: jest.fn().mockResolvedValue({}),
-		markAsPaid: jest.fn().mockResolvedValue({}),
-		archive: jest.fn().mockResolvedValue({}),
-		listPayments: jest.fn().mockResolvedValue([]),
-		removePayment: jest.fn().mockResolvedValue({}),
+		findOne: vi.fn().mockResolvedValue({ status: "to_pay", paidAmount: 0 }),
+		update: vi.fn().mockResolvedValue({}),
+		markAsPaid: vi.fn().mockResolvedValue({}),
+		archive: vi.fn().mockResolvedValue({}),
+		listPayments: vi.fn().mockResolvedValue([]),
+		removePayment: vi.fn().mockResolvedValue({}),
 	},
-	invoices: { update: jest.fn().mockResolvedValue({}) },
-	budgets: { update: jest.fn().mockResolvedValue({}) },
-	documents: { followTransactionCategory: jest.fn().mockResolvedValue(undefined) },
+	invoices: { update: vi.fn().mockResolvedValue({}) },
+	budgets: { update: vi.fn().mockResolvedValue({}) },
+	documents: { followTransactionCategory: vi.fn().mockResolvedValue(undefined) },
 });
 
 const context = (overrides: Partial<WriteContext> = {}): WriteContext => ({
@@ -39,8 +39,8 @@ const context = (overrides: Partial<WriteContext> = {}): WriteContext => ({
 	memberId: MEMBER,
 	sourceKey: ID,
 	current: {},
-	resolveCategory: jest.fn().mockResolvedValue(null),
-	resolveClient: jest.fn().mockResolvedValue(null),
+	resolveCategory: vi.fn().mockResolvedValue(null),
+	resolveClient: vi.fn().mockResolvedValue(null),
 	...overrides,
 });
 
@@ -122,7 +122,7 @@ describe("source writers", () => {
 		});
 
 		it("resolves the category by name with the transaction's own type first", async () => {
-			const resolveCategory = jest.fn().mockResolvedValue("cat-travel");
+			const resolveCategory = vi.fn().mockResolvedValue("cat-travel");
 			const fn = await update(
 				"category",
 				"Travel",
@@ -133,7 +133,7 @@ describe("source writers", () => {
 		});
 
 		it("clears the category for an empty cell without a lookup", async () => {
-			const resolveCategory = jest.fn();
+			const resolveCategory = vi.fn();
 			const fn = await update("category", "", context({ resolveCategory }));
 			expect(resolveCategory).not.toHaveBeenCalled();
 			expect(fn.mock.calls[0][3]).toEqual({ categoryId: null });
@@ -239,7 +239,7 @@ describe("source writers", () => {
 
 		it("resolves the category as an expense category", async () => {
 			const svc = services();
-			const resolveCategory = jest.fn().mockResolvedValue("cat-it");
+			const resolveCategory = vi.fn().mockResolvedValue("cat-it");
 			await buildSourceWriters(svc as unknown as WriterServices).subscriptions.write(
 				"category",
 				"IT services",
@@ -402,7 +402,7 @@ describe("source writers", () => {
 
 		it("resolves the client by name", async () => {
 			const svc = services();
-			const resolveClient = jest.fn().mockResolvedValue("client-1");
+			const resolveClient = vi.fn().mockResolvedValue("client-1");
 			await buildSourceWriters(svc as unknown as WriterServices).invoices.write(
 				"client",
 				"Northwind Labs",

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import MuiButton from '@mui/material/Button';
@@ -105,7 +104,6 @@ const toFormState = (
   };
 };
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function CreatePayableDrawer({
   open,
   payable,

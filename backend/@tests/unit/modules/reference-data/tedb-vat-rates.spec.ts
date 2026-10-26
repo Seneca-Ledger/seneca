@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
   parseTedbResponse,
   TedbVatRatesService,
@@ -114,15 +115,15 @@ describe('parseTedbResponse', () => {
 describe('TedbVatRatesService', () => {
   const okXml = envelope(result('AT', '2026-07-01', 'STANDARD', 'DEFAULT', 20));
 
-  function setup(fetchImpl: jest.Mock, stored: unknown = null) {
+  function setup(fetchImpl: Mock, stored: unknown = null) {
     const repo = createRepoMock();
     repo.findOne.mockResolvedValue(stored);
-    (repo as unknown as { upsert: jest.Mock }).upsert = jest.fn();
+    (repo as unknown as { upsert: Mock }).upsert = vi.fn();
     return { repo, service: new TedbVatRatesService(repo as never, fetchImpl as never) };
   }
 
   it('asks for the range from two years back to a year ahead and stores the answer', async () => {
-    const fetchImpl = jest.fn(async () => new Response(okXml, { status: 200 }));
+    const fetchImpl = vi.fn(async () => new Response(okXml, { status: 200 }));
     const { repo, service } = setup(fetchImpl);
     const found = await service.snapshot('AT', { today: new Date('2026-10-11T00:00:00Z') });
 
@@ -131,14 +132,14 @@ describe('TedbVatRatesService', () => {
     expect(body).toContain('<t:isoCode>AT</t:isoCode>');
     expect(body).toContain('<t:from>2024-10-11</t:from><t:to>2027-10-11</t:to>');
     expect(found?.snapshot.versions[0].standard).toBe(20);
-    expect((repo as unknown as { upsert: jest.Mock }).upsert).toHaveBeenCalledWith(
+    expect((repo as unknown as { upsert: Mock }).upsert).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'tedb', key: 'AT' }),
       ['source', 'key'],
     );
   });
 
   it('reuses a fresh snapshot without asking', async () => {
-    const fetchImpl = jest.fn();
+    const fetchImpl = vi.fn();
     const stored = { payload: { versions: [] }, fetchedAt: new Date() };
     const { service } = setup(fetchImpl, stored);
     await service.snapshot('AT');
@@ -147,15 +148,15 @@ describe('TedbVatRatesService', () => {
 
   it('falls back to what is stored when TEDB fails or answers without a standard rate', async () => {
     const stored = { payload: { versions: [{ from: '2026-01-01' }] }, fetchedAt: new Date(0) };
-    const failing = setup(jest.fn(async () => Promise.reject(new Error('down'))), stored);
+    const failing = setup(vi.fn(async () => Promise.reject(new Error('down'))), stored);
     expect((await failing.service.snapshot('AT'))?.snapshot).toEqual(stored.payload);
 
-    const empty = setup(jest.fn(async () => new Response(envelope(), { status: 200 })), null);
+    const empty = setup(vi.fn(async () => new Response(envelope(), { status: 200 })), null);
     expect(await empty.service.snapshot('AT')).toBeNull();
   });
 
   it('refuses a country code that is not two letters', async () => {
-    const fetchImpl = jest.fn();
+    const fetchImpl = vi.fn();
     const { service } = setup(fetchImpl);
     expect(await service.snapshot('A<B')).toBeNull();
     expect(fetchImpl).not.toHaveBeenCalled();

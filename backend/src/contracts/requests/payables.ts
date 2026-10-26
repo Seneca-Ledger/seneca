@@ -128,3 +128,17 @@ export const FilterPayablesBody = Schema.Struct({
   format: optionalNullable(Schema.Literals(['excel', 'csv'])),
 });
 export type FilterPayablesBody = Wire<typeof FilterPayablesBody>;
+
+const Uuid = Schema.String.check(Schema.isUUID());
+
+/** `/payables/:id/...`. */
+export const PayableParams = Schema.Struct({ id: Uuid });
+export type PayableParams = Wire<typeof PayableParams>;
+
+/** `/payables/:id/payments/:paymentId/...`. */
+export const PayablePaymentParams = Schema.Struct({ id: Uuid, paymentId: Uuid });
+export type PayablePaymentParams = Wire<typeof PayablePaymentParams>;
+
+/** `GET /payables/allocation-suggestion/:transactionId`. */
+export const PayableTransactionParams = Schema.Struct({ transactionId: Uuid });
+export type PayableTransactionParams = Wire<typeof PayableTransactionParams>;

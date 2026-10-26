@@ -24,7 +24,8 @@ export const LocalePackGate = ({
 };
 
 export const useIntlayer = ((key: string, locale?: string) => {
-  const { locale: currentLocale } = useIntlayerContext();
+  // intlayer 9 types the context as `{}`; at runtime it is the provider's value.
+  const { locale: currentLocale } = useIntlayerContext() as { locale?: string };
   return getCachedIntlayer(key as never, (locale ?? currentLocale) as never);
 }) as UseIntlayer;
 

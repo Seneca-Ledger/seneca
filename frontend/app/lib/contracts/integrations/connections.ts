@@ -44,3 +44,21 @@ export type ProtocolSyncResult = Wire<typeof ProtocolSyncResult>;
 /** A browse action of a settings field, such as `POST /integrations/imap/folders`. */
 export const BrowseOptionList = Schema.Array(Schema.String);
 export type BrowseOptionList = Wire<typeof BrowseOptionList>;
+
+/** `POST /integrations/{webdav,s3-compatible}/import`: one outcome per requested file. */
+export const ProtocolImportResult = Schema.Struct({
+  ok: Schema.Boolean,
+  results: Schema.Array(
+    Schema.Struct({
+      fileId: Schema.String,
+      status: Schema.Literals(['ok', 'error']),
+      /** Why this file could not be imported; the others still are. */
+      message: Schema.optional(Schema.String),
+    }),
+  ),
+});
+export type ProtocolImportResult = Wire<typeof ProtocolImportResult>;
+
+/** `DELETE` of an integration or a workspace service setting (IMAP, WebDAV, S3, SMTP, Telegram, app URL, bank feed). */
+export const IntegrationDisconnected = Schema.Struct({ ok: Schema.Boolean });
+export type IntegrationDisconnected = Wire<typeof IntegrationDisconnected>;

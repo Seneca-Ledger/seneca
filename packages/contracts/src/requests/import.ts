@@ -12,3 +12,7 @@ export const CommitImportBody = Schema.Struct({
   ),
 });
 export type CommitImportBody = Wire<typeof CommitImportBody>;
+
+/** `/import-sessions/:id/...`. */
+export const ImportSessionParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type ImportSessionParams = Wire<typeof ImportSessionParams>;

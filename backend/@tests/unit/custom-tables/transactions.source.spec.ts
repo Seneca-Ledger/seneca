@@ -1,9 +1,10 @@
+import type { Mock } from 'vitest';
 import { countedSql } from '@/common/utils/counted-transactions.util';
 import { TransactionType } from "../../../src/entities/transaction.entity";
 import { TransactionsSource } from "../../../src/modules/custom-tables/sources/transactions.source";
 
 const createQueryBuilderMock = (rows: unknown[]) => {
-	const qb: Record<string, jest.Mock> = {};
+	const qb: Record<string, Mock> = {};
 	for (const method of [
 		"leftJoinAndSelect",
 		"where",
@@ -12,9 +13,9 @@ const createQueryBuilderMock = (rows: unknown[]) => {
 		"addOrderBy",
 		"take",
 	]) {
-		qb[method] = jest.fn().mockReturnValue(qb);
+		qb[method] = vi.fn().mockReturnValue(qb);
 	}
-	qb.getMany = jest.fn().mockResolvedValue(rows);
+	qb.getMany = vi.fn().mockResolvedValue(rows);
 	return qb;
 };
 
@@ -48,7 +49,7 @@ describe("TransactionsSource", () => {
 				statement: null,
 			},
 		]);
-		const query = jest.fn().mockResolvedValue([
+		const query = vi.fn().mockResolvedValue([
 			{ transactionId: "tx-1", name: "Trip" },
 			{ transactionId: "tx-1", name: "Almaty" },
 		]);
@@ -102,7 +103,7 @@ describe("TransactionsSource", () => {
 			{ id: "tx-1", transactionDate: "2026-09-03", amount: 1, currency: "EUR" },
 			{ id: "tx-2", transactionDate: "2026-09-04", amount: 2, currency: "EUR" },
 		]);
-		const query = jest.fn().mockResolvedValue([
+		const query = vi.fn().mockResolvedValue([
 			{ transactionId: "tx-2", name: "Work" },
 			{ transactionId: "tx-2", name: "Berlin" },
 			{ transactionId: "tx-2", name: "Work" },
@@ -125,7 +126,7 @@ describe("TransactionsSource", () => {
 	});
 
 	it("skips the tag query when there are no rows", async () => {
-		const query = jest.fn();
+		const query = vi.fn();
 		const source = new TransactionsSource({
 			createQueryBuilder: () => createQueryBuilderMock([]),
 			query,

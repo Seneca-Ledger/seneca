@@ -8,6 +8,8 @@ import {
 } from '../common/requests';
 import type { Wire } from '../common/wire';
 
+const Uuid = Schema.String.check(Schema.isUUID());
+
 export const CreateTaxRateBody = Schema.Struct({
   name: Schema.String.check(Schema.isMinLength(1)),
   rate: NumericInput.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
@@ -132,3 +134,19 @@ export const FiledElsewhereBody = Schema.Struct({
   filed: Schema.Boolean,
 });
 export type FiledElsewhereBody = Wire<typeof FiledElsewhereBody>;
+
+/** A workspace tax rate or tax rule, by id. */
+export const TaxRecordParams = Schema.Struct({ id: Uuid });
+export type TaxRecordParams = Wire<typeof TaxRecordParams>;
+
+/** A jurisdiction by its ISO-3166-1 alpha-2 code, either case. */
+export const JurisdictionParams = Schema.Struct({
+  code: Schema.String.check(
+    Schema.isPattern(/^[A-Za-z]{2}$/, { message: 'code must be a two-letter country code' }),
+  ),
+});
+export type JurisdictionParams = Wire<typeof JurisdictionParams>;
+
+/** `GET /tax/rates`, `GET /tax/jurisdictions/:code/rates`: the rates in force on this day. */
+export const TaxRatesOnDateQuery = Schema.Struct({ date: Schema.optional(IsoDateString) });
+export type TaxRatesOnDateQuery = Wire<typeof TaxRatesOnDateQuery>;

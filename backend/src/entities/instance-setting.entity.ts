@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
@@ -33,7 +34,7 @@ export class InstanceSetting {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'updated_by_user_id' })
-  updatedByUser: User | null;
+  updatedByUser: Relation<User | null>;
 
   @Column({ name: 'updated_by_user_id', type: 'uuid', nullable: true })
   updatedByUserId: string | null;

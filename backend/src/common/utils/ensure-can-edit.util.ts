@@ -28,7 +28,10 @@ export async function ensureCanEdit(
 
   const membership = await workspaceMemberRepository.findOne({
     where: { workspaceId, userId },
-    select: ['role', 'permissions'],
+    select: {
+      role: true,
+      permissions: true,
+    },
   });
 
   // No membership row means the caller reached here outside the workspace

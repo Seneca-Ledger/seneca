@@ -23,7 +23,7 @@ type Props = {
       submit: { value: string };
     };
   };
-  tx: (path: string[], fallback: string) => string;
+  tx: (path: string[]) => string;
   profileMessage: string | null;
   profileError: string | null;
   profileLoading: boolean;
@@ -84,7 +84,14 @@ export function ProfileSection({
       {profileError && <Alert variant="error">{profileError}</Alert>}
 
       <Stack spacing={0.5}>
-        <Typography component="label" htmlFor="profile-name" variant="body2" fontWeight={600}>
+        <Typography
+          component="label"
+          htmlFor="profile-name"
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
           {t.profileCard.nameLabel.value}
         </Typography>
         <TextField
@@ -107,7 +114,9 @@ export function ProfileSection({
           component="label"
           htmlFor="profile-language-trigger"
           variant="body2"
-          fontWeight={600}
+          sx={{
+            fontWeight: 600,
+          }}
         >
           {languageFieldLabel}
         </Typography>
@@ -150,7 +159,9 @@ export function ProfileSection({
           component="label"
           htmlFor="profile-timezone-trigger"
           variant="body2"
-          fontWeight={600}
+          sx={{
+            fontWeight: 600,
+          }}
         >
           {t.profileCard.timeZoneLabel.value}
         </Typography>
@@ -189,7 +200,12 @@ export function ProfileSection({
             <ChevronDown size={16} />
           </Box>
         </Box>
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           {t.profileCard.timeZoneHelp.value}
         </Typography>
       </Stack>
@@ -204,7 +220,7 @@ export function ProfileSection({
       />
 
       {hasProfileChanges && (
-        <Alert variant="warning">{tx(['profileCard', 'unsavedChanges'], 'Unsaved changes')}</Alert>
+        <Alert variant="warning">{tx(['profileCard', 'unsavedChanges'])}</Alert>
       )}
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>

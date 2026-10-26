@@ -1,13 +1,16 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
   CreateTagBody,
+  MessageResult,
   StorageTag,
+  TagIdParams,
   TagList,
   TransactionTagLinks,
   UpdateTagBody,
@@ -48,7 +51,7 @@ export class TagsController {
   @Audit({ entityType: EntityType.TAG, includeDiff: true })
   @SchemaResponse(StorageTag)
   async update(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(TagIdParams) { id }: TagIdParams,
     @SchemaBody(UpdateTagBody) body: UpdateTagBody,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -58,7 +61,8 @@ export class TagsController {
   @Delete(':id')
   @WorkspaceAuth(Permission.TAG_DELETE)
   @Audit({ entityType: EntityType.TAG, includeDiff: false })
-  async remove(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(MessageResult)
+  async remove(@SchemaParams(TagIdParams) { id }: TagIdParams, @WorkspaceId() workspaceId: string) {
     await this.tagsService.remove(id, workspaceId);
     return deletedResponse('Tag');
   }

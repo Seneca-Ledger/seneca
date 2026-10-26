@@ -1,5 +1,6 @@
 'use client';
 
+import { useIntlayer } from '@/app/i18n';
 import { getReceiptLogoUrl } from '../lib/brand-logo';
 import { LogoAvatar } from './LogoAvatar';
 
@@ -42,6 +43,7 @@ const getInitials = (label: string): string => {
 };
 
 export function BrandLogoAvatar({ sender, vendorName, size = 32 }: Props) {
+  const t = useIntlayer('imageAlt');
   const logoUrl = getReceiptLogoUrl(sender);
   const fallbackSource = vendorName ?? extractLocalPart(sender);
   const initials = getInitials(fallbackSource);
@@ -49,7 +51,7 @@ export function BrandLogoAvatar({ sender, vendorName, size = 32 }: Props) {
   return (
     <LogoAvatar
       src={logoUrl}
-      alt={vendorName || 'Brand'}
+      alt={vendorName || t.brand.value}
       size={size}
       imgClassName="seneca-brand-logo-avatar__img"
       className="seneca-brand-logo-avatar"

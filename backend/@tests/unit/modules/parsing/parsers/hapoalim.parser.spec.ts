@@ -3,9 +3,9 @@ import { BankName, FileType } from '@/entities/statement.entity';
 import { HapoalimParser } from '@/modules/parsing/parsers/hapoalim.parser';
 import { OcrService } from '@/modules/parsing/services/ocr.service';
 
-jest.mock('@/common/utils/advanced-language-detector.util', () => ({
+vi.mock('@/common/utils/advanced-language-detector.util', () => ({
   advancedLanguageDetector: {
-    detectLanguage: jest.fn().mockResolvedValue({
+    detectLanguage: vi.fn().mockResolvedValue({
       locale: 'unknown',
       confidence: 0,
       method: 'legacy',
@@ -25,7 +25,7 @@ describe('HapoalimParser', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('canParse', () => {

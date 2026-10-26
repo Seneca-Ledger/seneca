@@ -22,7 +22,8 @@ export type StatementColumnId =
 
 export type StatementColumn = {
   id: StatementColumnId;
-  label: string;
+  /** Display name; the view fills it per locale from the column id (buildColumnLabels). */
+  label?: string;
   visible: boolean;
   order: number;
 };
@@ -33,22 +34,22 @@ export const STATEMENT_COLUMNS_STORAGE_KEY = 'seneca-statement-columns-v2';
 const LEGACY_STATEMENT_COLUMNS_STORAGE_KEY = 'seneca-statement-columns';
 
 export const DEFAULT_STATEMENT_COLUMNS: StatementColumn[] = [
-  { id: 'receipt', label: 'Receipt', visible: true, order: 0 },
+  { id: 'receipt', visible: true, order: 0 },
   // No separate date column: the merchant cell already prints the date under
   // the name, and the merchant header carries the date sort.
-  { id: 'merchant', label: 'Merchant', visible: true, order: 1 },
-  { id: 'from', label: 'From', visible: true, order: 2 },
-  { id: 'to', label: 'To', visible: false, order: 3 },
-  { id: 'category', label: 'Category', visible: true, order: 4 },
-  { id: 'tag', label: 'Tag', visible: true, order: 5 },
-  { id: 'amount', label: 'Amount', visible: true, order: 6 },
-  { id: 'action', label: 'Action', visible: true, order: 7 },
-  { id: 'approved', label: 'Approved', visible: false, order: 8 },
-  { id: 'billable', label: 'Billable', visible: false, order: 9 },
-  { id: 'card', label: 'Card', visible: false, order: 10 },
-  { id: 'description', label: 'Description', visible: false, order: 11 },
-  { id: 'exchangeRate', label: 'Exchange rate', visible: false, order: 12 },
-  { id: 'exported', label: 'Exported', visible: false, order: 13 },
+  { id: 'merchant', visible: true, order: 1 },
+  { id: 'from', visible: true, order: 2 },
+  { id: 'to', visible: false, order: 3 },
+  { id: 'category', visible: true, order: 4 },
+  { id: 'tag', visible: true, order: 5 },
+  { id: 'amount', visible: true, order: 6 },
+  { id: 'action', visible: true, order: 7 },
+  { id: 'approved', visible: false, order: 8 },
+  { id: 'billable', visible: false, order: 9 },
+  { id: 'card', visible: false, order: 10 },
+  { id: 'description', visible: false, order: 11 },
+  { id: 'exchangeRate', visible: false, order: 12 },
+  { id: 'exported', visible: false, order: 13 },
 ];
 
 export const COLUMN_FILTER_MAP: Partial<Record<StatementColumnId, Array<keyof StatementFilters>>> =

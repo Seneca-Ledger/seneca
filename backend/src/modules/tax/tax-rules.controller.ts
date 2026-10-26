@@ -1,11 +1,19 @@
-import { Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { CreateTaxRuleBody, TaxRuleList, UpdateTaxRuleBody } from '../../contracts';
+import {
+  CreateTaxRuleBody,
+  MessageResult,
+  TaxRecordParams,
+  TaxRuleItem,
+  TaxRuleList,
+  UpdateTaxRuleBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { TaxRulesService } from './tax-rules.service';
@@ -23,7 +31,11 @@ export class TaxRulesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
-  async findOne(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  @SchemaResponse(TaxRuleItem)
+  async findOne(
+    @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.taxRulesService.findOne(id, workspaceId);
   }
 
@@ -31,6 +43,7 @@ export class TaxRulesController {
   // behind settings management rather than category permissions.
   @Post()
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(TaxRuleItem)
   async create(
     @SchemaBody(CreateTaxRuleBody) dto: CreateTaxRuleBody,
     @WorkspaceId() workspaceId: string,
@@ -41,8 +54,9 @@ export class TaxRulesController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(TaxRuleItem)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @SchemaBody(UpdateTaxRuleBody) dto: UpdateTaxRuleBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
@@ -52,8 +66,9 @@ export class TaxRulesController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() user: User,
   ) {

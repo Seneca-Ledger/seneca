@@ -30,7 +30,13 @@ export class StorageTrashScheduler {
     const expired = await this.statementRepository.find({
       // A past version's trash is part of the copy and stays as it was.
       where: { deletedAt: LessThanOrEqual(cutoff), workspace: STANDARD_WORKSPACE },
-      select: ['id', 'userId', 'workspaceId', 'fileName', 'deletedAt'],
+      select: {
+        id: true,
+        userId: true,
+        workspaceId: true,
+        fileName: true,
+        deletedAt: true,
+      },
     });
 
     if (!expired.length) {

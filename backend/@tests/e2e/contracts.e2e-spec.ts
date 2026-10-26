@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -1003,7 +1003,7 @@ describe('API contracts (e2e)', () => {
       matches(PeppolTransmissionList, log.body);
       expect(log.body).toHaveLength(1);
 
-      const fetchSpy = jest.spyOn(globalThis, 'fetch').mockImplementation(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
         async () =>
           new Response(
             JSON.stringify({

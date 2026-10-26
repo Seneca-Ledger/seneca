@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { Receipt } from '../../../entities/receipt.entity';
 import { Tag } from '../../../entities/tag.entity';
 
@@ -33,7 +34,7 @@ export class ReceiptTagsService {
     // A bad id and another workspace's tag are refused alike, never dropped
     // silently, so the caller never thinks a tag was applied.
     if (tags.length !== uniqueIds.length) {
-      throw new BadRequestException('One or more tags do not exist in this workspace');
+      throw new BadRequestException(appError('TRANSACTION_TAGS_NOT_FOUND'));
     }
 
     // Only the link rows change: saving the receipt would rewrite its columns.
@@ -53,10 +54,10 @@ export class ReceiptTagsService {
   private async loadReceipt(receiptId: string, workspaceId: string): Promise<Receipt> {
     const receipt = await this.receiptRepository.findOne({
       where: { id: receiptId, workspaceId },
-      relations: ['tags'],
+      relations: { tags: true },
     });
     if (!receipt) {
-      throw new NotFoundException('Receipt not found');
+      throw new NotFoundException(appError('RECEIPT_NOT_FOUND'));
     }
     return receipt;
   }

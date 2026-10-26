@@ -1,14 +1,15 @@
+import type { Mock } from 'vitest';
 import { PassThrough } from 'stream';
 import { PayableStatus } from '@/entities/payable.entity';
 import { ExportFormat } from '@/modules/payables/dto/filter-payables.dto';
 import { PayablesController } from '@/modules/payables/payables.controller';
 
-jest.mock('fs', () => {
-  const actual = jest.requireActual('fs');
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<typeof import('fs')>('fs');
   return {
     ...actual,
-    createReadStream: jest.fn(),
-    unlinkSync: jest.fn(),
+    createReadStream: vi.fn(),
+    unlinkSync: vi.fn(),
   };
 });
 
@@ -17,26 +18,26 @@ describe('PayablesController', () => {
     const fs = await import('fs');
     const stream = new PassThrough();
     const errorStream = new PassThrough();
-    (fs.createReadStream as jest.Mock)
+    (fs.createReadStream as Mock)
       .mockReturnValueOnce(stream)
       .mockReturnValueOnce(errorStream);
 
     const payablesService = {
-      create: jest.fn(async () => ({ id: 'p1' })),
-      findAll: jest.fn(async () => ({ data: [{ id: 'p1' }], total: 1, page: 1, limit: 20 })),
-      getSummary: jest.fn(async () => ({ toPay: 100 })),
-      findOne: jest.fn(async () => ({ id: 'p1' })),
-      update: jest.fn(async () => ({ id: 'p1', vendor: 'New' })),
-      markAsPaid: jest.fn(async () => ({ id: 'p1', status: PayableStatus.PAID })),
-      archive: jest.fn(async () => ({ id: 'p1', status: PayableStatus.ARCHIVED })),
-      remove: jest.fn(async () => undefined),
-      exportData: jest.fn(async () => ({ filePath: '/tmp/p.csv', fileName: 'p.csv', contentType: 'text/csv' })),
+      create: vi.fn(async () => ({ id: 'p1' })),
+      findAll: vi.fn(async () => ({ data: [{ id: 'p1' }], total: 1, page: 1, limit: 20 })),
+      getSummary: vi.fn(async () => ({ toPay: 100 })),
+      findOne: vi.fn(async () => ({ id: 'p1' })),
+      update: vi.fn(async () => ({ id: 'p1', vendor: 'New' })),
+      markAsPaid: vi.fn(async () => ({ id: 'p1', status: PayableStatus.PAID })),
+      archive: vi.fn(async () => ({ id: 'p1', status: PayableStatus.ARCHIVED })),
+      remove: vi.fn(async () => undefined),
+      exportData: vi.fn(async () => ({ filePath: '/tmp/p.csv', fileName: 'p.csv', contentType: 'text/csv' })),
     };
     const controller = new PayablesController(payablesService as any);
     const user = { id: 'user-1' } as any;
     const workspaceId = 'workspace-1';
     const res = new PassThrough() as any;
-    res.setHeader = jest.fn();
+    res.setHeader = vi.fn();
 
     expect(await controller.create({ vendor: 'Acme', amount: 10 } as any, user, workspaceId)).toEqual({
       id: 'p1',
@@ -48,19 +49,19 @@ describe('PayablesController', () => {
       limit: 20,
     });
     expect(await controller.getSummary(workspaceId, {})).toEqual({ toPay: 100 });
-    expect(await controller.findOne('p1', workspaceId)).toEqual({ id: 'p1' });
-    expect(await controller.update('p1', { vendor: 'New' } as any, user, workspaceId)).toEqual({
+    expect(await controller.findOne({ id: 'p1' }, workspaceId)).toEqual({ id: 'p1' });
+    expect(await controller.update({ id: 'p1' }, { vendor: 'New' } as any, user, workspaceId)).toEqual({
       id: 'p1',
       vendor: 'New',
     });
     expect(
-      await controller.markAsPaid('p1', { linkedTransactionId: 'tx-1' } as any, user, workspaceId),
+      await controller.markAsPaid({ id: 'p1' }, { linkedTransactionId: 'tx-1' } as any, user, workspaceId),
     ).toEqual({ id: 'p1', status: PayableStatus.PAID });
-    expect(await controller.archive('p1', user, workspaceId)).toEqual({
+    expect(await controller.archive({ id: 'p1' }, user, workspaceId)).toEqual({
       id: 'p1',
       status: PayableStatus.ARCHIVED,
     });
-    expect(await controller.remove('p1', user, workspaceId)).toEqual({
+    expect(await controller.remove({ id: 'p1' }, user, workspaceId)).toEqual({
       message: 'Payable deleted successfully',
     });
     await controller.export({ format: ExportFormat.CSV } as any, workspaceId, res);
@@ -89,7 +90,7 @@ describe('PayablesController', () => {
     stream.emit('end');
     expect(fs.unlinkSync).toHaveBeenCalledWith('/tmp/p.csv');
 
-    (fs.unlinkSync as jest.Mock).mockClear();
+    (fs.unlinkSync as Mock).mockClear();
     await controller.export({ format: ExportFormat.CSV } as any, workspaceId, res);
     errorStream.emit('error', new Error('boom'));
     expect(fs.unlinkSync).toHaveBeenCalledWith('/tmp/p.csv');

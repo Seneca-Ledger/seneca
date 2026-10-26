@@ -12,8 +12,8 @@ describe('CrossStatementDeduplicationService golden cases', () => {
   let service: CrossStatementDeduplicationService;
   const statements = new Map<string, string | null>();
   const repository = {
-    find: jest.fn(),
-    update: jest.fn(),
+    find: vi.fn(),
+    update: vi.fn(),
     manager: {
       getRepository: () => ({
         find: async ({ where }: { where: { id: { _value: string[] } } }) =>
@@ -40,7 +40,7 @@ describe('CrossStatementDeduplicationService golden cases', () => {
     }) as Transaction;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     statements.clear();
     const module = await Test.createTestingModule({
       providers: [

@@ -1,18 +1,19 @@
+import type { Mock } from 'vitest';
 import { AuditAction, EntityType, Severity } from '@/entities/audit-event.entity';
 import { EmailChangeService } from '@/modules/users/services/email-change.service';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { IsNull } from 'typeorm';
 
 describe('EmailChangeService', () => {
-  let userRepository: { findOne: jest.Mock; save: jest.Mock };
+  let userRepository: { findOne: Mock; save: Mock };
   let tokenRepository: {
-    findOne: jest.Mock;
-    save: jest.Mock;
-    create: jest.Mock;
-    delete: jest.Mock;
+    findOne: Mock;
+    save: Mock;
+    create: Mock;
+    delete: Mock;
   };
-  let mailerService: { send: jest.Mock };
-  let auditService: { createEvent: jest.Mock };
+  let mailerService: { send: Mock };
+  let auditService: { createEvent: Mock };
   let service: EmailChangeService;
 
   const currentUser = {
@@ -23,15 +24,15 @@ describe('EmailChangeService', () => {
   } as never;
 
   beforeEach(() => {
-    userRepository = { findOne: jest.fn().mockResolvedValue(null), save: jest.fn(async u => u) };
+    userRepository = { findOne: vi.fn().mockResolvedValue(null), save: vi.fn(async u => u) };
     tokenRepository = {
-      findOne: jest.fn(),
-      save: jest.fn(async t => t),
-      create: jest.fn(t => t),
-      delete: jest.fn(),
+      findOne: vi.fn(),
+      save: vi.fn(async t => t),
+      create: vi.fn(t => t),
+      delete: vi.fn(),
     };
-    mailerService = { send: jest.fn().mockResolvedValue(true) };
-    auditService = { createEvent: jest.fn().mockResolvedValue({}) };
+    mailerService = { send: vi.fn().mockResolvedValue(true) };
+    auditService = { createEvent: vi.fn().mockResolvedValue({}) };
 
     service = new EmailChangeService(
       userRepository as never,

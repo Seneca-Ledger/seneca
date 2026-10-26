@@ -1,12 +1,13 @@
+import type { Mock } from 'vitest';
 import type { User } from '@/entities/user.entity';
 import { UsersController } from '@/modules/users/users.controller';
 
 describe('UsersController page hints', () => {
-  const build = (usersService: Record<string, jest.Mock>) =>
+  const build = (usersService: Record<string, Mock>) =>
     new UsersController(usersService as any, {} as any, {} as any, {} as any, {} as any);
 
   it('records the closed page for the caller and answers only the map', async () => {
-    const usersService = { markPageHintsSeen: jest.fn(async () => ({ budgets: 2 })) };
+    const usersService = { markPageHintsSeen: vi.fn(async () => ({ budgets: 2 })) };
 
     const result = await build(usersService).markPageHintsSeen({ id: 'user-1' } as User, {
       page: 'budgets',
@@ -19,7 +20,7 @@ describe('UsersController page hints', () => {
   });
 
   it('resets the caller’s hints', async () => {
-    const usersService = { resetPageHints: jest.fn(async () => ({})) };
+    const usersService = { resetPageHints: vi.fn(async () => ({})) };
 
     const result = await build(usersService).resetPageHints({ id: 'user-1' } as User);
 

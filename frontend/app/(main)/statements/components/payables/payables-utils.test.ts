@@ -56,7 +56,8 @@ describe('payables-utils', () => {
 
   it('formats date-only values without timezone shift', () => {
     const formatted = formatPayableDate('2026-03-28', 'en');
-    expect(formatted).toContain('3');
+    // С edb838aa даты идут через formatStoredDate: месяц словом («Mar 28, 2026»).
+    expect(formatted).toContain('Mar');
     expect(formatted).toContain('28');
     expect(formatted).not.toContain('27');
   });

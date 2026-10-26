@@ -22,14 +22,14 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Detect sensitive paths
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             db:
@@ -46,7 +46,7 @@ jobs:
               - 'backend/src/**/roles/**'
 
       - name: Require approvals for sensitive changes
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           DB_CHANGED: ${{ steps.changes.outputs.db }}
           AUTH_CHANGED: ${{ steps.changes.outputs.auth }}
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -115,7 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -179,25 +179,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
-        run: npm ci --prefix backend
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Install frontend deps
-        run: npm ci --prefix frontend
+        working-directory: frontend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Backend lint (check-only)
         run: npm --prefix backend run lint:check
@@ -218,31 +228,75 @@ jobs:
     needs: [shellcheck, hadolint, trivy-config]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
-        run: npm ci --prefix backend
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Install frontend deps
-        run: npm ci --prefix frontend
+        working-directory: frontend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Backend typecheck
         run: npm --prefix backend run typecheck
 
       - name: Frontend typecheck
         run: npm --prefix frontend run type-check
+
+  # Frontend Vitest. It was never run in CI, so 132 tests went red unnoticed.
+  frontend-tests:
+    runs-on: ubuntu-latest
+    needs: [typecheck]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: bun install --frozen-lockfile --network-concurrency=16
+
+      - name: Frontend tests
+        run: npm --prefix frontend test
 
   tests:
     runs-on: ubuntu-latest
@@ -288,22 +342,31 @@ jobs:
       QLTY_COVERAGE_TOKEN: ${{ secrets.QLTY_COVERAGE_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
-        run: npm ci --prefix backend
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Wait for Postgres
         run: |
@@ -337,7 +400,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
           path: backend/coverage
@@ -356,48 +419,58 @@ jobs:
 
       - name: Checkout
         if: env.SONAR_TOKEN != ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Download coverage
         if: env.SONAR_TOKEN != ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: backend-coverage
           path: backend/coverage
 
       - name: SonarCloud Scan
         if: env.SONAR_TOKEN != ''
-        uses: SonarSource/sonarcloud-github-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # sonarcloud-github-action is archived; this is its replacement and reads
+        # the same sonar-project.properties (SonarQube Cloud needs no host URL).
+        uses: SonarSource/sonarqube-scan-action@v8
 
   build:
     runs-on: ubuntu-latest
-    needs: [typecheck, tests]
+    needs: [typecheck, tests, frontend-tests]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install backend deps
-        run: npm ci --prefix backend
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Install frontend deps
-        run: npm ci --prefix frontend
+        working-directory: frontend
+        run: bun install --frozen-lockfile --network-concurrency=16
 
       - name: Frontend build
         run: npm --prefix frontend run build
@@ -411,26 +484,34 @@ jobs:
     env:
       ALLOWED_LICENSES: >-
         MIT;MIT*;MIT-0;Apache-2.0;ISC;BSD;BSD*;BSD-2-Clause;BSD-3-Clause;0BSD;Unlicense;
-        Python-2.0;BlueOak-1.0.0;LGPL;LGPL-2.1;LGPL-3.0;LGPL-3.0-or-later;MPL-2.0;CC0-1.0;CC-BY-4.0;WTFPL;
+        Python-2.0;PSF-2.0;BlueOak-1.0.0;LGPL;LGPL-2.1;LGPL-3.0;LGPL-3.0-or-later;MPL-2.0;CC0-1.0;CC-BY-4.0;WTFPL;
         (MIT OR Apache-2.0);(MIT OR CC0-1.0);(MIT OR EUPL-1.1+);(WTFPL OR MIT);(WTFPL OR ISC);
         (BSD-2-Clause OR MIT OR Apache-2.0);(MIT AND Zlib);(MIT AND BSD-3-Clause);(MIT OR GPL-3.0-or-later);
         (BSD-3-Clause OR GPL-2.0);(AFL-2.1 OR BSD-3-Clause);(Apache-2.0 AND LGPL-3.0-or-later);
         (Apache-2.0 AND LGPL-3.0-or-later AND MIT)
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
+
+      # Installs from package-lock.json (npm stays the lockfile owner); Node runs everything.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'frontend/package-lock.json') }}
+          restore-keys: bun-${{ runner.os }}-
             website/package-lock.json
 
       - name: Install root deps (no scripts)
@@ -482,13 +563,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -499,15 +580,15 @@ jobs:
     needs: [build, dependency-scan, secrets-scan]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build Docker image (no push)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -524,7 +605,7 @@ jobs:
           hide-progress: true
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0.24.0
+        uses: anchore/sbom-action@v0.24.3
         with:
           image: parse-ledger:ci
           format: spdx-json
@@ -532,7 +613,7 @@ jobs:
           upload-artifact: false
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom.spdx.json

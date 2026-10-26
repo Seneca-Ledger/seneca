@@ -1,4 +1,4 @@
-jest.mock('franc', () => ({
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
@@ -97,8 +97,8 @@ describe('Goal items (e2e)', () => {
       .send({ name: '', estimatedAmount: -5, dueMonth: '2026-13', status: null, extra: 1 })
       .expect(400);
 
-    expect(res.body.error.code).toBe('BAD_REQUEST');
-    expect(res.body.error.details.message).toEqual(
+    expect(res.body.error.code).toBe('REQUEST_INVALID');
+    expect(res.body.error.details.issues).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/^name: /),
         expect.stringMatching(/^estimatedAmount: /),

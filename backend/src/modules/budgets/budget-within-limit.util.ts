@@ -102,7 +102,9 @@ function nearest<T extends { budget: WithinLimitBudget }>(
   // Bounded like the budgets' own subtree walk: a deeper tree is a mistake.
   for (let depth = 0; current && depth < 6; depth++) {
     const here = covering.filter(entry => entry.budget.categoryId === current);
-    if (here.length > 0) return here;
+    if (here.length > 0) {
+      return here;
+    }
     current = parentOf.get(current);
   }
   return covering;

@@ -4,6 +4,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceiptDocumentPage from './page';
+import { formatStoredDate } from '@/app/lib/user-format-store';
 
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -233,7 +234,10 @@ describe('ReceiptDocumentPage', () => {
     expect(container.textContent).toContain('Export to table');
     expect(container.querySelector('iframe[title="Magnum receipt"]')).toBeTruthy();
     expect(container.querySelector('input[aria-label="Vendor"]')).toBeTruthy();
-    expect(container.querySelector('[role="combobox"][aria-label="Category"]')).toBeTruthy();
+    // С 3b2d9f93 категория — CategoryPickerField: кнопка, открывающая шторку.
+    expect(
+      container.querySelector('button[aria-haspopup="dialog"][aria-label="Category"]'),
+    ).toBeTruthy();
     expect(
       container.querySelector('[data-testid="receipt-location-section"]')?.textContent,
     ).toContain('receipt-1');
@@ -375,12 +379,11 @@ describe('ReceiptDocumentPage', () => {
       await Promise.resolve();
     });
 
-    const title = Array.from(container.querySelectorAll('h1')).find(element =>
-      element.textContent?.includes('Document title receipt'),
-    );
+    // Заголовок строится из продавца и даты (displayTitle), тема — строкой ниже.
+    const title = container.querySelector('h1');
 
-    expect(title).toBeTruthy();
-    expect(title?.textContent).toContain('Document title receipt');
+    expect(title?.textContent).toBe(`Store Receipt — ${formatStoredDate('2026-03-29')}`);
+    expect(container.textContent).toContain('Document title receipt');
   });
 
   it('navigates back to statements from the receipt page', async () => {
@@ -981,14 +984,31 @@ describe('ReceiptDocumentPage', () => {
       return Promise.resolve({ data: [] });
     });
 
+    // Ответы проверяются контрактами CreatedCustomTable / CustomTableColumnItem.
+    const createdAt = '2026-03-29T10:30:00.000Z';
+    const column = (key: string, title: string, type: string, position: number) => ({
+      data: { id: `${key}-id`, key, title, type, position, isRequired: false, isUnique: false, config: null },
+    });
     apiMocks.mockApiPost
-      .mockResolvedValueOnce({ data: { id: 'table-1' } })
-      .mockResolvedValueOnce({ data: { key: 'item-col' } })
-      .mockResolvedValueOnce({ data: { key: 'date-col' } })
-      .mockResolvedValueOnce({ data: { key: 'amount-col' } })
-      .mockResolvedValueOnce({ data: { key: 'currency-col' } })
-      .mockResolvedValueOnce({ data: { key: 'source-col' } })
-      .mockResolvedValueOnce({ data: { key: 'status-col' } })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'table-1',
+          name: 'Receipt Receipt export',
+          description: null,
+          source: 'manual',
+          categoryId: null,
+          viewSettings: null,
+          sourceBinding: null,
+          createdAt,
+          updatedAt: createdAt,
+        },
+      })
+      .mockResolvedValueOnce(column('item-col', 'Item', 'text', 0))
+      .mockResolvedValueOnce(column('date-col', 'Date', 'date', 1))
+      .mockResolvedValueOnce(column('amount-col', 'Amount', 'number', 2))
+      .mockResolvedValueOnce(column('currency-col', 'Currency', 'text', 3))
+      .mockResolvedValueOnce(column('source-col', 'Source', 'text', 4))
+      .mockResolvedValueOnce(column('status-col', 'Status', 'text', 5))
       .mockResolvedValueOnce({ data: { created: 1, rows: [] } });
 
     vi.mocked(fetch).mockResolvedValue({
@@ -1037,14 +1057,16 @@ describe('ReceiptDocumentPage', () => {
 
     await act(async () => {
       confirmExportButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
+    });
+    // Каждый ответ проходит checkContract (динамический import), так что цепочка
+    // запросов длиннее пары микрозадач — ждём последний, пакет строк.
+    await act(async () => {
+      await vi.waitFor(() => expect(apiMocks.mockApiPost).toHaveBeenCalledTimes(8));
     });
 
     expect(apiMocks.mockApiPost).toHaveBeenNthCalledWith(1, '/custom-tables', {
       name: 'Receipt Receipt export',
-      description: `Exported from scanned receipt on ${new Date(
-        '2026-03-29T10:30:00.000Z',
-      ).toLocaleDateString()}`,
+      description: `Exported from scanned receipt on ${formatStoredDate('2026-03-29T10:30:00.000Z')}`,
     });
     expect(apiMocks.mockApiPost).toHaveBeenNthCalledWith(2, '/custom-tables/table-1/columns', {
       title: 'Item',

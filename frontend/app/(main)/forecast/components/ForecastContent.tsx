@@ -60,9 +60,10 @@ function Kpi({
       <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{label}</Typography>
       <Typography
         variant="h6"
-        fontWeight={600}
         sx={{
+          fontWeight: 600,
           fontVariantNumeric: 'tabular-nums',
+
           color:
             tone === 'success'
               ? 'var(--money-up)'
@@ -326,7 +327,12 @@ export function ForecastContent() {
                 gap: 2,
               }}
             >
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                }}
+              >
                 {t.upcoming}
               </Typography>
               <Box

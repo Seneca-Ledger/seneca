@@ -1,39 +1,40 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { JurisdictionAdoptionService } from '@/modules/tax/jurisdiction-adoption.service';
 
 describe('JurisdictionAdoptionService audit', () => {
   let service: JurisdictionAdoptionService;
-  let rateRepo: ReturnType<typeof createRepoMock> & { manager: { transaction: jest.Mock } };
+  let rateRepo: ReturnType<typeof createRepoMock> & { manager: { transaction: Mock } };
   let workspaceRepo: ReturnType<typeof createRepoMock>;
-  let jurisdictions: { findByCode: jest.Mock; findAllRates: jest.Mock };
-  let auditService: { createEvent: jest.Mock };
+  let jurisdictions: { findByCode: Mock; findAllRates: Mock };
+  let auditService: { createEvent: Mock };
 
   beforeEach(() => {
     const builder = {
-      update: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      update: vi.fn().mockReturnThis(),
+      set: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue({ affected: 0 }),
     };
     const manager = {
-      createQueryBuilder: jest.fn().mockReturnValue(builder),
-      findOne: jest.fn().mockResolvedValue(null),
-      save: jest.fn().mockResolvedValue(undefined),
-      merge: jest.fn(),
-      update: jest.fn().mockResolvedValue(undefined),
+      createQueryBuilder: vi.fn().mockReturnValue(builder),
+      findOne: vi.fn().mockResolvedValue(null),
+      save: vi.fn().mockResolvedValue(undefined),
+      merge: vi.fn(),
+      update: vi.fn().mockResolvedValue(undefined),
     };
     rateRepo = Object.assign(createRepoMock(), {
-      manager: { transaction: jest.fn(async (work: (m: unknown) => unknown) => work(manager)) },
+      manager: { transaction: vi.fn(async (work: (m: unknown) => unknown) => work(manager)) },
     });
     workspaceRepo = createRepoMock();
     workspaceRepo.findOne.mockResolvedValue({ id: 'ws-1', taxJurisdiction: { code: 'KZ' } });
     jurisdictions = {
-      findByCode: jest.fn().mockResolvedValue({ id: 'j-de', code: 'DE' }),
-      findAllRates: jest.fn().mockResolvedValue([{ code: 'DE_STANDARD', validFrom: '2020-01-01' }]),
+      findByCode: vi.fn().mockResolvedValue({ id: 'j-de', code: 'DE' }),
+      findAllRates: vi.fn().mockResolvedValue([{ code: 'DE_STANDARD', validFrom: '2020-01-01' }]),
     };
-    auditService = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
 
     service = new JurisdictionAdoptionService(
       rateRepo as never,

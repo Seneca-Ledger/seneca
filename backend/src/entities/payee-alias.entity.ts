@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn, type Relation } from 'typeorm';
 import { Payee } from './payee.entity';
 
 /**
@@ -17,7 +17,7 @@ export class PayeeAlias {
 
   @ManyToOne(() => Payee, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'payee_id' })
-  payee: Payee;
+  payee: Relation<Payee>;
 
   @Column({ name: 'payee_id', type: 'uuid' })
   payeeId: string;

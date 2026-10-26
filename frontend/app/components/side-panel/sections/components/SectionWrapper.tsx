@@ -7,7 +7,6 @@ import type { SidePanelSection } from '../../types';
 import { RenderIcon } from './RenderIcon';
 
 /** Section wrapper with optional collapse */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
 export function SectionWrapper({
   section,
   children,

@@ -6,18 +6,18 @@ const tag = (id: string, name: string) => ({ id, name, workspaceId: 'ws-1' });
 
 function build(receipt: unknown) {
   const relationQb = {
-    relation: jest.fn(),
-    of: jest.fn(),
-    addAndRemove: jest.fn().mockResolvedValue(undefined),
+    relation: vi.fn(),
+    of: vi.fn(),
+    addAndRemove: vi.fn().mockResolvedValue(undefined),
   };
   relationQb.relation.mockReturnValue(relationQb);
   relationQb.of.mockReturnValue(relationQb);
   const receiptRepo = {
-    findOne: jest.fn().mockResolvedValue(receipt),
-    save: jest.fn(),
-    createQueryBuilder: jest.fn().mockReturnValue(relationQb),
+    findOne: vi.fn().mockResolvedValue(receipt),
+    save: vi.fn(),
+    createQueryBuilder: vi.fn().mockReturnValue(relationQb),
   };
-  const tagRepo = { find: jest.fn() };
+  const tagRepo = { find: vi.fn() };
   return {
     service: new ReceiptTagsService(receiptRepo as never, tagRepo as never),
     receiptRepo,
@@ -38,7 +38,7 @@ describe('ReceiptTagsService', () => {
     expect(tags.map(t => t.name)).toEqual(['Almaty', 'Work']);
     expect(receiptRepo.findOne).toHaveBeenCalledWith({
       where: { id: 'r-1', workspaceId: 'ws-1' },
-      relations: ['tags'],
+      relations: { tags: true },
     });
   });
 

@@ -15,3 +15,7 @@ export const PeppolLookupBody = Schema.Struct({
   peppolId: Schema.String.check(Schema.isMaxLength(100)),
 });
 export type PeppolLookupBody = Wire<typeof PeppolLookupBody>;
+
+/** `GET /peppol/transmissions/:id/document`. */
+export const PeppolTransmissionParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type PeppolTransmissionParams = Wire<typeof PeppolTransmissionParams>;

@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Goal } from './goal.entity';
@@ -38,14 +39,14 @@ export class GoalItem {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Goal, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'goal_id' })
-  goal: Goal;
+  goal: Relation<Goal>;
 
   @Column({ name: 'goal_id', type: 'uuid' })
   goalId: string;
@@ -83,7 +84,7 @@ export class GoalItem {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
-  createdBy: User | null;
+  createdBy: Relation<User | null>;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;

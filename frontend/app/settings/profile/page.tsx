@@ -96,12 +96,12 @@ function ProfileSettingsPageInner(): React.JSX.Element {
   }
 
   const labels: SettingsTabsLabels = {
-    general: tx(['tabs', 'general'], 'General'),
-    security: tx(['tabs', 'security'], 'Security'),
-    notifications: tx(['tabs', 'notifications'], 'Notifications'),
-    data: tx(['tabs', 'data'], 'Data'),
-    advanced: tx(['tabs', 'advanced'], 'Advanced'),
-    versions: tx(['tabs', 'versions'], 'Versions'),
+    general: tx(['tabs', 'general']),
+    security: tx(['tabs', 'security']),
+    notifications: tx(['tabs', 'notifications']),
+    data: tx(['tabs', 'data']),
+    advanced: tx(['tabs', 'advanced']),
+    versions: tx(['tabs', 'versions']),
   };
 
   return (

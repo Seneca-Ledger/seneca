@@ -18,19 +18,19 @@ const storedTag = (overrides: Partial<Tag> = {}): Tag =>
   }) as Tag;
 
 function build() {
-  const folderRepo = { update: jest.fn().mockResolvedValue(undefined) };
-  const txTagRepo = { delete: jest.fn().mockResolvedValue(undefined) };
+  const folderRepo = { update: vi.fn().mockResolvedValue(undefined) };
+  const txTagRepo = { delete: vi.fn().mockResolvedValue(undefined) };
   const manager = {
-    getRepository: jest.fn((entity: unknown) => (entity === Folder ? folderRepo : txTagRepo)),
+    getRepository: vi.fn((entity: unknown) => (entity === Folder ? folderRepo : txTagRepo)),
   };
   const repo = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn((value: Partial<Tag>) => value as Tag),
-    save: jest.fn(async (value: Tag) => ({ id: 'tag-new', ...value })),
-    query: jest.fn(),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    create: vi.fn((value: Partial<Tag>) => value as Tag),
+    save: vi.fn(async (value: Tag) => ({ id: 'tag-new', ...value })),
+    query: vi.fn(),
     manager: {
-      transaction: jest.fn(async (work: (m: typeof manager) => Promise<void>) => work(manager)),
+      transaction: vi.fn(async (work: (m: typeof manager) => Promise<void>) => work(manager)),
     },
   };
   return { service: new TagsService(repo as never), repo, folderRepo, txTagRepo };

@@ -30,7 +30,7 @@ function recordingRepository() {
       },
     },
   );
-  const repository = { createQueryBuilder: jest.fn(() => qb) };
+  const repository = { createQueryBuilder: vi.fn(() => qb) };
   const confirmedPerQuery = () => ({
     built: repository.createQueryBuilder.mock.calls.length,
     confirmed: wheres.filter(sql => sql === 't.isVerified = true').length,
@@ -38,9 +38,9 @@ function recordingRepository() {
   return { repository, confirmedPerQuery };
 }
 
-const categories = { find: jest.fn(async () => []) };
-const workspaces = { findOne: jest.fn(async () => ({ currency: 'EUR' })) };
-const rates = { getRate: jest.fn(async () => 1), getRateOrNull: jest.fn(async () => 1) };
+const categories = { find: vi.fn(async () => []) };
+const workspaces = { findOne: vi.fn(async () => ({ currency: 'EUR' })) };
+const rates = { getRate: vi.fn(async () => 1), getRateOrNull: vi.fn(async () => 1) };
 
 describe('flow maps count only confirmed transactions', () => {
   it('cash-flow map, including the comparison period', async () => {

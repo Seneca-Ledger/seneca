@@ -6,6 +6,7 @@ import {
   ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import type { Receipt } from './receipt.entity';
@@ -36,7 +37,7 @@ export class Tag {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -51,17 +52,17 @@ export class Tag {
     () => Statement,
     statement => statement.tags,
   )
-  statements: Statement[];
+  statements: Relation<Statement[]>;
 
   @ManyToMany(
     () => Transaction,
     transaction => transaction.tags,
   )
-  transactions: Transaction[];
+  transactions: Relation<Transaction[]>;
 
   // By name, not class: importing receipt.entity here would close a cycle
   // (statement → tag → receipt → statement) and leave StatementStage undefined
   // while receipt.entity's column defaults are evaluated.
   @ManyToMany('Receipt', (receipt: Receipt) => receipt.tags)
-  receipts: Receipt[];
+  receipts: Relation<Receipt[]>;
 }

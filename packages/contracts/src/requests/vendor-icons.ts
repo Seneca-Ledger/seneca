@@ -1,0 +1,9 @@
+import * as Schema from 'effect/Schema';
+import type { Wire } from '../common/wire';
+
+/**
+ * `GET /vendor-icons/:domain`. The service checks it is a domain name and
+ * answers its own VENDOR_ICON_DOMAIN_INVALID, so the schema only names the key.
+ */
+export const VendorIconParams = Schema.Struct({ domain: Schema.String });
+export type VendorIconParams = Wire<typeof VendorIconParams>;

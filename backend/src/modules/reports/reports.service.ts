@@ -2876,13 +2876,14 @@ export class ReportsService {
    * its first run days later.
    */
   static assertTemplateFormat(templateId: string, format: string): void {
-    if (!ReportsService.TEMPLATE_NAMES[templateId]) {
-      throw new BadRequestException(`Unknown template: ${templateId}`);
+    const template = ReportsService.TEMPLATE_NAMES[templateId];
+    if (!template) {
+      throw new BadRequestException(appError('REPORT_TEMPLATE_UNKNOWN', { id: templateId }));
     }
     const formats = ReportsService.TEMPLATE_FORMATS[templateId] ?? ['pdf', 'excel', 'csv'];
     if (!formats.includes(format as ReportFileFormat)) {
       throw new BadRequestException(
-        `${ReportsService.TEMPLATE_NAMES[templateId]} supports only ${formats.join(' and ')}`,
+        appError('REPORT_TEMPLATE_FORMATS', { template, formats: formats.join(' and ') }),
       );
     }
   }
@@ -2949,10 +2950,10 @@ export class ReportsService {
     maxRowsPerSection = 20,
   ): Promise<ReportDocument & { truncated: boolean }> {
     if (!ReportsService.TEMPLATE_NAMES[dto.templateId]) {
-      throw new BadRequestException(`Unknown template: ${dto.templateId}`);
+      throw new BadRequestException(appError('REPORT_TEMPLATE_UNKNOWN', { id: dto.templateId }));
     }
     if (dto.templateId === 'balance-sheet') {
-      throw new BadRequestException('Balance Sheet has its own on-screen view');
+      throw new BadRequestException(appError('REPORT_BALANCE_SHEET_ON_SCREEN'));
     }
 
     const document = await this.buildTemplateDocument(workspaceId, dto);
@@ -3059,9 +3060,7 @@ export class ReportsService {
       dto.format === 'pdf' ? ReportsService.MAX_MONTHS.pdf : ReportsService.MAX_MONTHS.other;
     if (months > limit) {
       throw new BadRequestException(
-        dto.format === 'pdf'
-          ? `Categories by Month fits ${limit} months on a PDF page; choose Excel or CSV for a longer period`
-          : `Categories by Month covers at most ${limit} months`,
+        appError(dto.format === 'pdf' ? 'REPORT_PDF_MONTH_LIMIT' : 'REPORT_MONTH_LIMIT', { limit }),
       );
     }
   }
@@ -3122,7 +3121,9 @@ export class ReportsService {
   private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return this.normalizeCurrency(workspace?.currency);
   }
@@ -3598,7 +3599,9 @@ export class ReportsService {
       where: { workspaceId },
       order: { generatedAt: 'DESC' },
       take: 50,
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
   }
 
@@ -3614,7 +3617,7 @@ export class ReportsService {
       report?.filePath &&
       resolveInUploadsDir(report.filePath, path.resolve(this.reportsDirOf(workspaceId)));
     if (!(filePath && report.fileName && fs.existsSync(filePath))) {
-      throw new NotFoundException('Report file not found');
+      throw new NotFoundException(appError('REPORT_FILE_NOT_FOUND'));
     }
 
     const format = String(report.format || '').toLowerCase();
