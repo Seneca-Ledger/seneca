@@ -196,24 +196,24 @@ export function SubscriptionPayments({
   };
 
   return (
-    <section className="lumio-sub-payments">
-      <h3 className="lumio-sub-payments__heading">{t.payments}</h3>
+    <section className="seneca-sub-payments">
+      <h3 className="seneca-sub-payments__heading">{t.payments}</h3>
       {payments.length === 0 ? (
-        <p className="lumio-sub-payments__empty">{t.noPayments}</p>
+        <p className="seneca-sub-payments__empty">{t.noPayments}</p>
       ) : (
-        <ul className="lumio-sub-payments__list">
+        <ul className="seneca-sub-payments__list">
           {payments.map(payment => (
-            <li key={payment.key} className="lumio-sub-payments__row">
+            <li key={payment.key} className="seneca-sub-payments__row">
               <span>{formatDate(payment.date)}</span>
               <PrivateAmount>{money(payment.amount, payment.currency)}</PrivateAmount>
-              <span className="lumio-sub-payments__source">
+              <span className="seneca-sub-payments__source">
                 {payment.linked ? (
                   t.linked
                 ) : onLinkRow ? (
                   <Button
                     variant="text"
                     size="small"
-                    className="lumio-sub-payments__link"
+                    className="seneca-sub-payments__link"
                     onClick={() => openPicker(payment.key)}
                   >
                     {t.link}
@@ -234,7 +234,7 @@ export function SubscriptionPayments({
 
       {/* The rule, said out loud: which payees' new rows land here without asking. */}
       {autoLinkPayees.some(payee => !payee.shared) && (
-        <p className="lumio-sub-payments__note">
+        <p className="seneca-sub-payments__note">
           {t.autoLinked.value.replace(
             '{names}',
             autoLinkPayees
@@ -247,13 +247,13 @@ export function SubscriptionPayments({
       {autoLinkPayees
         .filter(payee => payee.shared)
         .map(payee => (
-          <p key={payee.payeeId} className="lumio-sub-payments__note">
+          <p key={payee.payeeId} className="seneca-sub-payments__note">
             {t.autoLinkShared.value.replace('{name}', payee.name)}
           </p>
         ))}
 
       {mode === 'manual' && (
-        <div className="lumio-sub-payments__manual">
+        <div className="seneca-sub-payments__manual">
           <CustomDatePicker
             id="subscription-payment-date"
             compact
@@ -284,18 +284,18 @@ export function SubscriptionPayments({
 
       {mode === 'pick' &&
         (candidates.isPending ? null : rows.length === 0 ? (
-          <p className="lumio-sub-payments__empty">{t.noCandidates}</p>
+          <p className="seneca-sub-payments__empty">{t.noCandidates}</p>
         ) : (
-          <ul className="lumio-sub-payments__picker">
+          <ul className="seneca-sub-payments__picker">
             {rows.map(row => (
               <li key={row.transactionId}>
                 <button
                   type="button"
-                  className="lumio-sub-payments__candidate"
+                  className="seneca-sub-payments__candidate"
                   data-match={row.matchesVendor || undefined}
                   onClick={() => void pick(row)}
                 >
-                  <span className="lumio-sub-payments__candidate-name">{row.counterpartyName}</span>
+                  <span className="seneca-sub-payments__candidate-name">{row.counterpartyName}</span>
                   <span>{formatDate(row.transactionDate)}</span>
                   <PrivateAmount>{money(row.amount, row.currency)}</PrivateAmount>
                 </button>
@@ -304,9 +304,9 @@ export function SubscriptionPayments({
           </ul>
         ))}
 
-      {note && <p className="lumio-sub-payments__note">{note}</p>}
+      {note && <p className="seneca-sub-payments__note">{note}</p>}
 
-      <div className="lumio-sub-payments__actions">
+      <div className="seneca-sub-payments__actions">
         <Button
           variant="text"
           size="small"

@@ -79,7 +79,7 @@ describe('SubscriptionDetailsDrawer', () => {
   it('shows the status as a word with a dot, the price and each date on its own line', () => {
     renderDrawer();
 
-    expect(screen.getByText('Active')).toHaveClass('lumio-sub-detail__dot');
+    expect(screen.getByText('Active')).toHaveClass('seneca-sub-detail__dot');
     expect(screen.getByText('₪42')).toBeInTheDocument();
     expect(screen.getByText('Expected charge').nextSibling).toHaveTextContent('Nov 10, 2026');
     expect(screen.getByText('Last charge').nextSibling).toHaveTextContent('—');
