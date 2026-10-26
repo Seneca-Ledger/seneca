@@ -18,6 +18,7 @@ import { resolveAllowedOrigins } from '../../common/utils/cors-origins';
 import { AuthSession } from '../../entities/auth-session.entity';
 import { Notification } from '../../entities/notification.entity';
 import { User } from '../../entities/user.entity';
+import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ACCESS_TOKEN_COOKIE } from '../auth/auth-cookies';
 
 @WebSocketGateway({
@@ -43,6 +44,8 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     private readonly userRepository: Repository<User>,
     @InjectRepository(AuthSession)
     private readonly authSessionRepository: Repository<AuthSession>,
+    @InjectRepository(WorkspaceMember)
+    private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
   ) {}
 
   /**
@@ -135,15 +138,25 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     }
   }
 
+  /** Only a member of the workspace may listen to its room. */
   @SubscribeMessage('join-workspace')
-  handleJoinWorkspace(
+  async handleJoinWorkspace(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { workspaceId?: string },
-  ): void {
-    if (!payload.workspaceId) {
+  ): Promise<void> {
+    const userId = client.data.userId as string | undefined;
+    const workspaceId = payload?.workspaceId;
+    if (!userId || typeof workspaceId !== 'string' || !workspaceId) {
       return;
     }
-    client.join(this.getWorkspaceRoom(payload.workspaceId));
+    const isMember = await this.workspaceMemberRepository.exists({
+      where: { workspaceId, userId },
+    });
+    if (!isMember) {
+      this.logger.warn(`Socket ${client.id} refused a workspace room it is not a member of`);
+      return;
+    }
+    client.join(this.getWorkspaceRoom(workspaceId));
   }
 
   @SubscribeMessage('leave-workspace')
@@ -151,7 +164,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { workspaceId?: string },
   ): void {
-    if (!payload.workspaceId) {
+    if (typeof payload?.workspaceId !== 'string' || !payload.workspaceId) {
       return;
     }
     client.leave(this.getWorkspaceRoom(payload.workspaceId));
