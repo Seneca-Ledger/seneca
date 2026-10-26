@@ -1,14 +1,115 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "4d8db1610c2966b747f36b59ac8fdb8289e21673"
+      "main": "6742eb6cd02c29f0048b24e978744dbfed1df19d"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-26T01:27:18.060Z",
+    "lastGeneratedAt": "2026-10-26T01:53:34.152Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-26-6742eb6",
+      "version": "main-6742eb6",
+      "branch": "main",
+      "date": "2026-10-26T01:53:34.152Z",
+      "title": "Release update - October 26, 2026",
+      "summary": "This release includes 1 fix.",
+      "markdown": "## Fixes\n- **backend**: Errors a user causes are coded, not a bare 500",
+      "commits": [
+        {
+          "sha": "dc4f28d427e1c31693b306bcbe02f15762d7d608",
+          "shortSha": "dc4f28d4",
+          "subject": "fix(backend): errors a user causes are coded, not a bare 500",
+          "author": "Symon Baikov",
+          "date": "2026-10-25T20:41:05+02:00",
+          "files": [
+            "backend/@tests/unit/modules/backups/backup-archive.service.spec.ts",
+            "backend/src/common/errors/codes/accounts.ts",
+            "backend/src/common/errors/codes/documents.ts",
+            "backend/src/common/errors/codes/integrations.ts",
+            "backend/src/common/utils/avatar-filename.util.ts",
+            "backend/src/common/utils/public-upload.util.ts",
+            "backend/src/common/utils/zip-bomb-guard.util.ts",
+            "backend/src/modules/backups/backup-archive.service.ts",
+            "backend/src/modules/receipts/services/receipt-duplicate.service.ts",
+            "backend/src/modules/users/services/permissions.util.ts"
+          ]
+        },
+        {
+          "sha": "80d20d892aac41f156f5a51cb719d01609849240",
+          "shortSha": "80d20d89",
+          "subject": "Merge branch 'main' into fix/typed-internal-errors",
+          "author": "Symon Baikov",
+          "date": "2026-10-26T03:27:01+02:00",
+          "files": []
+        },
+        {
+          "sha": "c3d6217b0e3b81d7497b2e6fdb94f2d1f009ccd9",
+          "shortSha": "c3d6217b",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-26T01:27:18Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "fb368eae423560528a47a721a680ef523ab6d11e",
+          "shortSha": "fb368eae",
+          "subject": "chore(tour): regenerate guide screenshots [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-26T01:45:22Z",
+          "files": [
+            "frontend/public/tour/be/dashboard-categories-dark.webp",
+            "frontend/public/tour/be/dashboard-categories-light.webp",
+            "frontend/public/tour/bg/dashboard-categories-dark.webp",
+            "frontend/public/tour/bg/dashboard-categories-light.webp",
+            "frontend/public/tour/bs/dashboard-categories-dark.webp",
+            "frontend/public/tour/bs/dashboard-categories-light.webp",
+            "frontend/public/tour/cs/dashboard-categories-dark.webp",
+            "frontend/public/tour/cs/dashboard-categories-light.webp",
+            "frontend/public/tour/da/dashboard-categories-dark.webp",
+            "frontend/public/tour/da/dashboard-categories-light.webp",
+            "frontend/public/tour/fi/dashboard-categories-dark.webp",
+            "frontend/public/tour/fi/dashboard-categories-light.webp",
+            "frontend/public/tour/fi/reports-flow-light.webp",
+            "frontend/public/tour/fo/dashboard-categories-dark.webp",
+            "frontend/public/tour/fo/dashboard-categories-light.webp",
+            "frontend/public/tour/fo/reports-flow-light.webp",
+            "frontend/public/tour/hr/dashboard-categories-dark.webp",
+            "frontend/public/tour/hr/dashboard-categories-light.webp",
+            "frontend/public/tour/hsb/dashboard-categories-dark.webp",
+            "frontend/public/tour/hsb/dashboard-categories-light.webp",
+            "frontend/public/tour/id/reports-flow-dark.webp",
+            "frontend/public/tour/is/dashboard-categories-dark.webp",
+            "frontend/public/tour/is/dashboard-categories-light.webp",
+            "frontend/public/tour/ja/reports-flow-light.webp",
+            "frontend/public/tour/mk/dashboard-categories-dark.webp",
+            "frontend/public/tour/mk/dashboard-categories-light.webp",
+            "frontend/public/tour/nb/dashboard-categories-dark.webp",
+            "frontend/public/tour/nb/dashboard-categories-light.webp",
+            "frontend/public/tour/nn/dashboard-categories-dark.webp",
+            "frontend/public/tour/nn/dashboard-categories-light.webp",
+            "frontend/public/tour/sl/dashboard-categories-dark.webp",
+            "frontend/public/tour/sl/dashboard-categories-light.webp",
+            "frontend/public/tour/sr/dashboard-categories-dark.webp",
+            "frontend/public/tour/sr/dashboard-categories-light.webp",
+            "frontend/public/tour/sr/reports-flow-light.webp",
+            "frontend/public/tour/zh/reports-flow-dark.webp"
+          ]
+        },
+        {
+          "sha": "6742eb6cd02c29f0048b24e978744dbfed1df19d",
+          "shortSha": "6742eb6c",
+          "subject": "Merge pull request #407 from Seneca-Ledger/fix/typed-internal-errors",
+          "author": "Symon Baikov",
+          "date": "2026-10-26T03:53:05+02:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-26-4d8db16",
       "version": "main-4d8db16",
