@@ -1369,9 +1369,11 @@ export class IntelligentDeduplicationService {
   /**
    * Calculate the difference between two dates in days
    */
-  private calculateDateDifferenceInDays(date1: Date, date2: Date): number {
-    const time1 = date1.getTime();
-    const time2 = date2.getTime();
+  private calculateDateDifferenceInDays(date1: Date | string, date2: Date | string): number {
+    // `transactions.transaction_date` is a `date` column, which TypeORM hands
+    // back as a 'YYYY-MM-DD' string, not a Date.
+    const time1 = new Date(date1).getTime();
+    const time2 = new Date(date2).getTime();
     const diffMs = Math.abs(time1 - time2);
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }

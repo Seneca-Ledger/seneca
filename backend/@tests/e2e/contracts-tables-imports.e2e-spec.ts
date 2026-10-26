@@ -6,6 +6,8 @@ import {
   CreatedFromSource,
   EntityImportResult,
   EntityImportUndone,
+  ImportMappingProfile,
+  ImportMappingProfileMatch,
   OkResult,
   ViewPreferenceState,
 } from '../../src/contracts';
@@ -112,6 +114,21 @@ describe('API contracts: data entry and imports (e2e)', () => {
     );
     const undone = await answer(EntityImportUndone, call('delete', `/entity-imports/${run.batchId}`));
     expect(undone.removed).toBe(1);
+    const headers = ['Vendor', 'Amount', 'Due date'];
+    const remembered = await answer(
+      ImportMappingProfile,
+      call('put', '/entity-imports/mapping-profiles', {
+        target: 'payables',
+        headers,
+        mapping: { vendor: 0, amount: 1, dueDate: 2 },
+      }),
+    );
+    const matched = await answer(
+      ImportMappingProfileMatch,
+      call('post', '/entity-imports/mapping-profiles/match', { target: 'payables', headers }),
+    );
+    expect(matched.profile?.mapping).toEqual({ vendor: 0, amount: 1, dueDate: 2 });
+    await answer(OkResult, call('delete', `/entity-imports/mapping-profiles/${remembered.id}`));
     const saved = await answer(
       ViewPreferenceState,
       call('put', '/view-preferences/transactions', { state: { owner: 'me' } }),

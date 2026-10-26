@@ -23,6 +23,7 @@ export const TARGET_FIELDS: Record<ImportTarget, Array<{ key: string; required: 
   transactions: [
     { key: 'date', required: true },
     { key: 'amount', required: true },
+    { key: 'credit', required: false },
     { key: 'merchant', required: true },
     { key: 'purpose', required: false },
     { key: 'currency', required: false },
@@ -139,6 +140,46 @@ export const runEntityImport = async (payload: ImportRunPayload): Promise<Import
 
 export const undoEntityImport = async (batchId: string): Promise<void> => {
   await api.delete(`/entity-imports/${batchId}`);
+};
+
+/** A column mapping remembered for one header row. */
+export interface SavedImportMapping {
+  id: string;
+  mapping: Record<string, number>;
+}
+
+/** The mapping remembered for this header row, or null. */
+export const matchImportMapping = async (
+  target: ImportTarget,
+  headers: string[],
+): Promise<SavedImportMapping | null> => {
+  const url = '/entity-imports/mapping-profiles/match';
+  const response = await api.post(url, {
+    target,
+    headers,
+  } satisfies ContractInput<'MatchImportMappingBody'>);
+  const { profile } = await checkContract('ImportMappingProfileMatch', response.data, url);
+  return profile ? { id: profile.id, mapping: { ...profile.mapping } } : null;
+};
+
+/** Remembers the mapping for files with this header row, replacing an earlier one. */
+export const saveImportMapping = async (
+  target: ImportTarget,
+  headers: string[],
+  mapping: Record<string, number>,
+): Promise<SavedImportMapping> => {
+  const url = '/entity-imports/mapping-profiles';
+  const response = await api.put(url, {
+    target,
+    headers,
+    mapping,
+  } satisfies ContractInput<'SaveImportMappingBody'>);
+  const saved = await checkContract('ImportMappingProfile', response.data, url);
+  return { id: saved.id, mapping: { ...saved.mapping } };
+};
+
+export const forgetImportMapping = async (id: string): Promise<void> => {
+  await api.delete(`/entity-imports/mapping-profiles/${id}`);
 };
 
 /** Import targets a custom table can be built from; metals have no table source. */

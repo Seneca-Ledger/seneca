@@ -8,6 +8,7 @@ import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { BankName, FileType, Statement, StatementStatus } from '../../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 import {
+  detectDateOrder,
   isBlank,
   normalizeCurrencyCode,
   parseImportDate,
@@ -31,6 +32,22 @@ interface ParsedTx {
 const csvCell = (value: string | number): string => `"${String(value).replace(/"/g, '""')}"`;
 
 /**
+ * Money out (`amount`) and money in (`credit`) in separate columns, as many
+ * bank exports keep them: exactly one of the two is filled, and money out
+ * comes back negative. A row with both or neither filled has no amount.
+ */
+function splitAmount(ctx: ImportContext, row: string[]): ReturnType<typeof parseImportNumber> {
+  const out = parseImportNumber(ctx.cell(row, 'amount'));
+  const into = parseImportNumber(ctx.cell(row, 'credit'));
+  if (Boolean(out.value) === Boolean(into.value)) {
+    return { value: null, currency: null };
+  }
+  return out.value
+    ? { value: -Math.abs(out.value), currency: out.currency }
+    : { value: Math.abs(into.value ?? 0), currency: into.currency };
+}
+
+/**
  * Rows become one statement plus its transactions, exactly like converting a
  * custom table, so they show up in the statements list and can be deleted
  * together. Sign convention: a negative amount or `type = expense` is a debit.
@@ -49,9 +66,13 @@ export class TransactionsTarget implements ImportTarget {
       merchant: string;
       row: string[];
     }> = [];
+    const dateOrder = detectDateOrder(rows.map(row => ctx.cell(row, 'date')));
+    const splitColumns = rows.some(row => !isBlank(ctx.cell(row, 'credit')));
     for (const [index, row] of rows.entries()) {
-      const date = parseImportDate(ctx.cell(row, 'date'));
-      const { value, currency: cellCurrency } = parseImportNumber(ctx.cell(row, 'amount'));
+      const date = parseImportDate(ctx.cell(row, 'date'), dateOrder);
+      const { value, currency: cellCurrency } = splitColumns
+        ? splitAmount(ctx, row)
+        : parseImportNumber(ctx.cell(row, 'amount'));
       const merchant = ctx.cell(row, 'merchant').trim();
       if (!date) {
         results.push({ index, status: 'error', reason: 'date' });
@@ -67,10 +88,11 @@ export class TransactionsTarget implements ImportTarget {
       }
       parsedValues.push({ index, date, value, cellCurrency, merchant, row });
     }
-    // Without a type column the sign decides only when the file mixes signs;
-    // an all-positive expense sheet must not turn into income.
+    // Without a type column the sign decides only when the file mixes signs or
+    // keeps money in and out apart; an all-positive expense sheet must not turn into income.
     const mixedSigns =
-      parsedValues.some(item => item.value < 0) && parsedValues.some(item => item.value > 0);
+      splitColumns ||
+      (parsedValues.some(item => item.value < 0) && parsedValues.some(item => item.value > 0));
     for (const { index, date, value, cellCurrency, merchant, row } of parsedValues) {
       const typeAlias = resolveEnumAlias('type', ctx.cell(row, 'type'));
       const type =

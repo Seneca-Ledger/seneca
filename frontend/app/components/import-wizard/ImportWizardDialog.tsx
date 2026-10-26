@@ -21,6 +21,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { resolveCurrencyCode } from '@/app/lib/format-money';
 import { formatDate } from '@/app/lib/user-format';
+import { ImportProblems } from './ImportProblems';
 import {
   createTableFromImport,
   IMPORT_TARGETS,
@@ -42,13 +43,12 @@ import {
   openAsTableFilters,
   type PreparedSheet,
   prepareSheet,
-  problemRows,
   roleByColumn,
 } from './import-wizard-utils';
+import { useSavedMapping } from './useSavedMapping';
 
 const IGNORE = '__ignore__';
 const DRY_RUN_DEBOUNCE_MS = 400;
-const MAX_PROBLEM_ROWS = 8;
 
 export interface ImportWizardDialogProps {
   isOpen: boolean;
@@ -95,6 +95,7 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
   const [undone, setUndone] = useState(false);
   const [openingTable, setOpeningTable] = useState(false);
   const requestVersion = useRef(0);
+  const savedMapping = useSavedMapping();
 
   const targetLabel = useCallback((kind: ImportTarget | 'table') => t.targets[kind].value, [t]);
   const fieldLabel = useCallback(
@@ -118,21 +119,24 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
       } catch {
         // The heuristics live on the server; without them the user maps by hand.
       }
+      const suggested = next && next.target !== 'table' ? next.target : null;
+      const chosen = fixedTarget ?? suggested ?? 'transactions';
+      // A file with a header row imported before maps itself the way it was mapped then.
+      const remembered = await savedMapping.lookUp(chosen, prepared.headers);
       if (version !== requestVersion.current) {
         return;
       }
       setSuggestion(next);
-      const suggested = next && next.target !== 'table' ? next.target : null;
-      const chosen = fixedTarget ?? suggested ?? 'transactions';
       setTarget(chosen);
       setMapping(
-        next && (fixedTarget ? next.target === fixedTarget : true)
-          ? mappingFromSuggestion(next)
-          : {},
+        remembered ??
+          (next && (fixedTarget ? next.target === fixedTarget : true)
+            ? mappingFromSuggestion(next)
+            : {}),
       );
       setStep('mapping');
     },
-    [fixedTarget, onClose, t],
+    [fixedTarget, onClose, t, savedMapping.lookUp],
   );
 
   // Reset and read whenever the dialog opens with a new file or row set.
@@ -191,9 +195,13 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
     void loadRows(sheetToTextRows(workbook.sheets[index]));
   };
 
-  const changeTarget = (next: ImportTarget) => {
+  const changeTarget = async (next: ImportTarget) => {
     setTarget(next);
     setMapping(suggestion && suggestion.target === next ? mappingFromSuggestion(suggestion) : {});
+    const remembered = sheet ? await savedMapping.lookUp(next, sheet.headers) : null;
+    if (remembered) {
+      setMapping(remembered);
+    }
   };
 
   const missing = useMemo(() => missingRequiredFields(target, mapping), [target, mapping]);
@@ -248,6 +256,7 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
       setResult(imported);
       setStep('result');
       onImported?.(imported);
+      void savedMapping.remember(target, sheet.headers, mapping);
     } catch (error) {
       toast.error(getApiErrorMessage(error, t.errors.importFailed.value));
     } finally {
@@ -302,35 +311,6 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
   const roleOf = roleByColumn(mapping);
   const counts = (source: ImportRunResult | null, template: string) =>
     source ? fillTemplate(template, { ...source.counts }) : '';
-  const reasonText = (reason: string | undefined) => {
-    if (reason === 'duplicate' || reason === 'unchanged') {
-      return t.reasons[reason].value;
-    }
-    return fillTemplate(t.reasons.invalid.value, { field: fieldLabel(reason ?? '') });
-  };
-
-  const renderProblems = (source: ImportRunResult | null) => {
-    const problems = source ? problemRows(source.rows) : [];
-    if (!problems.length) {
-      return null;
-    }
-    return (
-      <div className="seneca-iw__problems">
-        <p className="seneca-iw__label">{t.issuesTitle}</p>
-        <ul>
-          {problems.slice(0, MAX_PROBLEM_ROWS).map(row => (
-            <li key={row.index}>
-              <span className="seneca-iw__row-no">
-                {fillTemplate(t.rowLabel.value, { row: row.index + 1 })}
-              </span>
-              <span>{reasonText(row.reason)}</span>
-            </li>
-          ))}
-          {problems.length > MAX_PROBLEM_ROWS && <li>…</li>}
-        </ul>
-      </div>
-    );
-  };
 
   const footer =
     step === 'result' ? (
@@ -399,7 +379,7 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
                   size="small"
                   value={target}
                   disabled={Boolean(fixedTarget)}
-                  onChange={value => changeTarget(value as ImportTarget)}
+                  onChange={value => void changeTarget(value as ImportTarget)}
                   options={IMPORT_TARGETS.map(kind => ({ value: kind, label: targetLabel(kind) }))}
                   data-testid="import-wizard-target"
                 />
@@ -420,6 +400,14 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
                 {suggestion.target === 'table'
                   ? t.suggestionTable
                   : fillTemplate(t.suggestion.value, { target: targetLabel(suggestion.target) })}
+              </p>
+            )}
+            {savedMapping.savedId && (
+              <p className="seneca-iw__hint" data-testid="import-wizard-saved-mapping">
+                {t.savedMapping.applied}{' '}
+                <MuiButton size="small" onClick={() => void savedMapping.forget()}>
+                  {t.savedMapping.forget}
+                </MuiButton>
               </p>
             )}
 
@@ -491,7 +479,7 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
                 )}
               </p>
             )}
-            {renderProblems(dryRun)}
+            <ImportProblems source={dryRun} fieldLabel={fieldLabel} />
           </>
         )}
 
@@ -499,7 +487,7 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
           <div className="seneca-iw__result" data-testid="import-wizard-result">
             <p className="seneca-iw__result-title">{undone ? t.result.undone : t.result.title}</p>
             {!undone && <p className="seneca-iw__hint">{counts(result, t.resultSummary.value)}</p>}
-            {!undone && renderProblems(result)}
+            {!undone && <ImportProblems source={result} fieldLabel={fieldLabel} />}
           </div>
         )}
       </div>
