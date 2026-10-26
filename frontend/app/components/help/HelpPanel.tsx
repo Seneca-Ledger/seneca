@@ -11,7 +11,8 @@ import { useIntlayer } from '@/app/i18n';
 import { SHORTCUT_SHOW_SHORTCUTS } from '@/app/lib/keyboard-shortcuts';
 import { tokens } from '@/lib/theme-tokens';
 
-const DOCUMENTATION_URL = 'https://stoic-budget.github.io/stoic-budget/docs/getting-started/configuration';
+const DOCUMENTATION_URL =
+  'https://stoic-budget.github.io/stoic-budget/docs/getting-started/configuration';
 
 const rowSx = {
   display: 'flex',

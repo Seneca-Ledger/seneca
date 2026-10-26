@@ -38,7 +38,8 @@ type ElsewhereLink = {
 };
 
 const KNOWLEDGE_BASE_URL = 'https://stoic-budget.github.io/stoic-budget/';
-const BUG_REPORT_URL = 'https://github.com/stoic-budget/stoic-budget/issues/new?template=bug_report.yml';
+const BUG_REPORT_URL =
+  'https://github.com/stoic-budget/stoic-budget/issues/new?template=bug_report.yml';
 
 /**
  * Settings that live outside this page. The account menu in the sidebar is kept
