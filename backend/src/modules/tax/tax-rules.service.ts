@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FindOptionsOrder } from 'typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
 import { WorkspaceCrudBaseService } from '../../common/services/workspace-crud-base.service';
@@ -106,7 +106,7 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
     await this.assertCategoryInWorkspace(workspaceId, categoryId);
 
     const duplicate = await this.repository.findOne({
-      where: { workspaceId, categoryId, direction } as any,
+      where: { workspaceId, categoryId: categoryId ?? IsNull(), direction },
     });
 
     if (duplicate) {
@@ -168,7 +168,7 @@ export class TaxRulesService extends WorkspaceCrudBaseService<TaxRule> {
         await this.assertCategoryInWorkspace(workspaceId, nextCategoryId);
       }
       const clash = await this.repository.findOne({
-        where: { workspaceId, categoryId: nextCategoryId, direction: nextDirection } as any,
+        where: { workspaceId, categoryId: nextCategoryId ?? IsNull(), direction: nextDirection },
       });
 
       if (clash && clash.id !== id) {

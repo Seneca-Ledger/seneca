@@ -26,7 +26,6 @@ import { appError } from '../../common/errors/app-error';
 import { appDefaultCurrency, currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { normalizeFilename } from '../../common/utils/filename.util';
-import { generateTransactionFingerprint } from '../../common/utils/fingerprint.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
@@ -92,6 +91,7 @@ import {
   type CustomTableRowSortDto,
 } from './dto/list-custom-table-rows.dto';
 import { FormulaRecalcService, formulaColumnsOf } from './formula-recalc.service';
+import { convertedRowFingerprint, flagRepeatedRows } from './helpers/converted-repeats';
 import {
   assertValidFormula,
   collectFieldRefs,
@@ -2277,16 +2277,12 @@ export class CustomTablesService {
         categoryId: table.categoryId ?? null,
         // Converted in bulk from a table: each row is confirmed in Review.
         isVerified: false,
-        fingerprint: generateTransactionFingerprint({
-          workspaceId,
-          accountNumber: '',
-          date: row.transactionDate,
-          amount: row.amount,
-          currency: row.currency,
-          direction: 'debit',
-          merchant: row.merchant,
-        }),
+        fingerprint: convertedRowFingerprint(workspaceId, row),
       }),
+    );
+    // Identical rows import as identical statement lines do: kept, the repeat flagged.
+    warnings.push(
+      ...(await flagRepeatedRows(this.transactionRepository, workspaceId, transactions, converted)),
     );
 
     const savedTransactions = await this.transactionRepository.save(transactions);

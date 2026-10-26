@@ -259,6 +259,7 @@ describe("CustomTablesService.convertToStatement", () => {
 			...(value as Record<string, unknown>),
 		}));
 		transactionRepository.create.mockImplementation((value?: unknown) => value);
+		transactionRepository.find.mockResolvedValue([]);
 		transactionRepository.save.mockImplementation(async (values) =>
 			(values as Array<Record<string, unknown>>).map((value, index) => ({
 				id: `tx-${index}`,
@@ -336,6 +337,7 @@ describe("CustomTablesService.convertToStatement", () => {
 			...(value as Record<string, unknown>),
 		}));
 		transactionRepository.create.mockImplementation((value?: unknown) => value);
+		transactionRepository.find.mockResolvedValue([]);
 		transactionRepository.save.mockImplementation(async (values) => values);
 
 		const result = await service.convertToStatement(
@@ -429,6 +431,7 @@ describe("CustomTablesService.convertToStatement", () => {
 		});
 		statementRepository.save.mockImplementation(async (value) => value);
 		transactionRepository.create.mockImplementation((value?: unknown) => value);
+		transactionRepository.find.mockResolvedValue([]);
 		transactionRepository.save.mockImplementation(async (values) => values);
 
 		const result = await service.convertToStatement(
@@ -496,6 +499,7 @@ describe("CustomTablesService.convertToStatement", () => {
 			...(value as Record<string, unknown>),
 		}));
 		transactionRepository.create.mockImplementation((value?: unknown) => value);
+		transactionRepository.find.mockResolvedValue([]);
 		transactionRepository.save.mockImplementation(async (values) => values);
 
 		await service.convertToStatement("user-1", "workspace-1", TABLE_ID);

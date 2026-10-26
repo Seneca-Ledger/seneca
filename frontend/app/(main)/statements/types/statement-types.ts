@@ -75,7 +75,7 @@ export type ReceiptDocument = {
     category?: string;
     categoryId?: string;
     transactionType?: 'income' | 'expense' | 'transfer' | 'unknown';
-  };
+  } | null;
   workspaceId?: string;
   workspaceName?: string;
 };
