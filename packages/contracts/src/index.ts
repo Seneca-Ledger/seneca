@@ -21,6 +21,7 @@ export * from './goals/goal-items';
 export * from './goals/goals';
 export * from './imports/import-sessions';
 export * from './imports/imports';
+export * from './integrations/bank-sync';
 export * from './integrations/connections';
 export * from './invoices/invoice-writes';
 export * from './invoices/invoices';

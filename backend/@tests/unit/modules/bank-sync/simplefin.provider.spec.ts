@@ -1,6 +1,9 @@
 import { BadGatewayException, BadRequestException } from '@nestjs/common';
 import { EffectRuntime } from '../../../../src/common/effect/effect-runtime';
-import { BankSyncAuthError } from '../../../../src/modules/bank-sync/bank-sync-provider.interface';
+import {
+  BankSyncAuthError,
+  BankSyncTemporaryError,
+} from '../../../../src/modules/bank-sync/bank-sync-provider.interface';
 import {
   decodeSetupToken,
   parseAccessUrl,
@@ -10,6 +13,8 @@ import {
 const claimUrl = 'https://beta-bridge.simplefin.org/simplefin/claim/demo';
 const setupToken = Buffer.from(claimUrl).toString('base64');
 const accessUrl = 'https://demo:demo@beta-bridge.simplefin.org/simplefin';
+/** The provider reads its credential out of the connection's decrypted secrets. */
+const context = { secrets: { accessUrl }, links: [] };
 
 const effects = new EffectRuntime();
 afterAll(() => effects.onModuleDestroy());
@@ -38,7 +43,7 @@ describe('SimpleFinProvider', () => {
   it('claims a token with one POST and keeps the access URL it gets back', async () => {
     const fetchUrl = vi.fn(async () => new Response(accessUrl, { status: 200 }));
     const provider = providerWith(fetchUrl);
-    await expect(provider.claim(setupToken)).resolves.toBe(accessUrl);
+    await expect(provider.claim(setupToken)).resolves.toEqual({ accessUrl });
     expect(fetchUrl).toHaveBeenCalledWith(claimUrl, expect.objectContaining({ method: 'POST' }));
   });
 
@@ -78,7 +83,7 @@ describe('SimpleFinProvider', () => {
     );
     const provider = providerWith(fetchUrl);
     const since = new Date('2026-09-01T00:00:00Z');
-    const accounts = await provider.fetchAccounts(accessUrl, { since });
+    const accounts = await provider.fetchAccounts(context, { since });
 
     const [url, init] = fetchUrl.mock.calls[0] as unknown as [string, RequestInit];
     const target = new URL(url);
@@ -113,7 +118,7 @@ describe('SimpleFinProvider', () => {
 
   it('asks for balances only when told to', async () => {
     const fetchUrl = vi.fn(async () => jsonResponse(200, { accounts: [] }));
-    await providerWith(fetchUrl).fetchAccounts(accessUrl, { balancesOnly: true });
+    await providerWith(fetchUrl).fetchAccounts(context, { balancesOnly: true });
     const target = new URL((fetchUrl.mock.calls[0] as unknown as [string])[0]);
     expect(target.searchParams.get('balances-only')).toBe('1');
     expect(target.searchParams.get('pending')).toBeNull();
@@ -126,7 +131,7 @@ describe('SimpleFinProvider', () => {
       .mockRejectedValueOnce(new TypeError('fetch failed'))
       .mockResolvedValueOnce(jsonResponse(200, { accounts: [{ id: 'ACT-1' }] }));
 
-    const accounts = await providerWith(fetchUrl).fetchAccounts(accessUrl);
+    const accounts = await providerWith(fetchUrl).fetchAccounts(context);
 
     expect(accounts.map(account => account.id)).toEqual(['ACT-1']);
     expect(fetchUrl).toHaveBeenCalledTimes(3);
@@ -152,7 +157,7 @@ describe('SimpleFinProvider', () => {
           },
         ],
       }),
-    ).fetchAccounts(accessUrl);
+    ).fetchAccounts(context);
 
     expect(accounts.map(account => account.id)).toEqual(['ACT-2']);
     expect(accounts[0].transactions.map(row => row.id)).toEqual(['TRN-2']);
@@ -162,10 +167,10 @@ describe('SimpleFinProvider', () => {
     await expect(
       providerWith(async () => {
         throw new TypeError('fetch failed');
-      }).fetchAccounts(accessUrl),
+      }).fetchAccounts(context),
     ).rejects.toThrow(BadGatewayException);
     await expect(
-      providerWith(async () => new Response('<html>', { status: 200 })).fetchAccounts(accessUrl),
+      providerWith(async () => new Response('<html>', { status: 200 })).fetchAccounts(context),
     ).rejects.toThrow(/unreadable/);
   });
 
@@ -178,7 +183,7 @@ describe('SimpleFinProvider', () => {
     );
     vi.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     try {
-      const pending = providerWith(hanging).fetchAccounts(accessUrl);
+      const pending = providerWith(hanging).fetchAccounts(context);
       const outcome = expect(pending).rejects.toThrow(/did not answer in time/);
       await vi.advanceTimersByTimeAsync(60_000);
       await outcome;
@@ -189,12 +194,30 @@ describe('SimpleFinProvider', () => {
 
   it('reports a rejected credential as an auth error and provider errors by their text', async () => {
     await expect(
-      providerWith(async () => new Response('', { status: 401 })).fetchAccounts(accessUrl),
+      providerWith(async () => new Response('', { status: 401 })).fetchAccounts(context),
     ).rejects.toBeInstanceOf(BankSyncAuthError);
     await expect(
       providerWith(async () =>
         jsonResponse(200, { errors: ['Connection to Demo Bank needs attention'], accounts: [] }),
-      ).fetchAccounts(accessUrl),
+      ).fetchAccounts(context),
     ).rejects.toThrow(/needs attention/);
+  });
+
+  it('calls a connection the provider is still repairing temporary, not an auth problem', async () => {
+    // SimpleFIN can sit on "We are upgrading this connection" for weeks. Telling
+    // the user to re-link would be wrong advice, so it gets its own error type.
+    await expect(
+      providerWith(async () =>
+        jsonResponse(200, {
+          errors: ['We are upgrading this connection. Please wait...'],
+          accounts: [],
+        }),
+      ).fetchAccounts(context),
+    ).rejects.toBeInstanceOf(BankSyncTemporaryError);
+
+    // Still rate-limited after the retries.
+    await expect(
+      providerWith(async () => new Response('', { status: 429 })).fetchAccounts(context),
+    ).rejects.toBeInstanceOf(BankSyncTemporaryError);
   });
 });

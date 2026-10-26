@@ -35,8 +35,10 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import {
   BackupRun,
+  BankSyncConnection,
+  BankSyncConnectionList,
+  BankSyncProviderList,
   BankSyncResult,
-  BankSyncStatus,
   BrowseOptionList,
   BulkConversion,
   IntegrationConnection,
@@ -223,16 +225,23 @@ describe('Integration contracts (e2e)', () => {
   });
 
   it('the SimpleFIN bank feed: connect, settings, refresh, sync, disconnect', async () => {
+    await answer(BankSyncProviderList, call('get', '/integrations/bank-sync/providers'));
     const connected = await answer(
-      BankSyncStatus,
-      call('post', '/integrations/simplefin/connect', { setupToken: simplefinSetupToken }),
+      BankSyncConnection,
+      call('post', '/integrations/bank-sync/connections/token', {
+        provider: 'simplefin',
+        setupToken: simplefinSetupToken,
+      }),
     );
-    expect(connected.settings?.accounts).toHaveLength(1);
-    await answer(BankSyncStatus, call('post', '/integrations/simplefin/settings', { autoSync: false }));
-    await answer(BankSyncStatus, call('post', '/integrations/simplefin/accounts/refresh'));
-    const synced = await answer(BankSyncResult, call('post', '/integrations/simplefin/sync'));
+    expect(connected.config.accounts).toHaveLength(1);
+    const base = `/integrations/bank-sync/connections/${connected.id}`;
+    await answer(BankSyncConnection, call('patch', base, { autoSync: false }));
+    await answer(BankSyncConnection, call('post', `${base}/accounts/refresh`));
+    const listed = await answer(BankSyncConnectionList, call('get', '/integrations/bank-sync/connections'));
+    expect(listed.map(item => item.id)).toEqual([connected.id]);
+    const synced = await answer(BankSyncResult, call('post', `${base}/sync`));
     expect(synced.imported).toBe(2);
-    await answer(IntegrationDisconnected, call('delete', '/integrations/simplefin'));
+    await answer(IntegrationDisconnected, call('delete', base));
   });
 
   it('workspace service settings: SMTP, app URL, Telegram bot', async () => {

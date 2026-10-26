@@ -38,7 +38,7 @@ import {
   BalanceHistoryImported,
   BalanceHistoryPointDeleted,
   BalanceSheetResponse,
-  BankSyncStatus,
+  BankSyncConnectionList,
   BudgetImpact,
   BudgetItem,
   BudgetList,
@@ -1908,8 +1908,8 @@ describe('API contracts (e2e)', () => {
       expect(duplicates.body.groups.length).toBeGreaterThan(0);
     });
 
-    it('GET the bank feed status', async () => {
-      matches(BankSyncStatus, (await get('/integrations/simplefin/status')).body);
+    it('GET the bank feed connections', async () => {
+      matches(BankSyncConnectionList, (await get('/integrations/bank-sync/connections')).body);
     });
   });
 

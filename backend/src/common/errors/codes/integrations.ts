@@ -40,9 +40,19 @@ export const INTEGRATIONS_ERRORS = {
   // ── bank-sync ───────────────────────────────────────────────────
   BANK_SYNC_ACCOUNT_UNKNOWN: 'Account {{id}} is not in this connection',
   BANK_SYNC_WALLET_NOT_IN_WORKSPACE: 'Wallet does not belong to this workspace',
-  BANK_SYNC_SIMPLEFIN_REAUTH:
-    'SimpleFIN no longer accepts this connection: paste a new setup token',
-  BANK_SYNC_NOT_CONNECTED: 'Bank sync is not connected',
+  BANK_SYNC_CONNECTION_NOT_FOUND: 'Bank-sync connection not found',
+  BANK_SYNC_CONNECTION_DISCONNECTED: 'This connection is disconnected',
+  BANK_SYNC_NO_CREDENTIALS: 'This connection has no credentials',
+  BANK_SYNC_PROVIDER_UNKNOWN: 'Unknown bank-sync provider "{{provider}}"',
+  BANK_SYNC_PROVIDER_NOT_TOKEN: '{{provider}} is authorized in the browser, not with a token',
+  BANK_SYNC_PROVIDER_NOT_REDIRECT:
+    '{{provider}} is connected with a setup token, not in the browser',
+  BANK_SYNC_LINK_STATE_MISMATCH: 'This authorization was not started here, or has expired',
+  BANK_SYNC_ACCOUNT_FEEDS_OTHER_WALLET: 'That provider account already feeds another wallet',
+  BANK_SYNC_WALLET_HAS_FEED:
+    'That wallet already has a bank feed: switch it instead of adding a second one',
+  BANK_SYNC_NEEDS_REAUTH: 'The provider no longer accepts this connection: link it again',
+  BANK_SYNC_UNAVAILABLE: 'The provider asked to try again later; the connection itself is fine',
   BANK_SYNC_SIMPLEFIN_TOKEN_REJECTED:
     'SimpleFIN did not accept the setup token: it may have been used already (a token works once)',
   BANK_SYNC_SIMPLEFIN_CLAIM_FAILED: 'SimpleFIN claim failed with HTTP {{status}}',
@@ -56,6 +66,15 @@ export const INTEGRATIONS_ERRORS = {
   BANK_SYNC_SIMPLEFIN_TIMEOUT: 'SimpleFIN did not answer in time',
   BANK_SYNC_SIMPLEFIN_UNREADABLE: 'SimpleFIN sent an unreadable answer',
   BANK_SYNC_SIMPLEFIN_UNREACHABLE: 'SimpleFIN could not be reached',
+  BANK_SYNC_ENABLEBANKING_CREDENTIALS_MISSING:
+    'Enable Banking needs the application id and the private key of its registered certificate',
+  BANK_SYNC_ENABLEBANKING_KEY_INVALID: 'That private key is not a usable RSA key',
+  BANK_SYNC_ENABLEBANKING_NO_AUTH_URL: 'Enable Banking did not return an authorization URL',
+  BANK_SYNC_ENABLEBANKING_NO_SESSION: 'Enable Banking did not return a session',
+  BANK_SYNC_ENABLEBANKING_HTTP_ERROR: 'Enable Banking answered HTTP {{status}}',
+  BANK_SYNC_ENABLEBANKING_TIMEOUT: 'Enable Banking did not answer in time',
+  BANK_SYNC_ENABLEBANKING_UNREADABLE: 'Enable Banking sent an unreadable answer',
+  BANK_SYNC_ENABLEBANKING_UNREACHABLE: 'Enable Banking could not be reached',
   // ── maps ────────────────────────────────────────────────────────
   MAPS_TILE_UNKNOWN: 'Unknown map style or tile',
   MAPS_TILES_UNAVAILABLE: 'Map tiles are unavailable',
