@@ -11,6 +11,7 @@ import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronDown, ChevronRight } from '@/app/components/icons';
 import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
@@ -600,85 +601,77 @@ function BalanceSheet(): React.JSX.Element {
       )}
 
       {sheetQuery.isPending ? (
-        <Box
-          sx={{
-            border: '1px solid var(--border)',
-            bgcolor: 'var(--card)',
-            px: 2,
-            py: 5,
-            display: 'flex',
-            borderRadius: tokens.radius.lg,
-            justifyContent: 'center',
-          }}
-        >
-          <CircularProgress size={24} />
-        </Box>
+        <SnapshotSkeleton id="reports-balance-sheet" loading fallback="cards" />
       ) : sheet ? (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', xl: 'repeat(2, 1fr)' },
-            gap: 2,
-            // Сохранение баланса и смена даты перезагружают отчёт в фоне.
-            opacity: sheetQuery.isFetching ? 0.6 : 1,
-            transition: 'opacity 150ms ease',
-          }}
-        >
-          {(
-            [
-              {
-                key: 'assets',
-                title: text('assets', 'Assets'),
-                side: sheet.assets,
-              },
-              {
-                key: 'liabilities',
-                title: text('liabilities', 'Liabilities'),
-                side: sheet.liabilities,
-              },
-            ] as const
-          ).map(({ key, title, side }) => (
-            <Box
-              key={key}
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                border: '1px solid var(--border)',
-                borderRadius: tokens.radius.lg,
-                bgcolor: 'var(--card)',
-                p: 2,
-              }}
-            >
-              <Typography sx={{ mb: 1, fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}>
-                {title}
-              </Typography>
-              <Box sx={{ flexGrow: 1 }}>
-                {side.sections
-                  .sort((a, b) => a.position - b.position)
-                  .map(section => renderAccount(section))}
-              </Box>
-              {/* Both columns end on a total line, so the two sides can be read against each other. */}
+        <SnapshotSkeleton id="reports-balance-sheet" loading={false}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', xl: 'repeat(2, 1fr)' },
+              gap: 2,
+              // Сохранение баланса и смена даты перезагружают отчёт в фоне.
+              opacity: sheetQuery.isFetching ? 0.6 : 1,
+              transition: 'opacity 150ms ease',
+            }}
+          >
+            {(
+              [
+                {
+                  key: 'assets',
+                  title: text('assets', 'Assets'),
+                  side: sheet.assets,
+                },
+                {
+                  key: 'liabilities',
+                  title: text('liabilities', 'Liabilities'),
+                  side: sheet.liabilities,
+                },
+              ] as const
+            ).map(({ key, title, side }) => (
               <Box
+                key={key}
                 sx={{
-                  mt: 1,
-                  pt: 1.5,
                   display: 'flex',
-                  justifyContent: 'flex-end',
-                  borderTop: '1px solid var(--border)',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: 'var(--foreground)',
+                  flexDirection: 'column',
+                  border: '1px solid var(--border)',
+                  borderRadius: tokens.radius.lg,
+                  bgcolor: 'var(--card)',
+                  p: 2,
                 }}
               >
-                <PrivateAmount>
-                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {formatCurrency(side.total, 0)}
-                  </span>
-                </PrivateAmount>
+                <Typography
+                  sx={{ mb: 1, fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}
+                >
+                  {title}
+                </Typography>
+                <Box sx={{ flexGrow: 1 }}>
+                  {side.sections
+                    .sort((a, b) => a.position - b.position)
+                    .map(section => renderAccount(section))}
+                </Box>
+                {/* Both columns end on a total line, so the two sides can be read against each other. */}
+                <Box
+                  sx={{
+                    mt: 1,
+                    pt: 1.5,
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    borderTop: '1px solid var(--border)',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: 'var(--foreground)',
+                  }}
+                >
+                  <PrivateAmount>
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {formatCurrency(side.total, 0)}
+                    </span>
+                  </PrivateAmount>
+                </Box>
               </Box>
-            </Box>
-          ))}
-        </Box>
+            ))}
+          </Box>
+        </SnapshotSkeleton>
       ) : (
         <Box
           sx={{

@@ -3,7 +3,7 @@
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { Select } from '@/app/components/ui/select';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import type { UsePasteImportReturn } from '../hooks/usePasteImport';
 import { configForType, fieldForType } from '../utils/importTypes';
 import type {
@@ -247,134 +247,134 @@ export function ImportPreviewDialog({
       }
     >
       {pasteParsing || !preview ? (
-        <div className="seneca-ct__center">
-          <Spinner size={24} />
-        </div>
+        <SnapshotSkeleton id="custom-table-import" loading fallback="panel" />
       ) : (
-        <div className="seneca-ct__import">
-          <div className="seneca-ct__import-controls">
-            {paste.pasteSheets.length ? (
-              <Select
-                size="small"
-                inputProps={{ 'aria-label': labels.sheet }}
-                value={String(paste.pasteSheetIndex)}
-                onChange={next => paste.selectSheet(Number(next))}
-                options={paste.pasteSheets.map(sheet => ({
-                  value: String(sheet.index),
-                  label: `${sheet.name} · ${sheet.rows}`,
-                }))}
-              />
-            ) : null}
-            {preview.hasHeadersToggle ? (
-              <Checkbox
-                label={labels.useHeaders}
-                checked={paste.pasteUseHeaders}
-                onCheckedChange={paste.handlePasteHeadersToggle}
-              />
-            ) : null}
-            {preview.totals.excludedRows ? (
-              <Checkbox
-                label={`${fill(labels.totalsExcluded, { count: preview.totals.excludedRows })} · ${labels.applyTotals}`}
-                checked={paste.pasteApplyTotals}
-                onCheckedChange={paste.setPasteApplyTotals}
-              />
-            ) : null}
-          </div>
-          <div className="seneca-ct__map-head">
-            <span>{labels.source}</span>
-            <span>{labels.target}</span>
-            <span>{labels.newColumnTitle}</span>
-            <span>{labels.newColumnType}</span>
-          </div>
-          <ul className="seneca-ct__map">
-            {preview.columns.map(mapping => (
-              <MappingRow
-                key={mapping.sourceIndex ?? mapping.columnKey ?? mapping.label}
-                mapping={mapping}
-                columns={columns}
-                onChange={selection => {
-                  if (mapping.sourceIndex !== null) {
-                    paste.handlePasteMappingChange(mapping.sourceIndex, selection);
-                  }
-                }}
-                labels={labels}
-                typeLabels={typeLabels}
-              />
-            ))}
-          </ul>
-          <p className="seneca-ct__hint">
-            {fill(labels.rowsSummary, {
-              shown: preview.previewRows.length,
-              total: preview.totalRows,
-            })}
-            {preview.extraRowsCount
-              ? ` ${fill(labels.extraRows, { count: preview.extraRowsCount })}`
-              : ''}
-          </p>
-          {banner}
-          {requiredProblems.map(item => (
-            <p key={item.title} className="seneca-ct__hint seneca-ct__hint--warning">
-              {item.unmapped
-                ? fill(labels.requiredUnmapped, { column: item.title })
-                : fill(labels.requiredBlank, { column: item.title, count: item.blank })}
-            </p>
-          ))}
-          {issueCount ? (
-            <p className="seneca-ct__hint seneca-ct__hint--warning">
-              {fill(labels.issuesKept, { count: issueCount })}
-            </p>
-          ) : null}
-          {preview.formulas.total ? (
+        <SnapshotSkeleton id="custom-table-import" loading={false}>
+          <div className="seneca-ct__import">
+            <div className="seneca-ct__import-controls">
+              {paste.pasteSheets.length ? (
+                <Select
+                  size="small"
+                  inputProps={{ 'aria-label': labels.sheet }}
+                  value={String(paste.pasteSheetIndex)}
+                  onChange={next => paste.selectSheet(Number(next))}
+                  options={paste.pasteSheets.map(sheet => ({
+                    value: String(sheet.index),
+                    label: `${sheet.name} · ${sheet.rows}`,
+                  }))}
+                />
+              ) : null}
+              {preview.hasHeadersToggle ? (
+                <Checkbox
+                  label={labels.useHeaders}
+                  checked={paste.pasteUseHeaders}
+                  onCheckedChange={paste.handlePasteHeadersToggle}
+                />
+              ) : null}
+              {preview.totals.excludedRows ? (
+                <Checkbox
+                  label={`${fill(labels.totalsExcluded, { count: preview.totals.excludedRows })} · ${labels.applyTotals}`}
+                  checked={paste.pasteApplyTotals}
+                  onCheckedChange={paste.setPasteApplyTotals}
+                />
+              ) : null}
+            </div>
+            <div className="seneca-ct__map-head">
+              <span>{labels.source}</span>
+              <span>{labels.target}</span>
+              <span>{labels.newColumnTitle}</span>
+              <span>{labels.newColumnType}</span>
+            </div>
+            <ul className="seneca-ct__map">
+              {preview.columns.map(mapping => (
+                <MappingRow
+                  key={mapping.sourceIndex ?? mapping.columnKey ?? mapping.label}
+                  mapping={mapping}
+                  columns={columns}
+                  onChange={selection => {
+                    if (mapping.sourceIndex !== null) {
+                      paste.handlePasteMappingChange(mapping.sourceIndex, selection);
+                    }
+                  }}
+                  labels={labels}
+                  typeLabels={typeLabels}
+                />
+              ))}
+            </ul>
             <p className="seneca-ct__hint">
-              {fill(labels.formulasSummary, {
-                done: preview.formulas.carried,
-                total: preview.formulas.total,
+              {fill(labels.rowsSummary, {
+                shown: preview.previewRows.length,
+                total: preview.totalRows,
               })}
+              {preview.extraRowsCount
+                ? ` ${fill(labels.extraRows, { count: preview.extraRowsCount })}`
+                : ''}
             </p>
-          ) : null}
-          <div className="seneca-ct__preview-scroll">
-            <table className="seneca-ct__preview">
-              <thead>
-                <tr>
-                  {visibleColumns.map(column => (
-                    <th key={column.sourceIndex}>
-                      {column.mode === 'new' ? column.newTitle || column.label : column.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {preview.previewRows.map(row => (
-                  <tr key={row.id}>
-                    {row.cells.map((cell, index) => (
-                      <td
-                        key={`${row.id}:${cell.sourceIndex ?? index}`}
-                        className={cell.error ? 'seneca-ct__preview-warning' : undefined}
-                      >
-                        {cell.sourceIndex === null ? (
-                          cell.value
-                        ) : (
-                          <input
-                            className="seneca-ct__preview-input"
-                            value={cell.value}
-                            aria-label={`${row.rowIndex + 1}:${cell.sourceIndex}`}
-                            onChange={event =>
-                              paste.handlePasteCellChange(
-                                row.rowIndex,
-                                cell.sourceIndex as number,
-                                event.target.value,
-                              )
-                            }
-                          />
-                        )}
-                      </td>
+            {banner}
+            {requiredProblems.map(item => (
+              <p key={item.title} className="seneca-ct__hint seneca-ct__hint--warning">
+                {item.unmapped
+                  ? fill(labels.requiredUnmapped, { column: item.title })
+                  : fill(labels.requiredBlank, { column: item.title, count: item.blank })}
+              </p>
+            ))}
+            {issueCount ? (
+              <p className="seneca-ct__hint seneca-ct__hint--warning">
+                {fill(labels.issuesKept, { count: issueCount })}
+              </p>
+            ) : null}
+            {preview.formulas.total ? (
+              <p className="seneca-ct__hint">
+                {fill(labels.formulasSummary, {
+                  done: preview.formulas.carried,
+                  total: preview.formulas.total,
+                })}
+              </p>
+            ) : null}
+            <div className="seneca-ct__preview-scroll">
+              <table className="seneca-ct__preview">
+                <thead>
+                  <tr>
+                    {visibleColumns.map(column => (
+                      <th key={column.sourceIndex}>
+                        {column.mode === 'new' ? column.newTitle || column.label : column.label}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {preview.previewRows.map(row => (
+                    <tr key={row.id}>
+                      {row.cells.map((cell, index) => (
+                        <td
+                          key={`${row.id}:${cell.sourceIndex ?? index}`}
+                          className={cell.error ? 'seneca-ct__preview-warning' : undefined}
+                        >
+                          {cell.sourceIndex === null ? (
+                            cell.value
+                          ) : (
+                            <input
+                              className="seneca-ct__preview-input"
+                              value={cell.value}
+                              aria-label={`${row.rowIndex + 1}:${cell.sourceIndex}`}
+                              onChange={event =>
+                                paste.handlePasteCellChange(
+                                  row.rowIndex,
+                                  cell.sourceIndex as number,
+                                  event.target.value,
+                                )
+                              }
+                            />
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </SnapshotSkeleton>
       )}
     </ModalShell>
   );

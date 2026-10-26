@@ -9,7 +9,7 @@ import { Plus, RefreshCcw } from '@/app/components/icons';
 import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { PageTitle } from '@/app/components/ui/page-title';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { ActivityCard } from './components/ActivityCard';
@@ -119,11 +119,7 @@ export default function CryptoPage(): React.JSX.Element {
         </Button>
       </Box>
 
-      {isPending && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <Spinner size={32} />
-        </Box>
-      )}
+      {isPending && <SnapshotSkeleton id="crypto" loading fallback="cards" />}
 
       {/* Nothing to show at all: the illustrated state replaces the page. With data
           already on screen (a failed sync), a slim alert keeps that data visible. */}
@@ -161,167 +157,169 @@ export default function CryptoPage(): React.JSX.Element {
       )}
 
       {!isPending && wallets.length > 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {summary && (
-            <PortfolioSummary
-              summary={summary}
-              history={history}
-              locale={locale}
-              money={money}
-              historyDays={historyDays}
-              onHistoryDaysChange={setHistoryDays}
-              labels={{
-                sinceYesterday: t.sinceYesterday.value,
-                historyEmpty: t.historyEmpty.value,
-                unrealized: t.unrealized.value,
-                costBasis: t.costBasis.value,
-                income: t.income.value,
-                expense: t.expense.value,
-              }}
-            />
-          )}
-
-          {/* Holdings, and the wallets beside them as a narrow reference column:
-              Allocation repeated Holdings (it is the Share column now), and the
-              hand-kept coins are a dialog opened from Holdings' header. */}
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' },
-              gap: 3,
-              alignItems: 'start',
-            }}
-          >
-            {summary && summary.holdings.length > 0 ? (
-              <HoldingsTable
-                holdings={summary.holdings}
+        <SnapshotSkeleton id="crypto" loading={false}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {summary && (
+              <PortfolioSummary
+                summary={summary}
+                history={history}
                 locale={locale}
-                currency={currency}
                 money={money}
-                onAddHolding={() => setHoldingsOpen(true)}
+                historyDays={historyDays}
+                onHistoryDaysChange={setHistoryDays}
                 labels={{
-                  title: t.holdings.value,
-                  asset: t.asset.value,
-                  balance: t.balance.value,
-                  price: t.price.value,
-                  worth: t.worth.value,
-                  avgCost: t.avgCost.value,
+                  sinceYesterday: t.sinceYesterday.value,
+                  historyEmpty: t.historyEmpty.value,
                   unrealized: t.unrealized.value,
-                  basisUnknown: t.basisUnknown.value,
-                  share: t.share.value,
-                  addHolding: t.addHolding.value,
+                  costBasis: t.costBasis.value,
+                  income: t.income.value,
+                  expense: t.expense.value,
                 }}
               />
-            ) : (
-              <Box>
-                <Button variant="text" onClick={() => setHoldingsOpen(true)}>
-                  <Plus size={16} aria-hidden />
-                  {t.addHolding}
-                </Button>
-              </Box>
             )}
 
-            <ConnectedWalletsCard
-              wallets={onChainWallets}
-              locale={locale}
-              busyWalletId={busyWalletId}
-              labels={{
-                title: t.connectedWallets.value,
-                sync: t.sync.value,
-                remove: t.remove.value,
-                transactions: t.transactions.value,
-                neverSynced: t.neverSynced.value,
-                walletOfChain: t.walletOfChain.value,
-                copyAddress: t.copyAddress.value,
-                copied: t.addressCopied.value,
-                syncedToday: t.syncedToday.value,
-                syncedOn: t.syncedOn.value,
-                moreActions: t.moreActions.value,
-                removeConfirm: t.removeWalletConfirm.value,
-                cancel: t.cancel.value,
+            {/* Holdings, and the wallets beside them as a narrow reference column:
+              Allocation repeated Holdings (it is the Share column now), and the
+              hand-kept coins are a dialog opened from Holdings' header. */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' },
+                gap: 3,
+                alignItems: 'start',
               }}
-              onSync={id => syncWallet(id)}
-              onRemove={id => removeWallet(id)}
+            >
+              {summary && summary.holdings.length > 0 ? (
+                <HoldingsTable
+                  holdings={summary.holdings}
+                  locale={locale}
+                  currency={currency}
+                  money={money}
+                  onAddHolding={() => setHoldingsOpen(true)}
+                  labels={{
+                    title: t.holdings.value,
+                    asset: t.asset.value,
+                    balance: t.balance.value,
+                    price: t.price.value,
+                    worth: t.worth.value,
+                    avgCost: t.avgCost.value,
+                    unrealized: t.unrealized.value,
+                    basisUnknown: t.basisUnknown.value,
+                    share: t.share.value,
+                    addHolding: t.addHolding.value,
+                  }}
+                />
+              ) : (
+                <Box>
+                  <Button variant="text" onClick={() => setHoldingsOpen(true)}>
+                    <Plus size={16} aria-hidden />
+                    {t.addHolding}
+                  </Button>
+                </Box>
+              )}
+
+              <ConnectedWalletsCard
+                wallets={onChainWallets}
+                locale={locale}
+                busyWalletId={busyWalletId}
+                labels={{
+                  title: t.connectedWallets.value,
+                  sync: t.sync.value,
+                  remove: t.remove.value,
+                  transactions: t.transactions.value,
+                  neverSynced: t.neverSynced.value,
+                  walletOfChain: t.walletOfChain.value,
+                  copyAddress: t.copyAddress.value,
+                  copied: t.addressCopied.value,
+                  syncedToday: t.syncedToday.value,
+                  syncedOn: t.syncedOn.value,
+                  moreActions: t.moreActions.value,
+                  removeConfirm: t.removeWalletConfirm.value,
+                  cancel: t.cancel.value,
+                }}
+                onSync={id => syncWallet(id)}
+                onRemove={id => removeWallet(id)}
+              />
+            </Box>
+
+            <ManualHoldingsDialog
+              open={holdingsOpen}
+              onClose={() => setHoldingsOpen(false)}
+              balances={manualBalances}
+              saving={savingHolding}
+              labels={{
+                title: t.manualHoldings.value,
+                add: t.addHolding.value,
+                ticker: t.tickerLabel.value,
+                amount: t.amount.value,
+                costPerUnit: t.costPerUnit.value,
+                save: t.save.value,
+                cancel: t.cancel.value,
+                remove: t.remove.value,
+              }}
+              onSave={saveHolding}
+              onRemove={removeHolding}
+            />
+
+            {summary && summary.unpriced.length > 0 && (
+              <Alert severity="info" variant="outlined">
+                <strong>{t.unpriced}</strong>{' '}
+                {summary.unpriced.map(item => `${item.amount} ${item.asset}`).join(', ')} —{' '}
+                {t.unpricedHint}
+              </Alert>
+            )}
+
+            {/* Transactions and realized gains in one block with tabs: two long
+              tables one after the other made the page endless. */}
+            <ActivityCard
+              transactions={transactions}
+              gains={gains}
+              gainsYear={gainsYear}
+              gainsYears={gainYears.length > 0 ? gainYears : [new Date().getFullYear()]}
+              onGainsYearChange={setGainsYear}
+              locale={locale}
+              money={money}
+              labels={{
+                tabs: t.activityTabs.value,
+                transactions: {
+                  title: t.transactionsTab.value,
+                  empty: t.noTransactions.value,
+                  date: t.date.value,
+                  wallet: t.wallet.value,
+                  counterparty: t.counterparty.value,
+                  amount: t.amount.value,
+                  worth: t.worth.value,
+                  received: t.received.value,
+                  sent: t.sent.value,
+                  receivedFrom: t.receivedFrom.value,
+                  sentTo: t.sentTo.value,
+                },
+                gains: {
+                  title: t.gains.value,
+                  hint: t.gainsHint.value,
+                  empty: t.gainsEmpty.value,
+                  allYears: t.allYears.value,
+                  asset: t.asset.value,
+                  sold: t.soldOn.value,
+                  acquired: t.acquiredOn.value,
+                  amount: t.amount.value,
+                  proceeds: t.proceeds.value,
+                  cost: t.costBasis.value,
+                  gain: t.realized.value,
+                  heldDays: t.heldDays.value,
+                  exportCsv: t.exportCsv.value,
+                  basisIncomplete: t.basisIncomplete.value,
+                  basisIncompleteHint: t.basisIncompleteHint.value,
+                  acquiredUnknown: t.acquiredUnknown.value,
+                  totalRealized: t.totalRealized.value,
+                  lotCount: t.lotCount.value,
+                  showUncovered: t.showUncovered.value,
+                  hideUncovered: t.hideUncovered.value,
+                },
+              }}
             />
           </Box>
-
-          <ManualHoldingsDialog
-            open={holdingsOpen}
-            onClose={() => setHoldingsOpen(false)}
-            balances={manualBalances}
-            saving={savingHolding}
-            labels={{
-              title: t.manualHoldings.value,
-              add: t.addHolding.value,
-              ticker: t.tickerLabel.value,
-              amount: t.amount.value,
-              costPerUnit: t.costPerUnit.value,
-              save: t.save.value,
-              cancel: t.cancel.value,
-              remove: t.remove.value,
-            }}
-            onSave={saveHolding}
-            onRemove={removeHolding}
-          />
-
-          {summary && summary.unpriced.length > 0 && (
-            <Alert severity="info" variant="outlined">
-              <strong>{t.unpriced}</strong>{' '}
-              {summary.unpriced.map(item => `${item.amount} ${item.asset}`).join(', ')} —{' '}
-              {t.unpricedHint}
-            </Alert>
-          )}
-
-          {/* Transactions and realized gains in one block with tabs: two long
-              tables one after the other made the page endless. */}
-          <ActivityCard
-            transactions={transactions}
-            gains={gains}
-            gainsYear={gainsYear}
-            gainsYears={gainYears.length > 0 ? gainYears : [new Date().getFullYear()]}
-            onGainsYearChange={setGainsYear}
-            locale={locale}
-            money={money}
-            labels={{
-              tabs: t.activityTabs.value,
-              transactions: {
-                title: t.transactionsTab.value,
-                empty: t.noTransactions.value,
-                date: t.date.value,
-                wallet: t.wallet.value,
-                counterparty: t.counterparty.value,
-                amount: t.amount.value,
-                worth: t.worth.value,
-                received: t.received.value,
-                sent: t.sent.value,
-                receivedFrom: t.receivedFrom.value,
-                sentTo: t.sentTo.value,
-              },
-              gains: {
-                title: t.gains.value,
-                hint: t.gainsHint.value,
-                empty: t.gainsEmpty.value,
-                allYears: t.allYears.value,
-                asset: t.asset.value,
-                sold: t.soldOn.value,
-                acquired: t.acquiredOn.value,
-                amount: t.amount.value,
-                proceeds: t.proceeds.value,
-                cost: t.costBasis.value,
-                gain: t.realized.value,
-                heldDays: t.heldDays.value,
-                exportCsv: t.exportCsv.value,
-                basisIncomplete: t.basisIncomplete.value,
-                basisIncompleteHint: t.basisIncompleteHint.value,
-                acquiredUnknown: t.acquiredUnknown.value,
-                totalRealized: t.totalRealized.value,
-                lotCount: t.lotCount.value,
-                showUncovered: t.showUncovered.value,
-                hideUncovered: t.hideUncovered.value,
-              },
-            }}
-          />
-        </Box>
+        </SnapshotSkeleton>
       )}
 
       <ConnectWalletDrawer

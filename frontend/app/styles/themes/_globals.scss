@@ -48,6 +48,7 @@
   --text-primary:       #{$seneca-color-text-primary};
   --text-secondary:     #{$seneca-color-text-secondary};
   --icon-badge-bg:      #{$seneca-color-icon-badge-bg};
+  --skeleton:           #{$seneca-color-skeleton};
   // A soft panel inside a card (Stoic class cards); neutral, unlike MUI's
   // action.hover, which this app tints green.
   --surface-soft:       #{$seneca-color-slot-bg};
@@ -149,6 +150,7 @@
   --text-primary:       #{$seneca-color-text-primary-dk};
   --text-secondary:     #{$seneca-color-text-secondary-dk};
   --icon-badge-bg:      #{$seneca-color-ink-100-dk};
+  --skeleton:           #{$seneca-color-skeleton-dk};
   --surface-soft:       #{$seneca-color-ink-100-dk};
   // Ink at 20% vanishes on a graphite page; dark needs a real shade.
   --modal-backdrop:     rgba(0, 0, 0, 0.55);

@@ -13,6 +13,7 @@ import {
   Shield,
   ShieldCheck,
 } from '@/app/components/icons';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage, getApiErrorStatus } from '@/app/lib/api-error';
@@ -709,17 +710,7 @@ export default function FileDetailsPage() {
             }}
           >
             {previewLoading && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  minHeight: 360,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--muted-foreground)',
-                }}
-              >
-                <Spinner className="h-6 w-6" />
-              </Box>
+              <SnapshotSkeleton id="storage-file-preview" loading fallback="panel" />
             )}
 
             {!previewLoading && previewError && (

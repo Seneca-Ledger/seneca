@@ -2,7 +2,7 @@
 
 import { type ChangeEvent, type ComponentType, useEffect, useRef, useState } from 'react';
 import { Download, MoreVertical, X } from '@/app/components/icons';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import { apiBaseUrl } from '@/app/lib/api';
 import { hasSessionCookie } from '@/app/lib/csrf';
@@ -389,10 +389,7 @@ export function PDFPreviewModal({
         <div className="seneca-pdf-preview-modal__content">
           {loading && (
             <div className="seneca-pdf-preview-modal__loading-overlay">
-              <div className="seneca-pdf-preview-modal__loading-body">
-                <Spinner size={40} sx={{ display: 'block', mx: 'auto', mb: 2 }} />
-                <p className="seneca-pdf-preview-modal__loading-text">{t.loading.value}</p>
-              </div>
+              <SnapshotSkeleton id="pdf-preview" loading fallback="panel" />
             </div>
           )}
 
