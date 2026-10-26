@@ -4,6 +4,7 @@ import { ReceiptSource, ReceiptStatus } from '../../../../src/entities/receipt.e
 import { BankName, StatementStatus } from '../../../../src/entities/statement.entity';
 import { TransactionType } from '../../../../src/entities/transaction.entity';
 import { WorkspaceRole } from '../../../../src/entities/workspace-member.entity';
+import { CashFlowEntriesService } from '../../../../src/modules/dashboard/cash-flow-entries.service';
 import { DashboardService } from '../../../../src/modules/dashboard/dashboard.service';
 
 const createRepoMock = () =>
@@ -804,7 +805,12 @@ describe('DashboardService', () => {
       { transactionId: 'market', date: '2026-10-16', currency: 'KZT', amount: 40 },
     ]);
 
-    const { entries } = await service.getCashFlowEntries('ws-1', '2026-10', null);
+    const entriesService = new CashFlowEntriesService(
+      transactionRepo as any,
+      service,
+      budgetsService as any,
+    );
+    const { entries } = await entriesService.getCashFlowEntries('ws-1', '2026-10', null);
 
     const budgeted = Object.fromEntries(entries.map(entry => [entry.name, entry.budgeted]));
     expect(budgeted).toEqual({ 'ACME pay': 11, 'ACME market': 40, 'ACME sale': 0 });

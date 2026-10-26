@@ -14,6 +14,7 @@ import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { ApplicationSettingsModule } from '../application-settings/application-settings.module';
 import { BudgetsModule } from '../budgets/budgets.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
+import { CashFlowEntriesService } from './cash-flow-entries.service';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { SetupProgressController } from './setup-progress.controller';
@@ -40,7 +41,7 @@ import { SetupProgressService } from './setup-progress.service';
     forwardRef(() => BudgetsModule),
   ],
   controllers: [DashboardController, SetupProgressController],
-  providers: [DashboardService, SetupProgressService],
+  providers: [DashboardService, CashFlowEntriesService, SetupProgressService],
   exports: [DashboardService],
 })
 export class DashboardModule {}

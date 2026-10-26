@@ -13,6 +13,7 @@ import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { BudgetEventsListener } from './budget-events.listener';
+import { BudgetWithinLimitService } from './budget-within-limit.service';
 import { BudgetsController } from './budgets.controller';
 import { BudgetsService } from './budgets.service';
 import { StoicLedgerService } from './stoic/stoic-ledger.service';
@@ -35,7 +36,7 @@ import { StoicLedgerService } from './stoic/stoic-ledger.service';
     WorkspaceCurrencyModule,
   ],
   controllers: [BudgetsController],
-  providers: [BudgetsService, BudgetEventsListener, StoicLedgerService],
-  exports: [BudgetsService, StoicLedgerService],
+  providers: [BudgetsService, BudgetWithinLimitService, BudgetEventsListener, StoicLedgerService],
+  exports: [BudgetsService, BudgetWithinLimitService, StoicLedgerService],
 })
 export class BudgetsModule {}
