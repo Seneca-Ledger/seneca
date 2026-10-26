@@ -5,7 +5,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StatementListItem } from '@/app/lib/contracts';
-import { transactionItem } from '@/app/test/fixtures/contracts';
+import { receiptRecord, transactionItem } from '@/app/test/fixtures/contracts';
 import { SpendCalendarCard } from '../SpendCalendarCard';
 
 /** A completed `GET /statements` row covering `from`..`to`. */
@@ -287,7 +287,7 @@ describe('SpendCalendarCard', () => {
         return Promise.resolve({
           data: {
             receipts: [
-              {
+              receiptRecord({
                 id: 'receipt-1',
                 subject: 'City Rides trip',
                 sender: 'City Rides <noreply@example.com>',
@@ -301,8 +301,8 @@ describe('SpendCalendarCard', () => {
                   date: '2026-01-12',
                   transactionType: 'expense',
                 },
-              },
-              {
+              }),
+              receiptRecord({
                 id: 'receipt-2',
                 subject: 'Duplicate ACME Cloud receipt',
                 sender: 'ACME Cloud <billing@example.com>',
@@ -316,9 +316,11 @@ describe('SpendCalendarCard', () => {
                   date: '2026-01-11',
                   transactionType: 'expense',
                 },
-              },
+              }),
             ],
             total: 2,
+            limit: 100,
+            offset: 0,
           },
         });
       }
@@ -393,7 +395,7 @@ describe('SpendCalendarCard', () => {
         return Promise.resolve({ data: { data: [], items: [], total: 0, page: 1, limit: 500 } });
       }
       if (url === '/receipts/documents') {
-        return Promise.resolve({ data: { receipts: [], total: 0 } });
+        return Promise.resolve({ data: { receipts: [], total: 0, limit: 100, offset: 0 } });
       }
       return Promise.reject(new Error(`Unhandled request: ${url}`));
     });
