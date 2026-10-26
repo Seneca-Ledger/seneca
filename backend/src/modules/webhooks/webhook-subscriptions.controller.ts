@@ -9,9 +9,12 @@ import { Permission } from '../../common/enums/permissions.enum';
 import {
   CreateWebhookSubscriptionBody,
   UpdateWebhookSubscriptionBody,
+  WebhookActionResult,
   WebhookDeliveryList,
   WebhookIdParams,
+  WebhookSubscriptionItem,
   WebhookSubscriptionList,
+  WebhookTestQueued,
 } from '../../contracts';
 import { User } from '../../entities/user.entity';
 import { WebhookEvent } from '../../entities/webhook-subscription.entity';
@@ -37,6 +40,7 @@ export class WebhookSubscriptionsController {
 
   @Post()
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(WebhookSubscriptionItem)
   async create(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(CreateWebhookSubscriptionBody) dto: CreateWebhookSubscriptionBody,
@@ -55,6 +59,7 @@ export class WebhookSubscriptionsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(WebhookSubscriptionItem)
   async findOne(
     @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
@@ -65,6 +70,7 @@ export class WebhookSubscriptionsController {
 
   @Patch(':id')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(WebhookSubscriptionItem)
   async update(
     @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
@@ -77,6 +83,7 @@ export class WebhookSubscriptionsController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(WebhookActionResult)
   async delete(
     @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
@@ -99,6 +106,7 @@ export class WebhookSubscriptionsController {
 
   @Post(':id/test')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(WebhookTestQueued)
   @ApiOperation({ summary: 'Send a test ping to the subscription URL' })
   async testPing(
     @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,

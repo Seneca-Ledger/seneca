@@ -33,9 +33,16 @@ import {
   DataEntryBaseTabParams,
   DataEntryListQuery,
   DataEntryParams,
+  OkResult,
   UpdateDataEntryCustomFieldBody,
   UploadedIcon,
 } from '../../contracts';
+import {
+  DataEntryCustomFieldItem,
+  DataEntryCustomFieldList,
+  DataEntryItem,
+  DataEntryPage,
+} from '../../contracts/data-entry/data-entry';
 import { DataEntryType } from '../../entities/data-entry.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -50,6 +57,7 @@ export class DataEntryController {
   ) {}
 
   @Post()
+  @SchemaResponse(DataEntryItem)
   async create(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -73,6 +81,7 @@ export class DataEntryController {
   }
 
   @Get()
+  @SchemaResponse(DataEntryPage)
   async list(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -100,6 +109,7 @@ export class DataEntryController {
   }
 
   @Delete(':id')
+  @SchemaResponse(OkResult)
   async remove(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -110,6 +120,7 @@ export class DataEntryController {
   }
 
   @Get('custom-fields')
+  @SchemaResponse(DataEntryCustomFieldList)
   async listCustomFields(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const [items, hiddenBaseTabs] = await Promise.all([
       this.dataEntryService.listCustomFields(workspaceId),
@@ -119,6 +130,7 @@ export class DataEntryController {
   }
 
   @Delete('base-tabs/:type')
+  @SchemaResponse(OkResult)
   async removeBaseTab(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -129,6 +141,7 @@ export class DataEntryController {
   }
 
   @Post('custom-fields')
+  @SchemaResponse(DataEntryCustomFieldItem)
   async createCustomField(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -176,6 +189,7 @@ export class DataEntryController {
   }
 
   @Patch('custom-fields/:id')
+  @SchemaResponse(DataEntryCustomFieldItem)
   async updateCustomField(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -186,6 +200,7 @@ export class DataEntryController {
   }
 
   @Delete('custom-fields/:id')
+  @SchemaResponse(OkResult)
   async removeCustomField(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

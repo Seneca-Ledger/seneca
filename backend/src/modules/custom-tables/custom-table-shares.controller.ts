@@ -12,9 +12,16 @@ import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
   CreateCustomTableShareBody,
   CreateExportScheduleBody,
+  MessageResult,
   SharedTableRows,
   SharedTableView,
 } from '../../contracts';
+import {
+  CustomTableShareCreated,
+  CustomTableShareList,
+  ExportScheduleItem,
+  ExportScheduleList,
+} from '../../contracts/custom-tables/custom-table-collab';
 import {
   CustomTableParams,
   CustomTableScheduleParams,
@@ -40,6 +47,7 @@ export class CustomTableSharesController {
 
   @Post(':id/shares')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableShareCreated)
   async createShare(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -59,6 +67,7 @@ export class CustomTableSharesController {
 
   @Get(':id/shares')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableShareList)
   async listShares(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -80,6 +89,7 @@ export class CustomTableSharesController {
 
   @Post(':id/export-schedules')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(ExportScheduleItem)
   async createExportSchedule(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -95,6 +105,7 @@ export class CustomTableSharesController {
 
   @Get(':id/export-schedules')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(ExportScheduleList)
   async listExportSchedules(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -106,6 +117,7 @@ export class CustomTableSharesController {
 
   @Delete(':id/export-schedules/:scheduleId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(MessageResult)
   async deleteExportSchedule(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -134,6 +146,7 @@ export class CustomTableSharesController {
 
   @Delete(':id/shares/:shareId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(MessageResult)
   async revokeShare(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

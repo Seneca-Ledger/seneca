@@ -6,7 +6,14 @@ import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { BranchList, BranchParams, CreateBranchBody, UpdateBranchBody } from '../../contracts';
+import {
+  BranchItem,
+  BranchList,
+  BranchParams,
+  CreateBranchBody,
+  MessageResult,
+  UpdateBranchBody,
+} from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BranchesService } from './branches.service';
@@ -17,12 +24,15 @@ export class BranchesController {
 
   @Post()
   @WorkspaceAuth(Permission.BRANCH_CREATE)
+  @SchemaResponse(BranchItem)
   async create(
     @SchemaBody(CreateBranchBody) createDto: CreateBranchBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.branchesService.create(workspaceId, user.id, createDto);
+    const created = await this.branchesService.create(workspaceId, user.id, createDto);
+    // The stored form, as the list reads it: defaults filled, decimals as strings.
+    return this.branchesService.findOne(created.id, workspaceId);
   }
 
   @Get()
@@ -34,6 +44,7 @@ export class BranchesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.BRANCH_VIEW)
+  @SchemaResponse(BranchItem)
   async findOne(
     @SchemaParams(BranchParams) { id }: BranchParams,
     @CurrentUser() _user: User,
@@ -44,17 +55,20 @@ export class BranchesController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.BRANCH_EDIT)
+  @SchemaResponse(BranchItem)
   async update(
     @SchemaParams(BranchParams) { id }: BranchParams,
     @SchemaBody(UpdateBranchBody) updateDto: UpdateBranchBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.branchesService.update(id, workspaceId, updateDto);
+    await this.branchesService.update(id, workspaceId, updateDto);
+    return this.branchesService.findOne(id, workspaceId);
   }
 
   @Delete(':id')
   @WorkspaceAuth(Permission.BRANCH_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(BranchParams) { id }: BranchParams,
     @CurrentUser() _user: User,

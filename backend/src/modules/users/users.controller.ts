@@ -16,9 +16,6 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
-import * as fs from 'fs';
-import { diskStorage } from 'multer';
-import * as path from 'path';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
@@ -30,15 +27,11 @@ import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TimezonesService } from '../../common/services/timezones.service';
-import {
-  isAllowedAvatarMime,
-  sanitizeAvatarFilename,
-} from '../../common/utils/avatar-filename.util';
 import { removeUploadedFile, validateImageSignature } from '../../common/utils/file-validator.util';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   AddPermissionBody,
+  AdminUser,
   AdminUserList,
   AvatarFileParams,
   ChangeEmailBody,
@@ -46,16 +39,21 @@ import {
   CompleteOnboardingBody,
   ConfirmEmailChangeBody,
   DeleteMyAccountBody,
+  DisclaimerAccepted,
   DisclaimerStatus,
+  EmailChangeConfirmed,
   MessageResult,
   PageHintsSeen,
   PageHintsSeenBody,
   RemovePermissionBody,
+  TimeZoneList,
   UpdateMyPreferencesBody,
   UpdatePermissionsBody,
   UpdateUserBody,
   UserIdParams,
   UserPermissions,
+  UserPermissionsUpdate,
+  UserProfile,
   UsersQuery,
   UserUpdateResponse,
   WelcomeTutorialSeen,
@@ -64,7 +62,7 @@ import { type User, UserRole } from '../../entities/user.entity';
 import { toCurrentUser } from '../auth/current-user.view';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
-import { sendAvatarFile } from './avatar-file.util';
+import { avatarUploadOptions, sendAvatarFile } from './avatar-file.util';
 import { CURRENT_DISCLAIMER_VERSION } from './disclaimer.constant';
 import { AccountDataService } from './services/account-data.service';
 import { EmailChangeService } from './services/email-change.service';
@@ -95,16 +93,21 @@ export class UsersController {
   }
 
   @Get('me')
-  async getProfile(@CurrentUser() user: User): Promise<User> {
-    return this.usersService.getProfile(user.id);
+  @SchemaResponse(UserProfile)
+  async getProfile(@CurrentUser() user: User) {
+    // The row the auth guard loaded, as `GET /auth/me` answers it.
+    const { disclaimerAcceptedAt, disclaimerVersion } = user;
+    return { ...toCurrentUser(user), disclaimerAcceptedAt, disclaimerVersion };
   }
 
   @Get('timezones')
+  @SchemaResponse(TimeZoneList)
   async getTimeZones() {
     return { timeZones: this.timezonesService.listTimeZones() };
   }
 
   @Patch('me/onboarding')
+  @SchemaResponse(UserUpdateResponse)
   async completeOnboarding(
     @CurrentUser() currentUser: User,
     @SchemaBody(CompleteOnboardingBody) dto: CompleteOnboardingBody,
@@ -120,6 +123,7 @@ export class UsersController {
   }
 
   @Delete('me')
+  @SchemaResponse(MessageResult)
   async deleteMyAccount(
     @CurrentUser() currentUser: User,
     @SchemaBody(DeleteMyAccountBody) dto: DeleteMyAccountBody,
@@ -134,12 +138,11 @@ export class UsersController {
    * when, which is the part that has to be auditable.
    */
   @Post('me/disclaimer')
+  @SchemaResponse(DisclaimerAccepted)
   async acceptDisclaimer(@CurrentUser() currentUser: User) {
-    const updatedUser = await this.usersService.acceptDisclaimer(currentUser.id);
-    return {
-      user: toCurrentUser(updatedUser),
-      version: CURRENT_DISCLAIMER_VERSION,
-    };
+    await this.usersService.acceptDisclaimer(currentUser.id);
+    // The acceptance changes no field of the profile, so the guard's full row answers it.
+    return { user: toCurrentUser(currentUser), version: CURRENT_DISCLAIMER_VERSION };
   }
 
   @Get('me/disclaimer')
@@ -201,6 +204,7 @@ export class UsersController {
   }
 
   @Get(':id')
+  @SchemaResponse(AdminUser)
   async findOne(
     @SchemaParams(UserIdParams) { id }: UserIdParams,
     @CurrentUser() currentUser: User,
@@ -214,6 +218,7 @@ export class UsersController {
   }
 
   @Put(':id')
+  @SchemaResponse(AdminUser)
   async update(
     @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(UpdateUserBody) updateUserDto: UpdateUserBody,
@@ -224,6 +229,7 @@ export class UsersController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(UserIdParams) { id }: UserIdParams,
     @CurrentUser() currentUser: User,
@@ -251,6 +257,7 @@ export class UsersController {
 
   @Put(':id/permissions')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async updatePermissions(
     @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(UpdatePermissionsBody) dto: UpdatePermissionsBody,
@@ -272,6 +279,7 @@ export class UsersController {
 
   @Post(':id/permissions/add')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async addPermission(
     @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(AddPermissionBody) dto: AddPermissionBody,
@@ -293,6 +301,7 @@ export class UsersController {
 
   @Post(':id/permissions/remove')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async removePermission(
     @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(RemovePermissionBody) dto: RemovePermissionBody,
@@ -314,6 +323,7 @@ export class UsersController {
 
   @Post(':id/permissions/reset')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async resetPermissions(
     @SchemaParams(UserIdParams) { id }: UserIdParams,
     @WorkspaceId() workspaceId: string,
@@ -350,6 +360,7 @@ export class UsersController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('me/email/confirm')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(EmailChangeConfirmed)
   async confirmEmailChange(@SchemaBody(ConfirmEmailChangeBody) dto: ConfirmEmailChangeBody) {
     const { email } = await this.emailChangeService.confirmEmailChange(dto.token);
     return { email, message: 'Email address confirmed.' };
@@ -378,41 +389,8 @@ export class UsersController {
   }
 
   @Post('me/avatar')
-  @UseInterceptors(
-    FileInterceptor('avatar', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadsDir = resolveUploadsDir();
-          const targetDir = path.join(uploadsDir, 'user-avatars');
-          if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-          }
-          cb(null, targetDir);
-        },
-        filename: (_req, file, cb) => {
-          try {
-            cb(null, sanitizeAvatarFilename(file.originalname, file.mimetype));
-          } catch {
-            // Unreachable while fileFilter runs first, but the filename callback
-            // must not surface an unsupported type as a 500.
-            cb(new BadRequestException('Unsupported avatar type'), '');
-          }
-        },
-      }),
-      fileFilter: (_req, file, cb) => {
-        // Allowlist, not `startsWith('image/')`: the declared type decides the
-        // stored extension, so anything outside this set must be rejected here.
-        if (!isAllowedAvatarMime(file.mimetype)) {
-          return cb(
-            new BadRequestException('Only JPEG, PNG, WebP and GIF images are allowed'),
-            false,
-          );
-        }
-        cb(null, true);
-      },
-      limits: { fileSize: 2_000_000 },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('avatar', avatarUploadOptions))
+  @SchemaResponse(UserUpdateResponse)
   async uploadMyAvatar(
     @CurrentUser() currentUser: User,
     @UploadedFile() file: MulterFile | undefined,

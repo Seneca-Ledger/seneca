@@ -13,6 +13,7 @@ import {
   JournalEntryDetail,
   JournalEntryPage,
   LedgerRecordParams,
+  MessageResult,
   ReverseJournalEntryBody,
   UpdateJournalEntryBody,
 } from '../../contracts';
@@ -98,6 +99,7 @@ export class LedgerEntriesController {
   @Delete(':id')
   @WorkspaceAuth(Permission.LEDGER_POST)
   @Audit({ entityType: EntityType.JOURNAL_ENTRY })
+  @SchemaResponse(MessageResult)
   async remove(
     @WorkspaceId() workspaceId: string,
     @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,

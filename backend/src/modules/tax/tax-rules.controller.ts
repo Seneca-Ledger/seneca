@@ -8,7 +8,9 @@ import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
   CreateTaxRuleBody,
+  MessageResult,
   TaxRecordParams,
+  TaxRuleItem,
   TaxRuleList,
   UpdateTaxRuleBody,
 } from '../../contracts';
@@ -29,6 +31,7 @@ export class TaxRulesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(TaxRuleItem)
   async findOne(
     @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @WorkspaceId() workspaceId: string,
@@ -40,6 +43,7 @@ export class TaxRulesController {
   // behind settings management rather than category permissions.
   @Post()
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(TaxRuleItem)
   async create(
     @SchemaBody(CreateTaxRuleBody) dto: CreateTaxRuleBody,
     @WorkspaceId() workspaceId: string,
@@ -50,6 +54,7 @@ export class TaxRulesController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(TaxRuleItem)
   async update(
     @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @SchemaBody(UpdateTaxRuleBody) dto: UpdateTaxRuleBody,
@@ -61,6 +66,7 @@ export class TaxRulesController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(TaxRecordParams) { id }: TaxRecordParams,
     @WorkspaceId() workspaceId: string,

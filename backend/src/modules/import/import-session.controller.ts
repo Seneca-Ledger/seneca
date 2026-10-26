@@ -13,9 +13,16 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { CommitImportBody, ImportSessionParams, StatementParams } from '../../contracts';
+import {
+  ImportSessionCancelled,
+  ImportSessionSummary,
+  StatementImportCommit,
+  StatementImportPreview,
+} from '../../contracts/imports/import-sessions';
 import { Statement, StatementStatus } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
@@ -35,6 +42,7 @@ export class ImportSessionController {
 
   @Get('import-sessions/:id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(ImportSessionSummary)
   async getSessionSummary(
     @SchemaParams(ImportSessionParams) { id }: ImportSessionParams,
     @WorkspaceId() workspaceId: string,
@@ -48,6 +56,7 @@ export class ImportSessionController {
 
   @Get('statements/:id/import-preview')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(StatementImportPreview)
   async getImportPreview(
     @SchemaParams(StatementParams) { id }: StatementParams,
     @WorkspaceId() workspaceId: string,
@@ -72,6 +81,7 @@ export class ImportSessionController {
 
   @Post('statements/:id/import-commit')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(StatementImportCommit)
   async commitImport(
     @SchemaParams(StatementParams) { id }: StatementParams,
     @SchemaBody(CommitImportBody) body: CommitImportBody,
@@ -126,6 +136,7 @@ export class ImportSessionController {
 
   @Post('import-sessions/:id/cancel')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @SchemaResponse(ImportSessionCancelled)
   async cancelSession(
     @SchemaParams(ImportSessionParams) { id }: ImportSessionParams,
     @WorkspaceId() workspaceId: string,

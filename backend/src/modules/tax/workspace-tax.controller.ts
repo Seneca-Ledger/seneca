@@ -9,6 +9,7 @@ import { Permission } from '../../common/enums/permissions.enum';
 import {
   ApplyOfficialRateBody,
   DismissOfficialRateBody,
+  JurisdictionAdoption,
   OfficialRatesCheck,
   ReassessTaxBody,
   SetJurisdictionBody,
@@ -187,6 +188,7 @@ export class WorkspaceTaxController {
   /** Asks TEDB again now rather than using the answer kept from the last check. */
   @Post('official-rates/refresh')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(OfficialRatesCheck)
   async refreshOfficialRates(@WorkspaceId() workspaceId: string) {
     return this.officialRatesService.check(workspaceId, { refresh: true });
   }
@@ -198,6 +200,7 @@ export class WorkspaceTaxController {
    */
   @Post('official-rates/apply')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(OfficialRatesCheck)
   async applyOfficialRate(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(ApplyOfficialRateBody) dto: ApplyOfficialRateBody,
@@ -208,6 +211,7 @@ export class WorkspaceTaxController {
 
   @Put('official-rates/dismissed')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(OfficialRatesCheck)
   async dismissOfficialRate(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(DismissOfficialRateBody) dto: DismissOfficialRateBody,
@@ -223,6 +227,7 @@ export class WorkspaceTaxController {
    */
   @Put('jurisdiction')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(JurisdictionAdoption)
   async setJurisdiction(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(SetJurisdictionBody) dto: SetJurisdictionBody,

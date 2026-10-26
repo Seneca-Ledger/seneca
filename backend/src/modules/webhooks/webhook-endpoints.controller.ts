@@ -10,6 +10,8 @@ import {
   CreatedWebhookEndpoint,
   CreateWebhookEndpointBody,
   UpdateWebhookEndpointBody,
+  WebhookActionResult,
+  WebhookEndpointItem,
   WebhookEndpointList,
   WebhookIdParams,
 } from '../../contracts';
@@ -51,6 +53,7 @@ export class WebhookEndpointsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(WebhookEndpointItem)
   async findOne(
     @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
@@ -61,6 +64,7 @@ export class WebhookEndpointsController {
 
   @Patch(':id')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(WebhookEndpointItem)
   async update(
     @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,
@@ -73,6 +77,7 @@ export class WebhookEndpointsController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(WebhookActionResult)
   async delete(
     @SchemaParams(WebhookIdParams) { id }: WebhookIdParams,
     @WorkspaceId() workspaceId: string,

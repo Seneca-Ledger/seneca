@@ -11,6 +11,7 @@ import {
   LedgerAccount,
   LedgerAccountList,
   LedgerRecordParams,
+  MessageResult,
   UpdateLedgerAccountBody,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
@@ -45,6 +46,7 @@ export class LedgerController {
   @Patch(':id')
   @WorkspaceAuth(Permission.LEDGER_MANAGE_ACCOUNTS)
   @Audit({ entityType: EntityType.LEDGER_ACCOUNT, includeDiff: true, includeBody: true })
+  @SchemaResponse(LedgerAccount)
   async update(
     @WorkspaceId() workspaceId: string,
     @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,
@@ -56,6 +58,7 @@ export class LedgerController {
   @Delete(':id')
   @WorkspaceAuth(Permission.LEDGER_MANAGE_ACCOUNTS)
   @Audit({ entityType: EntityType.LEDGER_ACCOUNT })
+  @SchemaResponse(MessageResult)
   async remove(
     @WorkspaceId() workspaceId: string,
     @SchemaParams(LedgerRecordParams) { id }: LedgerRecordParams,

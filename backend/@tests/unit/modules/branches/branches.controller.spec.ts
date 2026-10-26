@@ -18,8 +18,7 @@ describe('BranchesController', () => {
     expect(await controller.findOne({ id: 'b1' }, user, workspaceId)).toEqual({ id: 'b1' });
     expect(await controller.update({ id: 'b1' }, { name: 'X' } as any, user, workspaceId)).toEqual({
       id: 'b1',
-      name: 'X',
-    });
+    }); // read back as stored, not the saved entity
     expect(await controller.remove({ id: 'b1' }, user, workspaceId)).toEqual({
       message: 'Branch deleted successfully',
     });

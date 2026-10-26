@@ -9,11 +9,13 @@ import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
 import {
   CategoriesQuery,
+  CategoryItem,
   CategoryList,
   CategoryParams,
   CategoryUsageCount,
   CategoryUsageCounts,
   CreateCategoryBody,
+  MessageResult,
   UpdateCategoryBody,
 } from '../../contracts';
 import { CategoryType } from '../../entities/category.entity';
@@ -27,12 +29,15 @@ export class CategoriesController {
 
   @Post()
   @WorkspaceAuth(Permission.CATEGORY_CREATE)
+  @SchemaResponse(CategoryItem)
   async create(
     @SchemaBody(CreateCategoryBody) createDto: CreateCategoryBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.categoriesService.create(workspaceId, user.id, createDto);
+    const created = await this.categoriesService.create(workspaceId, user.id, createDto);
+    // As the list reads it: with its parent and children, defaults filled.
+    return this.categoriesService.findOne(created.id, workspaceId);
   }
 
   @Get()
@@ -65,6 +70,7 @@ export class CategoriesController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.CATEGORY_VIEW)
+  @SchemaResponse(CategoryItem)
   async findOne(
     @SchemaParams(CategoryParams) { id }: CategoryParams,
     @CurrentUser() _user: User,
@@ -75,17 +81,20 @@ export class CategoriesController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.CATEGORY_EDIT)
+  @SchemaResponse(CategoryItem)
   async update(
     @SchemaParams(CategoryParams) { id }: CategoryParams,
     @SchemaBody(UpdateCategoryBody) updateDto: UpdateCategoryBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.categoriesService.update(id, workspaceId, user.id, updateDto);
+    await this.categoriesService.update(id, workspaceId, user.id, updateDto);
+    return this.categoriesService.findOne(id, workspaceId);
   }
 
   @Delete(':id')
   @WorkspaceAuth(Permission.CATEGORY_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(CategoryParams) { id }: CategoryParams,
     @CurrentUser() user: User,

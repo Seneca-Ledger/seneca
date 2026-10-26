@@ -4,13 +4,20 @@ import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
 import { SchemaParams } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
   CreditNoteParams,
+  IntegrationConnection,
   InvoiceParams,
+  OkResult,
+  PeppolLookup,
   PeppolLookupBody,
+  PeppolTransmission,
+  PeppolTransmissionList,
   PeppolTransmissionParams,
+  ProtocolSyncResult,
   SavePeppolSettingsBody,
 } from '../../contracts';
 import { EntityType } from '../../entities/audit-event.entity';
@@ -31,12 +38,14 @@ export class PeppolController {
   /** Read by every invoice page: it decides whether the Peppol panel shows. */
   @Get('integrations/peppol/status')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(IntegrationConnection)
   status(@WorkspaceId() workspaceId: string) {
     return this.peppol.status(workspaceId);
   }
 
   @Post('integrations/peppol/settings')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(IntegrationConnection)
   connect(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(SavePeppolSettingsBody) body: SavePeppolSettingsBody,
@@ -47,12 +56,15 @@ export class PeppolController {
   /** Takes in what arrived since the last poll. */
   @Post('integrations/peppol/sync')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
-  sync(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
-    return this.peppol.poll(workspaceId, user.id);
+  // The integrations page reads every sync through one contract.
+  @SchemaResponse(ProtocolSyncResult)
+  async sync(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return { ok: true, ...(await this.peppol.poll(workspaceId, user.id)) };
   }
 
   @Delete('integrations/peppol')
   @WorkspaceAuth(Permission.INTEGRATION_MANAGE)
+  @SchemaResponse(OkResult)
   disconnect(@WorkspaceId() workspaceId: string) {
     return this.peppol.disconnect(workspaceId);
   }
@@ -60,6 +72,7 @@ export class PeppolController {
   /** Calls the access point with the workspace's credentials: for those who send invoices. */
   @Post('peppol/lookup')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
+  @SchemaResponse(PeppolLookup)
   lookup(@WorkspaceId() workspaceId: string, @SchemaBody(PeppolLookupBody) body: PeppolLookupBody) {
     return this.peppol.lookup(workspaceId, body.peppolId);
   }
@@ -67,6 +80,7 @@ export class PeppolController {
   @Post('invoices/:id/peppol')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, isUndoable: false })
+  @SchemaResponse(PeppolTransmission)
   sendInvoice(
     @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @CurrentUser() user: User,
@@ -77,6 +91,7 @@ export class PeppolController {
 
   @Get('invoices/:id/peppol')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(PeppolTransmissionList)
   invoiceTransmissions(
     @SchemaParams(InvoiceParams) { id }: InvoiceParams,
     @WorkspaceId() workspaceId: string,
@@ -87,6 +102,7 @@ export class PeppolController {
   @Post('credit-notes/:id/peppol')
   @WorkspaceAuth(Permission.INVOICE_EDIT)
   @Audit({ entityType: EntityType.INVOICE, isUndoable: false })
+  @SchemaResponse(PeppolTransmission)
   sendCreditNote(
     @SchemaParams(CreditNoteParams) { id }: CreditNoteParams,
     @CurrentUser() user: User,
@@ -97,6 +113,7 @@ export class PeppolController {
 
   @Get('credit-notes/:id/peppol')
   @WorkspaceAuth(Permission.INVOICE_VIEW)
+  @SchemaResponse(PeppolTransmissionList)
   creditNoteTransmissions(
     @SchemaParams(CreditNoteParams) { id }: CreditNoteParams,
     @WorkspaceId() workspaceId: string,

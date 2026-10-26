@@ -51,3 +51,15 @@ export type InvestmentAccount = Wire<typeof InvestmentAccount>;
 
 export const InvestmentAccountList = Schema.Array(InvestmentAccount);
 export type InvestmentAccountList = Wire<typeof InvestmentAccountList>;
+
+/**
+ * `POST /investments/contributions` and `DELETE /investments/contributions/:transactionId`:
+ * the expense row with its link to the account, set or cleared.
+ */
+export const InvestmentContribution = Schema.Struct({
+  id: Schema.String,
+  investmentAccountId: Schema.NullOr(Schema.String),
+  transferPairId: Schema.NullOr(Schema.String),
+  transferPairKind: Schema.NullOr(Schema.Literals(['transfer', 'reimbursement', 'investment'])),
+});
+export type InvestmentContribution = Wire<typeof InvestmentContribution>;

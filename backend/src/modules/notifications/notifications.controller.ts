@@ -13,6 +13,7 @@ import {
   UnreadCount,
   UpdateNotificationPreferencesBody,
 } from '../../contracts';
+import { UpdatedCount } from '../../contracts/feed/feed-answers';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
@@ -46,6 +47,7 @@ export class NotificationsController {
 
   @Post('mark-read')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(UpdatedCount)
   async markAsRead(@CurrentUser() user: User, @SchemaBody(MarkReadBody) dto: MarkReadBody) {
     const updated = await this.notificationsService.markAsRead(user.id, dto.ids);
     return { updated };
@@ -53,6 +55,7 @@ export class NotificationsController {
 
   @Post('mark-all-read')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(UpdatedCount)
   async markAllAsRead(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
     const updated = await this.notificationsService.markAllAsRead(user.id, workspaceId);
     return { updated };
@@ -65,6 +68,7 @@ export class NotificationsController {
   }
 
   @Patch('preferences')
+  @SchemaResponse(NotificationPreferences)
   async updatePreferences(
     @CurrentUser() user: User,
     @SchemaBody(UpdateNotificationPreferencesBody) dto: UpdateNotificationPreferencesBody,

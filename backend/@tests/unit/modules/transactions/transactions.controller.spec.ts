@@ -74,12 +74,13 @@ describe('TransactionsController', () => {
     );
   });
 
-  it('bulkUpdate forwards items', async () => {
+  it('bulkUpdate forwards items and answers each row read back as stored', async () => {
     const transactionsService = {
       findAll: vi.fn(),
       findOne: vi.fn(),
+      findOneFor: vi.fn(async (id: string) => ({ id, debit: '1.00' })),
       update: vi.fn(),
-      bulkUpdate: vi.fn(async () => [{ id: 't1' }]),
+      bulkUpdate: vi.fn(async () => [{ id: 't1', debit: 1 }]),
       remove: vi.fn(),
     };
     const controller = new TransactionsController(transactionsService as any, {} as any);
@@ -89,7 +90,8 @@ describe('TransactionsController', () => {
       'ws-1',
       'member-self',
     );
-    expect(result).toEqual([{ id: 't1' }]);
+    expect(result).toEqual([{ id: 't1', debit: '1.00' }]);
+    expect(transactionsService.findOneFor).toHaveBeenCalledWith('t1', 'ws-1', 'member-self');
     expect(transactionsService.bulkUpdate).toHaveBeenCalledWith(
       'ws-1',
       'u1',
@@ -110,26 +112,35 @@ describe('TransactionsController', () => {
       expect(transactionsService.getSplitParts).toHaveBeenCalledWith('t1', 'ws-1');
     });
 
-    it('split delegates with (id, workspaceId, userId, dto)', async () => {
+    it('split delegates with (id, workspaceId, userId, dto) and answers the parts as stored', async () => {
       const created = [{ id: 'p1' }, { id: 'p2' }];
-      const transactionsService = { split: vi.fn(async () => created) };
+      const stored = [{ id: 'p1', amount: '60.00' }, { id: 'p2', amount: '40.00' }];
+      const transactionsService = {
+        split: vi.fn(async () => created),
+        getSplitParts: vi.fn(async () => stored),
+      };
       const controller = new TransactionsController(transactionsService as any, {} as any);
       const dto = { parts: [{ amount: 60 }, { amount: 40 }] } as any;
 
       const result = await controller.split({ id: 't1' }, dto, { id: 'u1' } as any, 'ws-1');
 
-      expect(result).toBe(created);
+      expect(result).toBe(stored);
       expect(transactionsService.split).toHaveBeenCalledWith('t1', 'ws-1', 'u1', dto);
+      expect(transactionsService.getSplitParts).toHaveBeenCalledWith('t1', 'ws-1');
     });
 
     it('unsplit delegates with (id, workspaceId, userId)', async () => {
       const survivor = { id: 't1' };
-      const transactionsService = { unsplit: vi.fn(async () => survivor) };
+      const stored = { id: 't1', amount: '100.00' };
+      const transactionsService = {
+        unsplit: vi.fn(async () => survivor),
+        findOneFor: vi.fn(async () => stored),
+      };
       const controller = new TransactionsController(transactionsService as any, {} as any);
 
       const result = await controller.unsplit({ id: 't1' }, { id: 'u1' } as any, 'ws-1');
 
-      expect(result).toBe(survivor);
+      expect(result).toBe(stored);
       expect(transactionsService.unsplit).toHaveBeenCalledWith('t1', 'ws-1', 'u1');
     });
   });

@@ -9,6 +9,7 @@ import { Permission } from '../../common/enums/permissions.enum';
 import {
   CreateNoteBody,
   ListNoteCountsBody,
+  MessageResult,
   NoteCounts,
   NoteIdParams,
   NoteItem,
@@ -94,6 +95,7 @@ export class NotesController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @SchemaResponse(MessageResult)
   async deleteNote(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

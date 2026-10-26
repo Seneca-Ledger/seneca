@@ -18,8 +18,7 @@ describe('WalletsController', () => {
     expect(await controller.findOne({ id: 'w1' }, user, workspaceId)).toEqual({ id: 'w1' });
     expect(await controller.update({ id: 'w1' }, { name: 'X' } as any, user, workspaceId)).toEqual({
       id: 'w1',
-      name: 'X',
-    });
+    }); // read back as stored, not the saved entity
     expect(await controller.remove({ id: 'w1' }, user, workspaceId)).toEqual({
       message: 'Wallet deleted successfully',
     });

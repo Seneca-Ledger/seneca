@@ -9,10 +9,12 @@ import { deletedResponse } from '../../common/utils/responses.util';
 import {
   BudgetImpact,
   BudgetImpactQuery,
+  BudgetItem,
   BudgetList,
   BudgetListQuery,
   BudgetParams,
   CreateBudgetBody,
+  MessageResult,
   StoicBalance,
   UpdateBudgetBody,
 } from '../../contracts';
@@ -31,12 +33,15 @@ export class BudgetsController {
 
   @Post()
   @WorkspaceAuth(Permission.BUDGET_CREATE)
+  @SchemaResponse(BudgetItem)
   async create(
     @SchemaBody(CreateBudgetBody) createDto: CreateBudgetBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.budgetsService.create(workspaceId, user.id, createDto);
+    const saved = await this.budgetsService.create(workspaceId, user.id, createDto);
+    // Answered as the list has it: the saved entity holds the limit as sent, not as stored.
+    return this.budgetsService.findOne(saved.id, workspaceId);
   }
 
   @Get()
@@ -73,6 +78,7 @@ export class BudgetsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.BUDGET_VIEW)
+  @SchemaResponse(BudgetItem)
   async findOne(
     @SchemaParams(BudgetParams) { id }: BudgetParams,
     @WorkspaceId() workspaceId: string,
@@ -82,17 +88,20 @@ export class BudgetsController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.BUDGET_EDIT)
+  @SchemaResponse(BudgetItem)
   async update(
     @SchemaParams(BudgetParams) { id }: BudgetParams,
     @SchemaBody(UpdateBudgetBody) updateDto: UpdateBudgetBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.budgetsService.update(id, workspaceId, user.id, updateDto);
+    await this.budgetsService.update(id, workspaceId, user.id, updateDto);
+    return this.budgetsService.findOne(id, workspaceId);
   }
 
   @Delete(':id')
   @WorkspaceAuth(Permission.BUDGET_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(BudgetParams) { id }: BudgetParams,
     @CurrentUser() user: User,

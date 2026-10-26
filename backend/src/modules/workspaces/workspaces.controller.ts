@@ -26,14 +26,19 @@ import {
   CurrentWorkspaceMemberParams,
   InvitationAccepted,
   InvitationPreview,
+  InvitationSent,
   InvitationTokenParams,
   InviteMemberBody,
+  MemberPermissionsUpdated,
+  MemberRoleUpdated,
+  MessageResult,
   UpdateMemberPermissionsBody,
   UpdateMemberRoleBody,
   UpdateWorkspaceBody,
   WorkspaceDetail,
   WorkspaceFavorite,
   WorkspaceIdParams,
+  WorkspaceInvitationList,
   WorkspaceInvitationParams,
   WorkspaceList,
   WorkspaceMemberParams,
@@ -45,6 +50,7 @@ import { WorkspaceRole } from '../../entities/workspace-member.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { DemoWorkspaceService } from './demo-workspace/demo-workspace.service';
+import { requestAppOrigin } from './request-app-origin.util';
 import { WorkspacesService } from './workspaces.service';
 
 @Controller('workspaces')
@@ -53,34 +59,6 @@ export class WorkspacesController {
     private readonly workspacesService: WorkspacesService,
     private readonly demoWorkspaceService: DemoWorkspaceService,
   ) {}
-
-  private getRequestAppOrigin(req: Request): string | undefined {
-    const originHeader = req.headers.origin;
-    if (typeof originHeader === 'string' && originHeader.trim().length > 0) {
-      return originHeader;
-    }
-
-    const refererHeader = req.headers.referer;
-    if (typeof refererHeader === 'string' && refererHeader.trim().length > 0) {
-      try {
-        return new URL(refererHeader).origin;
-      } catch {
-        // ignore
-      }
-    }
-
-    const forwardedHost = req.headers['x-forwarded-host'];
-    const host =
-      (Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost) ?? req.headers.host;
-    if (typeof host === 'string' && host.trim().length > 0) {
-      const forwardedProto = req.headers['x-forwarded-proto'];
-      const protoRaw = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
-      const proto = typeof protoRaw === 'string' && protoRaw.length > 0 ? protoRaw : 'https';
-      return `${proto}://${host}`;
-    }
-
-    return undefined;
-  }
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -93,7 +71,7 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   @SchemaResponse(WorkspaceOverview)
   async getMyWorkspace(@CurrentUser() user: User, @Req() req: Request) {
-    return this.workspacesService.getWorkspaceOverview(user, this.getRequestAppOrigin(req));
+    return this.workspacesService.getWorkspaceOverview(user, requestAppOrigin(req));
   }
 
   @Get(':id')
@@ -139,6 +117,7 @@ export class WorkspacesController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceSummary)
   async updateWorkspace(
     @CurrentUser() user: User,
     @SchemaParams(WorkspaceIdParams) { id }: WorkspaceIdParams,
@@ -149,6 +128,7 @@ export class WorkspacesController {
 
   @Post(':id/switch')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(MessageResult)
   @HttpCode(HttpStatus.OK)
   async switchWorkspace(
     @CurrentUser() user: User,
@@ -160,6 +140,7 @@ export class WorkspacesController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(MessageResult)
   async deleteWorkspace(
     @CurrentUser() user: User,
     @SchemaParams(WorkspaceIdParams) { id }: WorkspaceIdParams,
@@ -180,6 +161,7 @@ export class WorkspacesController {
 
   @Get(':id/invitations')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(WorkspaceInvitationList)
   async getWorkspaceInvitations(
     @CurrentUser() user: User,
     @SchemaParams(WorkspaceIdParams) { id: workspaceId }: WorkspaceIdParams,
@@ -189,22 +171,19 @@ export class WorkspacesController {
 
   @Post(':id/invitations')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(InvitationSent)
   async inviteMemberToWorkspace(
     @CurrentUser() user: User,
     @SchemaParams(WorkspaceIdParams) { id: workspaceId }: WorkspaceIdParams,
     @SchemaBody(InviteMemberBody) dto: InviteMemberBody,
     @Req() req: Request,
   ) {
-    return this.workspacesService.inviteMember(
-      workspaceId,
-      user,
-      dto,
-      this.getRequestAppOrigin(req),
-    );
+    return this.workspacesService.inviteMember(workspaceId, user, dto, requestAppOrigin(req));
   }
 
   @Delete(':id/members/:userId')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(MessageResult)
   async removeWorkspaceMember(
     @CurrentUser() user: User,
     @SchemaParams(WorkspaceMemberParams) { id: workspaceId, userId }: WorkspaceMemberParams,
@@ -214,6 +193,7 @@ export class WorkspacesController {
 
   @Patch(':id/members/:userId/role')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(MemberRoleUpdated)
   async updateWorkspaceMemberRole(
     @CurrentUser() user: User,
     @SchemaParams(WorkspaceMemberParams) { id: workspaceId, userId }: WorkspaceMemberParams,
@@ -229,6 +209,7 @@ export class WorkspacesController {
 
   @Patch(':id/members/:userId/permissions')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(MemberPermissionsUpdated)
   async updateWorkspaceMemberPermissions(
     @CurrentUser() user: User,
     @SchemaParams(WorkspaceMemberParams) { id: workspaceId, userId }: WorkspaceMemberParams,
@@ -244,6 +225,7 @@ export class WorkspacesController {
 
   @Delete(':id/invitations/:invitationId')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(MessageResult)
   async revokeWorkspaceInvitation(
     @CurrentUser() user: User,
     @SchemaParams(WorkspaceInvitationParams)
@@ -254,16 +236,18 @@ export class WorkspacesController {
 
   @Post('invitations')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(InvitationSent)
   async inviteMember(
     @CurrentUser() user: User,
     @SchemaBody(InviteMemberBody) dto: InviteMemberBody,
     @Req() req: Request,
   ) {
-    return this.workspacesService.inviteMemberLegacy(user, dto, this.getRequestAppOrigin(req));
+    return this.workspacesService.inviteMemberLegacy(user, dto, requestAppOrigin(req));
   }
 
   @Delete('members/:userId')
   @UseGuards(JwtAuthGuard)
+  @SchemaResponse(MessageResult)
   async removeMember(
     @CurrentUser() user: User,
     @SchemaParams(CurrentWorkspaceMemberParams) { userId }: CurrentWorkspaceMemberParams,
@@ -294,6 +278,7 @@ export class WorkspacesController {
   @Post('invitations/accept')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(InvitationAccepted)
   async acceptInvitationLegacy(
     @CurrentUser() user: User,
     @SchemaBody(AcceptInvitationBody) dto: AcceptInvitationBody,

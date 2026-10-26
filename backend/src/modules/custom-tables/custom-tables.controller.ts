@@ -24,6 +24,7 @@ import {
   AddSourceStatementsBody,
   BatchCreateCustomTableRowsBody,
   ClassifyPaidStatusBody,
+  ConvertedToStatement,
   CreateCustomTableBody,
   CreateCustomTableColumnBody,
   CreateCustomTableFromDataEntryBody,
@@ -43,10 +44,12 @@ import {
   CustomTableRowPage,
   CustomTableSummaries,
   FormulaPreview,
+  OkResult,
   PreviewCustomTableSourceBody,
   PreviewFormulaBody,
   RefreshedFromSource,
   ReorderCustomTableColumnsBody,
+  RestoredTableDefault,
   SourcePreview,
   UpdateCustomTableBody,
   UpdateCustomTableColumnBody,
@@ -57,6 +60,13 @@ import {
   UpdateCustomTableViewSettingsColumnBody,
   UpdateCustomTableViewsBody,
 } from '../../contracts';
+import {
+  CustomTableColumnStyle,
+  CustomTableDuplicates,
+  CustomTableRelationOptions,
+  PaidClassification,
+  SyncedFromDataEntry,
+} from '../../contracts/custom-tables/custom-table-actions';
 import {
   CustomTableAggregatesQuery,
   CustomTableColumnParams,
@@ -74,79 +84,10 @@ import { CustomTableMoneyTotalService } from './custom-table-money-total.service
 import { CustomTablesService } from './custom-tables.service';
 import { CustomTablesCacheService } from './custom-tables-cache.service';
 import {
-  CUSTOM_TABLE_AGGREGATE_FNS,
-  type CustomTableAggregateDto,
-  type CustomTableAggregateFn,
-  CustomTableRowFilterDto,
-  CustomTableRowSortDto,
-} from './dto/list-custom-table-rows.dto';
-
-function parseRowFiltersParam(filtersRaw?: string): CustomTableRowFilterDto[] | undefined {
-  if (!filtersRaw) {
-    return undefined;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(filtersRaw);
-  } catch {
-    throw new BadRequestException(appError('FILTER_JSON_INVALID'));
-  }
-  if (!Array.isArray(parsed)) {
-    throw new BadRequestException(appError('FILTER_FORMAT_INVALID'));
-  }
-  return parsed as CustomTableRowFilterDto[];
-}
-
-function parseAggregatesParam(aggsRaw?: string): CustomTableAggregateDto[] {
-  if (!aggsRaw) {
-    return [];
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(aggsRaw);
-  } catch {
-    throw new BadRequestException(appError('AGG_JSON_INVALID'));
-  }
-  if (!Array.isArray(parsed)) {
-    throw new BadRequestException(appError('AGG_FORMAT_INVALID'));
-  }
-  return parsed.map(entry => {
-    const { col, fn } = (entry ?? {}) as { col?: unknown; fn?: unknown };
-    if (typeof col !== 'string' || !col.trim()) {
-      throw new BadRequestException(appError('AGG_FORMAT_INVALID'));
-    }
-    if (
-      typeof fn !== 'string' ||
-      !CUSTOM_TABLE_AGGREGATE_FNS.includes(fn as CustomTableAggregateFn)
-    ) {
-      throw new BadRequestException(appError('AGG_FUNCTION_UNKNOWN', { fn: String(fn) }));
-    }
-    return { col: col.trim(), fn: fn as CustomTableAggregateFn };
-  });
-}
-
-function parseRowSortParam(sortRaw?: string): CustomTableRowSortDto | undefined {
-  if (!sortRaw) {
-    return undefined;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(sortRaw);
-  } catch {
-    throw new BadRequestException(appError('SORT_JSON_INVALID'));
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new BadRequestException(appError('SORT_FORMAT_INVALID'));
-  }
-  const { col, dir } = parsed as { col?: unknown; dir?: unknown };
-  if (typeof col !== 'string' || !col.trim()) {
-    throw new BadRequestException(appError('SORT_FORMAT_INVALID'));
-  }
-  if (dir !== 'asc' && dir !== 'desc') {
-    throw new BadRequestException(appError('SORT_DIRECTION_INVALID'));
-  }
-  return { col: col.trim(), dir };
-}
+  parseAggregatesParam,
+  parseRowFiltersParam,
+  parseRowSortParam,
+} from './helpers/row-query-params';
 
 @Controller('custom-tables')
 @UseGuards(JwtAuthGuard)
@@ -183,6 +124,7 @@ export class CustomTablesController {
 
   @Post('from-data-entry')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CreatedFromSource)
   async createFromDataEntry(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -195,6 +137,7 @@ export class CustomTablesController {
 
   @Post('from-data-entry-custom-tab')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CreatedFromSource)
   async createFromDataEntryCustomTab(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -212,6 +155,7 @@ export class CustomTablesController {
 
   @Post(':id/sync-from-data-entry')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(SyncedFromDataEntry)
   async syncFromDataEntry(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -291,6 +235,7 @@ export class CustomTablesController {
    */
   @Post(':id/restore-default')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RestoredTableDefault)
   async restoreDefault(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -330,6 +275,7 @@ export class CustomTablesController {
 
   @Patch(':id/view-settings/summaries')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async updateViewSettingsSummaries(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -348,6 +294,7 @@ export class CustomTablesController {
 
   @Post(':id/convert-to-statement')
   @WorkspaceAuth(Permission.STATEMENT_UPLOAD, Permission.STATEMENT_EDIT)
+  @SchemaResponse(ConvertedToStatement)
   async convertToStatement(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -389,6 +336,7 @@ export class CustomTablesController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(OkResult)
   async removeTable(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -416,6 +364,7 @@ export class CustomTablesController {
 
   @Patch(':id/columns/:columnId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableColumnItem)
   async updateColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -436,6 +385,7 @@ export class CustomTablesController {
 
   @Patch(':id/columns/:columnId/style')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableColumnStyle)
   async updateColumnStyle(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -455,6 +405,7 @@ export class CustomTablesController {
 
   @Delete(':id/columns/:columnId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(OkResult)
   async removeColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -468,6 +419,7 @@ export class CustomTablesController {
 
   @Post(':id/columns/reorder')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(OkResult)
   async reorderColumns(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -481,6 +433,7 @@ export class CustomTablesController {
 
   @Get(':id/relation-options')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableRelationOptions)
   async listRelationOptions(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -501,6 +454,7 @@ export class CustomTablesController {
 
   @Get(':id/duplicates')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDuplicates)
   async findDuplicates(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -636,6 +590,7 @@ export class CustomTablesController {
 
   @Post(':id/rows/paid-classify')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(PaidClassification)
   async classifyPaidStatus(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
@@ -675,6 +630,7 @@ export class CustomTablesController {
 
   @Delete(':id/rows/:rowId')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(OkResult)
   async removeRow(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -706,6 +662,7 @@ export class CustomTablesController {
 
   @Patch(':id/view-settings/rules')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async updateViewSettingsRules(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -724,6 +681,7 @@ export class CustomTablesController {
 
   @Patch(':id/view-settings/views')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async updateViewSettingsViews(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -742,6 +700,7 @@ export class CustomTablesController {
 
   @Patch(':id/view-settings/columns')
   @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableDetail)
   async updateViewSettingsColumn(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,

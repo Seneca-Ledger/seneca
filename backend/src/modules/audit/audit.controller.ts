@@ -1,4 +1,5 @@
 import { Controller, ForbiddenException, Get, Post, UseInterceptors } from '@nestjs/common';
+import { Schema } from 'effect';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
@@ -10,6 +11,7 @@ import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-i
 import { StripKeysInterceptor } from '../../common/interceptors/strip-keys.interceptor';
 import { ACCOUNT_KEYS } from '../../common/utils/sensitive-keys.util';
 import {
+  AuditEvent,
   AuditEventList,
   AuditEventPage,
   AuditRollbackResult,
@@ -84,6 +86,7 @@ export class AuditController {
 
   @Get('batch/:batchId')
   @WorkspaceAuth(Permission.AUDIT_VIEW)
+  @SchemaResponse(AuditEventList)
   async getByBatch(
     @SchemaParams(AuditBatchParams) { batchId }: AuditBatchParams,
     @WorkspaceId() workspaceId: string,
@@ -93,6 +96,8 @@ export class AuditController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.AUDIT_VIEW)
+  // An id outside the workspace answers an empty body, as before.
+  @SchemaResponse(Schema.NullOr(AuditEvent))
   async getOne(
     @SchemaParams(AuditEventParams) { id }: AuditEventParams,
     @WorkspaceId() workspaceId: string,

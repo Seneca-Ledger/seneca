@@ -15,15 +15,19 @@ import {
   CreateGoalBody,
   CreateGoalItemBody,
   GoalContributionParams,
+  GoalCoverPresets,
   GoalCoverPreviewParams,
+  GoalCoverSearchPage,
   GoalDetail,
   GoalFlowResponse,
   GoalItemParams,
+  GoalItemsResponse,
   GoalListAnswer,
   GoalMonthQuery,
   GoalParams,
   GoalPlanResponse,
   GoalWithProgress,
+  MessageResult,
   SearchCoversQuery,
   SetGoalCoverBody,
   UpdateGoalBody,
@@ -58,6 +62,7 @@ export class GoalsController {
   @WorkspaceAuth(Permission.GOAL_VIEW)
   @ApiOperation({ summary: 'Bundled goal cover ids' })
   @ApiResponse({ status: 200, description: 'The preset ids the client can draw' })
+  @SchemaResponse(GoalCoverPresets)
   listCoverPresets() {
     return { presets: GOAL_COVER_PRESETS };
   }
@@ -68,6 +73,7 @@ export class GoalsController {
   @ApiResponse({ status: 200, description: 'A page of results with their credit lines' })
   @ApiResponse({ status: 502, description: 'The image search did not answer' })
   @ApiResponse({ status: 503, description: 'The daily search allowance is used up' })
+  @SchemaResponse(GoalCoverSearchPage)
   async searchCovers(@SchemaQuery(SearchCoversQuery) query: SearchCoversQuery) {
     return this.goalCoversService.search(query.q, query.page ?? 1);
   }
@@ -148,6 +154,7 @@ export class GoalsController {
   /** The goal's cost breakdown: what the move is made of, line by line. */
   @Get(':id/items')
   @WorkspaceAuth(Permission.GOAL_VIEW)
+  @SchemaResponse(GoalItemsResponse)
   async listItems(
     @SchemaParams(GoalParams) { id }: GoalParams,
     @WorkspaceId() workspaceId: string,
@@ -157,6 +164,7 @@ export class GoalsController {
 
   @Post(':id/items')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalItemsResponse)
   async createItem(
     @SchemaParams(GoalParams) { id }: GoalParams,
     @SchemaBody(CreateGoalItemBody) itemDto: CreateGoalItemBody,
@@ -168,6 +176,7 @@ export class GoalsController {
 
   @Patch(':id/items/:itemId')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalItemsResponse)
   async updateItem(
     @SchemaParams(GoalItemParams) { id, itemId }: GoalItemParams,
     @SchemaBody(UpdateGoalItemBody) itemDto: UpdateGoalItemBody,
@@ -179,6 +188,7 @@ export class GoalsController {
 
   @Delete(':id/items/:itemId')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalItemsResponse)
   async removeItem(
     @SchemaParams(GoalItemParams) { id, itemId }: GoalItemParams,
     @CurrentUser() user: User,
@@ -193,6 +203,7 @@ export class GoalsController {
   @ApiOperation({ summary: "Set a goal's cover" })
   @ApiResponse({ status: 200, description: 'The goal, with its new cover' })
   @ApiResponse({ status: 400, description: 'Neither or both of preset and photoId were sent' })
+  @SchemaResponse(GoalDetail)
   async setCover(
     @SchemaParams(GoalParams) { id }: GoalParams,
     @SchemaBody(SetGoalCoverBody) coverDto: SetGoalCoverBody,
@@ -207,6 +218,7 @@ export class GoalsController {
   @WorkspaceAuth(Permission.GOAL_EDIT)
   @ApiOperation({ summary: "Remove a goal's cover" })
   @ApiResponse({ status: 200, description: 'The goal, with no cover' })
+  @SchemaResponse(GoalDetail)
   async removeCover(
     @SchemaParams(GoalParams) { id }: GoalParams,
     @CurrentUser() user: User,
@@ -218,12 +230,14 @@ export class GoalsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.GOAL_VIEW)
+  @SchemaResponse(GoalDetail)
   async findOne(@SchemaParams(GoalParams) { id }: GoalParams, @WorkspaceId() workspaceId: string) {
     return this.goalsService.findOne(id, workspaceId);
   }
 
   @Put(':id')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalWithProgress)
   async update(
     @SchemaParams(GoalParams) { id }: GoalParams,
     @SchemaBody(UpdateGoalBody) updateDto: UpdateGoalBody,
@@ -235,6 +249,7 @@ export class GoalsController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.GOAL_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
     @SchemaParams(GoalParams) { id }: GoalParams,
     @CurrentUser() user: User,
@@ -258,6 +273,7 @@ export class GoalsController {
 
   @Delete(':id/contributions/:contributionId')
   @WorkspaceAuth(Permission.GOAL_EDIT)
+  @SchemaResponse(GoalDetail)
   async removeContribution(
     @SchemaParams(GoalContributionParams) { id, contributionId }: GoalContributionParams,
     @CurrentUser() user: User,

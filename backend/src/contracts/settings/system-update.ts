@@ -33,3 +33,18 @@ export const SystemUpdateStatus = Schema.Struct({
   run: SystemUpdateRun,
 });
 export type SystemUpdateStatus = Wire<typeof SystemUpdateStatus>;
+
+/** `GET /health`: the process answers. Public, for container health checks. */
+export const HealthStatus = Schema.Struct({
+  status: Schema.Literal('ok'),
+  timestamp: Schema.String,
+  service: Schema.String,
+});
+export type HealthStatus = Wire<typeof HealthStatus>;
+
+/** `GET /health/ready`: every dependency answered (anything else is a 503). */
+export const ReadinessStatus = Schema.Struct({
+  status: Schema.Literals(['ok', 'error']),
+  checks: Schema.Record(Schema.String, Schema.Literals(['ok', 'error'])),
+});
+export type ReadinessStatus = Wire<typeof ReadinessStatus>;
