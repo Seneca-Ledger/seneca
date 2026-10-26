@@ -75,25 +75,26 @@ RUN apk upgrade --no-cache && \
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
     /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
+# Non-root runtime user. Files are copied in already owned by it: a `chown -R`
+# after the copies would store every file a second time in its own layer.
+RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
+
 # Backend runtime dependencies (already pruned)
-COPY --from=builder /app/backend/package*.json ./backend/
-COPY --from=builder /app/backend/node_modules ./backend/node_modules
+COPY --chown=app:app --from=builder /app/backend/package*.json ./backend/
+COPY --chown=app:app --from=builder /app/backend/node_modules ./backend/node_modules
 
 # Backend runtime files
-COPY --from=builder /app/backend/dist ./backend/dist
-COPY --from=builder /app/backend/scripts ./backend/scripts
+COPY --chown=app:app --from=builder /app/backend/dist ./backend/dist
+COPY --chown=app:app --from=builder /app/backend/scripts ./backend/scripts
 
 # Frontend standalone output (vinext); static files, public/ included, live in dist/client
-COPY --from=builder /app/frontend/dist/standalone/server.js /app/frontend/dist/standalone/package.json ./frontend/
-COPY --from=builder /app/frontend/dist/standalone/dist ./frontend/dist
-COPY --from=builder /app/frontend/dist/standalone/node_modules ./frontend/node_modules
+COPY --chown=app:app --from=builder /app/frontend/dist/standalone/server.js /app/frontend/dist/standalone/package.json ./frontend/
+COPY --chown=app:app --from=builder /app/frontend/dist/standalone/dist ./frontend/dist
+COPY --chown=app:app --from=builder /app/frontend/dist/standalone/node_modules ./frontend/node_modules
 
 # Startup script to run both servers
-COPY scripts/start.sh ./scripts/start.sh
-RUN chmod +x ./scripts/start.sh
+COPY --chown=app:app --chmod=755 scripts/start.sh ./scripts/start.sh
 
-# Use non-root user for runtime
-RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
 USER app
 
 EXPOSE 3000
