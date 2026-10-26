@@ -213,6 +213,13 @@
     text-align: center;
   }
 
+  // Sits at the top of the page area like the document it stands in for.
+  &__loading-overlay > .seneca-snapshot-skeleton {
+    align-self: flex-start;
+    max-width: calc(100% - 48px);
+    margin: 24px;
+  }
+
   &__loading-text {
     font-size: 14px;
     font-weight: 500;

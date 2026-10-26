@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
@@ -10,16 +10,9 @@ import {
 } from 'typeorm';
 import { countedSql, flowsSql, onlyFlows } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
-import {
-  canReadPrivate,
-  PRIVACY_VIEWER_PARAM,
-  PRIVATE_PLACEHOLDER,
-  redactedSql,
-} from '../../common/utils/transaction-privacy.util';
+import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
 import type {
   DashboardActionItem,
-  DashboardCashFlowEntriesResponse,
-  DashboardCashFlowEntry,
   DashboardCashFlowPoint,
   DashboardCommitmentDay,
   DashboardCommitmentItem,
@@ -45,6 +38,7 @@ import { Transaction, TransactionType } from '../../entities/transaction.entity'
 import { SPENDABLE_WALLET_TYPES } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
+import { BudgetWithinLimitService } from '../budgets/budget-within-limit.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import {
   pendingReceiptsQuery,
@@ -104,7 +98,7 @@ const BANK_DISPLAY_NAMES: Record<BankName, string> = {
   [BankName.OTHER]: 'Bank',
 };
 
-function round2(value: number): number {
+export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
@@ -135,6 +129,8 @@ export class DashboardService {
     @InjectRepository(Subscription)
     private readonly subscriptionRepo: Repository<Subscription>,
     private readonly exchangeRatesService: ExchangeRatesService,
+    @Inject(forwardRef(() => BudgetWithinLimitService))
+    private readonly withinLimit: BudgetWithinLimitService,
   ) {}
 
   async getDashboard(
@@ -232,7 +228,9 @@ export class DashboardService {
   ): Promise<DashboardFinancialSnapshot> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     const targetCurrency = this.normalizeCurrency(workspace?.currency);
 
@@ -431,7 +429,7 @@ export class DashboardService {
     return currencyCodeOrDefault(currency);
   }
 
-  private async convertDashboardAmount(
+  async convertDashboardAmount(
     amount: string | number | null | undefined,
     sourceCurrency: string | null | undefined,
     targetCurrency: string,
@@ -454,10 +452,12 @@ export class DashboardService {
     return value * rate;
   }
 
-  private async getWorkspaceCurrency(workspaceId: string): Promise<string> {
+  async getWorkspaceCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepo.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return this.normalizeCurrency(workspace?.currency);
   }
@@ -474,7 +474,7 @@ export class DashboardService {
         workspaceId,
         status: StatementStatus.UPLOADED,
         deletedAt: IsNull(),
-        createdAt: this.between(window),
+        ...this.inWindow('createdAt', window),
       },
     });
 
@@ -492,7 +492,7 @@ export class DashboardService {
         workspaceId,
         status: In([StatementStatus.PARSED, StatementStatus.VALIDATED]),
         deletedAt: IsNull(),
-        createdAt: this.between(window),
+        ...this.inWindow('createdAt', window),
       },
     });
 
@@ -510,7 +510,7 @@ export class DashboardService {
         workspaceId,
         status: PayableStatus.OVERDUE,
         deletedAt: IsNull(),
-        dueDate: this.between(window),
+        ...this.inWindow('dueDate', window),
       },
     });
 
@@ -539,7 +539,7 @@ export class DashboardService {
       where: {
         workspaceId,
         status: In([ReceiptStatus.NEW, ReceiptStatus.NEEDS_REVIEW]),
-        receivedAt: this.between(window),
+        ...this.inWindow('receivedAt', window),
       },
     });
 
@@ -569,7 +569,43 @@ export class DashboardService {
       this.getTransactionGroupFormat(days),
       targetCurrency,
     );
-    return this.fillCashFlowWindow(points, since, endDate, days);
+    // Weekly buckets (90 days) keep no budgeted share: budgets are judged day by day.
+    if (days < 90 && points.size > 0) {
+      await this.addBudgeted(points, workspaceId, since, endDate, targetCurrency);
+    }
+    return this.fillCashFlowWindow(points, since, endDate, days, date => ({
+      date,
+      income: 0,
+      expense: 0,
+      budgeted: 0,
+    }));
+  }
+
+  /**
+   * Each day's spending a budget still had room for, converted like the expense bar and never
+   * more than it (the budgets and the cash flow filter documents slightly differently).
+   */
+  private async addBudgeted(
+    points: Map<string, DashboardCashFlowPoint>,
+    workspaceId: string,
+    since: Date,
+    endDate: Date,
+    targetCurrency: string,
+  ): Promise<void> {
+    const rows = await this.withinLimit.withinLimitSpending(workspaceId, since, endDate);
+    for (const row of rows) {
+      const point = points.get(row.date);
+      if (!point) {
+        continue;
+      }
+      const amount = await this.convertDashboardAmount(
+        row.amount,
+        row.currency,
+        targetCurrency,
+        workspaceId,
+      );
+      point.budgeted = Math.min(point.expense, point.budgeted + amount);
+    }
   }
 
   /**
@@ -626,67 +662,6 @@ export class DashboardService {
     };
   }
 
-  /**
-   * The rows behind one month's daily cash flow, named, for the card's day tooltip. Same filters
-   * and sides as `sumCashFlowByBucket`, so the names add up to the bar they sit on.
-   */
-  async getCashFlowEntries(
-    workspaceId: string,
-    month: string,
-    viewerMemberId: string | null,
-  ): Promise<DashboardCashFlowEntriesResponse> {
-    const window = parseMonthWindow(month);
-    if (!window) {
-      return { entries: [] };
-    }
-    const currency = await this.getWorkspaceCurrency(workspaceId);
-    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
-    this.applyActiveStatementTransactionFilters(query, workspaceId, window.since, window.endDate);
-
-    const rows = await query
-      .select("TO_CHAR(t.transactionDate, 'YYYY-MM-DD')", 'date')
-      .addSelect('t.counterpartyName', 'counterpartyName')
-      .addSelect('s.fileName', 'fileName')
-      .addSelect('t.transactionType', 'transactionType')
-      .addSelect('t.debit', 'debit')
-      .addSelect('t.credit', 'credit')
-      .addSelect('t.currency', 'currency')
-      .addSelect('t.isPrivate', 'isPrivate')
-      .addSelect('t.ownerMemberId', 'ownerMemberId')
-      .andWhere('t.transactionType IN (:...sides)', {
-        sides: [TransactionType.INCOME, TransactionType.EXPENSE],
-      })
-      .getRawMany<{
-        date: string;
-        counterpartyName: string | null;
-        fileName: string | null;
-        transactionType: TransactionType;
-        debit: string | null;
-        credit: string | null;
-        currency: string;
-        isPrivate: boolean;
-        ownerMemberId: string | null;
-      }>();
-
-    const entries: DashboardCashFlowEntry[] = [];
-    for (const row of rows) {
-      const kind = row.transactionType === TransactionType.INCOME ? 'income' : 'expense';
-      const raw = kind === 'income' ? row.credit : row.debit;
-      const amount = round2(
-        await this.convertDashboardAmount(raw ?? '0', row.currency, currency, workspaceId),
-      );
-      if (amount <= 0) {
-        continue;
-      }
-      const name = canReadPrivate(row, viewerMemberId)
-        ? row.counterpartyName?.trim() || row.fileName?.trim() || PRIVATE_PLACEHOLDER
-        : PRIVATE_PLACEHOLDER;
-      entries.push({ date: row.date, name, kind, amount });
-    }
-    entries.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount);
-    return { entries };
-  }
-
   /** Income/expense per `TO_CHAR` bucket, every currency converted into `targetCurrency`. */
   private async sumCashFlowByBucket(
     workspaceId: string,
@@ -719,7 +694,7 @@ export class DashboardService {
 
     const points = new Map<string, DashboardCashFlowPoint>();
     for (const row of result) {
-      const point = points.get(row.date) ?? { date: row.date, income: 0, expense: 0 };
+      const point = points.get(row.date) ?? { date: row.date, income: 0, expense: 0, budgeted: 0 };
       point.income += await this.convertDashboardAmount(
         row.income,
         row.currency,
@@ -985,7 +960,9 @@ export class DashboardService {
   ): Promise<'owner' | 'admin' | 'member' | 'viewer'> {
     const member = await this.memberRepo.findOne({
       where: { userId, workspaceId },
-      select: ['role'],
+      select: {
+        role: true,
+      },
     });
 
     return (member?.role as 'owner' | 'admin' | 'member' | 'viewer') || 'member';
@@ -1017,7 +994,7 @@ export class DashboardService {
           workspaceId,
           status: StatementStatus.ERROR,
           deletedAt: IsNull(),
-          createdAt: this.between(window),
+          ...this.inWindow('createdAt', window),
         },
       }),
       // What Review still asks about: unconfirmed rows and possible duplicates,
@@ -1029,7 +1006,7 @@ export class DashboardService {
           workspaceId,
           status: StatementStatus.UPLOADED,
           deletedAt: IsNull(),
-          createdAt: this.between(window),
+          ...this.inWindow('createdAt', window),
         },
       }),
       // receipts Review lists, by its own rule
@@ -1048,7 +1025,9 @@ export class DashboardService {
       this.statementRepo.findOne({
         where: { workspaceId, deletedAt: IsNull() },
         order: { createdAt: 'DESC' },
-        select: ['createdAt'],
+        select: {
+          createdAt: true,
+        },
       }),
       // money in rows nobody has confirmed yet
       this.getUnconfirmedCash(workspaceId, window),
@@ -1133,9 +1112,17 @@ export class DashboardService {
     ).getCount();
   }
 
-  /** Limits a find-options column to `window`; `undefined` (no condition) without one. */
-  private between(window: DashboardWindow | null): FindOperator<Date> | undefined {
-    return window ? Between(window.since, window.endDate) : undefined;
+  /**
+   * Limits a find-options column to `window`, spread into `where`; no condition
+   * without one (TypeORM 1 refuses an `undefined` value in `where`).
+   */
+  private inWindow<K extends string>(
+    column: K,
+    window: DashboardWindow | null,
+  ): Partial<Record<K, FindOperator<Date>>> {
+    return window
+      ? ({ [column]: Between(window.since, window.endDate) } as Record<K, FindOperator<Date>>)
+      : {};
   }
 
   /** Limits a query to `window` on `column`; a `null` window leaves it untouched (live totals). */
@@ -1256,6 +1243,7 @@ export class DashboardService {
       window.since,
       window.endDate,
       days,
+      date => ({ date, income: 0, expense: 0 }),
     );
   }
 
@@ -1671,19 +1659,20 @@ export class DashboardService {
     return days >= 90 ? "'IYYY-IW'" : "'YYYY-MM-DD'";
   }
 
-  private fillCashFlowWindow(
-    points: Map<string, DashboardCashFlowPoint>,
+  private fillCashFlowWindow<T extends { date: string }>(
+    points: Map<string, T>,
     since: Date,
     endDate: Date,
     days: number,
-  ): DashboardCashFlowPoint[] {
+    empty: (date: string) => T,
+  ): T[] {
     if (points.size === 0) {
       return [];
     }
 
     const buckets =
       days >= 90 ? this.buildWeeklyBuckets(since, endDate) : this.buildDailyBuckets(since, endDate);
-    return buckets.map(date => points.get(date) ?? { date, income: 0, expense: 0 });
+    return buckets.map(date => points.get(date) ?? empty(date));
   }
 
   private buildDailyBuckets(since: Date, endDate: Date): string[] {
@@ -1734,7 +1723,7 @@ export class DashboardService {
     return cursor;
   }
 
-  private applyActiveStatementTransactionFilters(
+  applyActiveStatementTransactionFilters(
     query: SelectQueryBuilder<Transaction>,
     workspaceId: string,
     since: Date,

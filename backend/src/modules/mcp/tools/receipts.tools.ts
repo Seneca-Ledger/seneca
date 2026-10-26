@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Schema } from 'effect';
 import { Permission } from '../../../common/enums/permissions.enum';
+import { appError } from '../../../common/errors/app-error';
 import { ReceiptListPage, ReceiptRecord, type ReceiptsQuery } from '../../../contracts';
 import type { ReceiptsService } from '../../receipts/receipts.service';
 import { defineTool, type McpTool } from '../mcp-tool';
@@ -49,7 +50,7 @@ export function receiptTools(receipts: ReceiptsService): McpTool[] {
       run: async (ctx, args) => {
         const receipt = await receipts.findOne(args.id, ctx.workspaceId);
         if (!receipt) {
-          throw new BadRequestException('Receipt not found');
+          throw new BadRequestException(appError('MCP_RECEIPT_NOT_FOUND'));
         }
         return receipt;
       },
@@ -71,7 +72,7 @@ export function receiptTools(receipts: ReceiptsService): McpTool[] {
           attachTo: args.transactionId,
         });
         if (!result) {
-          throw new BadRequestException('Receipt not found');
+          throw new BadRequestException(appError('MCP_RECEIPT_NOT_FOUND'));
         }
         return {
           receiptId: result.receipt.id,

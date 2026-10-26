@@ -25,6 +25,10 @@ export const queryKeys = {
   payees: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['payees', o.workspaceId, o.params] as const,
   payee: (workspaceId: string | null, id: string) => ['payees', workspaceId, 'one', id] as const,
+  categorizationRules: (workspaceId: string | null) =>
+    ['categorization-rules', workspaceId] as const,
+  categorizationRulePreview: (workspaceId: string | null, conditions: unknown) =>
+    ['categorization-rules', workspaceId, 'preview', conditions] as const,
   reviewInbox: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['review-inbox', o.workspaceId, o.params] as const,
   reviewInboxCounts: (workspaceId: string | null, reviewer?: string) =>
@@ -43,6 +47,15 @@ export const queryKeys = {
   // Tile-server configuration is the same in every workspace, hence no workspace segment.
   mapStyles: () => ['map-styles'] as const,
   categoryUsage: (workspaceId: string | null) => ['categories', workspaceId, 'usage'] as const,
+  // The Tags page list with usage counts; the tag pickers read it too.
+  tags: (workspaceId: string | null) => ['tags', workspaceId] as const,
+  receiptTags: (workspaceId: string | null, receiptId: string) =>
+    ['tags', workspaceId, 'receipt', receiptId] as const,
+  statementTags: (workspaceId: string | null, statementId: string) =>
+    ['tags', workspaceId, 'statement', statementId] as const,
+  // Under the tags prefix: a tag saved anywhere refreshes the By tag figures too.
+  transactionTagLinks: (workspaceId: string | null) =>
+    ['tags', workspaceId, 'transaction-links'] as const,
   goalsList: (workspaceId: string | null) => ['goals', 'list', workspaceId] as const,
   // Sits under the plain list prefix, so a contribution invalidates both.
   goalsMonth: (o: { workspaceId: string | null; month: string }) =>

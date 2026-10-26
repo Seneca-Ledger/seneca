@@ -41,7 +41,9 @@ describe('PeppolPanel', () => {
 
   it('lists what was sent and lets a failed send be tried again', async () => {
     apiMocks.get.mockImplementation(async (url: string) =>
-      url === '/integrations/peppol/status' ? { data: { connected: true } } : { data: [transmission] },
+      url === '/integrations/peppol/status'
+        ? { data: { connected: true, status: 'connected' } }
+        : { data: [transmission] },
     );
     renderWithQuery(<PeppolPanel kind="invoice" documentId="inv-1" />);
     expect(await screen.findByText('Receiver rejected')).toBeTruthy();
@@ -52,7 +54,9 @@ describe('PeppolPanel', () => {
 
   it('names what Peppol still needs instead of a bare error', async () => {
     apiMocks.get.mockImplementation(async (url: string) =>
-      url === '/integrations/peppol/status' ? { data: { connected: true } } : { data: [] },
+      url === '/integrations/peppol/status'
+        ? { data: { connected: true, status: 'connected' } }
+        : { data: [] },
     );
     const error = Object.assign(new Error('Bad Request'), {
       isAxiosError: true,

@@ -11,46 +11,46 @@ import { Transaction, TransactionCategorySource } from '@/entities/transaction.e
 import { SubscriptionsService } from '@/modules/subscriptions/subscriptions.service';
 
 const createRepoMock = () => ({
-  create: jest.fn(),
-  save: jest.fn(),
-  find: jest.fn(),
-  findOne: jest.fn(),
-  count: jest.fn(),
-  remove: jest.fn(),
+  create: vi.fn(),
+  save: vi.fn(),
+  find: vi.fn(),
+  findOne: vi.fn(),
+  count: vi.fn(),
+  remove: vi.fn(),
 });
 
 describe('SubscriptionsService', () => {
   const subscriptionRepository = createRepoMock();
   const notificationsService = {
-    createForWorkspaceMembers: jest.fn(),
+    createForWorkspaceMembers: vi.fn(),
   };
   const workspaceMemberRepository = {
-    findOne: jest.fn(),
+    findOne: vi.fn(),
   };
   const decisionRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
   };
   const transactionRepository = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    createQueryBuilder: vi.fn(),
   };
   const chargeRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
-    find: jest.fn(),
-    findOne: jest.fn(),
-    remove: jest.fn(),
-    manager: { transaction: jest.fn() },
+    create: vi.fn(),
+    save: vi.fn(),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    remove: vi.fn(),
+    manager: { transaction: vi.fn() },
   };
   // What a database transaction hands the service: the same mocks, by entity.
   const budgetRepository = {
-    findOne: jest.fn(),
+    findOne: vi.fn(),
   };
   const transactionManager = {
-    query: jest.fn(),
-    update: jest.fn(),
+    query: vi.fn(),
+    update: vi.fn(),
     getRepository: (entity: unknown) =>
       new Map<unknown, unknown>([
         [Subscription, subscriptionRepository],
@@ -60,25 +60,25 @@ describe('SubscriptionsService', () => {
       ]).get(entity),
   };
   const taxAssignmentService = {
-    resolve: jest.fn(),
+    resolve: vi.fn(),
   };
   const workspaceRepository = {
-    findOne: jest.fn(),
+    findOne: vi.fn(),
   };
   const exchangeRatesService = {
-    convert: jest.fn(),
+    convert: vi.fn(),
   };
   const auditService = {
-    createEvent: jest.fn(),
+    createEvent: vi.fn(),
   };
   const categoryRepository = {
-    findOne: jest.fn(),
+    findOne: vi.fn(),
   };
 
   let service: SubscriptionsService;
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
     chargeRepository.manager.transaction.mockImplementation(async work => work(transactionManager));
     service = new SubscriptionsService(
       subscriptionRepository as any,
@@ -740,11 +740,11 @@ describe('SubscriptionsService', () => {
         }),
       ];
       const builder = {
-        leftJoin: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue(rows),
+        leftJoin: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getMany: vi.fn().mockResolvedValue(rows),
       };
       transactionRepository.createQueryBuilder.mockReturnValue(builder);
 

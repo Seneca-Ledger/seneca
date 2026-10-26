@@ -29,3 +29,7 @@ export const UpdateBusinessProfileBody = Schema.Struct({
   contactName: optionalNullable(Schema.String.check(Schema.isMaxLength(255))),
 });
 export type UpdateBusinessProfileBody = Wire<typeof UpdateBusinessProfileBody>;
+
+/** `GET /business-profile/logo/:fileName`: only the base name is ever used. */
+export const BusinessLogoFileParams = Schema.Struct({ fileName: Schema.String });
+export type BusinessLogoFileParams = Wire<typeof BusinessLogoFileParams>;

@@ -5,6 +5,7 @@ import {
   Receipt,
   ReceiptProcessingJob,
   Statement,
+  Tag,
   Transaction,
   User,
   WorkspaceMember,
@@ -16,6 +17,8 @@ import { ParsingModule } from '../parsing/parsing.module';
 import { TaxModule } from '../tax/tax.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
+import { ReceiptApprovalsController } from './receipt-approvals.controller';
+import { ReceiptTagsController } from './receipt-tags.controller';
 import { ReceiptsController } from './receipts.controller';
 import { ReceiptsService } from './receipts.service';
 import { EmailReceiptParserService } from './services/email-receipt-parser.service';
@@ -28,6 +31,7 @@ import { ReceiptPlaceSuggestionService } from './services/receipt-place-suggesti
 import { ReceiptProcessorService } from './services/receipt-processor.service';
 import { ReceiptSplitService } from './services/receipt-split.service';
 import { ReceiptStageService } from './services/receipt-stage.service';
+import { ReceiptTagsService } from './services/receipt-tags.service';
 
 @Module({
   imports: [
@@ -36,6 +40,7 @@ import { ReceiptStageService } from './services/receipt-stage.service';
       ReceiptProcessingJob,
       Category,
       Statement,
+      Tag,
       Transaction,
       User,
       WorkspaceMember,
@@ -48,7 +53,7 @@ import { ReceiptStageService } from './services/receipt-stage.service';
     TransactionsModule,
     TaxModule,
   ],
-  controllers: [ReceiptsController],
+  controllers: [ReceiptsController, ReceiptApprovalsController, ReceiptTagsController],
   providers: [
     ReceiptsService,
     EmailReceiptParserService,
@@ -61,6 +66,7 @@ import { ReceiptStageService } from './services/receipt-stage.service';
     ReceiptStageService,
     ReceiptMatchService,
     ReceiptSplitService,
+    ReceiptTagsService,
   ],
   exports: [
     ReceiptsService,

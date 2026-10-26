@@ -8,7 +8,6 @@ import { Briefcase, Building2, User } from '@/app/components/icons';
 import type { WorkspaceProfile } from '@/app/components/navigation/helpers/navigation-config';
 import { type ChoiceCardOption, ChoiceCards } from '@/app/components/ui/choice-cards';
 import { useIntlayer } from '@/app/i18n';
-import { APP_NAME } from '@/app/lib/brand';
 import { CountryDrawer } from '../components/CountryDrawer';
 import { FlagIcon } from '../components/FlagIcon';
 import { FieldLabel } from '../components/OnboardingField';
@@ -43,7 +42,7 @@ export function TaxStep({
   const declaration = useIntlayer('taxDeclarationPage');
   const jurisdictions = useJurisdictions();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const countryLabel = text(['tax', 'countryLabel'], 'Tax residence');
+  const countryLabel = text(['tax', 'countryLabel']);
 
   const options = useMemo(() => {
     const list = jurisdictions.data ?? [];
@@ -79,13 +78,7 @@ export function TaxStep({
       component="section"
       sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
     >
-      <StepHeading
-        title={text(['tax', 'title'], 'Where do you pay tax?')}
-        subtitle={text(
-          ['tax', 'subtitle'],
-          `${APP_NAME} uses it for VAT rates and the income tax declaration in this workspace.`,
-        )}
-      />
+      <StepHeading title={text(['tax', 'title'])} subtitle={text(['tax', 'subtitle'])} />
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {jurisdictions.isPending ? (
@@ -103,10 +96,7 @@ export function TaxStep({
               role="alert"
               sx={{ m: 0, fontSize: 14, color: 'var(--destructive)' }}
             >
-              {text(
-                ['tax', 'loadFailed'],
-                'Could not load the list of countries. You can choose one later in the workspace settings.',
-              )}
+              {text(['tax', 'loadFailed'])}
             </Box>
           </>
         ) : (
@@ -121,16 +111,13 @@ export function TaxStep({
                 </>
               ) : null
             }
-            placeholder={text(['tax', 'countryPlaceholder'], 'Choose a country')}
+            placeholder={text(['tax', 'countryPlaceholder'])}
             onOpen={() => setDrawerOpen(true)}
           />
         )}
         {taxCountry ? null : (
           <Box component="p" sx={{ m: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-            {text(
-              ['tax', 'notListedHint'],
-              'Tax features stay off until a country is chosen in the workspace settings.',
-            )}
+            {text(['tax', 'notListedHint'])}
           </Box>
         )}
       </Box>
@@ -164,15 +151,15 @@ export function TaxStep({
           '&:hover': { color: 'var(--foreground)', bgcolor: 'transparent' },
         }}
       >
-        {text(['tax', 'notListed'], "My country isn't listed, or I'll decide later")}
+        {text(['tax', 'notListed'])}
       </Button>
 
       <CountryDrawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         title={countryLabel}
-        searchPlaceholder={text(['tax', 'countrySearch'], 'Search countries')}
-        emptyLabel={text(['tax', 'countryNotFound'], 'No countries found')}
+        searchPlaceholder={text(['tax', 'countrySearch'])}
+        emptyLabel={text(['tax', 'countryNotFound'])}
         options={options}
         selected={taxCountry}
         onSelect={onTaxCountryChange}

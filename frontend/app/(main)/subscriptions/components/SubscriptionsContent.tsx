@@ -439,7 +439,13 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
               style={{ width: 64, height: 64 }}
             />
             <CardContent sx={{ py: 1.75, '&:last-child': { pb: 1.75 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  display: 'block',
+                }}
+              >
                 {label}
               </Typography>
               <Typography
@@ -680,8 +686,19 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                           vendorDomain={subscription.vendorDomain}
                         />
                         <Box>
-                          <Typography fontWeight={600}>{subscription.vendorName}</Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography
+                            sx={{
+                              fontWeight: 600,
+                            }}
+                          >
+                            {subscription.vendorName}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: 'text.secondary',
+                            }}
+                          >
                             {t[STATUS_LABELS[subscription.status]]}
                             {props.duplicateIds?.has(subscription.id) && <> · {t.duplicateChip}</>}
                           </Typography>

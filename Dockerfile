@@ -1,7 +1,15 @@
+# Bun only installs packages (from package-lock.json); Node runs the app.
+FROM oven/bun:1.4.4-alpine AS bun
+
 # Build stage
 FROM node:24-alpine AS builder
 
+# onnxruntime-node fetches its CUDA providers (~260 MB) at install on linux/x64.
+# The categorizer runs on the CPU, so the image never loads them.
+ENV ONNXRUNTIME_NODE_INSTALL=skip
+
 WORKDIR /app
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
 # Copy dependency manifests first for better caching
 COPY backend/package*.json ./backend/
@@ -10,8 +18,11 @@ COPY frontend/package*.json ./frontend/
 COPY frontend/scripts/build-locale-packs.mjs ./frontend/scripts/
 
 # Install dependencies for both apps
-RUN npm ci --prefix backend
-RUN npm ci --prefix frontend
+WORKDIR /app/backend
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile --network-concurrency=16
+WORKDIR /app/frontend
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile --network-concurrency=16
+WORKDIR /app
 
 # Copy source code
 COPY backend ./backend
@@ -31,8 +42,14 @@ RUN npm run build --prefix frontend
 # Build backend
 RUN npm run build --prefix backend
 
-# Remove devDependencies from backend for the runtime image
-RUN npm --prefix backend prune --omit=dev
+# Reinstall backend with production deps only for the runtime image
+# onnxruntime-node ships binaries for every OS; keep only this one (~245 MB less).
+WORKDIR /app/backend
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  rm -rf node_modules && bun install --frozen-lockfile --network-concurrency=16 --production && \
+  find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 2 -maxdepth 2 \
+    ! -path "*/linux/$(node -p process.arch)" -exec rm -rf {} +
+WORKDIR /app
 
 # Runtime image
 FROM node:24-alpine AS runner
@@ -41,7 +58,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV API_PORT=4000
-ENV HOSTNAME=0.0.0.0
+ENV HOST=0.0.0.0
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Install Python + pdfplumber for PDF parsing + pdf2image for thumbnails.
@@ -58,26 +75,26 @@ RUN apk upgrade --no-cache && \
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
     /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
+# Non-root runtime user. Files are copied in already owned by it: a `chown -R`
+# after the copies would store every file a second time in its own layer.
+RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
+
 # Backend runtime dependencies (already pruned)
-COPY --from=builder /app/backend/package*.json ./backend/
-COPY --from=builder /app/backend/node_modules ./backend/node_modules
+COPY --chown=app:app --from=builder /app/backend/package*.json ./backend/
+COPY --chown=app:app --from=builder /app/backend/node_modules ./backend/node_modules
 
 # Backend runtime files
-COPY --from=builder /app/backend/dist ./backend/dist
-COPY --from=builder /app/backend/scripts ./backend/scripts
+COPY --chown=app:app --from=builder /app/backend/dist ./backend/dist
+COPY --chown=app:app --from=builder /app/backend/scripts ./backend/scripts
 
-# Frontend standalone output
-COPY --from=builder /app/frontend/.next/standalone ./frontend
-COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
-COPY --from=builder /app/frontend/public ./frontend/public
-COPY --from=builder /app/frontend/package*.json ./frontend/
+# Frontend standalone output (vinext); static files, public/ included, live in dist/client
+COPY --chown=app:app --from=builder /app/frontend/dist/standalone/server.js /app/frontend/dist/standalone/package.json ./frontend/
+COPY --chown=app:app --from=builder /app/frontend/dist/standalone/dist ./frontend/dist
+COPY --chown=app:app --from=builder /app/frontend/dist/standalone/node_modules ./frontend/node_modules
 
 # Startup script to run both servers
-COPY scripts/start.sh ./scripts/start.sh
-RUN chmod +x ./scripts/start.sh
+COPY --chown=app:app --chmod=755 scripts/start.sh ./scripts/start.sh
 
-# Use non-root user for runtime
-RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
 USER app
 
 EXPOSE 3000

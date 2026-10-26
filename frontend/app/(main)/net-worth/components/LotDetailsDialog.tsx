@@ -188,7 +188,6 @@ export function LotDetailsDialog({
           label={`${t.insuredValue.value} (${currency})`}
           value={insured}
           onChange={event => setInsured(event.target.value)}
-          inputProps={{ inputMode: 'decimal' }}
           helperText={
             <>
               {t.value.value}:{' '}
@@ -196,10 +195,18 @@ export function LotDetailsDialog({
             </>
           }
           fullWidth
+          slotProps={{
+            htmlInput: { inputMode: 'decimal' },
+          }}
         />
         {members.length > 1 && (
           <Box>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.owner}
             </Typography>
             <Select
@@ -217,7 +224,12 @@ export function LotDetailsDialog({
         )}
 
         <Box>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             {t.receipt}
           </Typography>
           <Select

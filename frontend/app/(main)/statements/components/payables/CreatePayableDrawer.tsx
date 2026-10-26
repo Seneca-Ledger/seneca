@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 
 import MuiButton from '@mui/material/Button';
@@ -6,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronLeft } from '@/app/components/icons';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
+import { TagPicker } from '@/app/components/tags/TagPicker';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
@@ -18,6 +18,7 @@ import type {
   PayableStatus,
   UpdatePayableInput,
 } from '@/app/lib/payables-api';
+import { type PayableFormState, toFormState } from './payable-form-state';
 
 interface CreatePayableDrawerProps {
   open: boolean;
@@ -47,59 +48,6 @@ interface CreatePayableDrawerProps {
   };
 }
 
-interface PayableFormState {
-  vendor: string;
-  amount: string;
-  currency: string;
-  dueDate: string;
-  source: PayableSource;
-  status: PayableStatus;
-  comment: string;
-}
-
-const createEmptyState = (defaultCurrency: string): PayableFormState => ({
-  vendor: '',
-  amount: '',
-  currency: defaultCurrency,
-  dueDate: '',
-  source: 'manual',
-  status: 'to_pay',
-  comment: '',
-});
-
-const toFormState = (
-  payable: Payable | null | undefined,
-  initialValues: CreatePayableInput | null | undefined,
-  defaultCurrency: string,
-): PayableFormState => {
-  if (!(payable || initialValues)) {
-    return createEmptyState(defaultCurrency);
-  }
-
-  if (!payable && initialValues) {
-    return {
-      vendor: initialValues.vendor || '',
-      amount: String(initialValues.amount ?? ''),
-      currency: initialValues.currency || defaultCurrency,
-      dueDate: initialValues.dueDate ? initialValues.dueDate.slice(0, 10) : '',
-      source: initialValues.source || 'manual',
-      status: initialValues.status || 'to_pay',
-      comment: initialValues.comment || '',
-    };
-  }
-
-  return {
-    vendor: payable?.vendor || '',
-    amount: String(payable?.amount ?? ''),
-    currency: payable?.currency || defaultCurrency,
-    dueDate: payable?.dueDate ? payable.dueDate.slice(0, 10) : '',
-    source: payable?.source || 'manual',
-    status: payable?.status || 'to_pay',
-    comment: payable?.comment || '',
-  };
-};
-
-// eslint-disable-next-line max-lines-per-function, complexity
 export function CreatePayableDrawer({
   open,
   payable,
@@ -151,6 +99,7 @@ export function CreatePayableDrawer({
       source: form.source,
       status: form.status,
       comment: form.comment.trim() || undefined,
+      tagIds: form.tags.map(tag => tag.id),
     });
   };
 
@@ -291,6 +240,8 @@ export function CreatePayableDrawer({
                 className="seneca-payable-drawer__textarea"
               />
             </div>
+
+            <TagPicker value={form.tags} onChange={tags => setForm(prev => ({ ...prev, tags }))} />
           </div>
 
           <div className="seneca-payable-drawer__footer">

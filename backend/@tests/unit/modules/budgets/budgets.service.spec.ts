@@ -9,23 +9,23 @@ import { In, IsNull, MoreThanOrEqual } from 'typeorm';
 import { workspaceCurrencyStub } from '../../../helpers/workspace-currency-stub';
 
 const createRepoMock = () => ({
-  create: jest.fn((data: unknown) => data),
-  save: jest.fn(async (data: unknown) => data),
-  find: jest.fn(),
-  findOne: jest.fn(),
-  remove: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  create: vi.fn((data: unknown) => data),
+  save: vi.fn(async (data: unknown) => data),
+  find: vi.fn(),
+  findOne: vi.fn(),
+  remove: vi.fn(),
+  createQueryBuilder: vi.fn(),
 });
 
 // The period's spending, summed per day and currency; no currency reads as the budget's own.
 const createQueryBuilderMock = (total: string) => ({
-  select: jest.fn().mockReturnThis(),
-  addSelect: jest.fn().mockReturnThis(),
-  where: jest.fn().mockReturnThis(),
-  andWhere: jest.fn().mockReturnThis(),
-  groupBy: jest.fn().mockReturnThis(),
-  addGroupBy: jest.fn().mockReturnThis(),
-  getRawMany: jest.fn().mockResolvedValue([{ date: '2026-05-01', currency: null, amount: total }]),
+  select: vi.fn().mockReturnThis(),
+  addSelect: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  andWhere: vi.fn().mockReturnThis(),
+  groupBy: vi.fn().mockReturnThis(),
+  addGroupBy: vi.fn().mockReturnThis(),
+  getRawMany: vi.fn().mockResolvedValue([{ date: '2026-05-01', currency: null, amount: total }]),
 });
 
 describe('BudgetsService', () => {
@@ -34,23 +34,23 @@ describe('BudgetsService', () => {
   const goalRepository = createRepoMock();
   const categoryRepository = createRepoMock();
   const notificationsService = {
-    createForWorkspaceMembers: jest.fn(),
+    createForWorkspaceMembers: vi.fn(),
   };
   const auditService = {
-    createEvent: jest.fn(),
+    createEvent: vi.fn(),
   };
 
   let service: BudgetsService;
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
     // resetAllMocks drops the pass-through implementations, and the service
     // now reads the saved entity back to record it in the audit trail.
     budgetRepository.create.mockImplementation((data: unknown) => data);
     budgetRepository.save.mockImplementation(async (data: unknown) => data);
     categoryRepository.findOne.mockResolvedValue({ id: 'category-1' });
     categoryRepository.find.mockResolvedValue([]);
-    jest.useFakeTimers().setSystemTime(new Date('2026-05-08T12:00:00.000Z'));
+    vi.useFakeTimers().setSystemTime(new Date('2026-05-08T12:00:00.000Z'));
     service = new BudgetsService(
       budgetRepository as any,
       transactionRepository as any,
@@ -63,7 +63,7 @@ describe('BudgetsService', () => {
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('returns budgets with spending computed from transactions', async () => {
@@ -446,8 +446,8 @@ describe('BudgetsService', () => {
   });
 
   describe('subcategories and rollover', () => {
-    const categoryRepository = { find: jest.fn(), findOne: jest.fn() };
-    const walletRepository = { findOne: jest.fn() };
+    const categoryRepository = { find: vi.fn(), findOne: vi.fn() };
+    const walletRepository = { findOne: vi.fn() };
 
     const withTree = () =>
       new BudgetsService(
@@ -505,14 +505,14 @@ describe('BudgetsService', () => {
       categoryRepository.find.mockResolvedValue([]);
       const current = createQueryBuilderMock('50');
       const history = {
-        select: jest.fn().mockReturnThis(),
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        addGroupBy: jest.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        addSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        groupBy: vi.fn().mockReturnThis(),
+        addGroupBy: vi.fn().mockReturnThis(),
         // February (budget created on the 10th), March, April: 100 − 30, 100 − 0, 100 − 120.
-        getRawMany: jest.fn().mockResolvedValue([
+        getRawMany: vi.fn().mockResolvedValue([
           { date: '2026-02-20', amount: '30' },
           { date: '2026-04-15', amount: '120' },
         ]),
@@ -548,11 +548,11 @@ describe('BudgetsService', () => {
       });
       const spent = createQueryBuilderMock('80');
       const sums = {
-        select: jest.fn().mockReturnThis(),
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({ credit: '5', debit: '0' }),
+        select: vi.fn().mockReturnThis(),
+        addSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getRawOne: vi.fn().mockResolvedValue({ credit: '5', debit: '0' }),
       };
       transactionRepository.createQueryBuilder.mockReturnValueOnce(spent).mockReturnValueOnce(sums);
 
@@ -694,7 +694,7 @@ describe('BudgetsService', () => {
     const workspaceId = 'workspace-1';
     const subscriptionRepository = createRepoMock();
     const chargeRepository = createRepoMock();
-    const exchangeRatesService = { getRateOrNull: jest.fn() };
+    const exchangeRatesService = { getRateOrNull: vi.fn() };
     const budget = (over: Record<string, unknown> = {}) => ({
       id: 'budget-fun',
       workspaceId,

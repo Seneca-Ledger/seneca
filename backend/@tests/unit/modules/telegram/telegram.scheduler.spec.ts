@@ -2,17 +2,17 @@ import { InsightSeverity } from '@/entities/insight.entity';
 import { TelegramScheduler } from '@/modules/telegram/telegram.scheduler';
 
 function createUserRepoMock(users: unknown[]) {
-  return { find: jest.fn(async () => users) } as any;
+  return { find: vi.fn(async () => users) } as any;
 }
 
 describe('TelegramScheduler.pushInsightDigests', () => {
   it('pushes only the newly-created warn/critical insights, per connected user', async () => {
     const telegramService = {
-      pushInsightDigest: jest.fn(async () => undefined),
-      resolveWorkspaceId: jest.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
+      pushInsightDigest: vi.fn(async () => undefined),
+      resolveWorkspaceId: vi.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
     } as any;
     const insightsService = {
-      refresh: jest.fn(async () => ({
+      refresh: vi.fn(async () => ({
         created: 2,
         updated: 1,
         total: 3,
@@ -25,7 +25,7 @@ describe('TelegramScheduler.pushInsightDigests', () => {
     const userRepository = createUserRepoMock([
       { id: 'user-1', workspaceId: 'workspace-1', telegramChatId: 'chat-1' },
     ]);
-    const auditService = { createEvent: jest.fn() } as any;
+    const auditService = { createEvent: vi.fn() } as any;
 
     const scheduler = new TelegramScheduler(
       telegramService,
@@ -44,10 +44,10 @@ describe('TelegramScheduler.pushInsightDigests', () => {
 
   it('skips users with no workspace, since insights are workspace-scoped', async () => {
     const telegramService = {
-      pushInsightDigest: jest.fn(async () => undefined),
-      resolveWorkspaceId: jest.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
+      pushInsightDigest: vi.fn(async () => undefined),
+      resolveWorkspaceId: vi.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
     } as any;
-    const insightsService = { refresh: jest.fn() } as any;
+    const insightsService = { refresh: vi.fn() } as any;
     const userRepository = createUserRepoMock([
       { id: 'user-1', workspaceId: null, telegramChatId: 'chat-1' },
     ]);
@@ -56,7 +56,7 @@ describe('TelegramScheduler.pushInsightDigests', () => {
       telegramService,
       insightsService,
       userRepository,
-      { createEvent: jest.fn() } as any,
+      { createEvent: vi.fn() } as any,
     );
 
     await scheduler.pushInsightDigests();
@@ -66,11 +66,11 @@ describe('TelegramScheduler.pushInsightDigests', () => {
 
   it('stays quiet when nothing new crossed the warn/critical bar', async () => {
     const telegramService = {
-      pushInsightDigest: jest.fn(async () => undefined),
-      resolveWorkspaceId: jest.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
+      pushInsightDigest: vi.fn(async () => undefined),
+      resolveWorkspaceId: vi.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
     } as any;
     const insightsService = {
-      refresh: jest.fn(async () => ({
+      refresh: vi.fn(async () => ({
         created: 1,
         updated: 0,
         total: 1,
@@ -85,7 +85,7 @@ describe('TelegramScheduler.pushInsightDigests', () => {
       telegramService,
       insightsService,
       userRepository,
-      { createEvent: jest.fn() } as any,
+      { createEvent: vi.fn() } as any,
     );
 
     await scheduler.pushInsightDigests();
@@ -95,11 +95,11 @@ describe('TelegramScheduler.pushInsightDigests', () => {
 
   it('keeps checking other users after one fails', async () => {
     const telegramService = {
-      pushInsightDigest: jest.fn(async () => undefined),
-      resolveWorkspaceId: jest.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
+      pushInsightDigest: vi.fn(async () => undefined),
+      resolveWorkspaceId: vi.fn(async (u: any) => u.telegramWorkspaceId ?? u.workspaceId ?? null),
     } as any;
     const insightsService = {
-      refresh: jest
+      refresh: vi
         .fn()
         .mockRejectedValueOnce(new Error('boom'))
         .mockResolvedValueOnce({
@@ -118,7 +118,7 @@ describe('TelegramScheduler.pushInsightDigests', () => {
       telegramService,
       insightsService,
       userRepository,
-      { createEvent: jest.fn() } as any,
+      { createEvent: vi.fn() } as any,
     );
 
     await scheduler.pushInsightDigests();

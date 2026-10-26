@@ -1,22 +1,23 @@
 <div align="center">
-<img width="150" height="150" alt="Seneca logo" src="https://github.com/user-attachments/assets/eded65fe-0490-4ff8-bbe9-76f2a6711983" />
+<img width="150" height="150" alt="N (5)" src="https://github.com/user-attachments/assets/766c9c0b-50b5-4eaf-8b17-871c4a8c1a49" />
 
-<h1>Seneca</h1>
+
+<h1>Seneca Ledger</h1>
 
 <p align="center">
-  :globe_with_meridians: <a href="https://github.com/symonbaikov/seneca/releases/latest">Download</a> · :book: <a href="https://symonbaikov.github.io/seneca/">Documentation</a>
+  :globe_with_meridians: <a href="https://github.com/Seneca-Ledger/seneca/releases/latest">Download</a> · :book: <a href="https://symonbaikov.github.io/seneca/">Documentation</a>
 </p>
 
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](CONTRIBUTING.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](.github/CONTRIBUTING.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%20%7C%206.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Release](https://img.shields.io/github/v/release/symonbaikov/seneca?style=for-the-badge)](https://github.com/symonbaikov/seneca/releases/latest)
+[![Release](https://img.shields.io/github/v/release/Seneca-Ledger/seneca?style=for-the-badge)](https://github.com/Seneca-Ledger/seneca/releases/latest)
 
 **Open-source financial data platform for importing, processing, and analyzing bank statements**
 
 
-[Quick Start](#quick-start) • [Docs](https://symonbaikov.github.io/seneca/) • [Features](#features) • [Tech Stack](#tech-stack) • [Architecture](#architecture) • [Contributing](CONTRIBUTING.md)
+[Quick Start](#quick-start) • [Docs](https://symonbaikov.github.io/seneca/) • [Features](#features) • [Tech Stack](#tech-stack) • [Architecture](#architecture) • [Contributing](.github/CONTRIBUTING.md)
 
 </div>
 
@@ -54,9 +55,9 @@
 
 [![Maintainability](https://qlty.sh/gh/symonbaikov/projects/seneca/maintainability.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
 [![Code Coverage](https://qlty.sh/gh/symonbaikov/projects/seneca/coverage.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
-[![GitHub Stars](https://img.shields.io/github/stars/symonbaikov/seneca?style=flat-square&logo=github)](https://github.com/symonbaikov/seneca/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/symonbaikov/seneca?style=flat-square&logo=github)](https://github.com/symonbaikov/seneca/network/members)
-[![GitHub Issues](https://img.shields.io/github/issues/symonbaikov/seneca?style=flat-square&logo=github)](https://github.com/symonbaikov/seneca/issues)
+[![GitHub Stars](https://img.shields.io/github/stars/Seneca-Ledger/seneca?style=flat-square&logo=github)](https://github.com/Seneca-Ledger/seneca/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/Seneca-Ledger/seneca?style=flat-square&logo=github)](https://github.com/Seneca-Ledger/seneca/network/members)
+[![GitHub Issues](https://img.shields.io/github/issues/Seneca-Ledger/seneca?style=flat-square&logo=github)](https://github.com/Seneca-Ledger/seneca/issues)
 
 ---
 
@@ -280,7 +281,7 @@ Your bank is missing or parses badly? See [Wanted: real bank statements](#-wante
 | PDF Viewer | react-pdf v10 |
 | Animation | framer-motion v12 |
 | Compiler | React Compiler (babel-plugin-react-compiler) |
-| Linting | Biome + ESLint |
+| Linting | Biome |
 | Tests | Vitest v4 |
 
 ### Infrastructure
@@ -447,7 +448,7 @@ Choose the startup mode that matches your machine:
 ### One-command development startup
 
 ```bash
-git clone https://github.com/symonbaikov/seneca.git
+git clone https://github.com/Seneca-Ledger/seneca.git
 cd seneca
 npm run setup:dev
 ```
@@ -505,7 +506,7 @@ If native prerequisites are missing, the command stops before starting the app a
 
 ### Run prebuilt images (no local build)
 
-CD publishes `ghcr.io/symonbaikov/seneca-backend` and `ghcr.io/symonbaikov/seneca-frontend` for every release. To start the production stack without building anything locally:
+CD publishes `ghcr.io/seneca-ledger/seneca-backend` and `ghcr.io/seneca-ledger/seneca-frontend` for every release. To start the production stack without building anything locally:
 
 ```bash
 npm run setup:env
@@ -604,7 +605,7 @@ Endpoints and hosts saved in the UI must resolve to public addresses: the egress
 <details>
 <summary><b>Categorization & Generic PDF Parsing</b></summary>
 
-Seneca never contacts an external AI model. Categories come from your rules first, then from payee history (a payee's default moves only when two of its three most recent confirmed rows agree); anything left stays uncategorised in Review. **Integrations → Local categorization** can install a Transformers.js embedding model on the server from an uploaded ZIP; remote model loading stays disabled. PDFs from banks without a native parser go through `GenericPdfParser`, which reads the transaction tables from the PDF text layer.
+Seneca never contacts an external AI model. Categories come from your rules first, then from payee history (a payee's default moves only when two of its three most recent confirmed rows agree); anything left stays uncategorised in Review. PDFs from banks without a native parser go through `GenericPdfParser`, which reads the transaction tables from the PDF text layer.
 </details>
 
 <details>
@@ -671,7 +672,7 @@ Creates `demo@seneca.dev` with password `demo123` and a sample workspace with de
 make admin email=admin@example.com password=admin123 name="Admin User"
 
 # Using Docker exec directly
-docker exec -it finflow-backend npm run create-admin -- admin@example.com admin123 "Admin User"
+docker exec -it seneca-backend npm run create-admin -- admin@example.com admin123 "Admin User"
 
 # Local (no Docker)
 cd backend && npm run create-admin -- admin@example.com admin123 "Admin User"
@@ -746,7 +747,7 @@ make test-e2e          # End-to-end tests
 **Code Quality**
 
 ```bash
-make lint              # Check lint: backend Biome, frontend Biome + ESLint (no auto-fix)
+make lint              # Check lint: Biome in both apps (no auto-fix)
 make lint-check        # Same check; auto-fix with npm --prefix <app> run lint:fix
 make format            # Format code with Biome
 make type-check        # TypeScript type checking
@@ -922,7 +923,7 @@ Upload request
 - RBAC enforced at controller level via guards — workspace roles enforced on every request
 - Audit log covers all mutating operations with rollback support for critical changes
 - CVE allowlists and license exceptions documented in `docs/security/`
-- See [SECURITY.md](SECURITY.md) for the full security policy
+- See [.github/SECURITY.md](.github/SECURITY.md) for the full security policy
 
 ### Code Conventions
 
@@ -993,9 +994,9 @@ CD builds, scans, signs and publishes the images on version tags and stops there
 | Document | Description |
 |---|---|
 | [symonbaikov.github.io/seneca](https://symonbaikov.github.io/seneca/) | Documentation site, built from `website/` |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute — workflow, code style, PR process |
-| [SECURITY.md](SECURITY.md) | Security policy, vulnerability reporting, disclosure process |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community guidelines |
+| [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | How to contribute — workflow, code style, PR process |
+| [.github/SECURITY.md](.github/SECURITY.md) | Security policy, vulnerability reporting, disclosure process |
+| [.github/CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) | Community guidelines |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 | [docs/ui-principles.md](docs/ui-principles.md) | UI stability principles the product follows |
 | [website/docs/](website/docs/) | Documentation site: getting started, guides, architecture, API and deployment reference |
@@ -1044,7 +1045,7 @@ We welcome contributions from the community.
 - Run `make lint` (and `make format` if needed) before committing
 - Follow existing module patterns: thin controllers, logic in services, DTOs for all inputs
 
-For detailed guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+For detailed guidelines, see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ---
 
@@ -1058,7 +1059,7 @@ For detailed guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
-Security is a top priority. Please read [SECURITY.md](SECURITY.md) for supported versions, the vulnerability disclosure process, and security best practices.
+Security is a top priority. Please read [.github/SECURITY.md](.github/SECURITY.md) for supported versions, the vulnerability disclosure process, and security best practices.
 
 **Found a security issue?** Report it privately through [GitHub Security Advisories](../../security/advisories/new), not in public issues.
 

@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -15,11 +16,11 @@ describe('SystemUpdateService', () => {
   const member = { id: 'user-1', role: UserRole.USER } as never;
   let dir: string;
   let effects: EffectRuntime;
-  let fetchMock: jest.Mock;
+  let fetchMock: Mock;
 
   const releaseResponse = (tag: string) => async () =>
     new Response(
-      JSON.stringify({ tag_name: tag, html_url: `https://github.com/symonbaikov/seneca/releases/tag/${tag}` }),
+      JSON.stringify({ tag_name: tag, html_url: `https://github.com/Seneca-Ledger/seneca/releases/tag/${tag}` }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
 
@@ -36,7 +37,7 @@ describe('SystemUpdateService', () => {
     dir = mkdtempSync(path.join(tmpdir(), 'seneca-update-'));
     process.env = { ...originalEnv, UPDATE_DIR: dir, APP_VERSION: 'v1.2.0' };
     effects = new EffectRuntime();
-    fetchMock = jest.fn(releaseResponse('v1.3.0'));
+    fetchMock = vi.fn(releaseResponse('v1.3.0'));
     global.fetch = fetchMock as never;
   });
 
@@ -67,7 +68,7 @@ describe('SystemUpdateService', () => {
     expect(status).toMatchObject({
       currentVersion: 'v1.2.0',
       latestVersion: 'v1.3.0',
-      releaseUrl: 'https://github.com/symonbaikov/seneca/releases/tag/v1.3.0',
+      releaseUrl: 'https://github.com/Seneca-Ledger/seneca/releases/tag/v1.3.0',
       updateAvailable: true,
       updaterAvailable: true,
       run: { state: 'idle' },

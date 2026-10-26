@@ -301,7 +301,7 @@ async function runDockerMode() {
   const rootEnv = parseEnv(await readFile(path.join(rootDir, '.env'), 'utf8'));
   const backendPort = rootEnv.BACKEND_PORT || '3001';
   await waitForHealth(`http://localhost:${backendPort}/api/v1/health/ready`, 'Backend');
-  await run('docker', ['exec', 'finflow-backend', 'sh', '-lc', 'NODE_OPTIONS=--max-old-space-size=2048 npm run seed:demo:dev']);
+  await run('docker', ['exec', 'seneca-backend', 'sh', '-lc', 'NODE_OPTIONS=--max-old-space-size=2048 npm run seed:demo:dev']);
   printReady();
 }
 

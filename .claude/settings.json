@@ -1,18 +1,31 @@
 {
   "enabledPlugins": {
-    "feature-dev@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": true,
-    "explanatory-output-style@claude-plugins-official": true,
-    "hookify@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
     "claude-code-setup@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
     "cloud-infrastructure@claude-code-workflows": true,
-    "security-scanning@claude-code-workflows": true,
     "code-review-ai@claude-code-workflows": true,
+    "code-simplifier@claude-plugins-official": true,
+    "explanatory-output-style@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
     "full-stack-orchestration@claude-code-workflows": true,
+    "hookify@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "security-scanning@claude-code-workflows": true,
+    "superpowers@claude-plugins-official": true,
     "ui-ux-pro-max@ui-ux-pro-max-skill": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "sh -c 'if command -v entire-brain \u003e/dev/null 2\u003e\u00261; then exec entire-brain hook pre-edit --claude-hook; fi; if command -v entire \u003e/dev/null 2\u003e\u00261; then exec entire brain hook pre-edit --claude-hook; fi; exit 0'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit"
+      }
+    ]
   },
   "permissions": {
     "deny": [

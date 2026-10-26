@@ -33,7 +33,7 @@ npm run dev
 ### Production
 
 ```bash
-npm run build   # next build --webpack
+npm run build   # vite build (vinext), выход в dist/standalone
 npm run start
 ```
 
@@ -41,8 +41,8 @@ npm run start
 
 ```bash
 npm test             # Vitest
-npm run lint:check   # Biome и ESLint
-npm run lint:fix     # автоисправление Biome и ESLint
+npm run lint:check   # Biome
+npm run lint:fix     # автоисправление Biome
 npm run lint:css     # stylelint для SCSS
 npm run type-check   # TypeScript
 ```

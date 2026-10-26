@@ -8,12 +8,34 @@ export const StorageTag = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   color: Schema.NullOr(Schema.String),
+  /** Set on the Tags page; absent where a tag is embedded in another record. */
+  description: Schema.optional(Schema.NullOr(Schema.String)),
+  tagDate: Schema.optional(Schema.NullOr(DateOnly)),
 });
 export type StorageTag = Wire<typeof StorageTag>;
 
-/** `GET /storage/tags`, and `GET /transactions/:id/tags`. */
+/** `GET /tags`: a tag with how many statements, receipts and transactions carry it. */
+export const TagListItem = Schema.Struct({
+  ...StorageTag.fields,
+  usageCount: Schema.Number,
+});
+export type TagListItem = Wire<typeof TagListItem>;
+
+export const TagList = Schema.Array(TagListItem);
+export type TagList = Wire<typeof TagList>;
+
+/** `GET /storage/tags`, `GET /transactions/:id/tags` and `GET /receipts/:id/tags`. */
 export const StorageTagList = Schema.Array(StorageTag);
 export type StorageTagList = Wire<typeof StorageTagList>;
+
+/**
+ * `GET /tags/transaction-links`: which tags each transaction carries, its own
+ * and those of its statement and receipt, one pair per transaction and tag.
+ */
+export const TransactionTagLinks = Schema.Array(
+  Schema.Struct({ transactionId: Schema.String, tagId: Schema.String }),
+);
+export type TransactionTagLinks = Wire<typeof TransactionTagLinks>;
 
 export const StorageFolder = Schema.Struct({
   id: Schema.String,

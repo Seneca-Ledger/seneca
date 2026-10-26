@@ -7,6 +7,10 @@ import { Timestamp, type Wire } from '../common/wire';
 export const MessageResult = Schema.Struct({ message: Schema.String });
 export type MessageResult = Wire<typeof MessageResult>;
 
+/** A write that answers only that it went through: deletes and reorders. */
+export const OkResult = Schema.Struct({ ok: Schema.Literal(true) });
+export type OkResult = Wire<typeof OkResult>;
+
 /** `POST /investments/refresh-prices` and `POST /metals/refresh-prices`. */
 export const PriceRefreshResult = Schema.Struct({ updated: Schema.Number });
 export type PriceRefreshResult = Wire<typeof PriceRefreshResult>;

@@ -2,14 +2,26 @@
 
 import { AnalyticsFlowSection } from '@/app/(main)/statements/components/analytics/flow/AnalyticsFlowSection';
 import type { AnalyticsViewMode } from '@/app/(main)/statements/components/analytics/flow/analytics-flow.types';
+import type { SpendFlowGroupBy } from '@/app/(main)/statements/components/analytics/flow/useSpendFlow';
 import { TopCategoriesLeaderboard } from '@/app/(main)/statements/components/top-categories/components/TopCategoriesLeaderboard';
 import { TopCategoriesStatCards } from '@/app/(main)/statements/components/top-categories/components/TopCategoriesStatCards';
 import type { useTopCategoriesViewModel } from '@/app/(main)/statements/components/top-categories/hooks/useTopCategoriesViewModel';
 import type { CategorySortKey } from '@/app/(main)/statements/components/top-categories.utils';
 
-type Props = { vm: ReturnType<typeof useTopCategoriesViewModel>; focusId?: string | null };
+type Props = {
+  vm: ReturnType<typeof useTopCategoriesViewModel>;
+  focusId?: string | null;
+  /** Rows that are not categories (tags) name themselves and answer their own `?focus=`. */
+  nameOf?: (name: string) => string;
+  attentionPrefix?: string;
+};
 
-function TopCategoriesLeaderboardSection({ vm, focusId }: Props): React.JSX.Element {
+function TopCategoriesLeaderboardSection({
+  vm,
+  focusId,
+  nameOf,
+  attentionPrefix,
+}: Props): React.JSX.Element {
   const isIncomeView = vm.activeFlowType === 'income';
   const { labels, workspaceCurrency } = vm;
   const sourceLabels = {
@@ -43,11 +55,18 @@ function TopCategoriesLeaderboardSection({ vm, focusId }: Props): React.JSX.Elem
       columnLabels={columnLabels}
       emptyLabel={labels.comparisonNoData}
       focusId={focusId}
+      nameOf={nameOf}
+      attentionPrefix={attentionPrefix}
     />
   );
 }
 
-function TopCategoriesNumbers({ vm, focusId = null }: Props): React.JSX.Element {
+function TopCategoriesNumbers({
+  vm,
+  focusId = null,
+  nameOf,
+  attentionPrefix,
+}: Props): React.JSX.Element {
   const isIncomeView = vm.activeFlowType === 'income';
   const { labels, workspaceCurrency } = vm;
   return (
@@ -64,20 +83,23 @@ function TopCategoriesNumbers({ vm, focusId = null }: Props): React.JSX.Element 
         noDataLabel={labels.comparisonNoData}
         vsPreviousPeriodLabel={labels.vsPreviousPeriod}
       />
-      <TopCategoriesLeaderboardSection vm={vm} focusId={focusId} />
+      <TopCategoriesLeaderboardSection
+        vm={vm}
+        focusId={focusId}
+        nameOf={nameOf}
+        attentionPrefix={attentionPrefix}
+      />
     </>
   );
 }
 
-const CATEGORY_FOCUS_PREFIX = 'category:';
-
 /**
- * The category a `?focus=` deep link names, for the chart to blink. A reader
- * who switched to chart mode gets the same answer the ringed leaderboard row
- * gives them in table mode.
+ * The row a `?focus=` deep link names (`category:<name>`, or the section's own
+ * prefix), for the chart to blink. A reader who switched to chart mode gets the
+ * same answer the ringed leaderboard row gives them in table mode.
  */
-const focusedCategoryName = (focusId: string | null): string | null =>
-  focusId?.startsWith(CATEGORY_FOCUS_PREFIX) ? focusId.slice(CATEGORY_FOCUS_PREFIX.length) : null;
+const focusedNodeName = (focusId: string | null, prefix: string): string | null =>
+  focusId?.startsWith(prefix) ? focusId.slice(prefix.length) : null;
 
 /**
  * Chart mode is the illustration alone; table mode holds every figure (cards
@@ -88,20 +110,32 @@ export function TopCategoriesContent({
   focusId = null,
   viewMode,
   month,
-}: Props & { viewMode: AnalyticsViewMode; month: Date }): React.JSX.Element {
+  groupBy = 'category-subcategory',
+  nameOf,
+  attentionPrefix,
+}: Props & {
+  viewMode: AnalyticsViewMode;
+  month: Date;
+  groupBy?: SpendFlowGroupBy;
+}): React.JSX.Element {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
       {viewMode === 'chart' ? (
         <AnalyticsFlowSection
-          groupBy="category-subcategory"
+          groupBy={groupBy}
           flowType={vm.activeFlowType}
           month={month}
           resolvedTheme={vm.resolvedTheme}
           labels={vm.labels}
-          flashNodeName={focusedCategoryName(focusId)}
+          flashNodeName={focusedNodeName(focusId, attentionPrefix ?? 'category:')}
         />
       ) : (
-        <TopCategoriesNumbers vm={vm} focusId={focusId} />
+        <TopCategoriesNumbers
+          vm={vm}
+          focusId={focusId}
+          nameOf={nameOf}
+          attentionPrefix={attentionPrefix}
+        />
       )}
     </div>
   );

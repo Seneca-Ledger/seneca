@@ -17,6 +17,8 @@ export interface PayablesFiltersState {
   source: PayableSource | 'all';
   dueDateFrom: string;
   dueDateTo: string;
+  /** A tag id, or '' for every bill. */
+  tagId: string;
   sort: PayablesSortOption;
 }
 
@@ -26,6 +28,7 @@ export const DEFAULT_PAYABLES_FILTERS: PayablesFiltersState = {
   source: 'all',
   dueDateFrom: '',
   dueDateTo: '',
+  tagId: '',
   sort: 'dueDateAsc',
 };
 
@@ -110,6 +113,7 @@ type PayablesListParams = {
   source?: string;
   dueDateFrom?: string;
   dueDateTo?: string;
+  tagId?: string;
   sort: PayablesSortOption;
 };
 
@@ -128,6 +132,7 @@ export const buildPayablesListParams = (
   source: resolveOptional(filters.source, 'all'),
   dueDateFrom: filters.dueDateFrom || undefined,
   dueDateTo: filters.dueDateTo || undefined,
+  tagId: filters.tagId || undefined,
   sort: filters.sort,
 });
 

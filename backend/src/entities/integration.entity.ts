@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { IntegrationToken } from '../entities/integration-token.entity';
@@ -34,7 +35,7 @@ export class Integration {
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
@@ -50,7 +51,7 @@ export class Integration {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'connected_by_user_id' })
-  connectedByUser: User | null;
+  connectedByUser: Relation<User | null>;
 
   @Column({ name: 'connected_by_user_id', type: 'uuid', nullable: true })
   connectedByUserId: string | null;
@@ -65,11 +66,11 @@ export class Integration {
     () => IntegrationToken,
     token => token.integration,
   )
-  token: IntegrationToken | null;
+  token: Relation<IntegrationToken | null>;
 
   @OneToOne(
     () => OpenProtocolSettings,
     settings => settings.integration,
   )
-  openProtocolSettings: OpenProtocolSettings | null;
+  openProtocolSettings: Relation<OpenProtocolSettings | null>;
 }

@@ -1,7 +1,8 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put } from '@nestjs/common';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { deletedResponse } from '../../common/utils/responses.util';
@@ -10,10 +11,13 @@ import {
   AttachStatementsBody,
   AttachStatementsResult,
   CreateWalletRequest,
+  MessageResult,
   UpdateWalletBody,
   WalletItem,
   WalletList,
+  WalletParams,
   WalletSeries,
+  WalletStatementParams,
   WalletSummary,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
@@ -26,12 +30,15 @@ export class WalletsController {
 
   @Post()
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(WalletItem)
   async create(
     @SchemaBody(CreateWalletRequest) createDto: CreateWalletRequest,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.walletsService.create(workspaceId, user.id, createDto);
+    const created = await this.walletsService.create(workspaceId, user.id, createDto);
+    // The stored form, as the list reads it: defaults filled, decimals as strings.
+    return this.walletsService.findOneWithBalance(created.id, workspaceId);
   }
 
   @Get()
@@ -59,7 +66,7 @@ export class WalletsController {
   @WorkspaceAuth(Permission.WALLET_VIEW)
   @SchemaResponse(WalletItem)
   async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(WalletParams) { id }: WalletParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -69,14 +76,14 @@ export class WalletsController {
   @Get(':id/series')
   @WorkspaceAuth(Permission.WALLET_VIEW)
   @SchemaResponse(WalletSeries)
-  async series(@Param('id', ParseUUIDPipe) id: string, @WorkspaceId() workspaceId: string) {
+  async series(@SchemaParams(WalletParams) { id }: WalletParams, @WorkspaceId() workspaceId: string) {
     return this.walletsService.series(id, workspaceId);
   }
 
   @Get(':id/statements')
   @WorkspaceAuth(Permission.WALLET_VIEW)
   @SchemaResponse(AccountStatementList)
-  async statementsOf(@Param('id', ParseUUIDPipe) id: string, @WorkspaceId() workspaceId: string) {
+  async statementsOf(@SchemaParams(WalletParams) { id }: WalletParams, @WorkspaceId() workspaceId: string) {
     return this.walletsService.statementsOf(id, workspaceId);
   }
 
@@ -84,7 +91,7 @@ export class WalletsController {
   @WorkspaceAuth(Permission.WALLET_EDIT)
   @SchemaResponse(AttachStatementsResult)
   async attachStatements(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(WalletParams) { id }: WalletParams,
     @SchemaBody(AttachStatementsBody) body: AttachStatementsBody,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -93,9 +100,9 @@ export class WalletsController {
 
   @Delete(':id/statements/:statementId')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(MessageResult)
   async detachStatement(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('statementId', ParseUUIDPipe) statementId: string,
+    @SchemaParams(WalletStatementParams) { id, statementId }: WalletStatementParams,
     @WorkspaceId() workspaceId: string,
   ) {
     await this.walletsService.detachStatement(id, workspaceId, statementId);
@@ -104,19 +111,22 @@ export class WalletsController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(WalletItem)
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(WalletParams) { id }: WalletParams,
     @SchemaBody(UpdateWalletBody) updateDto: UpdateWalletBody,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    return this.walletsService.update(id, workspaceId, updateDto);
+    await this.walletsService.update(id, workspaceId, updateDto);
+    return this.walletsService.findOneWithBalance(id, workspaceId);
   }
 
   @Delete(':id')
   @WorkspaceAuth(Permission.WALLET_DELETE)
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(WalletParams) { id }: WalletParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {

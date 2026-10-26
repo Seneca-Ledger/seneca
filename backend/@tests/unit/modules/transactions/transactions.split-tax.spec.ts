@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { toMinor } from '@/common/utils/money.util';
 import { TaxSource, TransactionType } from '@/entities/transaction.entity';
 import { computeTax } from '@/modules/tax/tax-calculation';
@@ -41,12 +42,12 @@ describe('TransactionsService.split — tax', () => {
   let service: TransactionsService;
   let savedRows: any[];
   let transactionRepository: any;
-  let resolveSpy: jest.Mock;
+  let resolveSpy: Mock;
   let original: any;
 
   /** Stands in for the real service: 12% inclusive, as KZ was in 2026. */
   const assignmentStub = {
-    resolve: jest.fn(async ({ amountMinor }: { amountMinor: number }) => {
+    resolve: vi.fn(async ({ amountMinor }: { amountMinor: number }) => {
       const breakdown = computeTax({ amountMinor, rate: 12, isInclusive: true });
       return {
         taxRateId: 'rate-standard',
@@ -61,42 +62,42 @@ describe('TransactionsService.split — tax', () => {
 
   const makeManager = () => {
     const repo = {
-      findOne: jest.fn(async () => ({ ...original })),
-      create: jest.fn((data: any) => ({ ...data })),
-      save: jest.fn(async (row: any) => {
+      findOne: vi.fn(async () => ({ ...original })),
+      create: vi.fn((data: any) => ({ ...data })),
+      save: vi.fn(async (row: any) => {
         const stored = { ...row, id: row.id ?? `new-${savedRows.length}` };
         savedRows.push(stored);
         return stored;
       }),
     };
     return {
-      transaction: jest.fn(async (cb: any) => cb({ getRepository: () => repo })),
-      getRepository: () => ({ countBy: jest.fn(async ({ id }: any) => id.value.length) }),
+      transaction: vi.fn(async (cb: any) => cb({ getRepository: () => repo })),
+      getRepository: () => ({ countBy: vi.fn(async ({ id }: any) => id.value.length) }),
     };
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     savedRows = [];
     original = { ...ORIGINAL };
-    resolveSpy = assignmentStub.resolve as jest.Mock;
+    resolveSpy = assignmentStub.resolve as Mock;
     transactionRepository = {
-      findOne: jest.fn(async () => ({ ...original })),
+      findOne: vi.fn(async () => ({ ...original })),
       manager: makeManager(),
     };
 
     service = new TransactionsService(
       transactionRepository,
       {} as any,
-      { findOne: jest.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
-      { findOne: jest.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
-      { findOne: jest.fn(async () => null), create: jest.fn(x => x), save: jest.fn(async x => x) } as any,
-      { set: jest.fn() } as any,
-      { createEvent: jest.fn() } as any,
-      { bulkConvert: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
+      { findOne: vi.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
+      { findOne: vi.fn(async () => null), create: vi.fn(x => x), save: vi.fn(async x => x) } as any,
+      { set: vi.fn() } as any,
+      { createEvent: vi.fn() } as any,
+      { bulkConvert: vi.fn() } as any,
       assignmentStub as any,
     );
-    (service as any).ensureCanEditStatements = jest.fn();
+    (service as any).ensureCanEditStatements = vi.fn();
   });
 
   const splitInThree = () =>
@@ -193,24 +194,24 @@ describe('TransactionsService.update — filed-return lock', () => {
   const build = (locked: boolean) => {
     const row = { ...ORIGINAL, taxLocked: locked };
     const repo = {
-      findOne: jest.fn(async () => ({ ...row })),
-      save: jest.fn(async (saved: any) => saved),
-      manager: { getRepository: () => ({ countBy: jest.fn(async () => 99) }) },
+      findOne: vi.fn(async () => ({ ...row })),
+      save: vi.fn(async (saved: any) => saved),
+      manager: { getRepository: () => ({ countBy: vi.fn(async () => 99) }) },
     };
     const service = new TransactionsService(
       repo as any,
       {} as any,
-      { findOne: jest.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
-      { findOne: jest.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
-      { findOne: jest.fn(async () => null), create: jest.fn(x => x), save: jest.fn(async x => x) } as any,
-      { set: jest.fn() } as any,
-      { createEvent: jest.fn() } as any,
-      { bulkConvert: jest.fn() } as any,
-      { resolve: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ id: 'u-1', role: 'admin' })) } as any,
+      { findOne: vi.fn(async () => ({ permissions: { canEditStatements: true } })) } as any,
+      { findOne: vi.fn(async () => null), create: vi.fn(x => x), save: vi.fn(async x => x) } as any,
+      { set: vi.fn() } as any,
+      { createEvent: vi.fn() } as any,
+      { bulkConvert: vi.fn() } as any,
+      { resolve: vi.fn() } as any,
     );
-    (service as any).ensureCanEditStatements = jest.fn();
-    (service as any).assertWorkspaceOwnedRefs = jest.fn();
-    (service as any).invalidateReports = jest.fn();
+    (service as any).ensureCanEditStatements = vi.fn();
+    (service as any).assertWorkspaceOwnedRefs = vi.fn();
+    (service as any).invalidateReports = vi.fn();
     return { service, repo };
   };
 

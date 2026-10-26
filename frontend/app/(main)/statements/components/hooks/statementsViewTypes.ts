@@ -87,7 +87,6 @@ export interface StatementsViewState {
   expenseDrawerOpen: boolean;
   setExpenseDrawerOpen: (v: boolean) => void;
   expenseDrawerMode: StatementExpenseMode;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
   filterLabels: Record<string, string>;
   filterOptionLabels: Record<string, string>;

@@ -1,20 +1,21 @@
+import type { Mock } from 'vitest';
 import { BadGatewayException, BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
 import { MapsController } from '@/modules/maps/maps.controller';
 import type { MapsService } from '@/modules/maps/maps.service';
 
 describe('MapsController', () => {
-  let service: { getStyles: jest.Mock; fetchTile: jest.Mock };
+  let service: { getStyles: Mock; fetchTile: Mock };
   let controller: MapsController;
-  let res: { setHeader: jest.Mock; send: jest.Mock };
+  let res: { setHeader: Mock; send: Mock };
 
   beforeEach(() => {
     service = {
-      getStyles: jest.fn().mockResolvedValue({ styles: [], defaultStyleId: null }),
-      fetchTile: jest.fn(),
+      getStyles: vi.fn().mockResolvedValue({ styles: [], defaultStyleId: null }),
+      fetchTile: vi.fn(),
     };
     controller = new MapsController(service as unknown as MapsService);
-    res = { setHeader: jest.fn(), send: jest.fn() };
+    res = { setHeader: vi.fn(), send: vi.fn() };
   });
 
   it('returns the style list', async () => {
@@ -25,7 +26,7 @@ describe('MapsController', () => {
     const body = Buffer.from('png');
     service.fetchTile.mockResolvedValue({ status: 'ok', body, contentType: 'image/png' });
 
-    await controller.getTile('osm-bright', '3', '1', '2.png', res as unknown as Response);
+    await controller.getTile({ styleId: 'osm-bright', z: '3', x: '1', y: '2.png' }, res as unknown as Response);
 
     expect(service.fetchTile).toHaveBeenCalledWith('osm-bright', '3', '1', '2.png');
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
@@ -37,7 +38,7 @@ describe('MapsController', () => {
     service.fetchTile.mockResolvedValue({ status: 'invalid' });
 
     await expect(
-      controller.getTile('nope', '0', '0', '0.png', res as unknown as Response),
+      controller.getTile({ styleId: 'nope', z: '0', x: '0', y: '0.png' }, res as unknown as Response),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(res.send).not.toHaveBeenCalled();
   });
@@ -46,7 +47,7 @@ describe('MapsController', () => {
     service.fetchTile.mockResolvedValue({ status: 'unavailable' });
 
     await expect(
-      controller.getTile('osm-bright', '0', '0', '0.png', res as unknown as Response),
+      controller.getTile({ styleId: 'osm-bright', z: '0', x: '0', y: '0.png' }, res as unknown as Response),
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 });

@@ -1,5 +1,6 @@
 import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { appError } from '../../../common/errors/app-error';
 import type { User } from '../../../entities/user.entity';
 
 @Injectable()
@@ -21,7 +22,7 @@ export class JwtRefreshGuard extends AuthGuard('jwt-refresh') {
     }
 
     if (user.tokenVersion === undefined || user.tokenVersion === null) {
-      throw new UnauthorizedException('Refresh token version missing');
+      throw new UnauthorizedException(appError('AUTH_REFRESH_TOKEN_VERSION_MISSING'));
     }
 
     return user;

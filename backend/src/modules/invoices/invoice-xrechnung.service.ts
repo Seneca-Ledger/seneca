@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import type { EntityManager } from 'typeorm';
 import { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { fromMinor } from '../../common/utils/money.util';
 import { Client } from '../../entities/client.entity';
 import { CreditNote } from '../../entities/credit-note.entity';
@@ -131,13 +132,13 @@ export class InvoiceXRechnungService {
       if (kind === 'invoice') {
         const invoice = await manager.findOne(Invoice, { where: { id, workspaceId } });
         if (!invoice) {
-          throw new NotFoundException('Invoice not found');
+          throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
         }
         return { ...(await this.invoiceInput(manager, invoice)), status: String(invoice.status) };
       }
       const note = await manager.findOne(CreditNote, { where: { id, workspaceId } });
       if (!note) {
-        throw new NotFoundException('Credit note not found');
+        throw new NotFoundException(appError('CREDIT_NOTE_NOT_FOUND'));
       }
       return { ...(await this.creditNoteInput(manager, note)), status: String(note.status) };
     });
@@ -147,7 +148,7 @@ export class InvoiceXRechnungService {
     return this.invoiceRepository.manager.transaction(async manager => {
       const invoice = await manager.findOne(Invoice, { where: { id: invoiceId, workspaceId } });
       if (!invoice) {
-        throw new NotFoundException('Invoice not found');
+        throw new NotFoundException(appError('INVOICE_NOT_FOUND'));
       }
       return this.invoiceInput(manager, invoice);
     });
@@ -206,7 +207,7 @@ export class InvoiceXRechnungService {
     return this.invoiceRepository.manager.transaction(async manager => {
       const note = await manager.findOne(CreditNote, { where: { id, workspaceId } });
       if (!note) {
-        throw new NotFoundException('Credit note not found');
+        throw new NotFoundException(appError('CREDIT_NOTE_NOT_FOUND'));
       }
       return this.creditNoteInput(manager, note);
     });
@@ -331,8 +332,7 @@ function fileOf(
 ): { data: Buffer; fileName: string } {
   if (missing.length > 0) {
     throw new BadRequestException({
-      code: 'XRECHNUNG_INCOMPLETE',
-      message: 'The document lacks what an XRechnung requires',
+      ...appError('XRECHNUNG_INCOMPLETE'),
       missing,
     });
   }

@@ -4,6 +4,7 @@ import { Alert, Box, Chip, Container, Divider, Paper, Typography } from '@mui/ma
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 
@@ -39,8 +40,7 @@ interface PublicInvoice {
   lines: Array<{ description: string; quantity: string; unitPrice: string; amount: string }>;
 }
 
-const money = (amount: string, currency: string): string =>
-  `${Number(amount).toFixed(2)} ${currency}`;
+const money = (amount: string, currency: string) => `${Number(amount).toFixed(2)} ${currency}`;
 
 /** Multi-line text as lines, with the empty ones dropped. */
 function Lines({ text }: { text: string | null | undefined }) {
@@ -77,12 +77,13 @@ function Field({ label, value }: { label: string; value: string | null | undefin
  *
  * Outside authentication: the token in the url is the only credential, and the
  * server sends a read-only view. The labels come from the server too, already
- * in the client's language — the page deliberately has no dictionary of its
- * own, so the page and the PDF cannot word the same thing differently.
+ * in the client's language — the page deliberately keeps no invoice wording of
+ * its own, so the page and the PDF cannot word the same thing differently. Its
+ * dictionary holds only the not-found message, shown when there are no labels.
  */
 export default function SharedInvoicePage() {
-  const params = useParams();
-  const token = params.token as string;
+  const { token } = useParams<{ token: string }>();
+  const { notFound } = useIntlayer('sharedInvoicePage');
 
   const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +99,7 @@ export default function SharedInvoicePage() {
       })
       .catch(reason => {
         if (!cancelled) {
-          setError(getApiErrorMessage(reason, 'Invoice not found'));
+          setError(getApiErrorMessage(reason, notFound.value));
         }
       })
       .finally(() => {
@@ -109,7 +110,7 @@ export default function SharedInvoicePage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, notFound]);
 
   if (loading) {
     return (
@@ -122,7 +123,7 @@ export default function SharedInvoicePage() {
   if (error || !invoice) {
     return (
       <Container maxWidth="md" sx={{ py: 6 }}>
-        <Alert severity="error">{error ?? 'Invoice not found'}</Alert>
+        <Alert severity="error">{error ?? notFound}</Alert>
       </Container>
     );
   }

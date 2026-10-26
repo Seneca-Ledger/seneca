@@ -104,7 +104,11 @@ function useEntryState(editableEntries: EditableWarningEntry[]): {
       editableEntries.forEach(entry => {
         next[entry.key] = current[entry.key] ?? toDraft(entry.sample);
       });
-      return next;
+      // Same drafts: keep the old object so this effect does not re-render.
+      const unchanged =
+        Object.keys(next).length === Object.keys(current).length &&
+        Object.keys(next).every(key => next[key] === current[key]);
+      return unchanged ? current : next;
     });
   }, [editableEntries]);
   return { draftsByKey, setDraftsByKey, entryMaps };

@@ -3,7 +3,7 @@ import { CategorySource } from '@/entities/category.entity';
 import { SetupProgressService } from '@/modules/dashboard/setup-progress.service';
 
 function repo(found: boolean) {
-  return { exists: jest.fn(async () => found) };
+  return { exists: vi.fn(async () => found) };
 }
 
 const user = { id: 'user-1', workspaceId: 'ws-home', telegramChatId: null, telegramWorkspaceId: null } as any;
@@ -29,7 +29,7 @@ function build(
     repos.budget as any,
     repos.goal as any,
     repos.wallet as any,
-    { getTelegramSettings: jest.fn(async () => ({ botToken })) } as any,
+    { getTelegramSettings: vi.fn(async () => ({ botToken })) } as any,
   );
   return { service, repos };
 }

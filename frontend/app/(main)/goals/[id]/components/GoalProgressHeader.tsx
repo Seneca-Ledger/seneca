@@ -34,10 +34,21 @@ export function GoalProgressHeader({
           flexWrap: 'wrap',
         }}
       >
-        <Typography variant="h5" fontWeight={500}>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 500,
+          }}
+        >
           {goal.name}
         </Typography>
-        <Typography variant="body1" fontWeight={500} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+        <Typography
+          variant="body1"
+          sx={{
+            fontWeight: 500,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
           <PrivateAmount>{formatAmount(goal.currentAmount)}</PrivateAmount>{' '}
           <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
             / <PrivateAmount>{formatAmount(goal.targetAmount)}</PrivateAmount>

@@ -16,7 +16,7 @@ describe('BackupDestinationService', () => {
   });
 
   it('stores local workspace backups under the configured relative destination and prunes old snapshots', async () => {
-    const service = new BackupDestinationService(root, { findOne: jest.fn() } as never);
+    const service = new BackupDestinationService(root, { findOne: vi.fn() } as never);
     const config = {
       destinationKind: BackupDestinationKind.LOCAL,
       destinationPath: 'nightly',
@@ -34,16 +34,16 @@ describe('BackupDestinationService', () => {
   });
 
   it('retains only the requested number of completed Nextcloud snapshots', async () => {
-    const service = new BackupDestinationService(root, { findOne: jest.fn() } as never);
+    const service = new BackupDestinationService(root, { findOne: vi.fn() } as never);
     const client = {
-      getDirectoryContents: jest.fn().mockResolvedValue([
+      getDirectoryContents: vi.fn().mockResolvedValue([
         { type: 'directory', filename: '/seneca/workspace/folder' },
         { type: 'file', filename: '/seneca/workspace/readme.txt' },
         { type: 'file', filename: '/seneca/workspace/backup-1.seneca-backup' },
         { type: 'file', filename: '/seneca/workspace/backup-2.seneca-backup' },
         { type: 'file', filename: '/seneca/workspace/backup-3.seneca-backup' },
       ]),
-      deleteFile: jest.fn(),
+      deleteFile: vi.fn(),
     };
 
     await (service as never as { retainNextcloud: (client: unknown, directory: string, keep: number) => Promise<void> }).retainNextcloud(

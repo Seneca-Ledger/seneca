@@ -14,7 +14,7 @@ import type { UserFormatPreferences } from '@/app/lib/user-format';
 import { RecoveryCodesDownloadButton } from '@/app/settings/profile/components/RecoveryCodesDownloadButton';
 import type { UseTwoFactorReturn } from '@/app/settings/profile/hooks/useTwoFactor';
 
-export type Tx = (path: string[], fallback: string) => string;
+export type Tx = (path: string[]) => string;
 
 type PasswordPromptProps = {
   tx: Tx;
@@ -48,16 +48,22 @@ export function PasswordPrompt({
         type="password"
         size="small"
         autoComplete="current-password"
-        label={tx(['passwordCard', 'currentPasswordLabel'], 'Current password')}
+        label={tx(['passwordCard', 'currentPasswordLabel'])}
         value={password}
         onChange={event => setPassword(event.target.value)}
         required
         fullWidth
       />
-      <Stack direction="row" spacing={1} justifyContent="flex-end">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          justifyContent: 'flex-end',
+        }}
+      >
         {onCancel ? (
           <Button onClick={onCancel} disabled={busy}>
-            {tx(['securityCard', 'cancelButton'], 'Cancel')}
+            {tx(['securityCard', 'cancelButton'])}
           </Button>
         ) : null}
         <Button
@@ -90,15 +96,15 @@ export function RecoveryCodesPanel({
   return (
     <Card variant="outlined">
       <CardContent sx={{ display: 'grid', gap: 1.5 }}>
-        <Typography variant="subtitle1" fontWeight={600}>
-          {tx(['securityCard', 'recoveryTitle'], 'Recovery codes')}
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+          }}
+        >
+          {tx(['securityCard', 'recoveryTitle'])}
         </Typography>
-        <Alert variant="warning">
-          {tx(
-            ['securityCard', 'recoveryHint'],
-            'Save these codes now — they are shown only once. Each code works a single time instead of an app code.',
-          )}
-        </Alert>
+        <Alert variant="warning">{tx(['securityCard', 'recoveryHint'])}</Alert>
         <Box
           sx={{
             display: 'grid',
@@ -108,17 +114,31 @@ export function RecoveryCodesPanel({
           }}
         >
           {codes.map(code => (
-            <Typography key={code} variant="body2" fontFamily="monospace">
+            <Typography
+              key={code}
+              variant="body2"
+              sx={{
+                fontFamily: 'monospace',
+              }}
+            >
               {code}
             </Typography>
           ))}
         </Box>
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" justifyContent="flex-end">
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          sx={{
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+          }}
+        >
           <Button
             onClick={() => navigator.clipboard?.writeText(codes.join('\n'))}
             variant="outlined"
           >
-            {tx(['securityCard', 'copyButton'], 'Copy')}
+            {tx(['securityCard', 'copyButton'])}
           </Button>
           <RecoveryCodesDownloadButton
             tx={tx}
@@ -127,7 +147,7 @@ export function RecoveryCodesPanel({
             formatPreferences={formatPreferences}
           />
           <Button onClick={onDone} variant="contained" color="secondary">
-            {tx(['securityCard', 'doneButton'], 'Done')}
+            {tx(['securityCard', 'doneButton'])}
           </Button>
         </Stack>
       </CardContent>
@@ -156,11 +176,13 @@ export function SetupPanel({ tx, setup, busy, onConfirm, onCancel }: SetupPanelP
           onConfirm(code);
         }}
       >
-        <Typography variant="body2" color="text.secondary">
-          {tx(
-            ['securityCard', 'scanHint'],
-            'Scan the QR code with 1Password, Authy or any TOTP app.',
-          )}
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
+          {tx(['securityCard', 'scanHint'])}
         </Typography>
         <Box
           component="img"
@@ -169,25 +191,44 @@ export function SetupPanel({ tx, setup, busy, onConfirm, onCancel }: SetupPanelP
           sx={{ width: 180, height: 180, alignSelf: 'center', borderRadius: 1 }}
         />
         <Stack spacing={0.25}>
-          <Typography variant="caption" color="text.secondary">
-            {tx(['securityCard', 'manualKeyLabel'], 'Or enter this key manually')}
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {tx(['securityCard', 'manualKeyLabel'])}
           </Typography>
-          <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontFamily: 'monospace',
+              wordBreak: 'break-all',
+            }}
+          >
             {setup.secret}
           </Typography>
         </Stack>
         <TextField
           size="small"
-          label={tx(['securityCard', 'codeLabel'], 'Code from the app')}
+          label={tx(['securityCard', 'codeLabel'])}
           value={code}
           onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-          inputProps={{ inputMode: 'numeric', autoComplete: 'one-time-code' }}
           required
           fullWidth
+          slotProps={{
+            htmlInput: { inputMode: 'numeric', autoComplete: 'one-time-code' },
+          }}
         />
-        <Stack direction="row" spacing={1} justifyContent="flex-end">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            justifyContent: 'flex-end',
+          }}
+        >
           <Button onClick={onCancel} disabled={busy}>
-            {tx(['securityCard', 'cancelButton'], 'Cancel')}
+            {tx(['securityCard', 'cancelButton'])}
           </Button>
           <Button
             type="submit"
@@ -196,7 +237,7 @@ export function SetupPanel({ tx, setup, busy, onConfirm, onCancel }: SetupPanelP
             disabled={busy || code.length !== 6}
             startIcon={busy ? <Spinner size={16} /> : undefined}
           >
-            {tx(['securityCard', 'confirmButton'], 'Confirm and enable')}
+            {tx(['securityCard', 'confirmButton'])}
           </Button>
         </Stack>
       </CardContent>

@@ -34,21 +34,21 @@ function createTransactionRepository(options: {
   // One builder per query: the category query joins the category, the monthly
   // ones do not; both answer per currency.
   const builders: any[] = [];
-  const createQueryBuilder = jest.fn(() => {
+  const createQueryBuilder = vi.fn(() => {
     let joinsCategory = false;
     const builder: any = {
-      innerJoin: jest.fn(() => {
+      innerJoin: vi.fn(() => {
         joinsCategory = true;
         return builder;
       }),
-      select: jest.fn(() => builder),
-      addSelect: jest.fn(() => builder),
-      where: jest.fn(() => builder),
-      andWhere: jest.fn(() => builder),
-      groupBy: jest.fn(() => builder),
-      addGroupBy: jest.fn(() => builder),
-      setParameters: jest.fn(() => builder),
-      getRawMany: jest.fn(async () =>
+      select: vi.fn(() => builder),
+      addSelect: vi.fn(() => builder),
+      where: vi.fn(() => builder),
+      andWhere: vi.fn(() => builder),
+      groupBy: vi.fn(() => builder),
+      addGroupBy: vi.fn(() => builder),
+      setParameters: vi.fn(() => builder),
+      getRawMany: vi.fn(async () =>
         joinsCategory
           ? (options.categoryRows ?? [])
           : [{ currency: 'USD', ...(monthlyTotals.shift() ?? { income: '0', spent: '0' }) }],
@@ -64,22 +64,22 @@ function createTransactionRepository(options: {
 /** UAH converts at 0.024 to the workspace's USD; XYZ has no rate at all. */
 function createRates() {
   return {
-    getRateOrNull: jest.fn(async (from: string) => (from === 'UAH' ? 0.024 : null)),
+    getRateOrNull: vi.fn(async (from: string) => (from === 'UAH' ? 0.024 : null)),
   } as any;
 }
 
 function createWorkspaceRepository() {
-  return { findOne: jest.fn(async () => ({ id: 'workspace-1', currency: 'USD' })) } as any;
+  return { findOne: vi.fn(async () => ({ id: 'workspace-1', currency: 'USD' })) } as any;
 }
 
 function createBudgetRepository(categoryIds: string[]) {
-  return { find: jest.fn(async () => categoryIds.map(categoryId => ({ categoryId }))) } as any;
+  return { find: vi.fn(async () => categoryIds.map(categoryId => ({ categoryId }))) } as any;
 }
 
 /** The analyzer only reads riskyPercent and the totals shown alongside it. */
 function createNetWorthService(riskyPercent = 0) {
   return {
-    getNetWorth: jest.fn(async () => ({ riskyPercent, assetsTotal: 1000 })),
+    getNetWorth: vi.fn(async () => ({ riskyPercent, assetsTotal: 1000 })),
   } as any;
 }
 
@@ -216,8 +216,8 @@ describe('FinancialAnalyzer', () => {
 
   it('sets the money floor in the workspace currency', async () => {
     // 1 USD = 500 KZT, so the floor is 25 000 KZT.
-    const rates = { getRateOrNull: jest.fn(async (from: string) => (from === 'USD' ? 500 : null)) };
-    const workspaces = { findOne: jest.fn(async () => ({ id: 'workspace-1', currency: 'KZT' })) };
+    const rates = { getRateOrNull: vi.fn(async (from: string) => (from === 'USD' ? 500 : null)) };
+    const workspaces = { findOne: vi.fn(async () => ({ id: 'workspace-1', currency: 'KZT' })) };
     const analyzer = new FinancialAnalyzer(
       createTransactionRepository({
         categoryRows: [

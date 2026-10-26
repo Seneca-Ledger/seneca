@@ -7,8 +7,8 @@
 - ✅ **Release automation (semantic versioning + release notes)** через Release Please: `.github/workflows/release-please.yml`
 - ✅ **Доп. quality gates в CI**: ShellCheck, Hadolint, Trivy config scan: `.github/workflows/ci.yml`
 - ✅ **Multi-arch CD** (amd64+arm64) + recursive signing: `.github/workflows/cd.yml`
-- ✅ **Policy-as-Code (OPA/Rego через Conftest)**: `.github/workflows/ci.yml`, `policy/`
-- ✅ **Compliance checks (GDPR/SOX/PCI-DSS как набор обязательных controls в CI/CD)**: `policy/github-actions/compliance-controls.rego:1`
+- ✅ **Policy-as-Code (OPA/Rego через Conftest)**: `.github/workflows/ci.yml`, `infra/policy/`
+- ✅ **Compliance checks (GDPR/SOX/PCI-DSS как набор обязательных controls в CI/CD)**: `infra/policy/github-actions/compliance-controls.rego:1`
 - ✅ **Блокировка деплоя при нарушениях политик (policy gate в CD)**: `.github/workflows/cd.yml:1`
 - ✅ **Advanced secret management (Vault OIDC, optional)**: `.github/workflows/cd.yml`
 - ✅ **SLSA attestations (provenance + SBOM)**: `.github/workflows/cd.yml`

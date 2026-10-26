@@ -209,8 +209,8 @@ describe('OverviewTab', () => {
 
   it("hands the cash flow card the picked month's days", () => {
     const cashFlow = [
-      { date: '2026-02-01', income: 100, expense: 0 },
-      { date: '2026-02-02', income: 0, expense: 40 },
+      { date: '2026-02-01', income: 100, expense: 0, budgeted: 0 },
+      { date: '2026-02-02', income: 0, expense: 40, budgeted: 0 },
     ];
     renderTab({ ...baseData, cashFlow });
 

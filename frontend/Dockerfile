@@ -1,8 +1,14 @@
+# Bun only installs packages (from package-lock.json); Node runs the app.
+FROM oven/bun:1.4.4-alpine AS bun
+
 # --- Deps: node_modules keyed only by the lockfile ---
 FROM node:24-alpine AS deps
 
-WORKDIR /app
+# Not /app: the project has an app/ folder, and with the root at /app Vite reads
+# an absolute /app/lib/x as root-relative, resolving lib/ files into app/lib/.
+WORKDIR /frontend
 
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
@@ -15,10 +21,12 @@ COPY scripts/build-locale-packs.mjs ./scripts/
 
 # The marker lets scripts/dev-entrypoint.sh detect a lockfile or Node change and
 # refresh the node_modules volume without rebuilding the image.
-RUN npm ci && echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  bun install --frozen-lockfile --network-concurrency=16 && \
+  echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
 
 # --- Dev stage (used by docker-compose.dev.yml) ---
-# Source is bind-mounted at runtime; Turbopack compiles on demand, so no build here.
+# Source is bind-mounted at runtime; Vite compiles on demand, so no build here.
 FROM deps AS dev
 
 ENV NODE_ENV=development
@@ -28,10 +36,8 @@ CMD ["sh", "scripts/dev-entrypoint.sh", "npm", "run", "dev"]
 # --- Build stage ---
 FROM deps AS builder
 
-# Not /app: with the project at /app, webpack resolves `@/lib/...` imports into
-# the App Router's app/lib/ (both have a theme-tokens.ts) and prerendering fails.
 WORKDIR /build
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /frontend/node_modules ./node_modules
 
 # Copy source code
 COPY . .
@@ -46,7 +52,7 @@ ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 # Product name (APP_NAME in the root .env); the UI and its translations bake it in
 ARG NEXT_PUBLIC_APP_NAME
 ENV NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
-# rewrites() in next.config.js are resolved at build time
+# rewrites() in next.config.mjs are resolved at build time
 ARG API_PROXY_TARGET
 ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 
@@ -66,15 +72,20 @@ RUN apk upgrade --no-cache && \
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+# vinext binds to HOST (HOSTNAME is the container name on Linux)
+ENV HOST="0.0.0.0"
 
-# Next.js standalone output already contains the minimal runtime node_modules.
-COPY --from=builder /build/.next/standalone ./
-COPY --from=builder /build/.next/static ./.next/static
-COPY --from=builder /build/public ./public
+# Non-root runtime user. Files are copied in already owned by it: a `chown -R`
+# after the copies would store every file a second time in its own layer.
+RUN addgroup -S app && adduser -S app -G app && chown app:app /app
 
-# Use non-root user for runtime
-RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
+# vinext standalone output: server.js, the build (static files are served from
+# dist/client, public/ included) and the minimal runtime node_modules. Its own
+# public/ copy is never read, so it stays out of the image.
+COPY --chown=app:app --from=builder /build/dist/standalone/server.js /build/dist/standalone/package.json ./
+COPY --chown=app:app --from=builder /build/dist/standalone/dist ./dist
+COPY --chown=app:app --from=builder /build/dist/standalone/node_modules ./node_modules
+
 USER app
 
 # Expose port

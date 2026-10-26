@@ -67,7 +67,7 @@ const MultiSelect = ({
           <Checkbox size="small" checked={value.includes(option.value)} />
           <ListItemText
             primary={option.label}
-            slotProps={{ primary: { noWrap: true, fontSize: 13 } }}
+            slotProps={{ primary: { noWrap: true, sx: { fontSize: 13 } } }}
           />
         </MenuItem>
       ))}

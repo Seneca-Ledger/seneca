@@ -60,6 +60,10 @@ export const PayeeRecord = Schema.Struct({
 });
 export type PayeeRecord = Wire<typeof PayeeRecord>;
 
+/** `POST /payees/:id/merge`: the payee the others were folded into, and how many there were. */
+export const PayeeMerge = Schema.Struct({ payee: PayeeRecord, merged: Schema.Number });
+export type PayeeMerge = Wire<typeof PayeeMerge>;
+
 /** One payee on the Payees page: what went to it (or came from it) in the period. */
 export const PayeeOverviewRow = Schema.Struct({
   id: Schema.String,

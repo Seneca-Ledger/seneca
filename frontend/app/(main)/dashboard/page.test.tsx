@@ -43,8 +43,9 @@ vi.mock('@/app/components/icons', () => ({
 // The heading reads the whole sidebar config; it has tests of its own.
 vi.mock('@/app/components/ui/page-title', () => ({ PageTitle: () => null }));
 
-vi.mock('@/app/components/ui/spinner', () => ({
-  Spinner: () => <div>spinner</div>,
+vi.mock('@/app/components/ui/snapshot-skeleton/SnapshotSkeleton', () => ({
+  SnapshotSkeleton: ({ loading, children }: { loading: boolean; children?: React.ReactNode }) =>
+    loading ? <div role="status" /> : children,
 }));
 
 vi.mock('@/app/components/dashboard/OverviewTab', () => ({
@@ -131,9 +132,6 @@ vi.mock('@/app/lib/dashboard-effective-window', () => ({
   resolveDashboardEffectivePeriod: () => effectivePeriod.current,
 }));
 
-vi.mock('@/app/lib/dashboard-status-heading', () => ({
-  resolveDashboardStatusHeading: () => 'allClear',
-}));
 
 describe('DashboardPage', () => {
   beforeEach(() => {

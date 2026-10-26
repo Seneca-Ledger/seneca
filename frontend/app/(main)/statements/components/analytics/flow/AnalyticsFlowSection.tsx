@@ -10,6 +10,7 @@ const SUBTITLE_KEY: Record<SpendFlowGroupBy, string> = {
   'category-merchant': 'flowSubtitle',
   'category-subcategory': 'flowSubtitleCategories',
   merchant: 'flowSubtitleMerchants',
+  tag: 'flowSubtitleTags',
 };
 
 type Props = {

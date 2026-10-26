@@ -63,40 +63,40 @@ function createService(options: {
   const snapshots = (options.snapshots ?? []).map(snapshot => ({ currency: 'KZT', ...snapshot }));
 
   const snapshotQueryBuilder: any = {
-    select: jest.fn(() => snapshotQueryBuilder),
-    where: jest.fn(() => snapshotQueryBuilder),
-    andWhere: jest.fn(() => snapshotQueryBuilder),
-    orderBy: jest.fn(() => snapshotQueryBuilder),
-    addOrderBy: jest.fn(() => snapshotQueryBuilder),
-    getMany: jest.fn(async () => snapshots),
-    getRawOne: jest.fn(async () => ({ earliest: snapshots[0]?.snapshotDate ?? null })),
+    select: vi.fn(() => snapshotQueryBuilder),
+    where: vi.fn(() => snapshotQueryBuilder),
+    andWhere: vi.fn(() => snapshotQueryBuilder),
+    orderBy: vi.fn(() => snapshotQueryBuilder),
+    addOrderBy: vi.fn(() => snapshotQueryBuilder),
+    getMany: vi.fn(async () => snapshots),
+    getRawOne: vi.fn(async () => ({ earliest: snapshots[0]?.snapshotDate ?? null })),
   };
 
   const transactionQueryBuilder: any = {
-    select: jest.fn(() => transactionQueryBuilder),
-    where: jest.fn(() => transactionQueryBuilder),
-    andWhere: jest.fn(() => transactionQueryBuilder),
-    getRawOne: jest.fn(async () => ({ earliest: null })),
+    select: vi.fn(() => transactionQueryBuilder),
+    where: vi.fn(() => transactionQueryBuilder),
+    andWhere: vi.fn(() => transactionQueryBuilder),
+    getRawOne: vi.fn(async () => ({ earliest: null })),
   };
 
   const balanceService = {
-    seedDefaultAccounts: jest.fn(async () => undefined),
-    getCashSeries: jest.fn(
+    seedDefaultAccounts: vi.fn(async () => undefined),
+    getCashSeries: vi.fn(
       async (_workspaceId: string, dates: string[]) =>
         new Map(dates.map(date => [date, new Map(Object.entries(options.cash ?? {}))])),
     ),
-    getDebtSeries: jest.fn(
+    getDebtSeries: vi.fn(
       async (_workspaceId: string, dates: string[]) =>
         new Map(dates.map(date => [date, new Map(Object.entries(options.debts ?? {}))])),
     ),
   } as any;
 
   const exchangeRates = {
-    getRateOrNull: jest.fn(async (from: string, _to: string, date: string) => {
+    getRateOrNull: vi.fn(async (from: string, _to: string, date: string) => {
       const rate = options.rates?.[from];
       return typeof rate === 'function' ? rate(date) : (rate ?? null);
     }),
-    getRateQuote: jest.fn(async (_from: string, _to: string, date: string) => {
+    getRateQuote: vi.fn(async (_from: string, _to: string, date: string) => {
       const spot =
         typeof options.metalRate === 'function' ? options.metalRate(date) : (options.metalRate ?? null);
       return spot ? { rate: spot, rateDate: date, stale: false } : null;
@@ -104,10 +104,10 @@ function createService(options: {
   } as any;
 
   const service = new NetWorthService(
-    { find: jest.fn(async () => accounts) } as any,
-    { createQueryBuilder: jest.fn(() => snapshotQueryBuilder) } as any,
-    { createQueryBuilder: jest.fn(() => transactionQueryBuilder) } as any,
-    { findOne: jest.fn(async () => ({ currency: 'KZT' })) } as any,
+    { find: vi.fn(async () => accounts) } as any,
+    { createQueryBuilder: vi.fn(() => snapshotQueryBuilder) } as any,
+    { createQueryBuilder: vi.fn(() => transactionQueryBuilder) } as any,
+    { findOne: vi.fn(async () => ({ currency: 'KZT' })) } as any,
     balanceService,
     exchangeRates,
   );

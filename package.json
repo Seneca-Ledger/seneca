@@ -18,8 +18,9 @@
     "contracts:sync": "node scripts/sync-contracts.mjs",
     "contracts:check": "node scripts/sync-contracts.mjs --check",
     "test:sync-contracts": "node --test scripts/sync-contracts.test.mjs",
-    "graphify:build": "node scripts/graphify-build.mjs",
-    "graphify:validate": "node scripts/graphify-validate.mjs",
+    "test:file-size": "node --test scripts/check-file-size.test.mjs",
+    "licenses:check": "node scripts/check-licenses.mjs",
+    "test:licenses": "node --test scripts/check-licenses.test.mjs",
     "backend:build": "npm --prefix backend run build",
     "backend:start": "npm --prefix backend run start",
     "i18n:check-locales": "node scripts/intlayer-locales-check.mjs",
@@ -31,7 +32,7 @@
     "migration:generate": "npm --prefix backend run migration:generate",
     "create-admin": "npm --prefix backend run create-admin",
     "knip": "knip",
-    "test": "npm --prefix backend run test:unit && npm --prefix frontend run test",
+    "test": "npm run licenses:check && npm --prefix backend run test:unit && npm --prefix frontend run test",
     "test:backend": "npm --prefix backend run test:unit",
     "test:frontend": "npm --prefix frontend run test"
   },
@@ -39,13 +40,14 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@commitlint/cli": "^19.8.1",
+    "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.4",
-    "@types/node": "^25.5.0",
-    "concurrently": "^8.2.2",
+    "@types/node": "^24.19.2",
+    "concurrently": "^10.0.6",
     "husky": "^9.1.7",
     "knip": "^6.42.1",
-    "typescript": "^6.0.2"
+    "license-checker-rseidelsohn": "^4.4.2",
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "shell-quote": "^1.11.0"

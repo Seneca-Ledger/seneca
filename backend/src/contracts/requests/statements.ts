@@ -79,3 +79,21 @@ export const ConvertDroppedSampleBody = Schema.Struct({
   transaction: ConvertDroppedSampleTransactionInput,
 });
 export type ConvertDroppedSampleBody = Wire<typeof ConvertDroppedSampleBody>;
+
+/** `/statements/:id/...`, also its import preview and commit. */
+export const StatementParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type StatementParams = Wire<typeof StatementParams>;
+
+/** `GET /statements/:id/thumbnail`: the width in pixels, clamped by the server. */
+export const StatementThumbnailQuery = Schema.Struct({ width: Schema.optional(NumericInput) });
+export type StatementThumbnailQuery = Wire<typeof StatementThumbnailQuery>;
+
+/** `DELETE /statements/:id`: `permanent=true` deletes instead of moving to the trash. */
+export const DeleteStatementQuery = Schema.Struct({ permanent: Schema.optional(BooleanInput) });
+export type DeleteStatementQuery = Wire<typeof DeleteStatementQuery>;
+
+/** `POST /statements/:id/reprocess`: `merge` (default) keeps the user's edits. */
+export const ReprocessStatementQuery = Schema.Struct({
+  mode: Schema.optional(Schema.Literals(['merge', 'replace'])),
+});
+export type ReprocessStatementQuery = Wire<typeof ReprocessStatementQuery>;

@@ -137,6 +137,7 @@ describe('TaxYearView', () => {
       reserve: {
         currency: 'USD',
         year: YEAR,
+        asOf: `${YEAR}-06-30`,
         vat: { net: -20.04, outputTax: 0, inputTax: 20.04 },
         incomeTax: null,
         payments: { categoryId: null, amount: 0, count: 0 },

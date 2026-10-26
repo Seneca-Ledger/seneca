@@ -44,3 +44,14 @@ export const UpdateWalletBody = CreateWalletBody.mapFields(Struct.map(optionalNu
   }),
 );
 export type UpdateWalletBody = Wire<typeof UpdateWalletBody>;
+
+/** `/wallets/:id`: a wallet's uuid. */
+export const WalletParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type WalletParams = Wire<typeof WalletParams>;
+
+/** `/wallets/:id/statements/:statementId`: an account and one of its statements. */
+export const WalletStatementParams = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+  statementId: Schema.String.check(Schema.isUUID()),
+});
+export type WalletStatementParams = Wire<typeof WalletStatementParams>;

@@ -11,12 +11,12 @@ import {
   Receipt,
   ScanLine,
   Upload,
-  User,
 } from '@/app/components/icons';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import { AUTH_ROUTE_PREFIXES } from '@/app/lib/auth-routes';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
 import { isNavItemActive } from '../navigation/helpers/navigation-config';
 import { MobileMenuDrawer } from './MobileMenuDrawer';
 import { usePageQuickActions } from './quick-actions-store';
@@ -167,7 +167,10 @@ export default function MobileBottomBar() {
           onClick={() => setDrawerOpen(true)}
           aria-label={shell.openMenu.value}
         >
-          <span className="seneca-account__avatar seneca-account__avatar--tab">
+          <span
+            className="seneca-account__avatar seneca-account__avatar--tab"
+            style={{ background: avatarTone(user?.email) }}
+          >
             {avatarUrl && !avatarError ? (
               <img
                 src={avatarUrl}
@@ -177,7 +180,7 @@ export default function MobileBottomBar() {
                 }}
               />
             ) : (
-              <User size={16} />
+              avatarInitial(user?.name || user?.email)
             )}
           </span>
         </button>

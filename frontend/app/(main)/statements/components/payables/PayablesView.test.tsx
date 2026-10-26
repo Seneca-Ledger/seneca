@@ -4,6 +4,9 @@ import React from 'react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { selectOption } from '@/app/test/select';
+// Статический импорт (vi.mock поднимается выше): динамический в первом тесте
+// грузил модуль внутри его 5-секундного таймаута и падал под нагрузкой.
+import { PayablesView } from './PayablesView';
 
 const navigationState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
@@ -83,114 +86,14 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
   useWorkspace: () => workspaceState,
 }));
 
+vi.mock('@/app/hooks/useTags', () => ({
+  useTags: () => ({ data: [], isSuccess: true }),
+}));
+
 vi.mock('@/app/i18n', async () => {
-  // The shared currency drawer and the import wizard read their own dictionaries; serve them for real (English).
-  const { useIntlayer: realUseIntlayer } =
-    await vi.importActual<typeof import('react-intlayer')>('react-intlayer');
-  return {
-  useLocale: () => ({ locale: 'en' }),
-  useIntlayer: (key: string) =>
-    key === 'receiptCurrencyDrawer' || key === 'importWizard' ? realUseIntlayer(key) : ({
-    payables: {
-      title: { value: 'Payables' },
-      subtitle: { value: 'Track upcoming payments.' },
-      add: { value: 'Add payable' },
-      exportCsv: { value: 'Export CSV' },
-      exportXlsx: { value: 'Export XLSX' },
-      refresh: { value: 'Refresh' },
-      searchPlaceholder: { value: 'Search vendor or comment' },
-      summary: {
-        toPay: { value: 'To Pay' },
-        overdue: { value: 'Overdue' },
-        dueThisWeek: { value: 'Due This Week' },
-        paidThisMonth: { value: 'Paid' },
-        itemsSuffix: { value: 'items' },
-      },
-      filters: {
-        status: { value: 'Status' },
-        source: { value: 'Source' },
-        dueFrom: { value: 'Due from' },
-        dueTo: { value: 'Due to' },
-        sort: { value: 'Sort' },
-        reset: { value: 'Reset' },
-        allStatuses: { value: 'All statuses' },
-        allSources: { value: 'All sources' },
-      },
-      status: {
-        toPay: { value: 'To pay' },
-        scheduled: { value: 'Scheduled' },
-        paid: { value: 'Paid' },
-        overdue: { value: 'Overdue' },
-        archived: { value: 'Archived' },
-      },
-      sources: {
-        manual: { value: 'Manual' },
-        invoice: { value: 'Invoice' },
-        statement: { value: 'Statement' },
-      },
-      sort: {
-        dueDateAsc: { value: 'Due date (earliest)' },
-        dueDateDesc: { value: 'Due date (latest)' },
-        amountDesc: { value: 'Amount (highest)' },
-        vendorAsc: { value: 'Vendor (A-Z)' },
-      },
-      list: {
-        vendor: { value: 'Vendor' },
-        dueDate: { value: 'Due date' },
-        amount: { value: 'Amount' },
-        source: { value: 'Source' },
-        status: { value: 'Status' },
-        actions: { value: 'Actions' },
-      },
-      drawer: {
-        createTitle: { value: 'Create payable' },
-        editTitle: { value: 'Edit payable' },
-        vendor: { value: 'Vendor' },
-        amount: { value: 'Amount' },
-        currency: { value: 'Currency' },
-        dueDate: { value: 'Due date' },
-        source: { value: 'Source' },
-        status: { value: 'Status' },
-        comment: { value: 'Comment' },
-        save: { value: 'Save' },
-        saving: { value: 'Saving...' },
-        cancel: { value: 'Cancel' },
-      },
-      actions: {
-        markPaid: { value: 'Mark paid' },
-        edit: { value: 'Edit' },
-        archive: { value: 'Archive' },
-        delete: { value: 'Delete' },
-      },
-      empty: {
-        title: { value: 'No payables found' },
-        description: { value: 'Try changing filters.' },
-      },
-      toasts: {
-        loadFailed: { value: 'Failed to load payables' },
-        createSuccess: { value: 'Payable created' },
-        createFailed: { value: 'Failed to create payable' },
-        updateSuccess: { value: 'Payable updated' },
-        updateFailed: { value: 'Failed to update payable' },
-        markPaidSuccess: { value: 'Marked as paid' },
-        markPaidFailed: { value: 'Failed to mark payable as paid' },
-        archiveSuccess: { value: 'Payable archived' },
-        archiveFailed: { value: 'Failed to archive payable' },
-        deleteSuccess: { value: 'Payable deleted' },
-        deleteFailed: { value: 'Failed to delete payable' },
-        deleteConfirm: { value: 'Delete {vendor}?' },
-        exportSuccess: { value: 'Export started' },
-        exportFailed: { value: 'Failed to export payables' },
-      },
-    },
-    pagination: {
-      shown: { value: 'Showing {from}–{to} of {count}' },
-      previous: { value: 'Previous' },
-      next: { value: 'Next' },
-      pageOf: { value: 'Page {page} of {count}' },
-    },
-  }),
-  };
+  // Every dictionary is served for real (English), so the labels below are the shipped copy.
+  const { useIntlayer } = await vi.importActual<typeof import('react-intlayer')>('react-intlayer');
+  return { useLocale: () => ({ locale: 'en' }), useIntlayer };
 });
 
 vi.mock('next/navigation', () => ({
@@ -345,7 +248,6 @@ describe('PayablesView', () => {
       writable: true,
     });
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     expect(await screen.findByText('ACME LLC')).toBeInTheDocument();
@@ -359,7 +261,6 @@ describe('PayablesView', () => {
   });
 
   it('marks a payable as paid through the payment dialog', async () => {
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     const button = await screen.findByRole('button', { name: 'Mark paid' });
@@ -379,7 +280,6 @@ describe('PayablesView', () => {
   });
 
   it('keeps the dialog open when the payment leaves the bill partly unpaid', async () => {
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Mark paid' }));
@@ -394,7 +294,6 @@ describe('PayablesView', () => {
   });
 
   it('opens currency drawer from the payable form currency field', async () => {
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     await screen.findByText('ACME LLC');
@@ -414,12 +313,11 @@ describe('PayablesView', () => {
   it('uses receivable wording and illustration for the receive direction', async () => {
     apiMocks.list.mockResolvedValueOnce({ data: [], total: 0, page: 1, limit: 20, totalPages: 1 });
 
-    const { PayablesView } = await import('./PayablesView');
     const { container } = renderWithQuery(<PayablesView direction="receivable" />);
 
     expect(await screen.findByText('No receivables found')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add receivable' })).toBeInTheDocument();
-    expect(screen.getByText('To Receive')).toBeInTheDocument();
+    expect(screen.getByText('To receive')).toBeInTheDocument();
     // Empty states draw a line icon in a circle now, not a picture.
     expect(container.querySelector('.seneca-empty-state__icon svg')).not.toBeNull();
     expect(apiMocks.getSummary).toHaveBeenCalledWith('receivable');
@@ -429,7 +327,6 @@ describe('PayablesView', () => {
     workspaceState.currentWorkspace = { id: 'workspace-1', currency: 'usd' };
 
     try {
-      const { PayablesView } = await import('./PayablesView');
       renderWithQuery(<PayablesView />);
 
       await screen.findByText('ACME LLC');
@@ -468,7 +365,6 @@ describe('PayablesView', () => {
       totalPages: 1,
     });
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     expect(await screen.findByText('Archived Vendor')).toBeInTheDocument();
@@ -478,7 +374,6 @@ describe('PayablesView', () => {
   it('asks for confirmation before deleting', async () => {
     (window.confirm as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     await screen.findByText('ACME LLC');
@@ -553,7 +448,6 @@ describe('PayablesView', () => {
         totalPages: 1,
       });
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     await screen.findByText('Page Two Vendor');
@@ -570,7 +464,6 @@ describe('PayablesView', () => {
   it('applies status filter from search params on first load', async () => {
     navigationState.searchParams = new URLSearchParams('status=overdue');
 
-    const { PayablesView } = await import('./PayablesView');
     renderWithQuery(<PayablesView />);
 
     await screen.findByText('ACME LLC');

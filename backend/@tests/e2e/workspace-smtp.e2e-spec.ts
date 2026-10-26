@@ -1,22 +1,26 @@
-jest.mock('franc', () => ({
+import type { Mock } from 'vitest';
+import * as nodemailerMock from 'nodemailer';
+vi.mock('franc', () => ({
   franc: () => 'und',
 }));
 
 // No mail leaves the test: the transport records which server it was built for.
-jest.mock('nodemailer', () => {
-  const sendMail = jest.fn(async () => ({ messageId: 'test' }));
-  return {
-    createTransport: jest.fn(() => ({ sendMail, verify: jest.fn(async () => true) })),
+vi.mock('nodemailer', () => {
+  const sendMail = vi.fn(async () => ({ messageId: 'test' }));
+  const mock = {
+    createTransport: vi.fn(() => ({ sendMail, verify: vi.fn(async () => true) })),
     sendMail,
   };
+  // The services import nodemailer's default export.
+  return { ...mock, default: mock };
 });
 // The invitation template is TSX, which the e2e transform does not compile;
 // its content is not what this spec is about.
-jest.mock('../../src/emails/workspace-invitation.email', () => ({
+vi.mock('../../src/emails/workspace-invitation.email', () => ({
   WorkspaceInvitationEmail: () => null,
   workspaceInvitationEmailText: () => 'invitation',
 }));
-jest.mock('@react-email/render', () => ({ render: async () => '<p>invitation</p>' }));
+vi.mock('@react-email/render', () => ({ render: async () => '<p>invitation</p>' }));
 
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
@@ -30,10 +34,9 @@ import {
   registerAccount,
 } from './helpers/e2e-app';
 
-const { createTransport: mockCreateTransport, sendMail: mockSendMail } = jest.requireMock<{
-  createTransport: jest.Mock;
-  sendMail: jest.Mock;
-}>('nodemailer');
+// vi.mock above replaces the module, so this import is the mock.
+const { createTransport: mockCreateTransport, sendMail: mockSendMail } =
+  nodemailerMock as unknown as { createTransport: Mock; sendMail: Mock };
 
 /**
  * Mail about a workspace goes through that workspace's SMTP server. The user

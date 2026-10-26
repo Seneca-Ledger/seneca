@@ -36,3 +36,20 @@ export const SetTransactionPayeeBody = Schema.Struct({
   ),
 );
 export type SetTransactionPayeeBody = Wire<typeof SetTransactionPayeeBody>;
+
+/** `/payees/:id…` and `/transactions/:id/payee`: the record's uuid. */
+export const PayeeParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type PayeeParams = Wire<typeof PayeeParams>;
+
+/** `GET /payees/:id/pending-review`. */
+export const PayeePendingReviewQuery = Schema.Struct({
+  excludeTransactionId: Schema.optional(Schema.String.check(Schema.isUUID())),
+});
+export type PayeePendingReviewQuery = Wire<typeof PayeePendingReviewQuery>;
+
+/** `DELETE /payees/:id/aliases/:key`: the payee and how a statement writes its name. */
+export const PayeeAliasParams = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+  key: Schema.String.check(Schema.isMinLength(1)),
+});
+export type PayeeAliasParams = Wire<typeof PayeeAliasParams>;

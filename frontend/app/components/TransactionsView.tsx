@@ -275,12 +275,14 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
           placeholder={t.searchPlaceholder.value}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            },
           }}
         />
       </Box>

@@ -17,6 +17,12 @@ export enum Permission {
   CATEGORY_EDIT = 'category.edit',
   CATEGORY_DELETE = 'category.delete',
 
+  // Tags
+  TAG_VIEW = 'tag.view',
+  TAG_CREATE = 'tag.create',
+  TAG_EDIT = 'tag.edit',
+  TAG_DELETE = 'tag.delete',
+
   // Branches
   BRANCH_VIEW = 'branch.view',
   BRANCH_CREATE = 'branch.create',
@@ -102,6 +108,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.STATEMENT_VIEW,
     Permission.TRANSACTION_VIEW,
     Permission.CATEGORY_VIEW,
+    Permission.TAG_VIEW,
     Permission.BRANCH_VIEW,
     Permission.WALLET_VIEW,
     Permission.PAYABLE_VIEW,
@@ -121,6 +128,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.STATEMENT_VIEW,
     Permission.TRANSACTION_VIEW,
     Permission.CATEGORY_VIEW,
+    Permission.TAG_VIEW,
     Permission.BRANCH_VIEW,
     Permission.WALLET_VIEW,
     Permission.PAYABLE_VIEW,

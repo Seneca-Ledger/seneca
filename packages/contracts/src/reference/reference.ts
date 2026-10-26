@@ -163,6 +163,8 @@ export const CategoryUsageCount = Schema.Struct({
   transactions: Schema.Number,
   statements: Schema.Number,
   total: Schema.Number,
+  /** Date of the latest transaction in the category; null when none. Only in the workspace-wide counts. */
+  lastUsedAt: Schema.optional(Schema.NullOr(DateOnly)),
 });
 export type CategoryUsageCount = Wire<typeof CategoryUsageCount>;
 

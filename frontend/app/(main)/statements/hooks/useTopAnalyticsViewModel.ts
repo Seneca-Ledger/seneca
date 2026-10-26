@@ -28,7 +28,7 @@ type DrillLabels = {
   amount: string;
 };
 
-type TxFn = (path: string[], fallback: string) => string;
+type TxFn = (path: string[]) => string;
 
 type DataParams<TState> = {
   user: unknown;
@@ -61,7 +61,6 @@ export type TopAnalyticsViewModelReturn<TState, TData> = TState &
     drillLabels: DrillLabels;
   };
 
-// eslint-disable-next-line max-params
 export function useTopAnalyticsViewModel<TState, TData>(
   config: TopAnalyticsViewModelConfig<TState, TData>,
   month: Date,

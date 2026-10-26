@@ -24,12 +24,4 @@ too often to be trusted.
 Learning from corrections can be switched off under **Settings → Data → Processing** (*Learn from
 my corrections*).
 
-## Local categorization
-
-**Integrations → Local categorization** installs a Transformers.js embedding model on the server
-(upload a ZIP with `config.json` and an ONNX file; the default model id is
-`Xenova/paraphrase-multilingual-MiniLM-L12-v2`) and lets you test merchant names against a list
-of categories with a similarity threshold. Remote model loading is disabled: the model runs from
-the uploaded files and sends nothing out.
-
 Next: [Receipt Maps](receipt-maps)

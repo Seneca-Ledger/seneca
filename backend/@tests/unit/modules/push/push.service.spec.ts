@@ -2,35 +2,37 @@ import { Agent as HttpsAgent } from 'node:https';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { PushService } from '@/modules/push/push.service';
 
-jest.mock('../../../../src/common/utils/egress-url.util', () => {
-  const actual = jest.requireActual('../../../../src/common/utils/egress-url.util');
+vi.mock('../../../../src/common/utils/egress-url.util', async () => {
+  const actual = await vi.importActual<
+    typeof import('../../../../src/common/utils/egress-url.util')
+  >('../../../../src/common/utils/egress-url.util');
   return {
     ...actual,
     // Fixture push hosts resolve to a public address; IP literals are checked for real.
-    assertPublicEgressUrl: jest.fn((url: string) =>
+    assertPublicEgressUrl: vi.fn((url: string) =>
       actual.assertPublicEgressUrl(url, { lookup: async () => [{ address: '142.250.102.95' }] }),
     ),
   };
 });
 
-const mockSendNotification = jest.fn();
-jest.mock("web-push", () => ({ setVapidDetails: jest.fn(), sendNotification: mockSendNotification }), { virtual: true });
+const mockSendNotification = vi.fn();
+vi.mock("web-push", () => ({ setVapidDetails: vi.fn(), sendNotification: mockSendNotification }), { virtual: true });
 
 describe('PushService', () => {
   const repository = {
-    findOne: jest.fn(),
-    create: jest.fn((data: unknown) => data),
-    save: jest.fn(async (data: unknown) => ({ id: 'sub-1', ...(data as object) })),
-    find: jest.fn(),
-    delete: jest.fn(),
-    update: jest.fn(),
+    findOne: vi.fn(),
+    create: vi.fn((data: unknown) => data),
+    save: vi.fn(async (data: unknown) => ({ id: 'sub-1', ...(data as object) })),
+    find: vi.fn(),
+    delete: vi.fn(),
+    update: vi.fn(),
   };
   const env: Record<string, string> = {};
   const configService = { get: (key: string) => env[key] };
   let service: PushService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     for (const key of Object.keys(env)) delete env[key];
     service = new PushService(repository as any, configService as any);
   });

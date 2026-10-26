@@ -4,6 +4,8 @@ import * as Schema from 'effect/Schema';
 import { IsoDateString, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
+const Uuid = Schema.String.check(Schema.isUUID());
+
 export const CreateGoalBody = Schema.Struct({
   name: Schema.String.check(Schema.isBetweenLength(1, 150)),
   targetAmount: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0.01)),
@@ -63,3 +65,16 @@ export const CreateContributionBody = Schema.Struct({
   note: optionalNullable(Schema.String.check(Schema.isBetweenLength(1, 200))),
 });
 export type CreateContributionBody = Wire<typeof CreateContributionBody>;
+
+export const GoalParams = Schema.Struct({ id: Uuid });
+export type GoalParams = Wire<typeof GoalParams>;
+
+export const GoalItemParams = Schema.Struct({ id: Uuid, itemId: Uuid });
+export type GoalItemParams = Wire<typeof GoalItemParams>;
+
+export const GoalContributionParams = Schema.Struct({ id: Uuid, contributionId: Uuid });
+export type GoalContributionParams = Wire<typeof GoalContributionParams>;
+
+/** `GET /goals/covers/preview/:photoId`: an Openverse image id, a uuid. */
+export const GoalCoverPreviewParams = Schema.Struct({ photoId: Uuid });
+export type GoalCoverPreviewParams = Wire<typeof GoalCoverPreviewParams>;

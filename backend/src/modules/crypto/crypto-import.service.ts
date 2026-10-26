@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import {
   CryptoWallet,
   type CryptoWalletBalance,
@@ -62,12 +63,10 @@ export class CryptoImportService {
   async importCsv(workspaceId: string, userId: string, csv: string): Promise<ExchangeImportResult> {
     const parsed = parseExchangeCsv(csv);
     if (!parsed) {
-      throw new BadRequestException(
-        'This file is not a Coinbase, Binance or Kraken history export',
-      );
+      throw new BadRequestException(appError('CRYPTO_IMPORT_UNSUPPORTED_FILE'));
     }
     if (parsed.entries.length === 0) {
-      throw new BadRequestException('The file holds no coin movements');
+      throw new BadRequestException(appError('CRYPTO_IMPORT_EMPTY'));
     }
 
     const currency = await this.holdingsService.getWorkspaceCurrency(workspaceId);

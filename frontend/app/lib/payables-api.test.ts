@@ -63,7 +63,7 @@ describe('payablesApi', () => {
     const { payablesApi } = await import('./payables-api');
     const result = await payablesApi.getSummary();
 
-    expect(apiClientMock.get).toHaveBeenCalledWith('/payables/summary');
+    expect(apiClientMock.get).toHaveBeenCalledWith('/payables/summary', { params: undefined });
     expect(result).toEqual(response.data);
   });
 

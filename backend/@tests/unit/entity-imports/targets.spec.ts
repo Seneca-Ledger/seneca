@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+import * as nodeFs from 'node:fs';
 import { PayableStatus } from '../../../src/entities/payable.entity';
 import { SubscriptionFrequency } from '../../../src/entities/subscription.entity';
 import { TransactionType } from '../../../src/entities/transaction.entity';
@@ -11,25 +13,25 @@ const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111';
 const USER_ID = '22222222-2222-4222-8222-222222222222';
 
 type RepoMock = {
-  find: jest.Mock;
-  save: jest.Mock;
-  update: jest.Mock;
-  insert: jest.Mock;
-  create: jest.Mock;
+  find: Mock;
+  save: Mock;
+  update: Mock;
+  insert: Mock;
+  create: Mock;
 };
 
 const repoMock = (found: unknown[] = []): RepoMock => {
   let counter = 0;
   return {
-    find: jest.fn().mockResolvedValue(found),
-    save: jest.fn(async (value: unknown) =>
+    find: vi.fn().mockResolvedValue(found),
+    save: vi.fn(async (value: unknown) =>
       Array.isArray(value)
         ? value.map(item => ({ ...(item as object), id: `id-${++counter}` }))
         : { ...(value as object), id: `id-${++counter}` },
     ),
-    update: jest.fn().mockResolvedValue({ affected: 1 }),
-    insert: jest.fn().mockResolvedValue({}),
-    create: jest.fn((value: unknown) => value),
+    update: vi.fn().mockResolvedValue({ affected: 1 }),
+    insert: vi.fn().mockResolvedValue({}),
+    create: vi.fn((value: unknown) => value),
   };
 };
 
@@ -52,7 +54,7 @@ const buildContext = (
   fileName: 'sheet.xlsx',
   categorize: false,
   cell: (row, field) => (Number.isInteger(mapping[field]) ? String(row[mapping[field]] ?? '') : ''),
-  category: jest.fn(async (name: string) => `cat-${name.toLowerCase()}`),
+  category: vi.fn(async (name: string) => `cat-${name.toLowerCase()}`),
   created: [],
   updated: [],
 });
@@ -156,7 +158,7 @@ describe('TransactionsTarget', () => {
     const transactions = repoMock();
     const statements = repoMock();
     const ctx = buildContext({ date: 0, merchant: 1, amount: 2 }, { Transaction: transactions, Statement: statements });
-    jest.spyOn(require('node:fs').promises, 'writeFile').mockResolvedValue(undefined);
+    vi.spyOn(nodeFs.promises, 'writeFile').mockResolvedValue(undefined);
     await new TransactionsTarget().run(
       [
         ['2026-09-01', 'Coffee', '4.50'],

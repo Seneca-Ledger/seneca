@@ -4,11 +4,9 @@ import {
   ArrowUpRight,
   Banknote,
   BarChart2,
-  BriefcaseBusiness,
+  BookmarkOutline,
   Building2,
   Calculator,
-  ChartPie,
-  CircleDollarSign,
   Compass,
   CreditCard,
   FileText,
@@ -18,22 +16,25 @@ import {
   LayoutDashboard,
   Lightbulb,
   PiggyBank,
-  Plug,
-  Puzzle,
   ReceiptText,
   Scale,
-  ScrollText,
-  Shuffle,
   Store,
   Table,
+  Tag,
   TrendingUp,
   Wallet,
   WalletCards,
+  Workflow,
 } from '@/app/components/icons';
 import { DEFAULT_APP_ROUTE } from '@/app/lib/default-app-route';
+import type { NavGroupId } from './nav-groups';
 export const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
 
 export type { AppLocale as AppLanguage } from '@/app/lib/locale';
+export { groupNavItems, type NavEntry } from './group-nav-items';
+export { buildNavGroups, type NavGroup, type NavGroupId } from './nav-groups';
+export { activeNavPath, isNavItemActive } from './nav-active';
+export { buildUserMenuNavItems } from './user-menu-nav-items';
 
 export interface NavItem {
   label: ReactNode;
@@ -46,68 +47,6 @@ export interface NavItem {
   businessOnly?: boolean;
   /** The sidebar folds the item under this group; without one it stays a row of its own. */
   group?: NavGroupId;
-}
-
-export type NavGroupId = 'transactions' | 'analytics' | 'investments' | 'business';
-
-export interface NavGroup {
-  id: NavGroupId;
-  label: ReactNode;
-  icon: React.ReactElement;
-}
-
-export function buildNavGroups(labels: Record<NavGroupId, unknown>): NavGroup[] {
-  return [
-    {
-      id: 'transactions',
-      label: labels.transactions as ReactNode,
-      icon: React.createElement(Shuffle, { size: 18 }),
-    },
-    {
-      id: 'analytics',
-      label: labels.analytics as ReactNode,
-      icon: React.createElement(ChartPie, { size: 18 }),
-    },
-    {
-      id: 'investments',
-      label: labels.investments as ReactNode,
-      icon: React.createElement(CircleDollarSign, { size: 18 }),
-    },
-    {
-      id: 'business',
-      label: labels.business as ReactNode,
-      icon: React.createElement(BriefcaseBusiness, { size: 18 }),
-    },
-  ];
-}
-
-export type NavEntry =
-  | { kind: 'item'; item: NavItem }
-  | { kind: 'group'; group: NavGroup; items: NavItem[] };
-
-/**
- * The sidebar's rows: ungrouped items where they are, each group where its first
- * item would be. A group none of whose items is visible is left out.
- */
-export function groupNavItems(items: NavItem[], groups: NavGroup[]): NavEntry[] {
-  const entries: NavEntry[] = [];
-  const byGroup = new Map<NavGroupId, NavItem[]>();
-  for (const item of items) {
-    const group = groups.find(candidate => candidate.id === item.group);
-    if (!group) {
-      entries.push({ kind: 'item', item });
-      continue;
-    }
-    const members = byGroup.get(group.id);
-    if (members) {
-      members.push(item);
-    } else {
-      const created = [item];
-      byGroup.set(group.id, created);
-      entries.push({ kind: 'group', group, items: created });
-    }
-  }
-  return entries;
 }
 
 export type WorkspaceProfile = 'home' | 'business';
@@ -157,6 +96,9 @@ export function buildNavItems(nav: {
   review: unknown;
   accounts: unknown;
   payees: unknown;
+  categories: unknown;
+  tags: unknown;
+  rules: unknown;
 }): NavItem[] {
   return [
     {
@@ -201,6 +143,13 @@ export function buildNavItems(nav: {
       permission: 'transaction.view',
     },
     {
+      label: nav.rules as ReactNode,
+      path: '/rules',
+      group: 'transactions',
+      icon: React.createElement(Workflow, { size: 18 }),
+      permission: 'category.view',
+    },
+    {
       label: nav.review as ReactNode,
       path: '/review',
       icon: React.createElement(Inbox, { size: 18 }),
@@ -211,6 +160,20 @@ export function buildNavItems(nav: {
       path: '/accounts',
       icon: React.createElement(WalletCards, { size: 18 }),
       permission: 'wallet.view',
+    },
+    {
+      label: nav.categories as ReactNode,
+      path: '/categories',
+      group: 'classification',
+      icon: React.createElement(BookmarkOutline, { size: 18 }),
+      permission: 'category.view',
+    },
+    {
+      label: nav.tags as ReactNode,
+      path: '/tags',
+      group: 'classification',
+      icon: React.createElement(Tag, { size: 18 }),
+      permission: 'tag.view',
     },
     {
       label: nav.budgets as ReactNode,
@@ -321,51 +284,4 @@ export function buildNavItems(nav: {
       permission: 'workspaces.view',
     },
   ];
-}
-
-export function buildUserMenuNavItems(nav: {
-  activityLog: unknown;
-  integrations: unknown;
-  plugins: unknown;
-}): NavItem[] {
-  return [
-    {
-      label: nav.integrations as ReactNode,
-      path: '/integrations',
-      icon: React.createElement(Plug, { size: 18 }),
-      // Held by the admin and user roles but not by viewer, which is who
-      // these two links have always been shown to.
-      permission: 'telegram.connect',
-    },
-    {
-      label: nav.plugins as ReactNode,
-      path: '/plugins',
-      icon: React.createElement(Puzzle, { size: 18 }),
-      permission: 'telegram.connect',
-    },
-    {
-      label: nav.activityLog as ReactNode,
-      path: '/admin',
-      icon: React.createElement(ScrollText, { size: 18 }),
-      permission: 'audit_log.view',
-    },
-  ];
-}
-
-export function isNavItemActive(pathname: string, itemPath: string): boolean {
-  return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
-}
-
-/**
- * The one item a page belongs to. Items can nest (/statements holds /statements/pay),
- * so the most specific match wins and only one row lights up.
- */
-export function activeNavPath(pathname: string, items: NavItem[]): string | undefined {
-  let best: string | undefined;
-  for (const item of items) {
-    if (isNavItemActive(pathname, item.path) && item.path.length > (best?.length ?? -1)) {
-      best = item.path;
-    }
-  }
-  return best;
 }

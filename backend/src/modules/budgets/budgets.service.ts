@@ -10,6 +10,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, MoreThanOrEqual, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { assertFound } from '../../common/utils/assert-found.util';
 import { countedSql, flowsSql } from '../../common/utils/counted-transactions.util';
 import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
@@ -37,6 +38,7 @@ import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.servi
 import {
   clampToWindow,
   computePeriodRange,
+  localDay,
   overlapsWindow,
   parseDateOnly,
 } from './budget-period.util';
@@ -135,9 +137,7 @@ export class BudgetsService {
     });
 
     if (existing) {
-      throw new ConflictException(
-        `Budget for this category with period "${dto.periodType}" already exists`,
-      );
+      throw new ConflictException(appError('BUDGET_ALREADY_EXISTS', { period: dto.periodType }));
     }
 
     assertWindowOrdered(dto.startsOn, dto.endsOn);
@@ -179,7 +179,9 @@ export class BudgetsService {
   async findAll(workspaceId: string, at: Date = new Date()): Promise<BudgetWithSpending[]> {
     const budgets = await this.budgetRepository.find({
       where: { workspaceId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
       order: { name: 'ASC' },
     });
 
@@ -190,7 +192,9 @@ export class BudgetsService {
   async findOne(id: string, workspaceId: string): Promise<BudgetWithSpending> {
     const budget = await this.budgetRepository.findOne({
       where: { id, workspaceId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
     assertFound(budget, 'Budget');
     const linked = await this.linkedSubscriptions(workspaceId, [budget]);
@@ -260,7 +264,9 @@ export class BudgetsService {
 
     const budgets = await this.budgetRepository.find({
       where: where as any,
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
 
     for (const budget of budgets) {
@@ -610,7 +616,7 @@ export class BudgetsService {
    * Spending per previous period, oldest first, since the budget began (its
    * window start, else its creation) and at most ROLLOVER_LOOKBACK periods back.
    */
-  private async previousPeriodsSpent(
+  async previousPeriodsSpent(
     budget: Budget,
     categoryIds: string[],
     currentStart: Date,
@@ -656,7 +662,7 @@ export class BudgetsService {
   }
 
   /** The category and every category under it; just the category when the tree is not available. */
-  private async categoryIdsFor(workspaceId: string, categoryId: string): Promise<string[]> {
+  async categoryIdsFor(workspaceId: string, categoryId: string): Promise<string[]> {
     if (!this.categoryRepository) return [categoryId];
     const ids = [categoryId];
     let frontier = [categoryId];
@@ -664,7 +670,9 @@ export class BudgetsService {
     for (let depth = 0; depth < 5 && frontier.length > 0; depth++) {
       const children = await this.categoryRepository.find({
         where: { workspaceId, parentId: In(frontier) },
-        select: ['id'],
+        select: {
+          id: true,
+        },
       });
       frontier = children.map(child => child.id).filter(id => !ids.includes(id));
       ids.push(...frontier);
@@ -698,7 +706,9 @@ export class BudgetsService {
     const chain = await this.categoryChainFor(workspaceId, dto.categoryId);
     const budgets = await this.budgetRepository.find({
       where: { workspaceId, categoryId: In(chain) },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
     const affected: BudgetImpactRow[] = [];
     for (const budget of budgets) {
@@ -765,7 +775,7 @@ export class BudgetsService {
   }
 
   /** The rate from one currency to another on a day: 1 for the same one, null when none is known. */
-  private async rateOrNull(
+  async rateOrNull(
     from: string,
     to: string,
     day: Date,
@@ -807,7 +817,7 @@ export class BudgetsService {
    * are converted at the rate of their own day; a row with no rate is left out
    * and reported, never counted one to one (500 UAH is not 500 USD).
    */
-  private async computeSpending(
+  async computeSpending(
     budget: Budget,
     categoryIds: string[],
     start: Date,
@@ -932,13 +942,6 @@ function assertWindowOrdered(
   endsOn: string | null | undefined,
 ): void {
   if (startsOn && endsOn && startsOn > endsOn) {
-    throw new BadRequestException('Budget "endsOn" must not be earlier than "startsOn"');
+    throw new BadRequestException(appError('BUDGET_WINDOW_INVALID'));
   }
-}
-
-/** A day in local time, as a `date` column stores it. */
-function localDay(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate(),
-  ).padStart(2, '0')}`;
 }

@@ -1,20 +1,11 @@
 'use client';
 
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  IconButton,
-  MenuItem,
-  Select,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, Button, IconButton, MenuItem, Select, Stack, Typography } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { Plus } from '@/app/components/icons';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
@@ -145,131 +136,129 @@ export function TaxRulesSection(): React.ReactElement {
   };
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-        <CircularProgress size={24} />
-      </Box>
-    );
+    return <SnapshotSkeleton id="workspace-tax-rules" loading fallback="panel" />;
   }
 
   // A flat section like the rest of the Overview tab, not a card of its own.
   return (
-    <SettingsSection title={t.title} description={t.description}>
-      <Stack spacing={2}>
-        {error ? (
-          <Alert severity="error">{typeof error === 'string' ? t[error] : error.message}</Alert>
-        ) : null}
+    <SnapshotSkeleton id="workspace-tax-rules" loading={false} capture={error !== 'loadError'}>
+      <SettingsSection title={t.title} description={t.description}>
+        <Stack spacing={2}>
+          {error ? (
+            <Alert severity="error">{typeof error === 'string' ? t[error] : error.message}</Alert>
+          ) : null}
 
-        {rates.length === 0 ? (
-          <Alert severity="info">{t.needJurisdiction}</Alert>
-        ) : (
-          <>
-            {rules.length > 0 ? (
-              <Stack
-                component="ul"
-                spacing={1}
-                sx={{ listStyle: 'none', m: 0, p: 0 }}
-                aria-label={t.title.value}
-              >
-                {rules.map(rule => (
-                  <Stack
-                    component="li"
-                    key={rule.id}
-                    direction="row"
-                    spacing={1.5}
-                    alignItems="center"
-                    sx={{
-                      borderRadius: tokens.radius.md,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      px: 1.5,
-                      py: 1,
-                    }}
-                  >
-                    <Typography sx={{ fontSize: 14, flex: 1, color: 'text.primary' }}>
-                      {nameOfCategory(rule.categoryId)}
-                    </Typography>
-                    <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-                      {t.directions[rule.direction]}
-                    </Typography>
-                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>
-                      {rule.taxRateCode}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      aria-label={t.deleteRule.value.replace(
-                        '{name}',
-                        nameOfCategory(rule.categoryId),
-                      )}
-                      disabled={busy}
-                      onClick={() => removeRule(rule.id)}
+          {rates.length === 0 ? (
+            <Alert severity="info">{t.needJurisdiction}</Alert>
+          ) : (
+            <>
+              {rules.length > 0 ? (
+                <Stack
+                  component="ul"
+                  spacing={1}
+                  sx={{ listStyle: 'none', m: 0, p: 0 }}
+                  aria-label={t.title.value}
+                >
+                  {rules.map(rule => (
+                    <Stack
+                      component="li"
+                      key={rule.id}
+                      direction="row"
+                      spacing={1.5}
+                      sx={{
+                        alignItems: 'center',
+                        borderRadius: tokens.radius.md,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        px: 1.5,
+                        py: 1,
+                      }}
                     >
-                      ×
-                    </IconButton>
-                  </Stack>
-                ))}
+                      <Typography sx={{ fontSize: 14, flex: 1, color: 'text.primary' }}>
+                        {nameOfCategory(rule.categoryId)}
+                      </Typography>
+                      <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+                        {t.directions[rule.direction]}
+                      </Typography>
+                      <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.primary' }}>
+                        {rule.taxRateCode}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        aria-label={t.deleteRule.value.replace(
+                          '{name}',
+                          nameOfCategory(rule.categoryId),
+                        )}
+                        disabled={busy}
+                        onClick={() => removeRule(rule.id)}
+                      >
+                        ×
+                      </IconButton>
+                    </Stack>
+                  ))}
+                </Stack>
+              ) : (
+                <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>{t.empty}</Typography>
+              )}
+
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                <CategoryPickerField
+                  size="small"
+                  ariaLabel={t.categoryLabel.value}
+                  value={draft.categoryId}
+                  categories={categories}
+                  onChange={categoryId => setDraft(d => ({ ...d, categoryId }))}
+                  placeholder={t.anyCategory.value}
+                  clearLabel={t.anyCategory.value}
+                  sx={{ width: 'auto', minWidth: 180, maxWidth: 260 }}
+                />
+
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={draft.taxRateCode}
+                  onChange={event => setDraft(d => ({ ...d, taxRateCode: event.target.value }))}
+                  inputProps={{ 'aria-label': t.rateLabel.value }}
+                  sx={{ minWidth: 180, borderRadius: tokens.radius.md }}
+                >
+                  <MenuItem value="">{t.chooseRate}</MenuItem>
+                  {rates.map(rate => (
+                    <MenuItem key={rate.id} value={rate.code ?? ''}>
+                      {rate.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+
+                <Select
+                  size="small"
+                  value={draft.direction}
+                  onChange={event =>
+                    setDraft(d => ({ ...d, direction: event.target.value as TaxRule['direction'] }))
+                  }
+                  inputProps={{ 'aria-label': t.directionLabel.value }}
+                  sx={{ minWidth: 130, borderRadius: tokens.radius.md }}
+                >
+                  {DIRECTIONS.map(direction => (
+                    <MenuItem key={direction} value={direction}>
+                      {t.directions[direction]}
+                    </MenuItem>
+                  ))}
+                </Select>
+
+                <Button
+                  variant="contained"
+                  onClick={addRule}
+                  disabled={busy || !draft.taxRateCode}
+                  sx={{ borderRadius: tokens.radius.md, textTransform: 'none', fontWeight: 600 }}
+                >
+                  <Plus size={18} aria-hidden />
+                  {t.addRule}
+                </Button>
               </Stack>
-            ) : (
-              <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>{t.empty}</Typography>
-            )}
-
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-              <CategoryPickerField
-                size="small"
-                ariaLabel={t.categoryLabel.value}
-                value={draft.categoryId}
-                categories={categories}
-                onChange={categoryId => setDraft(d => ({ ...d, categoryId }))}
-                placeholder={t.anyCategory.value}
-                clearLabel={t.anyCategory.value}
-                sx={{ width: 'auto', minWidth: 180, maxWidth: 260 }}
-              />
-
-              <Select
-                size="small"
-                displayEmpty
-                value={draft.taxRateCode}
-                onChange={event => setDraft(d => ({ ...d, taxRateCode: event.target.value }))}
-                inputProps={{ 'aria-label': t.rateLabel.value }}
-                sx={{ minWidth: 180, borderRadius: tokens.radius.md }}
-              >
-                <MenuItem value="">{t.chooseRate}</MenuItem>
-                {rates.map(rate => (
-                  <MenuItem key={rate.id} value={rate.code ?? ''}>
-                    {rate.name}
-                  </MenuItem>
-                ))}
-              </Select>
-
-              <Select
-                size="small"
-                value={draft.direction}
-                onChange={event =>
-                  setDraft(d => ({ ...d, direction: event.target.value as TaxRule['direction'] }))
-                }
-                inputProps={{ 'aria-label': t.directionLabel.value }}
-                sx={{ minWidth: 130, borderRadius: tokens.radius.md }}
-              >
-                {DIRECTIONS.map(direction => (
-                  <MenuItem key={direction} value={direction}>
-                    {t.directions[direction]}
-                  </MenuItem>
-                ))}
-              </Select>
-
-              <Button
-                variant="contained"
-                onClick={addRule}
-                disabled={busy || !draft.taxRateCode}
-                sx={{ borderRadius: tokens.radius.md, textTransform: 'none', fontWeight: 600 }}
-              >
-                <Plus size={18} aria-hidden />
-                {t.addRule}
-              </Button>
-            </Stack>
-          </>
-        )}
-      </Stack>
-    </SettingsSection>
+            </>
+          )}
+        </Stack>
+      </SettingsSection>
+    </SnapshotSkeleton>
   );
 }

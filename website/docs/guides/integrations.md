@@ -10,7 +10,6 @@ encrypted. Env variables with the same purpose are only temporary fallback defau
 
 | Integration | What it does |
 |---|---|
-| Local categorization | Installs a local Transformers.js model on the server — see [Categorization](categorization) |
 | SMTP email | Sends workspace invitations, password reset links and email change confirmations |
 | App URL | The public URL used in invitations and shared links |
 | S3-compatible storage | Syncs statements with a bucket such as MinIO |

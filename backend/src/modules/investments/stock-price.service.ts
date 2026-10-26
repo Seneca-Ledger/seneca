@@ -1,4 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Effect } from 'effect';
+import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { describeHttpFailure, getWith } from '../../common/effect/http-json';
 import { assertPublicEgressUrl } from '../../common/utils/egress-url.util';
 
 export interface QuotedPrice {
@@ -75,6 +78,8 @@ export class StockPriceService {
   private readonly logger = new Logger(StockPriceService.name);
   private readonly cache = new Map<string, QuotedPrice>();
 
+  constructor(private readonly effects: EffectRuntime) {}
+
   async getPrices(symbols: string[]): Promise<Map<string, QuotedPrice>> {
     const wanted = [...new Set(symbols.map(normalizeStockSymbol))];
     const result = new Map<string, QuotedPrice>();
@@ -93,12 +98,11 @@ export class StockPriceService {
     const url = `${STOOQ_URL}?s=${stale.map(s => s.toLowerCase()).join('+')}&f=sd2t2ohlcv&h&e=csv`;
     try {
       await assertPublicEgressUrl(url);
-      const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      if (!response.ok) {
-        this.logger.warn(`Stooq returned ${response.status}`);
+      const csv = await this.fetchCsv(url);
+      if (csv === null) {
         return result;
       }
-      const quotes = parseStooqCsv(await response.text());
+      const quotes = parseStooqCsv(csv);
       for (const [symbol, quote] of quotes) {
         const priced: QuotedPrice = {
           symbol,
@@ -113,5 +117,27 @@ export class StockPriceService {
       this.logger.warn(`Stooq quote failed: ${String(error)}`);
     }
     return result;
+  }
+
+  /** The quote CSV, or null (logged) when Stooq refused or could not be reached. Asked once. */
+  private fetchCsv(url: string): Promise<string | null> {
+    const logger = this.logger;
+    return this.effects.run(
+      getWith(url, { timeout: '10 seconds' }, response =>
+        response.status >= 200 && response.status < 300
+          ? response.text
+          : Effect.sync(() => {
+              logger.warn(`Stooq returned ${response.status}`);
+              return null;
+            }),
+      ).pipe(
+        Effect.catch(error =>
+          Effect.sync(() => {
+            logger.warn(`Stooq quote failed: ${describeHttpFailure(error)}`);
+            return null;
+          }),
+        ),
+      ),
+    );
   }
 }

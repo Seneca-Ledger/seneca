@@ -1,12 +1,4 @@
-import {
-  BadRequestException,
-  Controller,
-  DefaultValuePipe,
-  Get,
-  ParseIntPipe,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
@@ -21,33 +13,37 @@ import {
   DashboardResponse,
   DashboardTrendsResponse,
 } from '../../contracts';
+import {
+  DashboardCommitmentsQuery,
+  DashboardQuery,
+  DashboardTrendsQuery,
+} from '../../contracts/requests/dashboard';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CashFlowEntriesService } from './cash-flow-entries.service';
 import { DashboardService } from './dashboard.service';
-import { parseMonthWindow } from './dashboard-window.util';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly cashFlowEntries: CashFlowEntriesService,
+  ) {}
 
   @Get()
   @SchemaResponse(DashboardResponse)
   async getDashboard(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('range') range: '7d' | '30d' | '90d' | 'month' = '30d',
-    @Query('date') date?: string,
+    @SchemaQuery(DashboardQuery) query: DashboardQuery,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
-    const validRange: '7d' | '30d' | '90d' | 'month' = ['7d', '30d', '90d', 'month'].includes(range)
-      ? range
-      : '30d';
     return this.dashboardService.getDashboard(
       user.id,
       workspaceId,
-      validRange,
-      date,
+      query.range ?? '30d',
+      query.date,
       selfMemberId ?? null,
     );
   }
@@ -68,7 +64,7 @@ export class DashboardController {
     @WorkspaceMemberId() viewerMemberId: string | null,
     @SchemaQuery(CashFlowEntriesQuery) query: CashFlowEntriesQuery,
   ) {
-    return this.dashboardService.getCashFlowEntries(workspaceId, query.month, viewerMemberId);
+    return this.cashFlowEntries.getCashFlowEntries(workspaceId, query.month, viewerMemberId);
   }
 
   @Get('trends')
@@ -76,13 +72,9 @@ export class DashboardController {
   async getTrends(
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
-    @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
-    @Query('month') month?: string,
+    @SchemaQuery(DashboardTrendsQuery) { days = 30, month }: DashboardTrendsQuery,
     @WorkspaceMemberId() selfMemberId?: string | null,
   ) {
-    if (month !== undefined && !parseMonthWindow(month)) {
-      throw new BadRequestException('month must be YYYY-MM');
-    }
     return this.dashboardService.getTrends(workspaceId, days, month, selfMemberId ?? null);
   }
 
@@ -90,8 +82,8 @@ export class DashboardController {
   @SchemaResponse(DashboardCommitmentsResponse)
   async getCommitments(
     @WorkspaceId() workspaceId: string,
-    @Query('days', new DefaultValuePipe(60), ParseIntPipe) days: number,
+    @SchemaQuery(DashboardCommitmentsQuery) query: DashboardCommitmentsQuery,
   ) {
-    return this.dashboardService.getCommitments(workspaceId, days);
+    return this.dashboardService.getCommitments(workspaceId, query.days ?? 60);
   }
 }

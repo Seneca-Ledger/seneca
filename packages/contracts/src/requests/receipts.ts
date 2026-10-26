@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
-import { NumericInput, optionalNullable } from '../common/requests';
+import { BooleanInput, NumericInput, optionalNullable, PageInput } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 /**
@@ -151,3 +151,45 @@ export const SetReceiptTaxBody = Schema.Struct({
   taxRateId: Schema.NullOr(Schema.String.check(Schema.isUUID())),
 });
 export type SetReceiptTaxBody = Wire<typeof SetReceiptTaxBody>;
+
+export const SetReceiptTagsBody = Schema.Struct({
+  /** The complete desired tag set for the receipt; an empty array clears it. */
+  tagIds: Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(50)),
+});
+export type SetReceiptTagsBody = Wire<typeof SetReceiptTagsBody>;
+
+const Uuid = Schema.String.check(Schema.isUUID());
+
+/** `/receipts/:id/...`. */
+export const ReceiptParams = Schema.Struct({ id: Uuid });
+export type ReceiptParams = Wire<typeof ReceiptParams>;
+
+/** `GET /receipts/:id/thumbnail`: the width in pixels, clamped by the server. */
+export const ReceiptThumbnailQuery = Schema.Struct({ width: Schema.optional(NumericInput) });
+export type ReceiptThumbnailQuery = Wire<typeof ReceiptThumbnailQuery>;
+
+/** `GET /receipts/documents`: receipts as the Documents list and analytics read them. */
+export const ReceiptDocumentsQuery = Schema.Struct({
+  status: Schema.optional(
+    Schema.Literals([
+      'new',
+      'parsed',
+      'needs_review',
+      'draft',
+      'reviewed',
+      'approved',
+      'rejected',
+      'failed',
+    ]),
+  ),
+  /** At most 100 are answered; 50 when absent. */
+  limit: Schema.optional(PageInput),
+  offset: Schema.optional(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))),
+  includeInvalid: Schema.optional(BooleanInput),
+  hasAmount: Schema.optional(BooleanInput),
+  /** A category id, or `uncategorized` for receipts without one. */
+  categoryId: Schema.optional(Schema.Union([Uuid, Schema.Literals(['uncategorized'])])),
+  includeLinkedScans: Schema.optional(BooleanInput),
+  stage: Schema.optional(Schema.Literals(['submit', 'approve', 'pay'])),
+});
+export type ReceiptDocumentsQuery = Wire<typeof ReceiptDocumentsQuery>;

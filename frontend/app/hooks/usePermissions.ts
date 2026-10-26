@@ -19,6 +19,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'category.create',
     'category.edit',
     'category.delete',
+    'tag.view',
+    'tag.create',
+    'tag.edit',
+    'tag.delete',
     'branch.view',
     'branch.create',
     'branch.edit',
@@ -71,6 +75,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'workspaces.view',
     'transaction.view',
     'category.view',
+    'tag.view',
     'branch.view',
     'wallet.view',
     'invoice.view',
@@ -90,6 +95,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'workspaces.view',
     'transaction.view',
     'category.view',
+    'tag.view',
     'branch.view',
     'wallet.view',
     'invoice.view',
@@ -126,7 +132,6 @@ const computePermissions = (user: User | null): string[] => {
   return merged;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export function usePermissions() {
   const { user } = useAuth();
 

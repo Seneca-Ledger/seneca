@@ -47,6 +47,7 @@ import {
 } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { BalanceService } from '../../src/modules/balance/balance.service';
+import { BudgetWithinLimitService } from '../../src/modules/budgets/budget-within-limit.service';
 import { BudgetsService } from '../../src/modules/budgets/budgets.service';
 import { ClassificationService } from '../../src/modules/classification/services/classification.service';
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
@@ -80,13 +81,13 @@ const ENTITIES = Object.values(entityIndex).filter(
  * from inside a Jest worker.
  */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -96,7 +97,7 @@ function loadMigrations(): Function[] {
 const num = (value: unknown): number => Number(value);
 
 describe('split() preserves every money aggregate (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let moduleRef: TestingModule;
@@ -194,20 +195,20 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
     await dataSource.initialize();
     await dataSource.runMigrations();
 
-    const auditStub = { createEvent: jest.fn().mockResolvedValue(undefined) };
+    const auditStub = { createEvent: vi.fn().mockResolvedValue(undefined) };
     const cacheStub = {
-      get: jest.fn().mockResolvedValue(undefined),
-      set: jest.fn().mockResolvedValue(undefined),
-      del: jest.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue(undefined),
+      set: vi.fn().mockResolvedValue(undefined),
+      del: vi.fn().mockResolvedValue(undefined),
     };
     // Single-currency fixture: every row is KZT, so getRate is never reached.
     // Made to throw rather than return 1 so a silent conversion cannot hide here.
     const exchangeStub = {
-      getRate: jest.fn(() => {
+      getRate: vi.fn(() => {
         throw new Error('unexpected FX conversion in a single-currency fixture');
       }),
       // The dashboard lists currencies without a rate; a KZT-only fixture has none.
-      coverageForWorkspace: jest.fn(async () => []),
+      coverageForWorkspace: vi.fn(async () => []),
     };
 
     moduleRef = await Test.createTestingModule({
@@ -216,9 +217,10 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
         BalanceService,
         DashboardService,
         BudgetsService,
+        BudgetWithinLimitService,
         WorkspaceCurrencyService,
         ReportsService,
-        { provide: TaxAssignmentService, useValue: { resolve: jest.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } },
+        { provide: TaxAssignmentService, useValue: { resolve: vi.fn(async () => ({ taxRateId: null, taxRuleId: null, taxSource: null, taxAmount: null, taxNetAmount: null, taxReverseCharge: false })) } },
         { provide: AuditService, useValue: auditStub },
         { provide: CACHE_MANAGER, useValue: cacheStub },
         { provide: ExchangeRatesService, useValue: exchangeStub },
@@ -226,8 +228,8 @@ describe('split() preserves every money aggregate (real Postgres)', () => {
         { provide: BudgetVsActualReport, useValue: {} },
         { provide: HoldingsSnapshotReport, useValue: {} },
         { provide: ClassificationService, useValue: {} },
-        { provide: NotificationsService, useValue: { create: jest.fn() } },
-        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        { provide: NotificationsService, useValue: { create: vi.fn() } },
+        { provide: EventEmitter2, useValue: { emit: vi.fn() } },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
           useValue: dataSource.getRepository(entity),

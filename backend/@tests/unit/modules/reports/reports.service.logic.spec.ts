@@ -10,7 +10,7 @@ function createRepoMock() {
 /** Builds a minimal ReportsService with the given transaction repo mock. */
 function makeService(
   transactionRepo: any = createRepoMock(),
-  cacheManager: any = { get: jest.fn().mockResolvedValue(null), set: jest.fn(), del: jest.fn() },
+  cacheManager: any = { get: vi.fn().mockResolvedValue(null), set: vi.fn(), del: vi.fn() },
 ) {
   return new ReportsService(
     transactionRepo,
@@ -22,29 +22,29 @@ function makeService(
     createRepoMock(), // customTableRow
     createRepoMock(), // user
     cacheManager,
-    { createEvent: jest.fn() } as unknown as AuditService,
+    { createEvent: vi.fn() } as unknown as AuditService,
     createRepoMock(), // reportHistory
-      { findOne: jest.fn(async () => ({ currency: 'EUR' })) } as any,
-      { getRate: jest.fn(async () => 1) } as any,
-      { exportBalanceSheet: jest.fn() } as any,
+      { findOne: vi.fn(async () => ({ currency: 'EUR' })) } as any,
+      { getRate: vi.fn(async () => 1) } as any,
+      { exportBalanceSheet: vi.fn() } as any,
   );
 }
 
 /** Creates a fluent QueryBuilder mock. */
 function createQbMock(getMany: () => Promise<any[]> = async () => [], extra: Record<string, any> = {}) {
   const qb: any = {
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    innerJoin: jest.fn().mockReturnThis(),
-    leftJoin: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    addSelect: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    groupBy: jest.fn().mockReturnThis(),
-    getMany: jest.fn().mockImplementation(getMany),
-    getRawMany: jest.fn().mockResolvedValue([]),
-    getRawOne: jest.fn().mockResolvedValue(null),
+    leftJoinAndSelect: vi.fn().mockReturnThis(),
+    innerJoin: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    addSelect: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    groupBy: vi.fn().mockReturnThis(),
+    getMany: vi.fn().mockImplementation(getMany),
+    getRawMany: vi.fn().mockResolvedValue([]),
+    getRawOne: vi.fn().mockResolvedValue(null),
     ...extra,
   };
   return qb;
@@ -57,8 +57,8 @@ const WS_ID = 'ws-abc';
 // ---------------------------------------------------------------------------
 describe('ReportsService — getLatestTransactionDate', () => {
   it('returns null when no transactions exist', async () => {
-    const qb = createQbMock(async () => [], { getRawOne: jest.fn().mockResolvedValue(null) });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
+    const qb = createQbMock(async () => [], { getRawOne: vi.fn().mockResolvedValue(null) });
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
     const service = makeService(transactionRepo);
 
     const result = await service.getLatestTransactionDate(WS_ID);
@@ -69,9 +69,9 @@ describe('ReportsService — getLatestTransactionDate', () => {
   it('returns YYYY-MM-DD string when a transaction exists', async () => {
     const transactionDate = new Date('2025-06-15T12:30:00.000Z');
     const qb = createQbMock(async () => [], {
-      getRawOne: jest.fn().mockResolvedValue({ transactionDate }),
+      getRawOne: vi.fn().mockResolvedValue({ transactionDate }),
     });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
     const service = makeService(transactionRepo);
 
     const result = await service.getLatestTransactionDate(WS_ID);
@@ -81,9 +81,9 @@ describe('ReportsService — getLatestTransactionDate', () => {
 
   it('returns null when getRawOne resolves with transactionDate undefined', async () => {
     const qb = createQbMock(async () => [], {
-      getRawOne: jest.fn().mockResolvedValue({ transactionDate: undefined }),
+      getRawOne: vi.fn().mockResolvedValue({ transactionDate: undefined }),
     });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
     const service = makeService(transactionRepo);
 
     const result = await service.getLatestTransactionDate(WS_ID);
@@ -97,8 +97,8 @@ describe('ReportsService — getLatestTransactionDate', () => {
 // ---------------------------------------------------------------------------
 describe('ReportsService — getLatestTransactionPeriod', () => {
   it('returns nulls when no transactions exist', async () => {
-    const qb = createQbMock(async () => [], { getRawOne: jest.fn().mockResolvedValue(null) });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
+    const qb = createQbMock(async () => [], { getRawOne: vi.fn().mockResolvedValue(null) });
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
     const service = makeService(transactionRepo);
 
     const result = await service.getLatestTransactionPeriod(WS_ID);
@@ -108,9 +108,9 @@ describe('ReportsService — getLatestTransactionPeriod', () => {
 
   it('returns date, year and 1-based month for a known date', async () => {
     const qb = createQbMock(async () => [], {
-      getRawOne: jest.fn().mockResolvedValue({ transactionDate: new Date('2025-03-20') }),
+      getRawOne: vi.fn().mockResolvedValue({ transactionDate: new Date('2025-03-20') }),
     });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
     const service = makeService(transactionRepo);
 
     const result = await service.getLatestTransactionPeriod(WS_ID);
@@ -128,10 +128,10 @@ describe('ReportsService — generateDailyReport', () => {
   it('returns cached value immediately without querying DB', async () => {
     const cached = { date: '2025-01-10', income: {}, expense: {}, summary: {} };
     const cacheManager = {
-      get: jest.fn().mockResolvedValue(cached),
-      set: jest.fn(),
+      get: vi.fn().mockResolvedValue(cached),
+      set: vi.fn(),
     };
-    const transactionRepo = { createQueryBuilder: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateDailyReport(WS_ID, '2025-01-10');
@@ -166,8 +166,8 @@ describe('ReportsService — generateDailyReport', () => {
       // First call = income query, second = expense query
       return callCount === 1 ? [income1] : [expense1];
     });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn().mockResolvedValue(null), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateDailyReport(WS_ID, '2025-01-10');
@@ -183,8 +183,8 @@ describe('ReportsService — generateDailyReport', () => {
 
   it('returns zero totals when no transactions for the day', async () => {
     const qb = createQbMock(async () => []);
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn().mockResolvedValue(null), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateDailyReport(WS_ID, '2025-01-10');
@@ -212,8 +212,8 @@ describe('ReportsService — generateDailyReport', () => {
         ? [tx('Alpha', 3000), tx('Beta', 1000), tx('Alpha', 2000)] // income
         : []; // expense
     });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn().mockResolvedValue(null), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateDailyReport(WS_ID, '2025-01-10');
@@ -231,10 +231,10 @@ describe('ReportsService — generateMonthlyReport', () => {
   it('returns cached value without querying DB', async () => {
     const cached = { month: '3', year: 2025, dailyTrends: [], categoryDistribution: [], counterpartyDistribution: [], comparison: {}, summary: {} };
     const cacheManager = {
-      get: jest.fn().mockResolvedValue(cached),
-      set: jest.fn(),
+      get: vi.fn().mockResolvedValue(cached),
+      set: vi.fn(),
     };
-    const transactionRepo = { createQueryBuilder: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateMonthlyReport(WS_ID, 2025, 3);
@@ -274,8 +274,8 @@ describe('ReportsService — generateMonthlyReport', () => {
         makeTx(TransactionType.EXPENSE, 2000, '2025-02-15'),
       ];
     });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn().mockResolvedValue(null), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateMonthlyReport(WS_ID, 2025, 3);
@@ -314,8 +314,8 @@ describe('ReportsService — generateMonthlyReport', () => {
           ]
         : [];
     });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn().mockResolvedValue(null), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateMonthlyReport(WS_ID, 2025, 3);
@@ -348,8 +348,8 @@ describe('ReportsService — generateMonthlyReport', () => {
         ? [tx('cat-a', 'Food', 750), tx('cat-b', 'Transport', 250)]
         : [];
     });
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn().mockResolvedValue(null), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateMonthlyReport(WS_ID, 2025, 3);
@@ -373,8 +373,8 @@ describe('ReportsService — generateCustomReport', () => {
 
   it('returns empty groups and zero summary when no transactions', async () => {
     const qb = createQbMock(async () => []);
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn(), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn(), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateCustomReport(WS_ID, baseDto as any);
@@ -406,8 +406,8 @@ describe('ReportsService — generateCustomReport', () => {
       makeTx('2025-01-10', 2000, TransactionType.INCOME),
       makeTx('2025-01-11', 500, TransactionType.EXPENSE),
     ]);
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn(), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn(), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateCustomReport(WS_ID, baseDto as any);
@@ -438,8 +438,8 @@ describe('ReportsService — generateCustomReport', () => {
     };
 
     const qb = createQbMock(async () => [tx]);
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn(), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn(), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateCustomReport(WS_ID, {
@@ -467,8 +467,8 @@ describe('ReportsService — generateCustomReport', () => {
     };
 
     const qb = createQbMock(async () => [tx]);
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn(), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn(), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateCustomReport(WS_ID, {
@@ -482,8 +482,8 @@ describe('ReportsService — generateCustomReport', () => {
 
   it('applies optional categoryId filter to the query', async () => {
     const qb = createQbMock(async () => []);
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn(), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn(), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     await service.generateCustomReport(WS_ID, {
@@ -517,8 +517,8 @@ describe('ReportsService — generateCustomReport', () => {
       makeTx('2025-01-01', 9000),
       makeTx('2025-01-02', 500),
     ]);
-    const transactionRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    const cacheManager = { get: jest.fn(), set: jest.fn() };
+    const transactionRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    const cacheManager = { get: vi.fn(), set: vi.fn() };
     const service = makeService(transactionRepo, cacheManager);
 
     const result = await service.generateCustomReport(WS_ID, baseDto as any);

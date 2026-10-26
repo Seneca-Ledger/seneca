@@ -1,38 +1,40 @@
+import type { Mock } from 'vitest';
 import { Between, In, IsNull } from 'typeorm';
 import { PayableStatus } from '../../../../src/entities/payable.entity';
 import { ReceiptSource, ReceiptStatus } from '../../../../src/entities/receipt.entity';
 import { BankName, StatementStatus } from '../../../../src/entities/statement.entity';
 import { TransactionType } from '../../../../src/entities/transaction.entity';
 import { WorkspaceRole } from '../../../../src/entities/workspace-member.entity';
+import { CashFlowEntriesService } from '../../../../src/modules/dashboard/cash-flow-entries.service';
 import { DashboardService } from '../../../../src/modules/dashboard/dashboard.service';
 
 const createRepoMock = () =>
   ({
-    count: jest.fn(),
-    find: jest.fn(),
-    findOne: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    count: vi.fn(),
+    find: vi.fn(),
+    findOne: vi.fn(),
+    createQueryBuilder: vi.fn(),
   }) as any;
 
 const createQueryBuilderMock = (result: unknown) => ({
-  select: jest.fn().mockReturnThis(),
-  addSelect: jest.fn().mockReturnThis(),
-  where: jest.fn().mockReturnThis(),
-  andWhere: jest.fn().mockReturnThis(),
-  innerJoin: jest.fn().mockReturnThis(),
-  leftJoin: jest.fn().mockReturnThis(),
-  leftJoinAndSelect: jest.fn().mockReturnThis(),
-  groupBy: jest.fn().mockReturnThis(),
-  addGroupBy: jest.fn().mockReturnThis(),
-  orderBy: jest.fn().mockReturnThis(),
-  addOrderBy: jest.fn().mockReturnThis(),
-  take: jest.fn().mockReturnThis(),
-  limit: jest.fn().mockReturnThis(),
-  setParameter: jest.fn().mockReturnThis(),
-  getRawOne: jest.fn().mockResolvedValue(result),
-  getRawMany: jest.fn().mockResolvedValue(result),
-  getCount: jest.fn().mockResolvedValue(result),
-  getMany: jest.fn().mockResolvedValue(result),
+  select: vi.fn().mockReturnThis(),
+  addSelect: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  andWhere: vi.fn().mockReturnThis(),
+  innerJoin: vi.fn().mockReturnThis(),
+  leftJoin: vi.fn().mockReturnThis(),
+  leftJoinAndSelect: vi.fn().mockReturnThis(),
+  groupBy: vi.fn().mockReturnThis(),
+  addGroupBy: vi.fn().mockReturnThis(),
+  orderBy: vi.fn().mockReturnThis(),
+  addOrderBy: vi.fn().mockReturnThis(),
+  take: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
+  setParameter: vi.fn().mockReturnThis(),
+  getRawOne: vi.fn().mockResolvedValue(result),
+  getRawMany: vi.fn().mockResolvedValue(result),
+  getCount: vi.fn().mockResolvedValue(result),
+  getMany: vi.fn().mockResolvedValue(result),
 });
 
 const createExpectedWindow = (days: number, targetDate: string | Date) => {
@@ -64,7 +66,7 @@ describe('DashboardService', () => {
   let service: DashboardService;
   const transactionRepo = createRepoMock();
   // Raw queries: the account count for the opening balance (none unless a test says so).
-  (transactionRepo as any).query = jest.fn(async () => [{ count: 0 }]);
+  (transactionRepo as any).query = vi.fn(async () => [{ count: 0 }]);
   const statementRepo = createRepoMock();
   const payableRepo = createRepoMock();
   const walletRepo = createRepoMock();
@@ -73,15 +75,17 @@ describe('DashboardService', () => {
   const workspaceRepo = createRepoMock();
   const subscriptionRepo = createRepoMock();
   const exchangeRatesService = {
-    getRate: jest.fn(),
-    coverageForWorkspace: jest.fn(async () => []),
+    getRate: vi.fn(),
+    coverageForWorkspace: vi.fn(async () => []),
   };
+  const budgetsService = { withinLimitSpending: vi.fn() };
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
     workspaceRepo.findOne.mockResolvedValue({ currency: 'KZT' });
     exchangeRatesService.getRate.mockResolvedValue(1);
     (transactionRepo as any).query.mockResolvedValue([{ count: 0 }]);
+    budgetsService.withinLimitSpending.mockResolvedValue([]);
     service = new DashboardService(
       transactionRepo,
       statementRepo,
@@ -91,6 +95,7 @@ describe('DashboardService', () => {
       workspaceRepo,
       subscriptionRepo,
       exchangeRatesService as any,
+      budgetsService as any,
     );
   });
 
@@ -133,14 +138,14 @@ describe('DashboardService', () => {
       parsingWarnings: 0,
     };
 
-    jest.spyOn(service as any, 'getSnapshot').mockResolvedValue(snapshot);
-    jest.spyOn(service as any, 'getActions').mockResolvedValue(actions);
-    jest.spyOn(service as any, 'getCashFlow').mockResolvedValue(cashFlow);
-    jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue(topMerchants);
-    jest.spyOn(service as any, 'getTopCategories').mockResolvedValue(topCategories);
-    jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue(recentTransactions);
-    jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('admin');
-    jest.spyOn(service as any, 'getDataHealth').mockResolvedValue(dataHealth);
+    vi.spyOn(service as any, 'getSnapshot').mockResolvedValue(snapshot);
+    vi.spyOn(service as any, 'getActions').mockResolvedValue(actions);
+    vi.spyOn(service as any, 'getCashFlow').mockResolvedValue(cashFlow);
+    vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue(topMerchants);
+    vi.spyOn(service as any, 'getTopCategories').mockResolvedValue(topCategories);
+    vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue(recentTransactions);
+    vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('admin');
+    vi.spyOn(service as any, 'getDataHealth').mockResolvedValue(dataHealth);
 
     const result = await service.getDashboard('user-1', 'ws-1', '30d');
 
@@ -174,17 +179,17 @@ describe('DashboardService', () => {
   });
 
   it('getDashboard uses 7-day window for range=7d', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-03-19T12:00:00Z'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-19T12:00:00Z'));
 
-    jest.spyOn(service as any, 'getSnapshot').mockResolvedValue({} as any);
-    jest.spyOn(service as any, 'getActions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
-    jest.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getSnapshot').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getActions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
+    vi.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
 
     await service.getDashboard('user-1', 'ws-1', '7d');
 
@@ -193,21 +198,21 @@ describe('DashboardService', () => {
     expect(snapshotCall[1]).toEqual(expectedWindow.since);
     expect(snapshotCall[2]).toEqual(expectedWindow.endDate);
 
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('getDashboard uses 90-day window for range=90d', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-03-19T12:00:00Z'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-19T12:00:00Z'));
 
-    jest.spyOn(service as any, 'getSnapshot').mockResolvedValue({} as any);
-    jest.spyOn(service as any, 'getActions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
-    jest.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getSnapshot').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getActions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
+    vi.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
 
     await service.getDashboard('user-1', 'ws-1', '90d');
 
@@ -216,21 +221,21 @@ describe('DashboardService', () => {
     expect(snapshotCall[1]).toEqual(expectedWindow.since);
     expect(snapshotCall[2]).toEqual(expectedWindow.endDate);
 
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('getDashboard uses the calendar month window for range=month', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-03-19T12:00:00Z'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-19T12:00:00Z'));
 
-    jest.spyOn(service as any, 'getSnapshot').mockResolvedValue({} as any);
-    jest.spyOn(service as any, 'getActions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
-    jest.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getSnapshot').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getActions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
+    vi.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
 
     await service.getDashboard('user-1', 'ws-1', 'month');
 
@@ -247,18 +252,18 @@ describe('DashboardService', () => {
       31,
     );
 
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('getDashboard resolves an explicit date=YYYY-MM-DD to that date’s calendar month', async () => {
-    jest.spyOn(service as any, 'getSnapshot').mockResolvedValue({} as any);
-    jest.spyOn(service as any, 'getActions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
-    jest.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getSnapshot').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getActions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
+    vi.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
 
     await service.getDashboard('user-1', 'ws-1', 'month', '2026-02-15');
 
@@ -275,8 +280,8 @@ describe('DashboardService', () => {
   });
 
   it('getDashboard auto-shifts to the latest transaction’s month when the current month is empty and no date is given', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-03-19T12:00:00Z'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-19T12:00:00Z'));
 
     const emptySnapshot = {
       totalBalance: 0,
@@ -291,18 +296,18 @@ describe('DashboardService', () => {
     const shiftedSnapshot = { ...emptySnapshot, income30d: 200, expense30d: 50, netFlow30d: 150 };
     const latestTransactionDate = new Date('2026-01-10T08:30:00Z');
 
-    jest
+    vi
       .spyOn(service as any, 'getSnapshot')
       .mockResolvedValueOnce(emptySnapshot)
       .mockResolvedValueOnce(shiftedSnapshot);
-    jest.spyOn(service as any, 'getLatestTransactionDate').mockResolvedValue(latestTransactionDate);
-    jest.spyOn(service as any, 'getActions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
-    jest.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getLatestTransactionDate').mockResolvedValue(latestTransactionDate);
+    vi.spyOn(service as any, 'getActions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
+    vi.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
 
     const result = await service.getDashboard('user-1', 'ws-1', 'month');
 
@@ -319,7 +324,7 @@ describe('DashboardService', () => {
       effectiveSince: formatDateOnly(adjustedWindow.since),
     });
 
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('getDashboard does not auto-shift for range=month when an explicit date is provided', async () => {
@@ -334,17 +339,17 @@ describe('DashboardService', () => {
       currency: 'USD',
     };
 
-    jest.spyOn(service as any, 'getSnapshot').mockResolvedValue(emptySnapshot);
-    jest
+    vi.spyOn(service as any, 'getSnapshot').mockResolvedValue(emptySnapshot);
+    vi
       .spyOn(service as any, 'getLatestTransactionDate')
       .mockResolvedValue(new Date('2026-01-10T08:30:00Z'));
-    jest.spyOn(service as any, 'getActions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
-    jest.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getActions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
+    vi.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
 
     const result = await service.getDashboard('user-1', 'ws-1', 'month', '2026-03-01');
 
@@ -355,8 +360,8 @@ describe('DashboardService', () => {
   });
 
   it('getDashboard auto-shifts to the latest transaction window when current window is empty', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-03-19T12:00:00Z'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-19T12:00:00Z'));
 
     const emptySnapshot = {
       totalBalance: 1000,
@@ -388,18 +393,18 @@ describe('DashboardService', () => {
       parsingWarnings: 0,
     };
 
-    jest
+    vi
       .spyOn(service as any, 'getSnapshot')
       .mockResolvedValueOnce(emptySnapshot)
       .mockResolvedValueOnce(shiftedSnapshot);
-    jest.spyOn(service as any, 'getLatestTransactionDate').mockResolvedValue(latestTransactionDate);
-    jest.spyOn(service as any, 'getActions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getCashFlow').mockResolvedValue(cashFlow);
-    jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue(topMerchants);
-    jest.spyOn(service as any, 'getTopCategories').mockResolvedValue(topCategories);
-    jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue(recentTransactions);
-    jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('admin');
-    jest.spyOn(service as any, 'getDataHealth').mockResolvedValue(dataHealth);
+    vi.spyOn(service as any, 'getLatestTransactionDate').mockResolvedValue(latestTransactionDate);
+    vi.spyOn(service as any, 'getActions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getCashFlow').mockResolvedValue(cashFlow);
+    vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue(topMerchants);
+    vi.spyOn(service as any, 'getTopCategories').mockResolvedValue(topCategories);
+    vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue(recentTransactions);
+    vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('admin');
+    vi.spyOn(service as any, 'getDataHealth').mockResolvedValue(dataHealth);
 
     const result = await service.getDashboard('user-1', 'ws-1', '30d');
 
@@ -445,7 +450,7 @@ describe('DashboardService', () => {
       effectiveSince: formatDateOnly(adjustedWindow.since),
     });
 
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('getDashboard does not auto-shift when explicit end date is provided', async () => {
@@ -460,17 +465,17 @@ describe('DashboardService', () => {
       currency: 'USD',
     };
 
-    jest.spyOn(service as any, 'getSnapshot').mockResolvedValue(emptySnapshot);
-    jest
+    vi.spyOn(service as any, 'getSnapshot').mockResolvedValue(emptySnapshot);
+    vi
       .spyOn(service as any, 'getLatestTransactionDate')
       .mockResolvedValue(new Date('2026-02-10T08:30:00Z'));
-    jest.spyOn(service as any, 'getActions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
-    jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('admin');
-    jest.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
+    vi.spyOn(service as any, 'getActions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
+    vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('admin');
+    vi.spyOn(service as any, 'getDataHealth').mockResolvedValue({} as any);
 
     const result = await service.getDashboard('user-1', 'ws-1', '30d', '2026-03-01');
 
@@ -714,9 +719,9 @@ describe('DashboardService', () => {
     );
 
     expect(result).toEqual([
-      { date: '2026-02-01', income: 100, expense: 50 },
-      { date: '2026-02-02', income: 0, expense: 25 },
-      { date: '2026-02-03', income: 0, expense: 0 },
+      { date: '2026-02-01', income: 100, expense: 50, budgeted: 0 },
+      { date: '2026-02-02', income: 0, expense: 25, budgeted: 0 },
+      { date: '2026-02-03', income: 0, expense: 0, budgeted: 0 },
     ]);
     expect(cashFlowQb.andWhere).toHaveBeenCalledWith(expect.stringContaining('unread.status IN'));
     expect(cashFlowQb.andWhere).toHaveBeenCalledWith('t.isDuplicate = false');
@@ -740,10 +745,92 @@ describe('DashboardService', () => {
     // Verify the query builder was called (weekly grouping used IYYY-IW format)
     expect(cashFlowQb.select).toHaveBeenCalledWith("TO_CHAR(t.transactionDate, 'IYYY-IW')", 'date');
     expect(result).toEqual([
-      { date: '2026-05', income: 500, expense: 200 },
-      { date: '2026-06', income: 300, expense: 100 },
-      { date: '2026-07', income: 0, expense: 0 },
+      { date: '2026-05', income: 500, expense: 200, budgeted: 0 },
+      { date: '2026-06', income: 300, expense: 100, budgeted: 0 },
+      { date: '2026-07', income: 0, expense: 0, budgeted: 0 },
     ]);
+  });
+
+  it("getCashFlow adds each day's budgeted share, converted and never above its spending", async () => {
+    const month = createExpectedMonthWindow('2026-10-15');
+    vi.spyOn(service as any, 'sumCashFlowByBucket').mockResolvedValue(
+      new Map([
+        ['2026-10-03', { date: '2026-10-03', income: 0, expense: 60, budgeted: 0 }],
+        ['2026-10-09', { date: '2026-10-09', income: 500, expense: 70, budgeted: 0 }],
+      ]),
+    );
+    const rate = 2;
+    exchangeRatesService.getRate.mockResolvedValue(rate);
+    budgetsService.withinLimitSpending.mockResolvedValue([
+      { date: '2026-10-03', currency: 'EUR', amount: 10 },
+      { date: '2026-10-03', currency: 'EUR', amount: 15 },
+      // More than the day spent, as the budgets count rows a little differently.
+      { date: '2026-10-09', currency: 'EUR', amount: 50 },
+    ]);
+
+    const points: Array<{ date: string; expense: number; budgeted: number }> = await (
+      service as any
+    ).getCashFlow('ws-1', month.since, month.endDate, 31);
+
+    expect(budgetsService.withinLimitSpending).toHaveBeenCalledWith(
+      'ws-1',
+      month.since,
+      month.endDate,
+    );
+    const byDay = Object.fromEntries(points.map(point => [point.date, point.budgeted]));
+    expect(byDay['2026-10-03']).toBe((10 + 15) * rate);
+    expect(byDay['2026-10-09']).toBe(70);
+    expect(byDay['2026-10-04']).toBe(0);
+    expect(points).toHaveLength(31);
+  });
+
+  it("names each spend's budgeted part for the cash-flow tooltip", async () => {
+    const row = (id: string, transactionType: TransactionType, amount: string) => ({
+      id,
+      date: '2026-10-16',
+      counterpartyName: `ACME ${id}`,
+      fileName: null,
+      transactionType,
+      debit: transactionType === TransactionType.EXPENSE ? amount : null,
+      credit: transactionType === TransactionType.INCOME ? amount : null,
+      currency: 'KZT',
+      isPrivate: false,
+      ownerMemberId: null,
+    });
+    transactionRepo.createQueryBuilder.mockReturnValue(
+      createQueryBuilderMock([
+        row('pay', TransactionType.EXPENSE, '11'),
+        row('market', TransactionType.EXPENSE, '70'),
+        row('sale', TransactionType.INCOME, '1125'),
+      ]),
+    );
+    budgetsService.withinLimitSpending.mockResolvedValue([
+      { transactionId: 'pay', date: '2026-10-16', currency: 'KZT', amount: 11 },
+      { transactionId: 'market', date: '2026-10-16', currency: 'KZT', amount: 40 },
+    ]);
+
+    const entriesService = new CashFlowEntriesService(
+      transactionRepo as any,
+      service,
+      budgetsService as any,
+    );
+    const { entries } = await entriesService.getCashFlowEntries('ws-1', '2026-10', null);
+
+    const budgeted = Object.fromEntries(entries.map(entry => [entry.name, entry.budgeted]));
+    expect(budgeted).toEqual({ 'ACME pay': 11, 'ACME market': 40, 'ACME sale': 0 });
+  });
+
+  it('getCashFlow leaves weekly buckets without a budgeted share', async () => {
+    const window = createExpectedWindow(90, '2026-10-15');
+    vi
+      .spyOn(service as any, 'sumCashFlowByBucket')
+      .mockResolvedValue(
+        new Map([['2026-W40', { date: '2026-W40', income: 0, expense: 60, budgeted: 0 }]]),
+      );
+
+    await (service as any).getCashFlow('ws-1', window.since, window.endDate, 90);
+
+    expect(budgetsService.withinLimitSpending).not.toHaveBeenCalled();
   });
 
   it('getTransactionGroupFormat switches to weekly buckets for 90-day ranges', () => {
@@ -1012,10 +1099,10 @@ describe('DashboardService', () => {
   });
 
   it('getTrends auto-shifts to the latest transaction window when current window has no rows', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-03-19T12:00:00Z'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-19T12:00:00Z'));
 
-    jest
+    vi
       .spyOn(service as any, 'getLatestTransactionDate')
       .mockResolvedValue(new Date('2026-02-10T08:30:00Z'));
 
@@ -1062,7 +1149,7 @@ describe('DashboardService', () => {
     expect(result.dailyTrend).toHaveLength(31);
     expect(result.dailyTrend[0]).toEqual({ date: '2026-01-11', income: 0, expense: 0 });
 
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('getTrendData excludes duplicate transactions from all aggregate queries', async () => {
@@ -1146,7 +1233,7 @@ describe('DashboardService', () => {
     };
 
     it('starts from the everyday accounts and the banks no account holds, once there are accounts', async () => {
-      const query = (transactionRepo as any).query as jest.Mock;
+      const query = (transactionRepo as any).query as Mock;
       query
         .mockResolvedValueOnce([{ count: 2 }])
         .mockResolvedValueOnce([
@@ -1215,7 +1302,7 @@ describe('DashboardService', () => {
     });
 
     it('projects monthly subscriptions with month-end clamping and flags the shortfall', async () => {
-      jest.useFakeTimers().setSystemTime(new Date(2026, 0, 15));
+      vi.useFakeTimers().setSystemTime(new Date(2026, 0, 15));
       try {
         primeBalance('250');
         payableRepo.find.mockResolvedValue([]);
@@ -1242,7 +1329,7 @@ describe('DashboardService', () => {
         expect(result.shortfallDate).toBe('2026-03-28');
         expect(result.lowestBalance).toBe(-50);
       } finally {
-        jest.useRealTimers();
+        vi.useRealTimers();
       }
     });
 
@@ -1260,11 +1347,11 @@ describe('DashboardService', () => {
 
   describe('getMonthlyCashFlow', () => {
     beforeEach(() => {
-      jest.useFakeTimers({ now: new Date('2026-03-15T12:00:00'), doNotFake: ['nextTick'] });
+      vi.useFakeTimers({ now: new Date('2026-03-15T12:00:00'), doNotFake: ['nextTick'] });
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('zero-fills every month of the 12m window and converts currencies', async () => {
@@ -1431,14 +1518,14 @@ describe('DashboardService', () => {
     });
 
     it('getDashboard scopes queues to the month only in month mode', async () => {
-      jest.spyOn(service as any, 'getSnapshot').mockResolvedValue({ income30d: 1, expense30d: 0 });
-      jest.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
-      jest.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
-      jest.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
-      jest.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
-      jest.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
-      const actions = jest.spyOn(service as any, 'getActions').mockResolvedValue([]);
-      const health = jest.spyOn(service as any, 'getDataHealth').mockResolvedValue({});
+      vi.spyOn(service as any, 'getSnapshot').mockResolvedValue({ income30d: 1, expense30d: 0 });
+      vi.spyOn(service as any, 'getMemberRole').mockResolvedValue('member');
+      vi.spyOn(service as any, 'getCashFlow').mockResolvedValue([]);
+      vi.spyOn(service as any, 'getTopMerchants').mockResolvedValue([]);
+      vi.spyOn(service as any, 'getTopCategories').mockResolvedValue([]);
+      vi.spyOn(service as any, 'getRecentTransactions').mockResolvedValue([]);
+      const actions = vi.spyOn(service as any, 'getActions').mockResolvedValue([]);
+      const health = vi.spyOn(service as any, 'getDataHealth').mockResolvedValue({});
 
       await service.getDashboard('user-1', 'ws-1', 'month', '2026-07-01');
       const expected = createExpectedMonthWindow('2026-07-01T00:00:00');
@@ -1461,17 +1548,17 @@ describe('DashboardService', () => {
     };
 
     beforeEach(() => {
-      jest.useFakeTimers({ now: new Date('2026-03-19T12:00:00'), doNotFake: ['nextTick'] });
+      vi.useFakeTimers({ now: new Date('2026-03-19T12:00:00'), doNotFake: ['nextTick'] });
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('uses the whole past month, never auto-shifts and has no forecast', async () => {
-      const trendData = jest.spyOn(service as any, 'getTrendData').mockResolvedValue(trendRows);
-      const forecast = jest.spyOn(service as any, 'computeForecast');
-      const latest = jest.spyOn(service as any, 'getLatestTransactionDate');
+      const trendData = vi.spyOn(service as any, 'getTrendData').mockResolvedValue(trendRows);
+      const forecast = vi.spyOn(service as any, 'computeForecast');
+      const latest = vi.spyOn(service as any, 'getLatestTransactionDate');
 
       const result = await service.getTrends('ws-1', 30, '2026-02');
 
@@ -1491,11 +1578,11 @@ describe('DashboardService', () => {
     });
 
     it('stops the current month at today and forecasts ahead', async () => {
-      const trendData = jest.spyOn(service as any, 'getTrendData').mockResolvedValue({
+      const trendData = vi.spyOn(service as any, 'getTrendData').mockResolvedValue({
         ...trendRows,
         daily: daily('2026-03-02'),
       });
-      jest
+      vi
         .spyOn(service as any, 'computeForecast')
         .mockResolvedValue([{ date: '2026-03-20', income: 1, expense: 1 }]);
 

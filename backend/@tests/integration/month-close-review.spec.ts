@@ -37,6 +37,8 @@ import {
 } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { BalanceService } from '../../src/modules/balance/balance.service';
+import { BudgetWithinLimitService } from '../../src/modules/budgets/budget-within-limit.service';
+import { BudgetsService } from '../../src/modules/budgets/budgets.service';
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { GoalsService } from '../../src/modules/goals/goals.service';
@@ -63,15 +65,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -90,7 +92,7 @@ const DAY = isoDay(new Date(now.getFullYear(), now.getMonth() - 1, 15));
 const MONTH_BEFORE = isoDay(new Date(now.getFullYear(), now.getMonth() - 2, 15));
 
 describe('month close counts are what Review lists (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let txRepo: Repository<Transaction>;
@@ -173,29 +175,31 @@ describe('month close counts are what Review lists (real Postgres)', () => {
     await dataSource.runMigrations();
 
     const rates = {
-      getRate: jest.fn(async () => 1),
-      getRateOrNull: jest.fn(async () => 1),
-      convert: jest.fn(async (amount: number) => amount),
-      coverageForWorkspace: jest.fn(async () => []),
+      getRate: vi.fn(async () => 1),
+      getRateOrNull: vi.fn(async () => 1),
+      convert: vi.fn(async (amount: number) => amount),
+      coverageForWorkspace: vi.fn(async () => []),
     };
     const moduleRef = await Test.createTestingModule({
       providers: [
         DashboardService,
+        BudgetsService,
+        BudgetWithinLimitService,
         ReviewInboxService,
         WorkspaceCurrencyService,
         { provide: ExchangeRatesService, useValue: rates },
-        { provide: GoalsService, useValue: { findAll: jest.fn(async () => []) } },
+        { provide: GoalsService, useValue: { findAll: vi.fn(async () => []) } },
         {
           provide: SubscriptionsService,
-          useValue: { getSummary: jest.fn(async () => ({ totalMonthlyCost: 0 })) },
+          useValue: { getSummary: vi.fn(async () => ({ totalMonthlyCost: 0 })) },
         },
-        { provide: TaxReserveService, useValue: { getReserve: jest.fn(async () => null) } },
+        { provide: TaxReserveService, useValue: { getReserve: vi.fn(async () => null) } },
         { provide: BalanceService, useValue: {} },
-        { provide: AuditService, useValue: { createEvent: jest.fn() } },
-        { provide: NotificationsService, useValue: { createForWorkspaceMembers: jest.fn() } },
+        { provide: AuditService, useValue: { createEvent: vi.fn() } },
+        { provide: NotificationsService, useValue: { createForWorkspaceMembers: vi.fn() } },
         { provide: TransactionsService, useValue: {} },
         { provide: CrossStatementDeduplicationService, useValue: {} },
-        { provide: CACHE_MANAGER, useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() } },
+        { provide: CACHE_MANAGER, useValue: { get: vi.fn(), set: vi.fn(), del: vi.fn() } },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
           useValue: dataSource.getRepository(entity),

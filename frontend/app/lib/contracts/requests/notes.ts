@@ -31,3 +31,7 @@ export const SetNoteResolvedBody = Schema.Struct({
   resolved: Schema.Boolean,
 });
 export type SetNoteResolvedBody = Wire<typeof SetNoteResolvedBody>;
+
+/** `PATCH /notes/:id`, `DELETE /notes/:id`. */
+export const NoteIdParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type NoteIdParams = Wire<typeof NoteIdParams>;

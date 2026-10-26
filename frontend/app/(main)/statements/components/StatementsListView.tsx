@@ -18,7 +18,6 @@ import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { DeviceLocation } from '@/app/lib/device-location';
 import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
-import { resolveLabel } from '@/app/lib/side-panel-utils';
 import type {
   CreateTaxRatePayload,
   ManualExpenseDraft,
@@ -63,11 +62,10 @@ function buildManualExpenseFormData(
   formData.append('description', payload.draft.description.trim());
   formData.append('categoryId', payload.draft.categoryId);
   if (resolvedTaxRateId) formData.append('taxRateId', resolvedTaxRateId);
+  if (payload.draft.walletId) formData.append('walletId', payload.draft.walletId);
   formData.append('date', payload.date);
   formData.append('allowDuplicates', payload.allowDuplicates ? 'true' : 'false');
-  payload.files.forEach(file => {
-    formData.append('files', file);
-  });
+  for (const file of payload.files) formData.append('files', file);
   return formData;
 }
 
@@ -317,19 +315,13 @@ export default function StatementsListView(): React.JSX.Element {
     });
   };
 
-  const reviewDuplicateLabel = resolveLabel(v.t.actions?.reviewDuplicate, 'Review');
-  const markDuplicateLabel = resolveLabel(v.t.actions?.markDuplicate, 'Mark as duplicate');
-  const markNotDuplicateLabel = resolveLabel(
-    v.t.actions?.markNotDuplicate,
-    'Mark as not duplicate',
-  );
-  const dismissDuplicateLabel = resolveLabel(
-    v.t.actions?.dismissDuplicate,
-    markNotDuplicateLabel || 'Dismiss',
-  );
-  const mergeDuplicatesLabel = resolveLabel(v.t.actions?.mergeDuplicates, 'Merge duplicates');
-  const selectDuplicatesLabel = resolveLabel(v.t.actions?.selectDuplicates, 'Select duplicates');
-  const viewLabel = resolveLabel(v.t.actions?.view, 'View');
+  const reviewDuplicateLabel = v.t.actions.reviewDuplicate.value;
+  const markDuplicateLabel = v.t.actions.markDuplicate.value;
+  const markNotDuplicateLabel = v.t.actions.markNotDuplicate.value;
+  const dismissDuplicateLabel = v.t.actions.dismissDuplicate.value;
+  const mergeDuplicatesLabel = v.t.actions.mergeDuplicates.value;
+  const selectDuplicatesLabel = v.t.actions.selectDuplicates.value;
+  const viewLabel = v.t.actions.view.value;
 
   return (
     <div className="container-shared seneca-stmt-list-view" {...v.pullToRefreshHandlers}>
@@ -465,11 +457,8 @@ export default function StatementsListView(): React.JSX.Element {
               action: listHeaderLabels.action,
               receipt: listHeaderLabels.receipt,
               scanning: listHeaderLabels.scanning,
-              emptyTitle: resolveLabel(t.empty?.title, 'No statements yet'),
-              emptyDescription: resolveLabel(
-                t.empty?.description,
-                'Upload your first statement to get started',
-              ),
+              emptyTitle: t.empty.title.value,
+              emptyDescription: t.empty.description.value,
               paginationShown: paginationLabels.shown,
               paginationPageOf: paginationLabels.pageOf,
             }}

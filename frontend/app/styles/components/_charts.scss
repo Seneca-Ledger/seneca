@@ -93,6 +93,10 @@
         background: var(--cat-tone-2);
       }
 
+      &--budgeted::before {
+        background: var(--cat-tone-4);
+      }
+
       & + & {
         margin-left: 16px;
       }
@@ -128,7 +132,8 @@
     font-variant-numeric: tabular-nums;
 
     &--positive,
-    &--negative {
+    &--negative,
+    &--budgeted {
       display: flex;
       align-items: center;
       gap: 6px;
@@ -147,6 +152,10 @@
 
     &--negative::before {
       background: var(--cat-tone-2);
+    }
+
+    &--budgeted::before {
+      background: var(--cat-tone-4);
     }
 
     &--strong {

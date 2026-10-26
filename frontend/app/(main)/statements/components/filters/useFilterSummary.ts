@@ -19,16 +19,15 @@ export function useFilterSummary(): (
 ) => string {
   const t = useIntlayer('transactionsPageTitle');
   const { locale } = useLocale();
-  const tx = (key: string, fallback: string): string =>
-    resolveLabel(getNestedValue(t, [key]), fallback);
+  const tx = (key: string): string => resolveLabel(getNestedValue(t, [key]));
   const templates = {
-    between: tx('between', '{subject} between {from} and {to}'),
-    on: tx('on', '{subject} on {date}'),
-    after: tx('after', '{subject} after {date}'),
-    before: tx('before', '{subject} before {date}'),
-    since: tx('since', '{subject} from {date}'),
-    until: tx('until', '{subject} until {date}'),
-    allTime: tx('allTime', '{subject} for all time'),
+    between: tx('between'),
+    on: tx('on'),
+    after: tx('after'),
+    before: tx('before'),
+    since: tx('since'),
+    until: tx('until'),
+    allTime: tx('allTime'),
   };
   return (subject, span, extras) => {
     const { all, some } = typeof subject === 'string' ? { all: subject, some: subject } : subject;

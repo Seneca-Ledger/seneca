@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 'use client';
 import { resolveBankLogo } from '@bank-logos';
 import { Box, Chip, Typography } from '@mui/material';
@@ -14,6 +13,7 @@ import {
   Shield,
   ShieldCheck,
 } from '@/app/components/icons';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage, getApiErrorStatus } from '@/app/lib/api-error';
@@ -108,7 +108,6 @@ function FileDetailsSkeleton(): React.JSX.Element {
 /**
  * File details page with transactions, sharing, and permissions
  */
-// eslint-disable-next-line max-lines-per-function, complexity, @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
 export default function FileDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -164,7 +163,6 @@ export default function FileDetailsPage() {
       });
   };
 
-  // eslint-disable-next-line max-lines-per-function
   const loadPreview = async (
     availabilityStatusOverride?: FileAvailabilityStatus,
   ): Promise<void> => {
@@ -205,7 +203,6 @@ export default function FileDetailsPage() {
       });
   };
 
-  // eslint-disable-next-line complexity
   const loadDetailsAndPreview = useEffectEvent(async (isCancelled: () => boolean) => {
     const loadedDetails = await loadFileDetails();
     if (isCancelled()) {
@@ -598,7 +595,6 @@ export default function FileDetailsPage() {
               label: t.cards.account,
               value: statement.accountNumber || t.cards.dash.value,
             },
-            // eslint-disable-next-line max-params
           ].map((card, idx) => (
             <Box
               key={idx}
@@ -714,17 +710,7 @@ export default function FileDetailsPage() {
             }}
           >
             {previewLoading && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  minHeight: 360,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--muted-foreground)',
-                }}
-              >
-                <Spinner className="h-6 w-6" />
-              </Box>
+              <SnapshotSkeleton id="storage-file-preview" loading fallback="panel" />
             )}
 
             {!previewLoading && previewError && (
@@ -918,7 +904,6 @@ export default function FileDetailsPage() {
                 </Box>
               ) : (
                 <Box sx={{ display: 'grid', gap: 1.5 }}>
-                  {/* eslint-disable-next-line max-lines-per-function */}
                   {sharedLinks.map(link => (
                     <Box
                       key={link.id}

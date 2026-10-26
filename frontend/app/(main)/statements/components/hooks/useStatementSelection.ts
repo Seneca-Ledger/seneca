@@ -1,5 +1,3 @@
-/* eslint-disable max-lines */
-
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -161,7 +159,6 @@ export interface UseStatementSelectionResult {
   cancelMergeSelectedDuplicates: () => void;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function useStatementSelection({
   displayStatements,
   visibleStatementIds,

@@ -39,6 +39,7 @@ import {
 } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { BalanceService } from '../../src/modules/balance/balance.service';
+import { BudgetWithinLimitService } from '../../src/modules/budgets/budget-within-limit.service';
 import { BudgetsService } from '../../src/modules/budgets/budgets.service';
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
@@ -68,15 +69,15 @@ const ENTITIES = Object.values(entityIndex).filter(
   (value): value is Function => typeof value === 'function',
 );
 
-/** Loaded by hand: TypeORM's glob loader bypasses Jest's transform. */
+/** Loaded through Vite: TypeORM's glob loader would bypass the test transform. */
 function loadMigrations(): Function[] {
-  const dir = path.resolve(__dirname, '../../src/migrations');
-  return fs
-    .readdirSync(dir)
-    .filter(file => file.endsWith('.ts'))
+  const modules = import.meta.glob<Record<string, unknown>>('../../src/migrations/*.ts', {
+    eager: true,
+  });
+  return Object.keys(modules)
     .sort()
     .flatMap(file =>
-      Object.values(require(path.join(dir, file))).filter(
+      Object.values(modules[file]).filter(
         (value): value is Function => typeof value === 'function',
       ),
     );
@@ -98,7 +99,7 @@ const INCOME = 1000 + 150 + 40;
 const EXPENSE = 200 + 60;
 
 describe('one rule for income and spending (real Postgres)', () => {
-  jest.setTimeout(180_000);
+  vi.setConfig({ testTimeout: 180_000 });
 
   let dataSource: DataSource;
   let txRepo: Repository<Transaction>;
@@ -179,10 +180,10 @@ describe('one rule for income and spending (real Postgres)', () => {
 
     // One currency throughout, so nothing here depends on a rate.
     const rates = {
-      getRate: jest.fn(async () => 1),
-      getRateOrNull: jest.fn(async () => 1),
-      convert: jest.fn(async (amount: number) => amount),
-      coverageForWorkspace: jest.fn(async () => []),
+      getRate: vi.fn(async () => 1),
+      getRateOrNull: vi.fn(async () => 1),
+      convert: vi.fn(async (amount: number) => amount),
+      coverageForWorkspace: vi.fn(async () => []),
     };
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -192,21 +193,22 @@ describe('one rule for income and spending (real Postgres)', () => {
         SpendFlowService,
         ForecastService,
         BudgetsService,
+        BudgetWithinLimitService,
         WorkspaceCurrencyService,
         { provide: ExchangeRatesService, useValue: rates },
-        { provide: GoalsService, useValue: { findAll: jest.fn(async () => []) } },
+        { provide: GoalsService, useValue: { findAll: vi.fn(async () => []) } },
         {
           provide: SubscriptionsService,
-          useValue: { getSummary: jest.fn(async () => ({ totalMonthlyCost: 0 })) },
+          useValue: { getSummary: vi.fn(async () => ({ totalMonthlyCost: 0 })) },
         },
-        { provide: TaxReserveService, useValue: { getReserve: jest.fn(async () => null) } },
+        { provide: TaxReserveService, useValue: { getReserve: vi.fn(async () => null) } },
         { provide: BalanceService, useValue: {} },
         // Template reports this suite does not read.
         { provide: BudgetVsActualReport, useValue: {} },
         { provide: HoldingsSnapshotReport, useValue: {} },
-        { provide: AuditService, useValue: { createEvent: jest.fn() } },
-        { provide: NotificationsService, useValue: { createForWorkspaceMembers: jest.fn() } },
-        { provide: CACHE_MANAGER, useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() } },
+        { provide: AuditService, useValue: { createEvent: vi.fn() } },
+        { provide: NotificationsService, useValue: { createForWorkspaceMembers: vi.fn() } },
+        { provide: CACHE_MANAGER, useValue: { get: vi.fn(), set: vi.fn(), del: vi.fn() } },
         ...ENTITIES.map(entity => ({
           provide: getRepositoryToken(entity),
           useValue: dataSource.getRepository(entity),
@@ -368,5 +370,20 @@ describe('one rule for income and spending (real Postgres)', () => {
     });
     const [budget] = await budgets.findAll(workspaceId, new Date(DAY));
     expect(budget.spentAmount).toBe(EXPENSE);
+  });
+
+  it("the cash flow's budgeted share, within the budget's limit", async () => {
+    const budgeted = async () =>
+      (await dashboard.getDashboard(userId, workspaceId, 'month', DAY)).cashFlow.reduce(
+        (total, point) => total + point.budgeted,
+        0,
+      );
+    // The budget above has room for all of it.
+    expect(await budgeted()).toBe(EXPENSE);
+
+    const [budget] = await budgets.findAll(workspaceId, new Date(DAY));
+    const limit = EXPENSE - 50;
+    await budgets.update(budget.id, workspaceId, userId, { limitAmount: limit });
+    expect(await budgeted()).toBe(limit);
   });
 });

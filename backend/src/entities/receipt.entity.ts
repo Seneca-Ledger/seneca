@@ -4,12 +4,16 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import type { EInvoiceSummary } from '../modules/e-invoices/einvoice-summary';
 import { StatementStage } from './statement.entity';
+import { Tag } from './tag.entity';
 import { Transaction, type TransactionCategorySource } from './transaction.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -66,14 +70,14 @@ export class Receipt {
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @Column({ name: 'workspace_id', type: 'uuid' })
   workspaceId: string;
 
   @ManyToOne(() => Workspace, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workspace_id' })
-  workspace: Workspace;
+  workspace: Relation<Workspace>;
 
   @Column({
     name: 'source',
@@ -202,7 +206,7 @@ export class Receipt {
 
   @ManyToOne(() => Transaction, { nullable: true })
   @JoinColumn({ name: 'transaction_id' })
-  transaction: Transaction | null;
+  transaction: Relation<Transaction | null>;
 
   @Column({ name: 'statement_id', type: 'uuid', nullable: true })
   statementId: string | null;
@@ -215,7 +219,7 @@ export class Receipt {
 
   @ManyToOne(() => Receipt, { nullable: true })
   @JoinColumn({ name: 'duplicate_of_id' })
-  duplicateOf: Receipt | null;
+  duplicateOf: Relation<Receipt | null>;
 
   @Column({ name: 'is_duplicate', type: 'boolean', default: false })
   isDuplicate: boolean;
@@ -240,4 +244,15 @@ export class Receipt {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @ManyToMany(
+    () => Tag,
+    tag => tag.receipts,
+  )
+  @JoinTable({
+    name: 'receipt_tags',
+    joinColumn: { name: 'receipt_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
+  })
+  tags: Relation<Tag[]>;
 }

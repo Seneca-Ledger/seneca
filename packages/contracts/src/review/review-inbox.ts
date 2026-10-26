@@ -109,3 +109,7 @@ export type ReviewInboxPage = Wire<typeof ReviewInboxPage>;
 /** `GET /review-inbox/statements`: rows waiting for review, by statement id. */
 export const ReviewInboxByStatement = Schema.Record(Schema.String, Schema.Number);
 export type ReviewInboxByStatement = Wire<typeof ReviewInboxByStatement>;
+
+/** `POST /review-inbox/duplicates/:id/resolve`: whether the row stays marked as a duplicate. */
+export const DuplicateResolved = Schema.Struct({ id: Schema.String, isDuplicate: Schema.Boolean });
+export type DuplicateResolved = Wire<typeof DuplicateResolved>;

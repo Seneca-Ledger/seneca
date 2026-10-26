@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { AuditAction, type AuditEvent, EntityType } from '@/entities/audit-event.entity';
 import { Category } from '@/entities/category.entity';
 import { CustomTableColumn } from '@/entities/custom-table-column.entity';
@@ -11,11 +12,11 @@ import type { Repository } from 'typeorm';
 
 function createRepoMock<T extends Record<string, any>>() {
   return {
-    update: jest.fn(async () => ({ affected: 1 })),
-    delete: jest.fn(async () => ({ affected: 1 })),
-    create: jest.fn((data: Partial<T>) => data as T),
-    save: jest.fn(async (data: Partial<T>) => data as T),
-    findOne: jest.fn(async () => null),
+    update: vi.fn(async () => ({ affected: 1 })),
+    delete: vi.fn(async () => ({ affected: 1 })),
+    create: vi.fn((data: Partial<T>) => data as T),
+    save: vi.fn(async (data: Partial<T>) => data as T),
+    findOne: vi.fn(async () => null),
   } as unknown as Repository<T> & Record<string, any>;
 }
 
@@ -31,7 +32,7 @@ describe('RollbackService', () => {
   let service: RollbackService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new RollbackService(
       transactionRepository as any,
       statementRepository as any,
@@ -99,7 +100,7 @@ describe('RollbackService', () => {
       meta: { cell: { column: 'amount' } },
     } as AuditEvent;
 
-    (customTableRowRepository.findOne as jest.Mock).mockResolvedValue({
+    (customTableRowRepository.findOne as Mock).mockResolvedValue({
       id: 'row-1',
       data: { amount: 'new', other: 1 },
     });
@@ -123,13 +124,13 @@ describe('RollbackService', () => {
     } as AuditEvent;
 
     it('refuses to rewrite a source column of a row that came from a record', async () => {
-      (customTableRowRepository.findOne as jest.Mock).mockResolvedValue({
+      (customTableRowRepository.findOne as Mock).mockResolvedValue({
         id: 'row-1',
         tableId: 'table-1',
         sourceKey: 'tx-1',
         data: { c_category: 'Travel' },
       });
-      (customTableColumnRepository.findOne as jest.Mock).mockResolvedValue({
+      (customTableColumnRepository.findOne as Mock).mockResolvedValue({
         key: 'c_category',
         config: { source: { kind: 'app_field', field: 'category' } },
       });
@@ -145,13 +146,13 @@ describe('RollbackService', () => {
     });
 
     it('still rolls back a plain column of the same row', async () => {
-      (customTableRowRepository.findOne as jest.Mock).mockResolvedValue({
+      (customTableRowRepository.findOne as Mock).mockResolvedValue({
         id: 'row-1',
         tableId: 'table-1',
         sourceKey: 'tx-1',
         data: { c_category: 'Travel' },
       });
-      (customTableColumnRepository.findOne as jest.Mock).mockResolvedValue({
+      (customTableColumnRepository.findOne as Mock).mockResolvedValue({
         key: 'c_category',
         config: null,
       });
@@ -165,7 +166,7 @@ describe('RollbackService', () => {
     });
 
     it('still rolls back a hand-added row of a source table', async () => {
-      (customTableRowRepository.findOne as jest.Mock).mockResolvedValue({
+      (customTableRowRepository.findOne as Mock).mockResolvedValue({
         id: 'row-1',
         tableId: 'table-1',
         sourceKey: null,

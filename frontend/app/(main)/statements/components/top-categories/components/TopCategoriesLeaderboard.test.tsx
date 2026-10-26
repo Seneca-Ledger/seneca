@@ -36,9 +36,14 @@ const sourceLabels = {
   sourceCrypto: 'Crypto',
 };
 
-function renderLeaderboard(rows: TopCategoryAggregateRow[], onRowClick = vi.fn()) {
+function renderLeaderboard(
+  rows: TopCategoryAggregateRow[],
+  onRowClick = vi.fn(),
+  extra: { nameOf?: (name: string) => string; attentionPrefix?: string } = {},
+) {
   return render(
     <TopCategoriesLeaderboard
+      {...extra}
       rows={rows}
       sortKey="amount"
       onSortChange={vi.fn()}
@@ -133,5 +138,19 @@ describe('top categories in the reader\'s language', () => {
 
     expect(screen.getByRole('dialog', { name: 'Реклама - operations' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Реклама - operations' })).toBeInTheDocument();
+  });
+
+  it('shows tag rows as written and keys them by their own focus prefix', () => {
+    appLocale.current = 'ru';
+    // A tag that happens to share a system category's name stays the user's word.
+    const tag = row({ id: 'spend:statement:EUR:advertising', category: 'Advertising' });
+    const { container } = renderLeaderboard([tag], vi.fn(), {
+      nameOf: name => name,
+      attentionPrefix: 'tag:',
+    });
+
+    expect(screen.getByRole('button', { name: 'Advertising' })).toBeInTheDocument();
+    expect(container.querySelector('tr[data-attention="tag:advertising"]')).not.toBeNull();
+    expect(container.querySelector('tr[data-attention="category:advertising"]')).toBeNull();
   });
 });

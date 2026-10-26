@@ -26,6 +26,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import BookIcon from '@mui/icons-material/Book';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -36,10 +37,10 @@ import CallMergeIcon from '@mui/icons-material/CallMerge';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CardGiftcardOutlinedIcon from '@mui/icons-material/CardGiftcardOutlined';
-import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CircleIcon from '@mui/icons-material/Circle';
@@ -61,7 +62,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import EditIcon from '@mui/icons-material/Edit';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import EmailIcon from '@mui/icons-material/Email';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import ExploreIcon from '@mui/icons-material/Explore';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -82,7 +83,7 @@ import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import GridViewIcon from '@mui/icons-material/GridView';
 import GroupIcon from '@mui/icons-material/Group';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
@@ -177,52 +178,12 @@ import WalletIcon from '@mui/icons-material/Wallet';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import WestIcon from '@mui/icons-material/West';
-import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
+import WorkOutlineIcon from '@mui/icons-material/WorkOutlineOutlined';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import type { SvgIconProps } from '@mui/material';
-import React from 'react';
+import { wrap } from './wrap';
 
-// ---------------------------------------------------------------------------
-// Compat prop types (mirror Lucide's API)
-// ---------------------------------------------------------------------------
-
-export interface LucideProps extends Omit<SvgIconProps, 'color' | 'fontSize'> {
-  /** Lucide size → MUI sx.fontSize */
-  size?: number | string;
-  /** Supports hex colors in addition to MUI theme tokens */
-  color?: string;
-  /** Lucide stroke weight – no-op for MUI filled icons */
-  strokeWidth?: number;
-}
-
-export type LucideIcon = React.FC<LucideProps>;
-
-// ---------------------------------------------------------------------------
-// Wrapper factory
-// ---------------------------------------------------------------------------
-
-function wrap(MuiIcon: React.ComponentType<SvgIconProps>): LucideIcon {
-  return function LucideCompatIcon({
-    size,
-    color,
-    strokeWidth: StrokeWidth,
-    sx,
-    ...rest
-  }: LucideProps) {
-    const combinedSx = {
-      ...(size != null ? { fontSize: size } : {}),
-      ...(color != null ? { color } : {}),
-      ...(sx as object | undefined),
-    };
-    return (
-      <MuiIcon
-        {...(rest as SvgIconProps)}
-        sx={Object.keys(combinedSx).length > 0 ? combinedSx : undefined}
-      />
-    );
-  };
-}
+export type { LucideIcon, LucideProps } from './wrap';
 
 // ---------------------------------------------------------------------------
 // Lucide name → MUI icon mapping
@@ -242,6 +203,7 @@ export const BarChart2 = wrap(BarChartIcon);
 export const BarChart3 = wrap(BarChartIcon);
 export const Bell = wrap(NotificationsNoneIcon);
 export const Bookmark = wrap(BookmarkIcon);
+export const BookmarkOutline = wrap(BookmarkBorderIcon);
 export const BookOpen = wrap(BookIcon);
 export const Bot = wrap(SmartToyIcon);
 export const Bug = wrap(BugReportOutlinedIcon);

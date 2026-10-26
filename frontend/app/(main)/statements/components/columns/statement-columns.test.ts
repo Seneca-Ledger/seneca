@@ -36,6 +36,34 @@ describe('statement column storage', () => {
     expect(result.map((column: StatementColumn) => column.id)).toContain('merchant');
   });
 
+  it('shows the Tag column by default', () => {
+    const tag = loadStatementColumns().find(column => column.id === 'tag');
+    expect(tag?.visible).toBe(true);
+  });
+
+  it('turns the Tag column on once for columns saved before it was a default', () => {
+    const stored = DEFAULT_STATEMENT_COLUMNS.map(column => ({
+      ...column,
+      visible: column.id === 'tag' || column.id === 'amount' ? false : column.visible,
+    }));
+    localStorage.setItem('seneca-statement-columns', JSON.stringify(stored));
+
+    const result = loadStatementColumns();
+
+    expect(result.find(column => column.id === 'tag')?.visible).toBe(true);
+    expect(result.find(column => column.id === 'amount')?.visible).toBe(false);
+  });
+
+  it('keeps the Tag column hidden once hidden under the current key', () => {
+    saveStatementColumns(
+      DEFAULT_STATEMENT_COLUMNS.map(column =>
+        column.id === 'tag' ? { ...column, visible: false } : column,
+      ),
+    );
+
+    expect(loadStatementColumns().find(column => column.id === 'tag')?.visible).toBe(false);
+  });
+
   it('saves columns to storage', () => {
     saveStatementColumns(DEFAULT_STATEMENT_COLUMNS);
     const stored = localStorage.getItem(STATEMENT_COLUMNS_STORAGE_KEY);

@@ -344,7 +344,7 @@ export class NetWorthService {
       const quote = await this.exchangeRatesService.getRateQuote(metal, currency, point.date, {
         workspaceId,
       });
-      if (!quote || !(quote.rate > 0)) continue;
+      if (!(quote && quote.rate > 0)) continue;
       points.push({ date: point.date, value: round4(point.value / quote.rate) });
     }
     if (points.length === 0) return null;
@@ -443,7 +443,9 @@ export class NetWorthService {
   private async resolveCurrency(workspaceId: string): Promise<string> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
-      select: ['currency'],
+      select: {
+        currency: true,
+      },
     });
     return currencyCodeOrDefault(workspace?.currency);
   }

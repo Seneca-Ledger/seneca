@@ -13,6 +13,7 @@ import { TaxModule } from '../tax/tax.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { StatementStageService } from './services/statement-stage.service';
+import { StatementUploadsController } from './statement-uploads.controller';
 import { StatementsController } from './statements.controller';
 import { StatementsService } from './statements.service';
 
@@ -34,7 +35,7 @@ import { StatementsService } from './statements.service';
     ReceiptsModule,
     WorkspaceCurrencyModule,
   ],
-  controllers: [StatementsController],
+  controllers: [StatementUploadsController, StatementsController],
   providers: [
     StatementsService,
     ReceiptStatementService,

@@ -3,6 +3,7 @@ import { Alert, Box, Button, Card, CardContent, Container, Stack, Typography } f
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from '@/app/components/icons';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -171,51 +172,72 @@ export default function AcceptInvitePage() {
       <Card variant="outlined">
         <CardContent>
           <Stack spacing={2}>
-            <Box display="flex" alignItems="center" gap={1}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
               <ShieldCheck size={24} />
-              <Typography variant="h5" fontWeight={700}>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 700,
+                }}
+              >
                 {t.title}
               </Typography>
             </Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               {t.subtitle}
             </Typography>
 
             {invitationError && <Alert severity="error">{invitationError}</Alert>}
 
-            {invitationLoading && (
-              <Box display="flex" justifyContent="center" py={2}>
-                <Spinner size={40} />
-              </Box>
-            )}
+            {invitationLoading && <SnapshotSkeleton id="invite" loading fallback="lines" />}
 
             {invitation && (
-              <Stack spacing={1}>
-                <Typography variant="body2">
-                  {t.details.workspace.value}: <b>{invitation.workspace?.name}</b>
-                </Typography>
-                <Typography variant="body2">
-                  {t.details.role.value}: <b>{invitation.role}</b>
-                </Typography>
-                {invitation.expiresAt && (
+              <SnapshotSkeleton id="invite" loading={false}>
+                <Stack spacing={1}>
                   <Typography variant="body2">
-                    {t.details.expiresAt.value}: <b>{formatStoredDateTime(invitation.expiresAt)}</b>
+                    {t.details.workspace.value}: <b>{invitation.workspace?.name}</b>
                   </Typography>
-                )}
-                <Typography variant="body2">
-                  {t.details.email.value}: <b>{invitation.email}</b>
-                </Typography>
+                  <Typography variant="body2">
+                    {t.details.role.value}: <b>{invitation.role}</b>
+                  </Typography>
+                  {invitation.expiresAt && (
+                    <Typography variant="body2">
+                      {t.details.expiresAt.value}:{' '}
+                      <b>{formatStoredDateTime(invitation.expiresAt)}</b>
+                    </Typography>
+                  )}
+                  <Typography variant="body2">
+                    {t.details.email.value}: <b>{invitation.email}</b>
+                  </Typography>
 
-                {invitation.status !== 'pending' && (
-                  <Alert severity="info">{t.statusMessages[invitation.status].value}</Alert>
-                )}
-              </Stack>
+                  {invitation.status !== 'pending' && (
+                    <Alert severity="info">{t.statusMessages[invitation.status].value}</Alert>
+                  )}
+                </Stack>
+              </SnapshotSkeleton>
             )}
 
             {acceptError && <Alert severity="error">{acceptError}</Alert>}
             {acceptSuccess && <Alert severity="success">{acceptSuccess}</Alert>}
 
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                justifyContent: 'flex-end',
+              }}
+            >
               {authLoading ? (
                 <Spinner size={20} />
               ) : !user ? (

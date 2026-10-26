@@ -1,8 +1,11 @@
+import type { Mock } from 'vitest';
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '../../../../src/common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../src/common/guards/permissions.guard';
 import { WorkspaceContextGuard } from '../../../../src/common/guards/workspace-context.guard';
+import { ReceiptApprovalsController } from '../../../../src/modules/receipts/receipt-approvals.controller';
+import { ReceiptTagsController } from '../../../../src/modules/receipts/receipt-tags.controller';
 import { ReceiptsController } from '../../../../src/modules/receipts/receipts.controller';
 import { ReceiptsService } from '../../../../src/modules/receipts/receipts.service';
 import { ReceiptLocationService } from '../../../../src/modules/receipts/services/receipt-location.service';
@@ -12,37 +15,41 @@ import { ReceiptSplitService } from '../../../../src/modules/receipts/services/r
 import { ReceiptPlaceSuggestionService } from '../../../../src/modules/receipts/services/receipt-place-suggestion.service';
 import { ReceiptDocumentsService } from '../../../../src/modules/receipts/services/receipt-documents.service';
 import { ReceiptDuplicateService } from '../../../../src/modules/receipts/services/receipt-duplicate.service';
+import { ReceiptTagsService } from '../../../../src/modules/receipts/services/receipt-tags.service';
 
 describe('ReceiptsController', () => {
   let controller: ReceiptsController;
-  let locationService: { setManual: jest.Mock; resetToAuto: jest.Mock };
-  let placeSuggestionService: { suggest: jest.Mock };
+  let approvals: ReceiptApprovalsController;
+  let locationService: { setManual: Mock; resetToAuto: Mock };
+  let placeSuggestionService: { suggest: Mock };
+  let tagsController: ReceiptTagsController;
+  let tagsService: { getTags: Mock; setTags: Mock };
   let service: {
-    createFromUpload: jest.Mock;
-    createFromScan: jest.Mock;
-    findAll: jest.Mock;
-    findOne: jest.Mock;
-    update: jest.Mock;
-    approve: jest.Mock;
-    bulkApprove: jest.Mock;
-    delete: jest.Mock;
-    getFilePayload: jest.Mock;
+    createFromUpload: Mock;
+    createFromScan: Mock;
+    findAll: Mock;
+    findOne: Mock;
+    update: Mock;
+    approve: Mock;
+    bulkApprove: Mock;
+    delete: Mock;
+    getFilePayload: Mock;
   };
 
   beforeEach(async () => {
     service = {
-      createFromUpload: jest.fn().mockResolvedValue({ id: 'receipt-1' }),
-      createFromScan: jest.fn().mockResolvedValue({ id: 'receipt-2' }),
-      findAll: jest.fn().mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
-      findOne: jest.fn().mockResolvedValue({ id: 'receipt-1' }),
-      update: jest.fn().mockResolvedValue({ id: 'receipt-1', status: 'draft' }),
-      approve: jest.fn().mockResolvedValue({
+      createFromUpload: vi.fn().mockResolvedValue({ id: 'receipt-1' }),
+      createFromScan: vi.fn().mockResolvedValue({ id: 'receipt-2' }),
+      findAll: vi.fn().mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
+      findOne: vi.fn().mockResolvedValue({ id: 'receipt-1' }),
+      update: vi.fn().mockResolvedValue({ id: 'receipt-1', status: 'draft' }),
+      approve: vi.fn().mockResolvedValue({
         receipt: { id: 'receipt-1', status: 'approved' },
         transaction: { id: 'tx-1' },
       }),
-      bulkApprove: jest.fn().mockResolvedValue({ approved: 2, failed: 0, errors: [] }),
-      delete: jest.fn().mockResolvedValue({ success: true }),
-      getFilePayload: jest.fn().mockResolvedValue({
+      bulkApprove: vi.fn().mockResolvedValue({ approved: 2, failed: 0, errors: [] }),
+      delete: vi.fn().mockResolvedValue({ success: true }),
+      getFilePayload: vi.fn().mockResolvedValue({
         buffer: Buffer.from('file-data'),
         fileName: 'receipt.jpg',
         mimeType: 'image/jpeg',
@@ -50,37 +57,44 @@ describe('ReceiptsController', () => {
     };
 
     locationService = {
-      setManual: jest.fn().mockResolvedValue({ id: 'receipt-1', locationSource: 'manual' }),
-      resetToAuto: jest.fn().mockResolvedValue({ id: 'receipt-1', locationSource: 'device' }),
+      setManual: vi.fn().mockResolvedValue({ id: 'receipt-1', locationSource: 'manual' }),
+      resetToAuto: vi.fn().mockResolvedValue({ id: 'receipt-1', locationSource: 'device' }),
     };
 
-    placeSuggestionService = { suggest: jest.fn().mockResolvedValue({ needed: false }) };
+    placeSuggestionService = { suggest: vi.fn().mockResolvedValue({ needed: false }) };
+    tagsService = {
+      getTags: vi.fn().mockResolvedValue([{ id: 'tag-1', name: 'Trip' }]),
+      setTags: vi.fn().mockResolvedValue([]),
+    };
 
     const moduleBuilder = Test.createTestingModule({
-      controllers: [ReceiptsController],
+      controllers: [ReceiptsController, ReceiptApprovalsController, ReceiptTagsController],
       providers: [
         { provide: ReceiptsService, useValue: service },
         { provide: ReceiptLocationService, useValue: locationService },
         { provide: ReceiptStageService, useValue: {} },
-        { provide: ReceiptMatchService, useValue: { refresh: jest.fn(), candidates: jest.fn() } },
-        { provide: ReceiptSplitService, useValue: { suggest: jest.fn(), apply: jest.fn() } },
+        { provide: ReceiptMatchService, useValue: { refresh: vi.fn(), candidates: vi.fn() } },
+        { provide: ReceiptSplitService, useValue: { suggest: vi.fn(), apply: vi.fn() } },
         { provide: ReceiptPlaceSuggestionService, useValue: placeSuggestionService },
         { provide: ReceiptDocumentsService, useValue: {} },
         { provide: ReceiptDuplicateService, useValue: {} },
+        { provide: ReceiptTagsService, useValue: tagsService },
       ],
     });
 
-    moduleBuilder.overrideGuard(JwtAuthGuard).useValue({ canActivate: jest.fn().mockReturnValue(true) });
+    moduleBuilder.overrideGuard(JwtAuthGuard).useValue({ canActivate: vi.fn().mockReturnValue(true) });
     moduleBuilder
       .overrideGuard(WorkspaceContextGuard)
-      .useValue({ canActivate: jest.fn().mockReturnValue(true) });
+      .useValue({ canActivate: vi.fn().mockReturnValue(true) });
     moduleBuilder
       .overrideGuard(PermissionsGuard)
-      .useValue({ canActivate: jest.fn().mockReturnValue(true) });
+      .useValue({ canActivate: vi.fn().mockReturnValue(true) });
 
     const module: TestingModule = await moduleBuilder.compile();
 
     controller = module.get(ReceiptsController);
+    approvals = module.get(ReceiptApprovalsController);
+    tagsController = module.get(ReceiptTagsController);
   });
 
   it('delegates upload to service', async () => {
@@ -126,7 +140,7 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates approval to service', async () => {
-    await controller.approve('receipt-1', 'workspace-1', { id: 'user-1' } as any, {
+    await approvals.approve({ id: 'receipt-1' }, 'workspace-1', { id: 'user-1' } as any, {
       transactionId: null,
     });
 
@@ -136,7 +150,7 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates bulk approval to service', async () => {
-    await controller.bulkApprove(
+    await approvals.bulkApprove(
       { receiptIds: ['receipt-1', 'receipt-2'] } as any,
       'workspace-1',
       { id: 'user-1' } as any,
@@ -151,7 +165,7 @@ describe('ReceiptsController', () => {
   });
 
   it('passes the editing user to update', async () => {
-    await controller.update('receipt-1', 'workspace-1', { status: 'reviewed' } as any, {
+    await controller.update({ id: 'receipt-1' }, 'workspace-1', { status: 'reviewed' } as any, {
       id: 'user-1',
     } as any);
 
@@ -164,19 +178,19 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates delete to service', async () => {
-    await controller.delete('receipt-1', 'workspace-1', { id: 'user-1' } as any);
+    await controller.delete({ id: 'receipt-1' }, 'workspace-1', { id: 'user-1' } as any);
 
     expect(service.delete).toHaveBeenCalledWith('receipt-1', 'workspace-1', 'user-1');
   });
 
   it('returns receipt file content', async () => {
     const response = {
-      setHeader: jest.fn(),
-      status: jest.fn().mockReturnThis(),
-      send: jest.fn(),
+      setHeader: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
     } as any;
 
-    await controller.getFile('receipt-1', 'workspace-1', response);
+    await controller.getFile({ id: 'receipt-1' }, 'workspace-1', response);
 
     expect(service.getFilePayload).toHaveBeenCalledWith('receipt-1', 'workspace-1');
     expect(response.setHeader).toHaveBeenCalledWith('Content-Type', 'image/jpeg');
@@ -187,13 +201,13 @@ describe('ReceiptsController', () => {
     service.getFilePayload.mockResolvedValue(null);
 
     const response = {
-      setHeader: jest.fn(),
-      status: jest.fn().mockReturnThis(),
-      send: jest.fn(),
-      json: jest.fn(),
+      setHeader: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+      json: vi.fn(),
     } as any;
 
-    await controller.getFile('receipt-1', 'workspace-1', response);
+    await controller.getFile({ id: 'receipt-1' }, 'workspace-1', response);
 
     expect(response.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
   });
@@ -221,7 +235,7 @@ describe('ReceiptsController', () => {
 
   it('pins a manual location inside the workspace', async () => {
     await expect(
-      controller.setLocation('receipt-1', 'workspace-1', { latitude: 1, longitude: 2 }, {
+      controller.setLocation({ id: 'receipt-1' }, 'workspace-1', { latitude: 1, longitude: 2 }, {
         id: 'user-1',
       } as any),
     ).resolves.toMatchObject({ locationSource: 'manual' });
@@ -238,7 +252,7 @@ describe('ReceiptsController', () => {
     locationService.setManual.mockResolvedValue(null);
 
     await expect(
-      controller.setLocation('receipt-1', 'workspace-2', { latitude: 1, longitude: 2 }, {
+      controller.setLocation({ id: 'receipt-1' }, 'workspace-2', { latitude: 1, longitude: 2 }, {
         id: 'user-1',
       } as any),
     ).rejects.toThrow('Receipt not found');
@@ -246,13 +260,13 @@ describe('ReceiptsController', () => {
 
   it('resets the location to automatic', async () => {
     const user = { id: 'user-1' } as any;
-    await expect(controller.resetLocation('receipt-1', 'workspace-1', user)).resolves.toMatchObject({
+    await expect(controller.resetLocation({ id: 'receipt-1' }, 'workspace-1', user)).resolves.toMatchObject({
       locationSource: 'device',
     });
     expect(locationService.resetToAuto).toHaveBeenCalledWith('receipt-1', 'workspace-1', 'user-1');
 
     locationService.resetToAuto.mockResolvedValue(null);
-    await expect(controller.resetLocation('receipt-1', 'workspace-2', user)).rejects.toThrow(
+    await expect(controller.resetLocation({ id: 'receipt-1' }, 'workspace-2', user)).rejects.toThrow(
       'Receipt not found',
     );
   });
@@ -262,7 +276,7 @@ describe('ReceiptsController', () => {
     locationService.setManual.mockResolvedValue({ id: 'receipt-1', locationSource: 'place' });
 
     await expect(
-      controller.setLocation('receipt-1', 'workspace-1', { latitude: 1, longitude: 2, place }, {
+      controller.setLocation({ id: 'receipt-1' }, 'workspace-1', { latitude: 1, longitude: 2, place }, {
         id: 'user-1',
       } as any),
     ).resolves.toMatchObject({ locationSource: 'place' });
@@ -287,5 +301,20 @@ describe('ReceiptsController', () => {
     await expect(controller.placeSuggestions('workspace-2', dto)).rejects.toThrow(
       'Receipt not found',
     );
+  });
+
+  it('reads and replaces a receipt\'s tags inside the workspace', async () => {
+    await expect(tagsController.getTags({ id: 'receipt-1' }, 'workspace-1')).resolves.toEqual([
+      { id: 'tag-1', name: 'Trip' },
+    ]);
+    expect(tagsService.getTags).toHaveBeenCalledWith('receipt-1', 'workspace-1');
+
+    await expect(
+      tagsController.setTags({ id: 'receipt-1' }, { tagIds: ['tag-1', 'tag-2'] }, 'workspace-1'),
+    ).resolves.toEqual([]);
+    expect(tagsService.setTags).toHaveBeenCalledWith('receipt-1', 'workspace-1', [
+      'tag-1',
+      'tag-2',
+    ]);
   });
 });

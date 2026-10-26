@@ -1,16 +1,9 @@
 'use client';
 
-import {
-  Alert,
-  Button,
-  CircularProgress,
-  FormControlLabel,
-  Stack,
-  Switch,
-  TextField,
-} from '@mui/material';
+import { Alert, Button, FormControlLabel, Stack, Switch, TextField } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import { type InvoiceSettings, invoicesApi } from '@/app/lib/invoices-api';
 import { SettingsSection } from './SettingsSection';
@@ -103,63 +96,75 @@ export function InvoiceSettingsSection(): React.ReactElement {
   return (
     <SettingsSection title={t.title} description={t.description}>
       {loading ? (
-        <CircularProgress size={20} />
+        <SnapshotSkeleton id="workspace-invoice-settings" loading fallback="panel" />
       ) : (
-        <Stack spacing={2}>
-          {failed === 'load' ? <Alert severity="error">{shared.loadError}</Alert> : null}
-          {failed === 'save' ? <Alert severity="error">{shared.saveError}</Alert> : null}
+        <SnapshotSkeleton
+          id="workspace-invoice-settings"
+          loading={false}
+          capture={failed !== 'load'}
+        >
+          <Stack spacing={2}>
+            {failed === 'load' ? <Alert severity="error">{shared.loadError}</Alert> : null}
+            {failed === 'save' ? <Alert severity="error">{shared.saveError}</Alert> : null}
 
-          <TextField
-            label={String(t.prefix.value)}
-            value={prefix}
-            onChange={event => setPrefix(event.target.value)}
-            size="small"
-            sx={{ maxWidth: 220 }}
-          />
+            <TextField
+              label={String(t.prefix.value)}
+              value={prefix}
+              onChange={event => setPrefix(event.target.value)}
+              size="small"
+              sx={{ maxWidth: 220 }}
+            />
 
-          <TextField
-            label={String(t.paymentTerms.value)}
-            value={termsDays}
-            onChange={event => setTermsDays(event.target.value.replace(/\D/g, ''))}
-            size="small"
-            sx={{ maxWidth: 220 }}
-          />
+            <TextField
+              label={String(t.paymentTerms.value)}
+              value={termsDays}
+              onChange={event => setTermsDays(event.target.value.replace(/\D/g, ''))}
+              size="small"
+              sx={{ maxWidth: 220 }}
+            />
 
-          <TextField
-            label={String(t.lateFee.value)}
-            value={lateFee}
-            onChange={event => setLateFee(event.target.value)}
-            size="small"
-            sx={{ maxWidth: 220 }}
-          />
+            <TextField
+              label={String(t.lateFee.value)}
+              value={lateFee}
+              onChange={event => setLateFee(event.target.value)}
+              size="small"
+              sx={{ maxWidth: 220 }}
+            />
 
-          <FormControlLabel
-            control={
-              <Switch
-                checked={remindersEnabled}
-                onChange={event => setRemindersEnabled(event.target.checked)}
-              />
-            }
-            label={String(t.reminders.value)}
-          />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={remindersEnabled}
+                  onChange={event => setRemindersEnabled(event.target.checked)}
+                />
+              }
+              label={String(t.reminders.value)}
+            />
 
-          <TextField
-            label={String(t.offsets.value)}
-            value={offsetsText}
-            onChange={event => setOffsetsText(event.target.value)}
-            helperText={String(t.offsetsHint.value)}
-            disabled={!remindersEnabled}
-            size="small"
-            sx={{ maxWidth: 320 }}
-          />
+            <TextField
+              label={String(t.offsets.value)}
+              value={offsetsText}
+              onChange={event => setOffsetsText(event.target.value)}
+              helperText={String(t.offsetsHint.value)}
+              disabled={!remindersEnabled}
+              size="small"
+              sx={{ maxWidth: 320 }}
+            />
 
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Button variant="contained" disabled={saving} onClick={() => void handleSave()}>
-              {saving ? shared.saving : shared.save}
-            </Button>
-            {saved ? <Alert severity="success">{shared.saved}</Alert> : null}
+            <Stack
+              direction="row"
+              spacing={2}
+              sx={{
+                alignItems: 'center',
+              }}
+            >
+              <Button variant="contained" disabled={saving} onClick={() => void handleSave()}>
+                {saving ? shared.saving : shared.save}
+              </Button>
+              {saved ? <Alert severity="success">{shared.saved}</Alert> : null}
+            </Stack>
           </Stack>
-        </Stack>
+        </SnapshotSkeleton>
       )}
     </SettingsSection>
   );

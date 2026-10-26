@@ -18,6 +18,7 @@ import {
 } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { canReadPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type {
@@ -211,7 +212,7 @@ export class SubscriptionsService {
     const category = await this.categoryRepository.findOne({
       where: { id: categoryId, workspaceId },
     });
-    if (!category) throw new NotFoundException('Category not found');
+    if (!category) throw new NotFoundException(appError('CATEGORY_NOT_FOUND'));
   }
 
   /** The id came from the request: another workspace's budget is "not found". */
@@ -221,7 +222,7 @@ export class SubscriptionsService {
   ): Promise<void> {
     if (!budgetId) return;
     const budget = await this.budgetRepository?.findOne({ where: { id: budgetId, workspaceId } });
-    if (!budget) throw new NotFoundException('Budget not found');
+    if (!budget) throw new NotFoundException(appError('SUBSCRIPTION_BUDGET_NOT_FOUND'));
   }
 
   async findAll(
@@ -232,7 +233,9 @@ export class SubscriptionsService {
     if (status) where.status = status;
     const rows = await this.subscriptionRepository.find({
       where,
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
       order: { status: 'ASC', nextChargeDate: 'ASC' },
     });
     return rows.map(row => Object.assign(row, { costPerUse: costPerUse(row) }));
@@ -241,9 +244,11 @@ export class SubscriptionsService {
   async findOne(id: string, workspaceId: string): Promise<Subscription> {
     const subscription = await this.subscriptionRepository.findOne({
       where: { id, workspaceId },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
     });
-    if (!subscription) throw new NotFoundException('Subscription not found');
+    if (!subscription) throw new NotFoundException(appError('SUBSCRIPTION_NOT_FOUND'));
     return subscription;
   }
 
@@ -404,7 +409,7 @@ export class SubscriptionsService {
       where: { workspaceId, userId: ownerId },
     });
     if (!membership) {
-      throw new BadRequestException('Subscription owner must be a workspace member');
+      throw new BadRequestException(appError('SUBSCRIPTION_OWNER_NOT_MEMBER'));
     }
 
     const subscription = await this.findOne(id, workspaceId);
@@ -882,7 +887,9 @@ export class SubscriptionsService {
     const invoices = this.invoiceRepository
       ? await this.invoiceRepository.find({
           where: { workspaceId, status: In([InvoiceStatus.SENT, InvoiceStatus.OVERDUE]) },
-          relations: ['client'],
+          relations: {
+            client: true,
+          },
         })
       : [];
     for (const invoice of invoices) {
@@ -914,7 +921,9 @@ export class SubscriptionsService {
     const currency = workspace?.currency?.toUpperCase() ?? 'KZT';
     const subs = await this.subscriptionRepository.find({
       where: { workspaceId, status: SubscriptionStatus.ACTIVE },
-      relations: ['owner'],
+      relations: {
+        owner: true,
+      },
       order: { vendorName: 'ASC' },
     });
     const rows: BusinessSubscriptionsReport['rows'] = [];
@@ -1026,14 +1035,14 @@ export class SubscriptionsService {
       subscription.frequency !== SubscriptionFrequency.QUARTERLY &&
       subscription.frequency !== SubscriptionFrequency.ANNUAL
     ) {
-      throw new BadRequestException('Only quarterly and annual subscriptions need a sinking fund');
+      throw new BadRequestException(appError('SUBSCRIPTION_SINKING_FUND_CADENCE'));
     }
     const setAside = monthlySetAside(Number(subscription.amount), subscription.nextChargeDate);
     if (subscription.sinkingGoalId) {
       return { goalId: subscription.sinkingGoalId, monthlySetAside: setAside, created: false };
     }
     if (!this.goalsService) {
-      throw new BadRequestException('Goals are not available');
+      throw new BadRequestException(appError('SUBSCRIPTION_GOALS_UNAVAILABLE'));
     }
     const goal = await this.goalsService.create(workspaceId, userId, {
       name: `${subscription.vendorName} · ${subscription.frequency}`,
@@ -1087,7 +1096,9 @@ export class SubscriptionsService {
         status: SubscriptionStatus.ACTIVE,
         nextChargeDate: LessThanOrEqual(until),
       },
-      relations: ['category'],
+      relations: {
+        category: true,
+      },
       order: { nextChargeDate: 'ASC' },
     });
   }
@@ -1277,7 +1288,7 @@ export class SubscriptionsService {
           paid = paymentOf(transaction);
         } else {
           if (!body.chargeDate) {
-            throw new BadRequestException('chargeDate is required without a transactionId');
+            throw new BadRequestException(appError('SUBSCRIPTION_CHARGE_DATE_REQUIRED'));
           }
           paid = {
             transactionId: null,
@@ -1324,7 +1335,7 @@ export class SubscriptionsService {
         const charge = await charges.findOne({
           where: { id: chargeId, subscriptionId: id, workspaceId },
         });
-        if (!charge) throw new NotFoundException('Subscription payment not found');
+        if (!charge) throw new NotFoundException(appError('SUBSCRIPTION_PAYMENT_NOT_FOUND'));
         const transaction = await this.chargeableTransaction(
           manager,
           body.transactionId,
@@ -1381,7 +1392,7 @@ export class SubscriptionsService {
         const charge = await charges.findOne({
           where: { id: chargeId, subscriptionId: id, workspaceId },
         });
-        if (!charge) throw new NotFoundException('Subscription payment not found');
+        if (!charge) throw new NotFoundException(appError('SUBSCRIPTION_PAYMENT_NOT_FOUND'));
         const removed = chargeMeta(charge);
         await charges.remove(charge);
         if (removed.transactionId) {
@@ -1547,7 +1558,7 @@ export class SubscriptionsService {
       where: { id, workspaceId },
       lock: { mode: 'pessimistic_write' },
     });
-    if (!subscription) throw new NotFoundException('Subscription not found');
+    if (!subscription) throw new NotFoundException(appError('SUBSCRIPTION_NOT_FOUND'));
     return subscription;
   }
 
@@ -1561,12 +1572,12 @@ export class SubscriptionsService {
     const transaction = await manager.getRepository(Transaction).findOne({
       where: { id: transactionId, workspaceId },
     });
-    if (!transaction) throw new NotFoundException('Transaction not found');
+    if (!transaction) throw new NotFoundException(appError('SUBSCRIPTION_TRANSACTION_NOT_FOUND'));
     const existing = await manager.getRepository(SubscriptionCharge).findOne({
       where: { transactionId, workspaceId },
     });
     if (existing && existing.id !== ownChargeId) {
-      throw new ConflictException('This transaction is already a subscription payment');
+      throw new ConflictException(appError('SUBSCRIPTION_TRANSACTION_ALREADY_PAYMENT'));
     }
     return transaction;
   }

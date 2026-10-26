@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { createRepoMock } from '../../../helpers/create-repo-mock';
 import { TaxRuleDirection } from '@/entities/tax-rule.entity';
 import { TaxSource, type Transaction, TransactionType } from '@/entities/transaction.entity';
@@ -8,11 +9,11 @@ describe('TaxAssignmentService', () => {
   let service: TaxAssignmentService;
   let ruleRepo: ReturnType<typeof createRepoMock>;
   let ratesService: {
-    findOne: jest.Mock;
-    findByCodeForDate: jest.Mock;
-    findDefaultForDate: jest.Mock;
+    findOne: Mock;
+    findByCodeForDate: Mock;
+    findDefaultForDate: Mock;
   };
-  let workspaceRepo: ReturnType<typeof createRepoMock> & { manager: { query: jest.Mock } };
+  let workspaceRepo: ReturnType<typeof createRepoMock> & { manager: { query: Mock } };
   let transactionRepo: ReturnType<typeof createRepoMock>;
   let workspace: { id: string; vatStatus: VatStatus; taxJurisdiction: { code: string; isEu: boolean } };
 
@@ -53,13 +54,13 @@ describe('TaxAssignmentService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     ruleRepo = createRepoMock();
     ruleRepo.find.mockResolvedValue([]);
     ratesService = {
-      findOne: jest.fn(),
-      findByCodeForDate: jest.fn(),
-      findDefaultForDate: jest.fn().mockResolvedValue(null),
+      findOne: vi.fn(),
+      findByCodeForDate: vi.fn(),
+      findDefaultForDate: vi.fn().mockResolvedValue(null),
     };
     workspace = {
       id: 'ws-1',
@@ -67,7 +68,7 @@ describe('TaxAssignmentService', () => {
       taxJurisdiction: { code: 'DE', isEu: true },
     };
     workspaceRepo = Object.assign(createRepoMock(), {
-      manager: { query: jest.fn().mockResolvedValue([]) },
+      manager: { query: vi.fn().mockResolvedValue([]) },
     });
     workspaceRepo.findOne.mockImplementation(async () => workspace);
     transactionRepo = createRepoMock();

@@ -68,7 +68,7 @@ npm run migration:run:dev
 npm run migration:run
 
 # в dev-контейнере backend
-docker exec -it finflow-backend npm run migration:run:dev
+docker exec -it seneca-backend npm run migration:run:dev
 ```
 
 ## Запуск приложения
@@ -89,7 +89,7 @@ npm run start:prod
 ## Тесты и проверки
 
 ```bash
-npm test                # unit-тесты (Jest)
+npm test                # unit-тесты (Vitest)
 npm run test:e2e        # e2e, нужны PostgreSQL и Redis
 npm run test:golden     # golden-тесты парсинга
 npm run lint:check      # Biome

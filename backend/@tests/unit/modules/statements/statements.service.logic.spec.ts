@@ -1,4 +1,12 @@
+import type { Mocked } from 'vitest';
 import * as fs from 'fs';
+
+// ESM namespaces cannot be spied on; existsSync is a mock that defaults to the real one.
+vi.mock('fs', async importOriginal => {
+  const actual = await importOriginal<typeof import('fs')>();
+  const existsSync = vi.fn(actual.existsSync);
+  return { ...actual, existsSync, default: { ...actual, existsSync } };
+});
 import { AuditService } from '@/modules/audit/audit.service';
 import { StatementParsingQueue } from '@/modules/parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '@/modules/parsing/services/statement-processing.service';
@@ -20,19 +28,19 @@ import { FileStorageService } from '@/common/services/file-storage.service';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
 import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
 
-jest.mock('@/common/utils/file-hash.util');
-jest.mock('@/common/utils/file-validator.util');
-jest.mock('@/common/utils/filename.util');
+vi.mock('@/common/utils/file-hash.util');
+vi.mock('@/common/utils/file-validator.util');
+vi.mock('@/common/utils/filename.util');
 
 describe('StatementsService — business logic', () => {
   let module: TestingModule;
   let service: StatementsService;
-  let statementRepo: jest.Mocked<any>;
-  let transactionRepo: jest.Mocked<any>;
-  let workspaceMemberRepo: jest.Mocked<any>;
-  let auditService: jest.Mocked<AuditService>;
-  let cacheManager: jest.Mocked<any>;
-  let eventEmitter: jest.Mocked<EventEmitter2>;
+  let statementRepo: Mocked<any>;
+  let transactionRepo: Mocked<any>;
+  let workspaceMemberRepo: Mocked<any>;
+  let auditService: Mocked<AuditService>;
+  let cacheManager: Mocked<any>;
+  let eventEmitter: Mocked<EventEmitter2>;
 
   const OWNER_ID = 'user-owner';
   const WORKSPACE_ID = 'ws-1';
@@ -67,84 +75,84 @@ describe('StatementsService — business logic', () => {
         {
           provide: getRepositoryToken(Statement),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            remove: jest.fn(),
-            delete: jest.fn(),
-            count: jest.fn(),
+            find: vi.fn(),
+            findOne: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            update: vi.fn(),
+            remove: vi.fn(),
+            delete: vi.fn(),
+            count: vi.fn(),
             // createQueryBuilder is intentionally absent so findOne path is used by permanentDelete
           },
         },
         {
           provide: getRepositoryToken(Transaction),
           useValue: {
-            create: jest.fn(),
-            find: jest.fn(),
-            save: jest.fn(),
-            delete: jest.fn(),
-            count: jest.fn(),
+            create: vi.fn(),
+            find: vi.fn(),
+            save: vi.fn(),
+            delete: vi.fn(),
+            count: vi.fn(),
           },
         },
         {
           provide: getRepositoryToken(User),
-          useValue: { findOne: jest.fn() },
+          useValue: { findOne: vi.fn() },
         },
         {
           provide: getRepositoryToken(Category),
-          useValue: { find: jest.fn(), findOne: jest.fn() },
+          useValue: { find: vi.fn(), findOne: vi.fn() },
         },
         {
           provide: getRepositoryToken(TaxRate),
-          useValue: { find: jest.fn(), findOne: jest.fn() },
+          useValue: { find: vi.fn(), findOne: vi.fn() },
         },
         {
           provide: getRepositoryToken(Wallet),
-          useValue: { findOne: jest.fn(async () => null) },
+          useValue: { findOne: vi.fn(async () => null) },
         },
         {
           provide: getRepositoryToken(WorkspaceMember),
-          useValue: { findOne: jest.fn() },
+          useValue: { findOne: vi.fn() },
         },
         {
           provide: FileStorageService,
           useValue: {
-            deleteFile: jest.fn(),
-            getFileUrl: jest.fn(),
-            isOnDisk: jest.fn(),
-            resolveFilePath: jest.fn(),
-            getFileAvailability: jest.fn().mockResolvedValue({ onDisk: true, inDb: false }),
+            deleteFile: vi.fn(),
+            getFileUrl: vi.fn(),
+            isOnDisk: vi.fn(),
+            resolveFilePath: vi.fn(),
+            getFileAvailability: vi.fn().mockResolvedValue({ onDisk: true, inDb: false }),
           },
         },
         {
           provide: StatementProcessingService,
-          useValue: { processStatement: jest.fn() },
+          useValue: { processStatement: vi.fn() },
         },
         {
           provide: StatementParsingQueue,
-          useValue: { enqueue: jest.fn() },
+          useValue: { enqueue: vi.fn() },
         },
         {
           provide: ReceiptStatementService,
-          useValue: { createFromReceiptScan: jest.fn() },
+          useValue: { createFromReceiptScan: vi.fn() },
         },
         {
           provide: CACHE_MANAGER,
-          useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() },
+          useValue: { get: vi.fn(), set: vi.fn(), del: vi.fn() },
         },
         {
           provide: TaxAssignmentService,
-          useValue: { resolve: jest.fn(async () => ({})) },
+          useValue: { resolve: vi.fn(async () => ({})) },
         },
         {
           provide: AuditService,
-          useValue: { createEvent: jest.fn() },
+          useValue: { createEvent: vi.fn() },
         },
         {
           provide: EventEmitter2,
-          useValue: { emit: jest.fn() },
+          useValue: { emit: vi.fn() },
         },
       ],
     }).compile();
@@ -159,7 +167,7 @@ describe('StatementsService — business logic', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Default: requester is the statement owner → ensureCanModify passes
     workspaceMemberRepo.findOne.mockResolvedValue(null);
   });
@@ -193,7 +201,7 @@ describe('StatementsService — business logic', () => {
 
     it('deletes all related transactions before removing statement', async () => {
       statementRepo.findOne.mockResolvedValue(baseStatement());
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+      vi.mocked(fs.existsSync).mockReturnValue(false);
 
       await service.permanentDelete(STATEMENT_ID, OWNER_ID, WORKSPACE_ID);
 
@@ -203,7 +211,7 @@ describe('StatementsService — business logic', () => {
     it('removes the statement record from the database', async () => {
       const stmt = baseStatement();
       statementRepo.findOne.mockResolvedValue(stmt);
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+      vi.mocked(fs.existsSync).mockReturnValue(false);
 
       await service.permanentDelete(STATEMENT_ID, OWNER_ID, WORKSPACE_ID);
 
@@ -222,7 +230,7 @@ describe('StatementsService — business logic', () => {
 
     it('invalidates the thumbnail cache entry', async () => {
       statementRepo.findOne.mockResolvedValue(baseStatement());
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+      vi.mocked(fs.existsSync).mockReturnValue(false);
 
       await service.permanentDelete(STATEMENT_ID, OWNER_ID, WORKSPACE_ID);
 
@@ -231,7 +239,7 @@ describe('StatementsService — business logic', () => {
 
     it('records an audit event with permanent source', async () => {
       statementRepo.findOne.mockResolvedValue(baseStatement());
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+      vi.mocked(fs.existsSync).mockReturnValue(false);
 
       await service.permanentDelete(STATEMENT_ID, OWNER_ID, WORKSPACE_ID);
 
@@ -246,7 +254,7 @@ describe('StatementsService — business logic', () => {
 
     it('emits data.deleted event', async () => {
       statementRepo.findOne.mockResolvedValue(baseStatement());
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+      vi.mocked(fs.existsSync).mockReturnValue(false);
 
       await service.permanentDelete(STATEMENT_ID, OWNER_ID, WORKSPACE_ID);
 
@@ -260,7 +268,7 @@ describe('StatementsService — business logic', () => {
       const adminId = 'admin-user';
       statementRepo.findOne.mockResolvedValue(baseStatement()); // owner is OWNER_ID
       workspaceMemberRepo.findOne.mockResolvedValue({ role: WorkspaceRole.ADMIN });
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+      vi.mocked(fs.existsSync).mockReturnValue(false);
 
       await expect(service.permanentDelete(STATEMENT_ID, adminId, WORKSPACE_ID)).resolves.not.toThrow();
     });

@@ -119,14 +119,14 @@ docker compose down -v
 
 ## Работа с базой данных
 
-Контейнеры называются `finflow-postgres`, `finflow-redis`, `finflow-backend`, `finflow-frontend`.
+Контейнеры называются `seneca-postgres`, `seneca-redis`, `seneca-backend`, `seneca-frontend`.
 
 ### Подключение к PostgreSQL
 
 ```bash
 make db-shell
 # или
-docker exec -it finflow-postgres psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-finflow}"
+docker exec -it seneca-postgres psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-finflow}"
 ```
 
 ### Выполнение миграций
@@ -210,7 +210,7 @@ docker compose ps postgres
 docker compose logs postgres
 
 # Проверьте подключение
-docker exec -it finflow-postgres psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-finflow}" -c "SELECT 1;"
+docker exec -it seneca-postgres psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-finflow}" -c "SELECT 1;"
 ```
 
 ### Проблема: Порты заняты
@@ -255,7 +255,7 @@ docker system prune -a --volumes
 
 Для production:
 
-1. Используйте готовые образы `ghcr.io/symonbaikov/seneca-backend` и `seneca-frontend` с фиксированным `IMAGE_TAG`
+1. Используйте готовые образы `ghcr.io/seneca-ledger/seneca-backend` и `seneca-frontend` с фиксированным `IMAGE_TAG`
 2. Настройте HTTPS через reverse proxy (nginx, Caddy, Traefik)
 3. Задайте `CORS_ORIGINS` (или `FRONTEND_URL`); без него backend не стартует
 4. Используйте внешнюю БД (не в Docker)

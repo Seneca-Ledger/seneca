@@ -3,7 +3,6 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -11,6 +10,7 @@ import type React from 'react';
 import { Suspense } from 'react';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
 import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
@@ -34,14 +34,6 @@ import {
   type LedgerTab,
   parseTab,
 } from './ledger.helpers';
-
-function Loading(): React.ReactElement {
-  return (
-    <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-      <CircularProgress size={28} />
-    </Box>
-  );
-}
 
 /** System accounts are shown in the UI language, keyed by their fixed code. */
 function useSystemAccountNames(): Record<string, string> {
@@ -121,7 +113,7 @@ function LedgerContent(): React.ReactElement {
       return <Alert severity="error">{t.loadError}</Alert>;
     }
     if (!(accounts.data && settings.data?.baseCurrency)) {
-      return <Loading />;
+      return <SnapshotSkeleton id={`ledger-${tab}`} loading fallback="list" />;
     }
     switch (tab) {
       case 'accounts':
@@ -165,7 +157,7 @@ function LedgerContent(): React.ReactElement {
       return <Alert severity="error">{t.loadError}</Alert>;
     }
     if (!settings.data) {
-      return <Loading />;
+      return <SnapshotSkeleton id="ledger-body" loading fallback="list" />;
     }
     if (!enabled) {
       return (
@@ -190,7 +182,6 @@ function LedgerContent(): React.ReactElement {
         >
           <Tabs
             value={tab}
-            // eslint-disable-next-line max-params
             onChange={(_event, value: LedgerTab) => updateQuery({ tab: value })}
             variant="scrollable"
             scrollButtons={false}
@@ -208,7 +199,11 @@ function LedgerContent(): React.ReactElement {
           ) : null}
         </Box>
         {integrity.data ? <LedgerFreshness integrity={integrity.data} /> : null}
-        <Box sx={{ mt: 2 }}>{renderTab()}</Box>
+        <Box sx={{ mt: 2 }}>
+          <SnapshotSkeleton id={`ledger-${tab}`} loading={false} capture={!accounts.isError}>
+            {renderTab()}
+          </SnapshotSkeleton>
+        </Box>
       </>
     );
   };
@@ -226,7 +221,9 @@ function LedgerContent(): React.ReactElement {
       <Box sx={{ mb: 2 }}>
         <PageTitle path="/ledger" summary={titleSummary} />
       </Box>
-      {renderBody()}
+      <SnapshotSkeleton id="ledger-body" loading={false} capture={!settings.isError}>
+        {renderBody()}
+      </SnapshotSkeleton>
     </Box>
   );
 }
@@ -234,7 +231,7 @@ function LedgerContent(): React.ReactElement {
 export default function LedgerPage(): React.ReactElement {
   // useSearchParams needs a Suspense boundary for the static render of the route.
   return (
-    <Suspense fallback={<Loading />}>
+    <Suspense fallback={<SnapshotSkeleton id="ledger" loading />}>
       <LedgerContent />
     </Suspense>
   );

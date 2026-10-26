@@ -138,3 +138,10 @@ export function clampToWindow(
 export function overlapsWindow(range: { start: Date; end: Date }, window: BudgetWindow): boolean {
   return clampToWindow(range, window) !== null;
 }
+
+/** A day in local time, as a `date` column stores it. */
+export function localDay(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate(),
+  ).padStart(2, '0')}`;
+}

@@ -6,12 +6,12 @@ import { NotFoundException } from '@nestjs/common';
 
 const createRepoMock = () =>
   ({
-    find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn().mockResolvedValue(null),
-    exist: jest.fn().mockResolvedValue(true),
-    create: jest.fn((data: unknown) => data),
-    save: jest.fn(async (entity: unknown) => entity),
-    remove: jest.fn(async (entity: unknown) => entity),
+    find: vi.fn().mockResolvedValue([]),
+    findOne: vi.fn().mockResolvedValue(null),
+    exists: vi.fn().mockResolvedValue(true),
+    create: vi.fn((data: unknown) => data),
+    save: vi.fn(async (entity: unknown) => entity),
+    remove: vi.fn(async (entity: unknown) => entity),
   }) as any;
 
 const makeFile = (overrides: Partial<Express.Multer.File> = {}): Express.Multer.File =>
@@ -30,10 +30,10 @@ describe('TransactionAttachmentsService', () => {
   let uploadsDir: string;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     attachmentRepo.create.mockImplementation((data: unknown) => data);
     attachmentRepo.save.mockImplementation(async (entity: unknown) => entity);
-    transactionRepo.exist.mockResolvedValue(true);
+    transactionRepo.exists.mockResolvedValue(true);
 
     uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seneca-attachments-test-'));
     process.env.UPLOADS_DIR = uploadsDir;
@@ -42,12 +42,12 @@ describe('TransactionAttachmentsService', () => {
   });
 
   afterEach(() => {
-    process.env.UPLOADS_DIR = undefined;
+    delete process.env.UPLOADS_DIR;
     fs.rmSync(uploadsDir, { recursive: true, force: true });
   });
 
   it('refuses to attach to a transaction outside the workspace', async () => {
-    transactionRepo.exist.mockResolvedValue(false);
+    transactionRepo.exists.mockResolvedValue(false);
 
     await expect(
       service.create('tx-1', 'ws-1', 'user-1', makeFile()),

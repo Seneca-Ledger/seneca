@@ -26,27 +26,27 @@ describe('BankSyncService', () => {
   let integration: Record<string, unknown> | null;
   let settings: Record<string, unknown> | null;
   const integrationRepository = {
-    findOne: jest.fn(async () => (integration ? { ...integration, openProtocolSettings: settings } : null)),
-    find: jest.fn(async () => []),
-    create: jest.fn((data: Record<string, unknown>) => ({ id: 'int-1', ...data })),
-    save: jest.fn(async (entity: Record<string, unknown>) => {
+    findOne: vi.fn(async () => (integration ? { ...integration, openProtocolSettings: settings } : null)),
+    find: vi.fn(async () => []),
+    create: vi.fn((data: Record<string, unknown>) => ({ id: 'int-1', ...data })),
+    save: vi.fn(async (entity: Record<string, unknown>) => {
       integration = { ...(integration ?? {}), ...entity };
       return integration;
     }),
   };
   const settingsRepository = {
-    create: jest.fn((data: Record<string, unknown>) => ({ id: 'set-1', ...data })),
-    save: jest.fn(async (entity: Record<string, unknown>) => {
+    create: vi.fn((data: Record<string, unknown>) => ({ id: 'set-1', ...data })),
+    save: vi.fn(async (entity: Record<string, unknown>) => {
       settings = { ...(settings ?? {}), ...entity };
       return settings;
     }),
   };
-  const transactionRepository = { find: jest.fn(async () => []) };
-  const walletRepository = { find: jest.fn(async () => [{ id: 'wallet-1' }]) };
-  const statementsService = { create: jest.fn(async () => ({ id: 'stmt-1' })) };
+  const transactionRepository = { find: vi.fn(async () => []) };
+  const walletRepository = { find: vi.fn(async () => [{ id: 'wallet-1' }]) };
+  const statementsService = { create: vi.fn(async () => ({ id: 'stmt-1' })) };
   const provider = {
-    claim: jest.fn(async () => accessUrl),
-    fetchAccounts: jest.fn(async (): Promise<BankSyncAccount[]> => [remoteAccount()]),
+    claim: vi.fn(async () => accessUrl),
+    fetchAccounts: vi.fn(async (): Promise<BankSyncAccount[]> => [remoteAccount()]),
   };
 
   const service = () =>
@@ -94,7 +94,7 @@ describe('BankSyncService', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     integration = null;
     settings = null;
     transactionRepository.find.mockResolvedValue([]);
@@ -193,7 +193,7 @@ describe('BankSyncService', () => {
     expect(since.toISOString()).toBe('2026-09-23T00:00:00.000Z');
     expect(statementsService.create).not.toHaveBeenCalled();
 
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     connected();
     const before = Date.now();
     await service().sync(user, workspaceId);

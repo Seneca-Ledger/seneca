@@ -4,7 +4,6 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -21,6 +20,7 @@ import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import { useJournalEntries, useJournalEntry, useLedgerMutations } from '../hooks/useLedger';
 import type { EntrySource, EntryStatus, LedgerAccount } from '../ledger.types';
@@ -114,7 +114,7 @@ export function JournalTab({
       return <Alert severity="error">{t.loadError}</Alert>;
     }
     if (!detail.data) {
-      return <CircularProgress size={24} />;
+      return <SnapshotSkeleton id="ledger-entry" loading fallback="panel" />;
     }
     if (detail.data.status === 'draft' && canPost) {
       return (
@@ -156,7 +156,13 @@ export function JournalTab({
 
   return (
     <Stack spacing={2}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        sx={{
+          alignItems: { sm: 'center' },
+        }}
+      >
         <TextField
           select
           size="small"

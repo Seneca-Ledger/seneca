@@ -1,3 +1,6 @@
+# Bun only installs packages (from package-lock.json); Node runs the app.
+FROM oven/bun:1.4.4-debian AS bun
+
 # --- Base: runtime OS deps shared by every stage ---
 FROM node:24-bookworm-slim AS base
 
@@ -6,6 +9,10 @@ FROM node:24-bookworm-slim AS base
 # statement parsing) round-trips through toISOString()/Postgres without a
 # timezone-dependent day shift.
 ENV TZ=UTC
+
+# onnxruntime-node fetches its CUDA providers (~260 MB) at install on linux/x64.
+# The categorizer runs on the CPU, so the image never loads them.
+ENV ONNXRUNTIME_NODE_INSTALL=skip
 
 WORKDIR /app
 
@@ -22,11 +29,14 @@ RUN apt-get update && \
 # --- Deps: node_modules keyed only by the lockfile ---
 FROM base AS deps
 
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY package*.json ./
 
 # The marker lets scripts/dev-entrypoint.sh detect a lockfile or Node change and
 # refresh the node_modules volume without rebuilding the image.
-RUN npm ci && echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  bun install --frozen-lockfile --network-concurrency=16 && \
+  echo "$(md5sum package-lock.json) $(node -v)" > node_modules/.lockfile-hash
 
 # --- Dev stage (used by docker-compose.dev.yml) ---
 # Source is bind-mounted at runtime, so nothing is copied or compiled here.
@@ -41,7 +51,13 @@ FROM deps AS builder
 
 COPY . .
 
-RUN npm run build && npm run build:scripts && npm prune --omit=dev
+RUN npm run build && npm run build:scripts
+# A fresh production-only install rather than pruning the dev tree.
+# onnxruntime-node ships binaries for every OS; keep only this one (~245 MB less).
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  rm -rf node_modules && bun install --frozen-lockfile --network-concurrency=16 --production && \
+  find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 2 -maxdepth 2 \
+    ! -path "*/linux/$(node -p process.arch)" -exec rm -rf {} +
 
 # --- Production stage ---
 FROM base

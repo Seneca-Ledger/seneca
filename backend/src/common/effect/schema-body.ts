@@ -7,12 +7,13 @@ import {
 import { ApiBody } from '@nestjs/swagger';
 import { Exit, Schema } from 'effect';
 import type { Request } from 'express';
+import { appError } from '../errors/app-error';
 import { describeSchemaFailure, describeUnstorableText } from './schema-issues';
 
 /**
- * Decodes a request body with an Effect Schema. Mirrors the global
- * ValidationPipe: unknown properties are rejected and the 400 body has the
- * class-validator shape (`message: string[]`), so clients see no difference.
+ * Decodes a request body with an Effect Schema. Unknown properties are
+ * rejected; a failure is a 400 REQUEST_INVALID whose `details.issues` names
+ * every failing field.
  */
 export class EffectSchemaPipe<S extends Schema.Top> implements PipeTransform<unknown, S['Type']> {
   private readonly decode;
@@ -35,10 +36,10 @@ export class EffectSchemaPipe<S extends Schema.Top> implements PipeTransform<unk
       : Exit.isFailure(exit)
         ? describeSchemaFailure(exit.cause)
         : [];
+    // One code for every invalid request; `issues` names each failing field.
     throw new BadRequestException({
-      message: messages.length > 0 ? messages : ['Invalid request body'],
-      error: 'Bad Request',
-      statusCode: 400,
+      ...appError('REQUEST_INVALID'),
+      issues: messages.length > 0 ? messages : ['Invalid request body'],
     });
   }
 }

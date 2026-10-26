@@ -225,9 +225,11 @@ export function SubscriptionFormDrawer({
               label={t.currency.value}
               value={formData.currency}
               fullWidth
-              inputProps={{ readOnly: true }}
               onClick={() => setCurrencyDrawerOpen(true)}
               sx={{ cursor: 'pointer', '& input': { cursor: 'pointer' } }}
+              slotProps={{
+                htmlInput: { readOnly: true },
+              }}
             />
 
             <DatePicker

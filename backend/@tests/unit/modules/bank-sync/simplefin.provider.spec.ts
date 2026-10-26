@@ -36,7 +36,7 @@ describe('SimpleFinProvider', () => {
   });
 
   it('claims a token with one POST and keeps the access URL it gets back', async () => {
-    const fetchUrl = jest.fn(async () => new Response(accessUrl, { status: 200 }));
+    const fetchUrl = vi.fn(async () => new Response(accessUrl, { status: 200 }));
     const provider = providerWith(fetchUrl);
     await expect(provider.claim(setupToken)).resolves.toBe(accessUrl);
     expect(fetchUrl).toHaveBeenCalledWith(claimUrl, expect.objectContaining({ method: 'POST' }));
@@ -48,7 +48,7 @@ describe('SimpleFinProvider', () => {
   });
 
   it('lists accounts with Basic auth, the start date and pending rows, mapping the protocol fields', async () => {
-    const fetchUrl = jest.fn(async () =>
+    const fetchUrl = vi.fn(async () =>
       jsonResponse(200, {
         errors: [],
         accounts: [
@@ -112,7 +112,7 @@ describe('SimpleFinProvider', () => {
   });
 
   it('asks for balances only when told to', async () => {
-    const fetchUrl = jest.fn(async () => jsonResponse(200, { accounts: [] }));
+    const fetchUrl = vi.fn(async () => jsonResponse(200, { accounts: [] }));
     await providerWith(fetchUrl).fetchAccounts(accessUrl, { balancesOnly: true });
     const target = new URL((fetchUrl.mock.calls[0] as unknown as [string])[0]);
     expect(target.searchParams.get('balances-only')).toBe('1');
@@ -120,7 +120,7 @@ describe('SimpleFinProvider', () => {
   });
 
   it('retries a listing that failed on the way, through the injected fetch', async () => {
-    const fetchUrl = jest
+    const fetchUrl = vi
       .fn()
       .mockResolvedValueOnce(new Response('', { status: 503 }))
       .mockRejectedValueOnce(new TypeError('fetch failed'))
@@ -133,7 +133,7 @@ describe('SimpleFinProvider', () => {
   });
 
   it('never retries the one-time claim', async () => {
-    const fetchUrl = jest.fn(async () => new Response('', { status: 503 }));
+    const fetchUrl = vi.fn(async () => new Response('', { status: 503 }));
     await expect(providerWith(fetchUrl).claim(setupToken)).rejects.toThrow(/HTTP 503/);
     expect(fetchUrl).toHaveBeenCalledTimes(1);
   });
@@ -170,20 +170,20 @@ describe('SimpleFinProvider', () => {
   });
 
   it('gives up on a listing that does not finish within a minute', async () => {
-    const hanging = jest.fn(
+    const hanging = vi.fn(
       (_url: string, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) =>
           init?.signal?.addEventListener('abort', () => reject(init.signal?.reason)),
         ),
     );
-    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    vi.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     try {
       const pending = providerWith(hanging).fetchAccounts(accessUrl);
       const outcome = expect(pending).rejects.toThrow(/did not answer in time/);
-      await jest.advanceTimersByTimeAsync(60_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await outcome;
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
