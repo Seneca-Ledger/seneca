@@ -295,7 +295,9 @@ export function SubscriptionPayments({
                   data-match={row.matchesVendor || undefined}
                   onClick={() => void pick(row)}
                 >
-                  <span className="seneca-sub-payments__candidate-name">{row.counterpartyName}</span>
+                  <span className="seneca-sub-payments__candidate-name">
+                    {row.counterpartyName}
+                  </span>
                   <span>{formatDate(row.transactionDate)}</span>
                   <PrivateAmount>{money(row.amount, row.currency)}</PrivateAmount>
                 </button>
