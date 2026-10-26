@@ -105,14 +105,15 @@ describe('Budget mechanics (e2e)', () => {
   });
 
   it('warns that one more expense pushes the budget over and the account into the red', async () => {
-    await as(owner, request(server()).post('/wallets'))
+    const wallet = await as(owner, request(server()).post('/wallets'))
       .send({ name: 'Cash', currency: 'USD', initialBalance: 10 })
       .expect(201);
 
+    // The account is the one the person picked on the expense; without one there is no account line.
     const res = await as(
       owner,
       request(server()).get(
-        `/budgets/impact?categoryId=${groceriesId}&amount=30&currency=USD&date=${today()}`,
+        `/budgets/impact?categoryId=${groceriesId}&amount=30&currency=USD&date=${today()}&walletId=${wallet.body.id}`,
       ),
     ).expect(200);
 

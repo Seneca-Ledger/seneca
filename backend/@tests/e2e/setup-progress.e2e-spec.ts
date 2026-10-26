@@ -59,6 +59,7 @@ describe('Dashboard setup progress (e2e)', () => {
       hasCustomCategories: false,
       hasBudget: false,
       hasGoal: false,
+      hasWallet: false,
       telegramAvailable: false,
       hasTelegram: false,
     });

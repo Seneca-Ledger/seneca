@@ -69,18 +69,18 @@ function toPayload(form: AccountForm) {
 /** Every account with its balance, the totals, and the statements no account holds yet. */
 export function useAccounts() {
   const workspaceId = useWorkspaceId();
-  const enabled = Boolean(workspaceId);
+  const ready = Boolean(workspaceId);
 
   const accounts = useQuery({
     queryKey: queryKeys.wallets(workspaceId),
     queryFn: ({ signal }) => apiQueryDecoded({ url: '/wallets', signal, contract: 'WalletList' }),
-    enabled,
+    enabled: ready,
   });
   const summary = useQuery({
     queryKey: queryKeys.walletsSummary(workspaceId),
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: '/wallets/summary', signal, contract: 'WalletSummary' }),
-    enabled,
+    enabled: ready,
   });
   const unlinked = useQuery({
     queryKey: queryKeys.walletsUnlinked(workspaceId),
@@ -90,7 +90,7 @@ export function useAccounts() {
         signal,
         contract: 'AccountStatementList',
       }),
-    enabled,
+    enabled: ready,
   });
 
   return {
@@ -106,20 +106,20 @@ export function useAccounts() {
 /** One account with its balance history, its statements and its latest rows. */
 export function useAccount(id: string) {
   const workspaceId = useWorkspaceId();
-  const enabled = Boolean(workspaceId && id);
+  const ready = Boolean(workspaceId && id);
   const base = queryKeys.wallet(workspaceId, id);
 
   const account = useQuery({
     queryKey: base,
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: `/wallets/${id}`, signal, contract: 'WalletItem' }),
-    enabled,
+    enabled: ready,
   });
   const series = useQuery({
     queryKey: [...base, 'series'],
     queryFn: ({ signal }) =>
       apiQueryDecoded({ url: `/wallets/${id}/series`, signal, contract: 'WalletSeries' }),
-    enabled,
+    enabled: ready,
   });
   const statements = useQuery({
     queryKey: [...base, 'statements'],
@@ -129,7 +129,7 @@ export function useAccount(id: string) {
         signal,
         contract: 'AccountStatementList',
       }),
-    enabled,
+    enabled: ready,
   });
   const transactions = useQuery({
     queryKey: [...base, 'transactions'],
@@ -139,7 +139,7 @@ export function useAccount(id: string) {
       const response = await apiClient.get(url, { signal });
       return checkContract('TransactionListPage', response.data, url);
     },
-    enabled,
+    enabled: ready,
   });
 
   return {
