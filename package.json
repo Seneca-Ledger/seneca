@@ -20,8 +20,6 @@
     "test:sync-contracts": "node --test scripts/sync-contracts.test.mjs",
     "licenses:check": "node scripts/check-licenses.mjs",
     "test:licenses": "node --test scripts/check-licenses.test.mjs",
-    "graphify:build": "node scripts/graphify-build.mjs",
-    "graphify:validate": "node scripts/graphify-validate.mjs",
     "backend:build": "npm --prefix backend run build",
     "backend:start": "npm --prefix backend run start",
     "i18n:check-locales": "node scripts/intlayer-locales-check.mjs",

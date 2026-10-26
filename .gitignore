@@ -78,10 +78,9 @@ docker-compose.override.yml
 # Locally downloaded ML models (embeddings + LLM weight cache)
 .local-models/
 
-# Graphify
-graphify-out/*
-!graphify-out/
-!graphify-out/graph.json
+# Editor local history (VS Code Local History) and the skills CLI lockfile
+.history/
+skills-lock.json
 
 # Claude Code
 .claude/settings.local.json

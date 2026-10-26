@@ -10,14 +10,14 @@
 
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](CONTRIBUTING.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](.github/CONTRIBUTING.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%20%7C%206.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Release](https://img.shields.io/github/v/release/Seneca-Ledger/seneca?style=for-the-badge)](https://github.com/Seneca-Ledger/seneca/releases/latest)
 
 **Open-source financial data platform for importing, processing, and analyzing bank statements**
 
 
-[Quick Start](#quick-start) • [Docs](https://symonbaikov.github.io/seneca/) • [Features](#features) • [Tech Stack](#tech-stack) • [Architecture](#architecture) • [Contributing](CONTRIBUTING.md)
+[Quick Start](#quick-start) • [Docs](https://symonbaikov.github.io/seneca/) • [Features](#features) • [Tech Stack](#tech-stack) • [Architecture](#architecture) • [Contributing](.github/CONTRIBUTING.md)
 
 </div>
 
@@ -923,7 +923,7 @@ Upload request
 - RBAC enforced at controller level via guards — workspace roles enforced on every request
 - Audit log covers all mutating operations with rollback support for critical changes
 - CVE allowlists and license exceptions documented in `docs/security/`
-- See [SECURITY.md](SECURITY.md) for the full security policy
+- See [.github/SECURITY.md](.github/SECURITY.md) for the full security policy
 
 ### Code Conventions
 
@@ -994,9 +994,9 @@ CD builds, scans, signs and publishes the images on version tags and stops there
 | Document | Description |
 |---|---|
 | [symonbaikov.github.io/seneca](https://symonbaikov.github.io/seneca/) | Documentation site, built from `website/` |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute — workflow, code style, PR process |
-| [SECURITY.md](SECURITY.md) | Security policy, vulnerability reporting, disclosure process |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community guidelines |
+| [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | How to contribute — workflow, code style, PR process |
+| [.github/SECURITY.md](.github/SECURITY.md) | Security policy, vulnerability reporting, disclosure process |
+| [.github/CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) | Community guidelines |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 | [docs/ui-principles.md](docs/ui-principles.md) | UI stability principles the product follows |
 | [website/docs/](website/docs/) | Documentation site: getting started, guides, architecture, API and deployment reference |
@@ -1045,7 +1045,7 @@ We welcome contributions from the community.
 - Run `make lint` (and `make format` if needed) before committing
 - Follow existing module patterns: thin controllers, logic in services, DTOs for all inputs
 
-For detailed guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+For detailed guidelines, see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ---
 
@@ -1059,7 +1059,7 @@ For detailed guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
-Security is a top priority. Please read [SECURITY.md](SECURITY.md) for supported versions, the vulnerability disclosure process, and security best practices.
+Security is a top priority. Please read [.github/SECURITY.md](.github/SECURITY.md) for supported versions, the vulnerability disclosure process, and security best practices.
 
 **Found a security issue?** Report it privately through [GitHub Security Advisories](../../security/advisories/new), not in public issues.
 
