@@ -52,12 +52,15 @@
   height: 24px;
   border-radius: $seneca-radius-full;
   background: $seneca-color-ink-100;
-  color: $seneca-color-ink-500;
+  // The first letter of the name; its sage tint is set inline per person.
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
   overflow: hidden;
 
   @include dark {
     background: $seneca-color-ink-200-dk;
-    color: $seneca-color-ink-500-dk;
   }
 
   img {
@@ -70,6 +73,7 @@
   &--tab {
     width: 28px;
     height: 28px;
+    font-size: 13px;
   }
 }
 

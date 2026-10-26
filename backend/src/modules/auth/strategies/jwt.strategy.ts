@@ -28,8 +28,6 @@ export interface AuthenticatedUser extends User {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private readonly dicebearBaseUrl = 'https://api.dicebear.com/7.x/identicon/svg';
-
   constructor(
     configService: ConfigService,
     @InjectRepository(User)
@@ -93,18 +91,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    const authenticatedUser = {
+    return {
       ...user,
       currentSessionId: payload.sessionId || null,
     } as AuthenticatedUser;
-
-    if (!user.avatarUrl) {
-      const seed = `${user.id}-${Date.now().toString(36)}`;
-      const avatarUrl = `${this.dicebearBaseUrl}?seed=${encodeURIComponent(seed)}`;
-      await this.userRepository.update(user.id, { avatarUrl });
-      return { ...authenticatedUser, avatarUrl };
-    }
-
-    return authenticatedUser;
   }
 }
