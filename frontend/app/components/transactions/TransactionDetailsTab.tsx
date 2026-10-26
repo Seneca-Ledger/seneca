@@ -20,6 +20,11 @@ import { useContributionLink } from './hooks/useContributionLink';
 import { useTransactionSplit } from './hooks/useTransactionSplit';
 import { useTransferLink } from './hooks/useTransferLink';
 import { useWorkspaceMembers } from './hooks/useWorkspaceMembers';
+import {
+  InvestmentAccountPicker,
+  InvestmentLinkActions,
+  isInvestmentIncome as linkedAsIncome,
+} from './InvestmentLinkActions';
 import { OWNER_SHARED, ownerValueToMemberId } from './OwnerFilterDropdown';
 import { SplitTransactionDialog } from './SplitTransactionDialog';
 import { ActionRow } from './TransactionActionRow';
@@ -75,6 +80,8 @@ export function TransactionDetailsTab({
   } = useTransferLink(handleSplitDone);
   const isReimbursementPair = transaction.transferPairKind === 'reimbursement';
   const isInvestmentPair = transaction.transferPairKind === 'investment';
+  const isInvestmentIncome = linkedAsIncome(transaction);
+  const isIncome = transaction.transactionType === 'income';
   const contribution = useContributionLink(handleSplitDone);
 
   // The pre-split total the backend validates against: the positive side of the
@@ -163,10 +170,17 @@ export function TransactionDetailsTab({
       {transaction.transferPairId && (
         <div className="seneca-tx-detail__cat-badge" data-testid="transfer-badge">
           {isInvestmentPair
-            ? t.investment.badge.value
+            ? isIncome
+              ? t.investment.withdrawalBadge.value
+              : t.investment.badge.value
             : isReimbursementPair
               ? t.reimbursement.badge.value
               : t.transfer.badge.value}
+        </div>
+      )}
+      {isInvestmentIncome && (
+        <div className="seneca-tx-detail__cat-badge" data-testid="investment-income-badge">
+          {t.investment.incomeBadge.value}
         </div>
       )}
       {transaction.reimbursementOf && (
@@ -285,7 +299,8 @@ export function TransactionDetailsTab({
 
           {/* Reimbursement of an expense (incoming rows only) */}
           {onSplitDone &&
-            transaction.transactionType === 'income' &&
+            isIncome &&
+            !isInvestmentIncome &&
             (transaction.reimbursementOfId ? (
               <ActionRow
                 label={t.reimbursement.unlink.value}
@@ -305,35 +320,16 @@ export function TransactionDetailsTab({
               )
             ))}
 
-          {/* Money moved into an investment account (outgoing rows only) */}
-          {onSplitDone &&
-            transaction.transactionType === 'expense' &&
-            !transaction.reimbursementOfId &&
-            (isInvestmentPair ? (
-              <ActionRow
-                label={t.investment.unlink.value}
-                onClick={() => contribution.unlink(transaction.id)}
-                disabled={contribution.saving}
-              />
-            ) : (
-              !transaction.transferPairId && (
-                <ActionRow
-                  label={t.investment.link.value}
-                  hint={t.sheet.contributionHint}
-                  onClick={() => {
-                    void contribution.loadAccounts();
-                  }}
-                  disabled={
-                    contribution.saving || contribution.loading || Boolean(transaction.splitGroupId)
-                  }
-                />
-              )
-            ))}
+          {/* Money moved into or out of an investment account, or what it paid */}
+          {onSplitDone && (
+            <InvestmentLinkActions transaction={transaction} contribution={contribution} />
+          )}
 
           {/* Transfer between own accounts */}
           {onSplitDone &&
             !isReimbursementPair &&
             !isInvestmentPair &&
+            !isInvestmentIncome &&
             !transaction.reimbursementOfId &&
             (transaction.transferPairId ? (
               <ActionRow
@@ -362,35 +358,7 @@ export function TransactionDetailsTab({
         </div>
       </div>
 
-      {contribution.accounts && (
-        <div className="seneca-tx-detail__section" data-testid="contribution-accounts">
-          <div className="seneca-tx-detail__label">{t.investment.pick.value}</div>
-          {contribution.accounts.length === 0 ? (
-            <div className="seneca-tx-detail__label">{t.investment.none.value}</div>
-          ) : (
-            <div className="seneca-tx-detail__actions">
-              {contribution.accounts.map(account => (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => contribution.link(transaction.id, account.id)}
-                  disabled={contribution.saving}
-                  className="seneca-tx-detail__ignore-btn"
-                >
-                  {account.name}
-                </button>
-              ))}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={contribution.clearAccounts}
-            className="seneca-tx-detail__ignore-btn"
-          >
-            {t.transfer.cancel.value}
-          </button>
-        </div>
-      )}
+      <InvestmentAccountPicker transaction={transaction} contribution={contribution} />
 
       {transferCandidates && (
         <div className="seneca-tx-detail__section" data-testid="transfer-candidates">

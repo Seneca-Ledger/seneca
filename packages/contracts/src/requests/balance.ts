@@ -1,5 +1,6 @@
 import * as Schema from 'effect/Schema';
 import {
+  DateOnlyInput,
   IsoDateString,
   isAtMostTwoDecimals,
   NumericInput,
@@ -34,3 +35,7 @@ export type UpdateAccountClassificationBody = Wire<typeof UpdateAccountClassific
 
 export const BalanceAccountParams = Schema.Struct({ id: Uuid });
 export type BalanceAccountParams = Wire<typeof BalanceAccountParams>;
+
+/** `DELETE /reports/balance/accounts/:id/history/:date`. */
+export const BalanceHistoryPointParams = Schema.Struct({ id: Uuid, date: DateOnlyInput });
+export type BalanceHistoryPointParams = Wire<typeof BalanceHistoryPointParams>;

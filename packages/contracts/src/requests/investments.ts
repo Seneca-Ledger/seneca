@@ -28,6 +28,11 @@ export type UpsertHoldingBody = Wire<typeof UpsertHoldingBody>;
 export const LinkContributionBody = Schema.Struct({
   transactionId: Schema.String.check(Schema.isUUID()),
   accountId: Schema.String.check(Schema.isUUID()),
+  /**
+   * What the row is to the account. An expense can only be a contribution; an
+   * income row has to say whether it is money taken back out or a dividend.
+   */
+  role: optionalNullable(Schema.Literals(['contribution', 'withdrawal', 'income'])),
 });
 export type LinkContributionBody = Wire<typeof LinkContributionBody>;
 
@@ -114,3 +119,9 @@ export const MetalReceiptOptionsQuery = Schema.Struct({
   limit: Schema.optional(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
 });
 export type MetalReceiptOptionsQuery = Wire<typeof MetalReceiptOptionsQuery>;
+
+/** `GET /investments/returns`: the window, default a year. */
+export const InvestmentReturnsQuery = Schema.Struct({
+  range: Schema.optional(Schema.Literals(['30d', 'ytd', '1y', '3y', '5y', 'all'])),
+});
+export type InvestmentReturnsQuery = Wire<typeof InvestmentReturnsQuery>;

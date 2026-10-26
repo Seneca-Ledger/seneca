@@ -51,16 +51,6 @@ export type CashFlowQuery = Wire<typeof CashFlowQuery>;
 export const CashFlowEntriesQuery = Schema.Struct({ month: Month });
 export type CashFlowEntriesQuery = Wire<typeof CashFlowEntriesQuery>;
 
-/** `GET /reports/net-worth`. */
-export const NetWorthQuery = Schema.Struct({
-  range: Schema.optional(Schema.Literals(['30d', '90d', '180d', 'ytd', '1y', '3y', '5y', 'all'])),
-  /** Measure the same net worth in troy ounces of this metal as well. */
-  denominate: Schema.optional(Schema.Literals(['XAU', 'XAG', 'XPT', 'XPD'])),
-  /** `YYYY-MM-DD`: the window ends on this day instead of today (a later day reads as today). */
-  to: Schema.optional(IsoDateString),
-});
-export type NetWorthQuery = Wire<typeof NetWorthQuery>;
-
 /** `GET /forecast`. */
 export const ForecastQuery = Schema.Struct({
   days: Schema.optional(

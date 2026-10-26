@@ -21,8 +21,18 @@ export const LazyNetWorthArea = dynamic(
   { ssr: false, loading: ChartSkeleton },
 );
 
+export const LazyNetWorthBreakdown = dynamic(
+  () => import('./NetWorthBreakdown').then(module => module.NetWorthBreakdown),
+  { ssr: false, loading: ChartSkeleton },
+);
+
 export const LazyCategoryDonut = dynamic(
   () => import('./CategoryDonut').then(module => module.CategoryDonut),
+  { ssr: false, loading: ChartSkeleton },
+);
+
+export const LazyReturnsArea = dynamic(
+  () => import('./ReturnsArea').then(module => module.ReturnsArea),
   { ssr: false, loading: ChartSkeleton },
 );
 

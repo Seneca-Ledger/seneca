@@ -34,6 +34,9 @@ import {
   AvailableCustomTables,
   BackupConfiguration,
   BackupRunList,
+  BalanceAccountHistory,
+  BalanceHistoryImported,
+  BalanceHistoryPointDeleted,
   BalanceSheetResponse,
   BankSyncStatus,
   BudgetImpact,
@@ -142,6 +145,7 @@ import {
   ReconciliationResponse,
   RecoveryCodes,
   RefreshedFromSource,
+  ReturnsResponse,
   RegisterResponse,
   ReportHistoryList,
   ReportPreview,
@@ -521,6 +525,34 @@ describe('API contracts (e2e)', () => {
       const res = await get('/reports/balance/sheet');
       matches(BalanceSheetResponse, res.body);
       expect(res.body.assets.sections.length).toBeGreaterThan(0);
+    });
+
+    it('GET /investments/returns', async () => {
+      const res = await get('/investments/returns?range=1y');
+      matches(ReturnsResponse, res.body);
+      expect(res.body.sources.length).toBeGreaterThan(0);
+    });
+
+    it('GET, POST and DELETE /reports/balance/accounts/:id/history', async () => {
+      const [account] = (await get('/investments')).body;
+      const url = `/reports/balance/accounts/${account.id}/history`;
+      const imported = await request(app.getHttpServer())
+        .post(url)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .attach('file', Buffer.from('date,amount\n2025-06-01,250\n'), 'history.csv')
+        .expect(201);
+      matches(BalanceHistoryImported, imported.body);
+      const history = await get(url);
+      matches(BalanceAccountHistory, history.body);
+      expect(history.body.length).toBeGreaterThan(1);
+      const deleted = await request(app.getHttpServer())
+        .delete(`${url}/2025-06-01`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .expect(200);
+      matches(BalanceHistoryPointDeleted, deleted.body);
+      expect(deleted.body.deleted).toBe(true);
     });
 
     it('GET /crypto/*', async () => {

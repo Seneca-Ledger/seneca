@@ -1,0 +1,84 @@
+import * as Schema from 'effect/Schema';
+import { DateOnly, type Wire } from '../common/wire';
+
+export const ReturnsRange = Schema.Literals(['30d', 'ytd', '1y', '3y', '5y', 'all']);
+export type ReturnsRange = Wire<typeof ReturnsRange>;
+
+export const ReturnsFlagCode = Schema.Literals([
+  'stale_price',
+  'manual_price',
+  'missing_fx',
+  'metal_cost_missing',
+  'opening_value_unknown',
+  'no_contributions',
+  'crypto_not_in_return',
+  'crypto_basis_incomplete',
+  'crypto_unpriced',
+  'xirr_no_solution',
+]);
+export type ReturnsFlagCode = Wire<typeof ReturnsFlagCode>;
+
+export const ReturnsFlag = Schema.Struct({
+  code: ReturnsFlagCode,
+  sourceId: Schema.optional(Schema.String),
+  /** A holding name, a lot name or a currency code: what the user has to fix. */
+  detail: Schema.optional(Schema.String),
+});
+export type ReturnsFlag = Wire<typeof ReturnsFlag>;
+
+export const ReturnsSource = Schema.Struct({
+  kind: Schema.Literals(['account', 'metals', 'crypto']),
+  id: Schema.String,
+  name: Schema.String,
+  /** Period rows cover the window; crypto's covers its whole history. */
+  scope: Schema.Literals(['period', 'all_time']),
+  startValue: Schema.Number,
+  endValue: Schema.Number,
+  contributions: Schema.Number,
+  withdrawals: Schema.Number,
+  income: Schema.Number,
+  gain: Schema.Number,
+  returnPercent: Schema.NullOr(Schema.Number),
+  includedInReturn: Schema.Boolean,
+  flags: Schema.Array(ReturnsFlagCode),
+});
+export type ReturnsSource = Wire<typeof ReturnsSource>;
+
+export const ReturnsPoint = Schema.Struct({
+  date: DateOnly,
+  value: Schema.Number,
+  /** Money put in less money taken out, all time, up to this day. */
+  netContributed: Schema.Number,
+});
+export type ReturnsPoint = Wire<typeof ReturnsPoint>;
+
+export const ReturnsSummary = Schema.Struct({
+  startValue: Schema.Number,
+  endValue: Schema.Number,
+  contributions: Schema.Number,
+  withdrawals: Schema.Number,
+  income: Schema.Number,
+  gain: Schema.Number,
+  /** Net money in over the whole history of the sources in the return. */
+  netInvested: Schema.Number,
+  returnPercent: Schema.NullOr(Schema.Number),
+  method: Schema.Literal('modified_dietz'),
+  /** Only for a window of a year or more: a shorter one would be extrapolated. */
+  annualizedPercent: Schema.NullOr(Schema.Number),
+  annualizedMethod: Schema.NullOr(Schema.Literal('xirr')),
+});
+export type ReturnsSummary = Wire<typeof ReturnsSummary>;
+
+/** `GET /investments/returns`: what the investments made over a window. */
+export const ReturnsResponse = Schema.Struct({
+  range: ReturnsRange,
+  from: DateOnly,
+  to: DateOnly,
+  days: Schema.Number,
+  currency: Schema.String,
+  summary: ReturnsSummary,
+  series: Schema.Array(ReturnsPoint),
+  sources: Schema.Array(ReturnsSource),
+  flags: Schema.Array(ReturnsFlag),
+});
+export type ReturnsResponse = Wire<typeof ReturnsResponse>;

@@ -69,6 +69,7 @@ export function mapApiRecordToTransaction(tx: TransactionApiRecord): Transaction
     transferPairId: tx.transferPairId,
     transferPairSource: tx.transferPairSource,
     transferPairKind: tx.transferPairKind,
+    investmentAccountId: tx.investmentAccountId ?? null,
     reimbursementOfId: tx.reimbursementOfId,
     reimbursementOf: tx.reimbursementOf,
     isVerified: tx.isVerified,

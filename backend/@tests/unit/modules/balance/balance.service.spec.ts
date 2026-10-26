@@ -1,7 +1,10 @@
 import * as XLSX from 'xlsx';
 import { BalanceAccountSubType, BalanceAccountType, type BalanceSnapshot } from '@/entities';
-import { DEFAULT_BALANCE_ACCOUNTS } from '@/modules/balance/balance-default-accounts';
 import { BalanceService } from '@/modules/balance/balance.service';
+import { DEFAULT_BALANCE_ACCOUNTS } from '@/modules/balance/balance-default-accounts';
+import { BalanceHistoryService } from '@/modules/balance/balance-history.service';
+import { PERSONAL_BALANCE_ACCOUNTS } from '@/modules/balance/balance-personal-accounts';
+import { BalancePersonalLayoutService } from '@/modules/balance/balance-personal-layout.service';
 import { BadRequestException } from '@nestjs/common';
 
 /** A chainable query builder that answers `getRawMany` with `rows`. */
@@ -33,6 +36,9 @@ function createRepoMock() {
     findOne: vi.fn(),
     create: vi.fn((input: unknown) => input),
     save: vi.fn(async (input: unknown) => input),
+    remove: vi.fn(async (input: unknown) => input),
+    update: vi.fn(async () => ({ affected: 1 })),
+    delete: vi.fn(async () => ({ affected: 1 })),
     createQueryBuilder: vi.fn(),
   };
   const manager = {
@@ -46,6 +52,8 @@ function createRepoMock() {
 
 describe('BalanceService', () => {
   let service: BalanceService;
+  let layout: BalancePersonalLayoutService;
+  let history: BalanceHistoryService;
   const balanceAccountRepository = createRepoMock();
   const balanceSnapshotRepository = createRepoMock();
   const walletRepository = createRepoMock();
@@ -72,6 +80,18 @@ describe('BalanceService', () => {
       auditService,
       exchangeRatesService,
     );
+    layout = new BalancePersonalLayoutService(
+      balanceAccountRepository,
+      workspaceRepository,
+      service,
+      auditService,
+    );
+    history = new BalanceHistoryService(
+      balanceAccountRepository,
+      balanceSnapshotRepository,
+      workspaceRepository,
+      auditService,
+    );
   });
 
   it('seeds default accounts when workspace has none', async () => {
@@ -86,6 +106,34 @@ describe('BalanceService', () => {
     expect(balanceAccountRepository.save).toHaveBeenCalledTimes(DEFAULT_BALANCE_ACCOUNTS.length);
     const savedCodes = balanceAccountRepository.save.mock.calls.map((call: any[]) => call[0].code);
     expect(savedCodes).toEqual(DEFAULT_BALANCE_ACCOUNTS.map(account => account.code));
+  });
+
+  it('seeds the household chart for a home workspace', async () => {
+    balanceAccountRepository.count.mockResolvedValue(0);
+    workspaceRepository.findOne.mockResolvedValue({
+      currency: 'KZT',
+      settings: { profile: 'home' },
+    });
+    balanceAccountRepository.save.mockImplementation(async (input: any) => ({
+      ...input,
+      id: `acc-${input.code}`,
+    }));
+
+    await service.seedDefaultAccounts('ws-1');
+
+    const savedCodes = balanceAccountRepository.save.mock.calls.map((call: any[]) => call[0].code);
+    expect(savedCodes).toEqual(PERSONAL_BALANCE_ACCOUNTS.map(account => account.code));
+    // No Roman numerals and no "non-current assets" in a household's own sheet.
+    expect(savedCodes).not.toContain('ASSET_NON_CURRENT');
+  });
+
+  it('keeps the two codes the rest of the app looks accounts up by', () => {
+    const codes = PERSONAL_BALANCE_ACCOUNTS.map(account => account.code);
+
+    // Cash is computed from the wallets by code; investment accounts are
+    // created under the investments section by code.
+    expect(codes).toContain('ASSET_CASH');
+    expect(codes).toContain('ASSET_INVESTMENTS');
   });
 
   it('treats a concurrent-seed unique violation as success, not an error', async () => {
@@ -347,7 +395,9 @@ describe('BalanceService', () => {
         { date: '2026-01-10', currency: 'KZT', credit: '50', debit: '20' },
         { date: '2026-02-10', currency: 'USD', credit: '0', debit: '2' },
       ]);
-      transactionRepository.createQueryBuilder.mockReturnValue(builder);
+      transactionRepository.createQueryBuilder
+        .mockReturnValueOnce(builder)
+        .mockReturnValue(queryBuilderReturning([]));
 
       const series = await service.getCashSeries('ws-1', ['2026-01-31', '2026-02-28']);
 
@@ -358,6 +408,64 @@ describe('BalanceService', () => {
       );
       // Unconfirmed rows wait in Review and move no balance.
       expect(builder.andWhere).toHaveBeenCalledWith('transaction.isVerified = true');
+    });
+
+    it('holds a transfer whose legs post on different days at one date', async () => {
+      walletRepository.find.mockResolvedValue([
+        { id: 'w-a', initialBalance: '1000', currency: 'KZT' },
+        { id: 'w-b', initialBalance: '0', currency: 'KZT' },
+      ]);
+      // The money leaves on the 10th and lands on the 12th: two days in which
+      // the old walk showed it as simply gone.
+      transactionRepository.createQueryBuilder
+        .mockReturnValueOnce(
+          queryBuilderReturning([
+            { date: '2026-01-10', currency: 'KZT', credit: '0', debit: '300' },
+            { date: '2026-01-12', currency: 'KZT', credit: '300', debit: '0' },
+          ]),
+        )
+        .mockReturnValueOnce(
+          queryBuilderReturning([
+            { pairId: 'p-1', date: '2026-01-10', currency: 'KZT', credit: '0', debit: '300' },
+            { pairId: 'p-1', date: '2026-01-12', currency: 'KZT', credit: '300', debit: '0' },
+          ]),
+        );
+
+      const series = await service.getCashSeries('ws-1', [
+        '2026-01-09',
+        '2026-01-10',
+        '2026-01-11',
+        '2026-01-12',
+        '2026-01-13',
+      ]);
+
+      expect([...series.values()].map(amounts => amounts.get('KZT'))).toEqual([
+        1000, 1000, 1000, 1000, 1000,
+      ]);
+    });
+
+    it('leaves a reimbursement alone: the money really was out for those days', async () => {
+      walletRepository.find.mockResolvedValue([
+        { id: 'w-a', initialBalance: '1000', currency: 'KZT' },
+      ]);
+      const legs = queryBuilderReturning([]);
+      transactionRepository.createQueryBuilder
+        .mockReturnValueOnce(
+          queryBuilderReturning([
+            { date: '2026-01-10', currency: 'KZT', credit: '0', debit: '300' },
+            { date: '2026-01-12', currency: 'KZT', credit: '300', debit: '0' },
+          ]),
+        )
+        .mockReturnValueOnce(legs);
+
+      const series = await service.getCashSeries('ws-1', ['2026-01-11', '2026-01-12']);
+
+      expect(series.get('2026-01-11')).toEqual(new Map([['KZT', 700]]));
+      expect(series.get('2026-01-12')).toEqual(new Map([['KZT', 1000]]));
+      // Only transfers are one event; the query must say so.
+      expect(legs.andWhere).toHaveBeenCalledWith(expect.stringContaining('transferPairKind'), {
+        kind: 'transfer',
+      });
     });
 
     it('sums the latest live statement of each bank account', async () => {
@@ -374,6 +482,209 @@ describe('BalanceService', () => {
       expect(series.get('2026-02-01')).toEqual(new Map([['EUR', 100], ['KZT', 7000]]));
       expect(series.get('2026-03-01')).toEqual(new Map([['EUR', 150], ['KZT', 7000]]));
       expect(builder.andWhere).toHaveBeenCalledWith('statement.deletedAt IS NULL');
+    });
+  });
+
+  describe('applyPersonalLayout', () => {
+    const accounting = [
+      { id: 'a-nc', code: 'ASSET_NON_CURRENT', parentId: null, workspaceId: 'ws-1' },
+      { id: 'a-fixed', code: 'ASSET_FIXED', parentId: 'a-nc', workspaceId: 'ws-1' },
+      { id: 'a-cash', code: 'ASSET_CASH', parentId: null, workspaceId: 'ws-1' },
+      { id: 'l-borrowed', code: 'LIABILITY_BORROWED', parentId: null, workspaceId: 'ws-1' },
+      { id: 'l-car', code: 'CUSTOM_CAR_LOAN', parentId: 'l-borrowed', workspaceId: 'ws-1' },
+    ];
+
+    beforeEach(() => {
+      workspaceRepository.findOne.mockResolvedValue({
+        currency: 'KZT',
+        settings: { profile: 'home' },
+      });
+      // Non-zero: the workspace is already seeded with the accounting chart.
+      balanceAccountRepository.count.mockResolvedValue(accounting.length);
+      balanceAccountRepository.find.mockResolvedValue(accounting);
+      balanceAccountRepository.save.mockImplementation(async (input: any) => ({
+        ...input,
+        id: `acc-${input.code}`,
+      }));
+    });
+
+    it('refuses to lay a business workspace out as a household', async () => {
+      workspaceRepository.findOne.mockResolvedValue({ currency: 'KZT', settings: {} });
+
+      await expect(layout.applyPersonalLayout('user-1', 'ws-1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(balanceAccountRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('moves an accounting line under a household section instead of deleting it', async () => {
+      await layout.applyPersonalLayout('user-1', 'ws-1');
+
+      // Fixed assets keep their name, their history and their value; only the
+      // heading above them changes.
+      expect(balanceAccountRepository.update).toHaveBeenCalledWith(
+        { id: 'a-fixed', workspaceId: 'ws-1' },
+        expect.objectContaining({ parentId: 'acc-ASSET_OTHER' }),
+      );
+      // A debt under "borrowed capital" becomes a debt under "loans".
+      expect(balanceAccountRepository.update).toHaveBeenCalledWith(
+        { id: 'l-car', workspaceId: 'ws-1' },
+        { parentId: 'acc-LIABILITY_LOANS' },
+      );
+    });
+
+    it('adds only the household sections the workspace does not already have', async () => {
+      await layout.applyPersonalLayout('user-1', 'ws-1');
+
+      const created = balanceAccountRepository.save.mock.calls.map((call: any[]) => call[0].code);
+      expect(created).not.toContain('ASSET_CASH');
+      expect(created).toEqual(expect.arrayContaining(['ASSET_REAL_ESTATE', 'LIABILITY_MORTGAGE']));
+    });
+
+    it('clears away an accounting heading once nothing hangs under it', async () => {
+      balanceAccountRepository.count.mockImplementation(async ({ where }: any) =>
+        where.parentId ? 0 : accounting.length,
+      );
+
+      await layout.applyPersonalLayout('user-1', 'ws-1');
+
+      expect(balanceAccountRepository.delete).toHaveBeenCalledWith({
+        id: 'a-nc',
+        workspaceId: 'ws-1',
+      });
+    });
+
+    it('keeps an accounting heading that still has something under it', async () => {
+      balanceAccountRepository.count.mockImplementation(async ({ where }: any) =>
+        where.parentId ? 1 : accounting.length,
+      );
+
+      await layout.applyPersonalLayout('user-1', 'ws-1');
+
+      expect(balanceAccountRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('takes the accounting wording off the lines both charts share', async () => {
+      balanceAccountRepository.find.mockResolvedValue([
+        { id: 'a-cash', code: 'ASSET_CASH', name: 'III. Деньги', nameEn: 'III. Cash', nameKk: null, parentId: null, position: 2, workspaceId: 'ws-1' },
+      ]);
+
+      await layout.applyPersonalLayout('user-1', 'ws-1');
+
+      expect(balanceAccountRepository.update).toHaveBeenCalledWith(
+        { id: 'a-cash', workspaceId: 'ws-1' },
+        expect.objectContaining({ name: 'Деньги', nameEn: 'Cash', position: 0 }),
+      );
+    });
+
+    it('changes nothing the second time it is run', async () => {
+      balanceAccountRepository.find.mockResolvedValue(
+        PERSONAL_BALANCE_ACCOUNTS.map(definition => ({
+          id: `acc-${definition.code}`,
+          code: definition.code,
+          name: definition.name,
+          nameEn: definition.nameEn,
+          nameKk: definition.nameKk,
+          position: definition.position,
+          parentId: definition.parentCode ? `acc-${definition.parentCode}` : null,
+          workspaceId: 'ws-1',
+        })),
+      );
+
+      const result = await layout.applyPersonalLayout('user-1', 'ws-1');
+
+      expect(result).toEqual({ moved: 0 });
+      expect(balanceAccountRepository.save).not.toHaveBeenCalled();
+      expect(balanceAccountRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('account history', () => {
+    const editableAccount = { id: 'acc-1', code: 'ASSET_FIXED', workspaceId: 'ws-1', isEditable: true };
+
+    it('lists every value entered for the account, oldest first', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(editableAccount);
+      balanceSnapshotRepository.find.mockResolvedValue([
+        { snapshotDate: '2026-01-10', amount: '1000.00', currency: 'KZT' },
+        { snapshotDate: '2026-02-10', amount: '1250.50', currency: 'KZT' },
+      ]);
+
+      const points = await history.getAccountHistory('ws-1', 'acc-1');
+
+      expect(points).toEqual([
+        { date: '2026-01-10', amount: 1000, currency: 'KZT' },
+        { date: '2026-02-10', amount: 1250.5, currency: 'KZT' },
+      ]);
+      expect(balanceSnapshotRepository.find).toHaveBeenCalledWith({
+        where: { workspaceId: 'ws-1', accountId: 'acc-1' },
+        order: { snapshotDate: 'ASC' },
+      });
+    });
+
+    it('does not show the history of an account in another workspace', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(null);
+
+      await expect(history.getAccountHistory('ws-1', 'acc-of-ws-2')).rejects.toThrow(
+        'Balance account not found',
+      );
+      expect(balanceSnapshotRepository.find).not.toHaveBeenCalled();
+    });
+
+    it('takes a wrong day out and writes it to the audit', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(editableAccount);
+      const snapshot = { id: 's-1', snapshotDate: '2026-01-10', amount: '0.00', currency: 'KZT' };
+      balanceSnapshotRepository.findOne.mockResolvedValue(snapshot);
+
+      const result = await history.deleteSnapshot('user-1', 'ws-1', 'acc-1', '2026-01-10');
+
+      expect(result).toEqual({ deleted: true });
+      expect(balanceSnapshotRepository.remove).toHaveBeenCalledWith(snapshot);
+      expect(auditService.createEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'delete',
+          meta: expect.objectContaining({ kind: 'balance_snapshot', snapshotDate: '2026-01-10' }),
+        }),
+      );
+    });
+
+    it('treats deleting a day that holds nothing as already done', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(editableAccount);
+      balanceSnapshotRepository.findOne.mockResolvedValue(null);
+
+      const result = await history.deleteSnapshot('user-1', 'ws-1', 'acc-1', '2026-01-10');
+
+      expect(result).toEqual({ deleted: false });
+      expect(balanceSnapshotRepository.remove).not.toHaveBeenCalled();
+      expect(auditService.createEvent).not.toHaveBeenCalled();
+    });
+
+    it('imports a history and lets the last row win a repeated day', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue(editableAccount);
+      balanceSnapshotRepository.findOne.mockResolvedValue(null);
+
+      const result = await history.importAccountHistory('user-1', 'ws-1', 'acc-1', [
+        { date: '2026-01-10', amount: 1000 },
+        { date: '2026-02-10', amount: 1250.5, currency: 'EUR' },
+        { date: '2026-01-10', amount: 1100 },
+      ]);
+
+      expect(result).toEqual({ imported: 2 });
+      const saved = balanceSnapshotRepository.save.mock.calls.map((call: any[]) => call[0]);
+      expect(saved).toEqual([
+        expect.objectContaining({ snapshotDate: '2026-01-10', amount: 1100, currency: 'KZT' }),
+        expect.objectContaining({ snapshotDate: '2026-02-10', amount: 1250.5, currency: 'EUR' }),
+      ]);
+    });
+
+    it('refuses to import onto a line the sheet computes for itself', async () => {
+      balanceAccountRepository.findOne.mockResolvedValue({ ...editableAccount, isEditable: false });
+
+      await expect(
+        history.importAccountHistory('user-1', 'ws-1', 'acc-1', [
+          { date: '2026-01-10', amount: 1000 },
+        ]),
+      ).rejects.toThrow(BadRequestException);
+      expect(balanceSnapshotRepository.save).not.toHaveBeenCalled();
     });
   });
 

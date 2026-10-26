@@ -10,6 +10,8 @@ import { describeHttpFailure, getJson } from '../../common/effect/http-json';
 import { ExchangeRate } from '../../entities/exchange-rate.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { WorkspaceExchangeRate } from '../../entities/workspace-exchange-rate.entity';
+import { type CurrencyCoverage, currencyCoverage } from './exchange-rate-coverage';
+import { collectRateQuotes, foldRateCurve, type RatePoint } from './exchange-rate-curve';
 import { LatestRatesResponse, PublicRatesResponse } from './exchange-rates.http';
 
 /**
@@ -168,6 +170,46 @@ export class ExchangeRatesService {
       return null;
     }
     return quote;
+  }
+
+  /**
+   * The rates that apply to `from`→`to` across `fromDate`..`toDate`, ascending,
+   * with the last quote before the window carried in as its opening value.
+   *
+   * A report that needs a rate for every day of a multi-year window cannot
+   * afford `getRateQuote` per day — that is a cache read, two table reads and
+   * possibly a network call each. This is two reads per source instead, and
+   * the caller forward-fills between the points. The quote for `toDate` still
+   * goes through `getRateQuote`, so today's figure stays as fresh as it is on
+   * the single-day path.
+   */
+  async getRateCurve(
+    from: string,
+    to: string,
+    fromDate: string,
+    toDate: string,
+    workspaceId?: string,
+  ): Promise<RatePoint[]> {
+    const normalizedFrom = this.normalizeCurrencyCode(from);
+    const normalizedTo = this.normalizeCurrencyCode(to);
+    if (normalizedFrom === normalizedTo) {
+      return [{ date: fromDate, rate: 1 }];
+    }
+
+    const manual =
+      workspaceId && (await this.hasManualRates(workspaceId))
+        ? { repository: this.workspaceRateRepository, workspaceId }
+        : undefined;
+    const quotes = await collectRateQuotes(
+      this.exchangeRateRepository,
+      manual,
+      normalizedFrom,
+      normalizedTo,
+      toDate,
+    );
+    // The last day may only exist behind the network or the cache.
+    const fresh = await this.getRateQuote(normalizedFrom, normalizedTo, toDate, { workspaceId });
+    return foldRateCurve(quotes, fromDate, toDate, fresh?.rate ?? null);
   }
 
   private async lookupStoredRate(
@@ -470,44 +512,14 @@ export class ExchangeRatesService {
     workspaceId: string,
     workspaceCurrency: string,
     sinceDays = 365,
-  ): Promise<
-    Array<{
-      currency: string;
-      rate: number | null;
-      rateDate: string | null;
-      stale: boolean;
-      rows: number;
-    }>
-  > {
+  ): Promise<CurrencyCoverage[]> {
     if (!this.transactionRepository) return [];
-    const since = new Date();
-    since.setDate(since.getDate() - sinceDays);
-    const rows = await this.transactionRepository
-      .createQueryBuilder('t')
-      .select('UPPER(t.currency)', 'currency')
-      .addSelect('COUNT(*)', 'rows')
-      .where('t.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('t.transactionDate >= :since', { since })
-      .andWhere('t.currency IS NOT NULL')
-      .groupBy('UPPER(t.currency)')
-      .getRawMany<{ currency: string; rows: string }>();
-    const target = this.normalizeCurrencyCode(workspaceCurrency);
-    const result = [];
-    for (const row of rows) {
-      const currency = this.normalizeCurrencyCode(row.currency);
-      if (currency === target) continue;
-      const quote = await this.getRateQuote(currency, target, new Date(), { workspaceId });
-      result.push({
-        currency,
-        rate: quote?.rate ?? null,
-        rateDate: quote?.rateDate ?? null,
-        stale: quote?.stale ?? false,
-        rows: Number(row.rows),
-      });
-    }
-    return result.sort(
-      (a, b) => Number(a.rate !== null) - Number(b.rate !== null) || b.rows - a.rows,
-    );
+    return currencyCoverage(this.transactionRepository, this, {
+      workspaceId,
+      target: this.normalizeCurrencyCode(workspaceCurrency),
+      sinceDays,
+      normalize: code => this.normalizeCurrencyCode(code),
+    });
   }
 
   async convert(

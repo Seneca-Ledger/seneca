@@ -136,4 +136,8 @@ export const DOCUMENTS_ERRORS = {
   BALANCE_SECTION_NO_CUSTOM_ACCOUNTS: 'This balance section does not accept custom accounts',
   BALANCE_SYSTEM_ACCOUNT_LOCKED: 'System accounts cannot be deleted',
   BALANCE_LINE_AUTO_CALCULATED: 'This balance line is auto-calculated and cannot be edited',
+  BALANCE_PERSONAL_LAYOUT_HOME_ONLY: 'The personal layout is for a home workspace',
+  BALANCE_HISTORY_EMPTY: 'No dated amounts were found in the file',
+  BALANCE_HISTORY_COLUMNS_MISSING:
+    'The file needs a date column and an amount column (date, amount)',
 } as const;

@@ -56,6 +56,47 @@ export class CurrencyConverter {
     return new CurrencyConverter(target, rates);
   }
 
+  /**
+   * The same map, but filled from one rate curve per currency instead of one
+   * lookup per day. `dates` must be ascending; use this for a long daily
+   * series, where `load` would make thousands of round trips, and `load` for
+   * the handful of days a single report date needs.
+   */
+  static async loadRange(
+    exchangeRates: ExchangeRatesService,
+    target: string,
+    currencies: string[],
+    dates: string[],
+    workspaceId: string,
+  ): Promise<CurrencyConverter> {
+    const rates = new Map<string, number | null>();
+    if (dates.length === 0) {
+      return new CurrencyConverter(target, rates);
+    }
+
+    const from = dates[0];
+    const to = dates[dates.length - 1];
+    for (const currency of new Set(currencies)) {
+      if (currency === target) {
+        continue;
+      }
+      const curve = /^[A-Z]{3}$/.test(currency)
+        ? await exchangeRates.getRateCurve(currency, target, from, to, workspaceId)
+        : [];
+      // One walk down both ascending lists: each day takes the latest quote
+      // on or before it, which is the forward fill `getRateQuote` does too.
+      let index = -1;
+      for (const date of dates) {
+        while (index + 1 < curve.length && curve[index + 1].date <= date) {
+          index += 1;
+        }
+        rates.set(rateKey(currency, date), index >= 0 ? curve[index].rate : null);
+      }
+    }
+
+    return new CurrencyConverter(target, rates);
+  }
+
   /** `amount` in the target currency; 0 when no rate was found. */
   convert(amount: number, currency: string, date: string): number {
     if (currency === this.target || amount === 0) {
