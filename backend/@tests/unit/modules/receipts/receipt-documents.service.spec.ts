@@ -8,6 +8,7 @@ describe('ReceiptDocumentsService', () => {
     where: vi.fn(),
     andWhere: vi.fn(),
     leftJoin: vi.fn(),
+    leftJoinAndSelect: vi.fn(),
     orderBy: vi.fn(),
     take: vi.fn(),
     skip: vi.fn(),
@@ -23,7 +24,15 @@ describe('ReceiptDocumentsService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    for (const method of ['where', 'andWhere', 'leftJoin', 'orderBy', 'take', 'skip'] as const) {
+    for (const method of [
+      'where',
+      'andWhere',
+      'leftJoin',
+      'leftJoinAndSelect',
+      'orderBy',
+      'take',
+      'skip',
+    ] as const) {
       queryBuilder[method].mockReturnValue(queryBuilder);
     }
     queryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
@@ -86,6 +95,12 @@ describe('ReceiptDocumentsService', () => {
       expect(queryBuilder.andWhere).toHaveBeenCalledWith(
         "NULLIF(TRIM(receipt.parsed_data->>'amount'), '') IS NULL",
       );
+    });
+
+    it('loads the receipt tags with the list', async () => {
+      await service.list(workspaceId, {});
+
+      expect(queryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('receipt.tags', 'tags');
     });
 
     it('resolves the picked category name for listed receipts', async () => {

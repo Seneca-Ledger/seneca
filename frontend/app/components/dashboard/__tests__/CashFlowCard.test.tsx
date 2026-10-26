@@ -34,12 +34,18 @@ vi.mock('@/app/i18n', () => ({
     empty: value('No cash flow data yet'),
     income: value('Income'),
     expense: value('Expense'),
+    budgeted: value('Budgeted'),
     noData: value('No data'),
   }),
   useLocale: () => ({ locale: 'en' }),
 }));
 
-const day = (date: string, income: number, expense: number) => ({ date, income, expense });
+const day = (date: string, income: number, expense: number, budgeted = 0) => ({
+  date,
+  income,
+  expense,
+  budgeted,
+});
 
 describe('CashFlowCard', () => {
   beforeEach(() => {
@@ -49,9 +55,9 @@ describe('CashFlowCard', () => {
   });
 
   it("hands the chart the month's named rows grouped by day", () => {
-    const coffee = { date: '2026-07-01', name: 'ACME Coffee', kind: 'expense', amount: 4.5 };
-    const salary = { date: '2026-07-01', name: 'Member One', kind: 'income', amount: 900 };
-    const rent = { date: '2026-07-03', name: 'Example Rentals', kind: 'expense', amount: 468 };
+    const coffee = { date: '2026-07-01', name: 'ACME Coffee', kind: 'expense', amount: 4.5, budgeted: 0 };
+    const salary = { date: '2026-07-01', name: 'Member One', kind: 'income', amount: 900, budgeted: 0 };
+    const rent = { date: '2026-07-03', name: 'Example Rentals', kind: 'expense', amount: 468, budgeted: 0 };
     entriesMock.mockReturnValue([salary, coffee, rent]);
 
     render(
@@ -80,6 +86,29 @@ describe('CashFlowCard', () => {
     expect(screen.getByText(wholeLine('Expense $568'))).toBeInTheDocument();
     const [props] = chartProps.mock.calls.at(-1) ?? [];
     expect(props?.points).toEqual(days);
+  });
+
+  it("sums the month's budgeted spending in the legend and names it for the chart", () => {
+    const days = [day('2026-10-03', 0, 60, 60), day('2026-10-09', 0, 70, 40), day('2026-10-12', 0, 20)];
+
+    render(<CashFlowCard formatAmount={v => `$${v}`} activeMonth="2026-10" days={days} />);
+
+    expect(screen.getByText(wholeLine('Expense $150'))).toBeInTheDocument();
+    expect(screen.getByText(wholeLine('Budgeted $100'))).toBeInTheDocument();
+    const [props] = chartProps.mock.calls.at(-1) ?? [];
+    expect(props?.labels).toMatchObject({ budgeted: 'Budgeted' });
+  });
+
+  it('leaves Budgeted out of the legend when no budget covered any spending', () => {
+    render(
+      <CashFlowCard
+        formatAmount={v => `$${v}`}
+        activeMonth="2026-10"
+        days={[day('2026-10-03', 0, 60)]}
+      />,
+    );
+
+    expect(screen.queryByText(/Budgeted/)).not.toBeInTheDocument();
   });
 
   it('on a phone charts the days so far as wide bars to swipe through', () => {

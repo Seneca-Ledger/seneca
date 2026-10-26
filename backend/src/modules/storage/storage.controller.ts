@@ -18,16 +18,13 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
-import { deletedResponse } from '../../common/utils/responses.util';
 import { pipeFileStreamResponse } from '../../common/utils/stream-response.util';
 import {
   BulkFileActionBody,
   CreateFileVersionBody,
   CreateFolderBody,
-  CreateTagBody,
   DeleteFolderQuery,
   FileCategoryUpdate,
-  MessageResult,
   MoveFileBody,
   StorageFileDetails,
   StorageFileList,
@@ -35,15 +32,12 @@ import {
   StorageFolder,
   StorageFolderList,
   StorageIdParams,
-  StorageTag,
-  StorageTagList,
   StorageViewBody,
   StorageViewItem,
   StorageViewList,
   UpdateFileCategoryBody,
   UpdateFileTagsBody,
   UpdateFolderBody,
-  UpdateTagBody,
 } from '../../contracts';
 import {
   BulkFileDownloads,
@@ -182,64 +176,6 @@ export class StorageController {
   @SchemaResponse(FileDeleted)
   async deleteFilePermanently(@StorageId() { id }: StorageIdParams, @CurrentUser() user: User) {
     return await this.storageService.deleteFilePermanently(id, user.id);
-  }
-
-  /**
-   * Create tag
-   * POST /api/v1/storage/tags
-   */
-  @Post('tags')
-  @UseGuards(WorkspaceContextGuard)
-  @SchemaResponse(StorageTag)
-  async createTag(
-    @SchemaBody(CreateTagBody) dto: CreateTagBody,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    return await this.storageService.createTag(dto, workspaceId);
-  }
-
-  /**
-   * List tags
-   * GET /api/v1/storage/tags
-   */
-  @Get('tags')
-  @UseGuards(WorkspaceContextGuard)
-  @SchemaResponse(StorageTagList)
-  async listTags(@CurrentUser() _user: User, @WorkspaceId() workspaceId: string) {
-    return await this.storageService.listTags(workspaceId);
-  }
-
-  /**
-   * Update tag
-   * PATCH /api/v1/storage/tags/:id
-   */
-  @Patch('tags/:id')
-  @UseGuards(WorkspaceContextGuard)
-  @SchemaResponse(StorageTag)
-  async updateTag(
-    @StorageId() { id: tagId }: StorageIdParams,
-    @SchemaBody(UpdateTagBody) dto: UpdateTagBody,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    return await this.storageService.updateTag(tagId, dto, workspaceId);
-  }
-
-  /**
-   * Delete tag
-   * DELETE /api/v1/storage/tags/:id
-   */
-  @Delete('tags/:id')
-  @UseGuards(WorkspaceContextGuard)
-  @SchemaResponse(MessageResult)
-  async deleteTag(
-    @StorageId() { id: tagId }: StorageIdParams,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    await this.storageService.deleteTag(tagId, workspaceId);
-    return deletedResponse('Tag');
   }
 
   /**

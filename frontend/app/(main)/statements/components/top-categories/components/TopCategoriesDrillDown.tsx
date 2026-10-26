@@ -36,6 +36,8 @@ type Props = {
     workspace: string;
     amount: string;
   };
+  /** How the row names itself; by default a category in the reader's language. */
+  nameOf?: (name: string) => string;
 };
 
 type HeaderProps = {
@@ -43,6 +45,7 @@ type HeaderProps = {
   sourceLabels: SourceLabels;
   labels: Pick<Props['labels'], 'drillDown' | 'close'>;
   onClose: () => void;
+  name: string;
 };
 
 function DrillDownHeader({
@@ -50,8 +53,8 @@ function DrillDownHeader({
   sourceLabels,
   labels,
   onClose,
+  name,
 }: HeaderProps): React.JSX.Element {
-  const categoryName = useCategoryName();
   return (
     <div
       style={{
@@ -67,7 +70,7 @@ function DrillDownHeader({
           style={{ fontSize: 14, fontWeight: 600, color: selectedRow.color ?? 'var(--foreground)' }}
         >
           {selectedRow.icon ? `${selectedRow.icon} ` : ''}
-          {categoryName(selectedRow.category)} - {labels.drillDown}
+          {name} - {labels.drillDown}
         </h4>
         <p style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
           <AnalyticsSourceBadge
@@ -173,8 +176,10 @@ export function TopCategoriesDrillDown({
   currency,
   sourceLabels,
   labels,
+  nameOf,
 }: Props): React.JSX.Element {
   const categoryName = useCategoryName();
+  const name = (nameOf ?? categoryName)(selectedRow.category);
   // Modal traps focus inside the drill-down, closes on Escape and restores focus on unmount.
   return (
     <Modal open onClose={onClose} hideBackdrop>
@@ -197,7 +202,7 @@ export function TopCategoriesDrillDown({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`${categoryName(selectedRow.category)} - ${labels.drillDown}`}
+          aria-label={`${name} - ${labels.drillDown}`}
           style={{
             maxHeight: '85vh',
             width: '100%',
@@ -209,6 +214,7 @@ export function TopCategoriesDrillDown({
           }}
         >
           <DrillDownHeader
+            name={name}
             selectedRow={selectedRow}
             sourceLabels={sourceLabels}
             labels={labels}

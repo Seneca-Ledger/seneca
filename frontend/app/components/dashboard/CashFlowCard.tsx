@@ -78,6 +78,7 @@ export function CashFlowCard({
   const { locale } = useLocale();
   const income = days.reduce((sum, day) => sum + day.income, 0);
   const expense = days.reduce((sum, day) => sum + day.expense, 0);
+  const budgeted = days.reduce((sum, day) => sum + day.budgeted, 0);
   const hasMoney = days.some(day => day.income !== 0 || day.expense !== 0);
   const isPhone = useIsPhone();
   const entries = useCashFlowEntries(activeMonth);
@@ -121,6 +122,11 @@ export function CashFlowCard({
         <span className="seneca-chart__breakdown-series seneca-chart__breakdown-series--expense">
           {t.expense.value} <PrivateAmount>{formatAmount(expense)}</PrivateAmount>
         </span>
+        {budgeted > 0 && (
+          <span className="seneca-chart__breakdown-series seneca-chart__breakdown-series--budgeted">
+            {t.budgeted.value} <PrivateAmount>{formatAmount(budgeted)}</PrivateAmount>
+          </span>
+        )}
       </div>
       <div className="seneca-chart__box">
         {hasMoney ? (
@@ -135,6 +141,7 @@ export function CashFlowCard({
                 labels={{
                   income: t.income.value,
                   expense: t.expense.value,
+                  budgeted: t.budgeted.value,
                   noData: t.noData.value,
                 }}
                 formatAmount={formatAmount}

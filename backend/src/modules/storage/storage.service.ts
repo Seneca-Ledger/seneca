@@ -22,13 +22,11 @@ import { redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import type {
   CreateFolderBody,
   CreateSharedLinkBody,
-  CreateTagBody,
   GrantPermissionBody,
   StorageViewBody,
   UpdateFolderBody,
   UpdatePermissionBody,
   UpdateSharedLinkBody,
-  UpdateTagBody,
 } from '../../contracts';
 import {
   Category,
@@ -428,54 +426,6 @@ export class StorageService {
     statement.tags = tags;
     const saved = await this.statementRepository.save(statement);
     return { ...saved, tags };
-  }
-
-  async createTag(dto: CreateTagBody, workspaceId: string) {
-    const tag = this.tagRepository.create({
-      name: dto.name,
-      color: dto.color ?? null,
-      workspaceId,
-    });
-    return await this.tagRepository.save(tag);
-  }
-
-  async listTags(workspaceId: string) {
-    return await this.tagRepository.find({
-      where: { workspaceId },
-      order: { name: 'ASC' },
-    });
-  }
-
-  async updateTag(tagId: string, dto: UpdateTagBody, workspaceId: string) {
-    const tag = await this.tagRepository.findOne({
-      where: { id: tagId, workspaceId },
-    });
-    if (!tag) {
-      throw new NotFoundException(appError('STORAGE_TAG_NOT_FOUND'));
-    }
-
-    if (dto.name != null) {
-      tag.name = dto.name.trim();
-    }
-    if (dto.color !== undefined) {
-      tag.color = dto.color ?? null;
-    }
-
-    return await this.tagRepository.save(tag);
-  }
-
-  async deleteTag(tagId: string, workspaceId: string) {
-    const tag = await this.tagRepository.findOne({
-      where: { id: tagId, workspaceId },
-    });
-    if (!tag) {
-      throw new NotFoundException(appError('STORAGE_TAG_NOT_FOUND'));
-    }
-
-    // Remove tag from folders
-    await this.folderRepository.update({ tagId }, { tagId: null, tag: null });
-
-    return await this.tagRepository.remove(tag);
   }
 
   // Folders are the caller's own plus the workspace-wide ones (no owner), matched

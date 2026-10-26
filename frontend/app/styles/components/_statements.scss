@@ -1442,6 +1442,15 @@
     cursor: pointer;
   }
 
+  &__tags {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
   &__muted {
     font-size: 14px;
     color: var(--text-muted);
@@ -1566,6 +1575,32 @@
 
   @media (min-width: 1280px) {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  // Its own stacking context, so the background icon sits under the text.
+  &__card {
+    position: relative;
+    isolation: isolate;
+  }
+
+  // Same as the dashboard tiles: what the figure is, large and faint at the
+  // card's right, centred on its height; sage at 15% in both themes.
+  &__icon {
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    z-index: -1;
+    width: 88px;
+    height: 88px;
+    transform: translateY(-50%);
+    color: var(--cat-tone-1);
+    opacity: 0.15;
+    pointer-events: none;
+
+    * {
+      stroke-width: 1.5px;
+      vector-effect: non-scaling-stroke;
+    }
   }
 
   &__card-content {
@@ -3953,6 +3988,12 @@
       animation: seneca-category-link-pulse 2.4s ease-in-out infinite;
     }
   }
+}
+
+// Tags sit side by side in one cell, so each link hugs its name.
+.seneca-stmt-tag-link {
+  width: auto;
+  flex: 0 1 auto;
 }
 
 @keyframes seneca-category-link-shimmer {

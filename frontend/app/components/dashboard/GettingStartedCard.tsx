@@ -39,7 +39,7 @@ const STEPS: ReadonlyArray<{
   {
     id: 'categories',
     doneWhen: 'hasCustomCategories',
-    href: '/workspaces/categories',
+    href: '/categories',
     emoji: '✨',
   },
   { id: 'budget', doneWhen: 'hasBudget', href: '/budgets', emoji: '💰' },

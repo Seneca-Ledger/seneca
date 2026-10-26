@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Banknote,
   BarChart2,
+  BookmarkOutline,
   BriefcaseBusiness,
   Building2,
   Calculator,
@@ -18,13 +19,11 @@ import {
   LayoutDashboard,
   Lightbulb,
   PiggyBank,
-  Plug,
-  Puzzle,
   ReceiptText,
   Scale,
-  ScrollText,
   Shuffle,
   Table,
+  Tag,
   TrendingUp,
   Wallet,
   Workflow,
@@ -34,6 +33,8 @@ export const MOBILE_MENU_VISIBILITY_EVENT = 'seneca-mobile-menu-visibility';
 
 export type { AppLocale as AppLanguage } from '@/app/lib/locale';
 export { groupNavItems, type NavEntry } from './group-nav-items';
+export { activeNavPath, isNavItemActive } from './nav-active';
+export { buildUserMenuNavItems } from './user-menu-nav-items';
 
 export interface NavItem {
   label: ReactNode;
@@ -48,7 +49,12 @@ export interface NavItem {
   group?: NavGroupId;
 }
 
-export type NavGroupId = 'transactions' | 'analytics' | 'investments' | 'business';
+export type NavGroupId =
+  | 'transactions'
+  | 'classification'
+  | 'analytics'
+  | 'investments'
+  | 'business';
 
 export interface NavGroup {
   id: NavGroupId;
@@ -62,6 +68,11 @@ export function buildNavGroups(labels: Record<NavGroupId, unknown>): NavGroup[] 
       id: 'transactions',
       label: labels.transactions as ReactNode,
       icon: React.createElement(Shuffle, { size: 18 }),
+    },
+    {
+      id: 'classification',
+      label: labels.classification as ReactNode,
+      icon: React.createElement(Tag, { size: 18 }),
     },
     {
       id: 'analytics',
@@ -126,6 +137,8 @@ export function buildNavItems(nav: {
   ledger: unknown;
   invoices: unknown;
   review: unknown;
+  categories: unknown;
+  tags: unknown;
   rules: unknown;
 }): NavItem[] {
   return [
@@ -175,6 +188,20 @@ export function buildNavItems(nav: {
       path: '/review',
       icon: React.createElement(Inbox, { size: 18 }),
       permission: 'transaction.view',
+    },
+    {
+      label: nav.categories as ReactNode,
+      path: '/categories',
+      group: 'classification',
+      icon: React.createElement(BookmarkOutline, { size: 18 }),
+      permission: 'category.view',
+    },
+    {
+      label: nav.tags as ReactNode,
+      path: '/tags',
+      group: 'classification',
+      icon: React.createElement(Tag, { size: 18 }),
+      permission: 'tag.view',
     },
     {
       label: nav.budgets as ReactNode,
@@ -285,51 +312,4 @@ export function buildNavItems(nav: {
       permission: 'workspaces.view',
     },
   ];
-}
-
-export function buildUserMenuNavItems(nav: {
-  activityLog: unknown;
-  integrations: unknown;
-  plugins: unknown;
-}): NavItem[] {
-  return [
-    {
-      label: nav.integrations as ReactNode,
-      path: '/integrations',
-      icon: React.createElement(Plug, { size: 18 }),
-      // Held by the admin and user roles but not by viewer, which is who
-      // these two links have always been shown to.
-      permission: 'telegram.connect',
-    },
-    {
-      label: nav.plugins as ReactNode,
-      path: '/plugins',
-      icon: React.createElement(Puzzle, { size: 18 }),
-      permission: 'telegram.connect',
-    },
-    {
-      label: nav.activityLog as ReactNode,
-      path: '/admin',
-      icon: React.createElement(ScrollText, { size: 18 }),
-      permission: 'audit_log.view',
-    },
-  ];
-}
-
-export function isNavItemActive(pathname: string, itemPath: string): boolean {
-  return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
-}
-
-/**
- * The one item a page belongs to. Items can nest (/statements holds /statements/pay),
- * so the most specific match wins and only one row lights up.
- */
-export function activeNavPath(pathname: string, items: NavItem[]): string | undefined {
-  let best: string | undefined;
-  for (const item of items) {
-    if (isNavItemActive(pathname, item.path) && item.path.length > (best?.length ?? -1)) {
-      best = item.path;
-    }
-  }
-  return best;
 }

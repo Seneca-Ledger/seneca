@@ -15,6 +15,7 @@ export const FLOW_LABEL_PATHS: Record<string, string[]> = {
   flowSubtitle: ['topSpenders', 'flowSubtitle'],
   flowSubtitleMerchants: ['topSpenders', 'flowSubtitleMerchants'],
   flowSubtitleCategories: ['topSpenders', 'flowSubtitleCategories'],
+  flowSubtitleTags: ['topSpenders', 'flowSubtitleTags'],
   flowUncategorised: ['topSpenders', 'flowUncategorised'],
   flowUnknownMerchant: ['topSpenders', 'flowUnknownMerchant'],
   flowNoSubcategory: ['topSpenders', 'flowNoSubcategory'],

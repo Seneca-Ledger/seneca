@@ -1,10 +1,17 @@
 import * as Schema from 'effect/Schema';
 import type { Wire } from '../common/wire';
+import { StorageTag } from '../storage/storage';
 import { ReceiptRecord } from './receipts';
+
+/** A row of the Documents list: the receipt and the tags on it. */
+const ReceiptDocumentRow = Schema.Struct({
+  ...ReceiptRecord.fields,
+  tags: Schema.optional(Schema.Array(StorageTag)),
+});
 
 /** `GET /receipts/documents`: receipts of every source, newest first, for the Documents list. */
 export const ReceiptDocumentsPage = Schema.Struct({
-  receipts: Schema.Array(ReceiptRecord),
+  receipts: Schema.Array(ReceiptDocumentRow),
   total: Schema.Number,
   limit: Schema.Number,
   offset: Schema.Number,

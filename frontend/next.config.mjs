@@ -80,7 +80,7 @@ const securityHeaders = isDev => [
 ];
 
 /**
- * Read by vinext (the Vite build of the App Router): only headers, rewrites and
+ * Read by vinext (the Vite build of the App Router): only headers, redirects, rewrites and
  * the standalone output are used. The phase tells the dev server from the build.
  *
  * @type {(phase: string) => import('next').NextConfig}
@@ -95,6 +95,17 @@ const nextConfig = phase => {
         {
           source: '/:path*',
           headers: securityHeaders(isDev),
+        },
+      ];
+    },
+
+    async redirects() {
+      return [
+        {
+          // Categories moved out of the workspace tabs into a page of their own.
+          source: '/workspaces/categories',
+          destination: '/categories',
+          permanent: true,
         },
       ];
     },

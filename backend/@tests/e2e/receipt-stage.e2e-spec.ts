@@ -159,6 +159,29 @@ describe('Receipt stage and approval (e2e)', () => {
     expect(ids).not.toContain(inApprove);
   });
 
+  it('lists each receipt with its tags', async () => {
+    const tagName = 'Probe Trip';
+    const receiptId = await insertReceipt(owner);
+    const [tag] = await dataSource.query(
+      'INSERT INTO tags (name, user_id, workspace_id) VALUES ($1, $2, $3) RETURNING id',
+      [tagName, owner.userId, owner.workspaceId],
+    );
+    await as(
+      owner,
+      request(server()).put(`/receipts/${receiptId}/tags`).send({ tagIds: [tag.id] }),
+    ).expect(200);
+
+    const list = await as(
+      owner,
+      request(server()).get('/receipts/documents').query({ limit: 100 }),
+    ).expect(200);
+    const listed = (list.body.receipts as Array<{ id: string; tags?: Array<{ name: string }> }>).find(
+      receipt => receipt.id === receiptId,
+    );
+
+    expect(listed?.tags?.map(t => t.name)).toEqual([tagName]);
+  });
+
   it('does not touch receipts of another workspace', async () => {
     const foreign = await insertReceipt(outsider);
 

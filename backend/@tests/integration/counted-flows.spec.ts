@@ -39,6 +39,7 @@ import {
 } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { BalanceService } from '../../src/modules/balance/balance.service';
+import { BudgetWithinLimitService } from '../../src/modules/budgets/budget-within-limit.service';
 import { BudgetsService } from '../../src/modules/budgets/budgets.service';
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
@@ -192,6 +193,7 @@ describe('one rule for income and spending (real Postgres)', () => {
         SpendFlowService,
         ForecastService,
         BudgetsService,
+        BudgetWithinLimitService,
         WorkspaceCurrencyService,
         { provide: ExchangeRatesService, useValue: rates },
         { provide: GoalsService, useValue: { findAll: vi.fn(async () => []) } },
@@ -368,5 +370,20 @@ describe('one rule for income and spending (real Postgres)', () => {
     });
     const [budget] = await budgets.findAll(workspaceId, new Date(DAY));
     expect(budget.spentAmount).toBe(EXPENSE);
+  });
+
+  it("the cash flow's budgeted share, within the budget's limit", async () => {
+    const budgeted = async () =>
+      (await dashboard.getDashboard(userId, workspaceId, 'month', DAY)).cashFlow.reduce(
+        (total, point) => total + point.budgeted,
+        0,
+      );
+    // The budget above has room for all of it.
+    expect(await budgeted()).toBe(EXPENSE);
+
+    const [budget] = await budgets.findAll(workspaceId, new Date(DAY));
+    const limit = EXPENSE - 50;
+    await budgets.update(budget.id, workspaceId, userId, { limitAmount: limit });
+    expect(await budgeted()).toBe(limit);
   });
 });

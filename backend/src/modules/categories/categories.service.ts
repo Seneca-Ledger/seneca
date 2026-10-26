@@ -23,6 +23,7 @@ import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.e
 import { Category, CategorySource, CategoryType, StoicClass } from '../../entities/category.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CategoryChangedEvent } from '../notifications/events/notification-events';
+import { type CategoryUsage, mergeCategoryUsage } from './category-usage';
 
 const DEFAULT_SYSTEM_CATEGORIES: ReadonlyArray<{
   name: string;
@@ -233,12 +234,14 @@ export class CategoriesService {
 
   async getWorkspaceCategoryUsageCounts(
     workspaceId: string,
-  ): Promise<Record<string, { transactions: number; statements: number; total: number }>> {
+  ): Promise<Record<string, CategoryUsage>> {
     const [transactionsRaw, statementsRaw] = await Promise.all([
       this.transactionRepository
         .createQueryBuilder('transaction')
         .select('transaction.categoryId', 'categoryId')
         .addSelect('COUNT(transaction.id)', 'count')
+        // A date column: formatted in SQL so no time zone shifts the day.
+        .addSelect("TO_CHAR(MAX(transaction.transactionDate), 'YYYY-MM-DD')", 'lastUsedAt')
         // Every row of the workspace, a receipt's or a cash payment's too.
         .where('transaction.workspaceId = :workspaceId', { workspaceId })
         .andWhere('transaction.categoryId IS NOT NULL')
@@ -254,28 +257,7 @@ export class CategoriesService {
         .getRawMany(),
     ]);
 
-    const result: Record<string, { transactions: number; statements: number; total: number }> = {};
-
-    for (const row of transactionsRaw) {
-      const catId = row.categoryId;
-      result[catId] = { transactions: Number(row.count), statements: 0, total: Number(row.count) };
-    }
-
-    for (const row of statementsRaw) {
-      const catId = row.categoryId;
-      if (!result[catId]) {
-        result[catId] = {
-          transactions: 0,
-          statements: Number(row.count),
-          total: Number(row.count),
-        };
-      } else {
-        result[catId].statements = Number(row.count);
-        result[catId].total += Number(row.count);
-      }
-    }
-
-    return result;
+    return mergeCategoryUsage(transactionsRaw, statementsRaw);
   }
 
   async getCategoryUsageCount(

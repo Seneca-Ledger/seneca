@@ -38,7 +38,8 @@ export type TopCategoriesDataReturn = TopCategoriesAggregationReturn & {
   drillDownRecords: TopCategoryRecord[];
 };
 
-const filterDrillDownRecords = (
+/** The records behind one leaderboard row, newest first. */
+export const filterDrillDownRecords = (
   selectedRow: TopCategoryAggregateRow,
   records: TopCategoryRecord[],
 ): TopCategoryRecord[] => {

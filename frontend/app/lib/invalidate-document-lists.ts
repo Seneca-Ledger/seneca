@@ -25,6 +25,7 @@ export const FINANCIAL_QUERY_ROOTS = [
   'ledger',
   'tables-report',
   'categories',
+  'tags',
   'payees',
   // Match counts and the preview of what a rule would file.
   'categorization-rules',

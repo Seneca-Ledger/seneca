@@ -17,6 +17,7 @@ export const SOURCE_FIELD_ACCESS = {
     amount: 'write',
     type: 'write',
     category: 'write',
+    tags: 'read',
     currency: 'write',
     statement: 'read',
   },

@@ -86,6 +86,10 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
   useWorkspace: () => workspaceState,
 }));
 
+vi.mock('@/app/hooks/useTags', () => ({
+  useTags: () => ({ data: [], isSuccess: true }),
+}));
+
 vi.mock('@/app/i18n', async () => {
   // Every dictionary is served for real (English), so the labels below are the shipped copy.
   const { useIntlayer } = await vi.importActual<typeof import('react-intlayer')>('react-intlayer');

@@ -38,6 +38,7 @@ import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.servi
 import {
   clampToWindow,
   computePeriodRange,
+  localDay,
   overlapsWindow,
   parseDateOnly,
 } from './budget-period.util';
@@ -615,7 +616,7 @@ export class BudgetsService {
    * Spending per previous period, oldest first, since the budget began (its
    * window start, else its creation) and at most ROLLOVER_LOOKBACK periods back.
    */
-  private async previousPeriodsSpent(
+  async previousPeriodsSpent(
     budget: Budget,
     categoryIds: string[],
     currentStart: Date,
@@ -661,7 +662,7 @@ export class BudgetsService {
   }
 
   /** The category and every category under it; just the category when the tree is not available. */
-  private async categoryIdsFor(workspaceId: string, categoryId: string): Promise<string[]> {
+  async categoryIdsFor(workspaceId: string, categoryId: string): Promise<string[]> {
     if (!this.categoryRepository) return [categoryId];
     const ids = [categoryId];
     let frontier = [categoryId];
@@ -772,7 +773,7 @@ export class BudgetsService {
   }
 
   /** The rate from one currency to another on a day: 1 for the same one, null when none is known. */
-  private async rateOrNull(
+  async rateOrNull(
     from: string,
     to: string,
     day: Date,
@@ -814,7 +815,7 @@ export class BudgetsService {
    * are converted at the rate of their own day; a row with no rate is left out
    * and reported, never counted one to one (500 UAH is not 500 USD).
    */
-  private async computeSpending(
+  async computeSpending(
     budget: Budget,
     categoryIds: string[],
     start: Date,
@@ -941,11 +942,4 @@ function assertWindowOrdered(
   if (startsOn && endsOn && startsOn > endsOn) {
     throw new BadRequestException(appError('BUDGET_WINDOW_INVALID'));
   }
-}
-
-/** A day in local time, as a `date` column stores it. */
-function localDay(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate(),
-  ).padStart(2, '0')}`;
 }

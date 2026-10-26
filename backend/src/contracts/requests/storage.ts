@@ -3,6 +3,7 @@
 import * as Schema from 'effect/Schema';
 import {
   BooleanInput,
+  DateOnlyInput,
   Email,
   IsoDateString,
   optionalNullable,
@@ -28,14 +29,22 @@ export type MoveFileBody = Wire<typeof MoveFileBody>;
 export const CreateTagBody = Schema.Struct({
   name: Schema.String.check(Schema.isMaxLength(64)),
   color: optionalNullable(Schema.String.check(Schema.isMaxLength(16))),
+  description: optionalNullable(Schema.String.check(Schema.isMaxLength(500))),
+  tagDate: optionalNullable(DateOnlyInput),
 });
 export type CreateTagBody = Wire<typeof CreateTagBody>;
 
 export const UpdateTagBody = Schema.Struct({
   name: optionalNullable(Schema.String.check(Schema.isMaxLength(64))),
   color: optionalNullable(Schema.String.check(Schema.isMaxLength(16))),
+  description: optionalNullable(Schema.String.check(Schema.isMaxLength(500))),
+  tagDate: optionalNullable(DateOnlyInput),
 });
 export type UpdateTagBody = Wire<typeof UpdateTagBody>;
+
+/** `/tags/:id`. */
+export const TagIdParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type TagIdParams = Wire<typeof TagIdParams>;
 
 export const CreateFolderBody = Schema.Struct({
   name: Schema.String.check(Schema.isMaxLength(128)),

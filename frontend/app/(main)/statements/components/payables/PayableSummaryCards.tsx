@@ -1,12 +1,20 @@
 'use client';
 
 import React from 'react';
+import type { LucideIcon } from '@/app/components/icons';
 import { Card } from '@/app/components/ui/card';
 import { fillTemplateNodes, PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
+import {
+  AlarmClock,
+  Calendar,
+  ReceiptText,
+  TrayArrowDown,
+  WalletArrowUp,
+} from '@/app/lib/category-line-icons';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
-import type { PayablesSummary } from '@/app/lib/payables-api';
+import type { PayableDirection, PayablesSummary } from '@/app/lib/payables-api';
 import { getSummaryCardItems } from './payables-utils';
 
 /** An overview shows whole units; cents only where they are a real part of the figure. */
@@ -16,6 +24,7 @@ interface PayableSummaryCardsProps {
   summary: PayablesSummary;
   locale?: string;
   currency?: string;
+  direction?: PayableDirection;
   labels: {
     toPay: string;
     overdue: string;
@@ -29,15 +38,33 @@ interface PayableSummaryCardsProps {
 
 const EMPTY = '—';
 
+/** What each figure is, drawn faintly behind it as on the dashboard tiles. */
+const ICONS: Record<PayableDirection, Record<string, LucideIcon>> = {
+  payable: {
+    toPay: ReceiptText,
+    overdue: AlarmClock,
+    dueThisWeek: Calendar,
+    paidTotal: WalletArrowUp,
+  },
+  receivable: {
+    toPay: ReceiptText,
+    overdue: AlarmClock,
+    dueThisWeek: Calendar,
+    paidTotal: TrayArrowDown,
+  },
+};
+
 function PayableSummaryCards({
   summary,
   locale = 'en',
   currency = FALLBACK_CURRENCY,
+  direction = 'payable',
   labels,
 }: PayableSummaryCardsProps): React.JSX.Element {
   const items = getSummaryCardItems(summary).map(item => ({
     ...item,
     label: labels[item.key as keyof typeof labels],
+    icon: ICONS[direction][item.key],
   }));
   const converted = summary.convertedCurrencies ?? [];
   const unbookedText = useIntlayer('payablesUnbooked');
@@ -54,9 +81,11 @@ function PayableSummaryCards({
         {items.map(item => (
           <Card
             key={item.key}
+            className="seneca-payable-summary__card"
             style={{ border: '1px solid var(--border-color)', boxShadow: 'none' }}
           >
             {/* One shape for every card: label, figure, count — so the row does not jump. */}
+            {item.icon && <item.icon className="seneca-payable-summary__icon" aria-hidden="true" />}
             <div className="seneca-payable-summary__card-content">
               <div className="seneca-payable-summary__label">{item.label}</div>
               <div className={`seneca-payable-summary__value ${PRIVATE_CLASS}`}>

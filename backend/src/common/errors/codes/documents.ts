@@ -15,6 +15,7 @@ export const DOCUMENTS_ERRORS = {
   // ── storage ─────────────────────────────────────────────────────────────
   STORAGE_FILE_NOT_FOUND: 'File not found',
   STORAGE_TAG_NOT_FOUND: 'Tag not found',
+  TAG_NAME_REQUIRED: 'A tag needs a name',
   STORAGE_FOLDER_NOT_FOUND: 'Folder not found',
   STORAGE_FILE_NOT_IN_TRASH: 'File is not in trash',
   STORAGE_FILE_IN_TRASH: 'File is in trash',

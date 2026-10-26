@@ -93,7 +93,7 @@ describe('GettingStartedCard', () => {
 
     const categories = await screen.findByRole('link', { name: /Customize categories/ });
     expect(categories).toHaveTextContent('Next');
-    expect(categories).toHaveAttribute('href', '/workspaces/categories');
+    expect(categories).toHaveAttribute('href', '/categories');
     expect(screen.getByRole('link', { name: /Create a goal/ })).not.toHaveTextContent('Next');
     expect(screen.getByRole('link', { name: /Create a goal/ })).toHaveAttribute('href', '/goals');
   });

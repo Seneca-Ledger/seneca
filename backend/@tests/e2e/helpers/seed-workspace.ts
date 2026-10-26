@@ -208,9 +208,11 @@ export async function seedWorkspace(
   });
 
   // Storage.
-  const tag = await send('tag', 'post', '/storage/tags', {
+  const tag = await send('tag', 'post', '/tags', {
     name: `${marker} tag`,
     color: '#22c55e',
+    description: `${marker} tag description`,
+    tagDate: today,
   });
   await send('folder', 'post', '/storage/folders', {
     name: `${marker} folder`,
@@ -379,7 +381,7 @@ export async function seedWorkspace(
     fileName: 'seed-report.pdf',
     fileSize: 1024,
   });
-  await dataSource.getRepository(Receipt).save({
+  const receipt = await dataSource.getRepository(Receipt).save({
     userId: owner.userId,
     workspaceId: owner.workspaceId,
     source: ReceiptSource.SCAN,
@@ -389,4 +391,8 @@ export async function seedWorkspace(
     status: ReceiptStatus.NEEDS_REVIEW,
     parsedData: { amount: 5, currency: 'USD', vendor: `${marker} shop` },
   });
+  // A receipt_tags row: the sweep checks no route links B's receipt to A's tag or back.
+  await send('receipt tag', 'put', `/receipts/${receipt.id}/tags`, { tagIds: [tag.body.id] });
+  // A payable_tags row, for the same reason.
+  await send('payable tag', 'put', `/payables/${payable.body.id}`, { tagIds: [tag.body.id] });
 }

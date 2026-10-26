@@ -15,6 +15,7 @@ describe('payables-utils', () => {
         source: 'manual',
         dueDateFrom: '2026-03-01',
         dueDateTo: '2026-03-31',
+        tagId: 'tag-1',
         sort: 'amountDesc',
       },
       { page: 2, limit: 50 },
@@ -28,6 +29,7 @@ describe('payables-utils', () => {
       source: 'manual',
       dueDateFrom: '2026-03-01',
       dueDateTo: '2026-03-31',
+      tagId: 'tag-1',
       sort: 'amountDesc',
     });
 
@@ -38,6 +40,7 @@ describe('payables-utils', () => {
         source: 'all',
         dueDateFrom: '',
         dueDateTo: '',
+        tagId: '',
         sort: 'dueDateAsc',
       }),
     ).toEqual({
@@ -46,6 +49,7 @@ describe('payables-utils', () => {
       source: undefined,
       dueDateFrom: undefined,
       dueDateTo: undefined,
+      tagId: undefined,
       sort: 'dueDateAsc',
     });
   });
