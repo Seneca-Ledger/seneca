@@ -54,6 +54,9 @@ export const CashFlowMap = Schema.Struct({
   period: Period,
   previousPeriod: Schema.NullOr(Period),
   includeTransfers: Schema.Boolean,
+  netRefunds: Schema.Boolean,
+  /** Currencies left out of every figure for want of an exchange rate on their day. */
+  missingRates: Schema.Array(Schema.String),
   availableCategories: Schema.Array(
     Schema.Struct({
       id: Schema.String,

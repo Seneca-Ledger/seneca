@@ -130,5 +130,22 @@ describe('PERIOD_PRESETS', () => {
     expect(ranges.presetLastMonth).toEqual(['2026-04-01', '2026-04-30']);
     expect(ranges.presetThisQuarter).toEqual(['2026-04-01', '2026-05-20']);
     expect(ranges.presetYearToDate).toEqual(['2026-01-01', '2026-05-20']);
+    // A rolling window counts today as its last day.
+    expect(ranges.presetLast7Days).toEqual(['2026-05-14', '2026-05-20']);
+    expect(ranges.presetLast30Days).toEqual(['2026-04-21', '2026-05-20']);
+    expect(ranges.presetLast90Days).toEqual(['2026-02-20', '2026-05-20']);
+    expect(ranges.presetLast12Months).toEqual(['2025-06-01', '2026-05-20']);
+    expect(ranges.presetLastYear).toEqual(['2025-01-01', '2025-12-31']);
+  });
+
+  it('keeps the cash-flow tabs to the four calendar periods', async () => {
+    const { QUICK_PERIOD_PRESETS } = await import('./report-period-presets');
+
+    expect(QUICK_PERIOD_PRESETS.map(preset => preset.labelKey)).toEqual([
+      'presetThisMonth',
+      'presetLastMonth',
+      'presetThisQuarter',
+      'presetYearToDate',
+    ]);
   });
 });

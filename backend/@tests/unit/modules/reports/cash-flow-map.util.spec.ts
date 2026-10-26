@@ -180,3 +180,89 @@ describe('cashFlowMapToCsv', () => {
     expect(csv).toContain('"Food","Groceries",300.00,200.00,100.00');
   });
 });
+
+describe('refunds', () => {
+  const PAYER = 'Example Corp';
+  const SHOP = 'ACME Store';
+  const shopping = [
+    { id: 'clothes', name: 'Clothes', parentId: null, isExpenseCategory: true },
+    { id: 'coats', name: 'Coats', parentId: 'clothes', isExpenseCategory: true },
+    { id: 'salary', name: 'Salary', parentId: null, isExpenseCategory: false },
+  ];
+  const netted = { labels, netRefunds: true };
+
+  it('takes money back out of the category it was spent from, not into income', () => {
+    const map = buildCashFlowMap(
+      [
+        row({ type: 'income', amount: 2000, categoryId: 'salary', counterpartyName: PAYER }),
+        row({ amount: 300, categoryId: 'coats' }),
+        row({ type: 'income', amount: 100, categoryId: 'coats', counterpartyName: SHOP }),
+      ],
+      null,
+      shopping,
+      netted,
+    );
+
+    expect(map.income.total).toBe(2000);
+    expect(map.income.sources.map(source => source.name)).toEqual([PAYER]);
+    expect(map.expense.total).toBe(200);
+    expect(map.expense.categories[0].children[0]).toMatchObject({ id: 'coats', amount: 200 });
+  });
+
+  it('counts a refund as income unless asked to net it, so the default matches the dashboard', () => {
+    const map = buildCashFlowMap(
+      [
+        row({ amount: 300, categoryId: 'coats' }),
+        row({ type: 'income', amount: 100, categoryId: 'coats', counterpartyName: SHOP }),
+      ],
+      null,
+      shopping,
+      { labels },
+    );
+
+    expect(map.income.total).toBe(100);
+    expect(map.expense.total).toBe(300);
+  });
+
+  it('leaves income filed under an income category alone', () => {
+    const map = buildCashFlowMap(
+      [row({ type: 'income', amount: 2000, categoryId: 'salary', counterpartyName: PAYER })],
+      null,
+      shopping,
+      netted,
+    );
+
+    expect(map.income.total).toBe(2000);
+    expect(map.expense.total).toBe(0);
+  });
+
+  it('nets the period before on the same terms, so the comparison is like for like', () => {
+    const map = buildCashFlowMap(
+      [row({ amount: 300, categoryId: 'coats' })],
+      [
+        row({ amount: 500, categoryId: 'coats' }),
+        row({ type: 'income', amount: 200, categoryId: 'coats', counterpartyName: SHOP }),
+      ],
+      shopping,
+      netted,
+    );
+
+    expect(map.previous).toEqual({ income: 0, expense: 300, net: -300 });
+  });
+
+  it('keeps a category that refunded more than it spent out of the diagrams but in the table', () => {
+    const map = buildCashFlowMap(
+      [
+        row({ amount: 50, categoryId: 'coats' }),
+        row({ type: 'income', amount: 200, categoryId: 'coats', counterpartyName: SHOP }),
+      ],
+      null,
+      shopping,
+      netted,
+    );
+
+    expect(map.expense.categories[0].amount).toBe(-150);
+    expect(map.treemap).toEqual([]);
+    expect(map.sankey.links.some(link => link.target === 'cat:clothes')).toBe(false);
+  });
+});
