@@ -113,7 +113,8 @@ export class EntityImportService {
     }
   }
 
-  private async ensurePermission(
+  /** Importing into `target` (and remembering a mapping for it) needs these rights. */
+  async ensurePermission(
     userId: string,
     workspaceId: string,
     target: ImportTargetKind,

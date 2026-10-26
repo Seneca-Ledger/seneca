@@ -1,3 +1,5 @@
+import { AMOUNT, CREDIT } from './amount-aliases';
+
 /**
  * What a spreadsheet header usually says for each field of each target.
  * Tokens are compared after lowercasing and stripping punctuation, so
@@ -39,21 +41,6 @@ export interface TargetField {
 }
 
 const DATE = ['date', 'дата', 'день', 'when', 'datum', 'fecha'];
-const AMOUNT = [
-  'amount',
-  'sum',
-  'total',
-  'сумма',
-  'итого',
-  'стоимость',
-  'цена',
-  'price',
-  'cost',
-  'value',
-  'betrag',
-  'importe',
-  'summe',
-];
 const CURRENCY = ['currency', 'валюта', 'curr', 'вал', 'währung', 'moneda'];
 const CATEGORY = [
   'category',
@@ -102,6 +89,7 @@ export const TARGET_FIELDS: Record<ImportTargetKind, TargetField[]> = {
       required: true,
       aliases: [...AMOUNT, 'debit', 'дебет', 'списание', 'расход'],
     },
+    { key: 'credit', type: 'number', required: false, aliases: CREDIT },
     { key: 'merchant', type: 'text', required: true, aliases: VENDOR },
     {
       key: 'purpose',

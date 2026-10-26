@@ -40,8 +40,51 @@ export function parseImportNumber(raw: string): { value: number | null; currency
   return { value: value === null ? null : negative ? -Math.abs(value) : value, currency };
 }
 
-/** ISO date from text or an Excel serial; null when it is not a date. */
-export function parseImportDate(raw: string): string | null {
+/** Order of day and month in numeric dates such as `03/04/2026`. */
+export type DateOrder = 'dmy' | 'mdy';
+
+const NUMERIC_DATE = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4}|\d{2})(?:[ T].*)?$/;
+
+/**
+ * The day/month order of a date column. One value that reads only one way
+ * (`13/01/2026` or `01/13/2026`) settles it; a column where every value reads
+ * both ways, or where both kinds occur, gives null.
+ */
+export function detectDateOrder(values: string[]): DateOrder | null {
+  let dayFirst = false;
+  let monthFirst = false;
+  for (const value of values) {
+    const match = NUMERIC_DATE.exec(String(value ?? '').trim());
+    if (match) {
+      dayFirst ||= Number(match[1]) > 12;
+      monthFirst ||= Number(match[2]) > 12;
+    }
+  }
+  if (dayFirst === monthFirst) {
+    return null;
+  }
+  return dayFirst ? 'dmy' : 'mdy';
+}
+
+/** `03/04/26` in the given order as an ISO date; null for an impossible day such as 31/02. */
+function numericDateIso(match: RegExpExecArray, order: DateOrder): string | null {
+  const [first, second] = [Number(match[1]), Number(match[2])];
+  const [day, month] = order === 'mdy' ? [second, first] : [first, second];
+  const year =
+    match[3].length === 2
+      ? (Number(match[3]) < 70 ? 2000 : 1900) + Number(match[3])
+      : Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    ? date.toISOString().slice(0, 10)
+    : null;
+}
+
+/**
+ * ISO date from text or an Excel serial; null when it is not a date. `order`
+ * reads numeric dates of a column whose day/month order is known.
+ */
+export function parseImportDate(raw: string, order?: DateOrder | null): string | null {
   const text = String(raw ?? '').trim();
   if (!text) {
     return null;
@@ -49,6 +92,10 @@ export function parseImportDate(raw: string): string | null {
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
   if (iso) {
     return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  }
+  const numeric = order ? NUMERIC_DATE.exec(text) : null;
+  if (numeric && order) {
+    return numericDateIso(numeric, order);
   }
   const serial = Number(text);
   if (Number.isFinite(serial) && serial > 15_000 && serial < 80_000) {

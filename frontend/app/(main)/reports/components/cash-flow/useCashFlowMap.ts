@@ -6,7 +6,7 @@ import { useViewPreference } from '@/app/components/transactions/hooks/useViewPr
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import { PERIOD_PRESETS, presetRangeValues } from '../report-period-presets';
+import { presetRangeValues, QUICK_PERIOD_PRESETS } from '../report-period-presets';
 
 export interface CashFlowCategory {
   id: string;
@@ -21,6 +21,10 @@ export interface CashFlowMapData {
   period: { from: string; to: string };
   previousPeriod: { from: string; to: string } | null;
   includeTransfers: boolean;
+  /** Whether refunds were taken off their category instead of counted as income. */
+  netRefunds: boolean;
+  /** Currencies left out of every figure because no rate was found for their day. */
+  missingRates: string[];
   availableCategories: Array<{ id: string; name: string; parentId: string | null }>;
   income: { total: number; sources: Array<{ name: string; amount: number }> };
   expense: { total: number; categories: CashFlowCategory[] };
@@ -47,17 +51,26 @@ export interface CashFlowFilters {
   from: string;
   to: string;
   compare: boolean;
+  /** The earlier window: the one just before, or the same dates last year. */
+  compareTo: 'previous' | 'year';
   includeTransfers: boolean;
+  netRefunds: boolean;
   /** Empty = every category. */
   categories: string[];
   /** `me`, `shared`, a membership id, or null for the whole household. */
   owner: string | null;
 }
 
-/** The one switch the page remembers: on unless this person turned it off. */
-function readReportsView(saved: Readonly<Record<string, unknown>>): { includeTransfers: boolean } {
+type SavedSwitches = Pick<CashFlowFilters, 'includeTransfers' | 'netRefunds'>;
+
+/**
+ * The switches the page remembers: transfers on unless this person turned them
+ * off, refunds netted only when they asked, so the figures match the dashboard.
+ */
+function readReportsView(saved: Readonly<Record<string, unknown>>): SavedSwitches {
   return {
     includeTransfers: typeof saved.includeTransfers === 'boolean' ? saved.includeTransfers : true,
+    netRefunds: saved.netRefunds === true,
   };
 }
 
@@ -65,13 +78,14 @@ export function useCashFlowMap() {
   const workspaceId = useWorkspaceId();
   const view = useViewPreference('reports', readReportsView);
   const includeTransfers = view.state?.includeTransfers ?? true;
-  const [local, setLocal] = useState<Omit<CashFlowFilters, 'includeTransfers'>>(() => {
-    const [from, to] = presetRangeValues(PERIOD_PRESETS[0]);
-    return { from, to, compare: true, categories: [], owner: null };
+  const netRefunds = view.state?.netRefunds ?? false;
+  const [local, setLocal] = useState<Omit<CashFlowFilters, keyof SavedSwitches>>(() => {
+    const [from, to] = presetRangeValues(QUICK_PERIOD_PRESETS[0]);
+    return { from, to, compare: true, compareTo: 'previous', categories: [], owner: null };
   });
   const filters = useMemo<CashFlowFilters>(
-    () => ({ ...local, includeTransfers }),
-    [local, includeTransfers],
+    () => ({ ...local, includeTransfers, netRefunds }),
+    [local, includeTransfers, netRefunds],
   );
 
   const params = useMemo(() => {
@@ -79,7 +93,9 @@ export function useCashFlowMap() {
       dateFrom: filters.from,
       dateTo: filters.to,
       ...(filters.compare ? { compare: true } : {}),
+      ...(filters.compare && filters.compareTo === 'year' ? { compareTo: 'year' as const } : {}),
       ...(filters.includeTransfers ? { includeTransfers: true } : {}),
+      ...(filters.netRefunds ? { netRefunds: true } : {}),
       ...(filters.categories.length > 0 ? { categories: filters.categories.join(',') } : {}),
       ...(filters.owner ? { owner: filters.owner } : {}),
     } satisfies ContractInput<'CashFlowMapQuery'>;
@@ -96,12 +112,17 @@ export function useCashFlowMap() {
   const { save } = view;
   const update = useCallback(
     (patch: Partial<CashFlowFilters>) => {
-      const { includeTransfers: nextIncludeTransfers, ...rest } = patch;
-      // Saved per person and workspace, so leaving the page does not reset it.
-      if (nextIncludeTransfers !== undefined) save({ includeTransfers: nextIncludeTransfers });
+      const { includeTransfers: nextIncludeTransfers, netRefunds: nextNetRefunds, ...rest } = patch;
+      // Saved per person and workspace, so leaving the page does not reset them.
+      if (nextIncludeTransfers !== undefined || nextNetRefunds !== undefined) {
+        save({
+          includeTransfers: nextIncludeTransfers ?? includeTransfers,
+          netRefunds: nextNetRefunds ?? netRefunds,
+        });
+      }
       setLocal(current => ({ ...current, ...rest }));
     },
-    [save],
+    [save, includeTransfers, netRefunds],
   );
 
   const exportUrl = useMemo(() => {

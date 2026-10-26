@@ -173,4 +173,50 @@ describe('TransactionsTarget', () => {
     expect(ctx.created[0]).toEqual({ kind: 'statement', id: 'id-1' });
     expect(statements.update).toHaveBeenCalledWith('id-1', expect.objectContaining({ fileData: expect.any(Buffer) }));
   });
+
+  it('reads separate money-out and money-in columns, and rows with both or neither are errors', async () => {
+    const transactions = repoMock();
+    const ctx = buildContext({ date: 0, merchant: 1, amount: 2, credit: 3 }, { Transaction: transactions });
+    const rows = [
+      ['2026-09-01', 'ACME Store - Wireless Buds', '19.99', ''],
+      ['2026-09-02', 'Employer One', '', '1500'],
+      ['2026-09-03', 'Both Sides', '5', '5'],
+      ['2026-09-04', 'Neither', '', ''],
+    ];
+    const results = await new TransactionsTarget().run(rows, ctx, true);
+    expect(results.map(r => r.status)).toEqual(['created', 'created', 'error', 'error']);
+    expect(results[2].reason).toBe('amount');
+    expect(results[3].reason).toBe('amount');
+  });
+
+  it('books money in from a credit column as income even when no row spends', async () => {
+    const transactions = repoMock();
+    const statements = repoMock();
+    const ctx = buildContext(
+      { date: 0, merchant: 1, amount: 2, credit: 3 },
+      { Transaction: transactions, Statement: statements },
+    );
+    vi.spyOn(nodeFs.promises, 'writeFile').mockResolvedValue(undefined);
+    await new TransactionsTarget().run([['2026-09-02', 'Employer One', '', '1500']], ctx, false);
+    const [saved] = transactions.save.mock.calls[0][0] as Array<{ transactionType: TransactionType; credit: number | null }>;
+    expect(saved.transactionType).toBe(TransactionType.INCOME);
+    expect(saved.credit).toBe(1500);
+  });
+
+  it('reads a month-first date column month-first once one date settles the order', async () => {
+    const transactions = repoMock();
+    const statements = repoMock();
+    const ctx = buildContext({ date: 0, merchant: 1, amount: 2 }, { Transaction: transactions, Statement: statements });
+    vi.spyOn(nodeFs.promises, 'writeFile').mockResolvedValue(undefined);
+    await new TransactionsTarget().run(
+      [
+        ['01/02/2026', 'Corner Cafe', '-4.50'],
+        ['12/31/2026', 'Corner Cafe', '-5.00'],
+      ],
+      ctx,
+      false,
+    );
+    const saved = transactions.save.mock.calls[0][0] as Array<{ transactionDate: Date }>;
+    expect(saved.map(tx => tx.transactionDate.toISOString().slice(0, 10))).toEqual(['2026-01-02', '2026-12-31']);
+  });
 });

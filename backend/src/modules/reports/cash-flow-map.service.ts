@@ -9,9 +9,10 @@ import {
 } from '../../common/utils/transaction-owner.util';
 import { PRIVACY_VIEWER_PARAM, redactedSql } from '../../common/utils/transaction-privacy.util';
 import type { CashFlowMapQuery } from '../../contracts';
-import { Category } from '../../entities/category.entity';
+import { Category, CategoryType } from '../../entities/category.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
+import { CurrencyConverter } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import {
   buildCashFlowMap,
@@ -19,14 +20,27 @@ import {
   type CashFlowMapOptions,
   type CashFlowRow,
   type CategoryNode,
-  previousPeriod,
 } from './cash-flow-map.util';
+import { comparisonPeriod } from './comparison-period.util';
+
+/** A row as the database returns it, before conversion. */
+interface RawCashFlowRow extends CashFlowRow {
+  /** Absolute, in `currency`. */
+  amount: number;
+  currency: string;
+  /** The transaction's day: each amount converts at its own day's rate. */
+  date: string;
+}
 
 export interface CashFlowMapResponse extends CashFlowMap {
   currency: string;
   period: { from: string; to: string };
   previousPeriod: { from: string; to: string } | null;
   includeTransfers: boolean;
+  /** Whether refunds were netted against their category. */
+  netRefunds: boolean;
+  /** Currencies left out of every figure because no rate was found for their day. */
+  missingRates: string[];
   /** Every expense category of the workspace, for the filter chips. */
   availableCategories: CategoryNode[];
 }
@@ -74,8 +88,9 @@ export class CashFlowMapService {
   ): Promise<CashFlowMapResponse> {
     const to = query.dateTo ?? today();
     const from = query.dateFrom ?? shiftDays(to, -29);
-    const previous = query.compare ? previousPeriod(from, to) : null;
+    const previous = query.compare ? comparisonPeriod(from, to, query.compareTo) : null;
     const includeTransfers = query.includeTransfers === true;
+    const netRefunds = query.netRefunds === true;
 
     const [workspace, categories] = await Promise.all([
       this.workspaceRepository.findOne({
@@ -99,45 +114,69 @@ export class CashFlowMapService {
       id: category.id,
       name: category.name,
       parentId: category.parentId ?? null,
+      isExpenseCategory: category.type === CategoryType.EXPENSE,
     }));
     const allowed = this.allowedCategoryIds(nodes, query.categories);
-
-    const owner = parseOwnerFilter(query.owner, selfMemberId);
-    const rows = await this.loadRows(
-      workspaceId,
-      from,
-      to,
-      currency,
-      includeTransfers,
-      allowed,
-      owner,
-      selfMemberId,
-    );
-    const previousRows = previous
-      ? await this.loadRows(
-          workspaceId,
-          previous.from,
-          previous.to,
-          currency,
-          includeTransfers,
-          allowed,
-          owner,
-          selfMemberId,
-        )
+    // A category filter narrows spending; with refunds netted, a refund is spending too.
+    const spendingCategories = netRefunds
+      ? new Set(nodes.filter(node => node.isExpenseCategory).map(node => node.id))
       : null;
 
+    const owner = parseOwnerFilter(query.owner, selfMemberId);
+    const load = (window: { from: string; to: string }) =>
+      this.loadRows(workspaceId, window, includeTransfers, owner, selfMemberId).then(rows =>
+        rows.filter(row => {
+          const spending =
+            row.type === 'expense' ||
+            Boolean(row.categoryId && spendingCategories?.has(row.categoryId));
+          if (row.isTransfer || !allowed || !spending) return true;
+          return Boolean(row.categoryId && allowed.has(row.categoryId));
+        }),
+      );
+    const rawRows = await load({ from, to });
+    const rawPrevious = previous ? await load(previous) : null;
+
+    // Each amount converts at its own day's rate, and a currency without one is
+    // left out and named, never counted 1:1 or silently dropped. One converter
+    // for both periods, so both are converted on the same terms.
+    const converter = await CurrencyConverter.load(
+      this.exchangeRatesService,
+      currency,
+      [...rawRows, ...(rawPrevious ?? [])].map(row => ({ currency: row.currency, date: row.date })),
+      workspaceId,
+    );
+    const convert = (raw: RawCashFlowRow[]): CashFlowRow[] =>
+      raw
+        .map(({ currency: rowCurrency, date, ...row }) => ({
+          ...row,
+          amount: converter.convert(row.amount, rowCurrency, date),
+        }))
+        .filter(row => row.amount !== 0);
+
     const labels = LABELS[(locale ?? 'en').slice(0, 2)] ?? LABELS.en;
-    const map = buildCashFlowMap(rows, previousRows, nodes, { labels });
+    const map = buildCashFlowMap(
+      convert(rawRows),
+      rawPrevious ? convert(rawPrevious) : null,
+      nodes,
+      {
+        labels,
+        netRefunds,
+      },
+    );
     return {
       ...map,
       currency,
       period: { from, to },
       previousPeriod: previous,
       includeTransfers,
-      availableCategories: nodes.filter(node => {
-        const category = categories.find(item => item.id === node.id);
-        return category?.type !== 'income';
-      }),
+      netRefunds,
+      missingRates: converter.missing,
+      availableCategories: nodes
+        .filter(node => {
+          const category = categories.find(item => item.id === node.id);
+          return category?.type !== 'income';
+        })
+        .map(({ id, name, parentId }) => ({ id, name, parentId })),
     };
   }
 
@@ -160,14 +199,11 @@ export class CashFlowMapService {
 
   private async loadRows(
     workspaceId: string,
-    from: string,
-    to: string,
-    currency: string,
+    window: { from: string; to: string },
     includeTransfers: boolean,
-    allowed: Set<string> | null,
     owner: OwnerFilter,
     selfMemberId: string | null,
-  ): Promise<CashFlowRow[]> {
+  ): Promise<RawCashFlowRow[]> {
     const qb = this.transactionRepository
       .createQueryBuilder('t')
       .select([
@@ -175,6 +211,7 @@ export class CashFlowMapService {
         't.currency AS currency',
         't.credit AS credit',
         't.debit AS debit',
+        't.transactionDate AS "transactionDate"',
         't.categoryId AS "categoryId"',
         // Another member's private rows count under the placeholder, not their merchant.
         `${redactedSql('t', 't.counterparty_name')} AS "counterpartyName"`,
@@ -182,8 +219,8 @@ export class CashFlowMapService {
       ])
       .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.isDuplicate = false')
-      .andWhere('t.transactionDate >= :from', { from })
-      .andWhere('t.transactionDate <= :to', { to })
+      .andWhere('t.transactionDate >= :from', { from: window.from })
+      .andWhere('t.transactionDate <= :to', { to: window.to })
       .setParameter(PRIVACY_VIEWER_PARAM, selfMemberId);
     onlyFlows(qb, 't');
     applyOwnerFilter(qb, 't', owner);
@@ -195,47 +232,38 @@ export class CashFlowMapService {
       currency: string;
       credit: string | null;
       debit: string | null;
+      transactionDate: Date | string;
       categoryId: string | null;
       counterpartyName: string | null;
       transferPairId: string | null;
     }>();
-    const rates = new Map<string, number>();
-    const rows: CashFlowRow[] = [];
+    const rows: RawCashFlowRow[] = [];
     for (const row of raw) {
-      const isTransfer = row.transferPairId !== null;
-      if (!isTransfer && allowed && row.type === TransactionType.EXPENSE) {
-        if (!(row.categoryId && allowed.has(row.categoryId))) continue;
-      }
-      const source = normalizeCurrency(row.currency);
-      if (!rates.has(source)) {
-        rates.set(
-          source,
-          source === currency
-            ? 1
-            : ((await this.exchangeRatesService.getRateOrNull(
-                source,
-                currency,
-                undefined,
-                workspaceId,
-              )) ?? 0),
-        );
-      }
-      const rate = rates.get(source) ?? 0;
       const amount =
         row.type === TransactionType.INCOME
           ? Number.parseFloat(row.credit ?? '0')
           : Number.parseFloat(row.debit ?? '0');
       if (!Number.isFinite(amount) || amount === 0) continue;
       rows.push({
-        amount: Math.abs(amount) * rate,
+        amount: Math.abs(amount),
         type: row.type === TransactionType.INCOME ? 'income' : 'expense',
         categoryId: row.categoryId,
         counterpartyName: row.counterpartyName,
-        isTransfer,
+        isTransfer: row.transferPairId !== null,
+        currency: normalizeCurrency(row.currency),
+        date: toDateOnly(row.transactionDate),
       });
     }
     return rows;
   }
+}
+
+/** A `date` column comes back as a string, but a Date survives too. */
+function toDateOnly(value: Date | string): string {
+  if (value instanceof Date) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+  return String(value).slice(0, 10);
 }
 
 function normalizeCurrency(currency: string | null | undefined): string {

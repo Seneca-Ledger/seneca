@@ -18,6 +18,8 @@ export interface CategoryNode {
   id: string;
   name: string;
   parentId: string | null;
+  /** An income row filed under an expense category is money coming back. */
+  isExpenseCategory?: boolean;
 }
 
 export interface CashFlowCategory {
@@ -61,6 +63,12 @@ export interface CashFlowMapOptions {
   };
   /** How many income payers get their own node before the rest is rolled up. */
   maxSources?: number;
+  /**
+   * Count money coming back into an expense category (a returned jacket) as a
+   * refund that lowers that category, not as income. Off unless asked for, so
+   * the figures match the dashboard's by default.
+   */
+  netRefunds?: boolean;
 }
 
 export function buildCashFlowMap(
@@ -84,17 +92,27 @@ export function buildCashFlowMap(
   const nameOf = (id: string | null): string =>
     id ? (byId.get(id)?.name ?? options.labels.uncategorised) : options.labels.uncategorised;
 
+  /** Money coming back into a category it was spent from, not earnings. */
+  const isRefund = (row: CashFlowRow): boolean =>
+    options.netRefunds === true &&
+    row.type === 'income' &&
+    !row.isTransfer &&
+    row.categoryId !== null &&
+    byId.get(row.categoryId)?.isExpenseCategory === true;
+
   const sumExpenses = (input: CashFlowRow[]) => {
     const roots = new Map<string, number>();
     const leaves = new Map<string, Map<string, number>>();
     for (const row of input) {
-      if (row.type !== 'expense' || row.isTransfer) continue;
+      const refund = isRefund(row);
+      if ((row.type !== 'expense' && !refund) || row.isTransfer) continue;
+      const signed = refund ? -row.amount : row.amount;
       const rootId = rootOf(row.categoryId) ?? '__none__';
-      roots.set(rootId, (roots.get(rootId) ?? 0) + row.amount);
+      roots.set(rootId, (roots.get(rootId) ?? 0) + signed);
       const leafId = row.categoryId ?? '__none__';
       if (leafId !== rootId) {
         const bucket = leaves.get(rootId) ?? new Map<string, number>();
-        bucket.set(leafId, (bucket.get(leafId) ?? 0) + row.amount);
+        bucket.set(leafId, (bucket.get(leafId) ?? 0) + signed);
         leaves.set(rootId, bucket);
       }
     }
@@ -146,7 +164,7 @@ export function buildCashFlowMap(
       transfers += row.amount;
       continue;
     }
-    if (row.type !== 'income') continue;
+    if (row.type !== 'income' || isRefund(row)) continue;
     incomeTotal += row.amount;
     const key = (row.counterpartyName ?? '').trim() || options.labels.uncategorised;
     incomeBySource.set(key, (incomeBySource.get(key) ?? 0) + row.amount);
@@ -162,7 +180,7 @@ export function buildCashFlowMap(
   const expenseTotal = categoriesOut.reduce((sum, category) => sum + category.amount, 0);
   const previousIncome = previousRows
     ? previousRows
-        .filter(row => row.type === 'income' && !row.isTransfer)
+        .filter(row => row.type === 'income' && !row.isTransfer && !isRefund(row))
         .reduce((s, r) => s + r.amount, 0)
     : null;
   const previousExpense = previous ? [...previous.roots.values()].reduce((s, v) => s + v, 0) : null;

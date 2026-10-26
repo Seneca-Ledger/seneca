@@ -16,28 +16,31 @@ import { resolveDocumentsHref } from '@/app/(main)/statements/components/documen
 import { FromFilterDropdown } from '@/app/(main)/statements/components/filters/FromFilterDropdown';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { DashboardCard } from '@/app/components/dashboard/ui';
-import { ChevronDown, type LucideIcon } from '@/app/components/icons';
+import { ChevronDown } from '@/app/components/icons';
 import { useWorkspaceMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
 import { OwnerFilterDropdown } from '@/app/components/transactions/OwnerFilterDropdown';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
 import { LoadError } from '@/app/components/ui/load-error';
-import {
-  fillTemplateNodes,
-  PRIVATE_CLASS,
-  PrivateAmount,
-} from '@/app/components/ui/private-amount';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { blobOf } from '@/app/lib/blob-of';
-import { ArrowLeftRight, Scale, TrayArrowDown, WalletArrowUp } from '@/app/lib/category-line-icons';
+import {
+  ArrowLeftRight,
+  PiggyBank,
+  Scale,
+  TrayArrowDown,
+  WalletArrowUp,
+} from '@/app/lib/category-line-icons';
 import { formatMoney } from '@/app/lib/format-money';
 import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { useCategoryName } from '@/app/lib/use-category-name';
-import { PERIOD_PRESETS, presetRangeValues } from '../report-period-presets';
+import { presetRangeValues, QUICK_PERIOD_PRESETS } from '../report-period-presets';
 import { CashFlowTab } from './CashFlowTab';
+import { CashFlowTile } from './CashFlowTile';
 import { CashFlowTreemap } from './CashFlowTreemap';
 import { buildCashFlowSankey, CASH_FLOW_MIN_HEIGHT, cashFlowChartHeight } from './cash-flow.chart';
 import { useCashFlowMap } from './useCashFlowMap';
@@ -71,6 +74,14 @@ function Delta({
       {formatAmount(Math.abs(delta))}
     </PrivateAmount>
   );
+}
+
+/**
+ * The share of what came in that was not spent. Nothing earned leaves nothing
+ * to save a share of, so 0; spending more than came in is a negative rate.
+ */
+function savingsRate(income: number, expense: number): number {
+  return income > 0 ? ((income - expense) / income) * 100 : 0;
 }
 
 type CashFlowData = NonNullable<ReturnType<typeof useCashFlowMap>['data']>;
@@ -195,99 +206,6 @@ export function periodLabel(from: string, to: string, locale: string): string {
   return `${day(start, withYear && !sameYear)} – ${day(end, withYear)}`;
 }
 
-/**
- * One figure of the period: label, the amount in whole units (cents in the
- * tooltip), and what it was in the period before — named, not "before". The
- * figure stays ink: spending is not an error. Only Net carries its change, small,
- * terracotta when it fell and sage when it rose. Zero against zero says so in
- * words instead of comparing nothing with nothing. The icon is the dashboard
- * tile's: faint, behind the text, saying what the figure is.
- */
-function CashFlowTile({
-  label,
-  icon: Icon,
-  value,
-  previous,
-  nothing,
-  showDelta,
-  previousLabel,
-  vsTemplate,
-  formatWhole,
-  formatAmount,
-}: {
-  label: string;
-  icon: LucideIcon;
-  value: number;
-  previous: number | null;
-  nothing: string | null;
-  showDelta: boolean;
-  previousLabel: string;
-  vsTemplate: string;
-  formatWhole: (value: number) => string;
-  formatAmount: (value: number) => string;
-}): React.JSX.Element {
-  const bothZero = value === 0 && (previous === null || previous === 0);
-  const delta = previous === null ? 0 : value - previous;
-  let caption: React.ReactNode = null;
-  if (bothZero) {
-    // Nothing either time: say so where there are words for it, else stay quiet.
-    caption = nothing;
-  } else if (previous !== null && previousLabel) {
-    caption = (
-      <>
-        {fillTemplateNodes(vsTemplate.replace('{{period}}', previousLabel), {
-          amount: formatWhole(previous),
-        })}
-        {showDelta && Math.round(delta) !== 0 ? (
-          <Box
-            component="span"
-            className={PRIVATE_CLASS}
-            sx={{ ml: 0.75, color: delta < 0 ? 'var(--money-down)' : 'var(--money-up)' }}
-          >
-            {delta > 0 ? '+' : '−'}
-            {formatWhole(Math.abs(delta))}
-          </Box>
-        ) : null}
-      </>
-    );
-  }
-  return (
-    <Box
-      sx={{
-        position: 'relative',
-        // Its own stacking context and clip, so the icon sits under the text.
-        overflow: 'hidden',
-        isolation: 'isolate',
-        p: '22px',
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 2,
-        bgcolor: 'background.paper',
-      }}
-    >
-      <Icon className="seneca-dashboard__stat-icon" aria-hidden="true" />
-      <Typography sx={{ fontSize: 14, color: 'var(--text-muted)' }}>{label}</Typography>
-      <Typography
-        sx={{
-          mt: 0.5,
-          fontSize: 30,
-          fontWeight: 500,
-          lineHeight: 1.2,
-          fontVariantNumeric: 'tabular-nums',
-          color: 'var(--foreground)',
-        }}
-      >
-        <PrivateAmount title={formatAmount(value)}>{formatWhole(value)}</PrivateAmount>
-      </Typography>
-      {caption ? (
-        <Typography sx={{ mt: 0.75, fontSize: 14, color: 'var(--text-muted)' }}>
-          {caption}
-        </Typography>
-      ) : null}
-    </Box>
-  );
-}
-
 export function CashFlowView({
   focusId = null,
   onPeriodChange,
@@ -304,7 +222,7 @@ export function CashFlowView({
   const { resolvedTheme } = useTheme();
   const { data, isPending, isFetching, error, filters, update, exportUrl } = useCashFlowMap();
   const members = useWorkspaceMembers();
-  const [preset, setPreset] = useState<string>(PERIOD_PRESETS[0].labelKey);
+  const [preset, setPreset] = useState<string>(QUICK_PERIOD_PRESETS[0].labelKey);
   const [exporting, setExporting] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [optionsAnchor, setOptionsAnchor] = useState<HTMLElement | null>(null);
@@ -319,6 +237,10 @@ export function CashFlowView({
     formatMoney(value, currency, locale, {
       fractionDigits: Math.abs(value) >= 100 || Number.isInteger(value) ? 0 : 2,
     }).replace('-', '−');
+  const formatPercent = (value: number) =>
+    new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 })
+      .format(value / 100)
+      .replace('-', '−');
   const currentLabel = periodLabel(filters.from, filters.to, locale);
   const analyticsPeriod = useMemo(
     () => ({ from: filters.from, to: filters.to, label: currentLabel }),
@@ -413,14 +335,14 @@ export function CashFlowView({
             ariaLabel={text('cfPeriod', 'Period')}
             onChange={value => {
               setPreset(value);
-              const next = PERIOD_PRESETS.find(item => item.labelKey === value);
+              const next = QUICK_PERIOD_PRESETS.find(item => item.labelKey === value);
               if (next) {
                 const [from, to] = presetRangeValues(next);
                 update({ from, to });
               }
             }}
             options={[
-              ...PERIOD_PRESETS.map(item => ({
+              ...QUICK_PERIOD_PRESETS.map(item => ({
                 value: item.labelKey,
                 label: text(item.labelKey, item.fallback),
               })),
@@ -480,9 +402,26 @@ export function CashFlowView({
               open={optionsAnchor !== null}
               onClose={() => setOptionsAnchor(null)}
             >
-              <MenuItem onClick={() => update({ compare: !filters.compare })}>
-                <Checkbox size="small" checked={filters.compare} sx={{ p: 0.5, mr: 1 }} />
-                {text('cfCompare', 'Compare with the period before')}
+              {(
+                [
+                  ['previous', 'cfCompare', 'Compare with the period before'],
+                  ['year', 'cfCompareYear', 'Compare with the same period last year'],
+                ] as const
+              ).map(([compareTo, key, fallback]) => {
+                const on = filters.compare && filters.compareTo === compareTo;
+                return (
+                  <MenuItem
+                    key={key}
+                    onClick={() => update(on ? { compare: false } : { compare: true, compareTo })}
+                  >
+                    <Checkbox size="small" checked={on} sx={{ p: 0.5, mr: 1 }} />
+                    {text(key, fallback)}
+                  </MenuItem>
+                );
+              })}
+              <MenuItem onClick={() => update({ netRefunds: !filters.netRefunds })}>
+                <Checkbox size="small" checked={filters.netRefunds} sx={{ p: 0.5, mr: 1 }} />
+                {text('cfNetRefunds', 'Refunds reduce their category')}
               </MenuItem>
               <MenuItem onClick={() => update({ includeTransfers: !filters.includeTransfers })}>
                 <Checkbox size="small" checked={filters.includeTransfers} sx={{ p: 0.5, mr: 1 }} />
@@ -526,6 +465,14 @@ export function CashFlowView({
             ? ` · ${text('cfComparedWith', 'compared with {{period}}').replace('{{period}}', previousLabel)}`
             : ''}
         </Typography>
+        {data?.missingRates.length ? (
+          <Typography sx={{ fontSize: 14, color: 'var(--attention)' }}>
+            {text(
+              'cfMissingRates',
+              'No exchange rate for {{currencies}} — those amounts are not in the totals',
+            ).replace('{{currencies}}', data.missingRates.join(', '))}
+          </Typography>
+        ) : null}
       </Box>
 
       {isPending && <Skeleton variant="rounded" height={CASH_FLOW_MIN_HEIGHT} />}
@@ -582,6 +529,17 @@ export function CashFlowView({
                 nothing: null,
                 showDelta: true,
               },
+              {
+                key: 'cfSavingsRate',
+                fallback: 'Savings rate',
+                icon: PiggyBank,
+                value: savingsRate(data.income.total, data.expense.total),
+                previous: data.previous
+                  ? savingsRate(data.previous.income, data.previous.expense)
+                  : undefined,
+                nothing: null,
+                format: formatPercent,
+              },
               ...(data.includeTransfers
                 ? [
                     {
@@ -605,8 +563,8 @@ export function CashFlowView({
                 showDelta={'showDelta' in item && item.showDelta === true}
                 previousLabel={previousLabel}
                 vsTemplate={text('cfVsPeriod', 'vs {{amount}} in {{period}}')}
-                formatWhole={formatWhole}
-                formatAmount={formatAmount}
+                formatWhole={item.format ?? formatWhole}
+                formatAmount={item.format ?? formatAmount}
               />
             ))}
           </Box>

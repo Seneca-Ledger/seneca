@@ -20,15 +20,17 @@ export const EntityImportOptionsInput = Schema.Struct({
 });
 export type EntityImportOptionsInput = Wire<typeof EntityImportOptionsInput>;
 
+const EntityImportTarget = Schema.Literals([
+  'transactions',
+  'subscriptions',
+  'payables',
+  'invoices',
+  'budgets',
+  'metals',
+]);
+
 export const RunEntityImportBody = Schema.Struct({
-  target: Schema.Literals([
-    'transactions',
-    'subscriptions',
-    'payables',
-    'invoices',
-    'budgets',
-    'metals',
-  ]),
+  target: EntityImportTarget,
   /** Target field → column index in `rows`. */
   mapping: Schema.Record(Schema.String, Schema.Int),
   rows: Schema.Array(Schema.Array(Schema.String)).check(
@@ -47,3 +49,25 @@ export const EntityImportBatchParams = Schema.Struct({
   batchId: Schema.String.check(Schema.isUUID()),
 });
 export type EntityImportBatchParams = Wire<typeof EntityImportBatchParams>;
+
+/** `POST /entity-imports/mapping-profiles/match`: the header row of the sheet being imported. */
+export const MatchImportMappingBody = Schema.Struct({
+  target: EntityImportTarget,
+  headers: Schema.Array(Schema.String).check(Schema.isMaxLength(60)),
+});
+export type MatchImportMappingBody = Wire<typeof MatchImportMappingBody>;
+
+/** `PUT /entity-imports/mapping-profiles`: remember the column roles for sheets with these headers. */
+export const SaveImportMappingBody = Schema.Struct({
+  target: EntityImportTarget,
+  headers: Schema.Array(Schema.String).check(Schema.isMinLength(1), Schema.isMaxLength(60)),
+  /** Target field → column index, as in `RunEntityImportBody`. */
+  mapping: Schema.Record(Schema.String, Schema.Int),
+});
+export type SaveImportMappingBody = Wire<typeof SaveImportMappingBody>;
+
+/** `DELETE /entity-imports/mapping-profiles/:id`: a remembered mapping id (uuid). */
+export const ImportMappingProfileParams = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+});
+export type ImportMappingProfileParams = Wire<typeof ImportMappingProfileParams>;
