@@ -41,8 +41,6 @@ import {
   BulkConversion,
   IntegrationConnection,
   IntegrationDisconnected,
-  LocalCategorizationStatus,
-  LocalCategorizationTestResult,
   ManualExchangeRate,
   ProtocolFileList,
   ProtocolImportResult,
@@ -237,7 +235,7 @@ describe('Integration contracts (e2e)', () => {
     await answer(IntegrationDisconnected, call('delete', '/integrations/simplefin'));
   });
 
-  it('workspace service settings: SMTP, app URL, Telegram bot, local categorization', async () => {
+  it('workspace service settings: SMTP, app URL, Telegram bot', async () => {
     const smtp = await answer(
       IntegrationConnection,
       call('put', '/settings/email/smtp', { host: '1.1.1.1', port: 587, from: 'member-1@example.com', pass: 'smtp-pass' }),
@@ -257,14 +255,6 @@ describe('Integration contracts (e2e)', () => {
     );
     expect(bot.settings.botTokenConfigured).toBe(true);
     await answer(IntegrationDisconnected, call('delete', '/settings/notifications/telegram'));
-
-    const local = await answer(LocalCategorizationStatus, call('put', '/settings/local-categorization', { threshold: 0.5 }));
-    expect(local.settings.threshold).toBe(0.5);
-    const tried = await answer(
-      LocalCategorizationTestResult,
-      call('post', '/settings/local-categorization/test', { merchantName: 'ACME Store - Wireless Buds' }),
-    );
-    expect(tried.merchantName).toBe('ACME Store - Wireless Buds');
   }, 60_000);
 
   it('a Telegram report sent to the connected chat', async () => {

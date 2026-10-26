@@ -26,8 +26,8 @@ mkdir -p "$WORK/in"
 if [ "$#" -gt 0 ]; then
   cp "$@" "$WORK/in/"
 else
-  docker exec finflow-backend sh -c 'cd /app && rm -rf /tmp/zugferd-out && XRECHNUNG_OUT=/tmp/zugferd-out npx jest --config jest.unit.config.ts @tests/unit/modules/e-invoices/zugferd >/dev/null'
-  docker cp finflow-backend:/tmp/zugferd-out/. "$WORK/in/"
+  docker exec seneca-backend sh -c 'cd /app && rm -rf /tmp/zugferd-out && XRECHNUNG_OUT=/tmp/zugferd-out npx jest --config jest.unit.config.ts @tests/unit/modules/e-invoices/zugferd >/dev/null'
+  docker cp seneca-backend:/tmp/zugferd-out/. "$WORK/in/"
 fi
 
 cp "$CACHE/mustang-${MUSTANG_VERSION}.jar" "$WORK/mustang.jar"

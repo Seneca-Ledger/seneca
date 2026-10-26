@@ -43,9 +43,8 @@ in clear, or a browser extension reading the page.
 Nothing is sent to Seneca's authors. There is no telemetry.
 
 No external LLM is ever contacted. Statement parsing and categorisation run on your server:
-parsers are deterministic, categories come from your rules, your corrections and payee history,
-and local categorisation (Transformers.js) loads its model from uploaded files and sends nothing
-out.
+parsers are deterministic, and categories come from your rules, your corrections and payee
+history.
 
 ## Agents, keys and the record
 

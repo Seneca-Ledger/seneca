@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import { LogOut } from '@/app/components/icons';
 import { Alert } from '@/app/components/ui/alert';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { formatDateTime, type UserFormatPreferences } from '@/app/lib/user-format';
 import { getSessionIcon, type UserSession } from '@/app/settings/profile/profileHelpers';
@@ -76,116 +77,107 @@ export function SessionsSection({
         </Typography>
 
         {sessionsLoading ? (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              borderRadius: tokens.radius.lg,
-              border: '1px solid',
-              borderColor: 'divider',
-              px: 2,
-              py: 2.5,
-              fontSize: 14,
-              color: 'text.secondary',
-            }}
-          >
-            <Spinner size={18} />
-            {tx(['sessionsCard', 'loadingLabel'])}
-          </Box>
+          <SnapshotSkeleton id="settings-sessions" loading fallback="list" />
         ) : sessions.length ? (
-          <Stack spacing={1}>
-            {sessions.map(session => {
-              const SessionIcon = getSessionIcon(session.device);
-              const isLogoutLoading = logoutSessionLoadingId === session.id;
+          <SnapshotSkeleton id="settings-sessions" loading={false}>
+            <Stack spacing={1}>
+              {sessions.map(session => {
+                const SessionIcon = getSessionIcon(session.device);
+                const isLogoutLoading = logoutSessionLoadingId === session.id;
 
-              return (
-                <Box
-                  key={session.id}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: { xs: 'column', md: 'row' },
-                    gap: 2,
-                    borderRadius: tokens.radius.lg,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                    px: 2,
-                    py: 2,
-                    alignItems: { md: 'flex-start' },
-                    justifyContent: { md: 'space-between' },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                    <Box
-                      sx={{
-                        mt: 0.5,
-                        display: 'flex',
-                        height: 40,
-                        width: 40,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: tokens.radius.sm,
-                        bgcolor: 'transparent',
-                        color: 'primary.main',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <SessionIcon size={20} />
-                    </Box>
-                    <Stack spacing={0.5}>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                          {`${session.device} · ${session.browser}`}
-                        </Typography>
-                        {session.isCurrent && (
-                          <Chip
-                            label={tx(['sessionsCard', 'currentSessionBadge'])}
-                            color="info"
-                            size="small"
-                            variant="outlined"
-                          />
-                        )}
+                return (
+                  <Box
+                    key={session.id}
+                    sx={{
+                      display: 'flex',
+                      flexDirection: { xs: 'column', md: 'row' },
+                      gap: 2,
+                      borderRadius: tokens.radius.lg,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      bgcolor: 'background.paper',
+                      px: 2,
+                      py: 2,
+                      alignItems: { md: 'flex-start' },
+                      justifyContent: { md: 'space-between' },
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                      <Box
+                        sx={{
+                          mt: 0.5,
+                          display: 'flex',
+                          height: 40,
+                          width: 40,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: tokens.radius.sm,
+                          bgcolor: 'transparent',
+                          color: 'primary.main',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <SessionIcon size={20} />
                       </Box>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: 'text.secondary',
-                        }}
-                      >
-                        {session.os}
-                        {session.ipAddress
-                          ? ` · ${tx(['sessionsCard', 'ipLabel'])}: ${session.ipAddress}`
-                          : ''}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: 'text.secondary',
-                        }}
-                      >
-                        {tx(['sessionsCard', 'lastActiveLabel'])}:{' '}
-                        {formatDateTime(session.lastUsedAt, formatPreferences)}
-                      </Typography>
-                    </Stack>
-                  </Box>
+                      <Stack spacing={0.5}>
+                        <Box
+                          sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}
+                        >
+                          <Typography
+                            variant="body2"
+                            sx={{ fontWeight: 600, color: 'text.primary' }}
+                          >
+                            {`${session.device} · ${session.browser}`}
+                          </Typography>
+                          {session.isCurrent && (
+                            <Chip
+                              label={tx(['sessionsCard', 'currentSessionBadge'])}
+                              color="info"
+                              size="small"
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: 'text.secondary',
+                          }}
+                        >
+                          {session.os}
+                          {session.ipAddress
+                            ? ` · ${tx(['sessionsCard', 'ipLabel'])}: ${session.ipAddress}`
+                            : ''}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'text.secondary',
+                          }}
+                        >
+                          {tx(['sessionsCard', 'lastActiveLabel'])}:{' '}
+                          {formatDateTime(session.lastUsedAt, formatPreferences)}
+                        </Typography>
+                      </Stack>
+                    </Box>
 
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      variant={session.isCurrent ? 'contained' : 'outlined'}
-                      color={session.isCurrent ? 'error' : 'primary'}
-                      onClick={() => handleLogoutSession(session)}
-                      disabled={isLogoutLoading}
-                      startIcon={isLogoutLoading ? <Spinner size={14} /> : <LogOut size={18} />}
-                      size="small"
-                    >
-                      {tx(['sessionsCard', 'logoutSessionButton'])}
-                    </Button>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        variant={session.isCurrent ? 'contained' : 'outlined'}
+                        color={session.isCurrent ? 'error' : 'primary'}
+                        onClick={() => handleLogoutSession(session)}
+                        disabled={isLogoutLoading}
+                        startIcon={isLogoutLoading ? <Spinner size={14} /> : <LogOut size={18} />}
+                        size="small"
+                      >
+                        {tx(['sessionsCard', 'logoutSessionButton'])}
+                      </Button>
+                    </Box>
                   </Box>
-                </Box>
-              );
-            })}
-          </Stack>
+                );
+              })}
+            </Stack>
+          </SnapshotSkeleton>
         ) : (
           <Box
             sx={{

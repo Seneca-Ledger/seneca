@@ -1,14 +1,6 @@
 /** Error codes and English messages: integrations. Gathered into ERR in ../app-error.ts. */
 export const INTEGRATIONS_ERRORS = {
   // ── application-settings ────────────────────────────────────────
-  APP_SETTINGS_MODEL_ARCHIVE_REQUIRED: 'Model archive is required',
-  APP_SETTINGS_MODEL_ID_INVALID: 'modelId is invalid',
-  APP_SETTINGS_MODEL_ARCHIVE_NOT_ZIP: 'Model archive must be a valid ZIP file',
-  APP_SETTINGS_MODEL_ARCHIVE_TOO_MANY_FILES: 'Model archive contains too many files',
-  APP_SETTINGS_MODEL_ARCHIVE_UNSAFE_PATHS: 'Model archive contains unsafe paths',
-  APP_SETTINGS_MODEL_ARCHIVE_TOO_LARGE: 'Model archive expands beyond the allowed size',
-  APP_SETTINGS_MODEL_ARCHIVE_INCOMPLETE:
-    'Model archive must contain config.json and an ONNX model file',
   APP_SETTINGS_SMTP_HOST_FROM_REQUIRED: 'SMTP host and from are required',
   APP_SETTINGS_SMTP_VERIFY_FAILED: 'Unable to verify SMTP connection',
   APP_SETTINGS_TELEGRAM_TOKEN_REQUIRED: 'Telegram botToken is required',

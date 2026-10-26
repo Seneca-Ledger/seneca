@@ -15,24 +15,6 @@ import type { Wire } from '../common/wire';
  * boundary check those helpers never replaced — it rejects unknown properties
  * and returns a proper 400 instead of surfacing a coercion error later.
  */
-export const SaveLocalCategorizationBody = Schema.Struct({
-  enabled: optionalNullable(Schema.Boolean),
-  modelId: optionalNullable(Schema.String),
-  threshold: optionalNullable(
-    NumericInput.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
-  ),
-  // No model path: models live under the server's model root (an uploaded
-  // archive lands there). A path from the API let a workspace admin probe the
-  // server's file system.
-});
-export type SaveLocalCategorizationBody = Wire<typeof SaveLocalCategorizationBody>;
-
-export const TestLocalCategorizationBody = Schema.Struct({
-  merchantName: Schema.String,
-  categories: optionalNullable(Schema.Array(Schema.String)),
-});
-export type TestLocalCategorizationBody = Wire<typeof TestLocalCategorizationBody>;
-
 export const SaveSmtpSettingsBody = Schema.Struct({
   host: Schema.String,
   port: optionalNullable(
