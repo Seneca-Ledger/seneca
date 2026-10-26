@@ -6,6 +6,7 @@ import type { PayeeAlias } from '@/entities/payee-alias.entity';
 import { type Transaction, TransactionType } from '@/entities/transaction.entity';
 import type { Wallet } from '@/entities/wallet.entity';
 import { AuditService } from '@/modules/audit/audit.service';
+import { evaluateCondition } from '@/modules/classification/engine/rule-conditions';
 import { ClassificationService } from '@/modules/classification/services/classification.service';
 
 function createRepoMock<T>() {
@@ -90,7 +91,7 @@ describe('ClassificationService', () => {
   });
 
   it('should evaluate conditions correctly', () => {
-    const evaluate = (service as any).evaluateCondition.bind(service);
+    const evaluate = evaluateCondition;
 
     expect(
       evaluate('Kaspi Pay', { operator: 'contains', value: 'kaspi', field: 'payment_purpose' }),

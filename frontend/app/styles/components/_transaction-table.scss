@@ -1291,6 +1291,19 @@
     color: var(--text-muted);
   }
 
+  // "Filed by the rule …" under the category: a quiet way to the rules page.
+  &__rule-link {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+  }
+
   &__check {
     display: inline-flex;
     align-items: center;

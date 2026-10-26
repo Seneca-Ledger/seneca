@@ -54,21 +54,28 @@ export const CategorizationRule = Schema.Struct({
 });
 export type CategorizationRule = Wire<typeof CategorizationRule>;
 
-/** `GET /categorization-rules`: the caller's rules in this workspace, highest priority first. */
+/** `GET /categorization-rules`: every rule of the workspace, highest priority first. */
 export const CategorizationRuleList = Schema.Struct({
   data: Schema.Array(CategorizationRule),
   total: Schema.Number,
 });
 export type CategorizationRuleList = Wire<typeof CategorizationRuleList>;
 
-/** `POST /categorization-rules/test`: which of the given transactions the conditions match. */
+/**
+ * `POST /categorization-rules/test`: what a rule would match, before it is saved,
+ * among the given transactions or the workspace's recent ones.
+ */
 export const CategorizationRuleTestResult = Schema.Struct({
   totalTransactions: Schema.Number,
   matchedTransactions: Schema.Number,
+  /** Matches whose category was not chosen by hand, so applying the rule may change them. */
+  overridable: Schema.Number,
+  /** More rows exist than the preview looked at; the counts are a lower bound. */
+  truncated: Schema.Boolean,
   matches: Schema.Array(
     Schema.Struct({
       id: Schema.String,
-      date: Schema.String,
+      date: Schema.NullOr(Schema.String),
       /** The debit, else the credit, else the signed amount: a decimal string. */
       amount: Schema.NullOr(Schema.String),
       counterparty: Schema.String,
@@ -78,6 +85,13 @@ export const CategorizationRuleTestResult = Schema.Struct({
   ),
 });
 export type CategorizationRuleTestResult = Wire<typeof CategorizationRuleTestResult>;
+
+/** `POST /categorization-rules/:id/apply`: rows changed, and rows kept because a person chose them. */
+export const CategorizationRuleApplyResult = Schema.Struct({
+  applied: Schema.Number,
+  skippedManual: Schema.Number,
+});
+export type CategorizationRuleApplyResult = Wire<typeof CategorizationRuleApplyResult>;
 
 /**
  * `POST /classification/transaction/:id`: the row as stored after the rules ran

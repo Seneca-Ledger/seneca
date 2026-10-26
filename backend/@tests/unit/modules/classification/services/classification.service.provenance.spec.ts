@@ -53,7 +53,7 @@ describe('ClassificationService provenance and switches', () => {
     findOne: vi.fn(async () => ({ id: 'payee-1', name: 'Magnum', mode: 'auto', categoryId: null })),
   };
   const workspaceRepository = { findOne: vi.fn() };
-  const ruleRepository = { find: vi.fn(async () => []) };
+  const ruleRepository = { find: vi.fn(async () => []), update: vi.fn() };
   const categoryRepository = {
     find: vi.fn(async () => []),
     findOne: vi.fn(async () => null),
