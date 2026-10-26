@@ -28,7 +28,7 @@ const config: Config = {
           path: 'docs',
           routeBasePath: 'docs',
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/symonbaikov/seneca/tree/main/website/',
+          editUrl: 'https://github.com/Seneca-Ledger/seneca/tree/main/website/',
         },
         blog: false,
         theme: {
@@ -69,7 +69,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://github.com/symonbaikov/seneca',
+          href: 'https://github.com/Seneca-Ledger/seneca',
           label: 'GitHub',
           position: 'right',
         },
@@ -91,7 +91,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub Issues',
-              href: 'https://github.com/symonbaikov/seneca/issues',
+              href: 'https://github.com/Seneca-Ledger/seneca/issues',
             },
             {
               label: 'Contributing',
@@ -99,15 +99,15 @@ const config: Config = {
             },
             {
               label: 'Security',
-              href: 'https://github.com/symonbaikov/seneca/security',
+              href: 'https://github.com/Seneca-Ledger/seneca/security',
             },
           ],
         },
         {
           title: 'More',
           items: [
-            { label: 'Changelog', href: 'https://github.com/symonbaikov/seneca/releases' },
-            { label: 'License (MIT)', href: 'https://github.com/symonbaikov/seneca/blob/main/LICENSE' },
+            { label: 'Changelog', href: 'https://github.com/Seneca-Ledger/seneca/releases' },
+            { label: 'License (MIT)', href: 'https://github.com/Seneca-Ledger/seneca/blob/main/LICENSE' },
           ],
         },
       ],

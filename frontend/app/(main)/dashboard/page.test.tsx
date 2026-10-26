@@ -132,9 +132,6 @@ vi.mock('@/app/lib/dashboard-effective-window', () => ({
   resolveDashboardEffectivePeriod: () => effectivePeriod.current,
 }));
 
-vi.mock('@/app/lib/dashboard-status-heading', () => ({
-  resolveDashboardStatusHeading: () => 'allClear',
-}));
 
 describe('DashboardPage', () => {
   beforeEach(() => {
