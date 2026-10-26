@@ -3,8 +3,8 @@ title: Configuration
 description: Environment variables and integration setup
 ---
 
-Seneca ships with working defaults for local development — `npm run setup:env` generates them.
-Production deployments need real secrets and a few settings that match how you host Seneca.
+Stoic Budget ships with working defaults for local development — `npm run setup:env` generates them.
+Production deployments need real secrets and a few settings that match how you host Stoic Budget.
 
 ## Root environment (.env)
 

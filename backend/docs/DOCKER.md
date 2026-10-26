@@ -1,4 +1,4 @@
-# Docker инструкции для Seneca
+# Docker инструкции для Stoic Budget
 
 Все команды выполняются из корня репозитория и требуют Docker Compose v2 (`docker compose`).
 

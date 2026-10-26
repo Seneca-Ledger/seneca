@@ -36,7 +36,7 @@ help: ## Display this help message
 ##@ Setup
 
 setup: ## Initial setup - copy env files and generate secrets
-	@echo "🚀 Setting up Seneca..."
+	@echo "🚀 Setting up Stoic Budget..."
 	@npm run setup:env
 	@echo "✅ Setup complete!"
 
@@ -49,11 +49,11 @@ install: ## Install dependencies (local development)
 ##@ Docker Operations
 
 start: ## Start all services in production mode
-	@echo "🐳 Starting Seneca (production mode)..."
+	@echo "🐳 Starting Stoic Budget (production mode)..."
 	@touch .env
 	@$(DOCKER_COMPOSE) up -d --build
 	$(call wait_for_backend)
-	@echo "✅ Seneca is running!"
+	@echo "✅ Stoic Budget is running!"
 	@echo "Frontend: http://localhost:3000"
 	@echo "Backend:  http://localhost:3001/api/v1"
 	@echo "Swagger:  http://localhost:3001/api/docs"
@@ -62,36 +62,36 @@ upgrade: ## Pull release images from GHCR and restart (pin a version: make upgra
 	@touch .env
 	@$(MAKE) --no-print-directory db-backup
 	@tag=$${VERSION:-$$(grep -E '^IMAGE_TAG=' .env 2>/dev/null | cut -d= -f2)}; tag=$${tag:-latest}; \
-	echo "⬇️  Pulling Seneca $$tag..."; \
+	echo "⬇️  Pulling Stoic Budget $$tag..."; \
 	IMAGE_TAG=$$tag $(DOCKER_COMPOSE) pull backend frontend && \
 	IMAGE_TAG=$$tag $(DOCKER_COMPOSE) up -d --no-build --remove-orphans
 	@echo "⏳ Waiting for backend (migrations run on start)..."
 	@port=$$(grep -E '^BACKEND_PORT=' .env 2>/dev/null | cut -d= -f2); port=$${port:-3001}; \
 	for i in $$(seq 1 300); do \
-		curl -sf "http://localhost:$$port/api/v1/health/ready" >/dev/null 2>&1 && { echo "✅ Seneca upgraded"; exit 0; }; \
+		curl -sf "http://localhost:$$port/api/v1/health/ready" >/dev/null 2>&1 && { echo "✅ Stoic Budget upgraded"; exit 0; }; \
 		sleep 1; \
 	done; \
 	echo "❌ Backend not ready after 5 min: docker logs seneca-backend"; exit 1
 	@docker image prune -f >/dev/null
 
 dev: ## Start all services in development mode (with hot reload)
-	@echo "🐳 Starting Seneca (development mode)..."
+	@echo "🐳 Starting Stoic Budget (development mode)..."
 	@touch .env
 	@$(DOCKER_COMPOSE_DEV) up -d --build
 	$(call wait_for_backend)
-	@echo "✅ Seneca is running in development mode!"
+	@echo "✅ Stoic Budget is running in development mode!"
 	@echo "Frontend: http://localhost:3000"
 	@echo "Backend:  http://localhost:3001/api/v1"
 	@echo "Swagger:  http://localhost:3001/api/docs"
 	@echo "Run 'make seed-demo' to create demo@seneca.dev / demo123"
 
 stop: ## Stop all services
-	@echo "🛑 Stopping Seneca..."
+	@echo "🛑 Stopping Stoic Budget..."
 	@$(DOCKER_COMPOSE) down
 	@echo "✅ Services stopped!"
 
 restart: ## Restart all services
-	@echo "🔄 Restarting Seneca..."
+	@echo "🔄 Restarting Stoic Budget..."
 	@$(DOCKER_COMPOSE) restart
 	@echo "✅ Services restarted!"
 
@@ -100,7 +100,7 @@ clean-build-cache: ## Remove unused Docker build cache (safe; next build re-crea
 	@echo "✅ Build cache pruned!"
 
 clean: ## Stop services and remove volumes (also resets the dev node_modules volumes)
-	@echo "🧹 Cleaning up Seneca..."
+	@echo "🧹 Cleaning up Stoic Budget..."
 	@$(DOCKER_COMPOSE_DEV) down -v --remove-orphans
 	@$(DOCKER_COMPOSE) down -v --remove-orphans
 	@echo "✅ Cleanup complete!"
@@ -278,7 +278,7 @@ type-check: ## Run TypeScript type checking
 ##@ Build
 
 build: ## Build for production
-	@echo "🏗️  Building Seneca..."
+	@echo "🏗️  Building Stoic Budget..."
 	@cd backend && npm run build
 	@cd frontend && npm run build
 	@echo "✅ Build complete!"
@@ -345,4 +345,4 @@ update: ## Update dependencies
 	@echo "✅ Dependencies updated!"
 
 reset: clean setup start ## Complete reset - clean, setup, and start
-	@echo "✅ Seneca has been reset!"
+	@echo "✅ Stoic Budget has been reset!"

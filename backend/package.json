@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Seneca Backend - Bank statements processing system",
+  "description": "Stoic Budget Backend - Bank statements processing system",
   "main": "dist/main.js",
   "scripts": {
     "build": "nest build",

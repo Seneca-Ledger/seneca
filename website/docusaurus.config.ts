@@ -2,7 +2,7 @@ import type { Config } from '@docusaurus/types';
 import { themes as prismThemes } from 'prism-react-renderer';
 
 const config: Config = {
-  title: 'Seneca Docs',
+  title: 'Stoic Budget Docs',
   tagline: 'Open-source financial data platform for bank statements',
   favicon: 'img/favicon.png',
 
@@ -41,9 +41,9 @@ const config: Config = {
   themeConfig: {
     image: 'img/screenshots/dashboard-overview.png',
     navbar: {
-      title: 'Seneca',
+      title: 'Stoic Budget',
       logo: {
-        alt: 'Seneca logo',
+        alt: 'Stoic Budget logo',
         src: 'img/logo.png',
       },
       items: [
@@ -111,7 +111,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright (c) ${new Date().getFullYear()} Seneca Contributors`,
+      copyright: `Copyright (c) ${new Date().getFullYear()} Stoic Budget Contributors`,
     },
     prism: {
       theme: prismThemes.github,

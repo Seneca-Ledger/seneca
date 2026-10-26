@@ -1,6 +1,6 @@
 ---
 title: Webhooks
-description: Send statements and receipts into Seneca from other tools, and get told when something happens in a workspace
+description: Send statements and receipts into Stoic Budget from other tools, and get told when something happens in a workspace
 ---
 
 Webhooks live in **Plugins → Webhooks** and work in two directions.
