@@ -10,7 +10,6 @@ import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
-import type { StorageTag } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type {
   CreatePayableInput,
@@ -19,6 +18,7 @@ import type {
   PayableStatus,
   UpdatePayableInput,
 } from '@/app/lib/payables-api';
+import { type PayableFormState, toFormState } from './payable-form-state';
 
 interface CreatePayableDrawerProps {
   open: boolean;
@@ -47,62 +47,6 @@ interface CreatePayableDrawerProps {
     statusOptions: Record<Exclude<PayableStatus, 'partially_paid'>, string>;
   };
 }
-
-interface PayableFormState {
-  vendor: string;
-  amount: string;
-  currency: string;
-  dueDate: string;
-  source: PayableSource;
-  status: PayableStatus;
-  comment: string;
-  tags: StorageTag[];
-}
-
-const createEmptyState = (defaultCurrency: string): PayableFormState => ({
-  vendor: '',
-  amount: '',
-  currency: defaultCurrency,
-  dueDate: '',
-  source: 'manual',
-  status: 'to_pay',
-  comment: '',
-  tags: [],
-});
-
-const toFormState = (
-  payable: Payable | null | undefined,
-  initialValues: CreatePayableInput | null | undefined,
-  defaultCurrency: string,
-): PayableFormState => {
-  if (!(payable || initialValues)) {
-    return createEmptyState(defaultCurrency);
-  }
-
-  if (!payable && initialValues) {
-    return {
-      vendor: initialValues.vendor || '',
-      amount: String(initialValues.amount ?? ''),
-      currency: initialValues.currency || defaultCurrency,
-      dueDate: initialValues.dueDate ? initialValues.dueDate.slice(0, 10) : '',
-      source: initialValues.source || 'manual',
-      status: initialValues.status || 'to_pay',
-      comment: initialValues.comment || '',
-      tags: [],
-    };
-  }
-
-  return {
-    vendor: payable?.vendor || '',
-    amount: String(payable?.amount ?? ''),
-    currency: payable?.currency || defaultCurrency,
-    dueDate: payable?.dueDate ? payable.dueDate.slice(0, 10) : '',
-    source: payable?.source || 'manual',
-    status: payable?.status || 'to_pay',
-    comment: payable?.comment || '',
-    tags: [...(payable?.tags ?? [])],
-  };
-};
 
 export function CreatePayableDrawer({
   open,

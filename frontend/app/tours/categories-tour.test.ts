@@ -74,7 +74,12 @@ describe('createCategoriesTour', () => {
   });
 
   it('keeps categories page anchors aligned with the categories page', () => {
-    const source = readSource('app', '(main)', 'categories', 'page.tsx');
+    // The anchors sit in the page and the parts it is built from.
+    const source = [
+      readSource('app', '(main)', 'categories', 'page.tsx'),
+      readSource('app', '(main)', 'categories', 'hooks', 'useCategoryColumns.tsx'),
+      readSource('app', '(main)', 'categories', 'components', 'CategoryActionsMenu.tsx'),
+    ].join('\n');
 
     expect(source).toContain('data-tour-id="categories-add-button"');
     expect(source).toContain('data-tour-id="categories-search"');

@@ -1,4 +1,5 @@
 import { StorageController } from '@/modules/storage/storage.controller';
+import { StorageTagsController } from '@/modules/storage/storage-tags.controller';
 
 describe('StorageController', () => {
   it('forwards workspaceId for tags and views', async () => {
@@ -14,21 +15,22 @@ describe('StorageController', () => {
       listViews: vi.fn(async () => [{ id: 'view-1' }]),
       deleteView: vi.fn(async () => ({ deleted: true })),
     };
-    const controller = new StorageController(storageService as any, tagsService as any);
+    const controller = new StorageController(storageService as any);
+    const tagsController = new StorageTagsController(tagsService as any);
     const user = { id: 'u1' } as any;
     const workspaceId = 'ws-1';
 
-    expect(await controller.createTag({ name: 'A' } as any, user, workspaceId)).toEqual({
+    expect(await tagsController.createTag({ name: 'A' } as any, user, workspaceId)).toEqual({
       id: 'tag-1',
     });
-    expect(await controller.listTags(user, workspaceId)).toEqual([{ id: 'tag-1' }]);
+    expect(await tagsController.listTags(user, workspaceId)).toEqual([{ id: 'tag-1' }]);
     expect(
-      await controller.updateTag({ id: 'tag-1' }, { name: 'Updated' } as any, user, workspaceId),
+      await tagsController.updateTag({ id: 'tag-1' }, { name: 'Updated' } as any, user, workspaceId),
     ).toEqual({
       id: 'tag-1',
       name: 'Updated',
     });
-    expect(await controller.deleteTag({ id: 'tag-1' }, user, workspaceId)).toEqual({
+    expect(await tagsController.deleteTag({ id: 'tag-1' }, user, workspaceId)).toEqual({
       message: 'Tag deleted successfully',
     });
     expect(await controller.createView({ name: 'View' } as any, user, workspaceId)).toEqual({

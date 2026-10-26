@@ -24,9 +24,16 @@ import {
   DEFAULT_STATEMENT_COLUMNS,
   type StatementColumn,
   type StatementColumnId,
-  statementColumnWidthStyle,
 } from './columns/statement-columns';
 import { isDocumentApproved, resolveStatementSortDate } from './StatementsListView.utils';
+import {
+  columnCellStyle,
+  EMPTY_CELL,
+  firstNonEmpty,
+  formatBoolean,
+  normalizeExchangeRateCurrency,
+  textCellStyle,
+} from './statements-list-item.cells';
 import { useDwellLink } from './use-dwell-link';
 
 export type StatementListItem = {
@@ -121,62 +128,6 @@ type Props = {
   onToggleExpand?: () => void;
   /** Opens the category drawer for a document that has none yet. */
   onAddCategory?: () => void;
-};
-
-const EMPTY_CELL = '—';
-const NUMERIC_COLUMN_IDS = new Set<StatementColumnId>(['amount', 'exchangeRate']);
-
-const normalizeExchangeRateCurrency = (
-  ...currencies: Array<string | null | undefined>
-): string | null => {
-  const normalized = firstNonEmpty(...currencies)?.toUpperCase();
-  if (!normalized) {
-    return null;
-  }
-  if (normalized === 'NIS' || normalized === '\u20aa') {
-    return 'ILS';
-  }
-  return normalized;
-};
-
-const columnCellStyle = (columnId: StatementColumnId): React.CSSProperties => ({
-  display: 'flex',
-  alignItems: 'center',
-  overflow: 'hidden',
-  justifyContent:
-    columnId === 'receipt'
-      ? 'center'
-      : columnId === 'action' || columnId === 'amount'
-        ? 'flex-end'
-        : undefined,
-  // The action cell stacks its button over the label sizer (see renderActionCell).
-  ...(columnId === 'action'
-    ? { flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }
-    : {}),
-  ...statementColumnWidthStyle(columnId),
-});
-
-const textCellStyle = (columnId: StatementColumnId, muted = false): React.CSSProperties => ({
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  width: '100%',
-  textAlign: NUMERIC_COLUMN_IDS.has(columnId) ? 'right' : 'left',
-  color: muted ? 'var(--muted-foreground)' : 'var(--foreground)',
-});
-
-const firstNonEmpty = (...values: Array<unknown>): string | null => {
-  for (const value of values) {
-    if (value === null || value === undefined) continue;
-    const text = String(value).trim();
-    if (text) return text;
-  }
-  return null;
-};
-
-const formatBoolean = (value: boolean | null, yes: string, no: string): string => {
-  if (value === null) return EMPTY_CELL;
-  return value ? yes : no;
 };
 
 /** The statement's own month, `YYYY-MM`, for the report its links open. */

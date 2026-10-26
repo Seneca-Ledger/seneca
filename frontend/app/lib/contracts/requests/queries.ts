@@ -12,7 +12,6 @@ import {
 import type { Wire } from '../common/wire';
 import { InvoiceStatus } from '../invoices/invoices';
 import { JournalEntrySource } from '../ledger/ledger';
-import { PayableDirection, PayableSource, PayableStatus } from '../payables/payables';
 import { ReviewInboxKind } from '../review/review-inbox';
 import { NoteTargetInput } from './notes';
 import { TaxReturnPeriodBody } from './tax';
@@ -225,27 +224,6 @@ export const InvoicesQuery = Schema.Struct({
   clientId: Schema.optional(Uuid),
 });
 export type InvoicesQuery = Wire<typeof InvoicesQuery>;
-
-/** `GET /payables`, its summary and its export. */
-export const PayablesQuery = Schema.Struct({
-  /** Defaults to `payable` so existing clients keep seeing only what the workspace owes. */
-  direction: Schema.optional(PayableDirection),
-  page: Schema.optional(NumericInput.check(Schema.isGreaterThanOrEqualTo(1))),
-  limit: Schema.optional(between(1, 100)),
-  search: Schema.optional(Schema.String),
-  status: Schema.optional(PayableStatus),
-  source: Schema.optional(PayableSource),
-  dueDateFrom: Schema.optional(IsoDateString),
-  dueDateTo: Schema.optional(IsoDateString),
-  minAmount: Schema.optional(AtLeastZero),
-  maxAmount: Schema.optional(AtLeastZero),
-  includeArchived: Schema.optional(BooleanInput),
-  /** Only bills carrying this tag. */
-  tagId: Schema.optional(Schema.String.check(Schema.isUUID())),
-  sort: Schema.optional(Schema.Literals(['dueDateAsc', 'dueDateDesc', 'amountDesc', 'vendorAsc'])),
-  format: Schema.optional(Schema.Literals(['excel', 'csv'])),
-});
-export type PayablesQuery = Wire<typeof PayablesQuery>;
 
 /** `GET /review-inbox`. */
 export const ReviewInboxQuery = Schema.Struct({

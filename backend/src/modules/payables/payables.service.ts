@@ -56,6 +56,7 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ExportFormat, PayablesSortOption } from './dto/filter-payables.dto';
+import { applyPayableFilters, parsePayableDate } from './payable-query.util';
 import { PayablesExportService } from './payables-export.service';
 import { UnbookedPaymentsService } from './unbooked-payments.service';
 
@@ -161,7 +162,7 @@ export class PayablesService {
       vendor: dto.vendor,
       amount: dto.amount,
       currency: await this.workspaceCurrency.resolveFor(workspaceId, dto.currency),
-      dueDate: this.parseDate(dto.dueDate),
+      dueDate: parsePayableDate(dto.dueDate),
       status: toEnum(PayableStatus, dto.status) || PayableStatus.TO_PAY,
       linkedTransactionId: dto.linkedTransactionId || null,
       source: toEnum(PayableSource, dto.source) || PayableSource.MANUAL,
@@ -1168,8 +1169,8 @@ export class PayablesService {
       const fullAmount = Number(row.amount || 0);
       // A paid bill is received in full; any other counts what its payments brought in.
       const received = isPaid ? fullAmount : Math.min(Number(row.paidAmount || 0), fullAmount);
-      const dueDate = this.parseDate(row.dueDate);
-      const paidAt = this.parseDate(row.paidAt ?? row.updatedAt);
+      const dueDate = parsePayableDate(row.dueDate);
+      const paidAt = parsePayableDate(row.paidAt ?? row.updatedAt);
 
       // What is still open is what is still owed: a partly paid bill counts its remainder.
       if (isOpen) {
@@ -1356,58 +1357,7 @@ export class PayablesService {
         direction: filters.direction || PayableDirection.PAYABLE,
       });
 
-    if (!filters.includeArchived) {
-      queryBuilder.andWhere('payable.status != :archivedStatus', {
-        archivedStatus: PayableStatus.ARCHIVED,
-      });
-    }
-
-    if (filters.status) {
-      queryBuilder.andWhere('payable.status = :status', { status: filters.status });
-    }
-
-    if (filters.source) {
-      queryBuilder.andWhere('payable.source = :source', { source: filters.source });
-    }
-
-    if (filters.tagId) {
-      queryBuilder.andWhere(
-        'EXISTS (SELECT 1 FROM payable_tags pt WHERE pt.payable_id = payable.id AND pt.tag_id = :tagId)',
-        { tagId: filters.tagId },
-      );
-    }
-
-    if (filters.search) {
-      queryBuilder.andWhere(
-        "(LOWER(payable.vendor) LIKE :search OR LOWER(COALESCE(payable.comment, '')) LIKE :search)",
-        {
-          search: `%${filters.search.toLowerCase()}%`,
-        },
-      );
-    }
-
-    if (filters.minAmount !== undefined) {
-      queryBuilder.andWhere('payable.amount >= :minAmount', { minAmount: filters.minAmount });
-    }
-
-    if (filters.maxAmount !== undefined) {
-      queryBuilder.andWhere('payable.amount <= :maxAmount', { maxAmount: filters.maxAmount });
-    }
-
-    const dueDateFrom = this.parseDate(filters.dueDateFrom);
-    const dueDateTo = this.parseDate(filters.dueDateTo);
-    if (dueDateFrom && dueDateTo) {
-      queryBuilder.andWhere('payable.dueDate BETWEEN :dueDateFrom AND :dueDateTo', {
-        dueDateFrom,
-        dueDateTo,
-      });
-    } else if (dueDateFrom) {
-      queryBuilder.andWhere('payable.dueDate >= :dueDateFrom', { dueDateFrom });
-    } else if (dueDateTo) {
-      queryBuilder.andWhere('payable.dueDate <= :dueDateTo', { dueDateTo });
-    }
-
-    return queryBuilder;
+    return applyPayableFilters(queryBuilder, filters);
   }
 
   private normalizeUpdateDto(dto: UpdatePayableBody, current: Payable): Partial<Payable> {
@@ -1420,7 +1370,7 @@ export class PayablesService {
       direction: toEnum(PayableDirection, dto.direction) ?? undefined,
       status: toEnum(PayableStatus, dto.status) ?? undefined,
       source: toEnum(PayableSource, dto.source) ?? undefined,
-      dueDate: dto.dueDate !== undefined ? this.parseDate(dto.dueDate) : undefined,
+      dueDate: dto.dueDate !== undefined ? parsePayableDate(dto.dueDate) : undefined,
       linkedTransactionId:
         dto.linkedTransactionId === undefined ? undefined : dto.linkedTransactionId,
       comment: dto.comment === undefined ? undefined : dto.comment,
@@ -1520,20 +1470,6 @@ export class PayablesService {
     if (!statement) {
       throw new BadRequestException(appError('PAYABLE_STATEMENT_NOT_FOUND'));
     }
-  }
-
-  private parseDate(value?: string | Date | null): Date | null {
-    if (!value) {
-      return null;
-    }
-
-    if (value instanceof Date) {
-      return Number.isNaN(value.getTime()) ? null : value;
-    }
-
-    const normalized = value.length <= 10 ? `${value}T00:00:00.000Z` : value;
-    const parsed = new Date(normalized);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   private startOfDay(date: Date): Date {

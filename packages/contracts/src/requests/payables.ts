@@ -2,6 +2,7 @@ import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
 import { BooleanInput, IsoDateString, NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
+import { PayableDirection, PayableSource, PayableStatus } from '../payables/payables';
 
 export const CreatePayableBody = Schema.Struct({
   direction: optionalNullable(Schema.Literals(['payable', 'receivable'])),
@@ -140,3 +141,26 @@ export type PayablePaymentParams = Wire<typeof PayablePaymentParams>;
 /** `GET /payables/allocation-suggestion/:transactionId`. */
 export const PayableTransactionParams = Schema.Struct({ transactionId: Uuid });
 export type PayableTransactionParams = Wire<typeof PayableTransactionParams>;
+
+/** `GET /payables`, its summary and its export. */
+export const PayablesQuery = Schema.Struct({
+  /** Defaults to `payable` so existing clients keep seeing only what the workspace owes. */
+  direction: Schema.optional(PayableDirection),
+  page: Schema.optional(NumericInput.check(Schema.isGreaterThanOrEqualTo(1))),
+  limit: Schema.optional(
+    NumericInput.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(100)),
+  ),
+  search: Schema.optional(Schema.String),
+  status: Schema.optional(PayableStatus),
+  source: Schema.optional(PayableSource),
+  dueDateFrom: Schema.optional(IsoDateString),
+  dueDateTo: Schema.optional(IsoDateString),
+  minAmount: Schema.optional(NumericInput.check(Schema.isGreaterThanOrEqualTo(0))),
+  maxAmount: Schema.optional(NumericInput.check(Schema.isGreaterThanOrEqualTo(0))),
+  includeArchived: Schema.optional(BooleanInput),
+  /** Only bills carrying this tag. */
+  tagId: Schema.optional(Uuid),
+  sort: Schema.optional(Schema.Literals(['dueDateAsc', 'dueDateDesc', 'amountDesc', 'vendorAsc'])),
+  format: Schema.optional(Schema.Literals(['excel', 'csv'])),
+});
+export type PayablesQuery = Wire<typeof PayablesQuery>;

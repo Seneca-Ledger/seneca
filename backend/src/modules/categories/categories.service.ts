@@ -23,6 +23,7 @@ import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.e
 import { Category, CategorySource, CategoryType, StoicClass } from '../../entities/category.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CategoryChangedEvent } from '../notifications/events/notification-events';
+import { type CategoryUsage, mergeCategoryUsage } from './category-usage';
 
 const DEFAULT_SYSTEM_CATEGORIES: ReadonlyArray<{
   name: string;
@@ -62,14 +63,6 @@ const REQUIRED_CATEGORY_FIELDS: ReadonlySet<string> = new Set([
   'isEnabled',
   'taxRelevant',
 ]);
-
-/** One category's usage; `lastUsedAt` is the day of its latest transaction (YYYY-MM-DD). */
-type CategoryUsage = {
-  transactions: number;
-  statements: number;
-  total: number;
-  lastUsedAt: string | null;
-};
 
 @Injectable()
 export class CategoriesService {
@@ -264,34 +257,7 @@ export class CategoriesService {
         .getRawMany(),
     ]);
 
-    const result: Record<string, CategoryUsage> = {};
-
-    for (const row of transactionsRaw) {
-      const catId = row.categoryId;
-      result[catId] = {
-        transactions: Number(row.count),
-        statements: 0,
-        total: Number(row.count),
-        lastUsedAt: row.lastUsedAt ?? null,
-      };
-    }
-
-    for (const row of statementsRaw) {
-      const catId = row.categoryId;
-      if (!result[catId]) {
-        result[catId] = {
-          transactions: 0,
-          statements: Number(row.count),
-          total: Number(row.count),
-          lastUsedAt: null,
-        };
-      } else {
-        result[catId].statements = Number(row.count);
-        result[catId].total += Number(row.count);
-      }
-    }
-
-    return result;
+    return mergeCategoryUsage(transactionsRaw, statementsRaw);
   }
 
   async getCategoryUsageCount(
