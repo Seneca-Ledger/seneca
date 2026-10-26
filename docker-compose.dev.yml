@@ -29,7 +29,7 @@ services:
       - ./backend:/app
       - backend_node_modules:/app/node_modules
       - backend_uploads:/app/uploads
-      # The Hapoalim parser suite reads real statement images from docs/,
+      # The Hapoalim parser suite reads the example statement images from docs/,
       # outside backend/. CI checks out the whole repo so it resolves there;
       # without this mount it fails in the dev container for no real reason.
       - ./docs:/docs:ro
