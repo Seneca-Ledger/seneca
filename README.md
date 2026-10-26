@@ -1,17 +1,18 @@
 <div align="center">
-<img width="150" height="150" alt="Seneca logo" src="https://github.com/user-attachments/assets/eded65fe-0490-4ff8-bbe9-76f2a6711983" />
+<img width="150" height="150" alt="N (5)" src="https://github.com/user-attachments/assets/766c9c0b-50b5-4eaf-8b17-871c4a8c1a49" />
 
-<h1>Seneca</h1>
+
+<h1>Seneca Ledger</h1>
 
 <p align="center">
-  :globe_with_meridians: <a href="https://github.com/symonbaikov/seneca/releases/latest">Download</a> · :book: <a href="https://symonbaikov.github.io/seneca/">Documentation</a>
+  :globe_with_meridians: <a href="https://github.com/Seneca-Ledger/seneca/releases/latest">Download</a> · :book: <a href="https://symonbaikov.github.io/seneca/">Documentation</a>
 </p>
 
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](CONTRIBUTING.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%20%7C%206.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Release](https://img.shields.io/github/v/release/symonbaikov/seneca?style=for-the-badge)](https://github.com/symonbaikov/seneca/releases/latest)
+[![Release](https://img.shields.io/github/v/release/Seneca-Ledger/seneca?style=for-the-badge)](https://github.com/Seneca-Ledger/seneca/releases/latest)
 
 **Open-source financial data platform for importing, processing, and analyzing bank statements**
 
@@ -54,9 +55,9 @@
 
 [![Maintainability](https://qlty.sh/gh/symonbaikov/projects/seneca/maintainability.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
 [![Code Coverage](https://qlty.sh/gh/symonbaikov/projects/seneca/coverage.svg)](https://qlty.sh/gh/symonbaikov/projects/seneca)
-[![GitHub Stars](https://img.shields.io/github/stars/symonbaikov/seneca?style=flat-square&logo=github)](https://github.com/symonbaikov/seneca/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/symonbaikov/seneca?style=flat-square&logo=github)](https://github.com/symonbaikov/seneca/network/members)
-[![GitHub Issues](https://img.shields.io/github/issues/symonbaikov/seneca?style=flat-square&logo=github)](https://github.com/symonbaikov/seneca/issues)
+[![GitHub Stars](https://img.shields.io/github/stars/Seneca-Ledger/seneca?style=flat-square&logo=github)](https://github.com/Seneca-Ledger/seneca/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/Seneca-Ledger/seneca?style=flat-square&logo=github)](https://github.com/Seneca-Ledger/seneca/network/members)
+[![GitHub Issues](https://img.shields.io/github/issues/Seneca-Ledger/seneca?style=flat-square&logo=github)](https://github.com/Seneca-Ledger/seneca/issues)
 
 ---
 
@@ -447,7 +448,7 @@ Choose the startup mode that matches your machine:
 ### One-command development startup
 
 ```bash
-git clone https://github.com/symonbaikov/seneca.git
+git clone https://github.com/Seneca-Ledger/seneca.git
 cd seneca
 npm run setup:dev
 ```
@@ -505,7 +506,7 @@ If native prerequisites are missing, the command stops before starting the app a
 
 ### Run prebuilt images (no local build)
 
-CD publishes `ghcr.io/symonbaikov/seneca-backend` and `ghcr.io/symonbaikov/seneca-frontend` for every release. To start the production stack without building anything locally:
+CD publishes `ghcr.io/seneca-ledger/seneca-backend` and `ghcr.io/seneca-ledger/seneca-frontend` for every release. To start the production stack without building anything locally:
 
 ```bash
 npm run setup:env

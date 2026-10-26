@@ -203,7 +203,11 @@ describe("CustomTablesService.convertToStatement", () => {
 	});
 
 	afterEach(() => {
-		process.env.UPLOADS_DIR = originalUploadsDir;
+		if (originalUploadsDir === undefined) {
+			delete process.env.UPLOADS_DIR;
+		} else {
+			process.env.UPLOADS_DIR = originalUploadsDir;
+		}
 		vi.clearAllMocks();
 	});
 
