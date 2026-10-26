@@ -1,4 +1,5 @@
 import { readFile, unlink } from 'node:fs/promises';
+import { resolve as resolvePath, sep } from 'node:path';
 import {
   BadGatewayException,
   BadRequestException,
@@ -21,7 +22,7 @@ import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
-import { resolveInUploadsDir } from '../../common/utils/uploads.util';
+import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import { multerConfig } from '../../config/multer.config';
 import {
   ConnectCryptoWalletBody,
@@ -199,7 +200,8 @@ export class CryptoController {
     @CurrentUser() user: User,
   ) {
     const path = uploadedPath(file);
-    if (!path) {
+    // Multer writes every upload under the uploads directory; refuse any other path.
+    if (!path?.startsWith(`${resolvePath(resolveUploadsDir())}${sep}`)) {
       throw new BadRequestException(appError('CRYPTO_FILE_NOT_PROVIDED'));
     }
     try {
@@ -251,7 +253,7 @@ export class CryptoController {
 /** Where multer put the upload, when it put one anywhere. */
 function uploadedPath(file: unknown): string | null {
   const path = (file as { path?: unknown } | null)?.path;
-  return typeof path === 'string' && path.length > 0 ? resolveInUploadsDir(path) : null;
+  return typeof path === 'string' && path.length > 0 ? resolvePath(path) : null;
 }
 
 /** One calendar year, or no bounds (the whole history). */

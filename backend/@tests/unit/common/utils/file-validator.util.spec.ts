@@ -6,6 +6,7 @@ import { BadRequestException } from '@nestjs/common';
 import { resolveUploadsDir } from '@/common/utils/uploads.util';
 import {
   getFileTypeFromMime,
+  isEInvoiceXml,
   resolveFileType,
   unlinkAll,
   validateFile,
@@ -153,6 +154,34 @@ describe('validateFile', () => {
     } finally {
       fs.rmSync(outsideDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('isEInvoiceXml', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTempDir('einvoice');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const xmlFile = (content: string) => {
+    const filePath = path.join(tmpDir, 'doc.xml');
+    fs.writeFileSync(filePath, content);
+    return { path: filePath };
+  };
+
+  it('finds a UBL invoice root past the declaration and a comment', () => {
+    const file = xmlFile('<?xml version="1.0"?><!-- note --><ubl:Invoice xmlns:ubl="urn:x">');
+    expect(isEInvoiceXml(file)).toBe(true);
+  });
+
+  it('ignores an invoice element that only appears inside a comment', () => {
+    const file = xmlFile('<?xml version="1.0"?><!-- <Invoice> --><Document>');
+    expect(isEInvoiceXml(file)).toBe(false);
   });
 });
 

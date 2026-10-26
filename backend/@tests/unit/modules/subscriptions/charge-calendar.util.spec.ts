@@ -9,6 +9,16 @@ import {
 const FROM = new Date(2026, 0, 15); // 15 Jan 2026
 
 describe('projectMonthlyCharges', () => {
+  it('caps the horizon at ten years however many months are asked for', () => {
+    const buckets = projectMonthlyCharges(
+      new Date(2026, 0, 20),
+      SubscriptionFrequency.MONTHLY,
+      FROM,
+      1_000_000,
+    );
+    expect(buckets).toHaveLength(120);
+  });
+
   it('fills every bucket for a monthly subscription', () => {
     const buckets = projectMonthlyCharges(
       new Date(2026, 0, 20),

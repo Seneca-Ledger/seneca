@@ -1,6 +1,6 @@
 import * as os from 'os';
 import * as path from 'path';
-import { resolveInUploadsDir } from '@/common/utils/uploads.util';
+import { readUploadedFile, resolveInUploadsDir } from '@/common/utils/uploads.util';
 import { calculateFileHash } from '@/common/utils/file-hash.util';
 
 describe('resolveInUploadsDir', () => {
@@ -26,5 +26,11 @@ describe('resolveInUploadsDir', () => {
 describe('calculateFileHash', () => {
   it('refuses to read a file outside the uploads directory', async () => {
     await expect(calculateFileHash('/etc/hostname')).rejects.toThrow(/outside the uploads/);
+  });
+});
+
+describe('readUploadedFile', () => {
+  it('refuses to read a file outside the uploads directory', async () => {
+    await expect(readUploadedFile('/etc/hostname')).rejects.toThrow(/outside the uploads/);
   });
 });

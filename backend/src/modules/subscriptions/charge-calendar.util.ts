@@ -5,6 +5,9 @@ const bucketOf = (date: Date): number => date.getFullYear() * 12 + date.getMonth
 /** ~380 years of weekly charges: only a corrupt row can reach this. */
 const MAX_STEPS = 20000;
 
+/** Ten years: callers ask for a year at most, the cap only bounds the array. */
+const MAX_MONTHS = 120;
+
 /**
  * The n-th charge after the anchor date.
  *
@@ -52,14 +55,15 @@ export function projectMonthlyCharges(
   from: Date,
   months: number,
 ): number[] {
-  const buckets = new Array<number>(Math.max(0, months)).fill(0);
-  if (!nextChargeDate || months <= 0) return buckets;
+  const span = months <= MAX_MONTHS ? Math.max(0, months) : MAX_MONTHS;
+  const buckets = new Array<number>(span).fill(0);
+  if (!nextChargeDate || span <= 0) return buckets;
 
   const anchor = new Date(nextChargeDate);
   if (Number.isNaN(anchor.getTime())) return buckets;
 
   const first = bucketOf(from);
-  const last = first + months - 1;
+  const last = first + span - 1;
 
   // Starts at index 0 so a stale nextChargeDate (the daily cron has not rolled
   // it forward yet) is caught up rather than dropped.

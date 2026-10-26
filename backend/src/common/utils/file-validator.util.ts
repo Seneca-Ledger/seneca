@@ -217,13 +217,11 @@ export function resolveFileType(file: {
  */
 export function isEInvoiceXml(file: { path?: string | null }): boolean {
   const sample = file.path ? readTextSample(file.path) : null;
-  return (
-    sample !== null &&
-    /<(?:[\w-]+:)?(?:Invoice|CreditNote|CrossIndustryInvoice)[\s>]/.test(
-      // Past the declaration and any comments in front of the root element.
-      sample.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->/g, ''),
-    )
-  );
+  // Scanned left to right, a declaration or comment is consumed whole, so only
+  // a root element outside them is captured.
+  const tokens =
+    /<\?[\s\S]*?\?>|<!--[\s\S]*?-->|(<(?:[\w-]+:)?(?:Invoice|CreditNote|CrossIndustryInvoice)[\s>])/g;
+  return sample !== null && [...sample.matchAll(tokens)].some(match => match[1] !== undefined);
 }
 
 export function validateFile(
@@ -254,7 +252,7 @@ export function validateFile(
   const checkSignature = isCsvDeclaredAsExcel(file)
     ? undefined
     : MAGIC_BYTES.get(file.mimetype as AllowedFileType);
-  if (checkSignature && file.path) {
+  if (typeof checkSignature === 'function' && file.path) {
     const signature = readSignature(file.path);
     if (signature && !checkSignature(signature)) {
       throw new BadRequestException(

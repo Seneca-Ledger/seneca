@@ -90,7 +90,7 @@ describe('Official reference data (e2e)', () => {
         expect(String(init?.body)).toContain('<t:isoCode>DE</t:isoCode>');
         return new Response(tedb, { status: 200 });
       }
-      if (url.includes('openholidaysapi.org')) {
+      if (new URL(url).hostname === 'openholidaysapi.org') {
         const year = new URL(url).searchParams.get('validFrom')?.slice(0, 4);
         return json(holidays.filter(holiday => holiday.startDate.startsWith(String(year))));
       }

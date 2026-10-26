@@ -203,7 +203,7 @@ export class StatementUploadsController {
     idempotencyKey: string | undefined,
     returnUnwrappedSingle: boolean,
   ) {
-    if (!files || files.length === 0) {
+    if (!Array.isArray(files) || files.length === 0) {
       throw new BadRequestException(appError('UPLOAD_NO_FILES'));
     }
 

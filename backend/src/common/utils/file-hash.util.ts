@@ -9,9 +9,10 @@ export function calculateFileHash(filePath: string): Promise<string> {
   if (!safePath.startsWith(`${uploadsRoot}${path.sep}`)) {
     return Promise.reject(new Error('File is outside the uploads directory'));
   }
+  // Opened here, not inside the executor, so the bound above guards the read.
+  const stream = fs.createReadStream(safePath);
   return new Promise((resolve, reject) => {
     const hash = createHash('sha256');
-    const stream = fs.createReadStream(safePath);
 
     stream.on('data', data => hash.update(data));
     stream.on('end', () => resolve(hash.digest('hex')));
