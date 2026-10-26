@@ -27,6 +27,9 @@ vi.mock('@/app/components/notes/NotesPanel', () => ({ NotesPanel: () => <div>not
 vi.mock('@/app/audit/components/AuditEventDrawer', () => ({ AuditEventDrawer: () => null }));
 vi.mock('@/app/components/payees/useOfferPayeeQueue', () => ({ useOfferPayeeQueue: () => vi.fn() }));
 vi.mock('./hooks/useWorkspaceMembers', () => ({ useWorkspaceMembers: () => [] }));
+vi.mock('@/app/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => true }),
+}));
 vi.mock('./hooks/useTransactionHistory', () => ({
   useTransactionHistory: () => ({
     historyEvents: history.events,
@@ -96,6 +99,33 @@ describe('DetailsDrawer', () => {
     expect(screen.getByText('sheet.splitHint')).toBeInTheDocument();
     expect(screen.getByText('sheet.contributionHint')).toBeInTheDocument();
     expect(screen.getByText('sheet.transferHint')).toBeInTheDocument();
+  });
+
+  it('starts a rule from the row, matching its payee as the bank wrote it', async () => {
+    renderDrawer(transaction());
+
+    fireEvent.click(screen.getByRole('button', { name: /drawer\.createFromRow/ }));
+
+    expect(await screen.findByText('dialog.createTitle')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Blue Bottle Coffee')).toBeInTheDocument();
+  });
+
+  it('offers no rule from a private row', () => {
+    renderDrawer(transaction({ isPrivate: true }));
+
+    expect(screen.queryByRole('button', { name: /drawer\.createFromRow/ })).toBeNull();
+  });
+
+  it('names the rule that filed the row, linking to the rules page', () => {
+    renderDrawer(
+      transaction({
+        category: { id: 'cat-1', name: 'Coffee' },
+        categorySource: 'rule',
+        categoryReason: 'Coffee shops',
+      }),
+    );
+
+    expect(screen.getByText('drawer.fromRule').closest('a')?.getAttribute('href')).toBe('/rules');
   });
 
   it('confirms an unconfirmed row the way Review does, then hands back', async () => {

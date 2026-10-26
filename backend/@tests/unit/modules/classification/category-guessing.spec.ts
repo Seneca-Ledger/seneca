@@ -140,7 +140,10 @@ describe('category guessing', () => {
             manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
           },
         },
-        { provide: getRepositoryToken(CategorizationRule), useValue: { find: async () => [] } },
+        {
+          provide: getRepositoryToken(CategorizationRule),
+          useValue: { find: async () => [], update: async () => undefined },
+        },
         { provide: getRepositoryToken(Workspace), useValue: { findOne: async () => null } },
         {
           provide: CACHE_MANAGER,

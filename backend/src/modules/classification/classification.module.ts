@@ -12,6 +12,7 @@ import { AuditModule } from '../audit/audit.module';
 import { CategorizationRulesController } from './categorization-rules.controller';
 import { ClassificationController } from './classification.controller';
 import { ClassificationService } from './services/classification.service';
+import { RuleApplicationService } from './services/rule-application.service';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { ClassificationService } from './services/classification.service';
     AuditModule,
   ],
   controllers: [ClassificationController, CategorizationRulesController],
-  providers: [ClassificationService],
+  providers: [ClassificationService, RuleApplicationService],
   exports: [ClassificationService],
 })
 export class ClassificationModule {}

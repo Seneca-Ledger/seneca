@@ -4,7 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
 import { payeeKeyOf } from '../../../common/utils/payee-key.util';
-import { OWNER_SHARED } from '../../../common/utils/transaction-owner.util';
 import {
   DEFAULT_PROCESSING_SETTINGS,
   readProcessingSettings,
@@ -28,6 +27,7 @@ import { AuditService } from '../../audit/audit.service';
 import { UNCATEGORIZED_CATEGORY_NAME } from '../../categories/uncategorized-category';
 import { decidePayeeCategory } from '../engine/payee-category.matcher';
 import { onlyPayeeEvidence } from '../engine/payee-evidence';
+import { matchesConditions } from '../engine/rule-conditions';
 import {
   type ClassificationCondition,
   type ClassificationRule,
@@ -105,47 +105,34 @@ export class ClassificationService {
     // default, so it must not overwrite one.
     let ruleSetOwner = false;
 
-    // Get classification rules for user
-    const rules = (await this.getClassificationRules(userId, workspaceId)) ?? [];
-
-    // Apply rules in priority order
-    for (const rule of rules.sort((a, b) => b.priority - a.priority)) {
-      if (this.matchesRule(transaction, rule.conditions)) {
-        // A rule saved before its targets were checked may still name another
-        // workspace's category, branch or wallet: it is passed over, not applied.
-        if (
-          workspaceId &&
-          !(await workspaceOwnsRefs(this.walletRepository.manager, workspaceId, rule.result))
-        ) {
-          continue;
-        }
-        matchedRule = rule;
-        // Apply rule result
-        if (rule.result.categoryId) {
-          classification.categoryId = rule.result.categoryId;
-          classification.categorySource = TransactionCategorySource.RULE;
-          classification.categoryReason = rule.name;
-        }
-        if (rule.result.branchId) {
-          classification.branchId = rule.result.branchId;
-        }
-        if (rule.result.walletId) {
-          classification.walletId = rule.result.walletId;
-        }
-        if (rule.result.ownerMemberId !== undefined) {
-          classification.ownerMemberId = rule.result.ownerMemberId;
-          ruleSetOwner = true;
-        }
-        if (rule.result.article) {
-          classification.article = rule.result.article;
-        }
-        if (rule.result.activityType) {
-          classification.activityType = rule.result.activityType;
-        }
-
-        // Stop at first matching rule (highest priority)
-        break;
+    // The workspace's rules, whoever wrote them: a rule is a decision about the
+    // workspace's money, so it applies to every member's imports.
+    const rules = await this.getClassificationRules(workspaceId);
+    const rule = await this.firstApplicableRule(rules, transaction, workspaceId);
+    if (rule) {
+      matchedRule = rule;
+      if (rule.result.categoryId) {
+        classification.categoryId = rule.result.categoryId;
+        classification.categorySource = TransactionCategorySource.RULE;
+        classification.categoryReason = rule.name;
       }
+      if (rule.result.branchId) {
+        classification.branchId = rule.result.branchId;
+      }
+      if (rule.result.walletId) {
+        classification.walletId = rule.result.walletId;
+      }
+      if (rule.result.ownerMemberId !== undefined) {
+        classification.ownerMemberId = rule.result.ownerMemberId;
+        ruleSetOwner = true;
+      }
+      if (rule.result.article) {
+        classification.article = rule.result.article;
+      }
+      if (rule.result.activityType) {
+        classification.activityType = rule.result.activityType;
+      }
+      await this.recordRuleMatch(rule.id, workspaceId);
     }
 
     // Auto-classify category if not set
@@ -235,9 +222,10 @@ export class ClassificationService {
       credit: input.transactionType === TransactionType.INCOME ? (input.amount ?? null) : null,
     } as Transaction;
 
-    const rules = (await this.getClassificationRules(input.userId, input.workspaceId)) ?? [];
-    const rule = rules.find(candidate => this.matchesRule(transaction, candidate.conditions));
+    const rules = await this.getClassificationRules(input.workspaceId);
+    const rule = await this.firstApplicableRule(rules, transaction, input.workspaceId);
     if (rule?.result.categoryId) {
+      await this.recordRuleMatch(rule.id, input.workspaceId);
       return {
         categoryId: rule.result.categoryId,
         source: TransactionCategorySource.RULE,
@@ -249,68 +237,43 @@ export class ClassificationService {
   }
 
   matchesRule(transaction: Transaction, conditions: ClassificationCondition[]): boolean {
-    return conditions.every(condition => {
-      const fieldValue = this.getFieldValue(transaction, condition.field);
-      return this.evaluateCondition(fieldValue, condition);
-    });
+    return matchesConditions(transaction, conditions);
   }
 
-  private getFieldValue(transaction: Transaction, field: string): string | number | null {
-    switch (field) {
-      case 'counterparty_name':
-        return transaction.counterpartyName;
-      case 'payment_purpose':
-        return transaction.paymentPurpose;
-      case 'amount':
-        return transaction.amount || transaction.debit || transaction.credit || 0;
-      case 'counterparty_bin':
-        return transaction.counterpartyBin || null;
-      case 'document_number':
-        return transaction.documentNumber || null;
-      // `shared` rather than null: the condition evaluator treats null as "no
-      // value" and refuses to match, so a rule about shared rows needs a word.
-      case 'owner':
-        return transaction.ownerMemberId ?? OWNER_SHARED;
-      default:
-        return null;
+  /**
+   * The highest-priority rule that matches and names only this workspace's
+   * category, branch and wallet. A rule saved before its targets were checked
+   * may still name another workspace's: it is passed over, not applied.
+   */
+  private async firstApplicableRule(
+    rules: ClassificationRule[],
+    transaction: Transaction,
+    workspaceId: string | null,
+  ): Promise<ClassificationRule | null> {
+    for (const rule of [...rules].sort((a, b) => b.priority - a.priority)) {
+      if (!this.matchesRule(transaction, rule.conditions)) {
+        continue;
+      }
+      if (
+        workspaceId &&
+        !(await workspaceOwnsRefs(this.walletRepository.manager, workspaceId, rule.result))
+      ) {
+        continue;
+      }
+      return rule;
     }
+    return null;
   }
 
-  private evaluateCondition(
-    fieldValue: string | number | null,
-    condition: ClassificationCondition,
-  ): boolean {
-    if (fieldValue === null || fieldValue === undefined) {
-      return false;
+  /** Keeps the "matched N times, last on …" line on the rules page true. */
+  async recordRuleMatch(ruleId: string | undefined, workspaceId: string | null, count = 1) {
+    if (!ruleId || !workspaceId || count < 1) {
+      return;
     }
-
-    const conditionValue = condition.value;
-    const fieldStr = String(fieldValue).toLowerCase();
-    const conditionStr = String(conditionValue).toLowerCase();
-
-    switch (condition.operator) {
-      case 'contains':
-        return fieldStr.includes(conditionStr);
-      case 'equals':
-        return fieldStr === conditionStr;
-      case 'starts_with':
-        return fieldStr.startsWith(conditionStr);
-      case 'ends_with':
-        return fieldStr.endsWith(conditionStr);
-      case 'regex':
-        try {
-          const regex = new RegExp(conditionValue as string, 'i');
-          return regex.test(fieldStr);
-        } catch {
-          return false;
-        }
-      case 'greater_than':
-        return Number(fieldValue) > Number(conditionValue);
-      case 'less_than':
-        return Number(fieldValue) < Number(conditionValue);
-      default:
-        return false;
-    }
+    await this.categorizationRuleRepository.update(
+      { id: ruleId, workspaceId },
+      { matchCount: () => `match_count + ${Math.trunc(count)}`, lastMatchedAt: new Date() },
+    );
   }
 
   private async autoClassifyCategory(
@@ -496,17 +459,14 @@ export class ClassificationService {
     return (matched || branches[0])?.id;
   }
 
-  private async getClassificationRules(
-    userId: string,
-    workspaceId: string | null = null,
-  ): Promise<ClassificationRule[]> {
-    // Load user-defined categorization rules from database
+  async getClassificationRules(workspaceId: string | null): Promise<ClassificationRule[]> {
+    // Without a workspace there is nothing to scope by, and an empty `where`
+    // would read every workspace's rules.
+    if (!workspaceId) {
+      return [];
+    }
     const userRules = await this.categorizationRuleRepository.find({
-      where: {
-        userId,
-        ...(workspaceId ? { workspaceId } : {}),
-        isActive: true,
-      },
+      where: { workspaceId, isActive: true },
       order: {
         priority: 'DESC',
       },
