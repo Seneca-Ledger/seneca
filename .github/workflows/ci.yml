@@ -24,6 +24,7 @@ jobs:
     outputs:
       backend: ${{ steps.diff.outputs.backend }}
       frontend: ${{ steps.diff.outputs.frontend }}
+      docker: ${{ steps.diff.outputs.docker }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -43,16 +44,21 @@ jobs:
           case "$EVENT" in
             pull_request) files=$(git diff --name-only "${PR_BASE}...${PR_HEAD}") ;;
             merge_group) files=$(git diff --name-only "${QUEUE_BASE}" "${QUEUE_HEAD}") ;;
-            *) echo "backend=true" >> "$GITHUB_OUTPUT"; echo "frontend=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            *) echo "backend=true" >> "$GITHUB_OUTPUT"; echo "frontend=true" >> "$GITHUB_OUTPUT"; echo "docker=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
           esac
           # Shared code, tooling and CI itself affect both halves.
           shared='^(packages/|scripts/|\.github/|package(-lock)?\.json$|Dockerfile$|docker-compose)'
           backend=false; frontend=false
           if echo "$files" | grep -qE "$shared|^backend/"; then backend=true; fi
           if echo "$files" | grep -qE "$shared|^frontend/"; then frontend=true; fi
+          # What goes into an image: a broken Dockerfile used to surface only after the merge.
+          image='(^|/)Dockerfile$|(^|/)\.dockerignore$|(^|/)package(-lock)?\.json$|^backend/requirements\.txt$|^scripts/start\.sh$|^frontend/scripts/build-locale-packs\.mjs$|^\.github/workflows/ci\.yml$'
+          docker=false
+          if echo "$files" | grep -qE "$image"; then docker=true; fi
           echo "backend=$backend" >> "$GITHUB_OUTPUT"
           echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
-          echo "backend=$backend frontend=$frontend"
+          echo "docker=$docker" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend frontend=$frontend docker=$docker"
 
   sensitive-changes:
     runs-on: ubuntu-latest
@@ -728,12 +734,15 @@ jobs:
           fi
           ./gitleaks git --redact --verbose --log-opts="${range}" .
 
-  # The image build and its Trivy scan take about eight minutes, so they run after
-  # a merge, on the push to main, rather than on every pull request.
+  # The image build and its Trivy scan take about eight minutes: they run on the push
+  # to main, and on a pull request or queue group only when it changes what goes
+  # into an image.
   docker:
     runs-on: ubuntu-latest
-    needs: [build, dependency-scan, secrets-scan]
-    if: github.event_name == 'push'
+    needs: [changes, build, dependency-scan, secrets-scan]
+    if: >-
+      !cancelled() && !failure() &&
+      (github.event_name == 'push' || needs.changes.outputs.docker == 'true')
     steps:
       - name: Checkout
         uses: actions/checkout@v7
