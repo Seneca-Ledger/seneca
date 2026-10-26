@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "intlayer build && node scripts/build-locale-packs.mjs",
     "dev": "vite dev",
     "postinstall": "intlayer build && node scripts/build-locale-packs.mjs --if-present",
     "prebuild": "intlayer build && node scripts/build-locale-packs.mjs",
