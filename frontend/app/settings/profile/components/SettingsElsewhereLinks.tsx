@@ -38,7 +38,7 @@ type ElsewhereLink = {
 };
 
 const KNOWLEDGE_BASE_URL = 'https://symonbaikov.github.io/seneca/';
-const BUG_REPORT_URL = 'https://github.com/symonbaikov/seneca/issues/new?template=bug_report.yml';
+const BUG_REPORT_URL = 'https://github.com/Seneca-Ledger/seneca/issues/new?template=bug_report.yml';
 
 /**
  * Settings that live outside this page. The account menu in the sidebar is kept
