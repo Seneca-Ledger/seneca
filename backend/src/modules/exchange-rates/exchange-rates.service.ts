@@ -14,7 +14,6 @@ import { type CurrencyCoverage, currencyCoverage } from './exchange-rate-coverag
 import { collectRateQuotes, foldRateCurve, type RatePoint } from './exchange-rate-curve';
 import { LatestRatesResponse, PublicRatesResponse } from './exchange-rates.http';
 
-
 /**
  * A rate and the day it was quoted for. `stale` marks a rate borrowed from an
  * earlier day because none was found for the requested one.
