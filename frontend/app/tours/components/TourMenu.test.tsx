@@ -76,7 +76,7 @@ vi.mock('../reports-tour', () => ({
 }));
 vi.mock('../categories-tour', () => ({
   createCategoriesTour: () =>
-    createTour('categories-tour', 'Categories Tour', '/workspaces/categories'),
+    createTour('categories-tour', 'Categories Tour', '/categories'),
 }));
 vi.mock('../integrations-tour', () => ({
   createIntegrationsTour: () =>

@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useIntlayer } from '@/app/i18n';
 import apiClient, { gmailReceiptsApi } from '@/app/lib/api';
@@ -182,7 +182,6 @@ export interface UseStatementSelectionResult {
   setSelectedStatementIds: React.Dispatch<React.SetStateAction<string[]>>;
   selectedActionsOpen: boolean;
   setSelectedActionsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  selectedActionsRef: React.RefObject<HTMLDivElement | null>;
   allVisibleSelected: boolean;
   selectedCount: number;
   selectedDuplicateCount: number;
@@ -217,7 +216,6 @@ export function useStatementSelection({
   const [selectedActionsOpen, setSelectedActionsOpen] = useState(false);
   const [mergePlan, setMergePlan] = useState<MergeDuplicatesPlan | null>(null);
   const [mergeRunning, setMergeRunning] = useState(false);
-  const selectedActionsRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCount = selectedStatementIds.length;
   const allVisibleSelected = areAllVisibleSelected(selectedStatementIds, visibleStatementIds);
@@ -243,27 +241,6 @@ export function useStatementSelection({
       setSelectedActionsOpen(false);
     }
   }, [selectedCount]);
-
-  // Close bulk-action menu on outside click
-  useEffect(() => {
-    if (!selectedActionsOpen) {
-      return;
-    }
-
-    const handleOutsideClick = (event: MouseEvent): void => {
-      if (!selectedActionsRef.current) {
-        return;
-      }
-      if (!selectedActionsRef.current.contains(event.target as Node)) {
-        setSelectedActionsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-    };
-  }, [selectedActionsOpen]);
 
   const handleToggleStatement = (statementId: string): void => {
     setSelectedStatementIds(prev => toggleStatementSelection(prev, statementId));
@@ -597,7 +574,6 @@ export function useStatementSelection({
     setSelectedStatementIds,
     selectedActionsOpen,
     setSelectedActionsOpen,
-    selectedActionsRef,
     allVisibleSelected,
     selectedCount,
     selectedDuplicateCount,

@@ -26,6 +26,7 @@ export class TransactionsSource implements SourceAdapter {
       },
     },
     { field: 'category', title: 'Category', type: CustomTableColumnType.TEXT },
+    { field: 'tags', title: 'Tags', type: CustomTableColumnType.TEXT },
     { field: 'currency', title: 'Currency', type: CustomTableColumnType.TEXT },
     { field: 'statement', title: 'Statement', type: CustomTableColumnType.TEXT },
   ];
@@ -68,6 +69,10 @@ export class TransactionsSource implements SourceAdapter {
     }
 
     const transactions = await qb.getMany();
+    const tagNames = await this.loadTagNames(
+      workspaceId,
+      transactions.map(tx => tx.id),
+    );
     return transactions.map(tx => {
       const magnitude = Math.abs(
         toNumber(tx.amount) ?? toNumber(tx.credit) ?? toNumber(tx.debit) ?? 0,
@@ -81,10 +86,58 @@ export class TransactionsSource implements SourceAdapter {
           amount: tx.transactionType === TransactionType.EXPENSE ? -magnitude : magnitude,
           type: tx.transactionType,
           category: tx.category?.name ?? '',
+          tags: tagNames.get(tx.id) ?? '',
           currency: tx.currency || '',
           statement: tx.statement?.fileName ?? '',
         },
       };
     });
+  }
+
+  /**
+   * The tags a row carries: its own, its statement's and those of the receipts
+   * attached to it, by name, each once, sorted, joined with ", ".
+   */
+  private async loadTagNames(
+    workspaceId: string,
+    transactionIds: string[],
+  ): Promise<Map<string, string>> {
+    if (transactionIds.length === 0) {
+      return new Map();
+    }
+    const rows: Array<{ transactionId: string; name: string }> =
+      await this.transactionRepository.query(
+        `SELECT DISTINCT x.transaction_id AS "transactionId", t.name AS name
+           FROM (
+             SELECT tt.transaction_id, tt.tag_id
+               FROM transaction_tags tt
+              WHERE tt.transaction_id = ANY($1::uuid[])
+             UNION
+             SELECT tx.id, st.tag_id
+               FROM transactions tx
+               JOIN statement_tags st ON st.statement_id = tx.statement_id
+              WHERE tx.id = ANY($1::uuid[]) AND tx.workspace_id = $2
+             UNION
+             SELECT r.transaction_id, rt.tag_id
+               FROM receipts r
+               JOIN receipt_tags rt ON rt.receipt_id = r.id
+              WHERE r.transaction_id = ANY($1::uuid[]) AND r.workspace_id = $2
+           ) x
+           JOIN tags t ON t.id = x.tag_id
+          WHERE t.workspace_id = $2`,
+        [transactionIds, workspaceId],
+      );
+    const byTransaction = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const names = byTransaction.get(row.transactionId) ?? new Set<string>();
+      names.add(row.name);
+      byTransaction.set(row.transactionId, names);
+    }
+    return new Map(
+      [...byTransaction].map(([id, names]) => [
+        id,
+        [...names].sort((a, b) => a.localeCompare(b)).join(', '),
+      ]),
+    );
   }
 }

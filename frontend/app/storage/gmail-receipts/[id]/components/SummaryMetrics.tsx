@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, Paper, Typography } from '@mui/material';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { EditableReceiptData, GmailReceipt } from '../hooks/useGmailReceiptData';
@@ -67,12 +68,12 @@ export function SummaryMetrics({
       <MetricCard label={t.metrics.date.value} value={dateValue} />
       <MetricCard
         label={t.metrics.income.value}
-        value={formatCurrencyAmount(income, currency)}
+        value={<PrivateAmount>{formatCurrencyAmount(income, currency)}</PrivateAmount>}
         color="success.main"
       />
       <MetricCard
         label={t.metrics.expense.value}
-        value={formatCurrencyAmount(expense, currency)}
+        value={<PrivateAmount>{formatCurrencyAmount(expense, currency)}</PrivateAmount>}
         color="error.main"
       />
       <MetricCard

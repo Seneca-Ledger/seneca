@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import type { SxProps, Theme } from '@mui/material/styles';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type React from 'react';
 import { useState } from 'react';
 import { ChevronDown, X } from '@/app/components/icons';
@@ -140,18 +141,37 @@ function AttentionRow({ item, t, locale, onSnooze }: RowProps): React.JSX.Elemen
   );
 }
 
+/** The dashboard shows the banner under its month strip, not above the page. */
+const PAGES_WITH_THEIR_OWN_BANNER = new Set(['/dashboard']);
+
+/** The review queue is the work the banner points at: no banner above it. */
+const PAGES_WITHOUT_BANNER = new Set(['/review']);
+
 /**
  * What is left to do, above every page: the unconfirmed and uncategorized rows and
  * possible duplicates. One item is one quiet row; several fold into a single line
  * ("3 things need attention") that opens the list. Observations are not here: they
  * live on the Advice page.
  */
-export function AlertBanner(): React.JSX.Element | null {
+export function AlertBanner({
+  placement = 'top',
+}: {
+  /** `page`: drawn by the page itself, where it fits its layout (the dashboard). */
+  placement?: 'top' | 'page';
+}): React.JSX.Element | null {
   const t = useTexts();
   const { locale } = useLocale();
+  const pathname = usePathname();
   const { items, snooze } = useAttentionItems();
   const [open, setOpen] = useState(false);
 
+  // A page that draws the banner itself gets it once, in its own place.
+  if (
+    placement === 'top' &&
+    (PAGES_WITH_THEIR_OWN_BANNER.has(pathname ?? '') || PAGES_WITHOUT_BANNER.has(pathname ?? ''))
+  ) {
+    return null;
+  }
   if (items.length === 0) {
     return null;
   }
@@ -167,7 +187,7 @@ export function AlertBanner(): React.JSX.Element | null {
   ));
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, px: 3, pt: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {items.length === 1 ? (
         rows
       ) : (

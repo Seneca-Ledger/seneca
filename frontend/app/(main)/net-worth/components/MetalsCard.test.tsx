@@ -172,7 +172,8 @@ describe('MetalsCard', () => {
     // Melt is €33,745.10; a 5% dealer discount leaves €32,057.85.
     expect(screen.getAllByText('€32,057.85').length).toBeGreaterThan(0);
     expect(screen.getByText('+6.86%')).toBeInTheDocument();
-    expect(screen.getByText(/\+€2,499\.00 \(9\.09%\)/)).toBeInTheDocument();
+    // The amount is an element of its own (privacy mode); the percent is beside it.
+    expect(screen.getByText(/\(9\.09%\)/).textContent).toMatch(/\+€2,499\.00 \(9\.09%\)/);
   });
 
   it('states the German holding period only for a workspace that files there', () => {

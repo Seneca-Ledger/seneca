@@ -9,6 +9,7 @@ import { getNestedValue, resolveLabel } from '@/app/lib/analytics-common';
 import { TopCategoriesSection } from './TopCategoriesSection';
 import { TopMerchantsSection } from './TopMerchantsSection';
 import { TopSpendersSection } from './TopSpendersSection';
+import { TopTagsSection } from './TopTagsSection';
 
 type Props = {
   /** The row an advice link rings; read once by the page, not per section. */
@@ -16,7 +17,7 @@ type Props = {
 };
 
 /**
- * The three leaderboards one under the other, each with its own month strip
+ * The leaderboards one under the other, each with its own month strip
  * and toggles. They all read the same statements and transactions, so the
  * provider loads them once for the tab instead of once per section.
  */
@@ -41,6 +42,7 @@ export function CashFlowTab({ focusId }: Props): React.JSX.Element {
         <TopSpendersSection />
         <TopMerchantsSection focusId={focusId} />
         <TopCategoriesSection focusId={focusId} />
+        <TopTagsSection focusId={focusId} />
       </div>
     </AnalyticsDataProvider>
   );

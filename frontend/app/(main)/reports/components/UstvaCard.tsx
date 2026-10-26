@@ -6,6 +6,11 @@ import type React from 'react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useUpdatePayee } from '@/app/components/payees/usePayees';
+import {
+  fillTemplateNodes,
+  PRIVATE_CLASS,
+  PrivateAmount,
+} from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
@@ -120,6 +125,7 @@ export function UstvaCard({
                 {t.kz83Label.value}
               </Typography>
               <Typography
+                className={PRIVATE_CLASS}
                 sx={{ fontSize: 16, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}
               >
                 {elsterAmount(data.form.kz83, 'tax')} €
@@ -199,7 +205,10 @@ function FieldRow({
         </Typography>
         <Typography sx={{ fontSize: 13, fontWeight: 600, width: 56 }}>Kz {field.kz}</Typography>
         <Typography sx={{ fontSize: 13, flex: '1 1 220px', minWidth: 0 }}>{field.label}</Typography>
-        <Typography sx={{ fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+        <Typography
+          className={PRIVATE_CLASS}
+          sx={{ fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+        >
           {value} €
         </Typography>
         <Button size="small" onClick={() => onCopy(value)}>
@@ -215,9 +224,14 @@ function FieldRow({
             const line = lineOf.get(id);
             return (
               <Typography key={id} sx={{ fontSize: 12, color: 'text.secondary' }}>
-                {line
-                  ? `${line.date} · ${line.counterparty} · ${line.taxAmountConverted.toFixed(2)}`
-                  : id}
+                {line ? (
+                  <>
+                    {`${line.date} · ${line.counterparty} · `}
+                    <PrivateAmount>{line.taxAmountConverted.toFixed(2)}</PrivateAmount>
+                  </>
+                ) : (
+                  id
+                )}
               </Typography>
             );
           })}
@@ -248,8 +262,7 @@ function OpenItemRow({
   return (
     <Box>
       <Typography sx={{ fontSize: 13 }}>
-        {fill(template, {
-          payee: item.payeeName ?? '—',
+        {fillTemplateNodes(template.replaceAll('{{payee}}', item.payeeName ?? '—'), {
           net: elsterAmount(item.net, 'tax'),
           tax: elsterAmount(item.tax, 'tax'),
         })}

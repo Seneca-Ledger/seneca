@@ -8,20 +8,15 @@
 // responses from; only client-side shapes stay here.
 export type {
   DashboardActionItem,
+  DashboardCashFlowEntry,
   DashboardCashFlowPoint,
-  DashboardCashFlowRange,
   DashboardDataHealth,
   DashboardFinancialSnapshot,
-  DashboardHealthHistoryResponse as DashboardHealthHistory,
-  DashboardHealthMonth,
-  DashboardMonthlyCashFlowPoint,
-  DashboardMonthlyCashFlowResponse as DashboardMonthlyCashFlow,
   DashboardRange,
   DashboardRecentTransaction,
   DashboardResponse as DashboardData,
   DashboardTopCategory,
   DashboardTopMerchant,
-  DashboardTrendsResponse as DashboardTrends,
 } from '@/app/lib/contracts';
 
 export interface DashboardNotification {

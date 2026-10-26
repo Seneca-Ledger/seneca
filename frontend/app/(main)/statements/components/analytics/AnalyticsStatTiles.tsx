@@ -1,6 +1,7 @@
 'use client';
 
 import type { getComparisonDelta } from '@/app/(main)/statements/components/shared-analytics.utils';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useAnalyticsMoney } from './useAnalyticsMoney';
 
 type ComparisonItem = ReturnType<typeof getComparisonDelta> | null;
@@ -29,11 +30,14 @@ export type AnalyticsStatTilesProps = {
 function ComparisonLine({
   item,
   format,
+  isMoney,
   noDataLabel,
   vsPreviousPeriodLabel,
 }: {
   item: ComparisonItem;
   format: (value: number) => string;
+  /** A change in money (and its percentage) is redacted in privacy mode; a count is not. */
+  isMoney: boolean;
   noDataLabel: string;
   vsPreviousPeriodLabel: string;
 }): React.JSX.Element {
@@ -45,10 +49,15 @@ function ComparisonLine({
   const percent = Number.isFinite(item.percentage)
     ? `${sign}${Math.abs(Math.round(item.percentage))}%`
     : '';
+  const figures = (
+    <>
+      {percent} ({sign}
+      {format(Math.abs(item.delta))})
+    </>
+  );
   return (
     <p style={style}>
-      {percent} ({sign}
-      {format(Math.abs(item.delta))}) {vsPreviousPeriodLabel}
+      {isMoney ? <PrivateAmount>{figures}</PrivateAmount> : figures} {vsPreviousPeriodLabel}
     </p>
   );
 }
@@ -59,7 +68,7 @@ function Tile({
   children,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
@@ -99,28 +108,30 @@ export function AnalyticsStatTiles({
 }: AnalyticsStatTilesProps): React.JSX.Element {
   const money = useAnalyticsMoney();
   const asMoney = (value: number) => money(value, currency);
+  const privateMoney = (value: number) => <PrivateAmount>{asMoney(value)}</PrivateAmount>;
   const asCount = (value: number) => String(Math.round(value));
-  const line = (key: keyof NonNullable<Comparison>, format: (value: number) => string) => (
+  const line = (key: keyof NonNullable<Comparison>, isMoney: boolean) => (
     <ComparisonLine
       item={comparison?.[key] ?? null}
-      format={format}
+      format={isMoney ? asMoney : asCount}
+      isMoney={isMoney}
       noDataLabel={noDataLabel}
       vsPreviousPeriodLabel={vsPreviousPeriodLabel}
     />
   );
   return (
     <div className="seneca-stat-tiles">
-      <Tile label={primaryMetricLabel} value={asMoney(totals.total)}>
-        {line('total', asMoney)}
+      <Tile label={primaryMetricLabel} value={privateMoney(totals.total)}>
+        {line('total', true)}
       </Tile>
-      <Tile label={statementsLabel} value={asMoney(totals.statementTotal)}>
-        {line('statementTotal', asMoney)}
+      <Tile label={statementsLabel} value={privateMoney(totals.statementTotal)}>
+        {line('statementTotal', true)}
       </Tile>
-      <Tile label={receiptsLabel} value={asMoney(totals.receiptTotal)}>
-        {line('receiptTotal', asMoney)}
+      <Tile label={receiptsLabel} value={privateMoney(totals.receiptTotal)}>
+        {line('receiptTotal', true)}
       </Tile>
       <Tile label={operationsLabel} value={asCount(totals.operations)}>
-        {line('operations', asCount)}
+        {line('operations', false)}
       </Tile>
     </div>
   );

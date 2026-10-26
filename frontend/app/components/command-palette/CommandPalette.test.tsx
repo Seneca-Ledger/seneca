@@ -19,9 +19,22 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/app/hooks/usePermissions', () => ({ usePermissions: () => permissionMocks }));
 vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light', setTheme: vi.fn() }) }));
+vi.mock('@/app/hooks/useAuth', () => ({ useAuth: () => ({ user: null, setUser: vi.fn() }) }));
 
 import CommandPalette from './CommandPalette';
 import { closeCommandPalette, openCommandPalette } from './command-palette-store';
+import { openPalettePicker, usePageCommands } from './page-commands-store';
+
+/** Stands in for a page that lends the palette its commands while mounted. */
+function PageWithCommands({ run }: { run: () => void }): null {
+  usePageCommands({
+    title: '2 selected',
+    commands: [
+      { id: 'documents.addToTable', group: 'page', label: 'Add selected to a table', icon: null, binding: 'KeyT KeyA', run },
+    ],
+  });
+  return null;
+}
 
 const FOUND = [
   {
@@ -203,5 +216,59 @@ describe('CommandPalette', () => {
     pathnameMock.value = '/statements/submit';
     act(() => openCommandPalette());
     expect(await screen.findByText('Open filters')).toBeTruthy();
+  });
+
+  it('shows the page\'s own commands first, under the page\'s heading', async () => {
+    const run = vi.fn();
+    renderWithQuery(<PageWithCommands run={run} />);
+    const input = await open();
+    const options = screen.getAllByRole('option');
+    expect(options[0]?.textContent).toContain('Add selected to a table');
+    expect(screen.getByText('2 selected')).toBeTruthy();
+    fireEvent.keyDown(input, { key: 't', code: 'KeyT' });
+    fireEvent.keyDown(input, { key: 'a', code: 'KeyA' });
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+  });
+
+  it('opens a picker, filters it and hands back the chosen item', async () => {
+    render();
+    const onPick = vi.fn();
+    act(() =>
+      openPalettePicker({
+        id: 'pick-1',
+        placeholder: 'Choose a category…',
+        items: [
+          { id: 'cat-groceries', label: 'Groceries', hint: '3' },
+          { id: 'cat-travel', label: 'Travel', hint: '1' },
+        ],
+        onPick,
+      }),
+    );
+    const input = (await screen.findByPlaceholderText('Choose a category…')) as HTMLInputElement;
+    expect(screen.getByText('3')).toBeTruthy();
+    fireEvent.change(input, { target: { value: 'trav' } });
+    expect(screen.queryByText('Groceries')).toBeNull();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onPick).toHaveBeenCalledWith('cat-travel');
+    await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull());
+
+    // The next open is the usual list again.
+    act(() => openCommandPalette());
+    expect(await screen.findByPlaceholderText(/Search or type a command/)).toBeTruthy();
+  });
+
+  it('turns into a picker when a page command opens one', async () => {
+    const run = () =>
+      openPalettePicker({
+        id: 'pick-2',
+        placeholder: 'Choose a table…',
+        items: [{ id: 'table-1', label: 'March documents' }],
+        onPick: vi.fn(),
+      });
+    renderWithQuery(<PageWithCommands run={run} />);
+    await open();
+    fireEvent.click(screen.getByText('Add selected to a table'));
+    expect(await screen.findByPlaceholderText('Choose a table…')).toBeTruthy();
+    expect(screen.getByText('March documents')).toBeTruthy();
   });
 });

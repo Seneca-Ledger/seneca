@@ -1,14 +1,24 @@
 import type { DashboardData } from '@/app/hooks/useDashboard';
 // @vitest-environment jsdom
-import { type render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, type render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { formatMoney } from '@/app/lib/format-money';
 import { budgetItem, categoryRef } from '@/app/test/fixtures/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import '../test-setup';
 import { OverviewTab } from '../OverviewTab';
 
 const apiGet = vi.hoisted(() => vi.fn());
+
+// The card has its own test; here only what the Overview hands it matters.
+vi.mock('../CashFlowCard', () => ({
+  CashFlowCard: ({ activeMonth, days }: { activeMonth: string; days: unknown[] }) => (
+    <div data-testid="cash-flow" data-days={days.length}>
+      {activeMonth}
+    </div>
+  ),
+}));
 
 // `apiBaseUrl` is read at module load by the goal cover thumbnail.
 vi.mock('@/app/lib/api', () => ({ default: { get: apiGet }, apiBaseUrl: 'http://api.test/api/v1' }));
@@ -43,6 +53,7 @@ vi.mock('@/app/i18n', async () => {
         emptyCta: value('Parse statement'),
         income: value('Income'),
         spentLabel: value('Spent'),
+        leftToSpendLabel: value('Left to spend'),
         netLabel: value('Net'),
         savingsRateLabel: value('Savings rate'),
         monthInProgress: value('Month in progress'),
@@ -165,7 +176,7 @@ describe('OverviewTab', () => {
       snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
     });
 
-    expect(screen.getByText('0%').className).toBe('seneca-dashboard__stat-value');
+    expect(screen.getByText('0%').className).toBe('seneca-dashboard__stat-value seneca-private');
   });
 
   it('says under the savings rate that the current month is not over yet', () => {
@@ -187,12 +198,23 @@ describe('OverviewTab', () => {
     expect(screen.queryByText('Month in progress')).not.toBeInTheDocument();
   });
 
-  it('no longer hosts cash flow, quick actions or the upload zone', () => {
+  it('hosts the cash flow and the month close, but no quick actions or upload zone', () => {
     renderTab(baseData);
 
-    expect(document.body.textContent).not.toMatch(/cash flow/i);
+    expect(screen.getByTestId('cash-flow')).toHaveTextContent('2026-02');
+    expect(screen.getByText('sections.monthClose')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/quick actions|parsingIssuesFound/i);
     expect(screen.queryByRole('link', { name: /openExpenseDrawer/ })).not.toBeInTheDocument();
+  });
+
+  it("hands the cash flow card the picked month's days", () => {
+    const cashFlow = [
+      { date: '2026-02-01', income: 100, expense: 0, budgeted: 0 },
+      { date: '2026-02-02', income: 0, expense: 40, budgeted: 0 },
+    ];
+    renderTab({ ...baseData, cashFlow });
+
+    expect(screen.getByTestId('cash-flow')).toHaveAttribute('data-days', String(cashFlow.length));
   });
 
   it('deep-links the recent-transactions "view all" link to the selected month, not today', () => {
@@ -205,7 +227,7 @@ describe('OverviewTab', () => {
     expect(recentTransactionsLink?.getAttribute('href')).toBe('/statements/submit?month=2026-02');
   });
 
-  it('renders budget and cash runway cards below the main row once their fetches resolve', async () => {
+  it('renders budget and subscriptions cards below the main row once their fetches resolve', async () => {
     apiGet.mockImplementation((url: string) => {
       if (url === '/budgets') {
         return Promise.resolve({
@@ -223,29 +245,16 @@ describe('OverviewTab', () => {
           },
         });
       }
-      if (url === '/dashboard/commitments') {
+      if (url === '/subscriptions/month-status') {
         return Promise.resolve({
           data: {
             data: {
               currency: 'KZT',
-              horizonDays: 60,
-              openingBalance: 1000,
-              totalCommitted: 200,
-              unscheduledCommitted: 0,
-              days: [{ date: '2026-03-01', outflow: 200, balance: 800 }],
-              items: [
-                {
-                  date: '2026-03-01',
-                  label: 'Office rent',
-                  amount: 200,
-                  source: 'payable',
-                  sourceId: 'p1',
-                  isOverdue: false,
-                },
-              ],
-              lowestBalance: 800,
-              lowestBalanceDate: '2026-03-01',
-              shortfallDate: null,
+              month: '2026-03',
+              paidAmount: 200,
+              paidCount: 1,
+              unpaidAmount: 300,
+              unpaidCount: 2,
             },
           },
         });
@@ -257,7 +266,7 @@ describe('OverviewTab', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Marketing')).toBeInTheDocument();
-      expect(screen.getByText('Office rent')).toBeInTheDocument();
+      expect(screen.getByText('300')).toBeInTheDocument();
     });
     // The figure stays neutral; a budget in its last tenth marks its bar instead.
     expect(screen.getByText('90%').className).toBe('seneca-dashboard__budget-pct');
@@ -265,6 +274,94 @@ describe('OverviewTab', () => {
       screen.getByText('90%').closest('.seneca-dashboard__budget-row')?.querySelector('[data-tone]')
         ?.getAttribute('data-tone'),
     ).toBe('near');
+  });
+});
+
+describe('OverviewTab spent tile', () => {
+  const SPENT = 15;
+  const dataWithSpending: DashboardData = {
+    ...baseData,
+    snapshot: { ...baseData.snapshot, expense30d: SPENT },
+  };
+
+  function answerBudgets(budgets: ReturnType<typeof budgetItem>[]): void {
+    apiGet.mockReset();
+    apiGet.mockImplementation((url: string) =>
+      Promise.resolve({ data: { data: url === '/budgets' ? budgets : null } }),
+    );
+  }
+
+  /** The tile once the budgets are in: its figure replaces the spinner. */
+  async function spentTile(): Promise<HTMLElement> {
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/budgets', expect.anything()));
+    const label = await screen.findByText(/^(Spent|Left to spend)$/);
+    const tile = label.closest('.seneca-dashboard__stat') as HTMLElement;
+    await waitFor(() => expect(tile.querySelector('.seneca-dashboard__stat-value')?.textContent).not.toBe(''));
+    return tile;
+  }
+
+  const figure = (tile: HTMLElement) =>
+    tile.querySelector('.seneca-dashboard__stat-value')?.textContent;
+
+  it('shows what was spent while the workspace has no budget', async () => {
+    answerBudgets([]);
+    renderTab(dataWithSpending);
+
+    const tile = await spentTile();
+    expect(tile).toHaveTextContent('Spent');
+    expect(figure(tile)).toBe(String(SPENT));
+    expect(screen.queryByText('Left to spend')).not.toBeInTheDocument();
+  });
+
+  it('keeps showing what was spent when the only budget starts after the month', async () => {
+    // The month shown is February 2026.
+    answerBudgets([budgetItem({ id: 'b-1', name: 'Groceries', startsOn: '2026-03-01' })]);
+    renderTab(dataWithSpending);
+
+    const tile = await spentTile();
+    expect(tile).toHaveTextContent('Spent');
+    expect(screen.queryByText('Left to spend')).not.toBeInTheDocument();
+  });
+
+  it('keeps showing what was spent when the only budget ended before the month', async () => {
+    answerBudgets([budgetItem({ id: 'b-1', name: 'Groceries', endsOn: '2026-01-31' })]);
+    renderTab(dataWithSpending);
+
+    const tile = await spentTile();
+    expect(tile).toHaveTextContent('Spent');
+    expect(screen.queryByText('Left to spend')).not.toBeInTheDocument();
+  });
+
+  it('turns into what is left to spend once a budget covers the month', async () => {
+    const limit = 100;
+    const spentInBudget = 40;
+    answerBudgets([
+      budgetItem({
+        id: 'b-1',
+        name: 'Groceries',
+        currency: 'KZT',
+        startsOn: '2026-02-10',
+        availableAmount: limit,
+        spentAmount: spentInBudget,
+      }),
+    ]);
+    renderTab(dataWithSpending);
+
+    await screen.findByText('Left to spend');
+    const tile = await spentTile();
+    expect(figure(tile)).toBe(formatMoney(limit - spentInBudget, 'KZT', 'en'));
+  });
+
+  it('marks the tile when the month went over its budgets', async () => {
+    answerBudgets([
+      budgetItem({ id: 'b-1', name: 'Groceries', availableAmount: 100, spentAmount: 130 }),
+    ]);
+    renderTab(dataWithSpending);
+
+    await screen.findByText('Left to spend');
+    const tile = await spentTile();
+    expect(figure(tile)).toBe(formatMoney(-30, 'USD', 'en'));
+    expect(tile.querySelector('.seneca-dashboard__stat-dot--negative')).not.toBeNull();
   });
 });
 

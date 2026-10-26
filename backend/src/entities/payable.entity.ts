@@ -5,10 +5,13 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Tag } from './tag.entity';
 import { Transaction } from './transaction.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -105,6 +108,15 @@ export class Payable {
 
   @Column({ name: 'statement_id', type: 'uuid', nullable: true })
   statementId: string | null;
+
+  /** Tags from the workspace's shared vocabulary; loaded by the list and single reads. */
+  @ManyToMany(() => Tag)
+  @JoinTable({
+    name: 'payable_tags',
+    joinColumn: { name: 'payable_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
+  })
+  tags?: Tag[];
 
   @Column({ name: 'paid_at', type: 'timestamptz', nullable: true })
   paidAt: Date | null;

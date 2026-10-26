@@ -37,7 +37,7 @@ export interface UseGmailReceiptActionsReturn {
   setShowPreview: (show: boolean) => void;
   handleSaveChanges: () => Promise<void>;
   handleSubmitDocument: () => Promise<void>;
-  handleCategorySelect: (categoryId: string) => Promise<void>;
+  handleCategorySelect: (categoryId: string, name?: string) => Promise<void>;
   handleExportToGmailDraft: () => Promise<void>;
   handleExportToXlsx: () => Promise<void>;
   handleMarkDuplicate: (originalId: string) => Promise<void>;
@@ -131,7 +131,8 @@ export function useGmailReceiptActions({
       });
   };
 
-  const handleCategorySelect = async (categoryId: string): Promise<void> => {
+  /** `name` comes with a category just created, which `categories` does not hold yet. */
+  const handleCategorySelect = async (categoryId: string, name?: string): Promise<void> => {
     if (!receipt || categorySaving) {
       return;
     }
@@ -142,7 +143,7 @@ export function useGmailReceiptActions({
       setCategorySaving(true);
       await gmailReceiptsApi.updateReceiptParsedData(receipt.id, {
         categoryId: categoryId || null,
-        category: selected?.name || null,
+        category: name ?? (selected?.name || null),
       });
 
       setEditedData(prev => ({

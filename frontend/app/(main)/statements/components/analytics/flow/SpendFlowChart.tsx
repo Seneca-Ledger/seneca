@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnalyticsMonthEmpty } from '@/app/(main)/statements/components/analytics/flow/AnalyticsMonthEmpty';
 import { SpendFlowSkeleton } from '@/app/(main)/statements/components/analytics/flow/SpendFlowSkeleton';
@@ -8,15 +9,19 @@ import {
   findSpendFlowNodeId,
   type SpendFlowChartLabels,
   spendFlowChartHeight,
+  spendFlowTarget,
   visibleSpendFlow,
 } from '@/app/(main)/statements/components/analytics/flow/spend-flow.chart';
 import {
   type SpendFlowGroupBy,
   useSpendFlow,
+  useSpendFlowRange,
 } from '@/app/(main)/statements/components/analytics/flow/useSpendFlow';
+import { resolveDocumentsHref } from '@/app/(main)/statements/components/documents-for-rows';
 import { LazyECharts } from '@/app/components/ui/lazy-echarts';
 import { useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -120,11 +125,25 @@ export function SpendFlowChart({
   const query = useSpendFlow(groupBy, type, month);
   const { locale } = useLocale();
   const categoryName = useCategoryName();
+  const privacy = usePrivacyMode();
   // Fetch the echarts chunk alongside the data: otherwise LazyECharts' own
   // plain skeleton replaces the sankey-shaped one for a moment after the data lands.
   useEffect(() => {
     void import('echarts-for-react');
   }, []);
+  const router = useRouter();
+  const range = useSpendFlowRange(month);
+  // A node, or the band flowing into it, opens the documents behind it.
+  const chartEvents = {
+    click: (params: { dataType?: string; name?: string; data?: { target?: string } }) => {
+      const id = params.dataType === 'edge' ? params.data?.target : params.name;
+      const target = id ? spendFlowTarget(id, groupBy) : null;
+      if (!target) return;
+      void resolveDocumentsHref(target, range.dateFrom, range.dateTo).then(href =>
+        router.push(href),
+      );
+    },
+  };
   const [containerRef, width] = useContainerWidth<HTMLDivElement>();
   const compact = width !== null && width < COMPACT_WIDTH;
   const data = query.data;
@@ -142,8 +161,9 @@ export function SpendFlowChart({
       compact,
       isIncome: type === 'income',
       categoryName,
+      privacy,
     });
-  }, [data, resolvedTheme, chartLabels, compact, type, locale, categoryName]);
+  }, [data, resolvedTheme, chartLabels, compact, type, locale, categoryName, privacy]);
 
   const flashNode = useMemo(() => {
     if (!data) {
@@ -226,7 +246,7 @@ export function SpendFlowChart({
     // The placeholder kept from the other flow (spend vs income) is not this
     // chart: skeleton until the real answer lands, so it mounts fresh.
     if (!(data && option) || data.type !== type) {
-      return <SpendFlowSkeleton columns={groupBy === 'merchant' ? 2 : 3} />;
+      return <SpendFlowSkeleton columns={groupBy === 'merchant' || groupBy === 'tag' ? 2 : 3} />;
     }
     if (data.links.length === 0) {
       return (
@@ -241,6 +261,7 @@ export function SpendFlowChart({
         option={option}
         notMerge
         onChartReady={handleChartReady}
+        onEvents={chartEvents}
         style={{ height: spendFlowChartHeight(data, compact), width: '100%' }}
       />
     );

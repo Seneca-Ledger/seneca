@@ -173,6 +173,23 @@ export const ReceiptListPage = Schema.Struct({
 });
 export type ReceiptListPage = Wire<typeof ReceiptListPage>;
 
+/**
+ * `GET`/`PUT /receipts/:id/tax`: the tax on the transaction the receipt books
+ * or documents, which is where every tax figure is summed from.
+ */
+export const ReceiptTax = Schema.Struct({
+  /** Null while the receipt has no transaction yet: there is nothing to tax. */
+  transactionId: Schema.NullOr(Schema.String),
+  /** Whether the workspace charges VAT. When it does not, no rate applies. */
+  assessable: Schema.Boolean,
+  /** The row is on a filed return and keeps the rate it was filed with. */
+  locked: Schema.Boolean,
+  taxRateId: Schema.NullOr(Schema.String),
+  taxSource: Schema.NullOr(Schema.Literals(['manual', 'rule', 'default', 'parsed'])),
+  taxAmount: Schema.NullOr(DecimalString),
+});
+export type ReceiptTax = Wire<typeof ReceiptTax>;
+
 /** `GET /receipts/:id/transaction-matches`: bank rows the receipt could belong to. */
 export const ReceiptTransactionMatches = Schema.Struct({
   suggestion: Schema.NullOr(ReceiptTransactionMatch),

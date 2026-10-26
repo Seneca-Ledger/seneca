@@ -53,6 +53,7 @@ export enum EntityType {
   BACKUP = 'backup',
   USER = 'user',
   PAYEE = 'payee',
+  TAG = 'tag',
 }
 
 export enum AuditAction {

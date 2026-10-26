@@ -6,7 +6,8 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Select } from '@/app/components/ui/select';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient, {
   type ReceiptMatchCandidate,
@@ -85,7 +86,6 @@ export function ReceiptTransactionMatch({
     () => (suggestion ? groupSplitItems(items, suggestion.total) : []),
     [items, suggestion],
   );
-  const enabledCategories = categories.filter(category => category.isEnabled !== false);
   const categoryName = (id: string | null): string => {
     const category = id ? categories.find(option => option.id === id) : undefined;
     return category ? getCategoryDisplayName(category, appLocale) : t.uncategorised.value;
@@ -169,7 +169,7 @@ export function ReceiptTransactionMatch({
           {candidates.map(row => (
             <Typography key={row.id} variant="body2">
               {row.transactionDate.slice(0, 10)} · {row.counterpartyName} ·{' '}
-              {formatMoney(row.amount, row.currency, locale)}
+              <PrivateAmount>{formatMoney(row.amount, row.currency, locale)}</PrivateAmount>
             </Typography>
           ))}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -228,16 +228,18 @@ export function ReceiptTransactionMatch({
                   <Typography variant="body2" noWrap title={item.description}>
                     {item.description}
                   </Typography>
-                  <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                  <Typography
+                    variant="body2"
+                    className={PRIVATE_CLASS}
+                    sx={{ fontVariantNumeric: 'tabular-nums' }}
+                  >
                     {formatMoney(item.amount, suggestion.currency, locale)}
                   </Typography>
-                  <Select
-                    fullWidth
+                  <CategoryPickerField
                     size="small"
-                    inputProps={{
-                      'aria-label': t.splitItemCategory.value.replace('{item}', item.description),
-                    }}
+                    ariaLabel={t.splitItemCategory.value.replace('{item}', item.description)}
                     value={item.categoryId ?? ''}
+                    categories={categories}
                     onChange={categoryId =>
                       setItems(current =>
                         current.map((line, lineIndex) =>
@@ -245,13 +247,8 @@ export function ReceiptTransactionMatch({
                         ),
                       )
                     }
-                    options={[
-                      { value: '', label: t.uncategorised.value },
-                      ...enabledCategories.map(category => ({
-                        value: category.id,
-                        label: getCategoryDisplayName(category, appLocale),
-                      })),
-                    ]}
+                    placeholder={t.uncategorised.value}
+                    clearLabel={t.uncategorised.value}
                   />
                 </Box>
               ))}
@@ -261,7 +258,14 @@ export function ReceiptTransactionMatch({
                 <Chip
                   key={part.categoryId ?? 'none'}
                   size="small"
-                  label={`${categoryName(part.categoryId)}: ${formatMoney(part.amount, suggestion.currency, locale)}`}
+                  label={
+                    <>
+                      {categoryName(part.categoryId)}:{' '}
+                      <PrivateAmount>
+                        {formatMoney(part.amount, suggestion.currency, locale)}
+                      </PrivateAmount>
+                    </>
+                  }
                   title={part.items.join(', ')}
                 />
               ))}

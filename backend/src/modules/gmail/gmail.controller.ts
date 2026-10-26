@@ -364,6 +364,7 @@ export class GmailController {
 
     const queryBuilder = this.receiptRepository
       .createQueryBuilder('receipt')
+      .leftJoinAndSelect('receipt.tags', 'tags')
       .where('receipt.workspaceId = :workspaceId', { workspaceId })
       .orderBy('receipt.receivedAt', 'DESC');
 

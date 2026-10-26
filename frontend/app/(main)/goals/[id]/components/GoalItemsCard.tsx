@@ -9,6 +9,11 @@ import type React from 'react';
 import { Trash2 } from '@/app/components/icons';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { InvoiceLineIcon } from '@/app/components/ui/empty-state-icons';
+import {
+  fillTemplateNodes,
+  PRIVATE_CLASS,
+  PrivateAmount,
+} from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import type { GoalItem, GoalItemsResponse } from '@/app/lib/goals-api';
@@ -128,14 +133,17 @@ export function GoalItemsCard({
                 </Box>
 
                 <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="body2" fontWeight={600}>
+                  <Typography variant="body2" fontWeight={600} className={PRIVATE_CLASS}>
                     {formatMoney(item.actualAmount ?? item.estimatedAmount, item.currency, locale)}
                   </Typography>
                   {/* Both numbers only when they differ: repeating the estimate
                       beside an identical actual is noise on every settled line. */}
                   {item.actualAmount !== null && item.actualAmount !== item.estimatedAmount && (
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      {t.itemsEstimate} {formatMoney(item.estimatedAmount, item.currency, locale)}
+                      {t.itemsEstimate}{' '}
+                      <PrivateAmount>
+                        {formatMoney(item.estimatedAmount, item.currency, locale)}
+                      </PrivateAmount>
                     </Typography>
                   )}
                 </Box>
@@ -165,23 +173,23 @@ export function GoalItemsCard({
             }}
           >
             <Typography variant="caption">
-              {t.itemsEstimate}: {money(summary.estimatedTotal)}
+              {t.itemsEstimate}: <PrivateAmount>{money(summary.estimatedTotal)}</PrivateAmount>
             </Typography>
             <Typography variant="caption">
-              {t.itemsPaid}: {money(summary.paidTotal)}
+              {t.itemsPaid}: <PrivateAmount>{money(summary.paidTotal)}</PrivateAmount>
             </Typography>
             <Typography variant="caption">
-              {t.itemsOutstanding}: {money(summary.outstanding)}
+              {t.itemsOutstanding}: <PrivateAmount>{money(summary.outstanding)}</PrivateAmount>
             </Typography>
           </Box>
 
           {summary.unallocated < 0 ? (
             <Typography variant="body2" color="error" sx={{ mt: 1, fontWeight: 600 }}>
-              {t.itemsOverTarget.value.replace('{{amount}}', money(-summary.unallocated))}
+              {fillTemplateNodes(t.itemsOverTarget.value, { amount: money(-summary.unallocated) })}
             </Typography>
           ) : summary.unallocated > 0 ? (
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1 }}>
-              {t.itemsUnallocated.value.replace('{{amount}}', money(summary.unallocated))}
+              {fillTemplateNodes(t.itemsUnallocated.value, { amount: money(summary.unallocated) })}
             </Typography>
           ) : null}
         </>

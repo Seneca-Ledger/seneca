@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { Button } from '@/app/components/ui/button';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { formatInvoiceDate } from '../../invoices-format';
@@ -80,13 +81,18 @@ export function ReviewStep({
               <span>
                 {line.description || '—'}{' '}
                 <span className="seneca-invoice-wizard__muted">
-                  {line.quantity} × {formatMoney(Number(line.unitPrice || 0), currency, locale)}
+                  {line.quantity} ×{' '}
+                  <PrivateAmount>
+                    {formatMoney(Number(line.unitPrice || 0), currency, locale)}
+                  </PrivateAmount>
                   {line.adjustmentPercent
                     ? ` ${line.adjustmentPercent > 0 ? '+' : ''}${line.adjustmentPercent}%`
                     : ''}
                 </span>
               </span>
-              <span>{formatMoney(lineAmount(line), currency, locale)}</span>
+              <span className={PRIVATE_CLASS}>
+                {formatMoney(lineAmount(line), currency, locale)}
+              </span>
             </li>
           ))}
         </ul>

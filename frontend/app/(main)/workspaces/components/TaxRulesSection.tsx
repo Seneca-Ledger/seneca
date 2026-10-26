@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { Plus } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -213,21 +214,16 @@ export function TaxRulesSection(): React.ReactElement {
             )}
 
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-              <Select
+              <CategoryPickerField
                 size="small"
-                displayEmpty
+                ariaLabel={t.categoryLabel.value}
                 value={draft.categoryId}
-                onChange={event => setDraft(d => ({ ...d, categoryId: event.target.value }))}
-                inputProps={{ 'aria-label': t.categoryLabel.value }}
-                sx={{ minWidth: 180, borderRadius: tokens.radius.md }}
-              >
-                <MenuItem value="">{t.anyCategory}</MenuItem>
-                {categories.map(category => (
-                  <MenuItem key={category.id} value={category.id}>
-                    {categoryName(category.name)}
-                  </MenuItem>
-                ))}
-              </Select>
+                categories={categories}
+                onChange={categoryId => setDraft(d => ({ ...d, categoryId }))}
+                placeholder={t.anyCategory.value}
+                clearLabel={t.anyCategory.value}
+                sx={{ width: 'auto', minWidth: 180, maxWidth: 260 }}
+              />
 
               <Select
                 size="small"

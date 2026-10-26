@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceMembers } from '@/app/hooks/useNotes';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
@@ -188,7 +189,12 @@ export function LotDetailsDialog({
           value={insured}
           onChange={event => setInsured(event.target.value)}
           inputProps={{ inputMode: 'decimal' }}
-          helperText={`${t.value.value}: ${formatMoney(lot.value, currency, locale)}`}
+          helperText={
+            <>
+              {t.value.value}:{' '}
+              <PrivateAmount>{formatMoney(lot.value, currency, locale)}</PrivateAmount>
+            </>
+          }
           fullWidth
         />
         {members.length > 1 && (

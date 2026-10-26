@@ -19,6 +19,10 @@ export const CreatePayableBody = Schema.Struct({
   isRecurring: optionalNullable(Schema.Boolean),
   comment: optionalNullable(Schema.String),
   statementId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** The whole tag set, from the workspace's tags; on update it replaces the old one. */
+  tagIds: optionalNullable(
+    Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(50)),
+  ),
 });
 export type CreatePayableBody = Wire<typeof CreatePayableBody>;
 
@@ -118,6 +122,8 @@ export const FilterPayablesBody = Schema.Struct({
   minAmount: optionalNullable(NumericInput.check(Schema.isGreaterThanOrEqualTo(0))),
   maxAmount: optionalNullable(NumericInput.check(Schema.isGreaterThanOrEqualTo(0))),
   includeArchived: optionalNullable(BooleanInput),
+  /** Only bills carrying this tag. */
+  tagId: optionalNullable(Schema.String.check(Schema.isUUID())),
   sort: optionalNullable(Schema.Literals(['dueDateAsc', 'dueDateDesc', 'amountDesc', 'vendorAsc'])),
   format: optionalNullable(Schema.Literals(['excel', 'csv'])),
 });

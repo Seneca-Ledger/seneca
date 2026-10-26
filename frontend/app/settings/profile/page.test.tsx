@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { currentUser } from '@/app/test/fixtures/contracts';
 
 const apiPatch = vi.hoisted(() => vi.fn());
 const apiGet = vi.hoisted(() => vi.fn());
@@ -75,17 +76,6 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: routerPush, replace: routerReplace }),
   usePathname: () => '/settings/profile',
   useSearchParams: () => searchParams.current,
-}));
-
-vi.mock('@/components/mode-toggle', () => ({
-  ModeToggle: (props: {
-    onThemeChange?: (theme: 'light' | 'dark' | 'auto') => void;
-    labels?: { auto?: string };
-  }) => (
-    <button type="button" onClick={() => props.onThemeChange?.('auto')}>
-      {props.labels?.auto ?? 'Auto'}
-    </button>
-  ),
 }));
 
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -263,10 +253,10 @@ describe('ProfileSettingsPage', () => {
     expect(apiPatch).not.toHaveBeenCalledWith('/users/me/password', expect.anything());
   });
 
-  it('renders appearance settings and saves auto theme preference', async () => {
+  it('renders appearance settings and saves the theme picked from the dropdown', async () => {
     apiPatch.mockResolvedValue({
       data: {
-        user: { ...authUser, themePreference: 'auto' },
+        user: currentUser({ themePreference: 'dark' }),
         message: 'Theme updated',
       },
     });
@@ -275,21 +265,28 @@ describe('ProfileSettingsPage', () => {
 
     expect(container.textContent).toContain('appearanceCard.themeLabel');
 
-    const autoButton = Array.from(container.querySelectorAll('button')).find(
-      button =>
-        button.textContent?.includes('appearanceCard.auto') || button.textContent?.includes('Auto'),
-    ) as HTMLButtonElement;
-    expect(autoButton).toBeTruthy();
+    // The theme is a dropdown (Auto by default): open it, then pick Dark from the menu.
+    const themeSelect = container.querySelector(
+      '[role="combobox"][aria-label="appearanceCard.themeLabel"]',
+    ) as HTMLElement;
+    expect(themeSelect).toBeTruthy();
+    await act(async () => {
+      themeSelect.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+    const darkOption = Array.from(document.querySelectorAll('[role="option"]')).find(
+      option => option.textContent === 'appearanceCard.dark',
+    ) as HTMLElement;
+    expect(darkOption).toBeTruthy();
 
     await act(async () => {
-      autoButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      darkOption.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await flushPromises();
     });
 
     expect(apiPatch).toHaveBeenCalledWith('/users/me/preferences', {
-      themePreference: 'auto',
+      themePreference: 'dark',
     });
-    expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ themePreference: 'auto' }));
+    expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ themePreference: 'dark' }));
   });
 
   it('does not render the active theme block in appearance settings', async () => {

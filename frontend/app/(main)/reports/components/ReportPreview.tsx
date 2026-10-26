@@ -4,6 +4,8 @@ import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { Fragment } from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 
@@ -47,6 +49,14 @@ const headCellSx = {
   fontSize: 10,
   letterSpacing: '0.06em',
 };
+
+/** A figure (a number, or an amount with its currency like "12.5 EUR") is hidden in privacy mode. */
+const cellNode = (cell: PreviewCell): React.ReactNode =>
+  typeof cell === 'number' || /^-?[\d.,]+ [A-Z]{3}$/.test(cell) ? (
+    <PrivateAmount>{String(cell)}</PrivateAmount>
+  ) : (
+    String(cell)
+  );
 
 /** Only the first column holds labels; everything else is a figure, so right-align it. */
 const alignFor = (index: number): 'left' | 'right' => (index === 0 ? 'left' : 'right');
@@ -152,7 +162,7 @@ export function ReportPreview({
                         key={section.columns[cellIndex] ?? cellIndex}
                         sx={{ ...cellSx, textAlign: alignFor(cellIndex) }}
                       >
-                        {String(cell)}
+                        {cellNode(cell)}
                       </Box>
                     ))}
                   </tr>
@@ -165,7 +175,7 @@ export function ReportPreview({
                         key={section.columns[cellIndex] ?? cellIndex}
                         sx={{ ...cellSx, fontWeight: 700, textAlign: alignFor(cellIndex) }}
                       >
-                        {String(cell)}
+                        {cellNode(cell)}
                       </Box>
                     ))}
                   </tr>
@@ -183,7 +193,13 @@ export function ReportPreview({
           fontWeight={700}
           sx={{ mt: 1, color: 'var(--foreground)' }}
         >
-          {line.join('  ')}
+          {line.map((cell, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: a fixed label-and-figures line
+            <Fragment key={index}>
+              {index > 0 ? '  ' : null}
+              {cellNode(cell)}
+            </Fragment>
+          ))}
         </Typography>
       ))}
 

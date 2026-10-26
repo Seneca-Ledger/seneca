@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { type AgeingReport, invoicesApi } from '@/app/lib/invoices-api';
@@ -83,7 +84,7 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
                 {buckets.map(bucket => (
                   <td
                     key={bucket.key}
-                    className="seneca-payable-list__td"
+                    className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
                     style={{ textAlign: 'right' }}
                   >
                     {row[bucket.key] === 0
@@ -92,7 +93,7 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
                   </td>
                 ))}
                 <td
-                  className="seneca-payable-list__td"
+                  className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
                   style={{ textAlign: 'right', fontWeight: 600 }}
                 >
                   {formatMoney(row.total, row.currency, locale)}
@@ -105,7 +106,7 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
                 {buckets.map(bucket => (
                   <td
                     key={bucket.key}
-                    className="seneca-payable-list__td"
+                    className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
                     style={{ textAlign: 'right' }}
                   >
                     {total[bucket.key] === 0
@@ -113,7 +114,10 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
                       : formatMoney(total[bucket.key], total.currency, locale)}
                   </td>
                 ))}
-                <td className="seneca-payable-list__td" style={{ textAlign: 'right' }}>
+                <td
+                  className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
+                  style={{ textAlign: 'right' }}
+                >
                   {formatMoney(total.total, total.currency, locale)}
                 </td>
               </tr>

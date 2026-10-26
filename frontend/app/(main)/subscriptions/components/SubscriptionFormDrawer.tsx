@@ -2,12 +2,16 @@
 
 import { Button, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { useQuery } from '@tanstack/react-query';
 import { format, isValid, parseISO } from 'date-fns';
-import { useEffect, useMemo, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft } from '@/app/components/icons';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { fetchBudgets } from '@/app/(main)/budgets/hooks/useBudgetsPage';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
+import { queryKeys } from '@/app/lib/query-keys';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
@@ -15,12 +19,12 @@ import {
 } from '@/app/lib/statement-expense-drawer';
 import { tokens } from '@/lib/theme-tokens';
 import type { SubscriptionFormData } from '../hooks/useSubscriptionsPage';
-import { guessVendorDomain } from './vendor-domain.utils';
+import { SubscriptionPayments } from './SubscriptionPayments';
 
 interface SubscriptionFormDrawerProps {
   open: boolean;
   formData: SubscriptionFormData;
-  setFormData: (data: SubscriptionFormData) => void;
+  setFormData: Dispatch<SetStateAction<SubscriptionFormData>>;
   saving: boolean;
   isEditing: boolean;
   onSave: () => void;
@@ -110,6 +114,13 @@ export function SubscriptionFormDrawer({
   onClose,
 }: SubscriptionFormDrawerProps): React.JSX.Element {
   const t = useIntlayer('subscriptionsPage');
+  const workspaceId = useWorkspaceId();
+  // The budgets page's own query: either one fills the other's cache.
+  const budgets = useQuery({
+    queryKey: queryKeys.budgets(workspaceId),
+    queryFn: ({ signal }) => fetchBudgets(signal),
+    enabled: open && Boolean(workspaceId),
+  });
   const currencyPicker = useCurrencyPickerState(formData.currency || 'USD');
   const {
     currencyDrawerOpen,
@@ -178,15 +189,6 @@ export function SubscriptionFormDrawer({
             />
 
             <TextField
-              label={t.website.value}
-              value={formData.vendorDomain}
-              onChange={event => setFormData({ ...formData, vendorDomain: event.target.value })}
-              placeholder={guessVendorDomain(formData.vendorName)}
-              helperText={t.websiteHint}
-              fullWidth
-            />
-
-            <TextField
               label={t.amount.value}
               type="number"
               value={formData.amount}
@@ -246,6 +248,75 @@ export function SubscriptionFormDrawer({
                 },
               }}
             />
+
+            {/* Optional: its payments then count in that budget. */}
+            <FormControl fullWidth>
+              <InputLabel id="subscription-budget-label">{t.budget}</InputLabel>
+              <Select
+                labelId="subscription-budget-label"
+                value={formData.budgetId}
+                label={t.budget.value}
+                onChange={event => setFormData({ ...formData, budgetId: event.target.value })}
+              >
+                <MenuItem value="">{t.noBudget}</MenuItem>
+                {(budgets.data ?? []).map(budget => (
+                  <MenuItem key={budget.id} value={budget.id}>
+                    {budget.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* A saved subscription's payments are kept in its card. */}
+            {!isEditing && (
+              <SubscriptionPayments
+                payments={formData.payments}
+                vendorName={formData.vendorName}
+                defaultAmount={formData.amount}
+                pickedTransactionIds={formData.payments.flatMap(payment =>
+                  payment.transactionId ? [payment.transactionId] : [],
+                )}
+                onAddManual={(date, amount) =>
+                  setFormData(current => ({
+                    ...current,
+                    payments: [
+                      ...current.payments,
+                      {
+                        key: crypto.randomUUID(),
+                        date,
+                        amount,
+                        currency: current.currency,
+                        linked: false,
+                        transactionId: null,
+                      },
+                    ],
+                  }))
+                }
+                // A statement upload ends seconds later: add to the form as it is then.
+                onAddRows={rows =>
+                  setFormData(current => ({
+                    ...current,
+                    payments: [
+                      ...current.payments,
+                      ...rows.map(row => ({
+                        key: row.transactionId,
+                        date: row.transactionDate,
+                        amount: row.amount,
+                        currency: row.currency,
+                        linked: true,
+                        transactionId: row.transactionId,
+                      })),
+                    ],
+                  }))
+                }
+                onRemove={key =>
+                  setFormData(current => ({
+                    ...current,
+                    payments: current.payments.filter(payment => payment.key !== key),
+                  }))
+                }
+              />
+            )}
           </div>
 
           <div className="seneca-payable-drawer__footer">

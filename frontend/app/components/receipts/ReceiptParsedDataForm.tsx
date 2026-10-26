@@ -6,19 +6,21 @@ import MuiButton from '@mui/material/Button';
 import { useTheme } from 'next-themes';
 import { useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronDown, Trash2 } from '@/app/components/icons';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
+import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { DEFAULT_RECENT_CURRENCIES } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
-import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import {
   buildCurrencySearchIndex,
   type CurrencySearchItem,
 } from '@/app/lib/statement-expense-drawer';
 import { tokens } from '@/lib/theme-tokens';
 import { CurrencyDrawer } from './components/CurrencyDrawer';
+import { ReceiptTaxField } from './ReceiptTaxField';
 import type { EditableReceiptParsedData, ReceiptCategoryOption } from './receipt-types';
 
 /** Fields are stacked one per row so the form reads as a single column. */
@@ -101,6 +103,8 @@ export interface ReceiptParsedDataFormProps {
   onCurrencyChange?: (value: EditableReceiptParsedData) => void | Promise<void>;
   /** Two fields per row and shorter controls, for the full-page receipt view. */
   compact?: boolean;
+  /** The receipt being edited: its transaction's tax rate is picked in the form. */
+  receiptId?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types, max-lines-per-function, complexity
@@ -110,13 +114,13 @@ export function ReceiptParsedDataForm({
   onChange,
   onCurrencyChange,
   compact = false,
+  receiptId,
 }: ReceiptParsedDataFormProps) {
   const { locale } = useLocale();
   const t = useIntlayer('receiptParsedDataForm');
   const tCurrency = useIntlayer('receiptCurrencyDrawer');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
-  const enabledCategories = categories.filter(category => category.isEnabled !== false);
   const [currencyDrawerOpen, setCurrencyDrawerOpen] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
   const [recentCurrencies, setRecentCurrencies] = useState<string[]>([
@@ -293,21 +297,17 @@ export function ReceiptParsedDataForm({
             </Box>
           </Field>
 
-          <Field compact={compact} htmlFor="receipt-tax" label={t.tax.value}>
-            <Input
-              id="receipt-tax"
-              style={controlStyle}
-              aria-label={t.tax.value}
-              type="number"
-              value={value.tax}
-              onChange={event =>
-                onChange({
-                  ...value,
-                  tax: event.target.value === '' ? '' : Number(event.target.value),
-                })
-              }
-            />
-          </Field>
+          {receiptId ? (
+            <Field compact={compact} htmlFor="receipt-tax" label={t.tax.value}>
+              <ReceiptTaxField
+                id="receipt-tax"
+                receiptId={receiptId}
+                date={value.date}
+                currency={value.currency}
+                sx={selectSx}
+              />
+            </Field>
+          ) : null}
 
           <Field compact={compact} htmlFor="receipt-payment-method" label={t.paymentMethod.value}>
             <Select
@@ -328,20 +328,14 @@ export function ReceiptParsedDataForm({
           </Field>
 
           <Field compact={compact} htmlFor="receipt-category" label={t.category.value}>
-            <Select
-              fullWidth
+            <CategoryPickerField
               id="receipt-category"
-              inputProps={{ 'aria-label': t.category.value }}
+              ariaLabel={t.category.value}
               value={value.categoryId}
+              categories={categories}
               onChange={categoryId => onChange({ ...value, categoryId })}
-              options={[
-                { value: '', label: t.selectCategory.value },
-                ...enabledCategories.map(category => ({
-                  value: category.id,
-                  label: getCategoryDisplayName(category, locale),
-                })),
-              ]}
-              sx={selectSx}
+              placeholder={t.selectCategory.value}
+              size={compact ? 'compact' : 'medium'}
             />
           </Field>
 
@@ -520,10 +514,9 @@ export function ReceiptParsedDataForm({
             >
               {Math.abs(itemsDifference) < 0.005
                 ? t.itemsMatchTotal
-                : t.itemsDifference.value.replace(
-                    '{amount}',
-                    formatMoney(Math.abs(itemsDifference), value.currency, locale),
-                  )}
+                : fillTemplateNodes(t.itemsDifference.value, {
+                    amount: formatMoney(Math.abs(itemsDifference), value.currency, locale),
+                  })}
             </Typography>
           ) : null}
         </Box>

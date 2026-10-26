@@ -5,6 +5,7 @@ import Box from '@mui/material/Box';
 import type React from 'react';
 import { GoalCard } from '@/app/(main)/goals/components/GoalCard';
 import { useMonthGoals } from '@/app/(main)/goals/hooks/useMonthGoals';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { useIsWideSection } from './section-span';
@@ -69,7 +70,14 @@ export function GoalsProgressCard({
                 reached: goalsText.reached.value,
                 remaining: goalsText.remaining.value,
               }}
-              note={`+${formatMoney(goal.contributedInMonth, goal.currency, locale)} ${t.goalsSavedInMonth.value}`}
+              note={
+                <>
+                  <PrivateAmount>
+                    +{formatMoney(goal.contributedInMonth, goal.currency, locale)}
+                  </PrivateAmount>{' '}
+                  {t.goalsSavedInMonth.value}
+                </>
+              }
             />
           ))}
         </Box>

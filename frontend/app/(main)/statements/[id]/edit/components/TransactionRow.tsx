@@ -10,9 +10,11 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { CheckCircle2, MoreHorizontal, Pencil, XCircle } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
 import type { BranchOption, CategoryOption, FieldChangeParams, Transaction } from '../editHelpers';
 import {
@@ -84,11 +86,12 @@ function EditCell({
   const editValue = (f: keyof Transaction): string => getEditValue(edited, transaction, f);
   if (field === 'categoryId') {
     return (
-      <SelectEditCell
+      <CategoryPickerField
+        size="small"
         value={editValue('categoryId')}
-        items={categories}
-        multiline={multiline}
-        notSelectedLabel={notSelectedLabel}
+        categories={categories}
+        placeholder={notSelectedLabel}
+        clearLabel={notSelectedLabel}
         onChange={onChange}
       />
     );
@@ -389,6 +392,7 @@ export function TransactionRow({
       {/* One signed amount: money out in ink with a minus, money in sage with a plus. */}
       <TableCell
         align="right"
+        className={PRIVATE_CLASS}
         sx={{
           fontWeight: 500,
           fontSize: '0.9375rem',

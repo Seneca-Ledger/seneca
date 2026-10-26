@@ -144,6 +144,7 @@ describe('dashboard trends in the workspace currency (real Postgres)', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DashboardService,
+        BudgetsService,
         WorkspaceCurrencyService,
         { provide: ExchangeRatesService, useValue: rates },
         { provide: GoalsService, useValue: { findAll: jest.fn(async () => []) } },

@@ -22,6 +22,12 @@ export interface CustomTableSourceBinding {
   kind: string;
   filters: JsonObject;
   syncedAt: string | null;
+  /**
+   * The source fields the table has been given a column for. A refresh adds a
+   * column only for a field missing here (one the source gained later), so a
+   * column the user deleted stays deleted. Absent on tables made before it.
+   */
+  fields?: string[];
 }
 
 export enum CustomTableSource {

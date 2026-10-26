@@ -1,4 +1,4 @@
-export type WorkspaceTabId = 'overview' | 'members' | 'categories' | 'payees';
+export type WorkspaceTabId = 'overview' | 'members';
 
 type WorkspaceTabItem = {
   id: WorkspaceTabId;
@@ -11,15 +11,11 @@ type WorkspaceTabItem = {
 const WORKSPACE_TAB_ROUTES: Record<WorkspaceTabId, string> = {
   overview: '/workspaces/overview',
   members: '/workspaces/members',
-  categories: '/workspaces/categories',
-  payees: '/workspaces/payees',
 };
 
 const WORKSPACE_TAB_LABELS: Record<WorkspaceTabId, string> = {
   overview: 'Overview',
   members: 'Members',
-  categories: 'Categories',
-  payees: 'Payees',
 };
 
 export function getWorkspacesRootRedirectPath(hasCurrentWorkspace: boolean): string {

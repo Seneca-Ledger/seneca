@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  AddSourceStatementsBody,
   BatchCreateCustomTableRowsBody,
   ClassifyPaidStatusBody,
   CreateCustomTableBody,
@@ -40,6 +41,7 @@ import {
   CustomTableDetail,
   CustomTableGroups,
   CustomTableList,
+  CustomTableMoneyTotal,
   CustomTableRowBatch,
   CustomTableRowItem,
   CustomTableRowPage,
@@ -61,6 +63,7 @@ import {
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CustomTableMoneyTotalService } from './custom-table-money-total.service';
 import { CustomTablesService } from './custom-tables.service';
 import { CustomTablesCacheService } from './custom-tables-cache.service';
 import {
@@ -144,6 +147,7 @@ export class CustomTablesController {
   constructor(
     private readonly customTablesService: CustomTablesService,
     private readonly customTablesCache: CustomTablesCacheService,
+    private readonly moneyTotal: CustomTableMoneyTotalService,
   ) {}
 
   @Post()
@@ -247,6 +251,27 @@ export class CustomTablesController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     const result = await this.customTablesService.refreshFromSource(user.id, workspaceId, id);
+    await this.customTablesCache.bumpTable(workspaceId, id);
+    await this.customTablesCache.bumpRows(workspaceId, id);
+    await this.customTablesCache.bumpList(workspaceId);
+    return result;
+  }
+
+  @Post(':id/source-statements')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(RefreshedFromSource)
+  async addSourceStatements(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaBody(AddSourceStatementsBody) dto: AddSourceStatementsBody,
+  ) {
+    const result = await this.customTablesService.addSourceStatements(
+      user.id,
+      workspaceId,
+      id,
+      dto.statementIds,
+    );
     await this.customTablesCache.bumpTable(workspaceId, id);
     await this.customTablesCache.bumpRows(workspaceId, id);
     await this.customTablesCache.bumpList(workspaceId);
@@ -528,6 +553,18 @@ export class CustomTablesController {
       );
       return { items, meta: { groupCount } };
     });
+  }
+
+  /** The table's balance: its money column over every row, in the workspace currency. */
+  @Get(':id/money-total')
+  @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
+  @SchemaResponse(CustomTableMoneyTotal)
+  async getMoneyTotal(
+    @WorkspaceId() workspaceId: string,
+    @Param('id', new ParseUUIDPipe()) tableId: string,
+  ) {
+    // Not cached: a rate entered in settings has to show up here at once.
+    return this.moneyTotal.getTotal(workspaceId, tableId);
   }
 
   @Get(':id/aggregates')

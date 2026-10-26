@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Plus, Trash2 } from '@/app/components/icons';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import {
@@ -275,17 +276,20 @@ export function InvestmentsCard({ currency, locale, embedded = false }: Investme
               </Typography>
             </Typography>
             <Typography variant="body2">
-              {t.value}: <strong>{money(account.value)}</strong>
+              {t.value}: <strong className={PRIVATE_CLASS}>{money(account.value)}</strong>
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {t.contributed}: {money(account.contributed)}
+              {t.contributed}: <PrivateAmount>{money(account.contributed)}</PrivateAmount>
             </Typography>
             <Typography
               variant="body2"
               sx={{ color: account.gain >= 0 ? 'success.main' : 'error.main' }}
             >
-              {t.gain}: {account.gain >= 0 ? '+' : '−'}
-              {money(Math.abs(account.gain))}
+              {t.gain}:{' '}
+              <PrivateAmount>
+                {account.gain >= 0 ? '+' : '−'}
+                {money(Math.abs(account.gain))}
+              </PrivateAmount>
             </Typography>
             <IconButton
               size="small"
@@ -333,7 +337,7 @@ export function InvestmentsCard({ currency, locale, embedded = false }: Investme
                     <td>{t[ASSET_CLASS_KEYS[holding.assetClass] as 'classStock']}</td>
                     <td>{holding.quantity}</td>
                     <td>
-                      {holding.price} {holding.priceCurrency}
+                      <PrivateAmount>{holding.price}</PrivateAmount> {holding.priceCurrency}
                       {holding.priceSource === 'manual' && (
                         <Typography component="span" variant="caption" color="text.secondary">
                           {' '}
@@ -341,7 +345,7 @@ export function InvestmentsCard({ currency, locale, embedded = false }: Investme
                         </Typography>
                       )}
                     </td>
-                    <td>{money(holding.value)}</td>
+                    <td className={PRIVATE_CLASS}>{money(holding.value)}</td>
                     <td>
                       <IconButton
                         size="small"

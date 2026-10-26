@@ -158,6 +158,12 @@ export default function CreateExpenseDrawer({
   onCreateTaxRate,
 }: Props) {
   const isMobile = useIsMobile();
+  // A category made in the drawer is named on the field before the page reloads its list.
+  const [createdCategories, setCreatedCategories] = useState<StatementCategoryNode[]>([]);
+  const allCategories = [
+    ...categories,
+    ...createdCategories.filter(extra => !categories.some(category => category.id === extra.id)),
+  ];
   const t = useIntlayer('statementsCreateExpenseDrawer');
   const scanCameraInputRef = useRef<HTMLInputElement>(null);
   const scanGalleryInputRef = useRef<HTMLInputElement>(null);
@@ -233,7 +239,7 @@ export default function CreateExpenseDrawer({
     open,
     initialMode,
     defaultCurrency,
-    categories,
+    categories: allCategories,
     taxRates: mergedTaxRates,
     onClose,
     onSubmitScan,
@@ -905,7 +911,7 @@ export default function CreateExpenseDrawer({
       <StatementCategoryDrawer
         open={open && mode === 'manual' && manualStep === 'details' && categoryDrawerOpen}
         onClose={() => setCategoryDrawerOpen(false)}
-        categories={categories}
+        categories={allCategories}
         selectedCategoryId={manualDraft.categoryId}
         selecting={false}
         onSelect={categoryId => {
@@ -916,14 +922,12 @@ export default function CreateExpenseDrawer({
           setCategoryDrawerOpen(false);
           setError(null);
         }}
-        labels={{
-          title: t.category.value,
-          searchPlaceholder: t.searchCategories.value,
-          allOption: t.noCategory.value,
-          noResults: t.noCategoriesFound.value,
+        onCreated={category => {
+          setCreatedCategories(prev => [...prev, category]);
+          setManualDraft(prev => ({ ...prev, categoryId: category.id }));
+          setCategoryDrawerOpen(false);
+          setError(null);
         }}
-        width="lg"
-        showAllOption={false}
       />
 
       <DrawerShell

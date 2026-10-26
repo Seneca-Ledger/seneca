@@ -27,6 +27,7 @@ import {
   XCircle,
 } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import { useCategoryName } from '@/app/lib/use-category-name';
@@ -180,7 +181,7 @@ function LineItemRow({
             inputProps={{ style: { textAlign: 'right' } }}
           />
         ) : (
-          formatCurrencyAmount(item.amount, currency)
+          <PrivateAmount>{formatCurrencyAmount(item.amount, currency)}</PrivateAmount>
         )}
       </TableCell>
 

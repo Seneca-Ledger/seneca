@@ -1,80 +1,98 @@
 'use client';
-import {
-  Button,
-  Chip,
-  Divider,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
-import { useEffect, useState } from 'react';
-import CustomDatePicker from '@/app/components/CustomDatePicker';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
+import { extractUploadErrorMessage } from '@/app/(main)/statements/components/statement-upload';
+import { Pencil } from '@/app/components/icons';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { VendorIcon } from '@/app/components/VendorIcon';
-import { useIntlayer } from '@/app/i18n';
-import type { SubscriptionDetail } from '@/app/lib/contracts';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
-import { formatStoredDate } from '@/app/lib/user-format-store';
-import type { SubscriptionItem, SubscriptionWorkspaceMember } from '../hooks/useSubscriptionsPage';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import { useIntlayer, useLocale } from '@/app/i18n';
+import apiClient from '@/app/lib/api';
+import { formatMoney } from '@/app/lib/format-money';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
+import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
+import type { SubscriptionItem } from '../hooks/useSubscriptionsPage';
+import { fetchBudgets } from '../../budgets/hooks/useBudgetsPage';
 import { RISK_LABELS, STATUS_LABELS } from './SubscriptionCard';
+import { SubscriptionPayments } from './SubscriptionPayments';
 
 interface SubscriptionDetailsDrawerProps {
   subscription: SubscriptionItem | null;
-  members: SubscriptionWorkspaceMember[];
   onClose: () => void;
-  onAssignOwner: (id: string, ownerId: string) => Promise<void>;
-  onDecision: (
-    id: string,
-    decision: 'keep' | 'review' | 'cancelled' | 'price_reduced',
-    values?: { note?: string; reviewAt?: string; realizedAnnualSavings?: number },
-  ) => Promise<void>;
+  /** Opens the subscription's form: name, price, currency, frequency, dates. */
+  onEdit: () => void;
+  onDecision: (id: string, decision: 'cancelled') => Promise<void>;
+  /** Pause, resume, or bring a cancelled one back. */
+  onStatusChange: (id: string, status: 'active' | 'paused') => Promise<void>;
 }
 
-const DECISION_LABELS: Record<
-  string,
-  'keep' | 'markReview' | 'statusCancelled' | 'decisionPriceReduced'
-> = {
-  keep: 'keep',
-  review: 'markReview',
-  cancelled: 'statusCancelled',
-  price_reduced: 'decisionPriceReduced',
+/** The status as a dot and a word: sage while it runs, grey once it stops. */
+const STATUS_TONE: Record<SubscriptionItem['status'], 'good' | 'quiet'> = {
+  active: 'good',
+  detected: 'quiet',
+  paused: 'quiet',
+  cancelled: 'quiet',
 };
 
-const formatDate = (value: string | null): string => (value ? formatStoredDate(value) : '—');
-
-/** `GET /subscriptions/:id`: charges and decisions behind the card. */
-type SubscriptionDetails = SubscriptionDetail;
+/** Whole units unless the price has cents: "₪42", "$9.99". */
+const money = (amount: number, currency: string, locale: string): string =>
+  formatMoney(amount, currency, locale, { fractionDigits: Number.isInteger(amount) ? 0 : 2 });
 
 export function SubscriptionDetailsDrawer({
   subscription,
-  members,
   onClose,
-  onAssignOwner,
+  onEdit,
   onDecision,
+  onStatusChange,
 }: SubscriptionDetailsDrawerProps) {
   const t = useIntlayer('subscriptionsPage');
-  const [ownerId, setOwnerId] = useState('');
-  const [note, setNote] = useState('');
-  const [reviewAt, setReviewAt] = useState('');
-  const [annualSavings, setAnnualSavings] = useState('');
-  const [details, setDetails] = useState<SubscriptionDetails | null>(null);
-
-  useEffect(() => {
-    if (!subscription) return;
-    void apiQueryDecoded({
-      url: `/subscriptions/${subscription.id}`,
-      contract: 'SubscriptionDetail',
-    })
-      .then(setDetails)
-      .catch(() => setDetails(null));
-  }, [subscription]);
+  const paymentsText = useIntlayer('subscriptionPayments');
+  const { locale } = useLocale();
+  const workspaceId = useWorkspaceId();
+  const queryClient = useQueryClient();
+  const id = subscription?.id ?? '';
+  const detail = useQuery({
+    queryKey: queryKeys.subscriptionDetail({ workspaceId, id }),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({ url: `/subscriptions/${id}`, signal, contract: 'SubscriptionDetail' }),
+    enabled: Boolean(id && workspaceId),
+  });
+  const budgets = useQuery({
+    queryKey: queryKeys.budgets(workspaceId),
+    queryFn: ({ signal }) => fetchBudgets(signal),
+    enabled: Boolean(subscription?.budgetId && workspaceId),
+  });
+  const budgetName = budgets.data?.find(budget => budget.id === subscription?.budgetId)?.name;
 
   if (!subscription) return null;
-  const assignableOwnerId = ownerId || subscription.ownerId || '';
+  // The list row the card opened with goes stale after a pause or a resume;
+  // the detail is refetched with every change.
+  const status = detail.data?.subscription.status ?? subscription.status;
+  // Every change moves dates and totals: the list, the card and the dashboard refetch.
+  const savePayment = async (request: () => Promise<unknown>) => {
+    try {
+      await request();
+    } catch (error) {
+      toast.error(extractUploadErrorMessage(error, paymentsText.paymentFailed.value));
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: ['subscriptions', workspaceId] });
+    }
+  };
+  const chargesUrl = `/subscriptions/${subscription.id}/charges`;
+  // "Oct 2, 2027": a day-first or month-first number can be read both ways.
+  const formatDate = (value: string | null): string =>
+    value
+      ? formatStoredDateWithOptions(
+          value,
+          { year: 'numeric', month: 'short', day: 'numeric' },
+          resolveLocale(locale),
+        )
+      : '—';
 
   return (
     <DrawerShell
@@ -83,158 +101,130 @@ export function SubscriptionDetailsDrawer({
       title={subscription.vendorName}
       width="lg"
     >
-      <Stack spacing={2} sx={{ overflowY: 'auto', pr: 0.5 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
+      <div className="lumio-sub-detail">
+        <div className="lumio-sub-detail__status">
           <VendorIcon
             vendorName={subscription.vendorName}
             vendorDomain={subscription.vendorDomain}
+            size={28}
           />
-          <Chip
-            label={t[STATUS_LABELS[subscription.status]].value}
-            size="small"
-            color={subscription.status === 'active' ? 'success' : 'default'}
-          />
+          <span className="lumio-sub-detail__dot" data-tone={STATUS_TONE[status]}>
+            {t[STATUS_LABELS[status]].value}
+          </span>
           {subscription.riskStatus !== 'none' && (
-            <Chip
-              label={t[RISK_LABELS[subscription.riskStatus]].value}
-              size="small"
-              color="warning"
-            />
+            <span className="lumio-sub-detail__dot" data-tone="attention">
+              {t[RISK_LABELS[subscription.riskStatus]].value}
+            </span>
           )}
-        </Stack>
-        <Typography variant="h5" fontWeight={700}>
-          {subscription.amount} {subscription.currency}
-        </Typography>
-        <Typography color="text.secondary">
-          {t.expectedLastCharge.value
-            .replace('{next}', formatDate(subscription.nextChargeDate))
-            .replace('{last}', formatDate(subscription.lastChargeDate))}
-        </Typography>
-        <Typography variant="subtitle2">{t.chargeHistory}</Typography>
-        {details?.charges.length ? (
-          details.charges.map(charge => (
-            <Typography key={charge.id} variant="body2">
-              {formatDate(charge.chargeDate)} · {charge.amount} {charge.currency} ·{' '}
-              {charge.matchStatus.replace('_', ' ')}
-            </Typography>
-          ))
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            {t.noCharges}
-          </Typography>
-        )}
-        <Divider />
-        <Typography variant="subtitle2">{t.accountability}</Typography>
-        <FormControl fullWidth size="small">
-          <InputLabel id="subscription-owner-label">{t.colOwner}</InputLabel>
-          <Select
-            labelId="subscription-owner-label"
-            label={t.colOwner.value}
-            value={assignableOwnerId}
-            onChange={event => setOwnerId(event.target.value)}
+          <IconButton
+            size="small"
+            className="lumio-sub-detail__edit"
+            aria-label={t.editSubscription.value}
+            title={t.editSubscription.value}
+            onClick={onEdit}
           >
-            <MenuItem value="">
-              <em>{t.unassigned}</em>
-            </MenuItem>
-            {members.map(member => (
-              <MenuItem key={member.id} value={member.id}>
-                {member.name || member.email || member.id}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <Button
-          variant="outlined"
-          disabled={!ownerId || ownerId === subscription.ownerId}
-          onClick={() => void onAssignOwner(subscription.id, ownerId)}
-        >
-          {t.assignOwner}
-        </Button>
-        <CustomDatePicker
-          label={t.reviewDate.value}
-          value={reviewAt || subscription.reviewAt?.slice(0, 10) || ''}
-          onChange={setReviewAt}
+            <Pencil size={16} />
+          </IconButton>
+        </div>
+        <div className={`lumio-sub-detail__amount ${PRIVATE_CLASS}`}>
+          {money(subscription.amount, subscription.currency, locale)}
+        </div>
+        <dl className="lumio-sub-detail__facts">
+          <div>
+            <dt>{t.expectedCharge.value}</dt>
+            <dd>{formatDate(subscription.nextChargeDate)}</dd>
+          </div>
+          <div>
+            <dt>{t.lastCharge.value}</dt>
+            <dd>{formatDate(subscription.lastChargeDate)}</dd>
+          </div>
+          {budgetName && (
+            <div>
+              <dt>{t.budget.value}</dt>
+              <dd>{budgetName}</dd>
+            </div>
+          )}
+        </dl>
+
+        <SubscriptionPayments
+          payments={(detail.data?.charges ?? []).map(charge => ({
+            key: charge.id,
+            date: charge.chargeDate,
+            amount: Number(charge.amount),
+            currency: charge.currency,
+            linked: Boolean(charge.transactionId),
+          }))}
+          vendorName={subscription.vendorName}
+          defaultAmount={subscription.amount}
+          autoLinkPayees={detail.data?.autoLinkPayees}
+          onAddManual={(chargeDate, amount) =>
+            savePayment(() =>
+              apiClient.post(chargesUrl, {
+                chargeDate,
+                amount,
+              } satisfies ContractInput<'RecordSubscriptionChargeBody'>),
+            )
+          }
+          onAddRows={async rows => {
+            for (const row of rows) {
+              await savePayment(() =>
+                apiClient.post(chargesUrl, {
+                  transactionId: row.transactionId,
+                } satisfies ContractInput<'RecordSubscriptionChargeBody'>),
+              );
+            }
+          }}
+          onLinkRow={(chargeId, row) =>
+            savePayment(() =>
+              apiClient.patch(`${chargesUrl}/${chargeId}`, {
+                transactionId: row.transactionId,
+              } satisfies ContractInput<'LinkSubscriptionChargeBody'>),
+            )
+          }
+          onRemove={chargeId => savePayment(() => apiClient.delete(`${chargesUrl}/${chargeId}`))}
         />
-        <Stack direction="row" spacing={1}>
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={() =>
-              void onDecision(subscription.id, 'keep', { reviewAt: reviewAt || undefined })
-            }
-          >
-            {t.keep}
-          </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={() =>
-              void onDecision(subscription.id, 'review', { reviewAt: reviewAt || undefined })
-            }
-          >
-            {t.markReview}
-          </Button>
-        </Stack>
-        <Divider />
-        <Typography variant="subtitle2">{t.recordDecision}</Typography>
-        <TextField
-          label={t.reason.value}
-          value={note}
-          onChange={event => setNote(event.target.value)}
-          multiline
-          minRows={2}
-          fullWidth
-        />
-        <TextField
-          label={t.realizedAnnualSavings.value}
-          type="number"
-          value={annualSavings}
-          onChange={event => setAnnualSavings(event.target.value)}
-          fullWidth
-          size="small"
-        />
-        <Stack direction="row" spacing={1}>
-          <Button
-            color="error"
-            variant="outlined"
-            onClick={() =>
-              void onDecision(subscription.id, 'cancelled', {
-                note,
-                realizedAnnualSavings: Number(annualSavings) || 0,
-              })
-            }
-          >
-            {t.recordCancellation}
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              void onDecision(subscription.id, 'price_reduced', {
-                note,
-                realizedAnnualSavings: Number(annualSavings) || 0,
-              })
-            }
-          >
-            {t.recordPriceReduction}
-          </Button>
-        </Stack>
-        <Typography variant="subtitle2">{t.decisionHistory}</Typography>
-        {details?.decisions.length ? (
-          details.decisions.map(decision => (
-            <Typography key={decision.id} variant="body2">
-              {formatDate(decision.createdAt)} ·{' '}
-              {DECISION_LABELS[decision.decision]
-                ? t[DECISION_LABELS[decision.decision]].value
-                : decision.decision}
-              {decision.note ? ` — ${decision.note}` : ''}
-            </Typography>
-          ))
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            {t.noDecisions}
-          </Typography>
-        )}
-      </Stack>
+
+        <div className="lumio-sub-detail__actions">
+          {/* Moving between running and stopped: quiet sage text. */}
+          {status === 'active' && (
+            <Button
+              variant="text"
+              className="lumio-sub-detail__link"
+              onClick={() => void onStatusChange(subscription.id, 'paused')}
+            >
+              {t.pauseSubscription.value}
+            </Button>
+          )}
+          {status === 'paused' && (
+            <Button
+              variant="text"
+              className="lumio-sub-detail__link"
+              onClick={() => void onStatusChange(subscription.id, 'active')}
+            >
+              {t.resumeSubscription.value}
+            </Button>
+          )}
+          {status === 'cancelled' && (
+            <Button
+              variant="text"
+              className="lumio-sub-detail__link"
+              onClick={() => void onStatusChange(subscription.id, 'active')}
+            >
+              {t.reactivateSubscription.value}
+            </Button>
+          )}
+          {/* Destructive, so text in terracotta rather than a framed button. */}
+          {status !== 'cancelled' && (
+            <Button
+              variant="text"
+              className="lumio-sub-detail__destructive"
+              onClick={() => void onDecision(subscription.id, 'cancelled')}
+            >
+              {t.recordCancellation.value}
+            </Button>
+          )}
+        </div>
+      </div>
     </DrawerShell>
   );
 }

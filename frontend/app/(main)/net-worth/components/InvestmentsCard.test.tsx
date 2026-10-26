@@ -77,7 +77,8 @@ describe('InvestmentsCard', () => {
     render(<InvestmentsCard currency="USD" locale="en" />);
 
     expect(screen.getByText('World ETF')).toBeInTheDocument();
-    expect(screen.getByText(/Gain: \+/)).toBeInTheDocument();
+    // The amount is an element of its own (privacy mode); the line is around it.
+    expect(screen.getByText(/Gain:/).textContent).toMatch(/Gain: \+/);
     fireEvent.click(screen.getByRole('button', { name: 'Refresh prices' }));
     expect(hookMock.refreshPrices).toHaveBeenCalledTimes(1);
 

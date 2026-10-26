@@ -44,6 +44,11 @@ export interface BudgetItem {
   unconvertedSpending?: Array<{ currency: string; amount: number }>;
   /** The category's spending this period before `startsOn`: outside the budget. */
   beforeStartSpending?: Array<{ currency: string; amount: number }>;
+  /** Charges of subscriptions paid from it still due this period, in its currency. */
+  subscriptionReserve?: {
+    amount: number;
+    items: Array<{ subscriptionId: string; vendorName: string; amount: number }>;
+  };
   createdAt: string;
 }
 

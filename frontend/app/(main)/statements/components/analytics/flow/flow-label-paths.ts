@@ -24,6 +24,10 @@ export const FLOW_LABEL_PATHS: Record<string, [string[], string]> = {
     ['topSpenders', 'flowSubtitleCategories'],
     'From categorized transactions: categories and subcategories',
   ],
+  flowSubtitleTags: [
+    ['topSpenders', 'flowSubtitleTags'],
+    'From tagged transactions, statements and receipts',
+  ],
   flowUncategorised: [['topSpenders', 'flowUncategorised'], 'Uncategorised'],
   flowUnknownMerchant: [['topSpenders', 'flowUnknownMerchant'], 'Unnamed'],
   flowNoSubcategory: [['topSpenders', 'flowNoSubcategory'], 'No subcategory'],

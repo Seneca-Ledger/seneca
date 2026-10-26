@@ -4,9 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { MultiSelect } from '@/app/components/ui/multi-select';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useLocale } from '@/app/i18n';
+import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { useCategoryName } from '@/app/lib/use-category-name';
@@ -344,6 +346,7 @@ function PreviewSample({
     return undefined;
   };
   const rows = preview.rows.slice(0, SAMPLE_ROWS);
+  const privacy = usePrivacyMode();
   return (
     <>
       <table className="seneca-ct__preview-table">
@@ -372,9 +375,12 @@ function PreviewSample({
                 return (
                   <td
                     key={column.field}
-                    title={text}
+                    // In privacy mode the tooltip would give the amount away.
+                    title={privacy && numeric(column.type) ? undefined : text}
                     className={
-                      numeric(column.type) ? 'seneca-ct__preview-cell--numeric' : undefined
+                      numeric(column.type)
+                        ? `seneca-ct__preview-cell--numeric ${PRIVATE_CLASS}`
+                        : undefined
                     }
                   >
                     {text}

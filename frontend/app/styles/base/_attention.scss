@@ -1,6 +1,7 @@
 // app/styles/base/_attention.scss
 // Temporary green ring for the element a deep link points at (`?focus=<id>`
-// → `[data-attention="<id>"]`, see app/hooks/useAttentionFocus.ts).
+// → `[data-attention="<id>"]`, or every `[data-attention-group~="<id>"]`; see
+// app/hooks/useAttentionFocus.ts).
 //
 // Deliberately a class toggled from JS rather than a keyframe animation:
 // _reduced-motion.scss caps `animation-duration` at 0.01ms globally, so an
@@ -12,7 +13,8 @@
 // of their own, and an outline neither collides with them nor moves anything.
 // It is declared transparent at rest, and on the target rather than on the
 // modifier, so the ring has a value to fade between in both directions.
-[data-attention] {
+[data-attention],
+[data-attention-group] {
   outline: 2px solid transparent;
   outline-offset: 2px;
   transition:
@@ -20,32 +22,37 @@
     background-color 400ms ease-out;
 }
 
-[data-attention].seneca-attention {
+[data-attention].seneca-attention,
+[data-attention-group].seneca-attention {
   outline-color: var(--color-success-soft-text);
 }
 
 // A table row renders neither an outline nor a box-shadow while the table is
 // `border-collapse: collapse` (the leaderboard is), so its ring is drawn as
 // inset shadows on the cells: top and bottom everywhere, sides on the outer two.
-tr[data-attention] {
+tr[data-attention],
+tr[data-attention-group] {
   outline: none;
 }
 
-tr[data-attention].seneca-attention > td {
+tr[data-attention].seneca-attention > td,
+tr[data-attention-group].seneca-attention > td {
   background: var(--color-success-soft-bg);
   box-shadow:
     inset 0 2px 0 var(--color-success-soft-text),
     inset 0 -2px 0 var(--color-success-soft-text);
 }
 
-tr[data-attention].seneca-attention > td:first-child {
+tr[data-attention].seneca-attention > td:first-child,
+tr[data-attention-group].seneca-attention > td:first-child {
   box-shadow:
     inset 0 2px 0 var(--color-success-soft-text),
     inset 0 -2px 0 var(--color-success-soft-text),
     inset 2px 0 0 var(--color-success-soft-text);
 }
 
-tr[data-attention].seneca-attention > td:last-child {
+tr[data-attention].seneca-attention > td:last-child,
+tr[data-attention-group].seneca-attention > td:last-child {
   box-shadow:
     inset 0 2px 0 var(--color-success-soft-text),
     inset 0 -2px 0 var(--color-success-soft-text),

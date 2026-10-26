@@ -5,11 +5,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { InvoiceLineIcon, SearchLineIcon } from '@/app/components/ui/empty-state-icons';
+import { PageTitle } from '@/app/components/ui/page-title';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
@@ -19,6 +22,7 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import { formatMoney } from '@/app/lib/format-money';
 import { type Invoice, type InvoiceStatus, invoicesApi } from '@/app/lib/invoices-api';
 import { InvoiceAgeingPanel } from './InvoiceAgeingPanel';
+import { InvoicesListSkeleton } from './InvoicesSkeletons';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
 
 const PAGE_SIZE = 20;
@@ -29,6 +33,14 @@ export function InvoicesListView(): React.JSX.Element {
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const { locale } = useLocale();
   const t = useIntlayer('invoicesPage');
+  useQuickActions([
+    {
+      id: 'new-invoice',
+      label: t.newInvoice.value,
+      icon: Plus,
+      run: () => router.push('/invoices/new'),
+    },
+  ]);
 
   const [items, setItems] = useState<Invoice[]>([]);
   const [total, setTotal] = useState(0);
@@ -138,11 +150,7 @@ export function InvoicesListView(): React.JSX.Element {
   };
 
   if (authLoading || workspaceLoading || loading) {
-    return (
-      <div className="container-shared seneca-stmt-list" style={{ padding: '40px 16px' }}>
-        —
-      </div>
-    );
+    return <InvoicesListSkeleton />;
   }
 
   const noInvoices = items.length === 0 && status === 'all';
@@ -163,9 +171,15 @@ export function InvoicesListView(): React.JSX.Element {
             flexWrap: 'wrap',
             gap: 16,
             justifyContent: 'flex-end',
-            alignItems: 'flex-start',
+            alignItems: 'center',
           }}
         >
+          <PageTitle
+            path="/invoices"
+            summary={
+              status === 'all' ? undefined : `${t.columns.status.value}: ${statusLabels[status]}`
+            }
+          />
           <div
             style={{
               display: 'flex',
@@ -190,7 +204,10 @@ export function InvoicesListView(): React.JSX.Element {
             {/* With no invoices at all the empty state's button is the one action. */}
             {noInvoices ? null : (
               <ReadOnlyHint>
-                <Button onClick={() => router.push('/invoices/new')}>
+                <Button
+                  className="seneca-bottom-bar-source"
+                  onClick={() => router.push('/invoices/new')}
+                >
                   <Plus size={18} aria-hidden />
                   {t.newInvoice}
                 </Button>
@@ -293,7 +310,9 @@ export function InvoicesListView(): React.JSX.Element {
                       className="seneca-payable-list__td"
                       style={{ textAlign: 'right', fontWeight: 600 }}
                     >
-                      {formatMoney(Number(invoice.total), invoice.currency, locale)}
+                      <PrivateAmount>
+                        {formatMoney(Number(invoice.total), invoice.currency, locale)}
+                      </PrivateAmount>
                       {/* A part-paid invoice is neither unpaid nor settled. */}
                       {Number(invoice.amountPaid ?? 0) > 0 &&
                         Number(invoice.amountDue ?? 0) > 0 && (
@@ -305,7 +324,9 @@ export function InvoicesListView(): React.JSX.Element {
                             }}
                           >
                             {t.detail.amountDue.value}{' '}
-                            {formatMoney(Number(invoice.amountDue), invoice.currency, locale)}
+                            <PrivateAmount>
+                              {formatMoney(Number(invoice.amountDue), invoice.currency, locale)}
+                            </PrivateAmount>
                           </div>
                         )}
                     </td>

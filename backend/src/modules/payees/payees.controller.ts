@@ -7,6 +7,7 @@ import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
   MergePayeesBody,
+  Payee,
   PayeePendingReview,
   PayeeRecord,
   PayeesPage,
@@ -28,6 +29,13 @@ export class PayeesController {
   @SchemaResponse(PayeesPage)
   async list(@WorkspaceId() workspaceId: string, @SchemaQuery(PayeesQuery) query: PayeesQuery) {
     return this.payeesService.list(workspaceId, query);
+  }
+
+  @Get('payees/:id')
+  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(Payee)
+  async get(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+    return this.payeesService.get(workspaceId, id);
   }
 
   @Patch('payees/:id')

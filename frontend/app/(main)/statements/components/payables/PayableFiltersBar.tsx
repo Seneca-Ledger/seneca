@@ -8,6 +8,7 @@ import { StatementsToolbarButton } from '@/app/(main)/statements/components/Stat
 import { ChevronDown, SlidersHorizontal, X } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import { Select } from '@/app/components/ui/select';
+import { useTags } from '@/app/hooks/useTags';
 import { useIntlayer } from '@/app/i18n';
 import type { PayableSource, PayableStatus } from '@/app/lib/payables-api';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
@@ -34,6 +35,7 @@ interface PayableFiltersBarProps {
     reset: string;
     allStatuses: string;
     allSources: string;
+    allTags: string;
     statusOptions: Record<PayableStatus, string>;
     sourceOptions: Record<PayableSource, string>;
   };
@@ -51,6 +53,8 @@ function PayableFiltersBar({
   labels,
 }: PayableFiltersBarProps): React.JSX.Element {
   const t = useIntlayer('statementsPage');
+  const tagsText = useIntlayer('tagsPage');
+  const { data: tags = [] } = useTags();
   const [dateOpen, setDateOpen] = React.useState(false);
   const [filtersOpen, setFiltersOpen] = React.useState(false);
 
@@ -65,7 +69,8 @@ function PayableFiltersBar({
   };
 
   const hasDate = Boolean(value.dueDateFrom || value.dueDateTo);
-  const activeCount = (value.status === 'all' ? 0 : 1) + (value.source === 'all' ? 0 : 1);
+  const activeCount =
+    (value.status === 'all' ? 0 : 1) + (value.source === 'all' ? 0 : 1) + (value.tagId ? 1 : 0);
 
   return (
     <>
@@ -137,6 +142,23 @@ function PayableFiltersBar({
               })),
             ]}
           />
+
+          {/* Only once there is a tag to pick, or one is still chosen. */}
+          {(tags.length > 0 || value.tagId) && (
+            <Select
+              fullWidth
+              size="small"
+              value={value.tagId || 'all'}
+              onChange={next => update('tagId', next === 'all' ? '' : next)}
+              inputProps={{ 'aria-label': tagsText.title.value }}
+              options={[
+                { value: 'all', label: labels.allTags },
+                ...[...tags]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map(tag => ({ value: tag.id, label: tag.name })),
+              ]}
+            />
+          )}
 
           <Button
             variant="ghost"

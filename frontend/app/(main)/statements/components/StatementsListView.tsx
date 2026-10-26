@@ -9,7 +9,6 @@ import ConfirmModal from '@/app/components/ConfirmModal';
 import { GitMerge, RefreshCcw } from '@/app/components/icons';
 import { NoteCountsProvider } from '@/app/components/notes/NoteCountsContext';
 import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
-import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
 import { useLockBodyScroll } from '@/app/hooks/useLockBodyScroll';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
@@ -25,6 +24,7 @@ import type {
   ManualExpenseDraft,
   TaxRateOption,
 } from '@/app/lib/statement-expense-drawer';
+import { useDocumentSelectionCommands } from './hooks/useDocumentSelectionCommands';
 import type { MergeDuplicatesPlan } from './hooks/useStatementSelection';
 import { useStatementsView } from './hooks/useStatementsView';
 import {
@@ -204,12 +204,7 @@ export default function StatementsListView(): React.JSX.Element {
 
   useLockBodyScroll(v.expenseDrawerOpen);
 
-  useKeyboardShortcuts({
-    'Shift+KeyX': () => v.handleToggleSelectAll(true),
-    'Shift+Delete': () => {
-      void v.handleDeleteSelected();
-    },
-  });
+  const selectionActions = useDocumentSelectionCommands(v, router.push);
 
   const { t, filterState, listHeaderLabels, paginationLabels, uploadLabels } = v;
 
@@ -355,8 +350,10 @@ export default function StatementsListView(): React.JSX.Element {
       <StatementsListHeader
         selectedCount={v.selectedCount}
         selectedActionsOpen={v.selectedActionsOpen}
+        selectionActions={selectionActions}
         hasSelectedDuplicates={v.hasSelectedDuplicates}
         draftFilters={filterState.draftFilters}
+        appliedFilters={filterState.appliedFilters}
         activeFilterCount={v.activeFilterCount}
         search={v.search}
         onSearchApply={v.applySearch}
@@ -382,7 +379,7 @@ export default function StatementsListView(): React.JSX.Element {
         mergeDuplicatesLabel={mergeDuplicatesLabel}
         dismissDuplicateLabel={dismissDuplicateLabel}
         markDuplicateLabel={markDuplicateLabel}
-        onToggleActionsOpen={() => v.setSelectedActionsOpen(prev => !prev)}
+        onActionsOpenChange={v.setSelectedActionsOpen}
         onMerge={v.handleMergeSelectedDuplicates}
         onDismiss={v.handleDismissSelectedDuplicates}
         onMarkDuplicate={v.handleMarkSelectedAsDuplicate}

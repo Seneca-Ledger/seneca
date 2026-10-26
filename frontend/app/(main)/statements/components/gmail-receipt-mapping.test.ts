@@ -143,4 +143,22 @@ describe('mapGmailReceiptsToStatements', () => {
     expect(result[0].source).toBe('scan');
     expect(result[0].receiptSource).toBe('upload');
   });
+
+  it('keeps the receipt tags so the Tag column can show them', () => {
+    const tag = { id: 'tag-1', name: 'Team Trip', color: null };
+    const [mapped] = mapGmailReceiptsToStatements([
+      {
+        id: 'scan-tagged',
+        source: 'scan',
+        subject: 'Scanned receipt',
+        sender: 'camera-scan',
+        receivedAt: '2026-03-27T00:00:00.000Z',
+        status: 'draft',
+        parsedData: { amount: 12, currency: 'USD', vendor: 'ACME Store' },
+        tags: [tag],
+      },
+    ]);
+
+    expect(mapped.tags).toEqual([tag]);
+  });
 });

@@ -10,13 +10,14 @@ import RadioGroup from '@mui/material/RadioGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { Trash2 } from '@/app/components/icons';
 import type { Category } from '@/app/components/transactions/types';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import type { PayablePayment, PaymentCandidate } from '@/app/lib/payables-api';
-import { useCategoryName } from '@/app/lib/use-category-name';
 
 export type WalletOption = { id: string; name: string; currency: string; isActive?: boolean };
 
@@ -75,7 +76,9 @@ function CandidateLabel(props: { candidate: PaymentCandidate; locale: string }):
         sx={{ overflowWrap: 'anywhere' }}
       >
         {candidate.transactionDate} ·{' '}
-        {formatMoney(Number(candidate.amount), candidate.currency, props.locale)}
+        <PrivateAmount>
+          {formatMoney(Number(candidate.amount), candidate.currency, props.locale)}
+        </PrivateAmount>
         {candidate.vendorMatch && <Chip size="small" label={t.vendorMatch.value} sx={{ ml: 1 }} />}
       </Typography>
       <Typography variant="caption" sx={{ color: 'text.secondary', overflowWrap: 'anywhere' }}>
@@ -101,7 +104,6 @@ export function CashFields(props: {
 }): React.JSX.Element {
   const t = useIntlayer('payableMarkPaid');
   const unbookedText = useIntlayer('payablesUnbooked');
-  const categoryName = useCategoryName();
   const { value, onChange } = props;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -141,25 +143,16 @@ export function CashFields(props: {
         </Box>
       )}
       <Box>
-        <Typography
-          component="label"
-          id="mark-paid-category-label"
-          htmlFor="mark-paid-category"
-          variant="caption"
-        >
+        <Typography component="label" htmlFor="mark-paid-category" variant="caption">
           {t.category.value}
         </Typography>
-        <Select
+        <CategoryPickerField
           id="mark-paid-category"
-          labelId="mark-paid-category-label"
+          ariaLabel={t.category.value}
           value={value.categoryId}
-          options={[
-            { value: '', label: t.noCategory.value },
-            ...props.categories.map(category => ({
-              value: category.id,
-              label: categoryName(category.name),
-            })),
-          ]}
+          categories={props.categories}
+          placeholder={t.noCategory.value}
+          clearLabel={t.noCategory.value}
           onChange={categoryId => onChange({ ...value, categoryId })}
         />
       </Box>
@@ -197,8 +190,14 @@ export function AmountFields(props: {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {props.paidSoFar > 0 && (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {t.paidSoFar.value} {formatMoney(props.paidSoFar, props.currency, props.locale)} ·{' '}
-          {t.outstanding.value} {formatMoney(props.outstanding, props.currency, props.locale)}
+          {t.paidSoFar.value}{' '}
+          <PrivateAmount>
+            {formatMoney(props.paidSoFar, props.currency, props.locale)}
+          </PrivateAmount>{' '}
+          · {t.outstanding.value}{' '}
+          <PrivateAmount>
+            {formatMoney(props.outstanding, props.currency, props.locale)}
+          </PrivateAmount>
         </Typography>
       )}
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
@@ -253,12 +252,18 @@ export function PaymentLog(props: {
           sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}
         >
           <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-            {payment.paidOn} · {formatMoney(Number(payment.amount), props.currency, props.locale)}
+            {payment.paidOn} ·{' '}
+            <PrivateAmount>
+              {formatMoney(Number(payment.amount), props.currency, props.locale)}
+            </PrivateAmount>
             {Number(payment.feeAmount) > 0 && (
               <Typography component="span" variant="caption" sx={{ color: 'text.secondary' }}>
                 {' '}
                 ({String(t.feeAmount.value)}{' '}
-                {formatMoney(Number(payment.feeAmount), props.currency, props.locale)})
+                <PrivateAmount>
+                  {formatMoney(Number(payment.feeAmount), props.currency, props.locale)}
+                </PrivateAmount>
+                )
               </Typography>
             )}
             {/* Recorded without money: it counts once its bank row or wallet is known. */}

@@ -110,6 +110,16 @@ export const CustomTableAggregates = Schema.Struct({
 });
 export type CustomTableAggregates = Wire<typeof CustomTableAggregates>;
 
+/** `GET /custom-tables/:id/money-total`: the first money column over every row, in the workspace currency. */
+export const CustomTableMoneyTotal = Schema.Struct({
+  column: Schema.NullOr(Schema.String),
+  currency: Schema.String,
+  total: Schema.NullOr(Schema.Number),
+  /** Currencies left out of the total for want of a rate. */
+  missing: Schema.Array(Schema.String),
+});
+export type CustomTableMoneyTotal = Wire<typeof CustomTableMoneyTotal>;
+
 /** `GET /custom-tables/:id/groups`. */
 export const CustomTableGroups = Schema.Struct({
   items: Schema.Array(

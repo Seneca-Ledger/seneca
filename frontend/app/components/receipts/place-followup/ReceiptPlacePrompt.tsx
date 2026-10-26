@@ -15,7 +15,7 @@ export type ReceiptPlacePromptLabels = {
 type ReceiptPlacePromptProps = {
   visible: boolean;
   /** Vendor and amount, so the user knows which receipt is meant. */
-  summary: string | null;
+  summary: React.ReactNode;
   labels: ReceiptPlacePromptLabels;
   onChoose: () => void;
   onClose: () => void;

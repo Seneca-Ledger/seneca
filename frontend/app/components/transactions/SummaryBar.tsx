@@ -8,6 +8,7 @@ import {
   formatDate,
 } from '@/app/components/transactions/helpers/transactionFormatters';
 import { Button } from '@/app/components/ui/button';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
@@ -134,7 +135,9 @@ export default function SummaryBar({
                 <TrendingDown size={16} />
                 {t.debitTotal.value}
               </div>
-              <div className="seneca-tx-summary__total-amount seneca-tx-summary__total-amount--debit">
+              <div
+                className={`seneca-tx-summary__total-amount seneca-tx-summary__total-amount--debit ${PRIVATE_CLASS}`}
+              >
                 {formatAmount(stats.debitTotal, stats.currency, locale)}
               </div>
             </div>
@@ -145,7 +148,9 @@ export default function SummaryBar({
                 <TrendingUp size={16} />
                 {t.creditTotal.value}
               </div>
-              <div className="seneca-tx-summary__total-amount seneca-tx-summary__total-amount--credit">
+              <div
+                className={`seneca-tx-summary__total-amount seneca-tx-summary__total-amount--credit ${PRIVATE_CLASS}`}
+              >
                 {formatAmount(stats.creditTotal, stats.currency, locale)}
               </div>
             </div>

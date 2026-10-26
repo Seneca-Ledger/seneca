@@ -6,10 +6,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronLeft } from '@/app/components/icons';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
+import { TagPicker } from '@/app/components/tags/TagPicker';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { FORM_CONTROL_SX, Input } from '@/app/components/ui/input';
 import { Select } from '@/app/components/ui/select';
 import { useCurrencyPickerState } from '@/app/hooks/useCurrencyPickerState';
+import type { StorageTag } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import type {
   CreatePayableInput,
@@ -55,6 +57,7 @@ interface PayableFormState {
   source: PayableSource;
   status: PayableStatus;
   comment: string;
+  tags: StorageTag[];
 }
 
 const createEmptyState = (defaultCurrency: string): PayableFormState => ({
@@ -65,6 +68,7 @@ const createEmptyState = (defaultCurrency: string): PayableFormState => ({
   source: 'manual',
   status: 'to_pay',
   comment: '',
+  tags: [],
 });
 
 const toFormState = (
@@ -85,6 +89,7 @@ const toFormState = (
       source: initialValues.source || 'manual',
       status: initialValues.status || 'to_pay',
       comment: initialValues.comment || '',
+      tags: [],
     };
   }
 
@@ -96,6 +101,7 @@ const toFormState = (
     source: payable?.source || 'manual',
     status: payable?.status || 'to_pay',
     comment: payable?.comment || '',
+    tags: [...(payable?.tags ?? [])],
   };
 };
 
@@ -151,6 +157,7 @@ export function CreatePayableDrawer({
       source: form.source,
       status: form.status,
       comment: form.comment.trim() || undefined,
+      tagIds: form.tags.map(tag => tag.id),
     });
   };
 
@@ -291,6 +298,8 @@ export function CreatePayableDrawer({
                 className="seneca-payable-drawer__textarea"
               />
             </div>
+
+            <TagPicker value={form.tags} onChange={tags => setForm(prev => ({ ...prev, tags }))} />
           </div>
 
           <div className="seneca-payable-drawer__footer">

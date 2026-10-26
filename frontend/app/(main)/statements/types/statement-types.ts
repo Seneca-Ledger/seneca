@@ -79,4 +79,6 @@ export type GmailReceipt = {
   gmailMessageId?: string;
   workspaceId?: string;
   workspaceName?: string;
+  /** The receipt's own tags, as the receipts list returns them. */
+  tags?: Array<{ id: string; name: string; color: string | null }>;
 };

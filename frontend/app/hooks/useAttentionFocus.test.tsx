@@ -68,6 +68,36 @@ describe('useAttentionFocus', () => {
     expect(document.getElementById('t')?.classList.contains('seneca-attention')).toBe(false);
   });
 
+  it('rings every member of a group and scrolls to the first', () => {
+    setup(
+      'focus=price-changed',
+      '<div id="a" data-attention="subscription:1" data-attention-group="price-changed"></div>' +
+        '<div id="b" data-attention="subscription:2"></div>' +
+        '<div id="c" data-attention="subscription:3" data-attention-group="overdue price-changed"></div>',
+    );
+    const ringed = (id: string) =>
+      document.getElementById(id)?.classList.contains('seneca-attention');
+
+    expect([ringed('a'), ringed('b'), ringed('c')]).toEqual([true, false, true]);
+    expect(document.getElementById('a')?.scrollIntoView).toHaveBeenCalled();
+
+    vi.advanceTimersByTime(3000);
+
+    expect([ringed('a'), ringed('c')]).toEqual([false, false]);
+  });
+
+  it('waits for a group that is drawn after the page arrives', async () => {
+    setup('focus=price-changed');
+    document.body.innerHTML =
+      '<div id="a" data-attention-group="price-changed"></div>' +
+      '<div id="b" data-attention-group="price-changed"></div>';
+
+    await waitFor(() =>
+      expect(document.getElementById('b')?.classList.contains('seneca-attention')).toBe(true),
+    );
+    expect(document.getElementById('a')?.classList.contains('seneca-attention')).toBe(true);
+  });
+
   it('takes the first match when a category spans several rows', () => {
     setup(
       'focus=category:travel',

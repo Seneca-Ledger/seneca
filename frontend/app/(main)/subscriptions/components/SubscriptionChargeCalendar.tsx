@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import type { SubscriptionChargeCalendar } from '../hooks/useSubscriptionsPage';
 import { isPeakAmount, monthPeaks } from './charge-calendar.utils';
@@ -70,7 +71,7 @@ export function SubscriptionChargeCalendar({
                     }
                   >
                     {amount > 0 ? (
-                      formatAmount(amount)
+                      <PrivateAmount>{formatAmount(amount)}</PrivateAmount>
                     ) : (
                       <>
                         {/* A bare aria-label on a span is ignored, so the
@@ -91,7 +92,9 @@ export function SubscriptionChargeCalendar({
               {t.total}
             </th>
             {monthLabels.map((label, index) => (
-              <td key={label}>{formatAmount(calendar.monthTotals[index] ?? 0)}</td>
+              <td key={label}>
+                <PrivateAmount>{formatAmount(calendar.monthTotals[index] ?? 0)}</PrivateAmount>
+              </td>
             ))}
           </tr>
         </tfoot>

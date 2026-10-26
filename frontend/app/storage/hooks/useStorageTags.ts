@@ -1,8 +1,11 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
 import api from '../../lib/api';
 import type { FolderOption, StorageFile, TagOption } from '../storageHelpers';
 
@@ -59,6 +62,12 @@ export function useStorageTags(
   setFiles: React.Dispatch<React.SetStateAction<StorageFile[]>>,
   setFolders: React.Dispatch<React.SetStateAction<FolderOption[]>>,
 ): UseStorageTagsReturn {
+  const queryClient = useQueryClient();
+  const workspaceId = useWorkspaceId();
+  // The Tags page and the tag pickers read `GET /tags`; a change here must reach them.
+  const invalidateTagList = (): void => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.tags(workspaceId) });
+  };
   const [tags, setTags] = useState<TagOption[]>([]);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#168118');
@@ -97,6 +106,7 @@ export function useStorageTags(
       const tag = await checkContract('StorageTag', response.data, '/storage/tags');
       setTags(prev => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
       setNewTagName('');
+      invalidateTagList();
       toast.success(messages.tagCreated);
     })().catch(async error => {
       console.error('Failed to create tag:', error);
@@ -149,6 +159,7 @@ export function useStorageTags(
       setEditingTagId(null);
       setEditingTagName('');
       setEditingTagColor(null);
+      invalidateTagList();
       toast.success(messages.tagRenamed);
     })().catch(async error => {
       console.error('Failed to rename tag:', error);
@@ -188,6 +199,7 @@ export function useStorageTags(
           tags: (file.tags || []).filter(tag => tag.id !== tagToDelete.id),
         })),
       );
+      invalidateTagList();
       toast.success(messages.tagDeleted, { id: toastId });
     })()
       .catch(async error => {

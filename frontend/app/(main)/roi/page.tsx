@@ -4,10 +4,12 @@ import Box from '@mui/material/Box';
 import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
+import { PageTitle } from '@/app/components/ui/page-title';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { formatMoney } from '@/app/lib/format-money';
+import { formatMoney, resolveLocale } from '@/app/lib/format-money';
 import { tokens } from '@/lib/theme-tokens';
 import { RoiProjectionChart } from './components/RoiProjectionChart';
 import { buildProjection, calculateRoi, parseAmount, splitPayback, TABLE_YEARS } from './roi-model';
@@ -33,6 +35,7 @@ function AmountField({
   currencySymbol: string;
   locale: string;
 }) {
+  const id = useId();
   const [focused, setFocused] = useState(false);
   const parsed = parseAmount(value);
   const shown =
@@ -40,22 +43,31 @@ function AmountField({
       ? value
       : new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(parsed);
   return (
-    <TextField
-      label={label}
-      size="small"
-      value={shown}
-      placeholder={new Intl.NumberFormat(locale).format(10000)}
-      onChange={event => onChange(event.target.value)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      slotProps={{
-        inputLabel: { shrink: true },
-        htmlInput: { inputMode: 'decimal' },
-        input: {
-          startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment>,
-        },
-      }}
-    />
+    <Box>
+      <Typography
+        component="label"
+        htmlFor={id}
+        sx={{ display: 'block', mb: 0.75, fontSize: 13, color: 'var(--text-muted)' }}
+      >
+        {label}
+      </Typography>
+      <TextField
+        id={id}
+        fullWidth
+        size="small"
+        value={shown}
+        placeholder="0"
+        onChange={event => onChange(event.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        slotProps={{
+          htmlInput: { inputMode: 'decimal' },
+          input: {
+            startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment>,
+          },
+        }}
+      />
+    </Box>
   );
 }
 
@@ -100,9 +112,7 @@ export default function RoiPage() {
       sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
     >
       <Box sx={{ maxWidth: BLOCK_MAX_WIDTH, mx: 'auto' }}>
-        <Typography component="h1" sx={{ fontSize: 20, fontWeight: 500 }}>
-          {t.title}
-        </Typography>
+        <PageTitle path="/roi" />
         <Typography variant="body2" sx={{ color: 'var(--text-muted)', mt: 0.5, mb: 2.5 }}>
           {t.explainer}
         </Typography>
@@ -152,7 +162,7 @@ export default function RoiPage() {
                 ? '—'
                 : result.paybackYears === null
                   ? t.neverPaysBack
-                  : formatPayback(result.paybackYears, t.years.value, t.months.value)}
+                  : formatPayback(result.paybackYears, locale)}
             </Typography>
             <Typography sx={{ fontSize: 13, color: 'var(--text-muted)', mt: 0.5 }}>
               {result === null ? (
@@ -174,73 +184,85 @@ export default function RoiPage() {
               )}
             </Typography>
           </Box>
-        </Box>
-        {result !== null && result.annualIncome > 0 && (
-          <Box
-            data-tour-shot="roi-chart"
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: tokens.radius.md,
-              bgcolor: 'background.paper',
-              p: 3,
-              mt: 3,
-            }}
-          >
-            <Typography sx={{ fontSize: 15, fontWeight: 500 }}>{t.projectionTitle}</Typography>
 
-            <RoiProjectionChart
-              points={projection}
-              compoundLabel={t.compoundLabel.value}
-              simpleLabel={t.simpleLabel.value}
-            />
-
+          {result !== null && result.annualIncome > 0 && (
             <Box
-              data-tour-shot="roi-table"
-              sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}
+              data-tour-shot="roi-chart"
+              sx={{ borderTop: '1px solid', borderColor: 'divider', mt: 3, pt: 3 }}
             >
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', flex: '0 0 60px' }}>
-                  {t.yearColumn}
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary', flexGrow: 1 }}>
-                  {t.compoundLabel}
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary', flexGrow: 1 }}>
-                  {t.simpleLabel}
-                </Typography>
-              </Box>
-              {TABLE_YEARS.map(year => (
-                <Box key={year} sx={{ display: 'flex', gap: 2 }}>
-                  <Typography variant="body2" sx={{ flex: '0 0 60px' }}>
-                    {year}
+              <Typography sx={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                {t.projectionTitle}
+              </Typography>
+
+              <RoiProjectionChart
+                points={projection}
+                compoundLabel={t.compoundLabel.value}
+                simpleLabel={t.simpleLabel.value}
+                currency={currency}
+              />
+
+              <Box
+                data-tour-shot="roi-table"
+                sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}
+              >
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', flex: '0 0 60px' }}>
+                    {t.yearColumn}
                   </Typography>
-                  <Typography
-                    variant="body2"
-                    fontWeight={500}
-                    sx={{ flexGrow: 1, fontVariantNumeric: 'tabular-nums' }}
-                  >
-                    {compactMoney(projection[year]?.compound ?? 0)}
+                  <Typography variant="caption" sx={{ color: 'text.secondary', flexGrow: 1 }}>
+                    {t.compoundLabel}
                   </Typography>
-                  <Typography variant="body2" sx={{ flexGrow: 1, color: 'text.secondary' }}>
-                    {compactMoney(projection[year]?.simple ?? 0)}
+                  <Typography variant="caption" sx={{ color: 'text.secondary', flexGrow: 1 }}>
+                    {t.simpleLabel}
                   </Typography>
                 </Box>
-              ))}
+                {TABLE_YEARS.map(year => (
+                  <Box key={year} sx={{ display: 'flex', gap: 2 }}>
+                    <Typography variant="body2" sx={{ flex: '0 0 60px' }}>
+                      {year}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      className={PRIVATE_CLASS}
+                      sx={{ flexGrow: 1, fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {compactMoney(projection[year]?.compound ?? 0)}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      className={PRIVATE_CLASS}
+                      sx={{
+                        flexGrow: 1,
+                        color: 'text.secondary',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {compactMoney(projection[year]?.simple ?? 0)}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
             </Box>
-          </Box>
-        )}
+          )}
+        </Box>
       </Box>
     </Box>
   );
 }
 
-function formatPayback(paybackYears: number, yearsLabel: string, monthsLabel: string): string {
+/** "2 years 1 month", in the language's own words and plural forms. */
+function formatPayback(paybackYears: number, locale: string): string {
   const { years, months } = splitPayback(paybackYears);
-  if (years === 0) {
-    return `${months} ${monthsLabel}`;
-  }
-  return months === 0
-    ? `${years} ${yearsLabel}`
-    : `${years} ${yearsLabel} ${months} ${monthsLabel}`;
+  const unit = (value: number, name: 'year' | 'month') =>
+    new Intl.NumberFormat(resolveLocale(locale), {
+      style: 'unit',
+      unit: name,
+      unitDisplay: 'long',
+    }).format(value);
+  return [
+    years > 0 ? unit(years, 'year') : '',
+    months > 0 || years === 0 ? unit(months, 'month') : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 }

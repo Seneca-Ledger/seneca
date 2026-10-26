@@ -1,0 +1,66 @@
+// @vitest-environment jsdom
+import { act, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderWithQuery } from '@/app/test/query-wrapper';
+import { useCashFlowMap } from './useCashFlowMap';
+
+const apiGet = vi.hoisted(() => vi.fn());
+const apiPut = vi.hoisted(() => vi.fn());
+
+vi.mock('@/app/lib/api', () => ({ default: { get: apiGet, put: apiPut } }));
+vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
+
+let hook: ReturnType<typeof useCashFlowMap> | null = null;
+
+function Probe(): React.JSX.Element {
+  hook = useCashFlowMap();
+  return <output data-testid="include">{String(hook.filters.includeTransfers)}</output>;
+}
+
+/** Answers the saved view; the cash-flow request itself never resolves. */
+function serve(savedView: Record<string, unknown> | null): void {
+  apiGet.mockImplementation((url: string) =>
+    url === '/view-preferences/reports'
+      ? Promise.resolve({ data: { state: savedView } })
+      : new Promise(() => undefined),
+  );
+}
+
+describe('useCashFlowMap: include transfers', () => {
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiPut.mockReset();
+    apiPut.mockResolvedValue({ data: {} });
+    hook = null;
+  });
+
+  it('is on when nothing was saved', async () => {
+    serve(null);
+    const { getByTestId } = renderWithQuery(<Probe />);
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/view-preferences/reports', expect.anything()));
+    expect(getByTestId('include').textContent).toBe('true');
+  });
+
+  it('comes back off when this person turned it off', async () => {
+    serve({ includeTransfers: false });
+    const { getByTestId } = renderWithQuery(<Probe />);
+    await waitFor(() => expect(getByTestId('include').textContent).toBe('false'));
+  });
+
+  it('saves the switch to the server, and only the switch', async () => {
+    serve(null);
+    const { getByTestId } = renderWithQuery(<Probe />);
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/view-preferences/reports', expect.anything()));
+
+    act(() => hook?.update({ includeTransfers: false }));
+    await waitFor(() => expect(getByTestId('include').textContent).toBe('false'));
+    expect(apiPut).toHaveBeenCalledWith('/view-preferences/reports', {
+      state: { includeTransfers: false },
+    });
+
+    apiPut.mockClear();
+    act(() => hook?.update({ compare: false }));
+    expect(apiPut).not.toHaveBeenCalled();
+    expect(hook?.filters.compare).toBe(false);
+  });
+});

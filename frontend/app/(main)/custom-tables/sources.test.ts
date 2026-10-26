@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SOURCE_FIELD_ACCESS } from '@/app/lib/contracts/custom-tables/source-fields';
 import {
   buildSourcePayload,
   EMPTY_SOURCE_FILTERS,
@@ -9,6 +10,18 @@ import {
 describe('SOURCE_KINDS', () => {
   it.each(SOURCE_KINDS.map(s => [s.id, s] as const))('%s has unique column fields', (_id, source) => {
     expect(new Set(source.columnFields).size).toBe(source.columnFields.length);
+  });
+
+  it.each(SOURCE_KINDS.map(s => [s.id, s] as const))(
+    '%s offers the columns the backend adapter fills',
+    (id, source) => {
+      expect([...source.columnFields].sort()).toEqual(Object.keys(SOURCE_FIELD_ACCESS[id]).sort());
+    },
+  );
+
+  it('offers the tags of a transaction as a column', () => {
+    const transactions = SOURCE_KINDS.find(s => s.id === 'transactions');
+    expect(transactions?.columnFields).toContain('tags');
   });
 
   it('declares status options exactly for sources with a status filter', () => {

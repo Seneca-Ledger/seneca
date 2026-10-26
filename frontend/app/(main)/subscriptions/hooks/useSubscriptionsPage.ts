@@ -13,7 +13,13 @@ import type {
 import type { ContractInput } from '@/app/lib/query-fn-schema';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
-import { guessVendorDomain } from '../components/vendor-domain.utils';
+import type { PaymentEntry } from '../components/SubscriptionPayments';
+import { vendorDomainForSave } from '../components/vendor-domain.utils';
+import {
+  clearSubscriptionDraft,
+  readSubscriptionDraft,
+  saveSubscriptionDraft,
+} from './subscription-draft';
 
 export type SubscriptionChargeCalendar = ChargeCalendarContract;
 export type SubscriptionSummary = SummaryContract;
@@ -67,7 +73,22 @@ export interface SubscriptionFormData {
   categoryId: string;
   nextChargeDate: string;
   vendorDomain: string;
+  /** The budget its money comes out of; empty for none. */
+  budgetId: string;
+  /** Payments already made, saved right after the subscription is created. */
+  payments: PendingPayment[];
 }
+
+/** A payment picked in the add form: typed in, or a bank row (`transactionId`). */
+export type PendingPayment = PaymentEntry & { transactionId: string | null };
+
+/** The id of the subscription `POST /subscriptions` answered with. */
+const readCreatedId = (response: unknown): string | null => {
+  const data =
+    response && typeof response === 'object' && 'data' in response ? response.data : null;
+  const id = data && typeof data === 'object' && 'id' in data ? data.id : null;
+  return typeof id === 'string' ? id : null;
+};
 
 const DEFAULT_CURRENCY = 'USD';
 const CALENDAR_MONTHS = 6;
@@ -84,6 +105,7 @@ const EMPTY_SUMMARY: SubscriptionSummary = {
   activeCount: 0,
   upcomingCount: 0,
   upcoming30DaysCount: 0,
+  upcoming30DaysAmount: 0,
   priceChangeCount: 0,
   priceChangeYearlyEffect: 0,
   duplicateCount: 0,
@@ -99,10 +121,13 @@ const makeEmptyForm = (currency: string): SubscriptionFormData => ({
   categoryId: '',
   nextChargeDate: '',
   vendorDomain: '',
+  budgetId: '',
+  payments: [],
 });
 
 export function useSubscriptionsPage() {
   const text = useIntlayer('subscriptionsPage');
+  const paymentsText = useIntlayer('subscriptionPayments');
   const { currentWorkspace } = useWorkspace();
   const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
@@ -194,9 +219,25 @@ export function useSubscriptionsPage() {
 
   const openCreate = useCallback(() => {
     setEditingSubscription(null);
-    setFormData(makeEmptyForm(workspaceCurrency));
+    setFormData(
+      (workspaceId && readSubscriptionDraft(workspaceId)) || makeEmptyForm(workspaceCurrency),
+    );
     setDialogOpen(true);
-  }, [workspaceCurrency]);
+  }, [workspaceCurrency, workspaceId]);
+
+  // The add form survives a drawer closed by mistake or a reload; editing does not need it.
+  useEffect(() => {
+    if (!dialogOpen || editingSubscription || !workspaceId) return;
+    const empty = makeEmptyForm(workspaceCurrency);
+    const touched =
+      formData.vendorName !== empty.vendorName ||
+      formData.amount !== empty.amount ||
+      formData.nextChargeDate !== empty.nextChargeDate ||
+      formData.payments.length > 0;
+    // Emptied again: nothing to bring back.
+    if (touched) saveSubscriptionDraft(workspaceId, formData);
+    else clearSubscriptionDraft();
+  }, [dialogOpen, editingSubscription, formData, workspaceId, workspaceCurrency]);
 
   const openEdit = useCallback((sub: SubscriptionItem) => {
     setEditingSubscription(sub);
@@ -208,6 +249,9 @@ export function useSubscriptionsPage() {
       categoryId: sub.categoryId ?? '',
       nextChargeDate: sub.nextChargeDate ?? '',
       vendorDomain: sub.vendorDomain ?? '',
+      budgetId: sub.budgetId ?? '',
+      // Payments of a saved subscription live in its card.
+      payments: [],
     });
     setDialogOpen(true);
   }, []);
@@ -216,6 +260,26 @@ export function useSubscriptionsPage() {
     setDialogOpen(false);
     setEditingSubscription(null);
   }, []);
+
+  // The subscription is already saved: a payment that fails is reported on its
+  // own and can be added again from the card.
+  const savePendingPayments = useCallback(
+    async (subscriptionId: string, payments: PendingPayment[]) => {
+      for (const payment of payments) {
+        const body = payment.transactionId
+          ? { transactionId: payment.transactionId }
+          : { chargeDate: payment.date, amount: payment.amount };
+        await apiClient
+          .post(
+            `/subscriptions/${subscriptionId}/charges`,
+            body satisfies ContractInput<'RecordSubscriptionChargeBody'>,
+          )
+          .catch(() => toast.error(paymentsText.paymentFailed.value));
+      }
+      await invalidate();
+    },
+    [invalidate, paymentsText],
+  );
 
   const handleSave = useCallback(async () => {
     if (!(formData.vendorName && formData.amount)) return;
@@ -227,8 +291,13 @@ export function useSubscriptionsPage() {
       currency: formData.currency || workspaceCurrency,
       categoryId: formData.categoryId || undefined,
       nextChargeDate: formData.nextChargeDate || undefined,
-      // The guess is only ever sent after the form showed it as a placeholder.
-      vendorDomain: formData.vendorDomain || guessVendorDomain(formData.vendorName) || undefined,
+      // null unlinks on an edit; on a new one it is simply none.
+      budgetId: formData.budgetId || null,
+      vendorDomain: vendorDomainForSave(
+        formData.vendorName,
+        editingSubscription?.vendorName,
+        formData.vendorDomain,
+      ),
     };
     const editingId = editingSubscription?.id;
 
@@ -249,12 +318,20 @@ export function useSubscriptionsPage() {
       })
       // Диалог закрывается только после успеха: при ошибке форма остаётся
       // заполненной, как и до миграции.
-      .then(() => closeDialog())
+      .then(async response => {
+        const createdId = editingId ? null : readCreatedId(response);
+        if (!editingId) clearSubscriptionDraft();
+        if (createdId && formData.payments.length > 0) {
+          await savePendingPayments(createdId, formData.payments);
+        }
+        closeDialog();
+      })
       .catch(() => undefined);
   }, [
     formData,
     editingSubscription,
     closeDialog,
+    savePendingPayments,
     saveMutation.mutateAsync,
     workspaceCurrency,
     text,
@@ -293,20 +370,6 @@ export function useSubscriptionsPage() {
     [rowMutation.mutate, text],
   );
 
-  const assignOwner = useCallback(
-    async (id: string, ownerId: string) => {
-      rowMutation.mutate({
-        run: () =>
-          apiClient.patch(`/subscriptions/${id}/owner`, {
-            ownerId,
-          } satisfies ContractInput<'AssignSubscriptionOwnerBody'>),
-        success: text.toastOwnerAssigned.value,
-        failure: text.toastOwnerAssignFailed.value,
-      });
-    },
-    [rowMutation.mutate, text],
-  );
-
   const duplicatesQuery = useQuery({
     queryKey: queryKeys.subscriptionsDuplicates(workspaceId),
     queryFn: ({ signal }) =>
@@ -339,6 +402,21 @@ export function useSubscriptionsPage() {
         run: () => apiClient.post(`/subscriptions/${id}/sinking-fund`),
         success: text.sinkingFundGoal.value,
         failure: text.toastSinkingFundFailed.value,
+      });
+    },
+    [rowMutation.mutate, text],
+  );
+
+  // Pause, resume or bring back a cancelled one: the status alone, nothing decided.
+  const setStatus = useCallback(
+    async (id: string, status: 'active' | 'paused') => {
+      rowMutation.mutate({
+        run: () =>
+          apiClient.put(`/subscriptions/${id}`, {
+            status,
+          } satisfies ContractInput<'UpdateSubscriptionBody'>),
+        success: text.toastUpdated.value,
+        failure: text.toastSaveFailed.value,
       });
     },
     [rowMutation.mutate, text],
@@ -387,8 +465,8 @@ export function useSubscriptionsPage() {
     handleDelete,
     handleConfirm,
     handleDismiss,
-    assignOwner,
     recordDecision,
+    setStatus,
     recordUsage,
     createSinkingFund,
     duplicateIds,

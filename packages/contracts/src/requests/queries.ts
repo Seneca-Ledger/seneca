@@ -48,6 +48,10 @@ export const CashFlowQuery = Schema.Struct({
 });
 export type CashFlowQuery = Wire<typeof CashFlowQuery>;
 
+/** `GET /dashboard/cash-flow/entries`. */
+export const CashFlowEntriesQuery = Schema.Struct({ month: Month });
+export type CashFlowEntriesQuery = Wire<typeof CashFlowEntriesQuery>;
+
 /** `GET /reports/net-worth`. */
 export const NetWorthQuery = Schema.Struct({
   range: Schema.optional(Schema.Literals(['30d', '90d', '180d', 'ytd', '1y', '3y', '5y', 'all'])),
@@ -78,6 +82,13 @@ export const ChargeCalendarQuery = Schema.Struct({
   months: Schema.optional(wholeBetween(1, 12)),
 });
 export type ChargeCalendarQuery = Wire<typeof ChargeCalendarQuery>;
+
+/** `GET /subscriptions/charge-candidates`: rows to link as payments of this vendor. */
+export const SubscriptionChargeCandidatesQuery = Schema.Struct({
+  vendorName: Schema.optional(Schema.String.check(Schema.isMaxLength(255))),
+  statementId: Schema.optional(Schema.String.check(Schema.isUUID())),
+});
+export type SubscriptionChargeCandidatesQuery = Wire<typeof SubscriptionChargeCandidatesQuery>;
 
 /**
  * `GET /goals` narrows the list to goals moved forward in this month;
@@ -213,6 +224,8 @@ export const PayablesQuery = Schema.Struct({
   minAmount: Schema.optional(AtLeastZero),
   maxAmount: Schema.optional(AtLeastZero),
   includeArchived: Schema.optional(BooleanInput),
+  /** Only bills carrying this tag. */
+  tagId: Schema.optional(Schema.String.check(Schema.isUUID())),
   sort: Schema.optional(Schema.Literals(['dueDateAsc', 'dueDateDesc', 'amountDesc', 'vendorAsc'])),
   format: Schema.optional(Schema.Literals(['excel', 'csv'])),
 });
@@ -270,7 +283,13 @@ export const StatementsQuery = Schema.Struct({
   dateMode: Schema.optional(Schema.Literals(['on', 'after', 'before'])),
   dateFrom: Schema.optional(IsoDateString),
   dateTo: Schema.optional(IsoDateString),
+  /** A category with its subcategories, or `uncategorized`. */
   categoryId: Schema.optional(Schema.String),
+  /** A merchant as the analytics charts key it (vendor or counterparty, lower-cased). */
+  merchant: Schema.optional(Schema.String),
+  /** With `categoryId` or `merchant`: only their transactions dated in this window count. */
+  transactionsFrom: Schema.optional(DateOnlyInput),
+  transactionsTo: Schema.optional(DateOnlyInput),
 });
 export type StatementsQuery = Wire<typeof StatementsQuery>;
 
@@ -369,7 +388,7 @@ export const SpendFlowQuery = Schema.Struct({
   dateTo: Schema.optional(IsoDateString),
   type: Schema.optional(Schema.Literals(['income', 'expense'])),
   groupBy: Schema.optional(
-    Schema.Literals(['category-merchant', 'category-subcategory', 'merchant']),
+    Schema.Literals(['category-merchant', 'category-subcategory', 'merchant', 'tag']),
   ),
   statuses: Schema.optional(Schema.String),
   bankNames: Schema.optional(Schema.String),
@@ -393,3 +412,12 @@ export const ExchangeRateQuery = Schema.Struct({
   date: Schema.optional(IsoDateString),
 });
 export type ExchangeRateQuery = Wire<typeof ExchangeRateQuery>;
+
+/** `GET /transactions/overview`: the period of the All transactions page, in one currency. */
+export const TransactionsOverviewQuery = Schema.Struct({
+  dateFrom: Schema.optional(DateOnlyInput),
+  dateTo: Schema.optional(DateOnlyInput),
+  convertTo: Schema.optional(Schema.String),
+  owner: Schema.optional(Schema.String),
+});
+export type TransactionsOverviewQuery = Wire<typeof TransactionsOverviewQuery>;

@@ -7,13 +7,15 @@ type SourceTotals = { statementTotal: number; receiptTotal: number };
 export function buildTopCategoriesBarChart(
   sortedRows: TopCategoryAggregateRow[],
   resolvedTheme: string | undefined,
+  // Privacy mode: the canvas is out of reach of the CSS redaction, so the value axis drops its figures.
+  privacy = false,
 ): unknown {
   const top = sortedRows.slice(0, 12).reverse();
   return {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: 120, right: 20, top: 20, bottom: 20 },
-    xAxis: { type: 'value' },
+    xAxis: { type: 'value', axisLabel: { show: !privacy } },
     yAxis: {
       type: 'category',
       data: top.map(item => item.category),
@@ -60,6 +62,7 @@ export function buildTopCategoriesTrendChart(
   activeFlowType: TopCategoryFlowType,
   labels: { totalIncome: string; totalSpend: string },
   resolvedTheme: string | undefined,
+  privacy = false,
 ): unknown {
   const points = new Map<string, number>();
   records.forEach(record => {
@@ -84,7 +87,7 @@ export function buildTopCategoriesTrendChart(
     tooltip: { trigger: 'axis' },
     grid: { left: 30, right: 30, bottom: 30, top: 30 },
     xAxis: { type: 'category', data: sorted.map(point => point.date) },
-    yAxis: { type: 'value' },
+    yAxis: { type: 'value', axisLabel: { show: !privacy } },
     series: [
       {
         name: activeFlowType === 'income' ? labels.totalIncome : labels.totalSpend,

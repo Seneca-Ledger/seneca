@@ -1,4 +1,4 @@
-import { buildSpendFlow, type SpendFlowRow } from '@/modules/reports/spend-flow.util';
+import { buildSpendFlow, buildTagFlow, type SpendFlowRow } from '@/modules/reports/spend-flow.util';
 
 const categories = [
   { id: 'food', name: 'Food', parentId: null, color: '#f00' },
@@ -178,5 +178,32 @@ describe('buildSpendFlow', () => {
       });
       expect(flow.links.every(link => link.source === 'total')).toBe(true);
     });
+  });
+});
+
+describe('buildTagFlow', () => {
+  it('sums rows per tag and rolls the tail beyond the limit into one "other" node', () => {
+    const tags = Array.from({ length: 12 }, (_, index) => ({
+      tagId: `t${index}`,
+      name: `Tag ${index}`,
+      amount: 100 - index,
+    }));
+    const flow = buildTagFlow([...tags, { tagId: 't0', name: 'Tag 0', amount: 5 }], {
+      ...options,
+      groupBy: 'tag',
+    });
+
+    expect(flow.nodes.find(node => node.id === 'tag:t0')).toMatchObject({
+      kind: 'tag',
+      name: 'Tag 0',
+      amount: 105,
+    });
+    expect(flow.nodes.filter(node => node.kind === 'tag')).toHaveLength(options.maxMerchants);
+    expect(flow.nodes.find(node => node.id === 'other:tags')).toMatchObject({
+      kind: 'other',
+      mergedCount: 2,
+      amount: 90 + 89,
+    });
+    expect(flow.total).toBe(tags.reduce((sum, tag) => sum + tag.amount, 0) + 5);
   });
 });

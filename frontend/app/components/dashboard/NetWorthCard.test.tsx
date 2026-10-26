@@ -96,7 +96,8 @@ describe('NetWorthCard', () => {
       '/reports/net-worth',
       expect.objectContaining({ params: { range: '30d' } }),
     );
-    expect(screen.getByText('+$200.00 (+25%)')).toBeInTheDocument();
+    // The amount is an element of its own (privacy mode); the line is around it.
+    expect(screen.getByText(/\(\+25%\)/).textContent).toBe('+$200.00 (+25%)');
     expect(screen.getByTestId('net-worth-area')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /view all/i }).getAttribute('href')).toBe('/net-worth');
   });
@@ -184,7 +185,7 @@ describe('NetWorthCard', () => {
     await screen.findByText('Assets');
     expect(screen.getByText('$1,200')).toBeInTheDocument();
     expect(screen.getByText('$200')).toBeInTheDocument();
-    expect(screen.getByText('All-time high $1,500 on Aug 1')).toBeInTheDocument();
+    expect(screen.getByText(/All-time high/).textContent).toBe('All-time high $1,500 on Aug 1');
     expect(screen.getByText('ETFs')).toBeInTheDocument();
     expect(screen.getByText('ETFs').parentElement?.querySelector('dd')?.textContent).toBe(
       '$600 · 50%',

@@ -7,15 +7,16 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { WorkspaceId } from '../../common/decorators/workspace.decorator';
+import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { WorkspaceContextGuard } from '../../common/guards/workspace-context.guard';
 import {
+  CashFlowEntriesQuery,
   CashFlowQuery,
+  DashboardCashFlowEntriesResponse,
   DashboardCommitmentsResponse,
-  DashboardHealthHistoryResponse,
   DashboardMonthlyCashFlowResponse,
   DashboardResponse,
   DashboardTrendsResponse,
@@ -24,9 +25,6 @@ import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { DashboardService } from './dashboard.service';
 import { parseMonthWindow } from './dashboard-window.util';
-
-const MIN_HISTORY_YEAR = 1970;
-const MAX_HISTORY_YEAR = 9999;
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, WorkspaceContextGuard)
@@ -56,6 +54,16 @@ export class DashboardController {
     return this.dashboardService.getMonthlyCashFlow(workspaceId, query.range ?? '12m', query.month);
   }
 
+  @Get('cash-flow/entries')
+  @SchemaResponse(DashboardCashFlowEntriesResponse)
+  async getCashFlowEntries(
+    @WorkspaceId() workspaceId: string,
+    @WorkspaceMemberId() viewerMemberId: string | null,
+    @SchemaQuery(CashFlowEntriesQuery) query: CashFlowEntriesQuery,
+  ) {
+    return this.dashboardService.getCashFlowEntries(workspaceId, query.month, viewerMemberId);
+  }
+
   @Get('trends')
   @SchemaResponse(DashboardTrendsResponse)
   async getTrends(
@@ -68,19 +76,6 @@ export class DashboardController {
       throw new BadRequestException('month must be YYYY-MM');
     }
     return this.dashboardService.getTrends(workspaceId, days, month);
-  }
-
-  @Get('health-history')
-  @SchemaResponse(DashboardHealthHistoryResponse)
-  async getHealthHistory(
-    @WorkspaceId() workspaceId: string,
-    @Query('year', new ParseIntPipe({ optional: true })) year?: number,
-  ) {
-    const resolvedYear = year ?? new Date().getFullYear();
-    if (resolvedYear < MIN_HISTORY_YEAR || resolvedYear > MAX_HISTORY_YEAR) {
-      throw new BadRequestException('year is out of range');
-    }
-    return this.dashboardService.getHealthHistory(workspaceId, resolvedYear);
   }
 
   @Get('commitments')

@@ -56,14 +56,8 @@ function ReceiptModals({
         selectedCategoryId={data.selectedCategoryId}
         selecting={actions.categorySaving}
         onSelect={actions.handleCategorySelect}
-        labels={{
-          title: t.categoryDrawer.title.value,
-          searchPlaceholder: t.categoryDrawer.searchPlaceholder.value,
-          allOption: t.categoryDrawer.notSelected.value,
-          noResults: t.categoryDrawer.noResults.value,
-        }}
-        width="sm"
-        showAllOption
+        clearLabel={t.categoryDrawer.notSelected.value}
+        onCreated={category => void actions.handleCategorySelect(category.id, category.name)}
       />
       <CreatePayableDrawer
         open={actions.payableDrawerOpen}

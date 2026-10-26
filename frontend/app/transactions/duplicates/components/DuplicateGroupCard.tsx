@@ -6,6 +6,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { Calendar, DollarSign, User } from '@/app/components/icons';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import type { DuplicateGroups } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
@@ -156,7 +157,7 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <DollarSign size={16} style={{ color: 'var(--muted-foreground)' }} />
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                <Typography variant="body2" className={PRIVATE_CLASS} sx={{ fontWeight: 600 }}>
                   {formatAmount(group.master.amount)}
                 </Typography>
               </Box>
@@ -242,7 +243,7 @@ export default function DuplicateGroupCard({ group, selected, onToggle }: Duplic
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <DollarSign size={16} style={{ color: 'var(--muted-foreground)' }} />
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography variant="body2" className={PRIVATE_CLASS} sx={{ fontWeight: 600 }}>
                       {formatAmount(duplicate.amount)}
                     </Typography>
                   </Box>

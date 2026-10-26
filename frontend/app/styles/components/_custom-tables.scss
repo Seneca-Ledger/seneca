@@ -5,15 +5,26 @@
   display: flex;
   flex-direction: column;
   gap: $seneca-space-4;
-  padding: var(--seneca-page-top, #{$seneca-space-4}) $seneca-space-4 $seneca-space-6;
+  // The app's page gutter, so the banners above line up with the toolbar.
+  padding: var(--seneca-page-top, #{$seneca-space-4}) var(--seneca-page-x, #{$seneca-space-4})
+    $seneca-space-6;
 
   @include respond-to('md') {
-    padding: var(--seneca-page-top, #{$seneca-space-3}) $seneca-space-3 $seneca-space-5;
+    padding-bottom: $seneca-space-5;
   }
 
   // A table page: the grid runs to the bottom edge of the window.
   &--fill {
     padding-bottom: 0;
+  }
+
+  // Full screen: the table covers the app shell until Esc or the toolbar button.
+  &--expanded {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    overflow: auto;
+    background: var(--background);
   }
 
   // ---- header -------------------------------------------------------------
@@ -111,6 +122,35 @@
     @include dark {
       background-color: $seneca-color-surface-dk;
     }
+  }
+
+  // The table's balance under its title.
+  &__balance {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $seneca-space-2;
+    margin: 0;
+    font-size: $seneca-font-size-xl;
+    font-weight: $seneca-font-weight-medium;
+    font-variant-numeric: tabular-nums;
+    line-height: $seneca-line-height-tight;
+    color: var(--foreground);
+  }
+
+  // Sage when the table is in the black, soft terracotta when in the red; zero stays ink.
+  &__balance-value--up {
+    color: var(--money-up);
+  }
+
+  &__balance-value--down {
+    color: var(--money-down);
+  }
+
+  &__balance-note {
+    font-size: $seneca-font-size-sm;
+    font-weight: $seneca-font-weight-regular;
+    color: var(--text-muted);
   }
 
   &__meta {
@@ -259,6 +299,13 @@
   &__toolbar > &__actions {
     margin-left: auto;
     gap: $seneca-space-1;
+  }
+
+  // A phone shows the table as large as it gets already.
+  &__fullscreen-toggle {
+    @include respond-to('lg') {
+      display: none !important;
+    }
   }
 
   // Every toolbar control matches the Search button (TOOLBAR_BUTTON_STYLE, 40px).

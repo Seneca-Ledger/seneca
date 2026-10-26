@@ -2,9 +2,10 @@ import { countedSql, flowsSql } from '@/common/utils/counted-transactions.util';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { AuditAction, EntityType } from '@/entities/audit-event.entity';
 import { BudgetPeriodType, BudgetRolloverMode } from '@/entities/budget.entity';
+import { SubscriptionFrequency, SubscriptionStatus } from '@/entities/subscription.entity';
 import { WorkspaceKind } from '@/entities/workspace.entity';
 import { BudgetsService } from '@/modules/budgets/budgets.service';
-import { IsNull } from 'typeorm';
+import { In, IsNull, MoreThanOrEqual } from 'typeorm';
 import { workspaceCurrencyStub } from '../../../helpers/workspace-currency-stub';
 
 const createRepoMock = () => ({
@@ -667,6 +668,161 @@ describe('BudgetsService', () => {
         { alertAt80Sent: true, workspace: standard },
         { alertAt100Sent: true, workspace: standard },
       ],
+    });
+  });
+  describe('subscription reserve', () => {
+    // Today is 2026-05-08 (fake timers): a monthly budget's period runs to 2026-05-31.
+    const workspaceId = 'workspace-1';
+    const subscriptionRepository = createRepoMock();
+    const chargeRepository = createRepoMock();
+    const exchangeRatesService = { getRateOrNull: jest.fn() };
+    const budget = (over: Record<string, unknown> = {}) => ({
+      id: 'budget-fun',
+      workspaceId,
+      categoryId: 'category-1',
+      name: 'Fun money',
+      limitAmount: 100,
+      currency: 'USD',
+      periodType: BudgetPeriodType.MONTHLY,
+      currentPeriodStart: new Date(2026, 4, 1),
+      startsOn: null,
+      endsOn: null,
+      ...over,
+    });
+    const subscription = (over: Record<string, unknown>) => ({
+      id: 'sub-music',
+      budgetId: 'budget-fun',
+      vendorName: 'ACME Music',
+      amount: '5.00',
+      currency: 'USD',
+      frequency: SubscriptionFrequency.WEEKLY,
+      nextChargeDate: '2026-05-11',
+      ...over,
+    });
+
+    beforeEach(() => {
+      transactionRepository.createQueryBuilder.mockReturnValue(createQueryBuilderMock('0'));
+      chargeRepository.find.mockResolvedValue([]);
+      exchangeRatesService.getRateOrNull.mockImplementation(async (from: string) =>
+        from === 'EUR' ? 1.1 : null,
+      );
+      service = new BudgetsService(
+        budgetRepository as any,
+        transactionRepository as any,
+        goalRepository as any,
+        notificationsService as any,
+        auditService as any,
+        workspaceCurrencyStub() as never,
+        categoryRepository as any,
+        undefined,
+        exchangeRatesService as any,
+        undefined,
+        subscriptionRepository as any,
+        chargeRepository as any,
+      );
+    });
+
+    it("reserves a weekly subscription's remaining dates in a monthly budget, in its currency", async () => {
+      budgetRepository.find.mockResolvedValue([budget(), budget({ id: 'budget-other', name: 'Work' })]);
+      subscriptionRepository.find.mockResolvedValue([
+        // 11, 18 and 25 May: three charges of 5 USD.
+        subscription({}),
+        // 20 May, 10 EUR at 1.1.
+        subscription({
+          id: 'sub-cloud',
+          vendorName: 'Example Cloud',
+          amount: '10.00',
+          currency: 'EUR',
+          frequency: SubscriptionFrequency.MONTHLY,
+          nextChargeDate: '2026-05-20',
+        }),
+        // No rate from GBP: left out rather than counted one to one.
+        subscription({ id: 'sub-gbp', vendorName: 'Example Radio', currency: 'GBP' }),
+        // Paid from another budget.
+        subscription({ id: 'sub-other', budgetId: 'budget-other', vendorName: 'Example Tools' }),
+      ]);
+
+      const [fun, other] = await service.findAll(workspaceId);
+
+      // One query for every budget in the list, active subscriptions only.
+      expect(subscriptionRepository.find).toHaveBeenCalledTimes(1);
+      expect(subscriptionRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            workspaceId,
+            status: SubscriptionStatus.ACTIVE,
+            budgetId: In(['budget-fun', 'budget-other']),
+          },
+        }),
+      );
+      expect(fun.subscriptionReserve).toEqual({
+        amount: 26,
+        items: [
+          { subscriptionId: 'sub-music', vendorName: 'ACME Music', amount: 15 },
+          { subscriptionId: 'sub-cloud', vendorName: 'Example Cloud', amount: 11 },
+        ],
+      });
+      expect(other.subscriptionReserve).toEqual({
+        amount: 15,
+        items: [{ subscriptionId: 'sub-other', vendorName: 'Example Tools', amount: 15 }],
+      });
+    });
+
+    it('reserves nothing for charges before today, and stops at the end of the period', async () => {
+      budgetRepository.find.mockResolvedValue([budget()]);
+      // A stale next charge (1 May) is caught up: 8, 15, 22 and 29 May are still to come.
+      subscriptionRepository.find.mockResolvedValue([subscription({ nextChargeDate: '2026-05-01' })]);
+
+      const [fun] = await service.findAll(workspaceId);
+
+      expect(fun.subscriptionReserve.amount).toBe(20);
+    });
+
+    it('does not reserve a charge already paid ahead of its date', async () => {
+      budgetRepository.find.mockResolvedValue([budget()]);
+      // Paid on 6 May for the 20 May charge: the next charge stays on the 20th.
+      subscriptionRepository.find.mockResolvedValue([
+        subscription({
+          frequency: SubscriptionFrequency.MONTHLY,
+          amount: '10.00',
+          nextChargeDate: '2026-05-20',
+        }),
+      ]);
+      chargeRepository.find.mockResolvedValue([
+        { subscriptionId: 'sub-music', expectedDate: '2026-05-20' },
+      ]);
+
+      const [fun] = await service.findAll(workspaceId);
+
+      expect(chargeRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            workspaceId,
+            subscriptionId: In(['sub-music']),
+            expectedDate: MoreThanOrEqual('2026-05-08'),
+          },
+        }),
+      );
+      expect(fun.subscriptionReserve).toEqual({ amount: 0, items: [] });
+    });
+
+    it('reserves nothing for a budget whose window has closed', async () => {
+      budgetRepository.find.mockResolvedValue([budget({ endsOn: '2026-04-30' })]);
+      subscriptionRepository.find.mockResolvedValue([subscription({})]);
+
+      const [fun] = await service.findAll(workspaceId);
+
+      expect(fun.subscriptionReserve).toEqual({ amount: 0, items: [] });
+    });
+
+    it('answers an empty reserve on a single budget with no subscriptions', async () => {
+      budgetRepository.findOne.mockResolvedValue(budget());
+      subscriptionRepository.find.mockResolvedValue([]);
+
+      const fun = await service.findOne('budget-fun', workspaceId);
+
+      expect(fun.subscriptionReserve).toEqual({ amount: 0, items: [] });
+      expect(chargeRepository.find).not.toHaveBeenCalled();
     });
   });
 });

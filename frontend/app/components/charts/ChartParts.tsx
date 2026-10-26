@@ -9,7 +9,7 @@ export interface ChartTooltipRow {
   /** Omitted for single-value charts, where the title already names the point. */
   label?: string;
   value: string;
-  tone?: 'positive' | 'negative' | 'strong';
+  tone?: 'positive' | 'negative' | 'budgeted' | 'strong';
 }
 
 export function ChartTooltipCard({
@@ -22,9 +22,11 @@ export function ChartTooltipCard({
   return (
     <div className="seneca-chart__tooltip">
       <div className="seneca-chart__tooltip-title">{title}</div>
-      {rows.map(row => (
+      {rows.map((row, index) => (
         <div
-          key={`${row.label ?? ''}:${row.value}`}
+          // Two rows can read the same (two coffees at one price on one day).
+          // biome-ignore lint/suspicious/noArrayIndexKey: the rows are a fixed list per render
+          key={index}
           className={clsx(
             'seneca-chart__tooltip-row',
             row.tone && `seneca-chart__tooltip-row--${row.tone}`,
@@ -35,14 +37,6 @@ export function ChartTooltipCard({
       ))}
     </div>
   );
-}
-
-/**
- * A legend entry's text in the readable grey. Recharts paints it in the series
- * colour by default, which turns the legend into two coloured words.
- */
-export function legendText(value: string): React.JSX.Element {
-  return <span style={{ color: 'var(--text-muted)' }}>{value}</span>;
 }
 
 /** First and last point labels under a chart that has no permanent X axis. */

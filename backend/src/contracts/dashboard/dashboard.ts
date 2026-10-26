@@ -41,7 +41,13 @@ export type DashboardActionItem = Wire<typeof DashboardActionItem>;
 
 const DailyFlow = Schema.Struct({ date: Day, income: Schema.Number, expense: Schema.Number });
 
-export const DashboardCashFlowPoint = DailyFlow;
+export const DashboardCashFlowPoint = Schema.Struct({
+  date: Day,
+  income: Schema.Number,
+  expense: Schema.Number,
+  /** The part of `expense` a budget still had room for (within its limit), never more than it. */
+  budgeted: Schema.Number,
+});
 export type DashboardCashFlowPoint = Wire<typeof DashboardCashFlowPoint>;
 
 export const DashboardTopMerchant = Schema.Struct({
@@ -145,35 +151,27 @@ export const DashboardMonthlyCashFlowResponse = Schema.Struct({
 });
 export type DashboardMonthlyCashFlowResponse = Wire<typeof DashboardMonthlyCashFlowResponse>;
 
-/**
- * One month of Data Health / Finance Ops history. Items are counted in the month they are dated
- * by (statements by upload, transactions by transaction date, receipts by receipt date, payables
- * by due date); nothing is stored, so fixing old data changes old months.
- */
-export const DashboardHealthMonth = Schema.Struct({
-  month: Month,
-  transactions: Schema.Number,
-  /** Uncategorized transactions plus uncategorized receipts. */
-  uncategorized: Schema.Number,
-  statementsUploaded: Schema.Number,
-  statementErrors: Schema.Number,
-  /** Rows waiting in Review, by transaction date. */
-  statementsPendingReview: Schema.Number,
-  statementsPendingSubmit: Schema.Number,
-  parsingWarnings: Schema.Number,
-  /** Receipts Review still lists, by the date they came in. */
-  receiptsPendingReview: Schema.Number,
-  overduePayments: Schema.Number,
+/** One counted row of a month, named for the cash-flow card's day tooltip. */
+export const DashboardCashFlowEntry = Schema.Struct({
+  date: Day,
+  /** The merchant, else the document's file name; a dash for someone else's private row. */
+  name: Schema.String,
+  kind: Schema.Literals(['income', 'expense']),
+  /** In the workspace currency, always positive. */
+  amount: Schema.Number,
+  /** The part of `amount` a budget still had room for; 0 for income and unbudgeted spending. */
+  budgeted: Schema.Number,
 });
-export type DashboardHealthMonth = Wire<typeof DashboardHealthMonth>;
+export type DashboardCashFlowEntry = Wire<typeof DashboardCashFlowEntry>;
 
-/** `GET /dashboard/health-history`. */
-export const DashboardHealthHistoryResponse = Schema.Struct({
-  year: Schema.Number,
-  /** January up to the current month for the current year, all 12 for past years, `[]` for future years. */
-  months: Schema.Array(DashboardHealthMonth),
+/**
+ * `GET /dashboard/cash-flow/entries`: the rows behind the dashboard's daily cash flow, counted
+ * the same way, biggest first within a day.
+ */
+export const DashboardCashFlowEntriesResponse = Schema.Struct({
+  entries: Schema.Array(DashboardCashFlowEntry),
 });
-export type DashboardHealthHistoryResponse = Wire<typeof DashboardHealthHistoryResponse>;
+export type DashboardCashFlowEntriesResponse = Wire<typeof DashboardCashFlowEntriesResponse>;
 
 const NamedTotal = Schema.Struct({
   name: Schema.String,

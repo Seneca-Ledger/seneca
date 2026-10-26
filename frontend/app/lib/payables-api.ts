@@ -47,6 +47,7 @@ export interface CreatePayableInput {
   isRecurring?: boolean;
   comment?: string;
   statementId?: string;
+  tagIds?: string[];
 }
 
 export interface UpdatePayableInput {
@@ -60,6 +61,8 @@ export interface UpdatePayableInput {
   isRecurring?: boolean;
   comment?: string | null;
   statementId?: string | null;
+  /** The whole new tag set; left out keeps the tags. */
+  tagIds?: string[];
 }
 
 export interface MarkPayablePaidInput {

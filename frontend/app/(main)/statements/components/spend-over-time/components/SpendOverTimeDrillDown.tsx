@@ -11,6 +11,7 @@ import type {
 } from '@/app/(main)/statements/components/spend-over-time.utils';
 import { X } from '@/app/components/icons';
 import { closeOnBackdropClick } from '@/app/components/ui/backdrop-click';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/analytics-common';
 import { formatStoredDate } from '@/app/lib/user-format-store';
@@ -111,7 +112,10 @@ function DrillDownTable({
                   getRecordMerchant(record)
                 )}
               </td>
-              <td style={{ textAlign: 'right', fontWeight: 500, color: 'var(--foreground)' }}>
+              <td
+                className={PRIVATE_CLASS}
+                style={{ textAlign: 'right', fontWeight: 500, color: 'var(--foreground)' }}
+              >
                 {formatMoney(record.amount, record.currencyValue || currency)}
               </td>
             </tr>
@@ -124,7 +128,7 @@ function DrillDownTable({
           const content = (
             <>
               <span className="seneca-spend-drill__merchant">{getRecordMerchant(record)}</span>
-              <span className="seneca-spend-drill__amount">
+              <span className={`seneca-spend-drill__amount ${PRIVATE_CLASS}`}>
                 {formatMoney(record.amount, record.currencyValue || currency)}
               </span>
               <span className="seneca-spend-drill__meta">

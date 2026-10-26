@@ -99,10 +99,19 @@ vi.mock('next/navigation', () => ({
 }));
 
 // The map pulls in Leaflet and React Query; its own test covers it.
+vi.mock('@/app/components/tags/RecordTagsField', () => ({
+  ReceiptTagsField: () => <div data-testid="receipt-tags" />,
+}));
+
 vi.mock('@/app/components/receipts/location/ReceiptLocationSection', () => ({
   ReceiptLocationSection: ({ receipt }: { receipt: { id: string } }) => (
     <section data-testid="receipt-location-section">Location of {receipt.id}</section>
   ),
+}));
+
+// Reads the workspace and React Query; its own test covers it.
+vi.mock('@/app/components/receipts/ReceiptTaxField', () => ({
+  ReceiptTaxField: () => <div data-testid="receipt-tax-field" />,
 }));
 
 describe('ReceiptDocumentPage', () => {
@@ -743,9 +752,11 @@ describe('ReceiptDocumentPage', () => {
     ) as HTMLImageElement;
 
     expect(previewImage).toBeTruthy();
-    expect(previewImage.style.width).toBe('180%');
-    expect(previewImage.style.maxWidth).toBe('none');
-    expect(previewImage.style.height).toBe('auto');
+    // Desktop size; a phone (max-width: 1023px) fits it to the width instead.
+    const style = getComputedStyle(previewImage);
+    expect(style.width).toBe('180%');
+    expect(style.maxWidth).toBe('none');
+    expect(style.height).toBe('auto');
   });
 
   it('opens a currency drawer from the currency field and applies the selected currency', async () => {

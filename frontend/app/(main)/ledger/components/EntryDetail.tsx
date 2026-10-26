@@ -14,6 +14,7 @@ import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { useState } from 'react';
 import { RotateCcw } from '@/app/components/icons';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import type { JournalEntry } from '../ledger.types';
@@ -78,8 +79,10 @@ export function EntryDetail({
                   </Typography>{' '}
                   {line.accountName}
                 </TableCell>
-                <TableCell align="right">{line.side === 'debit' ? amountCell(line) : ''}</TableCell>
-                <TableCell align="right">
+                <TableCell align="right" className={PRIVATE_CLASS}>
+                  {line.side === 'debit' ? amountCell(line) : ''}
+                </TableCell>
+                <TableCell align="right" className={PRIVATE_CLASS}>
                   {line.side === 'credit' ? amountCell(line) : ''}
                 </TableCell>
               </TableRow>
@@ -88,10 +91,10 @@ export function EntryDetail({
               <TableCell sx={{ fontWeight: 600 }}>
                 {t.totalsLabel} ({entry.baseCurrency})
               </TableCell>
-              <TableCell align="right" sx={{ fontWeight: 600 }}>
+              <TableCell align="right" className={PRIVATE_CLASS} sx={{ fontWeight: 600 }}>
                 {entry.totals.baseDebit}
               </TableCell>
-              <TableCell align="right" sx={{ fontWeight: 600 }}>
+              <TableCell align="right" className={PRIVATE_CLASS} sx={{ fontWeight: 600 }}>
                 {entry.totals.baseCredit}
               </TableCell>
             </TableRow>

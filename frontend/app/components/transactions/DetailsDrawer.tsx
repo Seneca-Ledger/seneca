@@ -10,6 +10,7 @@ import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
 
 import { DrawerShell } from '../ui/drawer-shell';
+import { PRIVATE_CLASS } from '../ui/private-amount';
 import { TextTabs } from '../ui/text-tabs';
 import { formatDate } from './helpers/transactionFormatters';
 import { useTransactionHistory } from './hooks/useTransactionHistory';
@@ -82,7 +83,7 @@ function TransactionSummary({
         {transaction.isPrivate ? EMPTY : transaction.counterpartyName || EMPTY}
       </div>
       {/* Ink, like every figure: spending is not an alarm. The sign says which way it went. */}
-      <div className="seneca-tx-summary__amount">
+      <div className={`seneca-tx-summary__amount ${PRIVATE_CLASS}`}>
         {isIncome ? '+' : '−'}
         {formatMoney(amount, transaction.currency ?? FALLBACK_CURRENCY, locale)}
       </div>
@@ -247,7 +248,13 @@ export default function DetailsDrawer({
           />
         )}
         {activeTab === 'notes' && (
-          <NotesPanel entityType="transaction" entityId={transaction.id} showTitle={false} />
+          <NotesPanel
+            // One panel per row, so an unsent note is saved on the row it was written for.
+            key={transaction.id}
+            entityType="transaction"
+            entityId={transaction.id}
+            showTitle={false}
+          />
         )}
         {activeTab === 'history' && (
           <TransactionHistoryTab

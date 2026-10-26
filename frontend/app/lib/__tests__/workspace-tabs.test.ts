@@ -26,18 +26,6 @@ describe('workspace tabs helpers', () => {
         active: true,
         badge: 7,
       },
-      {
-        id: 'categories',
-        label: 'Categories',
-        href: '/workspaces/categories',
-        active: false,
-      },
-      {
-        id: 'payees',
-        label: 'Payees',
-        href: '/workspaces/payees',
-        active: false,
-      },
     ]);
   });
 

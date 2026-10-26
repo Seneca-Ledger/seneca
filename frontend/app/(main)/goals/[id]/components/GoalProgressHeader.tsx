@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import type { GoalFlowResponse } from '@/app/lib/goals-api';
 import { tokens } from '@/lib/theme-tokens';
 import { formatGoalDate } from './goal-dates';
@@ -37,9 +38,9 @@ export function GoalProgressHeader({
           {goal.name}
         </Typography>
         <Typography variant="body1" fontWeight={500} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-          {formatAmount(goal.currentAmount)}{' '}
+          <PrivateAmount>{formatAmount(goal.currentAmount)}</PrivateAmount>{' '}
           <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
-            / {formatAmount(goal.targetAmount)}
+            / <PrivateAmount>{formatAmount(goal.targetAmount)}</PrivateAmount>
           </Typography>
         </Typography>
       </Box>
@@ -62,7 +63,13 @@ export function GoalProgressHeader({
       />
 
       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-        {isReached ? labels.reached : `${formatAmount(goal.remaining)} ${labels.remaining}`}
+        {isReached ? (
+          labels.reached
+        ) : (
+          <>
+            <PrivateAmount>{formatAmount(goal.remaining)}</PrivateAmount> {labels.remaining}
+          </>
+        )}
         {goal.targetDate ? ` · ${formatGoalDate(goal.targetDate, locale)}` : ''}
       </Typography>
     </Box>

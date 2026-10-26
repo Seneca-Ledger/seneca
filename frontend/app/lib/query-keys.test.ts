@@ -9,11 +9,8 @@ describe('queryKeys', () => {
   it('keeps every key shape stable', () => {
     expect({
       dashboard: queryKeys.dashboard({ workspaceId: 'w1', range: '30d', date: null }),
-      dashboardTrends: queryKeys.dashboardTrends({ workspaceId: 'w1', days: 30, month: '2026-07' }),
-      dashboardHealthHistory: queryKeys.dashboardHealthHistory({ workspaceId: 'w1', year: 2026 }),
-      dashboardCashFlow: queryKeys.dashboardCashFlow({
+      dashboardCashFlowEntries: queryKeys.dashboardCashFlowEntries({
         workspaceId: 'w1',
-        range: '12m',
         month: '2026-07',
       }),
       statements: queryKeys.statements({ workspaceId: 'w1', params: { stage: 'submit' } }),
@@ -21,6 +18,9 @@ describe('queryKeys', () => {
       transactions: queryKeys.transactions({ workspaceId: 'w1', params: { limit: 500 } }),
       categories: queryKeys.categories('w1'),
       categoryUsage: queryKeys.categoryUsage('w1'),
+      tags: queryKeys.tags('w1'),
+      receiptTags: queryKeys.receiptTags('w1', 'r1'),
+      statementTags: queryKeys.statementTags('w1', 's1'),
       goalsList: queryKeys.goalsList('w1'),
       goalFlow: queryKeys.goalFlow({ workspaceId: 'w1', goalId: 'g1', month: '2026-09' }),
       goalPlan: queryKeys.goalPlan({ workspaceId: 'w1', goalId: 'g1' }),
@@ -52,14 +52,15 @@ describe('queryKeys', () => {
       search: queryKeys.search({ workspaceId: 'w1', q: 'rent' }),
     }).toEqual({
       dashboard: ['dashboard', 'w1', '30d', null],
-      dashboardTrends: ['dashboard', 'trends', 'w1', 30, '2026-07'],
-      dashboardHealthHistory: ['dashboard', 'health-history', 'w1', 2026],
-      dashboardCashFlow: ['dashboard', 'cash-flow', 'w1', '12m', '2026-07'],
+      dashboardCashFlowEntries: ['dashboard', 'cash-flow-entries', 'w1', '2026-07'],
       statements: ['statements', 'w1', { stage: 'submit' }],
       gmailReceipts: ['gmail-receipts', 'w1', { limit: 50 }],
       transactions: ['transactions', 'w1', { limit: 500 }],
       categories: ['categories', 'w1'],
       categoryUsage: ['categories', 'w1', 'usage'],
+      tags: ['tags', 'w1'],
+      receiptTags: ['tags', 'w1', 'receipt', 'r1'],
+      statementTags: ['tags', 'w1', 'statement', 's1'],
       goalsList: ['goals', 'list', 'w1'],
       goalFlow: ['goals', 'flow', 'w1', 'g1', '2026-09'],
       goalPlan: ['goals', 'plan', 'w1', 'g1'],

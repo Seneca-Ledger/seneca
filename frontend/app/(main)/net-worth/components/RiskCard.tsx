@@ -6,6 +6,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { ChevronDown } from '@/app/components/icons';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { localizeBalanceAccountName } from '@/app/lib/balance-account-names';
 import {
   CAPITAL_ROLES,
@@ -135,7 +136,7 @@ function RiskLimitBar({ percent, label }: { percent: number; label: string }) {
   return (
     <Box sx={{ mb: 4.5 }}>
       <Typography variant="body2" sx={{ mb: 1, fontVariantNumeric: 'tabular-nums' }}>
-        {label}: {percent}%
+        {label}: <PrivateAmount>{percent}%</PrivateAmount>
       </Typography>
       <Box
         role="img"
@@ -315,7 +316,7 @@ function Summary({
             variant="body2"
             sx={{ textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
           >
-            {item.percent}%
+            <PrivateAmount>{item.percent}%</PrivateAmount>
           </Typography>
           <Typography
             variant="body2"

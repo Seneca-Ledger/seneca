@@ -13,6 +13,7 @@ import type {
   TopMerchantSourceChannel,
 } from '@/app/(main)/statements/components/top-merchants/top-merchants.types';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
@@ -99,8 +100,12 @@ function LeaderboardRow({ row, sortKey, sourceLabels, onRowClick }: RowProps): R
         />
       </td>
       <td style={sortedCellStyle('operations', sortKey)}>{row.count}</td>
-      <td style={sortedCellStyle('average', sortKey)}>{money(row.average, row.currency)}</td>
-      <td style={sortedCellStyle('amount', sortKey)}>{money(row.total, row.currency)}</td>
+      <td className={PRIVATE_CLASS} style={sortedCellStyle('average', sortKey)}>
+        {money(row.average, row.currency)}
+      </td>
+      <td className={PRIVATE_CLASS} style={sortedCellStyle('amount', sortKey)}>
+        {money(row.total, row.currency)}
+      </td>
       <td style={{ padding: '8px 0', textAlign: 'right', color: 'var(--muted-foreground)' }}>
         {lastDate}
       </td>

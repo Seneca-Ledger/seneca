@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import type { DonutSlice } from '@/app/components/charts/CategoryDonut';
 import { categoryTones } from '@/app/components/charts/chart-theme';
 import { LazyCategoryDonut } from '@/app/components/charts/lazy-charts';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer } from '@/app/i18n';
 import { categoryReportHref } from '@/app/lib/category-report-href';
@@ -109,14 +110,19 @@ export function TopCategoriesCard({ categories, formatAmount, month }: TopCatego
               </>
             }
             secondary={
-              wide && cat.count > 0
-                ? `${wideText.operations.value}: ${cat.count} · ${wideText.averageOperation.value}: ${formatAmount(cat.amount / cat.count)}`
-                : undefined
+              wide && cat.count > 0 ? (
+                <>
+                  {`${wideText.operations.value}: ${cat.count} · ${wideText.averageOperation.value}: `}
+                  <PrivateAmount>{formatAmount(cat.amount / cat.count)}</PrivateAmount>
+                </>
+              ) : undefined
             }
             trailing={
               <>
-                <span className="seneca-dashboard__muted">{cat.percent}%</span>
-                <span>{formatAmount(cat.amount)}</span>
+                <span className={clsx('seneca-dashboard__muted', PRIVATE_CLASS)}>
+                  {cat.percent}%
+                </span>
+                <span className={PRIVATE_CLASS}>{formatAmount(cat.amount)}</span>
               </>
             }
           />

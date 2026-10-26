@@ -8,6 +8,7 @@ import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { ArrowDownRight, ArrowUpRight } from '@/app/components/icons';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { formatMoney } from '@/app/lib/format-money';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { type CryptoTransaction, isSupportedAddress } from '../hooks/useCrypto';
@@ -143,6 +144,7 @@ export function CryptoTransactionsTable({
                   </TableCell>
                   <TableCell
                     align="right"
+                    className={PRIVATE_CLASS}
                     sx={{ ...numberCell, fontWeight: 400, color: 'var(--foreground)' }}
                   >
                     {formatMoney(transaction.amount, transaction.currency, locale)}

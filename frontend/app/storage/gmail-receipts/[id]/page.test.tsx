@@ -302,7 +302,7 @@ describe('GmailReceiptDocumentPage', () => {
       await Promise.resolve();
     });
 
-    expect(document.querySelector('input[placeholder="Search categories"]')).toBeNull();
+    expect(document.querySelector('input[placeholder="Find category"]')).toBeNull();
 
     const categoryButton = Array.from(container.querySelectorAll('button')).find(button =>
       button.textContent?.includes('Category'),
@@ -314,7 +314,7 @@ describe('GmailReceiptDocumentPage', () => {
       categoryButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(document.querySelector('input[placeholder="Search categories"]')).toBeTruthy();
+    expect(document.querySelector('input[placeholder="Find category"]')).toBeTruthy();
   });
 
   it('renders watch in Gmail link when message id exists', async () => {

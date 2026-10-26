@@ -1020,7 +1020,7 @@
 
   &__search {
     border-bottom: 1px solid $color-border;
-    padding-bottom: 16px;
+    padding-bottom: 12px;
 
     @include dark {
       border-bottom-color: $seneca-color-border-dk;
@@ -1034,7 +1034,7 @@
 
   &__search-icon {
     position: absolute;
-    left: 16px;
+    left: 12px;
     top: 50%;
     transform: translateY(-50%);
     pointer-events: none;
@@ -1046,13 +1046,13 @@
   }
 
   &__search-input {
-    height: 56px;
+    height: 40px;
     width: 100%;
     border-radius: $seneca-radius-md;
     border: 1px solid $color-border;
     background: $color-card-bg;
-    padding: 0 16px 0 48px;
-    font-size: 16px;
+    padding: 0 12px 0 38px;
+    font-size: 14px;
     color: $color-foreground;
     transition: border-color 0.15s, box-shadow 0.15s;
 
@@ -1074,6 +1074,11 @@
     padding-top: 12px;
     border-top: 1px solid $color-border;
 
+    // "+ Create category": room between the plus and the words.
+    button {
+      gap: 8px;
+    }
+
     @include dark {
       border-top-color: $seneca-color-border-dk;
     }
@@ -1083,26 +1088,43 @@
     flex: 1;
     overflow-y: auto;
     padding-bottom: 96px;
+    // A thin scrollbar that shows only while the pointer is over the list.
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+
+    &:hover {
+      scrollbar-color: var(--input) transparent;
+    }
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border-radius: 3px;
+      background: transparent;
+    }
+
+    &:hover::-webkit-scrollbar-thumb {
+      background: var(--input);
+    }
   }
 
   &__option {
     display: flex;
     width: 100%;
+    min-height: 46px;
     align-items: center;
-    justify-content: space-between;
-    padding: 20px 16px;
+    gap: 12px;
+    padding: 0 12px;
     text-align: left;
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 400;
     cursor: pointer;
     transition: background-color 0.15s;
     background: none;
     border: none;
-    color: $color-foreground;
-
-    @include dark {
-      color: $seneca-color-text-primary-dk;
-    }
+    color: var(--foreground);
 
     &:hover {
       background: $color-muted;
@@ -1115,7 +1137,26 @@
     &--selected {
       background: color-mix(in srgb, var(--primary) 10%, transparent);
       color: var(--primary);
+      font-weight: 500;
     }
+  }
+
+  &__option-icon {
+    flex: none;
+    color: var(--cat-tone-1);
+  }
+
+  &__option-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Doubled class to outrank MUI's own button colour without !important.
+  &__footer &__create {
+    color: var(--primary);
   }
 
   &__no-results {
@@ -1401,6 +1442,15 @@
     cursor: pointer;
   }
 
+  &__tags {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
   &__muted {
     font-size: 14px;
     color: var(--text-muted);
@@ -1525,6 +1575,32 @@
 
   @media (min-width: 1280px) {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  // Its own stacking context, so the background icon sits under the text.
+  &__card {
+    position: relative;
+    isolation: isolate;
+  }
+
+  // Same as the dashboard tiles: what the figure is, large and faint at the
+  // card's right, centred on its height; sage at 15% in both themes.
+  &__icon {
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    z-index: -1;
+    width: 88px;
+    height: 88px;
+    transform: translateY(-50%);
+    color: var(--cat-tone-1);
+    opacity: 0.15;
+    pointer-events: none;
+
+    * {
+      stroke-width: 1.5px;
+      vector-effect: non-scaling-stroke;
+    }
   }
 
   &__card-content {
@@ -3914,6 +3990,12 @@
   }
 }
 
+// Tags sit side by side in one cell, so each link hugs its name.
+.seneca-stmt-tag-link {
+  width: auto;
+  flex: 0 1 auto;
+}
+
 @keyframes seneca-category-link-shimmer {
   to { background-position: -300% 0; }
 }
@@ -4099,11 +4181,6 @@
   align-items: center;
   gap: 12px;
 
-  &__tabs {
-    flex: 1;
-    min-width: 0;
-  }
-
   &__group {
     display: flex;
     flex-wrap: wrap;
@@ -4125,7 +4202,7 @@
     flex-wrap: wrap;
     gap: 8px;
 
-    &__tabs {
+    .seneca-page-title {
       flex-basis: 100%;
     }
 
@@ -4505,7 +4582,7 @@
     left: 0;
     top: calc(100% + 8px);
     z-index: 20;
-    width: 280px;
+    width: 340px;
     max-width: calc(100vw - 64px);
     border-radius: $seneca-radius-md;
     border: 1px solid #dedad2;
@@ -4538,21 +4615,47 @@
       color: $seneca-color-ink-700-dk;
     }
 
-    &:hover {
+    // Keyboard focus looks like the pointer's hover: the menu is run by arrows too.
+    &:hover,
+    &:focus-visible {
       background: #f9fafb;
+      outline: none;
 
       @include dark {
         background: $seneca-color-surface-muted-dk;
       }
     }
 
-    &--danger:hover {
+    &--danger {
+      color: var(--money-down);
+    }
+
+    &--danger:hover,
+    &--danger:focus-visible {
       background: $seneca-color-surface-error;
 
       @include dark {
         background: $seneca-color-danger-soft-dk;
       }
     }
+  }
+
+  &__bulk-menu-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.2;
+
+    svg {
+      flex-shrink: 0;
+      color: var(--text-muted);
+    }
+  }
+
+  &__bulk-menu-btn--danger &__bulk-menu-label svg {
+    color: var(--money-down);
   }
 
   &__bulk-menu-divider {

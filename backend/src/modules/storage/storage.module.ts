@@ -17,6 +17,7 @@ import {
 import { MetricsService } from '../observability/metrics.service';
 import { ObservabilityModule } from '../observability/observability.module';
 import { StatementsModule } from '../statements/statements.module';
+import { TagsModule } from '../tags/tags.module';
 import { StorageController } from './storage.controller';
 import { StorageService } from './storage.service';
 import { StorageTrashScheduler } from './storage-trash.scheduler';
@@ -41,6 +42,7 @@ import { StorageTrashScheduler } from './storage-trash.scheduler';
     ]),
     ObservabilityModule,
     StatementsModule,
+    TagsModule,
   ],
   controllers: [StorageController],
   providers: [StorageService, StorageTrashScheduler, FileStorageService, MetricsService],

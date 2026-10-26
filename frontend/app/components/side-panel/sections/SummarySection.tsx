@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { ArrowDown, ArrowUp, Minus } from '@/app/components/icons';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import { readStoredFormatPreferences } from '@/app/lib/user-format-store';
@@ -64,6 +65,7 @@ export function SummaryItemComponent({ item }: { item: SummaryItem }) {
             {item.label}
           </p>
           <p
+            className={item.format === 'currency' ? PRIVATE_CLASS : undefined}
             style={{
               fontSize: 18,
               fontWeight: 600,

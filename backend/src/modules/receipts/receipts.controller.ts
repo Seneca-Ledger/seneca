@@ -6,8 +6,10 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Res,
   UploadedFile,
   UploadedFiles,
@@ -39,16 +41,22 @@ import {
   ReceiptRecordUpdate,
   ReceiptSplitSuggestion,
   ReceiptsQuery,
+  ReceiptTax,
   ReceiptTransactionMatches,
   ReceiptUploadResult,
+  SetReceiptTagsBody,
+  SetReceiptTaxBody,
+  StorageTagList,
   UpdateReceiptBody,
   UpdateReceiptLocationBody,
   UpdateReceiptStageBody,
   UploadReceiptBody,
 } from '../../contracts';
 import type { User } from '../../entities';
+import { EntityType } from '../../entities/audit-event.entity';
 import { ReceiptStatus } from '../../entities/receipt.entity';
 import { StatementStage } from '../../entities/statement.entity';
+import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateReceiptStageResultDto } from './dto/update-receipt-stage.dto';
 import { ReceiptsService } from './receipts.service';
@@ -57,6 +65,7 @@ import { ReceiptMatchService } from './services/receipt-match.service';
 import { ReceiptPlaceSuggestionService } from './services/receipt-place-suggestion.service';
 import { ReceiptSplitService } from './services/receipt-split.service';
 import { ReceiptStageService } from './services/receipt-stage.service';
+import { ReceiptTagsService } from './services/receipt-tags.service';
 
 type MulterFile = Express.Multer.File;
 
@@ -69,6 +78,7 @@ export class ReceiptsController {
     private readonly receiptMatchService: ReceiptMatchService,
     private readonly receiptSplitService: ReceiptSplitService,
     private readonly placeSuggestionService: ReceiptPlaceSuggestionService,
+    private readonly receiptTagsService: ReceiptTagsService,
   ) {}
 
   @Post('upload')
@@ -246,6 +256,61 @@ export class ReceiptsController {
       throw new BadRequestException('Receipt not found');
     }
     return receipt;
+  }
+
+  @Get(':id/tax')
+  @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @ApiOperation({ summary: "The tax rate and amount on the receipt's transaction" })
+  @SchemaResponse(ReceiptTax)
+  async getTax(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+    const tax = await this.receiptsService.getTax(id, workspaceId);
+    if (!tax) {
+      throw new BadRequestException('Receipt not found');
+    }
+    return tax;
+  }
+
+  @Put(':id/tax')
+  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @ApiOperation({
+    summary: "Pick the tax rate of the receipt's transaction, or null to follow the rules",
+  })
+  @ApiResponse({ status: 404, description: 'Tax rate not found in this workspace' })
+  @ApiResponse({ status: 409, description: 'No transaction yet, or it is on a filed return' })
+  @SchemaResponse(ReceiptTax)
+  async setTax(
+    @Param('id') id: string,
+    @WorkspaceId() workspaceId: string,
+    @SchemaBody(SetReceiptTaxBody) dto: SetReceiptTaxBody,
+    @CurrentUser() user: User,
+  ) {
+    const tax = await this.receiptsService.setTax(id, workspaceId, dto.taxRateId, user.id);
+    if (!tax) {
+      throw new BadRequestException('Receipt not found');
+    }
+    return tax;
+  }
+
+  @Get(':id/tags')
+  @WorkspaceAuth(Permission.STATEMENT_VIEW)
+  @ApiOperation({ summary: "The receipt's tags" })
+  @SchemaResponse(StorageTagList)
+  async getTags(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+    return this.receiptTagsService.getTags(id, workspaceId);
+  }
+
+  @Put(':id/tags')
+  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @Audit({ entityType: EntityType.RECEIPT, includeDiff: true })
+  @ApiOperation({ summary: "Replace the receipt's tags; an empty list clears them" })
+  @ApiResponse({ status: 400, description: 'A tag is not in this workspace' })
+  @SchemaResponse(StorageTagList)
+  async setTags(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaBody(SetReceiptTagsBody) dto: SetReceiptTagsBody,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.receiptTagsService.setTags(id, workspaceId, dto.tagIds);
   }
 
   @Post('stage')

@@ -3,12 +3,13 @@
 import Dialog from '@mui/material/Dialog';
 import Typography from '@mui/material/Typography';
 import { usePathname, useRouter } from 'next/navigation';
-import { useTheme } from 'next-themes';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   buildNavItems,
   buildUserMenuNavItems,
 } from '@/app/components/navigation/helpers/navigation-config';
+import { useThemeToggle } from '@/app/components/navigation/hooks/useThemeToggle';
+import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
 import { closeAllDrawers } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { isExperimentalModeEnabled, setExperimentalModeEnabled } from '@/app/lib/experimental-mode';
@@ -16,6 +17,9 @@ import { closeCommandPalette, useCommandPaletteOpen } from './command-palette-st
 import { buildCommands, type Command, navLabelText } from './command-registry';
 import { PaletteInput } from './PaletteInput';
 import { PaletteList } from './PaletteList';
+import { PalettePickerBody } from './PalettePickerBody';
+import { clearPalettePicker, usePaletteExtras } from './page-commands-store';
+import { useHoldPreview } from './use-hold-preview';
 import { usePaletteKeyboard } from './use-palette-keyboard';
 import { type PaletteRow, usePaletteSections } from './use-palette-sections';
 import { usePaletteShortcuts } from './use-palette-shortcuts';
@@ -26,9 +30,10 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
   const t = useIntlayer('commandPalette');
   const { nav, shell, userMenu } = useIntlayer('navigation');
   const notifications = useIntlayer('notificationDropdown');
+  const { labels: shortcutLabels } = useIntlayer('keyboardShortcutsModal');
   const router = useRouter();
   const pathname = usePathname();
-  const { resolvedTheme, setTheme } = useTheme();
+  const toggleTheme = useThemeToggle();
   const [input, setInput] = useState('');
 
   // A jump lands on the page itself, not behind a drawer left open on top.
@@ -46,6 +51,8 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
       toggleExperimental: t.toggleExperimental.value,
       keyboardShortcuts: t.keyboardShortcuts.value,
       notifications: notifications.title.value,
+      previousMonth: shortcutLabels.previousMonth.value,
+      nextMonth: shortcutLabels.nextMonth.value,
       settings: navLabelText(userMenu.settings),
       whatsNew: navLabelText(userMenu.whatsNew),
       reportBug: navLabelText(shell.reportBug),
@@ -53,13 +60,14 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
     navItems: [...buildNavItems(nav), ...buildUserMenuNavItems(nav)],
     push: navigate,
     pathname,
-    toggleTheme: () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark'),
+    toggleTheme,
     toggleExperimental: () => setExperimentalModeEnabled(!isExperimentalModeEnabled()),
     openHelp: onOpenHelp,
     reportBugUrl: REPORT_BUG_URL,
   });
 
-  const { sections, rows } = usePaletteSections(input, commands);
+  const { page } = usePaletteExtras();
+  const { sections, rows } = usePaletteSections(input, commands, page);
 
   // Closing first: a command that opens a drawer would otherwise dim itself
   // through the drawer stack's `data-seneca-covered` rule.
@@ -83,16 +91,22 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
     command.run();
   }, []);
   const { onKeyDown: onShortcutKeyDown, pending } = usePaletteShortcuts({
-    commands,
+    commands: page ? [...page.commands, ...commands] : commands,
     inputEmpty: input === '',
     onRun: runCommand,
     onFlush: setInput,
   });
 
-  // The advertised shortcuts get first refusal on a key; whatever they leave
-  // alone falls through to the cursor and the search field.
+  const activeRow = rows[activeIndex];
+  const hold = useHoldPreview(
+    activeRow?.kind === 'result' ? activeRow.result.document : null,
+    setInput,
+  );
+
+  // Holding Space over a file comes first, then the advertised shortcuts;
+  // whatever they leave alone falls through to the cursor and the search field.
   const handleKeyDown = (event: React.KeyboardEvent): void => {
-    if (!onShortcutKeyDown(event)) {
+    if (!(hold.onKeyDown(event) || onShortcutKeyDown(event))) {
       onKeyDown(event);
     }
   };
@@ -119,6 +133,15 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
           onSelect={run}
         />
       )}
+      {hold.previewing && (
+        <PDFPreviewModal
+          isOpen
+          onClose={hold.closePreview}
+          fileId={hold.previewing.id}
+          fileName={hold.previewing.fileName}
+          source={hold.previewing.source}
+        />
+      )}
     </>
   );
 }
@@ -129,6 +152,16 @@ export default function CommandPalette({
   onOpenHelp: () => void;
 }): React.JSX.Element {
   const open = useCommandPaletteOpen();
+  const { picker } = usePaletteExtras();
+
+  // A picker answers one question; the next open is the usual list again. A
+  // command that opens a picker closes and reopens in one batch, so this never
+  // sees that hand-over as a close.
+  useEffect(() => {
+    if (!open) {
+      clearPalettePicker();
+    }
+  }, [open]);
 
   return (
     <Dialog
@@ -145,7 +178,12 @@ export default function CommandPalette({
       }}
     >
       {/* Unmounted while closed, so the input and the typed query start fresh. */}
-      {open && <PaletteBody onOpenHelp={onOpenHelp} />}
+      {open &&
+        (picker ? (
+          <PalettePickerBody key={picker.id} picker={picker} />
+        ) : (
+          <PaletteBody onOpenHelp={onOpenHelp} />
+        ))}
     </Dialog>
   );
 }

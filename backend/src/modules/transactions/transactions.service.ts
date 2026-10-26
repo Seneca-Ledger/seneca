@@ -163,7 +163,13 @@ export class TransactionsService {
     const limit = filters.limit || 50;
     const skip = (page - 1) * limit;
 
-    query.orderBy('transaction.transactionDate', 'DESC').skip(skip).take(limit);
+    // Same-day rows keep one order across pages, the one the running balance follows.
+    query
+      .orderBy('transaction.transactionDate', 'DESC')
+      .addOrderBy('transaction.createdAt', 'DESC')
+      .addOrderBy('transaction.id', 'DESC')
+      .skip(skip)
+      .take(limit);
 
     const [rows, total] = await query.getManyAndCount();
     const rawData = redactPrivateRows(rows, viewerMemberId);

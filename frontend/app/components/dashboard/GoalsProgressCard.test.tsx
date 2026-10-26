@@ -67,7 +67,8 @@ describe('GoalsProgressCard', () => {
 
     await waitFor(() => expect(screen.getByText('Studio camera')).toBeInTheDocument());
     expect(apiGet).toHaveBeenCalledWith('/goals?month=2026-09', expect.anything());
-    expect(screen.getByText(/€450\.00 saved this month/)).toBeInTheDocument();
+    // The amount is an element of its own (privacy mode); the line is around it.
+    expect(screen.getByText(/saved this month/).textContent).toMatch(/€450\.00 saved this month/);
     expect(screen.getByRole('link', { name: /view all goals/i }).getAttribute('href')).toBe(
       '/goals',
     );

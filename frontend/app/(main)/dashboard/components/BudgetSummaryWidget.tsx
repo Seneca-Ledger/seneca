@@ -8,6 +8,7 @@ import type React from 'react';
 import { monthEndOrToday } from '@/app/components/dashboard/month-end';
 import { useIsWideSection } from '@/app/components/dashboard/section-span';
 import { CardEmpty, CardLink, DashboardCard } from '@/app/components/dashboard/ui';
+import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -48,7 +49,7 @@ function mostUsed(budgets: BudgetSummary[]): BudgetSummary[] {
  * widget is drawn at once and is fresh after a budget is edited there; any other
  * month is measured on its last day, so its spending is that month's, not this one's.
  */
-function useBudgets(month: string): { budgets: BudgetSummary[]; loaded: boolean } {
+export function useBudgets(month: string): { budgets: BudgetSummary[]; loaded: boolean } {
   const workspaceId = useWorkspaceId();
   const date = monthEndOrToday(month);
   const { data, isPending } = useQuery({
@@ -96,15 +97,15 @@ export function BudgetSummaryWidget({
     return (
       <div className="seneca-dashboard__budget-amounts">
         <span>
-          {String(wideText.spentOfLimit.value)
-            .replace('{{spent}}', money(spent))
-            .replace('{{limit}}', money(allowed))}
+          {fillTemplateNodes(String(wideText.spentOfLimit.value), {
+            spent: money(spent),
+            limit: money(allowed),
+          })}
         </span>
         <span className={rest < 0 ? 'seneca-dashboard__amount--negative' : undefined}>
-          {String(rest < 0 ? wideText.over.value : wideText.left.value).replace(
-            '{{amount}}',
-            money(Math.abs(rest)),
-          )}
+          {fillTemplateNodes(String(rest < 0 ? wideText.over.value : wideText.left.value), {
+            amount: money(Math.abs(rest)),
+          })}
         </span>
       </div>
     );

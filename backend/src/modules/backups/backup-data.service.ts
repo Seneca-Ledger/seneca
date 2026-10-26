@@ -240,6 +240,18 @@ export class BackupDataService {
       this.ids(collections.transactions),
       collections,
     );
+    await this.collectByReference(
+      'receipt_tags',
+      'receipt_id',
+      this.ids(collections.receipts),
+      collections,
+    );
+    await this.collectByReference(
+      'payable_tags',
+      'payable_id',
+      this.ids(collections.payables),
+      collections,
+    );
   }
 
   private async collectByReference(

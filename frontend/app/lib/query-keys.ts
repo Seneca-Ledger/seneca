@@ -11,14 +11,8 @@
 export const queryKeys = {
   dashboard: (o: { workspaceId: string | null; range: string; date: string | null }) =>
     ['dashboard', o.workspaceId, o.range, o.date] as const,
-  dashboardTrends: (o: { workspaceId: string | null; days: number; month: string | null }) =>
-    ['dashboard', 'trends', o.workspaceId, o.days, o.month] as const,
-  dashboardHealthHistory: (o: { workspaceId: string | null; year: number }) =>
-    ['dashboard', 'health-history', o.workspaceId, o.year] as const,
-  dashboardCashFlow: (o: { workspaceId: string | null; range: string; month: string | null }) =>
-    ['dashboard', 'cash-flow', o.workspaceId, o.range, o.month] as const,
-  dashboardCommitments: (workspaceId: string | null, days: number) =>
-    ['dashboard', 'commitments', workspaceId, days] as const,
+  dashboardCashFlowEntries: (o: { workspaceId: string | null; month: string }) =>
+    ['dashboard', 'cash-flow-entries', o.workspaceId, o.month] as const,
   dashboardSetupProgress: (workspaceId: string | null) =>
     ['dashboard', 'setup-progress', workspaceId] as const,
   statements: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
@@ -30,6 +24,7 @@ export const queryKeys = {
   categories: (workspaceId: string | null) => ['categories', workspaceId] as const,
   payees: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['payees', o.workspaceId, o.params] as const,
+  payee: (workspaceId: string | null, id: string) => ['payees', workspaceId, 'one', id] as const,
   reviewInbox: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['review-inbox', o.workspaceId, o.params] as const,
   reviewInboxCounts: (workspaceId: string | null, reviewer?: string) =>
@@ -44,6 +39,15 @@ export const queryKeys = {
   // Tile-server configuration is the same in every workspace, hence no workspace segment.
   mapStyles: () => ['map-styles'] as const,
   categoryUsage: (workspaceId: string | null) => ['categories', workspaceId, 'usage'] as const,
+  // The Tags page list with usage counts; the tag pickers read it too.
+  tags: (workspaceId: string | null) => ['tags', workspaceId] as const,
+  receiptTags: (workspaceId: string | null, receiptId: string) =>
+    ['tags', workspaceId, 'receipt', receiptId] as const,
+  statementTags: (workspaceId: string | null, statementId: string) =>
+    ['tags', workspaceId, 'statement', statementId] as const,
+  // Under the tags prefix: a tag saved anywhere refreshes the By tag figures too.
+  transactionTagLinks: (workspaceId: string | null) =>
+    ['tags', workspaceId, 'transaction-links'] as const,
   goalsList: (workspaceId: string | null) => ['goals', 'list', workspaceId] as const,
   // Sits under the plain list prefix, so a contribution invalidates both.
   goalsMonth: (o: { workspaceId: string | null; month: string }) =>
@@ -139,6 +143,15 @@ export const queryKeys = {
     ['subscriptions', o.workspaceId, 'upcoming', o.days] as const,
   subscriptionsChargeCalendar: (o: { workspaceId: string | null; months: number }) =>
     ['subscriptions', o.workspaceId, 'charge-calendar', o.months] as const,
+  subscriptionsMonthStatus: (workspaceId: string | null) =>
+    ['subscriptions', workspaceId, 'month-status'] as const,
+  subscriptionDetail: (o: { workspaceId: string | null; id: string }) =>
+    ['subscriptions', o.workspaceId, 'detail', o.id] as const,
+  subscriptionChargeCandidates: (o: {
+    workspaceId: string | null;
+    vendorName: string;
+    statementId: string | null;
+  }) => ['subscriptions', o.workspaceId, 'charge-candidates', o.vendorName, o.statementId] as const,
   auditEvents: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['audit-events', o.workspaceId, o.params] as const,
   forecast: (o: { workspaceId: string | null; days: number; scenario: string }) =>
@@ -205,6 +218,12 @@ export const queryKeys = {
   }) => ['invoices', o.workspaceId, 'peppol', o.kind, o.documentId] as const,
   clients: (workspaceId: string | null) => ['clients', workspaceId] as const,
   taxRateOptions: (workspaceId: string | null) => ['tax-rates', workspaceId, 'options'] as const,
+  taxRatesInForce: (o: { workspaceId: string | null; date: string }) =>
+    ['tax-rates', o.workspaceId, 'in-force', o.date] as const,
+  // Under 'transactions': it is the receipt's row that carries the tax, so an
+  // edit that refreshes the figures refreshes it too.
+  receiptTax: (o: { workspaceId: string | null; receiptId: string }) =>
+    ['transactions', 'receipt-tax', o.workspaceId, o.receiptId] as const,
   /** Instance-wide (the running containers), so the one key without a workspace. */
   systemUpdate: () => ['system-update'] as const,
   workspaceVersions: (workspaceId: string | null) => ['workspace-versions', workspaceId] as const,

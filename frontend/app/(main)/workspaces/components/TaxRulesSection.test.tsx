@@ -29,7 +29,7 @@ import { TaxRulesSection } from './TaxRulesSection';
 const CATEGORIES = [
   categoryItem({ id: 'cat-rent', name: 'Аренда' }),
   categoryItem({ id: 'cat-food', name: 'Материалы' }),
-  categoryItem({ id: 'cat-ads', name: 'Advertising' }),
+  categoryItem({ id: 'cat-ads', name: 'Advertising', isSystem: true, source: 'system' }),
 ];
 
 // The wire format (packages/contracts TaxRateItem).
@@ -136,9 +136,9 @@ describe('TaxRulesSection', () => {
     expect(screen.getByRole('button', { name: /Delete rule for Реклама/ })).toBeInTheDocument();
 
     await userEvent.click(screen.getByLabelText('Category'));
-    const options = within(await screen.findByRole('listbox'));
-    expect(options.queryByText('Advertising')).not.toBeInTheDocument();
-    await userEvent.click(options.getByText('Реклама'));
+    // The category drawer lists the system category in the reader's language.
+    expect(screen.queryByRole('button', { name: 'Advertising' })).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Реклама' }));
     await userEvent.click(screen.getByLabelText('Rate'));
     await userEvent.click(within(await screen.findByRole('listbox')).getByText('НДС 0%'));
     await userEvent.click(screen.getByRole('button', { name: 'Add rule' }));

@@ -6,6 +6,7 @@ import { ASSET_CLASS_KEYS } from '@/app/(main)/net-worth/components/InvestmentsC
 import { NetWorthChart } from '@/app/(main)/net-worth/components/NetWorthChart';
 import { type NetWorthRange, useNetWorth } from '@/app/(main)/net-worth/hooks/useNetWorth';
 import { formatSignedAmount } from '@/app/components/charts/chart-format';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -54,9 +55,9 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
   const money = (value: number): string => formatMoney(value, data.currency, locale);
   // On the overview a large sum reads in whole units; the cents wait in the tooltip.
   const whole = (value: number): React.ReactNode => (
-    <span title={money(value)}>
+    <PrivateAmount title={money(value)}>
       {formatMoney(value, data.currency, locale, { fractionDigits: 0 })}
-    </span>
+    </PrivateAmount>
   );
   const shortDate = (date: string): string =>
     formatStoredDateWithOptions(date, { day: 'numeric', month: 'short' });
@@ -103,7 +104,7 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
               isPositive ? 'seneca-chart__breakdown-income' : 'seneca-chart__breakdown-expense'
             }
           >
-            {formatSignedAmount(data.change, money)}
+            <PrivateAmount>{formatSignedAmount(data.change, money)}</PrivateAmount>
             {data.changePercent != null &&
               ` (${isPositive ? '+' : '−'}${Math.abs(data.changePercent)}%)`}
           </span>{' '}
@@ -139,14 +140,17 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
                 <p className="seneca-dashboard__card-sub">
                   {Math.round(data.allTimeHigh.value) === Math.round(data.current)
                     ? t.netWorthAtHigh
-                    : String(netWorthText.allTimeHigh.value)
-                        .replace(
-                          '{{value}}',
-                          formatMoney(data.allTimeHigh.value, data.currency, locale, {
+                    : fillTemplateNodes(
+                        String(netWorthText.allTimeHigh.value).replace(
+                          '{{date}}',
+                          shortDate(data.allTimeHigh.date),
+                        ),
+                        {
+                          value: formatMoney(data.allTimeHigh.value, data.currency, locale, {
                             fractionDigits: 0,
                           }),
-                        )
-                        .replace('{{date}}', shortDate(data.allTimeHigh.date))}
+                        },
+                      )}
                 </p>
               )}
               {data.byAssetClass.length > 0 && (
@@ -161,7 +165,8 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
                         <div key={item.key ?? 'other'}>
                           <dt>{netWorthText[key as 'classOther'].value}</dt>
                           <dd>
-                            {whole(item.amount)} · {Math.round(item.percent)}%
+                            {whole(item.amount)} ·{' '}
+                            <PrivateAmount>{Math.round(item.percent)}%</PrivateAmount>
                           </dd>
                         </div>
                       );

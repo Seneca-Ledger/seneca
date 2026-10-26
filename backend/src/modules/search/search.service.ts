@@ -6,7 +6,7 @@ import { Payable, PayableDirection } from '../../entities/payable.entity';
 import { Receipt } from '../../entities/receipt.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
-import { documentHref, findScanReceipts } from './document-href';
+import { type DocumentFile, documentFile, documentHref, findScanReceipts } from './document-href';
 
 export type SearchResultKind = 'transaction' | 'statement' | 'payable' | 'receivable' | 'category';
 
@@ -16,6 +16,8 @@ export interface SearchResult {
   title: string;
   subtitle: string | null;
   href: string;
+  /** What holding Space over the result previews; null when there is no file to show. */
+  document: DocumentFile | null;
 }
 
 export interface SearchResponse {
@@ -43,7 +45,11 @@ export class SearchService {
     private readonly receiptRepo: Repository<Receipt>,
   ) {}
 
-  async search(workspaceId: string, rawQuery: string): Promise<SearchResponse> {
+  async search(
+    workspaceId: string,
+    rawQuery: string,
+    viewerMemberId: string | null = null,
+  ): Promise<SearchResponse> {
     const query = (rawQuery ?? '').trim();
     if (query.length < MIN_QUERY_LENGTH) {
       return { query, results: [] };
@@ -52,7 +58,7 @@ export class SearchService {
     const needle = `%${query.toLowerCase()}%`;
 
     const [transactions, statements, payables, categories] = await Promise.all([
-      this.searchTransactions(workspaceId, needle),
+      this.searchTransactions(workspaceId, needle, viewerMemberId),
       this.searchStatements(workspaceId, needle),
       this.searchPayables(workspaceId, needle),
       this.searchCategories(workspaceId, needle),
@@ -61,7 +67,11 @@ export class SearchService {
     return { query, results: [...transactions, ...statements, ...payables, ...categories] };
   }
 
-  private async searchTransactions(workspaceId: string, needle: string): Promise<SearchResult[]> {
+  private async searchTransactions(
+    workspaceId: string,
+    needle: string,
+    viewerMemberId: string | null,
+  ): Promise<SearchResult[]> {
     const rows = await this.transactionRepo
       .createQueryBuilder('t')
       .innerJoinAndSelect('t.statement', 's')
@@ -70,6 +80,14 @@ export class SearchService {
       .andWhere(
         '(LOWER(t.counterpartyName) LIKE :needle OR LOWER(t.paymentPurpose) LIKE :needle)',
         { needle },
+      )
+      // Someone else's private row would be found by the very merchant it hides,
+      // so it is left out here rather than redacted after the match.
+      .andWhere(
+        viewerMemberId === null
+          ? 't.isPrivate = false'
+          : '(t.isPrivate = false OR t.ownerMemberId = :viewerMemberId)',
+        { viewerMemberId },
       )
       .orderBy('t.transactionDate', 'DESC')
       .take(PER_KIND_LIMIT)
@@ -89,6 +107,7 @@ export class SearchService {
       subtitle: row.paymentPurpose || null,
       // A row lives in its document; there is no separate transactions list.
       href: documentHref(statement, receipts),
+      document: documentFile(statement, receipts),
     }));
   }
 
@@ -129,6 +148,7 @@ export class SearchService {
       title: row.fileName,
       subtitle: row.bankName ?? null,
       href: documentHref(row, receipts),
+      document: documentFile(row, receipts),
     }));
   }
 
@@ -152,6 +172,7 @@ export class SearchService {
         title: row.vendor,
         subtitle: row.comment ?? null,
         href: isReceivable ? '/statements/receive' : '/statements/pay',
+        document: null,
       };
     });
   }
@@ -171,6 +192,7 @@ export class SearchService {
       title: row.name,
       subtitle: null,
       href: '/categories',
+      document: null,
     }));
   }
 }

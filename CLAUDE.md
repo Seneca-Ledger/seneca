@@ -73,44 +73,26 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 - If a file is getting too large, break it down into helpers or hooks yourself until the task is complete.
 - Avoid “monoliths”—prefer composition of small modules.
 
+
+## Documentation and Responses
+
+For user documentation and critical procedures (imports, calculations, migrations), use a style similar to ASD-STE100:
+- short sentences (preferably up to 20 words)
+- active voice
+- unambiguous terms
+- avoid using synonyms for the same concepts
+
+For code, comments, and standard agent responses, use clear, everyday language.
+
 ## Project Context (Seneca)
 
 Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, api-standards, clean-architecture, frontend-perf, observability, best-practices, effect, design-tokens). Read those before changes in those domains.
 
 **Styling:** every colour, size and weight follows the light and dark theme tokens; no raw hex, MUI colour defaults or Tailwind palette classes. See `.claude/rules/design-tokens.md`.
 
-**Test fixtures:** invented, never lifted from real statements, receipts, the dev DB or the user's data. Keep the shape that matters to the case and make up the content: `'KSP - AirPods Pro'` → `'ACME Store - Wireless Buds'` (same hyphen, two words, a product inside). Same for people, e-mails, domains and IBANs (`Member One`, `member-1@example.com`, `example.co.il`). Name the value once and derive expectations from it.
+**Test fixtures:** invented, never lifted from real statements, receipts, the dev DB or the user's data. Keep the shape that matters to the case and make up the content: `'Alza - AirPods Pro'` → `'ACME Store - Wireless Buds'` (same hyphen, two words, a product inside). Same for people, e-mails, domains and IBANs (`Member One`, `member-1@example.com`, `example.co.il`). Name the value once and derive expectations from it.
 
-## Quick Commands
-
-```bash
-# Dev (Docker, full stack)
-make quick-dev                    # one-shot dev bring-up
-make dev                          # docker compose dev with hot reload
-
-# Build / test / lint
-npm --prefix backend run test:e2e
-npm --prefix backend run test:golden   # parsing golden tests (GOLDEN_ENABLED=1)
-npm --prefix backend run lint:fix      # Biome only
-npm --prefix frontend run lint:fix     # Biome AND ESLint (both run)
-npm --prefix backend run typecheck
-npm --prefix frontend run type-check
-
-# Migrations (TypeORM)
-npm run migration:run                         # prod path: builds scripts, uses migration lock
-npm --prefix backend run migration:run:dev    # dev path: ts-node, no lock
-npm run migration:generate -- src/migrations/<Name>
-```
-
-## Gotchas
-
-- Frontend lint runs **both** Biome and ESLint — fixing one but not the other leaves CI red.
-- `prebuild` and `postinstall` on the frontend run `intlayer build`; deleting the intlayer config or skipping it breaks both install and build.
-- Backend dev uses a manual nodemon command, not `nest start`, and bumps Node heap to 2 GB. Dev scripts (`migration:run:dev`, `seed:demo:dev`, `create-admin:dev`) run ts-node with `--transpile-only`; type-checking is `npm run typecheck`.
-- SWC was evaluated for the backend dev loop and rejected: its CommonJS getter exports hit a TDZ on circular entity imports with `emitDecoratorMetadata`. Adopting it needs the TypeORM `Relation<>` wrapper on every relation property first.
-- Docker dev: `node_modules` and `.next` are named volumes; `scripts/dev-entrypoint.sh` in each app re-runs `npm ci` only when `package-lock.json` changed. Dev images never compile source (bind mount).
-- TypeORM SQL logging is off unless `DB_QUERY_LOGGING=true`.
-- Always run migrations via the npm scripts, not raw `typeorm` — `migration:run` acquires a lock to prevent concurrent runs in deployment.
-- Product name comes from `APP_NAME` (root `.env`): never write the name into UI text, e-mails or bot replies — use `APP_NAME`/`APP_SLUG` from `frontend/app/lib/brand.ts` or `backend/src/common/brand.ts` (in `*.content.ts` as a template literal). Seneca inside the Stoic quotes is the philosopher, not the product.
-- Tenant isolation: every backend query must filter by `workspaceId`. See `.claude/rules/security.md`.
-- API schemas live in `packages/contracts/src`; `backend/src/contracts` and `frontend/app/lib/contracts` are generated copies. Edit the source, then `npm run contracts:sync` (pre-commit and CI run `contracts:check`). See `.claude/rules/effect.md`.
+<!-- entire-agent:begin -->
+Read .entire/agent-guide.md for this repository's workflow, source inspection, and verification guidance.
+@.entire/agent-guide.md
+<!-- entire-agent:end -->

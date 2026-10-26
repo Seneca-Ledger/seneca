@@ -18,8 +18,8 @@ import {
   Scale,
   Table2,
 } from '@/app/components/icons';
-import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
@@ -171,6 +171,7 @@ export default function ReportsPage(): React.JSX.Element {
   ];
 
   const [tab, setTab] = useState<ReportsTab>('cash-flow');
+  const [cashFlowPeriod, setCashFlowPeriod] = useState('');
   // Tax (threshold notifications) and cash flow (advice links) are linked to.
   // Followed on change, not just read once: the link can be opened while this
   // page is already up.
@@ -234,18 +235,29 @@ export default function ReportsPage(): React.JSX.Element {
           </button>
         </Box>
         <Box sx={{ px: { xs: 2, sm: 4 }, pb: 4 }}>
-          <UnconfirmedNotice style={{ marginBottom: 16 }} />
           <BalanceSheet />
         </Box>
       </Box>
     );
   }
 
+  const tabLabels: Record<ReportsTab, string> = {
+    'cash-flow': text('tabCashFlow', 'Cash flow'),
+    templates: text('tabTemplates', 'Templates'),
+    schedules: text('tabSchedules', 'Schedules'),
+    history: text('tabHistory', 'History'),
+    'tax-year': taxYearText.tabLabel.value,
+    tax: text('tabTax', 'Tax return'),
+  };
+  const titleSummary = joinSummary([tabLabels[tab], tab === 'cash-flow' && cashFlowPeriod]);
+
   return (
     <Box>
+      <Box sx={{ mt: 'var(--seneca-page-top, 16px)', px: { xs: 2, sm: 4 }, mb: 1 }}>
+        <PageTitle path="/reports" summary={titleSummary} />
+      </Box>
       <Box
         sx={{
-          mt: 'var(--seneca-page-top, 16px)',
           borderBottom: '1px solid var(--border)',
           px: { xs: 2, sm: 4 },
         }}
@@ -282,12 +294,11 @@ export default function ReportsPage(): React.JSX.Element {
       </Box>
 
       <Box sx={{ px: { xs: 2, sm: 4 }, py: 3 }}>
-        <UnconfirmedNotice style={{ marginBottom: 16 }} />
         {tab === 'tax' && <TaxReturnView />}
         {tab === 'tax-year' && <TaxYearView />}
         {tab === 'cash-flow' && (
           // The leaderboards sit inside the view: they take its period.
-          <CashFlowView focusId={focusId} />
+          <CashFlowView focusId={focusId} onPeriodChange={setCashFlowPeriod} />
         )}
         {tab === 'templates' && (
           <>

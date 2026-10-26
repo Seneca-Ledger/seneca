@@ -21,7 +21,7 @@ export function monthRange(month: Date): { dateFrom: string; dateTo: string } {
 
 export type SpendFlowNode = {
   id: string;
-  kind: 'total' | 'category' | 'subcategory' | 'merchant' | 'other';
+  kind: 'total' | 'category' | 'subcategory' | 'merchant' | 'tag' | 'other';
   /** Null where the client supplies a localized label. */
   name: string | null;
   amount: number;
@@ -41,9 +41,15 @@ export type SpendFlowData = {
 
 /**
  * Sankey shape per page: top spenders (categories → merchants), top
- * categories (categories → subcategories), top merchants (merchants).
+ * categories (categories → subcategories), top merchants (merchants), top tags (tags).
  */
-export type SpendFlowGroupBy = 'category-merchant' | 'category-subcategory' | 'merchant';
+export type SpendFlowGroupBy = 'category-merchant' | 'category-subcategory' | 'merchant' | 'tag';
+
+/** The dates the chart covers: the page's period, or else the month. */
+export function useSpendFlowRange(month: Date): { dateFrom: string; dateTo: string } {
+  const period = useAnalyticsPeriod();
+  return period ? { dateFrom: period.from, dateTo: period.to } : monthRange(month);
+}
 
 /** The analytics sankey of the current workspace for one calendar month. */
 export function useSpendFlow(
@@ -52,8 +58,7 @@ export function useSpendFlow(
   month: Date,
 ): UseQueryResult<SpendFlowData> {
   const workspaceId = useWorkspaceId();
-  const period = useAnalyticsPeriod();
-  const range = period ? { dateFrom: period.from, dateTo: period.to } : monthRange(month);
+  const range = useSpendFlowRange(month);
   const params = { groupBy, type, ...range } satisfies ContractInput<'SpendFlowQuery'>;
   return useQuery({
     queryKey: queryKeys.spendFlow({ workspaceId, params }),

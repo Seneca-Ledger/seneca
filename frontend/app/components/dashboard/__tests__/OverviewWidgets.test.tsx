@@ -63,6 +63,8 @@ function forecast(overrides: Partial<ForecastResponse> = {}): ForecastResponse {
     shortfallDate: null,
     safeToSpend: { amount: 430, untilDate: '2026-10-31', nextIncomeDate: '2026-10-31' },
     runwayMonths: null,
+    runwayChange: 1200,
+    runwayDays: 365,
     everydayMonthly: 500,
     irregularIncomeMonthly: 0,
     monthlyIncome: 3000,
@@ -209,6 +211,7 @@ describe('UpcomingChargesCard', () => {
         activeCount: 6,
         upcomingCount: 1,
         upcoming30DaysCount: 4,
+        upcoming30DaysAmount: 0,
         priceChangeCount: 2,
         priceChangeYearlyEffect: 24,
         duplicateCount: 0,
@@ -219,7 +222,11 @@ describe('UpcomingChargesCard', () => {
     renderWithQuery(<UpcomingChargesCard formatAmount={money} />);
 
     expect(await screen.findByText('Netflix')).toBeInTheDocument();
-    expect(await screen.findByText('priceChanges')).toBeInTheDocument();
+    // The chip leads to the subscriptions it is about, ringed.
+    expect((await screen.findByText('priceChanges')).closest('a')).toHaveAttribute(
+      'href',
+      '/subscriptions?focus=price-changed',
+    );
     expect(screen.queryByText('duplicates')).toBeNull();
     expect(apiGet).toHaveBeenCalledWith(
       '/subscriptions/upcoming',

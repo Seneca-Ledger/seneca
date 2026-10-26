@@ -167,6 +167,16 @@ describe('workspaceRoleAllows', () => {
     expect(workspaceRoleAllows(Permission.STATEMENT_EDIT, WorkspaceRole.MEMBER, denied)).toBe(true);
   });
 
+  it('gates tag writes on the categories toggle and lets every role read tags', () => {
+    const denied: WorkspaceMemberPermissions = { ...ALL_TOGGLES, canEditCategories: false };
+    for (const write of [Permission.TAG_CREATE, Permission.TAG_EDIT, Permission.TAG_DELETE]) {
+      expect(workspaceRoleAllows(write, WorkspaceRole.MEMBER, ALL_TOGGLES)).toBe(true);
+      expect(workspaceRoleAllows(write, WorkspaceRole.MEMBER, denied)).toBe(false);
+      expect(workspaceRoleAllows(write, WorkspaceRole.VIEWER, ALL_TOGGLES)).toBe(false);
+    }
+    expect(workspaceRoleAllows(Permission.TAG_VIEW, WorkspaceRole.VIEWER, null)).toBe(true);
+  });
+
   it('refuses everything without a workspace role', () => {
     expect(workspaceRoleAllows(Permission.TRANSACTION_VIEW, undefined, ALL_TOGGLES)).toBe(false);
     expect(workspaceRoleAllows(Permission.TRANSACTION_EDIT, null, ALL_TOGGLES)).toBe(false);

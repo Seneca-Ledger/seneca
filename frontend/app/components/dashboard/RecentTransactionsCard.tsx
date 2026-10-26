@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import type React from 'react';
 import { useMemo } from 'react';
 import { parseDateOnly, resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { useCategoryName } from '@/app/lib/use-category-name';
@@ -80,6 +81,7 @@ export function RecentTransactionsCard({
                       className={clsx(
                         'seneca-dashboard__recent-amount',
                         isPositive && 'seneca-dashboard__amount--positive',
+                        PRIVATE_CLASS,
                       )}
                     >
                       {isPositive ? '+' : ''}

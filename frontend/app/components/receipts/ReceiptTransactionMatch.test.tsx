@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReceiptRecord, ReceiptSplitSuggestion } from '@/app/lib/api';
-import { selectOption } from '@/app/test/select';
 import { ReceiptTransactionMatch } from './ReceiptTransactionMatch';
 
 const api = vi.hoisted(() => ({
@@ -27,6 +26,12 @@ vi.mock('@/app/i18n', async () => ({
   useIntlayer: (await vi.importActual<typeof import('react-intlayer')>('react-intlayer'))
     .useIntlayer,
 }));
+
+/** A split chip's label: the category is text, the amount its own (redactable) span. */
+const chipLabel =
+  (pattern: RegExp) =>
+  (_: string, element: Element | null): boolean =>
+    !!element?.classList.contains('MuiChip-label') && pattern.test(element.textContent ?? '');
 
 const receipt = {
   id: 'r1',
@@ -84,14 +89,15 @@ describe('ReceiptTransactionMatch split by items', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Split by line items' }));
 
     // Both lines landed in Food (the open one via the fallback): nothing to split yet.
-    await screen.findByText(/Food: €11\.00/);
+    await screen.findByText(chipLabel(/Food: €11\.00/));
     expect(screen.queryByRole('button', { name: 'Apply split' })).toBeNull();
     expect(api.splitByLineItems).not.toHaveBeenCalled();
 
-    selectOption(screen.getByLabelText('Category for “Shampoo”'), 'Household');
+    fireEvent.click(screen.getByLabelText('Category for “Shampoo”'));
+    fireEvent.click(screen.getByRole('button', { name: 'Household' }));
 
-    expect(screen.getByText(/Household: €6\.60/)).toBeTruthy();
-    expect(screen.getByText(/Food: €4\.40/)).toBeTruthy();
+    expect(screen.getByText(chipLabel(/Household: €6\.60/))).toBeTruthy();
+    expect(screen.getByText(chipLabel(/Food: €4\.40/))).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Apply split' }));
 

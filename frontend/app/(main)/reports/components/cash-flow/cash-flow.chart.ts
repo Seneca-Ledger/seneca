@@ -3,8 +3,43 @@ import {
   categoryTonesHex,
   OTHER_TONE_HEX,
 } from '@/app/components/charts/chart-theme';
+import { withMinBand } from '@/app/components/charts/sankey-min-band';
 import { tokens } from '@/lib/theme-tokens';
 import type { CashFlowMapData } from './useCashFlowMap';
+
+/**
+ * A node's label is two lines (name, amount) centred on it. ECharts keeps
+ * neighbours apart by `nodeGap` alone, so the gap holds a whole label and two
+ * small nodes' labels never run into each other.
+ */
+const LINE_HEIGHT = 17;
+const NODE_GAP = 2 * LINE_HEIGHT + 2;
+/** Height shared out by value, on top of the gaps. */
+const VALUE_SPACE = 320;
+const VERTICAL_PADDING = 24;
+export const CASH_FLOW_MIN_HEIGHT = 440;
+
+/** A label-sized gap per node of the busiest column, plus room for the values. */
+export function cashFlowChartHeight(data: Pick<CashFlowMapData, 'sankey'>): number {
+  // A node's column is one past the deepest node that feeds it.
+  const depth = new Map<string, number>();
+  for (let pass = 0; pass < data.sankey.nodes.length; pass++) {
+    for (const link of data.sankey.links) {
+      depth.set(
+        link.target,
+        Math.max(depth.get(link.target) ?? 0, (depth.get(link.source) ?? 0) + 1),
+      );
+    }
+  }
+  const perColumn = new Map<number, number>();
+  for (const node of data.sankey.nodes) {
+    const column = depth.get(node.id) ?? 0;
+    perColumn.set(column, (perColumn.get(column) ?? 0) + 1);
+  }
+  const busiest = Math.max(0, ...perColumn.values());
+  const gaps = Math.max(0, busiest - 1) * NODE_GAP;
+  return Math.max(CASH_FLOW_MIN_HEIGHT, gaps + VALUE_SPACE + VERTICAL_PADDING);
+}
 
 /** ECharts sankey option for the cash-flow map; free of React so it can be asserted. */
 export function buildCashFlowSankey(
@@ -13,10 +48,14 @@ export function buildCashFlowSankey(
   formatAmount: (value: number) => string,
   compact = false,
   categoryName: (name: string) => string = name => name,
+  // Privacy mode: the canvas is out of reach of the CSS redaction, so the labels
+  // drop the amount and keep the name. The tooltip, shown on hover, keeps it.
+  privacy = false,
 ): Record<string, unknown> {
   const isDark = resolvedTheme === 'dark';
   const color = isDark ? tokens.dark.color : tokens.color;
   const byId = new Map(data.sankey.nodes.map(node => [node.id, node]));
+  const band = withMinBand(data.sankey.links);
   // Category nodes carry the stored name; income sources and the hub are already words.
   const labelOf = (node: CashFlowMapData['sankey']['nodes'][number]): string =>
     node.kind === 'category' || node.kind === 'subcategory' ? categoryName(node.name) : node.name;
@@ -59,8 +98,14 @@ export function buildCashFlowSankey(
     tooltip: {
       trigger: 'item',
       triggerOn: 'mousemove',
-      formatter: (params: { dataType?: string; name?: string; value?: unknown }) => {
-        if (params.dataType === 'edge') return formatAmount(Number(params.value ?? 0));
+      formatter: (params: {
+        dataType?: string;
+        name?: string;
+        data?: { source?: string; target?: string };
+      }) => {
+        if (params.dataType === 'edge') {
+          return formatAmount(band.linkValue(params.data?.source ?? '', params.data?.target ?? ''));
+        }
         const node = byId.get(String(params.name ?? ''));
         return node ? labelOf(node) : '';
       },
@@ -73,7 +118,7 @@ export function buildCashFlowSankey(
         top: 12,
         bottom: 12,
         emphasis: { focus: 'adjacency' },
-        nodeGap: 12,
+        nodeGap: NODE_GAP,
         nodeWidth: 6,
         draggable: false,
         // Name and amount, readable: 13px, the amount in grey under the name.
@@ -81,15 +126,15 @@ export function buildCashFlowSankey(
         label: {
           color: color.textPrimary,
           fontSize: 13,
-          lineHeight: 17,
+          lineHeight: LINE_HEIGHT,
           // On a phone the middle column's labels and the last column's share one
           // narrow gap; there only the outer columns are labelled (the middle on tap).
           ...(compact ? { width: 130, overflow: 'truncate' } : {}),
-          formatter: (params: { name?: string; value?: unknown }) => {
+          formatter: (params: { name?: string }) => {
             const node = byId.get(String(params.name ?? ''));
-            return node
-              ? `{name|${labelOf(node)}}\n{value|${formatAmount(Number(params.value ?? 0))}}`
-              : '';
+            if (!node) return '';
+            if (privacy) return `{name|${labelOf(node)}}`;
+            return `{name|${labelOf(node)}}\n{value|${formatAmount(band.nodeValue(node.id))}}`;
           },
           rich: {
             name: { color: color.textPrimary, fontSize: 13 },
@@ -106,7 +151,7 @@ export function buildCashFlowSankey(
             ? { label: { show: false } }
             : {}),
         })),
-        links: data.sankey.links,
+        links: band.links,
       },
     ],
   };

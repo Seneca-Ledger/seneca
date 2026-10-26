@@ -13,6 +13,7 @@ import type {
   TopCategorySourceChannel,
 } from '@/app/(main)/statements/components/top-categories.utils';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useCategoryName } from '@/app/lib/use-category-name';
 import { formatStoredDate } from '@/app/lib/user-format-store';
@@ -47,23 +48,39 @@ type Props = {
   emptyLabel: string;
   /** `?focus=category:<name>` from an advice link; that row is always drawn. */
   focusId?: string | null;
+  /** How a row names itself; by default a category in the reader's language. */
+  nameOf?: (name: string) => string;
+  /** The `?focus=` prefix rows answer to: `category:` unless the rows are something else. */
+  attentionPrefix?: string;
 };
 
 const SORT_KEYS: CategorySortKey[] = ['amount', 'average', 'operations'];
 
-const attentionIdOf = (row: TopCategoryAggregateRow): string =>
-  `category:${row.category.trim().toLowerCase()}`;
+const attentionIdFor =
+  (prefix: string) =>
+  (row: TopCategoryAggregateRow): string =>
+    `${prefix}${row.category.trim().toLowerCase()}`;
 
 type RowProps = {
   row: TopCategoryAggregateRow;
   sortKey: CategorySortKey;
+  attentionId: string;
+  nameOf?: (name: string) => string;
   sourceLabels: SourceLabels;
   onRowClick: (id: string) => void;
 };
 
-function LeaderboardRow({ row, sortKey, sourceLabels, onRowClick }: RowProps): React.JSX.Element {
+function LeaderboardRow({
+  row,
+  sortKey,
+  attentionId,
+  nameOf,
+  sourceLabels,
+  onRowClick,
+}: RowProps): React.JSX.Element {
   const money = useAnalyticsMoney();
   const categoryName = useCategoryName();
+  const displayName = nameOf ?? categoryName;
   const lastDate =
     row.lastDate && !Number.isNaN(new Date(row.lastDate).getTime())
       ? formatStoredDate(row.lastDate)
@@ -72,7 +89,7 @@ function LeaderboardRow({ row, sortKey, sourceLabels, onRowClick }: RowProps): R
     <tr
       // Target for `?focus=category:<name>` deep links; the leaderboard has no
       // category ids, rows are keyed by name.
-      data-attention={attentionIdOf(row)}
+      data-attention={attentionId}
       style={{ color: 'var(--foreground)', borderTop: '1px solid var(--border)' }}
     >
       <td style={{ padding: '8px 16px 8px 0', fontWeight: 500, color: 'var(--foreground)' }}>
@@ -88,7 +105,7 @@ function LeaderboardRow({ row, sortKey, sourceLabels, onRowClick }: RowProps): R
           }}
           onClick={() => onRowClick(row.id)}
         >
-          {categoryName(row.category)}
+          {displayName(row.category)}
         </button>
       </td>
       <td style={{ padding: '8px 16px 8px 0' }}>
@@ -98,8 +115,12 @@ function LeaderboardRow({ row, sortKey, sourceLabels, onRowClick }: RowProps): R
         />
       </td>
       <td style={sortedCellStyle('operations', sortKey)}>{row.count}</td>
-      <td style={sortedCellStyle('average', sortKey)}>{money(row.average, row.currency)}</td>
-      <td style={sortedCellStyle('amount', sortKey)}>{money(row.total, row.currency)}</td>
+      <td className={PRIVATE_CLASS} style={sortedCellStyle('average', sortKey)}>
+        {money(row.average, row.currency)}
+      </td>
+      <td className={PRIVATE_CLASS} style={sortedCellStyle('amount', sortKey)}>
+        {money(row.total, row.currency)}
+      </td>
       <td style={{ padding: '8px 0', textAlign: 'right', color: 'var(--muted-foreground)' }}>
         {lastDate}
       </td>
@@ -118,7 +139,10 @@ export function TopCategoriesLeaderboard({
   columnLabels,
   emptyLabel,
   focusId = null,
+  nameOf,
+  attentionPrefix = 'category:',
 }: Props): React.JSX.Element {
+  const attentionIdOf = attentionIdFor(attentionPrefix);
   const visibleRows = rowsWithFocused(rows, attentionIdOf, focusId);
   const sortKeyLabels: Record<CategorySortKey, string> = {
     amount: sortLabels.sortByAmount,
@@ -195,6 +219,8 @@ export function TopCategoriesLeaderboard({
                 key={row.id}
                 row={row}
                 sortKey={sortKey}
+                attentionId={attentionIdOf(row)}
+                nameOf={nameOf}
                 sourceLabels={sourceLabels}
                 onRowClick={onRowClick}
               />

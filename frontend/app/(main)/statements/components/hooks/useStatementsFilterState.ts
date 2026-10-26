@@ -53,7 +53,7 @@ interface UseStatementsFilterStateReturn {
   handleSaveColumns: () => void;
   handleColumnsOpen: () => void;
   /** `deepLinkMonth` (`?month=YYYY-MM`) wins over the stored filters for this visit, unsaved. */
-  initFromStorage: (deepLinkMonth?: string | null) => void;
+  initFromStorage: (deepLinkMonth?: string | null, ignoreStored?: boolean) => void;
 }
 
 export function useStatementsFilterState({
@@ -73,8 +73,10 @@ export function useStatementsFilterState({
   const [columns, setColumns] = useState<StatementColumn[]>(DEFAULT_STATEMENT_COLUMNS);
   const [draftColumns, setDraftColumns] = useState<StatementColumn[]>(DEFAULT_STATEMENT_COLUMNS);
 
-  const initFromStorage = (deepLinkMonth?: string | null): void => {
-    const storedFilters = monthDeepLinkFilters(deepLinkMonth) ?? loadStatementFilters();
+  const initFromStorage = (deepLinkMonth?: string | null, ignoreStored = false): void => {
+    const storedFilters =
+      monthDeepLinkFilters(deepLinkMonth) ??
+      (ignoreStored ? DEFAULT_STATEMENT_FILTERS : loadStatementFilters());
     setDraftFilters(storedFilters);
     setAppliedFilters(storedFilters);
     const storedColumns = loadStatementColumns();

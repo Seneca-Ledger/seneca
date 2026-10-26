@@ -1,12 +1,15 @@
 import type {
   SpendFlowData,
+  SpendFlowGroupBy,
   SpendFlowNode,
 } from '@/app/(main)/statements/components/analytics/flow/useSpendFlow';
+import type { RowsTarget } from '@/app/(main)/statements/components/documents-for-rows';
 import {
   CATEGORY_TONE_HEX,
   categoryTonesHex,
   OTHER_TONE_HEX,
 } from '@/app/components/charts/chart-theme';
+import { withMinBand } from '@/app/components/charts/sankey-min-band';
 import { tokens } from '@/lib/theme-tokens';
 
 export type SpendFlowChartLabels = {
@@ -27,6 +30,8 @@ export type SpendFlowChartOptions = {
   isIncome: boolean;
   /** How a stored category name reads in the user's language; merchants stay as written. */
   categoryName?: (name: string) => string;
+  /** Privacy mode: node labels show the name only, no amount or share (the tooltip still does). */
+  privacy?: boolean;
 };
 
 /**
@@ -111,6 +116,7 @@ export function buildSpendFlowSankey(
   const color = isDark ? tokens.dark.color : tokens.color;
   const { nodes, links } = visibleSpendFlow(data, options.compact);
   const byId = new Map(nodes.map(node => [node.id, node]));
+  const band = withMinBand(links);
 
   const categoryName = options.categoryName ?? ((name: string) => name);
   const nameOf = (node: SpendFlowNode, name: string): string =>
@@ -177,14 +183,13 @@ export function buildSpendFlowSankey(
       formatter: (params: {
         dataType?: string;
         name?: string;
-        value?: unknown;
         data?: { source?: string; target?: string };
       }) => {
         if (params.dataType === 'edge') {
           const source = byId.get(params.data?.source ?? '');
           const target = byId.get(params.data?.target ?? '');
           const route = source && target ? `${labelOf(source)} → ${labelOf(target)}<br/>` : '';
-          return `${route}${formatAmount(Number(params.value ?? 0))}`;
+          return `${route}${formatAmount(band.linkValue(params.data?.source ?? '', params.data?.target ?? ''))}`;
         }
         const node = byId.get(String(params.name ?? ''));
         return node
@@ -223,6 +228,9 @@ export function buildSpendFlowSankey(
             if (!node) {
               return '';
             }
+            if (options.privacy) {
+              return `{n|${labelOf(node)}}`;
+            }
             // The name in ink, the amount and share under it in grey: 13px, no bold.
             return `{n|${labelOf(node)}}\n{v|${formatAmount(node.amount)} · ${percent(node.share)}}`;
           },
@@ -238,8 +246,38 @@ export function buildSpendFlowSankey(
           itemStyle: { color: nodeColor(node) },
           ...(node.kind === 'total' ? { label: { position: 'right' } } : {}),
         })),
-        links,
+        links: band.links,
       },
     ],
   };
+}
+
+const NONE = '__none__';
+
+/**
+ * What a sankey node stands for, from its id: `cat:<root>`, `sub:<root>:<sub>`,
+ * `m:<root>:<merchant>` (categories → merchants) or `m:<merchant>` (merchants
+ * alone). Merchant keys may hold colons, so only the root is split off.
+ * The total, "Other" and "no merchant" alone lead nowhere.
+ */
+export function spendFlowTarget(id: string, groupBy: SpendFlowGroupBy): RowsTarget | null {
+  const [prefix, ...parts] = id.split(':');
+  const rest = parts.join(':');
+  if (prefix === 'cat') {
+    return rest === '__other__' ? null : { categoryId: rest };
+  }
+  if (prefix === 'sub') {
+    const [root, sub] = parts;
+    // Spending booked on the root itself is its NONE child.
+    return { categoryId: sub === NONE ? root : sub };
+  }
+  if (prefix === 'm') {
+    if (groupBy === 'merchant') {
+      return rest === NONE ? null : { merchant: rest };
+    }
+    const [root, ...merchant] = parts;
+    const key = merchant.join(':');
+    return key === NONE ? { categoryId: root } : { categoryId: root, merchant: key };
+  }
+  return null;
 }

@@ -13,6 +13,8 @@ import type { useStatementsListData } from './useStatementsListData';
 
 export interface StatementsStatement {
   id: string;
+  /** A scan's hidden statement, which holds its transactions; a row's own id is the receipt. */
+  statementId?: string | null;
   source?: 'statement' | 'gmail' | 'scan';
   receiptSource?: string;
   fileName: string;

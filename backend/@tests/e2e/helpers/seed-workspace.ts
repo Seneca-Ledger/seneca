@@ -139,12 +139,16 @@ export async function seedWorkspace(
     estimatedAmount: 20,
     dueMonth: month,
   });
-  await send('budget', 'post', '/budgets', {
+  const budget = await send('budget', 'post', '/budgets', {
     name: `${marker} budget`,
     categoryId: category.body.id,
     limitAmount: 50,
     periodType: 'monthly',
     currency: 'USD',
+  });
+  // The subscription is paid from the budget.
+  await send('subscription budget', 'put', `/subscriptions/${subscription.body.id}`, {
+    budgetId: budget.body.id,
   });
 
   // Bills, invoices, credit notes.
@@ -204,9 +208,11 @@ export async function seedWorkspace(
   });
 
   // Storage.
-  const tag = await send('tag', 'post', '/storage/tags', {
+  const tag = await send('tag', 'post', '/tags', {
     name: `${marker} tag`,
     color: '#22c55e',
+    description: `${marker} tag description`,
+    tagDate: today,
   });
   await send('folder', 'post', '/storage/folders', {
     name: `${marker} folder`,
@@ -353,6 +359,17 @@ export async function seedWorkspace(
     expectedAmount: 9.99,
     matchStatus: SubscriptionChargeMatchStatus.MATCHED,
   });
+  // A payee and the rule a person's link to one of its rows teaches.
+  const rule = await dataSource.query(
+    `WITH payee AS (INSERT INTO payees (workspace_id, name) VALUES ($1, $3) RETURNING id)
+     INSERT INTO subscription_payees (workspace_id, subscription_id, payee_id)
+     SELECT $1, $2, id FROM payee
+     RETURNING id`,
+    [owner.workspaceId, subscription.body.id, `${marker} payee`],
+  );
+  if (rule.length !== 1) {
+    throw new Error('Seeding subscription payee rule failed');
+  }
   await dataSource.getRepository(ReportHistory).save({
     workspaceId: owner.workspaceId,
     userId: owner.userId,
@@ -364,7 +381,7 @@ export async function seedWorkspace(
     fileName: 'seed-report.pdf',
     fileSize: 1024,
   });
-  await dataSource.getRepository(Receipt).save({
+  const receipt = await dataSource.getRepository(Receipt).save({
     userId: owner.userId,
     workspaceId: owner.workspaceId,
     source: ReceiptSource.SCAN,
@@ -374,4 +391,8 @@ export async function seedWorkspace(
     status: ReceiptStatus.NEEDS_REVIEW,
     parsedData: { amount: 5, currency: 'USD', vendor: `${marker} shop` },
   });
+  // A receipt_tags row: the sweep checks no route links B's receipt to A's tag or back.
+  await send('receipt tag', 'put', `/receipts/${receipt.id}/tags`, { tagIds: [tag.body.id] });
+  // A payable_tags row, for the same reason.
+  await send('payable tag', 'put', `/payables/${payable.body.id}`, { tagIds: [tag.body.id] });
 }

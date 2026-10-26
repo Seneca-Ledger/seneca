@@ -58,7 +58,6 @@ interface StepViewProps {
   updateData: (patch: Partial<OnboardingData>) => void;
   onLocaleChange: (locale: AppLocale) => void;
   onProfileChange: (profile: WorkspaceProfile) => void;
-  onCurrencyPickerOpenChange: (open: boolean) => void;
   onDeferTax: () => void;
 }
 
@@ -71,7 +70,6 @@ function StepView({
   updateData,
   onLocaleChange,
   onProfileChange,
-  onCurrencyPickerOpenChange,
   onDeferTax,
 }: StepViewProps) {
   switch (stepKey) {
@@ -99,7 +97,6 @@ function StepView({
           onWorkspaceNameChange={workspaceName => updateData({ workspaceName })}
           onWorkspaceCurrencyChange={workspaceCurrency => updateData({ workspaceCurrency })}
           onProfileChange={onProfileChange}
-          onCurrencyPickerOpenChange={onCurrencyPickerOpenChange}
           // Creating another workspace skips the language step, so it is asked here.
           onLocaleChange={mode === 'create-workspace' ? onLocaleChange : undefined}
         />
@@ -159,7 +156,6 @@ export default function OnboardingPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const {
     loading: disclaimerLoading,
     accepted: disclaimerAccepted,
@@ -354,25 +350,23 @@ export default function OnboardingPage() {
       }
       aside={<OnboardingPreview stepKey={stepKey} data={data} />}
       footer={
-        currencyPickerOpen ? null : (
-          <OnboardingNavigation
-            canGoBack={currentStep > 0 || isCreateWorkspaceFlow}
-            isSubmitting={isSubmitting}
-            nextDisabled={!canLeaveStep(stepKey, data.profile)}
-            onBack={handleBack}
-            onNext={handleNext}
-            // The tax step has its own "not listed / decide later" in place of a bare Skip.
-            onSkip={stepKey === 'business' ? handleSkip : undefined}
-            labels={{
-              back: text(['navigation', 'back'], 'Back'),
-              next: isLastStep
-                ? text(['navigation', 'finish'], 'Start using app')
-                : text(['navigation', 'next'], 'Next'),
-              skip: text(['navigation', 'skip'], 'Skip'),
-              saving: text(['navigation', 'saving'], 'Saving...'),
-            }}
-          />
-        )
+        <OnboardingNavigation
+          canGoBack={currentStep > 0 || isCreateWorkspaceFlow}
+          isSubmitting={isSubmitting}
+          nextDisabled={!canLeaveStep(stepKey, data.profile)}
+          onBack={handleBack}
+          onNext={handleNext}
+          // The tax step has its own "not listed / decide later" in place of a bare Skip.
+          onSkip={stepKey === 'business' ? handleSkip : undefined}
+          labels={{
+            back: text(['navigation', 'back'], 'Back'),
+            next: isLastStep
+              ? text(['navigation', 'finish'], 'Start using app')
+              : text(['navigation', 'next'], 'Next'),
+            skip: text(['navigation', 'skip'], 'Skip'),
+            saving: text(['navigation', 'saving'], 'Saving...'),
+          }}
+        />
       }
     >
       {error || workspaceLoadFailed ? (
@@ -394,7 +388,6 @@ export default function OnboardingPage() {
             setLocale(nextLocale);
           }}
           onProfileChange={handleProfileChange}
-          onCurrencyPickerOpenChange={setCurrencyPickerOpen}
           onDeferTax={handleDeferTax}
         />
       </Box>

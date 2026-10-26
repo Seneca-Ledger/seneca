@@ -6,6 +6,7 @@ import {
   buildSpendFlowSankey,
   findSpendFlowNodeId,
   spendFlowChartHeight,
+  spendFlowTarget,
   visibleSpendFlow,
 } from './spend-flow.chart';
 
@@ -124,6 +125,18 @@ describe('buildSpendFlowSankey', () => {
     expect(findSpendFlowNodeId(ads, 'advertising')).toBe('cat:ads');
   });
 
+  it('privacy hides amounts: labels keep the name, the tooltip keeps the figure', () => {
+    const option = buildSpendFlowSankey(data, 'light', labels, format, {
+      compact: false,
+      isIncome: false,
+      privacy: true,
+    });
+    const tooltip = option.tooltip as { formatter: (p: { name: string }) => string };
+
+    expect(seriesOf(option).label.formatter({ name: 'cat:food' })).toBe('{n|Food}');
+    expect(tooltip.formatter({ name: 'cat:food' })).toContain('60.00 €');
+  });
+
   it('drops the merchant column in compact mode', () => {
     const series = seriesOf(buildSpendFlowSankey(data, 'light', labels, format, { compact: true, isIncome: false }));
 
@@ -156,5 +169,33 @@ describe('findSpendFlowNodeId', () => {
     expect(findSpendFlowNodeId(data, null)).toBeNull();
     // Third-column nodes are not what a deep link names.
     expect(findSpendFlowNodeId(data, 'Rewe')).toBeNull();
+  });
+});
+
+describe('spendFlowTarget', () => {
+  it('reads a category, a subcategory and a merchant from node ids', () => {
+    expect(spendFlowTarget('cat:food', 'category-subcategory')).toEqual({ categoryId: 'food' });
+    expect(spendFlowTarget('cat:__none__', 'category-merchant')).toEqual({ categoryId: '__none__' });
+    expect(spendFlowTarget('sub:food:groceries', 'category-subcategory')).toEqual({
+      categoryId: 'groceries',
+    });
+    // Spending booked on the root itself.
+    expect(spendFlowTarget('sub:food:__none__', 'category-subcategory')).toEqual({
+      categoryId: 'food',
+    });
+    expect(spendFlowTarget('m:food:acme: store', 'category-merchant')).toEqual({
+      categoryId: 'food',
+      merchant: 'acme: store',
+    });
+    expect(spendFlowTarget('m:food:__none__', 'category-merchant')).toEqual({ categoryId: 'food' });
+    expect(spendFlowTarget('m:acme: store', 'merchant')).toEqual({ merchant: 'acme: store' });
+  });
+
+  it('leads nowhere from the total, Other and an unnamed merchant', () => {
+    expect(spendFlowTarget('total', 'merchant')).toBeNull();
+    expect(spendFlowTarget('cat:__other__', 'category-merchant')).toBeNull();
+    expect(spendFlowTarget('other:food', 'category-merchant')).toBeNull();
+    expect(spendFlowTarget('other:merchants', 'merchant')).toBeNull();
+    expect(spendFlowTarget('m:__none__', 'merchant')).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
-import { buildCashFlowSankey } from './cash-flow.chart';
+import { buildCashFlowSankey, CASH_FLOW_MIN_HEIGHT, cashFlowChartHeight } from './cash-flow.chart';
 
 const data = {
   sankey: {
@@ -30,6 +30,21 @@ describe('buildCashFlowSankey', () => {
 
     expect(nodes.find(node => node.name === 'cat:rent')?.label?.position).toBe('left');
     expect(nodes.find(node => node.name === 'balance')?.label?.position).toBeUndefined();
+  });
+
+  it('privacy hides amounts: labels keep the name, the tooltip keeps the figure', () => {
+    const option = buildCashFlowSankey(data, 'light', value => `€${value}`, false, undefined, true);
+    const series = (option.series as SankeySeries[])[0];
+    const tooltip = option.tooltip as {
+      formatter: (params: { dataType?: string; data?: { source: string; target: string } }) => string;
+    };
+
+    expect(series.label.formatter({ name: 'cat:rent', value: 300 })).toBe(
+      '{name|Marketing and advertising}',
+    );
+    expect(tooltip.formatter({ dataType: 'edge', data: { source: 'total', target: 'cat:rent' } })).toBe(
+      '€300',
+    );
   });
 });
 
@@ -67,5 +82,37 @@ describe('buildCashFlowSankey in the reader\'s language', () => {
     expect(colourOf(buildCashFlowSankey(withAdvertising, 'light', String, false, ru))).toBe(
       colourOf(buildCashFlowSankey(withAdvertising, 'light', String)),
     );
+  });
+});
+
+describe('cashFlowChartHeight', () => {
+  const withCategories = (count: number) => ({
+    sankey: {
+      nodes: [
+        { id: 'balance', name: 'From your balance', kind: 'balance' as const },
+        { id: 'total', name: 'Money flow', kind: 'total' as const },
+        ...Array.from({ length: count }, (_, i) => ({
+          id: `cat:${i}`,
+          name: `Category ${i}`,
+          kind: 'category' as const,
+        })),
+      ],
+      links: [
+        { source: 'balance', target: 'total', value: 100 * count },
+        ...Array.from({ length: count }, (_, i) => ({ source: 'total', target: `cat:${i}`, value: 100 })),
+      ],
+    },
+  });
+
+  it('keeps the usual height for a few nodes', () => {
+    expect(cashFlowChartHeight(withCategories(3))).toBe(CASH_FLOW_MIN_HEIGHT);
+  });
+
+  it('grows with the busiest column so every two-line label has room', () => {
+    const gap = (option: Record<string, unknown>) => (option.series as Array<{ nodeGap: number }>)[0].nodeGap;
+    const many = withCategories(20);
+
+    expect(gap(buildCashFlowSankey(many, 'light', String))).toBeGreaterThanOrEqual(2 * 17);
+    expect(cashFlowChartHeight(many)).toBeGreaterThanOrEqual(19 * gap(buildCashFlowSankey(many, 'light', String)));
   });
 });

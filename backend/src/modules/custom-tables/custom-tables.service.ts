@@ -53,6 +53,7 @@ import type {
   UpdateCustomTableViewSettingsColumnBody,
   UpdateCustomTableViewsBody,
 } from '../../contracts';
+import { MAX_SOURCE_STATEMENTS } from '../../contracts';
 import {
   ActorType,
   AuditAction,
@@ -102,7 +103,13 @@ import {
 } from './helpers/formula-evaluator';
 import { detectPaidStatus, type PaidStatusInput } from './helpers/paid-status.helper';
 import { orderFormulaColumns } from './helpers/table-evaluator';
-import type { SourceAdapter, SourceFilters, SourceRow, SourceValue } from './sources/source.types';
+import type {
+  SourceAdapter,
+  SourceColumnDef,
+  SourceFilters,
+  SourceRow,
+  SourceValue,
+} from './sources/source.types';
 import { MAX_SOURCE_ROWS } from './sources/source.utils';
 import { SourceWriteBackService } from './write-back/source-write-back.service';
 
@@ -1611,11 +1618,7 @@ export class CustomTablesService {
         column.isRequired = false;
         column.isUnique = false;
         column.position = position;
-        column.config = {
-          ...(def.config ?? {}),
-          ...(def.money ? { precision: 2, ...(currency ? { currency } : {}) } : {}),
-          source: { kind: 'app_field', field: def.field },
-        };
+        column.config = this.sourceColumnConfig(def, currency);
         return column;
       });
       const saved = await columnRepo.save(kept);
@@ -1653,6 +1656,7 @@ export class CustomTablesService {
       return saved;
     });
 
+    table.sourceBinding = { ...binding, fields: adapter.columns.map(def => def.field) };
     const applied = await this.applySourceRows({
       userId,
       workspaceId,
@@ -1780,7 +1784,12 @@ export class CustomTablesService {
           description: dto.description?.trim() || null,
           source: CustomTableSource.MANUAL,
           categoryId,
-          sourceBinding: { kind: adapter.kind, filters, syncedAt: null },
+          sourceBinding: {
+            kind: adapter.kind,
+            filters,
+            syncedAt: null,
+            fields: adapter.columns.map(def => def.field),
+          },
         }),
       );
     } catch (error) {
@@ -1799,11 +1808,7 @@ export class CustomTablesService {
             isRequired: false,
             isUnique: false,
             position,
-            config: {
-              ...(def.config ?? {}),
-              ...(def.money ? { precision: 2, ...(currency ? { currency } : {}) } : {}),
-              source: { kind: 'app_field', field: def.field },
-            },
+            config: this.sourceColumnConfig(def, currency),
           }),
         ),
       );
@@ -1862,11 +1867,13 @@ export class CustomTablesService {
       workspaceId,
       (binding.filters ?? {}) as SourceFilters,
     );
+    const columns = await this.addNewSourceColumns(table, adapter);
+    table.sourceBinding = { ...binding, fields: adapter.columns.map(def => def.field) };
     const result = await this.applySourceRows({
       userId,
       workspaceId,
       table,
-      columns: table.columns ?? [],
+      columns,
       sourceRows,
     });
     await this.logEvent({
@@ -1884,6 +1891,108 @@ export class CustomTablesService {
       },
     });
     return { tableId: table.id, ...result };
+  }
+
+  /**
+   * Adds documents to a table built from documents' transactions, then
+   * refreshes it. Only such a table qualifies: on one bound to a date range or
+   * to picked records, a document filter would narrow the table instead of
+   * growing it. Ids already in the binding are kept once, so a repeat is a no-op.
+   */
+  async addSourceStatements(
+    userId: string,
+    workspaceId: string,
+    tableId: string,
+    statementIds: readonly string[],
+  ): ReturnType<CustomTablesService['refreshFromSource']> {
+    await this.ensureCanEditCustomTables(userId, workspaceId);
+    const table = await this.customTableRepository.findOne({ where: { id: tableId, workspaceId } });
+    if (!table) {
+      throw new NotFoundException(appError('TABLE_NOT_FOUND'));
+    }
+    const binding = table.sourceBinding;
+    const current = binding?.filters?.statementIds;
+    if (binding?.kind !== 'transactions' || !Array.isArray(current) || binding.filters?.ids) {
+      throw new BadRequestException(appError('SOURCE_NOT_DOCUMENTS'));
+    }
+    const requested = [...new Set(statementIds)];
+    const found = await this.statementRepository.count({
+      where: { id: In(requested), workspaceId, deletedAt: IsNull() },
+    });
+    if (found !== requested.length) {
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
+    }
+    const merged = [...new Set([...current.map(String), ...requested])];
+    if (merged.length > MAX_SOURCE_STATEMENTS) {
+      throw new BadRequestException(
+        appError('SOURCE_TOO_MANY_DOCUMENTS', { limit: MAX_SOURCE_STATEMENTS }),
+      );
+    }
+    await this.customTableRepository.update(
+      { id: table.id, workspaceId },
+      { sourceBinding: { ...binding, filters: { ...binding.filters, statementIds: merged } } },
+    );
+    return this.refreshFromSource(userId, workspaceId, table.id);
+  }
+
+  /** A source column's config: the field it shows, plus money precision and currency. */
+  private sourceColumnConfig(def: SourceColumnDef, currency: string | undefined) {
+    return {
+      ...(def.config ?? {}),
+      ...(def.money ? { precision: 2, ...(currency ? { currency } : {}) } : {}),
+      source: { kind: 'app_field', field: def.field },
+    };
+  }
+
+  /**
+   * Gives a bound table a column for each field its source gained since the
+   * table was made (Tags on a transactions table), appended after the others
+   * with the default title. Fields the table already had a column for are
+   * skipped even when the column is gone: the user deleted it. A table made
+   * before `fields` was recorded counts the fields it has columns for, and one
+   * with none gets nothing (refresh then refuses it as before).
+   */
+  private async addNewSourceColumns(
+    table: CustomTable,
+    adapter: SourceAdapter,
+  ): Promise<CustomTableColumn[]> {
+    const existing = table.columns ?? [];
+    const bound = existing
+      .map(column => this.getColumnSourceConfig(column.config))
+      .filter(source => source?.kind === 'app_field' && source.field)
+      .map(source => String(source?.field));
+    if (!bound.length) {
+      return existing;
+    }
+    const known = new Set([...(table.sourceBinding?.fields ?? []), ...bound]);
+    const added = adapter.columns.filter(def => !known.has(def.field));
+    if (!added.length) {
+      return existing;
+    }
+    const currency = existing
+      .map(column => (column.config as { currency?: unknown } | null)?.currency)
+      .find((value): value is string => typeof value === 'string' && value.length === 3);
+    let position = Math.max(-1, ...existing.map(column => column.position ?? 0)) + 1;
+    let created: CustomTableColumn[] = [];
+    try {
+      created = await this.customTableColumnRepository.save(
+        added.map(def =>
+          this.customTableColumnRepository.create({
+            tableId: table.id,
+            key: this.generateColumnKey(),
+            title: def.title.slice(0, 120),
+            type: def.type,
+            isRequired: false,
+            isUnique: false,
+            position: position++,
+            config: this.sourceColumnConfig(def, currency),
+          }),
+        ),
+      );
+    } catch (error) {
+      this.throwHelpfulSchemaError(error);
+    }
+    return [...existing, ...created];
   }
 
   /**

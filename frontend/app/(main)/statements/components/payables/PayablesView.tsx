@@ -7,10 +7,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { Button } from '@/app/components/ui/button';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { useAuth } from '@/app/hooks/useAuth';
+import { useTags } from '@/app/hooks/useTags';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
@@ -27,7 +29,8 @@ import {
 import { queryKeys } from '@/app/lib/query-keys';
 import { getNestedValue, resolveLabel } from '@/app/lib/side-panel-utils';
 import { tokens } from '@/lib/theme-tokens';
-import { StatementsQueueTabs } from '../StatementsQueueTabs';
+import { dueDateSpan, payableFilterExtras } from '../filters/filter-summary';
+import { TransactionsPageTitle } from '../TransactionsPageTitle';
 import { CreatePayableDrawer } from './CreatePayableDrawer';
 import { MarkPaidDialog, type MarkPaidResult } from './MarkPaidDialog';
 import PayableFiltersBar from './PayableFiltersBar';
@@ -170,6 +173,9 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
   const { user, loading: authLoading } = useAuth();
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const { locale } = useLocale();
+  const titleText = useIntlayer('transactionsPageTitle');
+  const tagsText = useIntlayer('tagsPage');
+  const { data: tags } = useTags();
   const router = useRouter();
   const t = useIntlayer('statementsPage');
   const tx = useCallback(
@@ -234,6 +240,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         current.source === nextFilters.source &&
         current.dueDateFrom === nextFilters.dueDateFrom &&
         current.dueDateTo === nextFilters.dueDateTo &&
+        current.tagId === nextFilters.tagId &&
         current.sort === nextFilters.sort
       ) {
         return current;
@@ -275,6 +282,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
         reset: tx(['payables', 'filters', 'reset'], 'Reset'),
         allStatuses: tx(['payables', 'filters', 'allStatuses'], 'All statuses'),
         allSources: tx(['payables', 'filters', 'allSources'], 'All sources'),
+        allTags: tx(['payables', 'filters', 'allTags'], 'All tags'),
         statusOptions: {
           to_pay: dx(['status', 'toPay'], 'To pay', 'To receive'),
           scheduled: tx(['payables', 'status', 'scheduled'], 'Scheduled'),
@@ -493,6 +501,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
     setEditingPayable(null);
     setDrawerOpen(true);
   };
+  useQuickActions([{ id: 'add', label: labels.add, icon: Plus, run: openCreateDrawer }]);
 
   const handleEdit = async (payable: Payable): Promise<void> => {
     await (async () => {
@@ -685,9 +694,21 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
             }}
           >
             <div className="seneca-stmt-toolbar" style={{ width: '100%' }}>
-              <div className="seneca-stmt-toolbar__tabs">
-                <StatementsQueueTabs />
-              </div>
+              <TransactionsPageTitle
+                page={direction === 'receivable' ? 'income' : 'expenses'}
+                span={dueDateSpan(filters.dueDateFrom, filters.dueDateTo)}
+                extras={payableFilterExtras(filters, {
+                  labels: {
+                    search: resolveLabel(getNestedValue(titleText, ['search']), 'Search'),
+                    status: labels.filters.status,
+                    source: labels.filters.source,
+                    tag: tagsText.title.value,
+                  },
+                  statusOptions: labels.filters.statusOptions,
+                  sourceOptions: labels.filters.sourceOptions,
+                  tagOptions: Object.fromEntries((tags ?? []).map(tag => [tag.id, tag.name])),
+                })}
+              />
               <div className="seneca-stmt-toolbar__group">
                 <PayableFiltersBar
                   value={filters}
@@ -701,7 +722,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
                 <Button variant="ghost" onClick={() => router.push('/statements/reconcile')}>
                   {tx(['payables', 'reconcile'], 'Reconcile with the bank')}
                 </Button>
-                <Button onClick={openCreateDrawer}>
+                <Button className="seneca-bottom-bar-source" onClick={openCreateDrawer}>
                   <Plus size={18} aria-hidden />
                   {labels.add}
                 </Button>
@@ -725,6 +746,7 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
             summary={summary}
             locale={locale}
             currency={(currentWorkspace.currency || FALLBACK_CURRENCY).toUpperCase()}
+            direction={direction}
             labels={labels.summary}
           />
 

@@ -18,6 +18,7 @@ import { AuditEventDrawer } from '@/app/audit/components/AuditEventDrawer';
 import { EntityHistoryTimeline } from '@/app/audit/components/EntityHistoryTimeline';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { CheckCircle2, ChevronDown } from '@/app/components/icons';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
@@ -81,7 +82,7 @@ interface GmailReceiptDetailsProps {
   onUnmarkDuplicate: () => Promise<void>;
   onHistorySelect: (event: AuditEvent) => void;
   onHistoryDrawerClose: () => void;
-  onCategorySelect: (id: string) => Promise<void>;
+  onCategorySelect: (id: string, name?: string) => Promise<void>;
   onCategoryDrawerClose: () => void;
   onBulkCategoryClose: () => void;
   onBulkCategoryIdChange: (id: string) => void;
@@ -341,8 +342,10 @@ export function GmailReceiptDetails({
                     </Typography>
                     <Typography variant="caption" sx={{ color: 'warning.800' }}>
                       {formatStoredDate(dup.parsedData?.date || dup.receivedAt)} ·{' '}
-                      {(dup.parsedData?.amount || 0).toLocaleString()}{' '}
-                      {dup.parsedData?.currency || FALLBACK_CURRENCY}
+                      <PrivateAmount>
+                        {(dup.parsedData?.amount || 0).toLocaleString()}{' '}
+                        {dup.parsedData?.currency || FALLBACK_CURRENCY}
+                      </PrivateAmount>
                     </Typography>
                     <Box sx={{ mt: 1 }}>
                       <Button
@@ -417,14 +420,8 @@ export function GmailReceiptDetails({
         selectedCategoryId={selectedCategoryId}
         selecting={categorySaving}
         onSelect={onCategorySelect}
-        labels={{
-          title: t.categoryDrawer.title.value,
-          searchPlaceholder: t.categoryDrawer.searchPlaceholder.value,
-          allOption: t.categoryDrawer.notSelected.value,
-          noResults: t.categoryDrawer.noResults.value,
-        }}
-        width="sm"
-        showAllOption
+        clearLabel={t.categoryDrawer.notSelected.value}
+        onCreated={category => void onCategorySelect(category.id, category.name)}
       />
     </>
   );

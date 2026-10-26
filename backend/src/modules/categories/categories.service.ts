@@ -62,6 +62,14 @@ const REQUIRED_CATEGORY_FIELDS: ReadonlySet<string> = new Set([
   'taxRelevant',
 ]);
 
+/** One category's usage; `lastUsedAt` is the day of its latest transaction (YYYY-MM-DD). */
+type CategoryUsage = {
+  transactions: number;
+  statements: number;
+  total: number;
+  lastUsedAt: string | null;
+};
+
 @Injectable()
 export class CategoriesService {
   private readonly logger = new Logger(CategoriesService.name);
@@ -223,12 +231,14 @@ export class CategoriesService {
 
   async getWorkspaceCategoryUsageCounts(
     workspaceId: string,
-  ): Promise<Record<string, { transactions: number; statements: number; total: number }>> {
+  ): Promise<Record<string, CategoryUsage>> {
     const [transactionsRaw, statementsRaw] = await Promise.all([
       this.transactionRepository
         .createQueryBuilder('transaction')
         .select('transaction.categoryId', 'categoryId')
         .addSelect('COUNT(transaction.id)', 'count')
+        // A date column: formatted in SQL so no time zone shifts the day.
+        .addSelect("TO_CHAR(MAX(transaction.transactionDate), 'YYYY-MM-DD')", 'lastUsedAt')
         // Every row of the workspace, a receipt's or a cash payment's too.
         .where('transaction.workspaceId = :workspaceId', { workspaceId })
         .andWhere('transaction.categoryId IS NOT NULL')
@@ -244,11 +254,16 @@ export class CategoriesService {
         .getRawMany(),
     ]);
 
-    const result: Record<string, { transactions: number; statements: number; total: number }> = {};
+    const result: Record<string, CategoryUsage> = {};
 
     for (const row of transactionsRaw) {
       const catId = row.categoryId;
-      result[catId] = { transactions: Number(row.count), statements: 0, total: Number(row.count) };
+      result[catId] = {
+        transactions: Number(row.count),
+        statements: 0,
+        total: Number(row.count),
+        lastUsedAt: row.lastUsedAt ?? null,
+      };
     }
 
     for (const row of statementsRaw) {
@@ -258,6 +273,7 @@ export class CategoriesService {
           transactions: 0,
           statements: Number(row.count),
           total: Number(row.count),
+          lastUsedAt: null,
         };
       } else {
         result[catId].statements = Number(row.count);

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { TokenIcon } from '@/app/(main)/crypto/components/TokenIcon';
 import { ChevronRight } from '@/app/components/icons';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
@@ -68,7 +69,7 @@ export function CryptoPortfolioCard({
   const overview = (
     <div>
       <div className="seneca-dashboard__card-sub">{t.portfolio}</div>
-      <div className="seneca-dashboard__stat-value" style={VALUE_STYLE}>
+      <div className={`seneca-dashboard__stat-value ${PRIVATE_CLASS}`} style={VALUE_STYLE}>
         {formatAmount(summary.portfolioValue)}
       </div>
       {change !== null && (
@@ -87,9 +88,13 @@ export function CryptoPortfolioCard({
       )}
       <div className="seneca-dashboard__card-sub">
         {monthLabel} ·{' '}
-        <span className="seneca-dashboard__amount--positive">+{formatAmount(summary.income)}</span>{' '}
+        <PrivateAmount className="seneca-dashboard__amount--positive">
+          +{formatAmount(summary.income)}
+        </PrivateAmount>{' '}
         ·{' '}
-        <span className="seneca-dashboard__amount--negative">−{formatAmount(summary.expense)}</span>
+        <PrivateAmount className="seneca-dashboard__amount--negative">
+          −{formatAmount(summary.expense)}
+        </PrivateAmount>
       </div>
     </div>
   );
@@ -121,7 +126,7 @@ export function CryptoPortfolioCard({
               </span>
             </td>
             <td>{coins.format(Number(holding.amount))}</td>
-            <td>{formatAmount(holding.value)}</td>
+            <td className={PRIVATE_CLASS}>{formatAmount(holding.value)}</td>
             <td
               className={
                 holding.unrealizedPercent === null

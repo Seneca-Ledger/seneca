@@ -229,6 +229,7 @@ export function useStatementsView({
   setDuplicateOverrides: ReturnType<typeof useStatementsDuplicates>['setDuplicateOverrides'];
   // selection
   selectedStatementIds: string[];
+  setSelectedStatementIds: (ids: string[]) => void;
   selectedActionsOpen: boolean;
   setSelectedActionsOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
   allVisibleSelected: boolean;
@@ -311,23 +312,43 @@ export function useStatementsView({
     }
     return searchParams.get('missingCategory') === 'true' ? 'uncategorized' : null;
   }, [searchParams]);
+  // A chart links its category or merchant with its period: only that period's rows count.
+  const routeMerchant = searchParams.get('merchant');
+  const transactionsFrom = searchParams.get('transactionsFrom');
+  const transactionsTo = searchParams.get('transactionsTo');
+  const routeRowsFilter = useMemo(
+    () =>
+      routeMerchant || transactionsFrom || transactionsTo
+        ? {
+            ...(routeMerchant ? { merchant: routeMerchant } : {}),
+            ...(transactionsFrom ? { transactionsFrom } : {}),
+            ...(transactionsTo ? { transactionsTo } : {}),
+          }
+        : null,
+    [routeMerchant, transactionsFrom, transactionsTo],
+  );
   const routeReceiptStatus = useMemo(() => searchParams.get('status') || null, [searchParams]);
-  const routeFilterLabel = resolveRouteFilterLabel(routeCategoryId, routeReceiptStatus);
+  const routeFilterLabel =
+    resolveRouteFilterLabel(routeCategoryId, routeReceiptStatus) ??
+    (routeMerchant ? 'Merchant filter' : null);
   // Dashboard widgets link here with the filter in the query string, where the
   // drawer never shows it. Resetting has to clear it too, or the list stays
   // filtered by something the user cannot see.
   const resetRouteFilters = useCallback((): void => {
-    if (!(routeCategoryId || routeReceiptStatus)) {
+    if (!(routeCategoryId || routeReceiptStatus || routeMerchant)) {
       return;
     }
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete('categoryId');
     nextParams.delete('missingCategory');
+    nextParams.delete('merchant');
+    nextParams.delete('transactionsFrom');
+    nextParams.delete('transactionsTo');
     nextParams.delete('status');
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `/statements/submit?${nextQuery}` : '/statements/submit');
     setPage(1);
-  }, [routeCategoryId, routeReceiptStatus, router, searchParams]);
+  }, [routeCategoryId, routeReceiptStatus, routeMerchant, router, searchParams]);
 
   const resetAllFilters = (): void => {
     filterState.resetAllFilters();
@@ -347,6 +368,7 @@ export function useStatementsView({
   } = useStatementsListData({
     appliedFilters: filterState.appliedFilters,
     categoryId: routeCategoryId,
+    rowsFilter: routeRowsFilter,
     receiptStatus: routeReceiptStatus,
     search,
     user,
@@ -363,7 +385,11 @@ export function useStatementsView({
     void loadManualExpenseOptions();
   });
   const initFiltersFromStorage = useEffectEvent(() => {
-    filterState.initFromStorage(searchParams.get('month'));
+    // A chart's link brings its own period; saved filters would hide part of it.
+    filterState.initFromStorage(
+      searchParams.get('month'),
+      Boolean(searchParams.get('transactionsFrom')),
+    );
   });
 
   // Load manual expense options when user is available
@@ -493,6 +519,7 @@ export function useStatementsView({
 
   const {
     selectedStatementIds,
+    setSelectedStatementIds,
     selectedActionsOpen,
     setSelectedActionsOpen,
     allVisibleSelected,
@@ -542,8 +569,9 @@ export function useStatementsView({
     () =>
       computeActiveFilterCount(filterState.appliedFilters) +
       (routeCategoryId ? 1 : 0) +
+      (routeMerchant ? 1 : 0) +
       (routeReceiptStatus ? 1 : 0),
-    [filterState.appliedFilters, routeCategoryId, routeReceiptStatus],
+    [filterState.appliedFilters, routeCategoryId, routeMerchant, routeReceiptStatus],
   );
 
   const visibleFilterScreens = useMemo(
@@ -689,6 +717,7 @@ export function useStatementsView({
     statementReviewCounts,
     setDuplicateOverrides,
     selectedStatementIds,
+    setSelectedStatementIds,
     selectedActionsOpen,
     setSelectedActionsOpen,
     allVisibleSelected,

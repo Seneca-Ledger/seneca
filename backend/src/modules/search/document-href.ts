@@ -34,6 +34,24 @@ export function documentHref(
   return `/storage/${statement.id}`;
 }
 
+/** The file a document's preview shows: a scan's receipt, otherwise the uploaded statement. */
+export interface DocumentFile {
+  source: 'statement' | 'receipt';
+  id: string;
+  fileName: string;
+}
+
+/** The same choice as `documentHref`, so the preview shows the file a click would open. */
+export function documentFile(
+  statement: Pick<Statement, 'id' | 'fileName'>,
+  scanReceipts: Map<string, Pick<Receipt, 'id'>>,
+): DocumentFile {
+  const receipt = scanReceipts.get(statement.id);
+  return receipt
+    ? { source: 'receipt', id: receipt.id, fileName: statement.fileName }
+    : { source: 'statement', id: statement.id, fileName: statement.fileName };
+}
+
 /** A scan uploads as a statement of its own, which the Documents list hides behind its receipt. */
 function isReceiptScanStatement(statement: DocumentHrefStatement): boolean {
   const details = statement.parsingDetails;

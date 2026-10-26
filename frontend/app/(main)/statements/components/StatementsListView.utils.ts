@@ -362,13 +362,22 @@ export const filterEnabledCategories = (
 // Existing helpers (unchanged)
 // ---------------------------------------------------------------------------
 
+/** A chart's merchant and period, sent with its deep link. */
+export type RowsFilter = Pick<
+  StatementsQueryParams,
+  'merchant' | 'transactionsFrom' | 'transactionsTo'
+>;
+
 export const buildStatementRequestParams = ({
   appliedFilters,
   categoryId,
+  rowsFilter,
   search,
 }: {
   appliedFilters: StatementFilters;
   categoryId?: string | null;
+  /** A merchant, and the window the category's or merchant's rows must fall in. */
+  rowsFilter?: RowsFilter | null;
   search?: string;
 }): StatementsQueryParams => {
   const serverSafeFilters: StatementFilters = {
@@ -384,6 +393,7 @@ export const buildStatementRequestParams = ({
   return {
     ...serializeStatementFiltersToQuery(serverSafeFilters),
     ...(categoryId ? { categoryId } : {}),
+    ...(rowsFilter ?? {}),
     ...(search ? { search } : {}),
   };
 };

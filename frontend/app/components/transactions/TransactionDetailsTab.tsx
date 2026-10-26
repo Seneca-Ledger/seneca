@@ -3,11 +3,12 @@
 
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
-import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { ChevronRight } from '@/app/components/icons';
+import { TransactionPayeeSection } from '@/app/components/payees/TransactionPayeeSection';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
-import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { isPrivateCategory, pickableCategories } from '@/app/lib/private-category';
@@ -64,7 +65,6 @@ export function TransactionDetailsTab({
   const { locale } = useLocale();
   const t = useIntlayer('transactionsDrawer');
   const tOwner = useIntlayer('transactionOwner');
-  const isMobile = useIsMobile();
   const [ownerSaving, setOwnerSaving] = useState(false);
   const [privateSaving, setPrivateSaving] = useState(false);
   const members = useWorkspaceMembers();
@@ -214,38 +214,30 @@ export function TransactionDetailsTab({
               {t.splitDialog.category.value}
             </label>
             <div className="seneca-tx-detail__set-cat">
-              <Select
+              <CategoryPickerField
                 id="category-select"
-                value={currentCategoryId}
+                // A category just created is not in `categories` yet; the field still names it.
+                value={currentCategoryId || (transaction.category?.id ?? '')}
+                categories={categoryOptions}
                 onChange={categoryId => void handleUpdateCategory(categoryId)}
                 disabled={updating}
-                options={[
-                  { value: '', label: t.selectCategory.value },
-                  ...categoryOptions.map(cat => {
-                    const name = getCategoryDisplayName(cat, locale);
-                    // The phone's own picker takes text only.
-                    return {
-                      value: cat.id,
-                      label: isMobile ? (
-                        name
-                      ) : (
-                        <span className="seneca-tx-detail__cat-option">
-                          <CategoryIconBadge
-                            name={cat.name}
-                            color={cat.color}
-                            icon={cat.icon}
-                            size={18}
-                          />
-                          {name}
-                        </span>
-                      ),
-                    };
-                  }),
-                ]}
+                placeholder={t.selectCategory.value}
                 sx={{ flex: 1 }}
               />
             </div>
           </div>
+        )}
+
+        {/* Who the money went to or came from, and how that payee is filed */}
+        {!transaction.isPrivate && (
+          <TransactionPayeeSection
+            key={transaction.id}
+            transactionId={transaction.id}
+            payee={transaction.payee ?? null}
+            counterpartyName={transaction.counterpartyName}
+            categories={categoryOptions}
+            transactionCategoryId={transaction.category?.id ?? null}
+          />
         )}
 
         {/* Who in the household it belongs to */}
@@ -442,11 +434,13 @@ export function TransactionDetailsTab({
                 style={{ display: 'block', width: '100%', textAlign: 'left', marginTop: 6 }}
               >
                 {formatDate(candidate.transactionDate, locale)} · {candidate.counterpartyName} ·{' '}
-                {formatAmount(
-                  Math.abs(candidate.amount),
-                  candidate.currency ?? transaction.currency ?? 'KZT',
-                  locale,
-                )}
+                <PrivateAmount>
+                  {formatAmount(
+                    Math.abs(candidate.amount),
+                    candidate.currency ?? transaction.currency ?? 'KZT',
+                    locale,
+                  )}
+                </PrivateAmount>
               </button>
             ))
           )}
@@ -469,7 +463,6 @@ export function TransactionDetailsTab({
           currency={transaction.currency ?? FALLBACK_CURRENCY}
           categories={splitCategories}
           saving={splitSaving}
-          locale={locale}
           onClose={() => setSplitOpen(false)}
           onSubmit={parts => {
             void split(transaction.id, parts);

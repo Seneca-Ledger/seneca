@@ -48,6 +48,18 @@ const sizeToMaxWidth: Record<ModalSize, 'sm' | 'md' | 'lg' | 'xl' | false> = {
   full: false,
 };
 
+/** Spread into `paperSx` for a dialog that takes the whole screen on a phone. */
+export const FULL_SCREEN_ON_PHONE = {
+  '@media (max-width: 1023px)': {
+    m: 0,
+    width: '100%',
+    maxWidth: '100%',
+    height: '100%',
+    maxHeight: '100%',
+    borderRadius: 0,
+  },
+} as const;
+
 const CONFIRM_COLOR: Record<'primary' | 'destructive', 'primary' | 'error'> = {
   primary: 'primary',
   destructive: 'error',
@@ -139,8 +151,7 @@ export function ModalShell({
       fullWidth
       fullScreen={size === 'full'}
       PaperProps={renderPaperProps(className, paperSx)}
-      // A light warm veil, not a heavy grey sheet: no blur, which read as murk.
-      slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(36, 33, 30, 0.2)' } } }}
+      slotProps={{ backdrop: { sx: { backgroundColor: 'var(--modal-backdrop)' } } }}
       aria-labelledby={title ? 'modal-title' : undefined}
     >
       {(title || showCloseButton) && (

@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ChevronDown, Plus, Trash2 } from '@/app/components/icons';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
+import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -295,18 +296,20 @@ function MetalTotalsRow({
           {formatOunces(totals.fineOunces, locale)}
         </Typography>
         <Typography variant="body2">
-          <strong>{money(totals.value)}</strong>
+          <strong className={PRIVATE_CLASS}>{money(totals.value)}</strong>
         </Typography>
         <Typography
           variant="body2"
           sx={{ color: totals.gain >= 0 ? 'success.main' : 'error.main' }}
         >
-          {totals.gain >= 0 ? '+' : '−'}
-          {money(Math.abs(totals.gain))}
+          <PrivateAmount>
+            {totals.gain >= 0 ? '+' : '−'}
+            {money(Math.abs(totals.gain))}
+          </PrivateAmount>
         </Typography>
         {totals.costPerOunce !== null && (
           <Typography variant="body2" color="text.secondary">
-            {t.costPerOunce}: {money(totals.costPerOunce)}
+            {t.costPerOunce}: <PrivateAmount>{money(totals.costPerOunce)}</PrivateAmount>
           </Typography>
         )}
         {totals.realized !== 0 && (
@@ -314,8 +317,11 @@ function MetalTotalsRow({
             variant="body2"
             sx={{ color: totals.realized >= 0 ? 'success.main' : 'error.main' }}
           >
-            {t.realized}: {totals.realized >= 0 ? '+' : '−'}
-            {money(Math.abs(totals.realized))}
+            {t.realized}:{' '}
+            <PrivateAmount>
+              {totals.realized >= 0 ? '+' : '−'}
+              {money(Math.abs(totals.realized))}
+            </PrivateAmount>
           </Typography>
         )}
         <TextField
@@ -530,17 +536,24 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
                     )}
                   </td>
                   <td>{formatOunces(lot.fineOunces, locale)}</td>
-                  <td>{lot.costPerOunce === null ? '—' : money(lot.costPerOunce)}</td>
-                  <td>{lot.cost === null ? '—' : money(lot.cost)}</td>
-                  <td>
-                    {lot.premium === null
-                      ? '—'
-                      : `${lot.premium >= 0 ? '+' : '−'}${money(Math.abs(lot.premium))}${
-                          lot.premiumPercent === null ? '' : ` (${lot.premiumPercent}%)`
-                        }`}
+                  <td className={PRIVATE_CLASS}>
+                    {lot.costPerOunce === null ? '—' : money(lot.costPerOunce)}
                   </td>
-                  <td>{money(lot.value)}</td>
-                  <td>{money(lot.dealerValue)}</td>
+                  <td className={PRIVATE_CLASS}>{lot.cost === null ? '—' : money(lot.cost)}</td>
+                  <td>
+                    {lot.premium === null ? (
+                      '—'
+                    ) : (
+                      <>
+                        <PrivateAmount>
+                          {`${lot.premium >= 0 ? '+' : '−'}${money(Math.abs(lot.premium))}`}
+                        </PrivateAmount>
+                        {lot.premiumPercent === null ? '' : ` (${lot.premiumPercent}%)`}
+                      </>
+                    )}
+                  </td>
+                  <td className={PRIVATE_CLASS}>{money(lot.value)}</td>
+                  <td className={PRIVATE_CLASS}>{money(lot.dealerValue)}</td>
                   <td>
                     {lot.roi === null ? (
                       '—'
@@ -562,6 +575,7 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
                       <Typography
                         component="span"
                         variant="body2"
+                        className={PRIVATE_CLASS}
                         sx={{ color: lot.gain >= 0 ? 'success.main' : 'error.main' }}
                       >
                         {lot.gain >= 0 ? '+' : '−'}
@@ -612,8 +626,11 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
               variant="body2"
               sx={{ color: (summary?.realized ?? 0) >= 0 ? 'success.main' : 'error.main' }}
             >
-              {t.realized}: {(summary?.realized ?? 0) >= 0 ? '+' : '−'}
-              {money(Math.abs(summary?.realized ?? 0))}
+              {t.realized}:{' '}
+              <PrivateAmount>
+                {(summary?.realized ?? 0) >= 0 ? '+' : '−'}
+                {money(Math.abs(summary?.realized ?? 0))}
+              </PrivateAmount>
             </Typography>
           </Box>
           <Box sx={{ overflowX: 'auto' }}>
@@ -641,8 +658,10 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
                     </td>
                     <td>{sale.soldOn}</td>
                     <td>{formatOunces(sale.fineOunces, locale)}</td>
-                    <td>{money(sale.proceeds)}</td>
-                    <td>{sale.costBasis === null ? '—' : money(sale.costBasis)}</td>
+                    <td className={PRIVATE_CLASS}>{money(sale.proceeds)}</td>
+                    <td className={PRIVATE_CLASS}>
+                      {sale.costBasis === null ? '—' : money(sale.costBasis)}
+                    </td>
                     <td>
                       {sale.realized === null ? (
                         '—'
@@ -650,6 +669,7 @@ export function MetalsCard({ currency, locale, embedded = false }: MetalsCardPro
                         <Typography
                           component="span"
                           variant="body2"
+                          className={PRIVATE_CLASS}
                           sx={{ color: sale.realized >= 0 ? 'success.main' : 'error.main' }}
                         >
                           {sale.realized >= 0 ? '+' : '−'}

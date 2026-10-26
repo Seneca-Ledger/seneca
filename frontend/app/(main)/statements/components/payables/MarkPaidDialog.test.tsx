@@ -26,10 +26,15 @@ vi.mock('@/app/hooks/useWorkspaceId', () => ({
   useWorkspaceId: () => 'workspace-1',
 }));
 
-// Every label reads as its own key, so the test finds controls by key.
+// Every label reads as its own key, so the test finds controls by key. Nested
+// dictionaries (the category drawer's `dialog.createTitle`) read the same way.
+const label = (key: string): { value: string } =>
+  new Proxy({ value: key } as Record<string, unknown>, {
+    get: (target, prop) => (prop in target ? target[prop as string] : label(String(prop))),
+  }) as { value: string };
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () =>
-    new Proxy({}, { get: (_target, key) => ({ value: String(key) }) }) as Record<
+    new Proxy({}, { get: (_target, key) => label(String(key)) }) as Record<
       string,
       { value: string }
     >,
@@ -118,9 +123,9 @@ describe('MarkPaidDialog', () => {
     fireEvent.click(screen.getByRole('option', { name: 'Till' }));
 
     // Paying out, so the income category is not offered either.
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'category' }));
-    expect(screen.queryByRole('option', { name: 'Sales' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('option', { name: 'Services' }));
+    fireEvent.click(screen.getByRole('button', { name: 'category' }));
+    expect(screen.queryByRole('button', { name: 'Sales' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Services' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
 
@@ -139,16 +144,16 @@ describe('MarkPaidDialog', () => {
     apiMocks.apiQuery.mockImplementation(async ({ url }: { url: string }) =>
       url === '/wallets'
         ? [walletItem({ id: 'wallet-eur', name: 'Till', currency: 'EUR' })]
-        : [categoryItem({ id: 'cat-ads', name: 'Advertising' })],
+        : [categoryItem({ id: 'cat-ads', name: 'Advertising', isSystem: true, source: 'system' })],
     );
     apiMocks.paymentCandidates.mockResolvedValue([]);
     const { onConfirm } = renderDialog();
 
     fireEvent.click(await screen.findByRole('button', { name: 'modeCash' }));
     await waitFor(() => expect(screen.getByRole('combobox', { name: 'wallet' })).toHaveTextContent('Till'));
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'category' }));
-    expect(screen.queryByRole('option', { name: 'Advertising' })).not.toBeInTheDocument();
-    fireEvent.click(await screen.findByRole('option', { name: 'Реклама' }));
+    fireEvent.click(screen.getByRole('button', { name: 'category' }));
+    expect(screen.queryByRole('button', { name: 'Advertising' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Реклама' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
 

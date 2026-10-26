@@ -279,6 +279,33 @@ export const Repeat = lineIcon(
   ],
   'Repeat',
 );
+export const Calendar = lineIcon(
+  [
+    ['path', { d: 'M8 2v4' }],
+    ['path', { d: 'M16 2v4' }],
+    ['rect', { width: '18', height: '18', x: '3', y: '4', rx: '2' }],
+    ['path', { d: 'M3 10h18' }],
+  ],
+  'Calendar',
+);
+export const Copy = lineIcon(
+  [
+    ['rect', { width: '14', height: '14', x: '8', y: '8', rx: '2', ry: '2' }],
+    ['path', { d: 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2' }],
+  ],
+  'Copy',
+);
+export const AlarmClock = lineIcon(
+  [
+    ['circle', { cx: '12', cy: '13', r: '8' }],
+    ['path', { d: 'M12 9v4l2 2' }],
+    ['path', { d: 'M5 3 2 6' }],
+    ['path', { d: 'm22 6-3-3' }],
+    ['path', { d: 'M6.38 18.7 4 21' }],
+    ['path', { d: 'M17.64 18.67 20 21' }],
+  ],
+  'AlarmClock',
+);
 export const Smartphone = lineIcon(
   [
     ['rect', { width: '14', height: '20', x: '5', y: '2', rx: '2', ry: '2' }],
@@ -345,6 +372,29 @@ export const Wallet = lineIcon(
     ['path', { d: 'M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4' }],
   ],
   'Wallet',
+);
+/**
+ * Not Lucide icons: money in and money out, drawn here on Lucide's grid and
+ * stroke so the pair differs by more than the arrow — a coin dropping into an
+ * open tray, an arrow leaving a closed wallet.
+ */
+export const TrayArrowDown = lineIcon(
+  [
+    ['path', { d: 'M12 3v8' }],
+    ['path', { d: 'm8.5 7.5 3.5 3.5 3.5-3.5' }],
+    ['path', { d: 'M3 13v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6' }],
+    ['circle', { cx: '12', cy: '17', r: '2' }],
+  ],
+  'TrayArrowDown',
+);
+export const WalletArrowUp = lineIcon(
+  [
+    ['path', { d: 'M12 12V3' }],
+    ['path', { d: 'm8.5 6.5 3.5-3.5 3.5 3.5' }],
+    ['path', { d: 'M9 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-4' }],
+    ['path', { d: 'M21 15h-4a1 1 0 0 0 0 2h4' }],
+  ],
+  'WalletArrowUp',
 );
 export const Banknote = lineIcon(
   [

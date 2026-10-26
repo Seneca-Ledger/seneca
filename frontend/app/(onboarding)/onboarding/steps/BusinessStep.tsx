@@ -23,7 +23,10 @@ export function BusinessStep({ locale, taxCountry, business, onChange }: Busines
   const labels = useIntlayer('businessProfile');
 
   return (
-    <Box component="section" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <Box
+      component="section"
+      sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 4, md: 3 } }}
+    >
       <StepHeading
         title={text(['business', 'title'], 'Business details')}
         subtitle={text(

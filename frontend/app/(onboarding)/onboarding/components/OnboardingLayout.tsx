@@ -23,7 +23,9 @@ export function OnboardingLayout({ header, footer, aside, children }: Onboarding
     <Box
       component="main"
       sx={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
+        // From `md` up the split is exactly one screen tall: nothing to scroll.
+        height: { md: '100dvh' },
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
       }}
@@ -33,8 +35,10 @@ export function OnboardingLayout({ header, footer, aside, children }: Onboarding
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '100vh',
+          minHeight: { xs: '100dvh', md: 0 },
           minWidth: 0,
+          // Only a window too short for the step scrolls, and then only this panel.
+          overflowY: { md: 'auto' },
           // CSS variables, not the MUI palette: see AuthLayout, the palette is light
           // for a frame before Providers mounts.
           bgcolor: 'var(--card-bg)',
@@ -44,7 +48,7 @@ export function OnboardingLayout({ header, footer, aside, children }: Onboarding
         }}
       >
         {/* One column for everything: header, questions and buttons share the same edges. */}
-        <Box sx={{ px: { xs: 2, sm: 6 }, pt: { xs: 2.5, sm: 4 } }}>
+        <Box sx={{ px: { xs: 2, sm: 6 }, pt: { xs: 2.5, sm: 3 } }}>
           <Box sx={{ width: '100%', maxWidth: 460, mx: 'auto' }}>{header}</Box>
         </Box>
 
@@ -54,14 +58,14 @@ export function OnboardingLayout({ header, footer, aside, children }: Onboarding
             display: 'flex',
             alignItems: 'center',
             px: { xs: 2, sm: 6 },
-            py: { xs: 4, sm: 6 },
+            py: { xs: 4, sm: 3, md: 2 },
           }}
         >
           <Box sx={{ width: '100%', maxWidth: 460, mx: 'auto' }}>{children}</Box>
         </Box>
 
         {footer ? (
-          <Box sx={{ px: { xs: 2, sm: 6 }, pb: { xs: 2.5, sm: 4 } }}>
+          <Box sx={{ px: { xs: 2, sm: 6 }, pb: { xs: 2.5, sm: 3 } }}>
             <Box sx={{ width: '100%', maxWidth: 460, mx: 'auto' }}>{footer}</Box>
           </Box>
         ) : null}

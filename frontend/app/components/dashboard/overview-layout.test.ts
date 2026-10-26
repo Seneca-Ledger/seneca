@@ -186,34 +186,29 @@ describe('hidden and optional sections', () => {
 });
 
 describe('the shipped layout', () => {
-  it('is the one arranged in the Administrator workspace', () => {
-    // Saved there on 2026-10-15, with the bills and taxes cards switched off.
-    const saved = {
-      rows: [
-        ['getting-started', 'budgets'],
-        ['kpi-income', 'kpi-spent', 'kpi-net', 'kpi-savings'],
-        ['top-categories', 'recent-transactions'],
-        ['safe-to-spend', 'cash-runway'],
-        ['spend-calendar'],
-        ['net-worth', 'upcoming-charges'],
-        ['goals'],
-        ['activity'],
-        ['advice'],
-      ],
-      hidden: ['money-owed', 'taxes'],
-    };
+  // Saved in the Administrator workspace on 2026-10-21, nothing hidden.
+  const administrator = {
+    rows: [
+      ['getting-started', 'budgets'],
+      ['kpi-income', 'kpi-spent', 'kpi-net', 'kpi-savings'],
+      ['cash-flow', 'goals'],
+      ['top-categories', 'recent-transactions'],
+      ['safe-to-spend', 'cash-runway'],
+      ['spend-calendar'],
+      ['net-worth', 'upcoming-charges'],
+      ['activity'],
+      ['advice', 'month-close'],
+    ],
+    hidden: [],
+  };
 
-    expect(normalizeRows(saved)).toEqual(DEFAULT_OVERVIEW_ROWS);
+  it('is the Administrator layout', () => {
+    expect(DEFAULT_OVERVIEW_ROWS).toEqual(administrator.rows);
     expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('money-owed');
     expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('taxes');
   });
-});
 
-describe('isDefaultLayout', () => {
-  it('tells a rearranged layout from the shipped one', () => {
-    expect(isDefaultLayout(DEFAULT_OVERVIEW_ROWS)).toBe(true);
-    expect(isDefaultLayout(moveSection(DEFAULT_OVERVIEW_ROWS, 'kpi-net', 'activity', 'below'))).toBe(
-      false,
-    );
+  it('keeps the saved layout as it was', () => {
+    expect(normalizeRows(administrator)).toEqual(administrator.rows);
   });
 });

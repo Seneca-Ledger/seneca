@@ -11,15 +11,25 @@ $seneca-sidebar-brand-height: 44px;
   // page whose first row is a tab strip puts those tabs level with the logo.
   --global-nav-height: #{$seneca-focus-ring-reach};
   // Top gutter a page adds on its own: none on desktop, where the brand row above
-  // is the gutter. The mobile top bar brings it back below 1024px.
+  // is the gutter. Below 1024px, with no sidebar and nothing above the page, it
+  // comes back.
   --seneca-page-top: 0px;
+  // Side gutter of a page, the one `px: { xs: 2, md: 4 }` gives: 16px, 32px from
+  // MUI's md (900px). Whatever runs above a page (the banners) uses it too, so
+  // their edges line up with the page's.
+  --seneca-page-x: 16px;
   --seneca-sidebar-width-full: 192px;
-  // Collapsed rail: wide enough for the 36px nav pills and their focus ring.
-  --seneca-sidebar-width-rail: 56px;
+  // Collapsed rail: room around the nav pills and their focus ring, so the icons
+  // do not sit against the page.
+  --seneca-sidebar-width-rail: 80px;
   --seneca-sidebar-width: var(--seneca-sidebar-width-full);
 
   display: flex;
   min-height: 100vh;
+
+  @media (min-width: 900px) {
+    --seneca-page-x: 32px;
+  }
 
   &__sidebar {
     width: var(--seneca-sidebar-width);
@@ -62,68 +72,104 @@ $seneca-sidebar-brand-height: 44px;
   }
 }
 
+// The attention banner and the daily quote, above every page: one gutter with
+// the page, 8px between them, and at least 16px down to the page, counting the
+// top padding the page adds itself (none on desktop, 24px on phones and tablets).
+// Gone when neither has anything to show.
+.seneca-page-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px var(--seneca-page-x) max(0px, calc(16px - var(--seneca-page-top)));
+
+  &:empty {
+    display: none;
+  }
+}
+
 // ── Collapsed rail ──
-// The collapse button narrows the shared width variable, so the sidebar and
-// everything laid out from it (the side panel, the page, the panel FAB) move
-// together. Hovering or focusing into the rail puts the full width back the same
-// way, which is why the label-hiding visuals below are scoped to "collapsed and
-// idle" while the rail's sizing holds in both states.
-.seneca-shell:has(.seneca-shell__sidebar--rail) {
+// The pin button narrows the sidebar, and the page beside it reflows once. Nothing
+// else opens it: not hovering, and not the account menu, which opens beside the
+// rail as a menu of its own. Wide pills around the icons, labels folded away.
+.seneca-shell__sidebar--rail {
   --seneca-sidebar-width: var(--seneca-sidebar-width-rail);
-}
 
-// Keyboard focus reopens it the same way hovering does; `:focus-visible`, not
-// `:focus-within`, so clicking the collapse button itself does not hold it open.
-// The open account menu holds it too: the menu is sized to the full sidebar, and
-// the pointer leaves the rail the moment it moves onto the menu.
-.seneca-shell:has(.seneca-shell__sidebar--rail:hover),
-.seneca-shell:has(.seneca-shell__sidebar--rail :focus-visible),
-.seneca-shell:has(.seneca-account__trigger[aria-expanded='true']) {
-  --seneca-sidebar-width: var(--seneca-sidebar-width-full);
-}
-
-// Idle rail: square targets around the icons, labels folded away.
-.seneca-shell__sidebar--rail:not(:hover):not(:has(:focus-visible)):not(
-    :has(.seneca-account__trigger[aria-expanded='true'])
-  ) {
-  // Only the emblem fits across a 56px rail, so it takes the whole row. Its own
-  // side padding goes too, or the emblem sits off the rail's centre line.
+  // Only the emblem fits across the rail: search, the one action kept, goes on a
+  // row under it. Its own side padding goes too, or the emblem sits off the rail's
+  // centre line.
   .seneca-sidebar__brand {
-    justify-content: center;
-    // The gap would still count against the zero-width actions and shift the
-    // emblem a pixel off the column the icons below it sit on.
-    gap: 0;
-    padding: 0;
+    flex-direction: column;
+    gap: 2px;
+    height: auto;
+    padding: 6px 0 2px;
   }
 
   .seneca-sidebar__brand-link {
     padding: 0;
   }
 
-  // Zero width AND no auto margin: an `auto` margin soaks up the free space and
-  // beats `justify-content`, which would leave the emblem pinned to the left.
+  // Inset like the nav below (8px from the rail's edges, less the brand's own
+  // focus-ring margin), so the search pill lines up with the nav pills.
   .seneca-sidebar__brand-actions {
-    flex: 0 0 0;
-    width: 0;
-    min-width: 0;
+    align-self: stretch;
     margin-left: 0;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
+    padding: 0 (8px - $seneca-focus-ring-reach);
+  }
+
+  // Privacy, help, notifications and settings live in the full sidebar only.
+  .seneca-sidebar__brand-action:not(.seneca-sidebar__brand-action--search) {
+    display: none;
+  }
+
+  // Search as a nav row: same height, width, radius, colour, hover and icon.
+  .seneca-sidebar__brand-action--search {
+    width: 100%;
+    height: var(--seneca-sidebar-row, 40px);
+    border-radius: $seneca-radius-md;
+    color: $seneca-color-text-secondary;
+
+    @include dark { color: $seneca-color-text-secondary-dk; }
+
+    &:hover {
+      background: $seneca-color-ink-50;
+      color: $seneca-color-text-primary;
+
+      @include dark {
+        background: $seneca-color-ink-100-dk;
+        color: $seneca-color-text-primary-dk;
+      }
+    }
+
+    .MuiSvgIcon-root {
+      font-size: var(--seneca-sidebar-icon);
+      opacity: 0.7;
+    }
   }
 
   .seneca-sidebar__nav-item,
   .seneca-sidebar__support-link,
   .seneca-account__trigger {
+    // A wide pill across the rail, the icon centred in it.
     justify-content: center;
     gap: 0;
-    width: var(--seneca-sidebar-row, 40px);
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     padding: 0;
+  }
+
+  // An open group on the rail: its icons sit on a soft tile, so they read as the
+  // group's and not as rows of their own.
+  .seneca-sidebar__group-items {
+    margin-left: 0;
+    padding: 2px 0;
+    border-left: 0;
+    border-radius: $seneca-radius-md;
+    background: var(--surface-soft);
   }
 
   // Kept in the DOM so links keep their accessible names.
   .seneca-sidebar__nav-label,
+  .seneca-sidebar__group-caret,
   .seneca-sidebar__support-label,
   .seneca-account__name,
   .seneca-account__caret {
@@ -135,8 +181,39 @@ $seneca-sidebar-brand-height: 44px;
   }
 }
 
+// ── Pin button ──
+// Outside the sidebar, on the seam between it and the page, level with the emblem;
+// it follows the sidebar's edge as the width animates.
+.seneca-shell__sidebar-pin {
+  position: fixed;
+  top: calc(#{$seneca-focus-ring-reach} + #{0.5 * ($seneca-sidebar-brand-height - 24px)});
+  left: calc(var(--seneca-sidebar-width-full) + 4px);
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: $seneca-radius-full;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: left 0.18s ease, background 0.1s, color 0.1s;
+
+  &:hover {
+    background: var(--surface-soft);
+    color: var(--foreground);
+  }
+
+  &--rail {
+    left: calc(var(--seneca-sidebar-width-rail) + 4px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .seneca-shell__sidebar {
+  .seneca-shell__sidebar,
+  .seneca-shell__sidebar-pin {
     transition: none;
   }
 }
@@ -144,7 +221,7 @@ $seneca-sidebar-brand-height: 44px;
 // ── Brand ──
 // Inset from the sidebar edges by the focus-ring reach: the sidebar clips overflow.
 // The wordmark is gone: the emblem alone heads the sidebar and the room it used to
-// take now carries search, notifications, settings and the collapse toggle.
+// take now carries help, search, notifications, settings and the collapse toggle.
 .seneca-sidebar__brand {
   display: flex;
   align-items: center;
@@ -190,8 +267,8 @@ $seneca-sidebar-brand-height: 44px;
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     border: none;
     border-radius: $seneca-radius-full;
     background: transparent;
@@ -283,7 +360,40 @@ $seneca-sidebar-fixed: 2 * $seneca-focus-ring-reach + 17px + 14px;
   gap: 2px;
   // Bottom room keeps the last item's focus ring inside the scroll area.
   padding: 0 8px $seneca-focus-ring-reach;
+  // Without it the nav grows to its content and the whole sidebar scrolls; with it
+  // only the nav does, and the brand row and the footer stay in place.
+  min-height: 0;
   overflow-y: auto;
+
+  // A 4px thumb that shows only while the pointer is over the nav (or focus is in
+  // it). Chromium gets the -webkit- rules alone: once scrollbar-width or
+  // scrollbar-color is set it drops them, and its own "thin" is wider than this.
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border: 0;
+    border-radius: $seneca-radius-full;
+  }
+
+  &:hover::-webkit-scrollbar-thumb,
+  &:focus-within::-webkit-scrollbar-thumb {
+    background: $seneca-color-ink-200;
+
+    @include dark { background: $seneca-color-ink-300-dk; }
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+
+    &:hover,
+    &:focus-within {
+      scrollbar-color: var(--border) transparent;
+    }
+  }
 }
 
 // One size for the whole sidebar: pinned open, peeked open or collapsed, the rows
@@ -349,6 +459,35 @@ $seneca-sidebar-fixed: 2 * $seneca-focus-ring-reach + 17px + 14px;
     flex-shrink: 0;
     opacity: 0.7;
   }
+}
+
+// ── Groups ──
+// A header row like the items, with a caret; its items hang under it on a hairline.
+.seneca-sidebar__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.seneca-sidebar__group-caret {
+  display: flex;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+
+  .seneca-sidebar__group-toggle[aria-expanded='true'] & {
+    transform: rotate(180deg);
+  }
+}
+
+.seneca-sidebar__group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 18px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
 }
 
 // The Review icon with its waiting dot; a slot of its own because the icon is dimmed.
@@ -463,70 +602,6 @@ $seneca-sidebar-fixed: 2 * $seneca-focus-ring-reach + 17px + 14px;
   }
 }
 
-// ── TopBar ──
-// Mobile only: on desktop the sidebar carries everything this bar used to hold,
-// so it is switched on in the narrow breakpoint below instead.
-.seneca-topbar {
-  height: 52px;
-  display: none;
-  align-items: center;
-  gap: 8px;
-  padding: 0 20px;
-  // Same colour as the page behind it, no divider: the bar blends into the page.
-  background: $seneca-color-bg;
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  flex-shrink: 0;
-
-  @include dark {
-    background: $seneca-color-bg-dk;
-  }
-
-  &__mobile-logo {
-    display: none;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-    text-decoration: none;
-
-    // The brand lockup, sized for the top bar.
-    &-mark {
-      font-size: $seneca-font-size-sm;
-    }
-  }
-
-  &__update {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 12px;
-    border-radius: $seneca-radius-full;
-    font-size: 13px;
-    font-weight: 600;
-    color: #fff;
-    text-decoration: none;
-    white-space: nowrap;
-    background: linear-gradient(100deg, #10b981, #06b6d4, #3b82f6, #10b981);
-    background-size: 300% 100%;
-    animation: seneca-topbar-update-shimmer 4s linear infinite;
-
-    &:hover {
-      filter: brightness(1.08);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      animation: none;
-      background-position: 0 0;
-    }
-  }
-}
-
-@keyframes seneca-topbar-update-shimmer {
-  to { background-position: -300% 0; }
-}
-
 // ── Brand lockup (BrandLockup.tsx) ──
 // The emblem and the product name as text, so APP_NAME can rename it. Sized by
 // font-size alone: the mark follows the text.
@@ -576,24 +651,16 @@ $seneca-sidebar-fixed: 2 * $seneca-focus-ring-reach + 17px + 14px;
 }
 
 @media (max-width: 1023px) {
-  // The top bar is back as a real row here, so the shell adds no gutter; the page
-  // keeps its own, since there is no brand row beside it to line up with.
+  // No sidebar and no top bar here: the page starts at the top of the screen and
+  // keeps a gutter of its own, since there is no brand row beside it to line up with.
   .seneca-shell {
     --global-nav-height: 0px;
     --seneca-page-top: 24px;
   }
 
-  .seneca-shell__sidebar {
+  .seneca-shell__sidebar,
+  .seneca-shell__sidebar-pin {
     display: none;
-  }
-
-  .seneca-topbar {
-    display: flex;
-  }
-
-  .seneca-topbar__mobile-logo {
-    display: flex;
-    flex: 1;
   }
 
   .seneca-shell__content > main {

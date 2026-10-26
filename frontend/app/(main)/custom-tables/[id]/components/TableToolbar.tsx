@@ -1,9 +1,19 @@
 'use client';
 
-import { useRef } from 'react';
+import MenuList from '@mui/material/MenuList';
+import { useRef, useState } from 'react';
 import { StatementsSearchPopover } from '@/app/(main)/statements/components/filters/StatementsSearchPopover';
-import { MoreHorizontal, Plus, SlidersHorizontal, Trash2, X } from '@/app/components/icons';
+import {
+  Maximize,
+  Minimize,
+  MoreHorizontal,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
+import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -34,6 +44,8 @@ export interface TableToolbarLabels {
   deleteSelected: string;
   view: string;
   more: string;
+  fullscreen: string;
+  exitFullscreen: string;
   clearSelection: string;
   addSummary: string;
   restoreDefault: string;
@@ -49,6 +61,8 @@ interface TableToolbarProps {
   onGroupByChange: (key: string | null) => void;
   selectedCount: number;
   exporting: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onAddRow: () => void;
   onAddColumn: () => void;
   onAddSummary: () => void;
@@ -69,7 +83,7 @@ interface TableToolbarProps {
 
 const fill = (template: string, count: number) => template.replace('{{count}}', String(count));
 
-/** Grouping and column visibility, behind one quiet "View" button. */
+/** Grouping and column visibility, behind one quiet "View" button that opens a side panel. */
 function ViewMenu({
   columns,
   columnVisibility,
@@ -89,50 +103,51 @@ function ViewMenu({
   const hidden = columns.filter(column => columnVisibility[column.key] === false);
   const groupable = columns.filter(column => column.type !== 'formula' && column.type !== 'ai');
   const changes = hidden.length + (groupBy ? 1 : 0);
+  const [open, setOpen] = useState(false);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" type="button">
-          <SlidersHorizontal size={16} aria-hidden />
-          {labels.view}
-          {changes ? <span className="seneca-grid__menu-count">{changes}</span> : null}
-        </Button>
-      </DropdownMenuTrigger>
-      {/* MUI Menu walks its children for focus; a Fragment hides them, so give it arrays. */}
-      <DropdownMenuContent align="end" className="seneca-ct__view-menu">
-        <DropdownMenuLabel>{labels.groupBy}</DropdownMenuLabel>
-        {[{ key: '', title: labels.groupNone }, ...groupable].map(column => (
-          <DropdownMenuCheckboxItem
-            key={`group-${column.key}`}
-            checked={(groupBy ?? '') === column.key}
-            onCheckedChange={() => onGroupByChange(column.key || null)}
-          >
-            {column.title}
-          </DropdownMenuCheckboxItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>{labels.columns}</DropdownMenuLabel>
-        {columns.map(column => (
-          <DropdownMenuCheckboxItem
-            key={column.key}
-            checked={columnVisibility[column.key] !== false}
-            onCheckedChange={visible =>
-              onColumnVisibilityChange({ ...columnVisibility, [column.key]: visible })
-            }
-          >
-            {column.title}
-          </DropdownMenuCheckboxItem>
-        ))}
-        {hidden.length
-          ? [
-              <DropdownMenuSeparator key="separator" />,
-              <DropdownMenuItem key="show-all" onClick={() => onColumnVisibilityChange({})}>
-                {labels.showAllColumns}
-              </DropdownMenuItem>,
-            ]
-          : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <Button variant="ghost" size="sm" type="button" onClick={() => setOpen(true)}>
+        <SlidersHorizontal size={16} aria-hidden />
+        {labels.view}
+        {changes ? <span className="seneca-grid__menu-count">{changes}</span> : null}
+      </Button>
+      <DrawerShell isOpen={open} onClose={() => setOpen(false)} title={labels.view} width="sm">
+        {/* MenuList walks its children for focus; a Fragment hides them, so give it arrays. */}
+        <MenuList>
+          <DropdownMenuLabel>{labels.groupBy}</DropdownMenuLabel>
+          {[{ key: '', title: labels.groupNone }, ...groupable].map(column => (
+            <DropdownMenuCheckboxItem
+              key={`group-${column.key}`}
+              checked={(groupBy ?? '') === column.key}
+              onCheckedChange={() => onGroupByChange(column.key || null)}
+            >
+              {column.title}
+            </DropdownMenuCheckboxItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>{labels.columns}</DropdownMenuLabel>
+          {columns.map(column => (
+            <DropdownMenuCheckboxItem
+              key={column.key}
+              checked={columnVisibility[column.key] !== false}
+              onCheckedChange={visible =>
+                onColumnVisibilityChange({ ...columnVisibility, [column.key]: visible })
+              }
+            >
+              {column.title}
+            </DropdownMenuCheckboxItem>
+          ))}
+          {hidden.length
+            ? [
+                <DropdownMenuSeparator key="separator" />,
+                <DropdownMenuItem key="show-all" onClick={() => onColumnVisibilityChange({})}>
+                  {labels.showAllColumns}
+                </DropdownMenuItem>,
+              ]
+            : null}
+        </MenuList>
+      </DrawerShell>
+    </>
   );
 }
 
@@ -283,7 +298,28 @@ export function TableToolbar(props: TableToolbarProps) {
             onRestoreDefault={props.onRestoreDefault}
             labels={labels}
           />
-          <Button size="sm" type="button" onClick={props.onAddRow}>
+          <Button
+            variant="ghost"
+            size="icon"
+            type="button"
+            className="seneca-ct__fullscreen-toggle"
+            aria-label={props.expanded ? labels.exitFullscreen : labels.fullscreen}
+            aria-pressed={props.expanded}
+            onClick={props.onToggleExpanded}
+          >
+            {props.expanded ? (
+              <Minimize size={18} aria-hidden />
+            ) : (
+              <Maximize size={18} aria-hidden />
+            )}
+          </Button>
+          {/* On a phone the bottom bar's "+" adds the row. */}
+          <Button
+            size="sm"
+            type="button"
+            className="seneca-bottom-bar-source"
+            onClick={props.onAddRow}
+          >
             <Plus size={18} aria-hidden />
             {labels.addRow}
           </Button>

@@ -132,12 +132,12 @@ export const SpendFlow = Schema.Struct({
   nodes: Schema.Array(
     Schema.Struct({
       id: Schema.String,
-      kind: Schema.Literals(['total', 'category', 'subcategory', 'merchant', 'other']),
+      kind: Schema.Literals(['total', 'category', 'subcategory', 'merchant', 'tag', 'other']),
       name: Schema.NullOr(Schema.String),
       amount: Schema.Number,
       share: Schema.Number,
       color: Schema.NullOr(Schema.String),
-      /** How many small merchants an `other` node stands for. */
+      /** How many small merchants (or tags) an `other` node stands for. */
       mergedCount: Schema.optional(Schema.Number),
     }),
   ),

@@ -3,6 +3,7 @@
 import EventRepeatOutlined from '@mui/icons-material/EventRepeatOutlined';
 import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -72,11 +73,16 @@ export function UpcomingChargesCard({
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
   const flags = summary.data
     ? [
-        summary.data.priceChangeCount > 0 &&
-          fill(t.priceChanges.value, { count: String(summary.data.priceChangeCount) }),
-        summary.data.duplicateCount > 0 &&
-          fill(t.duplicates.value, { count: String(summary.data.duplicateCount) }),
-      ].filter((flag): flag is string => Boolean(flag))
+        summary.data.priceChangeCount > 0 && {
+          label: fill(t.priceChanges.value, { count: String(summary.data.priceChangeCount) }),
+          // Rings every subscription whose price changed (data-attention-group).
+          href: '/subscriptions?focus=price-changed',
+        },
+        summary.data.duplicateCount > 0 && {
+          label: fill(t.duplicates.value, { count: String(summary.data.duplicateCount) }),
+          href: undefined,
+        },
+      ].filter((flag): flag is { label: string; href: string | undefined } => Boolean(flag))
     : [];
 
   return (
@@ -102,7 +108,11 @@ export function UpcomingChargesCard({
                     ? `${formatStoredDateWithOptions(day, { day: 'numeric', month: 'short' })} · ${relative.format(offset, 'day')}`
                     : undefined
                 }
-                trailing={formatMoney(Number(item.amount), item.currency, locale)}
+                trailing={
+                  <PrivateAmount>
+                    {formatMoney(Number(item.amount), item.currency, locale)}
+                  </PrivateAmount>
+                }
               />
             );
           })}
@@ -110,7 +120,7 @@ export function UpcomingChargesCard({
       )}
       {summary.data && summary.data.totalMonthlyCost > 0 && (
         <p className="seneca-dashboard__card-note seneca-dashboard__card-note--footer">
-          {fill(t.upcomingMonthly.value, {
+          {fillTemplateNodes(t.upcomingMonthly.value, {
             amount: formatAmount(summary.data.totalMonthlyCost),
           })}
         </p>
@@ -118,8 +128,8 @@ export function UpcomingChargesCard({
       {flags.length > 0 && (
         <ChipGroup>
           {flags.map(flag => (
-            <Chip key={flag} tone="warning">
-              {flag}
+            <Chip key={flag.label} tone="warning" href={flag.href}>
+              {flag.label}
             </Chip>
           ))}
         </ChipGroup>

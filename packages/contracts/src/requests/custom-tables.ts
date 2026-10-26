@@ -66,6 +66,9 @@ export type CreateCustomTableFromDataEntryCustomTabBody = Wire<
   typeof CreateCustomTableFromDataEntryCustomTabBody
 >;
 
+/** How many documents one table can be built from. */
+export const MAX_SOURCE_STATEMENTS = 500;
+
 /** Union of every source's filters; each adapter reads only its own. */
 export const SourceFiltersInput = Schema.Struct({
   dateFrom: optionalNullable(IsoDateString),
@@ -75,8 +78,11 @@ export const SourceFiltersInput = Schema.Struct({
   ),
   type: optionalNullable(Schema.String.check(Schema.isMaxLength(32))),
   currency: optionalNullable(Schema.String.check(Schema.isBetweenLength(3, 3))),
+  /** Documents a table is built from; the Documents list adds to it later (see AddSourceStatementsBody). */
   statementIds: optionalNullable(
-    Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(10)),
+    Schema.Array(Schema.String.check(Schema.isUUID())).check(
+      Schema.isMaxLength(MAX_SOURCE_STATEMENTS),
+    ),
   ),
   status: optionalNullable(Schema.String.check(Schema.isMaxLength(32))),
   direction: optionalNullable(Schema.String.check(Schema.isMaxLength(32))),
@@ -106,6 +112,18 @@ export const CreateCustomTableFromSourceBody = PreviewCustomTableSourceBody.mapF
   }),
 );
 export type CreateCustomTableFromSourceBody = Wire<typeof CreateCustomTableFromSourceBody>;
+
+/**
+ * `POST /custom-tables/:id/source-statements`: more documents for a table built
+ * from documents' transactions. The table then refreshes from its source.
+ */
+export const AddSourceStatementsBody = Schema.Struct({
+  statementIds: Schema.Array(Schema.String.check(Schema.isUUID())).check(
+    Schema.isMinLength(1),
+    Schema.isMaxLength(100),
+  ),
+});
+export type AddSourceStatementsBody = Wire<typeof AddSourceStatementsBody>;
 
 export const PreviewFormulaBody = Schema.Struct({
   expression: Schema.String.check(Schema.isMaxLength(500)),

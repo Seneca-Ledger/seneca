@@ -119,7 +119,7 @@ function entityRoute(notification: NotificationLink): string | null {
     return '/statements';
   }
   if (entityType === 'category') {
-    return '/workspaces/categories';
+    return '/categories';
   }
   if (entityType === 'workspace') {
     return '/workspaces/overview';

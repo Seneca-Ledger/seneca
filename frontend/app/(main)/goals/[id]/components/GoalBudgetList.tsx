@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { formatMoney } from '@/app/lib/format-money';
 import type { GoalFlowBudget } from '@/app/lib/goals-api';
 import { tokens } from '@/lib/theme-tokens';
@@ -55,9 +56,9 @@ export function GoalBudgetList({
                 {budget.name}
               </Typography>
               <Typography variant="body2">
-                {formatAmount(budget.actualMonthly)}{' '}
+                <PrivateAmount>{formatAmount(budget.actualMonthly)}</PrivateAmount>{' '}
                 <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
-                  / {formatAmount(budget.plannedMonthly)}
+                  / <PrivateAmount>{formatAmount(budget.plannedMonthly)}</PrivateAmount>
                 </Typography>
               </Typography>
             </Box>
@@ -72,9 +73,12 @@ export function GoalBudgetList({
                 keeps the two screens reconcilable instead of leaving the monthly
                 figure looking like a discrepancy. */}
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {nativePeriodLabel}: {formatAmount(budget.nativePeriod.actual)} /{' '}
-              {formatMoney(budget.limitAmount, budget.limitCurrency, locale)} ·{' '}
-              {formatGoalDate(budget.nativePeriod.start, locale)} —{' '}
+              {nativePeriodLabel}:{' '}
+              <PrivateAmount>{formatAmount(budget.nativePeriod.actual)}</PrivateAmount> /{' '}
+              <PrivateAmount>
+                {formatMoney(budget.limitAmount, budget.limitCurrency, locale)}
+              </PrivateAmount>{' '}
+              · {formatGoalDate(budget.nativePeriod.start, locale)} —{' '}
               {formatGoalDate(budget.nativePeriod.end, locale)}
             </Typography>
           </Box>

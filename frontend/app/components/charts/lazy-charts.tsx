@@ -26,17 +26,7 @@ export const LazyCategoryDonut = dynamic(
   { ssr: false, loading: ChartSkeleton },
 );
 
-export const LazyMonthlyStackedBars = dynamic(
-  () => import('./MonthlyStackedBars').then(module => module.MonthlyStackedBars),
-  { ssr: false, loading: ChartSkeleton },
-);
-
 export const LazyRoiLines = dynamic(() => import('./RoiLines').then(module => module.RoiLines), {
   ssr: false,
   loading: ChartSkeleton,
 });
-
-export const LazySpendTrendBars = dynamic(
-  () => import('./SpendTrendBars').then(module => module.SpendTrendBars),
-  { ssr: false, loading: ChartSkeleton },
-);

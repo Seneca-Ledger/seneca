@@ -1,26 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
   type FindOperator,
   In,
   IsNull,
-  type ObjectLiteral,
   type Repository,
   type SelectQueryBuilder,
 } from 'typeorm';
 import { flowsSql, onlyFlows } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import { canReadPrivate, PRIVATE_PLACEHOLDER } from '../../common/utils/transaction-privacy.util';
 import type {
   DashboardActionItem,
+  DashboardCashFlowEntriesResponse,
+  DashboardCashFlowEntry,
   DashboardCashFlowPoint,
   DashboardCommitmentDay,
   DashboardCommitmentItem,
   DashboardCommitmentsResponse,
   DashboardDataHealth,
   DashboardFinancialSnapshot,
-  DashboardHealthHistoryResponse,
-  DashboardHealthMonth,
   DashboardMonthlyCashFlowResponse,
   DashboardRecentTransaction,
   DashboardResponse,
@@ -39,6 +39,7 @@ import {
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
+import { BudgetsService } from '../budgets/budgets.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import {
   pendingReceiptsQuery,
@@ -55,7 +56,6 @@ import {
   getCashFlowRangeBounds,
   getMonthWindowBounds,
   getWindowBounds,
-  getYearWindowBounds,
   parseMonthWindow,
 } from './dashboard-window.util';
 
@@ -69,13 +69,6 @@ const UNCATEGORIZED_KEY = '__uncategorized__';
  * Which history counter a statement in each status feeds. What waits for review
  * is counted from the Review queue itself (its rows), not from statement statuses.
  */
-const STATEMENT_STATUS_METRIC: Partial<
-  Record<string, 'statementErrors' | 'statementsPendingSubmit'>
-> = {
-  [StatementStatus.ERROR]: 'statementErrors',
-  [StatementStatus.UPLOADED]: 'statementsPendingSubmit',
-};
-
 /** A period's trends, every amount already in the workspace currency. */
 interface TrendRows {
   daily: Map<string, DashboardCashFlowPoint>;
@@ -90,7 +83,7 @@ interface TrendRows {
   totals: { income: number; expense: number; rows: number };
 }
 
-/** The categories and payers the Trends tab lists. */
+/** The categories and payers a period's trends list. */
 const TREND_LIST_LIMIT = 10;
 
 /** Rows for the recent-transactions card with the row to itself; a half-width card shows six. */
@@ -137,6 +130,8 @@ export class DashboardService {
     @InjectRepository(Subscription)
     private readonly subscriptionRepo: Repository<Subscription>,
     private readonly exchangeRatesService: ExchangeRatesService,
+    @Inject(forwardRef(() => BudgetsService))
+    private readonly budgetsService: BudgetsService,
   ) {}
 
   async getDashboard(
@@ -182,7 +177,7 @@ export class DashboardService {
     // cash-flow buckets daily (see getTransactionGroupFormat) for month mode.
     const bucketDays = isMonth ? daysInMonth(effectiveWindow.since) : days;
 
-    // The month dashboard counts its queues (Finance Ops, Data Health) for that month too;
+    // The month dashboard counts its queues (the month close) for that month too;
     // the rolling 7d/30d/90d ranges keep the live, all-time queue totals.
     const queueWindow = isMonth ? effectiveWindow : null;
 
@@ -505,7 +500,41 @@ export class DashboardService {
       this.getTransactionGroupFormat(days),
       targetCurrency,
     );
-    return this.fillCashFlowWindow(points, since, endDate, days);
+    // Weekly buckets (90 days) keep no budgeted share: budgets are judged day by day.
+    if (days < 90 && points.size > 0) {
+      await this.addBudgeted(points, workspaceId, since, endDate, targetCurrency);
+    }
+    return this.fillCashFlowWindow(points, since, endDate, days, date => ({
+      date,
+      income: 0,
+      expense: 0,
+      budgeted: 0,
+    }));
+  }
+
+  /**
+   * Each day's spending a budget still had room for, converted like the expense bar and never
+   * more than it (the budgets and the cash flow filter documents slightly differently).
+   */
+  private async addBudgeted(
+    points: Map<string, DashboardCashFlowPoint>,
+    workspaceId: string,
+    since: Date,
+    endDate: Date,
+    targetCurrency: string,
+  ): Promise<void> {
+    const rows = await this.budgetsService.withinLimitSpending(workspaceId, since, endDate);
+    for (const row of rows) {
+      const point = points.get(row.date);
+      if (!point) continue;
+      const amount = await this.convertDashboardAmount(
+        row.amount,
+        row.currency,
+        targetCurrency,
+        workspaceId,
+      );
+      point.budgeted = Math.min(point.expense, point.budgeted + amount);
+    }
   }
 
   /**
@@ -562,6 +591,87 @@ export class DashboardService {
     };
   }
 
+  /**
+   * The rows behind one month's daily cash flow, named, for the card's day tooltip. Same filters
+   * and sides as `sumCashFlowByBucket`, so the names add up to the bar they sit on.
+   */
+  async getCashFlowEntries(
+    workspaceId: string,
+    month: string,
+    viewerMemberId: string | null,
+  ): Promise<DashboardCashFlowEntriesResponse> {
+    const window = parseMonthWindow(month);
+    if (!window) {
+      return { entries: [] };
+    }
+    const currency = await this.getWorkspaceCurrency(workspaceId);
+    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
+    this.applyActiveStatementTransactionFilters(query, workspaceId, window.since, window.endDate);
+
+    const [rows, withinLimit] = await Promise.all([
+      query
+        .select('t.id', 'id')
+        .addSelect("TO_CHAR(t.transactionDate, 'YYYY-MM-DD')", 'date')
+        .addSelect('t.counterpartyName', 'counterpartyName')
+        .addSelect('s.fileName', 'fileName')
+        .addSelect('t.transactionType', 'transactionType')
+        .addSelect('t.debit', 'debit')
+        .addSelect('t.credit', 'credit')
+        .addSelect('t.currency', 'currency')
+        .addSelect('t.isPrivate', 'isPrivate')
+        .addSelect('t.ownerMemberId', 'ownerMemberId')
+        .andWhere('t.transactionType IN (:...sides)', {
+          sides: [TransactionType.INCOME, TransactionType.EXPENSE],
+        })
+        .getRawMany<{
+          id: string;
+          date: string;
+          counterpartyName: string | null;
+          fileName: string | null;
+          transactionType: TransactionType;
+          debit: string | null;
+          credit: string | null;
+          currency: string;
+          isPrivate: boolean;
+          ownerMemberId: string | null;
+        }>(),
+      this.budgetsService.withinLimitSpending(workspaceId, window.since, window.endDate),
+    ]);
+    const budgetedById = new Map(withinLimit.map(row => [row.transactionId, row]));
+
+    const entries: DashboardCashFlowEntry[] = [];
+    for (const row of rows) {
+      const kind = row.transactionType === TransactionType.INCOME ? 'income' : 'expense';
+      const raw = kind === 'income' ? row.credit : row.debit;
+      const amount = round2(
+        await this.convertDashboardAmount(raw ?? '0', row.currency, currency, workspaceId),
+      );
+      if (amount <= 0) {
+        continue;
+      }
+      const name = canReadPrivate(row, viewerMemberId)
+        ? row.counterpartyName?.trim() || row.fileName?.trim() || PRIVATE_PLACEHOLDER
+        : PRIVATE_PLACEHOLDER;
+      const within = kind === 'expense' ? budgetedById.get(row.id) : undefined;
+      const budgeted = within
+        ? Math.min(
+            amount,
+            round2(
+              await this.convertDashboardAmount(
+                within.amount,
+                within.currency,
+                currency,
+                workspaceId,
+              ),
+            ),
+          )
+        : 0;
+      entries.push({ date: row.date, name, kind, amount, budgeted });
+    }
+    entries.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount);
+    return { entries };
+  }
+
   /** Income/expense per `TO_CHAR` bucket, every currency converted into `targetCurrency`. */
   private async sumCashFlowByBucket(
     workspaceId: string,
@@ -594,7 +704,7 @@ export class DashboardService {
 
     const points = new Map<string, DashboardCashFlowPoint>();
     for (const row of result) {
-      const point = points.get(row.date) ?? { date: row.date, income: 0, expense: 0 };
+      const point = points.get(row.date) ?? { date: row.date, income: 0, expense: 0, budgeted: 0 };
       point.income += await this.convertDashboardAmount(
         row.income,
         row.currency,
@@ -1030,170 +1140,6 @@ export class DashboardService {
       .andWhere("jsonb_array_length(COALESCE(s.parsing_details->'warnings', '[]'::jsonb)) > 0");
   }
 
-  /**
-   * Per-month history of the queues shown on Data Health and Finance Ops, for one calendar year.
-   * Nothing is stored: each item is counted in the month it is dated by, so fixing old data
-   * changes old months too.
-   */
-  async getHealthHistory(
-    workspaceId: string,
-    year: number,
-  ): Promise<DashboardHealthHistoryResponse> {
-    const now = new Date();
-    if (year > now.getFullYear()) {
-      return { year, months: [] };
-    }
-    const window = getYearWindowBounds(year);
-    const lastMonthIndex = year === now.getFullYear() ? now.getMonth() : 11;
-    const months = new Map<string, DashboardHealthMonth>();
-    for (let index = 0; index <= lastMonthIndex; index++) {
-      const month = `${year}-${String(index + 1).padStart(2, '0')}`;
-      months.set(month, {
-        month,
-        transactions: 0,
-        uncategorized: 0,
-        statementsUploaded: 0,
-        statementErrors: 0,
-        statementsPendingReview: 0,
-        statementsPendingSubmit: 0,
-        parsingWarnings: 0,
-        receiptsPendingReview: 0,
-        overduePayments: 0,
-      });
-    }
-
-    const [
-      transactionRows,
-      uncategorizedRows,
-      statementRows,
-      warningRows,
-      pendingReceiptRows,
-      overdueRows,
-      reviewRows,
-      reviewDuplicateRows,
-    ] = await Promise.all([
-      this.getTransactionHistoryRows(workspaceId, window),
-      this.countByMonth(
-        uncategorizedRowsQuery(this.transactionRepo, workspaceId),
-        QUEUE_DATE_COLUMN.row,
-        window,
-      ),
-      this.getStatementStatusHistoryRows(workspaceId, window),
-      this.countByMonth(this.createParsingWarningsQuery(workspaceId), 's.createdAt', window),
-      this.countByMonth(
-        pendingReceiptsQuery(this.receiptRepo, workspaceId),
-        QUEUE_DATE_COLUMN.receipt,
-        window,
-      ),
-      this.countByMonth(
-        this.payableRepo
-          .createQueryBuilder('p')
-          .where('p.workspaceId = :workspaceId', { workspaceId })
-          .andWhere('p.status = :overdue', { overdue: PayableStatus.OVERDUE })
-          .andWhere('p.deletedAt IS NULL'),
-        'p.dueDate',
-        window,
-      ),
-      this.countByMonth(
-        unconfirmedRowsQuery(this.transactionRepo, workspaceId),
-        QUEUE_DATE_COLUMN.row,
-        window,
-      ),
-      this.countByMonth(
-        reviewDuplicatesQuery(this.transactionRepo, workspaceId),
-        QUEUE_DATE_COLUMN.row,
-        window,
-      ),
-    ]);
-
-    const add = (
-      month: string,
-      key: Exclude<keyof DashboardHealthMonth, 'month'>,
-      count: string,
-    ): void => {
-      const entry = months.get(month);
-      if (entry) {
-        entry[key] += Number.parseInt(count, 10) || 0;
-      }
-    };
-    for (const row of transactionRows) {
-      add(row.month, 'transactions', row.total);
-    }
-    for (const row of uncategorizedRows) {
-      add(row.month, 'uncategorized', row.count);
-    }
-    for (const row of statementRows) {
-      add(row.month, 'statementsUploaded', row.count);
-      const metric = STATEMENT_STATUS_METRIC[row.status];
-      if (metric) {
-        add(row.month, metric, row.count);
-      }
-    }
-    for (const row of warningRows) {
-      add(row.month, 'parsingWarnings', row.count);
-    }
-    for (const row of pendingReceiptRows) {
-      add(row.month, 'receiptsPendingReview', row.count);
-    }
-    for (const row of overdueRows) {
-      add(row.month, 'overduePayments', row.count);
-    }
-    for (const row of [...reviewRows, ...reviewDuplicateRows]) {
-      add(row.month, 'statementsPendingReview', row.count);
-    }
-
-    return { year, months: Array.from(months.values()) };
-  }
-
-  private getTransactionHistoryRows(
-    workspaceId: string,
-    window: DashboardWindow,
-  ): Promise<Array<{ month: string; total: string }>> {
-    const query = this.transactionRepo.createQueryBuilder('t').leftJoin('t.statement', 's');
-    // Data health counts every row, confirmed or not: it shows what needs work.
-    this.applyActiveStatementTransactionFilters(query, workspaceId, window.since, window.endDate, {
-      confirmedOnly: false,
-    });
-    return query
-      .select("TO_CHAR(t.transactionDate, 'YYYY-MM')", 'month')
-      .addSelect('COUNT(t.id)', 'total')
-      .groupBy("TO_CHAR(t.transactionDate, 'YYYY-MM')")
-      .getRawMany<{ month: string; total: string }>();
-  }
-
-  private getStatementStatusHistoryRows(
-    workspaceId: string,
-    window: DashboardWindow,
-  ): Promise<Array<{ month: string; status: string; count: string }>> {
-    return this.withinWindow(
-      this.statementRepo
-        .createQueryBuilder('s')
-        .where('s.workspaceId = :workspaceId', { workspaceId })
-        .andWhere('s.deletedAt IS NULL'),
-      's.createdAt',
-      window,
-    )
-      .select("TO_CHAR(s.createdAt, 'YYYY-MM')", 'month')
-      .addSelect('s.status', 'status')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy("TO_CHAR(s.createdAt, 'YYYY-MM')")
-      .addGroupBy('s.status')
-      .getRawMany<{ month: string; status: string; count: string }>();
-  }
-
-  /** Row count per `YYYY-MM` of `dateColumn`, inside `window`. */
-  private countByMonth<T extends ObjectLiteral>(
-    query: SelectQueryBuilder<T>,
-    dateColumn: string,
-    window: DashboardWindow,
-  ): Promise<Array<{ month: string; count: string }>> {
-    return this.withinWindow(query, dateColumn, window)
-      .select(`TO_CHAR(${dateColumn}, 'YYYY-MM')`, 'month')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy(`TO_CHAR(${dateColumn}, 'YYYY-MM')`)
-      .getRawMany<{ month: string; count: string }>();
-  }
-
   async getTrends(
     workspaceId: string,
     days = 30,
@@ -1279,6 +1225,7 @@ export class DashboardService {
       window.since,
       window.endDate,
       days,
+      date => ({ date, income: 0, expense: 0 }),
     );
   }
 
@@ -1582,7 +1529,7 @@ export class DashboardService {
   }
 
   /**
-   * The Trends tab's figures for a period. Rows are summed per currency and
+   * A period's trends (MCP `get_trends`, the assistant). Rows are summed per currency and
    * converted into the workspace currency before they are added up, as the cash
    * flow chart does: a sale in shekels must not count as that many dollars.
    */
@@ -1690,19 +1637,20 @@ export class DashboardService {
     return days >= 90 ? "'IYYY-IW'" : "'YYYY-MM-DD'";
   }
 
-  private fillCashFlowWindow(
-    points: Map<string, DashboardCashFlowPoint>,
+  private fillCashFlowWindow<T extends { date: string }>(
+    points: Map<string, T>,
     since: Date,
     endDate: Date,
     days: number,
-  ): DashboardCashFlowPoint[] {
+    empty: (date: string) => T,
+  ): T[] {
     if (points.size === 0) {
       return [];
     }
 
     const buckets =
       days >= 90 ? this.buildWeeklyBuckets(since, endDate) : this.buildDailyBuckets(since, endDate);
-    return buckets.map(date => points.get(date) ?? { date, income: 0, expense: 0 });
+    return buckets.map(date => points.get(date) ?? empty(date));
   }
 
   private buildDailyBuckets(since: Date, endDate: Date): string[] {

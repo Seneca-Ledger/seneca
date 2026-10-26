@@ -24,7 +24,7 @@ vi.mock('@/app/contexts/WorkspaceContext', () => ({
 }));
 
 import { createTestQueryClient, renderHookWithQuery } from '../test/query-wrapper';
-import { useDashboard, useDashboardTrends } from './useDashboard';
+import { useDashboard } from './useDashboard';
 
 function createDashboardPayload(balance: number) {
   return {
@@ -56,16 +56,6 @@ function createDashboardPayload(balance: number) {
       lastUploadDate: null,
       parsingWarnings: 0,
     },
-  };
-}
-
-function createTrendsPayload(rows: number) {
-  return {
-    dailyTrend: [],
-    forecast: [],
-    categories: [],
-    counterparties: [],
-    sources: { statements: { income: 0, expense: 0, rows } },
   };
 }
 
@@ -198,54 +188,5 @@ describe('useDashboard', () => {
 
     nextWorkspace.resolve({ data: createDashboardPayload(200) });
     await waitFor(() => expect(result.current.data?.snapshot.totalBalance).toBe(200));
-  });
-
-  it('refetches trends data when the active workspace changes', async () => {
-    apiMocks.get
-      .mockResolvedValueOnce({ data: createTrendsPayload(10) })
-      .mockResolvedValueOnce({ data: createTrendsPayload(20) });
-
-    const { result, rerender } = renderHookWithQuery(() => useDashboardTrends({ days: 30 }));
-
-    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(10));
-    expect(apiMocks.get).toHaveBeenCalledTimes(1);
-
-    workspaceMocks.currentWorkspaceId = 'workspace-2';
-    rerender();
-
-    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(20));
-    expect(apiMocks.get).toHaveBeenCalledTimes(2);
-  });
-
-  it('clears previous trends data while loading the next workspace', async () => {
-    const nextWorkspace = createDeferred<{ data: ReturnType<typeof createTrendsPayload> }>();
-
-    apiMocks.get
-      .mockResolvedValueOnce({ data: createTrendsPayload(10) })
-      .mockImplementationOnce(() => nextWorkspace.promise);
-
-    const { result, rerender } = renderHookWithQuery(() => useDashboardTrends({ days: 30 }));
-    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(10));
-
-    workspaceMocks.currentWorkspaceId = 'workspace-2';
-    rerender();
-
-    await waitFor(() => expect(result.current.isPending).toBe(true));
-    expect(result.current.data).toBeUndefined();
-
-    nextWorkspace.resolve({ data: createTrendsPayload(20) });
-    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(20));
-  });
-
-  it('asks for a calendar month instead of a rolling window when a month is given', async () => {
-    apiMocks.get.mockResolvedValueOnce({ data: createTrendsPayload(7) });
-
-    const { result } = renderHookWithQuery(() => useDashboardTrends({ month: '2026-07' }));
-
-    await waitFor(() => expect(result.current.data?.sources.statements.rows).toBe(7));
-    expect(apiMocks.get).toHaveBeenCalledWith(
-      '/dashboard/trends',
-      expect.objectContaining({ params: { month: '2026-07' } }),
-    );
   });
 });

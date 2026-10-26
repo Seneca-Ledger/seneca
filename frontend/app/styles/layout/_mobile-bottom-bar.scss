@@ -209,3 +209,10 @@
     }
   }
 }
+
+// A page's header action that moved under the "+" on a phone.
+.seneca-bottom-bar-source {
+  @media (max-width: 1023px) {
+    display: none !important;
+  }
+}

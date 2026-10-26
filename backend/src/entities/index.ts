@@ -78,6 +78,7 @@ export * from './storage-view.entity';
 export * from './subscription.entity';
 export * from './subscription-charge.entity';
 export * from './subscription-decision.entity';
+export * from './subscription-payee.entity';
 export * from './tag.entity';
 export * from './tax-jurisdiction.entity';
 export * from './tax-jurisdiction-rate.entity';

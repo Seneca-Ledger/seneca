@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { ChevronLeft, Plus } from '@/app/components/icons';
+import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { Button } from '@/app/components/ui/button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { PeopleLineIcon } from '@/app/components/ui/empty-state-icons';
@@ -18,6 +19,7 @@ import {
   type UpdateClientInput,
 } from '@/app/lib/invoices-api';
 import { ClientDrawer } from './ClientDrawer';
+import { ClientsListSkeleton } from './InvoicesSkeletons';
 
 export function ClientsView(): React.JSX.Element {
   const router = useRouter();
@@ -81,9 +83,12 @@ export function ClientsView(): React.JSX.Element {
     setEditingClient(null);
     setDrawerOpen(true);
   };
+  useQuickActions([
+    { id: 'new-client', label: t.clients.newClient.value, icon: Plus, run: openNewClient },
+  ]);
 
   if (loading) {
-    return <div style={{ padding: 40 }}>—</div>;
+    return <ClientsListSkeleton />;
   }
 
   return (
@@ -107,7 +112,7 @@ export function ClientsView(): React.JSX.Element {
         <div style={{ flex: 1 }} />
         {/* With no clients the empty state's button is the one action. */}
         {clients.length === 0 ? null : (
-          <Button onClick={openNewClient}>
+          <Button className="seneca-bottom-bar-source" onClick={openNewClient}>
             <Plus size={18} aria-hidden />
             {t.clients.newClient}
           </Button>

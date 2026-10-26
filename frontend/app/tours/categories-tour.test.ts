@@ -25,7 +25,7 @@ describe('createCategoriesTour', () => {
   it('uses the current categories route and selector set', () => {
     const tour = createCategoriesTour(texts as TourTextPayload);
 
-    expect(tour.page).toBe('/workspaces/categories');
+    expect(tour.page).toBe('/categories');
     expect(tour.steps.map(step => step.selector)).toEqual([
       'body',
       '[data-tour-id="categories-add-button"]',
@@ -73,18 +73,12 @@ describe('createCategoriesTour', () => {
     expect(source).toContain('kk:');
   });
 
-  it('keeps categories page anchors aligned with the current workspace categories view', () => {
-    const source = readSource(
-      'app',
-      '(main)',
-      'workspaces',
-      'components',
-      'WorkspaceCategoriesView.tsx',
-    );
+  it('keeps categories page anchors aligned with the categories page', () => {
+    const source = readSource('app', '(main)', 'categories', 'page.tsx');
 
     expect(source).toContain('data-tour-id="categories-add-button"');
     expect(source).toContain('data-tour-id="categories-search"');
     expect(source).toContain('data-tour-id="categories-list"');
-    expect(source).toContain("data-tour-id={index === 0 ? 'category-toggle' : undefined}");
+    expect(source).toContain("data-tour-id={tourAnchor ? 'category-toggle' : undefined}");
   });
 });

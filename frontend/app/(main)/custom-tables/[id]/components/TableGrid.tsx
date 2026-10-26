@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { DataGrid, type GridColumnDef, useDataGrid } from '@/app/components/data-grid';
 import { Plus } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { isMissingRequiredCell } from '../helpers/draftRowHelpers';
 import { useFillViewport } from '../hooks/useFillViewport';
@@ -95,7 +96,17 @@ function AggregateFooter({
           ...AGGREGATE_FNS.map(item => ({ value: item, label: labels.aggregates[item] })),
         ]}
       />
-      {fn ? <span className="seneca-ct__footer-value">{value}</span> : null}
+      {fn ? (
+        <span
+          className={`seneca-ct__footer-value${
+            column.type === 'currency' && fn !== 'count' && typeof raw === 'number'
+              ? ` ${PRIVATE_CLASS}`
+              : ''
+          }`}
+        >
+          {value}
+        </span>
+      ) : null}
     </span>
   );
 }

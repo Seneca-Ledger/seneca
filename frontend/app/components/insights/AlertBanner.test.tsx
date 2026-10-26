@@ -128,14 +128,23 @@ describe('AlertBanner', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('does not repeat on the dashboard what its own notice already says', async () => {
+  it('leaves the top of the dashboard to the copy under its month strip', async () => {
     route.pathname = '/dashboard';
-    apiMocks.get.mockResolvedValue({ data: insightPage([unapproved(2), uncategorized(91)]) });
+    apiMocks.get.mockResolvedValue({ data: insightPage([unapproved(2)]) });
 
-    renderWithQuery(<AlertBanner />);
+    const { container } = renderWithQuery(<AlertBanner />);
 
-    expect(await screen.findByText('91 transactions without a category')).toBeInTheDocument();
-    expect(screen.queryByText(/await confirmation/)).toBeNull();
+    await waitFor(() => expect(apiMocks.get).toHaveBeenCalled());
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('shows every item, unconfirmed ones too, where the dashboard places it', async () => {
+    route.pathname = '/dashboard';
+    apiMocks.get.mockResolvedValue({ data: insightPage([unapproved(2)]) });
+
+    renderWithQuery(<AlertBanner placement="page" />);
+
+    expect(await screen.findByText('2 transactions await confirmation')).toBeInTheDocument();
   });
 
   it('hides an item for a week without following its link', async () => {

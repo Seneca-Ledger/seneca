@@ -6,8 +6,10 @@ import Select from '@mui/material/Select';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { UnconfirmedNotice } from '@/app/components/review/UnconfirmedNotice';
 import { EmptyState } from '@/app/components/ui/EmptyState';
+import { LoadError } from '@/app/components/ui/load-error';
+import { joinSummary, PageTitle } from '@/app/components/ui/page-title';
+import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -40,8 +42,8 @@ function Kpi({
   tone,
 }: {
   label: string;
-  value: string;
-  note?: string;
+  value: React.ReactNode;
+  note?: React.ReactNode;
   /** Colour only for a real signal: money that runs out, or room to spend. */
   tone?: 'success' | 'error';
 }) {
@@ -125,6 +127,19 @@ export function ForecastContent() {
     data.everydayMonthly === 0 &&
     data.openingBalance === 0;
 
+  // The horizon, then any scenario factor moved off 100%.
+  const titleSummary = joinSummary([
+    fill(t.closingBalance.value, { days: String(horizon) }),
+    ...(['incomeFactor', 'expenseFactor'] as const).map(
+      key =>
+        scenario[key] !== 1 &&
+        fill(t.factorOption.value, {
+          name: t[key].value,
+          percent: String(Math.round(scenario[key] * 100)),
+        }),
+    ),
+  ]);
+
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}>
       <Box
@@ -132,12 +147,12 @@ export function ForecastContent() {
           display: 'flex',
           flexWrap: 'wrap',
           gap: 2,
-          // No page title, as on every other page: the sidebar already names it.
           justifyContent: 'flex-end',
           alignItems: 'center',
           mb: 2,
         }}
       >
+        <PageTitle path="/forecast" summary={titleSummary} />
         <TextTabs<`${ForecastHorizon}`>
           value={`${horizon}`}
           onChange={next => setHorizon(Number(next) as ForecastHorizon)}
@@ -149,8 +164,6 @@ export function ForecastContent() {
         />
       </Box>
 
-      <UnconfirmedNotice style={{ marginBottom: 16 }} />
-
       {isPending && (
         <Box sx={{ display: 'grid', gap: 2 }}>
           <Skeleton variant="rounded" height={96} sx={{ borderRadius: tokens.radius.md }} />
@@ -158,11 +171,7 @@ export function ForecastContent() {
         </Box>
       )}
 
-      {error && (
-        <Typography color="error" sx={{ py: 2, textAlign: 'center' }}>
-          {t.error}
-        </Typography>
-      )}
+      {error && <LoadError spacing={2}>{t.error}</LoadError>}
 
       {data && isEmpty && <EmptyState illustration="subscriptions" description={t.empty} />}
 
@@ -199,10 +208,10 @@ export function ForecastContent() {
                 }
                 note={
                   data.runwayMonths === null
-                    ? fill(t.changeOverDays.value, {
-                        amount: signedWhole(data.closingBalance - data.openingBalance),
-                        days: String(data.horizonDays),
-                      })
+                    ? fillTemplateNodes(
+                        fill(t.changeOverDays.value, { days: String(data.runwayDays) }),
+                        { amount: signedWhole(data.runwayChange) },
+                      )
                     : undefined
                 }
                 tone={data.runwayMonths !== null && data.runwayMonths < 3 ? 'error' : undefined}
@@ -210,7 +219,7 @@ export function ForecastContent() {
             ) : (
               <Kpi
                 label={t.safeToSpend.value}
-                value={formatAmount(data.safeToSpend.amount)}
+                value={<PrivateAmount>{formatAmount(data.safeToSpend.amount)}</PrivateAmount>}
                 note={fill(
                   (data.safeToSpend.nextIncomeDate ? t.safeUntilPayday : t.safeUntil).value,
                   { date: formatDate(data.safeToSpend.untilDate) },
@@ -221,13 +230,13 @@ export function ForecastContent() {
             {data.taxReserve && data.taxReserve > 0 ? (
               <Kpi
                 label={t.heldForTax.value}
-                value={formatAmount(data.taxReserve)}
+                value={<PrivateAmount>{formatAmount(data.taxReserve)}</PrivateAmount>}
                 note={(data.profile === 'business' ? t.heldForTaxBusiness : t.heldForTaxNote).value}
               />
             ) : null}
             <Kpi
               label={t.lowestBalance.value}
-              value={formatAmount(data.lowestBalance)}
+              value={<PrivateAmount>{formatAmount(data.lowestBalance)}</PrivateAmount>}
               note={fill(t.onDate.value, { date: formatDate(data.lowestBalanceDate) })}
               tone={data.lowestBalance < 0 ? 'error' : undefined}
             />
@@ -243,7 +252,7 @@ export function ForecastContent() {
             )}
             <Kpi
               label={fill(t.closingBalance.value, { days: String(data.horizonDays) })}
-              value={formatAmount(data.closingBalance)}
+              value={<PrivateAmount>{formatAmount(data.closingBalance)}</PrivateAmount>}
             />
           </Box>
 
@@ -260,26 +269,32 @@ export function ForecastContent() {
                 then income and the overdue bills it treats as paid today. */}
             <Box sx={{ mb: 2, display: 'grid', gap: 0.25 }}>
               <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-                {fill(t.everydayNote.value, {
-                  amount: formatAmount(data.everydayMonthly),
-                  months: String(data.monthsObserved),
-                })}
+                {fillTemplateNodes(
+                  fill(t.everydayNote.value, { months: String(data.monthsObserved) }),
+                  { amount: formatAmount(data.everydayMonthly) },
+                )}
               </Typography>
               {(data.irregularIncomeMonthly > 0 || data.unscheduledCommitted > 0 || hasOverdue) && (
                 <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
                   {[
                     data.irregularIncomeMonthly > 0 &&
-                      fill(t.irregularIncomeNote.value, {
+                      fillTemplateNodes(t.irregularIncomeNote.value, {
                         amount: formatAmount(data.irregularIncomeMonthly),
                       }),
                     data.unscheduledCommitted > 0 &&
-                      fill(t.unscheduled.value, {
+                      fillTemplateNodes(t.unscheduled.value, {
                         amount: formatAmount(data.unscheduledCommitted),
                       }),
                     hasOverdue && t.overdueAssumed.value,
                   ]
                     .filter(Boolean)
-                    .join(' · ')}
+                    .map((part, index) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list of notes
+                      <span key={index}>
+                        {index > 0 && ' · '}
+                        {part}
+                      </span>
+                    ))}
                 </Typography>
               )}
             </Box>

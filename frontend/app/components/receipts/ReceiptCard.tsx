@@ -3,6 +3,7 @@ import { Box, Chip, Paper, Typography } from '@mui/material';
 
 import { Camera, FileImage, FileText, Mail, UploadCloud } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import type { ReceiptRecord } from '@/app/lib/api';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
@@ -166,6 +167,7 @@ export function ReceiptCard({ receipt, onOpen }: ReceiptCardProps) {
           </Box>
 
           <Typography
+            className={Number.isFinite(receipt.parsedData?.amount) ? PRIVATE_CLASS : undefined}
             style={{ marginTop: 16, fontSize: 18, fontWeight: 600, color: 'var(--foreground)' }}
           >
             {formatAmount(receipt.parsedData?.amount, receipt.parsedData?.currency)}

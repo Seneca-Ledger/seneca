@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { ModalShell } from '@/app/components/ui/modal-shell';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -274,7 +275,8 @@ function MarkPaidForm({
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {payable.vendor} · {formatMoney(total, options.currency, locale)}
+          {payable.vendor} ·{' '}
+          <PrivateAmount>{formatMoney(total, options.currency, locale)}</PrivateAmount>
         </Typography>
 
         <PaymentLog

@@ -13,7 +13,9 @@ import { filterEnabledCategories } from '@/app/(main)/statements/[id]/edit/editH
 import StatementCategoryDrawer from '@/app/(main)/statements/[id]/edit/StatementCategoryDrawer';
 import { statementColumnWidthStyle } from '@/app/(main)/statements/components/columns/statement-columns';
 import { DateFilterDropdown } from '@/app/(main)/statements/components/filters/DateFilterDropdown';
+import { statementFilterSpan } from '@/app/(main)/statements/components/filters/filter-summary';
 import type { StatementFilterDate } from '@/app/(main)/statements/components/filters/statement-filters';
+import { useFilterSummary } from '@/app/(main)/statements/components/filters/useFilterSummary';
 import { useStatementPreview } from '@/app/(main)/statements/components/hooks/useStatementPreview';
 import {
   buildDateModes,
@@ -23,6 +25,7 @@ import {
   buildListHeaderLabels,
 } from '@/app/(main)/statements/components/StatementsListView.utils';
 import { StatementsToolbarButton } from '@/app/(main)/statements/components/StatementsToolbarButton';
+import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
 import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
@@ -39,6 +42,8 @@ import {
   ReceiptLineIcon,
 } from '@/app/components/ui/empty-state-icons';
 import { sharedMuiTabsSx } from '@/app/components/ui/mui-tabs';
+import { PageTitle } from '@/app/components/ui/page-title';
+import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useKeyboardShortcuts } from '@/app/hooks/use-keyboard-shortcuts';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
@@ -208,14 +213,16 @@ export function ReviewInboxView({ state }: Props) {
     subscription: t.tabSubscriptions.value,
   };
 
-  const categoryOptions = useMemo(
-    () => [
-      { value: '', label: t.categoryPlaceholder.value },
-      ...categories
-        .filter(category => category.isEnabled !== false)
-        .map(category => ({ value: category.id, label: getCategoryDisplayName(category, locale) })),
-    ],
-    [categories, locale, t.categoryPlaceholder.value],
+  const summarize = useFilterSummary();
+  const titleSummary = summarize(
+    tabLabels[kind],
+    kind === 'subscription' ? { kind: 'allTime' } : statementFilterSpan(dateApplied, new Date()),
+    [
+      canFilterByReviewer &&
+        `${tOwner.filterLabel.value}: ${reviewer === 'me' ? tOwner.me.value : tOwner.everyone.value}`,
+      state.uncategorized && t.filterUncategorized.value,
+      grouped && t.groupByPayee.value,
+    ].filter((part): part is string => Boolean(part)),
   );
 
   const groups = useMemo(() => (grouped ? groupByPayee(items) : null), [grouped, items]);
@@ -243,7 +250,7 @@ export function ReviewInboxView({ state }: Props) {
         if (kind === 'transaction') approveWithCategory();
       },
       c: () => {
-        categorySelectRef.current?.querySelector<HTMLElement>('[role="combobox"], select')?.focus();
+        categorySelectRef.current?.querySelector<HTMLElement>('button')?.focus();
       },
       Escape: () => clearSelection(),
     },
@@ -520,7 +527,10 @@ export function ReviewInboxView({ state }: Props) {
             <div style={columnStyle('category')}>{renderCategory(item)}</div>
           ) : null}
           <div style={isMobile ? { flex: '0 0 auto' } : columnStyle('amount')}>
-            <span className="seneca-stmt-list-item__amount" style={{ color: 'var(--foreground)' }}>
+            <span
+              className={`seneca-stmt-list-item__amount ${PRIVATE_CLASS}`}
+              style={{ color: 'var(--foreground)' }}
+            >
               {amount ? (
                 <>
                   {amount.figure}
@@ -656,6 +666,9 @@ export function ReviewInboxView({ state }: Props) {
   return (
     <div className="container-shared seneca-stmt-list-view">
       <div className="seneca-stmt-list-view__header">
+        <div style={{ marginBottom: 16 }}>
+          <PageTitle path="/review" summary={titleSummary} />
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Tabs
@@ -776,11 +789,14 @@ export function ReviewInboxView({ state }: Props) {
                 sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}
               >
                 <Box ref={categorySelectRef} sx={{ minWidth: 220 }}>
-                  <Select
+                  <CategoryPickerField
                     id="review-category"
+                    size="small"
+                    ariaLabel={t.categoryPlaceholder.value}
                     value={categoryId}
+                    categories={categories}
                     onChange={setCategoryId}
-                    options={categoryOptions}
+                    placeholder={t.categoryPlaceholder.value}
                   />
                 </Box>
                 {/* Outlined like "Approve as is" until a category is picked; then the page's one filled button. */}
@@ -838,13 +854,6 @@ export function ReviewInboxView({ state }: Props) {
             return;
           }
           void state.setCategory(id, picked).then(() => setCategoryRowId(null));
-        }}
-        showAllOption={false}
-        labels={{
-          title: editText.labels.categoryDrawerTitle.value,
-          searchPlaceholder: editText.labels.categorySearchPlaceholder.value,
-          allOption: editText.labels.categoryAllOption.value,
-          noResults: editText.labels.categoryNoResults.value,
         }}
       />
     </div>

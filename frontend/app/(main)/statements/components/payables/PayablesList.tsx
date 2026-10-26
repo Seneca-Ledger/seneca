@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MoreHorizontal } from '@/app/components/icons';
+import { MoreHorizontal, Tag } from '@/app/components/icons';
 import { Button } from '@/app/components/ui/button';
 import {
   DropdownMenu,
@@ -14,6 +14,7 @@ import {
   type EmptyStateIllustrationName,
 } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer } from '@/app/i18n';
 import type { Payable } from '@/app/lib/payables-api';
@@ -161,10 +162,11 @@ function PayablesList({
   /** One line of money; a partly settled bill adds what has come in so far. */
   const renderAmount = (payable: Payable): React.JSX.Element => (
     <>
-      {formatMoney(payable.amount, payable.currency, locale)}
+      <PrivateAmount>{formatMoney(payable.amount, payable.currency, locale)}</PrivateAmount>
       {payable.status === 'partially_paid' && toNumber(payable.paidAmount) > 0 && (
         <span className="seneca-payable-list__amount-note">
-          {formatMoney(payable.paidAmount, payable.currency, locale)} {labels.amountPaid}
+          <PrivateAmount>{formatMoney(payable.paidAmount, payable.currency, locale)}</PrivateAmount>{' '}
+          {labels.amountPaid}
         </span>
       )}
     </>
@@ -203,6 +205,14 @@ function PayablesList({
     );
   };
 
+  // Quiet, like the date: the tags say what the bill belongs to, not its state.
+  const renderTags = (payable: Payable): React.ReactNode =>
+    payable.tags && payable.tags.length > 0 ? (
+      <div className="seneca-payable-list__tags">
+        <Tag size={12} aria-hidden />
+        {payable.tags.map(tag => tag.name).join(', ')}
+      </div>
+    ) : null;
   return (
     <div className="seneca-payable-list">
       {isMobile ? (
@@ -223,6 +233,7 @@ function PayablesList({
                 </button>
                 <span className="seneca-payable-list__amount">{renderAmount(payable)}</span>
               </div>
+              {renderTags(payable)}
               <div className="seneca-payable-list__mobile-row-data">
                 <span className="seneca-payable-list__muted">
                   {formatPayableDate(payable.dueDate, locale)}
@@ -271,6 +282,7 @@ function PayablesList({
                     >
                       {payable.vendor}
                     </button>
+                    {renderTags(payable)}
                   </td>
                   <td className="seneca-payable-list__td seneca-payable-list__muted">
                     {formatPayableDate(payable.dueDate, locale)}

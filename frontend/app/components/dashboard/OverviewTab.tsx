@@ -4,19 +4,28 @@ import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined';
 import Link from 'next/link';
 import type React from 'react';
 import { useMemo } from 'react';
-import { BudgetSummaryWidget } from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
-import { CashRunwayWidget } from '@/app/(main)/dashboard/components/CashRunwayWidget';
+import {
+  BudgetSummaryWidget,
+  useBudgets,
+} from '@/app/(main)/dashboard/components/BudgetSummaryWidget';
+import { SubscriptionsMonthWidget } from '@/app/(main)/dashboard/components/SubscriptionsMonthWidget';
 import { parseDateOnly, resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
 import { FileUp } from '@/app/components/icons';
+import { PrivateAmount } from '@/app/components/ui/private-amount';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { PiggyBank, Scale, TrayArrowDown, WalletArrowUp } from '@/app/lib/category-line-icons';
+import { formatMoney } from '@/app/lib/format-money';
 import { Spinner } from '../ui/spinner';
 import { AdviceCard } from './AdviceCard';
+import { CashFlowCard } from './CashFlowCard';
 import { CryptoPortfolioCard } from './CryptoPortfolioCard';
 import { computeNet, computeSavingsRate, signTone } from './dashboard-stats.util';
 import { GettingStartedCard } from './GettingStartedCard';
 import { GoalsProgressCard } from './GoalsProgressCard';
+import { leftToSpend } from './left-to-spend';
 import { MoneyOwedCard } from './MoneyOwedCard';
+import { MonthCloseCard } from './MonthCloseCard';
 import { NetWorthCard } from './NetWorthCard';
 import { OverviewLayout } from './OverviewLayout';
 import type { KpiSectionId } from './overview-layout';
@@ -27,7 +36,7 @@ import { SpendCalendarCard } from './SpendCalendarCard';
 import { TaxesCard } from './TaxesCard';
 import { TopCategoriesCard } from './TopCategoriesCard';
 import { UpcomingChargesCard } from './UpcomingChargesCard';
-import { CardLink, DashboardCard, KpiCard } from './ui';
+import { CardLink, DashboardCard, KpiCard, type KpiCardProps } from './ui';
 import { useMonthLabel } from './use-month-label';
 import { WorkspaceActivityCard } from './WorkspaceActivityCard';
 
@@ -115,6 +124,8 @@ interface KpiTilesProps {
   data: DashboardData;
   formatAmount: (value: number) => string;
   monthLabel: string;
+  /** The month shown, `YYYY-MM`. */
+  shownMonth: string;
   /** The month shown is the one we are in: its figures are still moving. */
   monthInProgress: boolean;
   isLoading?: boolean;
@@ -123,6 +134,7 @@ interface KpiTilesProps {
   labels: {
     income: string;
     spent: string;
+    leftToSpend: string;
     net: string;
     netCaption: string;
     savingsRate: string;
@@ -133,11 +145,48 @@ interface KpiTilesProps {
   };
 }
 
+interface SpentTileProps extends KpiCardProps {
+  /** The month shown, `YYYY-MM`. */
+  month: string;
+  leftLabel: string;
+  /** What was spent, kept as a detail once the tile shows what is left. */
+  spentValue: string;
+}
+
+/**
+ * What was spent, until a budget covers the month: from then on what the
+ * budgets still allow. A budget that starts after the month or ended before
+ * it does not count.
+ */
+function SpentTile({ month, leftLabel, spentValue, ...spent }: SpentTileProps): React.JSX.Element {
+  const { locale } = useLocale();
+  const { budgets, loaded } = useBudgets(month);
+  // Until the budgets are in it is not known which of the two the tile is.
+  if (!loaded) {
+    return <KpiCard {...spent} value={<Spinner size={12} />} />;
+  }
+  const left = leftToSpend(budgets, month);
+  if (!left) {
+    return <KpiCard {...spent} />;
+  }
+  return (
+    <KpiCard
+      {...spent}
+      label={leftLabel}
+      value={left.map(total => formatMoney(total.amount, total.currency, locale)).join(' · ')}
+      // Only an overrun is a signal; what is left stays neutral.
+      tone={left.some(total => total.amount < 0) ? 'negative' : 'neutral'}
+      details={[{ label: spent.label, value: spentValue }, ...(spent.details ?? [])]}
+    />
+  );
+}
+
 /** The four KPI tiles, each a section of its own that moves on its own. */
 function kpiTiles({
   data,
   formatAmount,
   monthLabel,
+  shownMonth,
   monthInProgress,
   isLoading,
   formatDay,
@@ -153,8 +202,15 @@ function kpiTiles({
   const days = elapsedDays(data);
   const month = days.length >= 2 ? days : null;
   const perDay = (total: number) => formatAmount(days.length > 0 ? total / days.length : 0);
+  // The day stays readable in privacy mode; only its amount is redacted.
   const dayLine = (best: { date: string; amount: number } | null) =>
-    best ? `${formatAmount(best.amount)} · ${formatDay(best.date)}` : '—';
+    best ? (
+      <>
+        <PrivateAmount>{formatAmount(best.amount)}</PrivateAmount> · {formatDay(best.date)}
+      </>
+    ) : (
+      '—'
+    );
   const split = [
     { label: labels.income, value: formatAmount(income) },
     { label: labels.spent, value: formatAmount(expense) },
@@ -163,6 +219,7 @@ function kpiTiles({
     'kpi-income': (
       <KpiCard
         label={labels.income}
+        icon={TrayArrowDown}
         value={spinner || formatAmount(income)}
         tone={signTone(income)}
         caption={monthLabel}
@@ -170,13 +227,21 @@ function kpiTiles({
         wideSpark={month ? { points: month.map(p => p.income) } : undefined}
         details={[
           { label: labels.avgPerDay, value: perDay(income) },
-          { label: labels.biggestDay, value: dayLine(biggestDay(days, p => p.income)) },
+          {
+            label: labels.biggestDay,
+            value: dayLine(biggestDay(days, p => p.income)),
+            plain: true,
+          },
         ]}
       />
     ),
     'kpi-spent': (
-      <KpiCard
+      <SpentTile
+        month={shownMonth}
+        leftLabel={labels.leftToSpend}
+        spentValue={formatAmount(expense)}
         label={labels.spent}
+        icon={WalletArrowUp}
         value={spinner || formatAmount(expense)}
         // Spending is not an alarm: the card stays neutral whatever the amount.
         tone="neutral"
@@ -185,13 +250,18 @@ function kpiTiles({
         wideSpark={month ? { points: month.map(p => p.expense) } : undefined}
         details={[
           { label: labels.avgPerDay, value: perDay(expense) },
-          { label: labels.biggestDay, value: dayLine(biggestDay(days, p => p.expense)) },
+          {
+            label: labels.biggestDay,
+            value: dayLine(biggestDay(days, p => p.expense)),
+            plain: true,
+          },
         ]}
       />
     ),
     'kpi-net': (
       <KpiCard
         label={labels.net}
+        icon={Scale}
         value={spinner || signed(net, formatAmount)}
         tone={signTone(net)}
         caption={labels.netCaption}
@@ -203,6 +273,7 @@ function kpiTiles({
     'kpi-savings': (
       <KpiCard
         label={labels.savingsRate}
+        icon={PiggyBank}
         value={spinner || `${Math.round(savingsRate ?? 0)}%`}
         tone={signTone(savingsRate)}
         caption={labels.savingsRateCaption}
@@ -261,11 +332,13 @@ export function OverviewTab({
             data,
             formatAmount,
             monthLabel,
+            shownMonth: monthKey(displayMonth),
             monthInProgress: monthKey(displayMonth) === monthKey(new Date()),
             isLoading,
             labels: {
               income: t.income.value,
               spent: t.spentLabel.value,
+              leftToSpend: t.leftToSpendLabel.value,
               net: t.netLabel.value,
               netCaption: t.netCaption.value,
               savingsRate: t.savingsRateLabel.value,
@@ -277,6 +350,16 @@ export function OverviewTab({
             formatDay,
           }),
           'safe-to-spend': <SafeToSpendTile formatAmount={formatAmount} />,
+          'cash-flow': (
+            <CashFlowCard
+              formatAmount={formatAmount}
+              activeMonth={monthKey(displayMonth)}
+              days={data.cashFlow}
+            />
+          ),
+          'month-close': (
+            <MonthCloseCard data={data} formatAmount={formatAmount} displayMonth={displayMonth} />
+          ),
           crypto: (
             <CryptoPortfolioCard
               formatAmount={formatAmount}
@@ -308,7 +391,7 @@ export function OverviewTab({
           goals: <GoalsProgressCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
           'net-worth': <NetWorthCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
           budgets: <BudgetSummaryWidget month={monthKey(displayMonth)} monthLabel={monthLabel} />,
-          'cash-runway': <CashRunwayWidget formatAmount={formatAmount} />,
+          'cash-runway': <SubscriptionsMonthWidget formatAmount={formatAmount} />,
           activity: <WorkspaceActivityCard />,
           'upcoming-charges': <UpcomingChargesCard formatAmount={formatAmount} />,
           'money-owed': (

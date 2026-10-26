@@ -18,35 +18,6 @@
     }
   }
 
-  &__stat-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-
-    /* Let cards shrink below their nowrap content instead of widening the track. */
-    > * {
-      min-width: 0;
-    }
-
-    &--auto {
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    }
-
-    @media (max-width: 1280px) {
-      grid-template-columns: repeat(2, 1fr);
-
-      /* In two-column mode an odd trailing tile stretches across the row. */
-      &--auto > :last-child:nth-child(odd) {
-        grid-column: span 2;
-      }
-    }
-
-    /* Phones: two compact tiles per row instead of a tall single column. */
-    @media (max-width: 640px) {
-      gap: 10px;
-    }
-  }
-
   &__stat {
     position: relative;
     padding: 18px 20px 16px;
@@ -58,10 +29,40 @@
     border: 1px solid $seneca-color-ink-150;
     border-radius: $seneca-radius-lg;
     overflow: hidden;
+    // Its own stacking context, so the background icon sits under the text.
+    isolation: isolate;
 
     @include dark {
       background: $seneca-color-surface-dk;
       border-color: $seneca-color-ink-150-dk;
+    }
+  }
+
+  // What the figure is, drawn large and faint at the card's right, centred on
+  // its height and whole inside the card: a background, not an element. Not in
+  // the middle, where the figure and the sparkline are read. Sage at 15% in
+  // both themes (--cat-tone-1 is lighter in dark), a 1.5px line at any size.
+  &__stat-icon {
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    z-index: -1;
+    width: 120px;
+    height: 120px;
+    transform: translateY(-50%);
+    color: var(--cat-tone-1);
+    opacity: 0.15;
+    pointer-events: none;
+
+    * {
+      stroke-width: 1.5px;
+      vector-effect: non-scaling-stroke;
+    }
+
+    @media (max-width: 640px) {
+      right: 12px;
+      width: 88px;
+      height: 88px;
     }
   }
 
@@ -110,22 +111,6 @@
       @include dark {
         background: $seneca-color-info-dk;
       }
-    }
-  }
-
-  /* A category's share of the spending, under its name: for two or three, in place of a ring. */
-  &__share-bar {
-    display: block;
-    height: 4px;
-    margin-top: 6px;
-    border-radius: 2px;
-    background: var(--icon-badge-bg);
-    overflow: hidden;
-
-    > span {
-      display: block;
-      height: 100%;
-      border-radius: 2px;
     }
   }
 
@@ -315,48 +300,6 @@
     }
   }
 
-  /* ── Card grids ── */
-  &__grid {
-    display: grid;
-    gap: 16px;
-    align-items: stretch;
-
-    @media (max-width: 640px) {
-      gap: 12px;
-    }
-
-    > * {
-      min-width: 0;
-    }
-
-    /* Categories vs. transactions on the first screen. */
-    &--split {
-      grid-template-columns: 11fr 9fr;
-    }
-
-    /* Two equal cards; a lone card stretches to the full row. */
-    &--pair {
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    }
-
-    /* Primary chart plus a narrower companion. */
-    &--wide {
-      grid-template-columns: 2fr 1fr;
-    }
-
-    /* Any number of feature cards. */
-    &--cards {
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    }
-
-    @media (max-width: 1024px) {
-      &--split,
-      &--wide {
-        grid-template-columns: 1fr;
-      }
-    }
-  }
-
   /* Stacked cards inside one grid column; the last card absorbs leftover height. */
   &__column {
     display: flex;
@@ -524,13 +467,6 @@
   &__donut {
     flex: 0 0 160px;
     height: 160px;
-
-    &--wide {
-      flex-basis: auto;
-      width: 100%;
-      height: 200px;
-      margin-bottom: 8px;
-    }
 
     @media (max-width: 640px) {
       flex-basis: auto;
@@ -855,12 +791,13 @@
     }
   }
 
-  /* Lined up with the tab content below (DashboardTabContent px: 2 / md: 4). */
-  &__unconfirmed {
-    margin: 12px 32px 0;
+  /* What waits for attention, under the month strip: lined up with the tab
+     content below (the page gutter), gone when there is nothing. */
+  &__attention {
+    margin: 12px var(--seneca-page-x) 0;
 
-    @media (max-width: 899.95px) {
-      margin: 12px 16px 0;
+    &:empty {
+      display: none;
     }
   }
 
@@ -1012,12 +949,16 @@
 
 /* ── Page header ── */
 .seneca-dashboard-header {
-  padding: var(--seneca-page-top, 24px) 32px 0; /* matches DashboardTabContent px:4 = 32px */
+  padding: var(--seneca-page-top, 24px) 32px 0; /* matches the Overview wrapper px:4 = 32px */
   min-width: 0;
   max-width: 100%;
 
   @media (max-width: 640px) {
     padding: 20px 16px 0;
+  }
+
+  &__title {
+    margin-bottom: 16px;
   }
 
   &__greet {
@@ -1068,21 +1009,6 @@
     }
   }
 
-  &__tabs {
-    border-bottom: 1px solid $seneca-color-border;
-
-    @include dark {
-      border-bottom-color: $seneca-color-border-dk;
-    }
-  }
-
-  &__controls {
-    padding-top: 16px;
-
-    @media (max-width: 640px) {
-      padding-top: 12px;
-    }
-  }
 }
 
 /* ── Overview: sections moved by their grip ──
@@ -1267,8 +1193,10 @@
 }
 
 /* Too narrow for halves (a phone, a tablet with the sidebar open): cards take
-   the whole row and KPI tiles go two by two rather than a column of four. */
-@container overview (max-width: 720px) {
+   the whole row and KPI tiles go two by two rather than a column of four.
+   Phones and tablets (the shell without a sidebar, below 1024px) get it at any
+   width, so a tablet reads like a phone. */
+@mixin overview-single-column {
   .seneca-overview__section {
     grid-column: 1 / -1;
 
@@ -1281,6 +1209,14 @@
       grid-column: 1 / -1;
     }
   }
+}
+
+@container overview (max-width: 720px) {
+  @include overview-single-column;
+}
+
+@media (max-width: 1023px) {
+  @include overview-single-column;
 }
 
 /* ── Getting started checklist ── */
@@ -1487,49 +1423,7 @@
   }
 }
 
-// Finance ops: the month's close as one headline and one list of steps.
-.seneca-close-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 24px;
-
-  &__title {
-    margin: 0;
-    font-size: 28px;
-    font-weight: 500;
-    line-height: 1.2;
-    color: var(--foreground);
-
-    @media (max-width: 640px) {
-      font-size: 22px;
-    }
-  }
-
-  &__note {
-    margin: 6px 0 0;
-    font-size: 14px;
-    color: var(--text-muted);
-  }
-}
-
-// A reference fact (last upload, money not counted yet): moderate figure, one line under it.
-.seneca-fact {
-  &__value {
-    font-size: 20px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    color: var(--foreground);
-  }
-
-  &__caption {
-    margin-top: 4px;
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-}
-
+// Month close: one list of the steps left before the month closes.
 .seneca-close-step {
   // A step still open: an ochre dot, not a red alarm. Done: a sage tick, no circle.
   &__open {

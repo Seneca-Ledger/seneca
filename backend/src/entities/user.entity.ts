@@ -91,7 +91,7 @@ export class User {
     name: 'theme_preference',
     type: 'varchar',
     length: 16,
-    default: ThemePreference.AUTO,
+    default: ThemePreference.DARK,
   })
   themePreference: ThemePreference;
 

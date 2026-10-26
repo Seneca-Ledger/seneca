@@ -37,6 +37,7 @@ export const WORKSPACE_READ_PERMISSIONS: ReadonlySet<Permission> = new Set([
   Permission.STATEMENT_VIEW,
   Permission.TRANSACTION_VIEW,
   Permission.CATEGORY_VIEW,
+  Permission.TAG_VIEW,
   Permission.BRANCH_VIEW,
   Permission.WALLET_VIEW,
   Permission.PAYABLE_VIEW,
@@ -82,6 +83,9 @@ export const MEMBER_PERMISSION_GATES: Readonly<
   [Permission.CATEGORY_CREATE]: 'canEditCategories',
   [Permission.CATEGORY_EDIT]: 'canEditCategories',
   [Permission.CATEGORY_DELETE]: 'canEditCategories',
+  [Permission.TAG_CREATE]: 'canEditCategories',
+  [Permission.TAG_EDIT]: 'canEditCategories',
+  [Permission.TAG_DELETE]: 'canEditCategories',
 };
 
 /** Does this workspace role, with these toggles, carry this permission? */
