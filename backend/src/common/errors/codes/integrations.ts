@@ -41,6 +41,10 @@ export const INTEGRATIONS_ERRORS = {
   BACKUP_TIME_ZONE_INVALID: 'Invalid backup time zone',
   BACKUP_RETENTION_INVALID: 'Retention count must be at least one',
   BACKUP_DESTINATION_PATH_INVALID: 'Invalid backup destination path',
+  BACKUP_ARCHIVE_PASSWORD_REQUIRED: 'Backup password is required',
+  BACKUP_ARCHIVE_PASSWORD_INVALID: 'Backup password is invalid',
+  BACKUP_ARCHIVE_CORRUPTED: 'Backup is corrupted',
+  BACKUP_ARCHIVE_TOO_LARGE: 'Backup is too large',
   // ── bank-sync ───────────────────────────────────────────────────
   BANK_SYNC_ACCOUNT_UNKNOWN: 'Account {{id}} is not in this connection',
   BANK_SYNC_WALLET_NOT_IN_WORKSPACE: 'Wallet does not belong to this workspace',
