@@ -1,14 +1,95 @@
 {
   "meta": {
     "lastProcessedCommitByBranch": {
-      "main": "75f56bd7e3c078b603f1a4c57aa4b3406e9d9292"
+      "main": "f3f86f7662d84934afff97690b1feafb0518e9d5"
     },
     "initializedAt": "2026-03-05T22:23:31.634Z",
-    "lastGeneratedAt": "2026-10-25T22:45:17.313Z",
+    "lastGeneratedAt": "2026-10-26T00:31:49.055Z",
     "minCommits": 5,
     "lastRecoveryAt": "2026-05-07T18:30:33.797Z"
   },
   "entries": [
+    {
+      "id": "changelog-2026-10-26-f3f86f7",
+      "version": "main-f3f86f7",
+      "branch": "main",
+      "date": "2026-10-26T00:31:49.055Z",
+      "title": "Release update - October 26, 2026",
+      "summary": "This release includes 1 fix.",
+      "markdown": "## Fixes\n- **test**: Restore UPLOADS_DIR by deleting it, not by assigning undefined",
+      "commits": [
+        {
+          "sha": "1ecf0fa43725821d5921ffc707a4e2925daebbc5",
+          "shortSha": "1ecf0fa4",
+          "subject": "chore(changelog): update generated changelog [skip ci]",
+          "author": "github-actions[bot]",
+          "date": "2026-10-25T22:45:17Z",
+          "files": [
+            "frontend/public/changelog.json"
+          ]
+        },
+        {
+          "sha": "2d672a6d4ad40f2d0d82e800149d7b4cdd55638e",
+          "shortSha": "2d672a6d",
+          "subject": "fix(test): restore UPLOADS_DIR by deleting it, not by assigning undefined",
+          "author": "Symon Baikov",
+          "date": "2026-10-26T01:29:09+02:00",
+          "files": [
+            "backend/@tests/unit/custom-tables/custom-tables.service.spec.ts",
+            "backend/@tests/unit/modules/backups/backup-restore.service.spec.ts",
+            "backend/@tests/unit/modules/payables/payables-export.service.spec.ts",
+            "backend/@tests/unit/modules/transactions/transaction-attachments.service.spec.ts",
+            "backend/undefined/5b98b579-e91c-4e8e-a1c3-814c1ee427e3.ofx",
+            "backend/undefined/6020e5e1-333e-448b-9025-e8abede69dec.ofx",
+            "backend/undefined/85a7c930-5cb2-48a9-8840-e18e3021f00a.ofx"
+          ]
+        },
+        {
+          "sha": "0654251e500bc4980f8b0e6fbd5c723fddadecca",
+          "shortSha": "0654251e",
+          "subject": "ci: secrets scan and repository links after the move to Seneca-Ledger",
+          "author": "Symon Baikov",
+          "date": "2026-10-26T01:36:22+02:00",
+          "files": [
+            ".env.example",
+            ".github/workflows/ci.yml",
+            "README.md",
+            "backend/@tests/e2e/contracts.e2e-spec.ts",
+            "backend/@tests/unit/modules/system-update/system-update.service.spec.ts",
+            "backend/docs/DOCKER.md",
+            "backend/src/modules/system-update/system-update.service.ts",
+            "docker-compose.yml",
+            "frontend/app/settings/profile/components/SettingsElsewhereLinks.tsx",
+            "frontend/app/settings/profile/components/UpdateSection.test.tsx",
+            "website/docusaurus.config.ts"
+          ]
+        },
+        {
+          "sha": "d48a26b31f58628f46531a57c1fd50f9c710d7a5",
+          "shortSha": "d48a26b3",
+          "subject": "Merge pull request #427 from Seneca-Ledger/fix/ci-after-transfer",
+          "author": "Symon Baikov",
+          "date": "2026-10-26T02:05:27+02:00",
+          "files": []
+        },
+        {
+          "sha": "1befdd7fbbe8317891424e4ed7a7442649bb09c1",
+          "shortSha": "1befdd7f",
+          "subject": "Merge branch 'main' into fix/test-env-leak",
+          "author": "Symon Baikov",
+          "date": "2026-10-26T02:05:36+02:00",
+          "files": []
+        },
+        {
+          "sha": "f3f86f7662d84934afff97690b1feafb0518e9d5",
+          "shortSha": "f3f86f76",
+          "subject": "Merge pull request #426 from Seneca-Ledger/fix/test-env-leak",
+          "author": "Symon Baikov",
+          "date": "2026-10-26T02:31:19+02:00",
+          "files": []
+        }
+      ]
+    },
     {
       "id": "changelog-2026-10-25-75f56bd",
       "version": "main-75f56bd",
