@@ -37,7 +37,7 @@ services:
     # Prebuilt images are published by CD for every release (`latest` tracks
     # the newest v* tag; set IMAGE_TAG to pin one). `docker compose pull`
     # then starts the stack without building anything locally.
-    image: ghcr.io/symonbaikov/seneca-backend:${IMAGE_TAG:-latest}
+    image: ghcr.io/seneca-ledger/seneca-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -80,7 +80,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/symonbaikov/seneca-frontend:${IMAGE_TAG:-latest}
+    image: ghcr.io/seneca-ledger/seneca-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
