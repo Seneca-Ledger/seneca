@@ -1,0 +1,231 @@
+@use '../abstracts' as *;
+
+/* The rules page (RulesView.tsx) and the rule dialog (RuleFormDialog.tsx). */
+.seneca-rules {
+  &__intro {
+    max-width: 640px;
+    margin: 0 0 24px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--border);
+    border-radius: $seneca-radius-md;
+    background: var(--card);
+  }
+
+  &__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+
+    & + & {
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      flex-direction: column;
+      gap: 8px;
+    }
+  }
+
+  &__row--paused &__body {
+    opacity: 0.6;
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--foreground);
+  }
+
+  &__paused {
+    font-size: 12px;
+    font-weight: normal;
+    color: var(--text-muted);
+  }
+
+  &__line {
+    font-size: 14px;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+
+  &__key {
+    color: var(--text-muted);
+  }
+
+  &__stats {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+}
+
+.seneca-rule-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 4px;
+
+  &__field,
+  &__group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  &__label {
+    padding: 0;
+    font-size: 13px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--text-muted);
+  }
+
+  &__hint {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__input {
+    height: 40px;
+    min-width: 0;
+    padding: 0 12px;
+    border: 1px solid $seneca-color-slot-border;
+    border-radius: $seneca-radius-sm;
+    background: var(--card);
+    font: inherit;
+    font-size: 14px;
+    color: var(--foreground);
+
+    @include dark { border-color: $seneca-color-ink-200-dk; }
+
+    &:focus,
+    &:focus-visible {
+      border-color: var(--primary);
+      outline: 0;
+      box-shadow: inset 0 0 0 0.5px var(--primary);
+    }
+
+    &--short {
+      width: 120px;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  // Field · check · value · remove, on one line; stacked on a phone.
+  &__condition {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) 32px;
+    align-items: center;
+    gap: 8px;
+
+    @media (max-width: 600px) {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px;
+
+      > :nth-child(3) {
+        grid-column: 1 / 3;
+      }
+    }
+  }
+
+  &__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: $seneca-radius-sm;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--surface-soft);
+      color: var(--foreground);
+    }
+  }
+
+  &__action {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__action-label {
+    font-size: 14px;
+    color: var(--foreground);
+  }
+
+  &__preview {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: $seneca-radius-sm;
+    background: var(--surface-soft);
+    font-size: 14px;
+    color: var(--foreground);
+  }
+
+  &__examples {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+
+      > :first-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  &__example-meta {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+}

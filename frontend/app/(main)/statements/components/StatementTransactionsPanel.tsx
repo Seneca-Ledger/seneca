@@ -13,7 +13,7 @@ import {
 import { useBulkUpdateCategory } from '@/app/components/transactions/hooks/useBulkUpdateCategory';
 import type { Transaction } from '@/app/components/transactions/types';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
@@ -114,52 +114,52 @@ export function StatementTransactionsPanel({
   return (
     <div className="seneca-stmt-tx-panel">
       {rowsQuery.isPending ? (
-        <div className="seneca-stmt-tx-panel__state">
-          <Spinner style={{ width: 20, height: 20, color: 'var(--primary)' }} />
-        </div>
+        <SnapshotSkeleton id="statement-transactions" loading fallback="list" />
       ) : rows.length === 0 ? (
         <div className="seneca-stmt-tx-panel__state">{tTable.noResults}</div>
       ) : (
-        rows.map(tx => {
-          const isIncome = tx.credit > 0 && !(tx.debit > 0);
-          const icon = categories.find(cat => cat.id === tx.category?.id)?.icon;
-          return (
-            <button
-              key={tx.id}
-              type="button"
-              className="seneca-stmt-tx-panel__row"
-              onClick={() => openRow(tx)}
-            >
-              <span className="seneca-stmt-tx-panel__date">
-                {dateFormat.format(new Date(`${tx.transactionDate.slice(0, 10)}T00:00:00`))}
-              </span>
-              <span className="seneca-stmt-tx-panel__name">
-                {tx.isPrivate ? EMPTY_CELL : tx.counterpartyName || EMPTY_CELL}
-              </span>
-              <span className="seneca-stmt-tx-panel__category">
-                {tx.category && hasChosenCategory(tx.category.name) ? (
-                  <>
-                    <CategoryIconBadge
-                      name={tx.category.name}
-                      color={tx.category.color}
-                      icon={icon}
-                      size={18}
-                    />
-                    <span>{categoryName(tx.category.name)}</span>
-                  </>
-                ) : (
-                  <NoCategoryBadge size={18} />
-                )}
-              </span>
-              <span
-                className={`seneca-stmt-tx-panel__amount${isIncome ? ' seneca-stmt-tx-panel__amount--income' : ''} ${PRIVATE_CLASS}`}
+        <SnapshotSkeleton id="statement-transactions" loading={false}>
+          {rows.map(tx => {
+            const isIncome = tx.credit > 0 && !(tx.debit > 0);
+            const icon = categories.find(cat => cat.id === tx.category?.id)?.icon;
+            return (
+              <button
+                key={tx.id}
+                type="button"
+                className="seneca-stmt-tx-panel__row"
+                onClick={() => openRow(tx)}
               >
-                {isIncome ? '+' : ''}
-                {formatAmount(tx.debit || tx.credit, tx.currency)}
-              </span>
-            </button>
-          );
-        })
+                <span className="seneca-stmt-tx-panel__date">
+                  {dateFormat.format(new Date(`${tx.transactionDate.slice(0, 10)}T00:00:00`))}
+                </span>
+                <span className="seneca-stmt-tx-panel__name">
+                  {tx.isPrivate ? EMPTY_CELL : tx.counterpartyName || EMPTY_CELL}
+                </span>
+                <span className="seneca-stmt-tx-panel__category">
+                  {tx.category && hasChosenCategory(tx.category.name) ? (
+                    <>
+                      <CategoryIconBadge
+                        name={tx.category.name}
+                        color={tx.category.color}
+                        icon={icon}
+                        size={18}
+                      />
+                      <span>{categoryName(tx.category.name)}</span>
+                    </>
+                  ) : (
+                    <NoCategoryBadge size={18} />
+                  )}
+                </span>
+                <span
+                  className={`seneca-stmt-tx-panel__amount${isIncome ? ' seneca-stmt-tx-panel__amount--income' : ''} ${PRIVATE_CLASS}`}
+                >
+                  {isIncome ? '+' : ''}
+                  {formatAmount(tx.debit || tx.credit, tx.currency)}
+                </span>
+              </button>
+            );
+          })}
+        </SnapshotSkeleton>
       )}
       <DetailsDrawer
         open={drawerOpen}

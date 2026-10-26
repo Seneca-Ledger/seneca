@@ -1,11 +1,13 @@
 'use client';
 
+import NextLink from 'next/link';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
-import { ChevronRight } from '@/app/components/icons';
 import { TransactionPayeeSection } from '@/app/components/payees/TransactionPayeeSection';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
+import { RuleFromRowAction } from '@/app/components/rules/RuleFromRowAction';
+import { fill } from '@/app/components/rules/rule-text';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -20,6 +22,7 @@ import { useTransferLink } from './hooks/useTransferLink';
 import { useWorkspaceMembers } from './hooks/useWorkspaceMembers';
 import { OWNER_SHARED, ownerValueToMemberId } from './OwnerFilterDropdown';
 import { SplitTransactionDialog } from './SplitTransactionDialog';
+import { ActionRow } from './TransactionActionRow';
 import type { Category, Transaction } from './types';
 
 interface TransactionDetailsTabProps {
@@ -29,27 +32,6 @@ interface TransactionDetailsTabProps {
   onMarkIgnored?: (txId: string) => Promise<void>;
   /** Refreshes the transaction list (and closes the drawer) after a split/unsplit. */
   onSplitDone?: () => void | Promise<void>;
-}
-
-interface ActionRowProps {
-  label: React.ReactNode;
-  /** One line on what the action means, for the ones whose name alone does not say. */
-  hint?: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}
-
-/** One action of the list: what it does, a line on what it means, an arrow. */
-function ActionRow({ label, hint, onClick, disabled }: ActionRowProps): React.JSX.Element {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} className="seneca-tx-action">
-      <span className="seneca-tx-action__text">
-        <span className="seneca-tx-action__label">{label}</span>
-        {hint && <span className="seneca-tx-action__hint">{hint}</span>}
-      </span>
-      <ChevronRight size={16} className="seneca-tx-action__arrow" aria-hidden />
-    </button>
-  );
 }
 
 export function TransactionDetailsTab({
@@ -69,6 +51,7 @@ export function TransactionDetailsTab({
   const [updating, setUpdating] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const offerPayeeQueue = useOfferPayeeQueue();
+  const tRules = useIntlayer('categorizationRules');
 
   // The list refresh (and drawer close) is owned by the container — a split turns
   // one row into several, so the drawer must not keep showing the stale original.
@@ -218,6 +201,11 @@ export function TransactionDetailsTab({
                 sx={{ flex: 1 }}
               />
             </div>
+            {transaction.categorySource === 'rule' && transaction.categoryReason && (
+              <NextLink href="/rules" className="seneca-tx-detail__rule-link">
+                {fill(tRules.drawer.fromRule.value, { name: transaction.categoryReason })}
+              </NextLink>
+            )}
           </div>
         )}
 
@@ -368,6 +356,9 @@ export function TransactionDetailsTab({
           {onMarkIgnored && (
             <ActionRow label={t.markIgnored.value} onClick={() => void handleMarkIgnored()} />
           )}
+
+          {/* A rule from this row: the payee as the bank wrote it, the row's category */}
+          <RuleFromRowAction transaction={transaction} categoryId={currentCategoryId} />
         </div>
       </div>
 

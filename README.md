@@ -672,7 +672,7 @@ Creates `demo@seneca.dev` with password `demo123` and a sample workspace with de
 make admin email=admin@example.com password=admin123 name="Admin User"
 
 # Using Docker exec directly
-docker exec -it finflow-backend npm run create-admin -- admin@example.com admin123 "Admin User"
+docker exec -it seneca-backend npm run create-admin -- admin@example.com admin123 "Admin User"
 
 # Local (no Docker)
 cd backend && npm run create-admin -- admin@example.com admin123 "Admin User"

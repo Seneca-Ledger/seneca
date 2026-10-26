@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cloud, Download, FileUp, Lock, RefreshCw } from '@/app/components/icons';
 import { Alert } from '@/app/components/ui/alert';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -258,10 +259,8 @@ export function BackupSection() {
               </Button>
             </Box>
 
-            {loading ? (
-              <Spinner size={20} />
-            ) : (
-              <>
+            <SnapshotSkeleton id="settings-backup" loading={loading} fallback="panel">
+              <Stack spacing={2}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                   <TextField
                     select
@@ -370,8 +369,8 @@ export function BackupSection() {
                     </Typography>
                   ) : null}
                 </Box>
-              </>
-            )}
+              </Stack>
+            </SnapshotSkeleton>
           </Stack>
         </CardContent>
       </Card>

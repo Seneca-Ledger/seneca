@@ -6,7 +6,6 @@ import {
   Button,
   Checkbox,
   Chip,
-  CircularProgress,
   IconButton,
   Stack,
   Table,
@@ -25,6 +24,7 @@ import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge'
 import { ChevronDown, ChevronRight } from '@/app/components/icons';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -174,6 +174,7 @@ export function TaxYearView(): React.ReactElement {
     .sort((a, b) => a.name.localeCompare(b.name));
   const selectedCount = rootCategories.filter(category => category.taxRelevant).length;
   const data = report.data;
+  const hasRows = Boolean(data && data.rows.length > 0);
   const currency = data?.currency ?? reserve.data?.currency ?? '';
   const reserveData = reserve.data;
   const reserveConfigured = Boolean(reserveData && (reserveData.vat || reserveData.incomeTax));
@@ -212,7 +213,7 @@ export function TaxYearView(): React.ReactElement {
           {fill(t.reserveTitle.value, { year: thisYear })}
         </Typography>
         {reserve.isPending ? (
-          <CircularProgress size={20} />
+          <SnapshotSkeleton id="reports-tax-reserve" loading fallback="lines" />
         ) : reserveData && reserveConfigured ? (
           <Stack direction="row" sx={{ flexWrap: 'wrap', columnGap: 3, rowGap: 2 }}>
             <Figure
@@ -339,12 +340,8 @@ export function TaxYearView(): React.ReactElement {
       </Box>
 
       {/* The year's tax-relevant spending and income */}
-      <Box>
-        {report.isPending ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : report.isError ? (
+      <SnapshotSkeleton id="tax-year" loading={report.isPending} fallback="list" capture={hasRows}>
+        {report.isError ? (
           <Alert severity="error">{t.loadError.value}</Alert>
         ) : data && data.rows.length > 0 ? (
           <Box sx={{ overflowX: 'auto', opacity: report.isFetching ? 0.6 : 1 }}>
@@ -463,7 +460,7 @@ export function TaxYearView(): React.ReactElement {
         ) : selectedCount > 0 ? (
           <Typography sx={HINT_SX}>{fill(t.emptySelected.value, { year })}</Typography>
         ) : null}
-      </Box>
+      </SnapshotSkeleton>
 
       {/* The archive */}
       <Box
