@@ -1,11 +1,12 @@
 import type { StatementListItem, TransactionListPage } from '@/app/lib/contracts';
-import { transactionItem } from '@/app/test/fixtures/contracts';
+import { receiptRecord, transactionItem } from '@/app/test/fixtures/contracts';
 
 /*
  * What the analytics loader fetches for February 2026: one statement, one
  * confirmed transaction and two approved receipts, one of them the
- * transaction's own. Statements and transactions are shaped like their
- * StatementListPage and TransactionListPage contracts, which the loader checks.
+ * transaction's own. Statements, transactions and receipts are shaped like their
+ * StatementListPage, TransactionListPage and ReceiptDocumentsPage contracts,
+ * which the loader checks.
  */
 
 const STATEMENTS: StatementListItem[] = [
@@ -62,7 +63,7 @@ const TRANSACTIONS: TransactionListPage['data'] = [
 ];
 
 const RECEIPTS = [
-  {
+  receiptRecord({
     id: 'receipt-1',
     subject: 'Travel receipt',
     sender: 'Metro Cab <noreply@example.com>',
@@ -78,8 +79,8 @@ const RECEIPTS = [
       categoryId: 'cat-2',
       transactionType: 'expense',
     },
-  },
-  {
+  }),
+  receiptRecord({
     id: 'receipt-2',
     subject: 'Duplicate software receipt',
     sender: 'ACME Software <billing@example.com>',
@@ -95,7 +96,7 @@ const RECEIPTS = [
       categoryId: 'cat-1',
       transactionType: 'expense',
     },
-  },
+  }),
 ];
 
 type Page<T> = { data: T[]; items: T[]; total: number; page: number; limit: number };
@@ -113,7 +114,9 @@ export function analyticsResponse(url: string): Promise<unknown> {
     return Promise.resolve({ data: page(TRANSACTIONS) });
   }
   if (url === '/receipts/documents') {
-    return Promise.resolve({ data: { receipts: RECEIPTS, total: RECEIPTS.length } });
+    return Promise.resolve({
+      data: { receipts: RECEIPTS, total: RECEIPTS.length, limit: 100, offset: 0 },
+    });
   }
   return Promise.reject(new Error(`Unhandled request: ${url}`));
 }
