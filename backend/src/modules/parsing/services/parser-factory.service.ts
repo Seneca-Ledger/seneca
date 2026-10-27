@@ -4,16 +4,7 @@ import { BankName, FileType } from '../../../entities/statement.entity';
 import type { IParser } from '../interfaces/parser.interface';
 import { BerekeNewParser } from '../parsers/bereke-new.parser';
 import { BerekeOldParser } from '../parsers/bereke-old.parser';
-import { Camt053Parser } from '../parsers/camt053.parser';
-import { CsvParser } from '../parsers/csv.parser';
-import { DocxParser } from '../parsers/docx.parser';
-import { ExcelParser } from '../parsers/excel.parser';
-import { GenericPdfParser } from '../parsers/generic-pdf.parser';
-import { HapoalimParser } from '../parsers/hapoalim.parser';
-import { KaspiParser } from '../parsers/kaspi.parser';
-import { Mt940Parser } from '../parsers/mt940.parser';
-import { OfxParser } from '../parsers/ofx.parser';
-import { QifParser } from '../parsers/qif.parser';
+import { createParsers, FALLBACK_CLAIMS } from './parser-registry';
 
 @Injectable()
 export class ParserFactoryService {
@@ -21,20 +12,7 @@ export class ParserFactoryService {
   private parsers: IParser[] = [];
 
   constructor() {
-    this.parsers = [
-      new BerekeNewParser(),
-      new BerekeOldParser(),
-      new KaspiParser(),
-      new HapoalimParser(),
-      new GenericPdfParser(),
-      new ExcelParser(),
-      new CsvParser(),
-      new DocxParser(),
-      new OfxParser(),
-      new QifParser(),
-      new Camt053Parser(),
-      new Mt940Parser(),
-    ];
+    this.parsers = createParsers();
   }
 
   private extractHeaderText(text: string): string {
@@ -334,39 +312,13 @@ export class ParserFactoryService {
       const parserName = parser.constructor.name;
       this.logger.debug(`Checking parser: ${parserName}`);
 
-      // Check Kaspi first
-      if (
-        parser instanceof KaspiParser &&
-        (await parser.canParse(BankName.KASPI, fileType, filePath, cachedText))
-      ) {
-        this.logger.debug('Detected: Kaspi Bank');
-        return { bankName: BankName.KASPI };
-      }
-
-      if (
-        parser instanceof HapoalimParser &&
-        (await parser.canParse(BankName.HAPOALIM, fileType, filePath, cachedText))
-      ) {
-        this.logger.debug('Detected: Bank Hapoalim');
-        return { bankName: BankName.HAPOALIM };
-      }
-
       // Only bank-specific parsers may claim a bank here: generic parsers
       // (Excel/CSV/DOCX/PDF) ignore bankName in canParse and would mislabel
       // every spreadsheet as Bereke.
-      if (
-        parser instanceof BerekeNewParser &&
-        (await parser.canParse(BankName.BEREKE_NEW, fileType, filePath, cachedText))
-      ) {
-        this.logger.debug('Detected: Bereke Bank (new format)');
-        return { bankName: BankName.BEREKE_NEW, formatVersion: 'new' };
-      }
-      if (
-        parser instanceof BerekeOldParser &&
-        (await parser.canParse(BankName.BEREKE_OLD, fileType, filePath, cachedText))
-      ) {
-        this.logger.debug('Detected: Bereke Bank (old format)');
-        return { bankName: BankName.BEREKE_OLD, formatVersion: 'old' };
+      const claim = FALLBACK_CLAIMS.find(([parserClass]) => parser instanceof parserClass)?.[1];
+      if (claim && (await parser.canParse(claim.bankName, fileType, filePath, cachedText))) {
+        this.logger.debug(`Detected: ${claim.bankName} (${parserName})`);
+        return { ...claim };
       }
     }
 

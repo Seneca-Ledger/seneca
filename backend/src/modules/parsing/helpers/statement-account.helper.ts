@@ -2,6 +2,7 @@ import type { DataSource } from 'typeorm';
 import type { Statement } from '../../../entities/statement.entity';
 import { Wallet } from '../../../entities/wallet.entity';
 import { pickWalletForAccount, realAccountNumber } from '../../wallets/wallet-account-match';
+import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
 
 type StatementAccount = Pick<Wallet, 'id' | 'ownerMemberId'>;
 
@@ -54,4 +55,35 @@ export function accountFields(
     walletId: account.id,
     ownerMemberId: ruleOwner !== undefined ? ruleOwner : account.ownerMemberId,
   };
+}
+
+/**
+ * Narrows a parse to the one account this statement holds. A file can print
+ * several: the upload holds the first and lists the others in its parsing
+ * details, and each other account is a statement of its own that knows its
+ * place among the file's accounts. An account no longer found in the file
+ * leaves the statement without rows, which validation then reports.
+ */
+export function takeStatementAccount(
+  parsed: ParsedStatement,
+  statement: Pick<Statement, 'sourceAccountIndex'>,
+  details: NonNullable<Statement['parsingDetails']>,
+): void {
+  const accounts = [parsed, ...(parsed.otherAccounts ?? [])];
+  const index = statement.sourceAccountIndex ?? 0;
+  const own = accounts[index];
+  parsed.otherAccounts = undefined;
+  if (index > 0) {
+    parsed.metadata = own?.metadata ?? parsed.metadata;
+    parsed.transactions = own?.transactions ?? [];
+    return;
+  }
+  if (accounts.length > 1) {
+    details.otherAccounts = accounts.slice(1).map(({ metadata, transactions }, offset) => ({
+      index: offset + 1,
+      accountNumber: metadata.accountNumber,
+      currency: metadata.currency,
+      transactions: transactions.length,
+    }));
+  }
 }

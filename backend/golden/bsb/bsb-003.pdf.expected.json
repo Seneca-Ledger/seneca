@@ -1,0 +1,188 @@
+{
+  "metadata": {
+    "accountNumber": "NL78HGGU6821675020",
+    "currency": "EUR",
+    "dateFrom": "2025-05-01T00:00:00",
+    "dateTo": "2025-05-31T00:00:00",
+    "balanceStart": 15320.0,
+    "balanceEnd": 14674.96
+  },
+  "transactions": [
+    {
+      "transactionDate": "2025-05-01T00:00:00",
+      "counterpartyName": "THOMAS DE GROOT",
+      "currency": "EUR",
+      "credit": 114.83,
+      "counterpartyAccount": "NL17THOM6025479805",
+      "paymentPurpose": "BINNENKOMENDE OVERBOEKING"
+    },
+    {
+      "transactionDate": "2025-05-02T00:00:00",
+      "counterpartyName": "PIETER BOS",
+      "currency": "EUR",
+      "credit": 67.97,
+      "counterpartyAccount": "NL55PIET1083224727",
+      "paymentPurpose": "SALARISBETALING"
+    },
+    {
+      "transactionDate": "2025-05-07T00:00:00",
+      "counterpartyName": "Jumbo",
+      "currency": "EUR",
+      "debit": 218.55,
+      "counterpartyAccount": "NL73JXXX3432486615",
+      "paymentPurpose": "SEPA DEBIT"
+    },
+    {
+      "transactionDate": "2025-05-07T00:00:00",
+      "counterpartyName": "Zalando NL",
+      "currency": "EUR",
+      "debit": 14.57,
+      "counterpartyAccount": "NL99ZNLX1792129364",
+      "paymentPurpose": "TIKKIE BETAALD"
+    },
+    {
+      "transactionDate": "2025-05-08T00:00:00",
+      "counterpartyName": "Q8",
+      "currency": "EUR",
+      "debit": 337.56,
+      "counterpartyAccount": "NL97QXXX5764147254",
+      "paymentPurpose": "ATM"
+    },
+    {
+      "transactionDate": "2025-05-09T00:00:00",
+      "counterpartyName": "JAN JANSEN",
+      "currency": "EUR",
+      "credit": 5624.95,
+      "counterpartyAccount": "NL92JANJ6922520543",
+      "paymentPurpose": "SALARISBETALING"
+    },
+    {
+      "transactionDate": "2025-05-10T00:00:00",
+      "counterpartyName": "VERZEKERING PREMIE",
+      "currency": "EUR",
+      "debit": 858.91,
+      "counterpartyAccount": "NL62VERZ3742218950",
+      "paymentPurpose": "SEPA INCASSO"
+    },
+    {
+      "transactionDate": "2025-05-11T00:00:00",
+      "counterpartyName": "DAAN DE VRIES",
+      "currency": "EUR",
+      "credit": 138.59,
+      "counterpartyAccount": "NL14DAAN2128810541",
+      "paymentPurpose": "SALARISBETALING"
+    },
+    {
+      "transactionDate": "2025-05-12T00:00:00",
+      "counterpartyName": "Etos",
+      "currency": "EUR",
+      "debit": 6.9,
+      "counterpartyAccount": "NL77EXXX8256872349",
+      "paymentPurpose": "SEPA INCASSO"
+    },
+    {
+      "transactionDate": "2025-05-15T00:00:00",
+      "counterpartyName": "Bol.com",
+      "currency": "EUR",
+      "debit": 1450.77,
+      "counterpartyAccount": "NL79BXXX7077561172",
+      "paymentPurpose": "TIKKIE BETAALD"
+    },
+    {
+      "transactionDate": "2025-05-15T00:00:00",
+      "counterpartyName": "Thuisbezorgd",
+      "currency": "EUR",
+      "debit": 578.3,
+      "counterpartyAccount": "NL75TXXX9795078158",
+      "paymentPurpose": "IDEAL BETALING"
+    },
+    {
+      "transactionDate": "2025-05-15T00:00:00",
+      "counterpartyName": "McDonald's Nederland",
+      "currency": "EUR",
+      "debit": 392.08,
+      "counterpartyAccount": "NL84MDNX6839533434",
+      "paymentPurpose": "BETAALVERZOEK"
+    },
+    {
+      "transactionDate": "2025-05-21T00:00:00",
+      "counterpartyName": "Jumbo",
+      "currency": "EUR",
+      "debit": 482.22,
+      "counterpartyAccount": "NL87JXXX7965341615",
+      "paymentPurpose": "TIKKIE BETAALD"
+    },
+    {
+      "transactionDate": "2025-05-22T00:00:00",
+      "counterpartyName": "Vattenfall Nederland",
+      "currency": "EUR",
+      "debit": 19.4,
+      "counterpartyAccount": "NL54VNXX1840427254",
+      "paymentPurpose": "SEPA DEBIT"
+    },
+    {
+      "transactionDate": "2025-05-22T00:00:00",
+      "counterpartyName": "SANNE BOS",
+      "currency": "EUR",
+      "credit": 37.04,
+      "counterpartyAccount": "NL46SANN9170154372",
+      "paymentPurpose": "BIJSCHRIJVING"
+    },
+    {
+      "transactionDate": "2025-05-24T00:00:00",
+      "counterpartyName": "Eneco",
+      "currency": "EUR",
+      "debit": 890.43,
+      "counterpartyAccount": "NL21EXXX7342322726",
+      "paymentPurpose": "DOORLOPENDE MACHTIGING"
+    },
+    {
+      "transactionDate": "2025-05-27T00:00:00",
+      "counterpartyName": "Jumbo",
+      "currency": "EUR",
+      "debit": 338.26,
+      "counterpartyAccount": "NL39JXXX5818282551",
+      "paymentPurpose": "ATM"
+    },
+    {
+      "transactionDate": "2025-05-27T00:00:00",
+      "counterpartyName": "McDonald's Nederland",
+      "currency": "EUR",
+      "debit": 183.45,
+      "counterpartyAccount": "NL44MDNX4935101248",
+      "paymentPurpose": "ACCEPTGIRO"
+    },
+    {
+      "transactionDate": "2025-05-28T00:00:00",
+      "counterpartyName": "Albert Heijn",
+      "currency": "EUR",
+      "debit": 156.96,
+      "counterpartyAccount": "NL28AHXX1239698894",
+      "paymentPurpose": "PERIODIEKE OVERBOEKING"
+    },
+    {
+      "transactionDate": "2025-05-28T00:00:00",
+      "counterpartyName": "Albert Heijn",
+      "currency": "EUR",
+      "debit": 592.96,
+      "counterpartyAccount": "NL68AHXX7186082419",
+      "paymentPurpose": "GELDAUTOMAAT"
+    },
+    {
+      "transactionDate": "2025-05-29T00:00:00",
+      "counterpartyName": "Zalando NL",
+      "currency": "EUR",
+      "debit": 15.29,
+      "counterpartyAccount": "NL98ZNLX6064401271",
+      "paymentPurpose": "IDEAL"
+    },
+    {
+      "transactionDate": "2025-05-31T00:00:00",
+      "counterpartyName": "Ziggo",
+      "currency": "EUR",
+      "debit": 91.81,
+      "counterpartyAccount": "NL94ZXXX4358057468",
+      "paymentPurpose": "OVERSCHRIJVING"
+    }
+  ]
+}

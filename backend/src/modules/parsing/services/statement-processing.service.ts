@@ -33,7 +33,11 @@ import { CrossStatementDeduplicationService } from '../../transactions/services/
 import { ManualRowDuplicateService } from '../../transactions/services/manual-row-duplicate.service';
 import { TransactionFingerprintService } from '../../transactions/services/transaction-fingerprint.service';
 import { TransferPairingService } from '../../transactions/services/transfer-pairing.service';
-import { accountFields, accountOfStatement } from '../helpers/statement-account.helper';
+import {
+  accountFields,
+  accountOfStatement,
+  takeStatementAccount,
+} from '../helpers/statement-account.helper';
 import { fileExtensionOf } from '../helpers/statement-file.helper';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { MetadataExtractionService } from './metadata-extraction.service';
@@ -690,6 +694,7 @@ export class StatementProcessingService {
       addLog('info', 'Starting PDF text extraction...');
       const parseStartTime = Date.now();
       const parsedStatement = await parser.parse(processingFilePath, cachedText, ocrConfidence);
+      takeStatementAccount(parsedStatement, statement, parsingDetails);
       const parseTime = Date.now() - parseStartTime;
 
       addLog('info', `Parsing completed in ${parseTime}ms`);
@@ -769,12 +774,7 @@ export class StatementProcessingService {
         addLog,
         droppedSamples,
       );
-      if (schemaResult.warnings.length) {
-        parsingDetails.warnings = parsingDetails.warnings || [];
-        for (const w of schemaResult.warnings) {
-          parsingDetails.warnings?.push(w);
-        }
-      }
+      parsingDetails.warnings = [...(parsingDetails.warnings || []), ...schemaResult.warnings];
       parsedStatement.transactions = schemaResult.valid;
       parsingDetails.transactionsFound = parsedStatement.transactions.length;
       parsingDetails.droppedSamples = droppedSamples;

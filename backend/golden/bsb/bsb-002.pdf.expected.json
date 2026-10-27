@@ -1,0 +1,102 @@
+{
+  "metadata": {
+    "accountNumber": "XXXX XXXX XXXX 6642",
+    "currency": "USD",
+    "dateFrom": "2025-09-01T00:00:00",
+    "dateTo": "2025-09-30T00:00:00",
+    "balanceStart": -1847.32,
+    "balanceEnd": -9532.91
+  },
+  "transactions": [
+    {
+      "transactionDate": "2025-09-01T00:00:00",
+      "counterpartyName": "UBER TRIP REF: 775648 Chevron station #0441 38.2gal premium",
+      "currency": "USD",
+      "debit": 531.56
+    },
+    {
+      "transactionDate": "2025-09-07T00:00:00",
+      "counterpartyName": "WHOLE FOODS MARKET REF: 369975 Walmart Supercenter #0441 self-checkout txn",
+      "currency": "USD",
+      "debit": 1124.43
+    },
+    {
+      "transactionDate": "2025-09-08T00:00:00",
+      "counterpartyName": "CHIPOTLE MEXICAN McDonald's #8841 receipt 44-2019-US",
+      "currency": "USD",
+      "debit": 5.32
+    },
+    {
+      "transactionDate": "2025-09-10T00:00:00",
+      "counterpartyName": "APPLE.COM/BILL REF: 945454 Netflix US monthly standard 4K plan USD",
+      "currency": "USD",
+      "debit": 293.13
+    },
+    {
+      "transactionDate": "2025-09-12T00:00:00",
+      "counterpartyName": "REWARDS REDEMPTION Chase Ultimate Rewards credit ref CUR-8841",
+      "currency": "USD",
+      "credit": 13.84
+    },
+    {
+      "transactionDate": "2025-09-13T00:00:00",
+      "counterpartyName": "STARBUCKS COFFEE DoorDash order #DD-44920-NYC ETA 35min",
+      "currency": "USD",
+      "debit": 1520.75
+    },
+    {
+      "transactionDate": "2025-09-13T00:00:00",
+      "counterpartyName": "WALMART SUPERCENTER Kroger store #8841 receipt 44-2019-US",
+      "currency": "USD",
+      "debit": 28.13
+    },
+    {
+      "transactionDate": "2025-09-13T00:00:00",
+      "counterpartyName": "SPOTIFY USA REF.: POS-188972 Hulu No Ads monthly subscription USD",
+      "currency": "USD",
+      "debit": 8.52
+    },
+    {
+      "transactionDate": "2025-09-17T00:00:00",
+      "counterpartyName": "TARGET STORE Trader Joe's receipt #TJ-44920-US store 421",
+      "currency": "USD",
+      "debit": 1912.64
+    },
+    {
+      "transactionDate": "2025-09-21T00:00:00",
+      "counterpartyName": "APPLE.COM/BILL Hulu No Ads monthly subscription USD",
+      "currency": "USD",
+      "debit": 1095.48
+    },
+    {
+      "transactionDate": "2025-09-23T00:00:00",
+      "counterpartyName": "NETFLIX.COM Uber trip UBR-4421-002-NYC receipt",
+      "currency": "USD",
+      "debit": 30.21
+    },
+    {
+      "transactionDate": "2025-09-26T00:00:00",
+      "counterpartyName": "CLOTHING STORE Gap Factory receipt #GAP-44920-NY store 88",
+      "currency": "USD",
+      "debit": 42.22
+    },
+    {
+      "transactionDate": "2025-09-26T00:00:00",
+      "counterpartyName": "SPOTIFY USA Netflix US monthly standard 4K plan USD",
+      "currency": "USD",
+      "debit": 5.08
+    },
+    {
+      "transactionDate": "2025-09-26T00:00:00",
+      "counterpartyName": "WALGREENS Walgreens store #0441 script fill #WLG-8841",
+      "currency": "USD",
+      "debit": 1065.49
+    },
+    {
+      "transactionDate": "2025-09-28T00:00:00",
+      "counterpartyName": "COSTCO WHOLESALE REF.: POS-402448 Kroger store #8841 receipt 44-2019-US",
+      "currency": "USD",
+      "debit": 36.47
+    }
+  ]
+}

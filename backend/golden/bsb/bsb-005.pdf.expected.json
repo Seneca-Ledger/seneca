@@ -1,0 +1,162 @@
+{
+  "metadata": {
+    "accountNumber": "67324-673-9893968",
+    "currency": "CAD",
+    "dateFrom": "2025-01-01T00:00:00",
+    "dateTo": "2025-01-31T00:00:00",
+    "balanceStart": 10750.0,
+    "balanceEnd": 11133.6
+  },
+  "transactions": [
+    {
+      "transactionDate": "2025-01-02T00:00:00",
+      "counterpartyName": "SKIP PLATS",
+      "currency": "CAD",
+      "debit": 151.3
+    },
+    {
+      "transactionDate": "2025-01-02T00:00:00",
+      "counterpartyName": "DEPOT DIRECT SALAIRE",
+      "currency": "CAD",
+      "credit": 10.33
+    },
+    {
+      "transactionDate": "2025-01-03T00:00:00",
+      "counterpartyName": "AMAZON.CA",
+      "currency": "CAD",
+      "debit": 1200.45
+    },
+    {
+      "transactionDate": "2025-01-06T00:00:00",
+      "counterpartyName": "DEPOT PAIE",
+      "currency": "CAD",
+      "credit": 101.15
+    },
+    {
+      "transactionDate": "2025-01-06T00:00:00",
+      "counterpartyName": "PETRO-CANADA",
+      "currency": "CAD",
+      "debit": 29.69
+    },
+    {
+      "transactionDate": "2025-01-06T00:00:00",
+      "counterpartyName": "SPOTIFY CA",
+      "currency": "CAD",
+      "debit": 541.27
+    },
+    {
+      "transactionDate": "2025-01-07T00:00:00",
+      "counterpartyName": "METRO EPICERIE",
+      "currency": "CAD",
+      "debit": 712.2
+    },
+    {
+      "transactionDate": "2025-01-09T00:00:00",
+      "counterpartyName": "PHARMAPRIX",
+      "currency": "CAD",
+      "debit": 323.62
+    },
+    {
+      "transactionDate": "2025-01-09T00:00:00",
+      "counterpartyName": "HYDRO-QUEBEC",
+      "currency": "CAD",
+      "debit": 588.27
+    },
+    {
+      "transactionDate": "2025-01-11T00:00:00",
+      "counterpartyName": "CANADIAN TIRE",
+      "currency": "CAD",
+      "debit": 18.7
+    },
+    {
+      "transactionDate": "2025-01-12T00:00:00",
+      "counterpartyName": "MAGASIN VÊTEMENTS",
+      "currency": "CAD",
+      "debit": 100.28
+    },
+    {
+      "transactionDate": "2025-01-12T00:00:00",
+      "counterpartyName": "INTERETS GAGNES",
+      "currency": "CAD",
+      "credit": 31.46
+    },
+    {
+      "transactionDate": "2025-01-13T00:00:00",
+      "counterpartyName": "DEPOT DIRECT SALAIRE",
+      "currency": "CAD",
+      "credit": 33.97
+    },
+    {
+      "transactionDate": "2025-01-14T00:00:00",
+      "counterpartyName": "STM MONTREAL",
+      "currency": "CAD",
+      "debit": 567.79
+    },
+    {
+      "transactionDate": "2025-01-14T00:00:00",
+      "counterpartyName": "VIREMENT INTERAC RECU",
+      "currency": "CAD",
+      "credit": 66.64
+    },
+    {
+      "transactionDate": "2025-01-16T00:00:00",
+      "counterpartyName": "STARBUCKS CAFE",
+      "currency": "CAD",
+      "debit": 84.98
+    },
+    {
+      "transactionDate": "2025-01-16T00:00:00",
+      "counterpartyName": "VIREMENT ELECTRONIQUE RECU",
+      "currency": "CAD",
+      "credit": 125.28
+    },
+    {
+      "transactionDate": "2025-01-19T00:00:00",
+      "counterpartyName": "TIM HORTONS",
+      "currency": "CAD",
+      "debit": 72.92
+    },
+    {
+      "transactionDate": "2025-01-20T00:00:00",
+      "counterpartyName": "DEPOT PAIE",
+      "currency": "CAD",
+      "credit": 6900.98
+    },
+    {
+      "transactionDate": "2025-01-21T00:00:00",
+      "counterpartyName": "UBER COURSE",
+      "currency": "CAD",
+      "debit": 1895.8
+    },
+    {
+      "transactionDate": "2025-01-23T00:00:00",
+      "counterpartyName": "LA BAIE",
+      "currency": "CAD",
+      "debit": 88.96
+    },
+    {
+      "transactionDate": "2025-01-24T00:00:00",
+      "counterpartyName": "TIM HORTONS",
+      "currency": "CAD",
+      "debit": 53.5
+    },
+    {
+      "transactionDate": "2025-01-25T00:00:00",
+      "counterpartyName": "APPLE.COM/BILL",
+      "currency": "CAD",
+      "debit": 17.26
+    },
+    {
+      "transactionDate": "2025-01-26T00:00:00",
+      "counterpartyName": "GAZ METRO",
+      "currency": "CAD",
+      "debit": 422.11
+    },
+    {
+      "transactionDate": "2025-01-26T00:00:00",
+      "counterpartyName": "NETFLIX.COM",
+      "currency": "CAD",
+      "debit": 17.11
+    }
+  ]
+}

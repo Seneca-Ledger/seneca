@@ -35,6 +35,7 @@ import { StatementsListHeader } from './StatementsListHeader';
 import { StatementsListTable } from './StatementsListTable';
 import { resolveStatementViewAction } from './StatementsListView.utils';
 import { StatementsTableToolbar } from './StatementsTableToolbar';
+import { buildTableLabels } from './statement-table-labels';
 import { uploadScanDrawerFiles as runUploadScanDrawerFiles } from './statement-upload';
 
 // A created row normally replaces its placeholder within one refetch. The
@@ -438,6 +439,7 @@ export default function StatementsListView(): React.JSX.Element {
             selectedCount={v.selectedCount}
             selectedStatementIds={v.selectedStatementIds}
             dateSortDirection={v.dateSortDirection}
+            amountView={filterState.appliedFilters.amountView}
             page={v.page}
             totalPagesCount={v.totalPagesCount}
             rangeStart={v.rangeStart}
@@ -450,18 +452,7 @@ export default function StatementsListView(): React.JSX.Element {
             workspaceCurrency={v.currentWorkspace?.currency}
             viewLabel={viewLabel}
             reviewDuplicateLabel={reviewDuplicateLabel}
-            labels={{
-              merchant: listHeaderLabels.merchant,
-              date: listHeaderLabels.date,
-              amount: listHeaderLabels.amount,
-              action: listHeaderLabels.action,
-              receipt: listHeaderLabels.receipt,
-              scanning: listHeaderLabels.scanning,
-              emptyTitle: t.empty.title.value,
-              emptyDescription: t.empty.description.value,
-              paginationShown: paginationLabels.shown,
-              paginationPageOf: paginationLabels.pageOf,
-            }}
+            labels={buildTableLabels(listHeaderLabels, t.empty, paginationLabels)}
             onToggleSelectAll={v.handleToggleSelectAll}
             onToggleSortDirection={() =>
               v.setDateSortDirection(v.dateSortDirection === 'desc' ? 'asc' : 'desc')

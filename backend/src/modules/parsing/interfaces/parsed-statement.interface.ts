@@ -40,4 +40,10 @@ export interface ParsedStatementMetadata {
 export interface ParsedStatement {
   metadata: ParsedStatementMetadata;
   transactions: ParsedTransaction[];
+  /**
+   * Further accounts printed in the same file (an HKD and a USD account on one
+   * statement), each with its own metadata and rows. `metadata` and
+   * `transactions` above are the first account.
+   */
+  otherAccounts?: Array<Pick<ParsedStatement, 'metadata' | 'transactions'>>;
 }

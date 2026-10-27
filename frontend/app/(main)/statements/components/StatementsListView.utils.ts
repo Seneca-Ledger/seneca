@@ -3,13 +3,13 @@ import { getCachedIntlayer } from '@/app/i18n';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
 import type { StatementCategoryNode } from '@/app/lib/statement-categories';
-import { formatStoredDate } from '@/app/lib/user-format-store';
 import {
   getAllowedStatementFilterKeys,
   resetDisallowedStatementFilters,
   type StatementColumn,
   type StatementColumnId,
 } from './columns/statement-columns';
+import { formatStatementFigure, type StatementAmountView } from './filters/amount-view';
 import {
   getVisibleFilterScreens,
   resetHiddenStatementFilters,
@@ -204,7 +204,10 @@ export const parseAmountValue = (value?: number | string | null): number | null 
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-export const formatStatementAmount = (statement: StatementLike): string => {
+export const formatStatementAmount = (
+  statement: StatementLike,
+  amountView: StatementAmountView | null = null,
+): string => {
   if (statement.source === 'scan') {
     const amount = parseAmountValue(statement.parsedData?.amount ?? null);
     if (amount === null) {
@@ -227,50 +230,15 @@ export const formatStatementAmount = (statement: StatementLike): string => {
     }
   }
 
-  const debit = parseAmountValue(statement.totalDebit);
-  const credit = parseAmountValue(statement.totalCredit);
-  const rawAmount = (debit && debit > 0 ? debit : credit && credit > 0 ? credit : 0) || 0;
   const currency = resolveStatementCurrency(statement);
-  const formatted =
-    rawAmount === 0
-      ? '0'
-      : new Intl.NumberFormat(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(rawAmount);
-  return `${formatted}${currency || ''}`;
+  return `${formatStatementFigure(statement, amountView)}${currency || ''}`;
 };
 
-// Receipts use upload time so newly uploaded items appear at the top.
-const resolveReceiptDateValue = (statement: StatementLike): string =>
-  statement.receivedAt || statement.createdAt || statement.parsedData?.date || '';
-
-export const formatStatementDate = (statement: StatementLike): string => {
-  const dateValue =
-    statement.source === 'scan'
-      ? resolveReceiptDateValue(statement)
-      : statement.statementDateTo || statement.statementDateFrom || statement.createdAt || '';
-  if (!dateValue) {
-    return '—';
-  }
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) {
-    return '—';
-  }
-  return formatStoredDate(date);
-};
-
-export const resolveStatementSortDate = (statement: StatementLike): number => {
-  const dateValue =
-    statement.source === 'scan'
-      ? resolveReceiptDateValue(statement)
-      : statement.statementDateTo || statement.statementDateFrom || statement.createdAt || '';
-  const date = dateValue ? new Date(dateValue) : null;
-  if (!date || Number.isNaN(date.getTime())) {
-    return 0;
-  }
-  return date.getTime();
-};
+export {
+  formatStatementDate,
+  resolveStatementAddedTime,
+  resolveStatementSortDate,
+} from './statement-dates';
 
 export const getBankDisplayName = (bankName: string): string => {
   const resolved = resolveBankLogo(bankName);
