@@ -7,6 +7,8 @@ const backendRoot = path.resolve(__dirname, '../../../..');
 /** Statements from the golden corpus and e-invoices from the e-invoice fixtures. */
 const STATEMENTS = [
   'golden/absa/sample1.pdf',
+  'golden/ally/sample1.pdf',
+  'golden/anz/sample1.pdf',
   'golden/bereke/sample1.pdf',
   'golden/kaspi/sample1.pdf',
   'golden/bsb/bsb-001.pdf',

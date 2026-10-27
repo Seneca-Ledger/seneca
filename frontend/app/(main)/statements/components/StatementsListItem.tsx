@@ -6,16 +6,14 @@ import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import React from 'react';
 import { formatMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
-import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
 import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
-import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import { AlertCircle, ChevronDown, ChevronRight, CreditCard, Tag } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { categoryReportHref, tagReportHref } from '@/app/lib/category-report-href';
+import { tagReportHref } from '@/app/lib/category-report-href';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
@@ -25,6 +23,8 @@ import {
   type StatementColumn,
   type StatementColumnId,
 } from './columns/statement-columns';
+import { splitAmountLabel } from './filters/amount-view';
+import { StatementCategoryCell } from './StatementCategoryCell';
 import { isDocumentApproved, resolveStatementSortDate } from './StatementsListView.utils';
 import {
   columnCellStyle,
@@ -77,6 +77,7 @@ export type StatementListItem = {
     exchangeRate?: string | number | null;
     exchangeRateMixed?: boolean;
     cardLabel?: string | null;
+    uncategorizedCount?: number;
   } | null;
   user?: {
     id: string;
@@ -243,7 +244,6 @@ export function StatementsListItem({
   const listText = useIntlayer('statementsListUi');
   const { locale } = useLocale();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
-  const { lit: categoryLit, linkProps: categoryLinkProps } = useDwellLink();
 
   const resolvedTypeLabel = typeLabel || statement.fileType;
   const isLocalReceipt = statement.source === 'scan';
@@ -272,10 +272,7 @@ export function StatementsListItem({
   const duplicateTooltipText = `${duplicateBadgeLabel ?? ''} — ${duplicateReason || listText.duplicateReasonSame.value}`;
   const reviewLabel = duplicateActionLabel || listText.review.value;
   const actionLabel = isPossibleDuplicate ? reviewLabel : viewLabel;
-  // "23.00USD" → figure and currency, so the code can sit apart, smaller and grey.
-  const amountParts = /^(.*\d)\s*(\D+)$/.exec(amountLabel);
-  const amountFigure = amountParts ? amountParts[1] : amountLabel;
-  const amountCurrency = amountParts ? amountParts[2] : null;
+  const { figure: amountFigure, currency: amountCurrency } = splitAmountLabel(amountLabel);
   const typeCaption = isManualExpense
     ? null
     : isReceipt
@@ -379,45 +376,6 @@ export function StatementsListItem({
     );
   };
 
-  const renderCategoryCell = (): React.JSX.Element => {
-    if (!hasChosenCategory(categoryLabel)) {
-      // A receipt or a one-row statement is one purchase, so no category means
-      // one is still to be picked. A multi-row statement's category is only the
-      // majority of its rows', which carry their own (shown when opened).
-      const awaitsCategory =
-        (isReceipt || transactionCount <= 1) && !isProcessing && !isPendingStatement && !hasError;
-      return awaitsCategory ? (
-        <NoCategoryBadge onClick={onAddCategory} />
-      ) : (
-        renderPlainCell('category', null)
-      );
-    }
-    return (
-      <Link
-        href={categoryReportHref(categoryLabel, statementMonth(statement))}
-        className={`seneca-stmt-category-link${categoryLit ? ' seneca-stmt-category-link--lit' : ''}`}
-        {...categoryLinkProps}
-        title={listText.categoryLink.value.replace('{category}', categoryText ?? categoryLabel)}
-      >
-        <span className="seneca-stmt-category-link__badge">
-          <CategoryIconBadge
-            name={categoryLabel}
-            color={statement.category?.color}
-            icon={statement.category?.icon}
-            size={22}
-          />
-        </span>
-        <span
-          className="seneca-stmt-category-link__text"
-          data-label={categoryText}
-          style={{ ...textCellStyle('category'), width: 'auto', minWidth: 0 }}
-        >
-          {categoryText}
-        </span>
-      </Link>
-    );
-  };
-
   const renderReceiptCell = (): React.JSX.Element => (
     <DocumentThumbnailPreview
       fileId={statement.id}
@@ -510,6 +468,7 @@ export function StatementsListItem({
         className={clsx('seneca-stmt-list-item__amount', PRIVATE_CLASS)}
         style={{
           color: isNegativeAmount || hasError || isMissingAmount ? c.danger : c.ink900,
+          whiteSpace: amountFigure.includes('\n') ? 'pre-line' : undefined,
         }}
       >
         {showAmountLoader ? (
@@ -573,7 +532,22 @@ export function StatementsListItem({
         firstNonEmpty(statement.user?.name, statement.user?.email, statement.sender),
       );
     if (columnId === 'to') return renderPlainCell(columnId, sourceLabel);
-    if (columnId === 'category') return renderCategoryCell();
+    if (columnId === 'category')
+      return (
+        <StatementCategoryCell
+          category={statement.category}
+          label={categoryLabel}
+          text={categoryText}
+          month={statementMonth(statement)}
+          rowsCount={transactionCount}
+          uncategorizedCount={statement.transactionSummary?.uncategorizedCount ?? 0}
+          isReceipt={isReceipt}
+          busy={isProcessing || hasError}
+          pending={isPendingStatement}
+          onAddCategory={onAddCategory}
+          onOpenRows={onToggleExpand}
+        />
+      );
     if (columnId === 'tag') return renderTagCell();
     if (columnId === 'amount') return renderAmountCell();
     if (columnId === 'action') return renderActionCell();
