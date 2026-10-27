@@ -23,6 +23,7 @@ const BANK_LABELS: Record<string, string> = {
   kaspi: 'Kaspi Bank',
   hapoalim: 'Bank Hapoalim',
   absa: 'Absa',
+  ally: 'Ally Bank',
   other: 'Other',
 };
 

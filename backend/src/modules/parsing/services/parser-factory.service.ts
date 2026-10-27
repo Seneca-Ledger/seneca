@@ -3,6 +3,7 @@ import { extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
 import type { IParser } from '../interfaces/parser.interface';
 import { AbsaParser } from '../parsers/absa.parser';
+import { AllyParser } from '../parsers/ally.parser';
 import { BerekeNewParser } from '../parsers/bereke-new.parser';
 import { BerekeOldParser } from '../parsers/bereke-old.parser';
 import { Camt053Parser } from '../parsers/camt053.parser';
@@ -15,21 +16,7 @@ import { KaspiParser } from '../parsers/kaspi.parser';
 import { Mt940Parser } from '../parsers/mt940.parser';
 import { OfxParser } from '../parsers/ofx.parser';
 import { QifParser } from '../parsers/qif.parser';
-
-/**
- * Bank-specific parsers that may claim a file when its text names no bank,
- * in the order they are tried, with what each claims it as.
- */
-const FALLBACK_CLAIMS: [
-  abstract new (...args: never[]) => IParser,
-  { bankName: BankName; formatVersion?: string },
-][] = [
-  [KaspiParser, { bankName: BankName.KASPI }],
-  [HapoalimParser, { bankName: BankName.HAPOALIM }],
-  [AbsaParser, { bankName: BankName.ABSA }],
-  [BerekeNewParser, { bankName: BankName.BEREKE_NEW, formatVersion: 'new' }],
-  [BerekeOldParser, { bankName: BankName.BEREKE_OLD, formatVersion: 'old' }],
-];
+import { FALLBACK_CLAIMS } from './parser-fallback-claims';
 
 @Injectable()
 export class ParserFactoryService {
@@ -43,6 +30,7 @@ export class ParserFactoryService {
       new KaspiParser(),
       new HapoalimParser(),
       new AbsaParser(),
+      new AllyParser(),
       new GenericPdfParser(),
       new ExcelParser(),
       new CsvParser(),

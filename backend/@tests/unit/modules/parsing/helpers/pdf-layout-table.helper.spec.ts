@@ -67,6 +67,23 @@ describe('pdf-layout-table.helper', () => {
     expect(openingBalanceFromRows(transactions)).toBe(1000);
   });
 
+  it('skips dated balance lines and keeps what the dated row itself says', () => {
+    const transactions = readLayoutTransactions([
+      header,
+      row(120, [['01/02/2025', 40], ['Beginning', 110], ['Balance', 160], ['1,000.00', 480]]),
+      row(140, [['01/02/2025', 40], ['Card', 110], ['Purchase', 135], ['12.50', 315], ['987.50', 490]]),
+      row(149, [['ACME', 110], ['Store', 135]]),
+      row(160, [['Example', 110], ['Town', 155]]),
+      row(180, [['28/02/2025', 40], ['Ending', 110], ['Balance', 150], ['987.50', 490]]),
+      row(189, [['Thank', 110], ['you', 140]]),
+    ]);
+
+    expect(transactions.map(({ firstLine, description }) => ({ firstLine, description }))).toEqual([
+      { firstLine: 'Card Purchase', description: 'Card Purchase ACME Store Example Town' },
+    ]);
+    expect(openingBalanceFromRows(transactions)).toBe(1000);
+  });
+
   it('keeps zero-amount lines as description, as card statements print them', () => {
     const transactions = readLayoutTransactions([
       header,

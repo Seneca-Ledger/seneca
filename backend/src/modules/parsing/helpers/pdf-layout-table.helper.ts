@@ -28,6 +28,8 @@ export interface LayoutTransaction {
   /** Printed date, kept for deciding the statement's day/month order. */
   dateText: string;
   description: string;
+  /** The part of `description` printed on the dated row itself. */
+  firstLine: string;
   counterparty: string;
   counterpartyAccount?: string;
   debit?: number;
@@ -84,6 +86,7 @@ function openTransaction(
     date: date.parts,
     dateText: date.text,
     description: '',
+    firstLine: '',
     counterparty: '',
   };
   for (const { role, value } of laidOut.amounts) {
@@ -98,6 +101,7 @@ function openTransaction(
     }
   }
   appendText(transaction, laidOut);
+  transaction.firstLine = transaction.description;
   return transaction;
 }
 
@@ -212,8 +216,12 @@ function readRow(state: ReadingState, row: PdfTextRow) {
   }
 
   const { date, laidOut } = readTableRow(row, state.columns);
-  if (date && laidOut.amounts.length > 0) {
-    state.current = { ...openTransaction(date, laidOut), account: state.account };
+  const opened = date && laidOut.amounts.length > 0 ? openTransaction(date, laidOut) : null;
+  if (opened && isBalanceLine(opened)) {
+    // "01/06/2023 Beginning Balance $4,082.88": the balance, not a movement.
+    state.current = null;
+  } else if (opened) {
+    state.current = { ...opened, account: state.account };
     state.transactions.push(state.current);
     state.lastRow = row;
   } else if (state.current && !date && continuesTransaction(row, laidOut, state.lastRow)) {
@@ -223,6 +231,14 @@ function readRow(state: ReadingState, row: PdfTextRow) {
     // A totals line, a footer or a gap: whatever follows is not this row's text.
     state.current = null;
   }
+}
+
+function isBalanceLine(transaction: LayoutTransaction): boolean {
+  return (
+    transaction.debit === undefined &&
+    transaction.credit === undefined &&
+    transaction.amount === undefined
+  );
 }
 
 /** The day/month order placeholder in `date` is only right for unambiguous dates. */

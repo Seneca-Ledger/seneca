@@ -181,6 +181,7 @@ describe('ParserFactoryService', () => {
       'KaspiParser',
       'HapoalimParser',
       'AbsaParser',
+      'AllyParser',
       'GenericPdfParser',
       'ExcelParser',
       'CsvParser',
