@@ -1,0 +1,174 @@
+{
+  "accounts": [
+    {
+      "metadata": {
+        "accountNumber": "817-890692-838",
+        "currency": "HKD",
+        "balanceStart": 42580.0,
+        "balanceEnd": 18364.12
+      },
+      "transactions": [
+        {
+          "transactionDate": "2025-09-01T00:00:00",
+          "counterpartyName": "Faster payment FASTER PAYMENT 8742522 TO: Deliveroo P3704085QR OTHER",
+          "currency": "HKD",
+          "debit": 153.01
+        },
+        {
+          "transactionDate": "2025-09-02T00:00:00",
+          "counterpartyName": "Fps payment FPS TRANSFER 4317616 TO: Watsons HK OTHER",
+          "currency": "HKD",
+          "debit": 1932.0
+        },
+        {
+          "transactionDate": "2025-09-03T00:00:00",
+          "counterpartyName": "Fps transfer FASTER PAYMENT 1105321 TO: Deliveroo P4161927QR OTHER",
+          "currency": "HKD",
+          "debit": 292.69
+        },
+        {
+          "transactionDate": "2025-09-05T00:00:00",
+          "counterpartyName": "Fps received FPS TRANSFER 4035786 TO: MPF OTHER",
+          "currency": "HKD",
+          "credit": 298.25
+        },
+        {
+          "transactionDate": "2025-09-06T00:00:00",
+          "counterpartyName": "Chats payment FPS PAYMENT 4665823 TO: MTR P4727275QR OTHER",
+          "currency": "HKD",
+          "debit": 1364.41
+        },
+        {
+          "transactionDate": "2025-09-07T00:00:00",
+          "counterpartyName": "Chats payment FPS PAYMENT 4342274 TO: Fortress OTHER",
+          "currency": "HKD",
+          "debit": 392.44
+        },
+        {
+          "transactionDate": "2025-09-12T00:00:00",
+          "counterpartyName": "Fps FASTER PAYMENT 5098032 TO: Deliveroo OTHER",
+          "currency": "HKD",
+          "debit": 6510.43
+        },
+        {
+          "transactionDate": "2025-09-13T00:00:00",
+          "counterpartyName": "Fps payment FASTER PAYMENT 4534921 TO: MTR OTHER",
+          "currency": "HKD",
+          "debit": 4771.08
+        },
+        {
+          "transactionDate": "2025-09-13T00:00:00",
+          "counterpartyName": "Chats payment FPS TRANSFER 7940237 TO: H&M HK OTHER",
+          "currency": "HKD",
+          "debit": 232.85
+        },
+        {
+          "transactionDate": "2025-09-14T00:00:00",
+          "counterpartyName": "Fps transfer FASTER PAYMENT 6757548 TO: McDonald's HK OTHER",
+          "currency": "HKD",
+          "debit": 181.62
+        },
+        {
+          "transactionDate": "2025-09-14T00:00:00",
+          "counterpartyName": "Chats FASTER PAYMENT 9982744 TO: Zara HK P7818547QR OTHER",
+          "currency": "HKD",
+          "debit": 3554.02
+        },
+        {
+          "transactionDate": "2025-09-17T00:00:00",
+          "counterpartyName": "Fps payment FASTER PAYMENT 7869997 TO: Deliveroo OTHER",
+          "currency": "HKD",
+          "debit": 4728.04
+        },
+        {
+          "transactionDate": "2025-09-19T00:00:00",
+          "counterpartyName": "Fps received FPS PAYMENT 9214246 TO: Rating and Valuation OTHER",
+          "currency": "HKD",
+          "credit": 235.54
+        },
+        {
+          "transactionDate": "2025-09-19T00:00:00",
+          "counterpartyName": "Fps FPS PAYMENT 9247994 TO: Amazon OTHER",
+          "currency": "HKD",
+          "debit": 263.97
+        },
+        {
+          "transactionDate": "2025-09-20T00:00:00",
+          "counterpartyName": "Chats FASTER PAYMENT 3559781 TO: H&M HK P8416130QR OTHER",
+          "currency": "HKD",
+          "debit": 373.11
+        }
+      ]
+    },
+    {
+      "metadata": {
+        "accountNumber": "817-890692-002",
+        "currency": "USD",
+        "balanceStart": 150000.0,
+        "balanceEnd": 170150.85
+      },
+      "transactions": [
+        {
+          "transactionDate": "2025-09-20T00:00:00",
+          "counterpartyName": "Fps transfer FASTER PAYMENT 6611800 TO: Mannings P6319019QR OTHER",
+          "currency": "USD",
+          "debit": 181.04
+        },
+        {
+          "transactionDate": "2025-09-20T00:00:00",
+          "counterpartyName": "Chats received FPS PAYMENT 1748590 TO: MPF OTHER",
+          "currency": "USD",
+          "credit": 303.04
+        },
+        {
+          "transactionDate": "2025-09-21T00:00:00",
+          "counterpartyName": "Fps payment FASTER PAYMENT 4056036 TO: PARKnSHOP OTHER",
+          "currency": "USD",
+          "debit": 11286.99
+        },
+        {
+          "transactionDate": "2025-09-22T00:00:00",
+          "counterpartyName": "Fps FPS TRANSFER 5047871 TO: CLP Power P1063199QR OTHER",
+          "currency": "USD",
+          "debit": 219.06
+        },
+        {
+          "transactionDate": "2025-09-23T00:00:00",
+          "counterpartyName": "Faster payment received FPS 6678346 TO: HKTVmall OTHER",
+          "currency": "USD",
+          "credit": 34690.79
+        },
+        {
+          "transactionDate": "2025-09-23T00:00:00",
+          "counterpartyName": "Fps received FPS PAYMENT 3097388 TO: Rating and Valuation OTHER",
+          "currency": "USD",
+          "credit": 506.03
+        },
+        {
+          "transactionDate": "2025-09-24T00:00:00",
+          "counterpartyName": "Faster payment FPS 4492099 TO: Netflix P4851231QR OTHER",
+          "currency": "USD",
+          "debit": 3816.32
+        },
+        {
+          "transactionDate": "2025-09-27T00:00:00",
+          "counterpartyName": "Fps FPS 9447144 TO: Wellcome P9473185QR OTHER",
+          "currency": "USD",
+          "debit": 346.92
+        },
+        {
+          "transactionDate": "2025-09-27T00:00:00",
+          "counterpartyName": "Fps credit FPS TRANSFER 6073478 TO: HKIRD OTHER",
+          "currency": "USD",
+          "credit": 631.17
+        },
+        {
+          "transactionDate": "2025-09-30T00:00:00",
+          "counterpartyName": "Fps payment FASTER PAYMENT 8134726 TO: Shell HK OTHER",
+          "currency": "USD",
+          "debit": 129.85
+        }
+      ]
+    }
+  ]
+}

@@ -25,29 +25,35 @@ function guessFileType(filePath: string): FileType {
   return FileType.PDF;
 }
 
-function loadExpected(filePath: string): ParsedStatement {
-  const raw = fs.readFileSync(filePath, 'utf8');
-  const parsed = JSON.parse(raw);
-  const tx = Array.isArray(parsed.transactions)
-    ? (parsed.transactions as ExpectedTransactionInput[])
-    : [];
-  const metadata = parsed.metadata || {};
-  return {
-    metadata: {
-      accountNumber: metadata.accountNumber || '',
-      currency: metadata.currency || 'KZT',
-      dateFrom: new Date(metadata.dateFrom || metadata.date_from || Date.now()),
-      dateTo: new Date(metadata.dateTo || metadata.date_to || metadata.dateFrom || Date.now()),
-      balanceStart: metadata.balanceStart ?? metadata.balance_start,
-      balanceEnd: metadata.balanceEnd ?? metadata.balance_end,
-    },
-    transactions: tx.map(t => ({
-      ...t,
-      transactionDate: new Date(t.transactionDate || t.date || Number.NaN),
-      counterpartyName: typeof t.counterpartyName === 'string' ? t.counterpartyName : '',
-      paymentPurpose: typeof t.paymentPurpose === 'string' ? t.paymentPurpose : '',
-    })),
-  };
+/**
+ * One statement per account. A fixture for a file that prints several accounts
+ * lists them under `accounts`; otherwise the fixture itself is the one account.
+ */
+function loadExpected(filePath: string): ParsedStatement[] {
+  const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  const accounts: (typeof parsed)[] = Array.isArray(parsed.accounts) ? parsed.accounts : [parsed];
+  return accounts.map(account => {
+    const tx = Array.isArray(account.transactions)
+      ? (account.transactions as ExpectedTransactionInput[])
+      : [];
+    const metadata = account.metadata || {};
+    return {
+      metadata: {
+        accountNumber: metadata.accountNumber || '',
+        currency: metadata.currency || 'KZT',
+        dateFrom: new Date(metadata.dateFrom || metadata.date_from || Date.now()),
+        dateTo: new Date(metadata.dateTo || metadata.date_to || metadata.dateFrom || Date.now()),
+        balanceStart: metadata.balanceStart ?? metadata.balance_start,
+        balanceEnd: metadata.balanceEnd ?? metadata.balance_end,
+      },
+      transactions: tx.map(t => ({
+        ...t,
+        transactionDate: new Date(t.transactionDate || t.date || Number.NaN),
+        counterpartyName: typeof t.counterpartyName === 'string' ? t.counterpartyName : '',
+        paymentPurpose: typeof t.paymentPurpose === 'string' ? t.paymentPurpose : '',
+      })),
+    };
+  });
 }
 
 const sum = (list: ParsedStatement['transactions'], key: 'debit' | 'credit') =>
@@ -147,21 +153,35 @@ describe('golden parsing (optional)', () => {
       }
 
       const actual = await parser.parse(input);
-      const expectedData = loadExpected(expected);
+      const expectedAccounts = loadExpected(expected);
 
       // Guard against the fixture itself being a recording of broken output.
       // Comparing a parse only against its own past result is tautological: it
       // passes just as happily when the parser drops or invents rows. A fixture
       // carrying both balances must reconcile before it is worth comparing to.
-      const { balanceStart, balanceEnd } = expectedData.metadata;
-      if (balanceStart !== null && balanceStart !== undefined && balanceEnd != null) {
-        const debits = sum(expectedData.transactions, 'debit');
-        const credits = sum(expectedData.transactions, 'credit');
-        expect({
-          fixture: caseName,
-          reconciled: Number((balanceStart + credits - debits).toFixed(2)),
-        }).toEqual({ fixture: caseName, reconciled: Number(balanceEnd.toFixed(2)) });
+      expectedAccounts.forEach(account => {
+        const { balanceStart, balanceEnd } = account.metadata;
+        if (balanceStart !== null && balanceStart !== undefined && balanceEnd != null) {
+          const debits = sum(account.transactions, 'debit');
+          const credits = sum(account.transactions, 'credit');
+          expect({
+            fixture: caseName,
+            account: account.metadata.accountNumber,
+            reconciled: Number((balanceStart + credits - debits).toFixed(2)),
+          }).toEqual({
+            fixture: caseName,
+            account: account.metadata.accountNumber,
+            reconciled: Number(balanceEnd.toFixed(2)),
+          });
+        }
+      });
+
+      if (expectedAccounts.length > 1) {
+        throw new Error(
+          `${caseName} prints ${expectedAccounts.length} accounts; parsers return one statement per file`,
+        );
       }
+      const [expectedData] = expectedAccounts;
 
       expect(actual.metadata.currency).toBe(expectedData.metadata.currency);
       expect(actual.transactions.length).toBe(expectedData.transactions.length);
