@@ -3,7 +3,6 @@ import { getCachedIntlayer } from '@/app/i18n';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
 import { DEFAULT_LOCALE, readLocaleFromCookie } from '@/app/lib/locale';
 import type { StatementCategoryNode } from '@/app/lib/statement-categories';
-import { formatStoredDate } from '@/app/lib/user-format-store';
 import {
   getAllowedStatementFilterKeys,
   resetDisallowedStatementFilters,
@@ -241,36 +240,11 @@ export const formatStatementAmount = (statement: StatementLike): string => {
   return `${formatted}${currency || ''}`;
 };
 
-// Receipts use upload time so newly uploaded items appear at the top.
-const resolveReceiptDateValue = (statement: StatementLike): string =>
-  statement.receivedAt || statement.createdAt || statement.parsedData?.date || '';
-
-export const formatStatementDate = (statement: StatementLike): string => {
-  const dateValue =
-    statement.source === 'scan'
-      ? resolveReceiptDateValue(statement)
-      : statement.statementDateTo || statement.statementDateFrom || statement.createdAt || '';
-  if (!dateValue) {
-    return '—';
-  }
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) {
-    return '—';
-  }
-  return formatStoredDate(date);
-};
-
-export const resolveStatementSortDate = (statement: StatementLike): number => {
-  const dateValue =
-    statement.source === 'scan'
-      ? resolveReceiptDateValue(statement)
-      : statement.statementDateTo || statement.statementDateFrom || statement.createdAt || '';
-  const date = dateValue ? new Date(dateValue) : null;
-  if (!date || Number.isNaN(date.getTime())) {
-    return 0;
-  }
-  return date.getTime();
-};
+export {
+  formatStatementDate,
+  resolveStatementAddedTime,
+  resolveStatementSortDate,
+} from './statement-dates';
 
 export const getBankDisplayName = (bankName: string): string => {
   const resolved = resolveBankLogo(bankName);

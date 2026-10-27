@@ -8,11 +8,26 @@ import {
   paginateStatements,
   reconcileFiltersWithColumns,
   resolvePendingReview,
+  resolveStatementAddedTime,
+  resolveStatementSortDate,
   resolveStatementViewAction,
 } from './StatementsListView.utils';
 import { DEFAULT_STATEMENT_FILTERS } from './filters/statement-filters';
 
 describe('StatementsListView utils', () => {
+  it('orders a parsed statement by when it was uploaded, not by its period', () => {
+    const uploaded = '2026-10-27T17:00:00.000Z';
+    const statement = {
+      id: 'statement-1',
+      status: 'parsed',
+      createdAt: uploaded,
+      statementDateFrom: '2023-01-06T00:00:00.000Z',
+      statementDateTo: '2023-02-05T00:00:00.000Z',
+    };
+    expect(resolveStatementAddedTime(statement)).toBe(Date.parse(uploaded));
+    expect(resolveStatementSortDate(statement)).toBe(Date.parse('2023-02-05T00:00:00.000Z'));
+  });
+
   it('builds statement request params from search and applied filters without server pagination', () => {
     const result = buildStatementRequestParams({
       appliedFilters: {

@@ -51,7 +51,7 @@ const BANK_LABELS: Record<string, string> = {
   bereke_new: 'Bereke',
   bereke_old: 'Bereke',
   hapoalim: 'Hapoalim',
-  absa: 'Absa',
+  absa: 'Absa Bank',
   ally: 'Ally Bank',
 };
 
