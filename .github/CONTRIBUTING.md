@@ -236,8 +236,8 @@ npm --prefix frontend run format
 ### Quick Start (Recommended)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/seneca.git
-cd seneca
+git clone https://github.com/YOUR_USERNAME/stoic-budget.git
+cd stoic-budget
 npm run setup:dev:docker   # or: make quick-dev
 ```
 
@@ -247,8 +247,8 @@ Open http://localhost:3000 and login with `demo@seneca.dev` / `demo123`.
 
 1. **Fork and clone the repository:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/seneca.git
-   cd seneca
+   git clone https://github.com/YOUR_USERNAME/stoic-budget.git
+   cd stoic-budget
    ```
 
 2. **Generate env files and start database services only:**
@@ -401,7 +401,7 @@ npm --prefix backend run test:cov
 ## Project Structure
 
 ```
-seneca/
+stoic-budget/
 ├── backend/                    # NestJS backend
 │   ├── src/
 │   │   ├── modules/           # Feature modules
