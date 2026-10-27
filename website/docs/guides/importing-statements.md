@@ -3,7 +3,7 @@ title: Importing Statements
 description: Uploads, supported formats, and validation
 ---
 
-Seneca accepts multiple statement formats and standardizes them into a consistent transaction model.
+Stoic Budget accepts multiple statement formats and standardizes them into a consistent transaction model.
 
 ## Supported inputs
 
@@ -22,7 +22,7 @@ See [Integrations](integrations).
 ## Import flow
 
 1. Upload a file from the Statements page.
-2. Seneca checks the file hash, then parses the file in a background queue, picking a parser by
+2. Stoic Budget checks the file hash, then parses the file in a background queue, picking a parser by
    bank and file type.
 3. The import preview shows the parsed rows and any conflicts.
 4. Resolve each conflict — skip it, import it anyway, or mark it as a duplicate.

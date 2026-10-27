@@ -37,7 +37,7 @@ Key entry points live in `frontend/app`.
 
 ## Internationalization
 
-Seneca uses Intlayer with 35 locales (default `en`). Content files (`*.content.ts`) sit next to the features they
+Stoic Budget uses Intlayer with 35 locales (default `en`). Content files (`*.content.ts`) sit next to the features they
 describe; `intlayer build` runs on `postinstall` and `prebuild`.
 
 ## Styling and tooling

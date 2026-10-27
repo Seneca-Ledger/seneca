@@ -31,8 +31,8 @@ ARG API_PROXY_TARGET=http://127.0.0.1:${API_PORT}
 ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 ENV NEXT_PUBLIC_API_URL=/api/v1
 # Product name; the frontend bakes it in, the backend reads APP_NAME at runtime
-ARG APP_NAME=Seneca
-ENV NEXT_PUBLIC_APP_NAME=${APP_NAME}
+ARG APP_NAME="Stoic Budget"
+ENV NEXT_PUBLIC_APP_NAME="${APP_NAME}"
 RUN npm run build --prefix frontend
 
 # Build backend

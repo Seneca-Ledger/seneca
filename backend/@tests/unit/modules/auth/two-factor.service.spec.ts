@@ -70,7 +70,7 @@ describe('TwoFactorService', () => {
   it('stores the secret encrypted and stays disabled until a code is confirmed', async () => {
     const { secret, otpauthUrl } = await service.setup('u1', 'correct-password');
 
-    expect(otpauthUrl).toContain(`otpauth://totp/${APP_NAME}`);
+    expect(otpauthUrl).toContain(`otpauth://totp/${encodeURIComponent(APP_NAME)}`);
     expect(stored.twoFactorSecret).toMatch(/^enc:/);
     expect(stored.twoFactorSecret).not.toContain(secret);
     await expect(service.getStatus('u1')).resolves.toMatchObject({

@@ -1,6 +1,6 @@
-# Contributing to Seneca
+# Contributing to Stoic Budget
 
-First off, thank you for considering contributing to Seneca! It's people like you that make Seneca such a great tool.
+First off, thank you for considering contributing to Stoic Budget! It's people like you that make Stoic Budget such a great tool.
 
 ## Table of Contents
 
@@ -61,9 +61,9 @@ Unsure where to begin? You can start by looking through these issues:
 
 The process described here has several goals:
 
-- Maintain Seneca's quality
+- Maintain Stoic Budget's quality
 - Fix problems that are important to users
-- Engage the community in working toward the best possible Seneca
+- Engage the community in working toward the best possible Stoic Budget
 - Enable a sustainable system for maintainers to review contributions
 
 **Before submitting a pull request:**
@@ -236,8 +236,8 @@ npm --prefix frontend run format
 ### Quick Start (Recommended)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/seneca.git
-cd seneca
+git clone https://github.com/YOUR_USERNAME/stoic-budget.git
+cd stoic-budget
 npm run setup:dev:docker   # or: make quick-dev
 ```
 
@@ -247,8 +247,8 @@ Open http://localhost:3000 and login with `demo@seneca.dev` / `demo123`.
 
 1. **Fork and clone the repository:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/seneca.git
-   cd seneca
+   git clone https://github.com/YOUR_USERNAME/stoic-budget.git
+   cd stoic-budget
    ```
 
 2. **Generate env files and start database services only:**
@@ -401,7 +401,7 @@ npm --prefix backend run test:cov
 ## Project Structure
 
 ```
-seneca/
+stoic-budget/
 ├── backend/                    # NestJS backend
 │   ├── src/
 │   │   ├── modules/           # Feature modules
@@ -479,4 +479,4 @@ Contributors are recognized in:
 - GitHub contributors page
 - Special mentions for significant contributions
 
-Thank you for contributing to Seneca! 🎉
+Thank you for contributing to Stoic Budget! 🎉

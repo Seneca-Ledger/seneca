@@ -84,7 +84,7 @@ For user documentation and critical procedures (imports, calculations, migration
 
 For code, comments, and standard agent responses, use clear, everyday language.
 
-## Project Context (Seneca)
+## Project Context (Stoic Budget)
 
 Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, api-standards, clean-architecture, frontend-perf, observability, best-practices, effect, design-tokens). Read those before changes in those domains.
 

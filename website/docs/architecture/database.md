@@ -3,7 +3,7 @@ title: Database Architecture
 description: Entities, migrations, and data safety
 ---
 
-Seneca uses PostgreSQL through TypeORM, with migration-driven schema changes and explicit entity definitions.
+Stoic Budget uses PostgreSQL through TypeORM, with migration-driven schema changes and explicit entity definitions.
 
 ## Entity model
 

@@ -76,7 +76,7 @@ describe('HelpPanel', () => {
     const link = container.querySelector('a');
     expect(link?.textContent).toContain('Documentation');
     expect(link?.getAttribute('href')).toBe(
-      'https://symonbaikov.github.io/seneca/docs/getting-started/configuration',
+      'https://stoic-budget.github.io/stoic-budget/docs/getting-started/configuration',
     );
     expect(link?.getAttribute('target')).toBe('_blank');
   });

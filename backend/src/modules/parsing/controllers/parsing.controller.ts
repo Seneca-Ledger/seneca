@@ -18,6 +18,7 @@ import { SchemaResponse } from '../../../common/effect/schema-response';
 import { appError } from '../../../common/errors/app-error';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { validateFile } from '../../../common/utils/file-validator.util';
+import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { assertSafeZipDecompressionRatio } from '../../../common/utils/zip-bomb-guard.util';
 import { multerConfig } from '../../../config/multer.config';
 import { ParseDocumentBody } from '../../../contracts';
@@ -56,9 +57,15 @@ export class ParsingController {
     }
 
     validateFile(file);
+    // Multer writes every upload under the uploads directory; refuse any other path.
+    const uploadsRoot = path.resolve(resolveUploadsDir());
+    const filePath = path.resolve(file.path);
+    if (!filePath.startsWith(`${uploadsRoot}${path.sep}`)) {
+      throw new BadRequestException(appError('UPLOAD_NO_FILE'));
+    }
 
     const ext = path.extname(file.originalname || '').toLowerCase();
-    const buffer = await fs.readFile(file.path);
+    const buffer = await fs.readFile(filePath);
     const context = {
       sender: payload.sender ?? undefined,
       subject: payload.subject ?? undefined,
@@ -119,7 +126,7 @@ export class ParsingController {
         appError('PARSING_UNSUPPORTED_EXTENSION', { ext: ext || 'unknown' }),
       );
     } finally {
-      await fs.unlink(file.path).catch(() => undefined);
+      await fs.unlink(filePath).catch(() => undefined);
     }
   }
 

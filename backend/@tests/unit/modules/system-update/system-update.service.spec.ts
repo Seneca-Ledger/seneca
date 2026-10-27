@@ -20,7 +20,7 @@ describe('SystemUpdateService', () => {
 
   const releaseResponse = (tag: string) => async () =>
     new Response(
-      JSON.stringify({ tag_name: tag, html_url: `https://github.com/Seneca-Ledger/seneca/releases/tag/${tag}` }),
+      JSON.stringify({ tag_name: tag, html_url: `https://github.com/stoic-budget/stoic-budget/releases/tag/${tag}` }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
 
@@ -68,7 +68,7 @@ describe('SystemUpdateService', () => {
     expect(status).toMatchObject({
       currentVersion: 'v1.2.0',
       latestVersion: 'v1.3.0',
-      releaseUrl: 'https://github.com/Seneca-Ledger/seneca/releases/tag/v1.3.0',
+      releaseUrl: 'https://github.com/stoic-budget/stoic-budget/releases/tag/v1.3.0',
       updateAvailable: true,
       updaterAvailable: true,
       run: { state: 'idle' },

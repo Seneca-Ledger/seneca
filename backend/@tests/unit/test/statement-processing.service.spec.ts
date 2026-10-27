@@ -75,10 +75,6 @@ describe('StatementProcessingService', () => {
 
   const classificationService = {
     classifyTransaction: vi.fn(async () => ({ categoryId: 'cat-1' })),
-    determineMajorityCategory: vi.fn(async () => ({
-      categoryId: 'cat-1',
-      type: 'expense' as any,
-    })),
   };
 
   const metadataExtractionService = {
@@ -511,18 +507,15 @@ describe('StatementProcessingService', () => {
     expect(statement.parsingDetails?.validation?.balanceCheck).toBeUndefined();
   });
 
-  it('does not assign one majority category to every uncategorized transaction', async () => {
+  it('guesses no category: neither for the rows nor for the statement as a whole', async () => {
+    statement.categoryId = null;
     classificationService.classifyTransaction.mockResolvedValue({} as any);
-    classificationService.determineMajorityCategory.mockResolvedValue({
-      categoryId: 'cat-majority',
-      type: 'expense' as any,
-    });
 
     await service.processStatement(statement.id);
 
     expect(savedTransactions[0].categoryId).toBeUndefined();
     expect(savedTransactions[1].categoryId).toBeUndefined();
-    expect(statement.categoryId).toBe('cat-majority');
+    expect(statement.categoryId).toBeNull();
   });
 
   it('skips automatic category assignment when manual category selection is required', async () => {
@@ -531,10 +524,6 @@ describe('StatementProcessingService', () => {
     } as Statement['parsingDetails'];
     statement.categoryId = null;
     classificationService.classifyTransaction.mockResolvedValue({ categoryId: 'cat-1' });
-    classificationService.determineMajorityCategory.mockResolvedValue({
-      categoryId: 'cat-majority',
-      type: 'expense' as any,
-    });
 
     await service.processStatement(statement.id);
 

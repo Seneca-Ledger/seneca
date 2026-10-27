@@ -96,7 +96,7 @@ function Screenshot({ src, title, caption }: { src: string; title: string; capti
   return (
     <figure className="homepage-shot">
       <a href={useBaseUrl(src)} target="_blank" rel="noopener noreferrer">
-        <img src={useBaseUrl(src)} alt={`Seneca ${title.toLowerCase()} screen`} loading="lazy" width={1890} height={886} />
+        <img src={useBaseUrl(src)} alt={`Stoic Budget ${title.toLowerCase()} screen`} loading="lazy" width={1890} height={886} />
       </a>
       <figcaption>
         <strong>{title}</strong> — {caption}
@@ -108,15 +108,15 @@ function Screenshot({ src, title, caption }: { src: string; title: string; capti
 export default function Home(): JSX.Element {
   return (
     <Layout
-      title="Seneca Documentation"
-      description="Documentation for Seneca, an open-source, self-hosted platform for bank statements, budgets and taxes"
+      title="Stoic Budget Documentation"
+      description="Documentation for Stoic Budget, an open-source, self-hosted platform for bank statements, budgets and taxes"
     >
       <header className="hero hero--primary homepage-hero">
         <div className="container">
           <div className="homepage-metric">Open source · Self-hosted · MIT</div>
           <h1 className="hero__title">Your bank statements, turned into clean financial data</h1>
           <p className="hero__subtitle">
-            Seneca imports statements and receipts, deduplicates and categorizes every transaction, and builds
+            Stoic Budget imports statements and receipts, deduplicates and categorizes every transaction, and builds
             dashboards, budgets, VAT returns and income tax drafts on top — on your own server.
           </p>
           <div className="hero__buttons">
@@ -137,7 +137,7 @@ export default function Home(): JSX.Element {
               <img
                 className="homepage-showcase__main"
                 src={useBaseUrl('/img/screenshots/dashboard-overview.png')}
-                alt="Seneca dashboard overview with budgets, income, spending, savings rate and top categories"
+                alt="Stoic Budget dashboard overview with budgets, income, spending, savings rate and top categories"
                 width={1890}
                 height={887}
               />
@@ -147,7 +147,7 @@ export default function Home(): JSX.Element {
 
         <section className="homepage-section">
           <div className="container">
-            <h2>What Seneca does</h2>
+            <h2>What Stoic Budget does</h2>
             <p>
               One place for the whole path from a raw bank export to numbers you can budget, report and file taxes
               with.
@@ -191,7 +191,7 @@ export default function Home(): JSX.Element {
         <section className="homepage-section">
           <div className="container">
             <div className="docs-callout">
-              <h2>Ready to try Seneca?</h2>
+              <h2>Ready to try Stoic Budget?</h2>
               <p>
                 The quick start brings up the full stack with Docker in a few minutes. Contributors can start with the
                 architecture overview.

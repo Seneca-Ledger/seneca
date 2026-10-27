@@ -3,7 +3,7 @@ title: Docker Deployment
 description: Production deployment with Docker Compose
 ---
 
-Seneca ships a production Docker Compose setup in the repository root. CD publishes signed backend and frontend
+Stoic Budget ships a production Docker Compose setup in the repository root. CD publishes signed backend and frontend
 images to GHCR for every release tag.
 
 ## Configuration

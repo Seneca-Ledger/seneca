@@ -3,7 +3,7 @@ title: Development Workflow
 description: Branches, PRs, and CI expectations
 ---
 
-Seneca uses Conventional Commits, CI checks, and a detailed PR template to keep changes stable.
+Stoic Budget uses Conventional Commits, CI checks, and a detailed PR template to keep changes stable.
 
 ## Branching
 

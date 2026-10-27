@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Seneca is self-hosted and has not cut a tagged release yet. Security fixes land on `main` and ship in
+Stoic Budget is self-hosted and has not cut a tagged release yet. Security fixes land on `main` and ship in
 the next published image.
 
 | Version                         | Supported          |
@@ -12,7 +12,7 @@ the next published image.
 
 ## Reporting a Vulnerability
 
-We take the security of Seneca seriously. If you believe you have found a security vulnerability, please report it to us as described below.
+We take the security of Stoic Budget seriously. If you believe you have found a security vulnerability, please report it to us as described below.
 
 ### Where to Report
 
@@ -20,7 +20,7 @@ We take the security of Seneca seriously. If you believe you have found a securi
 
 Report them through **GitHub Security Advisories**:
 
-- Open https://github.com/stoic-budget/stoic-budget/security/advisories/new (the Security tab of this repository)
+- Go to the [Security tab](https://github.com/stoic-budget/stoic-budget/security/advisories/new) of this repository
 - Click "Report a vulnerability"
 - Fill out the form with details
 
@@ -58,7 +58,7 @@ After you submit a report, here's what will happen:
 
 ## Security Best Practices
 
-When deploying Seneca, please follow these security best practices:
+When deploying Stoic Budget, please follow these security best practices:
 
 ### Environment Variables
 
@@ -167,7 +167,7 @@ We follow responsible disclosure practices:
 
 ## Bug Bounty Program
 
-We currently do not have a bug bounty program, but we deeply appreciate security researchers who help us keep Seneca secure. We will:
+We currently do not have a bug bounty program, but we deeply appreciate security researchers who help us keep Stoic Budget secure. We will:
 
 - Credit you in our security advisories (with your permission)
 - Thank you in our release notes
@@ -188,4 +188,4 @@ For security-related questions that are not vulnerabilities, you can:
 
 ---
 
-Thank you for helping keep Seneca and our users safe!
+Thank you for helping keep Stoic Budget and our users safe!

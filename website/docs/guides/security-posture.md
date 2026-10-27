@@ -3,7 +3,7 @@ title: Security posture
 description: Threat model, what is encrypted, what leaves your server and how to turn it off
 ---
 
-Seneca is self-hosted: your bank statements, receipts and categories stay on your server. This page
+Stoic Budget is self-hosted: your bank statements, receipts and categories stay on your server. This page
 says plainly what the app protects against, what it encrypts, what it sends anywhere and how to
 turn the outbound parts off.
 
@@ -40,7 +40,7 @@ in clear, or a browser extension reading the page.
 | Telegram | Reports and replies to the bot | Only if the bot is connected | Disconnect Telegram |
 | SMTP | Invitations, password resets | Only if SMTP is set | Leave SMTP unset |
 
-Nothing is sent to Seneca's authors. There is no telemetry.
+Nothing is sent to Stoic Budget's authors. There is no telemetry.
 
 No external LLM is ever contacted. Statement parsing and categorisation run on your server:
 parsers are deterministic, and categories come from your rules, your corrections and payee

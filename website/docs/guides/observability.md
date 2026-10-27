@@ -3,7 +3,7 @@ title: Observability
 description: Metrics, logs, and health checks
 ---
 
-Seneca exposes metrics, logs and health endpoints. Which collector, dashboards and alerting you run is
+Stoic Budget exposes metrics, logs and health endpoints. Which collector, dashboards and alerting you run is
 up to you — no monitoring stack ships with the repository.
 
 ## Metrics
