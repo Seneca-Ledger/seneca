@@ -19,6 +19,7 @@ import type { StatementsQuery } from '@/contracts';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
 import { StatementsService } from '@/modules/statements/statements.service';
 import { StatementFilesService } from '@/modules/statements/statement-files.service';
+import { StatementTrashService } from '@/modules/statements/statement-trash.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   BadRequestException,
@@ -112,6 +113,7 @@ describe('StatementsService', () => {
       providers: [
         // These specs do not reach the stored file.
         { provide: StatementFilesService, useValue: {} },
+        StatementTrashService,
         StatementsService,
         workspaceCurrencyProvider(),
         {

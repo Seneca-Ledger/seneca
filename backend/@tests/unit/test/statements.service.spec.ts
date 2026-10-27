@@ -87,6 +87,7 @@ describe('StatementsService', () => {
       { resolve: vi.fn(async () => ({})) } as any,
       workspaceCurrencyStub() as never,
       statementFiles,
+      {} as any,
       eventEmitter as any,
     );
     vi.spyOn(service as any, 'ensureCanEditStatements').mockResolvedValue(undefined);
