@@ -504,28 +504,49 @@ describe('StatementProcessingService', () => {
     expect(statement.parsingDetails?.validation?.passed).toBe(true);
   });
 
-  it('imports the first account of a file printing several and names the ones it left out', async () => {
+  describe('a file that prints several accounts', () => {
     const otherAccount: ParsedStatement = {
       metadata: { ...parsedStatement.metadata, accountNumber: 'ACC-2', currency: 'EUR' },
       transactions: [parsedStatement.transactions[0]],
     };
-    parserFactory.getParser.mockResolvedValueOnce({
-      parse: vi.fn().mockResolvedValue({
-        ...parsedStatement,
-        metadata: { ...parsedStatement.metadata, accountNumber: 'ACC-1', currency: 'USD' },
-        otherAccounts: [otherAccount],
-      }),
-      constructor: { name: 'FakeParser' },
+    const twoAccounts = () =>
+      parserFactory.getParser.mockResolvedValueOnce({
+        parse: vi.fn().mockResolvedValue({
+          ...parsedStatement,
+          metadata: { ...parsedStatement.metadata, accountNumber: 'ACC-1', currency: 'USD' },
+          otherAccounts: [otherAccount],
+        }),
+        constructor: { name: 'FakeParser' },
+      });
+
+    afterEach(() => {
+      statement.sourceAccountIndex = null;
     });
 
-    await service.processStatement(statement.id);
+    it('imports the first account into the upload and lists the others', async () => {
+      twoAccounts();
 
-    expect(statement.accountNumber).toBe('ACC-1');
-    expect(savedTransactions).toHaveLength(parsedStatement.transactions.length);
-    expect(statement.status).toBe(StatementStatus.COMPLETED);
-    expect(statement.parsingDetails?.warnings).toContain(
-      'This file prints 2 accounts; only ACC-1 (USD) was imported. Not imported: ACC-2 (EUR), 1 transaction.',
-    );
+      await service.processStatement(statement.id);
+
+      expect(statement.accountNumber).toBe('ACC-1');
+      expect(savedTransactions).toHaveLength(parsedStatement.transactions.length);
+      expect(statement.status).toBe(StatementStatus.COMPLETED);
+      expect(statement.parsingDetails?.otherAccounts).toEqual([
+        { index: 1, accountNumber: 'ACC-2', currency: 'EUR', transactions: 1 },
+      ]);
+    });
+
+    it('imports only its own account into a statement made for one of the others', async () => {
+      twoAccounts();
+      statement.sourceAccountIndex = 1;
+
+      await service.processStatement(statement.id);
+
+      expect(statement.accountNumber).toBe('ACC-2');
+      expect(statement.currency).toBe('EUR');
+      expect(savedTransactions).toHaveLength(otherAccount.transactions.length);
+      expect(statement.parsingDetails?.otherAccounts).toBeUndefined();
+    });
   });
 
   it('completes the statement when the bank gave no balances to check', async () => {

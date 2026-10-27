@@ -8,7 +8,7 @@ import { buildContentDisposition } from '@/common/utils/http-file.util';
 import { StatementStatus } from '@/entities/statement.entity';
 import type { User } from '@/entities/user.entity';
 import type { StatementsQuery } from '@/contracts';
-import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
+import type { ScanUploadService } from '@/modules/statements/services/scan-upload.service';
 import type { StatementStageService } from '@/modules/statements/services/statement-stage.service';
 import { StatementUploadsController } from '@/modules/statements/statement-uploads.controller';
 import { StatementsController } from '@/modules/statements/statements.controller';
@@ -39,8 +39,8 @@ describe('StatementsController', () => {
     storeKey: vi.fn(),
   };
 
-  const receiptStatementService = {
-    createFromReceiptScan: vi.fn(),
+  const scanUploadService = {
+    upload: vi.fn(),
   };
 
   const controller = new StatementsController(
@@ -49,7 +49,7 @@ describe('StatementsController', () => {
   );
   const uploads = new StatementUploadsController(
     statementsService as unknown as StatementsService,
-    receiptStatementService as unknown as ReceiptStatementService,
+    scanUploadService as unknown as ScanUploadService,
     idempotencyService as unknown as IdempotencyService,
   );
 
@@ -83,7 +83,7 @@ describe('StatementsController', () => {
     );
 
     expect(statementsService.create).toHaveBeenCalledTimes(1);
-    expect(receiptStatementService.createFromReceiptScan).not.toHaveBeenCalled();
+    expect(scanUploadService.upload).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       cached: false,
       data: [
@@ -182,9 +182,9 @@ describe('StatementsController', () => {
     expect(result).toEqual(response);
   });
 
-  it('delegates receipt scan uploads to the receipt scan statement flow', async () => {
+  it('hands scan uploads to the scan upload flow', async () => {
     const createdStatement = { id: 'stmt-receipt-1', status: StatementStatus.COMPLETED };
-    receiptStatementService.createFromReceiptScan.mockResolvedValue([createdStatement]);
+    scanUploadService.upload.mockResolvedValue([createdStatement]);
 
     const file = {
       originalname: 'receipt.jpg',
@@ -201,7 +201,7 @@ describe('StatementsController', () => {
       'ws-1',
     );
 
-    expect(receiptStatementService.createFromReceiptScan).toHaveBeenCalledWith({
+    expect(scanUploadService.upload).toHaveBeenCalledWith({
       user: { id: 'user-1' },
       workspaceId: 'ws-1',
       files: [file],
@@ -212,7 +212,7 @@ describe('StatementsController', () => {
 
   it('allows receipt scan uploads without optional language', async () => {
     const createdStatement = { id: 'stmt-receipt-2', status: StatementStatus.COMPLETED };
-    receiptStatementService.createFromReceiptScan.mockResolvedValue([createdStatement]);
+    scanUploadService.upload.mockResolvedValue([createdStatement]);
 
     const file = {
       originalname: 'receipt.pdf',
@@ -229,7 +229,7 @@ describe('StatementsController', () => {
       'ws-1',
     );
 
-    expect(receiptStatementService.createFromReceiptScan).toHaveBeenCalledWith({
+    expect(scanUploadService.upload).toHaveBeenCalledWith({
       user: { id: 'user-1' },
       workspaceId: 'ws-1',
       files: [file],

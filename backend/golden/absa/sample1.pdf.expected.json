@@ -1,0 +1,1118 @@
+{
+  "metadata": {
+    "accountNumber": "0345963720",
+    "currency": "ZAR",
+    "dateFrom": "2024-05-01T00:00:00",
+    "dateTo": "2024-08-08T00:00:00",
+    "balanceStart": 8022.73,
+    "balanceEnd": 13.4
+  },
+  "transactions": [
+    {
+      "transactionDate": "2024-05-01T00:00:00",
+      "counterpartyName": "POS PURCHASE 494953310918 M SOUTHGATE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 494953310918 M SOUTHGATE CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-01T00:00:00",
+      "counterpartyName": "POS PURCHASE 286028009021 OGANG SECHABA E CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 286028009021 OGANG SECHABA E CARD NO. 0305",
+      "debit": 120,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-02T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 2000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-02T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 60,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-02T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 150,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-02T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 15,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-02T00:00:00",
+      "counterpartyName": "FULL STATEMENT CARD NO. 0305",
+      "paymentPurpose": "FULL STATEMENT CARD NO. 0305",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-02T00:00:00",
+      "counterpartyName": "STATEMENT FEE",
+      "paymentPurpose": "STATEMENT FEE",
+      "debit": 20,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-03T00:00:00",
+      "counterpartyName": "POS PURCHASE 208285499055 PA QUICK SAVE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 208285499055 PA QUICK SAVE CARD NO. 0305",
+      "debit": 1000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-03T00:00:00",
+      "counterpartyName": "POS PURCHASE 463468652100 M SOUTHGATE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 463468652100 M SOUTHGATE CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-03T00:00:00",
+      "counterpartyName": "POS PURCHASE 090059797780 OGANG SECHABA E CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 090059797780 OGANG SECHABA E CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-03T00:00:00",
+      "counterpartyName": "ADMIN FEE",
+      "paymentPurpose": "ADMIN FEE",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-03T00:00:00",
+      "counterpartyName": "ADMINISTRATION FEE",
+      "paymentPurpose": "ADMINISTRATION FEE",
+      "debit": 45,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-04T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 2000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-04T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 60,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-05T00:00:00",
+      "counterpartyName": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0026",
+      "paymentPurpose": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0026",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-05T00:00:00",
+      "counterpartyName": "NOTIFICATION FEE",
+      "paymentPurpose": "NOTIFICATION FEE",
+      "debit": 15.6,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-07T00:00:00",
+      "counterpartyName": "POS PURCHASE 063035355345 M SOUTHGATE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 063035355345 M SOUTHGATE CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-07T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 49,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-07T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-09T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 150,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-09T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-09T00:00:00",
+      "counterpartyName": "POS PURCHASE 525552408618 BILO INVESTMENT CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 525552408618 BILO INVESTMENT CARD NO. 0305",
+      "debit": 104.8,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-09T00:00:00",
+      "counterpartyName": "POS CASH WDL SC0044799770 ave Maponya CARD NO. 0305",
+      "paymentPurpose": "POS CASH WDL SC0044799770 ave Maponya CARD NO. 0305",
+      "debit": 300,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-09T00:00:00",
+      "counterpartyName": "POS PURCHASE 996041520770 OGANG SECHABA E CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 996041520770 OGANG SECHABA E CARD NO. 0305",
+      "debit": 150,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-09T00:00:00",
+      "counterpartyName": "POS PURCHASE SC9346611857 ave Maponya CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE SC9346611857 ave Maponya CARD NO. 0305",
+      "debit": 77.96,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-10T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 50,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-10T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 2.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-10T00:00:00",
+      "counterpartyName": "POS PURCHASE 094352678409 SOL SOUTHDALE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 094352678409 SOL SOUTHDALE CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-11T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 190,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-11T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 15,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-13T00:00:00",
+      "counterpartyName": "POS PURCHASE 819103453494 M SOUTHGATE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 819103453494 M SOUTHGATE CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-13T00:00:00",
+      "counterpartyName": "POS PURCHASE 788737558447 M SOUTHGATE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 788737558447 M SOUTHGATE CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "PAYMENT RECEIVED. SALARY UET 18UBO623766",
+      "paymentPurpose": "PAYMENT RECEIVED. SALARY UET 18UBO623766",
+      "credit": 28449.15,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "POS PURCHASE AA24087LVGS2 CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE AA24087LVGS2 CARD NO. 0305",
+      "debit": 539.24,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "DC TRACK EXTERNAL WLW 07962343999 2404",
+      "paymentPurpose": "DC TRACK EXTERNAL WLW 07962343999 2404",
+      "debit": 617.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "ATM WITHDRWAL CARD NO. 0305 2404",
+      "paymentPurpose": "ATM WITHDRWAL CARD NO. 0305 2404",
+      "debit": 9000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 35,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 10000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 35,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "DIRECT DEBIT ASSUPOL -ALP7071280 240",
+      "paymentPurpose": "DIRECT DEBIT ASSUPOL -ALP7071280 240",
+      "debit": 225.2,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "DIRECT DEBIT A AICLIPCO55451692 2404",
+      "paymentPurpose": "DIRECT DEBIT A AICLIPCO55451692 2404",
+      "debit": 90,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-16T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305 SOUTHGATE",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305 SOUTHGATE",
+      "debit": 5000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-16T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 35,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-16T00:00:00",
+      "counterpartyName": "IMTDE DIGITAL PAYMENT DT ABSA BANK Member CARD NO. 0305",
+      "paymentPurpose": "IMTDE DIGITAL PAYMENT DT ABSA BANK Member CARD NO. 0305",
+      "debit": 2500,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-16T00:00:00",
+      "counterpartyName": "ADMIN CHARGE",
+      "paymentPurpose": "ADMIN CHARGE",
+      "debit": 10,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-17T00:00:00",
+      "counterpartyName": "POS PURCHASE 951472322137 M SWARTDAM CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 951472322137 M SWARTDAM CARD NO. 0305",
+      "debit": 332.04,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-18T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 10,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-18T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-18T00:00:00",
+      "counterpartyName": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0023",
+      "paymentPurpose": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0023",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-18T00:00:00",
+      "counterpartyName": "NOTIFICATION FEE",
+      "paymentPurpose": "NOTIFICATION FEE",
+      "debit": 13.8,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-25T00:00:00",
+      "counterpartyName": "POS PURCHASE SC9450332813 CARD NO.0325",
+      "paymentPurpose": "POS PURCHASE SC9450332813 CARD NO.0325",
+      "credit": 603.57,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-25T00:00:00",
+      "counterpartyName": "PREPAID DEBIT ELECTRICITY: 11975253134 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT ELECTRICITY: 11975253134 CARD NO. 3018",
+      "debit": 60,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-25T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-25T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 300,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-25T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 7.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-26T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 12,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-26T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-27T00:00:00",
+      "counterpartyName": "POS PURCHASE 346484187368 M SOUTHGATE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 346484187368 M SOUTHGATE CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-29T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-05-29T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-03T00:00:00",
+      "counterpartyName": "ADMIN FEE",
+      "paymentPurpose": "ADMIN FEE",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-03T00:00:00",
+      "counterpartyName": "ADMINISTRATION FEE",
+      "paymentPurpose": "ADMINISTRATION FEE",
+      "debit": 45,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-05T00:00:00",
+      "counterpartyName": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0006",
+      "paymentPurpose": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0006",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-05T00:00:00",
+      "counterpartyName": "NOTIFICATION FEE",
+      "paymentPurpose": "NOTIFICATION FEE",
+      "debit": 3.6,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-09T00:00:00",
+      "counterpartyName": "DIRECT CREDIT VSNTRL-OPRT-08/05 S-VK31-714",
+      "paymentPurpose": "DIRECT CREDIT VSNTRL-OPRT-08/05 S-VK31-714",
+      "credit": 11954.81,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-10T00:00:00",
+      "counterpartyName": "IMDTE DIGITAL PMT REF: ABSA CREDIT Member",
+      "paymentPurpose": "IMDTE DIGITAL PMT REF: ABSA CREDIT Member",
+      "debit": 300,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-10T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 7.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-10T00:00:00",
+      "counterpartyName": "PROOF OF PAYMT SMS",
+      "paymentPurpose": "PROOF OF PAYMT SMS",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-10T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.25,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-10T00:00:00",
+      "counterpartyName": "PROOF OF PAYMT SMS",
+      "paymentPurpose": "PROOF OF PAYMT SMS",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-10T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.25,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "IMDTE DIGITAL PMT REF: ABSA CREDIT Member",
+      "paymentPurpose": "IMDTE DIGITAL PMT REF: ABSA CREDIT Member",
+      "debit": 10000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 40,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "PROOF OF PAYMT SMS",
+      "paymentPurpose": "PROOF OF PAYMT SMS",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.25,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "PROOF OF PAYMT SMS",
+      "paymentPurpose": "PROOF OF PAYMT SMS",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.25,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "BALANCE ENQUIRY CARD NO. 0305",
+      "paymentPurpose": "BALANCE ENQUIRY CARD NO. 0305",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "BALANCE ENQ FEE",
+      "paymentPurpose": "BALANCE ENQ FEE",
+      "debit": 10,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 1200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-11T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 40,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-12T00:00:00",
+      "counterpartyName": "POS PURCHASE 134063127958 M SOUTHGATE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 134063127958 M SOUTHGATE CARD NO. 0305",
+      "debit": 120,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-13T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-13T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "PAYMENT RECEIVED. SALARY UET 18BO623766",
+      "paymentPurpose": "PAYMENT RECEIVED. SALARY UET 18BO623766",
+      "credit": 28052.73,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "POS PURCHASE SC4836612480 Oprite Pimville CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE SC4836612480 Oprite Pimville CARD NO. 0305",
+      "debit": 3250.66,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "DC TRACK EXTERNAL ABSA 07962343999 2405",
+      "paymentPurpose": "DC TRACK EXTERNAL ABSA 07962343999 2405",
+      "debit": 617.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 9300,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 60,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "POS PURCHASE 530480543142 TTOM LINE TA NA CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 530480543142 TTOM LINE TA NA CARD NO. 0305",
+      "debit": 6150,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "DIRECT DEBIT ASSUPOL -ALP7071280 240",
+      "paymentPurpose": "DIRECT DEBIT ASSUPOL -ALP7071280 240",
+      "debit": 225.2,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "DIRECT DEBIT A AICLIPCO55451692 2405",
+      "paymentPurpose": "DIRECT DEBIT A AICLIPCO55451692 2405",
+      "debit": 90,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-17T00:00:00",
+      "counterpartyName": "POS PURCHASE SC4828498831 oprite Pimville CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE SC4828498831 oprite Pimville CARD NO. 0305",
+      "debit": 3535.15,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-18T00:00:00",
+      "counterpartyName": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0014",
+      "paymentPurpose": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0014",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-18T00:00:00",
+      "counterpartyName": "NOTIFICATION FEE",
+      "paymentPurpose": "NOTIFICATION FEE",
+      "debit": 9.16,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-18T00:00:00",
+      "counterpartyName": "POS PURCHASE 123151731597 ELL SANDTON CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 123151731597 ELL SANDTON CARD NO. 0305",
+      "debit": 5000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-19T00:00:00",
+      "counterpartyName": "STAMPED STATEMENT",
+      "paymentPurpose": "STAMPED STATEMENT",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-19T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 10,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-20T00:00:00",
+      "counterpartyName": "NPF TRANSFER CR ABSA BANK 54706603",
+      "paymentPurpose": "NPF TRANSFER CR ABSA BANK 54706603",
+      "credit": 8000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-21T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 2000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-21T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 60,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-22T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 2000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-22T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 60,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-23T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 2000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-23T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 60,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-25T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-25T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 15,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-25T00:00:00",
+      "counterpartyName": "POS PURCHASE 182091416753 GEN M D M CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 182091416753 GEN M D M CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-25T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 66,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-25T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.62,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-26T00:00:00",
+      "counterpartyName": "POS PURCHASE 502668943845 LICIOUS FISH & CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 502668943845 LICIOUS FISH & CARD NO. 0305",
+      "debit": 45,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-26T00:00:00",
+      "counterpartyName": "POS PURCHASE 508728201189 ELL VUKA MOTORS CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 508728201189 ELL VUKA MOTORS CARD NO. 0305",
+      "debit": 250,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-27T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 89,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-27T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-27T00:00:00",
+      "counterpartyName": "ATM WITHDRAWAL CARD NO. 0305",
+      "paymentPurpose": "ATM WITHDRAWAL CARD NO. 0305",
+      "debit": 300,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-27T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 17.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-28T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-28T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-28T00:00:00",
+      "counterpartyName": "BALANCE ENQUIRY CARD NO. 0305",
+      "paymentPurpose": "BALANCE ENQUIRY CARD NO. 0305",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-28T00:00:00",
+      "counterpartyName": "BALANCE ENQ FEE",
+      "paymentPurpose": "BALANCE ENQ FEE",
+      "debit": 10,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-28T00:00:00",
+      "counterpartyName": "POS PURCHASE 088770100162 OGANG SECHABA E CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 088770100162 OGANG SECHABA E CARD NO. 0305",
+      "debit": 200,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-30T00:00:00",
+      "counterpartyName": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "paymentPurpose": "PREPAID DEBIT VODACOM: 1238742752 CARD NO. 3018",
+      "debit": 12,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-30T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 1.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-30T00:00:00",
+      "counterpartyName": "POS PURCHASE 409492283997 M SOUTHGATE CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 409492283997 M SOUTHGATE CARD NO. 0305",
+      "debit": 250,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-06-30T00:00:00",
+      "counterpartyName": "POS PURCHASE 029349559853 OGANG SECHABA E CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE 029349559853 OGANG SECHABA E CARD NO. 0305",
+      "debit": 100,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-03T00:00:00",
+      "counterpartyName": "ADMIN FEE",
+      "paymentPurpose": "ADMIN FEE",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-03T00:00:00",
+      "counterpartyName": "ADMINISTRATION FEE",
+      "paymentPurpose": "ADMINISTRATION FEE",
+      "debit": 45,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-05T00:00:00",
+      "counterpartyName": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0017",
+      "paymentPurpose": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0017",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-05T00:00:00",
+      "counterpartyName": "NOTIFICATION FEE",
+      "paymentPurpose": "NOTIFICATION FEE",
+      "debit": 10.2,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-15T00:00:00",
+      "counterpartyName": "PAYMENT RECEIVED. SALARY UET 18BO623766",
+      "paymentPurpose": "PAYMENT RECEIVED. SALARY UET 18BO623766",
+      "credit": 28051.32,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-15T00:00:00",
+      "counterpartyName": "DC TRACK EXTERNAL ABSA 07962343999 2406",
+      "paymentPurpose": "DC TRACK EXTERNAL ABSA 07962343999 2406",
+      "debit": 617.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-15T00:00:00",
+      "counterpartyName": "POS PURCHASA SC489646931543 Fourways CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASA SC489646931543 Fourways CARD NO. 0305",
+      "debit": 3250.66,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-15T00:00:00",
+      "counterpartyName": "DC TRACK INTERNAL ABSA 2405",
+      "paymentPurpose": "DC TRACK INTERNAL ABSA 2405",
+      "debit": 1775.95,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-15T00:00:00",
+      "counterpartyName": "DIRECT DEBIT ASSUPOL -ALP7071280 240",
+      "paymentPurpose": "DIRECT DEBIT ASSUPOL -ALP7071280 240",
+      "debit": 225.08,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-15T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-17T00:00:00",
+      "counterpartyName": "POS PURCHASE SC7577310253 oprite Pimville CARD NO. 0306",
+      "paymentPurpose": "POS PURCHASE SC7577310253 oprite Pimville CARD NO. 0306",
+      "debit": 4000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-19T00:00:00",
+      "counterpartyName": "POS PURCHASE SC9765381559 ave Maponya CARD NO. 0305",
+      "paymentPurpose": "POS PURCHASE SC9765381559 ave Maponya CARD NO. 0305",
+      "debit": 6119.99,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-20T00:00:00",
+      "counterpartyName": "UNSUCCESSFUL INT ABSACC 977353326215588519",
+      "paymentPurpose": "UNSUCCESSFUL INT ABSACC 977353326215588519",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-20T00:00:00",
+      "counterpartyName": "UNSUCCESSFUL FEE",
+      "paymentPurpose": "UNSUCCESSFUL FEE",
+      "debit": 10,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-24T00:00:00",
+      "counterpartyName": "IMTDE DIGITAL PAYMENT PMT S/C NBR: 16137B7FC4",
+      "paymentPurpose": "IMTDE DIGITAL PAYMENT PMT S/C NBR: 16137B7FC4",
+      "debit": 12000,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-24T00:00:00",
+      "counterpartyName": "EFTPOS BALANCE ENQ 621793210095 NB01 Stand 4 CARD NO. 0305",
+      "paymentPurpose": "EFTPOS BALANCE ENQ 621793210095 NB01 Stand 4 CARD NO. 0305",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-07-29T00:00:00",
+      "counterpartyName": "BALANCE ENQ FEE",
+      "paymentPurpose": "BALANCE ENQ FEE",
+      "debit": 10,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-08-04T00:00:00",
+      "counterpartyName": "DIRECT DEBIT A AICLIPCO55451692 2406",
+      "paymentPurpose": "DIRECT DEBIT A AICLIPCO55451692 2406",
+      "debit": 20,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-08-04T00:00:00",
+      "counterpartyName": "TRANSACTION CHARGE",
+      "paymentPurpose": "TRANSACTION CHARGE",
+      "debit": 3.5,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-08-07T00:00:00",
+      "counterpartyName": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0010",
+      "paymentPurpose": "NOTIFIC FEE SMS SMS NOTIFICATIONS = 0010",
+      "credit": 0,
+      "currency": "ZAR"
+    },
+    {
+      "transactionDate": "2024-08-07T00:00:00",
+      "counterpartyName": "NOTIFICATION FEE",
+      "paymentPurpose": "NOTIFICATION FEE",
+      "debit": 6,
+      "currency": "ZAR"
+    }
+  ]
+}

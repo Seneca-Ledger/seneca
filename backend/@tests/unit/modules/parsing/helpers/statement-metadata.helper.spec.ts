@@ -1,4 +1,8 @@
-import { parseStatementAmount } from '@/modules/parsing/helpers/statement-amount.helper';
+import {
+  findStatementAmounts,
+  isAmountPart,
+  parseStatementAmount,
+} from '@/modules/parsing/helpers/statement-amount.helper';
 import {
   detectStatementCurrency,
   findAccountNumber,
@@ -18,12 +22,24 @@ describe('parseStatementAmount', () => {
     ['(12.00)', -12],
     ['100.00-', -100],
     ['0.00', 0],
+    ['-R2 000.00', -2000],
+    ['R7 822.73', 7822.73],
+    ['RM12.00', 12],
   ])('reads %s', (text, expected) => {
     expect(parseStatementAmount(text)).toBe(expected);
   });
 
-  it.each(['8373579', '44-2019-US', '1/3', '38.2gal', '2025'])('rejects %s', text => {
+  it.each(['8373579', '44-2019-US', '1/3', '38.2gal', '2025', 'AR12.00'])('rejects %s', text => {
     expect(parseStatementAmount(text)).toBeNull();
+  });
+
+  it('keeps the sign of a figure whose currency sign is a letter', () => {
+    expect(findStatementAmounts('ATM WITHDRAWAL -R2 000.00 R5 702.73')).toEqual([-2000, 5702.73]);
+    expect(isAmountPart('-R2')).toBe(true);
+    expect(isAmountPart('-$503.00')).toBe(true);
+    expect(isAmountPart('$4,082.88')).toBe(true);
+    expect(parseStatementAmount('-$503.00')).toBe(-503);
+    expect(isAmountPart('R2D2')).toBe(false);
   });
 });
 
@@ -38,6 +54,13 @@ describe('statement-metadata.helper', () => {
     expect(detectStatementCurrency('Example Bank Canada Inc.\nSolde 10,00 $')).toBe('CAD');
     expect(detectStatementCurrency('Balance $10.00')).toBe('USD');
     expect(detectStatementCurrency('Saldo 10,00 €')).toBe('EUR');
+  });
+
+  it('reads a currency sign written with letters, glued to the figure', () => {
+    expect(detectStatementCurrency('Current Balance R13.40\nFEE -R60.00 R5 642.73')).toBe('ZAR');
+    expect(detectStatementCurrency('Baki RM1,200.00')).toBe('MYR');
+    expect(detectStatementCurrency('Saldo R$ 10,00')).toBe('BRL');
+    expect(detectStatementCurrency('Ref R2D2 and route R66')).toBeNull();
   });
 
   it('finds the account number after its label, skipping a label with no number', () => {

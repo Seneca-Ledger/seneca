@@ -1,0 +1,199 @@
+{
+  "metadata": {
+    "accountNumber": "xxxxxx4401",
+    "currency": "USD",
+    "dateFrom": "2023-01-06T00:00:00",
+    "dateTo": "2023-02-05T00:00:00",
+    "balanceStart": 4082.88,
+    "balanceEnd": 5467.18,
+    "rawHeader": "COMBINED CUSTOMER STATEMENT Ally Bank Statement Date P.O. Box 2554 02/05/2023",
+    "normalizedHeader": "COMBINED CUSTOMER STATEMENT Ally Bank Statement Date P.O. Box 2554 02/05/2023",
+    "locale": "en"
+  },
+  "transactions": [
+    {
+      "transactionDate": "2023-01-06T00:00:00",
+      "counterpartyName": "BANCO POPULAR. 639 AGUADILLA, PR",
+      "paymentPurpose": "ATM Withdrawal BANCO POPULAR. 639 AGUADILLA, PR",
+      "debit": 503,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-07T00:00:00",
+      "counterpartyName": "AMERICAN GASOLINE AGUA AGUADILLA, PR",
+      "paymentPurpose": "Check Card Purchase AMERICAN GASOLINE AGUA AGUADILLA, PR",
+      "debit": 29.23,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-09T00:00:00",
+      "counterpartyName": "PAYPAL TRANSFER TRANSFER",
+      "paymentPurpose": "Direct Deposit PAYPAL TRANSFER TRANSFER",
+      "debit": 0,
+      "credit": 1500,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-09T00:00:00",
+      "counterpartyName": "CLARO SAN JUAN, PR",
+      "paymentPurpose": "Check Card Purchase CLARO SAN JUAN, PR",
+      "debit": 33.82,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-12T00:00:00",
+      "counterpartyName": "UMA`S ISABELA, PR",
+      "paymentPurpose": "Check Card Purchase UMA`S ISABELA, PR",
+      "debit": 23.42,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-12T00:00:00",
+      "counterpartyName": "UMA`S ISABELA, PR",
+      "paymentPurpose": "Check Card Purchase UMA`S ISABELA, PR",
+      "debit": 40.68,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-13T00:00:00",
+      "counterpartyName": "CENTRO DE JUGUETES Y A AGUADILL, PR",
+      "paymentPurpose": "Check Card Purchase CENTRO DE JUGUETES Y A AGUADILL, PR",
+      "debit": 20.05,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-14T00:00:00",
+      "counterpartyName": "PUMA MEGA STA AGUADILLA, PR",
+      "paymentPurpose": "Check Card Purchase PUMA MEGA STA AGUADILLA, PR",
+      "debit": 16,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-18T00:00:00",
+      "counterpartyName": "FBPR AGUADILLA DI AGUADILLA, PR",
+      "paymentPurpose": "ATM Withdrawal FBPR AGUADILLA DI AGUADILLA, PR",
+      "debit": 505,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-23T00:00:00",
+      "counterpartyName": "PAYPAL TRANSFER TRANSFER",
+      "paymentPurpose": "Direct Deposit PAYPAL TRANSFER~ Future Amount: 700 ~ Tran: DDIR TRANSFER",
+      "debit": 0,
+      "credit": 700,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-24T00:00:00",
+      "counterpartyName": "BANCO POPULAR 639 AGUADILLA, PR",
+      "paymentPurpose": "ATM Withdrawal BANCO POPULAR 639 AGUADILLA, PR",
+      "debit": 303,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-25T00:00:00",
+      "counterpartyName": "DENNYS AGUADILLA AGUADILLA, PR",
+      "paymentPurpose": "Check Card Purchase DENNYS AGUADILLA AGUADILLA, PR",
+      "debit": 65.31,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-25T00:00:00",
+      "counterpartyName": "Excessive Transactions Fee",
+      "paymentPurpose": "Service Fee Excessive Transactions Fee",
+      "debit": 10,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-28T00:00:00",
+      "counterpartyName": "PAYPAL TRANSFER TRANSFER",
+      "paymentPurpose": "Direct Deposit PAYPAL TRANSFER TRANSFER",
+      "debit": 0,
+      "credit": 1200,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-28T00:00:00",
+      "counterpartyName": "BANCO POPULAR 639 AGUADILLA, PR",
+      "paymentPurpose": "ATM Withdrawal BANCO POPULAR 639 AGUADILLA, PR",
+      "debit": 503,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-28T00:00:00",
+      "counterpartyName": "BANCO POPULAR 639 AGUADILLA, PR",
+      "paymentPurpose": "ATM Withdrawal BANCO POPULAR 639 AGUADILLA, PR",
+      "debit": 503,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-28T00:00:00",
+      "counterpartyName": "AMERICAN GASOLINE AGUA AGUADILLA, PR",
+      "paymentPurpose": "Check Card Purchase AMERICAN GASOLINE AGUA AGUADILLA, PR",
+      "debit": 20,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-01-30T00:00:00",
+      "counterpartyName": "Excessive Transactions Fee",
+      "paymentPurpose": "Service Fee Excessive Transactions Fee",
+      "debit": 10,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-02-05T00:00:00",
+      "counterpartyName": "PAYPAL TRANSFER TRANSFER",
+      "paymentPurpose": "Direct Deposit PAYPAL TRANSFER TRANSFER",
+      "debit": 0,
+      "credit": 600,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-02-05T00:00:00",
+      "counterpartyName": "CLARO SAN JUAN, PR",
+      "paymentPurpose": "Check Card Purchase CLARO SAN JUAN, PR",
+      "debit": 33.82,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-02-05T00:00:00",
+      "counterpartyName": "Excessive Transactions Fee",
+      "paymentPurpose": "Service Fee Excessive Transactions Fee",
+      "debit": 10,
+      "credit": 0,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-02-05T00:00:00",
+      "counterpartyName": "ATM Fee Reimbursement",
+      "paymentPurpose": "ATM Fee Reimbursement",
+      "debit": 0,
+      "credit": 10,
+      "currency": "USD"
+    },
+    {
+      "transactionDate": "2023-02-05T00:00:00",
+      "counterpartyName": "Interest Paid",
+      "paymentPurpose": "Interest Paid",
+      "debit": 0,
+      "credit": 3.63,
+      "currency": "USD"
+    }
+  ]
+}

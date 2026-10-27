@@ -9,7 +9,9 @@ sees the same layout it would see in the real file:
   * every run of --min-digits or more digits (account numbers, IIN/BIN, card
     numbers) is replaced by digits derived from a salted hash of the run, so
     the same number maps to the same replacement everywhere in the file;
-  * each --replace OLD=NEW pair swaps names and other identifying text.
+  * each --replace OLD=NEW pair swaps names and other identifying text. When
+    NEW is as long as OLD the match may span text runs, as kerned words split
+    into pieces do; otherwise it must sit inside one run.
 
 Only glyphs already embedded in the PDF's font subsets can be written, so a
 replacement that needs a missing letter fails loudly instead of rendering as
@@ -84,28 +86,32 @@ def parse_cmap(data: bytes) -> dict:
 
 
 class Font:
-    def __init__(self, cmap: dict | None):
+    """A font's text encoding. Composite (Type0) fonts use two-byte codes; simple
+    fonts one byte, mapped through their ToUnicode CMap when they carry one."""
+
+    def __init__(self, cmap: dict | None, two_byte: bool = False):
         self.forward = cmap or {}
         self.reverse = {v: k for k, v in self.forward.items() if len(v) == 1}
-        self.two_byte = cmap is not None
+        self.two_byte = two_byte
+        self.width = 2 if two_byte else 1
 
     def decode(self, raw: bytes) -> str | None:
-        if not self.two_byte:
+        if not self.forward:
             return raw.decode("cp1252", errors="replace")
-        if len(raw) % 2:
+        if len(raw) % self.width:
             return None
-        codes = [int.from_bytes(raw[i : i + 2], "big") for i in range(0, len(raw), 2)]
+        codes = [int.from_bytes(raw[i : i + self.width], "big") for i in range(0, len(raw), self.width)]
         if any(code not in self.forward for code in codes):
             return None
         return "".join(self.forward[code] for code in codes)
 
     def encode(self, text: str) -> bytes:
-        if not self.two_byte:
+        if not self.forward:
             return text.encode("cp1252")
         missing = sorted({ch for ch in text if ch not in self.reverse})
         if missing:
             raise ValueError(f"glyphs not embedded in this font: {''.join(missing)!r}")
-        return b"".join(self.reverse[ch].to_bytes(2, "big") for ch in text)
+        return b"".join(self.reverse[ch].to_bytes(self.width, "big") for ch in text)
 
 
 def unescape_literal(raw: bytes) -> bytes:
@@ -150,8 +156,12 @@ def main() -> int:
     def font_for(ref: str) -> Font:
         if ref not in fonts_by_ref:
             font_obj = resolve(ref) or {}
-            to_unicode = resolve(font_obj.get("value", {}).get("/ToUnicode"))
-            fonts_by_ref[ref] = Font(parse_cmap(stream_bytes(to_unicode)) if to_unicode else None)
+            font_dict = font_obj.get("value", {})
+            to_unicode = resolve(font_dict.get("/ToUnicode"))
+            fonts_by_ref[ref] = Font(
+                parse_cmap(stream_bytes(to_unicode)) if to_unicode else None,
+                two_byte=font_dict.get("/Subtype") == "/Type0",
+            )
         return fonts_by_ref[ref]
 
     pages = [obj["value"] for obj in objects.values() if isinstance(obj.get("value"), dict) and obj["value"].get("/Type") == "/Page"]
@@ -192,7 +202,7 @@ def main() -> int:
     pool = set("0123456789")
     for stream_obj, fonts in jobs:
         for _, font, text in text_runs(stream_bytes(stream_obj), fonts):
-            if font.two_byte and any(len(run) >= args.min_digits for run in DIGIT_RUN_RE.findall(text)):
+            if font.forward and any(len(run) >= args.min_digits for run in DIGIT_RUN_RE.findall(text)):
                 pool &= {d for d in "0123456789" if d in font.reverse}
     pool = sorted(pool)
     if len(pool) < 2:
@@ -206,17 +216,36 @@ def main() -> int:
         digest = hashlib.sha256(f"{args.salt}:{run}".encode()).digest()
         return "".join(pool[digest[i % len(digest)] % len(pool)] for i in range(len(run)))
 
+    # A replacement as long as what it replaces may span text runs: kerned text
+    # ("[(NAS)-3(ARUDIN)] TJ") splits a word into pieces, each rewritten in place.
+    spanning = [(old, new) for old, new in replacements if len(old) == len(new)]
+    in_run = [(old, new) for old, new in replacements if len(old) != len(new)]
+
     def transform(text: str) -> str:
-        for old, new in replacements:
+        for old, new in in_run:
             text = text.replace(old, new)
         return DIGIT_RUN_RE.sub(scramble, text)
+
+    def replace_spanning(texts: list) -> list:
+        chars = [list(text) for text in texts]
+        owner = [(i, j) for i, text in enumerate(texts) for j in range(len(text))]
+        joined = "".join(texts)
+        for old, new in spanning:
+            start = joined.find(old)
+            while start >= 0:
+                for offset, ch in enumerate(new):
+                    i, j = owner[start + offset]
+                    chars[i][j] = ch
+                start = joined.find(old, start + len(old))
+        return ["".join(c) for c in chars]
 
     changed = 0
     for stream_obj, fonts in jobs:
         data = stream_bytes(stream_obj)
         out, last = [], 0
-        for m, font, text in text_runs(data, fonts):
-            new_text = transform(text)
+        runs = list(text_runs(data, fonts))
+        new_texts = replace_spanning([transform(text) for _, _, text in runs])
+        for (m, font, text), new_text in zip(runs, new_texts):
             if new_text == text:
                 continue
             try:
