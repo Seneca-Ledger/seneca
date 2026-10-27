@@ -8,12 +8,6 @@ import { AppPagination } from '@/app/components/ui/pagination';
 import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
-import { resolveReceiptMerchantLabel } from '@/app/lib/receipt-merchant';
-import {
-  getStatementDisplayMerchant,
-  getStatementMerchantLabel,
-  isManualExpenseStatement,
-} from '@/app/lib/statement-status';
 import {
   DEFAULT_STATEMENT_COLUMNS,
   type StatementColumn,
@@ -21,21 +15,15 @@ import {
   statementColumnWidthStyle,
 } from './columns/statement-columns';
 import { type CategoryTarget, DocumentCategoryDrawer } from './DocumentCategoryDrawer';
+import type { StatementAmountView } from './filters/amount-view';
 import type { DuplicateMeta } from './hooks/useStatementSelection';
 import { StatementsListItem } from './StatementsListItem';
-import {
-  formatPaginationLabel,
-  formatStatementAmount,
-  formatStatementDate,
-  getBankDisplayName,
-  isReceiptProcessing,
-  isStatementParsingInProgress,
-  resolvePendingReview,
-} from './StatementsListView.utils';
+import { formatPaginationLabel, resolvePendingReview } from './StatementsListView.utils';
 import { StatementsUploadSkeletons } from './StatementsUploadSkeletons';
 import { StatementTransactionsPanel } from './StatementTransactionsPanel';
+import { resolveStatementRowData } from './statement-row-data';
 
-interface StatementForTable {
+export interface StatementForTable {
   id: string;
   source?: string;
   bankName: string;
@@ -81,7 +69,7 @@ interface StatementForTable {
   parsingDetails?: StatementParsingDetails | null;
 }
 
-interface TableLabels {
+export interface TableLabels {
   merchant: string;
   date: string;
   amount: string;
@@ -105,6 +93,8 @@ interface Props {
   selectedCount: number;
   selectedStatementIds: string[];
   dateSortDirection: 'asc' | 'desc';
+  /** What the Amount column shows for a bank statement. */
+  amountView?: StatementAmountView | null;
   page: number;
   totalPagesCount: number;
   rangeStart: number;
@@ -171,50 +161,6 @@ const withoutUniformFrom = (
   }
   return columns.map(column => (column.id === 'from' ? { ...column, visible: false } : column));
 };
-
-interface StatementRowData {
-  isReceipt: boolean;
-  merchantLabel: string;
-  isManualExpense: boolean;
-  allowAttachFallback: boolean;
-  isProcessingReceipt: boolean;
-  isProcessingStatement: boolean;
-  amountLabel: string;
-  dateLabel: string;
-}
-
-function resolveStatementRowData(
-  statement: StatementForTable,
-  scanningLabel: string,
-): StatementRowData {
-  const isReceipt = statement.source === 'scan';
-  const resolvedName = isReceipt
-    ? resolveReceiptMerchantLabel({
-        vendor: statement.parsedData?.vendor,
-        subject: statement.subject,
-        fallback: statement.fileName,
-      })
-    : getStatementDisplayMerchant(statement, getBankDisplayName(statement.bankName));
-  const merchantLabel = isReceipt
-    ? resolvedName
-    : getStatementMerchantLabel(statement.status, resolvedName, scanningLabel);
-  const isManualExpense = !isReceipt && isManualExpenseStatement(statement);
-  const manualAttachmentCount = Number(statement.parsingDetails?.importPreview?.attachments ?? 0);
-  const allowAttachFallback =
-    isManualExpense &&
-    !isReceipt &&
-    (manualAttachmentCount === 0 || statement.fileName.toLowerCase().startsWith('manual-expense-'));
-  return {
-    isReceipt,
-    merchantLabel,
-    isManualExpense,
-    allowAttachFallback,
-    isProcessingReceipt: isReceiptProcessing(statement),
-    isProcessingStatement: isStatementParsingInProgress(statement),
-    amountLabel: formatStatementAmount(statement),
-    dateLabel: formatStatementDate(statement),
-  };
-}
 
 function TableDesktopHeader({
   allVisibleSelected,
@@ -330,6 +276,7 @@ export function StatementsListTable({
   selectedCount,
   selectedStatementIds,
   dateSortDirection,
+  amountView = null,
   page,
   totalPagesCount,
   rangeStart,
@@ -406,7 +353,7 @@ export function StatementsListTable({
             />
             <StatementsUploadSkeletons skeletonKeys={skeletonKeys} />
             {paginatedStatements.map((statement, index) => {
-              const rowData = resolveStatementRowData(statement, labels.scanning);
+              const rowData = resolveStatementRowData(statement, labels.scanning, amountView);
               const duplicateMeta = duplicateMetaById.get(statement.id);
               // Neighbours in the same group share one unbroken line on the left.
               const sameGroup = (other: StatementForTable | undefined): boolean =>

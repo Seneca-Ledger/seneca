@@ -516,6 +516,7 @@ describe('StatementsListView', () => {
     const lastFiltersDrawerProps = filtersDrawerPropsSpy.mock.calls.at(-1)?.[0];
     expect(lastFiltersDrawerProps?.visibleScreens).toEqual([
       'amount',
+      'amountView',
       'date',
       'groupBy',
       'has',

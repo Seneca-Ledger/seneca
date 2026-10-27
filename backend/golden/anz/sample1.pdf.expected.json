@@ -1,0 +1,330 @@
+{
+  "metadata": {
+    "accountNumber": "461871471",
+    "currency": "AUD",
+    "dateFrom": "2023-01-28T00:00:00",
+    "dateTo": "2023-02-28T00:00:00",
+    "balanceStart": 10264.69,
+    "balanceEnd": 14135.1,
+    "rawHeader": "ANZ ACCESS ADVANTAGE STATEMENT STATEMENT NUMBER 8 28 JANUARY 2023 TO 28 FEBRUARY 2023",
+    "normalizedHeader": "ANZ ACCESS ADVANTAGE STATEMENT STATEMENT NUMBER 8 28 JANUARY 2023 TO 28 FEBRUARY 2023",
+    "locale": "en"
+  },
+  "transactions": [
+    {
+      "transactionDate": "2023-01-28T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 100,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-01-31T00:00:00",
+      "counterpartyName": "ANZ INTERNET BANKING TRANSFER WAGES 31032020 ACME SERVICES CO",
+      "paymentPurpose": "ANZ INTERNET BANKING TRANSFER WAGES 31032020 ACME SERVICES CO",
+      "credit": 947.39,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-01T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-01T00:00:00",
+      "counterpartyName": "REVERSAL OF ACCOUNT SERVICING FEE MINIMUM $2000 IN DEPOSITS RECEIVED",
+      "paymentPurpose": "REVERSAL OF ACCOUNT SERVICING FEE MINIMUM $2000 IN DEPOSITS RECEIVED",
+      "credit": 5,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-02T00:00:00",
+      "counterpartyName": "ACCOUNT SERVICING FEE",
+      "paymentPurpose": "ACCOUNT SERVICING FEE",
+      "debit": 5,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-03T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680 EFFECTIVE DATE 03 FEB 2023",
+      "credit": 20,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-03T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680 EFFECTIVE DATE 03 FEB 2023",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-04T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 30,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-04T00:00:00",
+      "counterpartyName": "TRANSFER FROM SAMPLEONE N N MEALS AT HOME DEBT",
+      "paymentPurpose": "TRANSFER FROM SAMPLEONE N N MEALS AT HOME DEBT",
+      "credit": 165.5,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-05T00:00:00",
+      "counterpartyName": "ANZ MOBILE BANKING PAYMENT 770177 TO PAYEETWO L H",
+      "paymentPurpose": "ANZ MOBILE BANKING PAYMENT 770177 TO PAYEETWO L H",
+      "debit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-05T00:00:00",
+      "counterpartyName": "ANZ MOBILE BANKING PAYMENT 387663 TO PAYEETWO L H",
+      "paymentPurpose": "ANZ MOBILE BANKING PAYMENT 387663 TO PAYEETWO L H",
+      "debit": 75,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-06T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-07T00:00:00",
+      "counterpartyName": "ANZ INTERNET BANKING TRANSFER WAGES 07042020 ACME SERVICES CO",
+      "paymentPurpose": "ANZ INTERNET BANKING TRANSFER WAGES 07042020 ACME SERVICES CO",
+      "credit": 1266.66,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-08T00:00:00",
+      "counterpartyName": "ANZ MOBILE BANKING PAYMENT 384025 TO MEMBERA PAYEETWO",
+      "paymentPurpose": "ANZ MOBILE BANKING PAYMENT 384025 TO MEMBERA PAYEETWO",
+      "debit": 200,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-09T00:00:00",
+      "counterpartyName": "ANZ ATM CARD 1111",
+      "paymentPurpose": "ANZ ATM CARD 1111",
+      "credit": 20,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-09T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-10T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-11T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITHNS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITHNS 2680 EFFECTIVE DATE 11 APR 2020",
+      "credit": 70,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-12T00:00:00",
+      "counterpartyName": "PAYMENT FROM SAMPLE PAYER FROM THE TOWNS",
+      "paymentPurpose": "PAYMENT FROM SAMPLE PAYER FROM THE TOWNS EFFECTIVE DATE 12 FEB 2023",
+      "credit": 30,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-12T00:00:00",
+      "counterpartyName": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS",
+      "paymentPurpose": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS EFFECTIVE DATE 12 FEB 2023",
+      "debit": 500,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-14T00:00:00",
+      "counterpartyName": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS",
+      "paymentPurpose": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS",
+      "debit": 300,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-14T00:00:00",
+      "counterpartyName": "ANZ INTERNET BANKING TRANSFER WAGES 14042020 ACME SERVICES CO",
+      "paymentPurpose": "ANZ INTERNET BANKING TRANSFER WAGES 14042020 ACME SERVICES CO",
+      "credit": 1294.09,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-15T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-16T00:00:00",
+      "counterpartyName": "ANZ M-BANKING FUNDS TFER TRANSFER 211328 TO 062000111222333",
+      "paymentPurpose": "ANZ M-BANKING FUNDS TFER TRANSFER 211328 TO 062000111222333",
+      "debit": 500,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-17T00:00:00",
+      "counterpartyName": "ACCOUNT SERVICING FEE MINIMUM $2000 IN DEPOSITS NOT RECEIVED",
+      "paymentPurpose": "ACCOUNT SERVICING FEE MINIMUM $2000 IN DEPOSITS NOT RECEIVED",
+      "debit": 5,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-17T00:00:00",
+      "counterpartyName": "ANZ MOBILE BANKING PAYMENT 950308 TO SAMPLEONE N N",
+      "paymentPurpose": "ANZ MOBILE BANKING PAYMENT 950308 TO SAMPLEONE N N",
+      "debit": 400,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-21T00:00:00",
+      "counterpartyName": "ANZ INTERNET BANKING TRANSFER WAGES 21042020 ACME SERVICES CO",
+      "paymentPurpose": "ANZ INTERNET BANKING TRANSFER WAGES 21042020 ACME SERVICES CO",
+      "credit": 1132.01,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-22T00:00:00",
+      "counterpartyName": "ANZ M-BANKING FUNDS TFER TRANSFER 445763 FROM 111222333",
+      "paymentPurpose": "ANZ M-BANKING FUNDS TFER TRANSFER 445763 FROM 111222333",
+      "credit": 100,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-22T00:00:00",
+      "counterpartyName": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS",
+      "paymentPurpose": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS",
+      "debit": 500,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-23T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 60,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-23T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-24T00:00:00",
+      "counterpartyName": "ANZ ATM CARD 2222",
+      "paymentPurpose": "ANZ ATM CARD 2222",
+      "credit": 30,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-25T00:00:00",
+      "counterpartyName": "ANZ ATM CARD 1111",
+      "paymentPurpose": "ANZ ATM CARD 1111",
+      "credit": 20,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-26T00:00:00",
+      "counterpartyName": "TRANSFER FROM ATM GRIFFITH",
+      "paymentPurpose": "TRANSFER FROM ATM GRIFFITH EFFECTIVE DATE 26 FEB 2020",
+      "credit": 100,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-26T00:00:00",
+      "counterpartyName": "TRANSFER FROM ATM GRIFFITH GRIFFITH BRANCH GRIFFITH NS",
+      "paymentPurpose": "TRANSFER FROM ATM GRIFFITH GRIFFITH BRANCH GRIFFITH NS",
+      "credit": 100,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ INTERNET BANKING TRANSFER WAGES 27174266 ACME SERVICES CO",
+      "paymentPurpose": "ANZ INTERNET BANKING TRANSFER WAGES 27174266 ACME SERVICES CO EFFECTIVE 28 FEB 2023",
+      "credit": 1114.76,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS",
+      "paymentPurpose": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS EFFECTIVE DATE 28 FEB 2023",
+      "debit": 550,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 20,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ ATM CARD 2222",
+      "paymentPurpose": "ANZ ATM CARD 2222",
+      "credit": 100,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ ATM CARD 2222",
+      "paymentPurpose": "ANZ ATM CARD 2222",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS",
+      "paymentPurpose": "ANZ ATM GRIFFITH BRANCH GRIFFITH NS",
+      "debit": 450,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ ATM CARD 1111",
+      "paymentPurpose": "ANZ ATM CARD 1111",
+      "credit": 80,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ M-BANKING FUNDS TFER TRANSFER 339669 FROM 111222333",
+      "paymentPurpose": "ANZ M-BANKING FUNDS TFER TRANSFER 339669 FROM 111222333",
+      "credit": 50,
+      "currency": "AUD"
+    },
+    {
+      "transactionDate": "2023-02-28T00:00:00",
+      "counterpartyName": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "paymentPurpose": "ANZ ATM BRANCH GRIFFITH NS 2680",
+      "credit": 100,
+      "currency": "AUD"
+    }
+  ]
+}

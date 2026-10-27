@@ -21,12 +21,7 @@ import { appError } from '../../common/errors/app-error';
 import { HideInternalColumnsInterceptor } from '../../common/interceptors/hide-internal-columns.interceptor';
 import { IdempotencyService } from '../../common/services/idempotency.service';
 import { toCaptureLocation } from '../../common/utils/capture-location.util';
-import {
-  assertReceiptFileSupported,
-  unlinkAll,
-  validateFile,
-  validateFiles,
-} from '../../common/utils/file-validator.util';
+import { unlinkAll, validateFile, validateFiles } from '../../common/utils/file-validator.util';
 import { multerConfig } from '../../config/multer.config';
 import {
   CreateManualExpenseBody,
@@ -45,7 +40,7 @@ import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ReceiptStatementService } from './services/receipt-statement.service';
+import { ScanUploadService } from './services/scan-upload.service';
 import { StatementsService } from './statements.service';
 
 /** Files coming in: statements, manual expenses, receipt scans, a file attached to a statement. */
@@ -54,7 +49,7 @@ import { StatementsService } from './statements.service';
 export class StatementUploadsController {
   constructor(
     private readonly statementsService: StatementsService,
-    private readonly receiptStatementService: ReceiptStatementService,
+    private readonly scanUploadService: ScanUploadService,
     private readonly idempotencyService: IdempotencyService,
   ) {}
 
@@ -157,14 +152,13 @@ export class StatementUploadsController {
     try {
       for (const file of files) {
         validateFile(file, { allowEInvoiceXml: true });
-        assertReceiptFileSupported(file);
       }
     } catch (error) {
       await unlinkAll(files);
       throw error;
     }
 
-    const data = await this.receiptStatementService.createFromReceiptScan({
+    const data = await this.scanUploadService.upload({
       user,
       workspaceId,
       files,

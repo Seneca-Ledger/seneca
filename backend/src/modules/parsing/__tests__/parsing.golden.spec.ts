@@ -176,51 +176,54 @@ describe('golden parsing (optional)', () => {
         }
       });
 
-      if (expectedAccounts.length > 1) {
-        throw new Error(
-          `${caseName} prints ${expectedAccounts.length} accounts; parsers return one statement per file`,
+      // A file printing several accounts yields one statement per account,
+      // the first in place and the rest under `otherAccounts`.
+      const actualAccounts = [actual, ...(actual.otherAccounts ?? [])];
+      expect(actualAccounts.map(account => account.metadata.accountNumber)).toHaveLength(
+        expectedAccounts.length,
+      );
+
+      expectedAccounts.forEach((expected, index) => {
+        const actualAccount = actualAccounts[index];
+        expect(actualAccount.metadata.currency).toBe(expected.metadata.currency);
+        expect(actualAccount.transactions.length).toBe(expected.transactions.length);
+
+        expect(sum(actualAccount.transactions, 'debit')).toBeCloseTo(
+          sum(expected.transactions, 'debit'),
+          2,
         );
-      }
-      const [expectedData] = expectedAccounts;
+        expect(sum(actualAccount.transactions, 'credit')).toBeCloseTo(
+          sum(expected.transactions, 'credit'),
+          2,
+        );
 
-      expect(actual.metadata.currency).toBe(expectedData.metadata.currency);
-      expect(actual.transactions.length).toBe(expectedData.transactions.length);
+        // Matching totals are not enough: a parser can drop one row and misread
+        // another by the same amount. Compare row by row.
+        expect(actualAccount.transactions.map(projectTransaction)).toEqual(
+          expected.transactions.map(projectTransaction),
+        );
 
-      expect(sum(actual.transactions, 'debit')).toBeCloseTo(
-        sum(expectedData.transactions, 'debit'),
-        2,
-      );
-      expect(sum(actual.transactions, 'credit')).toBeCloseTo(
-        sum(expectedData.transactions, 'credit'),
-        2,
-      );
-
-      // Matching totals are not enough: a parser can drop one row and misread
-      // another by the same amount. Compare row by row.
-      expect(actual.transactions.map(projectTransaction)).toEqual(
-        expectedData.transactions.map(projectTransaction),
-      );
-
-      if (expectedData.metadata.accountNumber) {
-        expect(actual.metadata.accountNumber).toBe(expectedData.metadata.accountNumber);
-      }
-
-      // Balances are what the statement reconciles against, so a drift here is
-      // exactly the failure the runtime balance check is meant to catch.
-      (['balanceStart', 'balanceEnd'] as const).forEach(key => {
-        const expectedBalance = expectedData.metadata[key];
-        if (expectedBalance === null || expectedBalance === undefined) {
-          return;
+        if (expected.metadata.accountNumber) {
+          expect(actualAccount.metadata.accountNumber).toBe(expected.metadata.accountNumber);
         }
-        expect(actual.metadata[key]).toBeCloseTo(expectedBalance, 2);
-      });
 
-      if (hasRealDate(expectedData.metadata.dateFrom)) {
-        expect(toDateOnly(actual.metadata.dateFrom)).toBe(
-          toDateOnly(expectedData.metadata.dateFrom),
-        );
-        expect(toDateOnly(actual.metadata.dateTo)).toBe(toDateOnly(expectedData.metadata.dateTo));
-      }
+        // Balances are what the statement reconciles against, so a drift here is
+        // exactly the failure the runtime balance check is meant to catch.
+        (['balanceStart', 'balanceEnd'] as const).forEach(key => {
+          const expectedBalance = expected.metadata[key];
+          if (expectedBalance === null || expectedBalance === undefined) {
+            return;
+          }
+          expect(actualAccount.metadata[key]).toBeCloseTo(expectedBalance, 2);
+        });
+
+        if (hasRealDate(expected.metadata.dateFrom)) {
+          expect(toDateOnly(actualAccount.metadata.dateFrom)).toBe(
+            toDateOnly(expected.metadata.dateFrom),
+          );
+          expect(toDateOnly(actualAccount.metadata.dateTo)).toBe(toDateOnly(expected.metadata.dateTo));
+        }
+      });
     });
   });
 });

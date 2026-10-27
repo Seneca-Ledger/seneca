@@ -18,6 +18,7 @@ describe('StatementParsingProcessor', () => {
     update: vi.fn(async () => undefined),
   };
   const statementProcessingService = { processStatement: vi.fn(async () => undefined) };
+  const statementSiblings = { importOtherAccounts: vi.fn(async () => []) };
 
   beforeEach(() => vi.clearAllMocks());
 
@@ -29,6 +30,7 @@ describe('StatementParsingProcessor', () => {
     new StatementParsingProcessor(
       statementRepository as never,
       statementProcessingService as never,
+      statementSiblings as never,
     );
 
   it('counts the attempt before parsing so a crash still leaves a trace', async () => {
@@ -42,6 +44,18 @@ describe('StatementParsingProcessor', () => {
     expect(statementProcessingService.processStatement).toHaveBeenCalledWith('stmt-1', {
       finalAttempt: false,
     });
+  });
+
+  it('imports the other accounts of the file once the upload is parsed', async () => {
+    await processor().process(job(0));
+
+    expect(statementSiblings.importOtherAccounts).toHaveBeenCalledWith('stmt-1');
+  });
+
+  it('does not retry a parsed upload when its other accounts fail to queue', async () => {
+    statementSiblings.importOtherAccounts.mockRejectedValueOnce(new Error('redis down'));
+
+    await expect(processor().process(job(0))).resolves.toBeUndefined();
   });
 
   it('marks the last of the queue attempts as final', async () => {
@@ -69,6 +83,7 @@ describe('StatementParsingProcessor', () => {
     await expect(
       processor().process(job(1)),
     ).rejects.toThrow('parser blew up');
+    expect(statementSiblings.importOtherAccounts).not.toHaveBeenCalled();
   });
 
   it('drops a job for a statement of a past version without counting or parsing it', async () => {
