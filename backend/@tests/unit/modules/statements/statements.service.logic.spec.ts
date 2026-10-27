@@ -14,6 +14,7 @@ import { ReceiptStatementService } from '@/modules/statements/services/receipt-s
 import { StatementsService } from '@/modules/statements/statements.service';
 import { StatementFilesService } from '@/modules/statements/statement-files.service';
 import { StatementTrashService } from '@/modules/statements/statement-trash.service';
+import { ManualExpenseService } from '@/modules/statements/manual-expense.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -75,6 +76,7 @@ describe('StatementsService — business logic', () => {
         // These specs do not reach the stored file.
         { provide: StatementFilesService, useValue: {} },
         StatementTrashService,
+        { provide: ManualExpenseService, useValue: {} },
         StatementsService,
         workspaceCurrencyProvider(),
         {

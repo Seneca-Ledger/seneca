@@ -44,7 +44,6 @@ describe('StatementsService', () => {
   const fileStorageService = {};
   const transactionRepository = {};
   const categoryRepository = {};
-  const taxRateRepository = {};
   const cacheManager = { get: vi.fn(), set: vi.fn(), del: vi.fn() };
   const eventEmitter = { emit: vi.fn() };
 
@@ -75,7 +74,6 @@ describe('StatementsService', () => {
       transactionRepository as any,
       userRepository as any,
       categoryRepository as any,
-      taxRateRepository as any,
       workspaceMemberRepository as any,
       { findOne: vi.fn(async () => null) } as any,
       fileStorageService as any,
@@ -84,9 +82,9 @@ describe('StatementsService', () => {
       receiptStatementService as any,
       cacheManager as any,
       auditService as any,
-      { resolve: vi.fn(async () => ({})) } as any,
       workspaceCurrencyStub() as never,
       statementFiles,
+      {} as any,
       {} as any,
       eventEmitter as any,
     );

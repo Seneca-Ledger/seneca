@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   BadRequestException,
@@ -11,9 +10,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
-import { createHash } from 'crypto';
 import * as fs from 'fs';
-import * as path from 'path';
 import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
@@ -21,9 +18,8 @@ import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { calculateFileHash } from '../../common/utils/file-hash.util';
 import { resolveFileType, validateFile } from '../../common/utils/file-validator.util';
 import { normalizeFilename } from '../../common/utils/filename.util';
-import { toMinor } from '../../common/utils/money.util';
 import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
-import { readUploadedFile, resolveUploadsDir } from '../../common/utils/uploads.util';
+import { readUploadedFile } from '../../common/utils/uploads.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import type {
   ConvertDroppedSampleBody,
@@ -33,9 +29,7 @@ import type {
 } from '../../contracts';
 import { Category, Wallet, WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
-import { CategoryType } from '../../entities/category.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../entities/statement.entity';
-import { TaxRate } from '../../entities/tax-rate.entity';
 import {
   Transaction,
   TransactionCategorySource,
@@ -49,10 +43,11 @@ import {
 } from '../notifications/events/notification-events';
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
-import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
+import { ManualExpenseService } from './manual-expense.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { ensureCanEditStatements, ensureCanModifyStatement } from './statement-access';
+import { accountOfUpload, walletOwnerMemberId } from './statement-accounts';
 import { StatementFilesService } from './statement-files.service';
 import {
   applyStatementFilters,
@@ -102,8 +97,6 @@ export class StatementsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
-    @InjectRepository(TaxRate)
-    private readonly taxRateRepository: Repository<TaxRate>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
     @InjectRepository(Wallet)
@@ -114,10 +107,10 @@ export class StatementsService {
     private readonly receiptStatementService: ReceiptStatementService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
-    private readonly taxAssignmentService: TaxAssignmentService,
     private readonly workspaceCurrency: WorkspaceCurrencyService,
     private readonly statementFiles: StatementFilesService,
     private readonly statementTrash: StatementTrashService,
+    private readonly manualExpenses: ManualExpenseService,
     private readonly eventEmitter?: EventEmitter2,
   ) {}
 
@@ -144,45 +137,6 @@ export class StatementsService {
     await ensureCanModifyStatement(this.workspaceMemberRepository, statement, userId, workspaceId);
   }
 
-  private escapeCsvValue(value: string): string {
-    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-      return `"${value.replaceAll('"', '""')}"`;
-    }
-    return value;
-  }
-
-  /**
-   * The account an upload was sent to (SimpleFIN mapping, a webhook default, the
-   * upload form), kept only when it is one of this workspace's: a mapping left
-   * pointing at a deleted account must not fail the upload.
-   */
-  private async accountOfUpload(
-    walletId: string | undefined,
-    workspaceId: string,
-  ): Promise<string | null> {
-    if (!walletId) {
-      return null;
-    }
-    const exists = await this.walletRepository.exists({ where: { id: walletId, workspaceId } });
-    if (!exists) {
-      this.logger.warn(
-        `[Statements] Upload named wallet ${walletId}, not in workspace ${workspaceId}`,
-      );
-    }
-    return exists ? walletId : null;
-  }
-
-  /** Who owns the wallet, or null when it is shared. */
-  private async walletOwnerMemberId(walletId: string, workspaceId: string): Promise<string | null> {
-    const wallet = await this.walletRepository.findOne({
-      where: { id: walletId, workspaceId },
-      select: {
-        ownerMemberId: true,
-      },
-    });
-    return wallet?.ownerMemberId ?? null;
-  }
-
   private normalizePositiveAmount(value: number | string | null | undefined): number | null {
     if (value === null || value === undefined || value === '') {
       return null;
@@ -198,285 +152,7 @@ export class StatementsService {
     payload: CreateManualExpenseBody;
     files: Express.Multer.File[];
   }): Promise<Statement> {
-    const { user, workspaceId, payload, files } = params;
-    await this.ensureCanEditStatements(user.id, workspaceId);
-
-    const amountValue = Number(
-      String(payload.amount || '')
-        .replace(',', '.')
-        .trim(),
-    );
-    if (!Number.isFinite(amountValue) || amountValue <= 0) {
-      throw new BadRequestException(appError('EXPENSE_AMOUNT_INVALID'));
-    }
-
-    const merchant = payload.merchant?.trim();
-    if (!merchant) {
-      throw new BadRequestException(appError('EXPENSE_MERCHANT_REQUIRED'));
-    }
-
-    const currency = await this.workspaceCurrency.resolveFor(workspaceId, payload.currency);
-    if (!currency) {
-      throw new BadRequestException(appError('EXPENSE_CURRENCY_REQUIRED'));
-    }
-
-    const parsedDate = new Date(payload.date);
-    if (Number.isNaN(parsedDate.getTime())) {
-      throw new BadRequestException(appError('EXPENSE_DATE_INVALID'));
-    }
-
-    const allowDuplicates = payload.allowDuplicates ?? false;
-    const description = payload.description?.trim() || '';
-    const categoryId = payload.categoryId?.trim();
-    if (!categoryId) {
-      throw new BadRequestException(appError('EXPENSE_CATEGORY_REQUIRED'));
-    }
-
-    const category = await this.categoryRepository.findOne({
-      where: { id: categoryId, workspaceId },
-    });
-
-    if (!category) {
-      throw new BadRequestException(appError('CATEGORY_NOT_FOUND'));
-    }
-
-    if (category.isEnabled === false) {
-      throw new BadRequestException(appError('EXPENSE_CATEGORY_DISABLED'));
-    }
-
-    if (category.type !== CategoryType.EXPENSE) {
-      throw new BadRequestException(appError('EXPENSE_CATEGORY_NOT_EXPENSE'));
-    }
-
-    const taxRateId = payload.taxRateId?.trim();
-    let taxRate: TaxRate | null = null;
-
-    if (taxRateId) {
-      taxRate = await this.taxRateRepository.findOne({
-        where: {
-          id: taxRateId,
-          workspaceId,
-          isEnabled: true,
-        },
-      });
-
-      if (!taxRate) {
-        throw new BadRequestException(appError('EXPENSE_TAX_RATE_NOT_FOUND'));
-      }
-    } else {
-      taxRate = await this.taxRateRepository.findOne({
-        where: {
-          workspaceId,
-          isDefault: true,
-          isEnabled: true,
-        },
-      });
-    }
-
-    const transactionDate = new Date(parsedDate.toISOString().slice(0, 10));
-
-    // Array.isArray, not `files || []`: `files` comes from a multipart
-    // upload field decorated with @UploadedFiles(), and although Multer's
-    // FilesInterceptor always produces an array (or omits the field), an
-    // explicit type check rather than truthiness keeps that guarantee from
-    // ever being taken on faith for this parameter.
-    const normalizedFiles = Array.isArray(files) ? files : [];
-    for (const file of normalizedFiles) {
-      validateFile(file);
-    }
-
-    let fileName: string;
-    let filePath: string;
-    let fileType: FileType;
-    let fileHash: string;
-    let fileSize: number;
-    let fileData: Buffer;
-
-    const primaryFile = normalizedFiles[0];
-    if (primaryFile) {
-      fileName = normalizeFilename(primaryFile.originalname);
-      filePath = primaryFile.path;
-      fileType = resolveFileType(primaryFile) as FileType;
-      fileHash = await calculateFileHash(primaryFile.path);
-      fileSize = primaryFile.size;
-      fileData = await readUploadedFile(primaryFile.path);
-    } else {
-      fileName = `manual-expense-${Date.now()}.csv`;
-      filePath = path.join(resolveUploadsDir(), `${randomUUID()}.csv`);
-      const csv = [
-        'date,merchant,description,amount,currency',
-        [
-          payload.date,
-          this.escapeCsvValue(merchant),
-          this.escapeCsvValue(description),
-          amountValue.toFixed(2),
-          currency,
-        ].join(','),
-      ].join('\n');
-
-      fileData = Buffer.from(csv, 'utf8');
-      await fs.promises.writeFile(filePath, fileData);
-      fileType = FileType.CSV;
-      fileHash = createHash('sha256').update(fileData).digest('hex');
-      fileSize = fileData.length;
-    }
-
-    // Resolved from the user's own choice where they made one, otherwise from
-    // the workspace rules and default as they stood on the expense's date.
-    const taxAssignment = await this.taxAssignmentService.resolve({
-      workspaceId,
-      transactionDate,
-      amountMinor: toMinor(amountValue),
-      categoryId: category.id,
-      transactionType: TransactionType.EXPENSE,
-      transactionNature: null,
-      explicitTaxRateId: taxRateId || null,
-    });
-
-    // Проверка дубликата и обе вставки — в одной транзакции под advisory-lock:
-    // иначе double-submit формы проходил check-then-act дважды и создавал два
-    // одинаковых расхода (тот же паттерн, что в create() для выписок).
-    const accountId = await this.accountOfUpload(payload.walletId ?? undefined, workspaceId);
-    const accountOwner = accountId ? await this.walletOwnerMemberId(accountId, workspaceId) : null;
-
-    let createdTransaction: Transaction | null = null;
-    const savedStatement = await this.statementRepository.manager.transaction(async manager => {
-      await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
-        `manual-expense:${workspaceId}:${payload.date}:${merchant}:${amountValue}:${currency}`,
-      ]);
-
-      if (!allowDuplicates) {
-        const existingDuplicate = await manager.getRepository(Transaction).findOne({
-          where: {
-            workspaceId,
-            transactionType: TransactionType.EXPENSE,
-            transactionDate,
-            currency,
-            counterpartyName: merchant,
-            debit: amountValue,
-          },
-        });
-
-        if (existingDuplicate) {
-          throw new ConflictException(appError('EXPENSE_DUPLICATE'));
-        }
-      }
-
-      const statements = manager.getRepository(Statement);
-      const statement = statements.create({
-        userId: user.id,
-        workspaceId,
-        fileName,
-        filePath,
-        fileType,
-        fileSize,
-        fileHash,
-        bankName: BankName.OTHER,
-        status: StatementStatus.COMPLETED,
-        processedAt: new Date(),
-        statementDateFrom: transactionDate,
-        statementDateTo: transactionDate,
-        totalTransactions: 1,
-        totalDebit: amountValue,
-        totalCredit: 0,
-        currency,
-        categoryId: category.id,
-        walletId: accountId,
-        parsingDetails: {
-          detectedBy: 'manual-expense',
-          parserUsed: 'manual-expense',
-          parserVersion: '1',
-          transactionsFound: 1,
-          transactionsCreated: 1,
-          metadataExtracted: {
-            dateFrom: payload.date,
-            dateTo: payload.date,
-            currency,
-          },
-          importPreview: {
-            source: 'manual-expense',
-            merchant,
-            description,
-            attachments: normalizedFiles.length,
-            categoryId: category.id,
-            taxRateId: taxRate?.id || null,
-            taxRateLabel: taxRate
-              ? `${taxRate.name} (${Number(taxRate.rate || 0).toFixed(0)}%)`
-              : null,
-          },
-        },
-      });
-
-      const created = (await statements.save(statement)) as Statement;
-
-      const transaction = manager.getRepository(Transaction).create({
-        workspaceId,
-        statementId: created.id,
-        transactionDate,
-        counterpartyName: merchant,
-        paymentPurpose: description || merchant,
-        debit: amountValue,
-        credit: null,
-        amount: amountValue,
-        currency,
-        transactionType: TransactionType.EXPENSE,
-        categoryId: category.id,
-        // The person filling the form picked it, so the payee learns from it.
-        categorySource: TransactionCategorySource.MANUAL,
-        taxRateId: taxAssignment.taxRateId ?? taxRate?.id ?? null,
-        taxRuleId: taxAssignment.taxRuleId,
-        taxSource: taxAssignment.taxSource,
-        taxAmount: taxAssignment.taxAmount,
-        taxNetAmount: taxAssignment.taxNetAmount,
-        taxReverseCharge: taxAssignment.taxReverseCharge,
-        taxNotionalAmount: taxAssignment.taxNotionalAmount,
-        walletId: accountId,
-        ownerMemberId: accountOwner,
-        isVerified: true,
-      });
-
-      createdTransaction = await manager.getRepository(Transaction).save(transaction);
-      return created;
-    });
-
-    try {
-      await this.statementRepository.update(savedStatement.id, { fileData });
-    } catch (error) {
-      this.logger.warn(
-        `[Statements] Failed to persist manual expense file in DB: ${(error as Error)?.message}`,
-      );
-    }
-
-    await this.auditService.createEvent({
-      workspaceId,
-      actorType: ActorType.USER,
-      actorId: user.id,
-      actorLabel: user.email || user.name || 'User',
-      entityType: EntityType.STATEMENT,
-      entityId: savedStatement.id,
-      action: AuditAction.IMPORT,
-      diff: { before: null, after: savedStatement },
-      meta: {
-        source: 'manual-expense',
-        amount: amountValue,
-        currency,
-        merchant,
-        categoryId: category.id,
-        taxRateId: taxRate?.id || null,
-      },
-      severity: Severity.INFO,
-      isUndoable: false,
-    });
-
-    // After the commit: a listener must never see a row that rolled back.
-    if (createdTransaction) {
-      this.eventEmitter?.emit(
-        'transaction.created',
-        transactionCreatedEvent(createdTransaction, 'manual_expense'),
-      );
-    }
-
-    return savedStatement;
+    return this.manualExpenses.create(params);
   }
 
   async createFromReceiptScan(params: {
@@ -581,7 +257,9 @@ export class StatementsService {
       branchId,
       walletId,
       // Same rule as the import path: the row starts on whoever owns the wallet.
-      ownerMemberId: walletId ? await this.walletOwnerMemberId(walletId, workspaceId) : null,
+      ownerMemberId: walletId
+        ? await walletOwnerMemberId(this.walletRepository, walletId, workspaceId)
+        : null,
       article: payload.transaction.article || (originalTransaction?.article as string) || null,
       comments: payload.transaction.comments || (originalTransaction?.comments as string) || null,
       transactionType,
@@ -666,7 +344,7 @@ export class StatementsService {
     // Parsing replaces it with the currency the file states; until then the
     // statement carries the workspace's own (the column has no default).
     const currency = await this.workspaceCurrency.resolve(workspaceId);
-    const accountId = await this.accountOfUpload(walletId, workspaceId);
+    const accountId = await accountOfUpload(this.walletRepository, walletId, workspaceId);
 
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       const statements = manager.getRepository(Statement);
