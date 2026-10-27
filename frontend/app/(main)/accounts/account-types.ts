@@ -53,6 +53,7 @@ const BANK_LABELS: Record<string, string> = {
   hapoalim: 'Hapoalim',
   absa: 'Absa Bank',
   ally: 'Ally Bank',
+  anz: 'ANZ',
 };
 
 export const statementBankLabel = (bankName: string): string | null =>

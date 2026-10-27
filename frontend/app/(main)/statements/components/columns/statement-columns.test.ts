@@ -116,6 +116,7 @@ describe('statement column storage', () => {
     expect(result).toEqual([
       'amountMax',
       'amountMin',
+      'amountView',
       'approved',
       'date',
       'exported',
@@ -130,7 +131,7 @@ describe('statement column storage', () => {
   });
 
   it('exposes column filter mapping for optional filters only', () => {
-    expect(COLUMN_FILTER_MAP.amount).toEqual(['amountMin', 'amountMax']);
+    expect(COLUMN_FILTER_MAP.amount).toEqual(['amountMin', 'amountMax', 'amountView']);
     expect(COLUMN_FILTER_MAP.approved).toEqual(['approved']);
     expect(COLUMN_FILTER_MAP.exported).toEqual(['exported']);
     expect(COLUMN_FILTER_MAP.receipt).toEqual(['type', 'statuses']);

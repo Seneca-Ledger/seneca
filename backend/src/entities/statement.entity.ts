@@ -57,6 +57,7 @@ export enum BankName {
   HAPOALIM = 'hapoalim',
   ABSA = 'absa',
   ALLY = 'ally',
+  ANZ = 'anz',
   OTHER = 'other',
 }
 

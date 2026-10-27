@@ -74,6 +74,7 @@ describe('server statement filters', () => {
 
     expect(result).toEqual([
       'amount',
+      'amountView',
       'approved',
       'date',
       'groupBy',

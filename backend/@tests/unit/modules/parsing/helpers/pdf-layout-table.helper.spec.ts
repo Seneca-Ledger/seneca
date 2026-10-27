@@ -84,6 +84,26 @@ describe('pdf-layout-table.helper', () => {
     expect(openingBalanceFromRows(transactions)).toBe(1000);
   });
 
+  it('reads a row whose text wraps around the amounts printed at its middle', () => {
+    // Lines of one cell are 5pt apart, under the 8pt line height; rows are 15pt apart.
+    const transactions = readLayoutTransactions([
+      header,
+      row(120, [['01/02/2025', 40], ['ACME', 110], ['Store', 135], ['12.50', 315], ['987.50', 490]]),
+      row(135, [['Online', 110], ['Transfer', 145]]),
+      row(140, [['02/02/2025', 40], ['100.00', 400], ['1,087.50', 480]]),
+      row(145, [['Salary', 110], ['Example', 145]]),
+      row(160, [['03/02/2025', 40], ['Card', 110], ['Payment', 135]]),
+      row(170, [['ACME', 110], ['Store', 135], ['7.50', 320], ['1,080.00', 480]]),
+      row(180, [['Effective', 110], ['03/02/2025', 160]]),
+    ]);
+
+    expect(transactions.map(({ description, debit, credit }) => ({ description, debit, credit }))).toEqual([
+      { description: 'ACME Store', debit: 12.5, credit: undefined },
+      { description: 'Online Transfer Salary Example', debit: undefined, credit: 100 },
+      { description: 'Card Payment ACME Store Effective 03/02/2025', debit: 7.5, credit: undefined },
+    ]);
+  });
+
   it('keeps zero-amount lines as description, as card statements print them', () => {
     const transactions = readLayoutTransactions([
       header,
