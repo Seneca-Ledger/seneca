@@ -89,7 +89,10 @@ export default defineConfig({
         test: {
           // Real statement PDFs; runs only with GOLDEN_ENABLED=1 (npm run test:golden).
           name: 'golden',
-          include: ['src/modules/parsing/__tests__/parsing.golden.spec.ts'],
+          include: [
+            'src/modules/parsing/__tests__/parsing.golden.spec.ts',
+            'src/modules/parsing/__tests__/scan-routing.golden.spec.ts',
+          ],
         },
       },
       {
