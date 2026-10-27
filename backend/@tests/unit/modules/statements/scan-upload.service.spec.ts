@@ -65,6 +65,31 @@ describe('ScanUploadService', () => {
     });
   });
 
+  it('uploads a statement again when its earlier copy is in the trash', async () => {
+    const again = file('trashed.pdf');
+    isBankStatementScan.mockResolvedValue(true);
+    statementsService.create
+      .mockRejectedValueOnce(
+        new ConflictException({ code: 'STATEMENT_DUPLICATE_FILE', duplicateStatementId: 'gone' }),
+      )
+      .mockResolvedValueOnce({ id: 'new' });
+    statementRepository.findOne
+      .mockResolvedValueOnce({ id: 'gone', fileHash: 'hash', deletedAt: new Date() })
+      .mockResolvedValueOnce(null);
+
+    const result = await service.upload({ user, workspaceId: 'ws-1', files: [again] });
+
+    expect(result.map(s => s.id)).toEqual(['new']);
+    expect(statementsService.create).toHaveBeenLastCalledWith(
+      user,
+      'ws-1',
+      again,
+      undefined,
+      undefined,
+      true,
+    );
+  });
+
   it('still refuses any other failure', async () => {
     isBankStatementScan.mockResolvedValue(true);
     statementsService.create.mockRejectedValue(new Error('disk full'));

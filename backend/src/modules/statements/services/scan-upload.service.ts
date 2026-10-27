@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import { IsNull, type Repository } from 'typeorm';
 import type { CaptureLocation } from '../../../common/utils/capture-location.util';
 import {
   assertReceiptFileSupported,
@@ -72,7 +72,8 @@ export class ScanUploadService {
 
   /**
    * The same statement again is the one already filed, as for receipts: the
-   * scan hands it back instead of refusing the upload.
+   * scan hands it back instead of refusing the upload. A trashed copy does not
+   * count, so a statement deleted from the list can be uploaded again.
    */
   private async uploadStatement(
     user: User,
@@ -83,11 +84,19 @@ export class ScanUploadService {
       return await this.statementsService.create(user, workspaceId, file);
     } catch (error) {
       const duplicateId = duplicateStatementIdOf(error);
-      const filed = duplicateId
+      const duplicate = duplicateId
         ? await this.statementRepository.findOne({ where: { id: duplicateId, workspaceId } })
         : null;
-      if (!filed) {
+      if (!duplicate) {
         throw error;
+      }
+      const filed = duplicate.deletedAt
+        ? await this.statementRepository.findOne({
+            where: { workspaceId, fileHash: duplicate.fileHash, deletedAt: IsNull() },
+          })
+        : duplicate;
+      if (!filed) {
+        return this.statementsService.create(user, workspaceId, file, undefined, undefined, true);
       }
       await unlinkAll([file]);
       return filed;
