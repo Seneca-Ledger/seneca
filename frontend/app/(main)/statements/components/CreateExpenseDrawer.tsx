@@ -26,7 +26,9 @@ import { getReceiptLocationCapture } from '@/app/lib/receipt-location-capture';
 import { type StatementCategoryNode } from '@/app/lib/statement-categories';
 import {
   type CreateTaxRatePayload,
+  isScanFile,
   type ManualExpenseDraft,
+  SCAN_FILE_ACCEPT,
   type StatementExpenseMode,
   sanitizeManualAmountInput,
   type TaxRateOption,
@@ -268,9 +270,7 @@ export default function CreateExpenseDrawer({
       event.preventDefault();
       setDragActive(false);
       // Same types the "Choose files" picker accepts.
-      const receipts = Array.from(event.dataTransfer?.files ?? []).filter(
-        file => file.type.startsWith('image/') || file.type === 'application/pdf',
-      );
+      const receipts = Array.from(event.dataTransfer?.files ?? []).filter(isScanFile);
       if (receipts.length > 0) {
         handleFilesSelected(receipts);
       }
@@ -491,7 +491,7 @@ export default function CreateExpenseDrawer({
                   <input
                     ref={scanGalleryInputRef}
                     type="file"
-                    accept="image/*,.pdf,.xml"
+                    accept={SCAN_FILE_ACCEPT}
                     style={{ display: 'none' }}
                     multiple
                     onChange={event => handleFilesSelected(event.target.files)}
@@ -549,7 +549,7 @@ export default function CreateExpenseDrawer({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*,.pdf"
+                    accept={SCAN_FILE_ACCEPT}
                     capture="environment"
                     style={{ display: 'none' }}
                     multiple

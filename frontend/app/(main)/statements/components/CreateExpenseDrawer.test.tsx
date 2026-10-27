@@ -57,10 +57,10 @@ describe('CreateExpenseDrawer mobile uploads', () => {
 
     const uploadInput = document.querySelector('input[type="file"]') as HTMLInputElement | null;
     expect(uploadInput).toBeTruthy();
+    // Bank statements come in through the scan too; the server tells them apart.
     expect(uploadInput?.getAttribute('accept')).toContain('image/*');
-    expect(uploadInput?.getAttribute('accept')).not.toContain('.csv');
-    expect(uploadInput?.getAttribute('accept')).not.toContain('.xlsx');
-    expect(uploadInput?.getAttribute('accept')).not.toContain('.xls');
+    expect(uploadInput?.getAttribute('accept')).toContain('.csv');
+    expect(uploadInput?.getAttribute('accept')).toContain('.xlsx');
     expect(uploadInput?.getAttribute('capture')).toBe('environment');
 
     await act(async () => {
@@ -117,7 +117,7 @@ describe('CreateExpenseDrawer mobile uploads', () => {
   it.each([
     ['onto the upload zone', () => screen.getByText(/drag and drop/i)],
     ['onto the drawer header, missing the zone', () => screen.getByText('Create expense')],
-  ])('accepts receipts dropped %s instead of letting the browser open them', async (_where, target) => {
+  ])('accepts receipts and statements dropped %s instead of letting the browser open them', async (_where, target) => {
     const container = document.createElement('div');
     document.body.innerHTML = '';
     document.body.appendChild(container);
@@ -139,7 +139,8 @@ describe('CreateExpenseDrawer mobile uploads', () => {
     });
 
     const receipt = new File(['dummy'], 'receipt.jpg', { type: 'image/jpeg' });
-    const notes = new File(['dummy'], 'notes.csv', { type: 'text/csv' });
+    const statement = new File(['dummy'], 'statement.ofx', { type: '' });
+    const notes = new File(['dummy'], 'notes.txt', { type: 'text/plain' });
     const dropTarget = target();
 
     let dragOverAllowed = true;
@@ -149,7 +150,7 @@ describe('CreateExpenseDrawer mobile uploads', () => {
         dataTransfer: { types: ['Files'], files: [receipt] },
       });
       dropAllowed = fireEvent.drop(dropTarget, {
-        dataTransfer: { types: ['Files'], files: [receipt, notes] },
+        dataTransfer: { types: ['Files'], files: [receipt, statement, notes] },
       });
     });
 
@@ -161,7 +162,9 @@ describe('CreateExpenseDrawer mobile uploads', () => {
       fireEvent.click(screen.getByRole('button', { name: /upload receipt/i }));
     });
 
-    expect(onSubmitScan).toHaveBeenCalledWith(expect.objectContaining({ files: [receipt] }));
+    expect(onSubmitScan).toHaveBeenCalledWith(
+      expect.objectContaining({ files: [receipt, statement] }),
+    );
 
     await act(async () => {
       root.unmount();

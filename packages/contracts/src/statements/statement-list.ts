@@ -196,6 +196,8 @@ export const StatementListItem = Schema.Struct({
     exchangeRate: Schema.NullOr(Schema.Union([DecimalString, Schema.Number])),
     exchangeRateMixed: Schema.Boolean,
     cardLabel: Schema.NullOr(Schema.String),
+    /** Rows still waiting for a category; transfers and duplicates need none. */
+    uncategorizedCount: Schema.optional(Schema.Number),
   }),
 });
 export type StatementListItem = Wire<typeof StatementListItem>;
