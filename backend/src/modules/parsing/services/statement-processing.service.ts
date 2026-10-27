@@ -814,12 +814,6 @@ export class StatementProcessingService {
         `Date range: ${statement.statementDateFrom?.toISOString() || 'N/A'} to ${statement.statementDateTo?.toISOString() || 'N/A'}`,
       );
 
-      const majorityCategory = await this.classificationService.determineMajorityCategory(
-        parsedStatement.transactions,
-        statement.userId,
-        statement.workspaceId,
-      );
-
       addLog('info', 'Creating transactions...');
       if (!statement.workspaceId) {
         throw new Error('Statement workspaceId is missing');
@@ -829,7 +823,6 @@ export class StatementProcessingService {
         statement,
         parsedStatement.transactions,
         statement.userId,
-        majorityCategory.categoryId,
         manualCategorySelectionRequired,
         addLog,
       );
@@ -849,9 +842,6 @@ export class StatementProcessingService {
         (sum, t) => sum + (t.credit ?? 0),
         0,
       );
-      if (!manualCategorySelectionRequired && majorityCategory.categoryId) {
-        statement.categoryId = majorityCategory.categoryId;
-      }
 
       addLog('info', `Totals - Debit: ${statement.totalDebit}, Credit: ${statement.totalCredit}`);
 
@@ -983,7 +973,6 @@ export class StatementProcessingService {
     statement: Statement,
     parsedTransactions: ParsedTransaction[],
     userId: string,
-    _defaultCategoryId: string | undefined,
     manualCategorySelectionRequired: boolean,
     addLog?: (level: string, message: string) => void,
   ): Promise<{
