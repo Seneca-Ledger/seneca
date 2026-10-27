@@ -41,6 +41,7 @@ const defaultFilters: StatementFilters = {
   approved: null,
   billable: null,
   groupBy: null,
+  amountView: null,
   has: [],
   currencies: [],
   exported: null,

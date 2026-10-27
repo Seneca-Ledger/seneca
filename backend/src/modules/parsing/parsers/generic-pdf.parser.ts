@@ -52,7 +52,7 @@ export class GenericPdfParser extends BaseParser {
     const localeInfo = this.detectLocale(text);
     const detectedCurrency = detectStatementCurrency(text) || appDefaultCurrency();
 
-    const layoutTransactions = readLayoutTransactions(layoutRows);
+    const layoutTransactions = this.readTransactions(layoutRows);
     // Row dates decide first; in free text only dates with a year count, since
     // "38.2gal" or "19.5%" look like day-first dates too.
     const dateOrder =
@@ -129,6 +129,11 @@ export class GenericPdfParser extends BaseParser {
       },
       transactions,
     };
+  }
+
+  /** The table's rows, which a bank's own parser may read further. */
+  protected readTransactions(rows: PdfTextRow[]): LayoutTransaction[] {
+    return readLayoutTransactions(rows);
   }
 
   /**

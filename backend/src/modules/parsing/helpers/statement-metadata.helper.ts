@@ -19,6 +19,16 @@ const PREFIXED_DOLLARS: [RegExp, string][] = [
   [/\bR\$/, 'BRL'],
 ];
 
+/**
+ * Signs written with letters, glued to a figure with two decimals ("R13.40",
+ * "-RM12.00"); a reference such as "R2D2" or "R66" is not money.
+ */
+const LETTER_SIGNS: [RegExp, string][] = [
+  [/(?<![A-Za-z])RM\d[\d ,.]*[.,]\d{2}\b/, 'MYR'],
+  [/(?<![A-Za-z])Rp\d[\d ,.]*[.,]\d{2}\b/, 'IDR'],
+  [/(?<![A-Za-z])R\d[\d ,.]*[.,]\d{2}\b/, 'ZAR'],
+];
+
 /** Where a bare "$" is printed, the bank's country says which dollar. */
 const DOLLAR_COUNTRIES: [RegExp, string][] = [
   [/\bcanada\b|\bqu[eé]bec\b/i, 'CAD'],
@@ -57,6 +67,10 @@ export function detectStatementCurrency(text: string): string | null {
   const prefixed = PREFIXED_DOLLARS.find(([pattern]) => pattern.test(text));
   if (prefixed) {
     return prefixed[1];
+  }
+  const lettered = LETTER_SIGNS.find(([pattern]) => pattern.test(text));
+  if (lettered) {
+    return lettered[1];
   }
   const symbol = SYMBOLS.find(([mark]) => text.includes(mark));
   if (symbol) {
