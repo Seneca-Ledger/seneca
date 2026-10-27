@@ -36,6 +36,14 @@ def normalize_text(value: Any) -> str:
     return str(value).replace("\n", " ").strip()
 
 
+def is_horizontal(obj: Dict[str, Any]) -> bool:
+    """Watermarks and margin notes are printed rotated; table text never is."""
+    if obj.get("object_type") != "char":
+        return True
+    a, b, c, d = (obj.get("matrix") or (1, 0, 0, 1))[:4]
+    return abs(b) < 1e-3 and abs(c) < 1e-3 and a > 0 and d > 0
+
+
 def build_rows(words: List[Dict[str, Any]], page_number: int, tolerance: float = 2.5) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for word in sorted(words, key=lambda w: (float(w.get("top", 0)), float(w.get("x0", 0)))):
@@ -161,7 +169,7 @@ def parse_pdf(file_path: pathlib.Path) -> Dict[str, Any]:
             page_text = page.extract_text() or ""
             full_text.append(page_text)
 
-            words = page.extract_words(
+            words = page.filter(is_horizontal).extract_words(
                 x_tolerance=1.5,
                 y_tolerance=2.0,
                 keep_blank_chars=False,
