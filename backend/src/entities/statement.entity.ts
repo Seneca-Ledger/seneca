@@ -219,6 +219,21 @@ export class Statement {
   @Column({ name: 'wallet_id', type: 'uuid', nullable: true })
   walletId: string | null;
 
+  /**
+   * A file can print several accounts. The upload holds the first; every
+   * other account is a statement of its own on the same file, pointing back at
+   * the upload, with its place among the file's accounts.
+   */
+  @ManyToOne(() => Statement, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'source_statement_id' })
+  sourceStatement: Relation<Statement | null>;
+
+  @Column({ name: 'source_statement_id', type: 'uuid', nullable: true })
+  sourceStatementId: string | null;
+
+  @Column({ name: 'source_account_index', type: 'smallint', nullable: true })
+  sourceAccountIndex: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -255,6 +270,13 @@ export class Statement {
     transactionsFlaggedDuplicate?: number;
     errors?: string[];
     warnings?: string[];
+    /** The accounts after the first in a file that prints several; each is imported on its own. */
+    otherAccounts?: Array<{
+      index: number;
+      accountNumber: string;
+      currency: string;
+      transactions: number;
+    }>;
     metadataExtracted?: {
       accountNumber?: string;
       dateFrom?: string;

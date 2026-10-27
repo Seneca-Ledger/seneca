@@ -36,7 +36,7 @@ import { TransferPairingService } from '../../transactions/services/transfer-pai
 import {
   accountFields,
   accountOfStatement,
-  otherAccountsWarnings,
+  takeStatementAccount,
 } from '../helpers/statement-account.helper';
 import { fileExtensionOf } from '../helpers/statement-file.helper';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
@@ -694,6 +694,7 @@ export class StatementProcessingService {
       addLog('info', 'Starting PDF text extraction...');
       const parseStartTime = Date.now();
       const parsedStatement = await parser.parse(processingFilePath, cachedText, ocrConfidence);
+      takeStatementAccount(parsedStatement, statement, parsingDetails);
       const parseTime = Date.now() - parseStartTime;
 
       addLog('info', `Parsing completed in ${parseTime}ms`);
@@ -773,8 +774,7 @@ export class StatementProcessingService {
         addLog,
         droppedSamples,
       );
-      const parseWarnings = [...schemaResult.warnings, ...otherAccountsWarnings(parsedStatement)];
-      parsingDetails.warnings = [...(parsingDetails.warnings || []), ...parseWarnings];
+      parsingDetails.warnings = [...(parsingDetails.warnings || []), ...schemaResult.warnings];
       parsedStatement.transactions = schemaResult.valid;
       parsingDetails.transactionsFound = parsedStatement.transactions.length;
       parsingDetails.droppedSamples = droppedSamples;

@@ -58,6 +58,17 @@ export const StatementParsingDetails = Schema.StructWithRest(
     transactionsCreated: maybe(Schema.Number),
     errors: maybe(Strings),
     warnings: maybe(Strings),
+    /** The accounts after the first in a file that prints several; each is imported on its own. */
+    otherAccounts: maybe(
+      Schema.Array(
+        Schema.Struct({
+          index: Schema.Number,
+          accountNumber: Schema.String,
+          currency: Schema.String,
+          transactions: Schema.Number,
+        }),
+      ),
+    ),
     processingTime: maybe(Schema.Number),
     droppedSamples: maybe(
       Schema.Array(

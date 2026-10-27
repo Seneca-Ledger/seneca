@@ -63,6 +63,7 @@ import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { getDatePresetRange } from './statement-date-presets.util';
+import { removeStatementFile } from './statement-file-removal.util';
 import { buildStatementSearchClause } from './statement-search.util';
 
 type StatementFileAvailability = Awaited<ReturnType<FileStorageService['getFileAvailability']>>;
@@ -1477,15 +1478,7 @@ export class StatementsService {
     // Delete all related transactions first
     await this.transactionRepository.delete({ statementId: id });
 
-    // Delete file from filesystem
-    if (fs.existsSync(statement.filePath)) {
-      try {
-        fs.unlinkSync(statement.filePath);
-      } catch (error) {
-        this.logger.error(`Failed to delete file ${statement.filePath}:`, error);
-        // Continue with statement deletion even if file deletion fails
-      }
-    }
+    await removeStatementFile(this.statementRepository, statement, this.logger);
 
     // Finally delete the statement
     await this.statementRepository.remove(statement);
