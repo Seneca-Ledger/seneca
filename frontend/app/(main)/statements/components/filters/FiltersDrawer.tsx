@@ -10,6 +10,11 @@ import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import { ActiveRouteFilter } from './ActiveRouteFilter';
+import {
+  AmountViewFilterScreen,
+  ChoiceFilterScreen,
+  useAmountViewText,
+} from './ChoiceFilterScreen';
 import { FilterOptionRow } from './FilterOptionRow';
 import { FilterRow } from './FilterRow';
 import { FilterSection } from './FilterSection';
@@ -347,38 +352,6 @@ function FromToFilterScreen({
   );
 }
 
-function GroupByFilterScreen({
-  filters,
-  labels,
-  groupByOptions,
-  onUpdateFilters,
-}: {
-  filters: StatementFilters;
-  labels: FiltersDrawerLabels;
-  groupByOptions: FilterOption[];
-  onUpdateFilters: (next: Partial<StatementFilters>) => void;
-}) {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      <FilterOptionRow
-        label={labels.any}
-        selected={!filters.groupBy}
-        onClick={() => onUpdateFilters({ groupBy: null })}
-        variant="radio"
-      />
-      {groupByOptions.map(option => (
-        <FilterOptionRow
-          key={option.value}
-          label={option.label}
-          selected={filters.groupBy === option.value}
-          onClick={() => onUpdateFilters({ groupBy: option.value })}
-          variant="radio"
-        />
-      ))}
-    </Box>
-  );
-}
-
 function HasFilterScreen({
   filters,
   labels,
@@ -609,6 +582,7 @@ type FilterRowConfig = {
 function buildFilterRows(
   filters: StatementFilters,
   labels: FiltersDrawerLabels,
+  amountView: ReturnType<typeof useAmountViewText>,
 ): { general: FilterRowConfig[]; expenses: FilterRowConfig[]; reports: FilterRowConfig[] } {
   const summaryValue = (value?: string | null, fallback?: string) =>
     value && value.length > 0 ? value : fallback || labels.any;
@@ -649,6 +623,13 @@ function buildFilterRows(
         screen: 'amount',
         label: labels.amount,
         value: summaryValue(filters.amountMin || filters.amountMax ? 'set' : ''),
+      },
+      {
+        screen: 'amountView',
+        label: amountView.title,
+        value:
+          amountView.options.find(option => option.value === (filters.amountView ?? 'spending'))
+            ?.label ?? labels.any,
       },
       {
         screen: 'billable',
@@ -719,6 +700,7 @@ type ScreenContentProps = {
   fromOptions: FilterAvatarOption[];
   toOptions: FilterAvatarOption[];
   groupByOptions: FilterOption[];
+  amountViewOptions: FilterOption[];
   hasOptions: FilterOption[];
   currencyOptions: string[];
   onUpdateFilters: (next: Partial<StatementFilters>) => void;
@@ -805,10 +787,20 @@ function ScreenContent(props: ScreenContentProps) {
   }
   if (screen === 'groupBy') {
     return (
-      <GroupByFilterScreen
+      <ChoiceFilterScreen
+        value={filters.groupBy}
+        options={props.groupByOptions}
+        anyLabel={labels.any}
+        onSelect={groupBy => onUpdateFilters({ groupBy })}
+      />
+    );
+  }
+  if (screen === 'amountView') {
+    const { amountViewOptions: options } = props;
+    return (
+      <AmountViewFilterScreen
         filters={filters}
-        labels={labels}
-        groupByOptions={props.groupByOptions}
+        options={options}
         onUpdateFilters={onUpdateFilters}
       />
     );
@@ -900,7 +892,12 @@ export function FiltersDrawer({
   const allowedScreens = new Set(visibleScreens || []);
   const isScreenVisible = (screenId: string) =>
     visibleScreens === undefined || allowedScreens.has(screenId);
-  const screenTitle = isRoot ? labels.title : getScreenTitle(screen, labels);
+  const amountView = useAmountViewText();
+  const screenTitle = isRoot
+    ? labels.title
+    : screen === 'amountView'
+      ? amountView.title
+      : getScreenTitle(screen, labels);
 
   const toggleValue = (values: string[], value: string) =>
     values.includes(value) ? values.filter(item => item !== value) : [...values, value];
@@ -916,7 +913,7 @@ export function FiltersDrawer({
     boxSizing: 'border-box',
   };
 
-  const filterRows = buildFilterRows(filters, labels);
+  const filterRows = buildFilterRows(filters, labels, amountView);
 
   const viewResultsButton = (
     <MuiButton variant="contained" sx={{ width: '100%' }} size="large" onClick={onViewResults}>
@@ -1071,6 +1068,7 @@ export function FiltersDrawer({
                 fromOptions={fromOptions}
                 toOptions={toOptions}
                 groupByOptions={groupByOptions}
+                amountViewOptions={amountView.options}
                 hasOptions={hasOptions}
                 currencyOptions={currencyOptions}
                 onUpdateFilters={onUpdateFilters}

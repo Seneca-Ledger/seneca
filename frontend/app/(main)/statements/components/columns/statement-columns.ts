@@ -60,7 +60,7 @@ export const COLUMN_FILTER_MAP: Partial<Record<StatementColumnId, Array<keyof St
     to: [],
     category: [],
     tag: [],
-    amount: ['amountMin', 'amountMax'],
+    amount: ['amountMin', 'amountMax', 'amountView'],
     action: [],
     approved: ['approved'],
     billable: ['billable'],

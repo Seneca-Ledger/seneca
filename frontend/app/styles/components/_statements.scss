@@ -3877,6 +3877,14 @@
     }
   }
 
+  // Every row of the statement has its category: nothing to do, so nothing
+  // lights up under the pointer either.
+  &--done {
+    gap: 6px;
+    padding-left: 4px;
+    pointer-events: none;
+  }
+
   &--button {
     background: none;
     font: inherit;

@@ -171,15 +171,22 @@ describe('Receiving e-invoices (e2e)', () => {
     expect(payee.vat_id).toBe('DE123456789');
   });
 
-  it('refuses an XML file that is not an e-invoice, and other files', async () => {
+  it('takes a bank statement in, and refuses XML that is neither an invoice nor a statement', async () => {
+    // The scan is the one upload: a camt.053 statement goes to statement parsing.
     await auth(api().post('/statements/upload-receipt'))
       .attach('files', Buffer.from('<?xml version="1.0"?><Document><BkToCstmrStmt/></Document>'), {
         filename: 'statement.xml',
         contentType: 'application/xml',
       })
+      .expect(201);
+    await auth(api().post('/statements/upload-receipt'))
+      .attach('files', Buffer.from('<?xml version="1.0"?><note>Call back</note>'), {
+        filename: 'note.xml',
+        contentType: 'application/xml',
+      })
       .expect(400);
     await auth(api().post('/statements/upload-receipt'))
-      .attach('files', Buffer.from('a,b\n1,2'), { filename: 'x.csv', contentType: 'text/csv' })
+      .attach('files', Buffer.from('Call back'), { filename: 'note.txt', contentType: 'text/plain' })
       .expect(400);
   });
 });

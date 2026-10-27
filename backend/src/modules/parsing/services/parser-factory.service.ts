@@ -2,34 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { extractTextFromPdf } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
 import type { IParser } from '../interfaces/parser.interface';
-import { AbsaParser } from '../parsers/absa.parser';
 import { BerekeNewParser } from '../parsers/bereke-new.parser';
 import { BerekeOldParser } from '../parsers/bereke-old.parser';
-import { Camt053Parser } from '../parsers/camt053.parser';
-import { CsvParser } from '../parsers/csv.parser';
-import { DocxParser } from '../parsers/docx.parser';
-import { ExcelParser } from '../parsers/excel.parser';
-import { GenericPdfParser } from '../parsers/generic-pdf.parser';
-import { HapoalimParser } from '../parsers/hapoalim.parser';
-import { KaspiParser } from '../parsers/kaspi.parser';
-import { Mt940Parser } from '../parsers/mt940.parser';
-import { OfxParser } from '../parsers/ofx.parser';
-import { QifParser } from '../parsers/qif.parser';
-
-/**
- * Bank-specific parsers that may claim a file when its text names no bank,
- * in the order they are tried, with what each claims it as.
- */
-const FALLBACK_CLAIMS: [
-  abstract new (...args: never[]) => IParser,
-  { bankName: BankName; formatVersion?: string },
-][] = [
-  [KaspiParser, { bankName: BankName.KASPI }],
-  [HapoalimParser, { bankName: BankName.HAPOALIM }],
-  [AbsaParser, { bankName: BankName.ABSA }],
-  [BerekeNewParser, { bankName: BankName.BEREKE_NEW, formatVersion: 'new' }],
-  [BerekeOldParser, { bankName: BankName.BEREKE_OLD, formatVersion: 'old' }],
-];
+import { createParsers, FALLBACK_CLAIMS } from './parser-registry';
 
 @Injectable()
 export class ParserFactoryService {
@@ -37,21 +12,7 @@ export class ParserFactoryService {
   private parsers: IParser[] = [];
 
   constructor() {
-    this.parsers = [
-      new BerekeNewParser(),
-      new BerekeOldParser(),
-      new KaspiParser(),
-      new HapoalimParser(),
-      new AbsaParser(),
-      new GenericPdfParser(),
-      new ExcelParser(),
-      new CsvParser(),
-      new DocxParser(),
-      new OfxParser(),
-      new QifParser(),
-      new Camt053Parser(),
-      new Mt940Parser(),
-    ];
+    this.parsers = createParsers();
   }
 
   private extractHeaderText(text: string): string {

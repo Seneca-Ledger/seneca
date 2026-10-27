@@ -190,6 +190,26 @@ describe('API contracts: documents (e2e)', () => {
       expect(matches(ReceiptScanStatements, scans).data).toHaveLength(1);
     }, 60_000);
 
+    it('POST /statements/upload-receipt parses a bank statement and books the photo beside it', async () => {
+      const scans = await call('post', '/statements/upload-receipt')
+        .attach('files', Buffer.from(ofx('S1')), {
+          filename: 'S1.ofx',
+          contentType: 'application/octet-stream',
+        })
+        .attach('files', png, { filename: 'shop.png', contentType: 'image/png' })
+        .expect(201);
+      const [statement, receipt] = matches(ReceiptScanStatements, scans).data;
+      expect([statement.fileType, receipt.fileType]).toEqual(['ofx', 'image']);
+      // The statement is queued for parsing; only the photo is read as a receipt.
+      const readBy: { id: string; detectedBy: string | null }[] = await dataSource.query(
+        `SELECT id, parsing_details->>'detectedBy' AS "detectedBy" FROM statements WHERE id = ANY($1)`,
+        [[statement.id, receipt.id]],
+      );
+      const detectedBy = new Map(readBy.map(row => [row.id, row.detectedBy]));
+      expect(detectedBy.get(statement.id)).toBeNull();
+      expect(detectedBy.get(receipt.id)).toBe('receipt-scan');
+    }, 60_000);
+
     it('POST attach-file, PATCH, stage, trash and restore', async () => {
       const attached = await call('post', `/statements/${statementId}/attach-file`)
         .attach('file', Buffer.from('%PDF-1.4 receipt'), {

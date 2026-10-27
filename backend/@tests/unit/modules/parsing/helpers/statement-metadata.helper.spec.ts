@@ -36,6 +36,9 @@ describe('parseStatementAmount', () => {
   it('keeps the sign of a figure whose currency sign is a letter', () => {
     expect(findStatementAmounts('ATM WITHDRAWAL -R2 000.00 R5 702.73')).toEqual([-2000, 5702.73]);
     expect(isAmountPart('-R2')).toBe(true);
+    expect(isAmountPart('-$503.00')).toBe(true);
+    expect(isAmountPart('$4,082.88')).toBe(true);
+    expect(parseStatementAmount('-$503.00')).toBe(-503);
     expect(isAmountPart('R2D2')).toBe(false);
   });
 });
