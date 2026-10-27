@@ -142,6 +142,7 @@ describe('the Approved filter of the documents list (real Postgres)', () => {
       unused,
       unused,
       unused,
+      unused,
     );
 
     const workspaces = dataSource.getRepository(Workspace);

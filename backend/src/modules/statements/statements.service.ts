@@ -10,7 +10,6 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ZipArchive } from 'archiver';
 import { Cache } from 'cache-manager';
 import { createHash } from 'crypto';
 import * as fs from 'fs';
@@ -21,10 +20,9 @@ import { FileStorageService } from '../../common/services/file-storage.service';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { calculateFileHash } from '../../common/utils/file-hash.util';
 import { resolveFileType, validateFile } from '../../common/utils/file-validator.util';
-import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/filename.util';
+import { normalizeFilename } from '../../common/utils/filename.util';
 import { toMinor } from '../../common/utils/money.util';
 import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
-import { runExecutable } from '../../common/utils/thumbnail-command.util';
 import { readUploadedFile, resolveUploadsDir } from '../../common/utils/uploads.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import type {
@@ -57,6 +55,7 @@ import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.servi
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { ensureCanEditStatements, ensureCanModifyStatement } from './statement-access';
 import { removeStatementFile } from './statement-file-removal.util';
+import { StatementFilesService } from './statement-files.service';
 import {
   applyStatementFilters,
   applyStatementRowFilters,
@@ -118,6 +117,7 @@ export class StatementsService {
     private readonly auditService: AuditService,
     private readonly taxAssignmentService: TaxAssignmentService,
     private readonly workspaceCurrency: WorkspaceCurrencyService,
+    private readonly statementFiles: StatementFilesService,
     private readonly eventEmitter?: EventEmitter2,
   ) {}
 
@@ -190,28 +190,6 @@ export class StatementsService {
 
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }
-
-  private async generateThumbnailWithPython(
-    pdfPath: string,
-    thumbnailPath: string,
-    thumbnailWidth: number,
-  ): Promise<void> {
-    const scriptPath = path.join(__dirname, '../../../scripts/generate-thumbnail.py');
-    await runExecutable('python3', [scriptPath, pdfPath, thumbnailPath, String(thumbnailWidth)]);
-  }
-
-  private async generateThumbnailWithQuickLook(
-    pdfPath: string,
-    outputDir: string,
-    thumbnailWidth: number,
-  ): Promise<string> {
-    await runExecutable('qlmanage', ['-t', '-s', String(thumbnailWidth), '-o', outputDir, pdfPath]);
-    const generatedPath = path.join(outputDir, `${path.basename(pdfPath)}.png`);
-    if (!fs.existsSync(generatedPath)) {
-      throw new Error('Quick Look thumbnail output not found');
-    }
-    return generatedPath;
   }
 
   async createManualExpense(params: {
@@ -1260,10 +1238,7 @@ export class StatementsService {
     fileName: string;
     mimeType: string;
   }> {
-    const statement = await this.findOne(id, workspaceId);
-    const { stream, fileName, mimeType } =
-      await this.fileStorageService.getStatementFileStream(statement);
-    return { stream, fileName, mimeType };
+    return this.statementFiles.fileStream(await this.findOne(id, workspaceId));
   }
 
   async restoreFile(id: string, userId: string, workspaceId: string) {
@@ -1313,114 +1288,11 @@ export class StatementsService {
   }
 
   async getThumbnail(id: string, workspaceId: string, requestedWidth?: number): Promise<Buffer> {
-    const statement = await this.findOne(id, workspaceId);
-
-    const normalizedWidth = Number.isFinite(requestedWidth ?? Number.NaN)
-      ? Math.round(requestedWidth ?? 200)
-      : 200;
-    const thumbnailWidth = Math.min(1600, Math.max(80, normalizedWidth));
-
-    const cacheVersion = statement.updatedAt?.getTime?.() ?? 0;
-    const cacheKey = `statements:thumbnail:${id}:${cacheVersion}:${thumbnailWidth}`;
-    const cached = await this.cacheManager.get<string>(cacheKey);
-    if (cached) {
-      return Buffer.from(cached, 'base64');
-    }
-
-    // Check if file is PDF
-    if (statement.fileType !== 'pdf' && !statement.fileName.toLowerCase().endsWith('.pdf')) {
-      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_PDF_ONLY'));
-    }
-
-    // Determine source file path
-    let pdfPath: string | null = null;
-    let tempPdfPath: string | null = null;
-
-    if (statement.filePath && fs.existsSync(statement.filePath)) {
-      // Use existing file on disk
-      pdfPath = statement.filePath;
-    } else if (statement.fileData) {
-      // Write data to temporary file
-      tempPdfPath = path.join('/tmp', `temp-${statement.id}-${Date.now()}.pdf`);
-      await fs.promises.writeFile(tempPdfPath, statement.fileData);
-      pdfPath = tempPdfPath;
-    }
-
-    if (!pdfPath) {
-      throw new NotFoundException(appError('STATEMENT_FILE_DATA_UNAVAILABLE'));
-    }
-
-    try {
-      // Generate thumbnail using Python script
-      const thumbnailPath = path.join('/tmp', `thumbnail-${statement.id}-${Date.now()}.png`);
-      let generatedThumbnailPath = thumbnailPath;
-
-      try {
-        await this.generateThumbnailWithPython(pdfPath, thumbnailPath, thumbnailWidth);
-      } catch (pythonError) {
-        if (process.platform !== 'darwin') {
-          throw pythonError;
-        }
-        generatedThumbnailPath = await this.generateThumbnailWithQuickLook(
-          pdfPath,
-          '/tmp',
-          thumbnailWidth,
-        );
-      }
-
-      // Read generated thumbnail
-      const thumbnailData = await fs.promises.readFile(generatedThumbnailPath);
-
-      // Cache the thumbnail (1 week)
-      await this.cacheManager.set(cacheKey, thumbnailData.toString('base64'), 604800);
-
-      // Clean up temporary files
-      try {
-        await fs.promises.unlink(generatedThumbnailPath);
-        if (tempPdfPath) {
-          await fs.promises.unlink(tempPdfPath);
-        }
-      } catch (cleanupError) {
-        this.logger.warn('Error cleaning up temporary files:', cleanupError);
-      }
-
-      return thumbnailData;
-    } catch (error) {
-      // Clean up temp PDF if it was created
-      if (tempPdfPath) {
-        try {
-          await fs.promises.unlink(tempPdfPath);
-        } catch (cleanupError) {
-          // Ignore cleanup errors
-        }
-      }
-
-      this.logger.error('Error generating thumbnail:', error);
-      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_FAILED'));
-    }
+    return this.statementFiles.thumbnail(await this.findOne(id, workspaceId), requestedWidth);
   }
 
   async exportZip(workspaceId: string, outputStream: NodeJS.WritableStream): Promise<void> {
     const { data: statements } = await this.findAll(workspaceId, {});
-
-    const archive = new ZipArchive({ zlib: { level: 5 } });
-    archive.pipe(outputStream);
-
-    for (const statement of statements) {
-      try {
-        const { stream, fileName } =
-          await this.fileStorageService.getStatementFileStream(statement);
-        const isReceipt = statement.fileType === FileType.IMAGE || !statement.bankName;
-        const folder = isReceipt ? 'receipts' : (statement.bankName ?? 'other');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const safeFolder = sanitizeArchiveEntryName(folder);
-        const safeFileName = sanitizeArchiveEntryName(fileName);
-        archive.append(stream as any, { name: `${safeFolder}/${safeFileName}` });
-      } catch {
-        // Skip files that cannot be retrieved
-      }
-    }
-
-    await archive.finalize();
+    await this.statementFiles.exportZip(statements, outputStream);
   }
 }

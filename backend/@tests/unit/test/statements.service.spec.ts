@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { calculateFileHash } from '@/common/utils/file-hash.util';
 import { FileType } from '@/entities/statement.entity';
 import { StatementsService } from '@/modules/statements/statements.service';
+import { StatementFilesService } from '@/modules/statements/statement-files.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { workspaceCurrencyStub } from '../../helpers/workspace-currency-stub';
 
@@ -48,6 +49,8 @@ describe('StatementsService', () => {
   const eventEmitter = { emit: vi.fn() };
 
   let service: StatementsService;
+
+  let statementFiles: StatementFilesService;
   let qb: any;
 
   beforeEach(() => {
@@ -66,6 +69,7 @@ describe('StatementsService', () => {
     };
     statementRepository.createQueryBuilder = vi.fn(() => qb);
 
+    statementFiles = new StatementFilesService(fileStorageService as any, cacheManager as any);
     service = new StatementsService(
       statementRepository as any,
       transactionRepository as any,
@@ -82,6 +86,7 @@ describe('StatementsService', () => {
       auditService as any,
       { resolve: vi.fn(async () => ({})) } as any,
       workspaceCurrencyStub() as never,
+      statementFiles,
       eventEmitter as any,
     );
     vi.spyOn(service as any, 'ensureCanEditStatements').mockResolvedValue(undefined);
@@ -140,10 +145,10 @@ describe('StatementsService', () => {
   it('falls back to qlmanage when python thumbnail generation fails on darwin', async () => {
     const originalPlatform = process.platform;
     const pythonSpy = vi
-      .spyOn(service as any, 'generateThumbnailWithPython')
+      .spyOn(statementFiles as any, 'generateThumbnailWithPython')
       .mockRejectedValue(new Error('python failed'));
     const quickLookSpy = vi
-      .spyOn(service as any, 'generateThumbnailWithQuickLook')
+      .spyOn(statementFiles as any, 'generateThumbnailWithQuickLook')
       .mockResolvedValue('/tmp/statement.pdf.png');
 
     statementRepository.createQueryBuilder = vi.fn(() => ({

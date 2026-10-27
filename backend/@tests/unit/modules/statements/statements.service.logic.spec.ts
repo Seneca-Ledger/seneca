@@ -12,6 +12,7 @@ import { StatementParsingQueue } from '@/modules/parsing/queue/statement-parsing
 import { StatementProcessingService } from '@/modules/parsing/services/statement-processing.service';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
 import { StatementsService } from '@/modules/statements/statements.service';
+import { StatementFilesService } from '@/modules/statements/statement-files.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -70,6 +71,8 @@ describe('StatementsService — business logic', () => {
   beforeAll(async () => {
     module = await Test.createTestingModule({
       providers: [
+        // These specs do not reach the stored file.
+        { provide: StatementFilesService, useValue: {} },
         StatementsService,
         workspaceCurrencyProvider(),
         {

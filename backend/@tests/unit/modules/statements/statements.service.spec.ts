@@ -18,6 +18,7 @@ import { StatementProcessingService } from '@/modules/parsing/services/statement
 import type { StatementsQuery } from '@/contracts';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
 import { StatementsService } from '@/modules/statements/statements.service';
+import { StatementFilesService } from '@/modules/statements/statement-files.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   BadRequestException,
@@ -109,6 +110,8 @@ describe('StatementsService', () => {
   beforeAll(async () => {
     testingModule = await Test.createTestingModule({
       providers: [
+        // These specs do not reach the stored file.
+        { provide: StatementFilesService, useValue: {} },
         StatementsService,
         workspaceCurrencyProvider(),
         {
