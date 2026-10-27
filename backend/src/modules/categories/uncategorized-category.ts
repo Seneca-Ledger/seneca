@@ -1,3 +1,5 @@
+import { type Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
+
 /**
  * The category a row falls back to when nothing classifies it: one per
  * workspace and type, kept unique by UQ_categories_uncategorized. English like
@@ -8,4 +10,27 @@ export const UNCATEGORIZED_CATEGORY_NAME = 'Uncategorized';
 
 export function isUncategorizedName(name: string | null | undefined): boolean {
   return (name ?? '').trim().toLowerCase() === UNCATEGORIZED_CATEGORY_NAME.toLowerCase();
+}
+
+/**
+ * SQL true while the row under `alias` still waits for a category: it has none
+ * (a receipt's) or sits in the Uncategorized fallback that statement processing
+ * gives every row it cannot place by payee. Pass UNCATEGORIZED_SQL_PARAMS with it.
+ */
+export function awaitingCategorySql(alias: string): string {
+  return `(${alias}.categoryId IS NULL OR EXISTS (SELECT 1 FROM categories fallback
+    WHERE fallback.id = ${alias}.categoryId AND LOWER(TRIM(fallback.name)) = :uncategorizedName))`;
+}
+
+export const UNCATEGORIZED_SQL_PARAMS = {
+  uncategorizedName: UNCATEGORIZED_CATEGORY_NAME.toLowerCase(),
+};
+
+/** Rows just classified that still wait for one: none, or the fallback (source DEFAULT). */
+export function countAwaitingCategory(
+  rows: Pick<Transaction, 'categoryId' | 'categorySource'>[],
+): number {
+  return rows.filter(
+    row => !row.categoryId || row.categorySource === TransactionCategorySource.DEFAULT,
+  ).length;
 }

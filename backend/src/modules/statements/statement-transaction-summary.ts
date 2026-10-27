@@ -4,7 +4,10 @@ import {
   readablePrivateSql,
 } from '../../common/utils/transaction-privacy.util';
 import type { Transaction } from '../../entities/transaction.entity';
-import { UNCATEGORIZED_CATEGORY_NAME } from '../categories/uncategorized-category';
+import {
+  awaitingCategorySql,
+  UNCATEGORIZED_SQL_PARAMS,
+} from '../categories/uncategorized-category';
 
 /** What the documents list says about a statement's rows. */
 export type StatementTransactionSummary = {
@@ -33,12 +36,8 @@ export const EMPTY_TRANSACTION_SUMMARY: StatementTransactionSummary = {
   uncategorizedCount: 0,
 };
 
-/**
- * A row has no category while it has none at all (a receipt's) or still sits
- * in the Uncategorized fallback that statement processing gives every row it
- * cannot place by payee.
- */
-const UNCATEGORIZED_ROW = `(transaction.categoryId IS NULL OR LOWER(category.name) = :uncategorizedName)
+/** A row waiting for a category, by the rule Review's month close counts with. */
+const UNCATEGORIZED_ROW = `${awaitingCategorySql('transaction')}
   AND transaction.transferPairId IS NULL
   AND transaction.isDuplicate = false`;
 
@@ -63,7 +62,6 @@ export async function loadTransactionSummaries(
 
   const rows = await queryBuilder
     .leftJoin('transaction.wallet', 'wallet')
-    .leftJoin('transaction.category', 'category')
     .select('transaction.statementId', 'statementId')
     .addSelect(
       // The first purpose the viewer may read: another member's private row
@@ -91,7 +89,7 @@ export async function loadTransactionSummaries(
     .andWhere('transaction.statementId IN (:...statementIds)', { statementIds })
     .groupBy('transaction.statementId')
     .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
-    .setParameter('uncategorizedName', UNCATEGORIZED_CATEGORY_NAME.toLowerCase())
+    .setParameters(UNCATEGORIZED_SQL_PARAMS)
     .getRawMany<StatementTransactionSummaryRow>();
 
   return new Map(
