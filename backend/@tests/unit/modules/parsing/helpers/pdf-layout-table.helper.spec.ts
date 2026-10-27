@@ -3,6 +3,7 @@ import { readHeaderRow } from '@/modules/parsing/helpers/pdf-layout-columns.help
 import {
   openingBalanceFromRows,
   readLayoutTransactions,
+  splitByAccount,
   toParsedTransactions,
 } from '@/modules/parsing/helpers/pdf-layout-table.helper';
 
@@ -66,6 +67,43 @@ describe('pdf-layout-table.helper', () => {
     expect(openingBalanceFromRows(transactions)).toBe(1000);
   });
 
+  it('skips dated balance lines and keeps what the dated row itself says', () => {
+    const transactions = readLayoutTransactions([
+      header,
+      row(120, [['01/02/2025', 40], ['Beginning', 110], ['Balance', 160], ['1,000.00', 480]]),
+      row(140, [['01/02/2025', 40], ['Card', 110], ['Purchase', 135], ['12.50', 315], ['987.50', 490]]),
+      row(149, [['ACME', 110], ['Store', 135]]),
+      row(160, [['Example', 110], ['Town', 155]]),
+      row(180, [['28/02/2025', 40], ['Ending', 110], ['Balance', 150], ['987.50', 490]]),
+      row(189, [['Thank', 110], ['you', 140]]),
+    ]);
+
+    expect(transactions.map(({ firstLine, description }) => ({ firstLine, description }))).toEqual([
+      { firstLine: 'Card Purchase', description: 'Card Purchase ACME Store Example Town' },
+    ]);
+    expect(openingBalanceFromRows(transactions)).toBe(1000);
+  });
+
+  it('reads a row whose text wraps around the amounts printed at its middle', () => {
+    // Lines of one cell are 5pt apart, under the 8pt line height; rows are 15pt apart.
+    const transactions = readLayoutTransactions([
+      header,
+      row(120, [['01/02/2025', 40], ['ACME', 110], ['Store', 135], ['12.50', 315], ['987.50', 490]]),
+      row(135, [['Online', 110], ['Transfer', 145]]),
+      row(140, [['02/02/2025', 40], ['100.00', 400], ['1,087.50', 480]]),
+      row(145, [['Salary', 110], ['Example', 145]]),
+      row(160, [['03/02/2025', 40], ['Card', 110], ['Payment', 135]]),
+      row(170, [['ACME', 110], ['Store', 135], ['7.50', 320], ['1,080.00', 480]]),
+      row(180, [['Effective', 110], ['03/02/2025', 160]]),
+    ]);
+
+    expect(transactions.map(({ description, debit, credit }) => ({ description, debit, credit }))).toEqual([
+      { description: 'ACME Store', debit: 12.5, credit: undefined },
+      { description: 'Online Transfer Salary Example', debit: undefined, credit: 100 },
+      { description: 'Card Payment ACME Store Effective 03/02/2025', debit: 7.5, credit: undefined },
+    ]);
+  });
+
   it('keeps zero-amount lines as description, as card statements print them', () => {
     const transactions = readLayoutTransactions([
       header,
@@ -93,6 +131,36 @@ describe('pdf-layout-table.helper', () => {
       row(150, [['Account', 110], ['fee:', 150], ['3,00', 175], ['$', 196]]),
     ]);
     expect(transactions[0].description).toBe('ACME');
+  });
+
+  it('files each table under the account heading printed above it', () => {
+    const transactions = readLayoutTransactions([
+      row(80, [['EUR', 40], ['Current', 60], ['Account', 100], ['—', 140], ['000-0001', 150]]),
+      header,
+      row(140, [['01/02/2025', 40], ['ACME', 110], ['12.50', 315], ['987.50', 490]]),
+      row(160, [['Total', 110], ['12.50', 315]]),
+      row(200, [['USD', 40], ['Savings', 60], ['Account', 100], ['—', 140], ['000-0002', 150]]),
+      header,
+      row(240, [['02/02/2025', 40], ['Salary', 110], ['100.00', 400], ['1,100.00', 480]]),
+      row(300, [['USD', 40], ['Savings', 60], ['Account', 100], ['—', 140], ['000-0002', 150]], 2),
+      row(340, [['03/02/2025', 40], ['ACME', 110], ['10.00', 315], ['1,090.00', 480]], 2),
+    ]);
+
+    const groups = splitByAccount(transactions);
+    expect(groups.map(group => [group[0].account, group.length])).toEqual([
+      [{ accountNumber: '000-0001', currency: 'EUR' }, 1],
+      [{ accountNumber: '000-0002', currency: 'USD' }, 2],
+    ]);
+  });
+
+  it('reads "transfer to account <number>" under a row as its text, not a new account', () => {
+    const transactions = readLayoutTransactions([
+      header,
+      row(140, [['01/02/2025', 40], ['Transfer', 110], ['12.50', 315]]),
+      row(149, [['to', 110], ['account', 125], ['1234-5678', 165]]),
+    ]);
+    expect(transactions[0].description).toBe('Transfer to account 1234-5678');
+    expect(splitByAccount(transactions)).toHaveLength(1);
   });
 
   it('turns a card charge into a debit and a payment into a credit', () => {

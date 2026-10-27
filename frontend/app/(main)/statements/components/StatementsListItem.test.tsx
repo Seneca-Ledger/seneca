@@ -1124,7 +1124,7 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.textContent).toContain('1 USD = 3.72 ILS');
   });
 
-  it('says a one-purchase document has no category yet, but leaves a multi-row statement blank', () => {
+  it('says a one-purchase document has no category yet, and a statement how many rows wait', () => {
     const renderCategory = (
       statement: Partial<StatementsListItemProps['statement']>,
       props: Partial<StatementsListItemProps> = {},
@@ -1173,13 +1173,62 @@ describe('StatementsListItem', () => {
         '[data-testid="no-category-badge"]',
       ),
     ).toBeTruthy();
-    // A bank statement's category is only the majority of its rows'.
-    const multiRow = renderCategory(
-      { source: 'statement', fileType: 'pdf' },
+    // A bank statement has no category of its own; its rows do.
+    const onToggleExpand = vi.fn();
+    const waiting = renderCategory(
+      { source: 'statement', fileType: 'pdf', transactionSummary: { uncategorizedCount: 7 } },
+      { isReceipt: false, transactionCount: 24, onToggleExpand },
+    );
+    expect(waiting?.querySelector('[data-testid="no-category-badge"]')).toBeNull();
+    expect(waiting?.textContent).toBe('7 uncategorized');
+    const done = renderCategory(
+      { source: 'statement', fileType: 'pdf', transactionSummary: { uncategorizedCount: 0 } },
       { isReceipt: false, transactionCount: 24 },
     );
-    expect(multiRow?.querySelector('[data-testid="no-category-badge"]')).toBeNull();
-    expect(multiRow?.textContent).toBe('—');
+    expect(done?.textContent).toBe('All categorized');
+  });
+
+  it('opens a statement\'s rows from its uncategorized count without opening the document', () => {
+    const root = mount();
+    const onView = vi.fn();
+    const onToggleExpand = vi.fn();
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: 'rows-waiting',
+              source: 'statement',
+              fileName: 'statement.pdf',
+              status: 'completed',
+              createdAt: '2026-02-05T00:00:00Z',
+              bankName: 'other',
+              fileType: 'pdf',
+              transactionSummary: { uncategorizedCount: 3 },
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Example Bank"
+          amountLabel="120.00 USD"
+          dateLabel="02/05/2026"
+          transactionCount={12}
+          onView={onView}
+          onIconClick={() => undefined}
+          onToggleExpand={onToggleExpand}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+    act(() => {
+      (
+        container.querySelector('[data-testid="statement-rows-uncategorized"]') as HTMLElement
+      ).click();
+    });
+    expect(onToggleExpand).toHaveBeenCalledTimes(1);
+    expect(onView).not.toHaveBeenCalled();
+    act(() => root.unmount());
   });
 
   it('opens the category drawer from "Add category" without opening the document', () => {

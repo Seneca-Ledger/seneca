@@ -1,6 +1,8 @@
 import { BankName } from '../../../entities/statement.entity';
-import type { ParsedTransaction } from '../interfaces/parsed-statement.interface';
+import { parseEachStatement } from '../helpers/pdf-statement-split.helper';
+import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import { BerekeBaseParser, type BerekeCellMap } from './bereke-base.parser';
+import { BEREKE_STATEMENT_HEADER } from './bereke-new.parser';
 
 type ColumnKey =
   | 'date'
@@ -28,6 +30,13 @@ type BerekeOldGroupContext = {
 
 export class BerekeOldParser extends BerekeBaseParser<ColumnKey> {
   protected readonly parserName = 'BerekeOldParser';
+
+  /** A file can hold several statements, one per account; each is read on its own. */
+  async parse(filePath: string, cachedText?: string): Promise<ParsedStatement> {
+    return parseEachStatement(filePath, cachedText, BEREKE_STATEMENT_HEADER, (part, text) =>
+      super.parse(part, text),
+    );
+  }
 
   protected getSupportedBankName(): BankName {
     return BankName.BEREKE_OLD;

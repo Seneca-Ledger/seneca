@@ -19,6 +19,16 @@ const PREFIXED_DOLLARS: [RegExp, string][] = [
   [/\bR\$/, 'BRL'],
 ];
 
+/**
+ * Signs written with letters, glued to a figure with two decimals ("R13.40",
+ * "-RM12.00"); a reference such as "R2D2" or "R66" is not money.
+ */
+const LETTER_SIGNS: [RegExp, string][] = [
+  [/(?<![A-Za-z])RM\d[\d ,.]*[.,]\d{2}\b/, 'MYR'],
+  [/(?<![A-Za-z])Rp\d[\d ,.]*[.,]\d{2}\b/, 'IDR'],
+  [/(?<![A-Za-z])R\d[\d ,.]*[.,]\d{2}\b/, 'ZAR'],
+];
+
 /** Where a bare "$" is printed, the bank's country says which dollar. */
 const DOLLAR_COUNTRIES: [RegExp, string][] = [
   [/\bcanada\b|\bqu[eé]bec\b/i, 'CAD'],
@@ -57,6 +67,10 @@ export function detectStatementCurrency(text: string): string | null {
   const prefixed = PREFIXED_DOLLARS.find(([pattern]) => pattern.test(text));
   if (prefixed) {
     return prefixed[1];
+  }
+  const lettered = LETTER_SIGNS.find(([pattern]) => pattern.test(text));
+  if (lettered) {
+    return lettered[1];
   }
   const symbol = SYMBOLS.find(([mark]) => text.includes(mark));
   if (symbol) {
@@ -209,4 +223,24 @@ const CARD_MARKERS = [
 export function isCreditCardStatement(text: string): boolean {
   const folded = foldText(text);
   return CARD_MARKERS.filter(marker => folded.includes(marker)).length >= 2;
+}
+
+const ACCOUNT_HEADING =
+  /\b(?:account|compte|rekening|konto|cuenta)\b(?:\s+(?:number|no\.?|nr\.?|#))?\s*[:—–-]?\s*([A-Z]{2}\d{2}[A-Z0-9]{10,30}|\d[\d -]{6,}\d)/i;
+
+/**
+ * The heading a statement prints above one account's table ("HKD Current
+ * Account — 817-890692-838", "Numéro de compte: 67324-673-9893968"): the
+ * number right after the word for account, and the currency code if the line
+ * names one. Null for any other line.
+ */
+export function readAccountHeading(
+  line: string,
+): { accountNumber: string; currency?: string } | null {
+  const match = line.match(ACCOUNT_HEADING);
+  if (!match) {
+    return null;
+  }
+  const currency = Array.from(line.matchAll(ISO_CODES), code => code[1])[0];
+  return { accountNumber: match[1].trim(), ...(currency ? { currency } : {}) };
 }

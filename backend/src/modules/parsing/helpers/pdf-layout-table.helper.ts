@@ -6,6 +6,7 @@ import {
   layOutRow,
   readHeaderRow,
 } from './pdf-layout-columns.helper';
+import { groupWrappedLines, mergeLaidOut, rowHeight } from './pdf-layout-wrapped.helper';
 import { findStatementAmounts } from './statement-amount.helper';
 import {
   type DateParts,
@@ -13,6 +14,7 @@ import {
   parseDateParts,
   resolveDate,
 } from './statement-date.helper';
+import { readAccountHeading } from './statement-metadata.helper';
 
 /**
  * Reads transactions from a statement whose table has no ruling lines, using
@@ -27,6 +29,8 @@ export interface LayoutTransaction {
   /** Printed date, kept for deciding the statement's day/month order. */
   dateText: string;
   description: string;
+  /** The part of `description` printed on the dated row itself. */
+  firstLine: string;
   counterparty: string;
   counterpartyAccount?: string;
   debit?: number;
@@ -35,6 +39,8 @@ export interface LayoutTransaction {
   amount?: number;
   /** Running balance after this row, when the table prints one. */
   balance?: number;
+  /** The account heading printed above this row's table, if any. */
+  account?: { accountNumber: string; currency?: string };
 }
 
 /** A line further than this many line heights below the previous one is not a continuation. */
@@ -81,6 +87,7 @@ function openTransaction(
     date: date.parts,
     dateText: date.text,
     description: '',
+    firstLine: '',
     counterparty: '',
   };
   for (const { role, value } of laidOut.amounts) {
@@ -95,6 +102,7 @@ function openTransaction(
     }
   }
   appendText(transaction, laidOut);
+  transaction.firstLine = transaction.description;
   return transaction;
 }
 
@@ -125,26 +133,46 @@ function splitOverlappingLines(row: PdfTextRow): PdfTextRow[] {
   return lines;
 }
 
-function rowHeight(row: PdfTextRow): number {
-  return Math.max(...row.items.map(item => item.height), 1);
-}
-
 /**
  * Whether a line without its own date adds to the transaction above it: it
  * sits right under the previous line, carries no money (money anywhere makes
  * it a totals line or a note such as "Frais sur compte: 23,00 $") and keeps
  * out of the date column, which a footer does not.
  */
-function continuesTransaction(row: PdfTextRow, laidOut: LaidOutRow, lastRow: PdfTextRow | null) {
-  const isNextLine =
+function isNextLine(row: PdfTextRow, lastRow: PdfTextRow | null): boolean {
+  return (
     lastRow !== null &&
     lastRow.page === row.page &&
-    row.y - lastRow.y <= CONTINUATION_LINE_HEIGHTS * rowHeight(lastRow);
+    row.y - lastRow.y <= CONTINUATION_LINE_HEIGHTS * rowHeight(lastRow)
+  );
+}
+
+function continuesTransaction(row: PdfTextRow, laidOut: LaidOutRow, lastRow: PdfTextRow | null) {
   const hasMoney =
     laidOut.amounts.some(amount => amount.value !== 0) ||
     findStatementAmounts(row.items.map(item => item.text).join(' ')).some(value => value !== 0);
   const reachesDateColumn = (laidOut.text.date ?? []).length > 0;
-  return isNextLine && !hasMoney && !reachesDateColumn;
+  return isNextLine(row, lastRow) && !hasMoney && !reachesDateColumn;
+}
+
+/**
+ * An account heading sits between tables, without money on its line. Right
+ * under a transaction row it is that row's text ("Transfer to account
+ * 1234-5678"), not a new account.
+ */
+function accountHeadingAt(row: PdfTextRow, rowAbove: PdfTextRow | null) {
+  const text = row.items.map(item => item.text).join(' ');
+  if (isNextLine(row, rowAbove) || findStatementAmounts(text).length > 0) {
+    return null;
+  }
+  return readAccountHeading(text);
+}
+
+/** A row's leading date, if any, and the rest of its words by column. */
+function readTableRow(row: PdfTextRow, columns: LayoutColumn[]) {
+  const items = [...row.items].sort((a, b) => a.x - b.x);
+  const date = leadingDate(items);
+  return { date, laidOut: layOutRow(date ? items.slice(date.used) : items, columns) };
 }
 
 /**
@@ -153,40 +181,98 @@ function continuesTransaction(row: PdfTextRow, laidOut: LaidOutRow, lastRow: Pdf
  */
 export function readLayoutTransactions(rows: PdfTextRow[]): LayoutTransaction[] {
   const ordered = rows.flatMap(splitOverlappingLines).sort((a, b) => a.page - b.page || a.y - b.y);
-  const transactions: LayoutTransaction[] = [];
-  let columns: LayoutColumn[] | null = null;
-  let current: LayoutTransaction | null = null;
-  let lastRow: PdfTextRow | null = null;
+  const state: ReadingState = { transactions: [], columns: null, current: null, lastRow: null };
+  for (const lines of groupWrappedLines(ordered)) {
+    readRow(state, lines);
+  }
+  return state.transactions;
+}
 
-  for (const row of ordered) {
-    const header = readHeaderRow(row);
-    if (header) {
-      columns = header;
-      current = null;
-      continue;
-    }
-    if (!columns) {
-      continue;
-    }
+interface ReadingState {
+  transactions: LayoutTransaction[];
+  columns: LayoutColumn[] | null;
+  /** The transaction the next lines may still add text to. */
+  current: LayoutTransaction | null;
+  /** The last line that belonged to `current`. */
+  lastRow: PdfTextRow | null;
+  /** A dated line without money, waiting for the line under it to bring the amounts. */
+  pending?: PdfTextRow[];
+  account?: LayoutTransaction['account'];
+}
 
-    const items = [...row.items].sort((a, b) => a.x - b.x);
-    const date = leadingDate(items);
-    const laidOut = layOutRow(date ? items.slice(date.used) : items, columns);
-
-    if (date && laidOut.amounts.length > 0) {
-      current = openTransaction(date, laidOut);
-      transactions.push(current);
-      lastRow = row;
-    } else if (current && !date && continuesTransaction(row, laidOut, lastRow)) {
-      appendText(current, laidOut);
-      lastRow = row;
-    } else {
-      // A totals line, a footer or a gap: whatever follows is not this row's text.
-      current = null;
+function readRow(state: ReadingState, lines: PdfTextRow[]) {
+  const [row] = lines;
+  if (lines.length > 1 && lines.some(line => readHeaderRow(line) || accountHeadingAt(line, null))) {
+    // A heading is never part of a wrapped cell: read each line on its own.
+    for (const line of lines) {
+      readRow(state, [line]);
     }
+    return;
+  }
+  // An account heading or a table header starts a new table.
+  const heading = accountHeadingAt(row, state.current ? state.lastRow : null);
+  const header = heading ? null : readHeaderRow(row);
+  if (heading || header) {
+    state.account = heading ?? state.account;
+    state.columns = header ?? state.columns;
+    state.current = null;
+    return;
+  }
+  if (!state.columns) {
+    return;
   }
 
-  return transactions;
+  const columns = state.columns;
+  const read = lines.map(line => readTableRow(line, columns));
+  const date = read.find(line => line.date)?.date ?? null;
+  const laidOut = mergeLaidOut(read.map(line => line.laidOut));
+  const pending = state.pending;
+  state.pending = undefined;
+  if (date && laidOut.amounts.length === 0) {
+    // "12 FEB ANZ ATM" over "GRIFFITH BRANCH 500.00 12,339.24": the date heads the row.
+    state.pending = lines;
+    state.current = null;
+    return;
+  }
+  if (
+    !date &&
+    laidOut.amounts.length > 0 &&
+    pending &&
+    isNextLine(lines[0], pending.at(-1) ?? null)
+  ) {
+    readRow(state, [...pending, ...lines]);
+    return;
+  }
+  const opened = date && laidOut.amounts.length > 0 ? openTransaction(date, laidOut) : null;
+  const continues = read.every((line, index) =>
+    continuesTransaction(
+      lines[index],
+      line.laidOut,
+      index === 0 ? state.lastRow : lines[index - 1],
+    ),
+  );
+  if (opened && isBalanceLine(opened)) {
+    // "01/06/2023 Beginning Balance $4,082.88": the balance, not a movement.
+    state.current = null;
+  } else if (opened) {
+    state.current = { ...opened, account: state.account };
+    state.transactions.push(state.current);
+    state.lastRow = lines[lines.length - 1];
+  } else if (state.current && !date && continues) {
+    appendText(state.current, laidOut);
+    state.lastRow = lines[lines.length - 1];
+  } else {
+    // A totals line, a footer or a gap: whatever follows is not this row's text.
+    state.current = null;
+  }
+}
+
+function isBalanceLine(transaction: LayoutTransaction): boolean {
+  return (
+    transaction.debit === undefined &&
+    transaction.credit === undefined &&
+    transaction.amount === undefined
+  );
 }
 
 /** The day/month order placeholder in `date` is only right for unambiguous dates. */
@@ -229,4 +315,18 @@ export function toParsedTransactions(
       currency,
     };
   });
+}
+
+/**
+ * Rows grouped by the account heading printed above their table, in the
+ * order the accounts appear. A statement with one account (or none named)
+ * comes back as a single group.
+ */
+export function splitByAccount(transactions: LayoutTransaction[]): LayoutTransaction[][] {
+  const groups = new Map<string, LayoutTransaction[]>();
+  for (const transaction of transactions) {
+    const key = transaction.account?.accountNumber ?? '';
+    groups.set(key, [...(groups.get(key) ?? []), transaction]);
+  }
+  return [...groups.values()];
 }

@@ -12,6 +12,7 @@ import { ReceiptsModule } from '../receipts/receipts.module';
 import { TaxModule } from '../tax/tax.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { ReceiptStatementService } from './services/receipt-statement.service';
+import { ScanUploadService } from './services/scan-upload.service';
 import { StatementStageService } from './services/statement-stage.service';
 import { StatementUploadsController } from './statement-uploads.controller';
 import { StatementsController } from './statements.controller';
@@ -39,6 +40,7 @@ import { StatementsService } from './statements.service';
   providers: [
     StatementsService,
     ReceiptStatementService,
+    ScanUploadService,
     StatementStageService,
     FileStorageService,
     IdempotencyService,

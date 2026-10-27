@@ -11,6 +11,7 @@ import {
   StatementProcessingService,
   StatementRejected,
 } from '../services/statement-processing.service';
+import { StatementSiblingsService } from '../services/statement-siblings.service';
 import {
   STATEMENT_PARSING_QUEUE,
   type StatementParsingJob,
@@ -42,6 +43,7 @@ export class StatementParsingProcessor extends WorkerHost {
     @InjectRepository(Statement)
     private readonly statementRepository: Repository<Statement>,
     private readonly statementProcessingService: StatementProcessingService,
+    private readonly statementSiblings: StatementSiblingsService,
   ) {
     super();
   }
@@ -73,6 +75,19 @@ export class StatementParsingProcessor extends WorkerHost {
         throw new UnrecoverableError(error.message);
       }
       throw error;
+    }
+
+    // The upload is parsed and saved; a retry here would parse it again, so a
+    // failure to queue its other accounts is logged instead. Reprocessing the
+    // upload queues whichever are still missing.
+    try {
+      await this.statementSiblings.importOtherAccounts(statementId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to import the other accounts of statement ${statementId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 }

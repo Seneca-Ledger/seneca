@@ -47,6 +47,7 @@ import {
   unconfirmedRowsQuery,
 } from '../review-inbox/review-queue.queries';
 import { documentHref, findScanReceipts } from '../search/document-href';
+import { BANK_DISPLAY_NAMES } from './bank-display-names';
 import {
   type CashFlowRange,
   type DashboardWindow,
@@ -89,14 +90,6 @@ const TREND_LIST_LIMIT = 10;
 const RECENT_TRANSACTIONS_LIMIT = 12;
 /** Upper bound on the commitments projection so a client can't request a decade of days. */
 const MAX_COMMITMENT_HORIZON_DAYS = 365;
-/** Bank names are proper nouns and aren't translated per locale. */
-const BANK_DISPLAY_NAMES: Record<BankName, string> = {
-  [BankName.KASPI]: 'Kaspi',
-  [BankName.BEREKE_NEW]: 'Bereke Bank',
-  [BankName.BEREKE_OLD]: 'Bereke Bank',
-  [BankName.HAPOALIM]: 'Bank Hapoalim',
-  [BankName.OTHER]: 'Bank',
-};
 
 export function round2(value: number): number {
   return Math.round(value * 100) / 100;

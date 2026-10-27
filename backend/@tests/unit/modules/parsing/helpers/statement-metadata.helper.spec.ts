@@ -1,10 +1,15 @@
-import { parseStatementAmount } from '@/modules/parsing/helpers/statement-amount.helper';
+import {
+  findStatementAmounts,
+  isAmountPart,
+  parseStatementAmount,
+} from '@/modules/parsing/helpers/statement-amount.helper';
 import {
   detectStatementCurrency,
   findAccountNumber,
   findStatementBalances,
   findStatementPeriod,
   isCreditCardStatement,
+  readAccountHeading,
 } from '@/modules/parsing/helpers/statement-metadata.helper';
 
 describe('parseStatementAmount', () => {
@@ -17,12 +22,24 @@ describe('parseStatementAmount', () => {
     ['(12.00)', -12],
     ['100.00-', -100],
     ['0.00', 0],
+    ['-R2 000.00', -2000],
+    ['R7 822.73', 7822.73],
+    ['RM12.00', 12],
   ])('reads %s', (text, expected) => {
     expect(parseStatementAmount(text)).toBe(expected);
   });
 
-  it.each(['8373579', '44-2019-US', '1/3', '38.2gal', '2025'])('rejects %s', text => {
+  it.each(['8373579', '44-2019-US', '1/3', '38.2gal', '2025', 'AR12.00'])('rejects %s', text => {
     expect(parseStatementAmount(text)).toBeNull();
+  });
+
+  it('keeps the sign of a figure whose currency sign is a letter', () => {
+    expect(findStatementAmounts('ATM WITHDRAWAL -R2 000.00 R5 702.73')).toEqual([-2000, 5702.73]);
+    expect(isAmountPart('-R2')).toBe(true);
+    expect(isAmountPart('-$503.00')).toBe(true);
+    expect(isAmountPart('$4,082.88')).toBe(true);
+    expect(parseStatementAmount('-$503.00')).toBe(-503);
+    expect(isAmountPart('R2D2')).toBe(false);
   });
 });
 
@@ -37,6 +54,13 @@ describe('statement-metadata.helper', () => {
     expect(detectStatementCurrency('Example Bank Canada Inc.\nSolde 10,00 $')).toBe('CAD');
     expect(detectStatementCurrency('Balance $10.00')).toBe('USD');
     expect(detectStatementCurrency('Saldo 10,00 €')).toBe('EUR');
+  });
+
+  it('reads a currency sign written with letters, glued to the figure', () => {
+    expect(detectStatementCurrency('Current Balance R13.40\nFEE -R60.00 R5 642.73')).toBe('ZAR');
+    expect(detectStatementCurrency('Baki RM1,200.00')).toBe('MYR');
+    expect(detectStatementCurrency('Saldo R$ 10,00')).toBe('BRL');
+    expect(detectStatementCurrency('Ref R2D2 and route R66')).toBeNull();
   });
 
   it('finds the account number after its label, skipping a label with no number', () => {
@@ -75,6 +99,18 @@ describe('statement-metadata.helper', () => {
   it('reads two dated balances, the earlier one opening', () => {
     const text = 'Balance as of 31.05.2025: 900,00 €\nBalance as of 01.05.2025: 1.000,00 €';
     expect(findStatementBalances(text, 'dmy')).toEqual({ start: 1000, end: 900 });
+  });
+
+  it('reads an account heading: the number right after the word for account', () => {
+    expect(readAccountHeading('HKD Current Account — 000-000001-001 (Continued)')).toEqual({
+      accountNumber: '000-000001-001',
+      currency: 'HKD',
+    });
+    expect(readAccountHeading('Numéro de compte: 00001-002-0000003')).toEqual({
+      accountNumber: '00001-002-0000003',
+    });
+    expect(readAccountHeading('EXAMPLE CITY 19850-1423 Account number: XXXX XXXX 0001')).toBeNull();
+    expect(readAccountHeading('Account Summary')).toBeNull();
   });
 
   it('tells a card statement by its wording', () => {
