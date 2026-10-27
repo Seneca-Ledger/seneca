@@ -58,7 +58,7 @@
     },
     {
       "transactionDate": "2025-05-10T00:00:00",
-      "counterpartyName": "VERZEKERINGPREMIE",
+      "counterpartyName": "VERZEKERING PREMIE",
       "currency": "EUR",
       "debit": 858.91,
       "counterpartyAccount": "NL62VERZ3742218950",
@@ -66,7 +66,7 @@
     },
     {
       "transactionDate": "2025-05-11T00:00:00",
-      "counterpartyName": "DAAN DEVRIES",
+      "counterpartyName": "DAAN DE VRIES",
       "currency": "EUR",
       "credit": 138.59,
       "counterpartyAccount": "NL14DAAN2128810541",
