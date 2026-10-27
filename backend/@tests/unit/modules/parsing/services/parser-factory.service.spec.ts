@@ -180,6 +180,7 @@ describe('ParserFactoryService', () => {
       'BerekeOldParser',
       'KaspiParser',
       'HapoalimParser',
+      'AbsaParser',
       'GenericPdfParser',
       'ExcelParser',
       'CsvParser',
