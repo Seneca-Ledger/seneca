@@ -25,6 +25,7 @@ import {
   type StatementColumn,
   type StatementColumnId,
 } from './columns/statement-columns';
+import { splitAmountLabel } from './filters/amount-view';
 import { isDocumentApproved, resolveStatementSortDate } from './StatementsListView.utils';
 import {
   columnCellStyle,
@@ -272,10 +273,7 @@ export function StatementsListItem({
   const duplicateTooltipText = `${duplicateBadgeLabel ?? ''} — ${duplicateReason || listText.duplicateReasonSame.value}`;
   const reviewLabel = duplicateActionLabel || listText.review.value;
   const actionLabel = isPossibleDuplicate ? reviewLabel : viewLabel;
-  // "23.00USD" → figure and currency, so the code can sit apart, smaller and grey.
-  const amountParts = /^(.*\d)\s*(\D+)$/.exec(amountLabel);
-  const amountFigure = amountParts ? amountParts[1] : amountLabel;
-  const amountCurrency = amountParts ? amountParts[2] : null;
+  const { figure: amountFigure, currency: amountCurrency } = splitAmountLabel(amountLabel);
   const typeCaption = isManualExpense
     ? null
     : isReceipt
@@ -510,6 +508,7 @@ export function StatementsListItem({
         className={clsx('seneca-stmt-list-item__amount', PRIVATE_CLASS)}
         style={{
           color: isNegativeAmount || hasError || isMissingAmount ? c.danger : c.ink900,
+          whiteSpace: amountFigure.includes('\n') ? 'pre-line' : undefined,
         }}
       >
         {showAmountLoader ? (

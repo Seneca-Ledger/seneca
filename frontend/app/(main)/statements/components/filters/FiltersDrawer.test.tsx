@@ -164,6 +164,23 @@ describe('FiltersDrawer', () => {
     expect(container.textContent).not.toContain('Exported');
   });
 
+  it('lets the Amount column show spending, income, both or the net change', async () => {
+    const onUpdateFilters = vi.fn();
+    await act(async () => {
+      root.render(
+        <FiltersDrawer {...baseProps} screen="amountView" onUpdateFilters={onUpdateFilters} />,
+      );
+    });
+    const option = (label: string) =>
+      Array.from(container.querySelectorAll('button')).find(button => button.textContent === label);
+
+    expect(container.textContent).toContain('Amount shows');
+    await act(async () => option('Net change')?.click());
+    await act(async () => option('Spending')?.click());
+
+    expect(onUpdateFilters.mock.calls).toEqual([[{ amountView: 'net' }], [{ amountView: null }]]);
+  });
+
   it('renders receipt and file types as type options', async () => {
     await act(async () => {
       root.render(<FiltersDrawer {...baseProps} screen="type" />);

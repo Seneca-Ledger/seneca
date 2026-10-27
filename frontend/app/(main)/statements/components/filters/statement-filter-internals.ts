@@ -1,3 +1,4 @@
+import { type StatementAmountView, statementAmountFor } from './amount-view';
 import type {
   StatementFilterDate,
   StatementFilterDateMode,
@@ -19,12 +20,10 @@ export const parseNumber = (value?: number | string | null): number | null => {
 export const isStoreReceipt = (statement: StatementFilterItem): boolean =>
   statement.source === 'scan';
 
-export const resolveStatementAmount = (statement: StatementFilterItem): number => {
-  const debit = parseNumber(statement.totalDebit);
-  const credit = parseNumber(statement.totalCredit);
-  const resolved = debit && debit > 0 ? debit : credit && credit > 0 ? credit : 0;
-  return resolved ?? 0;
-};
+export const resolveStatementAmount = (
+  statement: StatementFilterItem,
+  view: StatementAmountView | null = null,
+): number => statementAmountFor(statement, view);
 
 const isReceiptDateSource = (source?: string | null): boolean => source === 'scan';
 
@@ -150,19 +149,23 @@ export const resolveStatementCurrency = (statement: StatementFilterItem): string
 
 type GroupSortValue = string | number;
 
-const GROUP_SORT_RESOLVERS: Record<string, (s: StatementFilterItem) => GroupSortValue> = {
+const GROUP_SORT_RESOLVERS: Record<
+  string,
+  (s: StatementFilterItem, view: StatementAmountView | null) => GroupSortValue
+> = {
   date: s => toDateOnly(resolveStatementDateValue(s))?.getTime() ?? 0,
   status: s => (s.status || '').toLowerCase(),
   type: s => (s.fileType || '').toLowerCase(),
   bank: s => (s.bankName || '').toLowerCase(),
   user: s => (s.user?.name || s.user?.email || '').toLowerCase(),
-  amount: s => resolveStatementAmount(s),
+  amount: (s, view) => resolveStatementAmount(s, view),
 };
 
 export const resolveGroupSortValue = (
   statement: StatementFilterItem,
   groupBy: string,
-): GroupSortValue => GROUP_SORT_RESOLVERS[groupBy]?.(statement) ?? 0;
+  view: StatementAmountView | null = null,
+): GroupSortValue => GROUP_SORT_RESOLVERS[groupBy]?.(statement, view) ?? 0;
 
 export const compareGroupValues = (a: unknown, b: unknown): number => {
   if (typeof a === 'number' && typeof b === 'number') {
@@ -263,9 +266,10 @@ export const applyAmountRangeFilter = <T extends StatementFilterItem>(
   result: T[],
   amountMin: number | null,
   amountMax: number | null,
+  view: StatementAmountView | null = null,
 ): T[] =>
   result.filter(s => {
-    const amount = resolveStatementAmount(s);
+    const amount = resolveStatementAmount(s, view);
     if (amountMin !== null && amount < amountMin) {
       return false;
     }
