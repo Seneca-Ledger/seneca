@@ -2,7 +2,7 @@
 FROM oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a AS bun
 
 # --- Deps: node_modules keyed only by the lockfile ---
-FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS deps
+FROM node:26-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS deps
 
 # Not /app: the project has an app/ folder, and with the root at /app Vite reads
 # an absolute /app/lib/x as root-relative, resolving lib/ files into app/lib/.
@@ -60,7 +60,7 @@ ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 RUN npm run build
 
 # Production stage (standalone output)
-FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS runner
+FROM node:26-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS runner
 
 WORKDIR /app
 
