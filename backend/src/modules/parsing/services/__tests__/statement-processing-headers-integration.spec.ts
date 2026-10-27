@@ -83,7 +83,6 @@ describe('StatementProcessingService - Headers Integration', () => {
     };
 
     const mockClassificationService = {
-      determineMajorityCategory: vi.fn(),
       classifyTransaction: vi.fn(),
     };
 
