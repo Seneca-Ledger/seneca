@@ -504,6 +504,30 @@ describe('StatementProcessingService', () => {
     expect(statement.parsingDetails?.validation?.passed).toBe(true);
   });
 
+  it('imports the first account of a file printing several and names the ones it left out', async () => {
+    const otherAccount: ParsedStatement = {
+      metadata: { ...parsedStatement.metadata, accountNumber: 'ACC-2', currency: 'EUR' },
+      transactions: [parsedStatement.transactions[0]],
+    };
+    parserFactory.getParser.mockResolvedValueOnce({
+      parse: vi.fn().mockResolvedValue({
+        ...parsedStatement,
+        metadata: { ...parsedStatement.metadata, accountNumber: 'ACC-1', currency: 'USD' },
+        otherAccounts: [otherAccount],
+      }),
+      constructor: { name: 'FakeParser' },
+    });
+
+    await service.processStatement(statement.id);
+
+    expect(statement.accountNumber).toBe('ACC-1');
+    expect(savedTransactions).toHaveLength(parsedStatement.transactions.length);
+    expect(statement.status).toBe(StatementStatus.COMPLETED);
+    expect(statement.parsingDetails?.warnings).toContain(
+      'This file prints 2 accounts; only ACC-1 (USD) was imported. Not imported: ACC-2 (EUR), 1 transaction.',
+    );
+  });
+
   it('completes the statement when the bank gave no balances to check', async () => {
     await service.processStatement(statement.id);
 

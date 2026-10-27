@@ -3,6 +3,7 @@ import { readHeaderRow } from '@/modules/parsing/helpers/pdf-layout-columns.help
 import {
   openingBalanceFromRows,
   readLayoutTransactions,
+  splitByAccount,
   toParsedTransactions,
 } from '@/modules/parsing/helpers/pdf-layout-table.helper';
 
@@ -93,6 +94,36 @@ describe('pdf-layout-table.helper', () => {
       row(150, [['Account', 110], ['fee:', 150], ['3,00', 175], ['$', 196]]),
     ]);
     expect(transactions[0].description).toBe('ACME');
+  });
+
+  it('files each table under the account heading printed above it', () => {
+    const transactions = readLayoutTransactions([
+      row(80, [['EUR', 40], ['Current', 60], ['Account', 100], ['—', 140], ['000-0001', 150]]),
+      header,
+      row(140, [['01/02/2025', 40], ['ACME', 110], ['12.50', 315], ['987.50', 490]]),
+      row(160, [['Total', 110], ['12.50', 315]]),
+      row(200, [['USD', 40], ['Savings', 60], ['Account', 100], ['—', 140], ['000-0002', 150]]),
+      header,
+      row(240, [['02/02/2025', 40], ['Salary', 110], ['100.00', 400], ['1,100.00', 480]]),
+      row(300, [['USD', 40], ['Savings', 60], ['Account', 100], ['—', 140], ['000-0002', 150]], 2),
+      row(340, [['03/02/2025', 40], ['ACME', 110], ['10.00', 315], ['1,090.00', 480]], 2),
+    ]);
+
+    const groups = splitByAccount(transactions);
+    expect(groups.map(group => [group[0].account, group.length])).toEqual([
+      [{ accountNumber: '000-0001', currency: 'EUR' }, 1],
+      [{ accountNumber: '000-0002', currency: 'USD' }, 2],
+    ]);
+  });
+
+  it('reads "transfer to account <number>" under a row as its text, not a new account', () => {
+    const transactions = readLayoutTransactions([
+      header,
+      row(140, [['01/02/2025', 40], ['Transfer', 110], ['12.50', 315]]),
+      row(149, [['to', 110], ['account', 125], ['1234-5678', 165]]),
+    ]);
+    expect(transactions[0].description).toBe('Transfer to account 1234-5678');
+    expect(splitByAccount(transactions)).toHaveLength(1);
   });
 
   it('turns a card charge into a debit and a payment into a credit', () => {

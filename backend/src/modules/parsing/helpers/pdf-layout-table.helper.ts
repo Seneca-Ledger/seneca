@@ -13,6 +13,7 @@ import {
   parseDateParts,
   resolveDate,
 } from './statement-date.helper';
+import { readAccountHeading } from './statement-metadata.helper';
 
 /**
  * Reads transactions from a statement whose table has no ruling lines, using
@@ -35,6 +36,8 @@ export interface LayoutTransaction {
   amount?: number;
   /** Running balance after this row, when the table prints one. */
   balance?: number;
+  /** The account heading printed above this row's table, if any. */
+  account?: { accountNumber: string; currency?: string };
 }
 
 /** A line further than this many line heights below the previous one is not a continuation. */
@@ -135,16 +138,40 @@ function rowHeight(row: PdfTextRow): number {
  * it a totals line or a note such as "Frais sur compte: 23,00 $") and keeps
  * out of the date column, which a footer does not.
  */
-function continuesTransaction(row: PdfTextRow, laidOut: LaidOutRow, lastRow: PdfTextRow | null) {
-  const isNextLine =
+function isNextLine(row: PdfTextRow, lastRow: PdfTextRow | null): boolean {
+  return (
     lastRow !== null &&
     lastRow.page === row.page &&
-    row.y - lastRow.y <= CONTINUATION_LINE_HEIGHTS * rowHeight(lastRow);
+    row.y - lastRow.y <= CONTINUATION_LINE_HEIGHTS * rowHeight(lastRow)
+  );
+}
+
+function continuesTransaction(row: PdfTextRow, laidOut: LaidOutRow, lastRow: PdfTextRow | null) {
   const hasMoney =
     laidOut.amounts.some(amount => amount.value !== 0) ||
     findStatementAmounts(row.items.map(item => item.text).join(' ')).some(value => value !== 0);
   const reachesDateColumn = (laidOut.text.date ?? []).length > 0;
-  return isNextLine && !hasMoney && !reachesDateColumn;
+  return isNextLine(row, lastRow) && !hasMoney && !reachesDateColumn;
+}
+
+/**
+ * An account heading sits between tables, without money on its line. Right
+ * under a transaction row it is that row's text ("Transfer to account
+ * 1234-5678"), not a new account.
+ */
+function accountHeadingAt(row: PdfTextRow, rowAbove: PdfTextRow | null) {
+  const text = row.items.map(item => item.text).join(' ');
+  if (isNextLine(row, rowAbove) || findStatementAmounts(text).length > 0) {
+    return null;
+  }
+  return readAccountHeading(text);
+}
+
+/** A row's leading date, if any, and the rest of its words by column. */
+function readTableRow(row: PdfTextRow, columns: LayoutColumn[]) {
+  const items = [...row.items].sort((a, b) => a.x - b.x);
+  const date = leadingDate(items);
+  return { date, laidOut: layOutRow(date ? items.slice(date.used) : items, columns) };
 }
 
 /**
@@ -153,40 +180,49 @@ function continuesTransaction(row: PdfTextRow, laidOut: LaidOutRow, lastRow: Pdf
  */
 export function readLayoutTransactions(rows: PdfTextRow[]): LayoutTransaction[] {
   const ordered = rows.flatMap(splitOverlappingLines).sort((a, b) => a.page - b.page || a.y - b.y);
-  const transactions: LayoutTransaction[] = [];
-  let columns: LayoutColumn[] | null = null;
-  let current: LayoutTransaction | null = null;
-  let lastRow: PdfTextRow | null = null;
-
+  const state: ReadingState = { transactions: [], columns: null, current: null, lastRow: null };
   for (const row of ordered) {
-    const header = readHeaderRow(row);
-    if (header) {
-      columns = header;
-      current = null;
-      continue;
-    }
-    if (!columns) {
-      continue;
-    }
+    readRow(state, row);
+  }
+  return state.transactions;
+}
 
-    const items = [...row.items].sort((a, b) => a.x - b.x);
-    const date = leadingDate(items);
-    const laidOut = layOutRow(date ? items.slice(date.used) : items, columns);
+interface ReadingState {
+  transactions: LayoutTransaction[];
+  columns: LayoutColumn[] | null;
+  /** The transaction the next lines may still add text to. */
+  current: LayoutTransaction | null;
+  /** The last line that belonged to `current`. */
+  lastRow: PdfTextRow | null;
+  account?: LayoutTransaction['account'];
+}
 
-    if (date && laidOut.amounts.length > 0) {
-      current = openTransaction(date, laidOut);
-      transactions.push(current);
-      lastRow = row;
-    } else if (current && !date && continuesTransaction(row, laidOut, lastRow)) {
-      appendText(current, laidOut);
-      lastRow = row;
-    } else {
-      // A totals line, a footer or a gap: whatever follows is not this row's text.
-      current = null;
-    }
+function readRow(state: ReadingState, row: PdfTextRow) {
+  // An account heading or a table header starts a new table.
+  const heading = accountHeadingAt(row, state.current ? state.lastRow : null);
+  const header = heading ? null : readHeaderRow(row);
+  if (heading || header) {
+    state.account = heading ?? state.account;
+    state.columns = header ?? state.columns;
+    state.current = null;
+    return;
+  }
+  if (!state.columns) {
+    return;
   }
 
-  return transactions;
+  const { date, laidOut } = readTableRow(row, state.columns);
+  if (date && laidOut.amounts.length > 0) {
+    state.current = { ...openTransaction(date, laidOut), account: state.account };
+    state.transactions.push(state.current);
+    state.lastRow = row;
+  } else if (state.current && !date && continuesTransaction(row, laidOut, state.lastRow)) {
+    appendText(state.current, laidOut);
+    state.lastRow = row;
+  } else {
+    // A totals line, a footer or a gap: whatever follows is not this row's text.
+    state.current = null;
+  }
 }
 
 /** The day/month order placeholder in `date` is only right for unambiguous dates. */
@@ -229,4 +265,18 @@ export function toParsedTransactions(
       currency,
     };
   });
+}
+
+/**
+ * Rows grouped by the account heading printed above their table, in the
+ * order the accounts appear. A statement with one account (or none named)
+ * comes back as a single group.
+ */
+export function splitByAccount(transactions: LayoutTransaction[]): LayoutTransaction[][] {
+  const groups = new Map<string, LayoutTransaction[]>();
+  for (const transaction of transactions) {
+    const key = transaction.account?.accountNumber ?? '';
+    groups.set(key, [...(groups.get(key) ?? []), transaction]);
+  }
+  return [...groups.values()];
 }

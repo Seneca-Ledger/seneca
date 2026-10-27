@@ -5,6 +5,7 @@ import {
   findStatementBalances,
   findStatementPeriod,
   isCreditCardStatement,
+  readAccountHeading,
 } from '@/modules/parsing/helpers/statement-metadata.helper';
 
 describe('parseStatementAmount', () => {
@@ -75,6 +76,18 @@ describe('statement-metadata.helper', () => {
   it('reads two dated balances, the earlier one opening', () => {
     const text = 'Balance as of 31.05.2025: 900,00 €\nBalance as of 01.05.2025: 1.000,00 €';
     expect(findStatementBalances(text, 'dmy')).toEqual({ start: 1000, end: 900 });
+  });
+
+  it('reads an account heading: the number right after the word for account', () => {
+    expect(readAccountHeading('HKD Current Account — 000-000001-001 (Continued)')).toEqual({
+      accountNumber: '000-000001-001',
+      currency: 'HKD',
+    });
+    expect(readAccountHeading('Numéro de compte: 00001-002-0000003')).toEqual({
+      accountNumber: '00001-002-0000003',
+    });
+    expect(readAccountHeading('EXAMPLE CITY 19850-1423 Account number: XXXX XXXX 0001')).toBeNull();
+    expect(readAccountHeading('Account Summary')).toBeNull();
   });
 
   it('tells a card statement by its wording', () => {

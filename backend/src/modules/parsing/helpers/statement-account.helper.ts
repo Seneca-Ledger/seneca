@@ -2,6 +2,7 @@ import type { DataSource } from 'typeorm';
 import type { Statement } from '../../../entities/statement.entity';
 import { Wallet } from '../../../entities/wallet.entity';
 import { pickWalletForAccount, realAccountNumber } from '../../wallets/wallet-account-match';
+import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
 
 type StatementAccount = Pick<Wallet, 'id' | 'ownerMemberId'>;
 
@@ -54,4 +55,27 @@ export function accountFields(
     walletId: account.id,
     ownerMemberId: ruleOwner !== undefined ? ruleOwner : account.ownerMemberId,
   };
+}
+
+/**
+ * A file can print several accounts, but a statement holds one: the first is
+ * imported and the rest are named here, so they are not lost without a word.
+ */
+export function otherAccountsWarnings(parsed: ParsedStatement): string[] {
+  const others = parsed.otherAccounts ?? [];
+  if (others.length === 0) {
+    return [];
+  }
+  const describe = ({ metadata }: Pick<ParsedStatement, 'metadata'>) =>
+    `${metadata.accountNumber || 'unnumbered'} (${metadata.currency})`;
+  const skipped = others
+    .map(({ metadata, transactions }) => {
+      const rows = `${transactions.length} transaction${transactions.length === 1 ? '' : 's'}`;
+      return `${describe({ metadata })}, ${rows}`;
+    })
+    .join('; ');
+  return [
+    `This file prints ${others.length + 1} accounts; only ${describe(parsed)} was imported. ` +
+      `Not imported: ${skipped}.`,
+  ];
 }
