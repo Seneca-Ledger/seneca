@@ -191,6 +191,7 @@ describe('StatementsListView utils', () => {
 
     expect(result).toEqual([
       'amount',
+      'amountView',
       'date',
       'groupBy',
       'has',

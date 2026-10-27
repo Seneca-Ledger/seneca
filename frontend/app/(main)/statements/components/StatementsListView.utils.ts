@@ -9,6 +9,7 @@ import {
   type StatementColumn,
   type StatementColumnId,
 } from './columns/statement-columns';
+import { formatStatementFigure, type StatementAmountView } from './filters/amount-view';
 import {
   getVisibleFilterScreens,
   resetHiddenStatementFilters,
@@ -203,7 +204,10 @@ export const parseAmountValue = (value?: number | string | null): number | null 
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-export const formatStatementAmount = (statement: StatementLike): string => {
+export const formatStatementAmount = (
+  statement: StatementLike,
+  amountView: StatementAmountView | null = null,
+): string => {
   if (statement.source === 'scan') {
     const amount = parseAmountValue(statement.parsedData?.amount ?? null);
     if (amount === null) {
@@ -226,18 +230,8 @@ export const formatStatementAmount = (statement: StatementLike): string => {
     }
   }
 
-  const debit = parseAmountValue(statement.totalDebit);
-  const credit = parseAmountValue(statement.totalCredit);
-  const rawAmount = (debit && debit > 0 ? debit : credit && credit > 0 ? credit : 0) || 0;
   const currency = resolveStatementCurrency(statement);
-  const formatted =
-    rawAmount === 0
-      ? '0'
-      : new Intl.NumberFormat(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(rawAmount);
-  return `${formatted}${currency || ''}`;
+  return `${formatStatementFigure(statement, amountView)}${currency || ''}`;
 };
 
 export {

@@ -16,6 +16,7 @@ export type StatementFilterScreen =
   | 'approved'
   | 'billable'
   | 'groupBy'
+  | 'amountView'
   | 'has'
   | 'limit'
   | 'currency'
@@ -27,7 +28,7 @@ const COLUMN_SCREEN_MAP: Record<string, StatementFilterScreen[]> = {
   merchant: ['keywords'],
   from: ['from'],
   to: ['to'],
-  amount: ['amount'],
+  amount: ['amount', 'amountView'],
   approved: ['approved'],
   billable: ['billable'],
   exported: ['exported'],

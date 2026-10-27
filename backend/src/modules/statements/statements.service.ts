@@ -27,10 +27,6 @@ import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/
 import { toMinor } from '../../common/utils/money.util';
 import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
-import {
-  PRIVACY_VIEWER_PARAM,
-  readablePrivateSql,
-} from '../../common/utils/transaction-privacy.util';
 import { readUploadedFile, resolveUploadsDir } from '../../common/utils/uploads.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import type {
@@ -65,6 +61,11 @@ import { ReceiptStatementService } from './services/receipt-statement.service';
 import { getDatePresetRange } from './statement-date-presets.util';
 import { removeStatementFile } from './statement-file-removal.util';
 import { buildStatementSearchClause } from './statement-search.util';
+import {
+  EMPTY_TRANSACTION_SUMMARY,
+  loadTransactionSummaries,
+  type StatementTransactionSummary,
+} from './statement-transaction-summary';
 
 type StatementFileAvailability = Awaited<ReturnType<FileStorageService['getFileAvailability']>>;
 type StatementWithFileAvailability = Statement & {
@@ -75,19 +76,6 @@ type StatementWithFileAvailability = Statement & {
 };
 type StatementRepositoryWithOptionalQueryBuilder = Repository<Statement> & {
   createQueryBuilder?: Repository<Statement>['createQueryBuilder'];
-};
-type StatementTransactionSummary = {
-  description: string | null;
-  exchangeRate: string | null;
-  exchangeRateMixed: boolean;
-  cardLabel: string | null;
-};
-type StatementTransactionSummaryRow = {
-  statementId: string;
-  description: string | null;
-  exchangeRate: string | null;
-  exchangeRateCount: string;
-  cardLabel: string | null;
 };
 
 const APPROVED_STATUSES = [
@@ -173,64 +161,6 @@ export class StatementsService {
     statementWithAvailability.hasFileInDb = availability.inDb;
     statementWithAvailability.fileAvailability = availability;
     return statementWithAvailability;
-  }
-
-  private async loadTransactionSummaries(
-    workspaceId: string,
-    statementIds: string[],
-    viewerMemberId: string | null,
-  ): Promise<Map<string, StatementTransactionSummary>> {
-    if (statementIds.length === 0) {
-      return new Map();
-    }
-
-    const queryBuilder = this.transactionRepository.createQueryBuilder('transaction');
-    if (
-      typeof queryBuilder.leftJoin !== 'function' ||
-      typeof queryBuilder.addSelect !== 'function' ||
-      typeof queryBuilder.getRawMany !== 'function'
-    ) {
-      return new Map();
-    }
-
-    const rows = await queryBuilder
-      .leftJoin('transaction.wallet', 'wallet')
-      .select('transaction.statementId', 'statementId')
-      .addSelect(
-        // The first purpose the viewer may read: another member's private row
-        // does not get to describe the whole document.
-        `(ARRAY_REMOVE(ARRAY_AGG(NULLIF(transaction.paymentPurpose, '') ORDER BY transaction.transactionDate ASC, transaction.createdAt ASC) FILTER (WHERE ${readablePrivateSql('transaction')}), NULL))[1]`,
-        'description',
-      )
-      .addSelect(
-        'MIN(transaction.exchangeRate) FILTER (WHERE transaction.exchangeRate IS NOT NULL)',
-        'exchangeRate',
-      )
-      .addSelect(
-        'COUNT(DISTINCT transaction.exchangeRate) FILTER (WHERE transaction.exchangeRate IS NOT NULL)',
-        'exchangeRateCount',
-      )
-      .addSelect(
-        "(ARRAY_REMOVE(ARRAY_AGG(NULLIF(wallet.name, '') ORDER BY transaction.transactionDate ASC, transaction.createdAt ASC), NULL))[1]",
-        'cardLabel',
-      )
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.statementId IN (:...statementIds)', { statementIds })
-      .groupBy('transaction.statementId')
-      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
-      .getRawMany<StatementTransactionSummaryRow>();
-
-    return new Map(
-      rows.map(row => [
-        row.statementId,
-        {
-          description: row.description ?? null,
-          exchangeRate: row.exchangeRate ?? null,
-          exchangeRateMixed: Number(row.exchangeRateCount || 0) > 1,
-          cardLabel: row.cardLabel ?? null,
-        },
-      ]),
-    );
   }
 
   private async ensureCanEditStatements(userId: string, workspaceId: string): Promise<void> {
@@ -1190,7 +1120,8 @@ export class StatementsService {
     }
 
     const [dataRaw, totalCount] = await qb.getManyAndCount();
-    const transactionSummaries = await this.loadTransactionSummaries(
+    const transactionSummaries = await loadTransactionSummaries(
+      this.transactionRepository,
       workspaceId,
       dataRaw.map(statement => statement.id),
       viewerMemberId,
@@ -1199,12 +1130,7 @@ export class StatementsService {
       dataRaw.map(async st => {
         const availability = await this.fileStorageService.getFileAvailability(st);
         const statement = this.attachFileAvailability(st, availability);
-        statement.transactionSummary = transactionSummaries.get(st.id) ?? {
-          description: null,
-          exchangeRate: null,
-          exchangeRateMixed: false,
-          cardLabel: null,
-        };
+        statement.transactionSummary = transactionSummaries.get(st.id) ?? EMPTY_TRANSACTION_SUMMARY;
         return statement;
       }),
     );

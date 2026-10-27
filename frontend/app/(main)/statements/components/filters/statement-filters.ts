@@ -21,6 +21,8 @@ export type StatementFilters = {
   approved: boolean | null;
   billable: boolean | null;
   groupBy: string | null;
+  /** What the Amount column shows for a bank statement; null is spending. */
+  amountView: StatementAmountView | null;
   has: string[];
   currencies: string[];
   exported: boolean | null;
@@ -63,6 +65,7 @@ export type StatementFilterItem = {
 };
 
 import type { StatementParsingDetails } from '@/app/lib/contracts';
+import type { StatementAmountView } from './amount-view';
 import {
   applyAmountRangeFilter,
   applyApprovedFilter,
@@ -91,6 +94,7 @@ export const DEFAULT_STATEMENT_FILTERS: StatementFilters = {
   approved: null,
   billable: null,
   groupBy: null,
+  amountView: null,
   has: [],
   currencies: [],
   exported: null,
@@ -200,7 +204,7 @@ const applyAdvancedFilters = <T extends StatementFilterItem>(
     items = items.filter(s => matchesKeywords(s, filters.keywords));
   }
   if (filters.amountMin !== null || filters.amountMax !== null) {
-    items = applyAmountRangeFilter(items, filters.amountMin, filters.amountMax);
+    items = applyAmountRangeFilter(items, filters.amountMin, filters.amountMax, filters.amountView);
   }
   return items;
 };
@@ -215,8 +219,8 @@ export const applyStatementsFilters = <T extends StatementFilterItem>(
   if (filters.groupBy) {
     result = [...result].sort((a, b) =>
       compareGroupValues(
-        resolveGroupSortValue(a, filters.groupBy || ''),
-        resolveGroupSortValue(b, filters.groupBy || ''),
+        resolveGroupSortValue(a, filters.groupBy || '', filters.amountView),
+        resolveGroupSortValue(b, filters.groupBy || '', filters.amountView),
       ),
     );
   }
