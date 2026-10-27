@@ -51,6 +51,7 @@ const BANK_LABELS: Record<string, string> = {
   bereke_new: 'Bereke',
   bereke_old: 'Bereke',
   hapoalim: 'Hapoalim',
+  absa: 'Absa',
 };
 
 export const statementBankLabel = (bankName: string): string | null =>

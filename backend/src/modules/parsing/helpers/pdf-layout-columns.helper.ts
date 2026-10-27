@@ -50,6 +50,7 @@ const HEADINGS: Record<ColumnRole, string[]> = {
     'description',
     'details',
     'transaction details',
+    'transaction description',
     'merchant name or transaction description',
     'omschrijving',
     'particulars',
