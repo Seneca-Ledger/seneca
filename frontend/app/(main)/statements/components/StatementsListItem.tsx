@@ -1,537 +1,129 @@
 'use client';
 
-import MuiTooltip from '@mui/material/Tooltip';
-import clsx from 'clsx';
-import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import React from 'react';
-import { formatMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
 import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
-import { AlertCircle, ChevronDown, ChevronRight, CreditCard, Tag } from '@/app/components/icons';
-import { NotesBadge } from '@/app/components/notes/NotesBadge';
 import { Checkbox } from '@/app/components/ui/checkbox';
-import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
-import { Spinner } from '@/app/components/ui/spinner';
-import { useIntlayer, useLocale } from '@/app/i18n';
-import { tagReportHref } from '@/app/lib/category-report-href';
-import type { StatementParsingDetails } from '@/app/lib/contracts';
-import { FALLBACK_CURRENCY } from '@/app/lib/currency';
-import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import { tokens } from '@/lib/theme-tokens';
-import {
-  DEFAULT_STATEMENT_COLUMNS,
-  type StatementColumn,
-  type StatementColumnId,
-} from './columns/statement-columns';
-import { splitAmountLabel } from './filters/amount-view';
+import { type StatementColumnId } from './columns/statement-columns';
+import { useStatementsListItemModel } from './hooks/useStatementsListItemModel';
 import { StatementCategoryCell } from './StatementCategoryCell';
-import { isDocumentApproved, resolveStatementSortDate } from './StatementsListView.utils';
 import {
-  columnCellStyle,
-  EMPTY_CELL,
-  firstNonEmpty,
-  formatBoolean,
-  normalizeExchangeRateCurrency,
-  textCellStyle,
-} from './statements-list-item.cells';
-import { useDwellLink } from './use-dwell-link';
+  ActionCell,
+  AmountCell,
+  MerchantCell,
+  PlainCell,
+  RowsToggle,
+  TagCell,
+} from './StatementsListItemCells';
+import { StatementsListItemMobile } from './StatementsListItemMobile';
+import { columnCellStyle, firstNonEmpty } from './statements-list-item.cells';
+import type { StatementsListItemProps } from './statements-list-item.types';
+import { statementMonth } from './statements-list-item-parts';
 
-export type StatementListItem = {
-  id: string;
-  source?: 'statement' | 'scan';
-  receiptSource?: string;
-  fileName: string;
-  subject?: string;
-  sender?: string;
-  status: string;
-  totalDebit?: number | string | null;
-  totalCredit?: number | string | null;
-  createdAt: string;
-  statementDateFrom?: string | null;
-  statementDateTo?: string | null;
-  bankName: string;
-  fileType: string;
-  currency?: string | null;
-  exported?: boolean | null;
-  paid?: boolean | null;
-  processedAt?: string;
-  receivedAt?: string;
-  parsedData?: {
-    amount?: number;
-    currency?: string;
-    vendor?: string;
-    date?: string;
-    category?: string;
-    categoryId?: string;
-    lineItems?: Array<{ description: string; amount?: number }>;
-  };
-  category?: {
-    id?: string | null;
-    name?: string | null;
-    color?: string | null;
-    icon?: string | null;
-  } | null;
-  tags?: Array<{ id?: string; name?: string; color?: string | null }>;
-  transactionSummary?: {
-    description?: string | null;
-    exchangeRate?: string | number | null;
-    exchangeRateMixed?: boolean;
-    cardLabel?: string | null;
-    uncategorizedCount?: number;
-  } | null;
-  user?: {
-    id: string;
-    name?: string | null;
-    email?: string | null;
-    avatarUrl?: string | null;
-  } | null;
-  errorMessage?: string | null;
-  parsingDetails?: StatementParsingDetails | null;
-};
+export type { StatementListItem } from './statements-list-item.types';
 
-type DuplicateRole = 'primary' | 'suspected';
-
-type Props = {
-  dataTourId?: string;
-  statement: StatementListItem;
-  viewLabel: string;
-  duplicateActionLabel?: string;
-  isReceipt: boolean;
-  isProcessing: boolean;
-  merchantLabel: string;
-  amountLabel: string;
-  dateLabel: string;
-  onView: () => void;
-  onIconClick: () => void;
-  onToggleSelect?: () => void;
-  selected?: boolean;
-  selectionDisabled?: boolean;
-  typeLabel?: string;
-  isManualExpense?: boolean;
-  isPossibleDuplicate?: boolean;
-  duplicatePosition?: number;
-  duplicateGroupSize?: number;
-  duplicateRole?: DuplicateRole;
-  duplicateGroupLabel?: string;
-  /** The row opens or closes a run of its duplicate group: the line on the left stops there. */
-  duplicateGroupStart?: boolean;
-  duplicateGroupEnd?: boolean;
-  duplicateReason?: string;
-  viewDisabled?: boolean;
-  columns?: StatementColumn[];
-  currentExchangeRateLabels?: Record<string, string>;
-  workspaceCurrency?: string | null;
-  /** Rows of this statement still in Review, or 1 for a receipt not yet approved. */
-  pendingReview?: number;
-  /** Rows the statement holds; with more than one, they open under the line. */
-  transactionCount?: number;
-  expanded?: boolean;
-  onToggleExpand?: () => void;
-  /** Opens the category drawer for a document that has none yet. */
-  onAddCategory?: () => void;
-};
-
-/** The statement's own month, `YYYY-MM`, for the report its links open. */
-const statementMonth = (statement: StatementListItem): string | null => {
-  const sortDate = resolveStatementSortDate(statement);
-  return sortDate > 0 ? formatMonthParam(new Date(sortDate)) : null;
-};
-
-/** One tag of the Tag column: lights up on a resting pointer and opens its By tag row. */
-function TagLink({
-  name,
-  month,
-  title,
-}: {
-  name: string;
-  month: string | null;
-  title: string;
-}): React.JSX.Element {
-  const { lit, linkProps } = useDwellLink();
-  return (
-    <Link
-      href={tagReportHref(name, month)}
-      className={`seneca-stmt-category-link seneca-stmt-tag-link${lit ? ' seneca-stmt-category-link--lit' : ''}`}
-      title={title}
-      {...linkProps}
-    >
-      <span
-        className="seneca-stmt-category-link__text"
-        data-label={name}
-        style={{ ...textCellStyle('tag'), width: 'auto', minWidth: 0 }}
-      >
-        {name}
-      </span>
-    </Link>
-  );
-}
-
-function StatusBadge({
-  status,
-  isProcessing,
-  errorMessage,
-}: {
-  status: string;
-  isProcessing: boolean;
-  errorMessage?: string | null;
-}) {
-  const listText = useIntlayer('statementsListUi');
-  if (errorMessage || status === 'error') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--error">{listText.statusError}</span>
-    );
-  }
-  if (isProcessing || status === 'processing' || status === 'uploaded') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--pending">{listText.statusPending}</span>
-    );
-  }
-  // Parsed, but the balance did not reconcile: held out of analytics until a user
-  // confirms it on the statement page.
-  if (status === 'needs_review') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--review">
-        {listText.statusNeedsReview}
-      </span>
-    );
-  }
-  if (status === 'completed' || status === 'parsed' || status === 'validated') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--completed">
-        {listText.statusCompleted}
-      </span>
-    );
-  }
-  return null;
-}
-
-export function StatementsListItem({
-  dataTourId,
-  statement,
-  viewLabel,
-  duplicateActionLabel,
-  isReceipt,
-  isProcessing,
-  merchantLabel,
-  amountLabel,
-  dateLabel,
-  onView,
-  onIconClick,
-  onToggleSelect,
-  selected = false,
-  selectionDisabled = false,
-  typeLabel,
-  isManualExpense = false,
-  isPossibleDuplicate = false,
-  duplicatePosition,
-  duplicateGroupSize,
-  duplicateRole,
-  duplicateGroupLabel,
-  duplicateGroupStart = true,
-  duplicateGroupEnd = true,
-  duplicateReason,
-  viewDisabled = false,
-  columns = DEFAULT_STATEMENT_COLUMNS,
-  currentExchangeRateLabels,
-  workspaceCurrency,
-  pendingReview = 0,
-  transactionCount = 0,
-  expanded = false,
-  onToggleExpand,
-  onAddCategory,
-}: Props) {
+export function StatementsListItem(props: StatementsListItemProps) {
+  const {
+    dataTourId,
+    statement,
+    viewLabel,
+    isReceipt,
+    isProcessing,
+    merchantLabel,
+    amountLabel,
+    dateLabel,
+    onView,
+    onIconClick,
+    onToggleSelect,
+    selected = false,
+    selectionDisabled = false,
+    isManualExpense = false,
+    isPossibleDuplicate = false,
+    duplicateGroupStart = true,
+    duplicateGroupEnd = true,
+    viewDisabled = false,
+    pendingReview = 0,
+    transactionCount = 0,
+    expanded = false,
+    onToggleExpand,
+    onAddCategory,
+  } = props;
   const { resolvedTheme } = useTheme();
-  const listText = useIntlayer('statementsListUi');
-  const { locale } = useLocale();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
 
-  const resolvedTypeLabel = typeLabel || statement.fileType;
-  const isLocalReceipt = statement.source === 'scan';
-  const previewSource = isLocalReceipt ? 'receipt' : 'statement';
-  const hasError = !!statement.errorMessage || statement.status === 'error';
-  const isPendingStatement = statement.status === 'uploaded' || statement.status === 'processing';
-  const compactAmountLabel = amountLabel.replace(/\s+/g, '');
-  const isZeroAmountLabel = /^0(?:[.,]0+)?\D*$/.test(compactAmountLabel);
-  const isNegativeAmount = amountLabel.startsWith('-') && amountLabel !== '-';
-  const isMissingAmount = amountLabel === '-';
-  const showAmountLoader =
-    !isReceipt && isPendingStatement && (isZeroAmountLabel || isMissingAmount);
-  const resolvedDuplicateRole: DuplicateRole = duplicateRole || 'suspected';
-  const resolvedDuplicateGroupLabel = duplicateGroupLabel || listText.group.value;
-  const duplicateRoleLabel =
-    resolvedDuplicateRole === 'primary' ? listText.rolePrimary.value : listText.roleSuspected.value;
-  // Group and role go to the tooltip; the row itself only says "possible duplicate, 1 of 2".
-  const duplicateBadgeLabel = isPossibleDuplicate
-    ? `${resolvedDuplicateGroupLabel} · ${duplicateRoleLabel} #${duplicatePosition || 1}${duplicateGroupSize ? `/${duplicateGroupSize}` : ''}`
-    : null;
-  const duplicateCaption = isPossibleDuplicate
-    ? listText.possibleDuplicate.value
-        .replace('{position}', String(duplicatePosition || 1))
-        .replace('{total}', String(duplicateGroupSize || duplicatePosition || 1))
-    : null;
-  const duplicateTooltipText = `${duplicateBadgeLabel ?? ''} — ${duplicateReason || listText.duplicateReasonSame.value}`;
-  const reviewLabel = duplicateActionLabel || listText.review.value;
-  const actionLabel = isPossibleDuplicate ? reviewLabel : viewLabel;
-  const { figure: amountFigure, currency: amountCurrency } = splitAmountLabel(amountLabel);
-  const typeCaption = isManualExpense
-    ? null
-    : isReceipt
-      ? resolvedTypeLabel
-      : resolvedTypeLabel?.toUpperCase();
-  const handleView = () => {
-    if (viewDisabled) {
-      return;
-    }
-    onView();
-  };
-  const visibleColumns = columns.filter(column => column.visible);
-  const renderedColumns = visibleColumns.length > 0 ? visibleColumns : columns.slice(0, 1);
-  const sourceLabel = isLocalReceipt ? listText.typeReceipt.value : statement.bankName;
-  // importPreview.categoryId is deliberately not a fallback: it is a bare id,
-  // and rendering it puts a raw UUID in the column.
-  const categoryLabel = firstNonEmpty(statement.category?.name, statement.parsedData?.category);
-  // System categories are stored by their English name; the link and the icon
-  // keep that name, the reader sees it in their language.
-  const categoryText = categoryLabel && localizeStatementCategoryName(categoryLabel, locale);
-  const tagsLabel =
-    statement.tags
-      ?.map(tag => tag.name)
-      .filter(Boolean)
-      .join(', ') || null;
-  const descriptionLabel = firstNonEmpty(
-    statement.parsingDetails?.importPreview?.description,
-    statement.transactionSummary?.description,
-    statement.subject,
-  );
-  const statementCurrency = normalizeExchangeRateCurrency(
-    statement.currency,
-    statement.parsedData?.currency,
-    statement.parsingDetails?.metadataExtracted?.currency,
-    statement.parsingDetails?.metadataExtracted?.headerDisplay?.currencyDisplay,
-  );
-  const targetCurrency = normalizeExchangeRateCurrency(workspaceCurrency) ?? FALLBACK_CURRENCY;
-  const usdExchangeRateLabel = targetCurrency
-    ? currentExchangeRateLabels?.[`USD:${targetCurrency}`]
-    : null;
-  const currentExchangeRateLabel =
-    statementCurrency && targetCurrency
-      ? currentExchangeRateLabels?.[`${statementCurrency}:${targetCurrency}`]
-      : null;
-  const exchangeRateLabel =
-    usdExchangeRateLabel ??
-    currentExchangeRateLabel ??
-    (statement.transactionSummary?.exchangeRateMixed
-      ? listText.mixed.value
-      : firstNonEmpty(statement.transactionSummary?.exchangeRate));
-  const approvedLabel = formatBoolean(
-    isDocumentApproved(statement.status, isReceipt, pendingReview),
-    listText.yes.value,
-    listText.no.value,
-  );
-  const billableLabel = formatBoolean(
-    !(isMissingAmount || isZeroAmountLabel),
-    listText.yes.value,
-    listText.no.value,
-  );
-  const exportedLabel = formatBoolean(
-    Boolean(statement.exported ?? statement.processedAt),
-    listText.yes.value,
-    listText.no.value,
-  );
-
-  const renderPlainCell = (
-    columnId: StatementColumnId,
-    value: string | null,
-  ): React.JSX.Element => (
-    <span style={textCellStyle(columnId, !value || value === EMPTY_CELL)}>
-      {value || EMPTY_CELL}
-    </span>
-  );
-
-  const renderTagCell = (): React.JSX.Element => {
-    const tagNames = (statement.tags ?? [])
-      .map(tag => tag.name?.trim())
-      .filter(Boolean) as string[];
-    if (tagNames.length === 0) return renderPlainCell('tag', null);
-    const month = statementMonth(statement);
-    return (
-      <span
-        title={tagsLabel ?? undefined}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, width: '100%' }}
-      >
-        <Tag size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-        <span style={{ display: 'flex', minWidth: 0, overflow: 'hidden' }}>
-          {tagNames.map((name, index) => (
-            <React.Fragment key={name}>
-              {index > 0 ? <span style={{ flexShrink: 0 }}>{',\u00A0'}</span> : null}
-              <TagLink
-                name={name}
-                month={month}
-                title={listText.tagLink.value.replace('{tag}', name)}
-              />
-            </React.Fragment>
-          ))}
-        </span>
-      </span>
-    );
-  };
-
-  const renderReceiptCell = (): React.JSX.Element => (
-    <DocumentThumbnailPreview
-      fileId={statement.id}
-      fileName={statement.fileName}
-      fileType={isReceipt ? 'pdf' : statement.fileType || statement.fileName || ''}
-      source={previewSource}
-      onOpen={onIconClick}
-      testId={`statement-thumbnail-trigger-${statement.id}`}
+  const {
+    previewSource,
+    hasError,
+    isPendingStatement,
+    isNegativeAmount,
+    isMissingAmount,
+    showAmountLoader,
+    duplicateCaption,
+    duplicateTooltipText,
+    reviewLabel,
+    actionLabel,
+    amountFigure,
+    amountCurrency,
+    typeCaption,
+    handleView,
+    renderedColumns,
+    sourceLabel,
+    categoryLabel,
+    categoryText,
+    tagsLabel,
+    descriptionLabel,
+    exchangeRateLabel,
+    approvedLabel,
+    billableLabel,
+    exportedLabel,
+  } = useStatementsListItemModel(props);
+  const rowsToggle = (
+    <RowsToggle
+      transactionCount={transactionCount}
+      expanded={expanded}
+      onToggleExpand={onToggleExpand}
     />
   );
 
-  const renderMerchantCell = (): React.JSX.Element => (
-    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, pointerEvents: 'auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span
-          style={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontWeight: 600,
-            color: c.ink900,
-            fontSize: 15,
-          }}
-        >
-          {isProcessing ? listText.processing : merchantLabel}
-        </span>
-
-        {pendingReview > 0 && !isProcessing ? (
-          <span className="seneca-stmt-flag" style={{ flexShrink: 0 }}>
-            {listText.toReview}
-            {isReceipt ? null : ` · ${pendingReview}`}
-          </span>
-        ) : null}
-
-        {hasError ? (
-          <AlertCircle size={16} style={{ color: c.danger, marginLeft: 4 }} />
-        ) : isManualExpense ? (
-          <CreditCard
-            data-testid="manual-expense-type-icon"
-            size={14}
-            style={{ color: c.ink500, opacity: 0.5, marginLeft: 4 }}
-          />
-        ) : null}
-      </div>
-      <div className="seneca-stmt-list-item__meta">
-        {[dateLabel, typeCaption].filter(Boolean).join(' · ')}
-        {duplicateCaption ? (
-          <MuiTooltip title={duplicateTooltipText} placement="top" enterDelay={150}>
-            <span data-testid="statement-duplicate-caption"> · {duplicateCaption}</span>
-          </MuiTooltip>
-        ) : null}
-        {renderRowsToggle()}
-        <NotesBadge entityId={statement.id} />
-      </div>
-    </div>
-  );
-
-  // "Transactions: 24 ▾" beside the date: a statement's rows open under its line.
-  const renderRowsToggle = (): React.JSX.Element | null =>
-    onToggleExpand && transactionCount > 1 ? (
-      <button
-        type="button"
-        className="seneca-stmt-list-item__rows-toggle"
-        aria-expanded={expanded}
-        onClick={event => {
-          event.stopPropagation();
-          onToggleExpand();
-        }}
-      >
-        {listText.transactionsCount.value.replace('{count}', String(transactionCount))}
-        <ChevronDown
-          size={12}
-          aria-hidden
-          style={{ transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'none' }}
-        />
-      </button>
-    ) : null;
-
-  const renderAmountCell = (): React.JSX.Element => (
-    <div
-      style={{
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-      }}
-    >
-      <span
-        className={clsx('seneca-stmt-list-item__amount', PRIVATE_CLASS)}
-        style={{
-          color: isNegativeAmount || hasError || isMissingAmount ? c.danger : c.ink900,
-          whiteSpace: amountFigure.includes('\n') ? 'pre-line' : undefined,
-        }}
-      >
-        {showAmountLoader ? (
-          <Spinner style={{ width: 16, height: 16, color: c.ink400 }} />
-        ) : (
-          <>
-            {amountFigure}
-            {amountCurrency ? (
-              <span className="seneca-stmt-list-item__currency"> {amountCurrency}</span>
-            ) : null}
-          </>
-        )}
-      </span>
-      <div
-        style={{ marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
-      >
-        <StatusBadge
-          status={statement.status}
-          isProcessing={isProcessing}
-          errorMessage={statement.errorMessage}
-        />
-      </div>
-    </div>
-  );
-
-  const renderActionCell = (): React.JSX.Element => (
-    <>
-      {/* Every row, Review or not, is as wide as the Review label in this
-          language, so the column lines up with the header and never clips it. */}
-      <span
-        aria-hidden
-        className="seneca-stmt-list-item__view-btn seneca-stmt-list-item__action-sizer"
-      >
-        {reviewLabel}
-      </span>
-      <button
-        data-testid="statement-view-icon"
-        type="button"
-        onClick={event => {
-          event.stopPropagation();
-          handleView();
-        }}
-        // The whole row already opens the statement, so a plain row gets a quiet
-        // arrow instead of a "View" pill; a duplicate keeps its "Review" label,
-        // which says something the row click does not.
-        className={`seneca-stmt-list-item__view-btn ${isPossibleDuplicate ? 'seneca-stmt-list-item__view-btn--link' : 'seneca-stmt-list-item__view-btn--arrow'}`}
-        aria-label={actionLabel}
-        disabled={viewDisabled}
-      >
-        {isPossibleDuplicate ? actionLabel : <ChevronRight size={18} aria-hidden />}
-      </button>
-    </>
-  );
-
   const renderColumnCell = (columnId: StatementColumnId): React.JSX.Element => {
-    if (columnId === 'receipt') return renderReceiptCell();
-    if (columnId === 'merchant') return renderMerchantCell();
-    if (columnId === 'from')
-      return renderPlainCell(
-        columnId,
-        firstNonEmpty(statement.user?.name, statement.user?.email, statement.sender),
+    if (columnId === 'receipt')
+      return (
+        <DocumentThumbnailPreview
+          fileId={statement.id}
+          fileName={statement.fileName}
+          fileType={isReceipt ? 'pdf' : statement.fileType || statement.fileName || ''}
+          source={previewSource}
+          onOpen={onIconClick}
+          testId={`statement-thumbnail-trigger-${statement.id}`}
+        />
       );
-    if (columnId === 'to') return renderPlainCell(columnId, sourceLabel);
+    if (columnId === 'merchant')
+      return (
+        <MerchantCell
+          c={c}
+          statementId={statement.id}
+          merchantLabel={merchantLabel}
+          isProcessing={isProcessing}
+          isReceipt={isReceipt}
+          isManualExpense={isManualExpense}
+          hasError={hasError}
+          pendingReview={pendingReview}
+          dateLabel={dateLabel}
+          typeCaption={typeCaption}
+          duplicateCaption={duplicateCaption}
+          duplicateTooltipText={duplicateTooltipText}
+          rowsToggle={rowsToggle}
+        />
+      );
+    if (columnId === 'from')
+      return (
+        <PlainCell
+          columnId={columnId}
+          value={firstNonEmpty(statement.user?.name, statement.user?.email, statement.sender)}
+        />
+      );
+    if (columnId === 'to') return <PlainCell columnId={columnId} value={sourceLabel} />;
     if (columnId === 'category')
       return (
         <StatementCategoryCell
@@ -548,17 +140,45 @@ export function StatementsListItem({
           onOpenRows={onToggleExpand}
         />
       );
-    if (columnId === 'tag') return renderTagCell();
-    if (columnId === 'amount') return renderAmountCell();
-    if (columnId === 'action') return renderActionCell();
-    if (columnId === 'approved') return renderPlainCell(columnId, approvedLabel);
-    if (columnId === 'billable') return renderPlainCell(columnId, billableLabel);
+    if (columnId === 'tag') return <TagCell statement={statement} tagsLabel={tagsLabel} />;
+    if (columnId === 'amount')
+      return (
+        <AmountCell
+          c={c}
+          amountFigure={amountFigure}
+          amountCurrency={amountCurrency}
+          danger={isNegativeAmount || hasError || isMissingAmount}
+          showLoader={showAmountLoader}
+          status={statement.status}
+          isProcessing={isProcessing}
+          errorMessage={statement.errorMessage}
+        />
+      );
+    if (columnId === 'action')
+      return (
+        <ActionCell
+          reviewLabel={reviewLabel}
+          actionLabel={actionLabel}
+          isPossibleDuplicate={isPossibleDuplicate}
+          viewDisabled={viewDisabled}
+          onView={handleView}
+        />
+      );
+    if (columnId === 'approved') return <PlainCell columnId={columnId} value={approvedLabel} />;
+    if (columnId === 'billable') return <PlainCell columnId={columnId} value={billableLabel} />;
     if (columnId === 'card')
-      return renderPlainCell(columnId, firstNonEmpty(statement.transactionSummary?.cardLabel));
-    if (columnId === 'description') return renderPlainCell(columnId, descriptionLabel);
-    if (columnId === 'exchangeRate') return renderPlainCell(columnId, exchangeRateLabel);
-    if (columnId === 'exported') return renderPlainCell(columnId, exportedLabel);
-    return renderPlainCell(columnId, null);
+      return (
+        <PlainCell
+          columnId={columnId}
+          value={firstNonEmpty(statement.transactionSummary?.cardLabel)}
+        />
+      );
+    if (columnId === 'description')
+      return <PlainCell columnId={columnId} value={descriptionLabel} />;
+    if (columnId === 'exchangeRate')
+      return <PlainCell columnId={columnId} value={exchangeRateLabel} />;
+    if (columnId === 'exported') return <PlainCell columnId={columnId} value={exportedLabel} />;
+    return <PlainCell columnId={columnId} value={null} />;
   };
 
   // Row styles based on duplicate/error/selected state
@@ -593,66 +213,23 @@ export function StatementsListItem({
         aria-disabled={viewDisabled}
       />
 
-      {/* Mobile layout (<768px): who and how much on the first line, when and what
-          on the second — the amount never leaves the screen. Taps outside the
-          checkbox and icon fall through to the overlay button and open the row. */}
-      <div
-        data-testid={`statement-item-mobile-${statement.id}`}
-        className="seneca-stmt-list-item__mobile"
-      >
-        <div className="seneca-stmt-list-item__mobile-select">
-          {selectionDisabled ? null : (
-            <Checkbox
-              checked={selected}
-              onCheckedChange={onToggleSelect}
-              onClick={(event: { stopPropagation: () => void }) => event.stopPropagation()}
-              aria-label={merchantLabel}
-            />
-          )}
-        </div>
-        <button
-          type="button"
-          className="seneca-stmt-list-item__mobile-icon"
-          onClick={event => {
-            event.stopPropagation();
-            onIconClick();
-          }}
-          aria-label={statement.fileName}
-        ></button>
-        <div className="seneca-stmt-list-item__mobile-body">
-          <div className="seneca-stmt-list-item__mobile-line">
-            <span className="seneca-stmt-list-item__mobile-merchant">
-              {isProcessing ? listText.processing : merchantLabel}
-            </span>
-            {hasError ? <AlertCircle size={14} style={{ color: c.danger, flexShrink: 0 }} /> : null}
-            <span
-              className={clsx('seneca-stmt-list-item__mobile-amount', PRIVATE_CLASS)}
-              style={{
-                color: isNegativeAmount || hasError || isMissingAmount ? c.danger : undefined,
-              }}
-            >
-              {showAmountLoader ? (
-                <Spinner style={{ width: 14, height: 14, color: c.ink400 }} />
-              ) : (
-                amountLabel
-              )}
-            </span>
-          </div>
-          <div className="seneca-stmt-list-item__mobile-line seneca-stmt-list-item__mobile-meta">
-            <span className="seneca-stmt-list-item__mobile-meta-text">
-              {[dateLabel, isPossibleDuplicate ? duplicateCaption : categoryText || sourceLabel]
-                .filter(Boolean)
-                .join(' · ')}
-            </span>
-            {renderRowsToggle()}
-            <StatusBadge
-              status={statement.status}
-              isProcessing={isProcessing}
-              errorMessage={statement.errorMessage}
-            />
-          </div>
-        </div>
-      </div>
+      <StatementsListItemMobile
+        statement={statement}
+        c={c}
+        merchantLabel={merchantLabel}
+        amountLabel={amountLabel}
+        dateLabel={dateLabel}
+        isProcessing={isProcessing}
+        hasError={hasError}
+        danger={isNegativeAmount || hasError || isMissingAmount}
+        showAmountLoader={showAmountLoader}
+        caption={isPossibleDuplicate ? duplicateCaption : categoryText || sourceLabel}
+        selected={selected}
+        selectionDisabled={selectionDisabled}
+        onToggleSelect={onToggleSelect}
+        onIconClick={onIconClick}
+        rowsToggle={rowsToggle}
+      />
 
       {/* Desktop Layout */}
       <div
