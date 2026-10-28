@@ -1,4 +1,4 @@
-import { type Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
+import type { Transaction } from '../../entities/transaction.entity';
 
 /**
  * The category a row falls back to when nothing classifies it: one per
@@ -26,11 +26,11 @@ export const UNCATEGORIZED_SQL_PARAMS = {
   uncategorizedName: UNCATEGORIZED_CATEGORY_NAME.toLowerCase(),
 };
 
-/** Rows just classified that still wait for one: none, or the fallback (source DEFAULT). */
-export function countAwaitingCategory(
-  rows: Pick<Transaction, 'categoryId' | 'categorySource'>[],
-): number {
-  return rows.filter(
-    row => !row.categoryId || row.categorySource === TransactionCategorySource.DEFAULT,
-  ).length;
+/**
+ * Rows just imported that have no category at all. Rows left in the
+ * Uncategorized fallback do not count here: notifying about them would fire
+ * after nearly every bank-statement import.
+ */
+export function countWithoutCategory(rows: Pick<Transaction, 'categoryId'>[]): number {
+  return rows.filter(row => !row.categoryId).length;
 }
