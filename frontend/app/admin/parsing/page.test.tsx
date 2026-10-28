@@ -97,6 +97,14 @@ describe('ParserHealthPage', () => {
     expect(text.split('New layout')).toHaveLength(2);
   });
 
+  it('leads back to the admin page', async () => {
+    apiQueryDecoded.mockResolvedValue(health);
+    await render();
+
+    const back = container.querySelector('a[href="/admin"]');
+    expect(back?.textContent).toBe('Admin panel');
+  });
+
   it('asks nothing of the server for anyone but its administrator', async () => {
     auth.user = { role: 'user' };
     await render();

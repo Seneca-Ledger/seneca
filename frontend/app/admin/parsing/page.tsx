@@ -1,7 +1,9 @@
 'use client';
 
-import { Alert, Container, Skeleton, Stack, Typography } from '@mui/material';
+import { Alert, Button, Container, Skeleton, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
+import { ArrowLeft } from '@/app/components/icons';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import type { ParserHealth } from '@/app/lib/contracts';
@@ -18,6 +20,7 @@ const SKELETON_KEYS = ['bank-0', 'bank-1', 'bank-2'];
  */
 export default function ParserHealthPage(): React.ReactElement {
   const t = useIntlayer('adminParsingPage');
+  const adminPage = useIntlayer('adminPage');
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const query = useQuery({
@@ -29,6 +32,15 @@ export default function ParserHealthPage(): React.ReactElement {
 
   return (
     <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: { xs: 2, md: 4 } }}>
+      <Button
+        component={Link}
+        href="/admin"
+        size="small"
+        startIcon={<ArrowLeft size={16} />}
+        sx={{ mb: 1, ml: -1, color: 'text.secondary' }}
+      >
+        {adminPage.title}
+      </Button>
       <Typography variant="h4" component="h1" gutterBottom>
         {t.title}
       </Typography>
