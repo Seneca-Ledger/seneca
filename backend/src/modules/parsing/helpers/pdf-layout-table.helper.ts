@@ -194,10 +194,15 @@ export interface SectionTotal {
   read: number;
 }
 
-/** The transactions, and the totals lines of the sections they were read under. */
+/**
+ * The transactions, the totals lines of the sections they were read under,
+ * and the layout itself: every table header read and every section heading,
+ * in page order.
+ */
 export function readLayoutTable(rows: PdfTextRow[]): {
   transactions: LayoutTransaction[];
   sections: SectionTotal[];
+  layout: { headers: LayoutColumn[][]; sections: SectionSign[] };
 } {
   const ordered = joinStackedHeaders(
     rows.flatMap(splitOverlappingLines).sort((a, b) => a.page - b.page || a.y - b.y),
@@ -209,6 +214,7 @@ export function readLayoutTable(rows: PdfTextRow[]): {
     lastRow: null,
     sections: [],
     sectionRead: 0,
+    layout: { headers: [], sections: [] },
   };
   const dateWords = (row: PdfTextRow) =>
     leadingDate([...row.items].sort((a, b) => a.x - b.x))?.used ?? 0;
@@ -217,7 +223,7 @@ export function readLayoutTable(rows: PdfTextRow[]): {
   for (const lines of attachLeadInLines(groupWrappedLines(ordered), dateWords, isHeading)) {
     readRow(state, lines);
   }
-  return { transactions: state.transactions, sections: state.sections };
+  return { transactions: state.transactions, sections: state.sections, layout: state.layout };
 }
 
 interface ReadingState {
@@ -235,6 +241,7 @@ interface ReadingState {
   /** What the rows of `section` add up to so far, and the sections closed by a total. */
   sectionRead: number;
   sections: SectionTotal[];
+  layout: { headers: LayoutColumn[][]; sections: SectionSign[] };
 }
 
 function readRow(state: ReadingState, lines: PdfTextRow[]) {
@@ -255,6 +262,7 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
     // "Withdrawals (continued)" on the next page goes on adding to the same total.
     state.sectionRead = state.section?.sign === section ? state.sectionRead : 0;
     state.section = { sign: section };
+    state.layout.sections.push(section);
     state.columns = null;
     state.current = null;
     return;
@@ -262,6 +270,9 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
   if (heading || header) {
     state.account = heading ?? state.account;
     state.columns = header ?? state.columns;
+    if (header) {
+      state.layout.headers.push(header);
+    }
     state.current = null;
     return;
   }

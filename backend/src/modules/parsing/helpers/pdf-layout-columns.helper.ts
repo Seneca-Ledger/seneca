@@ -18,6 +18,10 @@ export interface LayoutColumn {
   role: ColumnRole;
   x0: number;
   x1: number;
+  /** The heading as read, folded: a known phrase, or the word of an `other` column. */
+  heading?: string;
+  /** Words of the header no heading knows, kept beside the column they sit by. */
+  extra?: string[];
 }
 
 const TEXT_ROLES: ColumnRole[] = ['date', 'otherDate', 'description', 'counterparty', 'other'];
@@ -144,7 +148,7 @@ function matchHeading(items: PdfTextItem[], index: number) {
       .join(' ');
     const role = PHRASES.get(phrase);
     if (role) {
-      return { role, length };
+      return { role, length, phrase };
     }
   }
   return null;
@@ -159,6 +163,8 @@ export function readHeaderRow(row: PdfTextRow): LayoutColumn[] | null {
   const items = [...row.items].sort((a, b) => a.x - b.x);
   const columns: LayoutColumn[] = [];
   let pendingX0: number | null = null;
+  // Words no heading knows, until a column is there to keep them.
+  let strays: string[] = [];
 
   for (let index = 0; index < items.length; ) {
     const heading = matchHeading(items, index);
@@ -168,8 +174,11 @@ export function readHeaderRow(row: PdfTextRow): LayoutColumn[] | null {
         role: heading.role,
         x0: pendingX0 ?? items[index].x,
         x1: last.x + last.width,
+        heading: heading.phrase,
+        ...(strays.length > 0 ? { extra: strays } : {}),
       });
       pendingX0 = null;
+      strays = [];
       index += heading.length;
       continue;
     }
@@ -180,10 +189,17 @@ export function readHeaderRow(row: PdfTextRow): LayoutColumn[] | null {
       MONEY_ROLES.includes(previous.role) &&
       items[index].x - previous.x1 > ATTACH_GAP
     ) {
-      columns.push({ role: 'other', x0: items[index].x, x1: items[index].x + items[index].width });
+      const word = headingWord(items[index]);
+      columns.push({
+        role: 'other',
+        x0: items[index].x,
+        x1: items[index].x + items[index].width,
+        heading: word,
+      });
       index += 1;
       continue;
     }
+    keepUnknownWord(headingWord(items[index]), previous, strays);
     pendingX0 = attachStrayWord(
       items[index],
       columns[columns.length - 1],
@@ -197,6 +213,15 @@ export function readHeaderRow(row: PdfTextRow): LayoutColumn[] | null {
   const hasMoney = roles.has('debit') || roles.has('credit') || roles.has('amount');
   const hasText = roles.has('date') || roles.has('description');
   return columns.length >= 3 && hasMoney && hasText ? columns : null;
+}
+
+/** A header word no heading knows stays with the column before it, or waits for the first one. */
+function keepUnknownWord(word: string, previous: LayoutColumn | undefined, strays: string[]) {
+  if (word && previous) {
+    previous.extra = [...(previous.extra ?? []), word];
+  } else if (word) {
+    strays.push(word);
+  }
 }
 
 /**

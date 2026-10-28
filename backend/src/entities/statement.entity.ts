@@ -313,6 +313,13 @@ export class Statement {
     };
     /** The parser's checks of its own reading (ParseCheck), passed or not. */
     checks?: Array<{ code: string; passed: boolean; detail?: Record<string, string | number> }>;
+    /** The file's layout as words, with its fingerprint (pdf-layout-fingerprint.helper). */
+    layout?: {
+      fingerprint: string;
+      headings: string[];
+      unknownWords: string[];
+      mentionedBank?: string;
+    };
     droppedSamples?: Array<{
       reason: string;
       transaction?: JsonObject;

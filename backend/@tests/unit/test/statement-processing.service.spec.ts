@@ -498,6 +498,7 @@ describe('StatementProcessingService', () => {
             detail: { row: 2, date: '15/02/2025', expected: 1110, actual: 1050 },
           },
         ],
+        layout: { fingerprint: '0123456789ab', headings: ['date:date | amount:amount'], unknownWords: [] },
       }),
       constructor: { name: 'FakeParser' },
     });
@@ -510,6 +511,7 @@ describe('StatementProcessingService', () => {
       'Balance chain broken at row 2 (15/02/2025): expected 1110.00 got 1050.00',
     );
     expect(statement.parsingDetails?.checks).toHaveLength(2);
+    expect(statement.parsingDetails?.layout?.fingerprint).toBe('0123456789ab');
   });
 
   it('completes the statement when the balance reconciles', async () => {

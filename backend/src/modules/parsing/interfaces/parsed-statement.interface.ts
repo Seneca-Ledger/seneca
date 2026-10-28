@@ -41,6 +41,8 @@ export interface ParsedStatementMetadata {
  * What a parser checked its own reading against: the running balance printed
  * on each row, the totals and balances the statement prints, its period.
  */
+import type { StatementLayout } from '../helpers/pdf-layout-fingerprint.helper';
+
 export type ParseCheckCode =
   | 'balance_chain'
   | 'printed_totals'
@@ -67,6 +69,8 @@ export interface ParsedStatement {
   transactions: ParsedTransaction[];
   /** Checks of the reading that apply to this statement; none for most formats. */
   checks?: ParseCheck[];
+  /** The file's layout as words (pdf-layout-fingerprint.helper), when the parser reads one. */
+  layout?: StatementLayout;
   /**
    * Further accounts printed in the same file (an HKD and a USD account on one
    * statement), each with its own metadata and rows. `metadata` and

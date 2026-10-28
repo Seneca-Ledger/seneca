@@ -7,6 +7,7 @@ import {
 } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
 import { findAccountNumberInColumn } from '../helpers/pdf-layout-account-number.helper';
+import { statementLayout } from '../helpers/pdf-layout-fingerprint.helper';
 import {
   type LayoutTransaction,
   readLayoutTable,
@@ -91,6 +92,9 @@ export class GenericPdfParser extends BaseParser {
     const detectedCurrency = detectStatementCurrency(text) || appDefaultCurrency();
 
     const layoutTransactions = this.readTransactions(layoutRows);
+    // The generic reading of the same rows: its sections' totals and the layout's words.
+    const table = readLayoutTable(layoutRows);
+    const layout = statementLayout(table.layout, text);
     // Row dates decide first; in free text only dates with a year count, since
     // "38.2gal" or "19.5%" look like day-first dates too.
     const dateOrder =
@@ -105,7 +109,7 @@ export class GenericPdfParser extends BaseParser {
       const [first, ...others] = accounts.map(rows =>
         this.accountStatement(rows, text, dateOrder, latestPrinted, detectedCurrency, isCard),
       );
-      return { ...first, otherAccounts: others };
+      return { ...first, otherAccounts: others, layout };
     }
 
     const { balanceStart, balanceEnd } = this.readBalances(
@@ -177,8 +181,9 @@ export class GenericPdfParser extends BaseParser {
       transactions,
       checks: this.readingChecks(text, dateOrder, transactions, dateRange, isCard, {
         rows: transactions === layoutParsed ? layoutTransactions : [],
-        sections: readLayoutTable(layoutRows).sections,
+        sections: table.sections,
       }),
+      layout,
     };
   }
 

@@ -241,11 +241,11 @@ export class StatementProcessingService {
   }
 
   /** One count per reason a statement was held, or one `ok`, by bank and parser. */
-  private countOutcome(statement: Statement, parser: string, reasons: ValidationReasonCode[]) {
+  private countOutcome(statement: Statement, reasons: ValidationReasonCode[]) {
     for (const reason of reasons.length > 0 ? reasons : ['none']) {
       this.metricsService?.statementParseOutcomeTotal.inc({
         bank: statement.bankName,
-        parser,
+        parser: statement.parsingDetails?.parserUsed ?? 'unknown',
         outcome: reasons.length > 0 ? 'review' : 'ok',
         reason,
       });
@@ -772,11 +772,8 @@ export class StatementProcessingService {
       );
       parsingDetails.validation = validationResult;
       parsingDetails.checks = parsedStatement.checks;
-      this.countOutcome(
-        statement,
-        parsingDetails.parserUsed ?? 'unknown',
-        validationResult.reasonCodes,
-      );
+      parsingDetails.layout = parsedStatement.layout;
+      this.countOutcome(statement, validationResult.reasonCodes);
       if (validationResult.warnings.length) {
         parsingDetails.warnings = parsingDetails.warnings || [];
         validationResult.warnings.forEach(warning => {
