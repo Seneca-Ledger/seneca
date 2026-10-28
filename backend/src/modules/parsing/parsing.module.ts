@@ -11,6 +11,7 @@ import { ImportModule } from '../import/import.module';
 import { ObservabilityModule } from '../observability/observability.module';
 import { TaxModule } from '../tax/tax.module';
 import { TransactionsModule } from '../transactions/transactions.module';
+import { ParserHealthController } from './controllers/parser-health.controller';
 import { ParsingController } from './controllers/parsing.controller';
 import {
   StaleStatementReaper,
@@ -28,6 +29,7 @@ import { DocumentClassifierService } from './services/document-classifier.servic
 import { MetadataExtractionService } from './services/metadata-extraction.service';
 import { OcrService } from './services/ocr.service';
 import { ParserFactoryService } from './services/parser-factory.service';
+import { ParserHealthService } from './services/parser-health.service';
 // import { ParsingRulesService } from './services/parsing-rules.service';
 // import { ProfileConfigService } from './services/profile-config.service';
 // import { QualityLoggingService } from './services/quality-logging.service';
@@ -74,9 +76,10 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
     BullModule.registerQueue({ name: STATEMENT_PARSING_QUEUE }),
     TaxModule,
   ],
-  controllers: [ParsingController],
+  controllers: [ParsingController, ParserHealthController],
   providers: [
     ParserFactoryService,
+    ParserHealthService,
     StatementProcessingService,
     StatementSiblingsService,
     StatementParsingQueue,
