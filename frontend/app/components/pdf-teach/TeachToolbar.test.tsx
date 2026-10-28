@@ -1,9 +1,18 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+const offer = vi.hoisted(() => ({ dismissed: false }));
+vi.mock('./TeachShareDialog', () => ({
+  shareOfferDismissed: () => offer.dismissed,
+  TeachShareDialog: ({ onClose }: { onClose: () => void }) => (
+    <button type="button" data-testid="share-offer" onClick={onClose} />
+  ),
+}));
+
 import { TeachToolbar } from './TeachToolbar';
 import type { TeachSession } from './useTeachSession';
 
 const session = (over: Partial<TeachSession> = {}): TeachSession => ({
+  statementId: 'statement-1',
   words: [],
   regions: [],
   activeTag: 'date',
@@ -36,7 +45,17 @@ describe('TeachToolbar', () => {
     expect(screen.getByRole('button', { name: /save/i })).toHaveProperty('disabled', true);
   });
 
+  it('offers to share the layout after saving, and closes after the offer', async () => {
+    offer.dismissed = false;
+    const onDone = vi.fn();
+    render(<TeachToolbar session={session({ preview })} onDone={onDone} />);
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    fireEvent.click(await screen.findByTestId('share-offer'));
+    expect(onDone).toHaveBeenCalled();
+  });
+
   it('shows how the file reads and saves, then closes', async () => {
+    offer.dismissed = true;
     const marks = session({ preview });
     const onDone = vi.fn();
     render(<TeachToolbar session={marks} onDone={onDone} />);

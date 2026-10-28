@@ -19,6 +19,8 @@ import {
 const PREVIEW_DELAY_MS = 450;
 
 export interface TeachSession {
+  /** The statement being marked; null while the marking mode is off. */
+  statementId: string | null;
   words: ReturnType<typeof useLayoutWords>['data'];
   regions: TeachRegion[];
   activeTag: TeachTag;
@@ -126,6 +128,7 @@ export function useTeachSession(statementId: string | null): TeachSession {
   };
 
   return {
+    statementId,
     words: words.data,
     regions,
     activeTag,

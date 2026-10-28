@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { shareOfferDismissed, TeachShareDialog } from './TeachShareDialog';
 import {
   regionWarning,
   TAG_TONE,
@@ -54,6 +55,7 @@ function chainLine(
  * what is still missing or how the file reads with the marks, and saving.
  */
 export function TeachToolbar({ session, onDone }: { session: TeachSession; onDone: () => void }) {
+  const [sharing, setSharing] = useState(false);
   const t = useIntlayer('pdfTeach');
   const { locale } = useLocale();
   useTeachKeys(session);
@@ -95,11 +97,20 @@ export function TeachToolbar({ session, onDone }: { session: TeachSession; onDon
   const save = async () => {
     if (await session.save()) {
       toast.success(`${t.saved.value}. ${t.teachAgainWhere.value}`, { duration: 7000 });
-      onDone();
+      // Then the offer to share the layout with the project, unless declined for good.
+      if (shareOfferDismissed()) {
+        onDone();
+      } else {
+        setSharing(true);
+      }
     } else {
       toast.error(t.saveFailed.value);
     }
   };
+
+  if (sharing && session.statementId) {
+    return <TeachShareDialog statementId={session.statementId} onClose={onDone} />;
+  }
 
   return (
     <div className="seneca-pdf-teach__toolbar" data-testid="teach-toolbar">
