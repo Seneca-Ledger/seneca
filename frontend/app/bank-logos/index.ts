@@ -1,97 +1,97 @@
 export type BankLogoKey =
-	| "kaspi"
-	| "bereke"
-	| "hapoalim"
-	| "absa"
-	| "ally"
-	| "anz"
-	| "associated"
-	| "other";
+  | 'kaspi'
+  | 'bereke'
+  | 'hapoalim'
+  | 'absa'
+  | 'ally'
+  | 'anz'
+  | 'associated'
+  | 'other';
 
 export type ResolvedBankLogo = {
-	key: BankLogoKey;
-	src: string;
-	displayName: string;
+  key: BankLogoKey;
+  src: string;
+  displayName: string;
 };
 
 const LOGO_SRC_BY_KEY: Record<BankLogoKey, string> = {
-	kaspi: "/images/bank-logo/kaspi.png",
-	bereke: "/images/bank-logo/bereke-bank.png",
-	// No logo of their own yet.
-	hapoalim: "/images/bank-logo/bank.png",
-	absa: "/images/bank-logo/bank.png",
-	ally: "/images/bank-logo/bank.png",
-	anz: "/images/bank-logo/bank.png",
-	associated: "/images/bank-logo/bank.png",
-	other: "/images/bank-logo/bank.png",
+  kaspi: '/images/bank-logo/kaspi.png',
+  bereke: '/images/bank-logo/bereke-bank.png',
+  // No logo of their own yet.
+  hapoalim: '/images/bank-logo/bank.png',
+  absa: '/images/bank-logo/bank.png',
+  ally: '/images/bank-logo/bank.png',
+  anz: '/images/bank-logo/bank.png',
+  associated: '/images/bank-logo/bank.png',
+  other: '/images/bank-logo/bank.png',
 };
 
 const DISPLAY_NAME_BY_KEY: Record<BankLogoKey, string> = {
-	kaspi: "Kaspi",
-	bereke: "Bereke",
-	hapoalim: "Bank Hapoalim",
-	absa: "Absa Bank",
-	ally: "Ally Bank",
-	anz: "ANZ",
-	associated: "Associated Bank",
-	other: "Bank",
+  kaspi: 'Kaspi',
+  bereke: 'Bereke',
+  hapoalim: 'Bank Hapoalim',
+  absa: 'Absa Bank',
+  ally: 'Ally Bank',
+  anz: 'ANZ',
+  associated: 'Associated Bank',
+  other: 'Bank',
 };
 
 const normalize = (value: string): string =>
-	value
-		.trim()
-		.toLowerCase()
-		.replace(/[\u00A0\s]+/g, " ")
-		.replace(/[._-]+/g, " ")
-		.replace(/[()]/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[\u00A0\s]+/g, ' ')
+    .replace(/[._-]+/g, ' ')
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const resolveKeyFromName = (bankName: string): BankLogoKey => {
-	const n = normalize(bankName);
+  const n = normalize(bankName);
 
-	// Backend enum values
-	if (n === "kaspi" || n.includes("kaspi")) {
-		return "kaspi";
-	}
-	if (n === "bereke new" || n === "bereke old" || n.includes("bereke")) {
-		return "bereke";
-	}
-	if (n.includes("hapoalim")) {
-		return "hapoalim";
-	}
-	if (n === "absa" || n.startsWith("absa ")) {
-		return "absa";
-	}
-	if (n === "ally" || n.startsWith("ally bank")) {
-		return "ally";
-	}
-	if (n === "anz" || n.startsWith("anz ")) {
-		return "anz";
-	}
-	if (n === "associated" || n.startsWith("associated bank")) {
-		return "associated";
-	}
-	if (n === "other") {
-		return "other";
-	}
+  // Backend enum values
+  if (n === 'kaspi' || n.includes('kaspi')) {
+    return 'kaspi';
+  }
+  if (n === 'bereke new' || n === 'bereke old' || n.includes('bereke')) {
+    return 'bereke';
+  }
+  if (n.includes('hapoalim')) {
+    return 'hapoalim';
+  }
+  if (n === 'absa' || n.startsWith('absa ')) {
+    return 'absa';
+  }
+  if (n === 'ally' || n.startsWith('ally bank')) {
+    return 'ally';
+  }
+  if (n === 'anz' || n.startsWith('anz ')) {
+    return 'anz';
+  }
+  if (n === 'associated' || n.startsWith('associated bank')) {
+    return 'associated';
+  }
+  if (n === 'other') {
+    return 'other';
+  }
 
-	// Common aliases / noisy variants
-	if (n.includes("kaspi bank")) {
-		return "kaspi";
-	}
-	if (n.includes("bereke bank")) {
-		return "bereke";
-	}
+  // Common aliases / noisy variants
+  if (n.includes('kaspi bank')) {
+    return 'kaspi';
+  }
+  if (n.includes('bereke bank')) {
+    return 'bereke';
+  }
 
-	return "other";
+  return 'other';
 };
 
 export const resolveBankLogo = (bankName?: string | null): ResolvedBankLogo => {
-	const key = bankName ? resolveKeyFromName(bankName) : "other";
-	return {
-		key,
-		src: LOGO_SRC_BY_KEY[key],
-		displayName: DISPLAY_NAME_BY_KEY[key],
-	};
+  const key = bankName ? resolveKeyFromName(bankName) : 'other';
+  return {
+    key,
+    src: LOGO_SRC_BY_KEY[key],
+    displayName: DISPLAY_NAME_BY_KEY[key],
+  };
 };
