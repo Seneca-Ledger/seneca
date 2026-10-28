@@ -2356,10 +2356,14 @@ describe('API contracts (e2e)', () => {
       }
       const audit = await get('/audit-events?limit=50');
       expect(audit.body.data.length).toBeGreaterThan(0);
-      // The trail names its actor by id and label; the account row stays home.
+      // The trail names its actor by id and label, and draws them by name, e-mail
+      // and photo as the account menu does; the rest of the account row stays home.
       for (const event of audit.body.data) {
-        expect(event).not.toHaveProperty('actor');
+        if (event.actor) {
+          expect(Object.keys(event.actor).sort()).toEqual(['avatarUrl', 'email', 'name']);
+        }
       }
+      expect(audit.body.data.some((event: { actor?: unknown }) => event.actor)).toBe(true);
       const history = await get('/reports/history');
       for (const row of history.body) {
         for (const key of internal) expect(row).not.toHaveProperty(key);

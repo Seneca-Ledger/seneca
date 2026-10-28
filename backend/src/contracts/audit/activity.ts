@@ -48,6 +48,16 @@ export const AuditEvent = Schema.Struct({
   actorType: Schema.Literals(['user', 'system', 'integration', 'ai']),
   actorId: Schema.NullOr(Schema.String),
   actorLabel: Schema.String,
+  /** The member who acted, as the account menu shows them: their avatar matches it. */
+  actor: Schema.optional(
+    Schema.NullOr(
+      Schema.Struct({
+        name: Schema.String,
+        email: Schema.String,
+        avatarUrl: Schema.NullOr(Schema.String),
+      }),
+    ),
+  ),
   entityType: Schema.String,
   entityId: Schema.String,
   action: Schema.Literals([
