@@ -7,7 +7,10 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
+import { canTeach } from '@/app/components/pdf-teach/teach-utils';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
+import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import type { StatementParsingDetails } from '../editHelpers';
@@ -15,7 +18,7 @@ import type { StatementParsingDetails } from '../editHelpers';
 export const NEEDS_REVIEW_STATUS = 'needs_review';
 
 export type BalanceReviewAlertProps = {
-  statementId: string;
+  statement: { id: string; fileName: string; fileType: string };
   status: string;
   parsingDetails?: StatementParsingDetails | null;
   labels: {
@@ -197,6 +200,23 @@ function useConfirmBalance({
   return { confirming, error, confirm };
 }
 
+/** Teach the parser the layout instead of accepting a reading its own checks find wrong. */
+function TeachAction({ onTeach }: { onTeach: () => void }): React.ReactElement {
+  const t = useIntlayer('pdfTeach');
+  return (
+    <Button
+      color="inherit"
+      size="small"
+      variant="outlined"
+      onClick={onTeach}
+      title={t.teachHint.value}
+      data-testid="teach-layout-button"
+    >
+      {t.teachButton}
+    </Button>
+  );
+}
+
 function ErrorLine({ error }: { error: string | null }): React.ReactElement | null {
   if (!error) {
     return null;
@@ -219,15 +239,16 @@ function ErrorLine({ error }: { error: string | null }): React.ReactElement | nu
  * misreading rows. Confirming is audited on the backend.
  */
 export function BalanceReviewAlert({
-  statementId,
+  statement,
   status,
   parsingDetails,
   labels,
   formatNumber,
   onConfirmed,
 }: BalanceReviewAlertProps): React.ReactElement | null {
+  const [teaching, setTeaching] = useState(false);
   const { confirming, error, confirm } = useConfirmBalance({
-    statementId,
+    statementId: statement.id,
     failureLabel: labels.confirmFailed,
     onConfirmed,
   });
@@ -243,7 +264,14 @@ export function BalanceReviewAlert({
     <Alert
       severity="warning"
       sx={{ mb: 2 }}
-      action={<ConfirmButton confirming={confirming} label={labels.confirm} onConfirm={confirm} />}
+      action={
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {canTeach({ ...statement, status, parsingDetails }) ? (
+            <TeachAction onTeach={() => setTeaching(true)} />
+          ) : null}
+          <ConfirmButton confirming={confirming} label={labels.confirm} onConfirm={confirm} />
+        </Box>
+      }
     >
       <AlertTitle sx={{ fontWeight: 600 }}>
         {heldByChecks ? labels.checksTitle : labels.title}
@@ -256,6 +284,17 @@ export function BalanceReviewAlert({
       />
       <FailedChecks checks={checks} labels={labels} formatNumber={formatNumber} />
       <ErrorLine error={error} />
+      <PDFPreviewModal
+        isOpen={teaching}
+        teach
+        fileId={statement.id}
+        fileName={statement.fileName}
+        onClose={() => {
+          setTeaching(false);
+          // Teaching reads the statement again: its rows and status change.
+          onConfirmed();
+        }}
+      />
     </Alert>
   );
 }

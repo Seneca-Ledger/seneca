@@ -7,6 +7,10 @@ import { BalanceReviewAlert } from './BalanceReviewAlert';
 
 const post = vi.fn();
 vi.mock('@/app/lib/api', () => ({ default: { post: (...args: unknown[]) => post(...args) } }));
+vi.mock('@/app/components/PDFPreviewModal', () => ({
+  PDFPreviewModal: ({ isOpen, teach }: { isOpen: boolean; teach?: boolean }) =>
+    isOpen ? <div data-testid="preview-modal">{teach ? 'teach' : 'view'}</div> : null,
+}));
 
 const labels = {
   title: 'Balance does not reconcile',
@@ -56,7 +60,7 @@ describe('BalanceReviewAlert', () => {
     act(async () => {
       root.render(
         <BalanceReviewAlert
-          statementId="stmt-1"
+          statement={{ id: 'stmt-1', fileName: 'statement.pdf', fileType: 'pdf' }}
           status="needs_review"
           parsingDetails={parsingDetails}
           labels={labels}
@@ -128,6 +132,16 @@ describe('BalanceReviewAlert', () => {
 
     expect(container.textContent).toContain('Failed to confirm the discrepancy');
     expect(onConfirmed).not.toHaveBeenCalled();
+  });
+
+  it('offers teaching the layout when the parser read nothing or its checks broke', async () => {
+    const teachButton = () => container.querySelector('[data-testid="teach-layout-button"]');
+    await render({ parsingDetails: { validation: { passed: false, reasonCodes: ['balance_mismatch'] } } });
+    expect(teachButton()).toBeNull();
+
+    await render({ parsingDetails: { validation: { passed: false, reasonCodes: ['balance_chain'] } } });
+    await act(async () => (teachButton() as HTMLButtonElement).click());
+    expect(container.querySelector('[data-testid="preview-modal"]')?.textContent).toBe('teach');
   });
 
   it('still renders when the backend reported no balance figures', async () => {

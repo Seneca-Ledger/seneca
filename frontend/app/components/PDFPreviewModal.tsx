@@ -7,7 +7,11 @@ import { useIntlayer } from '@/app/i18n';
 import { apiBaseUrl } from '@/app/lib/api';
 import { hasSessionCookie } from '@/app/lib/csrf';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
+import { downloadFile } from './pdf-preview/download-file';
 import { configureBundledPdfWorker } from './pdf-preview/pdf-worker';
+import { TeachOverlay } from './pdf-teach/TeachOverlay';
+import { TeachToolbar } from './pdf-teach/TeachToolbar';
+import { useTeachSession } from './pdf-teach/useTeachSession';
 import { ModalShell } from './ui/modal-shell';
 
 type ReactPdfComponentProps = Record<string, unknown>;
@@ -32,6 +36,8 @@ interface PdfPreviewModalProps {
   allowAttachFile?: boolean;
   onFileAttached?: () => void;
   onParsingStarted?: () => void;
+  /** Marking mode: the user tags areas of a statement its parser could not read. */
+  teach?: boolean;
 }
 
 const isJsdomEnvironment = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent);
@@ -57,8 +63,11 @@ export function PDFPreviewModal({
   allowAttachFile = false,
   onFileAttached,
   onParsingStarted,
+  teach = false,
 }: PdfPreviewModalProps) {
   const t = useIntlayer('pdfPreviewModal');
+  const teachText = useIntlayer('pdfTeach');
+  const session = useTeachSession(isOpen && teach ? fileId : null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,40 +231,13 @@ export function PDFPreviewModal({
     };
   }, [menuOpen]);
 
-  const handleDownload = async () => {
-    return await (async () => {
-      const headers = getWorkspaceHeaders();
-      if (!hasSessionCookie()) {
-        alert(t.errors.authRequired.value);
-        return;
-      }
-
-      const fileEndpoint = getFileEndpoint(source, fileId);
-
-      const response = await fetch(fileEndpoint, {
-        method: 'GET',
-        headers,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(t.errors.downloadFailed.value);
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    })().catch(async err => {
-      console.error('Error downloading PDF:', err);
-      alert(t.errors.downloadAlertFailed.value);
-    });
-  };
+  const handleDownload = () =>
+    downloadFile(
+      getFileEndpoint(source, fileId),
+      fileName,
+      { authRequired: t.errors.authRequired.value, failed: t.errors.downloadAlertFailed.value },
+      alert,
+    );
 
   const handleDownloadFromMenu = () => {
     setMenuOpen(false);
@@ -351,7 +333,9 @@ export function PDFPreviewModal({
     >
       <div className="seneca-pdf-preview-modal__body">
         <div className="seneca-pdf-preview-modal__header" ref={menuRef}>
-          <h2 className="seneca-pdf-preview-modal__title">{t.receiptTitle}</h2>
+          <h2 className="seneca-pdf-preview-modal__title">
+            {teach ? teachText.title : t.receiptTitle}
+          </h2>
 
           <div className="seneca-pdf-preview-modal__header-actions">
             <button
@@ -514,7 +498,13 @@ export function PDFPreviewModal({
                         renderTextLayer={false}
                         renderAnnotationLayer={false}
                         className="seneca-pdf-preview-modal__pdf-page"
+                        onLoadSuccess={({ originalWidth }: { originalWidth: number }) =>
+                          session.setPageWidth(index + 1, originalWidth)
+                        }
                       />
+                      {teach && (
+                        <TeachOverlay page={index + 1} width={pageWidth} session={session} />
+                      )}
                     </div>
                   ))}
                 </DocumentComponent>
@@ -522,6 +512,7 @@ export function PDFPreviewModal({
             </div>
           )}
         </div>
+        {teach && <TeachToolbar session={session} onDone={onClose} />}
       </div>
     </ModalShell>
   );

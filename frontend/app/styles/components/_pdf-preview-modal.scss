@@ -476,6 +476,7 @@
   }
 
   &__pdf-page-wrap {
+    position: relative;
     display: flex;
     width: 100%;
     justify-content: center;

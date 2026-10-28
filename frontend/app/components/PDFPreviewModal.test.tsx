@@ -44,6 +44,11 @@ vi.mock('@/app/i18n', () => ({
   }),
 }));
 
+// Marking mode has its own tests (pdf-teach); here the preview runs without it.
+vi.mock('./pdf-teach/useTeachSession', () => ({
+  useTeachSession: () => ({ pageWidths: {}, setPageWidth: () => undefined }),
+}));
+
 vi.mock('./ui/modal-shell', () => ({
   ModalShell: ({ isOpen, children }: { isOpen: boolean; children: React.ReactNode }) =>
     isOpen ? <div>{children}</div> : null,

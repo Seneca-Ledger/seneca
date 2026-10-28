@@ -100,6 +100,7 @@ export type StatementParsingDetails = ContractStatementParsingDetails;
 export interface Statement {
   id: string;
   fileName: string;
+  fileType: string;
   status: string;
   totalTransactions: number;
   categoryId?: string | null;

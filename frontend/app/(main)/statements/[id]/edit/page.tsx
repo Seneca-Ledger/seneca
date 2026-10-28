@@ -431,7 +431,7 @@ export default function EditStatementPage(): React.JSX.Element {
 
       {statement && (
         <BalanceReviewAlert
-          statementId={statement.id}
+          statement={statement}
           status={statement.status}
           parsingDetails={statement.parsingDetails}
           formatNumber={formatNumber}

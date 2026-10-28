@@ -113,7 +113,7 @@ interface Props {
   onToggleSortDirection: () => void;
   onToggleStatement: (id: string) => void;
   onView: (statement: StatementForTable) => void;
-  onIconClick: (statement: StatementForTable) => void;
+  onIconClick: (statement: StatementForTable, mode?: 'teach') => void;
   onPageChange: (page: number) => void;
 }
 
@@ -396,7 +396,7 @@ export function StatementsListTable({
                     isManualExpense={rowData.isManualExpense}
                     viewDisabled={rowData.isProcessingStatement}
                     onView={() => onView(statement)}
-                    onIconClick={() => onIconClick(statement)}
+                    onIconClick={mode => onIconClick(statement, mode)}
                     onToggleSelect={() => onToggleStatement(statement.id)}
                     selected={selectedStatementIds.includes(statement.id)}
                     columns={shownColumns}
