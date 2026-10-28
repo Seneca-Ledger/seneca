@@ -279,6 +279,10 @@ jobs:
             node scripts/check-file-size.mjs --base "origin/$BASE_REF"
           fi
 
+      # The Worker that receives shared statement layouts (infra/parser-submissions).
+      - name: Parser submissions worker
+        run: npm run test:parser-submissions
+
   # Deliberately not behind `lint`. Everything downstream used to wait on it, so a
   # single misformatted line skipped typecheck, tests and build and reported one
   # failure while real type errors reached main unseen.

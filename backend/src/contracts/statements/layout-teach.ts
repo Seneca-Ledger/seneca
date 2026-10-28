@@ -82,3 +82,39 @@ export const TeachLayoutPreview = Schema.Struct({
   ),
 });
 export type TeachLayoutPreview = Wire<typeof TeachLayoutPreview>;
+
+/**
+ * A taught layout as it leaves the instance when the user shares it with the
+ * project: headings, column positions, balance labels, the bank's name.
+ */
+export const LayoutSubmission = Schema.Struct({
+  version: Schema.Literal(1),
+  bankName: Schema.String,
+  institution: Schema.optional(Schema.String),
+  headings: Schema.Array(Schema.Struct({ phrase: Schema.String, role: Schema.String })),
+  columns: Schema.Array(
+    Schema.Struct({ role: Schema.String, x0: Schema.Number, x1: Schema.Number }),
+  ),
+  balances: Schema.Struct({
+    start: Schema.optional(Schema.String),
+    end: Schema.optional(Schema.String),
+  }),
+  appVersion: Schema.optional(Schema.String),
+});
+export type LayoutSubmission = Wire<typeof LayoutSubmission>;
+
+/** `GET /statements/:id/teach/share`: what sharing the statement's layout would send, and how. */
+export const TeachShareInfo = Schema.Struct({
+  /** False when the instance turned sharing off: the offer is not shown. */
+  enabled: Schema.Boolean,
+  /** False when no receiving service is set: the user sends it by e-mail. */
+  direct: Schema.Boolean,
+  /** Where an e-mail goes, and whom to ask to delete what was sent. */
+  email: Schema.String,
+  submission: LayoutSubmission,
+});
+export type TeachShareInfo = Wire<typeof TeachShareInfo>;
+
+/** `POST /statements/:id/teach/share`. */
+export const TeachShareResult = Schema.Struct({ sent: Schema.Literal(true) });
+export type TeachShareResult = Wire<typeof TeachShareResult>;

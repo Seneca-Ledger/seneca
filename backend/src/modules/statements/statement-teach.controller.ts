@@ -12,9 +12,12 @@ import {
   StatementWritten,
   TeachLayoutBody,
   TeachLayoutPreview,
+  TeachShareInfo,
+  TeachShareResult,
 } from '../../contracts';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { LayoutShareService } from '../parsing/services/layout-share.service';
 import { LayoutTemplateService } from '../parsing/services/layout-template.service';
 import { StatementsService } from './statements.service';
 
@@ -28,7 +31,33 @@ export class StatementTeachController {
   constructor(
     private readonly layoutTemplates: LayoutTemplateService,
     private readonly statementsService: StatementsService,
+    private readonly layoutShare: LayoutShareService,
   ) {}
+
+  @Get(':id/teach/share')
+  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @ApiOperation({ summary: "What sharing the statement's taught layout with the project sends" })
+  @SchemaResponse(TeachShareInfo)
+  shareInfo(
+    @SchemaParams(StatementParams) { id }: StatementParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.layoutShare.info(id, workspaceId);
+  }
+
+  @Post(':id/teach/share')
+  @HttpCode(200)
+  @WorkspaceAuth(Permission.STATEMENT_EDIT)
+  @ApiOperation({
+    summary: "Send the statement's taught layout to the project, at the user's request",
+  })
+  @SchemaResponse(TeachShareResult)
+  share(
+    @SchemaParams(StatementParams) { id }: StatementParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    return this.layoutShare.share(id, workspaceId);
+  }
 
   @Get(':id/layout-words')
   @WorkspaceAuth(Permission.STATEMENT_EDIT)

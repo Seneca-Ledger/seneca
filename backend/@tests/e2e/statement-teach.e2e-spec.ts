@@ -3,6 +3,7 @@ vi.mock('franc', () => ({
 }));
 
 import * as fs from 'fs';
+import * as http from 'http';
 import * as os from 'os';
 import * as path from 'path';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
@@ -81,9 +82,11 @@ describe('Teaching a statement layout (e2e)', () => {
   const emails = {
     owner: `teach-owner-${stamp}@example.com`,
     other: `teach-other-${stamp}@example.com`,
+    sharer: `teach-sharer-${stamp}@example.com`,
   };
   let owner: E2eAccount;
   let other: E2eAccount;
+  let sharer: E2eAccount;
   const files: string[] = [];
 
   const as = (account: E2eAccount, req: request.Test) =>
@@ -123,6 +126,7 @@ describe('Teaching a statement layout (e2e)', () => {
     pdf = await statementPdf();
     owner = await registerAccount(app, emails.owner, 'Teach Owner');
     other = await registerAccount(app, emails.other, 'Teach Other');
+    sharer = await registerAccount(app, emails.sharer, 'Teach Sharer');
   });
 
   afterAll(async () => {
@@ -226,5 +230,59 @@ describe('Teaching a statement layout (e2e)', () => {
     const elsewhere = await seedStatement(other);
     expect(elsewhere.status).not.toBe(StatementStatus.COMPLETED);
     expect(await rowsOf(elsewhere.id)).toHaveLength(0);
+  });
+
+  it('shares the taught layout with the project only, and refuses another workspace', async () => {
+    const received: unknown[] = [];
+    let answer = 201;
+    const receiver = http.createServer((request, response) => {
+      let body = '';
+      request.on('data', chunk => {
+        body += chunk;
+      });
+      request.on('end', () => {
+        received.push(JSON.parse(body));
+        response.writeHead(answer, { 'content-type': 'application/json' });
+        response.end(JSON.stringify(answer === 201 ? { received: true } : { error: 'down' }));
+      });
+    });
+    await new Promise<void>(resolve => receiver.listen(0, '127.0.0.1', resolve));
+    const { port } = receiver.address() as { port: number };
+    process.env.PARSER_SUBMISSIONS_URL = `http://127.0.0.1:${port}/submit`;
+    try {
+      const statement = await seedStatement(sharer);
+      await as(sharer, request(server()).get(`/statements/${statement.id}/teach/share`)).expect(404);
+      await as(sharer, request(server()).post(`/statements/${statement.id}/teach`))
+        .send({ regions: REGIONS })
+        .expect(201);
+
+      const info = await as(
+        sharer,
+        request(server()).get(`/statements/${statement.id}/teach/share`),
+      ).expect(200);
+      expect(info.body).toMatchObject({ enabled: true, direct: true, email: 'peterbaikov12@proton.me' });
+      expect(info.body.submission.headings.map((h: { phrase: string }) => h.phrase)).toContain('when');
+
+      await as(other, request(server()).post(`/statements/${statement.id}/teach/share`)).expect(404);
+      expect(received).toHaveLength(0);
+
+      // The body is not read: what leaves is built from the stored layout.
+      await as(sharer, request(server()).post(`/statements/${statement.id}/teach/share`))
+        .send({ headings: [{ phrase: 'smuggled', role: 'date' }] })
+        .expect(200, { sent: true });
+      // What left is what the user was shown: the layout, no row of the statement.
+      expect(received).toEqual([info.body.submission]);
+      expect(JSON.stringify(received)).not.toMatch(/acme|member|12\.50|987/i);
+
+      answer = 500;
+      await as(sharer, request(server()).post(`/statements/${statement.id}/teach/share`)).expect(502);
+
+      process.env.PARSER_SUBMISSIONS_ENABLED = 'false';
+      await as(sharer, request(server()).post(`/statements/${statement.id}/teach/share`)).expect(403);
+    } finally {
+      delete process.env.PARSER_SUBMISSIONS_URL;
+      delete process.env.PARSER_SUBMISSIONS_ENABLED;
+      await new Promise(resolve => receiver.close(resolve));
+    }
   });
 });

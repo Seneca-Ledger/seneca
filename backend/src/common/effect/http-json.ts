@@ -63,6 +63,27 @@ export const getWith = <A, E, R>(
     return yield* read(response);
   }).pipe(Effect.timeout(options.timeout));
 
+/**
+ * POST a JSON body and decode the JSON answer. Not retried: a POST that
+ * reached the other side and failed after it would be sent twice. Non-2xx
+ * fails with an HttpClientError, as with getJson.
+ */
+export const postJson = <A>(
+  url: string,
+  body: unknown,
+  schema: Schema.Codec<A, unknown>,
+  options: { readonly timeout: Duration.Input; readonly headers?: Record<string, string> },
+) =>
+  Effect.gen(function* () {
+    const client = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk);
+    const request = HttpClientRequest.post(url).pipe(
+      HttpClientRequest.setHeaders({ accept: 'application/json', ...options.headers }),
+      HttpClientRequest.bodyJsonUnsafe(body),
+    );
+    const response = yield* client.execute(request);
+    return yield* HttpClientResponse.schemaBodyJson(schema)(response);
+  }).pipe(Effect.timeout(options.timeout));
+
 /** The media type of a response, without parameters (`image/png; q=1` → `image/png`). */
 export const contentTypeOf = (response: HttpClientResponse.HttpClientResponse): string =>
   (response.headers['content-type'] ?? '').split(';')[0].trim();

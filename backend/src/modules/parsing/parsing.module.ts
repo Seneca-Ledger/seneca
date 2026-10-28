@@ -25,6 +25,7 @@ import { STATEMENT_PARSING_QUEUE, StatementParsingQueue } from './queue/statemen
 // import { ColumnAutoFixService } from './services/column-auto-fix.service';
 // import { ColumnValidationService } from './services/column-validation.service';
 import { DocumentClassifierService } from './services/document-classifier.service';
+import { LayoutShareService } from './services/layout-share.service';
 import { LayoutTemplateService } from './services/layout-template.service';
 // import { FeatureFlagService } from './services/feature-flag.service';
 // import { IntelligentDeduplicationService } from './services/intelligent-deduplication.service';
@@ -83,6 +84,7 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
     ParserFactoryService,
     ParserHealthService,
     LayoutTemplateService,
+    LayoutShareService,
     StatementProcessingService,
     StatementSiblingsService,
     StatementParsingQueue,
@@ -115,6 +117,7 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
   exports: [
     ParserFactoryService,
     LayoutTemplateService,
+    LayoutShareService,
     StatementProcessingService,
     StatementParsingQueue,
     // StatementQualityGate,
