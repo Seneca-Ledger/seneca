@@ -31,6 +31,23 @@ export interface Evidence {
   statementsRead: number;
 }
 
+/** How the statement prints: shapes (digits as #) and spacing, no figure. */
+export interface Print {
+  dateShape?: string;
+  amounts?: {
+    decimal: string;
+    thousands: string;
+    negative: 'minus' | 'trailing-minus' | 'parentheses' | 'none';
+    marks: string[];
+  };
+  descriptionLines: number;
+  pages: number;
+  headerOnEveryPage: boolean;
+  fontSize?: number;
+  rowGap?: number;
+  currency?: string;
+}
+
 export interface Submission {
   version: 1;
   bankName: string;
@@ -40,6 +57,7 @@ export interface Submission {
   balances: { start?: string; end?: string };
   appVersion?: string;
   evidence?: Evidence;
+  print?: Print;
 }
 
 const MAX_TEXT = 80;
@@ -72,6 +90,58 @@ const isOutcome = (value: unknown): value is Outcome =>
   (OUTCOMES as readonly unknown[]).includes(value);
 const isCount = (value: unknown): value is number =>
   Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 100_000;
+
+const NEGATIVES = ['minus', 'trailing-minus', 'parentheses', 'none'] as const;
+const between = (value: unknown, low: number, high: number): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= low && value <= high;
+const optional = <T>(value: unknown, test: (value: unknown) => value is T) =>
+  value === undefined || test(value);
+
+function amountsOf(value: unknown): Print['amounts'] | null {
+  if (
+    isRecord(value) &&
+    Object.keys(value).every(key => ['decimal', 'thousands', 'negative', 'marks'].includes(key)) &&
+    typeof value.decimal === 'string' &&
+    ['.', ',', ''].includes(value.decimal) &&
+    typeof value.thousands === 'string' &&
+    [',', '.', ' ', "'", '’', ''].includes(value.thousands) &&
+    (NEGATIVES as readonly unknown[]).includes(value.negative) &&
+    Array.isArray(value.marks) &&
+    value.marks.length <= 4 &&
+    value.marks.every(mark => typeof mark === 'string' && /^[A-Z]{2,3}$/.test(mark))
+  ) {
+    return value as Print['amounts'];
+  }
+  return null;
+}
+
+/** How the statement prints, if sent: shapes and spacing only, nothing else. */
+function printOf(value: unknown, errors: string[]): Print | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const keys = ['dateShape', 'amounts', 'descriptionLines', 'pages', 'headerOnEveryPage', 'fontSize', 'rowGap', 'currency'];
+  const ok =
+    isRecord(value) &&
+    Object.keys(value).every(key => keys.includes(key)) &&
+    optional(value.dateShape, (shape): shape is string =>
+      typeof shape === 'string' && /^[#\p{L} .,/'-]{4,24}$/u.test(shape),
+    ) &&
+    (value.amounts === undefined || amountsOf(value.amounts) !== null) &&
+    Number.isInteger(value.descriptionLines) &&
+    between(value.descriptionLines, 1, 10) &&
+    Number.isInteger(value.pages) &&
+    between(value.pages, 0, 1000) &&
+    typeof value.headerOnEveryPage === 'boolean' &&
+    optional(value.fontSize, (size): size is number => between(size, 1, 72)) &&
+    optional(value.rowGap, (gap): gap is number => between(gap, 1, 200)) &&
+    optional(value.currency, (code): code is string => typeof code === 'string' && /^[A-Z]{3}$/.test(code));
+  if (!ok) {
+    errors.push('print');
+    return undefined;
+  }
+  return value as unknown as Print;
+}
 
 function evidenceOf(value: unknown, errors: string[]): Evidence | undefined {
   if (value === undefined) {
@@ -128,6 +198,7 @@ export function parseSubmission(body: unknown): Result {
     'balances',
     'appVersion',
     'evidence',
+    'print',
   ];
   const unknown = Object.keys(body).filter(key => !known.includes(key));
   if (unknown.length > 0) {
@@ -166,6 +237,7 @@ export function parseSubmission(body: unknown): Result {
     },
     appVersion: text(body.appVersion, 'appVersion', errors),
     evidence: evidenceOf(body.evidence, errors),
+    print: printOf(body.print, errors),
   };
   if (headings.length === 0 && columns.length === 0) {
     errors.push('empty');
@@ -204,6 +276,28 @@ export function evidenceLine(submission: Submission): string {
   ].join(' · ');
 }
 
+/** How the statement prints, as one line. */
+export function printLine(submission: Submission): string | null {
+  const print = submission.print;
+  if (!print) {
+    return null;
+  }
+  const amounts = print.amounts;
+  const figure = amounts ? `1${amounts.thousands}234${amounts.decimal}56` : null;
+  return [
+    `**Print:** dates \`${print.dateShape ?? '?'}\``,
+    amounts
+      ? `amounts \`${figure}\`, negative ${amounts.negative}${amounts.marks.length > 0 ? `, marks ${amounts.marks.join('/')}` : ''}`
+      : null,
+    `${print.descriptionLines} line(s) per description`,
+    `${print.pages} page(s), headings ${print.headerOnEveryPage ? 'on every page' : 'on the first page only'}`,
+    print.fontSize ? `${print.fontSize}pt type, rows ${print.rowGap ?? '?'}pt apart` : null,
+    print.currency ?? null,
+  ]
+    .filter(part => part !== null)
+    .join(' · ');
+}
+
 /** The issue a submission is filed as: a title to scan the queue by, the layout as JSON. */
 export function issueFor(
   submission: Submission,
@@ -215,6 +309,7 @@ export function issueFor(
     `**Bank:** ${name} (\`${submission.bankName}\`)`,
     `**Layout key:** \`${key}\` (the same headings from anyone come back here as comments)`,
     evidenceLine(submission),
+    printLine(submission),
     submission.appVersion ? `**App version:** ${submission.appVersion}` : null,
     '',
     '**Headings**',

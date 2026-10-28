@@ -46,7 +46,11 @@ node scripts/layout-to-golden.mjs submission.json <bank-name>
 It writes an invented statement in that layout (`golden/<bank-name>/synthetic.pdf`)
 and what reading it must give, and prints the entry to add to
 `CONTRIBUTED_LAYOUTS` in `src/modules/parsing/helpers/contributed-layouts.ts`.
-Its headings are read only in files that name the bank, so a wrong submission
+The statement is printed the way the bank prints (the submission's `print`:
+date and amount shapes with digits as #, the minus, marks such as CR/DR,
+two-line descriptions, a second page with or without the headings, type size
+and row spacing, the currency), so the case tests what the bank's real files
+put to the parser. Its headings are read only in files that name the bank, so a wrong submission
 cannot misread another bank's statements. With it in place,
 `GOLDEN_ENABLED=1 npx vitest run --project golden` reads the case.
 

@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import type { PdfTextItem, PdfTextRow } from '../../../common/utils/pdf-parser.util';
 import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
+import { type LayoutPrint, layoutPrint } from './layout-print.helper';
 import { type ColumnRole, headingWord, type LayoutColumn } from './pdf-layout-columns.helper';
 import type { LayoutReading } from './pdf-layout-table.helper';
 import { findStatementAmounts } from './statement-amount.helper';
@@ -55,6 +56,8 @@ export interface LayoutTemplate {
   balances: { start?: string; end?: string };
   /** The bank's name as the statement prints it, for a bank no parser knows. */
   institution?: string;
+  /** How the statement prints (layout-print.helper): shapes and spacing, no figures. */
+  print?: LayoutPrint;
 }
 
 /** The tags a reading cannot do without. */
@@ -278,6 +281,7 @@ export function templateFromRegions(
       rows,
       regions.find(region => region.tag === 'bankName'),
     ),
+    print: layoutPrint(rows, regions, new Map(headings.map(h => [h.phrase, h.role]))),
   };
 }
 

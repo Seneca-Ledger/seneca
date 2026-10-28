@@ -14,6 +14,16 @@ const layout = {
   balances: { start: 'brought forward' },
   appVersion: '1.0.0',
   evidence: { rows: 6, balanceChain: 'passed', printedTotals: 'unchecked', statementsRead: 2 },
+  print: {
+    dateShape: '##.##.####',
+    amounts: { decimal: ',', thousands: '.', negative: 'parentheses', marks: ['CR'] },
+    descriptionLines: 2,
+    pages: 2,
+    headerOnEveryPage: true,
+    fontSize: 8,
+    rowGap: 30,
+    currency: 'EUR',
+  },
 };
 
 describe('parseSubmission', () => {
@@ -45,6 +55,10 @@ describe('parseSubmission', () => {
       { ...layout, bankName: 'Other Bank!' },
       { ...layout, headings: [], columns: [] },
       { ...layout, version: 2 },
+      { ...layout, print: { ...layout.print, dateShape: '01.02.2025' } },
+      { ...layout, print: { ...layout.print, currency: 'euro' } },
+      { ...layout, print: { ...layout.print, note: 'Member One' } },
+      { ...layout, print: { ...layout.print, amounts: { ...layout.print.amounts, marks: ['Member'] } } },
       { ...layout, evidence: { rows: -1, balanceChain: 'passed', printedTotals: 'passed', statementsRead: 1 } },
       { ...layout, evidence: { rows: 1, balanceChain: 'yes', printedTotals: 'passed', statementsRead: 1 } },
       { ...layout, evidence: { rows: 1, balanceChain: 'passed', printedTotals: 'passed', statementsRead: 1, note: 'x' } },
@@ -93,6 +107,8 @@ describe('issueFor', () => {
     assert.match(issue.body, /- debit: went out/);
     assert.match(issue.body, /Layout key:\*\* `abc123abc123`/);
     assert.match(issue.body, /running balance passed/);
+    assert.match(issue.body, /dates `##\.##\.####` · amounts `1\.234,56`, negative parentheses, marks CR/);
+    assert.match(issue.body, /2 page\(s\), headings on every page · 8pt type, rows 30pt apart · EUR/);
     assert.match(issue.body, /"phrase": "when"/);
     assert.deepEqual(issue.labels, ['layout', 'key:abc123abc123']);
   });

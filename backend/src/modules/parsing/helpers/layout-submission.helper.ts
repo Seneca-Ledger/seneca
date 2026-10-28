@@ -16,6 +16,7 @@ export interface LayoutSubmission {
   balances: LayoutTemplate['balances'];
   appVersion?: string;
   evidence?: LayoutEvidence;
+  print?: LayoutTemplate['print'];
 }
 
 export type CheckOutcome = 'passed' | 'failed' | 'unchecked';
@@ -64,6 +65,7 @@ export function layoutSubmission(
       x1: tenth(column.x1),
     })),
     balances: template.balances,
+    ...(template.print ? { print: template.print } : {}),
     ...(appVersion ? { appVersion } : {}),
     ...(evidence ? { evidence } : {}),
   };

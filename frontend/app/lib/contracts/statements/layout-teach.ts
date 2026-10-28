@@ -100,6 +100,26 @@ export const LayoutSubmission = Schema.Struct({
     end: Schema.optional(Schema.String),
   }),
   appVersion: Schema.optional(Schema.String),
+  /** How the statement prints: date and amount shapes (digits as #), rows, pages, type. */
+  print: Schema.optional(
+    Schema.Struct({
+      dateShape: Schema.optional(Schema.String),
+      amounts: Schema.optional(
+        Schema.Struct({
+          decimal: Schema.String,
+          thousands: Schema.String,
+          negative: Schema.Literals(['minus', 'trailing-minus', 'parentheses', 'none']),
+          marks: Schema.Array(Schema.String),
+        }),
+      ),
+      descriptionLines: Schema.Number,
+      pages: Schema.Number,
+      headerOnEveryPage: Schema.Boolean,
+      fontSize: Schema.optional(Schema.Number),
+      rowGap: Schema.optional(Schema.Number),
+      currency: Schema.optional(Schema.String),
+    }),
+  ),
   /** How the layout read the statement it was taught on: counts and check outcomes. */
   evidence: Schema.optional(
     Schema.Struct({

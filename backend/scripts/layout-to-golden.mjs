@@ -15,7 +15,6 @@ import path from 'node:path';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 
 const PAGE = { width: 600, height: 800 };
-const SIZE = 9;
 const TEXT_ROLES = new Set(['date', 'otherDate', 'description', 'counterparty', 'other']);
 /** Columns where a layout taught without a header puts them. */
 const DEFAULT_X = {
@@ -38,8 +37,65 @@ const ROWS = [
 ];
 const OPENING = 1000;
 
-const money = value =>
-  Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+/** An invented second line, for banks whose descriptions run over two. */
+const SECOND_LINE = 'Online purchase';
+
+/** An amount as the bank prints it: its separators, and its minus where it shows one. */
+function moneyIn(print) {
+  const format = print?.amounts ?? { decimal: '.', thousands: ',', negative: 'minus', marks: [] };
+  return (value, signed = false) => {
+    const [whole, cents] = Math.abs(value).toFixed(2).split('.');
+    const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, format.thousands);
+    const plain = format.decimal ? `${grouped}${format.decimal}${cents}` : `${grouped}${cents}`;
+    if (!signed) {
+      return plain;
+    }
+    if (format.marks.includes('DR') && format.marks.includes('CR')) {
+      return `${plain} ${value < 0 ? 'DR' : 'CR'}`;
+    }
+    if (value >= 0) {
+      return plain;
+    }
+    return { parentheses: `(${plain})`, 'trailing-minus': `${plain}-`, minus: `-${plain}`, none: `-${plain}` }[
+      format.negative
+    ];
+  };
+}
+
+/**
+ * A February date in the bank's shape: numbers by the lengths of the # runs
+ * (day first unless the year leads), a month word kept as English when it is
+ * one. A shape this cannot follow falls back to dd-mm-yyyy, said on the console.
+ */
+function dateIn(shape) {
+  const fallback = day => `${String(day).padStart(2, '0')}-02-2025`;
+  if (!shape) {
+    return fallback;
+  }
+  const word = shape.match(/\p{L}+/u)?.[0];
+  if (word && !MONTHS.includes(word.slice(0, 3).toLowerCase())) {
+    console.log(`Date shape "${shape}" names a month this script cannot write; dates print as dd-mm-yyyy.`);
+    return fallback;
+  }
+  const month = word ? (word.length > 3 ? 'February' : 'Feb') : null;
+  return day => {
+    const runs = [];
+    const text = shape.replace(/#+/g, run => {
+      runs.push(run.length);
+      return `\u0000${runs.length - 1}\u0000`;
+    });
+    const yearFirst = runs[0] === 4;
+    const numbers = yearFirst ? ['2025', '02', String(day).padStart(2, '0')] : [String(day).padStart(2, '0'), '02', '2025'];
+    const values = month ? numbers.filter(value => value !== '02') : numbers;
+    return text
+      .replace(/\u0000(\d+)\u0000/g, (_, index) => {
+        const value = values[Number(index)] ?? '';
+        return runs[Number(index)] === 2 && value.length === 4 ? value.slice(2) : value;
+      })
+      .replace(/\p{L}+/u, month ?? '');
+  };
+}
 const titled = phrase => phrase.replace(/\b\p{L}/gu, letter => letter.toUpperCase());
 
 /** Each role's column: where the user drew it, or the default, and its printed heading. */
@@ -57,11 +113,11 @@ function columnsOf(submission) {
     .sort((a, b) => a.x0 - b.x0);
 }
 
-function rowCells(role, row, balance) {
+function rowCells(role, row, balance, money, date) {
   const [day, description, amount] = row;
   switch (role) {
     case 'date':
-      return `${String(day).padStart(2, '0')}-02-2025`;
+      return date(day);
     case 'description':
     case 'counterparty':
       return description;
@@ -70,9 +126,9 @@ function rowCells(role, row, balance) {
     case 'credit':
       return amount > 0 ? money(amount) : '';
     case 'amount':
-      return `${amount < 0 ? '-' : ''}${money(amount)}`;
+      return money(amount, true);
     case 'balance':
-      return money(balance);
+      return money(balance, true);
     default:
       return '';
   }
@@ -86,50 +142,75 @@ async function main() {
   }
   const submission = JSON.parse(fs.readFileSync(file, 'utf8'));
   const columns = columnsOf(submission);
+  const print = submission.print;
+  const size = print?.fontSize ?? 9;
+  const gap = Math.max(print?.rowGap ?? 20, size + 4);
+  const lines = Math.min(print?.descriptionLines ?? 1, 2);
+  const currency = print?.currency ?? 'USD';
+  const money = moneyIn(print);
+  const date = dateIn(print?.dateShape);
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const page = doc.addPage([PAGE.width, PAGE.height]);
-  const put = (text, x, top, { right = false, face = font, size = SIZE } = {}) => {
-    const width = face.widthOfTextAtSize(text, size);
-    page.drawText(text, { x: right ? x - width : x, y: PAGE.height - top - size, size, font: face });
+  let page = doc.addPage([PAGE.width, PAGE.height]);
+  const put = (text, x, top, { right = false, face = font, at = size } = {}) => {
+    const width = face.widthOfTextAtSize(text, at);
+    page.drawText(text, { x: right ? x - width : x, y: PAGE.height - top - at, size: at, font: face });
+  };
+  const headings = top => {
+    for (const column of columns) {
+      if (column.heading) {
+        const right = !TEXT_ROLES.has(column.role);
+        put(titled(column.heading), right ? column.x1 : column.x0, top, { right, face: bold });
+      }
+    }
   };
 
-  put(submission.institution ?? 'Example Bank', 40, 40, { face: bold, size: 14 });
-  put('Currency: USD', 40, 62);
+  put(submission.institution ?? 'Example Bank', 40, 40, { face: bold, at: 14 });
+  put(`Currency: ${currency}`, 40, 62);
   let top = 90;
   if (submission.balances?.start) {
     put(titled(submission.balances.start), 40, top);
     put(money(OPENING), 250, top, { right: true });
     top += 24;
   }
-  for (const column of columns) {
-    if (column.heading) {
-      const money_ = !TEXT_ROLES.has(column.role);
-      put(titled(column.heading), money_ ? column.x1 : column.x0, top, { right: money_, face: bold });
-    }
-  }
+  headings(top);
   let balance = OPENING;
   const transactions = [];
-  for (const row of ROWS) {
-    top += 20;
+  // Rows split over the pages the bank's file had, two at most.
+  const perPage = Math.ceil(ROWS.length / Math.min(Math.max(print?.pages ?? 1, 1), 2));
+  ROWS.forEach((row, index) => {
+    if (index > 0 && index % perPage === 0) {
+      page = doc.addPage([PAGE.width, PAGE.height]);
+      top = 60;
+      if (print?.headerOnEveryPage !== false) {
+        headings(top);
+      }
+    }
+    top += gap;
     balance = Number((balance + row[2]).toFixed(2));
     for (const column of columns) {
-      const text = rowCells(column.role, row, balance);
+      const text = rowCells(column.role, row, balance, money, date);
       if (text) {
         put(text, TEXT_ROLES.has(column.role) ? column.x0 : column.x1, top, {
           right: !TEXT_ROLES.has(column.role),
         });
       }
     }
+    const description = columns.find(column => column.role === 'description');
+    if (lines > 1 && description) {
+      put(SECOND_LINE, description.x0, top + size + 2);
+      top += size + 2;
+    }
+    const purpose = lines > 1 && description ? `${row[1]} ${SECOND_LINE}` : row[1];
     transactions.push({
       transactionDate: `2025-02-${String(row[0]).padStart(2, '0')}T00:00:00`,
-      counterpartyName: row[1],
-      paymentPurpose: row[1],
+      counterpartyName: purpose,
+      paymentPurpose: purpose,
       ...(row[2] < 0 ? { debit: -row[2] } : { credit: row[2] }),
-      currency: 'USD',
+      currency,
     });
-  }
+  });
   if (submission.balances?.end) {
     top += 28;
     put(titled(submission.balances.end), 40, top);
@@ -144,7 +225,7 @@ async function main() {
   const expected = {
     metadata: {
       accountNumber: '',
-      currency: 'USD',
+      currency,
       dateFrom: transactions[0].transactionDate,
       dateTo: transactions.at(-1).transactionDate,
       ...(hasBalances ? { balanceStart: OPENING, balanceEnd: balance } : {}),

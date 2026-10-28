@@ -262,6 +262,14 @@ describe('Teaching a statement layout (e2e)', () => {
       ).expect(200);
       expect(info.body).toMatchObject({ enabled: true, direct: true, email: 'peterbaikov12@proton.me' });
       expect(info.body.submission.headings.map((h: { phrase: string }) => h.phrase)).toContain('when');
+      // How the bank prints, as shapes: digits as #.
+      expect(info.body.submission.print).toMatchObject({
+        dateShape: '##-##-####',
+        amounts: { decimal: '.', thousands: ',', negative: 'none', marks: [] },
+        descriptionLines: 1,
+        pages: 1,
+        headerOnEveryPage: true,
+      });
       // How the taught layout read this statement, once it has: counts and outcomes only.
       expect(info.body.submission.evidence).toBeUndefined();
       await processing.processStatement(statement.id);
