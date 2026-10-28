@@ -26,6 +26,7 @@ const BANK_LABELS: Record<string, string> = {
   ally: 'Ally Bank',
   anz: 'ANZ',
   associated: 'Associated Bank',
+  atb: 'ATB Financial',
   other: 'Other',
 };
 

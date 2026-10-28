@@ -224,6 +224,7 @@ describe('golden parsing (optional)', () => {
           expect(toDateOnly(actualAccount.metadata.dateTo)).toBe(toDateOnly(expected.metadata.dateTo));
         }
       });
-    });
+      // A scanned statement is read by OCR, a few seconds a page.
+    }, 120_000);
   });
 });

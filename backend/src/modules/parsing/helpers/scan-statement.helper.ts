@@ -1,7 +1,8 @@
 import { resolveFileType } from '../../../common/utils/file-validator.util';
+import { ocrPdfLayout } from '../../../common/utils/pdf-ocr.util';
 import {
   extractTextAndLayoutFromPdf,
-  extractTextFromPdf,
+  extractTextLayerFromPdf,
 } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
 import { DocumentClassifierService } from '../services/document-classifier.service';
@@ -24,6 +25,8 @@ const MIN_STATEMENT_ROWS = 3;
  * reads as a receipt or an invoice, as a payment receipt naming the bank
  * does), or when its table holds dated rows. The document classifier alone
  * is not enough: it takes an e-invoice with "balance" in it for a statement.
+ * A PDF without a text layer is a scan: only its first page is read (OCR
+ * takes seconds a page, and the upload waits), and the classifier decides.
  * Images stay receipts.
  */
 export async function isBankStatementScan(
@@ -38,10 +41,13 @@ export async function isBankStatementScan(
     return false;
   }
 
-  const text = await extractTextFromPdf(file.path).catch(() => '');
+  const text = await extractTextLayerFromPdf(file.path).catch(() => '');
   if (!text.trim()) {
-    // No text layer: a photographed or scanned page, which the receipt scan reads.
-    return false;
+    const firstPage = await ocrPdfLayout(file.path, 1).catch(() => ({ text: '' }));
+    const { documentType } = new DocumentClassifierService().classify(firstPage.text, {
+      fileNameHint: file.originalname ?? undefined,
+    });
+    return documentType === 'bank_statement';
   }
 
   const { bankName } = await parserFactory.detectBankAndFormat(file.path, FileType.PDF, text);
