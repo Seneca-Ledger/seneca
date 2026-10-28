@@ -24,7 +24,8 @@ Free Workers plan; one GitHub request per submission.
    npx wrangler deploy
    ```
 
-4. The URL Wrangler prints, plus `/submit`, is the default of
+4. The URL Wrangler prints, plus `/submit` (now
+   https://stoic-parser-submissions.peterbaikov12.workers.dev/submit), is the default of
    `PARSER_SUBMISSIONS_URL` in `backend/src/modules/parsing/services/layout-share.config.ts`.
 
 ## Test

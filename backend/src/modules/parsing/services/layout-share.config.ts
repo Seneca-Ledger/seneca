@@ -3,7 +3,7 @@
  * (infra/parser-submissions); an instance can point elsewhere or turn sharing
  * off with PARSER_SUBMISSIONS_ENABLED=false, which also hides the offer.
  */
-const DEFAULT_URL = '';
+const DEFAULT_URL = 'https://stoic-parser-submissions.peterbaikov12.workers.dev/submit';
 const DEFAULT_EMAIL = 'peterbaikov12@proton.me';
 
 export interface LayoutShareConfig {
