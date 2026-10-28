@@ -69,7 +69,8 @@ export function TeachOverlay({ page, width, session }: TeachOverlayProps) {
   return (
     <div
       ref={layerRef}
-      className="seneca-pdf-teach__layer"
+      // While an area is drawn the labels step aside: they would cover what is being marked.
+      className={`seneca-pdf-teach__layer${start ? ' seneca-pdf-teach__layer--drawing' : ''}`}
       style={{ width }}
       data-testid={`teach-layer-${page}`}
       onPointerDown={event => {

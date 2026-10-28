@@ -28,8 +28,11 @@ describe('TeachOverlay', () => {
     layer.getBoundingClientRect = () => ({ left: 100, top: 50 }) as DOMRect;
     fireEvent.pointerDown(layer, { button: 0, clientX: 180, clientY: 250 });
     fireEvent.pointerMove(layer, { clientX: 300, clientY: 350 });
+    // The labels hide while an area is drawn, and come back after.
+    expect(layer.className).toContain('seneca-pdf-teach__layer--drawing');
     fireEvent.pointerUp(layer, { clientX: 300, clientY: 350 });
     expect(marks.addRegion).toHaveBeenCalledWith({ page: 1, x0: 40, y0: 100, x1: 100, y1: 150 });
+    expect(layer.className).not.toContain('seneca-pdf-teach__layer--drawing');
   });
 
   it('draws the areas of its own page, each removable, and the rows the preview read', () => {
