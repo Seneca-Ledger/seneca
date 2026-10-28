@@ -6,6 +6,7 @@ import {
   type PdfTextRow,
 } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
+import { findAccountNumberInColumn } from '../helpers/pdf-layout-account-number.helper';
 import {
   type LayoutTransaction,
   openingBalanceFromRows,
@@ -21,6 +22,7 @@ import { detectNumericDateOrder, type NumericDateOrder } from '../helpers/statem
 import {
   detectStatementCurrency,
   findAccountNumber,
+  findBalanceRowPeriod,
   findStatementAnchor,
   findStatementBalances,
   findStatementPeriod,
@@ -108,12 +110,18 @@ export class GenericPdfParser extends BaseParser {
       transactionDates.length > 0
         ? new Date(Math.max(...transactionDates.map(d => d.getTime())))
         : null;
-    const dateFrom = dateRange?.from || minDate || new Date();
-    const dateTo = dateRange?.to || maxDate || dateFrom;
+    // A month without movements still dates its balance rows.
+    const balanceRows = minDate ? null : findBalanceRowPeriod(text, dateOrder);
+    const dateFrom = dateRange?.from || minDate || balanceRows?.from || new Date();
+    const dateTo = dateRange?.to || maxDate || balanceRows?.to || dateFrom;
 
     return {
       metadata: {
-        accountNumber: this.extractAccountNumber(text) || findAccountNumber(text) || '',
+        accountNumber:
+          this.extractAccountNumber(text) ||
+          findAccountNumber(text) ||
+          findAccountNumberInColumn(layoutRows) ||
+          '',
         currency: detectedCurrency,
         dateFrom,
         dateTo,

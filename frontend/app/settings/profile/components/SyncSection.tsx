@@ -29,6 +29,7 @@ const BANK_LABELS: Record<string, string> = {
   atb: 'ATB Financial',
   axis: 'Axis Bank',
   banco_do_brasil: 'Banco do Brasil',
+  bank_of_china: 'Bank of China (Hong Kong)',
   other: 'Other',
 };
 

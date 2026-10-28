@@ -13,5 +13,6 @@ export const BANK_DISPLAY_NAMES: Record<BankName, string> = {
   [BankName.ATB]: 'ATB Financial',
   [BankName.AXIS]: 'Axis Bank',
   [BankName.BANCO_DO_BRASIL]: 'Banco do Brasil',
+  [BankName.BANK_OF_CHINA]: 'Bank of China (Hong Kong)',
   [BankName.OTHER]: 'Bank',
 };

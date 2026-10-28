@@ -170,6 +170,30 @@ const CLOSING = [
 const BALANCE_WORDS = ['balance', 'saldo', 'solde', 'balance forward', 'saldo atual'];
 
 /**
+ * The period between the dated balance rows, for a statement that prints no
+ * period: "2020/09/30 Balance Brought Forward" opens it and "2020/10/31
+ * Balance Carried Forward" closes it, even in a month without movements.
+ */
+export function findBalanceRowPeriod(
+  text: string,
+  order: NumericDateOrder,
+): { from: Date; to: Date } | null {
+  let from: Date | null = null;
+  let to: Date | null = null;
+  for (const line of text.split('\n')) {
+    const [found] = findFullDates(line, order);
+    const folded = foldText(line);
+    if (found && !from && OPENING.some(label => folded.includes(label))) {
+      from = found.date;
+    }
+    if (found && CLOSING.some(label => folded.includes(label))) {
+      to = found.date;
+    }
+  }
+  return from && to && from <= to ? { from, to } : null;
+}
+
+/**
  * A row that states the balance instead of moving money: "Saldo Anterior
  * 35,65 (+)", "Opening Balance", a bare "SALDO", or one printed letter-spaced
  * ("S A L D O"). A label of one word must be the whole text: "Balance

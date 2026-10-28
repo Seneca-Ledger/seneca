@@ -14,6 +14,8 @@ describe('statement-date.helper', () => {
     ['09/13', 'mdy', { day: 13, month: 9, year: undefined }],
     ['01.05', 'dmy', { day: 1, month: 5, year: undefined }],
     ['2025-05-31', 'dmy', { day: 31, month: 5, year: 2025 }],
+    ['2020/09/30', 'mdy', { day: 30, month: 9, year: 2020 }],
+    ['2020.10.05', 'dmy', { day: 5, month: 10, year: 2020 }],
     ['1 mei', 'dmy', { day: 1, month: 5, year: undefined }],
     ['02 janv. 25', 'dmy', { day: 2, month: 1, year: 2025 }],
     ['31 janvier 2025', 'dmy', { day: 31, month: 1, year: 2025 }],
@@ -37,6 +39,8 @@ describe('statement-date.helper', () => {
     expect(detectNumericDateOrder(['01/01/2025', '17/01/2025'])).toBe('dmy');
     expect(detectNumericDateOrder(['09/01', '09/13'])).toBe('mdy');
     expect(detectNumericDateOrder(['01/02', '03/04'])).toBeNull();
+    // Month and day of a year-first date do not decide.
+    expect(detectNumericDateOrder(['2020/09/30', '2020/10/31'])).toBeNull();
   });
 
   it('gives a yearless date the statement year, or the year before across a new year', () => {
@@ -52,6 +56,9 @@ describe('statement-date.helper', () => {
       '2025-01-01',
       '2025-01-31',
       '2025-02-03',
+    ]);
+    expect(findFullDates('Statement Date 2020/10/31', 'mdy').map(found => iso(found.date))).toEqual([
+      '2020-10-31',
     ]);
   });
 });

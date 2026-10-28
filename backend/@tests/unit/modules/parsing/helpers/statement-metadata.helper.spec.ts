@@ -6,6 +6,7 @@ import {
 import {
   detectStatementCurrency,
   findAccountNumber,
+  findBalanceRowPeriod,
   findStatementBalances,
   findStatementAnchor,
   findStatementPeriod,
@@ -114,6 +115,21 @@ describe('statement-metadata.helper', () => {
     expect(findStatementPeriod('Due 10/24/2025, issued 09/30/2025', 'mdy')).toBeNull();
     const colons = findStatementPeriod('for the period (From : 23-08-2023 To : 24-01-2024)', 'dmy');
     expect([dayMonth(colons?.from), dayMonth(colons?.to)]).toEqual([[23, 8], [24, 1]]);
+  });
+
+  it('reads the period between dated balance rows, for a month without movements', () => {
+    const iso = (date?: Date) => date?.toISOString().slice(0, 10);
+    const text = [
+      'Previous Balance / O/S Balance 1,000.00',
+      '2020/09/30 Balance Brought Forward 1,000.00',
+      '2020/10/31 Balance Carried Forward 1,000.00',
+    ].join('\n');
+    const period = findBalanceRowPeriod(text, 'dmy');
+    expect([iso(period?.from), iso(period?.to)]).toEqual(['2020-09-30', '2020-10-31']);
+    expect(findBalanceRowPeriod('2020/09/30 Balance Brought Forward 1,000.00', 'dmy')).toBeNull();
+    expect(
+      findBalanceRowPeriod('31/10/2020 Opening Balance 5.00\n30/09/2020 Closing Balance 5.00', 'dmy'),
+    ).toBeNull();
   });
 
   it('reads dates without a year against the statement date, not a date years ahead', () => {

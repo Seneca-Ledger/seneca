@@ -187,6 +187,7 @@ describe('ParserFactoryService', () => {
       'AtbParser',
       'AxisParser',
       'BancoDoBrasilParser',
+      'BankOfChinaParser',
       'GenericPdfParser',
       'ExcelParser',
       'CsvParser',

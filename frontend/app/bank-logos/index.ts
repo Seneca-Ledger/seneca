@@ -9,6 +9,7 @@ export type BankLogoKey =
   | 'atb'
   | 'axis'
   | 'banco_do_brasil'
+  | 'bank_of_china'
   | 'other';
 
 export type ResolvedBankLogo = {
@@ -29,6 +30,7 @@ const LOGO_SRC_BY_KEY: Record<BankLogoKey, string> = {
   atb: '/images/bank-logo/bank.png',
   axis: '/images/bank-logo/bank.png',
   banco_do_brasil: '/images/bank-logo/bank.png',
+  bank_of_china: '/images/bank-logo/bank.png',
   other: '/images/bank-logo/bank.png',
 };
 
@@ -43,6 +45,7 @@ const DISPLAY_NAME_BY_KEY: Record<BankLogoKey, string> = {
   atb: 'ATB Financial',
   axis: 'Axis Bank',
   banco_do_brasil: 'Banco do Brasil',
+  bank_of_china: 'Bank of China (Hong Kong)',
   other: 'Bank',
 };
 
@@ -89,6 +92,9 @@ const resolveKeyFromName = (bankName: string): BankLogoKey => {
   }
   if (n === 'banco_do_brasil' || n.startsWith('banco do brasil')) {
     return 'banco_do_brasil';
+  }
+  if (n === 'bank_of_china' || n.startsWith('bank of china')) {
+    return 'bank_of_china';
   }
   if (n === 'other') {
     return 'other';

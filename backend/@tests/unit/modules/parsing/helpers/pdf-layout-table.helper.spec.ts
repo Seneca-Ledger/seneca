@@ -67,6 +67,34 @@ describe('pdf-layout-table.helper', () => {
     expect(openingBalanceFromRows(transactions)).toBe(1000);
   });
 
+  it('reads year-first dates, as Hong Kong statements print them', () => {
+    // Right edges: Deposit 373, Withdrawal 464, Balance in Original Currency 599.
+    const transactions = readLayoutTransactions([
+      row(100, [
+        ['Date', 61],
+        ['Transaction', 109],
+        ['Details', 151],
+        ['Deposit', 338],
+        ['Withdrawal', 414],
+        ['Balance', 467],
+        ['in', 504],
+        ['Original', 516],
+        ['Currency', 559],
+      ]),
+      row(115, [['2020/09/30', 61], ['Balance', 109], ['Brought', 147], ['Forward', 185], ['1,000.00', 559]]),
+      row(128, [['2020/10/05', 61], ['ACME', 109], ['Store', 134], ['12.50', 439], ['987.50', 569]]),
+      row(141, [['2020/10/20', 61], ['Salary', 109], ['100.00', 343], ['1,087.50', 559]]),
+      row(154, [['2020/10/31', 61], ['Balance', 109], ['Carried', 147], ['Forward', 185], ['1,087.50', 559]]),
+    ]);
+
+    expect(transactions.map(({ dateText, debit, credit, balance }) => ({ dateText, debit, credit, balance }))).toEqual([
+      { dateText: '2020/10/05', debit: 12.5, credit: undefined, balance: 987.5 },
+      { dateText: '2020/10/20', debit: undefined, credit: 100, balance: 1087.5 },
+    ]);
+    const [shop] = toParsedTransactions(transactions, 'mdy', new Date(2020, 9, 31), 'HKD', false);
+    expect(shop.transactionDate).toEqual(new Date(2020, 9, 5));
+  });
+
   it('skips dated balance lines and keeps what the dated row itself says', () => {
     const transactions = readLayoutTransactions([
       header,

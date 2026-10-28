@@ -13,6 +13,7 @@ const STATEMENTS = [
   'golden/atb/sample1.pdf',
   'golden/axis/sample1.pdf',
   'golden/banco-do-brasil/sample1.pdf',
+  'golden/bank-of-china/sample1.pdf',
   'golden/bereke/sample1.pdf',
   'golden/kaspi/sample1.pdf',
   'golden/bsb/bsb-001.pdf',
