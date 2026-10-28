@@ -1,0 +1,388 @@
+{
+  "metadata": {
+    "accountNumber": "10000-1",
+    "currency": "BRL",
+    "balanceStart": 35.65,
+    "balanceEnd": 202011.15
+  },
+  "transactions": [
+    {
+      "transactionDate": "2023-07-03T00:00:00",
+      "counterpartyName": "ACME PERSON",
+      "paymentPurpose": "PIX - Recebido 07:50 37078799580448 ACME PERSON",
+      "credit": 1500,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-03T00:00:00",
+      "counterpartyName": "ACME SA",
+      "paymentPurpose": "Compra com cartao 14:21 ACME SA",
+      "debit": 1500,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-04T00:00:00",
+      "counterpartyName": "Membro Dois Exemp lo Sobrenome",
+      "paymentPurpose": "Transferido da poupança 0754 20000-2 Membro Dois Exemp lo Sobrenome",
+      "credit": 10,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-04T00:00:00",
+      "counterpartyName": "ACME RETAILSX COBRANCA E SERVICOS E",
+      "paymentPurpose": "Recebimento Fornecedor ACME RETAILSX COBRANCA E SERVICOS E",
+      "credit": 158,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-04T00:00:00",
+      "counterpartyName": "93991167516-Vivo AM,AP,MA,RR,PA",
+      "paymentPurpose": "Telefone Pre-Pago 93991167516-Vivo AM,AP,MA,RR,PA",
+      "debit": 20,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-05T00:00:00",
+      "counterpartyName": "Acme Fruta",
+      "paymentPurpose": "PIX - Recebido 10:52 93685599573774 Acme Fruta",
+      "credit": 100,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-05T00:00:00",
+      "counterpartyName": "Casa Acme P",
+      "paymentPurpose": "PIX - Recebido 18:36 45714180021110 Casa Acme P",
+      "credit": 90000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-05T00:00:00",
+      "counterpartyName": "Membro Qua",
+      "paymentPurpose": "PIX - Recebido 19:24 85941492859815 Membro Qua",
+      "credit": 1000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-05T00:00:00",
+      "counterpartyName": "BCO BRADESCO S.A.",
+      "paymentPurpose": "Pagamento de Boleto BCO BRADESCO S.A.",
+      "debit": 3000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-05T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 19:23 SAA-EXEMPLOS",
+      "debit": 2000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-05T00:00:00",
+      "counterpartyName": "Membro Cinco Exemplo",
+      "paymentPurpose": "Compro no Cartao 20:11 Membro Cinco Exemplo",
+      "debit": 1000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-06T00:00:00",
+      "counterpartyName": "MEMBER SIXES",
+      "paymentPurpose": "Compra no cartao 07:48 MEMBER SIXES",
+      "debit": 2000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-10T00:00:00",
+      "counterpartyName": "Membro Seis",
+      "paymentPurpose": "PIX - Recebido 07:56 37694171130014 Membro Seis",
+      "credit": 3000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-10T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 09:11 SAA-EXEMPLOS",
+      "debit": 200,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-10T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 12:19 SAA-EXEMPLOS",
+      "debit": 3000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-10T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 10/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-16T00:00:00",
+      "counterpartyName": "PADARIA ACME SA",
+      "paymentPurpose": "Compra no Cartao 19:22 PADARIA ACME SA",
+      "debit": 40,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-16T00:00:00",
+      "counterpartyName": "75281343948-Vivo AM,AP,MA,RR,PA",
+      "paymentPurpose": "Telefone Pre-Pago 75281343948-Vivo AM,AP,MA,RR,PA",
+      "debit": 20,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-16T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 16/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-17T00:00:00",
+      "counterpartyName": "MEMBRO TE SE",
+      "paymentPurpose": "PIX - Recebido 11:50 00001930559333 MEMBRO TE SE",
+      "credit": 3000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-17T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 13:09 SAA-EXEMPLOS",
+      "debit": 3000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-17T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 17/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-18T00:00:00",
+      "counterpartyName": "MEMBRO OITO",
+      "paymentPurpose": "PIX - Recebido 09:16 07049139775749 MEMBRO OITO",
+      "credit": 3000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-18T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 17:10 SAA-EXEMPLOS",
+      "debit": 100,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-18T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 19:23 SAA-EXEMPLOS",
+      "debit": 1370,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-18T00:00:00",
+      "counterpartyName": "54605671325-Vivo AM,AP,MA,RR,PA",
+      "paymentPurpose": "Telefone Pre-Pago 54605671325-Vivo AM,AP,MA,RR,PA",
+      "debit": 20,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-18T00:00:00",
+      "counterpartyName": "Membro Nove Exemplo Acme C",
+      "paymentPurpose": "PIX - Enviado 12:41 Membro Nove Exemplo Acme C",
+      "debit": 1520,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-18T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 18/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-18T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 18/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-20T00:00:00",
+      "counterpartyName": "Casa Acme F",
+      "paymentPurpose": "PIX - Recebido 15:52 34151946933552 Casa Acme F",
+      "credit": 120000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-23T00:00:00",
+      "counterpartyName": "Acmes Cia",
+      "paymentPurpose": "PIX - Recebido 15:16 32080328338301 Acmes Cia",
+      "credit": 1200,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-23T00:00:00",
+      "counterpartyName": "PESSOA ONZE",
+      "paymentPurpose": "PIX - Recebido 22:09 16322119899280 PESSOA ONZE",
+      "credit": 13,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-23T00:00:00",
+      "counterpartyName": "ACMESA SUSHI",
+      "paymentPurpose": "Compra com Cartão 1 5 : 3 1 ACMESA SUSHI",
+      "debit": 2190,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-23T00:00:00",
+      "counterpartyName": "Membro Doze Exemplo Acme S",
+      "paymentPurpose": "PIX - Enviado 22:16 Membro Doze Exemplo Acme S",
+      "debit": 13,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-23T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 23/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-25T00:00:00",
+      "counterpartyName": "Acme Agrope",
+      "paymentPurpose": "PIX - Recebido 16:49 58829511209072 Acme Agrope",
+      "credit": 10000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-25T00:00:00",
+      "counterpartyName": "ACME AUTO POSTO E SE",
+      "paymentPurpose": "Compra com Cartão 1 8 : 5 3 ACME AUTO POSTO E SE",
+      "debit": 3000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-25T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 18:53 SAA-EXEMPLOS",
+      "debit": 2000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-25T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 25/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-26T00:00:00",
+      "counterpartyName": "MEMBRO TE SE",
+      "paymentPurpose": "PIX - Recebido 16:46 00001930559333 MEMBRO TE SE",
+      "credit": 7000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-26T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 10:38 SAA-EXEMPLOS",
+      "debit": 2320,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-26T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 19:59 SAA-EXEMPLOS",
+      "debit": 2000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-26T00:00:00",
+      "counterpartyName": "Membro Quinze",
+      "paymentPurpose": "PIX - Enviado 01:29 Membro Quinze",
+      "debit": 1,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-26T00:00:00",
+      "counterpartyName": "Membro Nove Exemplo Acme C",
+      "paymentPurpose": "PIX - Enviado 10:33 Membro Nove Exemplo Acme C",
+      "debit": 2630,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-26T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 26/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-26T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 26/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-27T00:00:00",
+      "counterpartyName": "MEMBROS DEZESSETE",
+      "paymentPurpose": "TED Transf.Eletr.Disponiv 237 2750 01787872254 MEMBROS DEZESSETE",
+      "debit": 3000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-27T00:00:00",
+      "counterpartyName": "SAA-EXEMPLOS",
+      "paymentPurpose": "Saque no TAA 09:17 SAA-EXEMPLOS",
+      "debit": 2000,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-27T00:00:00",
+      "counterpartyName": "SAQUEterminal",
+      "paymentPurpose": "SAQUEterminal Cobrança referente 27/07/2023",
+      "debit": 2.55,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-30T00:00:00",
+      "counterpartyName": "Acme Exempl",
+      "paymentPurpose": "PIX - Recebido 15:04 52012170352514 Acme Exempl",
+      "credit": 500,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-30T00:00:00",
+      "counterpartyName": "PESSOA ONZE",
+      "paymentPurpose": "PIX - Recebido 22:41 16322119899280 PESSOA ONZE",
+      "credit": 13,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-30T00:00:00",
+      "counterpartyName": "Membro Doze Exemplo Acme S",
+      "paymentPurpose": "PIX - Enviado 02:25 Membro Doze Exemplo Acme S",
+      "debit": 36,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-30T00:00:00",
+      "counterpartyName": "FARMACIA ACME X",
+      "paymentPurpose": "Compra com Cartão 15:57 FARMACIA ACME X",
+      "debit": 500,
+      "currency": "BRL"
+    },
+    {
+      "transactionDate": "2023-07-30T00:00:00",
+      "counterpartyName": "PESSOA ONZE",
+      "paymentPurpose": "PIX - Recebido 22:41 16322119899280 PESSOA ONZE",
+      "debit": 13,
+      "currency": "BRL"
+    }
+  ]
+}

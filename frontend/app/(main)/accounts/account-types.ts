@@ -57,6 +57,7 @@ const BANK_LABELS: Record<string, string> = {
   associated: 'Associated Bank',
   atb: 'ATB Financial',
   axis: 'Axis Bank',
+  banco_do_brasil: 'Banco do Brasil',
 };
 
 export const statementBankLabel = (bankName: string): string | null =>

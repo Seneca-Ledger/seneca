@@ -61,6 +61,7 @@ export enum BankName {
   ASSOCIATED = 'associated',
   ATB = 'atb',
   AXIS = 'axis',
+  BANCO_DO_BRASIL = 'banco_do_brasil',
   OTHER = 'other',
 }
 

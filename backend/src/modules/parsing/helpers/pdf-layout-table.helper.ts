@@ -23,7 +23,7 @@ import {
   parseDateParts,
   resolveDate,
 } from './statement-date.helper';
-import { readAccountHeading } from './statement-metadata.helper';
+import { isBalanceLabel, readAccountHeading } from './statement-metadata.helper';
 
 /**
  * Reads transactions from a statement whose table has no ruling lines, using
@@ -269,6 +269,10 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
     return;
   }
   const dated = date && laidOut.amounts.length > 0 ? openTransaction(date, laidOut) : null;
+  if (dated && lines.length > 1) {
+    // A row of several lines: only the dated line's own words are its first line.
+    dated.firstLine = (read.find(line => line.date)?.laidOut.text.description ?? []).join(' ');
+  }
   const opened = dated && state.section ? signBySection(dated, state.section.sign) : dated;
   const continues = read.every(
     (line, index) =>
@@ -278,7 +282,7 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
         index === 0 ? state.lastRow : lines[index - 1],
       ) && alignsWithSectionText(state.section, lines[index]),
   );
-  if (opened && isBalanceLine(opened)) {
+  if (opened && (isBalanceLine(opened) || isBalanceLabel(opened.description))) {
     // "01/06/2023 Beginning Balance $4,082.88": the balance, not a movement.
     state.current = null;
   } else if (opened) {

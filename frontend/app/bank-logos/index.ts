@@ -8,6 +8,7 @@ export type BankLogoKey =
   | 'associated'
   | 'atb'
   | 'axis'
+  | 'banco_do_brasil'
   | 'other';
 
 export type ResolvedBankLogo = {
@@ -27,6 +28,7 @@ const LOGO_SRC_BY_KEY: Record<BankLogoKey, string> = {
   associated: '/images/bank-logo/bank.png',
   atb: '/images/bank-logo/bank.png',
   axis: '/images/bank-logo/bank.png',
+  banco_do_brasil: '/images/bank-logo/bank.png',
   other: '/images/bank-logo/bank.png',
 };
 
@@ -40,6 +42,7 @@ const DISPLAY_NAME_BY_KEY: Record<BankLogoKey, string> = {
   associated: 'Associated Bank',
   atb: 'ATB Financial',
   axis: 'Axis Bank',
+  banco_do_brasil: 'Banco do Brasil',
   other: 'Bank',
 };
 
@@ -83,6 +86,9 @@ const resolveKeyFromName = (bankName: string): BankLogoKey => {
   }
   if (n === 'axis' || n.startsWith('axis bank')) {
     return 'axis';
+  }
+  if (n === 'banco_do_brasil' || n.startsWith('banco do brasil')) {
+    return 'banco_do_brasil';
   }
   if (n === 'other') {
     return 'other';

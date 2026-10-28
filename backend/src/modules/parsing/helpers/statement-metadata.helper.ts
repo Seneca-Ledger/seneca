@@ -40,7 +40,10 @@ const DOLLAR_COUNTRIES: [RegExp, string][] = [
 ];
 
 /** Statements that print no currency at all, known by a code only one country uses. */
-const UNMARKED_COUNTRIES: [RegExp, string][] = [[/\bIFSC\b/, 'INR']];
+const UNMARKED_COUNTRIES: [RegExp, string][] = [
+  [/\bIFSC\b/, 'INR'],
+  [/\b(?:PIX|CNPJ|CPF)\b/, 'BRL'],
+];
 
 const SYMBOLS: [string, string][] = [
   ['€', 'EUR'],
@@ -86,7 +89,7 @@ export function detectStatementCurrency(text: string): string | null {
 }
 
 const ACCOUNT_LABEL =
-  /(?:(?:account|acct\.?)\s*(?:number|no\.?|#|:)|num[eé]ro\s+de\s+compte|rekeningnummer|kontonummer|n[uú]mero\s+de\s+cuenta)\s*[:.]?[ \t]*([X*\d][X*\d \t-]{3,}[X*\d])/i;
+  /(?:(?:account|acct\.?|conta)\s*(?:number|no\.?|#|:)|num[eé]ro\s+de\s+compte|rekeningnummer|kontonummer|n[uú]mero\s+de\s+cuenta)\s*[:.]?[ \t]*([X*\d][X*\d \t-]{3,}[X*\d])/i;
 const IBAN_LABEL = /\bIBAN\s*[:.]?\s*([A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,3})?)/;
 
 /** The account number as printed after its label, or the IBAN. */
@@ -163,6 +166,30 @@ const CLOSING = [
   'endsaldo',
   'neuer kontostand',
 ];
+/** Words that alone, as a row's whole text, state a balance ("SALDO", "Balance"). */
+const BALANCE_WORDS = ['balance', 'saldo', 'solde', 'balance forward', 'saldo atual'];
+
+/**
+ * A row that states the balance instead of moving money: "Saldo Anterior
+ * 35,65 (+)", "Opening Balance", a bare "SALDO", or one printed letter-spaced
+ * ("S A L D O"). A label of one word must be the whole text: "Balance
+ * transfer fee" moves money.
+ */
+export function isBalanceLabel(description: string): boolean {
+  const folded = foldText(description)
+    .replace(/[\s:.]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const labels = [...OPENING, ...CLOSING];
+  const spaced = /^(?:\S )+\S$/.test(folded) ? folded.replace(/ /g, '') : null;
+  return (
+    BALANCE_WORDS.includes(folded) ||
+    labels.some(label => folded === label || folded.startsWith(`${label} `)) ||
+    (spaced !== null &&
+      [...BALANCE_WORDS, ...labels].some(label => label.replace(/ /g, '') === spaced))
+  );
+}
+
 const DATED_BALANCE = /\b(?:balance|solde|saldo)\s+(?:as\s+(?:of|at)|au|per|op|al)\b/g;
 
 /**

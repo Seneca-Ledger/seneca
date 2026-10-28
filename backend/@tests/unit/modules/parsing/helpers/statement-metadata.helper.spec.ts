@@ -9,6 +9,7 @@ import {
   findStatementBalances,
   findStatementAnchor,
   findStatementPeriod,
+  isBalanceLabel,
   isCreditCardStatement,
   readAccountHeading,
 } from '@/modules/parsing/helpers/statement-metadata.helper';
@@ -27,6 +28,10 @@ describe('parseStatementAmount', () => {
     ['R7 822.73', 7822.73],
     ['RM12.00', 12],
     ['.11', 0.11],
+    ['1.500,00 (-)', -1500],
+    ['120.000,00(+)', 120000],
+    ['1,000.00 Cr', 1000],
+    ['250.00 DR', -250],
   ])('reads %s', (text, expected) => {
     expect(parseStatementAmount(text)).toBe(expected);
   });
@@ -63,6 +68,21 @@ describe('statement-metadata.helper', () => {
     expect(detectStatementCurrency('Balance 1490.11')).toBeNull();
   });
 
+  it('reads reais from Brazilian payment words when no currency is printed', () => {
+    expect(detectStatementCurrency('PIX - Recebido\n1.500,00 (+)')).toBe('BRL');
+  });
+
+  it.each([
+    ['Saldo Anterior', true],
+    ['S A L D O', true],
+    ['SALDO', true],
+    ['Opening Balance', true],
+    ['Balance transfer fee', false],
+    ['PIX - Recebido', false],
+  ])('tells whether %s states a balance', (description, expected) => {
+    expect(isBalanceLabel(description)).toBe(expected);
+  });
+
   it('reads a currency sign written with letters, glued to the figure', () => {
     expect(detectStatementCurrency('Current Balance R13.40\nFEE -R60.00 R5 642.73')).toBe('ZAR');
     expect(detectStatementCurrency('Baki RM1,200.00')).toBe('MYR');
@@ -79,6 +99,7 @@ describe('statement-metadata.helper', () => {
     );
     expect(findAccountNumber('Numéro De Compte: 00001-002-0000003')).toBe('00001-002-0000003');
     expect(findAccountNumber('IBAN: NL00 TEST 0123 4567 89')).toBe('NL00TEST0123456789');
+    expect(findAccountNumber('Agência: 0001-9 Conta: 10000-1')).toBe('10000-1');
     expect(findAccountNumber('Primary Account: 1234567890')).toBe('1234567890');
     expect(findAccountNumber('MEMBER ONE Acct #1234567890 Page 2 of 2')).toBe('1234567890');
     expect(findAccountNumber('FINANCIAL SUMMARY ACCOUNT# BALANCE')).toBeNull();

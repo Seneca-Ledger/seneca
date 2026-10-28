@@ -5,11 +5,12 @@ import type { LaidOutRow } from './pdf-layout-columns.helper';
  * Lines this close, in line heights, belong to one table row: a cell's text
  * wrapped around the amounts printed at its middle, each line overlapping the
  * next ("ANZ INTERNET BANKING TRANSFER" / "07 FEB 1,266.66 12,819.24" /
- * "WAGES ..."). Separate rows sit a line height apart or more; a footer laid
+ * "WAGES ..."; Banco do Brasil prints the amount 0.8 of a line under its row).
+ * Separate rows sit a line height apart or more; a footer laid
  * over a row is only a fraction of a point off and stays apart too.
  */
 const WRAPPED_GAP_MIN = 0.3;
-const WRAPPED_GAP_MAX = 0.75;
+const WRAPPED_GAP_MAX = 0.9;
 
 export function rowHeight(row: PdfTextRow): number {
   return Math.max(...row.items.map(item => item.height), 1);

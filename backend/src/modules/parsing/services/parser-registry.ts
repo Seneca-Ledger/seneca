@@ -6,6 +6,7 @@ import { AnzParser } from '../parsers/anz.parser';
 import { AssociatedParser } from '../parsers/associated.parser';
 import { AtbParser } from '../parsers/atb.parser';
 import { AxisParser } from '../parsers/axis.parser';
+import { BancoDoBrasilParser } from '../parsers/banco-do-brasil.parser';
 import { BerekeNewParser } from '../parsers/bereke-new.parser';
 import { BerekeOldParser } from '../parsers/bereke-old.parser';
 import { Camt053Parser } from '../parsers/camt053.parser';
@@ -35,6 +36,7 @@ export const FALLBACK_CLAIMS: [
   [AssociatedParser, { bankName: BankName.ASSOCIATED }],
   [AtbParser, { bankName: BankName.ATB }],
   [AxisParser, { bankName: BankName.AXIS }],
+  [BancoDoBrasilParser, { bankName: BankName.BANCO_DO_BRASIL }],
   [BerekeNewParser, { bankName: BankName.BEREKE_NEW, formatVersion: 'new' }],
   [BerekeOldParser, { bankName: BankName.BEREKE_OLD, formatVersion: 'old' }],
 ];
@@ -55,6 +57,7 @@ export function createParsers(): IParser[] {
     new AssociatedParser(),
     new AtbParser(),
     new AxisParser(),
+    new BancoDoBrasilParser(),
     new GenericPdfParser(),
     new ExcelParser(),
     new CsvParser(),
