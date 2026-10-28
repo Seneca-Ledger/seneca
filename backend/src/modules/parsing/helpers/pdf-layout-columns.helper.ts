@@ -10,7 +10,9 @@ export type ColumnRole =
   | 'debit'
   | 'credit'
   | 'amount'
-  | 'balance';
+  | 'balance'
+  /** A column of none of ours after the money ('Init. Br', a branch code): its words are no text of the row. */
+  | 'other';
 
 export interface LayoutColumn {
   role: ColumnRole;
@@ -18,7 +20,7 @@ export interface LayoutColumn {
   x1: number;
 }
 
-const TEXT_ROLES: ColumnRole[] = ['date', 'otherDate', 'description', 'counterparty'];
+const TEXT_ROLES: ColumnRole[] = ['date', 'otherDate', 'description', 'counterparty', 'other'];
 const MONEY_ROLES: ColumnRole[] = ['debit', 'credit', 'amount', 'balance'];
 
 /**
@@ -92,6 +94,7 @@ const HEADINGS: Record<ColumnRole, string[]> = {
   ],
   amount: ['amount', '$ amount', 'bedrag', 'montant', 'importe', 'betrag', 'transaction amount'],
   balance: ['balance', 'running balance', 'solde', 'saldo', 'kontostand'],
+  other: [],
 };
 
 const PHRASES = new Map<string, ColumnRole>(
@@ -152,6 +155,16 @@ export function readHeaderRow(row: PdfTextRow): LayoutColumn[] | null {
       continue;
     }
 
+    const previous = columns[columns.length - 1];
+    if (
+      previous &&
+      MONEY_ROLES.includes(previous.role) &&
+      items[index].x - previous.x1 > ATTACH_GAP
+    ) {
+      columns.push({ role: 'other', x0: items[index].x, x1: items[index].x + items[index].width });
+      index += 1;
+      continue;
+    }
     pendingX0 = attachStrayWord(
       items[index],
       columns[columns.length - 1],
@@ -211,9 +224,23 @@ function moneyColumnFor(x1: number, columns: LayoutColumn[]): LayoutColumn | nul
   return best && best.distance <= MONEY_EDGE_TOLERANCE ? best.column : null;
 }
 
+/** Text this far right of a date heading is no part of the date. */
+const DATE_CELL_GAP = 12;
+
+/**
+ * The text column a word starts in. A date column holds the date alone: a word
+ * well right of its heading belongs to the column after it, whose heading may
+ * be centred over a cell that starts further left ("Particulars" over text at
+ * the date's right).
+ */
 function textColumnFor(x: number, columns: LayoutColumn[]): ColumnRole {
   const text = columns.filter(column => TEXT_ROLES.includes(column.role));
   const owner = [...text].reverse().find(column => column.x0 <= x + 4) ?? text[0];
+  const isDate = owner?.role === 'date' || owner?.role === 'otherDate';
+  const next = text.find(column => column.x0 > (owner?.x1 ?? 0));
+  if (isDate && next && x > owner.x1 + DATE_CELL_GAP) {
+    return next.role;
+  }
   return owner?.role ?? 'description';
 }
 

@@ -6,6 +6,7 @@ import {
   layOutRow,
   readHeaderRow,
 } from './pdf-layout-columns.helper';
+import { attachLeadInLines } from './pdf-layout-lead-in.helper';
 import {
   alignsWithSectionText,
   type LayoutSection,
@@ -192,7 +193,11 @@ export function readLayoutTransactions(rows: PdfTextRow[]): LayoutTransaction[] 
     rows.flatMap(splitOverlappingLines).sort((a, b) => a.page - b.page || a.y - b.y),
   );
   const state: ReadingState = { transactions: [], columns: null, current: null, lastRow: null };
-  for (const lines of groupWrappedLines(ordered)) {
+  const dateWords = (row: PdfTextRow) =>
+    leadingDate([...row.items].sort((a, b) => a.x - b.x))?.used ?? 0;
+  const isHeading = (row: PdfTextRow) =>
+    Boolean(readHeaderRow(row) || readSectionHeading(row) || readAccountHeading(row.text));
+  for (const lines of attachLeadInLines(groupWrappedLines(ordered), dateWords, isHeading)) {
     readRow(state, lines);
   }
   return state.transactions;

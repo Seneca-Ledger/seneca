@@ -16,10 +16,10 @@ const LETTER_SIGNS = new RegExp(LETTER_SIGN.source, 'g');
 /**
  * A money figure as statements print it: optional sign or parentheses, digits
  * grouped by space, dot or comma, and exactly two decimals ("1,902.69",
- * "-1.450,77", "1 200,45", "(12.00)", "100.00-"). Requiring the decimals keeps
+ * "-1.450,77", "1 200,45", "(12.00)", "100.00-", ".11" for 0.11). Requiring the decimals keeps
  * reference numbers such as "8373579" out.
  */
-const AMOUNT_SHAPE = /^[-+(]?(?:\d{1,3}(?:[ .,  ]\d{3})+|\d+)[.,]\d{2}\)?-?$/;
+const AMOUNT_SHAPE = /^[-+(]?(?:(?:\d{1,3}(?:[ .,  ]\d{3})+|\d+)[.,]\d{2}|\.\d{2})\)?-?$/;
 
 /** Parses a printed amount, currency marks included; null when it is not one. */
 export function parseStatementAmount(text: string): number | null {

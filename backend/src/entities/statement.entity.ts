@@ -60,6 +60,7 @@ export enum BankName {
   ANZ = 'anz',
   ASSOCIATED = 'associated',
   ATB = 'atb',
+  AXIS = 'axis',
   OTHER = 'other',
 }
 

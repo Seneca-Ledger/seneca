@@ -26,6 +26,7 @@ describe('parseStatementAmount', () => {
     ['-R2 000.00', -2000],
     ['R7 822.73', 7822.73],
     ['RM12.00', 12],
+    ['.11', 0.11],
   ])('reads %s', (text, expected) => {
     expect(parseStatementAmount(text)).toBe(expected);
   });
@@ -57,6 +58,11 @@ describe('statement-metadata.helper', () => {
     expect(detectStatementCurrency('Saldo 10,00 €')).toBe('EUR');
   });
 
+  it('reads rupees from an Indian bank code when no currency is printed', () => {
+    expect(detectStatementCurrency('IFSC Code :EXMP0000001\nBalance 1490.11')).toBe('INR');
+    expect(detectStatementCurrency('Balance 1490.11')).toBeNull();
+  });
+
   it('reads a currency sign written with letters, glued to the figure', () => {
     expect(detectStatementCurrency('Current Balance R13.40\nFEE -R60.00 R5 642.73')).toBe('ZAR');
     expect(detectStatementCurrency('Baki RM1,200.00')).toBe('MYR');
@@ -85,6 +91,8 @@ describe('statement-metadata.helper', () => {
     expect([dayMonth(us?.from), dayMonth(us?.to)]).toEqual([[1, 9], [30, 9]]);
     expect([dayMonth(fr?.from), dayMonth(fr?.to)]).toEqual([[1, 1], [31, 1]]);
     expect(findStatementPeriod('Due 10/24/2025, issued 09/30/2025', 'mdy')).toBeNull();
+    const colons = findStatementPeriod('for the period (From : 23-08-2023 To : 24-01-2024)', 'dmy');
+    expect([dayMonth(colons?.from), dayMonth(colons?.to)]).toEqual([[23, 8], [24, 1]]);
   });
 
   it('reads dates without a year against the statement date, not a date years ahead', () => {

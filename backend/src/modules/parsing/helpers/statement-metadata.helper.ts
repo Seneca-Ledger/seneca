@@ -39,6 +39,9 @@ const DOLLAR_COUNTRIES: [RegExp, string][] = [
   [/\bm[eé]xico\b/i, 'MXN'],
 ];
 
+/** Statements that print no currency at all, known by a code only one country uses. */
+const UNMARKED_COUNTRIES: [RegExp, string][] = [[/\bIFSC\b/, 'INR']];
+
 const SYMBOLS: [string, string][] = [
   ['€', 'EUR'],
   ['£', 'GBP'],
@@ -79,7 +82,7 @@ export function detectStatementCurrency(text: string): string | null {
   if (text.includes('$')) {
     return DOLLAR_COUNTRIES.find(([pattern]) => pattern.test(text))?.[1] ?? 'USD';
   }
-  return null;
+  return UNMARKED_COUNTRIES.find(([pattern]) => pattern.test(text))?.[1] ?? null;
 }
 
 const ACCOUNT_LABEL =
@@ -96,7 +99,7 @@ export function findAccountNumber(text: string): string | null {
   return labelled ? labelled[1].replace(/[ \t]+/g, ' ').trim() : null;
 }
 
-/** "09/01/2025 - 09/30/2025", "1 janvier 2025 - 31 janvier 2025", "from … to …". */
+/** "09/01/2025 - 09/30/2025", "1 janvier 2025 - 31 janvier 2025", "from … to …", "From : … To : …". */
 export function findStatementPeriod(
   text: string,
   order: NumericDateOrder,
@@ -106,7 +109,10 @@ export function findStatementPeriod(
   for (let index = 0; index + 1 < dates.length; index += 1) {
     const [from, to] = [dates[index], dates[index + 1]];
     const between = folded.slice(from.index + from.length, to.index);
-    if (/^\s*(?:[-–—]|to|au|tot|bis|al|hasta|through)\s*$/.test(between) && from.date <= to.date) {
+    if (
+      /^\s*(?:[-–—]|to|au|tot|bis|al|hasta|through)\s*:?\s*$/.test(between) &&
+      from.date <= to.date
+    ) {
       return { from: from.date, to: to.date };
     }
   }

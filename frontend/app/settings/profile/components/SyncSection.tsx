@@ -27,6 +27,7 @@ const BANK_LABELS: Record<string, string> = {
   anz: 'ANZ',
   associated: 'Associated Bank',
   atb: 'ATB Financial',
+  axis: 'Axis Bank',
   other: 'Other',
 };
 
