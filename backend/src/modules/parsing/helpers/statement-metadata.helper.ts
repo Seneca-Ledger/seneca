@@ -214,14 +214,22 @@ export function isBalanceLabel(description: string): boolean {
   );
 }
 
-const DATED_BALANCE = /\b(?:balance|solde|saldo)\s+(?:as\s+(?:of|at)|au|per|op|al)\b/g;
+const DATED_BALANCE = /\b(?:balance|solde|saldo)\s+(?:as\s+(?:of|at)|on|au|per|op|al)\b/g;
 
 /**
  * The last amount after a label, up to the end of its line: "Balance Carried
  * Forward: 2,181.67 2,002.15 15,271.23" ends with the balance. Dates on the
- * line are skipped.
+ * line are skipped. A dated balance takes the first: the figure right after
+ * its date, whatever a box beside it prints on the same line ("Balance on 20
+ * Jun 2025 £22,689.13   Debit card fee 8 £2.80").
  */
-function amountAfter(text: string, folded: string, index: number, order: NumericDateOrder) {
+function amountAfter(
+  text: string,
+  folded: string,
+  index: number,
+  order: NumericDateOrder,
+  pick: 'first' | 'last' = 'last',
+) {
   const lineEnd = folded.indexOf('\n', index);
   const line = text.slice(index, lineEnd === -1 ? undefined : lineEnd);
   let withoutDates = line;
@@ -229,7 +237,7 @@ function amountAfter(text: string, folded: string, index: number, order: Numeric
     withoutDates = `${withoutDates.slice(0, found.index)} ${withoutDates.slice(found.index + found.length)}`;
   }
   const amounts = findStatementAmounts(withoutDates);
-  return amounts.length > 0 ? amounts[amounts.length - 1] : null;
+  return (pick === 'first' ? amounts[0] : amounts[amounts.length - 1]) ?? null;
 }
 
 function labelledAmount(text: string, folded: string, labels: string[], order: NumericDateOrder) {
@@ -264,7 +272,7 @@ export function findStatementBalances(
     const lineEnd = folded.indexOf('\n', after);
     const line = text.slice(after, lineEnd === -1 ? undefined : lineEnd);
     const [date] = findFullDates(line, order);
-    return { date: date?.date, amount: amountAfter(text, folded, after, order) };
+    return { date: date?.date, amount: amountAfter(text, folded, after, order, 'first') };
   }).filter(
     (entry): entry is { date: Date; amount: number } => !!entry.date && entry.amount !== null,
   );

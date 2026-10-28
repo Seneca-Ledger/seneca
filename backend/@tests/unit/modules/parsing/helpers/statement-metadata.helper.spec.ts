@@ -163,6 +163,17 @@ describe('statement-metadata.helper', () => {
     expect(findStatementBalances(text, 'dmy')).toEqual({ start: 1000, end: 900 });
   });
 
+  it('reads "balance on <date>", not the figure a box beside it prints on the line', () => {
+    const text = [
+      'Date of previous statement 19 Jun 2025 Type of Fee Quantity Total',
+      'Balance on 20 Jun 2025 £1,000.00 Debit card fee 8 £2.80',
+      'Money in £300.00',
+      'Money out £50.00',
+      'Balance on 20 Jul 2025 £1,250.00 section and on the reverse.',
+    ].join('\n');
+    expect(findStatementBalances(text, 'dmy')).toEqual({ start: 1000, end: 1250 });
+  });
+
   it('reads an account heading: the number right after the word for account', () => {
     expect(readAccountHeading('HKD Current Account — 000-000001-001 (Continued)')).toEqual({
       accountNumber: '000-000001-001',

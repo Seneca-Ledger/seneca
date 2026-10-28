@@ -63,6 +63,7 @@ export enum BankName {
   AXIS = 'axis',
   BANCO_DO_BRASIL = 'banco_do_brasil',
   BANK_OF_CHINA = 'bank_of_china',
+  BANK_OF_SCOTLAND = 'bank_of_scotland',
   OTHER = 'other',
 }
 

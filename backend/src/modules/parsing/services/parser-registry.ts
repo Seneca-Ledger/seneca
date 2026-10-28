@@ -8,6 +8,7 @@ import { AtbParser } from '../parsers/atb.parser';
 import { AxisParser } from '../parsers/axis.parser';
 import { BancoDoBrasilParser } from '../parsers/banco-do-brasil.parser';
 import { BankOfChinaParser } from '../parsers/bank-of-china.parser';
+import { BankOfScotlandParser } from '../parsers/bank-of-scotland.parser';
 import { BerekeNewParser } from '../parsers/bereke-new.parser';
 import { BerekeOldParser } from '../parsers/bereke-old.parser';
 import { Camt053Parser } from '../parsers/camt053.parser';
@@ -39,6 +40,7 @@ export const FALLBACK_CLAIMS: [
   [AxisParser, { bankName: BankName.AXIS }],
   [BancoDoBrasilParser, { bankName: BankName.BANCO_DO_BRASIL }],
   [BankOfChinaParser, { bankName: BankName.BANK_OF_CHINA }],
+  [BankOfScotlandParser, { bankName: BankName.BANK_OF_SCOTLAND }],
   [BerekeNewParser, { bankName: BankName.BEREKE_NEW, formatVersion: 'new' }],
   [BerekeOldParser, { bankName: BankName.BEREKE_OLD, formatVersion: 'old' }],
 ];
@@ -61,6 +63,7 @@ export function createParsers(): IParser[] {
     new AxisParser(),
     new BancoDoBrasilParser(),
     new BankOfChinaParser(),
+    new BankOfScotlandParser(),
     new GenericPdfParser(),
     new ExcelParser(),
     new CsvParser(),
