@@ -26,7 +26,6 @@ function deps(overrides: Partial<CommandDeps> = {}): CommandDeps {
       previousMonth: 'Previous month',
       nextMonth: 'Next month',
       settings: 'Settings',
-      whatsNew: "What's new",
       reportBug: 'Report a bug',
     },
     navItems: [navItem('/dashboard'), navItem('/ledger', { experimental: true })],
