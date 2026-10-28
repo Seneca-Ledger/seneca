@@ -3,11 +3,14 @@ import { ocrPdfLayout } from '../../../common/utils/pdf-ocr.util';
 import {
   extractTextAndLayoutFromPdf,
   extractTextLayerFromPdf,
+  type PdfTextRow,
 } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
 import { DocumentClassifierService } from '../services/document-classifier.service';
 import type { ParserFactoryService } from '../services/parser-factory.service';
 import { readLayoutTransactions } from './pdf-layout-table.helper';
+import { findStatementAmounts } from './statement-amount.helper';
+import { parseDateParts } from './statement-date.helper';
 
 /** Formats that only ever carry a bank's transactions. */
 const STATEMENT_FORMATS = new Set(['csv', 'xlsx', 'ofx', 'qif', 'camt', 'mt940']);
@@ -23,7 +26,9 @@ const MIN_STATEMENT_ROWS = 3;
  * all its transactions, rather than a receipt or an invoice booked as one
  * expense. A PDF is a statement when a bank's own parser claims it (unless it
  * reads as a receipt or an invoice, as a payment receipt naming the bank
- * does), or when its table holds dated rows. The document classifier alone
+ * does), or when its table holds dated rows, or, under headings no reader
+ * knows, lines that start with a date and carry money: a statement whose
+ * layout the parser cannot read yet, which the user may then teach it. The document classifier alone
  * is not enough: it takes an e-invoice with "balance" in it for a statement.
  * A PDF without a text layer is a scan: only its first page is read (OCR
  * takes seconds a page, and the upload waits), and the classifier decides.
@@ -59,5 +64,17 @@ export async function isBankStatementScan(
   }
 
   const { rows } = await extractTextAndLayoutFromPdf(file.path).catch(() => ({ rows: [] }));
-  return readLayoutTransactions(rows).length >= MIN_STATEMENT_ROWS;
+  return (
+    readLayoutTransactions(rows).length >= MIN_STATEMENT_ROWS ||
+    datedMoneyLines(rows) >= MIN_STATEMENT_ROWS
+  );
+}
+
+/** Lines whose first word is a date and that carry an amount besides it, whatever the headings. */
+export function datedMoneyLines(rows: PdfTextRow[]): number {
+  return rows.filter(row => {
+    const [first, ...rest] = [...row.items].sort((a, b) => a.x - b.x);
+    const dated = first && (parseDateParts(first.text, 'dmy') ?? parseDateParts(first.text, 'mdy'));
+    return Boolean(dated) && findStatementAmounts(rest.map(item => item.text).join(' ')).length > 0;
+  }).length;
 }
