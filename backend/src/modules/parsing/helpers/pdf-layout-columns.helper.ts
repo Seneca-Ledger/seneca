@@ -198,7 +198,9 @@ export function readHeaderRow(row: PdfTextRow, taught?: TaughtHeadings): LayoutC
       const word = headingWord(items[index]);
       columns.push({
         role: 'other',
-        x0: items[index].x,
+        // Its figures are right-aligned under the heading and start left of
+        // it: the column begins right after the money column before it.
+        x0: previous.x1 + 1,
         x1: items[index].x + items[index].width,
         heading: word,
       });

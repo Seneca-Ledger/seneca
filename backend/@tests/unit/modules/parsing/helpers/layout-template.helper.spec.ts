@@ -208,6 +208,16 @@ describe('layout-template.helper', () => {
     expect(read.map(t => t.description)).toEqual(['ACME Store', 'Member One']);
   });
 
+  it('keeps an unmarked column right of the money out of the description', () => {
+    // The balance column is left unmarked: its figures start left of its heading "Left".
+    const template = templateFromRegions(
+      regions.filter(region => region.tag !== 'balance'),
+      rows,
+    );
+    const read = readLayoutTable(rows, layoutReading(template)).transactions;
+    expect(read.map(t => t.description)).toEqual(['ACME Store', 'Member One']);
+  });
+
   it('names the tags still missing', () => {
     expect(missingTags(regions)).toEqual([]);
     expect(missingTags([{ tag: 'description', page: 1, x0: 0, y0: 0, x1: 1, y1: 1 }])).toEqual([
