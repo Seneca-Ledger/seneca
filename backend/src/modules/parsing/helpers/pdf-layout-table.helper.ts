@@ -1,5 +1,4 @@
 import type { PdfTextItem, PdfTextRow } from '../../../common/utils/pdf-parser.util';
-import type { ParsedTransaction } from '../interfaces/parsed-statement.interface';
 import {
   type LaidOutRow,
   type LayoutColumn,
@@ -11,18 +10,14 @@ import {
   alignsWithSectionText,
   type LayoutSection,
   readSectionHeading,
+  type SectionSign,
   sectionColumns,
   signBySection,
 } from './pdf-layout-sections.helper';
 import { joinStackedHeaders } from './pdf-layout-stacked-header.helper';
 import { groupWrappedLines, mergeLaidOut, rowHeight } from './pdf-layout-wrapped.helper';
 import { findStatementAmounts } from './statement-amount.helper';
-import {
-  type DateParts,
-  type NumericDateOrder,
-  parseDateParts,
-  resolveDate,
-} from './statement-date.helper';
+import { type DateParts, parseDateParts } from './statement-date.helper';
 import { isBalanceLabel, readAccountHeading } from './statement-metadata.helper';
 
 /**
@@ -189,10 +184,32 @@ function readTableRow(row: PdfTextRow, columns: LayoutColumn[]) {
  * own continue the columns of the last header seen.
  */
 export function readLayoutTransactions(rows: PdfTextRow[]): LayoutTransaction[] {
+  return readLayoutTable(rows).transactions;
+}
+
+/** A deposits or withdrawals section closed by its totals line: printed and read. */
+export interface SectionTotal {
+  sign: SectionSign;
+  printed: number;
+  read: number;
+}
+
+/** The transactions, and the totals lines of the sections they were read under. */
+export function readLayoutTable(rows: PdfTextRow[]): {
+  transactions: LayoutTransaction[];
+  sections: SectionTotal[];
+} {
   const ordered = joinStackedHeaders(
     rows.flatMap(splitOverlappingLines).sort((a, b) => a.page - b.page || a.y - b.y),
   );
-  const state: ReadingState = { transactions: [], columns: null, current: null, lastRow: null };
+  const state: ReadingState = {
+    transactions: [],
+    columns: null,
+    current: null,
+    lastRow: null,
+    sections: [],
+    sectionRead: 0,
+  };
   const dateWords = (row: PdfTextRow) =>
     leadingDate([...row.items].sort((a, b) => a.x - b.x))?.used ?? 0;
   const isHeading = (row: PdfTextRow) =>
@@ -200,7 +217,7 @@ export function readLayoutTransactions(rows: PdfTextRow[]): LayoutTransaction[] 
   for (const lines of attachLeadInLines(groupWrappedLines(ordered), dateWords, isHeading)) {
     readRow(state, lines);
   }
-  return state.transactions;
+  return { transactions: state.transactions, sections: state.sections };
 }
 
 interface ReadingState {
@@ -215,6 +232,9 @@ interface ReadingState {
   account?: LayoutTransaction['account'];
   /** The deposits or withdrawals heading the rows sit under, up to its totals line. */
   section?: LayoutSection;
+  /** What the rows of `section` add up to so far, and the sections closed by a total. */
+  sectionRead: number;
+  sections: SectionTotal[];
 }
 
 function readRow(state: ReadingState, lines: PdfTextRow[]) {
@@ -232,6 +252,8 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
   const section = heading || header ? null : readSectionHeading(row);
   if (section) {
     // A section's own header row, if it prints one, follows its heading.
+    // "Withdrawals (continued)" on the next page goes on adding to the same total.
+    state.sectionRead = state.section?.sign === section ? state.sectionRead : 0;
     state.section = { sign: section };
     state.columns = null;
     state.current = null;
@@ -288,6 +310,7 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
   } else if (opened) {
     state.current = { ...opened, account: state.account };
     state.transactions.push(state.current);
+    state.sectionRead += Math.abs((opened.credit ?? 0) - (opened.debit ?? 0));
     state.lastRow = lines[lines.length - 1];
   } else if (state.current && !date && continues) {
     appendText(state.current, laidOut);
@@ -295,7 +318,18 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
   } else {
     // A totals line, a footer or a gap: whatever follows is not this row's text.
     // Money on an undated line is the section's total, which closes it.
-    state.section = !date && laidOut.amounts.length > 0 ? undefined : state.section;
+    if (state.section && !date && laidOut.amounts.length > 0) {
+      const [total] = laidOut.amounts;
+      // A heading in a summary ("Deposits 15,450.75") closes with no rows read under it.
+      if (laidOut.amounts.length === 1 && state.sectionRead > 0) {
+        state.sections.push({
+          sign: state.section.sign,
+          printed: Math.abs(total.value),
+          read: state.sectionRead,
+        });
+      }
+      state.section = undefined;
+    }
     state.current = null;
   }
 }
@@ -306,60 +340,4 @@ function isBalanceLine(transaction: LayoutTransaction): boolean {
     transaction.credit === undefined &&
     transaction.amount === undefined
   );
-}
-
-/** The day/month order placeholder in `date` is only right for unambiguous dates. */
-export function reparseDate(transaction: LayoutTransaction, order: NumericDateOrder): DateParts {
-  return parseDateParts(transaction.dateText, order) ?? transaction.date;
-}
-
-/** Balance before the first row, undone from the first running balance. */
-export function openingBalanceFromRows(transactions: LayoutTransaction[]): number | null {
-  const first = transactions[0];
-  if (first?.balance === undefined) {
-    return null;
-  }
-  const net = (first.credit ?? 0) - (first.debit ?? 0) + (first.amount ?? 0);
-  return Number((first.balance - net).toFixed(2));
-}
-
-/**
- * Transactions in the shape every parser returns. Without a counterparty
- * column the description is the best name there is, so it fills both. On a
- * card statement a positive amount is a charge.
- */
-export function toParsedTransactions(
-  transactions: LayoutTransaction[],
-  order: NumericDateOrder,
-  anchor: Date | null,
-  currency: string,
-  isCard = false,
-): ParsedTransaction[] {
-  return transactions.map(transaction => {
-    const amount =
-      transaction.amount !== undefined && isCard ? -transaction.amount : transaction.amount;
-    return {
-      transactionDate: resolveDate(reparseDate(transaction, order), anchor),
-      counterpartyName: transaction.counterparty || transaction.description,
-      counterpartyAccount: transaction.counterpartyAccount,
-      paymentPurpose: transaction.description,
-      debit: transaction.debit ?? (amount !== undefined && amount < 0 ? -amount : undefined),
-      credit: transaction.credit ?? (amount !== undefined && amount >= 0 ? amount : undefined),
-      currency,
-    };
-  });
-}
-
-/**
- * Rows grouped by the account heading printed above their table, in the
- * order the accounts appear. A statement with one account (or none named)
- * comes back as a single group.
- */
-export function splitByAccount(transactions: LayoutTransaction[]): LayoutTransaction[][] {
-  const groups = new Map<string, LayoutTransaction[]>();
-  for (const transaction of transactions) {
-    const key = transaction.account?.accountNumber ?? '';
-    groups.set(key, [...(groups.get(key) ?? []), transaction]);
-  }
-  return [...groups.values()];
 }

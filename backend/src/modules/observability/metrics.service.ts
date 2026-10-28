@@ -35,6 +35,14 @@ export class MetricsService {
     registers: [this.registry],
   });
 
+  /** Reasons are a closed list of codes (statement-validation.helper), so labels stay few. */
+  readonly statementParseOutcomeTotal = new Counter({
+    name: 'statement_parse_outcome_total',
+    help: 'Parsed statements by bank, parser, outcome and the reason each was held for review',
+    labelNames: ['bank', 'parser', 'outcome', 'reason'] as const,
+    registers: [this.registry],
+  });
+
   readonly storageFileAccessDurationSeconds = new Histogram({
     name: 'storage_file_access_duration_seconds',
     help: 'Storage file access duration (preview/download)',

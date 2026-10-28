@@ -476,6 +476,7 @@ describe('StatementProcessingService', () => {
 
     expect(statement.status).toBe(StatementStatus.NEEDS_REVIEW);
     expect(statement.parsingDetails?.validation?.passed).toBe(false);
+    expect(statement.parsingDetails?.validation?.reasonCodes).toEqual(['balance_mismatch']);
     expect(statement.parsingDetails?.validation?.balanceCheck).toMatchObject({
       expectedEnd: 1100,
       actualEnd: 1500,
@@ -483,6 +484,32 @@ describe('StatementProcessingService', () => {
     });
     // Transactions are still persisted — only their visibility is withheld.
     expect(savedTransactions).toHaveLength(2);
+  });
+
+  it("holds the statement for review when the parser's own reading fails a check", async () => {
+    parserFactory.getParser.mockResolvedValueOnce({
+      parse: vi.fn().mockResolvedValue({
+        ...parsedStatement,
+        checks: [
+          { code: 'printed_totals', passed: true },
+          {
+            code: 'balance_chain',
+            passed: false,
+            detail: { row: 2, date: '15/02/2025', expected: 1110, actual: 1050 },
+          },
+        ],
+      }),
+      constructor: { name: 'FakeParser' },
+    });
+
+    await service.processStatement(statement.id);
+
+    expect(statement.status).toBe(StatementStatus.NEEDS_REVIEW);
+    expect(statement.parsingDetails?.validation?.reasonCodes).toEqual(['balance_chain']);
+    expect(statement.parsingDetails?.warnings).toContain(
+      'Balance chain broken at row 2 (15/02/2025): expected 1110.00 got 1050.00',
+    );
+    expect(statement.parsingDetails?.checks).toHaveLength(2);
   });
 
   it('completes the statement when the balance reconciles', async () => {
@@ -498,6 +525,7 @@ describe('StatementProcessingService', () => {
 
     expect(statement.status).toBe(StatementStatus.COMPLETED);
     expect(statement.parsingDetails?.validation?.passed).toBe(true);
+    expect(statement.parsingDetails?.validation?.reasonCodes).toEqual([]);
   });
 
   describe('a file that prints several accounts', () => {

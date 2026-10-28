@@ -183,6 +183,18 @@ describe('golden parsing (optional)', () => {
         expectedAccounts.length,
       );
 
+      // A known format must pass every check of its own reading: a check that
+      // fails here would hold good statements for review. A fixture of an
+      // incomplete file names the checks it is expected to fail.
+      const expectedFailures: string[] = JSON.parse(fs.readFileSync(expected, 'utf8')).failedChecks ?? [];
+      actualAccounts.forEach((account, index) => {
+        const failed = (account.checks ?? []).filter(check => !check.passed);
+        expect({ account: index, failed: failed.map(check => check.code) }).toEqual({
+          account: index,
+          failed: index === 0 ? expectedFailures : [],
+        });
+      });
+
       expectedAccounts.forEach((expected, index) => {
         const actualAccount = actualAccounts[index];
         expect(actualAccount.metadata.currency).toBe(expected.metadata.currency);

@@ -1,11 +1,11 @@
 import type { PdfTextRow } from '@/common/utils/pdf-parser.util';
 import { readHeaderRow } from '@/modules/parsing/helpers/pdf-layout-columns.helper';
+import { readLayoutTransactions } from '@/modules/parsing/helpers/pdf-layout-table.helper';
 import {
   openingBalanceFromRows,
-  readLayoutTransactions,
   splitByAccount,
   toParsedTransactions,
-} from '@/modules/parsing/helpers/pdf-layout-table.helper';
+} from '@/modules/parsing/helpers/pdf-layout-transactions.helper';
 
 /** A word is [text, x]; width is 5pt per character, height 8pt. */
 type Word = [string, number];

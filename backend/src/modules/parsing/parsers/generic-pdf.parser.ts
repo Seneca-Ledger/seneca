@@ -9,15 +9,25 @@ import { BankName, FileType } from '../../../entities/statement.entity';
 import { findAccountNumberInColumn } from '../helpers/pdf-layout-account-number.helper';
 import {
   type LayoutTransaction,
-  openingBalanceFromRows,
+  readLayoutTable,
   readLayoutTransactions,
+} from '../helpers/pdf-layout-table.helper';
+import {
+  openingBalanceFromRows,
   splitByAccount,
   toParsedTransactions,
-} from '../helpers/pdf-layout-table.helper';
+} from '../helpers/pdf-layout-transactions.helper';
 import {
   mapPdfTableRowsToTransactions,
   pickReconciledTransactions,
 } from '../helpers/pdf-table.helper';
+import {
+  checkBalanceChain,
+  checkDatesInPeriod,
+  checkPrintedBalances,
+  checkPrintedTotals,
+  checkSectionTotals,
+} from '../helpers/statement-checks.helper';
 import { detectNumericDateOrder, type NumericDateOrder } from '../helpers/statement-date.helper';
 import {
   detectStatementCurrency,
@@ -26,12 +36,41 @@ import {
   findStatementAnchor,
   findStatementBalances,
   findStatementPeriod,
+  findStatementTotals,
   isCreditCardStatement,
 } from '../helpers/statement-metadata.helper';
-import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
+import type {
+  ParseCheck,
+  ParsedStatement,
+  ParsedTransaction,
+} from '../interfaces/parsed-statement.interface';
 import { BaseParser } from './base.parser';
 
 const negate = (value: number | null) => (value === null ? null : -value);
+
+/** Rows a week either side of a printed range still place it. */
+const PERIOD_SLACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * A printed range is the statement's period only if its rows fall in it: "fee
+ * based on your balance from 1 Sep 2024 to 30 Nov 2024" on a statement of
+ * September 2025 is a note. A statement without rows keeps the range.
+ */
+function plausiblePeriod<T extends { from: Date | null; to: Date | null }>(
+  range: T | null,
+  transactions: ParsedTransaction[],
+): T | null {
+  const { from, to } = range ?? {};
+  if (!(from && to) || transactions.length === 0) {
+    return range;
+  }
+  const inside = transactions.some(
+    row =>
+      row.transactionDate.getTime() >= from.getTime() - PERIOD_SLACK_MS &&
+      row.transactionDate.getTime() <= to.getTime() + PERIOD_SLACK_MS,
+  );
+  return inside ? range : null;
+}
 
 export class GenericPdfParser extends BaseParser {
   async canParse(
@@ -79,15 +118,16 @@ export class GenericPdfParser extends BaseParser {
     // The layout reading comes first: on statements without ruling lines the
     // table attempts read page-wide noise, and on Russian-headed tables it
     // finds nothing and steps aside.
+    const layoutParsed = toParsedTransactions(
+      layoutTransactions,
+      dateOrder,
+      latestPrinted,
+      detectedCurrency,
+      isCard,
+    );
     const transactions = pickReconciledTransactions(
       [
-        toParsedTransactions(
-          layoutTransactions,
-          dateOrder,
-          latestPrinted,
-          detectedCurrency,
-          isCard,
-        ),
+        layoutParsed,
         ...rowSets.map(rows =>
           mapPdfTableRowsToTransactions(rows, {
             defaultCurrency: detectedCurrency,
@@ -100,7 +140,10 @@ export class GenericPdfParser extends BaseParser {
     );
 
     const legacyRange = this.extractDateRange(text);
-    const dateRange = legacyRange.from ? legacyRange : findStatementPeriod(text, dateOrder);
+    const dateRange = plausiblePeriod(
+      legacyRange.from ? legacyRange : findStatementPeriod(text, dateOrder),
+      transactions,
+    );
     const transactionDates = transactions.map(t => t.transactionDate).filter(Boolean);
     const minDate =
       transactionDates.length > 0
@@ -132,7 +175,42 @@ export class GenericPdfParser extends BaseParser {
         locale: localeInfo.locale !== 'unknown' ? localeInfo.locale : undefined,
       },
       transactions,
+      checks: this.readingChecks(text, dateOrder, transactions, dateRange, isCard, {
+        rows: transactions === layoutParsed ? layoutTransactions : [],
+        sections: readLayoutTable(layoutRows).sections,
+      }),
     };
+  }
+
+  /**
+   * What this reading is held to: the printed running balances, sections'
+   * totals, money in and out, labelled balances and period (see
+   * statement-checks.helper). The rows' own checks apply only when the
+   * layout reading is the one kept.
+   */
+  private readingChecks(
+    text: string,
+    dateOrder: NumericDateOrder,
+    transactions: ParsedTransaction[],
+    period: { from: Date | null; to: Date | null } | null,
+    isCard: boolean,
+    layout: { rows: LayoutTransaction[]; sections: Parameters<typeof checkSectionTotals>[0] },
+  ): ParseCheck[] {
+    const rows = layout.rows;
+    const fromRows = {
+      start: openingBalanceFromRows(rows),
+      end: rows[rows.length - 1]?.balance ?? null,
+    };
+    return [
+      checkBalanceChain(rows, isCard),
+      rows.length > 0 ? checkSectionTotals(layout.sections) : null,
+      checkPrintedTotals(findStatementTotals(text, dateOrder), transactions),
+      checkPrintedBalances(findStatementBalances(text, dateOrder), fromRows),
+      checkDatesInPeriod(
+        transactions,
+        period?.from && period.to ? { from: period.from, to: period.to } : null,
+      ),
+    ].filter((check): check is ParseCheck => check !== null);
   }
 
   /** The table's rows, which a bank's own parser may read further. */
@@ -156,7 +234,7 @@ export class GenericPdfParser extends BaseParser {
     const currency = rows[0].account?.currency ?? fallbackCurrency;
     const transactions = toParsedTransactions(rows, dateOrder, latestPrinted, currency, isCard);
     const times = transactions.map(t => t.transactionDate.getTime());
-    const period = findStatementPeriod(text, dateOrder);
+    const period = plausiblePeriod(findStatementPeriod(text, dateOrder), transactions);
     return {
       metadata: {
         accountNumber: rows[0].account?.accountNumber ?? '',
@@ -167,6 +245,10 @@ export class GenericPdfParser extends BaseParser {
         balanceEnd: rows[rows.length - 1].balance,
       },
       transactions,
+      // Labels and totals elsewhere on the page cannot be told apart by account.
+      checks: [checkBalanceChain(rows, isCard), checkDatesInPeriod(transactions, period)].filter(
+        (check): check is ParseCheck => check !== null,
+      ),
     };
   }
 

@@ -1,4 +1,7 @@
 {
+  "failedChecks": [
+    "printed_totals"
+  ],
   "metadata": {
     "accountNumber": "GB39BOFS40855305320652",
     "currency": "GBP",

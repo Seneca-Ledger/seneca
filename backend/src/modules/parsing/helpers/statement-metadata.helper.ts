@@ -283,6 +283,56 @@ export function findStatementBalances(
   return { start: dated[0].amount, end: dated[dated.length - 1].amount };
 }
 
+/** Labels of the printed sums of a statement's credits and of its debits. */
+const TOTAL_CREDITS = [
+  'money in',
+  'total money in',
+  'total credits',
+  'total deposits',
+  'deposits and other additions',
+  'total paid in',
+];
+const TOTAL_DEBITS = [
+  'money out',
+  'total money out',
+  'total debits',
+  'total withdrawals',
+  'withdrawals and other subtractions',
+  'total paid out',
+];
+
+/**
+ * The statement's printed sums of money in and money out ("Money in
+ * £11,450.43", "Total withdrawals 2,040.00"): the first figure after the
+ * label, as a box printed beside it can end the same line. Null for a side
+ * the statement does not total.
+ */
+export function findStatementTotals(
+  text: string,
+  order: NumericDateOrder,
+): { credits: number | null; debits: number | null } {
+  const folded = foldText(text);
+  const total = (labels: string[]) => {
+    for (const label of labels) {
+      const pattern = new RegExp(`(?:^|[^a-z])${label}(?![a-z])`, 'g');
+      for (const match of folded.matchAll(pattern)) {
+        const value = amountAfter(
+          text,
+          folded,
+          (match.index ?? 0) + match[0].length,
+          order,
+          'first',
+        );
+        if (value !== null) {
+          return Math.abs(value);
+        }
+      }
+    }
+    return null;
+  };
+  return { credits: total(TOTAL_CREDITS), debits: total(TOTAL_DEBITS) };
+}
+
 const CARD_MARKERS = [
   'minimum payment',
   'payment due date',

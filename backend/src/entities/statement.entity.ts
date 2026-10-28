@@ -302,6 +302,8 @@ export class Statement {
     validation?: {
       passed: boolean;
       warnings: string[];
+      /** Why it was held for review, one code per warning (statement-validation.helper). */
+      reasonCodes?: string[];
       balanceCheck?: {
         expectedEnd?: number;
         actualEnd?: number;
@@ -309,6 +311,8 @@ export class Statement {
         tolerance?: number;
       };
     };
+    /** The parser's checks of its own reading (ParseCheck), passed or not. */
+    checks?: Array<{ code: string; passed: boolean; detail?: Record<string, string | number> }>;
     droppedSamples?: Array<{
       reason: string;
       transaction?: JsonObject;

@@ -30,7 +30,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { flattenStatementCategories, getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
-import { BalanceReviewAlert } from './components/BalanceReviewAlert';
+import { BalanceReviewAlert, balanceReviewLabels } from './components/BalanceReviewAlert';
 import { EditStatementSkeleton } from './components/EditStatementSkeleton';
 import { EditTransactionsTable } from './components/EditTransactionsTable';
 import {
@@ -436,15 +436,7 @@ export default function EditStatementPage(): React.JSX.Element {
           parsingDetails={statement.parsingDetails}
           formatNumber={formatNumber}
           onConfirmed={LoadData}
-          labels={{
-            title: labels.balanceReviewTitle?.value,
-            description: labels.balanceReviewDescription?.value,
-            expected: labels.balanceReviewExpected?.value,
-            actual: labels.balanceReviewActual?.value,
-            difference: labels.balanceReviewDifference?.value,
-            confirm: labels.balanceReviewConfirm?.value,
-            confirmFailed: labels.balanceReviewConfirmFailed?.value,
-          }}
+          labels={balanceReviewLabels(labels)}
         />
       )}
 

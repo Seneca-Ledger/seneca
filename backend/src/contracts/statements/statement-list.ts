@@ -84,6 +84,7 @@ export const StatementParsingDetails = Schema.StructWithRest(
       Schema.Struct({
         passed: Schema.Boolean,
         warnings: maybe(Strings),
+        reasonCodes: maybe(Strings),
         balanceCheck: maybe(
           Schema.Struct({
             expectedEnd: maybe(Schema.Number),
@@ -93,6 +94,24 @@ export const StatementParsingDetails = Schema.StructWithRest(
           }),
         ),
       }),
+    ),
+    /** The parser's checks of its own reading; a failed one says where. */
+    checks: maybe(
+      Schema.Array(
+        Schema.Struct({
+          code: Schema.String,
+          passed: Schema.Boolean,
+          detail: maybe(
+            Schema.Struct({
+              row: maybe(Schema.Number),
+              date: maybe(Schema.String),
+              side: maybe(Schema.String),
+              expected: maybe(Schema.Number),
+              actual: maybe(Schema.Number),
+            }),
+          ),
+        }),
+      ),
     ),
     balanceConfirmation: maybe(
       Schema.Struct({ confirmedBy: Schema.String, confirmedAt: Schema.String }),
