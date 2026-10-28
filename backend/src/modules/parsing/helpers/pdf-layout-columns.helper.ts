@@ -65,6 +65,8 @@ const HEADINGS: Record<ColumnRole, string[]> = {
   debit: [
     'withdrawal',
     'withdrawals',
+    'money out of your account',
+    'debits to your account',
     'debit',
     'debits',
     'cheques et debits',
@@ -77,6 +79,8 @@ const HEADINGS: Record<ColumnRole, string[]> = {
   credit: [
     'deposit',
     'deposits',
+    'money into your account',
+    'credits to your account',
     'credit',
     'credits',
     'depots et credits',
@@ -100,8 +104,12 @@ const LONGEST_PHRASE = Math.max(...Array.from(PHRASES.keys(), phrase => phrase.s
 /** Gap under which a stray word ("(-)", "($)") belongs to the heading beside it. */
 const ATTACH_GAP = 8;
 
+/** A heading's words, folded, without colons and the unit in brackets ("Balance ($)"). */
 function headingWord(item: PdfTextItem): string {
-  return foldText(item.text).replace(/[:]/g, '');
+  return foldText(item.text)
+    .replace(/[:]|\([^)]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** The longest heading that starts at `index`, and how many words it spans. */
@@ -110,6 +118,7 @@ function matchHeading(items: PdfTextItem[], index: number) {
     const phrase = items
       .slice(index, index + length)
       .map(headingWord)
+      .filter(Boolean)
       .join(' ');
     const role = PHRASES.get(phrase);
     if (role) {
@@ -220,7 +229,10 @@ export function layOutRow(items: PdfTextItem[], columns: LayoutColumn[]): LaidOu
   for (let index = 0; index < sorted.length; ) {
     const cell = moneyCellAt(sorted, index, columns);
     if (cell) {
-      result.amounts.push(cell.amount);
+      // A figure OCR misread ("3541" for "35.41") is no amount, and no text either.
+      if (cell.amount) {
+        result.amounts.push(cell.amount);
+      }
       index = cell.end;
       continue;
     }
@@ -249,6 +261,9 @@ function moneyCellAt(sorted: PdfTextItem[], start: number, columns: LayoutColumn
   const run = sorted.slice(start, end);
   const value = parseStatementAmount(run.map(item => item.text).join(' '));
   const last = run[run.length - 1];
-  const column = value !== null ? moneyColumnFor(last.x + last.width, columns) : null;
-  return column && value !== null ? { amount: { role: column.role, value }, end } : null;
+  const column = moneyColumnFor(last.x + last.width, columns);
+  if (!column) {
+    return null;
+  }
+  return { amount: value === null ? null : { role: column.role, value }, end };
 }

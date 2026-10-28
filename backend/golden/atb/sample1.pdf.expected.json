@@ -1,0 +1,532 @@
+{
+  "accounts": [
+    {
+      "metadata": {
+        "accountNumber": "00123456701",
+        "currency": "CAD",
+        "dateFrom": "2017-08-08T00:00:00",
+        "dateTo": "2017-09-07T00:00:00",
+        "balanceStart": 1959.19,
+        "balanceEnd": 278.16
+      },
+      "transactions": [
+        {
+          "transactionDate": "2017-08-08T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 8.88,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-08T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 24.03,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-09T00:00:00",
+          "counterpartyName": "Withdrawal Interac",
+          "paymentPurpose": "Withdrawal Interac",
+          "debit": 203,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-09T00:00:00",
+          "counterpartyName": "ABM Network Fee",
+          "paymentPurpose": "ABM Network Fee",
+          "debit": 1.5,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-09T00:00:00",
+          "counterpartyName": "MCDONALD'S",
+          "paymentPurpose": "POS Purchase MCDONALD'S",
+          "debit": 20.13,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-09T00:00:00",
+          "counterpartyName": "Deposit ABM",
+          "paymentPurpose": "Deposit ABM",
+          "credit": 300,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-09T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 62.59,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-09T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 152.98,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-09T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 74.3,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-09T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 40,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-13T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 23.84,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-14T00:00:00",
+          "counterpartyName": "Withdrawal",
+          "paymentPurpose": "Withdrawal",
+          "debit": 200,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-14T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 23.88,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "Direct Deposit",
+          "paymentPurpose": "Direct Deposit",
+          "credit": 629.85,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "Direct Deposit",
+          "paymentPurpose": "Direct Deposit",
+          "credit": 4144.64,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "Loan Payment Transfer",
+          "paymentPurpose": "Loan Payment Transfer",
+          "debit": 349.49,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "MOBILE Bill Payment",
+          "paymentPurpose": "MOBILE Bill Payment",
+          "debit": 122,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "MOBILE Bill Payment",
+          "paymentPurpose": "MOBILE Bill Payment",
+          "debit": 400,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "MOBILE Interac e-Transfer Sent",
+          "paymentPurpose": "MOBILE Interac e-Transfer Sent",
+          "debit": 730,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "debit": 4000,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "Direct Debit",
+          "paymentPurpose": "Direct Debit",
+          "debit": 34.85,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "Direct Debit",
+          "paymentPurpose": "Direct Debit",
+          "debit": 182.15,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-16T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 1.98,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-16T00:00:00",
+          "counterpartyName": "Direct Debit",
+          "paymentPurpose": "Direct Debit",
+          "debit": 100,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-17T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 3.44,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-17T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "debit": 119,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-17T00:00:00",
+          "counterpartyName": "Withdrawal Interac",
+          "paymentPurpose": "Withdrawal Interac",
+          "debit": 105,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-17T00:00:00",
+          "counterpartyName": "ABM Network Fee",
+          "paymentPurpose": "ABM Network Fee",
+          "debit": 1.5,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-18T00:00:00",
+          "counterpartyName": "MOBILE Interac e-Transfer Received",
+          "paymentPurpose": "MOBILE Interac e-Transfer Received",
+          "credit": 175,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-18T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 9.62,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-18T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 47.05,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-19T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 25.34,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-19T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 4.22,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-20T00:00:00",
+          "counterpartyName": "MOBILE Bill Payment",
+          "paymentPurpose": "MOBILE Bill Payment",
+          "debit": 80,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-21T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "credit": 80,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-21T00:00:00",
+          "counterpartyName": "Withdrawal Interac",
+          "paymentPurpose": "Withdrawal Interac",
+          "debit": 102.5,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-21T00:00:00",
+          "counterpartyName": "ABM Network Fee",
+          "paymentPurpose": "ABM Network Fee",
+          "debit": 1.5,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-23T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 17.5,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-30T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 9.29,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "Direct Deposit",
+          "paymentPurpose": "Direct Deposit",
+          "credit": 3156.11,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "MOBILE Interac e-Transfer Sent",
+          "paymentPurpose": "MOBILE Interac e-Transfer Sent",
+          "debit": 240,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "MOBILE Bill Payment",
+          "paymentPurpose": "MOBILE Bill Payment",
+          "debit": 1000,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "Insurance Premium Payment",
+          "paymentPurpose": "Insurance Premium Payment",
+          "debit": 12.08,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 1.98,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 60.64,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "Monthly Maintenance Fees",
+          "paymentPurpose": "Monthly Maintenance Fees",
+          "debit": 9.95,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "Refund ABM Network Fee",
+          "paymentPurpose": "Refund ABM Network Fee",
+          "credit": 1.5,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "Refund ABM Withdrawal Fee",
+          "paymentPurpose": "Refund ABM Withdrawal Fee",
+          "credit": 3,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-01T00:00:00",
+          "counterpartyName": "Loan Payment Transfer",
+          "paymentPurpose": "Loan Payment Transfer",
+          "debit": 618.74,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-02T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 35.05,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-02T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 29.66,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-03T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 238.37,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-03T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 5.03,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-03T00:00:00",
+          "counterpartyName": "MOBILE Interac e-Transfer Received",
+          "paymentPurpose": "MOBILE Interac e-Transfer Received",
+          "credit": 119,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-04T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 9.94,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-04T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 45.09,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-04T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 9,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-04T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "debit": 508,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-04T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "debit": 71,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-04T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 1.6,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-05T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 9.67,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-06T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 4.61,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-06T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 39.95,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-07T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 55.63,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-07T00:00:00",
+          "counterpartyName": "POS Purchase",
+          "paymentPurpose": "POS Purchase",
+          "debit": 2.58,
+          "currency": "CAD"
+        }
+      ]
+    },
+    {
+      "metadata": {
+        "accountNumber": "00123456702",
+        "currency": "CAD",
+        "dateFrom": "2017-08-15T00:00:00",
+        "dateTo": "2017-09-04T00:00:00",
+        "balanceStart": 31.96,
+        "balanceEnd": 4500.14
+      },
+      "transactions": [
+        {
+          "transactionDate": "2017-08-15T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "credit": 4000,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-16T00:00:00",
+          "counterpartyName": "Direct Debit",
+          "paymentPurpose": "Direct Debit",
+          "debit": 150,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-17T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "credit": 119,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-21T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "debit": 80,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-08-31T00:00:00",
+          "counterpartyName": "Interest Payment",
+          "paymentPurpose": "Interest Payment",
+          "credit": 0.18,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-04T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "credit": 508,
+          "currency": "CAD"
+        },
+        {
+          "transactionDate": "2017-09-04T00:00:00",
+          "counterpartyName": "MOBILE Transfer",
+          "paymentPurpose": "MOBILE Transfer",
+          "credit": 71,
+          "currency": "CAD"
+        }
+      ]
+    }
+  ]
+}

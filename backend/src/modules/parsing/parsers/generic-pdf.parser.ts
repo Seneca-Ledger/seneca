@@ -17,14 +17,11 @@ import {
   mapPdfTableRowsToTransactions,
   pickReconciledTransactions,
 } from '../helpers/pdf-table.helper';
-import {
-  detectNumericDateOrder,
-  findFullDates,
-  type NumericDateOrder,
-} from '../helpers/statement-date.helper';
+import { detectNumericDateOrder, type NumericDateOrder } from '../helpers/statement-date.helper';
 import {
   detectStatementCurrency,
   findAccountNumber,
+  findStatementAnchor,
   findStatementBalances,
   findStatementPeriod,
   isCreditCardStatement,
@@ -59,8 +56,7 @@ export class GenericPdfParser extends BaseParser {
       detectNumericDateOrder(layoutTransactions.map(t => t.dateText)) ??
       detectNumericDateOrder(text.match(/\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b/g) ?? []) ??
       'dmy';
-    const printedDates = findFullDates(text, dateOrder).map(found => found.date.getTime());
-    const latestPrinted = printedDates.length > 0 ? new Date(Math.max(...printedDates)) : null;
+    const latestPrinted = findStatementAnchor(text, dateOrder);
     const isCard = isCreditCardStatement(text);
 
     const accounts = splitByAccount(layoutTransactions);

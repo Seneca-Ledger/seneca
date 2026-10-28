@@ -7,6 +7,7 @@ import {
   detectStatementCurrency,
   findAccountNumber,
   findStatementBalances,
+  findStatementAnchor,
   findStatementPeriod,
   isCreditCardStatement,
   readAccountHeading,
@@ -81,6 +82,19 @@ describe('statement-metadata.helper', () => {
     expect([dayMonth(us?.from), dayMonth(us?.to)]).toEqual([[1, 9], [30, 9]]);
     expect([dayMonth(fr?.from), dayMonth(fr?.to)]).toEqual([[1, 1], [31, 1]]);
     expect(findStatementPeriod('Due 10/24/2025, issued 09/30/2025', 'mdy')).toBeNull();
+  });
+
+  it('reads dates without a year against the statement date, not a date years ahead', () => {
+    const statement = [
+      'Statement date September 7,2017',
+      'Your closing balance on Sep 7, 2017',
+      'Payments continue MONTHLY until JUN 13, 2027',
+    ].join('\n');
+    expect(findStatementAnchor(statement, 'dmy')).toEqual(new Date(2017, 8, 7));
+    expect(findStatementAnchor('Printed 05/03/2024, due 20/03/2024', 'dmy')).toEqual(
+      new Date(2024, 2, 20),
+    );
+    expect(findStatementAnchor('No dates here', 'dmy')).toBeNull();
   });
 
   it('reads balances from labels, skipping dates and taking the last figure', () => {

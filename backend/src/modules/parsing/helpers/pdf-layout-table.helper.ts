@@ -6,6 +6,7 @@ import {
   layOutRow,
   readHeaderRow,
 } from './pdf-layout-columns.helper';
+import { joinStackedHeaders } from './pdf-layout-stacked-header.helper';
 import { groupWrappedLines, mergeLaidOut, rowHeight } from './pdf-layout-wrapped.helper';
 import { findStatementAmounts } from './statement-amount.helper';
 import {
@@ -180,7 +181,9 @@ function readTableRow(row: PdfTextRow, columns: LayoutColumn[]) {
  * own continue the columns of the last header seen.
  */
 export function readLayoutTransactions(rows: PdfTextRow[]): LayoutTransaction[] {
-  const ordered = rows.flatMap(splitOverlappingLines).sort((a, b) => a.page - b.page || a.y - b.y);
+  const ordered = joinStackedHeaders(
+    rows.flatMap(splitOverlappingLines).sort((a, b) => a.page - b.page || a.y - b.y),
+  );
   const state: ReadingState = { transactions: [], columns: null, current: null, lastRow: null };
   for (const lines of groupWrappedLines(ordered)) {
     readRow(state, lines);

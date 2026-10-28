@@ -183,6 +183,7 @@ describe('ParserFactoryService', () => {
       'AbsaParser',
       'AllyParser',
       'AnzParser',
+      'AtbParser',
       'GenericPdfParser',
       'ExcelParser',
       'CsvParser',

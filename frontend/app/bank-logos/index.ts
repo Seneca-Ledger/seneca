@@ -1,4 +1,12 @@
-export type BankLogoKey = 'kaspi' | 'bereke' | 'hapoalim' | 'absa' | 'ally' | 'anz' | 'other';
+export type BankLogoKey =
+  | 'kaspi'
+  | 'bereke'
+  | 'hapoalim'
+  | 'absa'
+  | 'ally'
+  | 'anz'
+  | 'atb'
+  | 'other';
 
 export type ResolvedBankLogo = {
   key: BankLogoKey;
@@ -14,6 +22,7 @@ const LOGO_SRC_BY_KEY: Record<BankLogoKey, string> = {
   absa: '/images/bank-logo/bank.png',
   ally: '/images/bank-logo/bank.png',
   anz: '/images/bank-logo/bank.png',
+  atb: '/images/bank-logo/bank.png',
   other: '/images/bank-logo/bank.png',
 };
 
@@ -24,6 +33,7 @@ const DISPLAY_NAME_BY_KEY: Record<BankLogoKey, string> = {
   absa: 'Absa Bank',
   ally: 'Ally Bank',
   anz: 'ANZ',
+  atb: 'ATB Financial',
   other: 'Bank',
 };
 
@@ -58,6 +68,9 @@ const resolveKeyFromName = (bankName: string): BankLogoKey => {
   }
   if (n === 'anz' || n.startsWith('anz ')) {
     return 'anz';
+  }
+  if (n === 'atb' || n.startsWith('atb ')) {
+    return 'atb';
   }
   if (n === 'other') {
     return 'other';

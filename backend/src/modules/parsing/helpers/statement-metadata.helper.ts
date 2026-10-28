@@ -113,6 +113,24 @@ export function findStatementPeriod(
   return null;
 }
 
+/**
+ * The day the statement was drawn up, which dates printed without a year are
+ * read against: the latest date it prints more than once, as the statement
+ * date heads every page. The latest date of all can be years ahead ("payments
+ * continue monthly until JUN 13, 2027"); it is the fallback when no date
+ * repeats.
+ */
+export function findStatementAnchor(text: string, order: NumericDateOrder): Date | null {
+  const counts = new Map<number, number>();
+  for (const found of findFullDates(text, order)) {
+    const time = found.date.getTime();
+    counts.set(time, (counts.get(time) ?? 0) + 1);
+  }
+  const repeated = [...counts].filter(([, count]) => count > 1).map(([time]) => time);
+  const candidates = repeated.length > 0 ? repeated : [...counts.keys()];
+  return candidates.length > 0 ? new Date(Math.max(...candidates)) : null;
+}
+
 const OPENING = [
   'opening balance',
   'balance brought forward',

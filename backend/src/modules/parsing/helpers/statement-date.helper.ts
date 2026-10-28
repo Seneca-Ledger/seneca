@@ -87,12 +87,12 @@ export function parseDateParts(text: string, order: NumericDateOrder): DateParts
     return month ? valid({ day: Number(dayFirst[1]), month, year: fullYear(dayFirst[3]) }) : null;
   }
 
-  const monthFirst = value.match(/^([a-z]+)\.?\s+(\d{1,2}),?(?:\s+(\d{4}))?$/);
+  // "Sep 3", "Sep 3, 2025", and "September 7,2017" as OCR reads it.
+  const monthFirst = value.match(/^([a-z]+)\.?\s+(\d{1,2})(?:,?\s+(\d{4})|,(\d{4}))?,?$/);
   if (monthFirst) {
     const month = monthFromName(monthFirst[1]);
-    return month
-      ? valid({ day: Number(monthFirst[2]), month, year: fullYear(monthFirst[3]) })
-      : null;
+    const year = fullYear(monthFirst[3] ?? monthFirst[4]);
+    return month ? valid({ day: Number(monthFirst[2]), month, year }) : null;
   }
 
   return null;
@@ -121,7 +121,7 @@ const FULL_DATE_PATTERNS = [
   /\b\d{4}-\d{2}-\d{2}\b/g,
   /\b\d{1,2}[./-]\d{1,2}[./-](?:\d{4}|\d{2})\b/g,
   /\b\d{1,2}(?:er)?\s+[a-z]+\.?\s+\d{4}\b/g,
-  /\b[a-z]+\.?\s+\d{1,2},?\s+\d{4}\b/g,
+  /\b[a-z]+\.?\s+\d{1,2}(?:,?\s+|,)\d{4}\b/g,
 ];
 
 export interface FoundDate {
