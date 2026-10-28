@@ -1,5 +1,5 @@
 import type { PdfTextItem, PdfTextRow } from '../../../common/utils/pdf-parser.util';
-import { readHeaderRow } from './pdf-layout-columns.helper';
+import { type LayoutColumn, readHeaderRow } from './pdf-layout-columns.helper';
 import { rowHeight } from './pdf-layout-wrapped.helper';
 
 /**
@@ -41,15 +41,18 @@ function stackLines(top: PdfTextRow, bottom: PdfTextRow): PdfTextRow {
 }
 
 /** Rows in page order, with every two-line header made one row. */
-export function joinStackedHeaders(rows: PdfTextRow[]): PdfTextRow[] {
+export function joinStackedHeaders(
+  rows: PdfTextRow[],
+  readHeader: (row: PdfTextRow) => LayoutColumn[] | null = readHeaderRow,
+): PdfTextRow[] {
   const joined: PdfTextRow[] = [];
   for (let index = 0; index < rows.length; index += 1) {
     const [top, bottom] = [rows[index], rows[index + 1]];
     const close =
       bottom?.page === top.page && bottom.y - top.y <= STACKED_LINE_GAP * rowHeight(top);
-    const stacked = close && !readHeaderRow(top) ? stackLines(top, bottom) : null;
-    const columns = stacked ? readHeaderRow(stacked) : null;
-    if (stacked && columns && columns.length > (readHeaderRow(bottom)?.length ?? 0)) {
+    const stacked = close && !readHeader(top) ? stackLines(top, bottom) : null;
+    const columns = stacked ? readHeader(stacked) : null;
+    if (stacked && columns && columns.length > (readHeader(bottom)?.length ?? 0)) {
       joined.push(stacked);
       index += 1;
     } else {

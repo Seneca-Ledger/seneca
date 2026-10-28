@@ -101,6 +101,7 @@ export * from './settings/business-profile';
 export * from './settings/settings';
 export * from './settings/system-update';
 export * from './settings/versions';
+export * from './statements/layout-teach';
 export * from './statements/parser-health';
 export * from './statements/statement-list';
 export * from './statements/statement-writes';

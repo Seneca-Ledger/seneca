@@ -44,6 +44,7 @@ import {
   validateParsedStatement,
 } from '../helpers/statement-validation.helper';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
+import { LayoutTemplateService } from './layout-template.service';
 import { MetadataExtractionService } from './metadata-extraction.service';
 import { OcrService } from './ocr.service';
 import { ParserFactoryService } from './parser-factory.service';
@@ -115,6 +116,7 @@ export class StatementProcessingService {
     private readonly transferPairingService?: TransferPairingService,
     @Optional()
     private readonly manualRowDuplicates?: ManualRowDuplicateService,
+    @Optional() private readonly layoutTemplates?: LayoutTemplateService,
   ) {}
 
   private isRecord(value: unknown): value is Record<string, unknown> {
@@ -587,13 +589,11 @@ export class StatementProcessingService {
       if (!parser) {
         const errorMsg = `No parser found for bank ${bankName} and file type ${statement.fileType}`;
         addLog('error', errorMsg);
-        parsingDetails.errors = parsingDetails.errors || [];
-        parsingDetails.errors.push(errorMsg);
+        parsingDetails.errors = [...(parsingDetails.errors ?? []), errorMsg];
         throw new StatementRejected({ message: errorMsg });
       }
 
-      const parserVersion =
-        typeof parser.getVersion === 'function' ? parser.getVersion() : 'unknown';
+      const parserVersion = parser.getVersion?.() ?? 'unknown';
 
       parsingDetails.parserUsed = parser.constructor.name;
       parsingDetails.parserVersion = parserVersion;
@@ -602,7 +602,9 @@ export class StatementProcessingService {
       // Parse statement
       addLog('info', 'Starting PDF text extraction...');
       const parseStartTime = Date.now();
-      const parsedStatement = await parser.parse(processingFilePath, cachedText, ocrConfidence);
+      // A layout the workspace taught reads the file when the parser's own reading fails.
+      const reader = this.layoutTemplates?.readerFor(parser, statement) ?? parser;
+      const parsedStatement = await reader.parse(processingFilePath, cachedText, ocrConfidence);
       takeStatementAccount(parsedStatement, statement, parsingDetails);
       const parseTime = Date.now() - parseStartTime;
 
@@ -847,8 +849,7 @@ export class StatementProcessingService {
       const message = this.getErrorMessage(error);
       const errorMsg = `Error processing statement ${statementId}: ${message}`;
       addLog('error', errorMsg);
-      parsingDetails.errors = parsingDetails.errors || [];
-      parsingDetails.errors.push(message);
+      parsingDetails.errors = [...(parsingDetails.errors ?? []), message];
       parsingDetails.processingTime = Date.now() - startTime;
       this.countError('processing', error);
       this.observeDuration('total', startTime, statement.bankName, statement.fileType, 'error');

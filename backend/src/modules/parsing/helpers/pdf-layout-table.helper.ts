@@ -4,6 +4,7 @@ import {
   type LayoutColumn,
   layOutRow,
   readHeaderRow,
+  type TaughtHeadings,
 } from './pdf-layout-columns.helper';
 import { attachLeadInLines } from './pdf-layout-lead-in.helper';
 import {
@@ -15,7 +16,12 @@ import {
   signBySection,
 } from './pdf-layout-sections.helper';
 import { joinStackedHeaders } from './pdf-layout-stacked-header.helper';
-import { groupWrappedLines, mergeLaidOut, rowHeight } from './pdf-layout-wrapped.helper';
+import {
+  groupWrappedLines,
+  mergeLaidOut,
+  rowHeight,
+  splitOverlappingLines,
+} from './pdf-layout-wrapped.helper';
 import { findStatementAmounts } from './statement-amount.helper';
 import { type DateParts, parseDateParts } from './statement-date.helper';
 import { isBalanceLabel, readAccountHeading } from './statement-metadata.helper';
@@ -45,6 +51,18 @@ export interface LayoutTransaction {
   balance?: number;
   /** The account heading printed above this row's table, if any. */
   account?: { accountNumber: string; currency?: string };
+  /** Where the row starts on its page, in the words' own coordinates. */
+  at?: { page: number; y: number };
+}
+
+/** A workspace's taught layout (layout-template.helper), read on top of the built-in one. */
+export interface LayoutReading {
+  /** Header phrases read before the built-in ones. */
+  headings?: TaughtHeadings;
+  /** Columns for rows no header was read above: a table printed without one. */
+  columns?: LayoutColumn[];
+  /** Lines the user marked as no part of the table: footers, totals, notes. */
+  skip?: (row: PdfTextRow) => boolean;
 }
 
 /** A line further than this many line heights below the previous one is not a continuation. */
@@ -111,33 +129,6 @@ function openTransaction(
 }
 
 /**
- * Words that overlap on the page cannot share a printed line: a footer laid
- * over the last row ends up in the same extracted row a fraction of a point
- * higher. Such a row splits by each word's top; any other row stays whole.
- */
-function splitOverlappingLines(row: PdfTextRow): PdfTextRow[] {
-  const items = [...row.items].sort((a, b) => a.x - b.x);
-  const overlaps = items.some((item, index) =>
-    items
-      .slice(index + 1)
-      .some(other => other.x < item.x + item.width && Math.abs(other.y - item.y) > 0.3),
-  );
-  if (!overlaps) {
-    return [row];
-  }
-  const lines: PdfTextRow[] = [];
-  for (const item of [...items].sort((a, b) => a.y - b.y)) {
-    const line = lines.find(candidate => Math.abs(candidate.y - item.y) <= 0.3);
-    if (line) {
-      line.items.push(item);
-    } else {
-      lines.push({ ...row, y: item.y, items: [item] });
-    }
-  }
-  return lines;
-}
-
-/**
  * Whether a line without its own date adds to the transaction above it: it
  * sits right under the previous line, carries no money (money anywhere makes
  * it a totals line or a note such as "Frais sur compte: 23,00 $") and keeps
@@ -183,8 +174,11 @@ function readTableRow(row: PdfTextRow, columns: LayoutColumn[]) {
  * The table's transactions in page order. Pages without a header of their
  * own continue the columns of the last header seen.
  */
-export function readLayoutTransactions(rows: PdfTextRow[]): LayoutTransaction[] {
-  return readLayoutTable(rows).transactions;
+export function readLayoutTransactions(
+  rows: PdfTextRow[],
+  reading: LayoutReading = {},
+): LayoutTransaction[] {
+  return readLayoutTable(rows, reading).transactions;
 }
 
 /** A deposits or withdrawals section closed by its totals line: printed and read. */
@@ -199,17 +193,27 @@ export interface SectionTotal {
  * and the layout itself: every table header read and every section heading,
  * in page order.
  */
-export function readLayoutTable(rows: PdfTextRow[]): {
+export function readLayoutTable(
+  rows: PdfTextRow[],
+  reading: LayoutReading = {},
+): {
   transactions: LayoutTransaction[];
   sections: SectionTotal[];
   layout: { headers: LayoutColumn[][]; sections: SectionSign[] };
 } {
+  const readHeader = (row: PdfTextRow) => readHeaderRow(row, reading.headings);
   const ordered = joinStackedHeaders(
-    rows.flatMap(splitOverlappingLines).sort((a, b) => a.page - b.page || a.y - b.y),
+    rows
+      .flatMap(splitOverlappingLines)
+      .filter(row => !reading.skip?.(row))
+      .sort((a, b) => a.page - b.page || a.y - b.y),
+    readHeader,
   );
   const state: ReadingState = {
     transactions: [],
-    columns: null,
+    readHeader,
+    fallback: reading.columns ?? null,
+    columns: reading.columns ?? null,
     current: null,
     lastRow: null,
     sections: [],
@@ -219,7 +223,7 @@ export function readLayoutTable(rows: PdfTextRow[]): {
   const dateWords = (row: PdfTextRow) =>
     leadingDate([...row.items].sort((a, b) => a.x - b.x))?.used ?? 0;
   const isHeading = (row: PdfTextRow) =>
-    Boolean(readHeaderRow(row) || readSectionHeading(row) || readAccountHeading(row.text));
+    Boolean(readHeader(row) || readSectionHeading(row) || readAccountHeading(row.text));
   for (const lines of attachLeadInLines(groupWrappedLines(ordered), dateWords, isHeading)) {
     readRow(state, lines);
   }
@@ -228,6 +232,9 @@ export function readLayoutTable(rows: PdfTextRow[]): {
 
 interface ReadingState {
   transactions: LayoutTransaction[];
+  readHeader: (row: PdfTextRow) => LayoutColumn[] | null;
+  /** The taught columns, for rows under no header. */
+  fallback: LayoutColumn[] | null;
   columns: LayoutColumn[] | null;
   /** The transaction the next lines may still add text to. */
   current: LayoutTransaction | null;
@@ -246,7 +253,10 @@ interface ReadingState {
 
 function readRow(state: ReadingState, lines: PdfTextRow[]) {
   const [row] = lines;
-  if (lines.length > 1 && lines.some(line => readHeaderRow(line) || accountHeadingAt(line, null))) {
+  if (
+    lines.length > 1 &&
+    lines.some(line => state.readHeader(line) || accountHeadingAt(line, null))
+  ) {
     // A heading is never part of a wrapped cell: read each line on its own.
     for (const line of lines) {
       readRow(state, [line]);
@@ -255,7 +265,7 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
   }
   // An account heading or a table header starts a new table.
   const heading = accountHeadingAt(row, state.current ? state.lastRow : null);
-  const header = heading ? null : readHeaderRow(row);
+  const header = heading ? null : state.readHeader(row);
   const section = heading || header ? null : readSectionHeading(row);
   if (section) {
     // A section's own header row, if it prints one, follows its heading.
@@ -263,7 +273,7 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
     state.sectionRead = state.section?.sign === section ? state.sectionRead : 0;
     state.section = { sign: section };
     state.layout.sections.push(section);
-    state.columns = null;
+    state.columns = state.fallback;
     state.current = null;
     return;
   }
@@ -319,7 +329,7 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
     // "01/06/2023 Beginning Balance $4,082.88": the balance, not a movement.
     state.current = null;
   } else if (opened) {
-    state.current = { ...opened, account: state.account };
+    state.current = { ...opened, account: state.account, at: { page: row.page, y: row.y } };
     state.transactions.push(state.current);
     state.sectionRead += Math.abs((opened.credit ?? 0) - (opened.debit ?? 0));
     state.lastRow = lines[lines.length - 1];

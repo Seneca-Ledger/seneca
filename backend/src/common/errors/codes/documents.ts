@@ -84,6 +84,8 @@ export const DOCUMENTS_ERRORS = {
   STATEMENT_FILE_DATA_UNAVAILABLE: 'File data not available',
   STATEMENT_THUMBNAIL_PDF_ONLY: 'Thumbnails are only available for PDF files',
   STATEMENT_THUMBNAIL_FAILED: 'Failed to generate thumbnail',
+  STATEMENT_TEACH_PDF_ONLY: 'Only PDF statements can be taught',
+  STATEMENT_TEACH_TAGS_MISSING: 'Mark the date, the description and at least one amount column',
   EXPENSE_AMOUNT_INVALID: 'Amount must be a positive number',
   EXPENSE_MERCHANT_REQUIRED: 'Merchant is required',
   EXPENSE_CURRENCY_REQUIRED: 'Currency is required',

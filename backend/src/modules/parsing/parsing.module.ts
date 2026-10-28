@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 // import { DataQualityFramework } from '../../common/utils/data-quality-framework.util';
+import { ParsingLayoutTemplate } from '../../entities/parsing-layout-template.entity';
 import { ParsingRule } from '../../entities/parsing-rule.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -24,6 +25,7 @@ import { STATEMENT_PARSING_QUEUE, StatementParsingQueue } from './queue/statemen
 // import { ColumnAutoFixService } from './services/column-auto-fix.service';
 // import { ColumnValidationService } from './services/column-validation.service';
 import { DocumentClassifierService } from './services/document-classifier.service';
+import { LayoutTemplateService } from './services/layout-template.service';
 // import { FeatureFlagService } from './services/feature-flag.service';
 // import { IntelligentDeduplicationService } from './services/intelligent-deduplication.service';
 import { MetadataExtractionService } from './services/metadata-extraction.service';
@@ -68,7 +70,7 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Statement, Transaction, ParsingRule, User]),
+    TypeOrmModule.forFeature([Statement, Transaction, ParsingRule, ParsingLayoutTemplate, User]),
     ClassificationModule,
     forwardRef(() => ImportModule),
     ObservabilityModule,
@@ -80,6 +82,7 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
   providers: [
     ParserFactoryService,
     ParserHealthService,
+    LayoutTemplateService,
     StatementProcessingService,
     StatementSiblingsService,
     StatementParsingQueue,
@@ -111,6 +114,7 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
   ],
   exports: [
     ParserFactoryService,
+    LayoutTemplateService,
     StatementProcessingService,
     StatementParsingQueue,
     // StatementQualityGate,

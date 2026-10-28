@@ -9,6 +9,7 @@ import { BankName, FileType } from '../../../entities/statement.entity';
 import { findAccountNumberInColumn } from '../helpers/pdf-layout-account-number.helper';
 import { statementLayout } from '../helpers/pdf-layout-fingerprint.helper';
 import {
+  type LayoutReading,
   type LayoutTransaction,
   readLayoutTable,
   readLayoutTransactions,
@@ -74,6 +75,9 @@ function plausiblePeriod<T extends { from: Date | null; to: Date | null }>(
 }
 
 export class GenericPdfParser extends BaseParser {
+  /** How the table is read: the built-in headings, or a workspace's taught layout on top. */
+  protected reading: LayoutReading = {};
+
   async canParse(
     bankName: BankName,
     fileType: FileType,
@@ -93,7 +97,7 @@ export class GenericPdfParser extends BaseParser {
 
     const layoutTransactions = this.readTransactions(layoutRows);
     // The generic reading of the same rows: its sections' totals and the layout's words.
-    const table = readLayoutTable(layoutRows);
+    const table = readLayoutTable(layoutRows, this.reading);
     const layout = statementLayout(table.layout, text);
     // Row dates decide first; in free text only dates with a year count, since
     // "38.2gal" or "19.5%" look like day-first dates too.
@@ -220,7 +224,7 @@ export class GenericPdfParser extends BaseParser {
 
   /** The table's rows, which a bank's own parser may read further. */
   protected readTransactions(rows: PdfTextRow[]): LayoutTransaction[] {
-    return readLayoutTransactions(rows);
+    return readLayoutTransactions(rows, this.reading);
   }
 
   /**

@@ -125,28 +125,33 @@ const PHRASES = new Map<string, ColumnRole>(
     phrases.map(phrase => [phrase, role] as [string, ColumnRole]),
   ),
 );
-const LONGEST_PHRASE = Math.max(...Array.from(PHRASES.keys(), phrase => phrase.split(' ').length));
+const wordCount = (phrase: string) => phrase.split(' ').length;
+const LONGEST_PHRASE = Math.max(...Array.from(PHRASES.keys(), wordCount));
 
 /** Gap under which a stray word ("(-)", "($)") belongs to the heading beside it. */
 const ATTACH_GAP = 8;
 
 /** A heading's words, folded, without colons and the unit in brackets ("Balance ($)"). */
-function headingWord(item: PdfTextItem): string {
+export function headingWord(item: PdfTextItem): string {
   return foldText(item.text)
     .replace(/[:]|\([^)]*\)/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+/** Headings a workspace taught for its own statements, folded as `headingWord` reads them. */
+export type TaughtHeadings = ReadonlyMap<string, ColumnRole>;
+
 /** The longest heading that starts at `index`, and how many words it spans. */
-function matchHeading(items: PdfTextItem[], index: number) {
-  for (let length = Math.min(LONGEST_PHRASE, items.length - index); length > 0; length -= 1) {
+function matchHeading(items: PdfTextItem[], index: number, taught?: TaughtHeadings) {
+  const longest = Math.max(LONGEST_PHRASE, ...Array.from(taught?.keys() ?? [], wordCount));
+  for (let length = Math.min(longest, items.length - index); length > 0; length -= 1) {
     const phrase = items
       .slice(index, index + length)
       .map(headingWord)
       .filter(Boolean)
       .join(' ');
-    const role = PHRASES.get(phrase);
+    const role = taught?.get(phrase) ?? PHRASES.get(phrase);
     if (role) {
       return { role, length, phrase };
     }
@@ -157,9 +162,10 @@ function matchHeading(items: PdfTextItem[], index: number) {
 /**
  * Reads a row as a table header. Returns its columns left to right, or null
  * when the row does not look like one: it needs a money column and a date or
- * description column, and at least three headings in all.
+ * description column, and at least three headings in all. `taught` headings
+ * are read before the built-in ones.
  */
-export function readHeaderRow(row: PdfTextRow): LayoutColumn[] | null {
+export function readHeaderRow(row: PdfTextRow, taught?: TaughtHeadings): LayoutColumn[] | null {
   const items = [...row.items].sort((a, b) => a.x - b.x);
   const columns: LayoutColumn[] = [];
   let pendingX0: number | null = null;
@@ -167,7 +173,7 @@ export function readHeaderRow(row: PdfTextRow): LayoutColumn[] | null {
   let strays: string[] = [];
 
   for (let index = 0; index < items.length; ) {
-    const heading = matchHeading(items, index);
+    const heading = matchHeading(items, index, taught);
     if (heading) {
       const last = items[index + heading.length - 1];
       columns.push({
