@@ -12,6 +12,7 @@ import {
   type TeachPreview,
   type TeachRegion,
   type TeachTag,
+  withRegion,
 } from './teach-utils';
 
 /** Marks settle for this long before the file is read with them. */
@@ -95,7 +96,7 @@ export function useTeachSession(statementId: string | null): TeachSession {
     if (!isAreaBigEnough(area)) {
       return;
     }
-    const next = [...regions, { ...area, tag: activeTag }];
+    const next = withRegion(regions, { ...area, tag: activeTag });
     setRegions(next);
     setActiveTag(nextTag(next, activeTag));
   };

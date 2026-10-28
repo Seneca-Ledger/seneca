@@ -3,7 +3,13 @@
 import { useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { TAG_TONE, TEACH_TAGS, type TeachPreview, type TeachTag } from './teach-utils';
+import {
+  regionWarning,
+  TAG_TONE,
+  TEACH_TAGS,
+  type TeachPreview,
+  type TeachTag,
+} from './teach-utils';
 import type { TeachSession } from './useTeachSession';
 
 /** Checks a changed layout breaks; a failed one keeps the statement for review. */
@@ -56,6 +62,11 @@ export function TeachToolbar({ session, onDone }: { session: TeachSession; onDon
     value.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const { preview } = session;
   const failed = preview?.checks.some(check => !check.passed && FORMAT_CHECKS.includes(check.code));
+  // Areas that do not look like what their tag stands for, said as the parser will judge them.
+  const warnings = session.regions.flatMap(region => {
+    const warning = regionWarning(region, session.words ?? []);
+    return warning ? [t.warnings[warning].value.replace('{tag}', label(region.tag))] : [];
+  });
 
   const status = (() => {
     if (!session.words) {
@@ -109,12 +120,18 @@ export function TeachToolbar({ session, onDone }: { session: TeachSession; onDon
           </button>
         ))}
       </div>
+      <p className="seneca-pdf-teach__hint">{t.hints[session.activeTag]}</p>
       <div className="seneca-pdf-teach__footer">
         <p className="seneca-pdf-teach__status" aria-live="polite">
           {status}
           {failed ? (
             <span className="seneca-pdf-teach__warning">{t.status.checksFailed}</span>
           ) : null}
+          {warnings.map(warning => (
+            <span key={warning} className="seneca-pdf-teach__warning">
+              {warning}
+            </span>
+          ))}
         </p>
         <button
           type="button"

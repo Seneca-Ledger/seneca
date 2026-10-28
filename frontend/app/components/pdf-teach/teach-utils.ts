@@ -24,6 +24,7 @@ export const TEACH_TAGS: TeachTag[] = [
   'skip',
   'openingBalance',
   'closingBalance',
+  'bankName',
 ];
 
 /** Each tag's tone: a token, so both themes hold. */
@@ -39,7 +40,24 @@ export const TAG_TONE: Record<TeachTag, string> = {
   skip: 'var(--cat-tone-other)',
   openingBalance: 'var(--merchant-tone-6)',
   closingBalance: 'var(--merchant-tone-10)',
+  bankName: 'var(--merchant-tone-5)',
 };
+
+/** Tags for a column of the transactions table, drawn down over its rows. */
+const COLUMN_TAGS = new Set<TeachTag>([
+  'date',
+  'description',
+  'counterparty',
+  'debit',
+  'credit',
+  'amount',
+  'balance',
+]);
+/** Tags for one printed figure. */
+const ONE_FIGURE_TAGS = new Set<TeachTag>(['openingBalance', 'closingBalance']);
+
+/** Why an area does not look like what its tag stands for. */
+export type RegionWarning = 'notColumn' | 'notOneFigure';
 
 /** What a reading cannot do without: each group needs one of its tags. */
 export const REQUIRED_TAGS: TeachTag[][] = [
@@ -82,6 +100,40 @@ export function wordsInRegion(words: readonly LayoutWord[], region: TeachRegion)
       y <= region.y1
     );
   });
+}
+
+/** The areas with one more drawn: a tag drawn again moves to the new area (Skip adds up). */
+export function withRegion(regions: readonly TeachRegion[], region: TeachRegion): TeachRegion[] {
+  return [...regions.filter(other => region.tag === 'skip' || other.tag !== region.tag), region];
+}
+
+const DATE_WORD = /^\d{1,4}[./-]\d{1,2}[./-]\d{1,4}$/;
+const lineKey = (word: LayoutWord) => `${word.page}:${Math.round(word.y)}`;
+
+/**
+ * The first look of an area against its tag, as the parser will judge it:
+ * a column crosses at least one transaction row (its line starts with a
+ * date); one figure is one line with a figure, not a whole column.
+ */
+export function regionWarning(
+  region: TeachRegion,
+  words: readonly LayoutWord[],
+): RegionWarning | null {
+  const lines = new Set(wordsInRegion(words, region).map(lineKey));
+  if (COLUMN_TAGS.has(region.tag)) {
+    const startsWithDate = [...lines].some(key => {
+      const [first] = words.filter(word => lineKey(word) === key).sort((a, b) => a.x - b.x);
+      return first !== undefined && DATE_WORD.test(first.text);
+    });
+    return startsWithDate ? null : 'notColumn';
+  }
+  if (ONE_FIGURE_TAGS.has(region.tag)) {
+    const withFigures = [...lines].filter(key =>
+      wordsInRegion(words, region).some(word => lineKey(word) === key && /\d/.test(word.text)),
+    );
+    return withFigures.length > 1 ? 'notOneFigure' : null;
+  }
+  return null;
 }
 
 /** Required groups no area is tagged with yet. */

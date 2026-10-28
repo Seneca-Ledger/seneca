@@ -3,7 +3,14 @@
 import { type PointerEvent, useRef, useState } from 'react';
 import { X } from '@/app/components/icons';
 import { useIntlayer } from '@/app/i18n';
-import { type Point, rectBetween, TAG_TONE, type TeachTag, wordsInRegion } from './teach-utils';
+import {
+  type Point,
+  rectBetween,
+  regionWarning,
+  TAG_TONE,
+  type TeachTag,
+  wordsInRegion,
+} from './teach-utils';
 import type { TeachSession } from './useTeachSession';
 
 interface TeachOverlayProps {
@@ -104,7 +111,7 @@ export function TeachOverlay({ page, width, session }: TeachOverlayProps) {
       {regions.map(({ region, index }) => (
         <div
           key={index}
-          className="seneca-pdf-teach__region"
+          className={`seneca-pdf-teach__region${regionWarning(region, session.words ?? []) ? ' seneca-pdf-teach__region--warning' : ''}`}
           style={
             { ...box(region, scale), '--teach-tone': TAG_TONE[region.tag] } as React.CSSProperties
           }
