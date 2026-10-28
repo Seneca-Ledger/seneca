@@ -35,6 +35,8 @@ export const FINANCIAL_QUERY_ROOTS = [
   'tax-year',
   'income-tax',
   'datev',
+  // How each bank's statements parsed (the instance admin's parser health page).
+  'parser-health',
 ] as const;
 
 /**
