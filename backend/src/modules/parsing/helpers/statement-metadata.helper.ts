@@ -83,7 +83,7 @@ export function detectStatementCurrency(text: string): string | null {
 }
 
 const ACCOUNT_LABEL =
-  /(?:account\s*(?:number|no\.?|#)|num[eé]ro\s+de\s+compte|rekeningnummer|kontonummer|n[uú]mero\s+de\s+cuenta)\s*[:.]?[ \t]*([X*\d][X*\d \t-]{3,}[X*\d])/i;
+  /(?:(?:account|acct\.?)\s*(?:number|no\.?|#|:)|num[eé]ro\s+de\s+compte|rekeningnummer|kontonummer|n[uú]mero\s+de\s+cuenta)\s*[:.]?[ \t]*([X*\d][X*\d \t-]{3,}[X*\d])/i;
 const IBAN_LABEL = /\bIBAN\s*[:.]?\s*([A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,3})?)/;
 
 /** The account number as printed after its label, or the IBAN. */

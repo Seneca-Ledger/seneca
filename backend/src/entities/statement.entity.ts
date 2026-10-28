@@ -58,6 +58,7 @@ export enum BankName {
   ABSA = 'absa',
   ALLY = 'ally',
   ANZ = 'anz',
+  ASSOCIATED = 'associated',
   OTHER = 'other',
 }
 

@@ -72,6 +72,9 @@ describe('statement-metadata.helper', () => {
     );
     expect(findAccountNumber('Numéro De Compte: 00001-002-0000003')).toBe('00001-002-0000003');
     expect(findAccountNumber('IBAN: NL00 TEST 0123 4567 89')).toBe('NL00TEST0123456789');
+    expect(findAccountNumber('Primary Account: 1234567890')).toBe('1234567890');
+    expect(findAccountNumber('MEMBER ONE Acct #1234567890 Page 2 of 2')).toBe('1234567890');
+    expect(findAccountNumber('FINANCIAL SUMMARY ACCOUNT# BALANCE')).toBeNull();
   });
 
   it('reads the statement period in either numeric order or with month names', () => {

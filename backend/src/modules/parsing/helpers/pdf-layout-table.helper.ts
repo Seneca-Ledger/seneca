@@ -6,6 +6,13 @@ import {
   layOutRow,
   readHeaderRow,
 } from './pdf-layout-columns.helper';
+import {
+  alignsWithSectionText,
+  type LayoutSection,
+  readSectionHeading,
+  sectionColumns,
+  signBySection,
+} from './pdf-layout-sections.helper';
 import { groupWrappedLines, mergeLaidOut, rowHeight } from './pdf-layout-wrapped.helper';
 import { findStatementAmounts } from './statement-amount.helper';
 import {
@@ -198,6 +205,8 @@ interface ReadingState {
   /** A dated line without money, waiting for the line under it to bring the amounts. */
   pending?: PdfTextRow[];
   account?: LayoutTransaction['account'];
+  /** The deposits or withdrawals heading the rows sit under, up to its totals line. */
+  section?: LayoutSection;
 }
 
 function readRow(state: ReadingState, lines: PdfTextRow[]) {
@@ -212,17 +221,25 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
   // An account heading or a table header starts a new table.
   const heading = accountHeadingAt(row, state.current ? state.lastRow : null);
   const header = heading ? null : readHeaderRow(row);
+  const section = heading || header ? null : readSectionHeading(row);
+  if (section) {
+    // A section's own header row, if it prints one, follows its heading.
+    state.section = { sign: section };
+    state.columns = null;
+    state.current = null;
+    return;
+  }
   if (heading || header) {
     state.account = heading ?? state.account;
     state.columns = header ?? state.columns;
     state.current = null;
     return;
   }
-  if (!state.columns) {
+  const columns = state.columns ?? (state.section ? sectionColumns(state.section, lines) : null);
+  if (!columns) {
     return;
   }
 
-  const columns = state.columns;
   const read = lines.map(line => readTableRow(line, columns));
   const date = read.find(line => line.date)?.date ?? null;
   const laidOut = mergeLaidOut(read.map(line => line.laidOut));
@@ -243,13 +260,15 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
     readRow(state, [...pending, ...lines]);
     return;
   }
-  const opened = date && laidOut.amounts.length > 0 ? openTransaction(date, laidOut) : null;
-  const continues = read.every((line, index) =>
-    continuesTransaction(
-      lines[index],
-      line.laidOut,
-      index === 0 ? state.lastRow : lines[index - 1],
-    ),
+  const dated = date && laidOut.amounts.length > 0 ? openTransaction(date, laidOut) : null;
+  const opened = dated && state.section ? signBySection(dated, state.section.sign) : dated;
+  const continues = read.every(
+    (line, index) =>
+      continuesTransaction(
+        lines[index],
+        line.laidOut,
+        index === 0 ? state.lastRow : lines[index - 1],
+      ) && alignsWithSectionText(state.section, lines[index]),
   );
   if (opened && isBalanceLine(opened)) {
     // "01/06/2023 Beginning Balance $4,082.88": the balance, not a movement.
@@ -263,6 +282,8 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
     state.lastRow = lines[lines.length - 1];
   } else {
     // A totals line, a footer or a gap: whatever follows is not this row's text.
+    // Money on an undated line is the section's total, which closes it.
+    state.section = !date && laidOut.amounts.length > 0 ? undefined : state.section;
     state.current = null;
   }
 }

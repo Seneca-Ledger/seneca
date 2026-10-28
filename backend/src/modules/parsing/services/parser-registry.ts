@@ -3,6 +3,7 @@ import type { IParser } from '../interfaces/parser.interface';
 import { AbsaParser } from '../parsers/absa.parser';
 import { AllyParser } from '../parsers/ally.parser';
 import { AnzParser } from '../parsers/anz.parser';
+import { AssociatedParser } from '../parsers/associated.parser';
 import { BerekeNewParser } from '../parsers/bereke-new.parser';
 import { BerekeOldParser } from '../parsers/bereke-old.parser';
 import { Camt053Parser } from '../parsers/camt053.parser';
@@ -29,6 +30,7 @@ export const FALLBACK_CLAIMS: [
   [AbsaParser, { bankName: BankName.ABSA }],
   [AllyParser, { bankName: BankName.ALLY }],
   [AnzParser, { bankName: BankName.ANZ }],
+  [AssociatedParser, { bankName: BankName.ASSOCIATED }],
   [BerekeNewParser, { bankName: BankName.BEREKE_NEW, formatVersion: 'new' }],
   [BerekeOldParser, { bankName: BankName.BEREKE_OLD, formatVersion: 'old' }],
 ];
@@ -46,6 +48,7 @@ export function createParsers(): IParser[] {
     new AbsaParser(),
     new AllyParser(),
     new AnzParser(),
+    new AssociatedParser(),
     new GenericPdfParser(),
     new ExcelParser(),
     new CsvParser(),
