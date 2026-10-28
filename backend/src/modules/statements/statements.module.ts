@@ -11,7 +11,9 @@ import { ParsingModule } from '../parsing/parsing.module';
 import { ReceiptsModule } from '../receipts/receipts.module';
 import { TaxModule } from '../tax/tax.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
+import { DroppedSampleService } from './dropped-sample.service';
 import { ManualExpenseService } from './manual-expense.service';
+import { StatementUploadService } from './statement-upload.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { ScanUploadService } from './services/scan-upload.service';
 import { StatementStageService } from './services/statement-stage.service';
@@ -45,6 +47,8 @@ import { StatementsService } from './statements.service';
     StatementFilesService,
     StatementTrashService,
     ManualExpenseService,
+    StatementUploadService,
+    DroppedSampleService,
     ReceiptStatementService,
     ScanUploadService,
     StatementStageService,

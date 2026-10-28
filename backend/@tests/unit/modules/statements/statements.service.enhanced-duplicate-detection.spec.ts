@@ -19,6 +19,8 @@ import { StatementsService } from '../../../../src/modules/statements/statements
 import { StatementFilesService } from '../../../../src/modules/statements/statement-files.service';
 import { StatementTrashService } from '../../../../src/modules/statements/statement-trash.service';
 import { ManualExpenseService } from '../../../../src/modules/statements/manual-expense.service';
+import { DroppedSampleService } from '../../../../src/modules/statements/dropped-sample.service';
+import { StatementUploadService } from '../../../../src/modules/statements/statement-upload.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaxAssignmentService } from '@/modules/tax/tax-assignment.service';
 import { workspaceCurrencyProvider } from '../../../helpers/workspace-currency-stub';
@@ -82,6 +84,8 @@ describe('StatementsService - Enhanced Duplicate Detection', () => {
         { provide: StatementFilesService, useValue: {} },
         { provide: StatementTrashService, useValue: {} },
         { provide: ManualExpenseService, useValue: {} },
+        StatementUploadService,
+        DroppedSampleService,
         StatementsService,
         workspaceCurrencyProvider(),
         {

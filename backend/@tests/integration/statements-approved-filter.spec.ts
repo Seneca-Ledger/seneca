@@ -22,7 +22,6 @@ import {
   Transaction,
   TransactionType,
   User,
-  Wallet,
   Workspace,
   WorkspaceMember,
 } from '../../src/entities';
@@ -131,7 +130,6 @@ describe('the Approved filter of the documents list (real Postgres)', () => {
       dataSource.getRepository(User),
       dataSource.getRepository(Category),
       dataSource.getRepository(WorkspaceMember),
-      dataSource.getRepository(Wallet),
       { getFileAvailability: async () => ({ onDisk: true, inDb: false }) } as never,
       unused,
       unused,
