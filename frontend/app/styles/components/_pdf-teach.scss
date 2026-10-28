@@ -175,6 +175,35 @@
     font-size: 13px;
   }
 
+  &__teach-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__help {
+    display: inline-flex;
+    padding: 2px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: help;
+
+    &:hover {
+      color: var(--foreground);
+    }
+  }
+
+  &__help-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 280px;
+    font-size: 13px;
+    line-height: 18px;
+  }
+
   // The list's Teach button, where the amount would be.
   &__teach-btn {
     padding: 3px 10px;

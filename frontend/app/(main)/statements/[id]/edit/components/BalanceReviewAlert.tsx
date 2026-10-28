@@ -8,6 +8,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
+import { TeachHelp } from '@/app/components/pdf-teach/TeachHelp';
 import { canTeach } from '@/app/components/pdf-teach/teach-utils';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer } from '@/app/i18n';
@@ -204,16 +205,18 @@ function useConfirmBalance({
 function TeachAction({ onTeach }: { onTeach: () => void }): React.ReactElement {
   const t = useIntlayer('pdfTeach');
   return (
-    <Button
-      color="inherit"
-      size="small"
-      variant="outlined"
-      onClick={onTeach}
-      title={t.teachHint.value}
-      data-testid="teach-layout-button"
-    >
-      {t.teachButton}
-    </Button>
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+      <Button
+        color="inherit"
+        size="small"
+        variant="outlined"
+        onClick={onTeach}
+        data-testid="teach-layout-button"
+      >
+        {t.teachButton}
+      </Button>
+      <TeachHelp />
+    </Box>
   );
 }
 

@@ -94,7 +94,7 @@ export function TeachToolbar({ session, onDone }: { session: TeachSession; onDon
 
   const save = async () => {
     if (await session.save()) {
-      toast.success(t.saved.value);
+      toast.success(`${t.saved.value}. ${t.teachAgainWhere.value}`, { duration: 7000 });
       onDone();
     } else {
       toast.error(t.saveFailed.value);

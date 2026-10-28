@@ -3,6 +3,7 @@
 import clsx from 'clsx';
 import { useTheme } from 'next-themes';
 import type React from 'react';
+import { TeachHelp } from '@/app/components/pdf-teach/TeachHelp';
 import { canTeach } from '@/app/components/pdf-teach/teach-utils';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
@@ -70,18 +71,20 @@ export function StatusBadge({
 export function TeachButton({ onTeach }: { onTeach: () => void }) {
   const t = useIntlayer('pdfTeach');
   return (
-    <button
-      type="button"
-      className="seneca-pdf-teach__teach-btn"
-      title={t.teachHint.value}
-      data-testid="statement-teach"
-      onClick={event => {
-        event.stopPropagation();
-        onTeach();
-      }}
-    >
-      {t.teachButton}
-    </button>
+    <span className="seneca-pdf-teach__teach-cell">
+      <button
+        type="button"
+        className="seneca-pdf-teach__teach-btn"
+        data-testid="statement-teach"
+        onClick={event => {
+          event.stopPropagation();
+          onTeach();
+        }}
+      >
+        {t.teachButton}
+      </button>
+      <TeachHelp />
+    </span>
   );
 }
 
