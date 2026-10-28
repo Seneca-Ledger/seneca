@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import type { LayoutTemplate } from '../modules/parsing/helpers/layout-template.helper';
+import { Statement } from './statement.entity';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 
@@ -46,6 +47,17 @@ export class ParsingLayoutTemplate {
   /** Statements read with it, the one it was taught on included. */
   @Column({ name: 'used_count', type: 'int', default: 0 })
   usedCount: number;
+
+  /**
+   * The statement it was taught on, which it reads from then on even when the
+   * parser's own reading passes its checks: teaching it again replaces it.
+   */
+  @ManyToOne(() => Statement, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'statement_id' })
+  statement: Relation<Statement> | null;
+
+  @Column({ name: 'statement_id', type: 'uuid', nullable: true })
+  statementId: string | null;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'taught_by' })

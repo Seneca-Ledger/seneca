@@ -16,6 +16,7 @@ export class CreateParsingLayoutTemplates1787560000000 implements MigrationInter
         bank_name varchar(64) NOT NULL,
         template jsonb NOT NULL,
         used_count int NOT NULL DEFAULT 0,
+        statement_id uuid REFERENCES statements(id) ON DELETE SET NULL,
         taught_by uuid REFERENCES users(id) ON DELETE SET NULL,
         created_at timestamp NOT NULL DEFAULT now(),
         updated_at timestamp NOT NULL DEFAULT now()

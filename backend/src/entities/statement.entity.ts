@@ -319,6 +319,7 @@ export class Statement {
       headings: string[];
       unknownWords: string[];
       mentionedBank?: string;
+      taughtTemplate?: string;
     };
     droppedSamples?: Array<{
       reason: string;

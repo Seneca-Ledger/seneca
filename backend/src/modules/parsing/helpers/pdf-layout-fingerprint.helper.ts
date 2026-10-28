@@ -19,6 +19,8 @@ export interface StatementLayout {
   unknownWords: string[];
   /** A bank with a parser of its own that the text names, kept to tell a declined file. */
   mentionedBank?: BankName;
+  /** The workspace's taught layout (parsing_layout_templates) the statement was read with. */
+  taughtTemplate?: string;
 }
 
 const FINGERPRINT_LENGTH = 12;

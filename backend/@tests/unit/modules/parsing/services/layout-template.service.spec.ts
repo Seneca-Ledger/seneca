@@ -36,10 +36,14 @@ const reading = (rows: number, chainPassed = true): ParsedStatement => ({
   checks: [{ code: 'balance_chain', passed: chainPassed }],
 });
 
-const pdf = { workspaceId: 'ws-1', fileType: FileType.PDF } as Statement;
+const pdf = { id: 'statement-1', workspaceId: 'ws-1', fileType: FileType.PDF } as Statement;
 
-function setup(rows: Array<{ id: string; template: LayoutTemplate }>) {
+function setup(
+  rows: Array<{ id: string; template: LayoutTemplate }>,
+  own: { id: string; template: LayoutTemplate } | null = null,
+) {
   const templates = {
+    findOne: vi.fn(async () => own),
     find: vi.fn(async () => rows),
     increment: vi.fn(async () => undefined),
   };
@@ -72,7 +76,9 @@ describe('LayoutTemplateService.parse', () => {
     const { service, templates } = setup([{ id: 't1', template: template('value date') }]);
     const taught = reading(2);
     taughtParse.mockResolvedValue(taught);
-    expect(await service.parse(parserReturning(reading(0)), pdf, '/file.pdf', TEXT)).toBe(taught);
+    const read = await service.parse(parserReturning(reading(0)), pdf, '/file.pdf', TEXT);
+    expect(read.transactions).toBe(taught.transactions);
+    expect(read.layout?.taughtTemplate).toBe('t1');
     expect(templates.find).toHaveBeenCalledWith(
       expect.objectContaining({ where: { workspaceId: 'ws-1' } }),
     );
@@ -103,21 +109,22 @@ describe('LayoutTemplateService.parse', () => {
 
     const fixed = reading(5);
     taughtParse.mockResolvedValue(fixed);
-    expect(await service.parse(parserReturning(own), pdf, '/file.pdf', TEXT)).toBe(fixed);
+    expect((await service.parse(parserReturning(own), pdf, '/file.pdf', TEXT)).transactions).toBe(
+      fixed.transactions,
+    );
   });
 
   it("reads a file the parser throws on, or throws the parser's error when nothing reads it", async () => {
     const taught = reading(1, false);
     taughtParse.mockResolvedValue(taught);
     const failure = new Error('Unsupported layout');
-    expect(
-      await setup([{ id: 't1', template: template('value date') }]).service.parse(
-        parserReturning(failure),
-        pdf,
-        '/file.pdf',
-        TEXT,
-      ),
-    ).toBe(taught);
+    const read = await setup([{ id: 't1', template: template('value date') }]).service.parse(
+      parserReturning(failure),
+      pdf,
+      '/file.pdf',
+      TEXT,
+    );
+    expect(read.transactions).toBe(taught.transactions);
     await expect(
       setup([]).service.parse(parserReturning(failure), pdf, '/file.pdf', TEXT),
     ).rejects.toBe(failure);
@@ -129,5 +136,24 @@ describe('LayoutTemplateService.parse', () => {
     const csv = { ...pdf, fileType: FileType.CSV } as Statement;
     expect(await service.parse(parserReturning(empty), csv, '/file.csv', TEXT)).toBe(empty);
     expect(templates.find).not.toHaveBeenCalled();
+  });
+
+  it('reads a statement taught by hand with its own layout, whatever the parser makes of it', async () => {
+    const mine = { id: 'mine', template: template('value date') };
+    const { service, templates } = setup([], mine);
+    const taught = reading(4);
+    taughtParse.mockResolvedValue(taught);
+    const parser = parserReturning(reading(9));
+    const read = await service.parse(parser, pdf, '/file.pdf', TEXT);
+    expect(read.transactions).toBe(taught.transactions);
+    expect(read.layout?.taughtTemplate).toBe('mine');
+    expect(templates.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { workspaceId: 'ws-1', statementId: 'statement-1' } }),
+    );
+    expect(parser.parse).not.toHaveBeenCalled();
+
+    // A layout that reads no rows of it gives way to the parser.
+    taughtParse.mockResolvedValue(reading(0));
+    expect((await service.parse(parser, pdf, '/file.pdf', TEXT)).transactions).toHaveLength(9);
   });
 });

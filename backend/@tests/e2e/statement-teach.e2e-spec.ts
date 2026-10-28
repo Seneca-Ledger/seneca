@@ -205,6 +205,22 @@ describe('Teaching a statement layout (e2e)', () => {
       ['income', 100],
     ]);
 
+    // Taught again, the statement keeps one layout: the new one, bound to it.
+    await as(owner, request(server()).post(`/statements/${statement.id}/teach`))
+      .send({ regions: REGIONS.filter(region => region.tag !== 'balance') })
+      .expect(201);
+    const bound = await dataSource.query(
+      'SELECT template FROM parsing_layout_templates WHERE workspace_id = $1 AND statement_id = $2',
+      [owner.workspaceId, statement.id],
+    );
+    expect(bound).toHaveLength(1);
+    expect(bound[0].template.columns.map((column: { role: string }) => column.role)).not.toContain(
+      'balance',
+    );
+    const retaught = await processing.processStatement(statement.id);
+    expect(retaught.status).toBe(StatementStatus.COMPLETED);
+    expect(retaught.parsingDetails?.layout?.taughtTemplate).toBeTruthy();
+
     // The next statement in that layout reads by itself; another workspace's does not.
     expect((await seedStatement(owner)).status).toBe(StatementStatus.COMPLETED);
     const elsewhere = await seedStatement(other);

@@ -31,6 +31,18 @@ import { TaughtPdfParser } from '../parsers/taught-pdf.parser';
 /** The most recently taught layouts a statement is tried in, newest first. */
 const MAX_TEMPLATES = 20;
 
+/** A reading marked with the taught layout it came from, kept in the statement's layout. */
+const readWith = (parsed: ParsedStatement, templateId: string): ParsedStatement => ({
+  ...parsed,
+  layout: {
+    fingerprint: '',
+    headings: [],
+    unknownWords: [],
+    ...parsed.layout,
+    taughtTemplate: templateId,
+  },
+});
+
 const sum = (values: (number | undefined)[]) =>
   Number(values.reduce<number>((total, value) => total + (value ?? 0), 0).toFixed(2));
 
@@ -59,9 +71,11 @@ export class LayoutTemplateService {
   }
 
   /**
-   * The parser's reading, or the reading of a layout the workspace taught
-   * when the parser's finds no rows, fails a format check or throws. A
-   * taught reading is kept only when it scores better (readingScore).
+   * A statement taught by hand is read with its own layout, whatever the
+   * parser makes of it. Any other gets the parser's reading, or the reading
+   * of a layout the workspace taught when the parser's finds no rows, fails a
+   * format check or throws; a taught reading is kept only when it scores
+   * better (readingScore).
    */
   async parse(
     parser: IParser,
@@ -70,6 +84,11 @@ export class LayoutTemplateService {
     cachedText?: string,
     ocrConfidence?: number,
   ): Promise<ParsedStatement> {
+    const own =
+      statement.fileType === FileType.PDF ? await this.ownReading(statement, filePath) : null;
+    if (own) {
+      return own;
+    }
     let parsed: ParsedStatement | null = null;
     let failure: unknown = null;
     try {
@@ -88,6 +107,22 @@ export class LayoutTemplateService {
       throw failure;
     }
     return parsed;
+  }
+
+  /** The reading with the layout taught on this very statement, when it reads any rows. */
+  private async ownReading(
+    statement: Statement,
+    filePath: string,
+  ): Promise<ParsedStatement | null> {
+    const own = await this.templates.findOne({
+      where: { workspaceId: statement.workspaceId, statementId: statement.id },
+      order: { updatedAt: 'DESC' },
+    });
+    if (!own) {
+      return null;
+    }
+    const parsed = await new TaughtPdfParser(own.template).parse(filePath).catch(() => null);
+    return parsed && parsed.transactions.length > 0 ? readWith(parsed, own.id) : null;
   }
 
   private async taughtReading(
@@ -126,7 +161,7 @@ export class LayoutTemplateService {
     }
     await this.templates.increment({ id: best.template.id, workspaceId }, 'usedCount', 1);
     this.logger.log(`Statement read with taught layout ${best.template.id}`);
-    return best.parsed;
+    return readWith(best.parsed, best.template.id);
   }
 
   /** Every word the parser reads in the statement's file, where it sits. */
@@ -178,7 +213,10 @@ export class LayoutTemplateService {
     });
   }
 
-  /** Saves the layout the marked areas teach; teaching the same layout again replaces it. */
+  /**
+   * Saves the layout the marked areas teach, bound to the statement: teaching
+   * it again replaces it, and so does teaching another statement the same layout.
+   */
   async teach(
     id: string,
     workspaceId: string,
@@ -191,12 +229,15 @@ export class LayoutTemplateService {
     }
     const { rows } = await this.withFile(statement, extractTextAndLayoutFromPdf);
     const template = templateFromRegions(regions, rows);
+    // Teaching a statement again replaces what it was taught before.
+    await this.templates.delete({ workspaceId, statementId: statement.id });
     await this.templates.upsert(
       {
         workspaceId,
         signature: templateSignature(template),
         bankName: statement.bankName,
         template,
+        statementId: statement.id,
         taughtBy: userId,
       },
       ['workspaceId', 'signature'],
