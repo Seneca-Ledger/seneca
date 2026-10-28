@@ -191,32 +191,38 @@ function columnFor(rows: PdfTextRow[], region: TeachRegion & { tag: ColumnTag })
 const linesIn = (rows: PdfTextRow[], region: TeachRegion) =>
   rows.filter(row => wordsIn([row], region).length > 0);
 
+/** A label printed over its figure sits no further above it than this, in points. */
+const LABEL_LINE_GAP = 14;
+
+const plainLast = (items: PdfTextItem[]) =>
+  items
+    .filter(item => !hasDigit(item.text))
+    .sort((a, b) => a.x - b.x)
+    .slice(-LABEL_WORDS);
+
 /**
- * The words before the marked balance on its line, or the line above it when
- * there are none. An area over several figures is a column, not one balance,
- * and has no label.
+ * The label of the one figure the area holds: words the user drew around
+ * with it ("Brought forward 1,000.00"), else the words before it on its line,
+ * else the line right above it, over the figure. An area over no figure or
+ * several (a column) has none, and a transaction row is never a label.
  */
 function labelFor(rows: PdfTextRow[], region: TeachRegion): string | undefined {
   const figures = linesIn(rows, region).filter(row =>
     wordsIn([row], region).some(word => hasDigit(word.text)),
   );
-  if (figures.length > 1) {
+  const [line] = figures;
+  if (figures.length !== 1 || startsWithDate(line)) {
     return undefined;
   }
-  const lines = rows
-    .filter(row => row.page === region.page && row.y <= region.y1)
-    .sort((a, b) => b.y - a.y);
-  for (const line of lines.filter(row => !startsWithDate(row))) {
-    const before = line.items
-      .filter(item => item.x < region.x0 || line.y < region.y0)
-      .filter(item => !hasDigit(item.text))
-      .sort((a, b) => a.x - b.x)
-      .slice(-LABEL_WORDS);
-    if (before.length > 0) {
-      return foldText(before.map(item => item.text).join(' '));
-    }
-  }
-  return undefined;
+  const inside = plainLast(wordsIn([line], region));
+  const before = plainLast(line.items.filter(item => right(item) <= region.x0));
+  const above = rows
+    .filter(row => row.page === line.page && row.y < line.y && line.y - row.y <= LABEL_LINE_GAP)
+    .filter(row => !startsWithDate(row))
+    .sort((a, b) => b.y - a.y)[0];
+  const over = above ? plainLast(inBand(above, region)) : [];
+  const words = [inside, before, over].find(found => found.length > 0);
+  return words ? foldText(words.map(item => item.text).join(' ')) : undefined;
 }
 
 /** A line's words without figures, folded. */

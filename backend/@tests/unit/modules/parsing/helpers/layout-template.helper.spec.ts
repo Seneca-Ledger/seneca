@@ -153,6 +153,23 @@ describe('layout-template.helper', () => {
     expect(labelledBalance(rows, 'carried forward')).toBeNull();
   });
 
+  it('takes the label the user drew around with the figure, and never a line far above', () => {
+    const page = [
+      row(40, [['Account', 40], ['statement', 80], ['01-02-2025', 140], ['to', 200], ['28-02-2025', 215]]),
+      row(60, [['Brought', 40], ['forward', 80], ['1,000.00', 200]]),
+      row(64, [['Carried', 300], ['forward', 340]]),
+    ];
+    const whole = { tag: 'openingBalance' as const, page: 1, x0: 35, y0: 56, x1: 260, y1: 70 };
+    expect(templateFromRegions([whole], page).balances.start).toBe('brought forward');
+    // The figure alone, with nothing before it on its line: the period line far above is no label.
+    const lone = [row(40, page[0].items.map(item => [item.text, item.x] as [string, number])), row(60, [['1,000.00', 200]])];
+    const figure = { tag: 'openingBalance' as const, page: 1, x0: 195, y0: 56, x1: 260, y1: 70 };
+    expect(templateFromRegions([figure], lone).balances.start).toBeUndefined();
+    // A label printed right over its figure still counts.
+    const stacked = [row(50, [['Opening', 190], ['balance', 225]]), row(60, [['1,000.00', 200]])];
+    expect(templateFromRegions([figure], stacked).balances.start).toBe('opening balance');
+  });
+
   it('a renamed heading is matched before the built-in one', () => {
     // "Debit" is a built-in heading for money out; this bank prints money in under it.
     const swapped = [
