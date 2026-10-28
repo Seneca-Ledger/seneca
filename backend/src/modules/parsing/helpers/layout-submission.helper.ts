@@ -15,6 +15,33 @@ export interface LayoutSubmission {
   columns: LayoutTemplate['columns'];
   balances: LayoutTemplate['balances'];
   appVersion?: string;
+  evidence?: LayoutEvidence;
+}
+
+export type CheckOutcome = 'passed' | 'failed' | 'unchecked';
+
+/**
+ * How the layout read the statement it was taught on: rows, the checks a
+ * changed layout breaks, and how many statements it has read. Counts and
+ * outcomes only. The project reads it as a signal, not as proof.
+ */
+export interface LayoutEvidence {
+  rows: number;
+  balanceChain: CheckOutcome;
+  printedTotals: CheckOutcome;
+  statementsRead: number;
+}
+
+/** A check's outcome in a statement's stored checks. */
+export function checkOutcome(
+  checks: ReadonlyArray<{ code: string; passed: boolean }> | undefined,
+  code: string,
+): CheckOutcome {
+  const check = checks?.find(candidate => candidate.code === code);
+  if (!check) {
+    return 'unchecked';
+  }
+  return check.passed ? 'passed' : 'failed';
 }
 
 /** Coordinates to a tenth of a point: enough to place a column, and short to read. */
@@ -24,6 +51,7 @@ export function layoutSubmission(
   template: LayoutTemplate,
   bankName: string,
   appVersion?: string,
+  evidence?: LayoutEvidence,
 ): LayoutSubmission {
   return {
     version: 1,
@@ -37,5 +65,6 @@ export function layoutSubmission(
     })),
     balances: template.balances,
     ...(appVersion ? { appVersion } : {}),
+    ...(evidence ? { evidence } : {}),
   };
 }

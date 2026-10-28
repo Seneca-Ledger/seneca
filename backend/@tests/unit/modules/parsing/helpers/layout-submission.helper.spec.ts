@@ -1,4 +1,4 @@
-import { layoutSubmission } from '@/modules/parsing/helpers/layout-submission.helper';
+import { checkOutcome, layoutSubmission } from '@/modules/parsing/helpers/layout-submission.helper';
 import { layoutShareConfig } from '@/modules/parsing/services/layout-share.config';
 
 const template = {
@@ -22,6 +22,19 @@ describe('layoutSubmission', () => {
       appVersion: '1.2.0',
     });
     expect(JSON.stringify(sent)).not.toContain('member one');
+  });
+});
+
+describe('checkOutcome', () => {
+  it('tells a passed, a failed and an absent check apart', () => {
+    const checks = [
+      { code: 'balance_chain', passed: true },
+      { code: 'printed_totals', passed: false },
+    ];
+    expect(checkOutcome(checks, 'balance_chain')).toBe('passed');
+    expect(checkOutcome(checks, 'printed_totals')).toBe('failed');
+    expect(checkOutcome(checks, 'section_totals')).toBe('unchecked');
+    expect(checkOutcome(undefined, 'balance_chain')).toBe('unchecked');
   });
 });
 

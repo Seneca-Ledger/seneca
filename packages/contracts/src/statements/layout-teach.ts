@@ -98,6 +98,15 @@ export const LayoutSubmission = Schema.Struct({
     end: Schema.optional(Schema.String),
   }),
   appVersion: Schema.optional(Schema.String),
+  /** How the layout read the statement it was taught on: counts and check outcomes. */
+  evidence: Schema.optional(
+    Schema.Struct({
+      rows: Schema.Number,
+      balanceChain: Schema.Literals(['passed', 'failed', 'unchecked']),
+      printedTotals: Schema.Literals(['passed', 'failed', 'unchecked']),
+      statementsRead: Schema.Number,
+    }),
+  ),
 });
 export type LayoutSubmission = Wire<typeof LayoutSubmission>;
 

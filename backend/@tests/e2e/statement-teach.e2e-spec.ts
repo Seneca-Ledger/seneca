@@ -262,6 +262,19 @@ describe('Teaching a statement layout (e2e)', () => {
       ).expect(200);
       expect(info.body).toMatchObject({ enabled: true, direct: true, email: 'peterbaikov12@proton.me' });
       expect(info.body.submission.headings.map((h: { phrase: string }) => h.phrase)).toContain('when');
+      // How the taught layout read this statement, once it has: counts and outcomes only.
+      expect(info.body.submission.evidence).toBeUndefined();
+      await processing.processStatement(statement.id);
+      const read = await as(
+        sharer,
+        request(server()).get(`/statements/${statement.id}/teach/share`),
+      ).expect(200);
+      expect(read.body.submission.evidence).toEqual({
+        rows: 2,
+        balanceChain: 'passed',
+        printedTotals: 'unchecked',
+        statementsRead: 1,
+      });
 
       await as(other, request(server()).post(`/statements/${statement.id}/teach/share`)).expect(404);
       expect(received).toHaveLength(0);
@@ -271,7 +284,7 @@ describe('Teaching a statement layout (e2e)', () => {
         .send({ headings: [{ phrase: 'smuggled', role: 'date' }] })
         .expect(200, { sent: true });
       // What left is what the user was shown: the layout, no row of the statement.
-      expect(received).toEqual([info.body.submission]);
+      expect(received).toEqual([read.body.submission]);
       expect(JSON.stringify(received)).not.toMatch(/acme|member|12\.50|987/i);
 
       answer = 500;

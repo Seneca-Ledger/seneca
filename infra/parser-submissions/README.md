@@ -44,6 +44,20 @@ node scripts/layout-to-golden.mjs submission.json <bank-name>
 ```
 
 It writes an invented statement in that layout (`golden/<bank-name>/synthetic.pdf`)
-and what reading it must give, and prints the heading phrases to add to
-`HEADINGS` in `src/modules/parsing/helpers/pdf-layout-columns.helper.ts`. With
-them in place, `GOLDEN_ENABLED=1 npx vitest run --project golden` reads it.
+and what reading it must give, and prints the entry to add to
+`CONTRIBUTED_LAYOUTS` in `src/modules/parsing/helpers/contributed-layouts.ts`.
+Its headings are read only in files that name the bank, so a wrong submission
+cannot misread another bank's statements. With it in place,
+`GOLDEN_ENABLED=1 npx vitest run --project golden` reads the case.
+
+## Is it true?
+
+A submission cannot be proven: the Worker is public and nothing comes with the
+statement itself. What helps:
+- **Reading (reported)** in the issue: rows read, whether the running balance
+  and printed totals held, statements read with it. An honest user's signal.
+- **Layout key**: the same headings from anyone join one issue as comments. Many
+  independent submissions are hard to fake; conflicting roles show up there.
+- **Bank-scoped**: an accepted layout reads only its own bank's files.
+- **After release**: a wrong layout fails the parse checks on real statements,
+  which wait for review and show on the admin Parser health page.

@@ -17,6 +17,20 @@ export const ROLES = [
 ] as const;
 export type Role = (typeof ROLES)[number];
 
+export const OUTCOMES = ['passed', 'failed', 'unchecked'] as const;
+export type Outcome = (typeof OUTCOMES)[number];
+
+/**
+ * How the layout read the statement it was taught on, as the instance
+ * reports it: honest users' signal, not proof (anyone can post this JSON).
+ */
+export interface Evidence {
+  rows: number;
+  balanceChain: Outcome;
+  printedTotals: Outcome;
+  statementsRead: number;
+}
+
 export interface Submission {
   version: 1;
   bankName: string;
@@ -25,6 +39,7 @@ export interface Submission {
   columns: { role: Role; x0: number; x1: number }[];
   balances: { start?: string; end?: string };
   appVersion?: string;
+  evidence?: Evidence;
 }
 
 const MAX_TEXT = 80;
@@ -53,6 +68,33 @@ function text(value: unknown, field: string, errors: string[]): string | undefin
 }
 
 const isRole = (value: unknown): value is Role => (ROLES as readonly unknown[]).includes(value);
+const isOutcome = (value: unknown): value is Outcome =>
+  (OUTCOMES as readonly unknown[]).includes(value);
+const isCount = (value: unknown): value is number =>
+  Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 100_000;
+
+function evidenceOf(value: unknown, errors: string[]): Evidence | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (
+    isRecord(value) &&
+    Object.keys(value).length === 4 &&
+    isCount(value.rows) &&
+    isCount(value.statementsRead) &&
+    isOutcome(value.balanceChain) &&
+    isOutcome(value.printedTotals)
+  ) {
+    return {
+      rows: value.rows,
+      balanceChain: value.balanceChain,
+      printedTotals: value.printedTotals,
+      statementsRead: value.statementsRead,
+    };
+  }
+  errors.push('evidence');
+  return undefined;
+}
 const isCoordinate = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= MAX_COORDINATE;
 
@@ -77,7 +119,16 @@ export function parseSubmission(body: unknown): Result {
   if (!isRecord(body) || body.version !== 1) {
     return { ok: false, error: 'version' };
   }
-  const known = ['version', 'bankName', 'institution', 'headings', 'columns', 'balances', 'appVersion'];
+  const known = [
+    'version',
+    'bankName',
+    'institution',
+    'headings',
+    'columns',
+    'balances',
+    'appVersion',
+    'evidence',
+  ];
   const unknown = Object.keys(body).filter(key => !known.includes(key));
   if (unknown.length > 0) {
     return { ok: false, error: `unknown: ${unknown.join(',')}` };
@@ -114,6 +165,7 @@ export function parseSubmission(body: unknown): Result {
       end: text(balances.end, 'balances.end', errors),
     },
     appVersion: text(body.appVersion, 'appVersion', errors),
+    evidence: evidenceOf(body.evidence, errors),
   };
   if (headings.length === 0 && columns.length === 0) {
     errors.push('empty');
@@ -121,17 +173,74 @@ export function parseSubmission(body: unknown): Result {
   return errors.length > 0 ? { ok: false, error: errors.join(', ') } : { ok: true, submission };
 }
 
+/**
+ * One value per layout, whoever sends it: the heading phrases alone, sorted,
+ * folded. Roles are left out on purpose, so two senders who give the same
+ * words different roles land on the same issue, where the conflict shows.
+ */
+export async function layoutKey(submission: Submission): Promise<string> {
+  const phrases = submission.headings.map(heading => heading.phrase.toLowerCase().trim()).sort();
+  const basis = phrases.length > 0 ? phrases.join('\n') : JSON.stringify(submission.columns);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(basis));
+  return [...new Uint8Array(digest)]
+    .slice(0, 6)
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+const OUTCOME_MARK: Record<Outcome, string> = { passed: 'passed', failed: 'FAILED', unchecked: 'not checked' };
+
+/** What the sender's reading showed, as one line; reported, not verified. */
+export function evidenceLine(submission: Submission): string {
+  const evidence = submission.evidence;
+  if (!evidence) {
+    return '**Reading:** not reported';
+  }
+  return [
+    `**Reading (reported):** ${evidence.rows} rows`,
+    `running balance ${OUTCOME_MARK[evidence.balanceChain]}`,
+    `printed totals ${OUTCOME_MARK[evidence.printedTotals]}`,
+    `${evidence.statementsRead} statement(s) read with it`,
+  ].join(' · ');
+}
+
 /** The issue a submission is filed as: a title to scan the queue by, the layout as JSON. */
-export function issueFor(submission: Submission): { title: string; body: string; labels: string[] } {
+export function issueFor(
+  submission: Submission,
+  key: string,
+): { title: string; body: string; labels: string[] } {
   const name = submission.institution ?? submission.bankName;
   const headings = submission.headings.map(heading => `${heading.role}: ${heading.phrase}`);
   const body = [
     `**Bank:** ${name} (\`${submission.bankName}\`)`,
+    `**Layout key:** \`${key}\` (the same headings from anyone come back here as comments)`,
+    evidenceLine(submission),
     submission.appVersion ? `**App version:** ${submission.appVersion}` : null,
     '',
     '**Headings**',
     ...(headings.length > 0 ? headings.map(line => `- ${line}`) : ['- none (a table without a header)']),
     '',
+    layoutBlock(submission),
+  ]
+    .filter(line => line !== null)
+    .join('\n');
+  return { title: `Layout: ${name}`, body, labels: ['layout', `key:${key}`] };
+}
+
+/** A later submission of a layout already filed: its roles and reading, to compare. */
+export function commentFor(submission: Submission): string {
+  const headings = submission.headings.map(heading => `${heading.role}: ${heading.phrase}`).join(', ');
+  return [
+    'Submitted again.',
+    evidenceLine(submission),
+    `**Headings:** ${headings || 'none'}`,
+    '',
+    layoutBlock(submission),
+  ].join('\n');
+}
+
+function layoutBlock(submission: Submission): string {
+  return [
     '<details><summary>Layout as submitted</summary>',
     '',
     '```json',
@@ -139,8 +248,5 @@ export function issueFor(submission: Submission): { title: string; body: string;
     '```',
     '',
     '</details>',
-  ]
-    .filter(line => line !== null)
-    .join('\n');
-  return { title: `Layout: ${name}`, body, labels: ['layout'] };
+  ].join('\n');
 }

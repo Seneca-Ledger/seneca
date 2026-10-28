@@ -24,10 +24,17 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-function githubAnswering(status: number) {
+/** GitHub as the worker sees it: the key's issue (if any), then the answer to the write. */
+function githubAnswering(status: number, existing: { number: number }[] = []) {
   const calls: { url: string; init: RequestInit }[] = [];
   globalThis.fetch = (async (url: string, init: RequestInit) => {
     calls.push({ url: String(url), init });
+    if ((init.method ?? 'GET') === 'GET') {
+      return new Response(JSON.stringify(existing), { status: 200 });
+    }
+    if (String(url).endsWith('/labels')) {
+      return new Response('{}', { status: 201 });
+    }
     return new Response('{}', { status });
   }) as typeof fetch;
   return calls;
@@ -39,10 +46,32 @@ describe('parser-submissions worker', () => {
     const answer = await worker.fetch(post(JSON.stringify(layout)), env());
     assert.equal(answer.status, 201);
     assert.deepEqual(await answer.json(), { received: true });
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].url, 'https://api.github.com/repos/owner/parser-submissions/issues');
+    const writes = calls.filter(call => call.init.method === 'POST');
+    assert.deepEqual(
+      writes.map(call => call.url),
+      [
+        'https://api.github.com/repos/owner/parser-submissions/labels',
+        'https://api.github.com/repos/owner/parser-submissions/issues',
+      ],
+    );
+    assert.match(calls[0].url, /\/issues\?state=all&per_page=1&labels=key%3A[0-9a-f]{12}$/);
     const headers = calls[0].init.headers as Record<string, string>;
     assert.equal(headers.authorization, 'Bearer test-token');
+    const issue = JSON.parse(String(writes[1].init.body));
+    assert.deepEqual(issue.labels.slice(0, 1), ['layout']);
+    assert.match(issue.labels[1], /^key:[0-9a-f]{12}$/);
+  });
+
+  it('adds a layout already filed to its issue as a comment', async () => {
+    const calls = githubAnswering(201, [{ number: 7 }]);
+    const answer = await worker.fetch(post(JSON.stringify(layout)), env());
+    assert.equal(answer.status, 201);
+    const writes = calls.filter(call => call.init.method === 'POST');
+    assert.deepEqual(
+      writes.map(call => call.url),
+      ['https://api.github.com/repos/owner/parser-submissions/issues/7/comments'],
+    );
+    assert.match(JSON.parse(String(writes[0].init.body)).body, /Submitted again/);
   });
 
   it('refuses before GitHub: wrong path or method, over the rate, too big, not a layout', async () => {

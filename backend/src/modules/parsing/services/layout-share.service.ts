@@ -14,7 +14,11 @@ import { appError } from '../../../common/errors/app-error';
 import type { TeachShareInfo, TeachShareResult } from '../../../contracts';
 import { ParsingLayoutTemplate } from '../../../entities/parsing-layout-template.entity';
 import { Statement } from '../../../entities/statement.entity';
-import { type LayoutSubmission, layoutSubmission } from '../helpers/layout-submission.helper';
+import {
+  checkOutcome,
+  type LayoutSubmission,
+  layoutSubmission,
+} from '../helpers/layout-submission.helper';
 import { layoutShareConfig } from './layout-share.config';
 
 /** The receiving Worker's answer (infra/parser-submissions). */
@@ -72,6 +76,17 @@ export class LayoutShareService {
     return { sent: true };
   }
 
+  /** The workspace's statements whose last reading came from this layout. */
+  private statementsReadWith(workspaceId: string, templateId: string): Promise<number> {
+    return this.statements
+      .createQueryBuilder('statement')
+      .where('statement.workspaceId = :workspaceId', { workspaceId })
+      .andWhere("statement.parsingDetails -> 'layout' ->> 'taughtTemplate' = :templateId", {
+        templateId,
+      })
+      .getCount();
+  }
+
   private async submission(id: string, workspaceId: string): Promise<LayoutSubmission> {
     const statement = await this.statements.findOne({ where: { id, workspaceId } });
     if (!statement) {
@@ -84,10 +99,23 @@ export class LayoutShareService {
     if (!taught) {
       throw new NotFoundException(appError('STATEMENT_TEACH_TEMPLATE_NOT_FOUND'));
     }
+    // What the statement's last reading with this layout showed; none if
+    // something else read it last.
+    const details = statement.parsingDetails;
+    const evidence =
+      details?.layout?.taughtTemplate === taught.id
+        ? {
+            rows: statement.totalTransactions ?? 0,
+            balanceChain: checkOutcome(details.checks, 'balance_chain'),
+            printedTotals: checkOutcome(details.checks, 'printed_totals'),
+            statementsRead: await this.statementsReadWith(workspaceId, taught.id),
+          }
+        : undefined;
     return layoutSubmission(
       taught.template,
       taught.bankName,
       process.env.APP_VERSION?.trim() || undefined,
+      evidence,
     );
   }
 }

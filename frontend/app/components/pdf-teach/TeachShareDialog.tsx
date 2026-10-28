@@ -137,6 +137,7 @@ export function TeachShareDialog({
         <p className="seneca-pdf-teach__share-why">{t.share.why}</p>
         <ul className="seneca-pdf-teach__share-terms">
           <li>{t.share.onlyLayout}</li>
+          <li>{t.share.evidence}</li>
           <li>{t.share.recipient.value.replace('{name}', AUTHOR)}</li>
           <li>{t.share.published}</li>
           <li>{t.share.deletion.value.replace('{email}', email)}</li>

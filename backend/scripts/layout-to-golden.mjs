@@ -7,9 +7,9 @@
 //   node scripts/layout-to-golden.mjs <submission.json> <case-name>
 //
 // Writes golden/<case-name>/synthetic.pdf and synthetic.pdf.expected.json, and
-// prints the heading phrases to add to HEADINGS in
-// src/modules/parsing/helpers/pdf-layout-columns.helper.ts: until they are
-// there, the generic reader does not know the layout and the case fails.
+// prints the entry to add to CONTRIBUTED_LAYOUTS in
+// src/modules/parsing/helpers/contributed-layouts.ts: its headings are read
+// only in files that name the bank. Until it is there, the case fails.
 import fs from 'node:fs';
 import path from 'node:path';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
@@ -154,10 +154,17 @@ async function main() {
   fs.writeFileSync(path.join(dir, 'synthetic.pdf.expected.json'), `${JSON.stringify(expected, null, 2)}\n`);
 
   console.log(`Wrote ${dir}/synthetic.pdf and its expected reading (${transactions.length} rows).`);
-  console.log('\nAdd these heading phrases to HEADINGS (pdf-layout-columns.helper.ts):');
-  for (const { role, phrase } of submission.headings) {
-    console.log(`  ${role}: '${phrase}'`);
+  const bank = submission.institution;
+  if (!bank) {
+    console.log('\nThe submission names no bank: find its name before adding the layout, or it would apply to no file.');
   }
+  const entry = {
+    bank: bank ?? 'TODO bank name',
+    names: [(bank ?? 'todo bank name').toLowerCase()],
+    headings: submission.headings,
+  };
+  console.log('\nAdd to CONTRIBUTED_LAYOUTS (src/modules/parsing/helpers/contributed-layouts.ts):');
+  console.log(`${JSON.stringify(entry, null, 2).replace(/"(\w+)":/g, '$1:').replace(/"/g, "'")},`);
   console.log('\nThen: GOLDEN_ENABLED=1 npx vitest run --project golden');
 }
 

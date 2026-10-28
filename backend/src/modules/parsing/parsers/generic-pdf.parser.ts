@@ -6,6 +6,7 @@ import {
   type PdfTextRow,
 } from '../../../common/utils/pdf-parser.util';
 import { BankName, FileType } from '../../../entities/statement.entity';
+import { contributedHeadings } from '../helpers/contributed-layouts';
 import { findAccountNumberInColumn } from '../helpers/pdf-layout-account-number.helper';
 import { statementLayout } from '../helpers/pdf-layout-fingerprint.helper';
 import {
@@ -95,9 +96,10 @@ export class GenericPdfParser extends BaseParser {
     const localeInfo = this.detectLocale(text);
     const detectedCurrency = detectStatementCurrency(text) || appDefaultCurrency();
 
-    const layoutTransactions = this.readTransactions(layoutRows);
+    const reading = this.readingFor(text);
+    const layoutTransactions = this.readTransactions(layoutRows, reading);
     // The generic reading of the same rows: its sections' totals and the layout's words.
-    const table = readLayoutTable(layoutRows, this.reading);
+    const table = readLayoutTable(layoutRows, reading);
     const layout = statementLayout(table.layout, text);
     // Row dates decide first; in free text only dates with a year count, since
     // "38.2gal" or "19.5%" look like day-first dates too.
@@ -223,8 +225,20 @@ export class GenericPdfParser extends BaseParser {
   }
 
   /** The table's rows, which a bank's own parser may read further. */
-  protected readTransactions(rows: PdfTextRow[]): LayoutTransaction[] {
-    return readLayoutTransactions(rows, this.reading);
+  protected readTransactions(
+    rows: PdfTextRow[],
+    reading: LayoutReading = this.reading,
+  ): LayoutTransaction[] {
+    return readLayoutTransactions(rows, reading);
+  }
+
+  /** A workspace's taught layout, or else the headings contributed for the bank the file names. */
+  private readingFor(text: string): LayoutReading {
+    if (this.reading.headings || this.reading.columns) {
+      return this.reading;
+    }
+    const headings = contributedHeadings(text);
+    return headings ? { headings } : this.reading;
   }
 
   /**
