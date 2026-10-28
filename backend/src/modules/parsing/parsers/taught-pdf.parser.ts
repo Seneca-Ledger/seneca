@@ -19,7 +19,10 @@ export class TaughtPdfParser extends GenericPdfParser {
   }
 
   async parse(filePath: string, cachedText?: string): Promise<ParsedStatement> {
-    const parsed = await super.parse(filePath, cachedText);
+    const read = await super.parse(filePath, cachedText);
+    const parsed = this.template.institution
+      ? { ...read, metadata: { ...read.metadata, institution: this.template.institution } }
+      : read;
     const { start, end } = this.template.balances;
     if (!(start || end)) {
       return parsed;

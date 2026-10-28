@@ -21,6 +21,7 @@ export const TeachTag = Schema.Literals([
   'skip',
   'openingBalance',
   'closingBalance',
+  'bankName',
 ]);
 export type TeachTag = Wire<typeof TeachTag>;
 

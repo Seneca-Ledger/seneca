@@ -172,6 +172,42 @@ describe('layout-template.helper', () => {
     expect(readLayoutTable(swapped, layoutReading(template)).transactions[0].credit).toBe(20);
   });
 
+  it('learns nothing wrong from tags put on the wrong things', () => {
+    // As a user first marked it: the bank's name as the header, the period line
+    // as a date, the opening balance line as the balance column, the balance
+    // column as the closing balance, and the date column twice.
+    const page = [
+      row(20, [['Northwind', 40], ['Mutual', 100]]),
+      row(40, [['Account', 40], ['statement', 80], ['01-02-2025', 140], ['to', 200], ['28-02-2025', 215]]),
+      ...rows,
+    ];
+    const marked: TeachRegion[] = [
+      { tag: 'header', page: 1, x0: 35, y0: 15, x1: 140, y1: 30 },
+      { tag: 'bankName', page: 1, x0: 35, y0: 15, x1: 140, y1: 30 },
+      { tag: 'date', page: 1, x0: 35, y0: 38, x1: 270, y1: 50 },
+      { tag: 'balance', page: 1, x0: 35, y0: 58, x1: 260, y1: 70 },
+      ...regions.filter(region => region.tag === 'date'),
+      ...regions.filter(region => ['description', 'debit', 'credit'].includes(region.tag)),
+      { tag: 'closingBalance', page: 1, x0: 450, y0: 118, x1: 505, y1: 150 },
+    ];
+    const template = templateFromRegions(marked, page);
+    expect(template.headings.map(heading => heading.phrase)).toEqual([
+      'when',
+      'what',
+      'went out',
+      'came in',
+    ]);
+    expect(template.columns.map(column => column.role)).toEqual(['date', 'description', 'debit', 'credit']);
+    expect(template.balances).toEqual({ start: undefined, end: undefined });
+    expect(template.institution).toBe('Northwind Mutual');
+    expect(JSON.stringify(template).toLowerCase()).not.toMatch(/acme|member|rent/);
+
+    // The unmarked balance column is no part of the description.
+    const headless = page.filter(line => line !== header);
+    const read = readLayoutTable(headless, layoutReading(template)).transactions;
+    expect(read.map(t => t.description)).toEqual(['ACME Store', 'Member One']);
+  });
+
   it('names the tags still missing', () => {
     expect(missingTags(regions)).toEqual([]);
     expect(missingTags([{ tag: 'description', page: 1, x0: 0, y0: 0, x1: 1, y1: 1 }])).toEqual([

@@ -4,7 +4,7 @@ import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
 import { type ColumnRole, headingWord, type LayoutColumn } from './pdf-layout-columns.helper';
 import type { LayoutReading } from './pdf-layout-table.helper';
 import { findStatementAmounts } from './statement-amount.helper';
-import { foldText } from './statement-date.helper';
+import { foldText, parseDateParts } from './statement-date.helper';
 
 /**
  * A layout a user taught by marking areas of a statement the parser could not
@@ -29,6 +29,7 @@ export const TEACH_TAGS = [
   'skip',
   'openingBalance',
   'closingBalance',
+  'bankName',
 ] as const;
 export type TeachTag = (typeof TEACH_TAGS)[number];
 type ColumnTag = (typeof COLUMN_TAGS)[number];
@@ -52,6 +53,8 @@ export interface LayoutTemplate {
   skip: string[];
   /** The label printed before each balance. */
   balances: { start?: string; end?: string };
+  /** The bank's name as the statement prints it, for a bank no parser knows. */
+  institution?: string;
 }
 
 /** The tags a reading cannot do without. */
@@ -61,12 +64,19 @@ const MONEY_TAGS: TeachTag[] = ['debit', 'credit', 'amount', 'balance'];
 const MIN_SKIP_LENGTH = 3;
 /** A label is the last few words before the balance. */
 const LABEL_WORDS = 4;
+/** A bank's name is a few words; more is a sentence the user caught along. */
+const MAX_INSTITUTION_LENGTH = 80;
 /** Checks a changed layout breaks: a reading failing one is no good reading. */
 const FORMAT_CHECKS = new Set(['balance_chain', 'printed_totals', 'section_totals']);
 
 const isColumnTag = (tag: TeachTag): tag is ColumnTag =>
   (COLUMN_TAGS as readonly TeachTag[]).includes(tag);
 const hasDigit = (text: string) => /\d/.test(text);
+/** A transaction row: its first word is a date. A label never comes from one. */
+const startsWithDate = (row: PdfTextRow) => {
+  const [first] = [...row.items].sort((a, b) => a.x - b.x);
+  return Boolean(first && (parseDateParts(first.text, 'dmy') ?? parseDateParts(first.text, 'mdy')));
+};
 const right = (item: PdfTextItem) => item.x + item.width;
 
 /** Groups of tags still missing for a reading, each a choice of one ("debit|credit|amount"). */
@@ -117,20 +127,36 @@ const plainOver = (row: PdfTextRow, region: TeachRegion) => {
 };
 
 /**
- * The header's lines: those the user marked, or else the nearest line above
- * the first dated row with plain words (no figure) over at least two of the
- * marked columns ("Tran Date  Particulars  Debit" above "28-08-2023 …").
+ * The header's lines: the nearest line above the first transaction row with
+ * plain words (no figure) over at least two of the marked columns ("Tran
+ * Date  Particulars  Debit" above "28-08-2023 …"). A marked header is taken
+ * when it holds that line (a heading printed on two lines), or when there is
+ * none; a bank's name or a title marked as the header is not.
  */
 function headerLines(rows: PdfTextRow[], regions: readonly TeachRegion[]): PdfTextRow[] {
+  const columns = regions.filter(region => isColumnTag(region.tag));
+  const overColumns = (row: PdfTextRow) =>
+    columns.filter(region => plainOver(row, region)).length >= 2;
   const header = regions.find(region => region.tag === 'header');
-  if (header) {
-    return rows.filter(
-      row => row.page === header.page && row.y + 1 >= header.y0 && row.y <= header.y1,
-    );
+  const marked = header
+    ? rows.filter(row => row.page === header.page && row.y + 1 >= header.y0 && row.y <= header.y1)
+    : [];
+  const line = headingLineAbove(rows, regions, overColumns);
+  if (line) {
+    return marked.includes(line) ? marked : [line];
   }
+  return marked.some(overColumns) ? marked : [];
+}
+
+/** The nearest line over the columns above the first dated row of the date column. */
+function headingLineAbove(
+  rows: PdfTextRow[],
+  regions: readonly TeachRegion[],
+  overColumns: (row: PdfTextRow) => boolean,
+): PdfTextRow | undefined {
   const date = regions.find(region => region.tag === 'date');
   if (!date) {
-    return [];
+    return undefined;
   }
   const onPage = rows.filter(row => row.page === date.page).sort((a, b) => a.y - b.y);
   const firstDated = onPage.find(
@@ -139,12 +165,10 @@ function headerLines(rows: PdfTextRow[], regions: readonly TeachRegion[]): PdfTe
       row.y <= date.y1 &&
       inBand(row, date).some(word => hasDigit(word.text)),
   );
-  const columns = regions.filter(region => isColumnTag(region.tag));
-  const line = onPage
+  return onPage
     .filter(row => firstDated && row.y < firstDated.y)
     .reverse()
-    .find(row => columns.filter(region => plainOver(row, region)).length >= 2);
-  return line ? [line] : [];
+    .find(overColumns);
 }
 
 /** The column's heading: the header's plain words over it, line by line. */
@@ -163,12 +187,26 @@ function columnFor(rows: PdfTextRow[], region: TeachRegion & { tag: ColumnTag })
   return { role: region.tag as ColumnRole, x0: region.x0, x1 };
 }
 
-/** The words before the marked balance on its line, or the line above it when there are none. */
+/** The lines an area crosses. */
+const linesIn = (rows: PdfTextRow[], region: TeachRegion) =>
+  rows.filter(row => wordsIn([row], region).length > 0);
+
+/**
+ * The words before the marked balance on its line, or the line above it when
+ * there are none. An area over several figures is a column, not one balance,
+ * and has no label.
+ */
 function labelFor(rows: PdfTextRow[], region: TeachRegion): string | undefined {
+  const figures = linesIn(rows, region).filter(row =>
+    wordsIn([row], region).some(word => hasDigit(word.text)),
+  );
+  if (figures.length > 1) {
+    return undefined;
+  }
   const lines = rows
     .filter(row => row.page === region.page && row.y <= region.y1)
     .sort((a, b) => b.y - a.y);
-  for (const line of lines) {
+  for (const line of lines.filter(row => !startsWithDate(row))) {
     const before = line.items
       .filter(item => item.x < region.x0 || line.y < region.y0)
       .filter(item => !hasDigit(item.text))
@@ -200,9 +238,14 @@ function skipPhrases(rows: PdfTextRow[], region: TeachRegion): string[] {
 
 /** The template the marked areas teach, read off the statement's own words. */
 export function templateFromRegions(
-  regions: readonly TeachRegion[],
+  marked: readonly TeachRegion[],
   rows: PdfTextRow[],
 ): LayoutTemplate {
+  // A column area crosses a transaction row; one over a title or a summary
+  // line ("Brought forward 1,000.00") is no column and teaches nothing.
+  const regions = lastOfEachTag(marked).filter(
+    region => !isColumnTag(region.tag) || linesIn(rows, region).some(startsWithDate),
+  );
   const header = headerLines(rows, regions);
   const columnRegions = regions.filter((region): region is TeachRegion & { tag: ColumnTag } =>
     isColumnTag(region.tag),
@@ -225,7 +268,30 @@ export function templateFromRegions(
       ),
     ],
     balances: { start: balance('openingBalance'), end: balance('closingBalance') },
+    institution: institutionIn(
+      rows,
+      regions.find(region => region.tag === 'bankName'),
+    ),
   };
+}
+
+/** One area per tag, the last drawn: drawing a tag again moves it. Skipped areas add up. */
+function lastOfEachTag(regions: readonly TeachRegion[]): TeachRegion[] {
+  return regions.filter(
+    (region, index) =>
+      region.tag === 'skip' || !regions.slice(index + 1).some(later => later.tag === region.tag),
+  );
+}
+
+/** The bank's name: the area's words without figures (an address or a date is not it). */
+function institutionIn(rows: PdfTextRow[], region: TeachRegion | undefined): string | undefined {
+  const words = region ? wordsIn(rows, region).filter(item => !hasDigit(item.text)) : [];
+  const name = words
+    .sort((a, b) => a.y - b.y || a.x - b.x)
+    .map(item => item.text)
+    .join(' ')
+    .trim();
+  return name && name.length <= MAX_INSTITUTION_LENGTH ? name : undefined;
 }
 
 /** One value per taught layout: its headings and columns, not where it was taught. */
@@ -239,7 +305,7 @@ export function templateSignature(template: LayoutTemplate): string {
 
 /** How the table reader takes the template. */
 export function layoutReading(template: LayoutTemplate): LayoutReading {
-  const columns: LayoutColumn[] = template.columns.map(column => ({ ...column }));
+  const columns = boundTextColumns(template.columns.map(column => ({ ...column })));
   return {
     headings: new Map(template.headings.map(heading => [heading.phrase, heading.role])),
     columns: columns.length > 0 ? columns : undefined,
@@ -248,6 +314,23 @@ export function layoutReading(template: LayoutTemplate): LayoutReading {
         ? row => template.skip.some(phrase => plainWords(row.items).includes(phrase))
         : undefined,
   };
+}
+
+/** Columns the reader takes as text. */
+const TEXT_TAGS: ColumnRole[] = ['date', 'description', 'counterparty'];
+
+/**
+ * A text column ends where its area ends: a word right of it that no marked
+ * column holds (a running balance the user left unmarked) is no part of the
+ * description, so an `other` column takes it.
+ */
+function boundTextColumns(columns: LayoutColumn[]): LayoutColumn[] {
+  const sorted = [...columns].sort((a, b) => a.x0 - b.x0);
+  const bounds = sorted
+    .filter(column => TEXT_TAGS.includes(column.role))
+    .filter(column => !sorted.some(other => other.x0 > column.x0 && other.x0 <= column.x1 + 1))
+    .map(column => ({ role: 'other' as const, x0: column.x1 + 1, x1: column.x1 + 1 }));
+  return [...sorted, ...bounds].sort((a, b) => a.x0 - b.x0);
 }
 
 /**

@@ -142,6 +142,8 @@ export const StatementParsingDetails = Schema.StructWithRest(
           currency: maybe(Schema.String),
           rawHeader: maybe(Schema.String),
           normalizedHeader: maybe(Schema.String),
+          /** The bank's name as printed: read by its parser, or taught for a bank none knows. */
+          institution: maybe(Schema.String),
           headerDisplay: maybe(
             Schema.StructWithRest(
               Schema.Struct({
