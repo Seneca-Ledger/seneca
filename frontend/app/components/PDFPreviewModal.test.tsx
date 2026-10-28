@@ -46,7 +46,11 @@ vi.mock('@/app/i18n', () => ({
 
 // Marking mode has its own tests (pdf-teach); here the preview runs without it.
 vi.mock('./pdf-teach/useTeachSession', () => ({
-  useTeachSession: () => ({ pageWidths: {}, setPageWidth: () => undefined }),
+  useTeachMode: () => ({
+    teaching: false,
+    session: { pageWidths: {}, setPageWidth: () => undefined },
+    teachAgain: () => undefined,
+  }),
 }));
 
 vi.mock('./ui/modal-shell', () => ({

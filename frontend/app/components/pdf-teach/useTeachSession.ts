@@ -142,3 +142,14 @@ export function useTeachSession(statementId: string | null): TeachSession {
       setPageWidths(current => (current[page] === width ? current : { ...current, [page]: width })),
   };
 }
+
+/**
+ * Marking mode for the preview: on when it was opened for it, or switched on
+ * from its menu to teach the statement again; the session runs only then.
+ */
+export function useTeachMode(isOpen: boolean, teach: boolean, statementId: string) {
+  const [teaching, setTeaching] = useState(teach);
+  useEffect(() => setTeaching(teach), [teach, isOpen]);
+  const session = useTeachSession(isOpen && teaching ? statementId : null);
+  return { teaching, session, teachAgain: () => setTeaching(true) };
+}
