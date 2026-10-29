@@ -65,3 +65,30 @@ statement itself. What helps:
 - **Bank-scoped**: an accepted layout reads only its own bank's files.
 - **After release**: a wrong layout fails the parse checks on real statements,
   which wait for review and show on the admin Parser health page.
+
+## Pull requests from submissions
+
+`workflow/propose-layout.yml` runs in the parser-submissions repository on each
+new layout issue (repeats are comments and do not run it). It vets the
+submission (`backend/scripts/layout-submission-vet.mjs`): refused without the
+bank's name, for a bank with a parser of its own, without date, description and
+money columns, without a reported reading that held (rows, running balance or
+printed totals), or for a bank already contributed; common heading words and a
+single statement are flagged for a look. Then it writes the golden case and the
+entry in `contributed-layouts.data.ts`, runs the golden set and opens a pull
+request in the project. The maintainer merges it; nothing merges by itself.
+The issue gets a comment and a label: proposed, not-proposed or proposal-failed.
+
+Set up once:
+
+1. A fine-grained token for `stoic-budget/stoic-budget` with Contents and Pull
+   requests read and write, saved in parser-submissions:
+   `gh secret set MAIN_REPO_TOKEN --repo stoic-budget/parser-submissions`.
+2. The workflow file at `.github/workflows/propose-layout.yml` in
+   parser-submissions.
+
+It runs the project's main branch, so it needs this code merged there.
+`workflow_dispatch` proposes an existing issue again.
+
+The project's CI runs the golden set (`golden` job) whenever parsing, the PDF
+reading or `backend/golden` changes, so a proposed layout is checked there too.

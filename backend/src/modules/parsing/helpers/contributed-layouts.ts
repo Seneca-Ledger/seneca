@@ -1,3 +1,4 @@
+import { CONTRIBUTED_LAYOUT_DATA } from './contributed-layouts.data';
 import type { ColumnRole, TaughtHeadings } from './pdf-layout-columns.helper';
 import { foldText } from './statement-date.helper';
 
@@ -17,7 +18,8 @@ export interface ContributedLayout {
   headings: { phrase: string; role: ColumnRole }[];
 }
 
-export const CONTRIBUTED_LAYOUTS: ContributedLayout[] = [];
+/** Accepted layouts; the list lives in contributed-layouts.data.ts, which the script writes. */
+export const CONTRIBUTED_LAYOUTS: ContributedLayout[] = [...CONTRIBUTED_LAYOUT_DATA];
 
 /** The contributed headings for a file, from the layouts whose bank it names; none otherwise. */
 export function contributedHeadings(

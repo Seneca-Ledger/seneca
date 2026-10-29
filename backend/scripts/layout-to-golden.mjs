@@ -4,15 +4,20 @@
 // invented statement printed in that layout, and what reading it must give.
 // No real statement is needed or used: the rows are made up here.
 //
-//   node scripts/layout-to-golden.mjs <submission.json> <case-name>
+//   node scripts/layout-to-golden.mjs <submission.json> [case-name] [--apply] [--report <file>]
 //
-// Writes golden/<case-name>/synthetic.pdf and synthetic.pdf.expected.json, and
-// prints the entry to add to CONTRIBUTED_LAYOUTS in
-// src/modules/parsing/helpers/contributed-layouts.ts: its headings are read
-// only in files that name the bank. Until it is there, the case fails.
+// Run from backend/. Vets the submission (layout-submission-vet.mjs), writes
+// golden/<case-name>/synthetic.pdf and synthetic.pdf.expected.json, and with
+// --apply adds the bank's entry to src/modules/parsing/helpers/
+// contributed-layouts.data.ts: its headings are read only in files that name
+// the bank. A refused submission exits 2 and changes nothing. --report writes
+// the verdict as Markdown, for the pull request or the issue.
 import fs from 'node:fs';
 import path from 'node:path';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { caseNameOf, registryEntry, registryOf, vetSubmission, withEntry } from './layout-submission-vet.mjs';
+
+const DATA_FILE = 'src/modules/parsing/helpers/contributed-layouts.data.ts';
 
 const PAGE = { width: 600, height: 800 };
 const TEXT_ROLES = new Set(['date', 'otherDate', 'description', 'counterparty', 'other']);
@@ -134,13 +139,43 @@ function rowCells(role, row, balance, money, date) {
   }
 }
 
+/** The verdict as Markdown: what stops the layout, what a reviewer should look at. */
+function reportOf({ refusals, warnings }, caseName) {
+  return [
+    refusals.length > 0 ? '**Not proposed:**' : `**Proposed** as golden case \`${caseName}\`.`,
+    ...refusals.map(reason => `- ${reason}`),
+    ...(warnings.length > 0 ? ['', '**Look at:**', ...warnings.map(warning => `- ${warning}`)] : []),
+  ].join('\n');
+}
+
 async function main() {
-  const [file, caseName] = process.argv.slice(2);
-  if (!(file && caseName && /^[a-z0-9-]+$/.test(caseName))) {
-    console.error('Usage: node scripts/layout-to-golden.mjs <submission.json> <case-name (a-z, 0-9, -)>');
+  const args = process.argv.slice(2);
+  const apply = args.includes('--apply');
+  const reportAt = args.indexOf('--report');
+  const report = reportAt === -1 ? null : args[reportAt + 1];
+  const [file, named] = args.filter(
+    (arg, index) => !arg.startsWith('--') && (reportAt === -1 || index !== reportAt + 1),
+  );
+  const submission = file ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+  const caseName = named ?? (submission ? caseNameOf(submission) : '');
+  if (!(submission && /^[a-z0-9-]+$/.test(caseName))) {
+    console.error('Usage: node scripts/layout-to-golden.mjs <submission.json> [case-name] [--apply] [--report <file>]');
     process.exit(1);
   }
-  const submission = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const data = fs.existsSync(DATA_FILE) ? fs.readFileSync(DATA_FILE, 'utf8') : null;
+  const verdict = vetSubmission(submission, data ? registryOf(data) : []);
+  if (report) {
+    fs.writeFileSync(report, `${reportOf(verdict, caseName)}\n`);
+  }
+  for (const reason of verdict.refusals) {
+    console.log(`Refused: ${reason}`);
+  }
+  for (const warning of verdict.warnings) {
+    console.log(`Look at: ${warning}`);
+  }
+  if (apply && verdict.refusals.length > 0) {
+    process.exit(2);
+  }
   const columns = columnsOf(submission);
   const print = submission.print;
   const size = print?.fontSize ?? 9;
@@ -235,17 +270,13 @@ async function main() {
   fs.writeFileSync(path.join(dir, 'synthetic.pdf.expected.json'), `${JSON.stringify(expected, null, 2)}\n`);
 
   console.log(`Wrote ${dir}/synthetic.pdf and its expected reading (${transactions.length} rows).`);
-  const bank = submission.institution;
-  if (!bank) {
-    console.log('\nThe submission names no bank: find its name before adding the layout, or it would apply to no file.');
+  if (apply) {
+    fs.writeFileSync(DATA_FILE, withEntry(data, registryEntry(submission)));
+    console.log(`Added ${submission.institution} to ${DATA_FILE}.`);
+  } else if (verdict.refusals.length === 0) {
+    console.log(`\nWith --apply it would add to ${DATA_FILE}:`);
+    console.log(JSON.stringify(registryEntry(submission), null, 2));
   }
-  const entry = {
-    bank: bank ?? 'TODO bank name',
-    names: [(bank ?? 'todo bank name').toLowerCase()],
-    headings: submission.headings,
-  };
-  console.log('\nAdd to CONTRIBUTED_LAYOUTS (src/modules/parsing/helpers/contributed-layouts.ts):');
-  console.log(`${JSON.stringify(entry, null, 2).replace(/"(\w+)":/g, '$1:').replace(/"/g, "'")},`);
   console.log('\nThen: GOLDEN_ENABLED=1 npx vitest run --project golden');
 }
 
