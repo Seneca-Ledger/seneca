@@ -62,7 +62,7 @@ jobs:
       - name: Install pdfplumber
         run: |
           python3 -m venv main/backend/.venv
-          main/backend/.venv/bin/pip install --quiet -r main/backend/requirements.txt
+          main/backend/.venv/bin/pip install --quiet --require-hashes -r main/backend/requirements.txt
 
       - name: Read the submission
         env:
