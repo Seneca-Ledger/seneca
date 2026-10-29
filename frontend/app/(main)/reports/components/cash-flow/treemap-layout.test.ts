@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutTreemap } from './treemap-layout';
+import { layoutTreemap, tileLabel } from './treemap-layout';
 
 describe('layoutTreemap', () => {
   it('fills the box exactly and gives bigger values bigger tiles', () => {
@@ -47,5 +47,19 @@ describe('layoutTreemap', () => {
     expect(layoutTreemap([{ id: 'a', value: 5 }], 100, 100)).toEqual([
       { id: 'a', x: 0, y: 0, width: 100, height: 100 },
     ]);
+  });
+});
+
+describe('tileLabel', () => {
+  it('steps down from name and amount to the name, the icon and nothing', () => {
+    expect(tileLabel(240, 230)).toBe('full');
+    // Wide but short, or narrow for an amount: the name alone.
+    expect(tileLabel(300, 30)).toBe('name');
+    expect(tileLabel(70, 140)).toBe('name');
+    // Too narrow for a word: the icon.
+    expect(tileLabel(40, 140)).toBe('icon');
+    expect(tileLabel(30, 30)).toBe('icon');
+    expect(tileLabel(18, 140)).toBe('none');
+    expect(tileLabel(300, 12)).toBe('none');
   });
 });

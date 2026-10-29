@@ -42,8 +42,9 @@ export interface CashFlowMapData {
   treemap: Array<{
     id: string;
     name: string;
+    icon: string | null;
     value: number;
-    children: Array<{ id: string; name: string; value: number }>;
+    children: Array<{ id: string; name: string; icon: string | null; value: number }>;
   }>;
 }
 
