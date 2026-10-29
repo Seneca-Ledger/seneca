@@ -504,9 +504,12 @@ jobs:
         working-directory: backend
         run: bun install --frozen-lockfile --network-concurrency=16
 
-      # pdfplumber reads every PDF; backend/.venv is where the parser looks for it.
-      - name: Install pdfplumber
+      # pdfplumber reads every PDF (backend/.venv is where the parser looks for it);
+      # pdftoppm renders a scan's pages for OCR (the ATB sample has no text layer).
+      - name: Install pdfplumber and poppler
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
           python3 -m venv backend/.venv
           backend/.venv/bin/pip install --quiet -r backend/requirements.txt
 
@@ -590,6 +593,12 @@ jobs:
 
       - name: Run migrations
         run: npm --prefix backend run migration:run
+
+      # The teach e2e reads a real PDF: pdfplumber, where the parser looks for it.
+      - name: Install pdfplumber
+        run: |
+          python3 -m venv backend/.venv
+          backend/.venv/bin/pip install --quiet -r backend/requirements.txt
 
       - name: Backend e2e (shard ${{ matrix.shard }}/4)
         run: npm --prefix backend run test:e2e -- --shard=${{ matrix.shard }}/4
