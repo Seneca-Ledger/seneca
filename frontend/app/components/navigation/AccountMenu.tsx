@@ -48,7 +48,6 @@ export function AccountMenu({
   const { hasPermission } = usePermissions();
   const { setTheme, resolvedTheme } = useTheme();
   const { userMenu, nav } = useIntlayer('navigation');
-  const adminPage = useIntlayer('adminPage');
   // Placed by coordinates rather than by the trigger: opening the menu widens a
   // collapsed rail under it, and an anchor element would be measured mid-slide.
   const [anchor, setAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -220,7 +219,7 @@ export function AccountMenu({
             <ListItemIcon>
               <ScrollText size={18} />
             </ListItemIcon>
-            <ListItemText>{adminPage.title}</ListItemText>
+            <ListItemText>{userMenu.admin}</ListItemText>
           </MenuItem>
         ) : null}
 
