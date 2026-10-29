@@ -65,6 +65,8 @@ function valid(parts: DateParts): DateParts | null {
   return month >= 1 && month <= 12 && day >= 1 && day <= 31 ? parts : null;
 }
 
+const YEAR_FIRST = /^((?:19|20)\d{2})([/.])(\d{1,2})\2(\d{1,2})$/;
+
 /** Parses text that is exactly one date, or returns null. */
 export function parseDateParts(text: string, order: NumericDateOrder): DateParts | null {
   const value = foldText(text.trim());
@@ -72,6 +74,13 @@ export function parseDateParts(text: string, order: NumericDateOrder): DateParts
   const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) {
     return valid({ year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) });
+  }
+
+  // Year first, as Hong Kong, China and Japan print it: "2020/09/30", "2020.09.30".
+  const yearFirst = value.match(YEAR_FIRST);
+  if (yearFirst) {
+    const [, year, , month, day] = yearFirst;
+    return valid({ year: Number(year), month: Number(month), day: Number(day) });
   }
 
   const numeric = value.match(/^(\d{1,2})[./-](\d{1,2})(?:[./-](\d{4}|\d{2}))?$/);
@@ -87,12 +96,12 @@ export function parseDateParts(text: string, order: NumericDateOrder): DateParts
     return month ? valid({ day: Number(dayFirst[1]), month, year: fullYear(dayFirst[3]) }) : null;
   }
 
-  const monthFirst = value.match(/^([a-z]+)\.?\s+(\d{1,2}),?(?:\s+(\d{4}))?$/);
+  // "Sep 3", "Sep 3, 2025", and "September 7,2017" as OCR reads it.
+  const monthFirst = value.match(/^([a-z]+)\.?\s+(\d{1,2})(?:,?\s+(\d{4})|,(\d{4}))?,?$/);
   if (monthFirst) {
     const month = monthFromName(monthFirst[1]);
-    return month
-      ? valid({ day: Number(monthFirst[2]), month, year: fullYear(monthFirst[3]) })
-      : null;
+    const year = fullYear(monthFirst[3] ?? monthFirst[4]);
+    return month ? valid({ day: Number(monthFirst[2]), month, year }) : null;
   }
 
   return null;
@@ -106,7 +115,8 @@ export function detectNumericDateOrder(samples: string[]): NumericDateOrder | nu
   let dayFirst = false;
   let monthFirst = false;
   for (const sample of samples) {
-    for (const match of sample.matchAll(/\b(\d{1,2})[./](\d{1,2})(?:[./]\d{2,4})?\b/g)) {
+    // Not the month and day of a year-first date ("2020/09/30").
+    for (const match of sample.matchAll(/(?<![\d./])(\d{1,2})[./](\d{1,2})(?:[./]\d{2,4})?\b/g)) {
       dayFirst ||= Number(match[1]) > 12 && Number(match[2]) <= 12;
       monthFirst ||= Number(match[2]) > 12 && Number(match[1]) <= 12;
     }
@@ -119,9 +129,10 @@ export function detectNumericDateOrder(samples: string[]): NumericDateOrder | nu
 
 const FULL_DATE_PATTERNS = [
   /\b\d{4}-\d{2}-\d{2}\b/g,
+  /\b(?:19|20)\d{2}([/.])\d{1,2}\1\d{1,2}\b/g,
   /\b\d{1,2}[./-]\d{1,2}[./-](?:\d{4}|\d{2})\b/g,
   /\b\d{1,2}(?:er)?\s+[a-z]+\.?\s+\d{4}\b/g,
-  /\b[a-z]+\.?\s+\d{1,2},?\s+\d{4}\b/g,
+  /\b[a-z]+\.?\s+\d{1,2}(?:,?\s+|,)\d{4}\b/g,
 ];
 
 export interface FoundDate {

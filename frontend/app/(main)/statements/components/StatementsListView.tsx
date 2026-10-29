@@ -14,7 +14,6 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
-import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { DeviceLocation } from '@/app/lib/device-location';
 import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
@@ -24,6 +23,7 @@ import type {
   TaxRateOption,
 } from '@/app/lib/statement-expense-drawer';
 import { useDocumentSelectionCommands } from './hooks/useDocumentSelectionCommands';
+import { type PreviewableStatement, previewOf } from './hooks/useStatementPreview';
 import type { MergeDuplicatesPlan } from './hooks/useStatementSelection';
 import { useStatementsView } from './hooks/useStatementsView';
 import {
@@ -290,31 +290,8 @@ export default function StatementsListView(): React.JSX.Element {
     router.push(resolveStatementViewAction(statement).href);
   };
 
-  const handleIconClick = (statement: {
-    id: string;
-    source?: string;
-    fileName: string;
-    parsingDetails?: StatementParsingDetails | null;
-  }): void => {
-    const isReceipt = statement.source === 'scan';
-    if (isReceipt) {
-      v.openPreview({
-        fileId: statement.id,
-        fileName: statement.fileName || 'receipt.pdf',
-        source: 'receipt',
-        allowAttachFile: false,
-      });
-      return;
-    }
-    const isManual = statement.fileName.toLowerCase().startsWith('manual-expense-');
-    const attachCount = Number(statement.parsingDetails?.importPreview?.attachments ?? 0);
-    v.openPreview({
-      fileId: statement.id,
-      fileName: statement.fileName,
-      source: 'statement',
-      allowAttachFile: isManual && attachCount === 0,
-    });
-  };
+  const handleIconClick = (statement: PreviewableStatement, mode?: 'teach'): void =>
+    v.openPreview(previewOf(statement, mode));
 
   const reviewDuplicateLabel = v.t.actions.reviewDuplicate.value;
   const markDuplicateLabel = v.t.actions.markDuplicate.value;
@@ -474,6 +451,7 @@ export default function StatementsListView(): React.JSX.Element {
           allowAttachFile={v.preview.allowAttachFile}
           onFileAttached={refreshAfterAttach}
           onParsingStarted={refreshAfterAttach}
+          teach={v.preview.teach}
         />
       )}
       <CreateExpenseDrawer

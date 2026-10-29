@@ -1,0 +1,11 @@
+{
+  "metadata": {
+    "accountNumber": "012-345-1-000001-2",
+    "currency": "HKD",
+    "dateFrom": "2020-09-30T00:00:00",
+    "dateTo": "2020-10-31T00:00:00",
+    "balanceStart": 74224.81,
+    "balanceEnd": 74224.81
+  },
+  "transactions": []
+}

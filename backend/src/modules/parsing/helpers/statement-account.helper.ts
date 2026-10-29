@@ -76,6 +76,7 @@ export function takeStatementAccount(
   if (index > 0) {
     parsed.metadata = own?.metadata ?? parsed.metadata;
     parsed.transactions = own?.transactions ?? [];
+    parsed.checks = own?.checks;
     return;
   }
   if (accounts.length > 1) {

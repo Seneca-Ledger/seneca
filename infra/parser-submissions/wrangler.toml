@@ -1,0 +1,22 @@
+# Receives statement layouts users taught their instance and chose to share,
+# and files each as an issue in the private parser-submissions repository.
+# Deploy: see README.md. The GitHub token is a secret (wrangler secret put).
+name = "stoic-parser-submissions"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+GITHUB_REPO = "stoic-budget/parser-submissions"
+
+# Per client address: a person shares a handful of layouts, a script many.
+[[ratelimits]]
+name = "SUBMISSIONS"
+namespace_id = "4101"
+
+  [ratelimits.simple]
+  limit = 5
+  period = 60
+
+[observability]
+enabled = true

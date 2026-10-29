@@ -21,6 +21,7 @@
     "test:file-size": "node --test scripts/check-file-size.test.mjs",
     "licenses:check": "node scripts/check-licenses.mjs",
     "test:licenses": "node --test scripts/check-licenses.test.mjs",
+    "test:parser-submissions": "node --test infra/parser-submissions/src/*.test.ts backend/scripts/layout-submission-vet.test.mjs",
     "backend:build": "npm --prefix backend run build",
     "backend:start": "npm --prefix backend run start",
     "i18n:check-locales": "node scripts/intlayer-locales-check.mjs",

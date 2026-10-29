@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 // import { DataQualityFramework } from '../../common/utils/data-quality-framework.util';
+import { ParsingLayoutTemplate } from '../../entities/parsing-layout-template.entity';
 import { ParsingRule } from '../../entities/parsing-rule.entity';
 import { Statement } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -11,6 +12,7 @@ import { ImportModule } from '../import/import.module';
 import { ObservabilityModule } from '../observability/observability.module';
 import { TaxModule } from '../tax/tax.module';
 import { TransactionsModule } from '../transactions/transactions.module';
+import { ParserHealthController } from './controllers/parser-health.controller';
 import { ParsingController } from './controllers/parsing.controller';
 import {
   StaleStatementReaper,
@@ -23,11 +25,14 @@ import { STATEMENT_PARSING_QUEUE, StatementParsingQueue } from './queue/statemen
 // import { ColumnAutoFixService } from './services/column-auto-fix.service';
 // import { ColumnValidationService } from './services/column-validation.service';
 import { DocumentClassifierService } from './services/document-classifier.service';
+import { LayoutShareService } from './services/layout-share.service';
+import { LayoutTemplateService } from './services/layout-template.service';
 // import { FeatureFlagService } from './services/feature-flag.service';
 // import { IntelligentDeduplicationService } from './services/intelligent-deduplication.service';
 import { MetadataExtractionService } from './services/metadata-extraction.service';
 import { OcrService } from './services/ocr.service';
 import { ParserFactoryService } from './services/parser-factory.service';
+import { ParserHealthService } from './services/parser-health.service';
 // import { ParsingRulesService } from './services/parsing-rules.service';
 // import { ProfileConfigService } from './services/profile-config.service';
 // import { QualityLoggingService } from './services/quality-logging.service';
@@ -66,7 +71,7 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Statement, Transaction, ParsingRule, User]),
+    TypeOrmModule.forFeature([Statement, Transaction, ParsingRule, ParsingLayoutTemplate, User]),
     ClassificationModule,
     forwardRef(() => ImportModule),
     ObservabilityModule,
@@ -74,9 +79,12 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
     BullModule.registerQueue({ name: STATEMENT_PARSING_QUEUE }),
     TaxModule,
   ],
-  controllers: [ParsingController],
+  controllers: [ParsingController, ParserHealthController],
   providers: [
     ParserFactoryService,
+    ParserHealthService,
+    LayoutTemplateService,
+    LayoutShareService,
     StatementProcessingService,
     StatementSiblingsService,
     StatementParsingQueue,
@@ -108,6 +116,8 @@ import { UniversalExtractorService } from './services/universal-extractor.servic
   ],
   exports: [
     ParserFactoryService,
+    LayoutTemplateService,
+    LayoutShareService,
     StatementProcessingService,
     StatementParsingQueue,
     // StatementQualityGate,

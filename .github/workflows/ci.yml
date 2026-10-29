@@ -25,6 +25,7 @@ jobs:
       backend: ${{ steps.diff.outputs.backend }}
       frontend: ${{ steps.diff.outputs.frontend }}
       docker: ${{ steps.diff.outputs.docker }}
+      parsing: ${{ steps.diff.outputs.parsing }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -44,7 +45,7 @@ jobs:
           case "$EVENT" in
             pull_request) files=$(git diff --name-only "${PR_BASE}...${PR_HEAD}") ;;
             merge_group) files=$(git diff --name-only "${QUEUE_BASE}" "${QUEUE_HEAD}") ;;
-            *) echo "backend=true" >> "$GITHUB_OUTPUT"; echo "frontend=true" >> "$GITHUB_OUTPUT"; echo "docker=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            *) echo "backend=true" >> "$GITHUB_OUTPUT"; echo "frontend=true" >> "$GITHUB_OUTPUT"; echo "docker=true" >> "$GITHUB_OUTPUT"; echo "parsing=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
           esac
           # Shared code, tooling and CI itself affect both halves.
           shared='^(packages/|scripts/|\.github/|package(-lock)?\.json$|Dockerfile$|docker-compose)'
@@ -55,9 +56,15 @@ jobs:
           image='(^|/)Dockerfile$|(^|/)\.dockerignore$|(^|/)package(-lock)?\.json$|^backend/requirements\.txt$|^scripts/start\.sh$|^frontend/scripts/build-locale-packs\.mjs$|^\.github/workflows/ci\.yml$'
           docker=false
           if echo "$files" | grep -qE "$image"; then docker=true; fi
-          echo "backend=$backend" >> "$GITHUB_OUTPUT"
-          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
-          echo "docker=$docker" >> "$GITHUB_OUTPUT"
+          # What reads statements: the parsers, the PDF reading, the golden set itself.
+          parsing=false
+          if echo "$files" | grep -qE '^backend/(src/modules/parsing/|src/common/utils/pdf-|golden/|scripts/pdfplumber_parser\.py$|requirements\.txt$)|^\.github/workflows/ci\.yml$'; then parsing=true; fi
+          {
+            echo "parsing=$parsing"
+            echo "backend=$backend"
+            echo "frontend=$frontend"
+            echo "docker=$docker"
+          } >> "$GITHUB_OUTPUT"
           echo "backend=$backend frontend=$frontend docker=$docker"
 
   sensitive-changes:
@@ -279,6 +286,10 @@ jobs:
             node scripts/check-file-size.mjs --base "origin/$BASE_REF"
           fi
 
+      # The Worker that receives shared statement layouts (infra/parser-submissions).
+      - name: Parser submissions worker
+        run: npm run test:parser-submissions
+
   # Deliberately not behind `lint`. Everything downstream used to wait on it, so a
   # single misformatted line skipped typecheck, tests and build and reported one
   # failure while real type errors reached main unseen.
@@ -467,6 +478,47 @@ jobs:
           name: backend-coverage
           path: backend/coverage
 
+  # The golden set: every statement in backend/golden read and compared row by
+  # row, including layouts users contributed (CONTRIBUTED_LAYOUTS). No database.
+  golden:
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.parsing == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Install backend deps
+        working-directory: backend
+        run: bun install --frozen-lockfile --network-concurrency=16
+
+      # pdfplumber reads every PDF (backend/.venv is where the parser looks for it);
+      # pdftoppm renders a scan's pages for OCR (the ATB sample has no text layer).
+      - name: Install pdfplumber and poppler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          python3 -m venv backend/.venv
+          backend/.venv/bin/pip install --quiet -r backend/requirements.txt
+
+      - name: Golden statements
+        working-directory: backend
+        env:
+          GOLDEN_ENABLED: "1"
+        run: npx vitest run --project golden
+
   # Every e2e suite boots AppModule against one database, so the files run one at
   # a time. Four shards, each with its own Postgres, cut the wait by about four.
   e2e:
@@ -541,6 +593,12 @@ jobs:
 
       - name: Run migrations
         run: npm --prefix backend run migration:run
+
+      # The teach e2e reads a real PDF: pdfplumber, where the parser looks for it.
+      - name: Install pdfplumber
+        run: |
+          python3 -m venv backend/.venv
+          backend/.venv/bin/pip install --quiet -r backend/requirements.txt
 
       - name: Backend e2e (shard ${{ matrix.shard }}/4)
         run: npm --prefix backend run test:e2e -- --shard=${{ matrix.shard }}/4
@@ -798,6 +856,7 @@ jobs:
       - frontend-tests
       - tests
       - e2e
+      - golden
       - build
       - dependency-scan
       - secrets-scan

@@ -16,13 +16,25 @@ const LETTER_SIGNS = new RegExp(LETTER_SIGN.source, 'g');
 /**
  * A money figure as statements print it: optional sign or parentheses, digits
  * grouped by space, dot or comma, and exactly two decimals ("1,902.69",
- * "-1.450,77", "1 200,45", "(12.00)", "100.00-"). Requiring the decimals keeps
+ * "-1.450,77", "1 200,45", "(12.00)", "100.00-", ".11" for 0.11). Requiring the decimals keeps
  * reference numbers such as "8373579" out.
  */
-const AMOUNT_SHAPE = /^[-+(]?(?:\d{1,3}(?:[ .,  ]\d{3})+|\d+)[.,]\d{2}\)?-?$/;
+const AMOUNT_SHAPE = /^[-+(]?(?:(?:\d{1,3}(?:[ .,  ]\d{3})+|\d+)[.,]\d{2}|\.\d{2})\)?-?$/;
 
 /** Parses a printed amount, currency marks included; null when it is not one. */
+/**
+ * The side written after the figure: "1.500,00 (-)", "120.000,00(+)",
+ * "1,000.00 Cr", "250.00 DR".
+ */
+const SIGN_SUFFIX = /\s*(?:\(([+-])\)|\b([CD])[Rr]\.?)$/;
+
 export function parseStatementAmount(text: string): number | null {
+  const suffix = text.trim().match(SIGN_SUFFIX);
+  if (suffix) {
+    const value = parseStatementAmount(text.trim().slice(0, suffix.index));
+    const negative = suffix[1] === '-' || suffix[2] === 'D';
+    return value === null ? null : negative ? -Math.abs(value) : Math.abs(value);
+  }
   const bare = text
     .replace(LETTER_SIGNS, '')
     .replace(CURRENCY_MARK, '')
@@ -43,10 +55,15 @@ const GLUED_SYMBOL = new RegExp(`^([-+(−]?)[A-Z]{0,3}[${CURRENCY_SYMBOLS}](?=\
 
 /** A word that can be part of a printed amount: digits, a sign, or a currency mark. */
 export function isAmountPart(word: string): boolean {
-  const figure = word.replace(LETTER_SIGNS, '').replace(GLUED_SYMBOL, '$1');
+  const figure = word
+    .replace(LETTER_SIGNS, '')
+    .replace(GLUED_SYMBOL, '$1')
+    .replace(/\([+-]\)$/, '');
   return (
     /^[-+(−]?[\d.,]*\d[\d.,]*\)?-?$/.test(figure) ||
-    new RegExp(`^(?:[A-Z]{0,3}[${CURRENCY_SYMBOLS}]|[A-Z]{3}|[-+=])$`).test(word)
+    new RegExp(`^(?:[A-Z]{0,3}[${CURRENCY_SYMBOLS}]|[A-Z]{3}|[-+=]|\\([+-]\\)|[CD][Rr]\\.?)$`).test(
+      word,
+    )
   );
 }
 
@@ -56,7 +73,7 @@ export function isAmountPart(word: string): boolean {
  */
 export function findStatementAmounts(text: string): number[] {
   const pattern = new RegExp(
-    `[-+]?(?:${LETTER_SIGN.source})?(?:\\d{1,3}(?:[ .,  ]\\d{3})+|\\d+)[.,]\\d{2}(?!\\d)`,
+    `[-+]?(?:${LETTER_SIGN.source})?(?:\\d{1,3}(?:[ .,  ]\\d{3})+|\\d+)[.,]\\d{2}(?!\\d)(?:\\s?\\([+-]\\))?`,
     'g',
   );
   return Array.from(text.matchAll(pattern), match => parseStatementAmount(match[0])).filter(
